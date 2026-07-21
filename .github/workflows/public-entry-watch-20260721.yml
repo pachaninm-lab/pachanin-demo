@@ -15,7 +15,7 @@ permissions:
 jobs:
   production-watch:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,7 +34,7 @@ jobs:
         run: |
           set +e
           cp scripts/public-entry-watch.mjs apps/web/public-entry-watch-run.mjs
-          output="$(cd apps/web && node public-entry-watch-run.mjs 2>&1)"
+          output="$(cd apps/web && timeout --signal=KILL 8m node public-entry-watch-run.mjs 2>&1)"
           code=$?
           printf '%s\n' "$output"
           {
