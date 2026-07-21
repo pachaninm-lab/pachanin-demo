@@ -188,7 +188,9 @@ function testWorkflowAndScopeRemainHumanOnly() {
   ]) assert.ok(!workflow.includes(forbidden), forbidden);
 
   const scope = json(SCOPE);
-  assert.equal(scope.schema_version, 'tai.concurrent-scope.v1');
+  assert.equal(scope.schemaVersion, 'platform-v7-concurrent-scope.v1');
+  assert.equal(scope.status, 'active');
+  assert.equal(scope.parentIssue, 2788);
   assert.equal(scope.issue, 2973);
   assert.equal(scope.branch, 'agent/tai-ap-14c2-review-packet');
   assert.equal(
@@ -196,7 +198,7 @@ function testWorkflowAndScopeRemainHumanOnly() {
     'production_operational_status remains NOT_ATTESTED',
   );
   assert.deepEqual(
-    new Set(scope.allowed_paths),
+    new Set(scope.allowedPaths),
     new Set([
       '.github/workflows/tai-ap14c-expert-review-packet.yml',
       'docs/platform-v7/autopilot/scopes/tai-ap-14c2-review-packet-2973.json',
