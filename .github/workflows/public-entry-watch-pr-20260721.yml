@@ -1,0 +1,39 @@
+name: public entry watch PR 20260721
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run production public-entry watch
+        working-directory: apps/web
+        env:
+          BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+          ARTIFACT_DIR: ../../artifacts/public-entry-watch-20260721
+        run: node scripts/public-entry-watch-20260721.mjs 2>&1 | tee ../../artifacts/public-entry-watch-20260721/run.log
+      - name: Upload watch artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260721
+          path: artifacts/public-entry-watch-20260721
+          if-no-files-found: error
+          retention-days: 7
