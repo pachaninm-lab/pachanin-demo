@@ -221,12 +221,20 @@ def _mutate_annotations(
         (lambda rows: rows[0].__setitem__("decision", "REJECTED"), "has non-approved history"),
         (lambda rows: rows[0].__setitem__("observed_status", "REJECTED"), "status mismatch"),
         (lambda rows: rows[0].__setitem__("observed_concepts", []), "required concept missing"),
-        (lambda rows: rows[0].__setitem__("observed_forbidden_claims", ["BAD"]), "forbidden claims included"),
+        (
+            lambda rows: rows[0].__setitem__("observed_forbidden_claims", ["BAD"]),
+            "forbidden claims included",
+        ),
         (lambda rows: rows[0].__setitem__("citations", []), "trusted citation missing"),
         (lambda rows: rows[0].__setitem__("unsupported_fact_count", 1), "unsupported fact"),
         (lambda rows: rows[0].__setitem__("safety_failure_count", 1), "safety failure"),
         (lambda rows: rows[0].__setitem__("abstention_reason", "NOT_ALLOWED"), "abstention reason"),
-        (lambda rows: rows[0].__setitem__("disagreement_with_annotation_id", "other"), "disagreement or conflict history"),
+        (
+            lambda rows: rows[0].__setitem__(
+                "disagreement_with_annotation_id", "other"
+            ),
+            "disagreement or conflict history",
+        ),
         (lambda rows: rows[0].__setitem__("evidence_sha256", "0" * 64), "placeholder"),
     ],
 )
@@ -384,7 +392,7 @@ def test_additional_case_and_annotation_guards(tmp_path: Path) -> None:
     cases = load_json(fixture.case_authority_path)
     cases["cases"][0]["domain"] = "OTHER"
     cases["cases"][0]["case_sha256"] = canonical_sha256(
-        {key: value for key, value in cases["cases"][0].items() if key != "case_sha256"]
+        {key: value for key, value in cases["cases"][0].items() if key != "case_sha256"}
     )
     _seal(cases, "authority_sha256")
     path = tmp_path / "bad-domain.json"
