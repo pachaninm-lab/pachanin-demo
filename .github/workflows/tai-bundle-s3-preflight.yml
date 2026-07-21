@@ -39,6 +39,7 @@ jobs:
       S3_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
       S3_PREFIX: ${{ secrets.TAI_BUNDLE_S3_PREFIX }}
       S3_CAPACITY_BYTES: ${{ secrets.TAI_BUNDLE_S3_CAPACITY_BYTES }}
+      S3_PRINCIPAL_ID: ${{ secrets.TAI_BUNDLE_S3_PRINCIPAL_ID }}
       AWS_EC2_METADATA_DISABLED: 'true'
       AWS_RETRY_MODE: standard
       AWS_MAX_ATTEMPTS: '3'
@@ -84,7 +85,7 @@ jobs:
           missing=0
           for name in \
             S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY_ID \
-            S3_SECRET_ACCESS_KEY S3_PREFIX S3_CAPACITY_BYTES; do
+            S3_SECRET_ACCESS_KEY S3_PREFIX S3_CAPACITY_BYTES S3_PRINCIPAL_ID; do
             if [[ -z "${!name:-}" ]]; then
               missing=1
             fi
@@ -95,7 +96,7 @@ jobs:
             echo 'available=false' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Read S3 bucket controls without mutation
+      - name: Read Selectel S3 controls without mutation
         if: steps.inputs.outputs.available == 'true'
         shell: bash
         env:
@@ -120,10 +121,8 @@ jobs:
             aws "${endpoint[@]}" "${common[@]}" s3api head-bucket --bucket "$S3_BUCKET"
           run_status get_bucket_versioning \
             aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-versioning --bucket "$S3_BUCKET"
-          run_status get_public_access_block \
-            aws "${endpoint[@]}" "${common[@]}" s3api get-public-access-block --bucket "$S3_BUCKET"
-          run_status get_bucket_encryption \
-            aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-encryption --bucket "$S3_BUCKET"
+          run_status get_object_lock_configuration \
+            aws "${endpoint[@]}" "${common[@]}" s3api get-object-lock-configuration --bucket "$S3_BUCKET"
           run_status get_bucket_policy \
             aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-policy --bucket "$S3_BUCKET"
           run_status list_objects_v2 \
@@ -132,6 +131,18 @@ jobs:
           run_status list_object_versions \
             aws "${endpoint[@]}" "${common[@]}" s3api list-object-versions \
               --bucket "$S3_BUCKET" --prefix "$S3_PREFIX/" --max-keys 1
+
+          anonymous_url="${S3_ENDPOINT%/}/$S3_BUCKET?list-type=2&max-keys=1"
+          set +e
+          anonymous_status="$(
+            curl --silent --show-error --output "$REPORT_ROOT/raw/anonymous-list.body" \
+              --write-out '%{http_code}' --connect-timeout 20 --max-time 60 \
+              "$anonymous_url"
+          )"
+          anonymous_exit=$?
+          set -e
+          printf '%s\n' "$anonymous_status" > "$REPORT_ROOT/raw/anonymous_list_http_status.txt"
+          printf '%s\n' "$anonymous_exit" > "$REPORT_ROOT/raw/anonymous_list_probe.exit"
           aws --version > "$REPORT_ROOT/raw/aws-version.txt" 2>&1 || true
 
       - name: Record unavailable protected inputs
@@ -139,13 +150,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in head_bucket get_bucket_versioning get_public_access_block \
-            get_bucket_encryption get_bucket_policy list_objects_v2 list_object_versions; do
+          for name in head_bucket get_bucket_versioning get_object_lock_configuration \
+            get_bucket_policy list_objects_v2 list_object_versions anonymous_list_probe; do
             : > "$REPORT_ROOT/raw/${name}.json"
             printf '%s\n' 'PROTECTED_INPUT_OR_AWS_CLI_UNAVAILABLE' \
               > "$REPORT_ROOT/raw/${name}.stderr"
             printf '%s\n' '2' > "$REPORT_ROOT/raw/${name}.exit"
           done
+          printf '%s\n' '0' > "$REPORT_ROOT/raw/anonymous_list_http_status.txt"
           : > "$REPORT_ROOT/raw/aws-version.txt"
 
       - name: Build bounded observed evidence
@@ -162,11 +174,11 @@ jobs:
           command_names = [
               'head_bucket',
               'get_bucket_versioning',
-              'get_public_access_block',
-              'get_bucket_encryption',
+              'get_object_lock_configuration',
               'get_bucket_policy',
               'list_objects_v2',
               'list_object_versions',
+              'anonymous_list_probe',
           ]
 
           def exit_ok(name: str) -> bool:
@@ -183,11 +195,6 @@ jobs:
                   return {}
               return value if isinstance(value, dict) else {}
 
-          public_wrapper = object_json('get_public_access_block')
-          public_access = public_wrapper.get('PublicAccessBlockConfiguration', {})
-          if not isinstance(public_access, dict):
-              public_access = {}
-
           policy_wrapper = object_json('get_bucket_policy')
           raw_policy = policy_wrapper.get('Policy')
           if isinstance(raw_policy, str):
@@ -202,18 +209,20 @@ jobs:
           if not isinstance(policy, dict):
               policy = {}
 
-          capacity = os.environ.get('S3_CAPACITY_BYTES', '')
+          status_path = root / 'anonymous_list_http_status.txt'
+          anonymous_status = status_path.read_text().strip() if status_path.exists() else ''
           payload = {
               'schema_version': 'tai.model-bundle-s3-preflight-observed.v1',
+              'provider_profile': 'SELECTEL_S3_2026',
               'endpoint': os.environ.get('S3_ENDPOINT', ''),
               'region': os.environ.get('S3_REGION', ''),
               'bucket': os.environ.get('S3_BUCKET', ''),
               'prefix': os.environ.get('S3_PREFIX', ''),
-              'operator_confirmed_capacity_bytes': capacity,
+              'operator_confirmed_capacity_bytes': os.environ.get('S3_CAPACITY_BYTES', ''),
               'commands': {name: exit_ok(name) for name in command_names},
               'versioning': object_json('get_bucket_versioning'),
-              'public_access_block': public_access,
-              'encryption': object_json('get_bucket_encryption'),
+              'object_lock': object_json('get_object_lock_configuration'),
+              'anonymous_list_http_status': anonymous_status,
               'policy': policy,
               'aws_cli_identity': (root / 'aws-version.txt').read_text(errors='replace')[:500],
               'mutation_mode': 'READ_ONLY',
@@ -224,7 +233,7 @@ jobs:
           )
           PY
 
-      - name: Evaluate fail-closed S3 authority
+      - name: Evaluate fail-closed Selectel S3 authority
         id: evaluate
         if: always()
         shell: bash
@@ -279,7 +288,7 @@ jobs:
               }
           observed = report.get('observed', {})
           lines = [
-              '## TAI bundle S3 read-only preflight',
+              '## TAI bundle Selectel S3 read-only preflight',
               '',
               f"- exact-main: `{report.get('exact_main_sha')}`;",
               f"- status: `{report.get('status')}`;",
@@ -289,7 +298,10 @@ jobs:
               f"- bucket: `{observed.get('bucket')}`;",
               f"- prefix: `{observed.get('prefix')}`;",
               f"- versioning: `{observed.get('versioning_status')}`;",
-              f"- encryption: `{observed.get('default_encryption_algorithms')}`;",
+              f"- Object Lock: `{observed.get('object_lock_status')}`;",
+              f"- retention: `{observed.get('default_retention_mode')}` / "
+              f"`{observed.get('default_retention_days')}` days;",
+              f"- anonymous list HTTP: `{observed.get('anonymous_list_http_status')}`;",
               f"- delete deny: `{observed.get('globally_denied_actions')}`;",
               f"- confirmed capacity bytes: `{observed.get('operator_confirmed_capacity_bytes')}`;",
               f"- report SHA-256: `{report.get('report_sha256')}`;",
