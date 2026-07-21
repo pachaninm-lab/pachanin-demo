@@ -1,0 +1,31 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3f-s3-preflight",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2954,
+  "allowed_paths": [
+    ".github/workflows/tai-bundle-s3-preflight.yml",
+    "apps/tai/governance/scopes/ap-13b3f-s3-preflight-2954.json",
+    "apps/tai/model-artifacts/model-bundle-s3-preflight-requirements.v1.json",
+    "apps/tai/tai/model_bundle_s3_preflight.py",
+    "apps/tai/tai/model_bundle_s3_preflight_cli.py",
+    "apps/tai/tests/test_model_bundle_s3_preflight.py"
+  ],
+  "forbidden_capabilities": [
+    "S3 object write, multipart upload, delete, restore or local mutation",
+    "production credentials or production-host fallback",
+    "model weights, GGUF, archives or secrets committed to Git",
+    "benchmark, model admission or production-readiness claim",
+    "inferred capacity, versioning, encryption or delete-deny evidence"
+  ],
+  "acceptance": [
+    "owner-only exact-main issue command triggers read-only S3 preflight",
+    "all required TAI_BUNDLE_S3_ protected inputs fail closed when absent",
+    "private access controls, versioning, encryption and global delete deny are verified",
+    "operator-confirmed provider capacity is at least 120000000000 bytes",
+    "bounded evidence excludes credentials and secret values",
+    "bundle upload and clean restore remain NOT_RUN",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}
