@@ -14,5 +14,6 @@
   "mistral_fallback_benchmark_status": "PENDING_REAL_FINALIZATION_EVIDENCE",
   "joint_benchmark_status": "PENDING_BENCHMARK",
   "model_admission_status": "PENDING_ADMISSION",
-  "production_operational_status": "NOT_ATTESTED"
+  "production_operational_status": "NOT_ATTESTED",
+  "manifest_sha256": "f8d7117664e05083ce80960e59595983c65836cd563b5bc7478857ab7b4fc7cf"
 }
