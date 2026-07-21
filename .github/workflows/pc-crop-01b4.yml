@@ -8,8 +8,13 @@ on:
       - 'apps/web/app/api/staff/commodity-profile-registry/**'
       - 'apps/web/app/api/staff/commodity-profiles/**'
       - 'apps/web/app/platform-v7/commodity-profiles/**'
-      - 'apps/web/components/crop-platform/LiveCommodityProfileRegistry*'
+      - 'apps/web/components/crop-platform/**'
+      - 'apps/web/lib/platform-v7/routes.ts'
+      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
+      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/tests/unit/platformV7CommodityProfileLiveRegistry.test.ts'
+      - 'apps/web/tests/unit/commodityProfileLiveAdapter.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
       - '.github/workflows/pc-crop-01b3.yml'
       - '.github/workflows/pc-crop-01b4.yml'
   push:
@@ -20,8 +25,13 @@ on:
       - 'apps/web/app/api/staff/commodity-profile-registry/**'
       - 'apps/web/app/api/staff/commodity-profiles/**'
       - 'apps/web/app/platform-v7/commodity-profiles/**'
-      - 'apps/web/components/crop-platform/LiveCommodityProfileRegistry*'
+      - 'apps/web/components/crop-platform/**'
+      - 'apps/web/lib/platform-v7/routes.ts'
+      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
+      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/tests/unit/platformV7CommodityProfileLiveRegistry.test.ts'
+      - 'apps/web/tests/unit/commodityProfileLiveAdapter.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
       - '.github/workflows/pc-crop-01b3.yml'
       - '.github/workflows/pc-crop-01b4.yml'
   workflow_dispatch:
@@ -40,7 +50,7 @@ env:
 
 jobs:
   private-bff-contract:
-    name: PostgreSQL 16 · API · live UI · roles · If-Match
+    name: PostgreSQL 16 · DTO · HTTP · roles · live UI
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
@@ -75,7 +85,7 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/(commodity-profiles\.controller(\.spec)?\.ts|commodity-profiles\.http\.integration\.spec\.ts|commodity-profile-role-matrix\.integration\.spec\.ts|commodity-profile-version-history\.repository\.ts|commodity-profiles\.module(\.spec)?\.ts|dto/commodity-profile-api\.dto\.ts)|apps/web/app/api/platform-v7/commodity-profiles/\[\[\.\.\.path\]\]/route\.ts|apps/web/app/api/staff/commodity-profile-registry/\[\[\.\.\.path\]\]/route\.ts|apps/web/app/api/staff/commodity-profiles/\[profileId\]/commands/\[actionId\]/route\.ts|apps/web/app/platform-v7/commodity-profiles/(page\.tsx|commodity-profiles\.module\.css|\[profileId\]/page\.tsx)|apps/web/components/crop-platform/LiveCommodityProfileRegistry(\.tsx|\.module\.css)|apps/web/tests/unit/platformV7CommodityProfileLiveRegistry\.test\.ts)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+          if grep -Ev '^(\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/.*|apps/web/app/api/platform-v7/commodity-profiles/.*|apps/web/app/api/staff/commodity-profile-registry/.*|apps/web/app/api/staff/commodity-profiles/.*|apps/web/app/platform-v7/commodity-profiles/.*|apps/web/components/crop-platform/(CommodityProfileRegistry(Client|View)(\.module\.css|\.tsx)?|commodity-profile-live-adapter\.ts|css-modules\.d\.ts)|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts|apps/web/tsconfig\.pc-crop\.json)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.4 contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
@@ -125,17 +135,19 @@ jobs:
             src/modules/commodity-profiles/commodity-profile-role-matrix.integration.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/postgresql-private-bff.log"
 
-      - name: Typecheck live registry web binding
+      - name: Typecheck protected live registry
         run: |
           set -o pipefail
-          pnpm --filter @pc/web typecheck 2>&1 | tee "$EVIDENCE_DIR/web-typecheck.log"
+          pnpm --filter @pc/web exec tsc -p tsconfig.pc-crop.json --noEmit \
+            2>&1 | tee "$EVIDENCE_DIR/web-typecheck.log"
 
-      - name: Run live registry web acceptance
+      - name: Run protected live registry acceptance
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
             tests/unit/platformV7CommodityProfileLiveRegistry.test.ts \
-            2>&1 | tee "$EVIDENCE_DIR/live-registry-web.log"
+            tests/unit/commodityProfileLiveAdapter.test.ts \
+            2>&1 | tee "$EVIDENCE_DIR/web-live-registry.log"
 
       - name: Build and enforce machine-readable exact-head evidence
         run: |
@@ -163,17 +175,21 @@ jobs:
           if (roles.postgresql !== '16' || roles.roleCount !== 13) process.exit(1);
           if (Object.keys(roles.denialCodes || {}).length !== roles.roleCount) process.exit(1);
           if (roles.aggregateVersion !== '1') process.exit(1);
-          const requiredWeb = [
-            'apps/web/app/platform-v7/commodity-profiles/page.tsx',
-            'apps/web/app/platform-v7/commodity-profiles/[profileId]/page.tsx',
-            'apps/web/components/crop-platform/LiveCommodityProfileRegistry.tsx',
-            'apps/web/app/api/platform-v7/commodity-profiles/[[...path]]/route.ts',
-            'apps/web/app/api/staff/commodity-profile-registry/[[...path]]/route.ts',
-            'apps/web/app/api/staff/commodity-profiles/[profileId]/commands/[actionId]/route.ts',
-          ];
-          if (requiredWeb.some((path) => !fs.existsSync(path))) process.exit(1);
+
+          const client = fs.readFileSync('apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx', 'utf8');
+          const adapter = fs.readFileSync('apps/web/components/crop-platform/commodity-profile-live-adapter.ts', 'utf8');
+          const listPage = fs.readFileSync('apps/web/app/platform-v7/commodity-profiles/page.tsx', 'utf8');
+          const detailPage = fs.readFileSync('apps/web/app/platform-v7/commodity-profiles/[profileId]/page.tsx', 'utf8');
+          if (!client.includes("data-static-authority-fallback='false'")) process.exit(1);
+          if (!client.includes("data-pinning-authority='not-in-slice'")) process.exit(1);
+          if (!client.includes('parseCommodityProfileHistory')) process.exit(1);
+          if (!adapter.includes('profile.primaryAction')) process.exit(1);
+          if (adapter.includes("|| 'DRAFT'") || adapter.includes("|| '—'")) process.exit(1);
+          if (!listPage.includes("data-authority='postgresql-private-bff'")) process.exit(1);
+          if (!detailPage.includes("data-authority='postgresql-private-bff'")) process.exit(1);
+
           const report = {
-            schemaVersion: 'pc-crop.private-bff-acceptance.v2',
+            schemaVersion: 'pc-crop.private-bff-acceptance.v3',
             slice: 'PC-CROP-01B.4',
             status: 'PASS',
             operationalStatus: 'NOT_ATTESTED',
@@ -187,16 +203,18 @@ jobs:
               staleSnapshotVersion: h.staleSnapshotVersion,
               roleMatrixCount: roles.roleCount,
               clientAuthorityOverrideRejected: h.clientAuthorityOverrideRejected,
-              liveRegistryBound: true,
-              fixtureFallback: false,
-              uiStates: ['loading', 'empty', 'ready', 'error', 'forbidden', 'conflict', 'reconnecting'],
-              locales: ['ru', 'en', 'zh'],
+              serverPrimaryAction: true,
+              strictPayloadAdapter: true,
+              liveUiBinding: true,
+              interfaceStates: ['loading', 'ready', 'empty', 'error', 'forbidden', 'conflict', 'reconnecting'],
             },
             boundaries: {
               privateAuthenticatedRoute: true,
               publicUnauthenticatedRoute: false,
               clientRoleTenantJitAuthority: false,
               transactionWriteAuthorityDuplicated: false,
+              staticAuthorityFallback: false,
+              pinnedDealCountPublished: false,
               productionDeploymentEvidence: false,
             },
           };
