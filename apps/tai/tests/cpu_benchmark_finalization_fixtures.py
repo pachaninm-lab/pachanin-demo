@@ -4,15 +4,17 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from quality_scoring_fixtures import NOW as QUALITY_NOW
 from quality_scoring_fixtures import _fixture as _quality_fixture
 from quality_scoring_fixtures import _verify as _verify_quality
 from test_model_benchmark_admission_v2 import AUTHORITY as JOINT_AUTHORITY
-from test_model_benchmark_admission_v2 import BUNDLE_AUTHORITY
-from test_model_benchmark_admission_v2 import _create_manifest, _sha, _write_json
+from test_model_benchmark_admission_v2 import (
+    BUNDLE_AUTHORITY,
+    _create_manifest,
+    _sha,
+    _write_json,
+)
 
 from tai.cpu_benchmark_finalization_contract import (
-    EXPECTED_MATURITY,
     MISTRAL_CPU_PROFILE,
     MISTRAL_MODEL_ID,
     MISTRAL_REVISION,

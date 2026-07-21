@@ -183,7 +183,10 @@ def _check_candidate_projection(
     }
     for candidate_field, runtime_field in field_pairs.items():
         if candidate_profile.get(candidate_field) != runtime_profile.get(runtime_field):
-            raise FinalizationError(f"Mistral benchmark runtime projection mismatch: {candidate_field}")
+            raise FinalizationError(
+      "Mistral benchmark runtime projection mismatch: "
+      f"{candidate_field}"
+  )
     if candidate_profile.get("peak_vram_mb") != 0:
         raise FinalizationError("Mistral CPU benchmark cannot claim VRAM usage")
     candidate_levels = {
