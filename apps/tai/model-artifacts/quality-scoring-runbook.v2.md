@@ -29,6 +29,8 @@ A complete run requires four caller-supplied trusted inputs and immutable copies
 
 The verifier rejects a self-consistent replacement bundle when any immutable copy differs from its independently supplied trust anchor.
 
+This hardened revision closes the authoritative-scope, trusted-case, verified-runtime and incomplete-coverage review gaps fail-closed.
+
 ## Runtime observation binding
 
 The verifier does not accept arbitrary response hashes. It binds scoring to the AP-13C.1c manifest's declared evidence records:
