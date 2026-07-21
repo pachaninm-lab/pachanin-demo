@@ -1,0 +1,187 @@
+name: PC-CROP-01B.3 Atomic Command Authority
+
+# Every acceptance run is bound to the current PR head. Bot-generated sync commits
+# are followed by a connector-authored exact-head commit before evidence is accepted.
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profile-transaction-command.service.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profile-transaction-command.service.spec.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profiles.module.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profiles.module.spec.ts'
+      - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts'
+      - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts'
+      - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts'
+      - '.github/workflows/pc-crop-01b3.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profile-transaction-command.service.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profile-transaction-command.service.spec.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profiles.module.ts'
+      - 'apps/api/src/modules/commodity-profiles/commodity-profiles.module.spec.ts'
+      - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts'
+      - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts'
+      - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts'
+      - '.github/workflows/pc-crop-01b3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-01b3-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  EVIDENCE_DIR: artifacts/pc-crop-01b3
+
+jobs:
+  postgresql-command-authority:
+    name: PostgreSQL 16 lifecycle race, audit and outbox rollback
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Initialize exact-head evidence and bounded scope
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref="HEAD^"
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-01B.3 contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply complete migration chain to PostgreSQL 16
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Typecheck command authority
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck \
+            2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
+
+      - name: Prove private Nest authority wiring without routes
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --runInBand \
+            --runTestsByPath src/modules/commodity-profiles/commodity-profiles.module.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/private-module-wiring.log"
+
+      - name: Run real PostgreSQL command acceptance
+        env:
+          PC_CROP_01B3_POSTGRESQL: '1'
+          PC_CROP_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/pc-crop-01b3/runtime
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --runInBand \
+            --runTestsByPath src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-command-acceptance.log"
+
+      - name: Enforce machine-readable exact-head acceptance
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'artifacts/pc-crop-01b3/runtime/acceptance.json';
+          if (!fs.existsSync(path)) throw new Error('PC-CROP-01B.3 acceptance artifact is missing');
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const expectedHead = process.env.EXACT_HEAD;
+          if (report.schemaVersion !== 'pc-crop.command-authority-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-01B.3' || report.status !== 'PASS') process.exit(1);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.exactHead !== expectedHead) process.exit(1);
+          if (report.postgresql !== '16') process.exit(1);
+          const i = report.invariants || {};
+          if (i.concurrentWinnerCount !== 1 || i.concurrentLoserCount !== 1) process.exit(1);
+          if (i.aggregateVersion !== '3' || i.versionRowVersion !== '2') process.exit(1);
+          if (i.transitionCount !== 3 || i.transitionHashChainValid !== true) process.exit(1);
+          if (i.commandAuditCount !== 4 || i.outboxCount !== 4) process.exit(1);
+          if (i.exactReplay !== true || i.payloadMismatchRejected !== true) process.exit(1);
+          if (i.forcedAuditCollisionRollback !== true) process.exit(1);
+          if (i.failedActivationTransitionCount !== 0 || i.failedActivationOutboxCount !== 0) process.exit(1);
+          const b = report.boundaries || {};
+          if (b.bffRoutePublished !== false) process.exit(1);
+          if (b.externalNetworkCallInTransaction !== false) process.exit(1);
+          if (b.productionOperationalEvidence !== false) process.exit(1);
+          NODE
+
+      - name: Build exact evidence inventory
+        if: always()
+        run: |
+          find "$EVIDENCE_DIR" -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
+
+      - name: Upload PostgreSQL command authority evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-01b3-command-authority-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+
+  command-authority-gate:
+    name: PC-CROP-01B.3 Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-24.04
+    needs: postgresql-command-authority
+    steps:
+      - name: Enforce PostgreSQL command authority result
+        run: test "${{ needs.postgresql-command-authority.result }}" = success
