@@ -21,6 +21,7 @@ type ProfileRow = {
   classification: CommodityProfileClassification;
   version: bigint;
   updatedAt: Date;
+  updatedByUserId: string;
   profileVersionId: string | null;
   sequence: number | null;
   lifecycle: CommodityProfileLifecycle | null;
@@ -29,6 +30,7 @@ type ProfileRow = {
   effectiveTo: Date | null;
   contentHash: string | null;
   content: Prisma.JsonValue | null;
+  versionUpdatedByUserId: string | null;
 };
 
 export type CommodityProfileListQuery = {
@@ -52,6 +54,7 @@ export type CommodityProfileReadModel = {
   classification: CommodityProfileClassification;
   version: string;
   updatedAt: string;
+  updatedByUserId: string;
   selectedVersion: null | {
     id: string;
     sequence: number;
@@ -61,6 +64,7 @@ export type CommodityProfileReadModel = {
     effectiveTo: string | null;
     contentHash: string;
     content: Prisma.JsonValue;
+    updatedByUserId: string;
   };
   actions: ReturnType<typeof deriveCommodityProfileActions>;
   primaryAction: ReturnType<typeof deriveCommodityProfilePrimaryAction>;
@@ -139,6 +143,7 @@ export class CommodityProfileRepository {
           profile."classification",
           profile."version",
           profile."updatedAt",
+          profile."updatedByUserId",
           selected."id" AS "profileVersionId",
           selected."sequence",
           selected."status" AS "lifecycle",
@@ -146,7 +151,8 @@ export class CommodityProfileRepository {
           selected."effectiveFrom",
           selected."effectiveTo",
           selected."contentHash",
-          selected."content"
+          selected."content",
+          selected."updatedByUserId" AS "versionUpdatedByUserId"
         FROM public."commodity_profiles" profile
         LEFT JOIN LATERAL (
           SELECT version.*
@@ -209,11 +215,12 @@ export class CommodityProfileRepository {
         SELECT
           profile."id", profile."canonicalCode", profile."archetype",
           profile."authoritativeNameRu", profile."displayNameEn", profile."displayNameZh",
-          profile."classification", profile."version", profile."updatedAt",
+          profile."classification", profile."version", profile."updatedAt", profile."updatedByUserId",
           selected."id" AS "profileVersionId", selected."sequence",
           selected."status" AS "lifecycle", selected."sourceStatus",
           selected."effectiveFrom", selected."effectiveTo",
-          selected."contentHash", selected."content"
+          selected."contentHash", selected."content",
+          selected."updatedByUserId" AS "versionUpdatedByUserId"
         FROM public."commodity_profiles" profile
         LEFT JOIN LATERAL (
           SELECT version.*
@@ -262,7 +269,8 @@ export class CommodityProfileRepository {
       classification: row.classification,
       version: row.version.toString(),
       updatedAt: row.updatedAt.toISOString(),
-      selectedVersion: row.profileVersionId && row.sequence && row.lifecycle && row.sourceStatus && row.contentHash && row.content
+      updatedByUserId: row.updatedByUserId,
+      selectedVersion: row.profileVersionId && row.sequence && row.lifecycle && row.sourceStatus && row.contentHash && row.content && row.versionUpdatedByUserId
         ? {
             id: row.profileVersionId,
             sequence: row.sequence,
@@ -272,6 +280,7 @@ export class CommodityProfileRepository {
             effectiveTo: row.effectiveTo?.toISOString() ?? null,
             contentHash: row.contentHash,
             content: row.content,
+            updatedByUserId: row.versionUpdatedByUserId,
           }
         : null,
       actions,
