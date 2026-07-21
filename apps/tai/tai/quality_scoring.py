@@ -21,7 +21,12 @@ from tai.quality_scoring_contract import (
     load_scoring_manifest,
     require_keys,
 )
-from tai.quality_scoring_inputs import case_manifest, observation_index, runtime_report
+from tai.quality_scoring_inputs import (
+    accepted_assessment,
+    case_manifest,
+    observation_index,
+    runtime_report,
+)
 
 
 def _basis(passed: int, total: int) -> int:
@@ -125,9 +130,13 @@ def _storage(
 
 def verify_quality_scoring(
     authority_path: Path,
+    runtime_authority_path: Path,
     runtime_report_path: Path,
+    runtime_manifest_path: Path,
+    runtime_original_root: Path,
+    runtime_restored_root: Path,
+    accepted_assessment_path: Path,
     case_manifest_path: Path,
-    observation_index_path: Path,
     scoring_manifest_path: Path,
     *,
     evaluated_at: str,
@@ -150,10 +159,22 @@ def verify_quality_scoring(
         report["report_sha256"] = canonical_sha256(report)
         return report
 
-    runtime = runtime_report(runtime_report_path, authority)
-    cases = case_manifest(case_manifest_path, authority)
+    runtime = runtime_report(
+        runtime_report_path,
+        authority,
+        runtime_authority_path,
+        runtime_manifest_path,
+        runtime_original_root,
+        runtime_restored_root,
+    )
+    assessment = accepted_assessment(accepted_assessment_path, authority)
+    cases, _ = case_manifest(case_manifest_path, authority, assessment)
     observations, observation_index_value = observation_index(
-        observation_index_path, runtime, cases
+        runtime_manifest_path,
+        runtime_original_root,
+        runtime,
+        assessment,
+        cases,
     )
     if as_commit(manifest["exact_main"], "manifest.exact_main") != runtime["exact_main"]:
         raise QualityScoringError("scoring manifest exact-main mismatch")
@@ -181,8 +202,14 @@ def verify_quality_scoring(
         "reasons": sorted(set(reasons)),
         "exact_main": runtime["exact_main"],
         "authority_sha256": authority["authority_sha256"],
+        "runtime_authority_sha256": runtime["authority_sha256"],
         "runtime_report_sha256": runtime["report_sha256"],
+        "runtime_manifest_sha256": runtime["manifest_sha256"],
         "observation_index_sha256": observation_index_value["index_sha256"],
+        "raw_manifest_sha256": observation_index_value["raw_manifest_sha256"],
+        "raw_payload_sha256": observation_index_value["raw_payload_sha256"],
+        "assessment_sha256": assessment["assessment_sha256"],
+        "corpus_sha256": assessment["corpus_sha256"],
         "manifest_sha256": manifest["manifest_sha256"],
         "aggregate": aggregates,
         "evaluated_at": now.isoformat(),
