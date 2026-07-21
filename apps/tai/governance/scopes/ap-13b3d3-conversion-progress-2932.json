@@ -1,11 +1,11 @@
 {
   "schema_version": "tai.concurrent-scope.v1",
-  "branch": "fix/tai-conversion-progress-diagnostics-v2",
+  "branch": "fix/tai-conversion-progress-feed-2950",
   "status": "active",
   "program_issue": 2726,
-  "parent_issue": 2835,
-  "issue": 2932,
-  "maturity_boundary": "read-only-model-conversion-progress-only",
+  "parent_issue": 2932,
+  "issue": 2950,
+  "maturity_boundary": "read-only-model-conversion-progress-feed-only",
   "allowed_paths": [
     ".github/workflows/tai-model-conversion-progress.yml",
     "apps/tai/governance/scopes/ap-13b3d3-conversion-progress-2932.json",
@@ -22,6 +22,7 @@
   ],
   "acceptance": [
     "owner-only issue command is exact-main and non-automatic",
+    "command and bounded result are isolated in dedicated issue 2950",
     "model-host inspection uses dedicated TAI_MODEL key-only transport",
     "remote command is read-only and bounded",
     "PID liveness is checked with signal zero only",
