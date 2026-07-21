@@ -1,0 +1,99 @@
+name: public entry watch PR 20260721
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      REPORT_DIR: /tmp/public-entry-watch
+    steps:
+      - uses: actions/checkout@v4
+      - name: Network routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$REPORT_DIR"
+          : > "$REPORT_DIR/network.txt"
+          for route in /platform-v7 /platform-v7/login /platform-v7/forgot-password; do
+            result=$(curl -sS -L --max-redirs 5 -o "$REPORT_DIR/$(echo "$route"|tr '/' '_').html" -w 'status=%{http_code} redirects=%{num_redirects} effective=%{url_effective} bytes=%{size_download}' "$BASE_URL$route")
+            echo "$route $result" | tee -a "$REPORT_DIR/network.txt"
+            [[ "$result" == *"status=200"* ]]
+            redirects=$(printf '%s' "$result" | sed -n 's/.*redirects=\([0-9][0-9]*\).*/\1/p')
+            bytes=$(printf '%s' "$result" | sed -n 's/.*bytes=\([0-9][0-9]*\).*/\1/p')
+            test "$redirects" -le 5
+            test "$bytes" -gt 500
+            [[ "$result" != *"role="* ]]
+          done
+      - name: Install Playwright
+        run: |
+          mkdir -p /tmp/watch-runtime && cd /tmp/watch-runtime
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund playwright@1.52.0
+          npx playwright install --with-deps chromium webkit
+      - name: Browser and fail-closed checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/watch-runtime/check.mjs <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium, webkit } from 'playwright';
+          const base=process.env.BASE_URL, out=process.env.REPORT_DIR;
+          const routes=['/platform-v7','/platform-v7/login','/platform-v7/forgot-password'];
+          const locales=['ru','en','zh'];
+          const projects=[['chromium-desktop',chromium,{width:1440,height:1000},false],['chromium-mobile',chromium,{width:390,height:844},true],['webkit-mobile',webkit,{width:390,height:844},true]];
+          const report={base,cases:[],login:null,generatedAt:new Date().toISOString()};
+          const ok=(v,m)=>{if(!v)throw new Error(m)};
+          for(const [name,type,viewport,mobile] of projects){
+            const browser=await type.launch({headless:true});
+            for(const locale of locales){for(const route of routes){
+              const context=await browser.newContext({viewport,isMobile:mobile,hasTouch:mobile,locale:locale==='ru'?'ru-RU':locale==='zh'?'zh-CN':'en-US'});
+              const page=await context.newPage(); let nav=0; const consoleErrors=[],pageErrors=[],failed=[],bad=[];
+              page.on('framenavigated',f=>{if(f===page.mainFrame())nav++});
+              page.on('console',m=>{if(m.type()==='error'&&/hydration|hydrating|next-intl|missing message|runtime error|uncaught|chunkload/i.test(m.text()))consoleErrors.push(m.text())});
+              page.on('pageerror',e=>pageErrors.push(String(e)));
+              page.on('requestfailed',r=>{const t=r.failure()?.errorText||'';if(!t.includes('ERR_ABORTED'))failed.push([r.url(),t])});
+              page.on('response',r=>{if(r.url().startsWith(base)&&r.status()>=400&&!r.url().includes('/favicon'))bad.push([r.url(),r.status()])});
+              const response=await page.goto(`${base}${route}?lang=${locale}`,{waitUntil:'networkidle',timeout:60000});
+              ok(response&&response.status()===200,`${name}/${locale}${route}: http ${response?.status()}`);
+              ok(nav<=5,`${name}/${locale}${route}: redirects ${nav}`);
+              ok(new URL(page.url()).pathname===route,`${name}/${locale}${route}: final ${page.url()}`);
+              ok(!/[?&](role|as)=/i.test(page.url()),`${name}/${locale}${route}: role url`);
+              const s=await page.evaluate(()=>({lang:document.documentElement.lang,text:document.body.innerText.trim().length,h:document.body.getBoundingClientRect().height,sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}));
+              ok(s.lang.toLowerCase().startsWith(locale),`${name}/${locale}${route}: lang ${s.lang}`);
+              ok(s.text>80&&s.h>150,`${name}/${locale}${route}: white screen ${JSON.stringify(s)}`);
+              ok(s.sw<=s.cw+2,`${name}/${locale}${route}: overflow ${s.sw}/${s.cw}`);
+              ok(!consoleErrors.length&&!pageErrors.length&&!failed.length&&!bad.length,`${name}/${locale}${route}: runtime ${JSON.stringify({consoleErrors,pageErrors,failed,bad})}`);
+              report.cases.push({name,locale,route,status:response.status(),final:page.url(),text:s.text});
+              await context.close();
+            }} await browser.close();
+          }
+          const browser=await chromium.launch({headless:true}); const context=await browser.newContext({viewport:{width:390,height:844},locale:'ru-RU'}); const page=await context.newPage(); const auth=[];
+          page.on('response',r=>{if(/\/api\/auth\/|\/auth\//.test(r.url()))auth.push({url:r.url(),status:r.status()})});
+          await page.goto(`${base}/platform-v7/login?lang=ru`,{waitUntil:'networkidle',timeout:60000});
+          const email=page.locator('input[type="email"],input[name="email"]').first(),password=page.locator('input[type="password"],input[name="password"]').first(),submit=page.locator('button[type="submit"]').first();
+          ok(await email.count()&&await password.count()&&await submit.count(),'login form missing');
+          await email.fill(`watch-${Date.now()}@invalid.example`); await password.fill('Invalid-Watch-Password-2026!'); await submit.click(); await page.waitForTimeout(3500);
+          ok(new URL(page.url()).pathname==='/platform-v7/login','login escaped fail-closed'); ok(!/[?&](role|as)=/i.test(page.url()),'role in login url');
+          const cookies=await context.cookies(); const forbidden=cookies.filter(c=>/(access|refresh|session|mfa|cabinet|auth)/i.test(c.name)); ok(!forbidden.length,`session cookies ${forbidden.map(c=>c.name)}`);
+          const state=await page.evaluate(()=>[...Object.keys(localStorage),...Object.keys(sessionStorage)]); ok(!state.some(k=>/demo.*session|session.*demo|mock.*auth|auth.*mock/i.test(k)),`demo state ${state}`);
+          report.login={final:page.url(),auth,cookies:cookies.map(c=>c.name)}; await context.close(); await browser.close();
+          fs.mkdirSync(out,{recursive:true}); fs.writeFileSync(path.join(out,'report.json'),JSON.stringify(report,null,2)); console.log(JSON.stringify({allGreen:true,cases:report.cases.length,login:report.login},null,2));
+          NODE
+          cd /tmp/watch-runtime && node check.mjs | tee "$REPORT_DIR/browser.txt"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-pr-20260721
+          path: /tmp/public-entry-watch
+          if-no-files-found: error
+          retention-days: 3
