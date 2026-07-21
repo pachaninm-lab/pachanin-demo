@@ -1,0 +1,556 @@
+name: TAI Model Bundle Upload and Clean Restore
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-model-bundle-upload-restore
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2961 &&
+      github.event.comment.body == '/tai finalize model-bundles exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      REPORT_ROOT: bundle-finalization-control
+      AUTHORITY: apps/tai/model-artifacts/model-bundle-upload-restore-authority.v1.json
+      PREFLIGHT_REQUIREMENTS: apps/tai/model-artifacts/model-bundle-s3-preflight-requirements.v1.json
+      MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+      S3_ENDPOINT: ${{ secrets.TAI_BUNDLE_S3_ENDPOINT }}
+      S3_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+      S3_BUCKET: ${{ secrets.TAI_BUNDLE_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+      S3_PREFIX: ${{ secrets.TAI_BUNDLE_S3_PREFIX }}
+      S3_CAPACITY_BYTES: ${{ secrets.TAI_BUNDLE_S3_CAPACITY_BYTES }}
+      S3_PRINCIPAL_ID: ${{ secrets.TAI_BUNDLE_S3_PRINCIPAL_ID }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_RETRY_MODE: standard
+      AWS_MAX_ATTEMPTS: '5'
+      AWS_PAGER: ''
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact-main owner trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          mkdir -p "$REPORT_ROOT/release" "$REPORT_ROOT/s3/raw" "$REPORT_ROOT/artifacts"
+          chmod 700 "$REPORT_ROOT" "$REPORT_ROOT/release" "$REPORT_ROOT/s3" "$REPORT_ROOT/s3/raw" "$REPORT_ROOT/artifacts"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI authority package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+
+      - name: Validate authority and protected inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m tai.model_bundle_finalize_cli validate-authority \
+            "$AUTHORITY" --output "$REPORT_ROOT/authority-validation.json"
+          for name in \
+            MODEL_HOST MODEL_SSH_KEY S3_ENDPOINT S3_REGION S3_BUCKET \
+            S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY S3_PREFIX \
+            S3_CAPACITY_BYTES S3_PRINCIPAL_ID; do
+            test -n "${!name:-}"
+          done
+          test "${MODEL_SSH_USER:-tai-model}" = 'tai-model'
+          [[ "${MODEL_SSH_PORT:-22}" =~ ^[0-9]{1,5}$ ]]
+          [[ "$MODEL_HOST" =~ ^[A-Za-z0-9._:-]+$ ]]
+          command -v aws >/dev/null
+          command -v curl >/dev/null
+          command -v jq >/dev/null
+          command -v unzip >/dev/null
+
+      - name: Require accepted exact-main release
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected=
+          for attempt in $(seq 1 180); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" \
+              > "$REPORT_ROOT/release/runs.json"
+            set +e
+            REPORT_ROOT="$REPORT_ROOT" GITHUB_SHA="$GITHUB_SHA" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          runs = json.loads(Path(os.environ['REPORT_ROOT'] + '/release/runs.json').read_text()).get('workflow_runs', [])
+          candidates = [
+              run for run in runs
+              if run.get('name') == 'TAI Release Acceptance'
+              and run.get('path') == '.github/workflows/tai-release-acceptance.yml'
+              and run.get('head_sha') == os.environ['GITHUB_SHA']
+              and run.get('head_branch') == 'main'
+              and run.get('event') in {'push', 'workflow_dispatch'}
+          ]
+          if not candidates:
+              raise SystemExit(3)
+          run = max(candidates, key=lambda item: (item.get('run_number', 0), item.get('id', 0)))
+          if run.get('status') != 'completed':
+              raise SystemExit(3)
+          if run.get('conclusion') != 'success':
+              raise SystemExit(2)
+          Path(os.environ['REPORT_ROOT'] + '/release/selected-run.json').write_text(
+              json.dumps(run, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+            status=$?
+            set -e
+            if [[ "$status" -eq 0 ]]; then selected=yes; break; fi
+            if [[ "$status" -eq 2 ]]; then
+              echo 'Exact-main TAI Release Acceptance failed.' >&2
+              exit 1
+            fi
+            if [[ "$attempt" -eq 180 ]]; then
+              echo 'Exact-main TAI Release Acceptance is pending or absent.' >&2
+              exit 1
+            fi
+            sleep 20
+          done
+          test "$selected" = yes
+
+      - name: Prove Selectel S3 readiness without mutation
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+        run: |
+          set -euo pipefail
+          endpoint=(--endpoint-url "$S3_ENDPOINT" --region "$S3_REGION")
+          common=(--cli-connect-timeout 30 --cli-read-timeout 180)
+          run_status() {
+            local name="$1"
+            shift
+            set +e
+            "$@" > "$REPORT_ROOT/s3/raw/${name}.json" 2> "$REPORT_ROOT/s3/raw/${name}.stderr"
+            local status=$?
+            set -e
+            printf '%s\n' "$status" > "$REPORT_ROOT/s3/raw/${name}.exit"
+          }
+          run_status head_bucket aws "${endpoint[@]}" "${common[@]}" s3api head-bucket --bucket "$S3_BUCKET"
+          run_status get_bucket_versioning aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-versioning --bucket "$S3_BUCKET"
+          run_status get_object_lock_configuration aws "${endpoint[@]}" "${common[@]}" s3api get-object-lock-configuration --bucket "$S3_BUCKET"
+          run_status get_bucket_policy aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-policy --bucket "$S3_BUCKET"
+          run_status list_objects_v2 aws "${endpoint[@]}" "${common[@]}" s3api list-objects-v2 --bucket "$S3_BUCKET" --prefix "$S3_PREFIX/" --max-keys 1
+          run_status list_object_versions aws "${endpoint[@]}" "${common[@]}" s3api list-object-versions --bucket "$S3_BUCKET" --prefix "$S3_PREFIX/" --max-keys 1
+          anonymous_url="${S3_ENDPOINT%/}/$S3_BUCKET?list-type=2&max-keys=1"
+          set +e
+          anonymous_status="$(curl --silent --show-error --output "$REPORT_ROOT/s3/raw/anonymous-list.body" --write-out '%{http_code}' --connect-timeout 20 --max-time 60 "$anonymous_url")"
+          anonymous_exit=$?
+          set -e
+          printf '%s\n' "$anonymous_status" > "$REPORT_ROOT/s3/raw/anonymous_list_http_status.txt"
+          printf '%s\n' "$anonymous_exit" > "$REPORT_ROOT/s3/raw/anonymous_list_probe.exit"
+          aws --version > "$REPORT_ROOT/s3/raw/aws-version.txt" 2>&1
+
+          REPORT_ROOT="$REPORT_ROOT" S3_ENDPOINT="$S3_ENDPOINT" S3_REGION="$S3_REGION" \
+          S3_BUCKET="$S3_BUCKET" S3_PREFIX="$S3_PREFIX" S3_CAPACITY_BYTES="$S3_CAPACITY_BYTES" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ['REPORT_ROOT']) / 's3' / 'raw'
+          names = [
+              'head_bucket', 'get_bucket_versioning', 'get_object_lock_configuration',
+              'get_bucket_policy', 'list_objects_v2', 'list_object_versions',
+              'anonymous_list_probe',
+          ]
+          def ok(name: str) -> bool:
+              return (root / f'{name}.exit').read_text().strip() == '0'
+          def object_json(name: str) -> dict[str, object]:
+              path = root / f'{name}.json'
+              if not path.exists() or not path.read_text().strip():
+                  return {}
+              try:
+                  value = json.loads(path.read_text())
+              except json.JSONDecodeError:
+                  return {}
+              return value if isinstance(value, dict) else {}
+          wrapper = object_json('get_bucket_policy')
+          raw_policy = wrapper.get('Policy')
+          if isinstance(raw_policy, str):
+              try: policy = json.loads(raw_policy)
+              except json.JSONDecodeError: policy = {}
+          elif isinstance(raw_policy, dict): policy = raw_policy
+          else: policy = {}
+          payload = {
+              'schema_version': 'tai.model-bundle-s3-preflight-observed.v1',
+              'provider_profile': 'SELECTEL_S3_2026',
+              'endpoint': os.environ['S3_ENDPOINT'],
+              'region': os.environ['S3_REGION'],
+              'bucket': os.environ['S3_BUCKET'],
+              'prefix': os.environ['S3_PREFIX'],
+              'operator_confirmed_capacity_bytes': os.environ['S3_CAPACITY_BYTES'],
+              'commands': {name: ok(name) for name in names},
+              'versioning': object_json('get_bucket_versioning'),
+              'object_lock': object_json('get_object_lock_configuration'),
+              'anonymous_list_http_status': (root / 'anonymous_list_http_status.txt').read_text().strip(),
+              'policy': policy,
+              'aws_cli_identity': (root / 'aws-version.txt').read_text(errors='replace')[:500],
+              'mutation_mode': 'READ_ONLY',
+          }
+          path = Path(os.environ['REPORT_ROOT']) / 's3' / 'observed.json'
+          path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
+          PY
+          python -m tai.model_bundle_s3_preflight_cli \
+            "$PREFLIGHT_REQUIREMENTS" \
+            "$REPORT_ROOT/s3/observed.json" \
+            --exact-main "$GITHUB_SHA" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$REPORT_ROOT/s3/report.json"
+          test "$(jq -r '.status' "$REPORT_ROOT/s3/report.json")" = READY_FOR_BUNDLE_UPLOAD
+          test "$(jq -r '.reasons | length' "$REPORT_ROOT/s3/report.json")" = 0
+          test "$(jq -r '.production_operational_status' "$REPORT_ROOT/s3/report.json")" = NOT_ATTESTED
+
+      - name: Collect exact bounded source and conversion evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p control-package/apps/tai control-package/source-metadata control-package/license control-package/s3-preflight conversion-artifact
+          cp -a apps/tai/tai control-package/apps/tai/
+          find control-package/apps/tai/tai -type d -name __pycache__ -prune -exec rm -rf {} +
+          mkdir -p control-package/apps/tai/scripts control-package/apps/tai/model-artifacts/legal-reviews
+          cp apps/tai/scripts/model-bundle-s3-multipart.py control-package/apps/tai/scripts/
+          cp apps/tai/scripts/model-bundle-upload-restore-driver.v1.sh control-package/apps/tai/scripts/
+          cp "$AUTHORITY" control-package/apps/tai/model-artifacts/
+          cp apps/tai/model-artifacts/model-bundle-authority.v2.json control-package/apps/tai/model-artifacts/
+          cp apps/tai/model-artifacts/model-conversion-authority.v1.json control-package/apps/tai/model-artifacts/
+          cp apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json control-package/apps/tai/model-artifacts/
+          cp apps/tai/model-artifacts/legal-reviews/*.review-record.v1.json control-package/apps/tai/model-artifacts/legal-reviews/
+          cp "$REPORT_ROOT/s3/report.json" control-package/s3-preflight/report.json
+
+          python - <<'PY' > "$REPORT_ROOT/source-artifacts.tsv"
+          import json
+          from pathlib import Path
+          authority = json.loads(Path('apps/tai/model-artifacts/model-conversion-authority.v1.json').read_text())
+          for model in authority['models']:
+              print('\t'.join((model['key'], str(model['metadata_artifact_id']), model['metadata_artifact_digest'])))
+          PY
+          while IFS=$'\t' read -r key artifact_id expected_digest; do
+            mkdir -p "$REPORT_ROOT/artifacts/$key" "control-package/source-metadata/$key"
+            gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$REPOSITORY/actions/artifacts/$artifact_id" > "$REPORT_ROOT/artifacts/$key/metadata.json"
+            ARTIFACT_ID="$artifact_id" EXPECTED_DIGEST="$expected_digest" KEY="$key" REPORT_ROOT="$REPORT_ROOT" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          payload = json.loads(Path(os.environ['REPORT_ROOT'] + '/artifacts/' + os.environ['KEY'] + '/metadata.json').read_text())
+          assert payload['id'] == int(os.environ['ARTIFACT_ID'])
+          assert payload['expired'] is False
+          assert payload['digest'] == 'sha256:' + os.environ['EXPECTED_DIGEST']
+          PY
+            gh api "repos/$REPOSITORY/actions/artifacts/$artifact_id/zip" > "$REPORT_ROOT/artifacts/$key/artifact.zip"
+            test "$(sha256sum "$REPORT_ROOT/artifacts/$key/artifact.zip" | awk '{print $1}')" = "$expected_digest"
+            unzip -q "$REPORT_ROOT/artifacts/$key/artifact.zip" -d "control-package/source-metadata/$key"
+            test -s "control-package/source-metadata/$key/source-manifest.json"
+            test -s "control-package/source-metadata/$key/remote-inventory.json"
+            test -s "control-package/source-metadata/$key/legal/LICENSE-2.0.txt"
+          done < "$REPORT_ROOT/source-artifacts.tsv"
+          cmp control-package/source-metadata/qwen3-8b/legal/LICENSE-2.0.txt \
+              control-package/source-metadata/mistral-7b-instruct-v0.3/legal/LICENSE-2.0.txt
+          cp control-package/source-metadata/qwen3-8b/legal/LICENSE-2.0.txt control-package/license/LICENSE-2.0.txt
+
+          conversion_id="$(jq -r '.conversion_run.evidence_artifact.id' "$AUTHORITY")"
+          conversion_digest="$(jq -r '.conversion_run.evidence_artifact.digest' "$AUTHORITY")"
+          gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/artifacts/$conversion_id" > "$REPORT_ROOT/artifacts/conversion-metadata.json"
+          CONVERSION_ID="$conversion_id" CONVERSION_DIGEST="$conversion_digest" REPORT_ROOT="$REPORT_ROOT" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          payload = json.loads(Path(os.environ['REPORT_ROOT'] + '/artifacts/conversion-metadata.json').read_text())
+          assert payload['id'] == int(os.environ['CONVERSION_ID'])
+          assert payload['expired'] is False
+          assert payload['digest'] == os.environ['CONVERSION_DIGEST']
+          PY
+          gh api "repos/$REPOSITORY/actions/artifacts/$conversion_id/zip" > "$REPORT_ROOT/artifacts/conversion.zip"
+          test "sha256:$(sha256sum "$REPORT_ROOT/artifacts/conversion.zip" | awk '{print $1}')" = "$conversion_digest"
+          unzip -q "$REPORT_ROOT/artifacts/conversion.zip" -d conversion-artifact
+          test -s conversion-artifact/remote-evidence/evidence/conversion-report.json
+          AUTHORITY="$AUTHORITY" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          authority = json.loads(Path(os.environ['AUTHORITY']).read_text())
+          report = json.loads(Path('conversion-artifact/remote-evidence/evidence/conversion-report.json').read_text())
+          expected = authority['conversion_run']
+          assert report['report_sha256'] == expected['report_sha256']
+          assert report['status'] == expected['status']
+          assert report['exact_main_sha'] == expected['exact_main_sha']
+          assert report['workflow_run_id'] == expected['workflow_run_id']
+          assert report['workflow_run_attempt'] == expected['workflow_run_attempt']
+          assert report['benchmark_status'] == 'NOT_RUN'
+          assert report['model_admission_status'] == 'NOT_DONE'
+          assert report['production_operational_status'] == 'NOT_ATTESTED'
+          PY
+
+          if find control-package -type f -size +50000000c -print -quit | grep -q .; then
+            echo 'large model or archive bytes entered the control package' >&2
+            exit 1
+          fi
+          (
+            cd control-package
+            find . -type f ! -name control-manifest.sha256 -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 sha256sum > control-manifest.sha256
+          )
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -C control-package -czf control-package.tar.gz .
+          sha256sum control-package.tar.gz > control-package.tar.gz.sha256
+
+      - name: Prepare protected remote transport
+        id: ssh
+        shell: bash
+        env:
+          MODEL_SSH_USER_VALUE: ${{ secrets.TAI_MODEL_SSH_USER }}
+          MODEL_SSH_PORT_VALUE: ${{ secrets.TAI_MODEL_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          user="${MODEL_SSH_USER_VALUE:-tai-model}"
+          port="${MODEL_SSH_PORT_VALUE:-22}"
+          test "$user" = tai-model
+          [[ "$port" =~ ^[0-9]{1,5}$ ]]
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$MODEL_HOST" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$MODEL_SSH_KEY" > "$HOME/.ssh/id_tai_model"
+          chmod 600 "$HOME/.ssh/id_tai_model"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute exact bundle finalization on dedicated model host
+        id: remote
+        shell: bash
+        env:
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          remote_control="/srv/tai-models/finalization-controls/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          conversion_root="$(jq -r '.conversion_run.remote_root' "$AUTHORITY")"
+          final_root="$conversion_root/finalization/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          ssh_command() {
+            ssh -i "$HOME/.ssh/id_tai_model" -p "$SSH_PORT" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$MODEL_HOST" "$@"
+          }
+          scp_file() {
+            scp -i "$HOME/.ssh/id_tai_model" -P "$SSH_PORT" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              "$1" "$SSH_USER@$MODEL_HOST:$2"
+          }
+
+          S3_ENDPOINT="$S3_ENDPOINT" S3_REGION="$S3_REGION" S3_BUCKET="$S3_BUCKET" \
+          S3_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" S3_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+          S3_PREFIX="$S3_PREFIX" python - <<'PY' > protected-s3.env
+          import os
+          import shlex
+          mapping = {
+              'TAI_BUNDLE_S3_ENDPOINT': 'S3_ENDPOINT',
+              'TAI_BUNDLE_S3_REGION': 'S3_REGION',
+              'TAI_BUNDLE_S3_BUCKET': 'S3_BUCKET',
+              'TAI_BUNDLE_S3_ACCESS_KEY_ID': 'S3_ACCESS_KEY_ID',
+              'TAI_BUNDLE_S3_SECRET_ACCESS_KEY': 'S3_SECRET_ACCESS_KEY',
+              'TAI_BUNDLE_S3_PREFIX': 'S3_PREFIX',
+          }
+          for target, source in mapping.items():
+              print('export ' + target + '=' + shlex.quote(os.environ[source]))
+          PY
+          chmod 600 protected-s3.env
+
+          ssh_command "install -d -m 700 '$remote_control/incoming' '$remote_control/control'"
+          scp_file control-package.tar.gz "$remote_control/incoming/control-package.tar.gz"
+          scp_file control-package.tar.gz.sha256 "$remote_control/incoming/control-package.tar.gz.sha256"
+          scp_file protected-s3.env "$remote_control/incoming/protected-s3.env"
+          rm -f protected-s3.env
+
+          remote_start="$(cat <<REMOTE
+          set -Eeuo pipefail
+          cd '$remote_control/incoming'
+          sha256sum --check --strict control-package.tar.gz.sha256
+          rm -rf '$remote_control/control.new'
+          mkdir -p '$remote_control/control.new'
+          tar -xzf control-package.tar.gz -C '$remote_control/control.new'
+          (cd '$remote_control/control.new' && sha256sum --check --strict control-manifest.sha256)
+          rm -rf '$remote_control/control.previous'
+          if [ -d '$remote_control/control' ]; then mv '$remote_control/control' '$remote_control/control.previous'; fi
+          mv '$remote_control/control.new' '$remote_control/control'
+          install -m 600 protected-s3.env '$remote_control/protected-s3.env'
+          rm -f protected-s3.env
+          state=\"\$(python3 -c 'import json; from pathlib import Path; p=Path(\"$final_root/status.json\"); print(json.loads(p.read_text()).get(\"state\", \"\")) if p.exists() else print(\"\")')\"
+          if [ \"\$state\" = COMPLETE ]; then exit 0; fi
+          if [ -f '$remote_control/driver.pid' ] && kill -0 \"\$(cat '$remote_control/driver.pid')\" 2>/dev/null; then exit 0; fi
+          nohup bash '$remote_control/control/apps/tai/scripts/model-bundle-upload-restore-driver.v1.sh' \
+            '$remote_control/control' '$remote_control/protected-s3.env' \
+            '$GITHUB_SHA' '$GITHUB_RUN_ID' '$GITHUB_RUN_ATTEMPT' \
+            > '$remote_control/bootstrap.log' 2>&1 < /dev/null &
+          echo \$! > '$remote_control/driver.pid'
+          REMOTE
+          )"
+          ssh_command "bash -s" <<< "$remote_start"
+
+          monitor_state=TIMEOUT
+          for attempt in $(seq 1 350); do
+            state="$(ssh_command "python3 -c 'import json; from pathlib import Path; p=Path(\"$final_root/status.json\"); print(json.loads(p.read_text()).get(\"state\", \"PENDING\")) if p.exists() else print(\"PENDING\")'" 2>/dev/null || echo UNREACHABLE)"
+            printf 'poll=%s state=%s\n' "$attempt" "$state"
+            case "$state" in
+              COMPLETE|FAILED_CLOSED) monitor_state="$state"; break ;;
+            esac
+            sleep 60
+          done
+
+          mkdir -p remote-evidence
+          ssh_command "set -euo pipefail; cd '$final_root'; test -f status.json; test -d evidence; tar -czf - status.json evidence" > remote-evidence.tar.gz
+          test -s remote-evidence.tar.gz
+          if tar -tzf remote-evidence.tar.gz | grep -E '(^/|(^|/)\.\.(/|$))'; then
+            echo 'unsafe remote evidence path' >&2
+            exit 1
+          fi
+          tar -xzf remote-evidence.tar.gz -C remote-evidence
+          if find remote-evidence -type f -size +50000000c -print -quit | grep -q .; then
+            echo 'oversized remote metadata evidence' >&2
+            exit 1
+          fi
+          test "$monitor_state" = COMPLETE
+          test "$(jq -r '.state' remote-evidence/status.json)" = COMPLETE
+          test "$(jq -r '.status' remote-evidence/evidence/finalization-report.json)" = VERIFIED_BUNDLES_RESTORED
+          test "$(jq -r '.models | length' remote-evidence/evidence/finalization-report.json)" = 2
+          test "$(jq -r '.production_operational_status' remote-evidence/evidence/finalization-report.json)" = NOT_ATTESTED
+          ssh_command "rm -rf '$remote_control'"
+          echo "final_root=$final_root" >> "$GITHUB_OUTPUT"
+
+      - name: Remove local protected transport material
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          rm -f protected-s3.env
+          rm -f "$HOME/.ssh/id_tai_model"
+
+      - name: Upload bounded finalization evidence
+        id: evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-bundle-finalization-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            bundle-finalization-control/authority-validation.json
+            bundle-finalization-control/release/selected-run.json
+            bundle-finalization-control/s3/observed.json
+            bundle-finalization-control/s3/report.json
+            remote-evidence/status.json
+            remote-evidence/evidence
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded finalization summary
+        if: always()
+        shell: bash
+        env:
+          EVIDENCE_ARTIFACT_ID: ${{ steps.evidence.outputs.artifact-id }}
+          EVIDENCE_ARTIFACT_DIGEST: ${{ steps.evidence.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$REPORT_ROOT/summary.md"
+          import json
+          import os
+          from pathlib import Path
+          report_path = Path('remote-evidence/evidence/finalization-report.json')
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+          else:
+              report = {
+                  'status': 'FAILED_CLOSED',
+                  'exact_main_sha': os.environ['GITHUB_SHA'],
+                  'models': [],
+                  'report_sha256': None,
+              }
+          lines = [
+              '## TAI immutable model bundles and clean restore',
+              '',
+              f"- exact-main: `{report.get('exact_main_sha')}`;",
+              f"- status: `{report.get('status')}`;",
+              f"- verified bundles: `{len(report.get('models', []))}`;",
+          ]
+          for model in report.get('models', []):
+              lines.extend([
+                  f"- `{model.get('model_key')}` archive SHA-256: `{model.get('archive_sha256')}`;",
+                  f"  - object key: `{model.get('object_key')}`;",
+                  f"  - exact VersionId: `{model.get('version_id')}`;",
+                  f"  - retention expires: `{model.get('retention_expires_at')}`;",
+                  f"  - storage verification: `{model.get('storage_verification_status')}`;",
+              ])
+          lines.extend([
+              f"- report SHA-256: `{report.get('report_sha256')}`;",
+              f"- evidence artifact: `{os.environ.get('EVIDENCE_ARTIFACT_ID', '')}` / `{os.environ.get('EVIDENCE_ARTIFACT_DIGEST', '')}`;",
+              '- accepted S3 object deletion: `false`;',
+              '- benchmark: `NOT_RUN`;',
+              '- model admission: `NOT_DONE`;',
+              '- production operational status: `NOT_ATTESTED`.',
+          ])
+          print('\n'.join(lines))
+          PY
+          jq -n --rawfile body "$REPORT_ROOT/summary.md" '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2961/comments" --input -
+
+      - name: Enforce final accepted result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s remote-evidence/evidence/finalization-report.json
+          test "$(jq -r '.status' remote-evidence/evidence/finalization-report.json)" = VERIFIED_BUNDLES_RESTORED
+          test "$(jq -r '.models | length' remote-evidence/evidence/finalization-report.json)" = 2
+          test "$(jq -r '[.models[].storage_verification_status] | all(. == "VERIFIED")' remote-evidence/evidence/finalization-report.json)" = true
+          test "$(jq -r '.accepted_s3_object_deletion' remote-evidence/evidence/finalization-report.json)" = false
+          test "$(jq -r '.benchmark_status' remote-evidence/evidence/finalization-report.json)" = NOT_RUN
+          test "$(jq -r '.model_admission_status' remote-evidence/evidence/finalization-report.json)" = NOT_DONE
+          test "$(jq -r '.production_operational_status' remote-evidence/evidence/finalization-report.json)" = NOT_ATTESTED
