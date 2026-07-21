@@ -176,3 +176,4 @@ Path('prerequisite-evidence/conversion-authority-sha256.txt').write_text(
     hashlib.sha256(canonical(conversion).encode()).hexdigest() + '\n'
 )
 PY
+
