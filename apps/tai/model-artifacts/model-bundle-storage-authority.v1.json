@@ -1,0 +1,44 @@
+{
+  "schema_version": "tai.model-bundle-storage-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "infrastructure_issue": 2861,
+  "issue": 2953,
+  "command": "/tai probe model-bundle-storage exact-main",
+  "storage_class": "EXTERNAL_S3_COMPATIBLE",
+  "credential_boundary": "GITHUB_ACTIONS_ONLY",
+  "endpoint_policy": {
+    "required_scheme": "https",
+    "production_server_fallback_allowed": false
+  },
+  "bucket_policy": {
+    "required_versioning_status": "Enabled",
+    "required_object_lock_status": "Enabled",
+    "required_default_retention_mode": "COMPLIANCE",
+    "minimum_retention_days": 90,
+    "maximum_retention_days": 3650
+  },
+  "smoke_policy": {
+    "payload_size_bytes": 4096,
+    "object_prefix_default": "tai/model-bundles/preflight",
+    "maximum_report_size_bytes": 1048576,
+    "delete_after_verification": false
+  },
+  "required_secrets": [
+    "TAI_BUNDLE_S3_ENDPOINT",
+    "TAI_BUNDLE_S3_REGION",
+    "TAI_BUNDLE_S3_BUCKET",
+    "TAI_BUNDLE_S3_ACCESS_KEY_ID",
+    "TAI_BUNDLE_S3_SECRET_ACCESS_KEY"
+  ],
+  "optional_secrets": [
+    "TAI_BUNDLE_S3_PREFIX"
+  ],
+  "result": {
+    "verified_status": "VERIFIED_EXTERNAL_IMMUTABLE_STORAGE",
+    "failed_status": "FAILED_CLOSED",
+    "benchmark_status": "NOT_RUN",
+    "model_admission_status": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
