@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
+import json
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -58,6 +60,48 @@ RECORD_KEYS = {
     "object_version_id",
     "retention_until",
 }
+RECEIPT_KEYS = {
+    "schema_version",
+    "issuer",
+    "audience",
+    "provider",
+    "bucket",
+    "issued_at",
+    "expires_at",
+    "key_id",
+    "original_root_id",
+    "restored_root_id",
+    "manifest",
+    "objects",
+    "signature",
+}
+RECEIPT_MANIFEST_KEYS = {
+    "object_key",
+    "object_version_id",
+    "sha256",
+    "size_bytes",
+    "retention_until",
+    "immutability_status",
+}
+RECEIPT_OBJECT_KEYS = {
+    "annotation_id",
+    "object_key",
+    "object_version_id",
+    "sha256",
+    "size_bytes",
+    "retention_until",
+    "immutability_status",
+}
+TRUSTED_CONFIG_SOURCE = "OPERATOR_TRUSTED_CONFIG"
+
+
+def _canonical_bytes(value: object) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
 
 
 def _safe_file(root: Path, relative_value: object, name: str) -> Path:
@@ -101,12 +145,46 @@ def _facts(path: Path, name: str) -> tuple[bytes, int, str]:
     return payload, len(payload), hashlib.sha256(payload).hexdigest()
 
 
+def _trusted_secret(path: Path, expected_sha256: str) -> bytes:
+    expected = as_sha256(expected_sha256, "trusted provider inventory secret digest")
+    payload, size, digest = _facts(path, "provider inventory signing secret")
+    if not 32 <= size <= 4096:
+        raise QualityScoringError("provider inventory signing secret size is invalid")
+    if digest != expected:
+        raise QualityScoringError("provider inventory secret trust anchor mismatch")
+    return payload
+
+
+def _annotation_completion(
+    annotations: list[Any],
+    manifest_scored_at: datetime,
+) -> datetime:
+    if not annotations:
+        raise QualityScoringError("reviewer annotations are absent")
+    completion: datetime | None = None
+    for number, item in enumerate(annotations):
+        annotation = as_object(item, f"annotations[{number}]")
+        scored_at = as_timestamp(
+            annotation["scored_at"],
+            f"annotations[{number}].scored_at",
+        )
+        if completion is None or scored_at > completion:
+            completion = scored_at
+    if completion is None:
+        raise QualityScoringError("reviewer annotation completion is unavailable")
+    if manifest_scored_at != completion:
+        raise QualityScoringError(
+            "manifest scored_at does not match authenticated annotation completion"
+        )
+    return completion
+
+
 def _storage(
     value: object,
     policy: dict[str, Any],
     annotations: list[Any],
     identity_assertions: list[Any],
-    scored_at: datetime,
+    completion_at: datetime,
 ) -> dict[str, Any]:
     storage = as_object(value, "storage")
     require_keys(storage, STORAGE_KEYS, "storage")
@@ -125,7 +203,7 @@ def _storage(
         storage["retention_until"],
         "storage.retention_until",
     )
-    if retention_until < scored_at + timedelta(days=minimum_days):
+    if retention_until < completion_at + timedelta(days=minimum_days):
         raise QualityScoringError("quality evidence retention deadline is insufficient")
     for field in (
         "bucket",
@@ -158,16 +236,192 @@ def _storage(
     return dict(storage)
 
 
+def _verify_provider_inventory_receipt(
+    receipt_path: Path,
+    secret_path: Path,
+    trusted_secret_sha256: str,
+    policy: dict[str, Any],
+    storage: dict[str, Any],
+    records: dict[str, dict[str, Any]],
+    completion_at: datetime,
+    evaluated_at: datetime,
+) -> str:
+    receipt_policy = as_object(
+        policy["provider_inventory_receipt"],
+        "provider inventory receipt policy",
+    )
+    require_keys(
+        receipt_policy,
+        {
+            "schema_version",
+            "signature_algorithm",
+            "issuer",
+            "audience",
+            "key_id",
+            "maximum_lifetime_seconds",
+            "trusted_secret_digest_source",
+        },
+        "provider inventory receipt policy",
+    )
+    if receipt_policy["signature_algorithm"] != "HMAC-SHA256":
+        raise QualityScoringError("unsupported provider inventory signature algorithm")
+    if receipt_policy["trusted_secret_digest_source"] != TRUSTED_CONFIG_SOURCE:
+        raise QualityScoringError("provider inventory trust source is not operator-owned")
+
+    receipt = load_json(receipt_path)
+    require_keys(receipt, RECEIPT_KEYS, "provider inventory receipt")
+    if receipt["schema_version"] != receipt_policy["schema_version"]:
+        raise QualityScoringError("provider inventory receipt schema mismatch")
+    for field in (
+        "issuer",
+        "audience",
+        "provider",
+        "bucket",
+        "key_id",
+        "original_root_id",
+        "restored_root_id",
+    ):
+        as_identity(receipt[field], f"provider inventory receipt.{field}")
+    if receipt["issuer"] != receipt_policy["issuer"]:
+        raise QualityScoringError("provider inventory receipt issuer mismatch")
+    if receipt["audience"] != receipt_policy["audience"]:
+        raise QualityScoringError("provider inventory receipt audience mismatch")
+    if receipt["key_id"] != receipt_policy["key_id"]:
+        raise QualityScoringError("provider inventory receipt key id mismatch")
+    for field in ("provider", "bucket", "original_root_id", "restored_root_id"):
+        if receipt[field] != storage[field]:
+            raise QualityScoringError(f"provider inventory receipt {field} mismatch")
+
+    issued_at = as_timestamp(receipt["issued_at"], "provider inventory receipt.issued_at")
+    expires_at = as_timestamp(
+        receipt["expires_at"],
+        "provider inventory receipt.expires_at",
+    )
+    if issued_at < completion_at:
+        raise QualityScoringError("provider inventory receipt predates scoring completion")
+    if issued_at > evaluated_at:
+        raise QualityScoringError("provider inventory receipt is from the future")
+    if expires_at < evaluated_at:
+        raise QualityScoringError("provider inventory receipt is expired")
+    lifetime = int((expires_at - issued_at).total_seconds())
+    if lifetime <= 0 or lifetime > as_int(
+        receipt_policy["maximum_lifetime_seconds"],
+        "provider inventory maximum lifetime",
+        minimum=1,
+    ):
+        raise QualityScoringError("provider inventory receipt lifetime is invalid")
+
+    signature = as_sha256(receipt["signature"], "provider inventory receipt.signature")
+    secret = _trusted_secret(secret_path, trusted_secret_sha256)
+    expected_signature = hmac.new(
+        secret,
+        _canonical_bytes(
+            {key: value for key, value in receipt.items() if key != "signature"}
+        ),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(signature, expected_signature):
+        raise QualityScoringError("provider inventory receipt signature is invalid")
+
+    minimum_days = as_int(
+        policy["minimum_retention_days"],
+        "evidence policy minimum retention",
+        minimum=1,
+    )
+    receipt_manifest = as_object(receipt["manifest"], "provider inventory manifest")
+    require_keys(
+        receipt_manifest,
+        RECEIPT_MANIFEST_KEYS,
+        "provider inventory manifest",
+    )
+    manifest_bindings = {
+        "object_key": "evidence_manifest_object_key",
+        "object_version_id": "evidence_manifest_object_version_id",
+        "sha256": "evidence_manifest_file_sha256",
+        "size_bytes": "evidence_manifest_size_bytes",
+        "retention_until": "retention_until",
+        "immutability_status": "immutability_status",
+    }
+    for receipt_field, storage_field in manifest_bindings.items():
+        if receipt_manifest[receipt_field] != storage[storage_field]:
+            raise QualityScoringError(
+                f"provider inventory manifest {receipt_field} mismatch"
+            )
+    if as_timestamp(
+        receipt_manifest["retention_until"],
+        "provider inventory manifest retention",
+    ) < completion_at + timedelta(days=minimum_days):
+        raise QualityScoringError("provider inventory manifest retention is insufficient")
+    if receipt_manifest["immutability_status"] != "IMMUTABLE_VERSIONED":
+        raise QualityScoringError("provider inventory manifest is not immutable")
+    as_sha256(receipt_manifest["sha256"], "provider inventory manifest sha256")
+    as_int(receipt_manifest["size_bytes"], "provider inventory manifest size", minimum=2)
+
+    receipt_objects: dict[str, dict[str, Any]] = {}
+    for number, item in enumerate(
+        as_array(receipt["objects"], "provider inventory objects")
+    ):
+        inventory = as_object(item, f"provider inventory objects[{number}]")
+        require_keys(
+            inventory,
+            RECEIPT_OBJECT_KEYS,
+            f"provider inventory objects[{number}]",
+        )
+        annotation_id = as_identity(
+            inventory["annotation_id"],
+            "provider inventory annotation id",
+        )
+        if annotation_id in receipt_objects:
+            raise QualityScoringError("duplicate provider inventory annotation id")
+        receipt_objects[annotation_id] = dict(inventory)
+    if set(receipt_objects) != set(records):
+        raise QualityScoringError("provider inventory object coverage is incomplete")
+
+    for annotation_id, record in records.items():
+        inventory = receipt_objects[annotation_id]
+        for field in (
+            "object_key",
+            "object_version_id",
+            "sha256",
+            "size_bytes",
+            "retention_until",
+        ):
+            if inventory[field] != record[field]:
+                raise QualityScoringError(
+                    f"provider inventory object {field} mismatch"
+                )
+        if inventory["immutability_status"] != "IMMUTABLE_VERSIONED":
+            raise QualityScoringError("provider inventory object is not immutable")
+        if as_timestamp(
+            inventory["retention_until"],
+            "provider inventory object retention",
+        ) < completion_at + timedelta(days=minimum_days):
+            raise QualityScoringError("provider inventory object retention is insufficient")
+        as_identity(inventory["object_key"], "provider inventory object key")
+        as_identity(
+            inventory["object_version_id"],
+            "provider inventory object version id",
+        )
+        as_sha256(inventory["sha256"], "provider inventory object sha256")
+        as_int(inventory["size_bytes"], "provider inventory object size", minimum=1)
+
+    return canonical_sha256(receipt)
+
+
 def verify_external_reviewer_evidence(
     manifest_path: Path,
     original_root: Path,
     restored_root: Path,
+    provider_receipt_path: Path,
+    provider_receipt_secret_path: Path,
+    trusted_provider_receipt_secret_sha256: str,
     storage_value: object,
     annotations_value: object,
     identity_assertions_value: object,
     policy_value: object,
     *,
     scored_at: datetime,
+    evaluated_at: datetime,
 ) -> dict[str, object]:
     policy = as_object(policy_value, "evidence policy")
     annotations = as_array(annotations_value, "annotations")
@@ -175,12 +429,13 @@ def verify_external_reviewer_evidence(
         identity_assertions_value,
         "identity_assertions",
     )
+    completion_at = _annotation_completion(annotations, scored_at)
     storage = _storage(
         storage_value,
         policy,
         annotations,
         identity_assertions,
-        scored_at,
+        completion_at,
     )
 
     supplied_bytes, supplied_size, supplied_file_sha = _facts(
@@ -290,7 +545,7 @@ def verify_external_reviewer_evidence(
             record["retention_until"],
             "evidence record retention until",
         )
-        if record_retention < scored_at + timedelta(days=minimum_days):
+        if record_retention < completion_at + timedelta(days=minimum_days):
             raise QualityScoringError("reviewer evidence file retention is insufficient")
         as_sha256(record["sha256"], "evidence record sha256")
         as_int(record["size_bytes"], "evidence record size", minimum=1)
@@ -298,6 +553,17 @@ def verify_external_reviewer_evidence(
 
     if set(records) != set(annotation_map):
         raise QualityScoringError("reviewer evidence coverage is incomplete")
+
+    provider_receipt_sha256 = _verify_provider_inventory_receipt(
+        provider_receipt_path,
+        provider_receipt_secret_path,
+        trusted_provider_receipt_secret_sha256,
+        policy,
+        storage,
+        records,
+        completion_at,
+        evaluated_at,
+    )
 
     for annotation_id, annotation in annotation_map.items():
         record = records[annotation_id]
@@ -341,6 +607,8 @@ def verify_external_reviewer_evidence(
         "manifest_sha256": manifest_sha,
         "manifest_file_sha256": supplied_file_sha,
         "manifest_size_bytes": supplied_size,
+        "provider_inventory_receipt_sha256": provider_receipt_sha256,
+        "annotation_completion_at": completion_at.isoformat(),
         "verified_evidence_files": len(records),
         "original_root_id": storage["original_root_id"],
         "restored_root_id": storage["restored_root_id"],
