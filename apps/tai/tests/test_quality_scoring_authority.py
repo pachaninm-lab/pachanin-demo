@@ -35,6 +35,8 @@ from tai.quality_scoring_external_evidence import (
     _annotation_completion,
     _safe_file,
     _storage,
+)
+from tai.quality_scoring_external_evidence import (
     _trusted_secret as trusted_provider_secret,
 )
 from tai.quality_scoring_identity import (
@@ -468,7 +470,7 @@ def test_identity_policy_and_absence_fail_closed(tmp_path: Path) -> None:
         verify_identity_assertions([], weakened, secret_path, digest, evaluated_at=NOW)
 
     weakened = copy.deepcopy(policy)
-    weakened["trusted_secret_digest_source"] = "SUBMITTER"
+    weakened["trusted_secret_digest_source"] = weakened["signature_algorithm"]
     with pytest.raises(QualityScoringError, match="trust source is not operator-owned"):
         verify_identity_assertions([], weakened, secret_path, digest, evaluated_at=NOW)
 
