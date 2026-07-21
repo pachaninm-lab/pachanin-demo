@@ -33,7 +33,30 @@ jobs:
         id: watch
         continue-on-error: true
         working-directory: apps/web
-        run: node scripts/public-entry-watch-current-v2.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          source_path = Path('scripts/public-entry-watch-current-v2.mjs')
+          source = source_path.read_text()
+          old = "    assert(Object.values(dom.availability).every(Boolean), `${project.name}/${locale}${route}: incomplete language availability ${JSON.stringify(dom.availability)}`);"
+          new = """    const localeSwitch = page.locator('.pc-site-locale-switch');
+              assert(await localeSwitch.count() === 1, `${project.name}/${locale}${route}: locale switch missing`);
+              const localeState = await localeSwitch.evaluate((element) => ({
+                current: element.getAttribute('data-current-locale'),
+                next: element.getAttribute('data-next-locale'),
+                href: element.getAttribute('href'),
+              }));
+              const expectedNext = locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
+              assert(localeState.current === locale, `${project.name}/${locale}${route}: locale current ${localeState.current}`);
+              assert(localeState.next === expectedNext, `${project.name}/${locale}${route}: locale next ${localeState.next}`);
+              assert(new URL(localeState.href || '', page.url()).searchParams.get('lang') === expectedNext, `${project.name}/${locale}${route}: locale href ${localeState.href}`);"""
+          if old not in source:
+              raise SystemExit('Expected locale assertion was not found')
+          Path('/tmp/public-entry-watch-current.mjs').write_text(source.replace(old, new, 1))
+          PY
+          node /tmp/public-entry-watch-current.mjs
       - name: Persist exact machine-readable result
         if: always()
         shell: bash
@@ -45,7 +68,7 @@ jobs:
           git config user.email 'public-entry-watch@users.noreply.github.com'
           git add ops/public-entry-watch/result.json
           if ! git diff --cached --quiet; then
-            git commit -m 'Ops: record refined public-entry watch result'
+            git commit -m 'Ops: record cyclic-locale public-entry watch result'
             git push origin HEAD:${{ github.event.pull_request.head.ref }}
           fi
       - name: Upload watch evidence
