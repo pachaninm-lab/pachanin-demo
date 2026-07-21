@@ -128,10 +128,6 @@ export function ContextualSupportOrAssistant({
   const browserPathname = typeof window === 'undefined' ? routerPathname : window.location.pathname;
   const path = normalize(browserPathname || routerPathname);
 
-  // The explainer is itself the active AI surface. Suppress every floating AI,
-  // support and call launcher here so the animation and result remain unobstructed.
-  if (path === AI_IN_ACTION) return null;
-
   // The full-page assistant already renders its own workspace panel. Keep the
   // shared dock for human support and phone access, while the AI action focuses
   // that existing panel instead of creating a duplicate floating assistant.
@@ -160,8 +156,8 @@ export function ContextualSupportOrAssistant({
     );
   }
 
-  // Every public platform surface uses one visible entry point. The standalone
-  // assistant and support launchers remain internal triggers for the shared dock.
+  // Every public platform surface, including the TAI passport, keeps the single
+  // visible AI / support / call dock. The standalone launchers stay internal.
   return (
     <>
       <UnifiedModalSheetFullscreenController />
