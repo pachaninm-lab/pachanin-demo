@@ -13,9 +13,12 @@ Packet command: `/tai prepare expert-review-packet exact-main`
 Use the exact packet artifact published by the owner-only AP-14C packet workflow. The intake requires:
 
 - `expert-review-packet.v1.json` from that artifact;
+- the trusted canonical packet SHA-256 copied independently from the packet workflow summary or manifest;
 - one track-bound `intake-submission-<track-id>.v1.json` template from the same artifact;
 - the current `expert-reviews.v1.json` authority;
-- the packet's exact-main SHA and a timezone-aware evaluation timestamp.
+- the packet's exact-main SHA and a strict RFC3339 evaluation timestamp.
+
+Do not derive `--expected-packet-sha256` from the packet file being validated. That value is the external trust anchor which prevents a self-produced replacement packet from becoming authoritative merely because it is internally self-consistent.
 
 The packet materializes one intake template for each governed reviewer track. Exact-main, corpus SHA-256, packet SHA-256 and `track_id` are already fixed. The coordinator fills only `submitter_id`, `submitted_at` and the non-empty `reviews` array. The template has exactly these fields:
 
@@ -32,7 +35,7 @@ The packet materializes one intake template for each governed reviewer track. Ex
 }
 ```
 
-Each review must use the unchanged record contract from its corresponding `track-<track-id>.v1.json` template. Human-only fields must be completed by the reviewer. `review_sha256` is SHA-256 over canonical JSON of the complete review record excluding `review_sha256` itself.
+Each review must use the unchanged record contract from its corresponding `track-<track-id>.v1.json` template. Human-only fields must be completed by the reviewer. `evidence_sha256` must identify real external evidence and cannot be an all-zero or repeated-character placeholder. `review_sha256` is SHA-256 over canonical JSON of the complete review record excluding `review_sha256` itself.
 
 ## Governed reviewer tracks
 
@@ -51,32 +54,36 @@ node apps/tai/model-artifacts/expert-review-submission-intake.mjs \
   --submission /secure/packet/intake-submission-platform-primary.v1.json \
   --existing-reviews docs/platform-v7/autopilot/tai-ap-14c/expert-reviews.v1.json \
   --exact-main <packet-exact-main-sha> \
+  --expected-packet-sha256 <trusted-packet-sha256> \
   --evaluated-at 2026-07-21T12:10:00Z \
   --output-reviews /secure/candidate/expert-reviews.v1.json \
   --output-assessment /secure/candidate/baseline-assessment.v1.json \
   --output-report /secure/candidate/intake-report.v1.json
 ```
 
-Exit code `0` means only that candidate files were written. It does not accept the reviews. Any contract or provenance failure exits with code `2` before output files are written.
+Exit code `0` means only that candidate files were written. It does not accept the reviews. Any contract or provenance failure exits with code `2` before candidate output files are published.
 
 ## Fail-closed controls
 
 The intake rejects:
 
-- packet, corpus or exact-main drift;
+- packet, corpus, trusted packet digest or exact-main drift;
 - any self-signed packet that redefines case contracts, reviewer tracks or review policy;
+- duplicate JSON object keys at any nesting level;
 - stale `case_sha256` or a case outside the selected track;
 - reviewer roles that do not match the track;
-- placeholder reviewer or submitter identities;
-- timestamps before packet generation, after submission or in the future;
+- placeholder reviewer, submitter or evidence identities;
+- malformed calendar dates, invalid timezone offsets and timestamps before packet generation, after submission or after evaluation;
 - invalid evidence or review SHA-256 values;
 - unknown or missing fields;
 - duplicate review IDs or reviewer/case pairs;
 - attempted replacement of an existing review;
-- disagreement references to an unknown, different-case or same-reviewer record;
-- stale packets whose baseline assessment no longer matches current authority.
+- disagreement references to an unknown, different-case, same-reviewer or same-decision record;
+- stale packets whose baseline assessment no longer matches current authority;
+- candidate outputs which alias packet, submission or existing-review inputs;
+- symbolic-link or non-regular existing output destinations.
 
-Outputs are written atomically to three distinct caller-selected paths. Existing symbolic-link destinations are rejected.
+The three outputs are staged first and committed as one rollback-capable local transaction. If validation, staging or commit fails, the tool removes staged files and restores any pre-existing destinations rather than leaving a partial candidate set.
 
 ## Human acceptance remains mandatory
 
