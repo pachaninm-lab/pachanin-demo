@@ -1,0 +1,341 @@
+name: TAI Model Conversion Progress
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-model-conversion-progress
+  cancel-in-progress: false
+
+jobs:
+  progress:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2932 &&
+      github.event.comment.body == '/tai diagnose model-progress exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      REPORT_ROOT: model-conversion-progress
+      MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact-main trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          mkdir -p "$REPORT_ROOT"
+          chmod 700 "$REPORT_ROOT"
+
+      - name: Resolve key-only model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="$MODEL_HOST"
+          user="${MODEL_SSH_USER:-tai-model}"
+          port="${MODEL_SSH_PORT:-22}"
+          key="$MODEL_SSH_KEY"
+          if [[ -z "$host" || -z "$key" ]]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test "$user" = 'tai-model'
+          [[ "$port" =~ ^[0-9]{1,5}$ ]]
+          [[ "$host" =~ ^[A-Za-z0-9._:-]+$ ]]
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$key" > "$HOME/.ssh/id_tai_model_progress"
+          chmod 600 "$HOME/.ssh/id_tai_model_progress"
+          echo 'available=true' >> "$GITHUB_OUTPUT"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect latest conversion progress without mutation
+        if: steps.ssh.outputs.available == 'true'
+        shell: bash
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          remote_script="$(cat <<'REMOTE'
+          set -euo pipefail
+          echo 'SCHEMA=tai.model-conversion-progress.v1'
+          echo 'MUTATION_MODE=READ_ONLY'
+          root=/srv/tai-models/conversion-runs
+          if [[ ! -d "$root" ]]; then
+            echo 'CONVERSION_ROOT=ABSENT'
+            exit 0
+          fi
+          echo 'CONVERSION_ROOT=PRESENT'
+          printf 'WORKSPACE_AVAILABLE_BYTES=%s\n' "$(df -P -B1 /srv/tai-models | awk 'NR==2{print $4}')"
+
+          latest_status="$(
+            find "$root" -mindepth 3 -maxdepth 3 -type f -name status.json -printf '%T@\t%p\n' \
+              | LC_ALL=C sort -nr \
+              | sed -n '1p' \
+              | cut -f2-
+          )"
+          if [[ -z "$latest_status" || ! -f "$latest_status" ]]; then
+            echo 'LATEST_RUN=ABSENT'
+            exit 0
+          fi
+
+          run_root="${latest_status%/status.json}"
+          echo 'LATEST_RUN=PRESENT'
+          printf 'RUN_ROOT=%s\n' "$run_root"
+          printf 'STATUS_MTIME_EPOCH=%s\n' "$(stat -c %Y "$latest_status")"
+          printf 'STATUS_JSON='; tr '\n' ' ' < "$latest_status" | cut -c1-4000; printf '\n'
+
+          pid_state=ABSENT
+          pid_value=''
+          if [[ -f "$run_root/driver.pid" ]]; then
+            pid_value="$(tr -cd '0-9' < "$run_root/driver.pid" | cut -c1-20)"
+            if [[ -n "$pid_value" ]] && kill -0 "$pid_value" 2>/dev/null; then
+              pid_state=ALIVE
+            else
+              pid_state=DEAD
+            fi
+          fi
+          printf 'DRIVER_PID=%s\n' "$pid_value"
+          printf 'DRIVER_PID_STATE=%s\n' "$pid_state"
+
+          if [[ -f "$run_root/driver.log" ]]; then
+            printf 'DRIVER_LOG_SIZE_BYTES=%s\n' "$(stat -c %s "$run_root/driver.log")"
+            printf 'DRIVER_LOG_MTIME_EPOCH=%s\n' "$(stat -c %Y "$run_root/driver.log")"
+            printf 'DRIVER_LOG_LAST_LINE='
+            awk 'NF{last=$0} END{print last}' "$run_root/driver.log" \
+              | tr -cd '\11\12\15\40-\176' \
+              | cut -c1-1000
+          fi
+
+          active_log="$(
+            find "$run_root/logs" -maxdepth 1 -type f -name '*.log' -printf '%T@\t%p\n' 2>/dev/null \
+              | LC_ALL=C sort -nr \
+              | sed -n '1p' \
+              | cut -f2-
+          )"
+          if [[ -n "$active_log" && -f "$active_log" ]]; then
+            printf 'ACTIVE_LOG_PATH=%s\n' "${active_log#"$run_root/"}"
+            printf 'ACTIVE_LOG_SIZE_BYTES=%s\n' "$(stat -c %s "$active_log")"
+            printf 'ACTIVE_LOG_MTIME_EPOCH=%s\n' "$(stat -c %Y "$active_log")"
+            printf 'ACTIVE_LOG_LAST_LINE='
+            awk 'NF{last=$0} END{print last}' "$active_log" \
+              | tr -cd '\11\12\15\40-\176' \
+              | cut -c1-1000
+          fi
+
+          source_files=0
+          source_bytes=0
+          partial_files=0
+          partial_bytes=0
+          if [[ -d "$run_root/sources" ]]; then
+            source_files="$(find "$run_root/sources" -type f ! -name '*.partial' | wc -l)"
+            source_bytes="$(find "$run_root/sources" -type f ! -name '*.partial' -printf '%s\n' | awk '{s+=$1} END{printf "%.0f", s+0}')"
+            partial_files="$(find "$run_root/sources" -type f -name '*.partial' | wc -l)"
+            partial_bytes="$(find "$run_root/sources" -type f -name '*.partial' -printf '%s\n' | awk '{s+=$1} END{printf "%.0f", s+0}')"
+          fi
+          printf 'SOURCE_FILES=%s\n' "$source_files"
+          printf 'SOURCE_BYTES=%s\n' "$source_bytes"
+          printf 'PARTIAL_FILES=%s\n' "$partial_files"
+          printf 'PARTIAL_BYTES=%s\n' "$partial_bytes"
+
+          step_complete=0
+          step_failed=0
+          if [[ -d "$run_root/evidence/steps" ]]; then
+            while IFS= read -r record; do
+              if grep -q '"status": "COMPLETE"' "$record"; then
+                step_complete=$((step_complete + 1))
+              elif grep -q '"status": "FAILED_CLOSED"' "$record"; then
+                step_failed=$((step_failed + 1))
+              fi
+            done < <(
+              find "$run_root/evidence/steps" -maxdepth 1 -type f -name '*.json' ! -name '*.argv.json' \
+                | LC_ALL=C sort
+            )
+          fi
+          printf 'STEP_COMPLETE=%s\n' "$step_complete"
+          printf 'STEP_FAILED=%s\n' "$step_failed"
+
+          artifact_count=0
+          artifact_bytes=0
+          artifact_list=''
+          if [[ -d "$run_root/artifacts" ]]; then
+            artifact_count="$(find "$run_root/artifacts" -maxdepth 1 -type f -name '*.gguf' | wc -l)"
+            artifact_bytes="$(find "$run_root/artifacts" -maxdepth 1 -type f -name '*.gguf' -printf '%s\n' | awk '{s+=$1} END{printf "%.0f", s+0}')"
+            artifact_list="$(
+              find "$run_root/artifacts" -maxdepth 1 -type f -name '*.gguf' -printf '%f:%s;\n' \
+                | LC_ALL=C sort \
+                | tr -d '\n' \
+                | cut -c1-4000
+            )"
+          fi
+          printf 'ARTIFACT_COUNT=%s\n' "$artifact_count"
+          printf 'ARTIFACT_BYTES=%s\n' "$artifact_bytes"
+          printf 'ARTIFACT_LIST=%s\n' "$artifact_list"
+          REMOTE
+          )"
+          set +e
+          ssh -i "$HOME/.ssh/id_tai_model_progress" -p "$SSH_PORT" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" 'bash -s' \
+            > "$REPORT_ROOT/remote.txt" 2> "$REPORT_ROOT/remote.stderr" <<< "$remote_script"
+          remote_exit=$?
+          set -e
+          printf '%s\n' "$remote_exit" > "$REPORT_ROOT/remote-exit-code.txt"
+
+      - name: Record unavailable transport
+        if: steps.ssh.outputs.available != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "$REPORT_ROOT/remote.txt"
+          printf '%s\n' 'TAI_MODEL_KEY_TRANSPORT_UNAVAILABLE' > "$REPORT_ROOT/remote.stderr"
+          printf '%s\n' '2' > "$REPORT_ROOT/remote-exit-code.txt"
+
+      - name: Build bounded progress report
+        if: always()
+        shell: bash
+        env:
+          SSH_AVAILABLE: ${{ steps.ssh.outputs.available }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['REPORT_ROOT'])
+          raw = (root / 'remote.txt').read_text(encoding='utf-8', errors='replace') if (root / 'remote.txt').exists() else ''
+          stderr = (root / 'remote.stderr').read_text(encoding='utf-8', errors='replace') if (root / 'remote.stderr').exists() else ''
+          exit_code = int((root / 'remote-exit-code.txt').read_text().strip()) if (root / 'remote-exit-code.txt').exists() else 255
+          numeric = {
+              'WORKSPACE_AVAILABLE_BYTES', 'STATUS_MTIME_EPOCH', 'DRIVER_PID',
+              'DRIVER_LOG_SIZE_BYTES', 'DRIVER_LOG_MTIME_EPOCH',
+              'ACTIVE_LOG_SIZE_BYTES', 'ACTIVE_LOG_MTIME_EPOCH', 'SOURCE_FILES',
+              'SOURCE_BYTES', 'PARTIAL_FILES', 'PARTIAL_BYTES', 'STEP_COMPLETE',
+              'STEP_FAILED', 'ARTIFACT_COUNT', 'ARTIFACT_BYTES',
+          }
+          observed = {}
+          for line in raw.splitlines():
+              key, sep, value = line.partition('=')
+              if not sep:
+                  continue
+              name = key.lower()
+              if key in numeric:
+                  try:
+                      observed[name] = int(float(value or '0'))
+                  except ValueError:
+                      observed[name] = None
+              else:
+                  observed[name] = value[:4000]
+          payload = {
+              'schema_version': 'tai.model-conversion-progress.v1',
+              'status': 'COMPLETE' if exit_code == 0 else 'PARTIAL',
+              'exact_main_sha': os.environ['GITHUB_SHA'],
+              'workflow_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'workflow_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'issue': 2932,
+              'command': '/tai diagnose model-progress exact-main',
+              'transport': 'AVAILABLE' if os.environ.get('SSH_AVAILABLE') == 'true' else 'UNAVAILABLE',
+              'remote_exit_code': exit_code,
+              'observed': observed,
+              'stderr': stderr[:4000],
+              'benchmark_status': 'NOT_RUN',
+              'model_admission_status': 'NOT_DONE',
+              'production_operational_status': 'NOT_ATTESTED',
+          }
+          (root / 'progress.json').write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+
+          last_line = str(observed.get('active_log_last_line') or observed.get('driver_log_last_line') or '')
+          last_line = last_line.replace('`', "'")[:500]
+          lines = [
+              '## TAI model conversion progress',
+              '',
+              f"- exact-main diagnostic authority: `{payload['exact_main_sha']}`;",
+              f"- diagnostic status: `{payload['status']}`;",
+              f"- model-host transport: `{payload['transport']}`;",
+              f"- conversion root: `{observed.get('conversion_root', 'UNKNOWN')}`;",
+              f"- latest run: `{observed.get('run_root', 'ABSENT')}`;",
+              f"- state: `{observed.get('status_json', 'UNKNOWN')}`;",
+              f"- driver PID: `{observed.get('driver_pid_state', 'UNKNOWN')}` / `{observed.get('driver_pid', 0)}`;",
+              f"- workspace available bytes: `{observed.get('workspace_available_bytes', 0)}`;",
+              f"- source: `{observed.get('source_files', 0)}` files / `{observed.get('source_bytes', 0)}` bytes;",
+              f"- partial: `{observed.get('partial_files', 0)}` files / `{observed.get('partial_bytes', 0)}` bytes;",
+              f"- active log: `{observed.get('active_log_path', 'NONE')}` / `{observed.get('active_log_size_bytes', 0)}` bytes;",
+              f"- last progress: `{last_line or 'NO_LOG_LINE'}`;",
+              f"- completed steps: `{observed.get('step_complete', 0)}`; failed steps: `{observed.get('step_failed', 0)}`;",
+              f"- GGUF artifacts: `{observed.get('artifact_count', 0)}` files / `{observed.get('artifact_bytes', 0)}` bytes;",
+              f"- artifact list: `{observed.get('artifact_list', '')}`;",
+              '- mutation mode: `READ_ONLY`;',
+              '- benchmark: `NOT_RUN`;',
+              '- model admission: `NOT_DONE`;',
+              '- production operational status: `NOT_ATTESTED`.',
+          ]
+          (root / 'summary.md').write_text('\n'.join(lines) + '\n')
+          PY
+          test "$(stat -c %s "$REPORT_ROOT/progress.json")" -le 50000
+          test "$(stat -c %s "$REPORT_ROOT/summary.md")" -le 15000
+
+      - name: Upload bounded progress evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-conversion-progress-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: model-conversion-progress
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish concise progress
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s "$REPORT_ROOT/summary.md" ]]; then
+            printf '%s\n' \
+              '## TAI model conversion progress' \
+              '' \
+              '- diagnostic status: `FAILED_CLOSED`;' \
+              '- mutation mode: `READ_ONLY`;' \
+              '- production operational status: `NOT_ATTESTED`.' \
+              > "$REPORT_ROOT/summary.md"
+          fi
+          jq -n --rawfile body "$REPORT_ROOT/summary.md" '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2932/comments" --input -

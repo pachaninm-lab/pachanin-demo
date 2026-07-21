@@ -1,0 +1,35 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "fix/tai-conversion-progress-diagnostics-v2",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2932,
+  "maturity_boundary": "read-only-model-conversion-progress-only",
+  "allowed_paths": [
+    ".github/workflows/tai-model-conversion-progress.yml",
+    "apps/tai/governance/scopes/ap-13b3d3-conversion-progress-2932.json",
+    "apps/tai/tests/test_model_conversion_progress_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "model-host mutation, process signalling or conversion execution",
+    "production-server fallback or production workload access",
+    "password-based model-host transport",
+    "model, GGUF, source weight or large artifact transfer",
+    "full model or log content publication",
+    "benchmark, admission or production-readiness claim",
+    "secrets, private keys or credentials in progress evidence"
+  ],
+  "acceptance": [
+    "owner-only issue command is exact-main and non-automatic",
+    "model-host inspection uses dedicated TAI_MODEL key-only transport",
+    "remote command is read-only and bounded",
+    "PID liveness is checked with signal zero only",
+    "source, partial, active-log, step and GGUF progress is metadata-only",
+    "only the latest run root and bounded last lines are reported",
+    "no production credential fallback exists",
+    "TAI Foundation, CI and security/runtime gates pass",
+    "benchmark and admission remain NOT_RUN/NOT_DONE",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}
