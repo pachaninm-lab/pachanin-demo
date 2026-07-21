@@ -11,16 +11,13 @@ from tai.quality_scoring_contract import (
     VERIFIED_QUALITY_STATUS,
     QualityScoringError,
     as_commit,
-    as_identity,
-    as_int,
-    as_object,
-    as_sha256,
     as_timestamp,
     canonical_sha256,
     load_authority,
     load_scoring_manifest,
-    require_keys,
 )
+from tai.quality_scoring_external_evidence import verify_external_reviewer_evidence
+from tai.quality_scoring_identity import verify_identity_assertions
 from tai.quality_scoring_inputs import (
     accepted_assessment,
     case_manifest,
@@ -91,43 +88,6 @@ def _aggregate(
     }, reasons
 
 
-def _storage(
-    value: object, authority: dict[str, Any], annotations: object
-) -> dict[str, Any]:
-    storage = as_object(value, "storage")
-    require_keys(
-        storage,
-        {
-            "provider",
-            "object_version_id",
-            "retention_days",
-            "immutability_status",
-            "original_root_id",
-            "restored_root_id",
-            "annotations_sha256",
-            "evidence_manifest_sha256",
-        },
-        "storage",
-    )
-    if storage["provider"] != authority["evidence"]["provider"]:
-        raise QualityScoringError("quality evidence storage provider mismatch")
-    if storage["immutability_status"] != "IMMUTABLE_VERSIONED":
-        raise QualityScoringError("quality evidence is not immutable")
-    if (
-        as_int(storage["retention_days"], "storage.retention_days")
-        < authority["evidence"]["minimum_retention_days"]
-    ):
-        raise QualityScoringError("quality evidence retention is insufficient")
-    for field in ("object_version_id", "original_root_id", "restored_root_id"):
-        as_identity(storage[field], f"storage.{field}")
-    if storage["original_root_id"] == storage["restored_root_id"]:
-        raise QualityScoringError("quality evidence restore roots are not independent")
-    if storage["annotations_sha256"] != canonical_sha256(annotations):
-        raise QualityScoringError("annotation payload digest mismatch")
-    as_sha256(storage["evidence_manifest_sha256"], "storage.evidence_manifest_sha256")
-    return storage
-
-
 def verify_quality_scoring(
     authority_path: Path,
     runtime_authority_path: Path,
@@ -138,6 +98,11 @@ def verify_quality_scoring(
     accepted_assessment_path: Path,
     case_manifest_path: Path,
     scoring_manifest_path: Path,
+    reviewer_identity_secret_path: Path,
+    trusted_identity_secret_sha256: str,
+    reviewer_evidence_manifest_path: Path,
+    reviewer_original_root: Path,
+    reviewer_restored_root: Path,
     *,
     evaluated_at: str,
 ) -> dict[str, object]:
@@ -192,8 +157,31 @@ def verify_quality_scoring(
     maturity = {key: manifest[key] for key in EXPECTED_MATURITY}
     if maturity != EXPECTED_MATURITY:
         raise QualityScoringError("scoring manifest maturity boundary is invalid")
-    _storage(manifest["storage"], authority, manifest["annotations"])
-    passed, counters = score_observations(observations, manifest["annotations"])
+
+    identity_policy = authority["scorer_policy"]["identity_assertions"]
+    identity_assertions = verify_identity_assertions(
+        manifest["identity_assertions"],
+        identity_policy,
+        reviewer_identity_secret_path,
+        trusted_identity_secret_sha256,
+        evaluated_at=now,
+    )
+    external_evidence = verify_external_reviewer_evidence(
+        reviewer_evidence_manifest_path,
+        reviewer_original_root,
+        reviewer_restored_root,
+        manifest["storage"],
+        manifest["annotations"],
+        manifest["identity_assertions"],
+        authority["evidence"],
+        scored_at=scored_at,
+    )
+    passed, counters = score_observations(
+        observations,
+        manifest["annotations"],
+        identity_assertions,
+        identity_policy,
+    )
     aggregates, reasons = _aggregate(observations, passed, counters, authority)
     report = {
         "schema_version": "tai.quality-scoring-verification.v1",
@@ -211,6 +199,14 @@ def verify_quality_scoring(
         "assessment_sha256": assessment["assessment_sha256"],
         "corpus_sha256": assessment["corpus_sha256"],
         "manifest_sha256": manifest["manifest_sha256"],
+        "identity_assertions_sha256": canonical_sha256(manifest["identity_assertions"]),
+        "reviewer_evidence_manifest_sha256": external_evidence["manifest_sha256"],
+        "reviewer_evidence_manifest_file_sha256": external_evidence[
+            "manifest_file_sha256"
+        ],
+        "verified_reviewer_evidence_files": external_evidence[
+            "verified_evidence_files"
+        ],
         "aggregate": aggregates,
         "evaluated_at": now.isoformat(),
         "quality_scoring_status": (
