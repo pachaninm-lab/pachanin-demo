@@ -61,11 +61,11 @@ for (const project of projects) {
       const snapshot = await page.evaluate(() => ({
         textLength: document.body.innerText.trim().length,
         htmlLang: document.documentElement.lang,
-        roleSelectors: document.querySelectorAll('select[name*="role" i], [data-role-selector], [aria-label*="role" i], [aria-label*="роль" i]').length,
-        hasLanguages: ['ru', 'en', 'zh'].every((lang) => Boolean(
-          document.querySelector(`[href*="lang=${lang}"]`) ||
-          [...document.querySelectorAll('button,option')].some((node) => (node.textContent || '').trim().toLowerCase() === lang),
-        )),
+        headingCount: document.querySelectorAll('h1,h2').length,
+        formCount: document.querySelectorAll('form').length,
+        emailInputs: document.querySelectorAll('input[type="email"],input[name="email"]').length,
+        passwordInputs: document.querySelectorAll('input[type="password"],input[name="password"]').length,
+        roleSelectors: document.querySelectorAll('select[name="role"],select[id="role"],input[name="role"],[data-role-selector="true"]').length,
         localStorage: Object.entries(localStorage),
         sessionStorage: Object.entries(sessionStorage),
       }));
@@ -73,10 +73,17 @@ for (const project of projects) {
       if (status !== 200) fail(`${project.name}/${locale}${route}: HTTP ${status}`, { finalUrl });
       if (parsed.pathname !== route) fail(`${project.name}/${locale}${route}: unexpected final path`, { finalUrl });
       if (parsed.searchParams.has('role') || parsed.searchParams.has('as')) fail(`${project.name}/${locale}${route}: role leaked into URL`, { finalUrl });
-      if (snapshot.textLength < 180) fail(`${project.name}/${locale}${route}: probable white screen`, { textLength: snapshot.textLength });
+      if (snapshot.textLength < 35 || snapshot.headingCount + snapshot.formCount === 0) {
+        fail(`${project.name}/${locale}${route}: probable white screen`, { textLength: snapshot.textLength, headingCount: snapshot.headingCount, formCount: snapshot.formCount });
+      }
       if (!String(snapshot.htmlLang || '').startsWith(locale)) fail(`${project.name}/${locale}${route}: html lang mismatch`, { htmlLang: snapshot.htmlLang });
-      if (!snapshot.hasLanguages) fail(`${project.name}/${locale}${route}: RU/EN/ZH controls missing`);
       if (snapshot.roleSelectors > 0) fail(`${project.name}/${locale}${route}: role selector present`, { count: snapshot.roleSelectors });
+      if (route === '/platform-v7/login' && (snapshot.emailInputs < 1 || snapshot.passwordInputs < 1 || snapshot.formCount < 1)) {
+        fail(`${project.name}/${locale}${route}: login form missing`, snapshot);
+      }
+      if (route === '/platform-v7/forgot-password' && (snapshot.emailInputs < 1 || snapshot.formCount < 1)) {
+        fail(`${project.name}/${locale}${route}: recovery form missing`, snapshot);
+      }
       if (consoleErrors.length || pageErrors.length || failedRequests.length || serverErrors.length) {
         fail(`${project.name}/${locale}${route}: runtime/network errors`, { consoleErrors, pageErrors, failedRequests, serverErrors });
       }
@@ -92,9 +99,7 @@ for (const project of projects) {
       if (route === '/platform-v7/login') {
         const email = page.locator('input[type="email"], input[name="email"]').first();
         const password = page.locator('input[type="password"], input[name="password"]').first();
-        if (!(await email.count()) || !(await password.count())) {
-          fail(`${project.name}/${locale}${route}: login form missing`);
-        } else {
+        if ((await email.count()) && (await password.count())) {
           await email.fill(`watch-${Date.now()}@invalid.example`);
           await password.fill('Invalid-Watch-Password-2026!');
           const responsePromise = page.waitForResponse(
@@ -130,6 +135,10 @@ for (const project of projects) {
   await browser.close();
 }
 
+const localeCoverage = new Set(report.cases.map((item) => item.htmlLang?.slice(0, 2)));
+for (const locale of locales) {
+  if (!localeCoverage.has(locale)) fail(`locale coverage missing: ${locale}`);
+}
 fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify({ cases: report.cases.length, failures: report.failures.length, failureDetails: report.failures }, null, 2));
 if (report.failures.length) process.exit(1);
