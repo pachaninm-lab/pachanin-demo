@@ -1,0 +1,101 @@
+name: TAI AP-13C.1d Remediation Bootstrap
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1d-remediation-2997
+    paths:
+      - '.github/workflows/tai-ap13c1d-remediation-bootstrap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-remediation-2997
+          fetch-depth: 0
+      - name: Register authoritative scope and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin agent/tai-ap-13c1d-remediation-2997
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          branch = "agent/tai-ap-13c1d-remediation-2997"
+          allowed = [
+              "docs/platform-v7/autopilot/autopilot-state.json",
+              "apps/tai/governance/scopes/ap-13c1d-remediation-2997.json",
+              "apps/tai/model-artifacts/quality-scoring-authority.v1.json",
+              "apps/tai/model-artifacts/quality-scoring-evidence.schema.v1.json",
+              "apps/tai/model-artifacts/quality-scoring-runbook.v1.md",
+              "apps/tai/pyproject.toml",
+              "apps/tai/tai/quality_scoring_contract.py",
+              "apps/tai/tai/quality_scoring_identity.py",
+              "apps/tai/tai/quality_scoring_external_evidence.py",
+              "apps/tai/tai/quality_scoring_annotations.py",
+              "apps/tai/tai/quality_scoring.py",
+              "apps/tai/tai/quality_scoring_cli.py",
+              "apps/tai/tests/quality_scoring_fixtures.py",
+              "apps/tai/tests/test_quality_scoring_authority.py",
+              "apps/tai/tests/test_quality_scoring_cli.py",
+              "apps/tai/tests/test_quality_scoring_remediation.py",
+          ]
+
+          state_path = Path("docs/platform-v7/autopilot/autopilot-state.json")
+          state = json.loads(state_path.read_text(encoding="utf-8"))
+          scopes = state.setdefault("approvedConcurrentScopes", {})
+          existing = scopes.get(branch)
+          if existing not in (None, allowed):
+              raise SystemExit("conflicting existing remediation scope")
+          scopes[branch] = allowed
+          state_path.write_text(
+              json.dumps(state, ensure_ascii=False, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+
+          scope_path = Path("apps/tai/governance/scopes/ap-13c1d-remediation-2997.json")
+          scope_path.parent.mkdir(parents=True, exist_ok=True)
+          scope = {
+              "schema_version": "tai.concurrent-scope.v1",
+              "program_issue": 2726,
+              "parent_issue": 2993,
+              "issue": 2997,
+              "branch": branch,
+              "exact_base": "4ab310012ab23496b06611f402bfaff9768f1d7d",
+              "allowed_paths": allowed,
+              "acceptance": [
+                  "every scorer is bound to a server-authoritative signed identity assertion",
+                  "MFA is required and exact reviewer role is verified",
+                  "fabricated scorer identity, role, key id, signature or expired assertion fails closed",
+                  "every annotation evidence file is reproduced from immutable original and independently restored roots",
+                  "evidence manifest digest, file digest, size, object identity, VersionId and retention are verified",
+                  "raw reviewer notes and evidence remain outside Git and GitHub artifacts",
+                  "benchmark and admission remain pending and production remains not attested",
+                  "exact-head and exact-main gates pass before acceptance",
+              ],
+              "forbidden_capabilities": [
+                  "LLM-as-judge or fabricated human review",
+                  "raw reviewer notes or evidence in Git",
+                  "model admission, routing activation, deployment or production attestation",
+                  "trust in submitter-declared scorer identity or role",
+                  "trust in unreproduced external evidence digests",
+              ],
+          }
+          scope_path.write_text(
+              json.dumps(scope, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+          rm .github/workflows/tai-ap13c1d-remediation-bootstrap.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json \
+            apps/tai/governance/scopes/ap-13c1d-remediation-2997.json \
+            .github/workflows/tai-ap13c1d-remediation-bootstrap.yml
+          git commit -m 'governance(tai): register AP-13C.1d remediation scope'
+          git push origin HEAD:agent/tai-ap-13c1d-remediation-2997
