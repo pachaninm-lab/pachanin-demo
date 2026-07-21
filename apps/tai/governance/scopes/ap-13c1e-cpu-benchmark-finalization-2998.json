@@ -26,6 +26,7 @@
     "Qwen primary remains PENDING_BENCHMARK until the required GPU_SHARED Q8_0 profile is independently verified",
     "no CPU evidence can be relabeled as GPU evidence or satisfy the joint primary profile set",
     "all output artifacts are deterministic, self-digested, metadata-only and bound to immutable external evidence",
+    "the final stable exact-head must pass the full repository gate set after all temporary workflows are absent",
     "model admission remains PENDING_ADMISSION and production_operational_status remains NOT_ATTESTED"
   ],
   "forbidden_capabilities": [
