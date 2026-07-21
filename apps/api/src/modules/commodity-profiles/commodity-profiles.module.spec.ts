@@ -25,11 +25,21 @@ describe('CommodityProfilesModule private authority wiring', () => {
         MODULE_METADATA.CONTROLLERS,
         CommodityProfilesModule,
       ) ?? [];
+      const exportedProviders = Reflect.getMetadata(
+        MODULE_METADATA.EXPORTS,
+        CommodityProfilesModule,
+      ) ?? [];
 
       expect(service).toBeInstanceOf(CommodityProfileTransactionCommandService);
       expect(repository).toBeInstanceOf(CommodityProfileRepository);
       expect(boundPort).toBe(postgresPort);
       expect(controllers).toEqual([]);
+      expect(exportedProviders).toEqual([
+        CommodityProfileRepository,
+        CommodityProfileTransactionCommandService,
+      ]);
+      expect(exportedProviders).not.toContain(PostgresqlCommodityProfileTransactionPort);
+      expect(exportedProviders).not.toContain(COMMODITY_PROFILE_TRANSACTION_PORT);
     } finally {
       await moduleRef.close();
     }
