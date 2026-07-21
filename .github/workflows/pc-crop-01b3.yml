@@ -1,6 +1,6 @@
 name: PC-CROP-01B.3 Atomic Command Authority
 
-# Every acceptance run is bound to the current PR head; bot-generated repair commits
+# Every acceptance run is bound to the current PR head. Bot-generated sync commits
 # are followed by a connector-authored exact-head commit before evidence is accepted.
 on:
   pull_request:
