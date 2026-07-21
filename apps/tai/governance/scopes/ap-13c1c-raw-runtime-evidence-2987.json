@@ -5,6 +5,7 @@
   "issue": 2987,
   "branch": "agent/tai-ap-13c1c-raw-runtime-evidence",
   "allowed_paths": [
+    ".gitleaksignore",
     "apps/tai/governance/scopes/ap-13c1c-raw-runtime-evidence-2987.json",
     "apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json",
     "apps/tai/model-artifacts/cpu-runtime-evidence.schema.v1.json",
@@ -21,7 +22,8 @@
     "apps/tai/tai/cpu_runtime_resilience.py",
     "apps/tai/tai/cpu_runtime_semantics.py",
     "apps/tai/tests/test_cpu_runtime_evidence.py",
-    "apps/tai/tests/test_cpu_runtime_evidence_cli.py"
+    "apps/tai/tests/test_cpu_runtime_evidence_cli.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py"
   ],
   "acceptance": [
     "raw CPU runtime evidence is contractually separated from semantic quality scoring",
@@ -30,6 +32,7 @@
     "all 58 cases across RU, EN and ZH require exact raw observation coverage without placing prompts or responses in GitHub evidence",
     "original and independently restored external evidence roots must match every declared digest",
     "the verifier is split into strict typed contract, bundle, profile, resilience, semantic, file and observation modules without ignored type errors",
+    "public immutable model revisions use only exact fingerprint-bound Gitleaks exceptions covered by release-authority tests",
     "verified runtime evidence remains pending governed quality scoring and cannot create model admission",
     "production_operational_status remains NOT_ATTESTED"
   ],
@@ -37,6 +40,7 @@
     "model weights, GGUF files, raw prompts, raw responses, logs, archives or credentials in Git",
     "LLM-as-judge or fabricated platform/agro accuracy",
     "mypy ignore-errors, broad type suppression or unchecked dynamic evidence parsing",
+    "broad secret-scanner suppression or unbound Gitleaks exceptions",
     "accepting pending, stale, simulated, incomplete or same-root evidence",
     "GPU benchmark, joint model admission, activation, deployment or production attestation",
     "execution on the production web, API or PostgreSQL host"
