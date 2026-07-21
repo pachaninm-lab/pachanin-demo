@@ -6,113 +6,143 @@ on:
       - agent/tai-security-audit-remediation-3006
     paths:
       - '.github/workflows/tai-security-audit-remediation-3007.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/tai-security-audit-remediation-3007.yml'
 
 permissions:
   actions: read
-  contents: read
+  contents: write
   issues: write
 
 concurrency:
-  group: tai-security-audit-remediation-3007-${{ github.event.pull_request.number || github.ref }}
+  group: tai-security-audit-remediation-3007
   cancel-in-progress: false
 
 jobs:
-  extract:
+  remediate:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/agent/tai-security-audit-remediation-3006'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 40
     env:
-      GH_TOKEN: ${{ github.token }}
-      REPOSITORY: ${{ github.repository }}
-      ARTIFACT_ID: '8512555577'
-      EXPECTED_HEAD: b775d44b7ee1e506e9474fc239b48a94e23ab59f
+      NODE_VERSION: '24'
+      PNPM_VERSION: '10.2.1'
+      SECURITY_ARTIFACT_DIR: artifacts/security-remediation-3007
+      FIXED_SHARP_VERSION: '0.35.3'
     steps:
-      - name: Download exact audit artifact
+      - name: Checkout exact remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/tai-security-audit-remediation-3006
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup repository pnpm pin
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Apply minimal compatible sharp override
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p audit/extracted
-          curl --fail --silent --show-error --location \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "https://api.github.com/repos/$REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
-            --output audit/artifact.zip
-          unzip -q audit/artifact.zip -d audit/extracted
-          evaluation_path="$(find audit/extracted -type f -name pnpm-audit-evaluation.json -print -quit)"
-          raw_path="$(find audit/extracted -type f -name pnpm-audit.json -print -quit)"
-          test -n "$evaluation_path" && test -s "$evaluation_path"
-          test -n "$raw_path" && test -s "$raw_path"
-          printf '%s\n' "$evaluation_path" > audit/evaluation-path.txt
-          printf '%s\n' "$raw_path" > audit/raw-path.txt
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'package.json';
+          const value = JSON.parse(fs.readFileSync(path, 'utf8'));
+          value.pnpm ??= {};
+          value.pnpm.overrides ??= {};
+          value.pnpm.overrides.sharp = '0.35.3';
+          fs.writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+          NODE
+          test "$(node -p "require('./package.json').pnpm.overrides.sharp")" = "$FIXED_SHARP_VERSION"
 
-      - name: Build bounded blocker report
+      - name: Regenerate exact lockfile and install frozen dependencies
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
+          pnpm install --lockfile-only
+          pnpm install --frozen-lockfile
+          git diff --check
 
-          evaluation_path = Path('audit/evaluation-path.txt').read_text(encoding='utf-8').strip()
-          raw_path = Path('audit/raw-path.txt').read_text(encoding='utf-8').strip()
-          evaluation = json.loads(Path(evaluation_path).read_text(encoding='utf-8'))
-          raw = json.loads(Path(raw_path).read_text(encoding='utf-8'))
-
-          blocked = evaluation.get('blocked')
-          if blocked is None:
-              blocked = evaluation.get('blocking_findings')
-          if blocked is None:
-              blocked = evaluation.get('findings')
-          if not isinstance(blocked, list) or not blocked:
-              raise SystemExit('non-empty blocked findings list is absent')
-
-          report = {
-              'schema_version': 'tai.security-audit-remediation.3007.v1',
-              'artifact_id': 8512555577,
-              'expected_head': 'b775d44b7ee1e506e9474fc239b48a94e23ab59f',
-              'evaluation_status': evaluation.get('status'),
-              'accepted': evaluation.get('accepted'),
-              'blocked_count': len(blocked),
-              'blocked': blocked,
-              'raw_metadata': raw.get('metadata', {}),
+      - name: Verify patched production dependency tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$SECURITY_ARTIFACT_DIR"
+          pnpm -r list --prod --json --depth Infinity \
+            > "$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const tree = JSON.parse(fs.readFileSync(process.env.SECURITY_ARTIFACT_DIR + '/pnpm-production-dependencies.json', 'utf8'));
+          const versions = new Set();
+          const visit = (value) => {
+            if (!value || typeof value !== 'object') return;
+            if (value.name === 'sharp' && typeof value.version === 'string') versions.add(value.version);
+            if (Array.isArray(value)) for (const item of value) visit(item);
+            else for (const item of Object.values(value)) visit(item);
+          };
+          visit(tree);
+          if (versions.size === 0) throw new Error('sharp is absent from the production dependency inventory');
+          if ([...versions].some((version) => version !== '0.35.3')) {
+            throw new Error(`unexpected sharp versions: ${[...versions].sort().join(', ')}`);
           }
-          Path('audit/blocker-report.json').write_text(
-              json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
-              encoding='utf-8',
-          )
+          console.log(`Verified sharp versions: ${[...versions].join(', ')}`);
+          NODE
 
-          compact = json.dumps(blocked, ensure_ascii=False, indent=2, sort_keys=True)
-          if len(compact) > 50000:
-              raise SystemExit('blocked findings exceed bounded issue-comment size')
-          body = (
-              '## Exact production dependency blocker extracted\n\n'
-              f'- artifact id: `8512555577`;\n'
-              f'- exact rollout head: `b775d44b7ee1e506e9474fc239b48a94e23ab59f`;\n'
-              f'- blocked findings: `{len(blocked)}`;\n'
-              '- source: `pnpm-audit-evaluation.json`;\n\n'
-              '```json\n' + compact + '\n```\n'
-          )
-          Path('audit/issue-comment.md').write_text(body, encoding='utf-8')
-          PY
-
-      - name: Publish exact blocker to issue 3007
+      - name: Reproduce exact production dependency audit
         shell: bash
         run: |
           set -euo pipefail
-          gh api --method POST \
-            "repos/$REPOSITORY/issues/3007/comments" \
-            -f body="$(cat audit/issue-comment.md)"
+          NPM_BULK_AUDIT_INPUT="$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json" \
+          PNPM_AUDIT_JSON="$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
+          NPM_REGISTRY_URL="https://registry.npmjs.org" \
+          node docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs \
+            > "$SECURITY_ARTIFACT_DIR/pnpm-audit.stdout.txt" \
+            2> "$SECURITY_ARTIFACT_DIR/pnpm-audit.stderr.txt"
+          SECURITY_EXACT_HEAD="$GITHUB_SHA" \
+          PNPM_AUDIT_JSON="$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
+          PNPM_AUDIT_REPORT="$SECURITY_ARTIFACT_DIR/pnpm-audit-evaluation.json" \
+          node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(process.env.SECURITY_ARTIFACT_DIR + '/pnpm-audit-evaluation.json', 'utf8'));
+          const blocked = report.blocked ?? report.blocking_findings ?? [];
+          if (!Array.isArray(blocked) || blocked.length !== 0) {
+            throw new Error(`dependency audit still blocked: ${JSON.stringify(blocked)}`);
+          }
+          NODE
 
-      - name: Upload bounded remediation evidence
+      - name: Run strict typechecks and production web build
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api typecheck
+          pnpm --filter @pc/web typecheck
+          pnpm --filter @pc/web build
+
+      - name: Remove temporary remediation authority and commit exact fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/tai-security-audit-remediation-3007.yml
+          git add package.json pnpm-lock.yaml .github/workflows/tai-security-audit-remediation-3007.yml
+          git diff --cached --check
+          git diff --cached --quiet && { echo 'No remediation changes to commit.' >&2; exit 1; }
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git commit -m 'fix(security): upgrade sharp beyond GHSA-f88m-g3jw-g9cj'
+          git push origin HEAD:agent/tai-security-audit-remediation-3006
+
+      - name: Upload pre-commit remediation evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tai-security-audit-remediation-3007-${{ github.sha }}
-          path: audit/blocker-report.json
-          if-no-files-found: error
+          path: ${{ env.SECURITY_ARTIFACT_DIR }}
+          if-no-files-found: warn
           retention-days: 30
           compression-level: 0
