@@ -102,7 +102,7 @@ function testMaterializationIsBoundedAndTemplatesAreBlank() {
       manifest.schema_version,
       'tai.expert-review-packet-manifest.v1',
     );
-    assert.equal(manifest.files.length, 6);
+    assert.equal(manifest.files.length, 10);
     assert.equal(manifest.packet_sha256, value.packet_sha256);
     assert.match(manifest.manifest_sha256, /^[0-9a-f]{64}$/);
     for (const file of manifest.files) {
@@ -132,6 +132,28 @@ function testMaterializationIsBoundedAndTemplatesAreBlank() {
       'version',
     ]);
     assert.deepEqual(submission.reviews, []);
+
+    const intake = json(
+      resolve(directory, 'intake-submission-platform-primary.v1.json'),
+    );
+    assert.deepEqual(Object.keys(intake).sort(), [
+      'corpus_sha256',
+      'exact_main_sha',
+      'packet_sha256',
+      'reviews',
+      'schema_version',
+      'submitted_at',
+      'submitter_id',
+      'track_id',
+    ]);
+    assert.equal(intake.schema_version, 'tai.expert-review-submission.v1');
+    assert.equal(intake.exact_main_sha, value.exact_main_sha);
+    assert.equal(intake.corpus_sha256, value.corpus_sha256);
+    assert.equal(intake.packet_sha256, value.packet_sha256);
+    assert.equal(intake.track_id, 'platform-primary');
+    assert.equal(intake.submitter_id, null);
+    assert.equal(intake.submitted_at, null);
+    assert.deepEqual(intake.reviews, []);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
