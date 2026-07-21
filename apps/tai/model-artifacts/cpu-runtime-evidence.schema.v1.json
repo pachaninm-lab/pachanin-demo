@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.cpu-runtime-evidence.v1.json",
+  "title": "TAI raw CPU runtime evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle",
+    "pending_reason",
+    "exact_main",
+    "readiness",
+    "bundle_finalization",
+    "corpus",
+    "runtime_profiles",
+    "fallback_exercise",
+    "soak",
+    "raw_observations",
+    "evidence_files",
+    "storage",
+    "measured_at",
+    "quality_scoring_status",
+    "benchmark_status",
+    "model_admission_status",
+    "production_operational_status"
+  ],
+  "properties": {
+    "schema_version": {"const": "tai.cpu-runtime-evidence.v1"},
+    "lifecycle": {"enum": ["PENDING_RUNTIME_EXECUTION", "COMPLETE"]},
+    "pending_reason": {"type": ["string", "null"]},
+    "exact_main": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "readiness": {"type": ["object", "null"]},
+    "bundle_finalization": {"type": ["object", "null"]},
+    "corpus": {"type": ["object", "null"]},
+    "runtime_profiles": {"type": "array", "maxItems": 2},
+    "fallback_exercise": {"type": ["object", "null"]},
+    "soak": {"type": ["object", "null"]},
+    "raw_observations": {"type": ["object", "null"]},
+    "evidence_files": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "storage": {"type": ["object", "null"]},
+    "measured_at": {"type": ["string", "null"], "format": "date-time"},
+    "quality_scoring_status": {"const": "PENDING_QUALITY_SCORING"},
+    "benchmark_status": {"const": "PENDING_BENCHMARK"},
+    "model_admission_status": {"const": "PENDING_ADMISSION"},
+    "production_operational_status": {"const": "NOT_ATTESTED"}
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "maxLength": 400},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
