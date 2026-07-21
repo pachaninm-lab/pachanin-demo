@@ -1,0 +1,68 @@
+name: TAI AP-13B.3d Runtime Closure Fix
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13b3d-governed-conversion
+    paths:
+      - .github/workflows/tai-ap13b3d-runtime-closure-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13b3d-governed-conversion
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Patch accepted converter runtime closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          driver_path = Path('apps/tai/model-artifacts/model-conversion-driver.v1.sh')
+          driver = driver_path.read_text(encoding='utf-8')
+          old = '    PATH="$VENV/bin:$PATH" timeout --signal=TERM --kill-after=120 21600 "$@"'
+          new = (
+              '    PYTHONPATH="$LLAMA_ROOT/source/llama.cpp:'
+              '$LLAMA_ROOT/source/llama.cpp/gguf-py" '
+              'PATH="$VENV/bin:$PATH" timeout --signal=TERM --kill-after=120 21600 "$@"'
+          )
+          if old not in driver:
+              raise SystemExit('DRIVER_RUNTIME_LINE_NOT_FOUND')
+          if driver.count(old) != 1:
+              raise SystemExit('DRIVER_RUNTIME_LINE_CARDINALITY_INVALID')
+          driver = driver.replace(old, new)
+          driver_path.write_text(driver, encoding='utf-8')
+
+          test_path = Path('apps/tai/tests/test_model_conversion_workflow.py')
+          test = test_path.read_text(encoding='utf-8')
+          marker = '    assert "quantizations" in driver\n'
+          addition = (
+              marker
+              + '    assert "$LLAMA_ROOT/source/llama.cpp" in driver\n'
+              + '    assert "$LLAMA_ROOT/source/llama.cpp/gguf-py" in driver\n'
+          )
+          if marker not in test:
+              raise SystemExit('TEST_INSERTION_POINT_NOT_FOUND')
+          if '$LLAMA_ROOT/source/llama.cpp/gguf-py' not in test:
+              test = test.replace(marker, addition, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+          rm .github/workflows/tai-ap13b3d-runtime-closure-fix.yml
+          bash -n apps/tai/model-artifacts/model-conversion-driver.v1.sh
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/tai/model-artifacts/model-conversion-driver.v1.sh apps/tai/tests/test_model_conversion_workflow.py .github/workflows/tai-ap13b3d-runtime-closure-fix.yml
+          git commit -m 'fix(tai): bind converter runtime module closure'
+          git push origin HEAD:agent/tai-ap-13b3d-governed-conversion
