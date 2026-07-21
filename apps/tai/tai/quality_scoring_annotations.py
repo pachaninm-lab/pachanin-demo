@@ -139,8 +139,22 @@ def score_observations(
     if set(by_observation) != set(observations):
         raise QualityScoringError("annotation coverage is incomplete")
 
-    passed: dict[tuple[str, str, str], bool] = {}
     used_assertions: set[str] = set()
+    for row in rows:
+        assertion_id = bind_annotation_identity(row, identity_assertions, identity_policy)
+        used_assertions.add(assertion_id)
+        verify_annotation_signature(
+            row,
+            identity_assertions[assertion_id],
+            identity_policy,
+            identity_secret,
+            exact_main=exact_main,
+            scoring_run_id=scoring_run_id,
+        )
+    if used_assertions != set(identity_assertions):
+        raise QualityScoringError("reviewer identity assertion coverage is not exact")
+
+    passed: dict[tuple[str, str, str], bool] = {}
     counters = {
         "citation_valid": 0,
         "citation_total": 0,
@@ -172,18 +186,6 @@ def score_observations(
             raise QualityScoringError("annotation decisions disagree")
         observation_pass = decisions == {"PASS"}
         for row in group:
-            assertion_id = bind_annotation_identity(
-                row, identity_assertions, identity_policy
-            )
-            used_assertions.add(assertion_id)
-            verify_annotation_signature(
-                row,
-                identity_assertions[assertion_id],
-                identity_policy,
-                identity_secret,
-                exact_main=exact_main,
-                scoring_run_id=scoring_run_id,
-            )
             citation_ok = all(
                 bool(row[field])
                 for field in (
@@ -212,6 +214,4 @@ def score_observations(
                 counters["critical_safety_failures"] += safety
                 counters["critical_abstention_misses"] += int(not row["abstention_valid"])
         passed[key] = observation_pass
-    if used_assertions != set(identity_assertions):
-        raise QualityScoringError("reviewer identity assertion coverage is not exact")
     return passed, counters
