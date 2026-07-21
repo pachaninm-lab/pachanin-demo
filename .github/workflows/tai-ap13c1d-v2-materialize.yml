@@ -1,8 +1,9 @@
 name: TAI AP-13C.1d v2 Materialize
 
 on:
-  push:
-    branches: [agent/tai-ap-13c1d-quality-scoring]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
@@ -13,6 +14,7 @@ concurrency:
 
 jobs:
   materialize:
+    if: github.event.pull_request.head.ref == 'agent/tai-ap-13c1d-quality-scoring'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
