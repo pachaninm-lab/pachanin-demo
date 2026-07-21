@@ -1,0 +1,29 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "fix/tai-model-bundle-nonselfref-v2",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2944,
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3e-model-bundle-nonselfref-2944.json",
+    "apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md",
+    "apps/tai/tai/model_bundle_storage.py",
+    "apps/tai/tai/model_bundle_storage_cli.py",
+    "apps/tai/tests/test_model_bundle_storage_contract.py"
+  ],
+  "forbidden_capabilities": [
+    "model download, conversion, quantization or deployment execution",
+    "model weights, GGUF, archives or binaries committed to Git",
+    "benchmark, model admission or production-readiness claim",
+    "copytree or copied-original evidence accepted as independent restore",
+    "production credentials or production-host fallback"
+  ],
+  "acceptance": [
+    "payload archive contains only payload files and cannot reference itself",
+    "payload index is semantic and exactly bound to original, archive and restored payloads",
+    "storage archive and upload/restore records remain bounded sidecar evidence",
+    "archive traversal, links, duplicates, extra files, hash mismatch and copytree restore fail closed",
+    "legacy v2 semantic verifier remains required through a compatibility verification view",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}
