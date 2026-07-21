@@ -31,8 +31,14 @@ export type CommodityProfileAtomicWrite = {
 };
 
 export interface CommodityProfileTransactionPort {
-  findReplay(idempotencyKey: string): Promise<CommodityProfileCommandReceipt | null>;
-  loadSnapshot(command: CommodityProfileCommand): Promise<CommodityProfileCommandSnapshot>;
+  findReplay(
+    actor: RequestUser,
+    command: CommodityProfileCommand,
+  ): Promise<CommodityProfileCommandReceipt | null>;
+  loadSnapshot(
+    actor: RequestUser,
+    command: CommodityProfileCommand,
+  ): Promise<CommodityProfileCommandSnapshot>;
   commitAtomic(write: CommodityProfileAtomicWrite): Promise<CommodityProfileCommandReceipt>;
 }
 
@@ -58,13 +64,13 @@ export class CommodityProfileTransactionCommandService {
     validateCommodityProfileCommand(command);
     const requestFingerprint = commodityProfileCommandFingerprint(command);
 
-    const replay = await this.port.findReplay(command.idempotencyKey);
+    const replay = await this.port.findReplay(user, command);
     if (replay) {
       assertIdempotentReplay(replay.requestFingerprint, command);
       return { ...replay, replayed: true };
     }
 
-    const snapshot = await this.port.loadSnapshot(command);
+    const snapshot = await this.port.loadSnapshot(user, command);
     if (snapshot.profileId !== command.profileId) {
       throw new ConflictException({ code: 'COMMODITY_PROFILE_IDENTITY_CONFLICT' });
     }
