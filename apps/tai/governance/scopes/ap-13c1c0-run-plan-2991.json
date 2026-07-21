@@ -1,0 +1,39 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "runner_issue": 2990,
+  "issue": 2991,
+  "branch": "agent/tai-ap-13c1c0-run-plan-authority",
+  "allowed_paths": [
+    ".github/workflows/tai-cpu-benchmark-run-plan-authority.yml",
+    "apps/tai/governance/scopes/ap-13c1c0-run-plan-2991.json",
+    "apps/tai/model-artifacts/cpu-benchmark-run-plan-authority.v1.json",
+    "apps/tai/model-artifacts/cpu-benchmark-run-plan.schema.v1.json",
+    "apps/tai/model-artifacts/cpu-benchmark-run-plan.pending.json",
+    "apps/tai/model-artifacts/cpu-benchmark-run-plan-runbook.v1.md",
+    "apps/tai/tai/cpu_benchmark_run_plan.py",
+    "apps/tai/tai/cpu_benchmark_run_plan_cli.py",
+    "apps/tai/tests/cpu_benchmark_run_plan_fixtures.py",
+    "apps/tai/tests/test_cpu_benchmark_run_plan.py",
+    "apps/tai/tests/test_cpu_benchmark_run_plan_cli.py",
+    "apps/tai/tests/test_cpu_benchmark_run_plan_workflow.py",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "authoritative approvedConcurrentScopes registration precedes implementation changes",
+    "the compiler validates exact-main readiness before any protected-input access",
+    "accepted AP-14C, immutable bundle finalization, exact object VersionIds, model authority and toolchain digests are mutually bound",
+    "the generated plan is bounded metadata only and deterministic",
+    "duplicate keys, unknown fields, mutable locators, stale or simulated evidence, traversal, root aliasing and cross-model evidence fail closed",
+    "owner-only issue-comment preflight performs no SSH, S3 mutation, model execution or benchmark",
+    "Ruff, strict mypy, full TAI pytest, coverage and repository gates pass",
+    "benchmark, admission and production status remain pending"
+  ],
+  "forbidden_capabilities": [
+    "workflow_dispatch, schedule or push execution trigger for protected execution",
+    "SSH, S3 read or mutation, remote execution or model inference in this slice",
+    "raw prompts, raw responses, model files, GGUF, archives, credentials or storage payloads in Git",
+    "benchmark success, GPU claim, model admission, activation, deployment or production attestation"
+  ]
+}
