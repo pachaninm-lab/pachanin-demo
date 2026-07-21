@@ -33,7 +33,6 @@ jobs:
       MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
       MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
       MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
-      MODEL_SSH_PASSWORD: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
 
     steps:
       - name: Checkout exact main authority
