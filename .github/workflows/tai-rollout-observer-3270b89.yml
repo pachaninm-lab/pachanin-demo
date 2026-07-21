@@ -20,7 +20,7 @@ jobs:
       REPOSITORY: ${{ github.repository }}
       FAILED_JOB_ID: '88791582410'
     steps:
-      - name: Print exact sanitized SSH preflight failure
+      - name: Print terminal sanitized SSH preflight failure
         shell: bash
         run: |
           set -euo pipefail
@@ -35,7 +35,5 @@ jobs:
             -e '/BEGIN OPENSSH PRIVATE KEY/,/END OPENSSH PRIVATE KEY/c\[REDACTED_PRIVATE_KEY]' \
             -e 's/[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+/[REDACTED_SSH_IDENTITY]/g' \
             job.log > sanitized.log
-          echo '=== SSH PREFLIGHT DIAGNOSTICS ==='
-          grep -nEi -C 4 \
-            'resolve and prove|ssh|dns|private key|key-only|fingerprint|known_hosts|permission|invalid|error|failed|mismatch|timeout|not configured|exit code' \
-            sanitized.log | tail -220
+          echo '=== TERMINAL SSH PREFLIGHT LOG ==='
+          tail -90 sanitized.log
