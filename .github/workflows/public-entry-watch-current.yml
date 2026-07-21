@@ -1,0 +1,39 @@
+name: public entry watch current
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/scripts/public-entry-watch-current.mjs'
+      - '.github/workflows/public-entry-watch-current.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run production public-entry watch
+        working-directory: apps/web
+        run: node scripts/public-entry-watch-current.mjs
+      - name: Upload watch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-current
+          path: artifacts/public-entry-watch
+          if-no-files-found: error
+          retention-days: 7
