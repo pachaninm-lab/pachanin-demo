@@ -6,6 +6,7 @@ import {
   CommodityProfileAction,
   decideCommodityProfileAction,
   deriveCommodityProfileActions,
+  deriveCommodityProfilePrimaryAction,
   type CommodityProfileClassification,
   type CommodityProfileLifecycle,
 } from './commodity-profile.policy';
@@ -62,6 +63,7 @@ export type CommodityProfileReadModel = {
     content: Prisma.JsonValue;
   };
   actions: ReturnType<typeof deriveCommodityProfileActions>;
+  primaryAction: ReturnType<typeof deriveCommodityProfilePrimaryAction>;
 };
 
 export type CommodityProfileListResult = {
@@ -243,6 +245,13 @@ export class CommodityProfileRepository {
   }
 
   private map(row: ProfileRow, user: RequestUser, hasJitAuthority: boolean): CommodityProfileReadModel {
+    const actions = row.lifecycle
+      ? deriveCommodityProfileActions(user, row.lifecycle, row.classification, hasJitAuthority)
+      : [];
+    const primaryAction = row.lifecycle
+      ? deriveCommodityProfilePrimaryAction(user, row.lifecycle, row.classification, hasJitAuthority)
+      : null;
+
     return {
       id: row.id,
       canonicalCode: row.canonicalCode,
@@ -265,9 +274,8 @@ export class CommodityProfileRepository {
             content: row.content,
           }
         : null,
-      actions: row.lifecycle
-        ? deriveCommodityProfileActions(user, row.lifecycle, row.classification, hasJitAuthority)
-        : [],
+      actions,
+      primaryAction,
     };
   }
 
