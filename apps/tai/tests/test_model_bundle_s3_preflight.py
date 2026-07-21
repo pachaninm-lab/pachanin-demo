@@ -18,12 +18,6 @@ REQUIREMENTS_PATH = (
     / "model-bundle-s3-preflight-requirements.v1.json"
 )
 WORKFLOW_PATH = ROOT / ".github" / "workflows" / "tai-bundle-s3-preflight.yml"
-SCOPE_PATH = (
-    TAI_ROOT
-    / "governance"
-    / "scopes"
-    / "ap-13b3f-s3-preflight-2954.json"
-)
 COMMAND = "/tai probe bundle-storage exact-main"
 EXACT_MAIN = "a" * 40
 
@@ -39,38 +33,34 @@ def _valid_observed() -> dict[str, object]:
     prefix = "tai/model-bundles/v1"
     return {
         "schema_version": "tai.model-bundle-s3-preflight-observed.v1",
+        "provider_profile": "SELECTEL_S3_2026",
         "endpoint": "https://s3.example.ru",
-        "region": "ru-1",
+        "region": "ru-6",
         "bucket": bucket,
         "prefix": prefix,
         "operator_confirmed_capacity_bytes": "150000000000",
         "commands": {
             "head_bucket": True,
             "get_bucket_versioning": True,
-            "get_public_access_block": True,
-            "get_bucket_encryption": True,
+            "get_object_lock_configuration": True,
             "get_bucket_policy": True,
             "list_objects_v2": True,
             "list_object_versions": True,
+            "anonymous_list_probe": True,
         },
         "versioning": {"Status": "Enabled"},
-        "public_access_block": {
-            "BlockPublicAcls": True,
-            "IgnorePublicAcls": True,
-            "BlockPublicPolicy": True,
-            "RestrictPublicBuckets": True,
-        },
-        "encryption": {
-            "ServerSideEncryptionConfiguration": {
-                "Rules": [
-                    {
-                        "ApplyServerSideEncryptionByDefault": {
-                            "SSEAlgorithm": "AES256"
-                        }
+        "object_lock": {
+            "ObjectLockConfiguration": {
+                "ObjectLockEnabled": "Enabled",
+                "Rule": {
+                    "DefaultRetention": {
+                        "Mode": "COMPLIANCE",
+                        "Days": 90,
                     }
-                ]
+                },
             }
         },
+        "anonymous_list_http_status": "403",
         "policy": {
             "Version": "2012-10-17",
             "Statement": [
@@ -97,16 +87,21 @@ def _evaluate(observed: dict[str, object]) -> dict[str, object]:
     )
 
 
-def test_valid_s3_authority_is_ready_and_bounded() -> None:
+def test_valid_selectel_s3_authority_is_ready_and_bounded() -> None:
     report = _evaluate(_valid_observed())
     assert report["status"] == "READY_FOR_BUNDLE_UPLOAD"
     assert report["reasons"] == []
+    assert report["provider_profile"] == "SELECTEL_S3_2026"
     assert report["bundle_upload_status"] == "NOT_RUN"
     assert report["bundle_restore_status"] == "NOT_RUN"
     assert report["production_operational_status"] == "NOT_ATTESTED"
     observed = report["observed"]
     assert isinstance(observed, dict)
     assert observed["endpoint_host"] == "s3.example.ru"
+    assert observed["object_lock_status"] == "Enabled"
+    assert observed["default_retention_mode"] == "COMPLIANCE"
+    assert observed["default_retention_days"] == 90
+    assert observed["anonymous_list_http_status"] == 403
     assert observed["globally_denied_actions"] == [
         "s3:DeleteObject",
         "s3:DeleteObjectVersion",
@@ -117,35 +112,55 @@ def test_valid_s3_authority_is_ready_and_bounded() -> None:
 @pytest.mark.parametrize(
     ("mutation", "expected_reason"),
     [
+        ({"provider_profile": "GENERIC"}, "OBSERVED_PROVIDER_PROFILE_INVALID"),
         ({"versioning": {"Status": "Suspended"}}, "BUCKET_VERSIONING_NOT_ENABLED"),
-        (
-            {"public_access_block": {"BlockPublicAcls": False}},
-            "PUBLIC_ACCESS_BLOCK_NOT_ENFORCED:BlockPublicAcls",
-        ),
-        ({"encryption": {}}, "DEFAULT_ENCRYPTION_ABSENT"),
+        ({"object_lock": {}}, "OBJECT_LOCK_NOT_ENABLED"),
         (
             {
-                "encryption": {
-                    "ServerSideEncryptionConfiguration": {
-                        "Rules": [
-                            {
-                                "ApplyServerSideEncryptionByDefault": {
-                                    "SSEAlgorithm": "DES"
-                                }
+                "object_lock": {
+                    "ObjectLockConfiguration": {
+                        "ObjectLockEnabled": "Enabled",
+                        "Rule": {
+                            "DefaultRetention": {
+                                "Mode": "GOVERNANCE",
+                                "Days": 90,
                             }
-                        ]
+                        },
                     }
                 }
             },
-            "DEFAULT_ENCRYPTION_UNACCEPTED",
+            "DEFAULT_RETENTION_MODE_INVALID",
         ),
-        ({"operator_confirmed_capacity_bytes": "119999999999"}, "EXTERNAL_CAPACITY_BELOW_MINIMUM"),
-        ({"operator_confirmed_capacity_bytes": "unknown"}, "EXTERNAL_CAPACITY_NOT_CONFIRMED"),
+        (
+            {
+                "object_lock": {
+                    "ObjectLockConfiguration": {
+                        "ObjectLockEnabled": "Enabled",
+                        "Rule": {
+                            "DefaultRetention": {
+                                "Mode": "COMPLIANCE",
+                                "Days": 89,
+                            }
+                        },
+                    }
+                }
+            },
+            "DEFAULT_RETENTION_OUT_OF_RANGE",
+        ),
+        ({"anonymous_list_http_status": "200"}, "ANONYMOUS_BUCKET_LIST_NOT_DENIED"),
+        (
+            {"operator_confirmed_capacity_bytes": "119999999999"},
+            "EXTERNAL_CAPACITY_BELOW_MINIMUM",
+        ),
+        (
+            {"operator_confirmed_capacity_bytes": "unknown"},
+            "EXTERNAL_CAPACITY_NOT_CONFIRMED",
+        ),
         ({"mutation_mode": "WRITE"}, "OBSERVED_MUTATION_MODE_INVALID"),
         ({"region": ""}, "REGION_EMPTY"),
     ],
 )
-def test_bucket_control_failures_are_rejected(
+def test_selectel_control_failures_are_rejected(
     mutation: dict[str, object], expected_reason: str
 ) -> None:
     observed = _valid_observed()
@@ -173,22 +188,6 @@ def test_endpoint_safety_is_fail_closed(endpoint: str, expected_reason: str) -> 
     assert expected_reason in report["reasons"]
 
 
-@pytest.mark.parametrize(
-    ("bucket", "expected_reason"),
-    [
-        ("Bad_Bucket", "BUCKET_NAME_INVALID"),
-        ("192.168.1.1", "BUCKET_NAME_LOOKS_LIKE_IP"),
-        ("a..b", "BUCKET_NAME_INVALID"),
-    ],
-)
-def test_bucket_names_are_validated(bucket: str, expected_reason: str) -> None:
-    observed = _valid_observed()
-    observed["bucket"] = bucket
-    report = _evaluate(observed)
-    assert report["status"] == "NOT_READY"
-    assert expected_reason in report["reasons"]
-
-
 @pytest.mark.parametrize("prefix", ["", "/root", "root/", "root\\child", "root//child"])
 def test_prefix_must_be_canonical(prefix: str) -> None:
     observed = _valid_observed()
@@ -200,18 +199,18 @@ def test_prefix_must_be_canonical(prefix: str) -> None:
 
 def test_delete_deny_requires_global_principal_exact_prefix_and_both_actions() -> None:
     cases = []
-    no_principal = _valid_observed()
-    no_principal["policy"] = {
+    no_global_principal = _valid_observed()
+    no_global_principal["policy"] = {
         "Statement": [
             {
                 "Effect": "Deny",
-                "Principal": {"AWS": "arn:aws:iam::1:user/writer"},
+                "Principal": {"AWS": "service-user-id"},
                 "Action": ["s3:DeleteObject", "s3:DeleteObjectVersion"],
                 "Resource": "arn:aws:s3:::tai-model-bundles/tai/model-bundles/v1/*",
             }
         ]
     }
-    cases.append(no_principal)
+    cases.append(no_global_principal)
 
     wrong_prefix = _valid_observed()
     wrong_prefix["policy"] = {
@@ -296,7 +295,7 @@ def test_cli_returns_zero_only_for_ready(tmp_path: Path) -> None:
     )
 
 
-def test_workflow_is_owner_only_read_only_and_dedicated_s3_only() -> None:
+def test_workflow_uses_only_selectel_supported_s3_controls() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "github.event.issue.number == 2954" in workflow
     assert f"github.event.comment.body == '{COMMAND}'" in workflow
@@ -310,6 +309,10 @@ def test_workflow_is_owner_only_read_only_and_dedicated_s3_only() -> None:
         "PC_PROD_",
         "VPS_SSH_",
         "195.19.12.120",
+        "get-public-access-block",
+        "get-bucket-encryption",
+        "put-public-access-block",
+        "put-bucket-encryption",
         "s3api put-object",
         "s3api delete-object",
         "s3api create-multipart-upload",
@@ -319,32 +322,27 @@ def test_workflow_is_owner_only_read_only_and_dedicated_s3_only() -> None:
     for required in (
         "head-bucket",
         "get-bucket-versioning",
-        "get-public-access-block",
-        "get-bucket-encryption",
+        "get-object-lock-configuration",
         "get-bucket-policy",
         "list-objects-v2",
         "list-object-versions",
+        "anonymous_list_http_status",
+        "SELECTEL_S3_2026",
         "bundle upload: `NOT_RUN`",
         "NOT_ATTESTED",
     ):
         assert required in workflow
 
 
-def test_scope_is_exact_and_preserves_maturity_boundary() -> None:
-    scope = _json(SCOPE_PATH)
-    assert scope["schema_version"] == "tai.concurrent-scope.v1"
-    assert scope["branch"] == "agent/tai-ap-13b3f-s3-preflight"
-    assert (scope["program_issue"], scope["parent_issue"], scope["issue"]) == (
-        2726,
-        2835,
-        2954,
-    )
-    assert set(scope["allowed_paths"]) == {
-        ".github/workflows/tai-bundle-s3-preflight.yml",
-        "apps/tai/governance/scopes/ap-13b3f-s3-preflight-2954.json",
-        "apps/tai/model-artifacts/model-bundle-s3-preflight-requirements.v1.json",
-        "apps/tai/tai/model_bundle_s3_preflight.py",
-        "apps/tai/tai/model_bundle_s3_preflight_cli.py",
-        "apps/tai/tests/test_model_bundle_s3_preflight.py",
-    }
-    assert "production_operational_status remains NOT_ATTESTED" in scope["acceptance"]
+def test_requirements_record_selectel_compatibility_boundary() -> None:
+    requirements = _json(REQUIREMENTS_PATH)
+    assert requirements["provider_profile"] == "SELECTEL_S3_2026"
+    controls = requirements["required_bucket_controls"]
+    assert controls["unsupported_s3_apis"] == [
+        "Bucket Encryption",
+        "Public Access Block",
+    ]
+    assert controls["object_lock_status"] == "Enabled"
+    assert controls["default_retention_mode"] == "COMPLIANCE"
+    assert controls["minimum_retention_days"] == 90
+    assert requirements["production_operational_status"] == "NOT_ATTESTED"

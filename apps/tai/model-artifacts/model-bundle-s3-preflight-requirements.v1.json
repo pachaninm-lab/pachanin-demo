@@ -1,10 +1,40 @@
 {
-  "schema_version": "tai.model-bundle-s3-preflight-requirements.v1",
-  "program_issue": 2726,
-  "parent_issue": 2835,
-  "issue": 2954,
   "command": "/tai probe bundle-storage exact-main",
-  "target_role": "EXTERNAL_IMMUTABLE_MODEL_BUNDLE_STORAGE",
+  "issue": 2954,
+  "measured_payload": {
+    "capacity_source": "OPERATOR_CONFIRMED_PROVIDER_QUOTA",
+    "gguf_artifact_bytes": 48995504288,
+    "minimum_external_capacity_bytes": 120000000000,
+    "selected_source_bytes": 30896839600
+  },
+  "mutation_mode": "READ_ONLY",
+  "parent_issue": 2835,
+  "production_fallback_allowed": false,
+  "production_operational_status": "NOT_ATTESTED",
+  "program_issue": 2726,
+  "provider_profile": "SELECTEL_S3_2026",
+  "required_bucket_controls": {
+    "anonymous_list_denied_http_statuses": [
+      401,
+      403
+    ],
+    "default_retention_mode": "COMPLIANCE",
+    "https_endpoint": true,
+    "maximum_retention_days": 365,
+    "minimum_retention_days": 90,
+    "object_lock_status": "Enabled",
+    "policy_scope": "GOVERNED_PREFIX",
+    "private_by_default": true,
+    "required_delete_deny_actions": [
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion"
+    ],
+    "unsupported_s3_apis": [
+      "Bucket Encryption",
+      "Public Access Block"
+    ],
+    "versioning_status": "Enabled"
+  },
   "required_secret_names": [
     "TAI_BUNDLE_S3_ENDPOINT",
     "TAI_BUNDLE_S3_REGION",
@@ -12,34 +42,9 @@
     "TAI_BUNDLE_S3_ACCESS_KEY_ID",
     "TAI_BUNDLE_S3_SECRET_ACCESS_KEY",
     "TAI_BUNDLE_S3_PREFIX",
-    "TAI_BUNDLE_S3_CAPACITY_BYTES"
+    "TAI_BUNDLE_S3_CAPACITY_BYTES",
+    "TAI_BUNDLE_S3_PRINCIPAL_ID"
   ],
-  "required_bucket_controls": {
-    "https_endpoint": true,
-    "versioning_status": "Enabled",
-    "public_access_block": {
-      "BlockPublicAcls": true,
-      "IgnorePublicAcls": true,
-      "BlockPublicPolicy": true,
-      "RestrictPublicBuckets": true
-    },
-    "accepted_default_encryption_algorithms": [
-      "AES256",
-      "aws:kms"
-    ],
-    "required_delete_deny_actions": [
-      "s3:DeleteObject",
-      "s3:DeleteObjectVersion"
-    ],
-    "policy_scope": "GOVERNED_PREFIX"
-  },
-  "measured_payload": {
-    "selected_source_bytes": 30896839600,
-    "gguf_artifact_bytes": 48995504288,
-    "minimum_external_capacity_bytes": 120000000000,
-    "capacity_source": "OPERATOR_CONFIRMED_PROVIDER_QUOTA"
-  },
-  "mutation_mode": "READ_ONLY",
-  "production_fallback_allowed": false,
-  "production_operational_status": "NOT_ATTESTED"
+  "schema_version": "tai.model-bundle-s3-preflight-requirements.v1",
+  "target_role": "EXTERNAL_IMMUTABLE_MODEL_BUNDLE_STORAGE"
 }

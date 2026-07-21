@@ -1,0 +1,36 @@
+{
+  "acceptance": [
+    "Selectel compatibility profile replaces unsupported generic S3 controls",
+    "owner-only exact-main provisioning creates or reuses the dedicated bucket",
+    "versioning and Object Lock COMPLIANCE retention for 90 days are verified",
+    "private-by-default behavior is proven by an anonymous list denial",
+    "the dedicated principal has only declared actions and global delete denial applies to the governed prefix",
+    "a bounded immutable smoke object is restored by exact VersionId and rehashed",
+    "model bundle upload and clean model restore remain NOT_RUN",
+    "production_operational_status remains NOT_ATTESTED"
+  ],
+  "allowed_paths": [
+    ".github/workflows/tai-bundle-s3-preflight.yml",
+    ".github/workflows/tai-selectel-s3-provision.yml",
+    "apps/tai/governance/scopes/ap-13b3g-selectel-s3-provisioning-2958.json",
+    "apps/tai/model-artifacts/model-bundle-s3-preflight-requirements.v1.json",
+    "apps/tai/model-artifacts/selectel-s3-provisioning-authority.v1.json",
+    "apps/tai/model-artifacts/selectel-s3-provisioning-runbook.v1.md",
+    "apps/tai/tai/model_bundle_s3_preflight.py",
+    "apps/tai/tests/test_model_bundle_s3_preflight.py",
+    "apps/tai/tests/test_selectel_s3_provisioning.py"
+  ],
+  "branch": "agent/tai-ap-13b3g-selectel-provisioning",
+  "forbidden_capabilities": [
+    "model source, GGUF or model bundle upload",
+    "clean model-bundle restore or model activation",
+    "production credentials or production-host fallback",
+    "unsupported Selectel Bucket Encryption or Public Access Block API calls",
+    "credential values committed to Git or published in evidence",
+    "benchmark, model admission or production-readiness claim"
+  ],
+  "issue": 2958,
+  "parent_issue": 2954,
+  "program_issue": 2726,
+  "schema_version": "tai.concurrent-scope.v1"
+}

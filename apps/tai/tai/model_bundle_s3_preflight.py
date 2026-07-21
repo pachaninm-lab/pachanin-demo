@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 _REQUIREMENTS_SCHEMA = "tai.model-bundle-s3-preflight-requirements.v1"
 _OBSERVED_SCHEMA = "tai.model-bundle-s3-preflight-observed.v1"
 _REPORT_SCHEMA = "tai.model-bundle-s3-preflight-report.v1"
+_SELECTEL_PROFILE = "SELECTEL_S3_2026"
 _BUCKET_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 
 
@@ -25,6 +26,11 @@ def evaluate_s3_preflight(
     reasons: list[str] = []
     _expect_schema(requirements, _REQUIREMENTS_SCHEMA, "REQUIREMENTS", reasons)
     _expect_schema(observed, _OBSERVED_SCHEMA, "OBSERVED", reasons)
+
+    if requirements.get("provider_profile") != _SELECTEL_PROFILE:
+        reasons.append("PROVIDER_PROFILE_INVALID")
+    if observed.get("provider_profile") != _SELECTEL_PROFILE:
+        reasons.append("OBSERVED_PROVIDER_PROFILE_INVALID")
 
     endpoint = _text(observed.get("endpoint"))
     region = _text(observed.get("region"))
@@ -42,11 +48,11 @@ def evaluate_s3_preflight(
     for command_name in (
         "head_bucket",
         "get_bucket_versioning",
-        "get_public_access_block",
-        "get_bucket_encryption",
+        "get_object_lock_configuration",
         "get_bucket_policy",
         "list_objects_v2",
         "list_object_versions",
+        "anonymous_list_probe",
     ):
         if commands.get(command_name) is not True:
             reasons.append(f"S3_COMMAND_FAILED:{command_name}")
@@ -57,21 +63,34 @@ def evaluate_s3_preflight(
     if _text(versioning.get("Status")) != required_versioning:
         reasons.append("BUCKET_VERSIONING_NOT_ENABLED")
 
-    required_public_access = _mapping(controls.get("public_access_block"))
-    observed_public_access = _mapping(observed.get("public_access_block"))
-    for key, required in required_public_access.items():
-        if required is True and observed_public_access.get(key) is not True:
-            reasons.append(f"PUBLIC_ACCESS_BLOCK_NOT_ENFORCED:{key}")
+    object_lock = _mapping(observed.get("object_lock"))
+    configuration = _mapping(object_lock.get("ObjectLockConfiguration"))
+    if not configuration:
+        configuration = object_lock
+    required_lock = _text(controls.get("object_lock_status"))
+    if _text(configuration.get("ObjectLockEnabled")) != required_lock:
+        reasons.append("OBJECT_LOCK_NOT_ENABLED")
+    retention = _mapping(_mapping(configuration.get("Rule")).get("DefaultRetention"))
+    required_mode = _text(controls.get("default_retention_mode"))
+    if _text(retention.get("Mode")) != required_mode:
+        reasons.append("DEFAULT_RETENTION_MODE_INVALID")
+    retention_days = _retention_days(retention)
+    minimum_retention = _integer(controls.get("minimum_retention_days"))
+    maximum_retention = _integer(controls.get("maximum_retention_days"))
+    if retention_days is None:
+        reasons.append("DEFAULT_RETENTION_MISSING")
+    elif (
+        minimum_retention is None
+        or maximum_retention is None
+        or retention_days < minimum_retention
+        or retention_days > maximum_retention
+    ):
+        reasons.append("DEFAULT_RETENTION_OUT_OF_RANGE")
 
-    accepted_encryption = {
-        value
-        for value in _string_list(controls.get("accepted_default_encryption_algorithms"))
-    }
-    encryption_algorithms = _extract_encryption_algorithms(observed.get("encryption"))
-    if not encryption_algorithms:
-        reasons.append("DEFAULT_ENCRYPTION_ABSENT")
-    elif not encryption_algorithms.issubset(accepted_encryption):
-        reasons.append("DEFAULT_ENCRYPTION_UNACCEPTED")
+    anonymous_status = _integer(observed.get("anonymous_list_http_status"))
+    denied_statuses = set(_integer_list(controls.get("anonymous_list_denied_http_statuses")))
+    if anonymous_status not in denied_statuses:
+        reasons.append("ANONYMOUS_BUCKET_LIST_NOT_DENIED")
 
     policy = _mapping(observed.get("policy"))
     required_delete_actions = set(
@@ -113,6 +132,7 @@ def evaluate_s3_preflight(
         "issue": requirements.get("issue"),
         "command": requirements.get("command"),
         "target_role": requirements.get("target_role"),
+        "provider_profile": _SELECTEL_PROFILE,
         "mutation_mode": "READ_ONLY",
         "authority_sha256": authority_sha256,
         "observed": {
@@ -121,8 +141,10 @@ def evaluate_s3_preflight(
             "bucket": bucket,
             "prefix": prefix,
             "versioning_status": _text(versioning.get("Status")),
-            "public_access_block": observed_public_access,
-            "default_encryption_algorithms": sorted(encryption_algorithms),
+            "object_lock_status": _text(configuration.get("ObjectLockEnabled")),
+            "default_retention_mode": _text(retention.get("Mode")),
+            "default_retention_days": retention_days,
+            "anonymous_list_http_status": anonymous_status,
             "policy_sha256": policy_sha256,
             "globally_denied_actions": sorted(denied_actions),
             "operator_confirmed_capacity_bytes": capacity_bytes,
@@ -135,6 +157,14 @@ def evaluate_s3_preflight(
     }
     report["report_sha256"] = hashlib.sha256(_canonical_json(report).encode()).hexdigest()
     return report
+
+
+def _retention_days(retention: dict[str, Any]) -> int | None:
+    days = _integer(retention.get("Days"))
+    if days is not None:
+        return days
+    years = _integer(retention.get("Years"))
+    return years * 365 if years is not None else None
 
 
 def _validate_endpoint(value: str, reasons: list[str]) -> str:
@@ -184,22 +214,6 @@ def _validate_prefix(value: str, reasons: list[str]) -> None:
         reasons.append("PREFIX_INVALID")
     if path.as_posix() != value:
         reasons.append("PREFIX_NOT_CANONICAL")
-
-
-def _extract_encryption_algorithms(value: object) -> set[str]:
-    payload = _mapping(value)
-    configuration = _mapping(payload.get("ServerSideEncryptionConfiguration"))
-    rules = configuration.get("Rules")
-    if not isinstance(rules, list):
-        return set()
-    result: set[str] = set()
-    for rule in rules:
-        rule_mapping = _mapping(rule)
-        default = _mapping(rule_mapping.get("ApplyServerSideEncryptionByDefault"))
-        algorithm = _text(default.get("SSEAlgorithm"))
-        if algorithm:
-            result.add(algorithm)
-    return result
 
 
 def _globally_denied_actions(policy: dict[str, object], resource: str) -> set[str]:
@@ -260,6 +274,17 @@ def _integer(value: object) -> int | None:
     if isinstance(value, str) and value.isdigit():
         return int(value)
     return None
+
+
+def _integer_list(value: object) -> list[int]:
+    if not isinstance(value, list):
+        return []
+    result: list[int] = []
+    for item in value:
+        parsed = _integer(item)
+        if parsed is not None:
+            result.append(parsed)
+    return result
 
 
 def _string_list(value: object) -> list[str]:
