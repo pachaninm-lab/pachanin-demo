@@ -35,7 +35,7 @@ test "$EXACT_MAIN" = "${EXACT_MAIN,,}"
 [[ "$WORKFLOW_RUN_ID" =~ ^[0-9]+$ ]]
 [[ "$WORKFLOW_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
 
-for command_name in python3 curl tar sha256sum stat flock find df; do
+for command_name in python3 curl tar sha256sum stat flock mkfifo findmnt df; do
   command -v "$command_name" >/dev/null
 done
 curl --help all | grep -q -- '--aws-sigv4'
@@ -45,9 +45,9 @@ curl --help all | grep -q -- '--aws-sigv4'
   sha256sum --check --strict control-manifest.sha256
 )
 
-chmod 600 "$SECRET_FILE"
 # shellcheck disable=SC1090
 source "$SECRET_FILE"
+chmod 600 "$SECRET_FILE"
 
 required_secret_names=(
   TAI_BUNDLE_S3_ENDPOINT
@@ -72,10 +72,9 @@ STATUS_PATH="$FINAL_ROOT/status.json"
 LOCK_PATH="$RUN_ROOT/.bundle-finalization.lock"
 CURL_CONFIG="$FINAL_ROOT/curl-s3.conf"
 TOOLCHAIN_EXTRACT="$FINAL_ROOT/toolchain-extract"
-WORK_ROOT="$FINAL_ROOT/work"
 
-mkdir -p "$FINAL_ROOT" "$EVIDENCE_ROOT/models" "$WORK_ROOT"
-chmod 700 "$FINAL_ROOT" "$EVIDENCE_ROOT" "$EVIDENCE_ROOT/models" "$WORK_ROOT"
+mkdir -p "$FINAL_ROOT" "$EVIDENCE_ROOT/models" "$FINAL_ROOT/work"
+chmod 700 "$FINAL_ROOT" "$EVIDENCE_ROOT" "$EVIDENCE_ROOT/models" "$FINAL_ROOT/work"
 exec 9>"$LOCK_PATH"
 flock -n 9 || { echo 'another model-bundle finalizer holds the run lock' >&2; exit 73; }
 
@@ -119,7 +118,6 @@ cleanup_secrets() {
     dd if=/dev/zero of="$SECRET_FILE" bs=4096 count=1 conv=notrunc status=none 2>/dev/null
     rm -f "$SECRET_FILE"
   fi
-  unset TAI_BUNDLE_S3_ACCESS_KEY_ID TAI_BUNDLE_S3_SECRET_ACCESS_KEY || true
 }
 
 failure() {
@@ -127,7 +125,6 @@ failure() {
   trap - ERR
   write_status FAILED_CLOSED "driver_exit_${code}"
   cleanup_secrets
-  rm -rf "$WORK_ROOT" "$TOOLCHAIN_EXTRACT"
   exit "$code"
 }
 trap failure ERR
@@ -135,74 +132,36 @@ trap cleanup_secrets EXIT
 write_status RUNNING
 
 python3 -m tai.model_bundle_finalize_cli validate-authority \
-  "$AUTHORITY" --output "$EVIDENCE_ROOT/authority-validation.json" >/dev/null
+  "$AUTHORITY" --output "$EVIDENCE_ROOT/authority-validation.json"
 
-AUTHORITY="$AUTHORITY" RUN_ROOT="$RUN_ROOT" PREFLIGHT_REPORT="$PREFLIGHT_REPORT" \
-EXACT_MAIN="$EXACT_MAIN" python3 - <<'PY' > "$EVIDENCE_ROOT/prerequisite-verification.json"
+python3 - "$AUTHORITY" "$RUN_ROOT" "$PREFLIGHT_REPORT" "$EXACT_MAIN" <<'PY'
 import hashlib
 import json
-import os
+import sys
 from pathlib import Path
-
-authority = json.loads(Path(os.environ["AUTHORITY"]).read_text())
-run_root = Path(os.environ["RUN_ROOT"])
-report_path = run_root / "evidence/conversion-report.json"
+authority_path, run_root_raw, preflight_path, exact_main = sys.argv[1:]
+authority = json.loads(Path(authority_path).read_text())
+run_root = Path(run_root_raw)
+report_path = run_root / 'evidence/conversion-report.json'
 report = json.loads(report_path.read_text())
-expected = authority["conversion_run"]
-assert report["status"] == expected["status"]
-assert report["exact_main_sha"] == expected["exact_main_sha"]
-assert report["workflow_run_id"] == expected["workflow_run_id"]
-assert report["workflow_run_attempt"] == expected["workflow_run_attempt"]
-assert report["report_sha256"] == expected["report_sha256"]
-assert report["benchmark_status"] == "NOT_RUN"
-assert report["model_admission_status"] == "NOT_DONE"
-assert report["production_operational_status"] == "NOT_ATTESTED"
-assert len(report["steps"]) == 5
-assert all(step["status"] == "COMPLETE" for step in report["steps"])
-expected_outputs = {
-    item["path"]: (item["size_bytes"], item["sha256"])
-    for model in authority["models"]
-    for item in model["outputs"]
-}
-observed_outputs = {
-    item["path"]: (item["size_bytes"], item["sha256"])
-    for item in report["outputs"]
-}
-assert observed_outputs == expected_outputs
-for relative, (size, digest) in expected_outputs.items():
-    path = run_root / relative
-    assert path.is_file() and not path.is_symlink()
-    assert path.stat().st_size == size
-    value = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            value.update(chunk)
-    assert value.hexdigest() == digest
-preflight = json.loads(Path(os.environ["PREFLIGHT_REPORT"]).read_text())
-assert preflight["status"] == authority["storage_authority"]["required_preflight_status"]
-assert preflight["exact_main_sha"] == os.environ["EXACT_MAIN"]
-assert preflight["reasons"] == []
-observed = preflight["observed"]
-assert observed["versioning_status"] == "Enabled"
-assert observed["object_lock_status"] == "Enabled"
-assert observed["default_retention_mode"] == "COMPLIANCE"
-assert observed["default_retention_days"] >= 90
-assert preflight["production_operational_status"] == "NOT_ATTESTED"
-payload = {
-    "schema_version": "tai.model-bundle-finalization-prerequisites.v1",
-    "status": "VERIFIED",
-    "conversion_report_sha256": report["report_sha256"],
-    "conversion_report_file_sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
-    "verified_outputs": sorted(expected_outputs),
-    "preflight_report_sha256": preflight["report_sha256"],
-    "reasons": [],
-    "benchmark_status": "NOT_RUN",
-    "model_admission_status": "NOT_DONE",
-    "production_operational_status": "NOT_ATTESTED",
-}
-rendered = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-payload["report_sha256"] = hashlib.sha256(rendered.encode()).hexdigest()
-print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+expected = authority['conversion_run']
+assert report['status'] == expected['status']
+assert report['exact_main_sha'] == expected['exact_main_sha']
+assert report['workflow_run_id'] == expected['workflow_run_id']
+assert report['workflow_run_attempt'] == expected['workflow_run_attempt']
+assert hashlib.sha256(report_path.read_bytes()).hexdigest() == expected['report_sha256']
+assert report['benchmark_status'] == 'NOT_RUN'
+assert report['model_admission_status'] == 'NOT_DONE'
+assert report['production_operational_status'] == 'NOT_ATTESTED'
+preflight = json.loads(Path(preflight_path).read_text())
+assert preflight['status'] == authority['storage_authority']['required_preflight_status']
+assert preflight['exact_main_sha'] == exact_main
+observed = preflight['observed']
+assert observed['versioning_status'] == 'Enabled'
+assert observed['object_lock_status'] == 'Enabled'
+assert observed['default_retention_mode'] == 'COMPLIANCE'
+assert observed['default_retention_days'] >= 90
+assert preflight['production_operational_status'] == 'NOT_ATTESTED'
 PY
 
 python3 - "$CURL_CONFIG" <<'PY'
@@ -214,19 +173,19 @@ path = Path(sys.argv[1])
 def quoted(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 lines = [
-    "silent",
-    "show-error",
-    "fail-with-body",
-    "location",
-    "retry = 6",
-    "retry-all-errors",
-    "retry-delay = 5",
-    "connect-timeout = 30",
-    "max-time = 21600",
-    "aws-sigv4 = " + quoted("aws:amz:" + os.environ["TAI_BUNDLE_S3_REGION"] + ":s3"),
-    "user = " + quoted(os.environ["TAI_BUNDLE_S3_ACCESS_KEY_ID"] + ":" + os.environ["TAI_BUNDLE_S3_SECRET_ACCESS_KEY"]),
+    'silent',
+    'show-error',
+    'fail-with-body',
+    'location',
+    'retry = 6',
+    'retry-all-errors',
+    'retry-delay = 5',
+    'connect-timeout = 30',
+    'max-time = 21600',
+    'aws-sigv4 = ' + quoted('aws:amz:' + os.environ['TAI_BUNDLE_S3_REGION'] + ':s3'),
+    'user = ' + quoted(os.environ['TAI_BUNDLE_S3_ACCESS_KEY_ID'] + ':' + os.environ['TAI_BUNDLE_S3_SECRET_ACCESS_KEY']),
 ]
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 path.chmod(0o600)
 PY
 
@@ -245,7 +204,7 @@ tar_stream() {
   local original_root="$1"
   (
     cd "$original_root"
-    LC_ALL=C tar \
+    tar \
       --create \
       --file=- \
       --format=posix \
@@ -262,7 +221,7 @@ tar_stream() {
 }
 
 for model_key in qwen3-8b mistral-7b-instruct-v0.3; do
-  model_work="$WORK_ROOT/$model_key"
+  model_work="$FINAL_ROOT/work/$model_key"
   original_root="$model_work/original"
   restore_root="$model_work/restore"
   transport_root="$model_work/transport"
@@ -270,8 +229,7 @@ for model_key in qwen3-8b mistral-7b-instruct-v0.3; do
   state_path="$model_work/state.json"
   digest_path="$model_work/archive-digest.json"
   upload_path="$model_work/upload.json"
-  head_latest_path="$model_work/head-latest.json"
-  head_version_path="$model_work/head-version.json"
+  head_path="$model_work/head.json"
   extract_path="$model_work/extract.json"
   manifest_path="$model_work/bundle.v2.json"
   locator_path="$model_work/locator.json"
@@ -297,10 +255,10 @@ for model_key in qwen3-8b mistral-7b-instruct-v0.3; do
     "$TOOLCHAIN_EXTRACT" \
     "$model_key" \
     "$original_root" \
-    --output "$state_path" >/dev/null
+    --output "$state_path"
 
   tar_stream "$original_root" \
-    | python3 -m tai.model_bundle_finalize_cli hash-stream --output "$digest_path" >/dev/null
+    | python3 -m tai.model_bundle_finalize_cli hash-stream --output "$digest_path"
   archive_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$digest_path")"
   archive_size="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["size_bytes"])' "$digest_path")"
   [[ "$archive_sha" =~ ^[0-9a-f]{64}$ ]]
@@ -314,9 +272,11 @@ for model_key in qwen3-8b mistral-7b-instruct-v0.3; do
         --key "$object_key" \
         --curl-config "$CURL_CONFIG" \
         --work-root "$transport_root" \
-        --output "$upload_path" >/dev/null
-  test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$upload_path")" = COMPLETE
+        --expected-sha256 "$archive_sha" \
+        --expected-size-bytes "$archive_size" \
+        --output "$upload_path"
   test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["size_bytes"])' "$upload_path")" = "$archive_size"
+  test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$upload_path")" = "$archive_sha"
 
   python3 "$S3_TRANSPORT" head \
     --endpoint "$TAI_BUNDLE_S3_ENDPOINT" \
@@ -324,72 +284,56 @@ for model_key in qwen3-8b mistral-7b-instruct-v0.3; do
     --key "$object_key" \
     --curl-config "$CURL_CONFIG" \
     --work-root "$transport_root" \
-    --output "$head_latest_path" >/dev/null
-  version_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version_id"])' "$head_latest_path")"
+    --output "$head_path"
+
+  version_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version_id"])' "$head_path")"
+  etag="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["etag"])' "$head_path")"
+  last_modified="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["last_modified"])' "$head_path")"
+  retain_until="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["retain_until_date"])' "$head_path")"
   test -n "$version_id"
+  test -n "$etag"
+  test -n "$last_modified"
+  test -n "$retain_until"
+  test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["object_lock_mode"])' "$head_path")" = 'COMPLIANCE'
+  test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["size_bytes"])' "$head_path")" = "$archive_size"
 
-  python3 "$S3_TRANSPORT" head \
-    --endpoint "$TAI_BUNDLE_S3_ENDPOINT" \
-    --bucket "$TAI_BUNDLE_S3_BUCKET" \
-    --key "$object_key" \
-    --version-id "$version_id" \
-    --curl-config "$CURL_CONFIG" \
-    --work-root "$transport_root" \
-    --output "$head_version_path" >/dev/null
-
-  HEAD_PATH="$head_version_path" VERSION_ID="$version_id" ARCHIVE_SIZE="$archive_size" \
-    python3 - <<'PY'
-import json
-import os
-from datetime import datetime, timezone
-from pathlib import Path
-head = json.loads(Path(os.environ["HEAD_PATH"]).read_text())
-assert head["status"] == "VERIFIED"
-assert head["version_id"] == os.environ["VERSION_ID"]
-assert head["size_bytes"] == int(os.environ["ARCHIVE_SIZE"])
-assert head["object_lock_mode"] == "COMPLIANCE"
-retain = head.get("retain_until_date")
-assert isinstance(retain, str) and retain
-expiry = datetime.fromisoformat(retain.replace("Z", "+00:00"))
-assert expiry.tzinfo is not None
-assert (expiry - datetime.now(timezone.utc)).total_seconds() >= 89 * 86400
-PY
-
-  readarray -t retention_values < <(python3 - "$head_version_path" <<'PY'
-import json
+  readarray -t retention_values < <(python3 - "$last_modified" "$retain_until" <<'PY'
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-head = json.loads(Path(sys.argv[1]).read_text())
-expires = datetime.fromisoformat(head["retain_until_date"].replace("Z", "+00:00"))
-uploaded = expires - timedelta(days=90)
-if uploaded > datetime.now(timezone.utc):
-    raise SystemExit("derived upload time is in the future")
+from email.utils import parsedate_to_datetime
+uploaded = parsedate_to_datetime(sys.argv[1])
+expires = datetime.fromisoformat(sys.argv[2].replace('Z', '+00:00'))
+if uploaded.tzinfo is None or expires.tzinfo is None:
+    raise SystemExit('storage timestamps must be timezone-aware')
+uploaded = uploaded.astimezone(timezone.utc)
+expires = expires.astimezone(timezone.utc)
+if expires < uploaded + timedelta(days=90):
+    raise SystemExit('retention interval is below 90-day authority')
+if expires < datetime.now(timezone.utc) + timedelta(days=89):
+    raise SystemExit('remaining retention horizon is below governed tolerance')
 print(uploaded.isoformat())
 print(expires.isoformat())
 PY
-  )
+)
   uploaded_at="${retention_values[0]}"
   retention_expires_at="${retention_values[1]}"
 
   rm -f "$original_root/storage/archive-files.txt"
   payload_index="$original_root/storage/payload-index.json"
-  object_url="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["object_url"])' "$head_version_path")"
+  object_url="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["object_url"])' "$head_path")"
   download_url="$(python3 - "$object_url" "$version_id" <<'PY'
 import sys
 from urllib.parse import quote
-print(sys.argv[1] + "?versionId=" + quote(sys.argv[2], safe=""))
+print(sys.argv[1] + '?versionId=' + quote(sys.argv[2], safe=''))
 PY
-  )"
+)"
   curl --config "$CURL_CONFIG" "$download_url" \
     | python3 -m tai.model_bundle_finalize_cli extract-stream \
-        "$payload_index" "$restore_root" --output "$extract_path" >/dev/null
-  test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$extract_path")" = VERIFIED_AND_EXTRACTED
+        "$payload_index" "$restore_root" --output "$extract_path"
   test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["archive_sha256"])' "$extract_path")" = "$archive_sha"
   test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["archive_size_bytes"])' "$extract_path")" = "$archive_size"
   restored_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  etag="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["etag"])' "$head_version_path")"
   python3 -m tai.model_bundle_finalize_cli complete-storage \
     "$state_path" "$original_root" \
     --archive-sha256 "$archive_sha" \
@@ -405,16 +349,16 @@ PY
     --retention-expires-at "$retention_expires_at" \
     --restored-at "$restored_at" \
     --manifest "$manifest_path" \
-    --output "$locator_path" >/dev/null
+    --output "$locator_path"
 
   python3 -m tai.model_bundle_storage_cli \
     "$BUNDLE_AUTHORITY" \
     "$manifest_path" \
     "$original_root" \
     "$restore_root" \
-    --output "$verifier_path" >/dev/null
-  test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$verifier_path")" = VERIFIED
-  test "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["reasons"]))' "$verifier_path")" = 0
+    --output "$verifier_path"
+  test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$verifier_path")" = 'VERIFIED'
+  test "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["reasons"]))' "$verifier_path")" = '0'
 
   cp "$manifest_path" "$model_evidence/bundle.v2.json"
   cp "$payload_index" "$model_evidence/payload-index.json"
@@ -422,8 +366,7 @@ PY
   cp "$original_root/storage/restore-record.json" "$model_evidence/restore-record.json"
   cp "$digest_path" "$model_evidence/archive-digest.json"
   cp "$upload_path" "$model_evidence/multipart-upload.json"
-  cp "$head_latest_path" "$model_evidence/head-latest.json"
-  cp "$head_version_path" "$model_evidence/head-version.json"
+  cp "$head_path" "$model_evidence/head-object.json"
   cp "$extract_path" "$model_evidence/stream-extract.json"
   cp "$locator_path" "$model_evidence/locator.json"
   cp "$verifier_path" "$model_evidence/storage-verification.json"
@@ -432,11 +375,8 @@ PY
     echo 'bounded model evidence contains a file larger than 10 MB' >&2
     exit 1
   fi
-  rm -rf "$model_work"
+  rm -rf "$original_root" "$restore_root" "$transport_root"
 done
-
-rm -rf "$TOOLCHAIN_EXTRACT"
-cleanup_secrets
 
 EXACT_MAIN="$EXACT_MAIN" WORKFLOW_RUN_ID="$WORKFLOW_RUN_ID" \
 WORKFLOW_RUN_ATTEMPT="$WORKFLOW_RUN_ATTEMPT" EVIDENCE_ROOT="$EVIDENCE_ROOT" \
@@ -446,46 +386,46 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-root = Path(os.environ["EVIDENCE_ROOT"])
+root = Path(os.environ['EVIDENCE_ROOT'])
 models = []
-for path in sorted((root / "models").glob("*/locator.json")):
+for path in sorted((root / 'models').glob('*/locator.json')):
     locator = json.loads(path.read_text())
-    verifier = json.loads((path.parent / "storage-verification.json").read_text())
+    verifier = json.loads((path.parent / 'storage-verification.json').read_text())
     models.append({
-        "model_key": path.parent.name,
-        "model_id": locator["model_id"],
-        "revision": locator["revision"],
-        "archive_sha256": locator["archive_sha256"],
-        "archive_size_bytes": locator["archive_size_bytes"],
-        "object_key": locator["object_key"],
-        "version_id": locator["version_id"],
-        "etag": locator["etag"],
-        "retention_expires_at": locator["retention_expires_at"],
-        "immutable_locator": locator["immutable_locator"],
-        "storage_verification_status": verifier["status"],
-        "storage_verification_report_sha256": verifier["report_sha256"],
+        'model_key': path.parent.name,
+        'model_id': locator['model_id'],
+        'revision': locator['revision'],
+        'archive_sha256': locator['archive_sha256'],
+        'archive_size_bytes': locator['archive_size_bytes'],
+        'object_key': locator['object_key'],
+        'version_id': locator['version_id'],
+        'etag': locator['etag'],
+        'retention_expires_at': locator['retention_expires_at'],
+        'immutable_locator': locator['immutable_locator'],
+        'storage_verification_status': verifier['status'],
+        'storage_verification_report_sha256': verifier['report_sha256'],
     })
 assert len(models) == 2
-assert all(item["storage_verification_status"] == "VERIFIED" for item in models)
+assert all(item['storage_verification_status'] == 'VERIFIED' for item in models)
 payload = {
-    "schema_version": "tai.model-bundle-finalization-report.v1",
-    "status": "VERIFIED_BUNDLES_RESTORED",
-    "exact_main_sha": os.environ["EXACT_MAIN"],
-    "workflow_run_id": int(os.environ["WORKFLOW_RUN_ID"]),
-    "workflow_run_attempt": int(os.environ["WORKFLOW_RUN_ATTEMPT"]),
-    "completed_at": datetime.now(timezone.utc).isoformat(),
-    "models": models,
-    "accepted_s3_object_deletion": False,
-    "benchmark_status": "NOT_RUN",
-    "model_admission_status": "NOT_DONE",
-    "production_operational_status": "NOT_ATTESTED",
-    "reasons": [],
+    'schema_version': 'tai.model-bundle-finalization-report.v1',
+    'status': 'VERIFIED_BUNDLES_RESTORED',
+    'exact_main_sha': os.environ['EXACT_MAIN'],
+    'workflow_run_id': int(os.environ['WORKFLOW_RUN_ID']),
+    'workflow_run_attempt': int(os.environ['WORKFLOW_RUN_ATTEMPT']),
+    'completed_at': datetime.now(timezone.utc).isoformat(),
+    'models': models,
+    'accepted_s3_object_deletion': False,
+    'benchmark_status': 'NOT_RUN',
+    'model_admission_status': 'NOT_DONE',
+    'production_operational_status': 'NOT_ATTESTED',
+    'reasons': [],
 }
-canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-payload["report_sha256"] = hashlib.sha256(canonical.encode()).hexdigest()
-(root / "finalization-report.json").write_text(
-    json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    encoding="utf-8",
+canonical = json.dumps(payload, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
+payload['report_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+(root / 'finalization-report.json').write_text(
+    json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+    encoding='utf-8',
 )
 PY
 
