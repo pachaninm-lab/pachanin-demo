@@ -40,6 +40,62 @@ jobs:
           set -euo pipefail
           python -m pip install 'ruff>=0.11,<1'
 
+      - name: Apply deterministic source corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          finalize = Path('apps/tai/tai/model_bundle_finalize.py')
+          text = finalize.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  '    if _string(_mapping(manifest["conversion"], "conversion"), "source_files_sha256") != expected_source_digest:\n'
+                  '        raise ValueError("source-files digest does not match conversion authority")\n',
+                  '    source_digest = _string(\n'
+                  '        _mapping(manifest["conversion"], "conversion"),\n'
+                  '        "source_files_sha256",\n'
+                  '    )\n'
+                  '    if source_digest != expected_source_digest:\n'
+                  '        raise ValueError("source-files digest does not match conversion authority")\n',
+              ),
+              (
+                  '                    for chunk in iter(lambda: source.read(_CHUNK_SIZE), b""):\n'
+                  '                        destination.write(chunk)\n'
+                  '                        digest.update(chunk)\n'
+                  '                        size += len(chunk)\n',
+                  '                    while True:\n'
+                  '                        chunk = source.read(_CHUNK_SIZE)\n'
+                  '                        if not chunk:\n'
+                  '                            break\n'
+                  '                        destination.write(chunk)\n'
+                  '                        digest.update(chunk)\n'
+                  '                        size += len(chunk)\n',
+              ),
+              (
+                  '        return path.resolve(strict=True).relative_to(conversion_root.resolve(strict=True)).as_posix()\n',
+                  '        return (\n'
+                  '            path.resolve(strict=True)\n'
+                  '            .relative_to(conversion_root.resolve(strict=True))\n'
+                  '            .as_posix()\n'
+                  '        )\n',
+              ),
+          ]
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f'unexpected replacement count for: {old[:80]!r}')
+              text = text.replace(old, new)
+          finalize.write_text(text, encoding='utf-8')
+
+          storage = Path('apps/tai/tai/model_bundle_storage.py')
+          text = storage.read_text(encoding='utf-8')
+          old = 'from typing import Any\n'
+          if text.count(old) != 1:
+              raise SystemExit('unexpected typing.Any import count')
+          storage.write_text(text.replace(old, ''), encoding='utf-8')
+          PY
+
       - name: Apply deterministic Ruff formatting and fixes
         working-directory: apps/tai
         shell: bash
