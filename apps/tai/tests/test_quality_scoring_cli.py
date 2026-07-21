@@ -49,6 +49,8 @@ def test_validate_authority_and_pending_manifest(
     value = json.loads(output.read_text(encoding="utf-8"))
     assert value["status"] == "VALID"
     assert value["required_observations"] == 348
+    assert value["runtime_reverification_required"] is True
+    assert value["accepted_assessment_required"] is True
     assert json.loads(capsys.readouterr().out) == value
     monkeypatch.setattr(sys, "argv", ["quality", "validate-manifest", str(pending)])
     assert cli.main() == 2
@@ -66,7 +68,10 @@ def test_verify_and_contract_error_paths(monkeypatch, capsys, tmp_path: Path) ->
     monkeypatch.setattr(
         cli.scoring, "verify_quality_scoring", lambda *args, **kwargs: accepted
     )
-    paths = [str(tmp_path / name) for name in ("a", "r", "c", "i", "s")]
+    paths = [
+        str(tmp_path / name)
+        for name in ("a", "ra", "rr", "rm", "ro", "rs", "aa", "c", "s")
+    ]
     monkeypatch.setattr(
         sys,
         "argv",
