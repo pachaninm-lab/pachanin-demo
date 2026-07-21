@@ -32,6 +32,8 @@ jobs:
       REPOSITORY: ${{ github.repository }}
       REPORT_ROOT: tai-ap14c-expert-review-packet
       AUTHORITY_ROOT: docs/platform-v7/autopilot/tai-ap-14c
+      PACKET_SCRIPT: apps/tai/model-artifacts/expert-review-packet.mjs
+      PACKET_TEST: apps/tai/tests/expert-review-packet.test.mjs
 
     steps:
       - name: Checkout exact main authority
@@ -72,7 +74,7 @@ jobs:
         run: |
           set -euo pipefail
           generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          node "$AUTHORITY_ROOT/expert-review-packet.mjs" \
+          node "$PACKET_SCRIPT" \
             --exact-main "$GITHUB_SHA" \
             --generated-at "$generated_at" \
             --output-dir "$REPORT_ROOT/packet" \
@@ -121,7 +123,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node "$AUTHORITY_ROOT/expert-review-packet.test.mjs"
+          node "$PACKET_TEST"
 
       - name: Upload immutable expert-review packet metadata
         id: packet_upload
