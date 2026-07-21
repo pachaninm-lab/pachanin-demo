@@ -116,7 +116,7 @@ def test_runbook_documents_blockers_and_no_maturity_inflation() -> None:
     assert "must not start inference" in runbook
     assert "dedicated `tai-model` host" in runbook
     assert "one-hour soak" in runbook
-    assert "CPU result can satisfy" not in runbook
+    assert "No CPU result can satisfy the separate Qwen GPU/shared Q8_0 profile" in runbook
     assert "benchmark status: `PENDING_BENCHMARK`" in runbook
     assert "model admission: `PENDING_ADMISSION`" in runbook
     assert "production operational status: `NOT_ATTESTED`" in runbook
