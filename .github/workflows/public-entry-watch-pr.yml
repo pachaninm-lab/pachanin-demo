@@ -1,0 +1,129 @@
+name: public entry watch PR
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      ARTIFACT_DIR: artifacts/public-entry-watch-pr
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser production watch
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "../../$ARTIFACT_DIR"
+          cat > /tmp/watch.mjs <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium } from '@playwright/test';
+
+          const baseURL = process.env.BASE_URL;
+          const out = path.resolve(process.cwd(), '../../', process.env.ARTIFACT_DIR);
+          const routes = ['/platform-v7','/platform-v7/login','/platform-v7/forgot-password'];
+          const locales = ['ru','en','zh'];
+          const profiles = [
+            ['desktop',{width:1440,height:1000},false,false],
+            ['mobile-390',{width:390,height:844},true,true],
+          ];
+          const report = { checkedAt:new Date().toISOString(), baseURL, cases:[], failures:[], failClosed:null };
+          const fail = (condition,message) => { if (!condition) throw new Error(message); };
+          const runtimePattern = /(hydration|hydrated|react error|next-intl|missing message|chunkloaderror|referenceerror|typeerror|syntaxerror|uncaught|invariant|maximum update depth|too many redirects)/i;
+          const redirects = (request) => { let n=0; for(let r=request.redirectedFrom();r;r=r.redirectedFrom()) n++; return n; };
+          const hasDemo = (value) => /(demo|mock|fake)/i.test(JSON.stringify(value));
+
+          fs.mkdirSync(out,{recursive:true});
+          const browser = await chromium.launch({headless:true});
+          try {
+            for (const [profile,viewport,isMobile,hasTouch] of profiles) {
+              for (const locale of locales) for (const route of routes) {
+                const context = await browser.newContext({viewport,isMobile,hasTouch,locale:locale==='ru'?'ru-RU':locale==='zh'?'zh-CN':'en-US'});
+                const page = await context.newPage();
+                const runtimeErrors=[]; const pageErrors=[];
+                page.on('console',m=>{if(m.type()==='error'&&runtimePattern.test(m.text())) runtimeErrors.push(m.text());});
+                page.on('pageerror',e=>pageErrors.push(String(e?.stack||e)));
+                const row={profile,locale,route};
+                try {
+                  const response=await page.goto(`${baseURL}${route}?lang=${locale}`,{waitUntil:'domcontentloaded',timeout:45000});
+                  fail(response&&response.status()===200,`${profile}/${locale}${route}: HTTP ${response?.status()}`);
+                  fail(redirects(response.request())<=3,`${profile}/${locale}${route}: redirect loop risk`);
+                  await page.waitForTimeout(1500);
+                  const url=new URL(page.url());
+                  fail(url.pathname.replace(/\/$/,'')===route,`${profile}/${locale}${route}: final path ${url.pathname}`);
+                  fail(!url.searchParams.has('role')&&!url.searchParams.has('as'),`${profile}/${locale}${route}: role/as URL parameter`);
+                  const lang=(await page.locator('html').getAttribute('lang')||'').toLowerCase();
+                  fail(lang.startsWith(locale),`${profile}/${locale}${route}: html lang ${lang}`);
+                  const state=await page.evaluate(()=>({
+                    text:(document.body?.innerText||'').trim(),
+                    sw:document.documentElement.scrollWidth,
+                    cw:document.documentElement.clientWidth,
+                    hrefs:Array.from(document.querySelectorAll('a[href*="lang="]')).map(a=>a.getAttribute('href')||''),
+                    controls:Array.from(document.querySelectorAll('a,button')).map(x=>(x.textContent||'').trim()),
+                    roleSelectors:document.querySelectorAll('select[name*="role" i],select[id*="role" i],[data-role-selector]').length,
+                    ls:Object.fromEntries(Object.entries(localStorage)),
+                    ss:Object.fromEntries(Object.entries(sessionStorage)),
+                  }));
+                  fail(state.text.length>(route==='/platform-v7'?250:80),`${profile}/${locale}${route}: probable white screen`);
+                  fail(state.sw<=state.cw+2,`${profile}/${locale}${route}: horizontal overflow ${state.sw}/${state.cw}`);
+                  const langs=new Set();
+                  for(const href of state.hrefs){try{const v=new URL(href,page.url()).searchParams.get('lang');if(v)langs.add(v);}catch{}}
+                  const c=state.controls.join('|'); if(/\bRU\b|Рус/i.test(c))langs.add('ru'); if(/\bEN\b|English/i.test(c))langs.add('en'); if(/中文|简体|\bZH\b/i.test(c))langs.add('zh');
+                  fail(['ru','en','zh'].every(x=>langs.has(x)),`${profile}/${locale}${route}: RU/EN/ZH controls incomplete`);
+                  fail(state.roleSelectors===0,`${profile}/${locale}${route}: role selector detected`);
+                  fail(!hasDemo(state.ls)&&!hasDemo(state.ss),`${profile}/${locale}${route}: demo/mock browser storage`);
+                  fail(runtimeErrors.length===0&&pageErrors.length===0,`${profile}/${locale}${route}: runtime errors ${JSON.stringify({runtimeErrors,pageErrors})}`);
+                  Object.assign(row,{http:200,redirects:redirects(response.request()),lang,textLength:state.text.length,ok:true});
+                } catch(error) {
+                  row.error=String(error?.stack||error); report.failures.push(row.error);
+                  await page.screenshot({path:path.join(out,`${profile}-${locale}-${route.split('/').filter(Boolean).join('-')}-failed.png`),fullPage:true}).catch(()=>{});
+                }
+                report.cases.push(row); await context.close();
+              }
+            }
+
+            const context=await browser.newContext({viewport:{width:1440,height:1000},locale:'ru-RU'});
+            const page=await context.newPage(); const authResponses=[]; const runtimeErrors=[];
+            page.on('response',r=>{if(r.url().startsWith(baseURL)&&/\/api\/(auth|platform-v7)/.test(r.url()))authResponses.push({url:r.url(),status:r.status()});});
+            page.on('console',m=>{if(m.type()==='error'&&runtimePattern.test(m.text()))runtimeErrors.push(m.text());});
+            try {
+              const response=await page.goto(`${baseURL}/platform-v7/login?lang=ru`,{waitUntil:'domcontentloaded',timeout:45000});
+              fail(response?.status()===200,`fail-closed: login HTTP ${response?.status()}`);
+              const email=page.locator('input[type="email"]').first(); const password=page.locator('input[type="password"]').first(); const submit=page.locator('button[type="submit"],input[type="submit"]').first();
+              fail(await email.count()===1&&await password.count()===1&&await submit.count()===1,'fail-closed: incomplete login form');
+              await email.fill('monitor-nonexistent@example.test'); await password.fill('Invalid-Monitor-Password-2026!'); await submit.click(); await page.waitForTimeout(4500);
+              const url=new URL(page.url()); fail(url.pathname.replace(/\/$/,'')==='/platform-v7/login',`fail-closed: escaped to ${url.pathname}`); fail(!url.searchParams.has('role')&&!url.searchParams.has('as'),'fail-closed: role/as in URL');
+              const cookies=await context.cookies(); const forbidden=cookies.filter(c=>/(access|refresh|session|mfa|cabinet|demo|mock)/i.test(c.name)); fail(forbidden.length===0,`fail-closed: auth/demo cookies ${forbidden.map(x=>x.name)}`);
+              const state=await page.evaluate(()=>({body:document.body.innerText,ls:Object.fromEntries(Object.entries(localStorage)),ss:Object.fromEntries(Object.entries(sessionStorage))}));
+              fail(!hasDemo(state.ls)&&!hasDemo(state.ss),'fail-closed: demo/mock storage'); fail(runtimeErrors.length===0,`fail-closed: runtime ${JSON.stringify(runtimeErrors)}`);
+              const rejected=authResponses.some(x=>[400,401,403,404,409,422,429,503].includes(x.status)); const visible=/ошиб|недоступ|повтор|невер|invalid|unavailable|try again|失败|错误/i.test(state.body); fail(rejected||visible,`fail-closed: no rejection evidence ${JSON.stringify(authResponses)}`);
+              report.failClosed={ok:true,finalURL:page.url(),authResponses,cookies:cookies.map(x=>x.name)};
+            } catch(error) { const message=String(error?.stack||error); report.failures.push(message); report.failClosed={ok:false,error:message,authResponses}; await page.screenshot({path:path.join(out,'fail-closed-failed.png'),fullPage:true}).catch(()=>{}); }
+            await context.close();
+          } finally { await browser.close(); }
+          report.ok=report.failures.length===0; fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(report,null,2)); console.log(JSON.stringify({ok:report.ok,cases:report.cases.length,failClosed:report.failClosed,failures:report.failures},null,2)); if(!report.ok)process.exit(1);
+          NODE
+          node /tmp/watch.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-pr-20260721-0719
+          path: artifacts/public-entry-watch-pr
+          if-no-files-found: error
+          retention-days: 7
