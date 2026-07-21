@@ -5,6 +5,7 @@ import { CheckCircle2, Sparkles, TriangleAlert } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
 
 type Locale = 'ru' | 'en' | 'zh';
+type Mode = 'metrics' | 'status';
 
 const COPY = {
   ru: {
@@ -36,12 +37,13 @@ const COPY = {
   },
 } as const;
 
-export function PublicHeroIntelligenceStatus({ locale }: { locale: string }) {
+export function PublicHeroIntelligenceStatus({ locale, mode }: { locale: string; mode: Mode }) {
   const localeKey: Locale = locale === 'en' || locale === 'zh' ? locale : 'ru';
   const copy = COPY[localeKey];
   const ref = React.useRef<HTMLElement>(null);
 
   React.useEffect(() => {
+    if (mode !== 'status') return;
     const node = ref.current;
     if (!node) return;
     let sent = false;
@@ -53,28 +55,31 @@ export function PublicHeroIntelligenceStatus({ locale }: { locale: string }) {
     }, { threshold: 0.45 });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [localeKey]);
+  }, [localeKey, mode]);
 
-  return (
-    <>
+  if (mode === 'metrics') {
+    return (
       <div className='pc-public-hero-metrics' aria-label={copy.metrics.join('. ')}>
         {copy.metrics.map((metric) => <span key={metric}>{metric}</span>)}
       </div>
-      <aside ref={ref} className='pc-public-hero-intelligence' aria-label={copy.label} data-demo='true'>
-        <div className='pc-public-hero-intelligence-heading'>
-          <span className='pc-public-hero-intelligence-mark' aria-hidden='true'><Sparkles size={17} /></span>
-          <div>
-            <strong>{copy.label}</strong>
-            <small>{copy.demo}</small>
-          </div>
+    );
+  }
+
+  return (
+    <aside ref={ref} className='pc-public-hero-intelligence' aria-label={copy.label} data-demo='true'>
+      <div className='pc-public-hero-intelligence-heading'>
+        <span className='pc-public-hero-intelligence-mark' aria-hidden='true'><Sparkles size={17} /></span>
+        <div>
+          <strong>{copy.label}</strong>
+          <small>{copy.demo}</small>
         </div>
-        <p>{copy.title}</p>
-        <ul>
-          <li data-tone='attention'><TriangleAlert size={15} aria-hidden='true' /><span>{copy.blocker}</span></li>
-          <li><CheckCircle2 size={15} aria-hidden='true' /><span>{copy.confirmed}</span></li>
-          <li><CheckCircle2 size={15} aria-hidden='true' /><span>{copy.next}</span></li>
-        </ul>
-      </aside>
-    </>
+      </div>
+      <p>{copy.title}</p>
+      <ul>
+        <li data-tone='attention'><TriangleAlert size={15} aria-hidden='true' /><span>{copy.blocker}</span></li>
+        <li><CheckCircle2 size={15} aria-hidden='true' /><span>{copy.confirmed}</span></li>
+        <li><CheckCircle2 size={15} aria-hidden='true' /><span>{copy.next}</span></li>
+      </ul>
+    </aside>
   );
 }
