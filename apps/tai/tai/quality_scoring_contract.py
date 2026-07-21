@@ -163,6 +163,7 @@ def expected_authority() -> dict[str, Any]:
         "parent_issue": 2971,
         "evaluation_issue": 2788,
         "issue": 2993,
+        "remediation_issue": 2997,
         "runtime_verification": {
             "schema_version": "tai.cpu-runtime-evidence-verification.v1",
             "runtime_authority_schema": "tai.cpu-runtime-evidence-authority.v1",
@@ -191,6 +192,18 @@ def expected_authority() -> dict[str, Any]:
             "critical_annotations_per_observation": 2,
             "independent_scorers_required": True,
             "open_disagreement_allowed": False,
+            "identity_assertions": {
+                "schema_version": "tai.reviewer-identity-assertion.v1",
+                "signature_algorithm": "HMAC-SHA256",
+                "issuer": "TAI_SERVER_IDENTITY",
+                "audience": "TAI_QUALITY_SCORING",
+                "key_id": "tai-reviewer-identity-hmac-v1",
+                "allowed_roles": list(ALLOWED_SCORER_ROLES),
+                "allowed_mfa_methods": ["TOTP", "WEBAUTHN", "HARDWARE_KEY"],
+                "maximum_lifetime_seconds": 86_400,
+                "maximum_mfa_age_seconds": 43_200,
+                "trusted_secret_digest_source": "OPERATOR_TRUSTED_CONFIG",
+            },
         },
         "thresholds": {
             "platform_accuracy_minimum_basis_points": 9500,
@@ -202,6 +215,7 @@ def expected_authority() -> dict[str, Any]:
         },
         "evidence": {
             "provider": "SELECTEL_S3",
+            "manifest_schema_version": "tai.quality-reviewer-evidence-manifest.v1",
             "minimum_retention_days": 90,
             "immutable_version_required": True,
             "independent_restore_required": True,
@@ -234,6 +248,7 @@ MANIFEST_KEYS = {
     "authority_sha256",
     "runtime_report_sha256",
     "observation_index_sha256",
+    "identity_assertions",
     "annotations",
     "storage",
     "scored_at",
@@ -259,6 +274,7 @@ def load_scoring_manifest(path: Path) -> dict[str, Any]:
             "authority_sha256": None,
             "runtime_report_sha256": None,
             "observation_index_sha256": None,
+            "identity_assertions": [],
             "annotations": [],
             "storage": None,
             "scored_at": None,
@@ -271,6 +287,11 @@ def load_scoring_manifest(path: Path) -> dict[str, Any]:
     elif lifecycle == "COMPLETE":
         if value["pending_reason"] is not None:
             raise QualityScoringError("complete scoring manifest cannot have pending_reason")
+        if not as_array(value["identity_assertions"], "manifest.identity_assertions"):
+            raise QualityScoringError("complete scoring manifest has no identity assertions")
+        if not as_array(value["annotations"], "manifest.annotations"):
+            raise QualityScoringError("complete scoring manifest has no annotations")
+        as_object(value["storage"], "manifest.storage")
     else:
         raise QualityScoringError("unsupported quality scoring lifecycle")
     return value
