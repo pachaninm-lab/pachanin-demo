@@ -1,0 +1,169 @@
+name: public entry watch 20260721
+
+on:
+  push:
+    branches:
+      - ops/public-entry-watch-20260721
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install browser engines
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run production public-entry watch
+        working-directory: apps/web
+        env:
+          BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../../artifacts/public-entry-watch-20260721
+          cat > /tmp/public-entry-watch.mjs <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium, webkit } from '@playwright/test';
+
+          const baseURL = process.env.BASE_URL;
+          const outDir = path.resolve(process.cwd(), '../../artifacts/public-entry-watch-20260721');
+          const routes = ['/platform-v7','/platform-v7/login','/platform-v7/forgot-password'];
+          const locales = ['ru','en','zh'];
+          const projects = [
+            { name: 'chromium-desktop', engine: chromium, viewport: { width: 1440, height: 1000 }, isMobile: false },
+            { name: 'chromium-mobile', engine: chromium, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+            { name: 'webkit-iphone', engine: webkit, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+          ];
+          const report = { generatedAt: new Date().toISOString(), baseURL, cases: [], failures: [] };
+          const fail = (message, detail = {}) => { report.failures.push({ message, ...detail }); };
+          const cookieNameRisk = /(demo|mock|impersonat|auth|access|refresh|session|mfa|cabinet)/i;
+          const acceptableLoginStatus = new Set([400,401,403,404,409,422,429,503]);
+
+          for (const project of projects) {
+            const browser = await project.engine.launch({ headless: true });
+            for (const locale of locales) {
+              const context = await browser.newContext({
+                viewport: project.viewport,
+                isMobile: project.isMobile,
+                hasTouch: project.hasTouch,
+                locale: locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-US',
+                ignoreHTTPSErrors: false,
+              });
+              for (const route of routes) {
+                const page = await context.newPage();
+                const consoleErrors = [];
+                const pageErrors = [];
+                const failedRequests = [];
+                const badResponses = [];
+                const hydrationErrors = [];
+                page.on('console', (msg) => {
+                  if (msg.type() === 'error') {
+                    const text = msg.text();
+                    consoleErrors.push(text);
+                    if (/hydration|text content does not match|expected server html|react error/i.test(text)) hydrationErrors.push(text);
+                  }
+                });
+                page.on('pageerror', (error) => pageErrors.push(String(error?.stack || error)));
+                page.on('requestfailed', (request) => {
+                  const errorText = request.failure()?.errorText || 'unknown';
+                  if (!/ERR_ABORTED|cancelled/i.test(errorText)) failedRequests.push({ url: request.url(), errorText });
+                });
+                page.on('response', (response) => {
+                  const url = response.url();
+                  if (url.startsWith(baseURL) && response.status() >= 500) badResponses.push({ url, status: response.status() });
+                });
+                let response;
+                try {
+                  response = await page.goto(`${baseURL}${route}?lang=${locale}`, { waitUntil: 'networkidle', timeout: 60_000 });
+                } catch (error) {
+                  fail(`${project.name}/${locale}${route}: navigation failed`, { error: String(error) });
+                  await page.close();
+                  continue;
+                }
+                const status = response?.status() ?? 0;
+                const finalUrl = page.url();
+                const parsed = new URL(finalUrl);
+                const layout = await page.evaluate(() => ({
+                  textLength: document.body.innerText.trim().length,
+                  scrollWidth: document.documentElement.scrollWidth,
+                  clientWidth: document.documentElement.clientWidth,
+                  htmlLang: document.documentElement.lang,
+                  title: document.title,
+                  roleSelectCount: document.querySelectorAll('select[name*="role" i], [data-role-selector], [aria-label*="role" i], [aria-label*="роль" i]').length,
+                  hasLanguageControl: ['ru','en','zh'].every((lang) => Boolean(document.querySelector(`[href*="lang=${lang}"]`) || [...document.querySelectorAll('button,option')].some((node) => (node.textContent || '').trim().toLowerCase() === lang))),
+                  storage: {
+                    local: Object.entries(localStorage),
+                    session: Object.entries(sessionStorage),
+                  },
+                }));
+                const cookies = await context.cookies();
+                if (status !== 200) fail(`${project.name}/${locale}${route}: HTTP ${status}`, { finalUrl });
+                if (parsed.pathname !== route) fail(`${project.name}/${locale}${route}: unexpected final path`, { finalUrl });
+                if (parsed.searchParams.has('role') || parsed.searchParams.has('as')) fail(`${project.name}/${locale}${route}: role leaked into URL`, { finalUrl });
+                if (layout.textLength < 180) fail(`${project.name}/${locale}${route}: probable white screen`, { textLength: layout.textLength });
+                if (layout.scrollWidth > layout.clientWidth + 2) fail(`${project.name}/${locale}${route}: horizontal overflow`, layout);
+                if (!String(layout.htmlLang || '').startsWith(locale)) fail(`${project.name}/${locale}${route}: html lang mismatch`, { htmlLang: layout.htmlLang });
+                if (!layout.hasLanguageControl) fail(`${project.name}/${locale}${route}: RU/EN/ZH control missing`);
+                if (layout.roleSelectCount > 0) fail(`${project.name}/${locale}${route}: role selector present`, { count: layout.roleSelectCount });
+                if (hydrationErrors.length || pageErrors.length || consoleErrors.length || failedRequests.length || badResponses.length) {
+                  fail(`${project.name}/${locale}${route}: runtime/network errors`, { hydrationErrors, pageErrors, consoleErrors, failedRequests, badResponses });
+                }
+                const storageText = JSON.stringify(layout.storage);
+                if (/demo.session|demoSession|mockSession|demo-user|demo_user/i.test(storageText)) fail(`${project.name}/${locale}${route}: demo session in browser storage`);
+                if (cookies.some((cookie) => /demo|mock/i.test(cookie.name) || /demo.session|mockSession/i.test(cookie.value))) fail(`${project.name}/${locale}${route}: demo cookie detected`);
+
+                if (route === '/platform-v7/login') {
+                  const email = page.locator('input[type="email"], input[name="email"]').first();
+                  const password = page.locator('input[type="password"], input[name="password"]').first();
+                  if ((await email.count()) === 0 || (await password.count()) === 0) {
+                    fail(`${project.name}/${locale}${route}: login form missing`);
+                  } else {
+                    await email.fill(`watch-${Date.now()}@invalid.example`);
+                    await password.fill('Invalid-Watch-Password-2026!');
+                    const loginResponsePromise = page.waitForResponse((r) => /\/api\/(?:platform-v7\/)?auth\/login|\/auth\/login/.test(r.url()), { timeout: 15_000 }).catch(() => null);
+                    await page.locator('button[type="submit"]').first().click();
+                    const loginResponse = await loginResponsePromise;
+                    await page.waitForTimeout(1200);
+                    const loginStatus = loginResponse?.status() ?? null;
+                    const afterUrl = page.url();
+                    const afterCookies = await context.cookies();
+                    if (loginStatus !== null && !acceptableLoginStatus.has(loginStatus)) fail(`${project.name}/${locale}: unexpected login status`, { loginStatus });
+                    if (/\/platform-v7\/(buyer|seller|driver|lab|bank|operator|control-tower|executive|compliance|arbitrator)/.test(new URL(afterUrl).pathname)) fail(`${project.name}/${locale}: invalid credentials opened cabinet`, { afterUrl, loginStatus });
+                    const riskyCookies = afterCookies.filter((cookie) => cookieNameRisk.test(cookie.name) && !/csrf|locale|entry_seen/i.test(cookie.name));
+                    if (riskyCookies.length) fail(`${project.name}/${locale}: fail-closed login created authority cookies`, { loginStatus, cookies: riskyCookies.map((c) => c.name) });
+                    const afterStorage = await page.evaluate(() => JSON.stringify({ local: Object.entries(localStorage), session: Object.entries(sessionStorage) }));
+                    if (/demo.session|demoSession|mockSession|demo-user|demo_user/i.test(afterStorage)) fail(`${project.name}/${locale}: fail-closed login created demo storage`);
+                  }
+                }
+
+                report.cases.push({ project: project.name, locale, route, status, finalUrl, textLength: layout.textLength, htmlLang: layout.htmlLang });
+                await page.close();
+              }
+              await context.close();
+            }
+            await browser.close();
+          }
+          fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2));
+          console.log(JSON.stringify({ cases: report.cases.length, failures: report.failures.length, failureDetails: report.failures }, null, 2));
+          if (report.failures.length) process.exit(1);
+          NODE
+          node /tmp/public-entry-watch.mjs 2>&1 | tee ../../artifacts/public-entry-watch-20260721/run.log
+      - name: Upload public-entry watch artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260721
+          path: artifacts/public-entry-watch-20260721
+          if-no-files-found: error
+          retention-days: 7
