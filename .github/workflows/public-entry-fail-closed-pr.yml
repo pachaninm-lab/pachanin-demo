@@ -1,0 +1,54 @@
+name: public entry fail-closed PR
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fail-closed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      ARTIFACT_DIR: artifacts/public-entry-fail-closed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run fail-closed login check
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "../../$ARTIFACT_DIR"
+          node scripts/public-entry-fail-closed-production.mjs 2>&1 | tee "../../$ARTIFACT_DIR/runner.log"
+      - name: Persist exact result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$ARTIFACT_DIR/result.json"
+          if [ ! -f "$result" ]; then printf '{"ok":false,"fatal":"result.json missing"}\n' > "$result"; fi
+          content="$(base64 -w0 "$result")"
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/public-entry-fail-closed-result.json?ref=ops/public-entry-watch-results" --jq .sha 2>/dev/null || true)"
+          args=(--method PUT "repos/$GITHUB_REPOSITORY/contents/public-entry-fail-closed-result.json" -f message="Update production fail-closed result" -f content="$content" -f branch="ops/public-entry-watch-results")
+          if [ -n "$current_sha" ]; then args+=(-f sha="$current_sha"); fi
+          gh api "${args[@]}" >/dev/null
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-fail-closed-20260721-0719
+          path: artifacts/public-entry-fail-closed
+          if-no-files-found: error
+          retention-days: 7
