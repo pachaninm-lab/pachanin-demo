@@ -5,7 +5,6 @@ import json
 import os
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
-from typing import Any
 
 from tai.model_bundle_v2 import (
     BundleVerificationStatus,

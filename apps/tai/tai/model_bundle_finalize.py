@@ -336,7 +336,11 @@ def prepare_model_bundle(
     }
 
     expected_source_digest = _string(conversion_model, "source_files_sha256")
-    if _string(_mapping(manifest["conversion"], "conversion"), "source_files_sha256") != expected_source_digest:
+    source_digest = _string(
+        _mapping(manifest["conversion"], "conversion"),
+        "source_files_sha256",
+    )
+    if source_digest != expected_source_digest:
         raise ValueError("source-files digest does not match conversion authority")
 
     payload_entries = _manifest_payload_declarations(manifest)
@@ -541,7 +545,10 @@ def extract_streamed_archive(
                 size = 0
                 with target.open("xb") as destination:
                     os.chmod(target, 0o600)
-                    for chunk in iter(lambda: source.read(_CHUNK_SIZE), b""):
+                    while True:
+                        chunk = source.read(_CHUNK_SIZE)
+                        if not chunk:
+                            break
                         destination.write(chunk)
                         digest.update(chunk)
                         size += len(chunk)
@@ -715,9 +722,7 @@ def _validate_source_and_legal(
         raise ValueError("license text digest mismatch")
 
 
-def _validate_toolchain_package(
-    declared: dict[str, object], acceptance: dict[str, object]
-) -> None:
+def _validate_toolchain_package(declared: dict[str, object], acceptance: dict[str, object]) -> None:
     external = _mapping(acceptance.get("external_artifacts"), "external_artifacts")
     package = _mapping(external.get("package_artifact"), "package_artifact")
     if _string(declared, "sha256") != _string(package, "payload_sha256"):
@@ -730,9 +735,7 @@ def _validate_toolchain_binary(
     name: str, declared: dict[str, object], acceptance: dict[str, object]
 ) -> None:
     evidence = _mapping(acceptance.get("evidence"), "evidence")
-    binaries = {
-        _string(item, "target"): item for item in _object_array(evidence, "binaries")
-    }
+    binaries = {_string(item, "target"): item for item in _object_array(evidence, "binaries")}
     expected = binaries.get(name)
     if expected is None:
         raise ValueError(f"toolchain binary absent from acceptance: {name}")
@@ -750,11 +753,7 @@ def _validate_declared_against_authority(
     declared: dict[str, object], model: dict[str, Any], relative: str
 ) -> None:
     expected = next(
-        (
-            item
-            for item in _object_array(model, "outputs")
-            if _string(item, "path") == relative
-        ),
+        (item for item in _object_array(model, "outputs") if _string(item, "path") == relative),
         None,
     )
     if expected is None:
@@ -783,9 +782,7 @@ def _conversion_steps(conversion_root: Path) -> list[dict[str, Any]]:
     return result
 
 
-def _step_for_output(
-    steps: list[dict[str, Any]], relative: str
-) -> dict[str, Any]:
+def _step_for_output(steps: list[dict[str, Any]], relative: str) -> dict[str, Any]:
     matches = [
         item
         for item in steps
@@ -796,13 +793,13 @@ def _step_for_output(
     return matches[0]
 
 
-def _absolute_step_log_relative(
-    conversion_root: Path, step: dict[str, Any]
-) -> str:
+def _absolute_step_log_relative(conversion_root: Path, step: dict[str, Any]) -> str:
     raw = _string(_mapping(step.get("log"), "step log"), "path")
     path = Path(raw)
     try:
-        return path.resolve(strict=True).relative_to(conversion_root.resolve(strict=True)).as_posix()
+        return (
+            path.resolve(strict=True).relative_to(conversion_root.resolve(strict=True)).as_posix()
+        )
     except (OSError, ValueError) as error:
         raise ValueError("conversion step log escapes exact run root") from error
 
@@ -814,9 +811,7 @@ def _model_by_key(payload: dict[str, object], key: str) -> dict[str, Any]:
     return matches[0]
 
 
-def _model_plan(
-    authority: dict[str, object], model_id: str, revision: str
-) -> dict[str, Any]:
+def _model_plan(authority: dict[str, object], model_id: str, revision: str) -> dict[str, Any]:
     matches = [
         item
         for item in _object_array(authority, "models")
@@ -852,9 +847,7 @@ def _copy_declared(source: Path, root: Path, relative: str) -> dict[str, object]
     return _declared(target, relative)
 
 
-def _write_json_declared(
-    root: Path, relative: str, payload: object
-) -> dict[str, object]:
+def _write_json_declared(root: Path, relative: str, payload: object) -> dict[str, object]:
     _safe_relative(relative)
     path = root / relative
     _write_json(path, payload)

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-
 from model_bundle_v2_support import (
     AUTHORITY_PATH,
     _manifest_payload,
@@ -16,6 +15,7 @@ from model_bundle_v2_support import (
     _write,
     _write_json,
 )
+
 from tai.model_bundle_finalize import extract_streamed_archive
 from tai.model_bundle_storage import verify_bundle_storage_v2
 from tai.model_bundle_storage_cli import main

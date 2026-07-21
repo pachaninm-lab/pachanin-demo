@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-
 from model_bundle_v2_support import _manifest_payload, _write_json
+
 from tai.model_bundle_finalize import (
     complete_storage_manifest,
     hash_stream,
@@ -17,15 +17,8 @@ from tai.model_bundle_v2 import load_local_model_bundle_v2
 
 ROOT = Path(__file__).parents[3]
 TAI_ROOT = Path(__file__).parents[1]
-AUTHORITY_PATH = (
-    TAI_ROOT / "model-artifacts" / "model-bundle-upload-restore-authority.v1.json"
-)
-SCOPE_PATH = (
-    TAI_ROOT
-    / "governance"
-    / "scopes"
-    / "ap-13b3h-bundle-upload-restore-2961.json"
-)
+AUTHORITY_PATH = TAI_ROOT / "model-artifacts" / "model-bundle-upload-restore-authority.v1.json"
+SCOPE_PATH = TAI_ROOT / "governance" / "scopes" / "ap-13b3h-bundle-upload-restore-2961.json"
 WORKFLOW_PATH = ROOT / ".github" / "workflows" / "tai-model-bundle-upload-restore.yml"
 DRIVER_PATH = TAI_ROOT / "scripts" / "model-bundle-upload-restore-driver.v1.sh"
 MULTIPART_PATH = TAI_ROOT / "scripts" / "model-bundle-s3-multipart.py"
@@ -52,9 +45,7 @@ def test_authority_binds_exact_completed_conversion_and_maturity_boundary() -> N
     )
     assert conversion["evidence_artifact"] == {
         "id": 8488069541,
-        "digest": (
-            "sha256:be2ff447fe2495ce9d8d629c0e70b48eff3e796b38a626ba1841683aa7edab7e"
-        ),
+        "digest": ("sha256:be2ff447fe2495ce9d8d629c0e70b48eff3e796b38a626ba1841683aa7edab7e"),
     }
     models = cast(list[dict[str, Any]], authority["models"])
     assert {item["key"] for item in models} == {
