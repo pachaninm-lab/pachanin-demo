@@ -13,6 +13,7 @@
     "apps/tai/tai/model_bundle_v2_types.py",
     "apps/tai/tai/model_bundle_v2_verify.py",
     "apps/tai/tests/model_bundle_v2_support.py",
+    "apps/tai/tests/test_model_bundle_v2_adversarial.py",
     "apps/tai/tests/test_model_bundle_v2_contract.py"
   ],
   "forbidden_capabilities": [
