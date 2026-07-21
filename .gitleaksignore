@@ -9,3 +9,6 @@ ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:apps/api/src/modules/commodity-profiles
 
 # False positive: public immutable GitHub Actions artifact SHA-256, not a credential.
 d4f147c04c64b7565f11288b3b545c97340d7899:apps/tai/model-artifacts/model-conversion-authority.v1.json:generic-api-key:91
+
+# False positive: public immutable Hugging Face Mistral revision, not an API key.
+3acfe056a32e06a34733cd20c9c753e8c918e27f:apps/tai/model-artifacts/model-bundle-upload-restore-authority.v1.json:generic-api-key:60
