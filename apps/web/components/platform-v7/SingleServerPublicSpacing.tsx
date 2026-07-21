@@ -19,7 +19,7 @@ const css = `
   .pc-ppe-page .pc-ppe-hero-copy > p{max-width:36ch;font-size:16px!important;line-height:1.42!important;}
   .pc-ppe-page .pc-ppe-public-status{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 10px;margin-top:16px!important;padding:12px 13px!important;border:1px solid #bed8c6!important;border-left:1px solid #bed8c6!important;border-radius:15px!important;background:#f4faf6!important;box-shadow:none!important;}
   .pc-ppe-page .pc-ppe-public-status strong{font-size:15px!important;line-height:1.22!important;letter-spacing:-.01em!important;text-transform:none!important;}
-  .pc-ppe-page .pc-ppe-public-status > span{display:-webkit-box;grid-column:1/-1;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:#496158;font-size:13px!important;line-height:1.4!important;font-weight:540!important;}
+  .pc-ppe-page .pc-ppe-public-status > span{display:block;grid-column:1/-1;overflow:visible;text-overflow:clip;white-space:normal;-webkit-line-clamp:unset;-webkit-box-orient:initial;color:#496158;font-size:13px!important;line-height:1.4!important;font-weight:540!important;}
   .pc-ppe-page .pc-ppe-hero-actions{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin-top:14px!important;}
   .pc-ppe-page .pc-ppe-primary-button,.pc-ppe-page .pc-ppe-secondary-button{min-height:47px!important;border-radius:12px!important;font-size:14px!important;}
   .pc-ppe-page .pc-ppe-secondary-button{background:transparent!important;}
