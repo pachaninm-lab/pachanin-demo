@@ -23,6 +23,11 @@ type ClientState = Readonly<{
   message: string;
 }>;
 
+type CommodityProfileRegistryClientProps = Readonly<{
+  locale: string;
+  initialProfileId?: string;
+}>;
+
 const COPY: Record<CommodityProfileLocale, {
   accessDenied: string;
   conflict: string;
@@ -89,7 +94,10 @@ async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
 
-export function CommodityProfileRegistryClient({ locale: localeInput }: Readonly<{ locale: string }>) {
+export function CommodityProfileRegistryClient({
+  locale: localeInput,
+  initialProfileId,
+}: CommodityProfileRegistryClientProps) {
   const locale = normalizeLocale(localeInput);
   const copy = COPY[locale];
   const requestSequence = React.useRef(0);
@@ -133,7 +141,10 @@ export function CommodityProfileRegistryClient({ locale: localeInput }: Readonly
     }
 
     try {
-      const response = await fetch('/api/platform-v7/commodity-profiles?limit=100', {
+      const target = initialProfileId
+        ? `/api/platform-v7/commodity-profiles/${encodeURIComponent(initialProfileId)}`
+        : '/api/platform-v7/commodity-profiles?limit=100';
+      const response = await fetch(target, {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
         signal: controller.signal,
@@ -152,7 +163,10 @@ export function CommodityProfileRegistryClient({ locale: localeInput }: Readonly
         return;
       }
 
-      const page = parseCommodityProfilePage(payload, locale);
+      const pagePayload = initialProfileId
+        ? { items: [payload], nextCursor: null }
+        : payload;
+      const page = parseCommodityProfilePage(pagePayload, locale);
       if (!page) {
         setLiveState('error');
         setState({ phase: 'error', records: [], selectedProfileId: '', message: copy.invalidPayload });
@@ -164,7 +178,7 @@ export function CommodityProfileRegistryClient({ locale: localeInput }: Readonly
         return;
       }
 
-      const selectedProfileId = page.items[0]!.id;
+      const selectedProfileId = initialProfileId ?? page.items[0]!.id;
       const records = await loadHistory(selectedProfileId, page.items, controller.signal);
       if (requestId !== requestSequence.current) return;
       if (!records) {
@@ -194,7 +208,7 @@ export function CommodityProfileRegistryClient({ locale: localeInput }: Readonly
     } finally {
       window.clearTimeout(timeoutId);
     }
-  }, [copy, loadHistory, locale]);
+  }, [copy, initialProfileId, loadHistory, locale]);
 
   const selectProfile = React.useCallback(async (profileId: string) => {
     const existing = state.records.find((record) => record.id === profileId);
@@ -248,7 +262,7 @@ export function CommodityProfileRegistryClient({ locale: localeInput }: Readonly
   }, [loadRegistry]);
 
   const openStaffControl = React.useCallback((profileId: string, actionCode: string) => {
-    const next = `/platform-v7/commodity-profiles?profile=${encodeURIComponent(profileId)}&action=${encodeURIComponent(actionCode)}`;
+    const next = `/platform-v7/commodity-profiles/${encodeURIComponent(profileId)}?action=${encodeURIComponent(actionCode)}`;
     window.location.assign(`/platform-v7/staff?next=${encodeURIComponent(next)}`);
   }, []);
 
