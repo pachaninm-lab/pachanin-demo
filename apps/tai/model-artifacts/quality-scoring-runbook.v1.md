@@ -5,6 +5,7 @@
 This slice verifies the semantic quality of the exact Qwen and Mistral raw observations retained by AP-13C.1c. It is deterministic, fail-closed and human-scored. It does not use an LLM as judge and does not infer answer quality from successful runtime execution.
 
 Coordinator: issue `#2993`  
+Remediation: issue `#2997`  
 Parents: `#2971`, `#2788`, `#2726`  
 Runtime authority: `#2987`
 
@@ -14,18 +15,37 @@ Quality verification starts only after a real AP-13C.1c report has status:
 
 `RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING`
 
-The quality verifier does not trust that report in isolation. It must:
+The verifier does not trust that report in isolation. It must:
 
 1. load the exact governed AP-13C.1c runtime authority;
 2. rerun AP-13C.1c verification against the runtime manifest plus independent original and restored evidence roots;
 3. require the supplied runtime report to exactly equal the reproduced report;
 4. require a self-digested accepted AP-14C assessment with all 58 expert-reviewed cases and no blockers;
 5. bind the quality case manifest to that exact assessment and corpus;
-6. derive the metadata-only quality observation index directly from the verified AP-13C.1c raw manifest and raw payload.
+6. derive the metadata-only quality observation index directly from the verified AP-13C.1c raw manifest and raw payload;
+7. verify every reviewer identity against a server-signed, MFA-bound assertion;
+8. reproduce every reviewer evidence file from immutable original and independently restored roots;
+9. authenticate the S3 object VersionIds, retention and immutability through a separately signed provider inventory receipt.
 
 There is no caller-supplied free-standing observation index. Its digest is deterministic output from the verified evidence chain. The derived index contains the exact Cartesian product of two model profiles, 58 cases and RU/EN/ZH — 348 observations — with each case, prompt, response and trace SHA-256.
 
-Raw prompts, raw responses, reviewer notes and reviewer evidence remain outside Git and GitHub artifacts.
+Raw prompts, raw responses, reviewer notes, signing secrets and reviewer evidence remain outside Git and GitHub artifacts.
+
+## Authenticated reviewer authority
+
+Submitter-declared `scorer_id` and `scorer_role` are not authority.
+
+Each scorer must have one server-issued `tai.reviewer-identity-assertion.v1` bound to:
+
+- exact subject identity and reviewer role;
+- issuer `TAI_SERVER_IDENTITY`;
+- audience `TAI_QUALITY_SCORING`;
+- approved key ID and signature algorithm;
+- successful TOTP, WebAuthn or hardware-key MFA;
+- bounded issue/expiry timestamps and maximum MFA age;
+- a canonical HMAC-SHA256 signature verified with an external operator-owned secret.
+
+The signing secret is never committed. The verifier receives its external file path and a separate operator-trusted SHA-256 trust anchor. A supplied secret, key ID, role or signature cannot establish its own authority.
 
 ## Human scoring policy
 
@@ -39,7 +59,9 @@ Critical observations require two independent scorers:
 - the required domain primary role; and
 - one of `SECURITY_REVIEWER`, `LEGAL_REVIEWER`, `METHOD_REVIEWER`.
 
-The verifier rejects duplicate scorer identities, duplicate annotation IDs, stale case/prompt/response/trace digests, incomplete model/locale coverage, open disagreement, conflicting decisions and unknown scorer roles.
+The verifier rejects duplicate scorer identities, duplicate annotation IDs, stale case/prompt/response/trace digests, incomplete model/locale coverage, open disagreement, conflicting decisions, unknown roles, unauthenticated identities, expired assertions and stale MFA.
+
+The manifest `scored_at` must equal the latest authenticated annotation timestamp. Retention is measured from that completion time, so a submitter cannot backdate the manifest to shorten the required retention period.
 
 ## Deterministic annotation contract
 
@@ -47,7 +69,8 @@ Every annotation records only bounded metadata and verdicts:
 
 - profile, case and locale;
 - case, prompt, response and trace SHA-256;
-- scorer identity, role, timestamp and evidence SHA-256;
+- authenticated scorer identity, role and assertion ID;
+- timestamp and external evidence SHA-256, size, object key and immutable VersionId;
 - PASS/FAIL decision;
 - disposition validity;
 - required concepts present;
@@ -56,9 +79,10 @@ Every annotation records only bounded metadata and verdicts:
 - abstention validity;
 - unsupported-fact and safety-failure counts;
 - disagreement reference;
-- annotation self-digest.
+- annotation self-digest;
+- a domain-separated HMAC approval over the annotation payload digest, identity assertion, exact-main and scoring run ID.
 
-No free-form answer or evidence payload is accepted by the contract.
+No free-form answer, reviewer note or evidence payload is accepted inside the scoring manifest. Recomputing an annotation self-digest is insufficient: changing any verdict or evidence binding without the trusted approval key fails closed.
 
 ## Aggregation
 
@@ -77,11 +101,23 @@ A successful result is only:
 
 `QUALITY_SCORING_VERIFIED_PENDING_BENCHMARK_FINALIZATION`
 
-## Immutable storage boundary
+## Immutable external evidence boundary
 
-The annotation set must be stored in immutable versioned Selectel S3 evidence for at least 90 days, with distinct original and restored root identities. The annotation payload SHA-256 and external evidence manifest SHA-256 are mandatory.
+The annotation set and reviewer evidence must be retained in immutable versioned Selectel S3 for at least 90 days.
 
-The AP-13C.1c runtime roots are also mandatory inputs. Both roots are independently reverified before any quality annotation is evaluated.
+The external manifest binds every annotation to one evidence file with:
+
+- safe relative path;
+- SHA-256 and byte size;
+- immutable object key and VersionId;
+- retention deadline;
+- exact annotation ID.
+
+The verifier checks the supplied manifest byte-for-byte against copies restored under two distinct root identities. The original and restored roots must also resolve to different physical directories. It then reads each evidence file from both roots and requires identical payload, digest and size. Symlinks, path traversal, missing files, duplicate object identities, shortened retention, declared-only digests and original/restore drift fail closed.
+
+A separate `tai.quality-provider-inventory-receipt.v1` must be produced from trusted Selectel S3 inventory or API facts. It binds the bucket, root identities, manifest object and every reviewer object to exact VersionId, SHA-256, size, Object Lock retention and immutable status. The receipt is signed with a separate external operator-owned HMAC key and must be issued after scoring completion. Its key and trust-anchor digest are not accepted from the scoring manifest.
+
+The AP-13C.1c runtime roots are separate mandatory inputs and are independently reverified before quality scoring.
 
 ## Commands
 
@@ -112,11 +148,19 @@ python -m tai.quality_scoring_cli verify \
   /secure/ap14c/accepted-assessment.v1.json \
   /secure/ap14c/gold-case-manifest.v1.json \
   /secure/quality/quality-scoring-evidence.v1.json \
-  --evaluated-at 2026-07-21T18:00:00Z \
+  /run/secrets/tai-reviewer-identity-hmac \
+  /secure/quality/reviewer-evidence-manifest.v1.json \
+  /secure/quality/original-root \
+  /secure/quality/independent-restored-root \
+  /secure/quality/selectel-provider-inventory-receipt.v1.json \
+  /run/secrets/tai-quality-provider-inventory-hmac \
+  --trusted-identity-secret-sha256 "$TAI_REVIEWER_IDENTITY_SECRET_SHA256" \
+  --trusted-provider-inventory-secret-sha256 "$TAI_PROVIDER_INVENTORY_SECRET_SHA256" \
+  --evaluated-at 2026-07-21T18:05:00Z \
   --output /secure/quality/quality-scoring-verification.v1.json
 ```
 
-The command fails closed when the runtime report cannot be reproduced, the AP-14C assessment is not accepted, the runtime raw files drift, or the derived observation index does not match the scoring manifest digest.
+Both trust-anchor digests are supplied from operator-trusted configuration, not from the scoring manifest, external manifest or provider receipt. The command fails closed when any trusted input is missing.
 
 ## Release rule
 

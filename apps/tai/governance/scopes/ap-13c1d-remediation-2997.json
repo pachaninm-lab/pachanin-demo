@@ -1,0 +1,46 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2993,
+  "issue": 2997,
+  "branch": "agent/tai-ap-13c1d-remediation-2997",
+  "exact_base": "039ba684d083ed7a08982b69c909552216906db2",
+  "allowed_paths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "apps/tai/governance/scopes/ap-13c1d-remediation-2997.json",
+    "apps/tai/model-artifacts/quality-scoring-authority.v1.json",
+    "apps/tai/model-artifacts/quality-scoring-evidence.schema.v1.json",
+    "apps/tai/model-artifacts/quality-scoring-runbook.v1.md",
+    "apps/tai/pyproject.toml",
+    "apps/tai/tai/quality_scoring_contract.py",
+    "apps/tai/tai/quality_scoring_identity.py",
+    "apps/tai/tai/quality_scoring_external_evidence.py",
+    "apps/tai/tai/quality_scoring_annotations.py",
+    "apps/tai/tai/quality_scoring.py",
+    "apps/tai/tai/quality_scoring_cli.py",
+    "apps/tai/tests/quality_scoring_fixtures.py",
+    "apps/tai/tests/test_quality_scoring_authority.py",
+    "apps/tai/tests/test_quality_scoring_cli.py",
+    "apps/tai/tests/test_quality_scoring_remediation.py"
+  ],
+  "acceptance": [
+    "every scorer is bound to a server-authoritative signed identity assertion",
+    "MFA is required and exact reviewer role is verified",
+    "every annotation payload is separately reviewer-authenticated for the exact main and scoring run",
+    "fabricated scorer identity, role, key id, signature, annotation approval or expired assertion fails closed",
+    "every annotation evidence file is reproduced from immutable original and independently restored roots",
+    "Selectel S3 object identity, VersionId, size, digest, Object Lock retention and immutability are authenticated by a separately trusted provider inventory receipt",
+    "manifest scored_at equals the latest authenticated annotation timestamp and retention is measured from that completion",
+    "raw reviewer notes, evidence and signing keys remain outside Git and GitHub artifacts",
+    "benchmark and admission remain pending and production remains not attested",
+    "exact-head and exact-main gates pass before acceptance"
+  ],
+  "forbidden_capabilities": [
+    "LLM-as-judge or fabricated human review",
+    "raw reviewer notes, evidence or signing keys in Git",
+    "model admission, routing activation, deployment or production attestation",
+    "trust in submitter-declared scorer identity, role, annotation verdict or self-digest",
+    "trust in submitter-declared S3 VersionId, retention or immutability",
+    "trust in unreproduced external evidence digests"
+  ]
+}
