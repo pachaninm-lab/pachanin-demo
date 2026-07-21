@@ -95,6 +95,20 @@ export class CommodityProfileDetailQueryDto extends CommodityProfileForbiddenAut
   effectiveAt?: string;
 }
 
+export class CommodityProfileVersionHistoryQueryDto extends CommodityProfileForbiddenAuthorityDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  cursor?: string;
+}
+
 export class ExecuteCommodityProfileCommandDto extends CommodityProfileForbiddenAuthorityDto {
   @IsString()
   @Matches(SAFE_ID)
