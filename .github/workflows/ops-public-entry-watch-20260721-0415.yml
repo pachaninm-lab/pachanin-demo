@@ -1,15 +1,13 @@
 name: ops public entry watch 20260721 0415
 
 on:
-  push:
-    branches:
-      - ops/public-entry-watch-20260721-0415
   pull_request:
     branches:
       - main
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   production-watch:
@@ -28,6 +26,8 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Check production public entry
+        id: watch
+        continue-on-error: true
         working-directory: apps/web
         run: node scripts/public-entry-watch-automation.mjs
       - name: Upload watch evidence
@@ -38,3 +38,35 @@ jobs:
           path: artifacts/public-entry-watch
           if-no-files-found: warn
           retention-days: 3
+      - name: Publish watch result
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const file = 'artifacts/public-entry-watch/report.json';
+            let payload = { issues: [{ code: 'REPORT_MISSING' }] };
+            if (fs.existsSync(file)) payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+            const compact = {
+              generatedAt: payload.generatedAt,
+              http: payload.http,
+              browserCases: Array.isArray(payload.browser) ? payload.browser.length : 0,
+              loginFailClosed: payload.loginFailClosed,
+              issues: payload.issues,
+            };
+            const body = `<!-- public-entry-watch-result -->\n\`\`\`json\n${JSON.stringify(compact, null, 2).slice(0, 60000)}\n\`\`\``;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes('<!-- public-entry-watch-result -->'));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
+      - name: Enforce watch result
+        if: steps.watch.outcome != 'success'
+        run: exit 1
