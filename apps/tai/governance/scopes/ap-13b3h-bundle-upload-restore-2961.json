@@ -1,0 +1,42 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3h-bundle-upload-restore",
+  "program_issue": 2726,
+  "parent_issue": 2954,
+  "issue": 2961,
+  "allowed_paths": [
+    ".github/workflows/tai-model-bundle-upload-restore.yml",
+    "apps/tai/governance/scopes/ap-13b3h-bundle-upload-restore-2961.json",
+    "apps/tai/model-artifacts/model-bundle-upload-restore-authority.v1.json",
+    "apps/tai/model-artifacts/model-bundle-upload-restore-runbook.v1.md",
+    "apps/tai/scripts/model-bundle-upload-restore-driver.v1.sh",
+    "apps/tai/tai/model_bundle_finalize.py",
+    "apps/tai/tai/model_bundle_finalize_cli.py",
+    "apps/tai/tai/model_bundle_storage.py",
+    "apps/tai/tai/model_bundle_v2_verify.py",
+    "apps/tai/tests/test_model_bundle_finalize.py",
+    "apps/tai/tests/test_model_bundle_storage_contract.py"
+  ],
+  "forbidden_capabilities": [
+    "model weights, GGUF or archives committed to Git",
+    "production-server credential or host fallback",
+    "password-based SSH",
+    "accepted S3 object or version deletion",
+    "benchmark, model admission, runtime activation or production-readiness claim",
+    "reuse of original files as clean restore evidence",
+    "bundle upload before exact-main release, storage preflight and conversion evidence pass",
+    "local materialization of the complete immutable archive before upload"
+  ],
+  "acceptance": [
+    "owner-only exact-main command triggers fail-closed finalization",
+    "conversion report and all five GGUF outputs match exact SHA-256 and size",
+    "the v2 verifier treats bundle_archive as external immutable-object metadata rather than a required local payload file",
+    "Qwen and Mistral payload indexes are deterministic and complete",
+    "archives are hashed and then streamed to content-addressed versioned S3 objects without a local archive duplicate",
+    "Object Lock COMPLIANCE retention is at least 90 days",
+    "each exact object version is streamed into a clean restore root one model at a time with safe-member enforcement",
+    "verify_bundle_storage_v2 returns VERIFIED with reasons=[] for both models",
+    "only bounded locator and verification metadata enter GitHub artifacts",
+    "benchmark remains NOT_RUN, admission remains NOT_DONE and production status remains NOT_ATTESTED"
+  ]
+}
