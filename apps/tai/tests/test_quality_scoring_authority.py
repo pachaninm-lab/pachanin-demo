@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,18 @@ from tai.quality_scoring_contract import (
     load_json,
     load_scoring_manifest,
     write_json,
+)
+from tai.quality_scoring_external_evidence import (
+    _annotation_completion,
+    _safe_file,
+    _storage,
+    _trusted_secret as trusted_provider_secret,
+)
+from tai.quality_scoring_identity import (
+    _assertion,
+    bind_annotation_identity,
+    trusted_identity_secret,
+    verify_identity_assertions,
 )
 
 
@@ -394,3 +407,185 @@ def test_complete_manifest_bindings_fail_closed(
             fixture,
             evaluated_at=(NOW + timedelta(minutes=5)).isoformat(),
         )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        ("schema", "schema mismatch"),
+        ("issuer", "issuer mismatch"),
+        ("audience", "audience mismatch"),
+        ("key", "key id mismatch"),
+        ("role", "role is not allowed"),
+        ("mfa-method", "MFA method is not allowed"),
+        ("timestamps", "timestamps are invalid"),
+    ],
+)
+def test_identity_assertion_contract_edges(
+    tmp_path: Path, mutation: str, match: str
+) -> None:
+    fixture = _fixture(tmp_path)
+    policy = copy.deepcopy(fixture["authority"]["scorer_policy"]["identity_assertions"])
+    assertion = copy.deepcopy(fixture["manifest"]["identity_assertions"][0])
+    secret_path = fixture["identity_secret_path"]
+    assert isinstance(secret_path, Path)
+    if mutation == "schema":
+        assertion["schema_version"] = "wrong-schema"
+    elif mutation == "issuer":
+        assertion["issuer"] = "OTHER_ISSUER"
+    elif mutation == "audience":
+        assertion["audience"] = "OTHER_AUDIENCE"
+    elif mutation == "key":
+        assertion["key_id"] = "other-key"
+    elif mutation == "role":
+        assertion["role"] = "UNTRUSTED_ROLE"
+    elif mutation == "mfa-method":
+        assertion["mfa_method"] = "SMS"
+    else:
+        assertion["mfa_verified_at"] = (NOW - timedelta(hours=2)).isoformat()
+        assertion["issued_at"] = (NOW - timedelta(hours=1)).isoformat()
+    with pytest.raises(QualityScoringError, match=match):
+        _assertion(
+            assertion,
+            0,
+            policy,
+            secret_path.read_bytes(),
+            NOW + timedelta(minutes=5),
+        )
+
+
+def test_identity_policy_and_absence_fail_closed(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    policy = copy.deepcopy(fixture["authority"]["scorer_policy"]["identity_assertions"])
+    secret_path = fixture["identity_secret_path"]
+    digest = fixture["trusted_secret_sha256"]
+    assert isinstance(secret_path, Path)
+    assert isinstance(digest, str)
+
+    weakened = copy.deepcopy(policy)
+    weakened["signature_algorithm"] = "NONE"
+    with pytest.raises(QualityScoringError, match="unsupported reviewer identity"):
+        verify_identity_assertions([], weakened, secret_path, digest, evaluated_at=NOW)
+
+    weakened = copy.deepcopy(policy)
+    weakened["trusted_secret_digest_source"] = "SUBMITTER"
+    with pytest.raises(QualityScoringError, match="trust source is not operator-owned"):
+        verify_identity_assertions([], weakened, secret_path, digest, evaluated_at=NOW)
+
+    weakened = copy.deepcopy(policy)
+    weakened["allowed_roles"] = []
+    with pytest.raises(QualityScoringError, match="policy is empty"):
+        verify_identity_assertions([], weakened, secret_path, digest, evaluated_at=NOW)
+
+    with pytest.raises(QualityScoringError, match="assertions are absent"):
+        verify_identity_assertions([], policy, secret_path, digest, evaluated_at=NOW)
+
+
+def test_identity_secret_and_binding_edges(tmp_path: Path) -> None:
+    missing = tmp_path / "missing-secret"
+    with pytest.raises(QualityScoringError, match="external regular file"):
+        trusted_identity_secret(missing, "0" * 64)
+
+    small = tmp_path / "small-secret"
+    small.write_bytes(b"short")
+    with pytest.raises(QualityScoringError, match="size is invalid"):
+        trusted_identity_secret(small, hashlib.sha256(b"short").hexdigest())
+    with pytest.raises(QualityScoringError, match="size is invalid"):
+        trusted_provider_secret(small, hashlib.sha256(b"short").hexdigest())
+
+    provider_secret = tmp_path / "provider-secret"
+    provider_secret.write_bytes(b"p" * 32)
+    with pytest.raises(QualityScoringError, match="trust anchor mismatch"):
+        trusted_provider_secret(provider_secret, "f" * 64)
+
+    fixture = _fixture(tmp_path / "binding")
+    policy = fixture["authority"]["scorer_policy"]["identity_assertions"]
+    secret_path = fixture["identity_secret_path"]
+    digest = fixture["trusted_secret_sha256"]
+    assert isinstance(secret_path, Path)
+    assert isinstance(digest, str)
+    assertions = verify_identity_assertions(
+        fixture["manifest"]["identity_assertions"],
+        policy,
+        secret_path,
+        digest,
+        evaluated_at=NOW + timedelta(minutes=5),
+    )
+    annotation = copy.deepcopy(fixture["manifest"]["annotations"][0])
+
+    annotation["identity_assertion_id"] = "unknown-assertion"
+    with pytest.raises(QualityScoringError, match="assertion is unknown"):
+        bind_annotation_identity(annotation, assertions, policy)
+
+    annotation = copy.deepcopy(fixture["manifest"]["annotations"][0])
+    annotation["scorer_role"] = "SECURITY_REVIEWER"
+    with pytest.raises(QualityScoringError, match="role is not server authenticated"):
+        bind_annotation_identity(annotation, assertions, policy)
+
+    annotation = copy.deepcopy(fixture["manifest"]["annotations"][0])
+    annotation["scored_at"] = (NOW + timedelta(days=2)).isoformat()
+    with pytest.raises(QualityScoringError, match="outside authenticated identity validity"):
+        bind_annotation_identity(annotation, assertions, policy)
+
+
+def test_external_safe_path_guards(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    target = root / "target.txt"
+    target.write_text("evidence", encoding="utf-8")
+
+    with pytest.raises(QualityScoringError, match="POSIX separators"):
+        _safe_file(root, "nested\\file", "edge")
+    with pytest.raises(QualityScoringError, match="safe relative path"):
+        _safe_file(root, "../escape", "edge")
+    with pytest.raises(QualityScoringError, match="regular directory"):
+        _safe_file(tmp_path / "absent-root", "file", "edge")
+
+    link = root / "link"
+    link.symlink_to(target)
+    with pytest.raises(QualityScoringError, match="contains a symlink"):
+        _safe_file(root, "link", "edge")
+    with pytest.raises(QualityScoringError, match="escapes or is missing"):
+        _safe_file(root, "missing.txt", "edge")
+
+    directory = root / "directory"
+    directory.mkdir()
+    with pytest.raises(QualityScoringError, match="regular file"):
+        _safe_file(root, "directory", "edge")
+
+
+def test_annotation_completion_and_storage_edges(tmp_path: Path) -> None:
+    with pytest.raises(QualityScoringError, match="annotations are absent"):
+        _annotation_completion([], NOW)
+
+    fixture = _fixture(tmp_path)
+    annotations = fixture["manifest"]["annotations"]
+    identities = fixture["manifest"]["identity_assertions"]
+    policy = fixture["authority"]["evidence"]
+    storage = fixture["manifest"]["storage"]
+
+    with pytest.raises(QualityScoringError, match="annotation completion"):
+        _annotation_completion(annotations, NOW - timedelta(minutes=1))
+
+    mutations = [
+        ("provider", "OTHER_PROVIDER", "storage provider mismatch"),
+        ("immutability_status", "MUTABLE", "not immutable"),
+        ("retention_days", 1, "retention is insufficient"),
+        (
+            "retention_until",
+            (NOW + timedelta(days=1)).isoformat(),
+            "retention deadline is insufficient",
+        ),
+        ("restored_root_id", storage["original_root_id"], "not independent"),
+        ("annotations_sha256", "f" * 64, "annotation payload digest mismatch"),
+        (
+            "identity_assertions_sha256",
+            "f" * 64,
+            "identity assertion payload digest mismatch",
+        ),
+    ]
+    for field, value, match in mutations:
+        candidate = copy.deepcopy(storage)
+        candidate[field] = value
+        with pytest.raises(QualityScoringError, match=match):
+            _storage(candidate, policy, annotations, identities, NOW)
