@@ -1,0 +1,72 @@
+name: TAI AP-13B.3h Ruff Format Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-ap13b3h-format-evidence.yml'
+      - 'apps/tai/tai/model_bundle_finalize.py'
+      - 'apps/tai/tai/model_bundle_storage.py'
+      - 'apps/tai/tests/test_model_bundle_finalize.py'
+      - 'apps/tai/tests/test_model_bundle_storage_contract.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-ap13b3h-ruff-format-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  format-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install bounded Ruff tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'ruff>=0.11,<1'
+
+      - name: Apply deterministic Ruff fixes and formatting
+        working-directory: apps/tai
+        shell: bash
+        run: |
+          set -euo pipefail
+          targets=(
+            tai/model_bundle_finalize.py
+            tai/model_bundle_storage.py
+            tests/test_model_bundle_finalize.py
+            tests/test_model_bundle_storage_contract.py
+          )
+          ruff check --fix "${targets[@]}"
+          ruff format "${targets[@]}"
+          ruff check "${targets[@]}"
+          ruff format --check "${targets[@]}"
+
+      - name: Upload formatted source evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap13b3h-ruff-formatted-${{ github.event.pull_request.head.sha }}
+          path: |
+            apps/tai/tai/model_bundle_finalize.py
+            apps/tai/tai/model_bundle_storage.py
+            apps/tai/tests/test_model_bundle_finalize.py
+            apps/tai/tests/test_model_bundle_storage_contract.py
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
