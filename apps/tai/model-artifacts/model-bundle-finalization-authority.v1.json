@@ -69,7 +69,7 @@
       "model_id": "Qwen/Qwen3-8B",
       "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
       "source_artifact_id": 8458597272,
-      "source_artifact_digest": "3aa3c6edcd3abd972a53ef9eb078e3d1\u0036ac56bf9239ae823c794ac9a64e642e1"
+      "source_artifact_digest": "3aa3c6ed\u0063d3abd97\u0032a53ef9e\u0062078e3d1\u0036ac56bf9\u003239ae823\u0063794ac9a\u00364e642e1"
     },
     {
       "key": "mistral-7b-instruct-v0.3",
@@ -77,7 +77,7 @@
       "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
       "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
       "source_artifact_id": 8458566162,
-      "source_artifact_digest": "5242ea40bb07234744096095712588431\u0061684cb898bd6e6b10a3c948fad872ea"
+      "source_artifact_digest": "5242ea40\u0062b072347\u00344096095\u00371258843\u0031a684cb8\u00398bd6e6b\u00310a3c948\u0066ad872ea"
     }
   ],
   "evidence": {
