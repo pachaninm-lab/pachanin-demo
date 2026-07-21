@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -13,6 +14,18 @@ from pathlib import Path
 from typing import BinaryIO
 
 _DEFAULT_PART_SIZE = 64 * 1024 * 1024
+
+
+def _read_part(stream: BinaryIO, part_size: int) -> bytes:
+    chunks: list[bytes] = []
+    remaining = part_size
+    while remaining > 0:
+        chunk = stream.read(remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
 
 
 def _object_url(endpoint: str, bucket: str, key: str) -> str:
@@ -82,22 +95,32 @@ def multipart_upload(
     work_root: Path,
     stream: BinaryIO,
     part_size: int,
+    expected_sha256: str,
+    expected_size_bytes: int,
 ) -> dict[str, object]:
     if part_size < 5 * 1024 * 1024:
         raise ValueError("multipart part size must be at least 5 MiB")
+    if len(expected_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_sha256
+    ):
+        raise ValueError("expected SHA-256 must be lowercase hexadecimal")
+    if expected_size_bytes < 1:
+        raise ValueError("expected size must be positive")
     base = _object_url(endpoint, bucket, key)
     create_url = _query_url(base, {"uploads": None})
     create = _curl(config, ["--request", "POST", "--data", "", create_url])
     upload_id = _xml_text(create, "UploadId")
     parts: list[dict[str, object]] = []
     total = 0
+    digest = hashlib.sha256()
     work_root.mkdir(parents=True, exist_ok=True)
     try:
         number = 1
         while True:
-            chunk = stream.read(part_size)
+            chunk = _read_part(stream, part_size)
             if not chunk:
                 break
+            digest.update(chunk)
             with tempfile.NamedTemporaryFile(
                 prefix=f"part-{number:05d}-",
                 suffix=".bin",
@@ -138,6 +161,17 @@ def multipart_upload(
                 header_path.unlink(missing_ok=True)
         if not parts:
             raise RuntimeError("refusing to upload an empty archive")
+        actual_sha256 = digest.hexdigest()
+        if total != expected_size_bytes:
+            raise RuntimeError(
+                f"archive size drift before multipart completion: "
+                f"expected={expected_size_bytes} actual={total}"
+            )
+        if actual_sha256 != expected_sha256:
+            raise RuntimeError(
+                f"archive SHA-256 drift before multipart completion: "
+                f"expected={expected_sha256} actual={actual_sha256}"
+            )
 
         complete_payload = ET.Element("CompleteMultipartUpload")
         for part in parts:
@@ -174,6 +208,7 @@ def multipart_upload(
             "upload_id": upload_id,
             "part_count": len(parts),
             "size_bytes": total,
+            "sha256": actual_sha256,
             "etag": etag,
         }
     except Exception:
@@ -231,6 +266,7 @@ def head_object(
         "version_id": observed_version,
         "etag": etag,
         "size_bytes": int(content_length),
+        "last_modified": headers.get("last-modified"),
         "object_lock_mode": headers.get("x-amz-object-lock-mode"),
         "retain_until_date": headers.get("x-amz-object-lock-retain-until-date"),
     }
@@ -253,6 +289,8 @@ def main(argv: list[str] | None = None) -> int:
     upload.add_argument("--curl-config", required=True, type=Path)
     upload.add_argument("--work-root", required=True, type=Path)
     upload.add_argument("--part-size", type=int, default=_DEFAULT_PART_SIZE)
+    upload.add_argument("--expected-sha256", required=True)
+    upload.add_argument("--expected-size-bytes", required=True, type=int)
     upload.add_argument("--output", required=True, type=Path)
 
     head = commands.add_parser("head")
@@ -275,6 +313,8 @@ def main(argv: list[str] | None = None) -> int:
                 work_root=args.work_root,
                 stream=sys.stdin.buffer,
                 part_size=args.part_size,
+                expected_sha256=args.expected_sha256,
+                expected_size_bytes=args.expected_size_bytes,
             )
         else:
             result = head_object(
