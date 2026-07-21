@@ -94,6 +94,16 @@ def _required_path(value: Path | None, name: str) -> Path:
     return value
 
 
+def _require_independent_roots(original: Path, restored: Path) -> None:
+    try:
+        original_resolved = original.resolve(strict=True)
+        restored_resolved = restored.resolve(strict=True)
+    except OSError as exc:
+        raise QualityScoringError("reviewer evidence roots are unavailable") from exc
+    if original_resolved == restored_resolved:
+        raise QualityScoringError("reviewer evidence restore roots are not independent")
+
+
 def verify_quality_scoring(
     authority_path: Path,
     runtime_authority_path: Path,
@@ -146,6 +156,7 @@ def verify_quality_scoring(
         reviewer_restored_root,
         "reviewer restored root",
     )
+    _require_independent_roots(evidence_original_root, evidence_restored_root)
     if trusted_identity_secret_sha256 is None:
         raise QualityScoringError(
             "operator-trusted reviewer identity secret digest is required"
