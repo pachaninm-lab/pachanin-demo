@@ -13,6 +13,7 @@ from quality_scoring_fixtures import (
     _fixture,
     _rewrite_manifest,
     _signed,
+    _verify,
 )
 
 from tai.quality_scoring import verify_quality_scoring
@@ -31,17 +32,16 @@ from tai.quality_scoring_contract import (
 
 def test_complete_human_quality_scoring_passes(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
-    report = verify_quality_scoring(
-        fixture["authority_path"],
-        fixture["runtime_path"],
-        fixture["cases_path"],
-        fixture["index_path"],
-        fixture["scoring_path"],
+    report = _verify(
+        fixture,
         evaluated_at=(NOW + timedelta(minutes=5)).isoformat(),
     )
     assert report["accepted"] is True
     assert report["status"] == VERIFIED_QUALITY_STATUS
     assert report["aggregate"]["citation_validity_basis_points"] == 10000
+    assert report["runtime_authority_sha256"] == fixture["runtime"]["authority_sha256"]
+    assert report["assessment_sha256"] == fixture["assessment"]["assessment_sha256"]
+    assert report["raw_payload_sha256"] == fixture["index"]["raw_payload_sha256"]
     for profile in PROFILES:
         assert (
             report["aggregate"]["profiles"][profile]["platform"][
@@ -80,11 +80,16 @@ def test_pending_baseline_is_bounded(tmp_path: Path) -> None:
     pending_path = tmp_path / "pending.json"
     write_json(pending_path, pending)
     assert load_scoring_manifest(pending_path)["lifecycle"] == "PENDING_HUMAN_SCORING"
+    missing = tmp_path / "missing"
     report = verify_quality_scoring(
         authority_path,
-        tmp_path / "missing-runtime.json",
-        tmp_path / "missing-cases.json",
-        tmp_path / "missing-index.json",
+        missing,
+        missing,
+        missing,
+        missing,
+        missing,
+        missing,
+        missing,
         pending_path,
         evaluated_at=NOW.isoformat(),
     )
@@ -100,7 +105,7 @@ def test_pending_baseline_is_bounded(tmp_path: Path) -> None:
         ("missing-annotation", "coverage is incomplete"),
         ("same-scorer", "not independent"),
         ("disagreement", "open annotation disagreement"),
-        ("runtime-rejected", "runtime evidence is not verified"),
+        ("runtime-rejected", "runtime report is not reproduced"),
         ("same-root", "restore roots are not independent"),
     ],
 )
@@ -121,7 +126,7 @@ def test_contract_and_provenance_failures_are_rejected(
         critical_group = [
             row
             for row in fixture["manifest"]["annotations"]
-            if row["case_id"] == "case.00"
+            if row["case_id"] == "case-01"
             and row["profile_id"] == PROFILES[0]
             and row["locale"] == "ru"
         ]
@@ -148,21 +153,62 @@ def test_contract_and_provenance_failures_are_rejected(
         ]["original_root_id"]
         _rewrite_manifest(fixture)
     with pytest.raises(QualityScoringError, match=match):
-        verify_quality_scoring(
-            fixture["authority_path"],
-            fixture["runtime_path"],
-            fixture["cases_path"],
-            fixture["index_path"],
-            fixture["scoring_path"],
+        _verify(
+            fixture,
             evaluated_at=(NOW + timedelta(minutes=5)).isoformat(),
         )
+
+
+def test_runtime_payload_tamper_is_rejected_before_scoring(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    payload_path = fixture["original_root"] / "raw-observations/payload.json"
+    payload = load_json(payload_path)
+    payload["entries"][0]["response"] = "substituted response"
+    write_json(payload_path, payload)
+    with pytest.raises(QualityScoringError, match="re-verification failed"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_rejected_assessment_and_forged_case_authority_are_rejected(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    assessment = copy.deepcopy(fixture["assessment"])
+    assessment["accepted"] = False
+    assessment["status"] = "PENDING_REVIEW"
+    assessment["blocking_reasons"] = ["EXPERT_REVIEWS_MISSING"]
+    assessment.pop("assessment_sha256")
+    assessment = _signed(assessment, "assessment_sha256")
+    write_json(fixture["assessment_path"], assessment)
+    with pytest.raises(QualityScoringError, match="assessment is not accepted"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+    fixture = _fixture(tmp_path / "forged-case")
+    cases = load_json(fixture["cases_path"])
+    cases["corpus_sha256"] = "f" * 64
+    cases.pop("manifest_sha256")
+    cases = _signed(cases, "manifest_sha256")
+    write_json(fixture["cases_path"], cases)
+    with pytest.raises(QualityScoringError, match="corpus digest mismatch"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_runtime_authority_weakening_is_rejected(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    weakened = load_json(fixture["runtime_authority_path"])
+    weakened["readiness"]["maximum_age_hours"] = 999
+    weakened_path = tmp_path / "weakened-runtime-authority.json"
+    write_json(weakened_path, weakened)
+    fixture["runtime_authority_path"] = weakened_path
+    with pytest.raises(QualityScoringError, match="re-verification failed"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 
 def test_quality_threshold_failure_is_reported_without_admission(
     tmp_path: Path,
 ) -> None:
     fixture = _fixture(tmp_path)
-    failed_cases = {"case.00", "case.01", "case.02"}
+    failed_cases = {"case-01", "case-02", "case-03"}
     for annotation in fixture["manifest"]["annotations"]:
         if (
             annotation["profile_id"] == PROFILES[0]
@@ -182,12 +228,8 @@ def test_quality_threshold_failure_is_reported_without_admission(
             annotation.pop("annotation_sha256")
             annotation.update(_signed(annotation, "annotation_sha256"))
     _rewrite_manifest(fixture)
-    report = verify_quality_scoring(
-        fixture["authority_path"],
-        fixture["runtime_path"],
-        fixture["cases_path"],
-        fixture["index_path"],
-        fixture["scoring_path"],
+    report = _verify(
+        fixture,
         evaluated_at=(NOW + timedelta(minutes=5)).isoformat(),
     )
     assert report["accepted"] is False
