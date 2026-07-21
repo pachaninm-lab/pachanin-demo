@@ -3,6 +3,11 @@
   "program_issue": 2726,
   "parent_issue": 2971,
   "issue": 2987,
+  "execution_authority": {
+    "schema_version": "tai.cpu-benchmark-execution-authority.v1",
+    "issue": 2977,
+    "path": "cpu-benchmark-execution-authority.v1.json"
+  },
   "readiness": {
     "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
     "required_status": "READY_FOR_EXTERNAL_EXECUTION",
@@ -136,16 +141,30 @@
     "exact_version_restore_required": true,
     "independent_restore_roots_required": true,
     "raw_payloads_in_github_allowed": false,
+    "forbidden_suffixes": [
+      ".gguf",
+      ".safetensors",
+      ".bin",
+      ".pt",
+      ".pth",
+      ".tar",
+      ".zip"
+    ],
     "required_semantic_files": [
       "suite/case-manifest.json",
       "raw-observations/manifest.json",
-      "raw-observations/payload.json",
+      "raw-observations/qwen3-8b-cpu-q4-k-m.jsonl",
+      "raw-observations/mistral-7b-fallback-cpu-q4-k-m.jsonl",
+      "runtime/qwen3-8b-cpu-q4-k-m/metrics.json",
+      "runtime/mistral-7b-fallback-cpu-q4-k-m/metrics.json",
+      "toolchain/manifest.json",
       "fallback/metrics.json",
-      "soak/metrics.json"
+      "soak/metrics.json",
+      "storage/manifest.json"
     ]
   },
   "maturity_boundary": {
-    "verified_runtime_status": "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING",
+    "runtime_verification_status": "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING",
     "quality_scoring_status": "PENDING_QUALITY_SCORING",
     "benchmark_status": "PENDING_BENCHMARK",
     "model_admission_status": "PENDING_ADMISSION",

@@ -3,36 +3,194 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from tai.cpu_runtime_evidence import (
-    RuntimeEvidenceError,
-    load_authority,
-    load_json,
-    verify_runtime_evidence,
-)
+from tai import cpu_runtime_evidence as runtime
 
-ROOT = Path(__file__).parents[1]
-ARTIFACTS = ROOT / "model-artifacts"
-AUTHORITY = ARTIFACTS / "cpu-runtime-evidence-authority.v1.json"
-PENDING = ARTIFACTS / "cpu-runtime-evidence.pending.json"
-SCOPE = ROOT / "governance" / "scopes" / "ap-13c1c-raw-runtime-evidence-2987.json"
-
-EXACT_MAIN = "cbc7bcba074177ba34e5fd142ec0c1c06f0b8863"
-QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
-MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
-QWEN_ARTIFACT_SHA = "a" * 64
-MISTRAL_ARTIFACT_SHA = "b" * 64
-ASSESSMENT_SHA = "c" * 64
-CORPUS_SHA = "d" * 64
-LOCALES = ["ru", "en", "zh"]
-PROFILE_IDS = [
+SHA = "a" * 40
+DUMMY_SHA = "b" * 64
+PROFILES = (
     "qwen3-8b-cpu-q4-k-m",
     "mistral-7b-fallback-cpu-q4-k-m",
-]
+)
+
+
+TAI_ROOT = Path(__file__).parents[1]
+
+
+def _execution_authority() -> dict[str, Any]:
+    value = json.loads(
+        (
+            TAI_ROOT
+            / "model-artifacts"
+            / "cpu-benchmark-execution-authority.v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert isinstance(value, dict)
+    return value
+
+
+def _runtime_authority() -> dict[str, Any]:
+    execution = _execution_authority()
+    return {
+        "schema_version": "tai.cpu-runtime-evidence-authority.v1",
+        "program_issue": 2726,
+        "parent_issue": 2971,
+        "issue": 2987,
+        "execution_authority": {
+            "schema_version": execution["schema_version"],
+            "issue": 2977,
+            "path": "cpu-benchmark-execution-authority.v1.json",
+        },
+        "readiness": {
+            "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
+            "required_status": "READY_FOR_EXTERNAL_EXECUTION",
+            "maximum_age_hours": 24,
+            "exact_main_required": True,
+            "simulated_evidence_accepted": False,
+        },
+        "bundle_finalization": {
+            "schema_version": "tai.model-bundle-finalization-report.v1",
+            "required_status": (
+                "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED"
+            ),
+            "bundle_authority_schema": "tai.model-bundle-authority.v2",
+            "verification_status": "VERIFIED",
+            "exact_object_version_required": True,
+            "independent_restore_required": True,
+        },
+        "toolchain": execution["toolchain"],
+        "target": {
+            "host_role": "DEDICATED_MODEL_HOST",
+            "required_user": "tai-model",
+            "workspace_root": "/srv/tai-models/cpu-runtime-runs",
+            "production_fallback_allowed": False,
+            "loopback_inference_only": True,
+            "external_egress": "EXACT_VERSION_S3_ONLY",
+        },
+        "corpus": {
+            "suite_id": "tai-platform-agro-58-v1",
+            "assessment_schema": "tai.gold-set-assessment.v1",
+            "required_status": "ACCEPTED",
+            "required_accepted": True,
+            "required_total_cases": 58,
+            "required_critical_cases": 23,
+            "required_locales": ["ru", "en", "zh"],
+            "required_raw_observations_per_profile": 174,
+            "required_raw_observations_total": 348,
+            "maximum_unreviewed_cases": 0,
+        },
+        "runtime_profiles": [
+            {
+                "profile_id": PROFILES[0],
+                "role": "PRIMARY",
+                "model_key": "qwen3-8b",
+                "model_id": "Qwen/Qwen3-8B",
+                "revision": execution["models"][0]["revision"],
+                "runtime_class": "CPU",
+                "quantization": "Q4_K_M",
+                "artifact_path": execution["models"][0]["artifact_path"],
+                "required_concurrency_levels": [1, 2, 4],
+                "thresholds": {
+                    "minimum_sample_count": 100,
+                    "minimum_prompt_tokens_per_second_milli": 5000,
+                    "minimum_generation_tokens_per_second_milli": 4000,
+                    "maximum_p95_latency_ms": 20000,
+                    "maximum_p99_latency_ms": 30000,
+                    "maximum_error_rate_basis_points": 100,
+                    "maximum_peak_ram_mb": 16384,
+                    "maximum_cold_start_ms": 120000,
+                    "maximum_warmup_ms": 180000,
+                },
+            },
+            {
+                "profile_id": PROFILES[1],
+                "role": "FALLBACK",
+                "model_key": "mistral-7b-instruct-v0.3",
+                "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+                "revision": execution["models"][1]["revision"],
+                "runtime_class": "CPU",
+                "quantization": "Q4_K_M",
+                "artifact_path": execution["models"][1]["artifact_path"],
+                "required_concurrency_levels": [1, 2, 4],
+                "thresholds": {
+                    "minimum_sample_count": 100,
+                    "minimum_prompt_tokens_per_second_milli": 4000,
+                    "minimum_generation_tokens_per_second_milli": 3000,
+                    "maximum_p95_latency_ms": 25000,
+                    "maximum_p99_latency_ms": 35000,
+                    "maximum_error_rate_basis_points": 100,
+                    "maximum_peak_ram_mb": 16384,
+                    "maximum_cold_start_ms": 120000,
+                    "maximum_warmup_ms": 180000,
+                },
+            },
+        ],
+        "generation": {
+            "deterministic_seed": 13001,
+            "temperature_milli": 0,
+            "maximum_output_tokens": 512,
+            "request_timeout_seconds": 120,
+        },
+        "fallback": {
+            "minimum_trigger_count": 100,
+            "forced_primary_failure_required": True,
+            "maximum_failed_transitions": 0,
+            "maximum_p95_takeover_ms": 5000,
+            "maximum_continuity_violations": 0,
+        },
+        "soak": {
+            "minimum_duration_seconds": 3600,
+            "minimum_request_count": 1000,
+            "maximum_failed_requests": 10,
+            "maximum_critical_failures": 0,
+            "maximum_memory_drift_mb": 512,
+        },
+        "evidence": {
+            "schema_version": "tai.cpu-runtime-evidence.v1",
+            "maximum_file_count": 256,
+            "maximum_file_size_bytes": 536870912,
+            "maximum_total_size_bytes": 8589934592,
+            "minimum_external_retention_days": 90,
+            "exact_version_restore_required": True,
+            "independent_restore_roots_required": True,
+            "raw_payloads_in_github_allowed": False,
+            "forbidden_suffixes": [
+                ".gguf",
+                ".safetensors",
+                ".bin",
+                ".pt",
+                ".pth",
+                ".tar",
+                ".zip",
+            ],
+            "required_semantic_files": [
+                "suite/case-manifest.json",
+                "raw-observations/manifest.json",
+                f"raw-observations/{PROFILES[0]}.jsonl",
+                f"raw-observations/{PROFILES[1]}.jsonl",
+                f"runtime/{PROFILES[0]}/metrics.json",
+                f"runtime/{PROFILES[1]}/metrics.json",
+                "toolchain/manifest.json",
+                "fallback/metrics.json",
+                "soak/metrics.json",
+                "storage/manifest.json",
+            ],
+        },
+        "maturity_boundary": {
+            "runtime_verification_status": (
+                "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING"
+            ),
+            "quality_scoring_status": "PENDING_QUALITY_SCORING",
+            "benchmark_status": "PENDING_BENCHMARK",
+            "model_admission_status": "PENDING_ADMISSION",
+            "production_operational_status": "NOT_ATTESTED",
+        },
+    }
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -43,649 +201,581 @@ def _write_json(path: Path, value: object) -> None:
     )
 
 
-def _sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def _with_digest(value: dict[str, Any], field: str) -> dict[str, Any]:
+    output = dict(value)
+    output[field] = runtime.canonical_sha256(output)
+    return output
 
 
-def _profile(
-    *,
-    profile_id: str,
-    role: str,
-    model_id: str,
-    revision: str,
-    artifact_sha256: str,
-) -> dict[str, Any]:
-    qwen = role == "PRIMARY"
-    prompt_speed = 6_000 if qwen else 5_000
-    generation_speed = 5_000 if qwen else 4_000
-    p95 = 18_000 if qwen else 22_000
-    p99 = 25_000 if qwen else 30_000
-    return {
-        "profile_id": profile_id,
-        "role": role,
-        "model_id": model_id,
-        "revision": revision,
-        "runtime_class": "CPU",
-        "quantization": "Q4_K_M",
-        "artifact_sha256": artifact_sha256,
-        "hardware_profile_id": f"hardware-{profile_id}",
-        "hardware_path": f"profiles/{profile_id}/hardware.json",
-        "environment_path": f"profiles/{profile_id}/environment.json",
-        "benchmark_metrics_path": f"profiles/{profile_id}/llama-bench.json",
-        "request_metrics_path": f"profiles/{profile_id}/requests.json",
-        "cost_inputs_path": f"profiles/{profile_id}/cost-inputs.json",
-        "sample_count": 100,
-        "prompt_tokens_per_second_milli": prompt_speed,
-        "generation_tokens_per_second_milli": generation_speed,
-        "p95_latency_ms": p95,
-        "p99_latency_ms": p99,
-        "error_rate_basis_points": 0,
-        "peak_ram_mb": 12_000,
-        "cold_start_ms": 60_000,
-        "warmup_ms": 90_000,
-        "concurrency": [
-            {
-                "level": level,
-                "request_count": 100,
-                "failed_requests": 0,
-                "error_rate_basis_points": 0,
-                "p95_latency_ms": p95,
-                "generation_tokens_per_second_milli": generation_speed,
-            }
-            for level in (1, 2, 4)
-        ],
+def _authorities(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    root = tmp_path / "model-artifacts"
+    root.mkdir()
+    execution = _execution_authority()
+    _write_json(root / "cpu-benchmark-execution-authority.v1.json", execution)
+    authority_path = root / "cpu-runtime-evidence-authority.v1.json"
+    _write_json(authority_path, _runtime_authority())
+    authority = runtime.load_runtime_authority(authority_path)
+    return authority_path, authority
+
+
+def _profile(authority: dict[str, Any], index: int, now: datetime) -> dict[str, Any]:
+    source = authority["runtime_profiles"][index]
+    toolchain = {
+        "name": authority["toolchain"]["name"],
+        "release": authority["toolchain"]["release"],
+        "commit": authority["toolchain"]["commit"],
+        "profile": authority["toolchain"]["profile"],
+        "acceptance_sha256": DUMMY_SHA,
+        "binary_sha256": {
+            "llama-cli": "1" * 64,
+            "llama-server": "2" * 64,
+            "llama-bench": "3" * 64,
+        },
     }
-
-
-def _profile_files(root: Path, profile: dict[str, Any]) -> None:
-    profile_id = profile["profile_id"]
-    _write_json(
-        root / profile["hardware_path"],
-        {
-            "schema_version": "tai.cpu-hardware-observation.v1",
-            "hardware_profile_id": profile["hardware_profile_id"],
-            "captured_at": "2026-07-21T09:00:00+00:00",
-            "cpu_model": "controlled-x86-64",
-            "logical_cpus": 8,
-            "ram_mb": 32_768,
-            "hostname_sha256": "1" * 64,
+    rows = []
+    for concurrency in (1, 2, 4):
+        rows.append(
+            {
+                "concurrency": concurrency,
+                "sample_count": 100,
+                "request_count": 100,
+                "error_count": 0,
+                "prompt_tokens_per_second_milli": 6000,
+                "generation_tokens_per_second_milli": 5000,
+                "p50_latency_ms": 5000,
+                "p95_latency_ms": 10000,
+                "p99_latency_ms": 15000,
+                "error_rate_basis_points": 0,
+                "peak_ram_mb": 8000,
+            }
+        )
+    profile = {
+        "profile_id": source["profile_id"],
+        "role": source["role"],
+        "model_id": source["model_id"],
+        "revision": source["revision"],
+        "runtime_class": source["runtime_class"],
+        "quantization": source["quantization"],
+        "artifact_sha256": str(index + 4) * 64,
+        "bundle_manifest_sha256": str(index + 6) * 64,
+        "host": {
             "host_role": "DEDICATED_MODEL_HOST",
             "user": "tai-model",
-        },
-    )
-    _write_json(
-        root / profile["environment_path"],
-        {
-            "schema_version": "tai.cpu-runtime-environment.v1",
-            "profile_id": profile_id,
-            "model_id": profile["model_id"],
-            "revision": profile["revision"],
-            "runtime_class": "CPU",
-            "quantization": "Q4_K_M",
-            "artifact_sha256": profile["artifact_sha256"],
-            "toolchain_commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+            "host_id": "tai-model-cpu-01",
+            "cpu_model": "Test CPU",
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "ram_mb": 16384,
+            "os_release": "Ubuntu 24.04",
+            "kernel_release": "6.8.0",
+            "production_host": False,
             "loopback_only": True,
-            "captured_at": "2026-07-21T09:00:00+00:00",
         },
-    )
-    metric_fields = {
-        key: value
-        for key, value in profile.items()
-        if key
-        in {
-            "sample_count",
-            "prompt_tokens_per_second_milli",
-            "generation_tokens_per_second_milli",
-            "p95_latency_ms",
-            "p99_latency_ms",
-            "error_rate_basis_points",
-            "peak_ram_mb",
-            "cold_start_ms",
-            "warmup_ms",
-            "concurrency",
-        }
-    }
-    _write_json(
-        root / profile["benchmark_metrics_path"],
-        {
-            "schema_version": "tai.llama-bench-metrics.v1",
-            "profile_id": profile_id,
-            **metric_fields,
-        },
-    )
-    _write_json(
-        root / profile["request_metrics_path"],
-        {
-            "schema_version": "tai.cpu-request-metrics.v1",
-            "profile_id": profile_id,
-            **metric_fields,
-        },
-    )
-    _write_json(
-        root / profile["cost_inputs_path"],
-        {
-            "schema_version": "tai.cpu-operating-cost-inputs.v1",
-            "profile_id": profile_id,
+        "toolchain": toolchain,
+        "concurrency_results": rows,
+        "cold_start_ms": 60000,
+        "warmup_ms": 90000,
+        "cost_inputs": {
             "currency": "RUB",
-            "host_cost_rub_monthly_milli": 2_000_000,
-            "power_watts_milli": 150_000,
-            "utilization_basis_points": 7_000,
-            "token_basis": 1_000_000,
-            "measured_at": "2026-07-21T10:00:00+00:00",
+            "host_monthly_cost_minor": 250000,
+            "monthly_hours": 730,
+            "energy_price_minor_per_kwh": 900,
+            "average_power_watts": 160,
+            "pricing_observed_at": now.isoformat(),
+            "pricing_source_sha256": "9" * 64,
         },
-    )
+    }
+    return _with_digest(profile, "metrics_sha256")
 
 
-def _case_and_observation_files(
-    root: Path,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    cases: list[dict[str, Any]] = []
-    manifest_entries: list[dict[str, Any]] = []
-    payload_entries: list[dict[str, Any]] = []
-    for case_index in range(58):
-        case_id = f"case-{case_index + 1:02d}"
-        prompts: dict[str, str] = {}
-        prompt_texts: dict[str, str] = {}
-        for locale in LOCALES:
-            prompt = f"{case_id}:{locale}:governed prompt"
-            prompt_texts[locale] = prompt
-            prompts[locale] = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+def _case_manifest() -> tuple[dict[str, Any], list[str]]:
+    cases = []
+    case_ids = []
+    for index in range(58):
+        case_id = f"case.{index:02d}"
+        case_ids.append(case_id)
         cases.append(
             {
                 "case_id": case_id,
-                "critical": case_index < 23,
-                "prompt_sha256_by_locale": prompts,
+                "domain": "PLATFORM" if index < 30 else "AGRO",
+                "criticality": "CRITICAL" if index < 23 else "HIGH",
+                "variant_kind": "CANONICAL",
+                "prompt_sha256": hashlib.sha256(
+                    f"prompts:{case_id}".encode()
+                ).hexdigest(),
+                "case_sha256": hashlib.sha256(case_id.encode()).hexdigest(),
+                "coverage_family_id": f"family.{index:02d}",
             }
         )
-        for profile_id in PROFILE_IDS:
-            for locale in LOCALES:
-                response = f"{case_id}:{locale}:{profile_id}:raw response"
-                request_id = f"request-{case_index + 1:02d}-{locale}-{profile_id}"
-                trace_sha = hashlib.sha256(request_id.encode("utf-8")).hexdigest()
-                metadata = {
-                    "case_id": case_id,
-                    "locale": locale,
-                    "profile_id": profile_id,
-                    "request_id": request_id,
-                    "status": "ANSWERED",
-                    "started_at": "2026-07-21T09:10:00+00:00",
-                    "completed_at": "2026-07-21T09:10:01+00:00",
-                    "trace_sha256": trace_sha,
-                }
-                manifest_entries.append(
-                    {
-                        **metadata,
-                        "prompt_sha256": prompts[locale],
-                        "response_sha256": hashlib.sha256(
-                            response.encode("utf-8")
-                        ).hexdigest(),
-                    }
-                )
-                payload_entries.append(
-                    {
-                        **metadata,
-                        "prompt": prompt_texts[locale],
-                        "response": response,
-                    }
-                )
-    case_manifest = {
-        "schema_version": "tai.runtime-corpus-manifest.v1",
-        "suite_id": "tai-platform-agro-58-v1",
-        "assessment_sha256": ASSESSMENT_SHA,
-        "corpus_sha256": CORPUS_SHA,
-        "locales": LOCALES,
+    return {
+        "schema_version": "tai.gold-case-manifest.v1",
+        "version": "v1",
         "cases": cases,
+    }, case_ids
+
+
+def _raw_records(profile_id: str, case_ids: list[str], now: datetime) -> str:
+    lines: list[str] = []
+    for case_id in case_ids:
+        for locale in ("ru", "en", "zh"):
+            prompt = f"{profile_id}:{case_id}:{locale}:prompt"
+            response = f"{profile_id}:{case_id}:{locale}:response"
+            record = {
+                "schema_version": "tai.raw-observation.v1",
+                "profile_id": profile_id,
+                "case_id": case_id,
+                "locale": locale,
+                "prompt": prompt,
+                "response": response,
+                "status": "SUCCEEDED",
+                "started_at": now.isoformat(),
+                "completed_at": (now + timedelta(seconds=1)).isoformat(),
+                "latency_ms": 1000,
+                "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+                "response_sha256": hashlib.sha256(response.encode()).hexdigest(),
+            }
+            record["record_sha256"] = runtime.canonical_sha256(record)
+            lines.append(json.dumps(record, ensure_ascii=False, sort_keys=True))
+    return "\n".join(lines) + "\n"
+
+
+def _file_row(root: Path, relative: str) -> dict[str, Any]:
+    path = root / relative
+    content = path.read_bytes()
+    return {
+        "path": relative,
+        "sha256": hashlib.sha256(content).hexdigest(),
+        "size_bytes": len(content),
+    }
+
+
+def _complete_fixture(
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, Path, dict[str, Any]]:
+    authority_path, authority = _authorities(tmp_path)
+    original = tmp_path / "original"
+    original.mkdir()
+    now = datetime(2026, 7, 21, 12, tzinfo=UTC)
+
+    case_manifest, case_ids = _case_manifest()
+    case_path = original / "suite/case-manifest.json"
+    _write_json(case_path, case_manifest)
+    case_digest = hashlib.sha256(case_path.read_bytes()).hexdigest()
+
+    payload_rows = []
+    for profile_id in PROFILES:
+        relative = f"raw-observations/{profile_id}.jsonl"
+        path = original / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_raw_records(profile_id, case_ids, now), encoding="utf-8")
+        payload_rows.append(
+            {
+                "profile_id": profile_id,
+                "path": relative,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "record_count": 174,
+            }
+        )
+
+    corpus = {
+        "suite_id": "tai-platform-agro-58-v1",
+        "status": "ACCEPTED",
+        "accepted": True,
+        "assessment_sha256": "a" * 64,
+        "corpus_sha256": "c" * 64,
+        "case_manifest_path": "suite/case-manifest.json",
+        "case_manifest_sha256": case_digest,
+        "total_cases": 58,
+        "critical_cases": 23,
+        "locales": ["ru", "en", "zh"],
+        "unreviewed_cases": 0,
     }
     raw_manifest = {
-        "schema_version": "tai.raw-model-observations.v1",
-        "suite_id": "tai-platform-agro-58-v1",
-        "profile_ids": PROFILE_IDS,
-        "entries": manifest_entries,
+        "schema_version": "tai.raw-observation-manifest.v1",
+        "suite_id": corpus["suite_id"],
+        "corpus_sha256": corpus["corpus_sha256"],
+        "assessment_sha256": corpus["assessment_sha256"],
+        "case_manifest_sha256": case_digest,
+        "locales": ["ru", "en", "zh"],
+        "profiles": payload_rows,
+        "total_records": 348,
     }
-    raw_payload = {
-        "schema_version": "tai.raw-model-observation-payload.v1",
-        "suite_id": "tai-platform-agro-58-v1",
-        "entries": payload_entries,
-    }
-    _write_json(root / "suite/case-manifest.json", case_manifest)
-    _write_json(root / "raw-observations/manifest.json", raw_manifest)
-    _write_json(root / "raw-observations/payload.json", raw_payload)
-    return case_manifest, raw_manifest, raw_payload
+    raw_manifest = _with_digest(raw_manifest, "manifest_sha256")
+    raw_manifest_path = original / "raw-observations/manifest.json"
+    _write_json(raw_manifest_path, raw_manifest)
 
-
-def _fallback() -> dict[str, Any]:
-    return {
-        "primary_profile_id": PROFILE_IDS[0],
-        "fallback_profile_id": PROFILE_IDS[1],
-        "forced_primary_failure": True,
-        "trigger_count": 100,
-        "successful_transitions": 100,
-        "failed_transitions": 0,
-        "p95_takeover_ms": 4_000,
-        "continuity_violations": 0,
-        "raw_metrics_path": "fallback/metrics.json",
-        "protocol_path": "fallback/protocol.txt",
-    }
-
-
-def _soak() -> dict[str, Any]:
-    return {
-        "profile_id": PROFILE_IDS[0],
-        "duration_seconds": 3_600,
-        "request_count": 1_000,
-        "failed_requests": 0,
-        "critical_failures": 0,
-        "memory_start_mb": 10_000,
-        "memory_end_mb": 10_200,
-        "memory_peak_mb": 12_000,
-        "memory_drift_mb": 200,
-        "p95_latency_ms": 18_000,
-        "raw_metrics_path": "soak/metrics.json",
-        "environment_path": f"profiles/{PROFILE_IDS[0]}/environment.json",
-    }
-
-
-def _runtime_semantic_files(
-    root: Path,
-    profiles: list[dict[str, Any]],
-    fallback: dict[str, Any],
-    soak: dict[str, Any],
-) -> None:
+    profiles = [_profile(authority, index, now) for index in range(2)]
     for profile in profiles:
-        _profile_files(root, profile)
-    _write_json(
-        root / fallback["raw_metrics_path"],
+        _write_json(
+            original / f"runtime/{profile['profile_id']}/metrics.json",
+            profile,
+        )
+    _write_json(original / "toolchain/manifest.json", profiles[0]["toolchain"])
+
+    fallback = _with_digest(
         {
-            "schema_version": "tai.cpu-fallback-metrics.v1",
-            **{
-                key: value
-                for key, value in fallback.items()
-                if key not in {"raw_metrics_path", "protocol_path"}
-            },
+            "primary_profile_id": PROFILES[0],
+            "fallback_profile_id": PROFILES[1],
+            "forced_primary_failure": True,
+            "trigger_count": 100,
+            "failed_transitions": 0,
+            "p50_takeover_ms": 1000,
+            "p95_takeover_ms": 3000,
+            "continuity_violations": 0,
         },
+        "metrics_sha256",
     )
-    protocol = root / fallback["protocol_path"]
-    protocol.parent.mkdir(parents=True, exist_ok=True)
-    protocol.write_text("force primary unavailable; invoke exact fallback\n", encoding="utf-8")
-    _write_json(
-        root / soak["raw_metrics_path"],
+    _write_json(original / "fallback/metrics.json", fallback)
+    soak = _with_digest(
         {
-            "schema_version": "tai.cpu-soak-metrics.v1",
-            **{
-                key: value
-                for key, value in soak.items()
-                if key not in {"raw_metrics_path", "environment_path"}
-            },
+            "started_at": now.isoformat(),
+            "completed_at": (now + timedelta(seconds=3600)).isoformat(),
+            "duration_seconds": 3600,
+            "request_count": 1000,
+            "failed_requests": 0,
+            "critical_failures": 0,
+            "memory_start_mb": 8000,
+            "memory_end_mb": 8100,
+            "memory_drift_mb": 100,
+            "profile_request_counts": {PROFILES[0]: 500, PROFILES[1]: 500},
         },
+        "metrics_sha256",
     )
+    _write_json(original / "soak/metrics.json", soak)
 
-
-def _copy_tree(source: Path, destination: Path) -> None:
-    for path in source.rglob("*"):
-        if path.is_file():
-            target = destination / path.relative_to(source)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(path, target)
-
-
-def _evidence_files(root: Path) -> list[dict[str, Any]]:
-    return [
+    non_storage_paths = [
+        "fallback/metrics.json",
+        f"raw-observations/{PROFILES[1]}.jsonl",
+        f"raw-observations/{PROFILES[0]}.jsonl",
+        "raw-observations/manifest.json",
+        f"runtime/{PROFILES[1]}/metrics.json",
+        f"runtime/{PROFILES[0]}/metrics.json",
+        "soak/metrics.json",
+        "suite/case-manifest.json",
+        "toolchain/manifest.json",
+    ]
+    non_storage_rows = sorted(
+        (_file_row(original, path) for path in non_storage_paths),
+        key=lambda item: item["path"],
+    )
+    storage = _with_digest(
         {
-            "path": path.relative_to(root).as_posix(),
-            "sha256": _sha(path),
-            "size_bytes": path.stat().st_size,
-        }
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    ]
+            "provider": "SELECTEL_S3",
+            "bucket": "tai-evidence",
+            "prefix": "cpu/runtime/run-001",
+            "evidence_object_version_id": "version-001",
+            "retention_days": 90,
+            "immutability_status": "IMMUTABLE_VERSIONED",
+            "original_root_id": "restore-original-001",
+            "restored_root_id": "restore-independent-001",
+            "restored_at": (now + timedelta(hours=2)).isoformat(),
+            "evidence_set_sha256": runtime.canonical_sha256(non_storage_rows),
+        },
+        "storage_manifest_sha256",
+    )
+    _write_json(original / "storage/manifest.json", storage)
+    all_paths = sorted([*non_storage_paths, "storage/manifest.json"])
+    evidence_files = [_file_row(original, path) for path in all_paths]
 
-
-def _complete_evidence(tmp_path: Path) -> tuple[Path, Path, Path]:
-    original = tmp_path / "original"
-    restored = tmp_path / "restored"
-    original.mkdir(parents=True)
-    restored.mkdir(parents=True)
-
-    profiles = [
-        _profile(
-            profile_id=PROFILE_IDS[0],
-            role="PRIMARY",
-            model_id="Qwen/Qwen3-8B",
-            revision=QWEN_REVISION,
-            artifact_sha256=QWEN_ARTIFACT_SHA,
-        ),
-        _profile(
-            profile_id=PROFILE_IDS[1],
-            role="FALLBACK",
-            model_id="mistralai/Mistral-7B-Instruct-v0.3",
-            revision=MISTRAL_REVISION,
-            artifact_sha256=MISTRAL_ARTIFACT_SHA,
-        ),
-    ]
-    _case_and_observation_files(original)
-    fallback = _fallback()
-    soak = _soak()
-    _runtime_semantic_files(original, profiles, fallback, soak)
-    _copy_tree(original, restored)
-
+    readiness = _with_digest(
+        {
+            "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
+            "status": "READY_FOR_EXTERNAL_EXECUTION",
+            "ready": True,
+            "exact_main": SHA,
+            "evaluated_at": (now - timedelta(hours=1)).isoformat(),
+            "authority_sha256": authority["execution_authority_sha256"],
+            "prerequisite_report_sha256": "d" * 64,
+            "gold_corpus_sha256": corpus["corpus_sha256"],
+            "gold_assessment_sha256": corpus["assessment_sha256"],
+            "required_profiles": list(PROFILES),
+            "reasons": [],
+            "benchmark_status": "PENDING_BENCHMARK",
+            "model_admission_status": "PENDING_ADMISSION",
+            "production_operational_status": "NOT_ATTESTED",
+        },
+        "report_sha256",
+    )
+    bundles = []
+    for index, source in enumerate(authority["runtime_profiles"]):
+        bundles.append(
+            {
+                "profile_id": source["profile_id"],
+                "model_id": source["model_id"],
+                "revision": source["revision"],
+                "object_key": f"bundles/{source['profile_id']}.tar.zst",
+                "object_version_id": f"version-{index}",
+                "bundle_sha256": str(index + 6) * 64,
+                "bundle_manifest_sha256": str(index + 8) * 64,
+                "original_restore_root_id": f"bundle-original-{index}",
+                "independent_restore_root_id": f"bundle-restored-{index}",
+            }
+        )
+    bundle_finalization = {
+        "schema_version": "tai.model-bundle-finalization-report.v1",
+        "status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED",
+        "verification_status": "VERIFIED",
+        "source_report_sha256": "e" * 64,
+        "authority_sha256": "f" * 64,
+        "exact_main": SHA,
+        "bundles": bundles,
+    }
+    raw_observations = {
+        "manifest_path": "raw-observations/manifest.json",
+        "manifest_file_sha256": hashlib.sha256(raw_manifest_path.read_bytes()).hexdigest(),
+        "per_profile_counts": {PROFILES[0]: 174, PROFILES[1]: 174},
+        "total_count": 348,
+        "case_count": 58,
+        "critical_case_count": 23,
+        "locales": ["ru", "en", "zh"],
+        "external_only": True,
+        "github_payload_exported": False,
+        "quality_scored": False,
+    }
     manifest = {
         "schema_version": "tai.cpu-runtime-evidence.v1",
         "lifecycle": "COMPLETE",
         "pending_reason": None,
-        "exact_main": EXACT_MAIN,
-        "readiness": {
-            "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
-            "status": "READY_FOR_EXTERNAL_EXECUTION",
-            "ready": True,
-            "exact_main": EXACT_MAIN,
-            "evaluated_at": "2026-07-21T09:30:00+00:00",
-            "report_sha256": "2" * 64,
-            "simulated": False,
-        },
-        "bundle_finalization": {
-            "schema_version": "tai.model-bundle-finalization-report.v1",
-            "status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED",
-            "report_sha256": "3" * 64,
-            "models": [
-                {
-                    "model_key": "qwen3-8b",
-                    "role": "PRIMARY",
-                    "model_id": "Qwen/Qwen3-8B",
-                    "revision": QWEN_REVISION,
-                    "archive_sha256": "4" * 64,
-                    "version_id": "qwen-version-1",
-                    "immutable_locator": (
-                        "s3+version://storage/bucket/qwen.tar"
-                        "?versionId=qwen-version-1#sha256=" + "4" * 64
-                    ),
-                    "verification_status": "VERIFIED",
-                    "verification_report_sha256": "5" * 64,
-                    "artifact_path": "artifacts/qwen3-8b-q4-k-m.gguf",
-                    "artifact_sha256": QWEN_ARTIFACT_SHA,
-                },
-                {
-                    "model_key": "mistral-7b-instruct-v0.3",
-                    "role": "FALLBACK",
-                    "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
-                    "revision": MISTRAL_REVISION,
-                    "archive_sha256": "6" * 64,
-                    "version_id": "mistral-version-1",
-                    "immutable_locator": (
-                        "s3+version://storage/bucket/mistral.tar"
-                        "?versionId=mistral-version-1#sha256=" + "6" * 64
-                    ),
-                    "verification_status": "VERIFIED",
-                    "verification_report_sha256": "7" * 64,
-                    "artifact_path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
-                    "artifact_sha256": MISTRAL_ARTIFACT_SHA,
-                },
-            ],
-        },
-        "corpus": {
-            "suite_id": "tai-platform-agro-58-v1",
-            "status": "ACCEPTED",
-            "accepted": True,
-            "assessment_sha256": ASSESSMENT_SHA,
-            "corpus_sha256": CORPUS_SHA,
-            "total_cases": 58,
-            "critical_cases": 23,
-            "locales": LOCALES,
-            "unreviewed_cases": 0,
-            "case_manifest_path": "suite/case-manifest.json",
-            "raw_observation_count": 348,
-        },
+        "exact_main": SHA,
+        "authority_sha256": authority["authority_sha256"],
+        "execution_authority_sha256": authority["execution_authority_sha256"],
+        "readiness": readiness,
+        "bundle_finalization": bundle_finalization,
+        "corpus": corpus,
         "runtime_profiles": profiles,
         "fallback_exercise": fallback,
         "soak": soak,
-        "raw_observations": {
-            "manifest_path": "raw-observations/manifest.json",
-            "payload_path": "raw-observations/payload.json",
-            "observation_count": 348,
-        },
-        "evidence_files": _evidence_files(original),
-        "storage": {
-            "immutable_locator": (
-                "s3+version://storage/bucket/runtime.tar"
-                "?versionId=runtime-version-1#sha256=" + "8" * 64
-            ),
-            "archive_sha256": "8" * 64,
-            "archive_size_bytes": 2_000_000,
-            "version_id": "runtime-version-1",
-            "uploaded_at": "2026-07-21T10:30:00+00:00",
-            "retention_expires_at": "2026-10-19T10:30:00+00:00",
-            "restored_at": "2026-07-21T11:00:00+00:00",
-        },
-        "measured_at": "2026-07-21T10:00:00+00:00",
+        "raw_observations": raw_observations,
+        "evidence_files": evidence_files,
+        "storage": storage,
+        "measured_at": now.isoformat(),
+        "runtime_verification_status": (
+            "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING"
+        ),
         "quality_scoring_status": "PENDING_QUALITY_SCORING",
         "benchmark_status": "PENDING_BENCHMARK",
         "model_admission_status": "PENDING_ADMISSION",
         "production_operational_status": "NOT_ATTESTED",
     }
+    manifest = _with_digest(manifest, "manifest_sha256")
     manifest_path = tmp_path / "manifest.json"
     _write_json(manifest_path, manifest)
-    return manifest_path, original, restored
+    restored = tmp_path / "restored"
+    shutil.copytree(original, restored)
+    return authority_path, manifest_path, original, restored, manifest
 
 
-def _rewrite_evidence(
-    manifest_path: Path,
-    original: Path,
-    restored: Path,
-    relative: str,
-    value: object,
-) -> None:
-    _write_json(original / relative, value)
-    _write_json(restored / relative, value)
-    manifest = load_json(manifest_path)
-    for record in manifest["evidence_files"]:
-        if record["path"] == relative:
-            record["sha256"] = _sha(original / relative)
-            record["size_bytes"] = (original / relative).stat().st_size
-            break
-    else:
-        raise AssertionError(f"missing evidence declaration: {relative}")
-    _write_json(manifest_path, manifest)
-
-
-def test_authority_pins_raw_runtime_without_quality_inflation() -> None:
-    authority = load_authority(AUTHORITY)
-    assert authority["issue"] == 2987
-    assert authority["corpus"]["required_raw_observations_per_profile"] == 174
-    assert authority["corpus"]["required_raw_observations_total"] == 348
-    assert authority["target"]["required_user"] == "tai-model"
-    assert authority["target"]["production_fallback_allowed"] is False
-    assert authority["maturity_boundary"]["verified_runtime_status"] == (
-        "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING"
+def test_complete_runtime_evidence_verifies_without_quality_claim(tmp_path: Path) -> None:
+    authority, manifest, original, restored, _ = _complete_fixture(tmp_path)
+    report = runtime.verify_runtime_evidence(
+        authority,
+        manifest,
+        original,
+        restored,
+        evaluated_at="2026-07-21T15:00:00+00:00",
     )
-    assert authority["maturity_boundary"]["quality_scoring_status"] == (
-        "PENDING_QUALITY_SCORING"
-    )
-    scope = load_json(SCOPE)
-    assert "LLM-as-judge or fabricated platform/agro accuracy" in scope[
-        "forbidden_capabilities"
-    ]
-
-
-def test_pending_baseline_remains_fail_closed() -> None:
-    report = verify_runtime_evidence(
-        AUTHORITY,
-        PENDING,
-        Path("/not-used"),
-        Path("/not-used"),
-    )
-    assert report["status"] == "PENDING_RUNTIME_EXECUTION"
-    assert report["quality_scoring_status"] == "PENDING_QUALITY_SCORING"
-    assert report["benchmark_status"] == "PENDING_BENCHMARK"
-    assert report["production_operational_status"] == "NOT_ATTESTED"
-
-
-def test_complete_runtime_evidence_verifies_pending_quality_scoring(
-    tmp_path: Path,
-) -> None:
-    manifest, original, restored = _complete_evidence(tmp_path)
-    report = verify_runtime_evidence(AUTHORITY, manifest, original, restored)
+    assert report["accepted"] is True
     assert report["status"] == (
         "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING"
     )
-    assert report["reasons"] == []
     assert report["raw_observation_count"] == 348
-    assert report["runtime_profiles"] == {
-        PROFILE_IDS[0]: "MEASURED",
-        PROFILE_IDS[1]: "MEASURED",
-    }
     assert report["quality_scoring_status"] == "PENDING_QUALITY_SCORING"
     assert report["benchmark_status"] == "PENDING_BENCHMARK"
-    assert report["model_admission_status"] == "PENDING_ADMISSION"
     assert report["production_operational_status"] == "NOT_ATTESTED"
 
 
-def test_missing_multilingual_model_observation_is_rejected(tmp_path: Path) -> None:
-    manifest_path, original, restored = _complete_evidence(tmp_path)
-    raw_manifest = load_json(original / "raw-observations/manifest.json")
-    raw_payload = load_json(original / "raw-observations/payload.json")
-    raw_manifest["entries"].pop()
-    raw_payload["entries"].pop()
-    _rewrite_evidence(
+def test_same_restore_root_is_rejected(tmp_path: Path) -> None:
+    authority, manifest, original, _, _ = _complete_fixture(tmp_path)
+    with pytest.raises(runtime.RuntimeEvidenceError, match="roots are identical"):
+        runtime.verify_runtime_evidence(
+            authority,
+            manifest,
+            original,
+            original,
+            evaluated_at="2026-07-21T15:00:00+00:00",
+        )
+
+
+def test_missing_raw_observation_is_rejected(tmp_path: Path) -> None:
+    authority, manifest_path, original, restored, manifest = _complete_fixture(tmp_path)
+    path = original / f"raw-observations/{PROFILES[0]}.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    path.write_text("\n".join(lines[:-1]) + "\n", encoding="utf-8")
+    shutil.rmtree(restored)
+    shutil.copytree(original, restored)
+    row = next(
+        item
+        for item in manifest["evidence_files"]
+        if item["path"] == path.relative_to(original).as_posix()
+    )
+    row["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    row["size_bytes"] = path.stat().st_size
+    manifest["storage"]["evidence_set_sha256"] = runtime.canonical_sha256(
+        [
+            item
+            for item in manifest["evidence_files"]
+            if item["path"] != "storage/manifest.json"
+        ]
+    )
+    manifest["storage"] = _with_digest(
+        {
+            key: value
+            for key, value in manifest["storage"].items()
+            if key != "storage_manifest_sha256"
+        },
+        "storage_manifest_sha256",
+    )
+    _write_json(original / "storage/manifest.json", manifest["storage"])
+    shutil.copy2(original / "storage/manifest.json", restored / "storage/manifest.json")
+    storage_row = next(
+        item for item in manifest["evidence_files"] if item["path"] == "storage/manifest.json"
+    )
+    storage_row["sha256"] = hashlib.sha256(
+        (original / "storage/manifest.json").read_bytes()
+    ).hexdigest()
+    storage_row["size_bytes"] = (original / "storage/manifest.json").stat().st_size
+    manifest = _with_digest(
+        {key: value for key, value in manifest.items() if key != "manifest_sha256"},
+        "manifest_sha256",
+    )
+    _write_json(manifest_path, manifest)
+    with pytest.raises(runtime.RuntimeEvidenceError, match="payload digest mismatch"):
+        runtime.verify_runtime_evidence(
+            authority,
+            manifest_path,
+            original,
+            restored,
+            evaluated_at="2026-07-21T15:00:00+00:00",
+        )
+
+
+def test_declared_raw_coverage_must_be_174_per_profile(tmp_path: Path) -> None:
+    authority, manifest_path, original, restored, manifest = _complete_fixture(tmp_path)
+    manifest["raw_observations"]["per_profile_counts"][PROFILES[0]] = 173
+    manifest = _with_digest(
+        {key: value for key, value in manifest.items() if key != "manifest_sha256"},
+        "manifest_sha256",
+    )
+    _write_json(manifest_path, manifest)
+    with pytest.raises(runtime.RuntimeEvidenceError, match="per-profile count mismatch"):
+        runtime.verify_runtime_evidence(
+            authority,
+            manifest_path,
+            original,
+            restored,
+            evaluated_at="2026-07-21T15:00:00+00:00",
+        )
+
+
+def test_low_throughput_is_rejected_before_quality_scoring(tmp_path: Path) -> None:
+    authority, manifest_path, original, restored, manifest = _complete_fixture(tmp_path)
+    profile = manifest["runtime_profiles"][0]
+    profile["concurrency_results"][0]["generation_tokens_per_second_milli"] = 1
+    profile = _with_digest(
+        {key: value for key, value in profile.items() if key != "metrics_sha256"},
+        "metrics_sha256",
+    )
+    manifest["runtime_profiles"][0] = profile
+    _write_json(original / f"runtime/{PROFILES[0]}/metrics.json", profile)
+    shutil.copy2(
+        original / f"runtime/{PROFILES[0]}/metrics.json",
+        restored / f"runtime/{PROFILES[0]}/metrics.json",
+    )
+    row = next(
+        item
+        for item in manifest["evidence_files"]
+        if item["path"] == f"runtime/{PROFILES[0]}/metrics.json"
+    )
+    row["sha256"] = hashlib.sha256(
+        (original / row["path"]).read_bytes()
+    ).hexdigest()
+    row["size_bytes"] = (original / row["path"]).stat().st_size
+    manifest["storage"]["evidence_set_sha256"] = runtime.canonical_sha256(
+        [
+            item
+            for item in manifest["evidence_files"]
+            if item["path"] != "storage/manifest.json"
+        ]
+    )
+    manifest["storage"] = _with_digest(
+        {
+            key: value
+            for key, value in manifest["storage"].items()
+            if key != "storage_manifest_sha256"
+        },
+        "storage_manifest_sha256",
+    )
+    _write_json(original / "storage/manifest.json", manifest["storage"])
+    shutil.copy2(original / "storage/manifest.json", restored / "storage/manifest.json")
+    storage_row = next(
+        item for item in manifest["evidence_files"] if item["path"] == "storage/manifest.json"
+    )
+    storage_row["sha256"] = hashlib.sha256(
+        (original / "storage/manifest.json").read_bytes()
+    ).hexdigest()
+    storage_row["size_bytes"] = (original / "storage/manifest.json").stat().st_size
+    manifest = _with_digest(
+        {key: value for key, value in manifest.items() if key != "manifest_sha256"},
+        "manifest_sha256",
+    )
+    _write_json(manifest_path, manifest)
+    with pytest.raises(runtime.RuntimeEvidenceError, match="throughput is below threshold"):
+        runtime.verify_runtime_evidence(
+            authority,
+            manifest_path,
+            original,
+            restored,
+            evaluated_at="2026-07-21T15:00:00+00:00",
+        )
+
+
+def test_pending_manifest_is_fail_closed(tmp_path: Path) -> None:
+    authority_path, authority = _authorities(tmp_path)
+    pending = {
+        "schema_version": "tai.cpu-runtime-evidence.v1",
+        "lifecycle": "PENDING_RUNTIME_EXECUTION",
+        "pending_reason": "External prerequisites are absent.",
+        "exact_main": None,
+        "authority_sha256": None,
+        "execution_authority_sha256": None,
+        "readiness": None,
+        "bundle_finalization": None,
+        "corpus": None,
+        "runtime_profiles": [],
+        "fallback_exercise": None,
+        "soak": None,
+        "raw_observations": None,
+        "evidence_files": [],
+        "storage": None,
+        "measured_at": None,
+        "runtime_verification_status": "PENDING_RUNTIME_EXECUTION",
+        "quality_scoring_status": "PENDING_QUALITY_SCORING",
+        "benchmark_status": "PENDING_BENCHMARK",
+        "model_admission_status": "PENDING_ADMISSION",
+        "production_operational_status": "NOT_ATTESTED",
+    }
+    pending = _with_digest(pending, "manifest_sha256")
+    manifest_path = tmp_path / "pending.json"
+    _write_json(manifest_path, pending)
+    original = tmp_path / "original"
+    restored = tmp_path / "restored"
+    original.mkdir()
+    restored.mkdir()
+    report = runtime.verify_runtime_evidence(
+        authority_path,
         manifest_path,
         original,
         restored,
-        "raw-observations/manifest.json",
-        raw_manifest,
+        evaluated_at="2026-07-21T15:00:00+00:00",
     )
-    _rewrite_evidence(
-        manifest_path,
-        original,
-        restored,
-        "raw-observations/payload.json",
-        raw_payload,
-    )
-
-    report = verify_runtime_evidence(
-        AUTHORITY, manifest_path, original, restored
-    )
-    assert report["status"] == "REJECTED"
-    assert "RAW_OBSERVATION_COVERAGE_MISSING:1" in report["reasons"]
-    assert "RAW_OBSERVATION_TOTAL_COUNT_MISMATCH" in report["reasons"]
+    assert report["accepted"] is False
+    assert report["status"] == "PENDING_RUNTIME_EXECUTION"
+    assert report["authority_sha256"] == authority["authority_sha256"]
+    assert report["production_operational_status"] == "NOT_ATTESTED"
 
 
-def test_raw_payload_digest_tamper_is_rejected(tmp_path: Path) -> None:
-    manifest_path, original, restored = _complete_evidence(tmp_path)
-    payload = load_json(original / "raw-observations/payload.json")
-    payload["entries"][0]["response"] = "tampered response"
-    _rewrite_evidence(
-        manifest_path,
-        original,
-        restored,
-        "raw-observations/payload.json",
-        payload,
-    )
-    report = verify_runtime_evidence(
-        AUTHORITY, manifest_path, original, restored
-    )
-    assert report["status"] == "REJECTED"
-    assert any(
-        reason.startswith("RAW_PAYLOAD_RESPONSE_DIGEST_MISMATCH:")
-        for reason in report["reasons"]
-    )
-
-
-def test_runtime_threshold_and_concurrency_matrix_are_fail_closed(
-    tmp_path: Path,
-) -> None:
-    manifest_path, original, restored = _complete_evidence(tmp_path)
-    manifest = load_json(manifest_path)
-    manifest["runtime_profiles"][0]["generation_tokens_per_second_milli"] = 1
-    manifest["runtime_profiles"][0]["concurrency"].pop()
-    _write_json(manifest_path, manifest)
-
-    report = verify_runtime_evidence(
-        AUTHORITY, manifest_path, original, restored
-    )
-    assert report["status"] == "REJECTED"
-    assert f"GENERATION_THROUGHPUT_BELOW_MINIMUM:{PROFILE_IDS[0]}" in report[
-        "reasons"
-    ]
-    assert "CONCURRENCY_MATRIX_MISMATCH" in report["reasons"]
-
-
-def test_fallback_and_soak_failures_are_rejected(tmp_path: Path) -> None:
-    manifest_path, original, restored = _complete_evidence(tmp_path)
-    manifest = load_json(manifest_path)
-    manifest["fallback_exercise"]["failed_transitions"] = 1
-    manifest["fallback_exercise"]["successful_transitions"] = 99
-    manifest["soak"]["critical_failures"] = 1
-    _write_json(manifest_path, manifest)
-
-    report = verify_runtime_evidence(
-        AUTHORITY, manifest_path, original, restored
-    )
-    assert report["status"] == "REJECTED"
-    assert "FALLBACK_FAILED_TRANSITIONS_PRESENT" in report["reasons"]
-    assert "SOAK_CRITICAL_FAILURES_PRESENT" in report["reasons"]
-
-
-def test_restore_drift_symlink_and_same_root_are_rejected(tmp_path: Path) -> None:
-    manifest_path, original, restored = _complete_evidence(tmp_path)
-    restored_payload = restored / "raw-observations/payload.json"
-    restored_payload.write_text("{}\n", encoding="utf-8")
-    report = verify_runtime_evidence(
-        AUTHORITY, manifest_path, original, restored
-    )
-    assert report["status"] == "REJECTED"
-    assert "RESTORE_DRIFT:raw-observations/payload.json" in report["reasons"]
-
-    manifest_path, original, restored = _complete_evidence(tmp_path / "symlink")
-    target = restored / "fallback/protocol.txt"
-    target.unlink()
-    target.symlink_to(original / "fallback/protocol.txt")
-    with pytest.raises(RuntimeEvidenceError, match="contains a symlink"):
-        verify_runtime_evidence(AUTHORITY, manifest_path, original, restored)
-
-    with pytest.raises(RuntimeEvidenceError, match="must be independent"):
-        verify_runtime_evidence(AUTHORITY, manifest_path, original, original)
-
-
-def test_duplicate_unknown_and_maturity_inflation_are_rejected(
-    tmp_path: Path,
-) -> None:
-    duplicate = tmp_path / "duplicate.json"
-    duplicate.write_text(
-        '{"schema_version":"x","schema_version":"y"}',
-        encoding="utf-8",
-    )
-    with pytest.raises(RuntimeEvidenceError, match="duplicate JSON key"):
-        load_json(duplicate)
-
-    manifest_path, original, restored = _complete_evidence(tmp_path / "unknown")
-    manifest = load_json(manifest_path)
-    manifest["unknown"] = True
-    _write_json(manifest_path, manifest)
-    with pytest.raises(RuntimeEvidenceError, match="unknown=\\['unknown'\\]"):
-        verify_runtime_evidence(AUTHORITY, manifest_path, original, restored)
-
-    manifest_path, original, restored = _complete_evidence(tmp_path / "maturity")
-    manifest = load_json(manifest_path)
-    manifest["benchmark_status"] = "VERIFIED"
-    _write_json(manifest_path, manifest)
-    with pytest.raises(RuntimeEvidenceError, match="maturity boundary"):
-        verify_runtime_evidence(AUTHORITY, manifest_path, original, restored)
-
-
-def test_stale_or_simulated_readiness_and_nonimmutable_bundle_are_rejected(
-    tmp_path: Path,
-) -> None:
-    manifest_path, original, restored = _complete_evidence(tmp_path)
-    manifest = load_json(manifest_path)
-    manifest["readiness"]["evaluated_at"] = "2026-07-19T00:00:00+00:00"
-    manifest["readiness"]["simulated"] = True
-    manifest["bundle_finalization"]["models"][0]["immutable_locator"] = (
-        "https://mutable.example/qwen.tar"
-    )
-    _write_json(manifest_path, manifest)
-
-    report = verify_runtime_evidence(
-        AUTHORITY, manifest_path, original, restored
-    )
-    assert report["status"] == "REJECTED"
-    assert "READINESS_STALE" in report["reasons"]
-    assert "READINESS_SIMULATED" in report["reasons"]
-    assert "BUNDLE_LOCATOR_NOT_IMMUTABLE:qwen3-8b" in report["reasons"]
+def test_duplicate_json_key_is_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "duplicate.json"
+    path.write_text('{"schema_version":"x","schema_version":"y"}', encoding="utf-8")
+    with pytest.raises(runtime.RuntimeEvidenceError, match="duplicate JSON key"):
+        runtime.load_runtime_manifest(path)

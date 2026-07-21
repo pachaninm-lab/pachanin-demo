@@ -38,6 +38,7 @@ select = ["E", "F", "I", "B", "UP", "SIM", "S"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]
+"tai/cpu_runtime_evidence_verify.py" = ["E501", "I001"]
 
 [tool.mypy]
 python_version = "3.12"

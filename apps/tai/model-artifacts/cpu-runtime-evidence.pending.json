@@ -3,6 +3,8 @@
   "lifecycle": "PENDING_RUNTIME_EXECUTION",
   "pending_reason": "Immutable model bundles, external evidence storage and the accepted AP-14C review assessment are not yet available for real runtime execution.",
   "exact_main": null,
+  "authority_sha256": null,
+  "execution_authority_sha256": null,
   "readiness": null,
   "bundle_finalization": null,
   "corpus": null,
@@ -13,8 +15,10 @@
   "evidence_files": [],
   "storage": null,
   "measured_at": null,
+  "runtime_verification_status": "PENDING_RUNTIME_EXECUTION",
   "quality_scoring_status": "PENDING_QUALITY_SCORING",
   "benchmark_status": "PENDING_BENCHMARK",
   "model_admission_status": "PENDING_ADMISSION",
-  "production_operational_status": "NOT_ATTESTED"
+  "production_operational_status": "NOT_ATTESTED",
+  "manifest_sha256": "a4355578202b83871e73ad997ef97eafe37887fd2b6bcaedf785ca606ef0289e"
 }

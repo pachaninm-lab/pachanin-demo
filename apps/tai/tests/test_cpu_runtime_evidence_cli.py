@@ -3,88 +3,87 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
-from tai.cpu_runtime_evidence_cli import main
+from tai import cpu_runtime_evidence_cli as cli
 
-ROOT = Path(__file__).parents[1]
-AUTHORITY = ROOT / "model-artifacts" / "cpu-runtime-evidence-authority.v1.json"
-PENDING = ROOT / "model-artifacts" / "cpu-runtime-evidence.pending.json"
+TAI_ROOT = Path(__file__).parents[1]
+AUTHORITY = TAI_ROOT / "model-artifacts" / "cpu-runtime-evidence-authority.v1.json"
+PENDING = TAI_ROOT / "model-artifacts" / "cpu-runtime-evidence.pending.json"
 
 
-def test_validate_authority_cli(monkeypatch, capsys, tmp_path: Path) -> None:
-    output = tmp_path / "authority.json"
+def _json_output(capsys: Any) -> dict[str, Any]:
+    value = json.loads(capsys.readouterr().out)
+    assert isinstance(value, dict)
+    return value
+
+
+def test_validate_authority_cli_reports_bounded_requirements(
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
     monkeypatch.setattr(
         sys,
         "argv",
-        [
-            "cpu-runtime-evidence",
-            "validate-authority",
-            str(AUTHORITY),
-            "--output",
-            str(output),
-        ],
+        ["cpu-runtime-evidence", "validate-authority", str(AUTHORITY)],
     )
-    assert main() == 0
-    payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["status"] == "VALID"
-    assert payload["runtime_profiles"] == [
-        "qwen3-8b-cpu-q4-k-m",
-        "mistral-7b-fallback-cpu-q4-k-m",
-    ]
-    assert payload["quality_scoring_status"] == "PENDING_QUALITY_SCORING"
-    assert "VALID" in capsys.readouterr().out
+
+    assert cli.main() == 0
+    result = _json_output(capsys)
+    assert result["status"] == "VALID"
+    assert result["required_raw_observations"] == 348
+    assert result["quality_scoring_status"] == "PENDING_QUALITY_SCORING"
+    assert result["benchmark_status"] == "PENDING_BENCHMARK"
+    assert result["production_operational_status"] == "NOT_ATTESTED"
 
 
-def test_pending_runtime_cli_exits_fail_closed(
-    monkeypatch,
-    capsys,
+def test_pending_manifest_cli_is_fail_closed(
+    monkeypatch: Any,
+    capsys: Any,
     tmp_path: Path,
 ) -> None:
-    output = tmp_path / "pending.json"
+    output = tmp_path / "pending-validation.json"
     monkeypatch.setattr(
         sys,
         "argv",
         [
             "cpu-runtime-evidence",
-            "verify-runtime-evidence",
-            str(AUTHORITY),
+            "validate-manifest",
             str(PENDING),
-            "/not-used",
-            "/not-used",
             "--output",
             str(output),
         ],
     )
-    assert main() == 2
-    payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["status"] == "PENDING_RUNTIME_EXECUTION"
-    assert payload["benchmark_status"] == "PENDING_BENCHMARK"
-    assert payload["production_operational_status"] == "NOT_ATTESTED"
-    assert "PENDING_RUNTIME_EXECUTION" in capsys.readouterr().out
+
+    assert cli.main() == 2
+    result = _json_output(capsys)
+    assert result["status"] == "PENDING_RUNTIME_EXECUTION"
+    assert result["runtime_verification_status"] == "PENDING_RUNTIME_EXECUTION"
+    assert json.loads(output.read_text(encoding="utf-8")) == result
 
 
-def test_invalid_authority_cli_returns_contract_error(
-    monkeypatch,
-    capsys,
+def test_duplicate_key_manifest_cli_is_rejected_without_maturity_inflation(
+    monkeypatch: Any,
+    capsys: Any,
     tmp_path: Path,
 ) -> None:
-    invalid = tmp_path / "invalid.json"
-    invalid.write_text('{"schema_version":"wrong"}\n', encoding="utf-8")
-    output = tmp_path / "error.json"
+    manifest = tmp_path / "duplicate.json"
+    manifest.write_text(
+        '{"schema_version":"tai.cpu-runtime-evidence.v1",'
+        '"schema_version":"tai.cpu-runtime-evidence.v1"}',
+        encoding="utf-8",
+    )
     monkeypatch.setattr(
         sys,
         "argv",
-        [
-            "cpu-runtime-evidence",
-            "validate-authority",
-            str(invalid),
-            "--output",
-            str(output),
-        ],
+        ["cpu-runtime-evidence", "validate-manifest", str(manifest)],
     )
-    assert main() == 2
-    payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["status"] == "REJECTED"
-    assert payload["reason"].startswith("CONTRACT_INVALID:")
-    assert payload["quality_scoring_status"] == "PENDING_QUALITY_SCORING"
-    assert "CONTRACT_INVALID" in capsys.readouterr().out
+
+    assert cli.main() == 2
+    result = _json_output(capsys)
+    assert result["status"] == "REJECTED"
+    assert "duplicate JSON key" in result["reason"]
+    assert result["runtime_verification_status"] == "PENDING_RUNTIME_EXECUTION"
+    assert result["benchmark_status"] == "PENDING_BENCHMARK"
+    assert result["model_admission_status"] == "PENDING_ADMISSION"
+    assert result["production_operational_status"] == "NOT_ATTESTED"

@@ -2,121 +2,106 @@
 
 ## Purpose
 
-This slice defines the fail-closed evidence contract between real external CPU execution and later governed quality scoring. It can verify that Qwen and Mistral actually ran on the accepted dedicated host with exact immutable model bundles. It cannot assert platform accuracy, agro accuracy, model admission or production readiness.
+This slice defines and verifies external runtime evidence for the real Qwen3-8B CPU `Q4_K_M` profile and the Mistral-7B-Instruct-v0.3 CPU fallback profile. It does not execute a benchmark from GitHub, score semantic answer quality, admit a model, activate a runtime or attest production.
 
 Coordinator: issue `#2987`  
-Parent execution issue: `#2971`
+Parent: `#2971`  
+Prerequisite authority: `#2977`
 
-## Why runtime and quality are separate
+## Current boundary
 
-Throughput, latency, memory and successful response capture do not prove that an answer is correct. Likewise, an LLM judging another LLM is not accepted as authoritative evidence.
+The exact-main prerequisite report is currently `BLOCKED` because all of the following are still absent:
 
-AP-13C.1c therefore ends only in:
+- accepted immutable Qwen and Mistral bundles in Selectel S3;
+- accepted external evidence storage;
+- accepted expert review for all 58 AP-14C cases.
 
-`RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING`
+Therefore the committed manifest remains `PENDING_RUNTIME_EXECUTION`. No inference or model-host operation is claimed.
 
-The later scoring slice must evaluate the exact retained raw observations against the accepted AP-14C policy before `tai.model-benchmark-evidence.v2` can become complete.
+## Runtime evidence is not quality evidence
 
-## Bound authority
+A runtime result may verify only measured facts such as:
 
-The contract pins:
-
-- Qwen/Qwen3-8B at revision `895c8d171bc03c30e113cd7a28c02494b5e068b7`, CPU `Q4_K_M`;
-- mistralai/Mistral-7B-Instruct-v0.3 at revision `c170c708c41dac9275d15a8fff4eca08d52bab71`, CPU `Q4_K_M`;
-- llama.cpp release `b9637`, commit `aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3`;
-- the dedicated `tai-model` host only;
-- loopback-only inference and exact-version S3 egress;
-- AP-14C suite `tai-platform-agro-58-v1` with 58 cases, 23 critical cases and locales RU/EN/ZH;
-- 174 observations per model and 348 total raw observations;
-- concurrency levels 1, 2 and 4;
-- minimum 100 performance samples per profile;
+- exact restored bundle and llama.cpp identities;
+- dedicated `tai-model` host identity and loopback-only inference;
+- concurrency `1`, `2`, `4`;
+- prompt and generation throughput;
+- p95/p99 latency and error rate;
+- peak RAM, cold start and warmup;
+- operating-cost inputs in RUB;
+- one-hour / 1,000-request soak;
 - 100 forced primary-to-fallback transitions;
-- a minimum one-hour, 1,000-request soak.
+- complete raw response capture.
 
-## Preconditions
+It must not convert response text into platform accuracy, agro accuracy, citation validity or unsupported-fact claims. Those are handled by the later governed quality-scoring slice.
 
-Runtime execution must not start until all of these are real and current:
+## Required AP-14C coverage
 
-1. AP-13C.1 readiness status is `READY_FOR_EXTERNAL_EXECUTION` and not older than 24 hours;
-2. both model bundles are externally immutable, exact-version restored and `VERIFIED`;
-3. Selectel evidence storage is accepted with versioning and Object Lock;
-4. AP-14C assessment is `ACCEPTED`, 58/58 reviewed and zero unreviewed;
-5. the dedicated CPU host remains accepted;
-6. exact-main is unchanged.
+Each runtime profile must execute every accepted case in every required locale:
 
-The current repository state does not satisfy these conditions, so the committed baseline remains `PENDING_RUNTIME_EXECUTION`.
+- 58 cases;
+- locales `ru`, `en`, `zh`;
+- 174 observations per profile;
+- 348 observations total across Qwen and Mistral.
 
-## Required external evidence
+The verifier requires the exact Cartesian product of profile, case and locale. Missing, duplicate, failed or altered observations are rejected.
 
-The immutable evidence archive contains:
+## External evidence layout
 
-- exact readiness and bundle-finalization bindings;
-- hardware identity without exposing the hostname;
-- llama.cpp environment and artifact SHA-256 values;
-- normalized llama-bench and request/concurrency metrics;
-- operating-cost inputs in RUB without inventing costs;
-- the exact AP-14C case manifest;
-- a raw observation manifest containing only identities and digests;
-- the full raw prompt/response payload used for later scoring;
-- forced fallback protocol and metrics;
-- one-hour soak metrics;
-- every declared evidence file SHA-256 and size;
-- exact S3 object version, archive digest, upload, retention and independent restore timestamps.
+The original and independently restored evidence roots must contain exactly the declared files, including:
 
-Raw prompts, responses, model bytes, GGUF files, logs, archives and credentials must never enter Git, pull requests, issue comments or GitHub Actions artifacts.
+- `suite/case-manifest.json`;
+- `raw-observations/manifest.json`;
+- one raw JSONL file for each model profile;
+- one runtime metrics file for each model profile;
+- `toolchain/manifest.json`;
+- `fallback/metrics.json`;
+- `soak/metrics.json`;
+- `storage/manifest.json`.
 
-## Verification
+Raw prompts, responses and logs remain only in immutable external storage. They must never enter Git, GitHub Actions artifacts or PR comments.
 
-Pending baseline:
+The verifier rejects path traversal, absolute paths, backslashes, symlinks, non-regular files, undeclared files, duplicate paths, forbidden model/archive suffixes, digest mismatch, size mismatch, identical restore roots and hard-linked original/restored files.
+
+## CLI
+
+Validate the committed authority:
 
 ```bash
-cd apps/tai
-python -m tai.cpu_runtime_evidence_cli verify-runtime-evidence \
-  model-artifacts/cpu-runtime-evidence-authority.v1.json \
-  model-artifacts/cpu-runtime-evidence.pending.json \
-  /not-used /not-used
+python -m tai.cpu_runtime_evidence_cli validate-authority \
+  apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json
 ```
 
-Exit code `2` and status `PENDING_RUNTIME_EXECUTION` are expected.
-
-Completed external evidence:
+Validate a pending or complete manifest:
 
 ```bash
-python -m tai.cpu_runtime_evidence_cli verify-runtime-evidence \
-  model-artifacts/cpu-runtime-evidence-authority.v1.json \
-  /external/control/manifest.json \
-  /external/original-evidence \
-  /external/clean-restore \
-  --output /external/control/verification-report.json
+python -m tai.cpu_runtime_evidence_cli validate-manifest \
+  apps/tai/model-artifacts/cpu-runtime-evidence.pending.json
 ```
 
-Exit code `0` is reserved for `RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING`.
+Independently verify a completed external evidence set:
 
-## Fail-closed conditions
+```bash
+python -m tai.cpu_runtime_evidence_cli verify-evidence \
+  apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json \
+  /path/to/cpu-runtime-evidence.complete.json \
+  /path/to/original-evidence-root \
+  /path/to/independent-restored-root \
+  --evaluated-at 2026-07-21T16:00:00+00:00
+```
 
-Verification rejects:
-
-- stale, simulated or wrong-exact-main readiness;
-- mutable or unversioned model/evidence locators;
-- wrong model, revision, quantization, artifact or toolchain identity;
-- missing concurrency levels or samples;
-- threshold failures for throughput, latency, errors, RAM or startup;
-- incomplete 58 × 3 × 2 raw observation coverage;
-- prompt/response payload digest drift;
-- failed fallback transitions or continuity violations;
-- insufficient soak duration or requests;
-- symlinks, path traversal, duplicate JSON keys, undeclared files or restore drift;
-- same-root copies presented as independent restore;
-- shortened external retention;
-- any maturity inflation.
+A successful verification returns `RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING`. This is not benchmark admission.
 
 ## Maturity boundary
 
-Even after runtime evidence verifies:
+Until runtime evidence and the separate quality-scoring evidence both pass:
 
-- quality scoring status: `PENDING_QUALITY_SCORING`;
-- benchmark status: `PENDING_BENCHMARK`;
+- runtime verification: `PENDING_RUNTIME_EXECUTION` or `RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING`;
+- quality scoring: `PENDING_QUALITY_SCORING`;
+- benchmark: `PENDING_BENCHMARK`;
 - model admission: `PENDING_ADMISSION`;
 - production operational status: `NOT_ATTESTED`.
 
-CPU evidence does not satisfy the separate Qwen GPU/shared Q8_0 profile and cannot create joint model admission.
+## Next governed slice
+
+AP-13C.1d must score the immutable raw observations against the accepted AP-14C authority using deterministic checks and governed human review. It must not use an unbounded LLM-as-judge or infer accuracy from runtime metrics.
