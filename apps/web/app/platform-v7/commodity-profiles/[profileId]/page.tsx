@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { CommodityProfileRegistryClient } from '@/components/crop-platform/CommodityProfileRegistryClient';
-import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import styles from '../commodity-profiles.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +34,7 @@ export default async function CommodityProfilePage({
     >
       <CommodityProfileRegistryClient
         locale={await getLocale()}
+        csrfToken={cookieStore.get(CSRF_COOKIE)?.value || ''}
         initialProfileId={profileId}
       />
     </main>
