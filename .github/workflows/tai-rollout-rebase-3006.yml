@@ -1,0 +1,92 @@
+name: TAI Rollout Rebase 3006
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-rollout-rebase-3006.yml'
+  push:
+    branches:
+      - fix/public-ai-layout-authority
+    paths:
+      - '.github/workflows/tai-rollout-rebase-3006.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-rollout-rebase-3006
+  cancel-in-progress: false
+
+jobs:
+  rebase-rollout:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/fix/public-ai-layout-authority') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number == 3006 && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_MAIN: fcc61811e8c8ce2f9496c0c3d0bab894168b7615
+      OLD_TARGET: 24277e008d25f66f52b56284ff83ca3eead39fb2
+      OLD_SHORT: 24277e0
+      NEW_TARGET: fcc61811e8c8ce2f9496c0c3d0bab894168b7615
+      NEW_SHORT: fcc6181
+    steps:
+      - name: Checkout rollout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/public-ai-layout-authority
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Merge exact patched main and retarget release authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git merge --no-edit origin/main
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          old_target = os.environ['OLD_TARGET']
+          old_short = os.environ['OLD_SHORT']
+          new_target = os.environ['NEW_TARGET']
+          new_short = os.environ['NEW_SHORT']
+          paths = [
+              Path('.github/workflows/deploy-ai-web-vps-c21eec0.yml'),
+              Path('.github/release-triggers/tai-p0-web-24277e0.md'),
+              Path('docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json'),
+          ]
+          changed = 0
+          for path in paths:
+              text = path.read_text(encoding='utf-8')
+              updated = text.replace(old_target, new_target).replace(old_short, new_short)
+              if path.name == 'tai-p0-web-24277e0.md':
+                  updated = updated.replace('Release attempt: `4`', 'Release attempt: `5`')
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+                  changed += 1
+          if changed != 3:
+              raise SystemExit(f'expected three retargeted files, changed={changed}')
+          for path in paths:
+              text = path.read_text(encoding='utf-8')
+              if old_target in text or old_short in text:
+                  raise SystemExit(f'superseded target remains in {path}')
+              if new_target not in text:
+                  raise SystemExit(f'new exact target missing in {path}')
+          scope = json.loads(paths[2].read_text(encoding='utf-8'))
+          if scope.get('branch') != 'fix/public-ai-layout-authority':
+              raise SystemExit('scope branch drift')
+          PY
+
+          rm -f .github/workflows/tai-rollout-rebase-3006.yml
+          git add -A
+          git diff --cached --check
+          git commit -m 'chore(release): retarget hardened rollout to patched exact-main'
+          git push origin HEAD:fix/public-ai-layout-authority
