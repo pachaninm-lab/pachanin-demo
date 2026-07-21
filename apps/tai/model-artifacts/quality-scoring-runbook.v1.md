@@ -14,13 +14,16 @@ Quality verification starts only after a real AP-13C.1c report has status:
 
 `RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING`
 
-The quality evidence must bind:
+The quality verifier does not trust that report in isolation. It must:
 
-- the exact runtime report SHA-256 and exact-main SHA;
-- the accepted AP-14C 58-case manifest: 42 platform cases, 16 agro cases, 23 critical cases;
-- a metadata-only observation index containing the exact Cartesian product of two model profiles, 58 cases and RU/EN/ZH — 348 observations;
-- each observation's case, prompt, response and trace SHA-256 values;
-- immutable human annotations and external evidence digests.
+1. load the exact governed AP-13C.1c runtime authority;
+2. rerun AP-13C.1c verification against the runtime manifest plus independent original and restored evidence roots;
+3. require the supplied runtime report to exactly equal the reproduced report;
+4. require a self-digested accepted AP-14C assessment with all 58 expert-reviewed cases and no blockers;
+5. bind the quality case manifest to that exact assessment and corpus;
+6. derive the metadata-only quality observation index directly from the verified AP-13C.1c raw manifest and raw payload.
+
+There is no caller-supplied free-standing observation index. Its digest is deterministic output from the verified evidence chain. The derived index contains the exact Cartesian product of two model profiles, 58 cases and RU/EN/ZH — 348 observations — with each case, prompt, response and trace SHA-256.
 
 Raw prompts, raw responses, reviewer notes and reviewer evidence remain outside Git and GitHub artifacts.
 
@@ -78,6 +81,8 @@ A successful result is only:
 
 The annotation set must be stored in immutable versioned Selectel S3 evidence for at least 90 days, with distinct original and restored root identities. The annotation payload SHA-256 and external evidence manifest SHA-256 are mandatory.
 
+The AP-13C.1c runtime roots are also mandatory inputs. Both roots are independently reverified before any quality annotation is evaluated.
+
 ## Commands
 
 Validate the authority:
@@ -99,13 +104,19 @@ Verify complete external human evidence:
 ```bash
 python -m tai.quality_scoring_cli verify \
   apps/tai/model-artifacts/quality-scoring-authority.v1.json \
-  /secure/evidence/cpu-runtime-verification.json \
-  /secure/evidence/case-manifest.v1.json \
-  /secure/evidence/quality-observation-index.v1.json \
-  /secure/evidence/quality-scoring-evidence.v1.json \
+  apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json \
+  /secure/runtime/cpu-runtime-verification.v1.json \
+  /secure/runtime/cpu-runtime-evidence.v1.json \
+  /secure/runtime/original-root \
+  /secure/runtime/independent-restored-root \
+  /secure/ap14c/accepted-assessment.v1.json \
+  /secure/ap14c/gold-case-manifest.v1.json \
+  /secure/quality/quality-scoring-evidence.v1.json \
   --evaluated-at 2026-07-21T18:00:00Z \
-  --output /secure/evidence/quality-scoring-verification.v1.json
+  --output /secure/quality/quality-scoring-verification.v1.json
 ```
+
+The command fails closed when the runtime report cannot be reproduced, the AP-14C assessment is not accepted, the runtime raw files drift, or the derived observation index does not match the scoring manifest digest.
 
 ## Maturity boundary
 
