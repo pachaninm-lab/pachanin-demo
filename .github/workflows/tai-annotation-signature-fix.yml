@@ -1,0 +1,188 @@
+name: TAI annotation signature remediation
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1d-remediation-2997
+    paths:
+      - .github/workflows/tai-annotation-signature-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-remediation-2997
+      - name: Bind annotations to signed run authority and remove workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: replacement anchor count={text.count(old)}')
+              target.write_text(text.replace(old, new), encoding='utf-8')
+
+          contract = 'apps/tai/tai/quality_scoring_contract.py'
+          replace_once(
+              contract,
+              '                "maximum_mfa_age_seconds": 43_200,\n                "trusted_secret_digest_source": "OPERATOR_TRUSTED_CONFIG",',
+              '                "maximum_mfa_age_seconds": 43_200,\n                "annotation_signature_schema": "tai.quality-annotation-signature.v1",\n                "annotation_signature_context": "TAI_QUALITY_SCORING_ANNOTATION",\n                "trusted_secret_digest_source": "OPERATOR_TRUSTED_CONFIG",',
+          )
+          replace_once(
+              contract,
+              '    "observation_index_sha256",\n    "identity_assertions",',
+              '    "observation_index_sha256",\n    "scoring_run_id",\n    "identity_assertions",',
+          )
+          replace_once(
+              contract,
+              '    if "identity_assertions" not in value:\n        value = {**value, "identity_assertions": []}\n    require_keys(value, MANIFEST_KEYS, "quality scoring manifest")',
+              '    defaults: dict[str, object] = {}\n    if "identity_assertions" not in value:\n        defaults["identity_assertions"] = []\n    if "scoring_run_id" not in value:\n        defaults["scoring_run_id"] = None\n    if defaults:\n        value = {**value, **defaults}\n    require_keys(value, MANIFEST_KEYS, "quality scoring manifest")',
+          )
+          replace_once(
+              contract,
+              '            "observation_index_sha256": None,\n            "identity_assertions": [],',
+              '            "observation_index_sha256": None,\n            "scoring_run_id": None,\n            "identity_assertions": [],',
+          )
+          replace_once(
+              contract,
+              '        if not as_array(value["identity_assertions"], "manifest.identity_assertions"):\n            raise QualityScoringError("complete scoring manifest has no identity assertions")',
+              '        as_identity(value["scoring_run_id"], "manifest.scoring_run_id")\n        if not as_array(value["identity_assertions"], "manifest.identity_assertions"):\n            raise QualityScoringError("complete scoring manifest has no identity assertions")',
+          )
+
+          authority_path = Path('apps/tai/model-artifacts/quality-scoring-authority.v1.json')
+          authority = json.loads(authority_path.read_text(encoding='utf-8'))
+          identity_policy = authority['scorer_policy']['identity_assertions']
+          identity_policy['annotation_signature_schema'] = 'tai.quality-annotation-signature.v1'
+          identity_policy['annotation_signature_context'] = 'TAI_QUALITY_SCORING_ANNOTATION'
+          authority_path.write_text(json.dumps(authority, ensure_ascii=False, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          schema_path = Path('apps/tai/model-artifacts/quality-scoring-evidence.schema.v1.json')
+          schema = json.loads(schema_path.read_text(encoding='utf-8'))
+          schema['required'].remove('identity_assertions')
+          schema['properties']['scoring_run_id'] = {
+              'type': ['string', 'null'],
+              'minLength': 1,
+              'maxLength': 240,
+          }
+          schema['allOf'] = [{
+              'if': {'properties': {'lifecycle': {'const': 'COMPLETE'}}},
+              'then': {
+                  'required': ['identity_assertions', 'scoring_run_id'],
+                  'properties': {
+                      'identity_assertions': {'minItems': 1},
+                      'scoring_run_id': {'type': 'string'},
+                  },
+              },
+          }]
+          annotation = schema['$defs']['annotation']
+          annotation['required'].insert(annotation['required'].index('annotation_sha256'), 'annotation_signature')
+          annotation['properties']['annotation_signature'] = {
+              'type': 'string',
+              'pattern': '^[0-9a-f]{64}$',
+          }
+          schema_path.write_text(json.dumps(schema, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          identity = 'apps/tai/tai/quality_scoring_identity.py'
+          replace_once(identity, '    as_bool,\n    as_identity,', '    as_bool,\n    as_commit,\n    as_identity,')
+          replace_once(identity, 'def _trusted_secret(path: Path, expected_sha256: str) -> bytes:', 'def trusted_identity_secret(path: Path, expected_sha256: str) -> bytes:')
+          replace_once(identity, '            "maximum_mfa_age_seconds",\n            "trusted_secret_digest_source",', '            "maximum_mfa_age_seconds",\n            "annotation_signature_schema",\n            "annotation_signature_context",\n            "trusted_secret_digest_source",')
+          replace_once(identity, '    secret = _trusted_secret(secret_path, trusted_secret_sha256)', '    secret = trusted_identity_secret(secret_path, trusted_secret_sha256)')
+          identity_path = Path(identity)
+          identity_text = identity_path.read_text(encoding='utf-8')
+          identity_text += '''\n\ndef verify_annotation_signature(\n    annotation: dict[str, Any],\n    assertion: dict[str, Any],\n    policy_value: object,\n    secret: bytes,\n    *,\n    exact_main: str,\n    scoring_run_id: str,\n) -> None:\n    policy = as_object(policy_value, "scorer identity policy")\n    as_commit(exact_main, "annotation signature exact_main")\n    as_identity(scoring_run_id, "annotation signature scoring_run_id")\n    signature = as_sha256(\n        annotation["annotation_signature"],\n        "annotation.annotation_signature",\n    )\n    annotation_payload = {\n        key: value\n        for key, value in annotation.items()\n        if key not in {"annotation_signature", "annotation_sha256"}\n    }\n    payload = {\n        "schema_version": policy["annotation_signature_schema"],\n        "context": policy["annotation_signature_context"],\n        "identity_assertion_id": assertion["assertion_id"],\n        "scoring_run_id": scoring_run_id,\n        "exact_main": exact_main,\n        "annotation_payload_sha256": hashlib.sha256(\n            _canonical_bytes(annotation_payload)\n        ).hexdigest(),\n    }\n    expected = hmac.new(secret, _canonical_bytes(payload), hashlib.sha256).hexdigest()\n    if not hmac.compare_digest(signature, expected):\n        raise QualityScoringError("annotation reviewer signature is invalid")\n'''
+          identity_path.write_text(identity_text, encoding='utf-8')
+
+          annotations = 'apps/tai/tai/quality_scoring_annotations.py'
+          replace_once(
+              annotations,
+              'from tai.quality_scoring_identity import bind_annotation_identity',
+              'from tai.quality_scoring_identity import (\n    bind_annotation_identity,\n    verify_annotation_signature,\n)',
+          )
+          replace_once(annotations, '    "disagreement_with_annotation_id",\n    "annotation_sha256",', '    "disagreement_with_annotation_id",\n    "annotation_signature",\n    "annotation_sha256",')
+          replace_once(annotations, '        "evidence_sha256",\n    ):', '        "evidence_sha256",\n        "annotation_signature",\n    ):')
+          replace_once(
+              annotations,
+              '    identity_assertions: dict[str, dict[str, Any]],\n    identity_policy: object,\n) -> tuple[dict[tuple[str, str, str], bool], dict[str, int]]:',
+              '    identity_assertions: dict[str, dict[str, Any]],\n    identity_policy: object,\n    identity_secret: bytes,\n    *,\n    exact_main: str,\n    scoring_run_id: str,\n) -> tuple[dict[tuple[str, str, str], bool], dict[str, int]]:',
+          )
+          replace_once(
+              annotations,
+              '            used_assertions.add(\n                bind_annotation_identity(row, identity_assertions, identity_policy)\n            )\n            citation_ok = all(',
+              '            assertion_id = bind_annotation_identity(\n                row, identity_assertions, identity_policy\n            )\n            used_assertions.add(assertion_id)\n            verify_annotation_signature(\n                row,\n                identity_assertions[assertion_id],\n                identity_policy,\n                identity_secret,\n                exact_main=exact_main,\n                scoring_run_id=scoring_run_id,\n            )\n            citation_ok = all(',
+          )
+
+          scoring = 'apps/tai/tai/quality_scoring.py'
+          replace_once(scoring, '    as_int,\n    as_object,', '    as_identity,\n    as_int,\n    as_object,')
+          replace_once(
+              scoring,
+              'from tai.quality_scoring_identity import verify_identity_assertions',
+              'from tai.quality_scoring_identity import (\n    trusted_identity_secret,\n    verify_identity_assertions,\n)',
+          )
+          replace_once(
+              scoring,
+              '    identity_policy = authority["scorer_policy"]["identity_assertions"]\n    identity_assertions = verify_identity_assertions(',
+              '    identity_policy = authority["scorer_policy"]["identity_assertions"]\n    scoring_run_id = as_identity(\n        manifest["scoring_run_id"], "manifest.scoring_run_id"\n    )\n    identity_secret_bytes = trusted_identity_secret(\n        identity_secret, trusted_identity_secret_sha256\n    )\n    identity_assertions = verify_identity_assertions(',
+          )
+          replace_once(
+              scoring,
+              '        identity_assertions,\n        identity_policy,\n    )\n    external_evidence =',
+              '        identity_assertions,\n        identity_policy,\n        identity_secret_bytes,\n        exact_main=runtime["exact_main"],\n        scoring_run_id=scoring_run_id,\n    )\n    external_evidence =',
+          )
+          replace_once(
+              scoring,
+              '        "manifest_sha256": manifest["manifest_sha256"],\n        "identity_assertions_sha256":',
+              '        "manifest_sha256": manifest["manifest_sha256"],\n        "scoring_run_id": scoring_run_id,\n        "identity_assertions_sha256":',
+          )
+
+          fixture_path = Path('apps/tai/tests/quality_scoring_fixtures.py')
+          fixture = fixture_path.read_text(encoding='utf-8')
+          fixture = fixture.replace('RETENTION_UNTIL = NOW + timedelta(days=100)\n', 'RETENTION_UNTIL = NOW + timedelta(days=100)\nSCORING_RUN_ID = "quality-run-2026-07-21-fixture"\n', 1)
+          start = fixture.index('def _annotation(\n')
+          end = fixture.index('\ndef _annotations(', start)
+          new_annotation = '''def _annotation_signature(\n    secret: bytes,\n    annotation: dict[str, Any],\n) -> str:\n    payload = {\n        "schema_version": "tai.quality-annotation-signature.v1",\n        "context": "TAI_QUALITY_SCORING_ANNOTATION",\n        "identity_assertion_id": annotation["identity_assertion_id"],\n        "scoring_run_id": SCORING_RUN_ID,\n        "exact_main": EXACT_MAIN,\n        "annotation_payload_sha256": hashlib.sha256(\n            _canonical_bytes(annotation)\n        ).hexdigest(),\n    }\n    return hmac.new(secret, _canonical_bytes(payload), hashlib.sha256).hexdigest()\n\n\ndef _annotation(\n    observation: dict[str, Any],\n    *,\n    scorer_id: str,\n    scorer_role: str,\n    suffix: str,\n    identity_secret: bytes,\n    decision: str = "PASS",\n) -> dict[str, Any]:\n    annotation_id = (\n        f"ann.{observation['profile_id']}.{observation['case_id']}."\n        f"{observation['locale']}.{suffix}"\n    )\n    evidence = _evidence_payload(annotation_id)\n    object_suffix = hashlib.sha256(annotation_id.encode()).hexdigest()[:24]\n    value: dict[str, Any] = {\n        "schema_version": "tai.quality-annotation.v1",\n        "annotation_id": annotation_id,\n        "profile_id": observation["profile_id"],\n        "case_id": observation["case_id"],\n        "case_sha256": observation["case_sha256"],\n        "locale": observation["locale"],\n        "prompt_sha256": observation["prompt_sha256"],\n        "response_sha256": observation["response_sha256"],\n        "trace_sha256": observation["trace_sha256"],\n        "scorer_id": scorer_id,\n        "scorer_role": scorer_role,\n        "identity_assertion_id": _assertion_id(scorer_id),\n        "scored_at": NOW.isoformat(),\n        "evidence_sha256": hashlib.sha256(evidence).hexdigest(),\n        "evidence_size_bytes": len(evidence),\n        "evidence_object_key": f"quality-review/{object_suffix}.json",\n        "evidence_object_version_id": f"version-{object_suffix}",\n        "decision": decision,\n        "disposition_valid": decision == "PASS",\n        "required_concepts_met": decision == "PASS",\n        "forbidden_claims_absent": decision == "PASS",\n        "citation_authority_valid": decision == "PASS",\n        "citation_support_valid": decision == "PASS",\n        "citation_freshness_valid": decision == "PASS",\n        "abstention_valid": decision == "PASS",\n        "unsupported_fact_count": 0,\n        "safety_failure_count": 0,\n        "disagreement_with_annotation_id": None,\n    }\n    value["annotation_signature"] = _annotation_signature(identity_secret, value)\n    return _signed(value, "annotation_sha256")\n\n'''
+          fixture = fixture[:start] + new_annotation + fixture[end+1:]
+          fixture = fixture.replace('def _annotations(index: dict[str, Any]) -> list[dict[str, Any]]:', 'def _annotations(\n    index: dict[str, Any], identity_secret: bytes\n) -> list[dict[str, Any]]:', 1)
+          fixture = fixture.replace('                suffix="primary",\n            )', '                suffix="primary",\n                identity_secret=identity_secret,\n            )', 1)
+          fixture = fixture.replace('                    suffix="secondary",\n                )', '                    suffix="secondary",\n                    identity_secret=identity_secret,\n                )', 1)
+          fixture = fixture.replace('    annotations = _annotations(index)\n', '    annotations = _annotations(index, secret)\n', 1)
+          fixture = fixture.replace('            "observation_index_sha256": index["index_sha256"],\n            "identity_assertions":', '            "observation_index_sha256": index["index_sha256"],\n            "scoring_run_id": SCORING_RUN_ID,\n            "identity_assertions":', 1)
+          fixture_path.write_text(fixture, encoding='utf-8')
+
+          remediation = 'apps/tai/tests/test_quality_scoring_remediation.py'
+          replace_once(
+              remediation,
+              '    NOW,\n    _fixture,',
+              '    NOW,\n    _annotation_signature,\n    _fixture,',
+          )
+          replace_once(
+              remediation,
+              '    row.pop("annotation_sha256", None)\n    annotations[index] = _signed(row, "annotation_sha256")',
+              '    row.pop("annotation_sha256", None)\n    row.pop("annotation_signature", None)\n    secret_path = fixture["identity_secret_path"]\n    assert isinstance(secret_path, Path)\n    row["annotation_signature"] = _annotation_signature(\n        secret_path.read_bytes(), row\n    )\n    annotations[index] = _signed(row, "annotation_sha256")',
+          )
+          remediation_path = Path(remediation)
+          remediation_text = remediation_path.read_text(encoding='utf-8')
+          test_anchor = '\ndef test_submitter_declared_reviewer_identity_is_not_authority'
+          new_test = '''\ndef test_annotation_content_requires_reviewer_signature(tmp_path: Path) -> None:\n    fixture = _fixture(tmp_path)\n    row = fixture["manifest"]["annotations"][0]\n    row["decision"] = "FAIL"\n    row.pop("annotation_sha256")\n    row["annotation_sha256"] = canonical_sha256(row)\n    _rewrite_manifest(fixture)\n    with pytest.raises(QualityScoringError, match="annotation reviewer signature is invalid"):\n        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())\n\n'''
+          if remediation_text.count(test_anchor) != 1:
+              raise SystemExit('remediation test anchor mismatch')
+          remediation_text = remediation_text.replace(test_anchor, new_test + test_anchor, 1)
+          remediation_text = remediation_text.replace('from tai.quality_scoring_contract import QualityScoringError, load_json, write_json', 'from tai.quality_scoring_contract import (\n    QualityScoringError,\n    canonical_sha256,\n    load_json,\n    write_json,\n)')
+          remediation_path.write_text(remediation_text, encoding='utf-8')
+          PY
+          rm -f .github/workflows/tai-annotation-signature-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(tai): sign each reviewer annotation for exact run"
+          git push origin HEAD:agent/tai-ap-13c1d-remediation-2997
