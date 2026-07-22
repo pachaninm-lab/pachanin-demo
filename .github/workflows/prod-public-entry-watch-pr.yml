@@ -31,7 +31,7 @@ jobs:
         env:
           WATCH_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
           WATCH_ARTIFACT_DIR: ../../artifacts/prod-public-entry-watch
-        run: node scripts/prod-public-entry-watch-20260721.mjs 2>&1 | tee ../../artifacts/prod-public-entry-watch/run.log
+        run: node scripts/prod-public-entry-watch-20260721-v2.mjs 2>&1 | tee ../../artifacts/prod-public-entry-watch/run.log
       - name: Upload production watch evidence
         if: always()
         uses: actions/upload-artifact@v4
