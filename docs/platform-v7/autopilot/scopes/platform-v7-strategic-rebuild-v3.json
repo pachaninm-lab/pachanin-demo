@@ -4,6 +4,7 @@
   "purpose": "Strategic transaction-centric rebuild of the public /platform-v7 homepage without changing production authority or deployment topology.",
   "allowedPaths": [
     ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
+    "apps/web/app/layout.tsx",
     "apps/web/app/loading.tsx",
     "apps/web/app/pc-public-entry/platform-v7/page.tsx",
     "apps/web/app/platform-v7/page.tsx",
@@ -47,6 +48,7 @@
       "root no-JavaScript fallback exposes no personal-data fields",
       "form-open analytics is separate from validated request submission",
       "public authority route emits title description canonical hreflang and crawlability metadata",
+      "root metadata injection preserves service worker recovery and analytics bootstrap scripts byte-for-byte",
       "Lighthouse evidence is collected from a local production build and is not represented as live VPS evidence",
       "Lighthouse CLI version is pinned and reports are uploaded only as private GitHub Actions artifacts"
     ]
