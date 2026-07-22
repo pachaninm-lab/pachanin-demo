@@ -36,13 +36,18 @@ function median(values) {
   return clean.length % 2 === 0 ? Math.round(((clean[middle - 1] + clean[middle]) / 2) * 100) / 100 : clean[middle];
 }
 
+function isReportCandidate(file) {
+  const name = path.basename(file).toLowerCase();
+  return name.endsWith('.json') || name.endsWith('-json') || name.endsWith('_json');
+}
+
 const input = path.resolve(readArg('input', 'apps/web/lighthouseci-artifacts/mobile'));
 const output = path.resolve(readArg('output', 'apps/web/lighthouseci-artifacts/lighthouse-summary.json'));
 const mode = readArg('mode', path.basename(input));
 
 let candidates;
 try {
-  candidates = (await walk(input)).filter((file) => file.endsWith('.json'));
+  candidates = (await walk(input)).filter(isReportCandidate);
 } catch (error) {
   throw new Error(`Lighthouse evidence directory is unavailable: ${input} (${error.message})`);
 }
