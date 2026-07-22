@@ -1,0 +1,133 @@
+name: TAI Qwen Read-Only Preview Runtime
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-qwen-read-only-preview-runtime
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 3003 &&
+      github.event.comment.body == '/tai run qwen read-only preview exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact-main immutable checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI runtime authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e 'apps/tai[dev]'
+
+      - name: Validate authority before protected access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m tai.qwen_preview_runtime_cli validate-authority \
+            apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json \
+            --output qwen-preview-authority-validation.json
+          python -m ruff check \
+            apps/tai/tai/qwen_preview_runtime.py \
+            apps/tai/tai/qwen_preview_runtime_cli.py \
+            apps/tai/tests/qwen_preview_runtime_fixtures.py \
+            apps/tai/tests/test_qwen_preview_runtime.py \
+            apps/tai/tests/test_qwen_preview_runtime_cli.py \
+            apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          python -m mypy --strict \
+            apps/tai/tai/qwen_preview_runtime.py \
+            apps/tai/tai/qwen_preview_runtime_cli.py
+          python -m pytest \
+            apps/tai/tests/test_qwen_preview_runtime.py \
+            apps/tai/tests/test_qwen_preview_runtime_cli.py \
+            apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          bash -n apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
+          bash -n apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh
+
+      - name: Execute governed dedicated-host Qwen preview
+        shell: bash
+        env:
+          TAI_MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+          TAI_MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+          TAI_MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+          TAI_MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+        run: bash apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
+
+      - name: Upload bounded preview evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-qwen-preview-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            qwen-preview-authority-validation.json
+            qwen-preview-evidence/qwen-preview-runtime-evidence.json
+            qwen-preview-evidence/verified-report.json
+            apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded preview summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! -s qwen-preview-summary.md ]]; then
+            printf '%s\n' \
+              '## TAI Qwen read-only operational preview' \
+              '' \
+              "- exact-main: \`$GITHUB_SHA\`;" \
+              "- workflow run: \`$GITHUB_RUN_ID\` / attempt \`$GITHUB_RUN_ATTEMPT\`;" \
+              '- result: `FAILED_CLOSED`;' \
+              '- benchmark: `PENDING_BENCHMARK`;' \
+              '- model admission: `PENDING_ADMISSION`;' \
+              '- routing/UI/deployment: `NOT_ACTIVATED`;' \
+              '- production operational status: `NOT_ATTESTED`.' \
+              > qwen-preview-summary.md
+          fi
+          jq -n --rawfile body qwen-preview-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/3003/comments" --input -

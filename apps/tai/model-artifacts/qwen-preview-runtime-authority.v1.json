@@ -1,0 +1,67 @@
+{
+  "authority_sha256": "f7e25bfbcc8d39249d918c6800365734ab889e5d47f6e053c2df11214db461cb",
+  "command": "/tai run qwen read-only preview exact-main",
+  "evidence": {
+    "raw_material_in_artifact": false,
+    "retention_days": 90,
+    "schema_version": "tai.qwen-preview-runtime-evidence.v1"
+  },
+  "generation": {
+    "seed": 42,
+    "temperature": 0,
+    "top_p": 1
+  },
+  "issue": 3003,
+  "limits": {
+    "context_tokens": 4096,
+    "max_output_tokens": 128,
+    "max_queued_requests": 0,
+    "max_rss_bytes": 12000000000,
+    "parallel_requests": 1,
+    "request_timeout_seconds": 120,
+    "startup_timeout_seconds": 180
+  },
+  "maturity_boundary": {
+    "benchmark_status": "PENDING_BENCHMARK",
+    "deployment_status": "NOT_ACTIVATED",
+    "model_admission_status": "PENDING_ADMISSION",
+    "preview_status": "READ_ONLY_OPERATIONAL_PREVIEW_PENDING_EXTERNAL_IMMUTABILITY",
+    "production_operational_status": "NOT_ATTESTED",
+    "routing_status": "NOT_ACTIVATED",
+    "ui_status": "NOT_ACTIVATED"
+  },
+  "model": {
+    "conversion_output_path": "artifacts/qwen3-8b-q4-k-m.gguf",
+    "key": "qwen3-8b",
+    "model_id": "Qwen/Qwen3-8B",
+    "quantization": "Q4_K_M",
+    "required_conversion_status": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
+    "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+    "role": "PRIMARY"
+  },
+  "parent_issue": 2971,
+  "program_issue": 2726,
+  "schema_version": "tai.qwen-preview-runtime-authority.v1",
+  "smoke": {
+    "endpoint": "/v1/chat/completions",
+    "languages": [
+      "RU",
+      "EN",
+      "ZH"
+    ],
+    "require_non_empty_response": true
+  },
+  "target": {
+    "host_role": "DEDICATED_MODEL_HOST",
+    "listen_host": "127.0.0.1",
+    "listen_port": 18080,
+    "required_user": "tai-model",
+    "workspace_root": "/srv/tai-models"
+  },
+  "toolchain": {
+    "llama_server_sha256": "1b26384ad90d9ae8fe65b2a3e2dfd08c70d92663b2127d5f479f34774b4a6dbf",
+    "llama_server_size_bytes": 12940416,
+    "profile": "linux-x86_64-cpu-release-static-v1",
+    "release": "b9637"
+  }
+}
