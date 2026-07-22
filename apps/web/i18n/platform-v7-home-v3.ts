@@ -1,144 +1,67 @@
 export type HomeLocale = 'ru' | 'en' | 'zh';
-export type ClaimStatus = 'FACT' | 'ARCHITECTURE' | 'PLANNED' | 'PARTNER_DEPENDENT';
-
-export type HomeClaim = {
-  status: ClaimStatus;
-  text: string;
-};
 
 const ru = {
+  a11y: { site: 'Прозрачная Цена', nav: 'Главная навигация', menu: 'Меню', controlTower: 'Фрагмент control tower Сделки' },
   nav: { how: 'Как работает', participants: 'Участникам', tai: 'TAI', integrations: 'Интеграции', status: 'Статус', login: 'Войти', connect: 'Подключить организацию' },
-  hero: {
-    kicker: 'Цифровая инфраструктура исполнения сделок в растениеводстве',
-    title: 'Сделка под контролем — от условий и товара до расчёта и закрытия',
-    lead: 'Одна цифровая карточка связывает участников, торги, логистику, приёмку, лабораторию, документы, государственные контуры, финансирование, деньги, споры и доказательства.',
-    primary: 'Посмотреть сделку в работе',
-    secondary: 'Подключить организацию',
-    tertiary: 'Как работает TAI',
-  },
-  category: {
-    eyebrow: 'Категория продукта',
-    title: 'Не площадка объявлений. Контур исполнения сделки.',
-    text: 'Платформа не заканчивается после выбора цены или контрагента. Она сопровождает фактическое исполнение до расчёта, закрытия и сохранения доказательств.',
-    marketplace: 'Marketplace',
-    marketplaceText: 'Помогает найти предложение и договориться.',
-    platform: 'Прозрачная Цена',
-    platformText: 'Связывает условия, исполнение, качество, документы, деньги и спор вокруг одной Сделки.',
-  },
-  lifecycle: {
-    eyebrow: 'Единый контур',
-    title: 'Путь Сделки',
-    lead: 'Каждый этап имеет ответственного, основание завершения, возможный блокер и денежное последствие.',
-    phases: ['Условия', 'Допуск', 'Торги', 'Сделка', 'Договор', 'Финансирование', 'Перевозка', 'Приёмка', 'Качество', 'Документы', 'Госсистемы', 'Деньги', 'Спор', 'Доказательства', 'Закрытие', 'Аналитика'],
-  },
-  scenario: {
-    eyebrow: 'Интерактивный сценарий работы платформы',
-    title: 'Разберите исполнение сделки за 90 секунд',
-    lead: 'Партия подсолнечника прибыла на приёмку. Показатель качества отличается от допуска, документ не подписан, выплата зарезервирована.',
-    status: 'Расчёт заблокирован',
-    blocker: 'Влажность выше допуска на 0,8 п.п. и отсутствует подпись под актом расхождений.',
-    owner: 'Ответственные: лаборатория и покупатель',
-    money: 'Средства зарезервированы. Release запрещён до подтверждения основания.',
-    next: 'Следующий шаг: подписать акт и выбрать правило перерасчёта.',
-    evidence: 'Основания: протокол лаборатории, акт приёмки, версия спецификации.',
-  },
-  tai: {
-    eyebrow: 'TAI внутри Сделки',
-    title: 'Интеллектуальный операционный слой, а не отдельный чат',
-    text: 'TAI анализирует состояние Сделки, документы и события, объясняет блокировки, показывает риск и помогает подготовить следующий шаг.',
-    modes: ['Публичный — объясняет платформу без закрытых данных', 'Ролевой — работает только в пределах прав пользователя и организации', 'Операционный — анализирует Сделку и готовит действия для подтверждения человеком'],
-    boundaries: 'TAI не меняет роль или организацию, не подписывает документы, не выпускает деньги, не выбирает победителя и не принимает решение по спору.',
-    source: 'Источник: протокол лаборатории № L-204',
-    freshness: 'Актуальность: 22.07.2026',
-    confidence: 'Уверенность: высокая',
-    action: 'Подготовлен проект акта расхождений — требуется подтверждение пользователя.',
-  },
-  crops: {
-    eyebrow: 'Охват растениеводства',
-    title: 'Единая архитектура сделки для разных товарных категорий',
-    lead: 'Категории различаются качеством, хранением, логистикой, документами, приёмкой и формулой цены. Статус покрытия показывается отдельно.',
-    groups: [
-      ['Зерновые', 'Реализовано'],
-      ['Масличные и бобовые', 'В реализации'],
-      ['Технические культуры', 'Архитектурно предусмотрено'],
-      ['Овощи и картофель', 'Требует отраслевой настройки'],
-      ['Плодово-ягодная продукция', 'Требует отраслевой настройки'],
-      ['Семена и посадочный материал', 'Требует партнёрской интеграции'],
-    ],
-  },
-  money: {
-    eyebrow: 'Финансовое исполнение',
-    title: 'Деньги связаны с подтверждёнными событиями Сделки',
-    chain: 'Резервирование → исполнение → подтверждение → release → сверка → закрытие',
-    exception: 'При отклонении: блокировка → спор → доказательства → решение → перерасчёт',
-  },
-  integrations: {
-    eyebrow: 'Интеграционный контур',
-    title: 'Платформа оркестрирует процессы и не подменяет внешние системы',
-    items: [
-      ['ФГИС «Зерно» / СДИЗ', 'Техническая готовность'],
-      ['ЭДО / КЭП', 'Предусмотрено'],
-      ['ГИС ЭПД', 'Партнёрская зависимость'],
-      ['Банковские API', 'Согласование'],
-      ['ERP / CRM', 'Архитектурно предусмотрено'],
-      ['Лаборатории / телематика', 'Не подтверждено'],
-    ],
-  },
-  federal: {
-    eyebrow: 'Федеральный класс',
-    title: 'Спроектировано как инфраструктура, а не локальный сервис',
-    pillars: ['Единая событийная модель Сделки', 'Server-authoritative RBAC', 'Tenant isolation', 'Непрерывный audit trail', 'Горизонтальное масштабирование', 'Интеграционная архитектура'],
-  },
-  maturity: {
-    eyebrow: 'Честный статус зрелости',
-    title: 'Архитектурная готовность не подменяет production-доказательства',
-    cards: [
-      ['Работает', 'Только функции, подтверждённые кодом и эксплуатационными evidence.'],
-      ['Контролируемое подключение', 'Технически реализовано, но массовая эксплуатация ещё не подтверждена.'],
-      ['Зависит от партнёра', 'Банк, государственная система, ЭДО или иной внешний контур.'],
-      ['Целевая архитектура', 'Спроектировано, но не принято как production-функция.'],
-    ],
-  },
-  participants: {
-    eyebrow: 'Ценность для участников',
-    title: 'Не список функций, а управляемый результат',
-    cards: [
-      ['Продавец', 'Видит, что требуется для оплаты и кто задерживает переход Сделки.'],
-      ['Покупатель', 'Получает связанные подтверждения товара, количества, качества и приёмки.'],
-      ['Логистика', 'Работает с рейсом, документами и отклонениями в одном контуре.'],
-      ['Хранение', 'Фиксирует приёмку, вес, размещение и основания передачи товара.'],
-      ['Лаборатория', 'Передаёт результат с привязкой к партии, пробе и документу.'],
-      ['Банк / compliance', 'Получает события, денежные основания и воспроизводимый audit trail.'],
-    ],
-  },
+  hero: { kicker: 'Цифровая инфраструктура исполнения сделок в растениеводстве', title: 'Сделка под контролем — от условий и товара до расчёта и закрытия', lead: 'Одна цифровая карточка связывает участников, торги, логистику, приёмку, лабораторию, документы, государственные контуры, финансирование, деньги, споры и доказательства.', primary: 'Посмотреть сделку в работе', secondary: 'Подключить организацию', tertiary: 'Как работает TAI' },
+  tower: { deal: 'Сделка PC-2026-0719', stage: 'Приёмка и качество', statusLabel: 'Статус', status: 'Расчёт заблокирован', deviation: 'Отклонение', ownerLabel: 'Ответственный', owner: 'Лаборатория', deadline: 'До 16:30', moneyLabel: 'Деньги', money: 'Зарезервированы', release: 'Release запрещён', nextLabel: 'Следующий шаг', next: 'Подписать акт', nextNote: 'Затем — правило перерасчёта', taiTitle: 'TAI выявил два блокера', taiText: 'Расхождение качества и отсутствующая подпись. Подготовлен проект действия.' },
+  category: { eyebrow: 'Категория продукта', title: 'Не площадка объявлений. Контур исполнения сделки.', text: 'Платформа не заканчивается после выбора цены или контрагента. Она сопровождает фактическое исполнение до расчёта, закрытия и сохранения доказательств.', marketplace: 'Marketplace', marketplaceText: 'Помогает найти предложение и договориться.', platform: 'Прозрачная Цена', platformText: 'Связывает условия, исполнение, качество, документы, деньги и спор вокруг одной Сделки.' },
+  lifecycle: { eyebrow: 'Единый контур', title: 'Путь Сделки', lead: 'Каждый этап имеет ответственного, основание завершения, возможный блокер и денежное последствие.', phases: ['Условия', 'Допуск', 'Торги', 'Сделка', 'Договор', 'Финансирование', 'Перевозка', 'Приёмка', 'Качество', 'Документы', 'Госсистемы', 'Деньги', 'Спор', 'Доказательства', 'Закрытие', 'Аналитика'] },
+  scenario: { eyebrow: 'Интерактивный сценарий работы платформы', title: 'Разберите исполнение сделки за 90 секунд', lead: 'Партия подсолнечника прибыла на приёмку. Показатель качества отличается от допуска, документ не подписан, выплата зарезервирована.', dealLabel: 'Сделка', dealValue: 'Подсолнечник · 1 200 т', stageLabel: 'Текущий этап', stageValue: 'Приёмка / лаборатория', blockerLabel: 'Блокер', ownerLabel: 'Ответственный', status: 'Расчёт заблокирован', blocker: 'Влажность выше допуска на 0,8 п.п. и отсутствует подпись под актом расхождений.', owner: 'Лаборатория и покупатель', money: 'Средства зарезервированы. Release запрещён до подтверждения основания.', next: 'Следующий шаг: подписать акт и выбрать правило перерасчёта.', evidence: 'Основания: протокол лаборатории, акт приёмки, версия спецификации.' },
+  tai: { eyebrow: 'TAI внутри Сделки', title: 'Интеллектуальный операционный слой, а не отдельный чат', text: 'TAI анализирует состояние Сделки, документы и события, объясняет блокировки, показывает риск и помогает подготовить следующий шаг.', mode: 'Операционный режим', answer: 'Сделка не может перейти к окончательному расчёту: лабораторный показатель вышел за допуск, а акт расхождений не подписан покупателем.', modes: ['Публичный — объясняет платформу без закрытых данных', 'Ролевой — работает только в пределах прав пользователя и организации', 'Операционный — анализирует Сделку и готовит действия для подтверждения человеком'], boundaries: 'TAI не меняет роль или организацию, не подписывает документы, не выпускает деньги, не выбирает победителя и не принимает решение по спору.', source: 'Источник: протокол лаборатории № L-204', freshness: 'Актуальность: 22.07.2026', confidence: 'Уверенность: высокая', action: 'Подготовлен проект акта расхождений — требуется подтверждение пользователя.' },
+  crops: { eyebrow: 'Охват растениеводства', title: 'Единая архитектура сделки для разных товарных категорий', lead: 'Категории различаются качеством, хранением, логистикой, документами, приёмкой и формулой цены. Статус покрытия показывается отдельно.', groups: [['Зерновые', 'Реализовано'], ['Масличные и бобовые', 'В реализации'], ['Технические культуры', 'Архитектурно предусмотрено'], ['Овощи и картофель', 'Требует отраслевой настройки'], ['Плодово-ягодная продукция', 'Требует отраслевой настройки'], ['Семена и посадочный материал', 'Требует партнёрской интеграции']] },
+  participants: { eyebrow: 'Ценность для участников', title: 'Не список функций, а управляемый результат', cards: [['Продавец', 'Видит, что требуется для оплаты и кто задерживает переход Сделки.'], ['Покупатель', 'Получает связанные подтверждения товара, количества, качества и приёмки.'], ['Логистика', 'Работает с рейсом, документами и отклонениями в одном контуре.'], ['Хранение', 'Фиксирует приёмку, вес, размещение и основания передачи товара.'], ['Лаборатория', 'Передаёт результат с привязкой к партии, пробе и документу.'], ['Банк / compliance', 'Получает события, денежные основания и воспроизводимый audit trail.']] },
+  money: { eyebrow: 'Финансовое исполнение', title: 'Деньги связаны с подтверждёнными событиями Сделки', chain: 'Резервирование → исполнение → подтверждение → release → сверка → закрытие', exception: 'При отклонении: блокировка → спор → доказательства → решение → перерасчёт' },
+  integrations: { eyebrow: 'Интеграционный контур', title: 'Платформа оркестрирует процессы и не подменяет внешние системы', items: [['ФГИС «Зерно» / СДИЗ', 'Техническая готовность'], ['ЭДО / КЭП', 'Предусмотрено'], ['ГИС ЭПД', 'Партнёрская зависимость'], ['Банковские API', 'Согласование'], ['ERP / CRM', 'Архитектурно предусмотрено'], ['Лаборатории / телематика', 'Не подтверждено']] },
+  federal: { eyebrow: 'Федеральный класс', title: 'Спроектировано как инфраструктура, а не локальный сервис', pillars: ['Единая событийная модель Сделки', 'Server-authoritative RBAC', 'Tenant isolation', 'Непрерывный audit trail', 'Горизонтальное масштабирование', 'Интеграционная архитектура'] },
+  maturity: { eyebrow: 'Честный статус зрелости', title: 'Архитектурная готовность не подменяет production-доказательства', cards: [['Работает', 'Только функции, подтверждённые кодом и эксплуатационными evidence.'], ['Контролируемое подключение', 'Технически реализовано, но массовая эксплуатация ещё не подтверждена.'], ['Зависит от партнёра', 'Банк, государственная система, ЭДО или иной внешний контур.'], ['Целевая архитектура', 'Спроектировано, но не принято как production-функция.']] },
+  faq: { eyebrow: 'Коротко о главном', title: 'Частые вопросы', items: [['Это marketplace?', 'Нет. Поиск условий может быть частью процесса, но ценность платформы — в исполнении Сделки до расчёта и закрытия.'], ['TAI действует самостоятельно?', 'Нет. TAI анализирует, объясняет и готовит действия. Привилегированные операции требуют прав и подтверждения человека.'], ['Все интеграции уже подключены?', 'Нет. Для каждой интеграции публикуется отдельный статус: подключено, техническая готовность, согласование, предусмотрено или не подтверждено.'], ['Платформа работает только с зерном?', 'Нет. Архитектура рассчитана на растениеводство, но production-покрытие каждой категории подтверждается отдельно.']] },
   final: { title: 'Подключите организацию к единому контуру Сделки', lead: 'Начните с управляемого сценария, ролей, статусов интеграций и критериев приёмки.', primary: 'Подключить организацию', secondary: 'Посмотреть сделку в работе' },
-  footer: 'Цифровая инфраструктура исполнения сделок в растениеводстве. Статусы функций и интеграций публикуются без завышения зрелости.',
+  footer: { note: 'Цифровая инфраструктура исполнения сделок в растениеводстве. Статусы функций и интеграций публикуются без завышения зрелости.', privacy: 'Конфиденциальность', contacts: 'Контакты' }
 } as const;
 
-const en = {
-  ...ru,
+type HomeCopy = typeof ru;
+
+const en: HomeCopy = {
+  a11y: { site: 'Transparent Price', nav: 'Main navigation', menu: 'Menu', controlTower: 'Deal control tower preview' },
   nav: { how: 'How it works', participants: 'Participants', tai: 'TAI', integrations: 'Integrations', status: 'Status', login: 'Sign in', connect: 'Connect organisation' },
   hero: { kicker: 'Digital infrastructure for crop transaction execution', title: 'The deal under control — from product terms to settlement and closure', lead: 'One digital deal record connects participants, trading, logistics, acceptance, laboratory results, documents, public systems, financing, money, disputes and evidence.', primary: 'View the deal in action', secondary: 'Connect organisation', tertiary: 'How TAI works' },
+  tower: { deal: 'Deal PC-2026-0719', stage: 'Acceptance and quality', statusLabel: 'Status', status: 'Settlement blocked', deviation: 'Deviation', ownerLabel: 'Owner', owner: 'Laboratory', deadline: 'Due 16:30', moneyLabel: 'Money', money: 'Reserved', release: 'Release prohibited', nextLabel: 'Next action', next: 'Sign the act', nextNote: 'Then apply the price adjustment rule', taiTitle: 'TAI detected two blockers', taiText: 'A quality discrepancy and a missing signature. A prepared action is ready.' },
   category: { eyebrow: 'Product category', title: 'Not a listings marketplace. A deal execution contour.', text: 'The platform does not stop after price or counterparty selection. It manages execution through settlement, closure and retained evidence.', marketplace: 'Marketplace', marketplaceText: 'Helps find an offer and reach an agreement.', platform: 'Transparent Price', platformText: 'Connects terms, execution, quality, documents, money and disputes around one Deal.' },
-  lifecycle: { eyebrow: 'Single contour', title: 'Deal lifecycle', lead: 'Every stage has an owner, completion evidence, possible blocker and financial consequence.', phases: ['Terms','Admission','Trading','Deal','Contract','Financing','Transport','Acceptance','Quality','Documents','Public systems','Money','Dispute','Evidence','Closure','Analytics'] },
-  scenario: { eyebrow: 'Interactive platform scenario', title: 'Understand execution in 90 seconds', lead: 'A sunflower lot reached acceptance. Quality differs from tolerance, one document is unsigned, and the payout is reserved.', status: 'Settlement blocked', blocker: 'Moisture is 0.8 pp above tolerance and the discrepancy act is unsigned.', owner: 'Owners: laboratory and buyer', money: 'Funds are reserved. Release is prohibited until the basis is confirmed.', next: 'Next action: sign the act and select the price adjustment rule.', evidence: 'Evidence: laboratory protocol, acceptance act, specification version.' },
+  lifecycle: { eyebrow: 'Single contour', title: 'Deal lifecycle', lead: 'Every stage has an owner, completion evidence, possible blocker and financial consequence.', phases: ['Terms', 'Admission', 'Trading', 'Deal', 'Contract', 'Financing', 'Transport', 'Acceptance', 'Quality', 'Documents', 'Public systems', 'Money', 'Dispute', 'Evidence', 'Closure', 'Analytics'] },
+  scenario: { eyebrow: 'Interactive platform scenario', title: 'Understand execution in 90 seconds', lead: 'A sunflower lot reached acceptance. Quality differs from tolerance, one document is unsigned, and the payout is reserved.', dealLabel: 'Deal', dealValue: 'Sunflower · 1,200 t', stageLabel: 'Current stage', stageValue: 'Acceptance / laboratory', blockerLabel: 'Blocker', ownerLabel: 'Owner', status: 'Settlement blocked', blocker: 'Moisture is 0.8 pp above tolerance and the discrepancy act is unsigned.', owner: 'Laboratory and buyer', money: 'Funds are reserved. Release is prohibited until the basis is confirmed.', next: 'Next action: sign the act and select the price adjustment rule.', evidence: 'Evidence: laboratory protocol, acceptance act and specification version.' },
+  tai: { eyebrow: 'TAI inside the Deal', title: 'An operational intelligence layer, not a separate chat', text: 'TAI analyses Deal state, documents and events, explains blockers, surfaces risk and helps prepare the next action.', mode: 'Operational mode', answer: 'The Deal cannot move to final settlement: the laboratory result is outside tolerance and the discrepancy act has not been signed by the buyer.', modes: ['Public — explains the platform without private data', 'Role-based — operates only within user and organisation permissions', 'Operational — analyses the Deal and prepares actions for human confirmation'], boundaries: 'TAI cannot change role or organisation, sign documents, release money, select a winner or decide a dispute.', source: 'Source: laboratory protocol L-204', freshness: 'Current as of 22 July 2026', confidence: 'Confidence: high', action: 'A discrepancy act draft is prepared — user confirmation is required.' },
+  crops: { eyebrow: 'Crop coverage', title: 'One Deal architecture for different crop categories', lead: 'Categories differ by quality, storage, logistics, documents, acceptance and pricing formula. Coverage status is shown separately.', groups: [['Grains', 'Implemented'], ['Oilseeds and pulses', 'In implementation'], ['Industrial crops', 'Architecturally supported'], ['Vegetables and potatoes', 'Requires industry configuration'], ['Fruit and berries', 'Requires industry configuration'], ['Seeds and planting material', 'Requires partner integration']] },
+  participants: { eyebrow: 'Participant value', title: 'Managed outcomes instead of a feature list', cards: [['Seller', 'Sees what is required for payment and who is delaying the Deal transition.'], ['Buyer', 'Receives connected evidence for product, quantity, quality and acceptance.'], ['Logistics', 'Works with trips, documents and deviations in one contour.'], ['Storage', 'Records acceptance, weight, placement and transfer grounds.'], ['Laboratory', 'Submits a result linked to the lot, sample and document.'], ['Bank / compliance', 'Receives events, payment grounds and a reproducible audit trail.']] },
+  money: { eyebrow: 'Financial execution', title: 'Money is linked to confirmed Deal events', chain: 'Reservation → execution → confirmation → release → reconciliation → closure', exception: 'On deviation: hold → dispute → evidence → decision → recalculation' },
+  integrations: { eyebrow: 'Integration contour', title: 'The platform orchestrates processes without replacing external systems', items: [['FGIS Grain / SDIZ', 'Technical readiness'], ['EDI / qualified signature', 'Planned'], ['GIS EPD', 'Partner dependent'], ['Bank APIs', 'In coordination'], ['ERP / CRM', 'Architecturally supported'], ['Laboratories / telematics', 'Not confirmed']] },
+  federal: { eyebrow: 'Federal-scale class', title: 'Designed as infrastructure, not a local service', pillars: ['Unified Deal event model', 'Server-authoritative RBAC', 'Tenant isolation', 'Continuous audit trail', 'Horizontal scalability', 'Integration architecture'] },
+  maturity: { eyebrow: 'Honest maturity status', title: 'Architecture readiness does not replace production evidence', cards: [['Operational', 'Only capabilities supported by code and operational evidence.'], ['Controlled connection', 'Technically implemented, but mass operation is not yet confirmed.'], ['Partner dependent', 'Requires a bank, public system, EDI provider or another external party.'], ['Target architecture', 'Designed, but not accepted as a production capability.']] },
+  faq: { eyebrow: 'Key questions', title: 'Frequently asked questions', items: [['Is this a marketplace?', 'No. Price and counterparty discovery may be part of the process, but the platform manages Deal execution through settlement and closure.'], ['Can TAI act autonomously?', 'No. TAI analyses, explains and prepares actions. Privileged operations require permissions and human confirmation.'], ['Are all integrations live?', 'No. Each integration has a disclosed status: connected, technically ready, in coordination, planned or not confirmed.'], ['Is the platform only for grain?', 'No. The architecture covers crop production, while production coverage is confirmed separately for each category.']] },
   final: { title: 'Connect your organisation to the Deal execution contour', lead: 'Start with a controlled scenario, roles, integration statuses and acceptance criteria.', primary: 'Connect organisation', secondary: 'View the deal in action' },
-  footer: 'Digital infrastructure for crop transaction execution. Function and integration status is published without overstating maturity.',
-} as const;
+  footer: { note: 'Digital infrastructure for crop transaction execution. Capability and integration status is published without overstating maturity.', privacy: 'Privacy', contacts: 'Contacts' }
+};
 
-const zh = {
-  ...ru,
+const zh: HomeCopy = {
+  a11y: { site: '透明价格', nav: '主导航', menu: '菜单', controlTower: '交易控制塔示例' },
   nav: { how: '工作方式', participants: '参与方', tai: 'TAI', integrations: '集成', status: '状态', login: '登录', connect: '接入机构' },
   hero: { kicker: '种植业交易执行数字基础设施', title: '从商品条件到结算与关闭，交易全程受控', lead: '一张数字交易卡连接参与方、交易、物流、验收、实验室、文件、政府系统、融资、资金、争议与证据。', primary: '查看交易运行', secondary: '接入机构', tertiary: 'TAI 如何工作' },
+  tower: { deal: '交易 PC-2026-0719', stage: '验收与质量', statusLabel: '状态', status: '结算已阻塞', deviation: '偏差', ownerLabel: '责任方', owner: '实验室', deadline: '截止 16:30', moneyLabel: '资金', money: '已预留', release: '禁止放款', nextLabel: '下一步', next: '签署差异单', nextNote: '随后应用价格调整规则', taiTitle: 'TAI 识别出两个阻塞项', taiText: '质量偏差和缺少签名。已准备待确认操作。' },
   category: { eyebrow: '产品类别', title: '不是信息发布平台，而是交易执行链路。', text: '平台不会在价格或交易对手确定后结束，而是持续管理执行、结算、关闭和证据留存。', marketplace: '信息平台', marketplaceText: '帮助寻找报价并达成意向。', platform: '透明价格', platformText: '围绕同一笔交易连接条件、执行、质量、文件、资金和争议。' },
-  lifecycle: { eyebrow: '统一链路', title: '交易路径', lead: '每个阶段都有责任人、完成依据、潜在阻塞项和资金影响。', phases: ['条件','准入','交易','成交','合同','融资','运输','验收','质量','文件','政府系统','资金','争议','证据','关闭','分析'] },
-  scenario: { eyebrow: '平台交互场景', title: '90 秒了解交易执行', lead: '一批葵花籽到达验收环节。质量指标偏离允许范围，一份文件未签署，付款已预留。', status: '结算已阻塞', blocker: '水分高于允许值 0.8 个百分点，差异确认单尚未签署。', owner: '责任方：实验室与买方', money: '资金已预留。在依据确认前禁止释放。', next: '下一步：签署差异确认单并选择价格调整规则。', evidence: '依据：实验室报告、验收单、规格版本。' },
+  lifecycle: { eyebrow: '统一链路', title: '交易路径', lead: '每个阶段都有责任人、完成依据、潜在阻塞项和资金影响。', phases: ['条件', '准入', '交易', '成交', '合同', '融资', '运输', '验收', '质量', '文件', '政府系统', '资金', '争议', '证据', '关闭', '分析'] },
+  scenario: { eyebrow: '平台交互场景', title: '90 秒理解交易执行', lead: '一批葵花籽到达验收点。质量指标超出容差，一份文件未签署，款项已预留。', dealLabel: '交易', dealValue: '葵花籽 · 1,200 吨', stageLabel: '当前阶段', stageValue: '验收 / 实验室', blockerLabel: '阻塞项', ownerLabel: '责任方', status: '结算已阻塞', blocker: '水分高于容差 0.8 个百分点，差异单尚未签署。', owner: '实验室和买方', money: '资金已预留。在依据确认前禁止放款。', next: '下一步：签署差异单并选择价格调整规则。', evidence: '依据：实验室报告、验收单和规格版本。' },
+  tai: { eyebrow: '交易中的 TAI', title: '内置运营智能层，而不是独立聊天窗口', text: 'TAI 分析交易状态、文件和事件，解释阻塞项，提示风险并协助准备下一步操作。', mode: '运营模式', answer: '该交易无法进入最终结算：实验室指标超出容差，且买方尚未签署差异单。', modes: ['公开模式——在不访问私有数据的情况下解释平台', '角色模式——仅在用户和机构权限范围内工作', '运营模式——分析交易并准备由人工确认的操作'], boundaries: 'TAI 不能更改角色或机构、签署文件、释放资金、选择中标方或裁决争议。', source: '来源：实验室报告 L-204', freshness: '数据日期：2026年7月22日', confidence: '置信度：高', action: '已准备差异单草稿——需要用户确认。' },
+  crops: { eyebrow: '种植业覆盖', title: '面向不同作物类别的统一交易架构', lead: '不同类别在质量、储存、物流、文件、验收和计价公式方面存在差异，覆盖状态单独展示。', groups: [['谷物', '已实现'], ['油料和豆类', '实施中'], ['经济作物', '架构已支持'], ['蔬菜和马铃薯', '需要行业配置'], ['水果和浆果', '需要行业配置'], ['种子和种植材料', '需要合作方集成']] },
+  participants: { eyebrow: '参与方价值', title: '展示可控结果，而不是功能清单', cards: [['卖方', '清楚了解收款所需条件以及谁在延迟交易流转。'], ['买方', '获得商品、数量、质量和验收的关联证据。'], ['物流方', '在同一链路中处理运输、文件和偏差。'], ['仓储方', '记录验收、重量、存放位置和交接依据。'], ['实验室', '提交与批次、样本和文件关联的结果。'], ['银行 / 合规', '获得事件、付款依据和可复现的审计轨迹。']] },
+  money: { eyebrow: '资金执行', title: '资金与已确认的交易事件关联', chain: '预留 → 执行 → 确认 → 放款 → 对账 → 关闭', exception: '发生偏差时：冻结 → 争议 → 证据 → 决定 → 重算' },
+  integrations: { eyebrow: '集成链路', title: '平台编排流程，而不替代外部系统', items: [['FGIS Grain / SDIZ', '技术就绪'], ['电子文件 / 合格电子签名', '已规划'], ['GIS EPD', '依赖合作方'], ['银行 API', '协调中'], ['ERP / CRM', '架构已支持'], ['实验室 / 车联网', '尚未确认']] },
+  federal: { eyebrow: '联邦级系统', title: '按基础设施而非本地服务进行设计', pillars: ['统一交易事件模型', '服务端权威 RBAC', '租户隔离', '连续审计轨迹', '水平扩展', '集成架构'] },
+  maturity: { eyebrow: '真实成熟度状态', title: '架构就绪不等于生产证据', cards: [['已运行', '仅展示有代码和运营证据支持的能力。'], ['受控接入', '技术上已实现，但尚未证明大规模运行。'], ['依赖合作方', '需要银行、政府系统、电子文件服务商或其他外部机构。'], ['目标架构', '已经设计，但尚未作为生产能力验收。']] },
+  faq: { eyebrow: '核心问题', title: '常见问题', items: [['这是 marketplace 吗？', '不是。价格和交易对手发现可以是流程的一部分，但平台的核心是管理交易直至结算和关闭。'], ['TAI 会自主执行操作吗？', '不会。TAI 负责分析、解释和准备操作。高权限操作需要权限校验和人工确认。'], ['所有集成都已上线吗？', '没有。每个集成都公开标注为已连接、技术就绪、协调中、已规划或尚未确认。'], ['平台只支持谷物吗？', '不是。架构覆盖种植业，但每个类别的生产覆盖需要分别确认。']] },
   final: { title: '将机构接入统一交易执行链路', lead: '从受控场景、角色、集成状态和验收标准开始。', primary: '接入机构', secondary: '查看交易运行' },
-  footer: '种植业交易执行数字基础设施。功能与集成状态按真实成熟度公开。',
-} as const;
+  footer: { note: '种植业交易执行数字基础设施。功能和集成状态如实公开，不夸大成熟度。', privacy: '隐私', contacts: '联系方式' }
+};
 
-export const PLATFORM_V7_HOME_COPY = { ru, en, zh } as const;
-
-export function getPlatformV7HomeCopy(locale: string) {
-  return PLATFORM_V7_HOME_COPY[locale === 'en' || locale === 'zh' ? locale : 'ru'];
+export function getPlatformV7HomeCopy(locale: string): HomeCopy {
+  return locale === 'en' ? en : locale === 'zh' ? zh : ru;
 }
