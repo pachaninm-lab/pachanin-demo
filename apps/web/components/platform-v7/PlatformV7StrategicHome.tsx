@@ -4,6 +4,7 @@ import { PublicSiteHeader } from './PublicSiteHeader';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
+import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
@@ -36,7 +37,7 @@ export async function PlatformV7StrategicHome() {
       nav={nav}
       showMobileMenu
       localeControl={<PublicLocaleLink />}
-      actions={<div className='pc-v6-header-actions'><a href='/platform-v7/login'>{copy.nav.login}</a><a href='/platform-v7/register' className='pc-v6-header-cta'>{copy.nav.connect}</a></div>}
+      actions={<div className='pc-v6-header-actions'><a href='/platform-v7/login'>{copy.nav.login}</a><a href='#connect-organization' className='pc-v6-header-cta'>{copy.nav.connect}</a></div>}
     />
 
     <div className='pc-v6-shell'>
@@ -47,7 +48,7 @@ export async function PlatformV7StrategicHome() {
           <p>{copy.hero.lead}</p>
           <div className='pc-v6-actions'>
             <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='hero_primary_cta' locale={locale} params={{ source: 'hero_v3' }}>{copy.hero.primary}<ArrowRight size={19}/></PublicExperienceLink>
-            <PublicExperienceLink href='/platform-v7/register' className='pc-v6-secondary' eventName='hero_secondary_cta' locale={locale} params={{ source: 'hero_v3' }}>{copy.hero.secondary}</PublicExperienceLink>
+            <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='hero_secondary_cta' locale={locale} params={{ source: 'hero_v3' }}>{copy.hero.secondary}</PublicExperienceLink>
           </div>
           <PublicExperienceLink href={taiHref} className='pc-v6-text-link' eventName='open_tai' locale={locale} params={{ source: 'hero_v3' }}><Sparkles size={17}/>{copy.hero.tertiary}</PublicExperienceLink>
         </div>
@@ -120,6 +121,8 @@ export async function PlatformV7StrategicHome() {
       <section className='pc-v6-section'><SectionHeader eyebrow={copy.federal.eyebrow} title={copy.federal.title}/><div className='pc-v6-pillar-grid'>{copy.federal.pillars.map((pillar) => <div key={pillar}><ShieldCheck size={19}/><span>{pillar}</span></div>)}</div></section>
       <section id='maturity' className='pc-v6-section'><SectionHeader eyebrow={copy.maturity.eyebrow} title={copy.maturity.title}/><div className='pc-v6-maturity-grid'>{copy.maturity.cards.map(([title,text]) => <article key={title}><strong>{title}</strong><p>{text}</p></article>)}</div></section>
 
+      <OrganizationConnectForm locale={locale} />
+
       <section className='pc-v6-section pc-v6-faq'>
         <SectionHeader eyebrow={copy.faq.eyebrow} title={copy.faq.title}/>
         <div className='pc-v6-faq-list'>{copy.faq.items.map(([question,answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div>
@@ -127,7 +130,7 @@ export async function PlatformV7StrategicHome() {
 
       <section className='pc-v6-final'>
         <h2>{copy.final.title}</h2><p>{copy.final.lead}</p>
-        <div className='pc-v6-actions'><PublicExperienceLink href='/platform-v7/register' className='pc-v6-primary' eventName='submit_organization_request' locale={locale} params={{ source: 'final_v3' }}>{copy.final.primary}<ArrowRight size={18}/></PublicExperienceLink><PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'final_v3' }}>{copy.final.secondary}</PublicExperienceLink></div>
+        <div className='pc-v6-actions'><PublicExperienceLink href='#connect-organization' className='pc-v6-primary' eventName='submit_organization_request' locale={locale} params={{ source: 'final_v3' }}>{copy.final.primary}<ArrowRight size={18}/></PublicExperienceLink><PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'final_v3' }}>{copy.final.secondary}</PublicExperienceLink></div>
       </section>
     </div>
 
