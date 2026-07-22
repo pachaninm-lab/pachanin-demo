@@ -21,10 +21,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save --silent playwright@1.55.0
+          mkdir -p /tmp/public-entry-watch
+          cd /tmp/public-entry-watch
+          npm init -y >/dev/null 2>&1
+          npm install --silent playwright@1.55.0
           npx playwright install --with-deps chromium webkit
       - name: Run exact punycode production checks
-        run: node scripts/public-entry-watch-20260722.cjs
+        shell: bash
+        run: NODE_PATH=/tmp/public-entry-watch/node_modules node scripts/public-entry-watch-20260722.cjs
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
