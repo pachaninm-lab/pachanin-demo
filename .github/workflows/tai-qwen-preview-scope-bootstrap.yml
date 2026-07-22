@@ -1,0 +1,58 @@
+name: TAI Qwen preview scope bootstrap
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1f-qwen-preview-runtime
+    paths:
+      - .github/workflows/tai-qwen-preview-scope-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1f-qwen-preview-runtime
+          fetch-depth: 0
+      - name: Register exact concurrent scope and remove bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text(encoding='utf-8'))
+          branch = 'agent/tai-ap-13c1f-qwen-preview-runtime'
+          allowed = [
+              'docs/platform-v7/autopilot/autopilot-state.json',
+              'apps/tai/governance/scopes/ap-13c1f-qwen-preview-runtime-3003.json',
+              '.github/workflows/tai-qwen-preview-runtime.yml',
+              'apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json',
+              'apps/tai/model-artifacts/qwen-preview-runtime.schema.v1.json',
+              'apps/tai/model-artifacts/qwen-preview-runtime.pending.json',
+              'apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md',
+              'apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh',
+              'apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh',
+              'apps/tai/tai/qwen_preview_runtime.py',
+              'apps/tai/tai/qwen_preview_runtime_cli.py',
+              'apps/tai/tests/qwen_preview_runtime_fixtures.py',
+              'apps/tai/tests/test_qwen_preview_runtime.py',
+              'apps/tai/tests/test_qwen_preview_runtime_cli.py',
+              'apps/tai/tests/test_qwen_preview_runtime_workflow.py',
+          ]
+          scopes = state.setdefault('approvedConcurrentScopes', {})
+          scopes[branch] = allowed
+          path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+          PY
+          rm .github/workflows/tai-qwen-preview-scope-bootstrap.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json .github/workflows/tai-qwen-preview-scope-bootstrap.yml
+          git commit -m 'governance(tai): bind Qwen preview runtime scope'
+          git push origin HEAD:agent/tai-ap-13c1f-qwen-preview-runtime
