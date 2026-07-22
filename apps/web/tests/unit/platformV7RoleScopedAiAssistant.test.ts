@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
+const cwd = process.cwd();
+const root = cwd.endsWith(path.join('apps', 'web')) ? path.resolve(cwd, '../..') : cwd;
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 const panel = read('apps/web/components/platform-v7/AiAssistantPanel.tsx');
