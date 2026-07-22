@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "branch": "agent/tai-security-audit-remediation-3006",
+  "status": "closed-after-recorded-deviation",
+  "purpose": "Record the narrow emergency dependency-remediation authority for issue #3007 and PR #3008 without concealing that package.json and pnpm-lock.yaml were merged before the branch was present in the active autopilot scope.",
+  "approvedBy": "user-quality-acceptance-directive-2026-07-22",
+  "authorizationTiming": "post-merge-governance-reconciliation",
+  "historicallyAuthorizedPaths": [
+    "package.json",
+    "pnpm-lock.yaml"
+  ],
+  "closeoutPaths": [
+    "docs/platform-v7/autopilot/scopes/agent-tai-security-audit-remediation-3006.json",
+    "docs/platform-v7/autopilot/deviations/pr-3008-security-audit-remediation.json",
+    "docs/platform-v7/autopilot/verify-tai-security-audit-remediation-3006.mjs"
+  ],
+  "relatedAuthority": {
+    "issue": 3007,
+    "remediationPr": 3008,
+    "acceptanceGapIssue": 3012,
+    "remediationHead": "d3707d43a28c6a6e55466b38837ecfe07bedbcaf",
+    "remediationMerge": "fcc61811e8c8ce2f9496c0c3d0bab894168b7615"
+  },
+  "forbiddenCapabilities": [
+    "modification of any production deployment workflow",
+    "modification of runtime-host or model-bundle authority",
+    "modification of Gateway or UI files owned by other streams",
+    "addition of a security exception for finding 1124066",
+    "retroactive claim that PR #3008 was in scope at merge time",
+    "claiming TAI operational attestation"
+  ]
+}
