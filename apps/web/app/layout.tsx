@@ -95,7 +95,7 @@ const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/pc-public-entry/platform-v7/login',
   '/pc-public-entry/platform-v7/forgot-password',
 ]);
-const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
+const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 function normalizePath(value: string | null) {
@@ -142,7 +142,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
               m[i].l=1*new Date();
               for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
-              k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})
+              k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
               (window,document,'script','https://mc.yandex.ru/metrika/tag.js','ym');
               ym(${YM_ID},'init',{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});
             `}</Script>
