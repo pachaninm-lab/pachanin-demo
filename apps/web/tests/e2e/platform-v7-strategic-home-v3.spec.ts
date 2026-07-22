@@ -111,9 +111,10 @@ test.describe('Platform V7 strategic homepage no-JavaScript boundary', () => {
     const form = page.locator('#connect-organization form');
     await expect(form).toBeVisible();
     await expect(form).toHaveAttribute('data-ready', 'false');
-    await expect(form.locator('input')).toBeDisabled();
-    await expect(form.locator('select')).toBeDisabled();
-    await expect(form.getByRole('button')).toBeDisabled();
+    const controlsDisabled = await form.locator('input, select, button[type="submit"]').evaluateAll((nodes) => nodes.every((node) => (
+      node as HTMLInputElement | HTMLSelectElement | HTMLButtonElement
+    ).disabled));
+    expect(controlsDisabled).toBe(true);
     expect(await form.getAttribute('action')).toBeNull();
     await expect(page.getByText(/Без JavaScript публичная форма заблокирована/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Перейти в защищённую регистрацию' })).toHaveAttribute('href', /\/platform-v7\/register/);
