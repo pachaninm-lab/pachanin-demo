@@ -36,6 +36,7 @@ const jetbrainsMono = JetBrains_Mono({
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 const SITE_TITLE = 'Процент-Агро | Прозрачная Цена — цифровой контур зерновой сделки';
 const SITE_DESCRIPTION = 'Процент-Агро — публичный контур проекта «Прозрачная Цена»: зерновая сделка после согласования цены, логистика, приёмка, качество, документы, расчёты, спор и доказательства.';
+const PLATFORM_V7_DESCRIPTION = 'Единый цифровой контур исполнения Сделки в растениеводстве: условия, допуск, торги, логистика, качество, документы, финансирование, деньги, споры, доказательства и закрытие.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -94,7 +95,7 @@ const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/pc-public-entry/platform-v7/login',
   '/pc-public-entry/platform-v7/forgot-password',
 ]);
-const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
+const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 function normalizePath(value: string | null) {
@@ -107,6 +108,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname)
     || pathname === '/platform-v7/staff'
     || pathname.startsWith('/platform-v7/staff/');
+  const pageDescription = pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'
+    ? PLATFORM_V7_DESCRIPTION
+    : SITE_DESCRIPTION;
   const content = leanPublicEntry
     ? children
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
@@ -124,6 +128,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <meta name='description' content={pageDescription} />
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
@@ -137,7 +142,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
               m[i].l=1*new Date();
               for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
-              k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+              k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})
               (window,document,'script','https://mc.yandex.ru/metrika/tag.js','ym');
               ym(${YM_ID},'init',{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});
             `}</Script>
