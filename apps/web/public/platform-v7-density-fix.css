@@ -1,66 +1,185 @@
-/* Mobile density correction for the public Platform V7 experience.
-   This layer intentionally changes presentation only. */
+/* Public Platform V7 hierarchy and density correction.
+   Presentation only: no business logic, routing, RBAC, analytics, or deal flow changes. */
+
+.pc-ppe-page .pc-ppe-hero-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.pc-ppe-page .pc-ppe-hero-copy > .pc-ppe-kicker { order: 1; }
+.pc-ppe-page .pc-ppe-hero-copy > .pc-public-tai-intro { order: 2; }
+.pc-ppe-page .pc-ppe-hero-copy > h1 { order: 3; }
+.pc-ppe-page .pc-ppe-hero-copy > p { order: 4; }
+.pc-ppe-page .pc-ppe-hero-copy > .pc-public-hero-ai-line { order: 5; }
+.pc-ppe-page .pc-ppe-hero-copy > .pc-ppe-hero-actions { order: 6; }
+
+.pc-ppe-page .pc-public-tai-intro {
+  margin: 18px 0 20px;
+  padding: 18px 20px;
+  border: 1px solid #c9ddd2;
+  border-radius: 18px;
+  background: #f7fbf8;
+  box-shadow: none;
+}
+
+.pc-ppe-page .pc-public-tai-intro-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #075f39;
+}
+
+.pc-ppe-page .pc-public-tai-intro-heading > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: #e7f5ed;
+}
+
+.pc-ppe-page .pc-public-tai-intro-heading strong {
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+
+.pc-ppe-page .pc-public-tai-intro > p {
+  margin: 10px 0 0;
+  max-width: 66ch;
+  color: #4c6258;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.pc-ppe-page .pc-public-tai-intro .pc-public-hero-metrics {
+  margin-top: 14px;
+}
+
 @media (max-width: 720px) {
   .pc-ppe-page .pc-ppe-shell {
     width: calc(100% - 28px) !important;
   }
 
   .pc-ppe-page .pc-ppe-section {
-    padding-block: 38px !important;
+    padding-block: 32px !important;
   }
 
   .pc-ppe-page .pc-public-intelligence-hero {
-    padding-top: 22px !important;
-    padding-bottom: 30px !important;
-    gap: 14px !important;
+    padding-top: 20px !important;
+    padding-bottom: 26px !important;
+    gap: 12px !important;
   }
 
   .pc-ppe-page .pc-public-intelligence-hero::before {
     display: none !important;
   }
 
+  .pc-ppe-page .pc-ppe-kicker {
+    align-self: flex-start !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 7px 12px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+
+  .pc-ppe-page .pc-public-tai-intro {
+    margin: 14px 0 18px !important;
+    padding: 14px !important;
+    border-radius: 14px !important;
+    background: #f7fbf8 !important;
+  }
+
+  .pc-ppe-page .pc-public-tai-intro-heading {
+    gap: 9px !important;
+  }
+
+  .pc-ppe-page .pc-public-tai-intro-heading > span {
+    width: 32px !important;
+    height: 32px !important;
+    flex-basis: 32px !important;
+    border-radius: 9px !important;
+  }
+
+  .pc-ppe-page .pc-public-tai-intro-heading strong {
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+  }
+
+  .pc-ppe-page .pc-public-tai-intro > p {
+    margin-top: 8px !important;
+    font-size: 14.5px !important;
+    line-height: 1.45 !important;
+  }
+
   .pc-ppe-page .pc-public-intelligence-hero h1 {
-    max-width: 11.5ch !important;
-    margin: 10px 0 12px !important;
-    font-size: clamp(35px, 9.6vw, 42px) !important;
-    line-height: 1.02 !important;
-    letter-spacing: -.048em !important;
+    max-width: 13ch !important;
+    margin: 0 0 12px !important;
+    font-size: clamp(32px, 8.5vw, 38px) !important;
+    line-height: 1.04 !important;
+    letter-spacing: -.04em !important;
   }
 
   .pc-ppe-page .pc-public-intelligence-hero .pc-ppe-hero-copy > p {
+    margin: 0 !important;
     font-size: 16px !important;
-    line-height: 1.43 !important;
+    line-height: 1.48 !important;
   }
 
   .pc-ppe-page .pc-public-hero-metrics {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 7px !important;
-    margin-top: 14px !important;
+    gap: 6px !important;
+    margin-top: 12px !important;
   }
 
   .pc-ppe-page .pc-public-hero-metrics span {
-    min-height: 42px !important;
+    min-height: 38px !important;
     justify-content: center !important;
-    padding: 7px 6px !important;
-    border-radius: 11px !important;
-    background: #f7faf8 !important;
+    padding: 6px 5px !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: #eef6f1 !important;
     text-align: center !important;
     font-size: 10.5px !important;
     line-height: 1.2 !important;
+    font-weight: 700 !important;
   }
 
   .pc-ppe-page .pc-public-hero-ai-line {
-    grid-template-columns: 38px minmax(0, 1fr) 38px !important;
-    min-height: 74px !important;
-    padding: 12px !important;
-    border-radius: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: fit-content !important;
+    min-height: 0 !important;
+    margin-top: 12px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
     box-shadow: none !important;
   }
 
-  .pc-ppe-page .pc-public-hero-ai-line > svg {
-    width: 36px !important;
-    height: 36px !important;
+  .pc-ppe-page .pc-public-hero-ai-line > svg,
+  .pc-ppe-page .pc-public-hero-ai-line > span {
+    display: none !important;
+  }
+
+  .pc-ppe-page .pc-public-hero-ai-line a {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    min-height: 42px !important;
+    padding: 0 14px !important;
+    border: 1px solid #b8d4c5 !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    color: #075f39 !important;
+    font-size: 14px !important;
+    font-weight: 750 !important;
   }
 
   .pc-ppe-page .pc-ppe-hero-actions {
@@ -84,33 +203,36 @@
   }
 
   .pc-ppe-page .pc-ppe-section-header {
-    margin-bottom: 20px !important;
+    margin-bottom: 18px !important;
   }
 
   .pc-ppe-page .pc-ppe-section-header h2,
   .pc-ppe-page .pc-ppe-evidence-panel h2,
   .pc-ppe-page .pc-ppe-final-cta h2 {
-    margin-top: 10px !important;
-    font-size: clamp(29px, 8.1vw, 35px) !important;
-    line-height: 1.07 !important;
-    letter-spacing: -.035em !important;
+    margin-top: 8px !important;
+    font-size: clamp(28px, 7.7vw, 34px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -.03em !important;
   }
 
   .pc-ppe-page .pc-ppe-section-header > p,
   .pc-ppe-page .pc-ppe-evidence-panel header > p,
   .pc-ppe-page .pc-ppe-final-cta > p {
     font-size: 15.5px !important;
-    line-height: 1.47 !important;
+    line-height: 1.48 !important;
   }
 
-  .pc-ppe-page .pc-ppe-perspective-grid {
+  .pc-ppe-page .pc-ppe-perspective-grid,
+  .pc-ppe-page .pc-ppe-trust-grid,
+  .pc-ppe-page .pc-public-government-source-grid {
     gap: 10px !important;
   }
 
-  .pc-ppe-page .pc-ppe-perspective-card {
+  .pc-ppe-page .pc-ppe-perspective-card,
+  .pc-ppe-page .pc-ppe-trust-card,
+  .pc-ppe-page .pc-public-government-source-card {
     min-height: 0 !important;
     padding: 15px !important;
-    gap: 12px !important;
   }
 
   .pc-ppe-page .pc-ppe-perspective-card > span:first-child {
@@ -130,17 +252,6 @@
   .pc-ppe-page .pc-public-role-intelligence-summary {
     margin-top: 8px !important;
     padding-top: 8px !important;
-  }
-
-  .pc-ppe-page .pc-ppe-trust-grid,
-  .pc-ppe-page .pc-public-government-source-grid {
-    gap: 10px !important;
-  }
-
-  .pc-ppe-page .pc-ppe-trust-card,
-  .pc-ppe-page .pc-public-government-source-card {
-    min-height: 0 !important;
-    padding: 16px !important;
   }
 
   .pc-ppe-page .pc-public-deal-intelligence-layout {
@@ -175,8 +286,8 @@
   }
 
   .pc-ppe-page .pc-ppe-final-cta {
-    padding-top: 46px !important;
-    padding-bottom: 110px !important;
+    padding-top: 40px !important;
+    padding-bottom: 116px !important;
   }
 
   .pc-ppe-page .p7-support-chat-button {
@@ -184,18 +295,18 @@
     left: 14px !important;
     right: 14px !important;
     bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
-    min-height: 58px !important;
-    border-radius: 18px !important;
-    box-shadow: 0 12px 28px rgba(9, 49, 31, .12) !important;
+    min-height: 56px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 24px rgba(9, 49, 31, .10) !important;
   }
 }
 
 @media (max-width: 390px) {
-  .pc-ppe-page .pc-public-hero-metrics span {
-    font-size: 10px !important;
+  .pc-ppe-page .pc-public-intelligence-hero h1 {
+    font-size: 32px !important;
   }
 
-  .pc-ppe-page .pc-public-intelligence-hero h1 {
-    font-size: 35px !important;
+  .pc-ppe-page .pc-public-hero-metrics span {
+    font-size: 10px !important;
   }
 }
