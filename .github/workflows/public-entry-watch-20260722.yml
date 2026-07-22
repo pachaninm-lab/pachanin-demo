@@ -1,0 +1,235 @@
+name: exact production public entry watch
+
+on:
+  push:
+    branches:
+      - ops/public-entry-watch-20260722-0715
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/public-entry-watch
+          cd /tmp/public-entry-watch
+          npm init -y >/dev/null 2>&1
+          npm install --silent playwright@1.55.0
+          npx playwright install --with-deps chromium webkit
+      - name: Run punycode HTTP and browser checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-entry-watch
+          cat > /tmp/public-entry-watch/watch.cjs <<'NODE'
+          const fs = require('fs');
+          const { chromium, webkit } = require('playwright');
+
+          const base = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+          const routes = ['/platform-v7', '/platform-v7/login', '/platform-v7/forgot-password'];
+          const locales = ['ru', 'en', 'zh'];
+          const projects = [
+            { name: 'chromium-desktop', browserType: chromium, viewport: { width: 1440, height: 1000 }, localeMap: { ru: 'ru-RU', en: 'en-GB', zh: 'zh-CN' } },
+            { name: 'chromium-mobile', browserType: chromium, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, localeMap: { ru: 'ru-RU', en: 'en-GB', zh: 'zh-CN' } },
+            { name: 'webkit-mobile', browserType: webkit, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, localeMap: { ru: 'ru-RU', en: 'en-GB', zh: 'zh-CN' } },
+          ];
+
+          const report = { generatedAt: new Date().toISOString(), base, routeCases: [], failClosed: null, failures: [] };
+          const hydrationRe = /(hydration|hydrating|text content does not match|server-rendered html|react error #418|react error #423|next-intl.*missing)/i;
+          const runtimeRe = /(uncaught|referenceerror|typeerror|syntaxerror|chunkloaderror|application error|client-side exception)/i;
+          const sensitiveCookieRe = /(access|refresh|auth|mfa|cabinet|session)/i;
+
+          function fail(scope, message, details) {
+            report.failures.push({ scope, message, details });
+          }
+          function redirectCount(response) {
+            let count = 0;
+            let req = response?.request();
+            while (req?.redirectedFrom()) { count += 1; req = req.redirectedFrom(); }
+            return count;
+          }
+          function languageSignals(hrefs, bodyText) {
+            const normalized = hrefs.join(' ');
+            return {
+              ru: /(?:\?|&)lang=ru(?:&|$)/.test(normalized) || /(^|\s)RU(\s|$)/.test(bodyText),
+              en: /(?:\?|&)lang=en(?:&|$)/.test(normalized) || /(^|\s)EN(\s|$)/.test(bodyText),
+              zh: /(?:\?|&)lang=zh(?:&|$)/.test(normalized) || /中文|简体|ZH/.test(bodyText),
+            };
+          }
+
+          (async () => {
+            for (const project of projects) {
+              const browser = await project.browserType.launch({ headless: true });
+              try {
+                for (const locale of locales) {
+                  for (const route of routes) {
+                    const context = await browser.newContext({
+                      viewport: project.viewport,
+                      isMobile: project.isMobile,
+                      hasTouch: project.hasTouch,
+                      locale: project.localeMap[locale],
+                      ignoreHTTPSErrors: false,
+                    });
+                    const page = await context.newPage();
+                    const consoleErrors = [];
+                    const pageErrors = [];
+                    const sameOriginFailures = [];
+                    page.on('console', (message) => {
+                      if (message.type() === 'error') consoleErrors.push(message.text());
+                    });
+                    page.on('pageerror', (error) => pageErrors.push(String(error?.stack || error)));
+                    page.on('requestfailed', (request) => {
+                      if (request.url().startsWith(base) && !request.url().includes('/favicon')) {
+                        const reason = request.failure()?.errorText || 'unknown';
+                        if (!reason.includes('ERR_ABORTED')) sameOriginFailures.push({ url: request.url(), reason });
+                      }
+                    });
+
+                    const requestedUrl = `${base}${route}?lang=${locale}`;
+                    let response = null;
+                    let navigationError = null;
+                    try {
+                      response = await page.goto(requestedUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+                      await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
+                      await page.waitForTimeout(600);
+                    } catch (error) {
+                      navigationError = String(error?.stack || error);
+                    }
+
+                    const finalUrl = page.url();
+                    const final = new URL(finalUrl);
+                    const status = response?.status() ?? null;
+                    const redirects = redirectCount(response);
+                    const bodyText = await page.locator('body').innerText().catch(() => '');
+                    const htmlLang = await page.locator('html').getAttribute('lang').catch(() => null);
+                    const hrefs = await page.locator('a[href]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href') || '')).catch(() => []);
+                    const languages = languageSignals(hrefs, bodyText);
+                    const hydrationErrors = consoleErrors.filter((value) => hydrationRe.test(value));
+                    const explicitRuntimeErrors = [...consoleErrors, ...pageErrors].filter((value) => runtimeRe.test(value));
+                    const roleParams = ['role', 'as', 'workspace', 'tenant'].filter((name) => final.searchParams.has(name));
+                    const blank = bodyText.trim().length < 120;
+                    const caseResult = {
+                      project: project.name,
+                      locale,
+                      route,
+                      requestedUrl,
+                      finalUrl,
+                      status,
+                      redirects,
+                      bodyTextLength: bodyText.trim().length,
+                      htmlLang,
+                      languages,
+                      roleParams,
+                      consoleErrors,
+                      pageErrors,
+                      sameOriginFailures,
+                      hydrationErrors,
+                      explicitRuntimeErrors,
+                      navigationError,
+                    };
+                    report.routeCases.push(caseResult);
+
+                    const scope = `${project.name}/${locale}${route}`;
+                    if (navigationError) fail(scope, 'navigation failed', navigationError);
+                    if (status !== 200) fail(scope, `expected HTTP 200, got ${status}`, finalUrl);
+                    if (redirects > 4) fail(scope, `redirect chain too long: ${redirects}`, finalUrl);
+                    if (final.pathname.replace(/\/$/, '') !== route.replace(/\/$/, '')) fail(scope, 'unexpected final route', finalUrl);
+                    if (roleParams.length) fail(scope, 'role/tenant authority appeared in URL', roleParams);
+                    if (blank) fail(scope, 'probable white or empty screen', { bodyTextLength: bodyText.trim().length });
+                    if (!htmlLang || !htmlLang.toLowerCase().startsWith(locale)) fail(scope, 'locale/html lang mismatch', { htmlLang, locale });
+                    if (!languages.ru || !languages.en || !languages.zh) fail(scope, 'RU/EN/ZH controls incomplete', languages);
+                    if (hydrationErrors.length) fail(scope, 'hydration/i18n errors detected', hydrationErrors);
+                    if (explicitRuntimeErrors.length) fail(scope, 'explicit runtime errors detected', explicitRuntimeErrors);
+                    if (sameOriginFailures.length) fail(scope, 'same-origin request failures detected', sameOriginFailures);
+                    if (/demo session|demo-session|демо[- ]сес|mock session/i.test(bodyText)) fail(scope, 'demo session marker found in production UI', null);
+                    await context.close();
+                  }
+                }
+              } finally {
+                await browser.close();
+              }
+            }
+
+            const browser = await chromium.launch({ headless: true });
+            try {
+              const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ru-RU' });
+              const page = await context.newPage();
+              const submissionResponses = [];
+              page.on('response', (response) => {
+                const request = response.request();
+                if (request.method() === 'POST' && response.url().startsWith(base)) {
+                  submissionResponses.push({ url: response.url(), status: response.status() });
+                }
+              });
+              const response = await page.goto(`${base}/platform-v7/login?lang=ru`, { waitUntil: 'networkidle', timeout: 45000 });
+              const beforeCookies = await context.cookies();
+              const email = page.locator('input[type="email"], input[name="email"]').first();
+              const password = page.locator('input[type="password"]').first();
+              const submit = page.locator('button[type="submit"], input[type="submit"]').first();
+              const formVisible = await email.isVisible().catch(() => false) && await password.isVisible().catch(() => false) && await submit.isVisible().catch(() => false);
+              if (formVisible) {
+                await email.fill('monitor-invalid-20260722@example.test');
+                await password.fill('Invalid-monitor-password-9!');
+                await submit.click();
+                await page.waitForTimeout(3000);
+              }
+              const afterCookies = await context.cookies();
+              const beforeNames = new Set(beforeCookies.map((cookie) => cookie.name));
+              const newSensitive = afterCookies.filter((cookie) => !beforeNames.has(cookie.name) && sensitiveCookieRe.test(cookie.name));
+              const demoCookies = afterCookies.filter((cookie) => /(demo|mock|fake)/i.test(`${cookie.name}=${cookie.value}`));
+              const finalUrl = page.url();
+              const bodyText = await page.locator('body').innerText().catch(() => '');
+              const explicitError = await page.locator('[role="alert"], [aria-live="assertive"], .error, [data-error]').count().catch(() => 0);
+              const acceptedFailureStatuses = submissionResponses.filter((item) => [400, 401, 403, 409, 422, 429, 500, 502, 503, 504].includes(item.status));
+              report.failClosed = {
+                initialStatus: response?.status() ?? null,
+                formVisible,
+                finalUrl,
+                submissionResponses,
+                explicitError,
+                newSensitiveCookies: newSensitive.map((cookie) => cookie.name),
+                demoCookies: demoCookies.map((cookie) => cookie.name),
+                bodyContainsDemoSession: /demo session|demo-session|демо[- ]сес|mock session/i.test(bodyText),
+              };
+              if (response?.status() !== 200) fail('fail-closed-login', `login page expected HTTP 200, got ${response?.status()}`, null);
+              if (!formVisible) fail('fail-closed-login', 'login form not available', null);
+              if (!new URL(finalUrl).pathname.startsWith('/platform-v7/login')) fail('fail-closed-login', 'invalid credentials escaped login route', finalUrl);
+              if (newSensitive.length) fail('fail-closed-login', 'invalid login created sensitive session cookies', newSensitive.map((cookie) => cookie.name));
+              if (demoCookies.length || report.failClosed.bodyContainsDemoSession) fail('fail-closed-login', 'demo/mock session evidence detected', report.failClosed);
+              if (formVisible && submissionResponses.length === 0 && explicitError === 0) fail('fail-closed-login', 'submission produced neither an HTTP failure nor a visible error', null);
+              if (submissionResponses.length && acceptedFailureStatuses.length === 0) fail('fail-closed-login', 'invalid login did not fail closed', submissionResponses);
+              await context.close();
+            } finally {
+              await browser.close();
+            }
+
+            fs.writeFileSync('artifacts/public-entry-watch/report.json', JSON.stringify(report, null, 2));
+            console.log(JSON.stringify({ routeCases: report.routeCases.length, failures: report.failures.length, failClosed: report.failClosed }, null, 2));
+            if (report.failures.length) process.exit(1);
+          })().catch((error) => {
+            report.failures.push({ scope: 'harness', message: 'unhandled monitoring failure', details: String(error?.stack || error) });
+            fs.writeFileSync('artifacts/public-entry-watch/report.json', JSON.stringify(report, null, 2));
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          cd /tmp/public-entry-watch
+          node watch.cjs
+      - name: Upload monitoring report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260722
+          path: artifacts/public-entry-watch
+          if-no-files-found: error
+          retention-days: 7
