@@ -1,0 +1,35 @@
+name: production public entry watch acceptance
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  public-entry-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --silent playwright@1.55.0
+          npx playwright install --with-deps chromium webkit
+      - name: Run exact punycode production checks
+        run: node scripts/public-entry-watch-20260722.cjs
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260722
+          path: artifacts/public-entry-watch
+          if-no-files-found: error
+          retention-days: 7
