@@ -57,7 +57,7 @@ describe('platform-v7 role-scoped AI assistant', () => {
     expect(panel).toContain("data-ai-mode='read-only'");
     expect(panel).toContain("data-ai-data-mode='authoritative'");
     expect(panel).toContain("data-ai-transport='sse-read-only'");
-    expect(parser).toContain('AI_GATEWAY_STREAM_SEQUENCE_INVALID');
+    expect(parser).toContain('AI_GATEWAY_STREAM_SEQUENCE_REJECTED');
     expect(parser).toContain('AI_GATEWAY_STREAM_FINAL_GROUNDING_MISMATCH');
   });
 
