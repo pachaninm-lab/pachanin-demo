@@ -1,6 +1,5 @@
-name: PC-CROP-01B.4 Private BFF Authority
+name: PC-CROP-01B.4 Live Registry Completeness Acceptance
 
-# Connector-authored post-sync retrigger; acceptance semantics are unchanged.
 on:
   pull_request:
     paths:
@@ -59,7 +58,7 @@ env:
 
 jobs:
   private-bff-contract:
-    name: PostgreSQL 16 · DTO · HTTP · roles · live UI
+    name: PostgreSQL 16 · versionless · cursor completeness
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
@@ -81,7 +80,7 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Enforce exact-head bounded successor scope
+      - name: Enforce exact-head bounded web remediation scope
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
@@ -120,12 +119,12 @@ jobs:
           pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
           pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
 
-      - name: Typecheck API contract
+      - name: Typecheck API regression
         run: |
           set -o pipefail
           pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
 
-      - name: Run private BFF unit contract
+      - name: Run private BFF unit regression
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
@@ -133,7 +132,7 @@ jobs:
             src/modules/commodity-profiles/commodity-profiles.module.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/private-bff-unit.log"
 
-      - name: Run PostgreSQL HTTP and role authority acceptance
+      - name: Run PostgreSQL HTTP and role authority regression
         env:
           PC_CROP_01B4_POSTGRESQL: '1'
           PC_CROP_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/pc-crop-01b4/runtime
@@ -144,13 +143,13 @@ jobs:
             src/modules/commodity-profiles/commodity-profile-role-matrix.integration.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/postgresql-private-bff.log"
 
-      - name: Typecheck protected live registry
+      - name: Typecheck complete live registry
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec tsc -p tsconfig.pc-crop.json --noEmit \
             2>&1 | tee "$EVIDENCE_DIR/web-typecheck.log"
 
-      - name: Run protected live registry acceptance
+      - name: Run complete live registry acceptance
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -190,10 +189,18 @@ jobs:
           if (!client.includes("data-pinning-authority='not-in-slice'")) process.exit(1);
           if (!client.includes('/api/staff/commodity-profiles/')) process.exit(1);
           if (!client.includes("'X-CSRF-Token': csrfToken")) process.exit(1);
+          if (!client.includes('collectCommodityProfilePages')) process.exit(1);
+          if (!client.includes('encodeURIComponent(cursor)')) process.exit(1);
+          if (!client.includes('staffAwareGet(path, controller.signal)')) process.exit(1);
           if (!adapter.includes('profile.primaryAction')) process.exit(1);
+          if (!adapter.includes('if (profile.selectedVersion === null) continue')) process.exit(1);
+          if (!adapter.includes('COMMODITY_PROFILE_REGISTRY_MAX_PAGES = 20')) process.exit(1);
+          if (!adapter.includes('COMMODITY_PROFILE_REGISTRY_MAX_ITEMS = 2_000')) process.exit(1);
+          if (!adapter.includes('if (seenCursors.has(page.nextCursor)) return null')) process.exit(1);
+          if (!adapter.includes('if (observedItems > maxItems) return null')) process.exit(1);
           if (adapter.includes("|| 'DRAFT'") || adapter.includes("|| '—'")) process.exit(1);
           const report = {
-            schemaVersion: 'pc-crop.private-bff-acceptance.v3',
+            schemaVersion: 'pc-crop.private-bff-acceptance.v4-web',
             slice: 'PC-CROP-01B.4',
             status: 'PASS',
             operationalStatus: 'NOT_ATTESTED',
@@ -211,6 +218,11 @@ jobs:
               strictPayloadAdapter: true,
               liveUiBinding: true,
               commandReceiptUi: true,
+              versionlessAggregateOmitted: true,
+              malformedNonNullVersionRejected: true,
+              boundedCursorTraversal: true,
+              cursorCycleRejected: true,
+              conflictingDuplicateRejected: true,
               interfaceStates: ['loading', 'ready', 'empty', 'error', 'forbidden', 'conflict', 'reconnecting'],
             },
             boundaries: {
@@ -232,11 +244,11 @@ jobs:
           find "$EVIDENCE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum \
             > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
 
-      - name: Upload private BFF authority evidence
+      - name: Upload live registry completeness evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pc-crop-01b4-private-bff-${{ env.EXACT_HEAD }}
+          name: pc-crop-01b4-live-registry-complete-${{ env.EXACT_HEAD }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90
@@ -249,5 +261,5 @@ jobs:
     runs-on: ubuntu-24.04
     needs: private-bff-contract
     steps:
-      - name: Enforce private BFF authority result
+      - name: Enforce live registry completeness result
         run: test "${{ needs.private-bff-contract.result }}" = success
