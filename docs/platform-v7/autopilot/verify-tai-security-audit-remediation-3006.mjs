@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
+const workflowPath = '.github/workflows/platform-v7-autopilot-guard.yml';
 const scopePath = 'docs/platform-v7/autopilot/scopes/agent-tai-security-audit-remediation-3006.json';
 const deviationPath = 'docs/platform-v7/autopilot/deviations/pr-3008-security-audit-remediation.json';
 const verifierPath = 'docs/platform-v7/autopilot/verify-tai-security-audit-remediation-3006.mjs';
-const expectedCloseoutFiles = new Set([scopePath, deviationPath, verifierPath]);
+const expectedCloseoutFiles = new Set([workflowPath, scopePath, deviationPath, verifierPath]);
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
@@ -19,6 +20,7 @@ const deviation = readJson(deviationPath);
 const packageJson = readJson('package.json');
 const exceptions = readJson('docs/platform-v7/autopilot/security-exceptions.json');
 const lockfile = readFileSync('pnpm-lock.yaml', 'utf8');
+const workflow = readFileSync(workflowPath, 'utf8');
 
 assert(scope.branch === 'agent/tai-security-audit-remediation-3006', 'Unexpected scope branch.');
 assert(scope.status === 'closed-after-recorded-deviation', 'Scope status must preserve the post-merge deviation.');
@@ -56,6 +58,8 @@ assert(lockfile.includes('sharp@0.35.3'), 'pnpm-lock.yaml does not contain sharp
 assert(!lockfile.includes('sharp@0.34.5'), 'pnpm-lock.yaml still contains sharp@0.34.5.');
 assert(exceptions.policy?.criticalExceptionsAllowed === false, 'Critical exceptions must remain prohibited.');
 assert(Array.isArray(exceptions.exceptions) && exceptions.exceptions.length === 0, 'No security exception is permitted for this remediation.');
+assert(workflow.includes("github.head_ref == 'agent/tai-security-audit-remediation-3006'"), 'Governance verifier is not bound to the remediation branch.');
+assert(workflow.includes('node docs/platform-v7/autopilot/verify-tai-security-audit-remediation-3006.mjs'), 'Governance verifier is not executed by the autopilot guard.');
 assert(deviation.boundaries?.taiOperationalStatus === 'NOT_ATTESTED', 'TAI maturity was overstated.');
 
 if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
