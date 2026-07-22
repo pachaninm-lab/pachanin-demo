@@ -26,7 +26,7 @@ export async function PlatformV7StrategicHome() {
     <a href='#maturity'>{copy.nav.status}</a>
   </>;
 
-  return <main id='main-content' className='pc-v6-page'>
+  return <main id='main-content' className='pc-v6-page' data-testid='platform-v7-root-execution-cockpit'>
     <a className='pc-skip-link' href='#pc-v6-title'>{chrome('skipToContent')}</a>
     <PublicExperiencePageView locale={locale} name='home_v3_view' />
     <PublicSiteHeader
@@ -76,7 +76,7 @@ export async function PlatformV7StrategicHome() {
 
       <section id='deal-path' className='pc-v6-section'>
         <SectionHeader eyebrow={copy.lifecycle.eyebrow} title={copy.lifecycle.title} lead={copy.lifecycle.lead}/>
-        <div className='pc-v6-lifecycle' role='list'>{copy.lifecycle.phases.map((phase, index) => <div key={phase} role='listitem'><i>{index + 1}</i><span>{phase}</span></div>)}</div>
+        <div className='pc-v6-lifecycle' role='list' tabIndex={0} aria-label={copy.lifecycle.title}>{copy.lifecycle.phases.map((phase, index) => <div key={phase} role='listitem'><i>{index + 1}</i><span>{phase}</span></div>)}</div>
       </section>
 
       <section className='pc-v6-section pc-v6-scenario'>
