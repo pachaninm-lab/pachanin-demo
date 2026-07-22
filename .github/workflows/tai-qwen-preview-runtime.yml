@@ -1,293 +1,133 @@
-name: TAI Qwen runtime fail-closed correction
+name: TAI Qwen Read-Only Preview Runtime
 
 on:
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-    paths:
-      - .github/workflows/tai-qwen-preview-runtime.yml
+  issue_comment:
+    types: [created]
 
 permissions:
-  contents: write
+  actions: read
+  contents: read
+  issues: write
 
 concurrency:
-  group: tai-qwen-runtime-correction
+  group: tai-qwen-read-only-preview-runtime
   cancel-in-progress: false
 
 jobs:
-  correct:
-    if: github.head_ref == 'agent/tai-ap-13c1f-qwen-preview-runtime'
+  preview:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 3003 &&
+      github.event.comment.body == '/tai run qwen read-only preview exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
         with:
-          ref: agent/tai-ap-13c1f-qwen-preview-runtime
-          fetch-depth: 0
-      - name: Apply bounded runtime corrections
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact-main immutable checkout
         shell: bash
         run: |
-          set -Eeuo pipefail
-          python - <<'PY'
-          import hashlib
-          import json
-          from pathlib import Path
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
-          authority_path = Path('apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json')
-          authority = json.loads(authority_path.read_text(encoding='utf-8'))
-          authority['conversion'] = {
-              'exact_main_sha': '8bd494dc4954baaf699cffa243951392ff451ebb',
-              'report_path': 'evidence/conversion-report.json',
-              'root': '/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1',
-              'workflow_run_attempt': 1,
-              'workflow_run_id': 29810648430,
-          }
-          authority.pop('authority_sha256', None)
-          rendered = json.dumps(authority, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
-          authority['authority_sha256'] = hashlib.sha256(rendered.encode()).hexdigest()
-          authority_path.write_text(json.dumps(authority, ensure_ascii=False, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-          runtime_path = Path('apps/tai/tai/qwen_preview_runtime.py')
-          runtime = runtime_path.read_text(encoding='utf-8')
-          old_keys = '''            "schema_version", "program_issue", "parent_issue", "issue", "command", "model",
-            "toolchain", "target", "limits", "generation", "smoke", "evidence",
-            "maturity_boundary", "authority_sha256",'''
-          new_keys = '''            "schema_version", "program_issue", "parent_issue", "issue", "command", "conversion",
-            "model", "toolchain", "target", "limits", "generation", "smoke", "evidence",
-            "maturity_boundary", "authority_sha256",'''
-          assert old_keys in runtime
-          runtime = runtime.replace(old_keys, new_keys, 1)
-          marker = '''    if raw["command"] != "/tai run qwen read-only preview exact-main":
-        raise PreviewRuntimeError("authority command mismatch")
-'''
-          addition = marker + '''    conversion = _object(raw["conversion"], "conversion")
-    _keys(conversion, {"exact_main_sha", "workflow_run_id", "workflow_run_attempt", "root", "report_path"}, "conversion")
-    expected_conversion = {
-        "exact_main_sha": "8bd494dc4954baaf699cffa243951392ff451ebb",
-        "workflow_run_id": 29810648430,
-        "workflow_run_attempt": 1,
-        "root": "/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1",
-        "report_path": "evidence/conversion-report.json",
-    }
-    if conversion != expected_conversion:
-        raise PreviewRuntimeError("conversion authority mismatch")
-'''
-          assert runtime.count(marker) == 1
-          runtime = runtime.replace(marker, addition, 1)
-          runtime_path.write_text(runtime, encoding='utf-8')
-
-          remote_path = Path('apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh')
-          remote = remote_path.read_text(encoding='utf-8')
-          remote = remote.replace('SERVER_PID=""\nPORT=18080', 'SERVER_PID=""\nMONITOR_PID=""\nPORT=18080', 1)
-          remote = remote.replace('''  if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
-''', '''  if [[ -n "$MONITOR_PID" ]] && kill -0 "$MONITOR_PID" 2>/dev/null; then
-    kill -TERM "$MONITOR_PID" 2>/dev/null || true
-    wait "$MONITOR_PID" 2>/dev/null || true
-  fi
-  if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
-''', 1)
-          start = remote.index('CONVERSION_REPORT="$(python3 - /srv/tai-models/conversion-runs')
-          end_marker = ')" || die conversion_report_not_found\n'
-          end = remote.index(end_marker, start) + len(end_marker)
-          selection = '''mapfile -t CONVERSION_SELECTION < <(python3 - "$AUTHORITY" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-authority = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-conversion = authority["conversion"]
-expected = {
-    "exact_main_sha": "8bd494dc4954baaf699cffa243951392ff451ebb",
-    "workflow_run_id": 29810648430,
-    "workflow_run_attempt": 1,
-    "root": "/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1",
-    "report_path": "evidence/conversion-report.json",
-}
-assert conversion == expected
-root = Path(conversion["root"])
-report = root / conversion["report_path"]
-assert root.is_absolute() and report == root / "evidence/conversion-report.json"
-print(root)
-print(report)
-PY
-) || die conversion_authority_invalid
-[[ "${#CONVERSION_SELECTION[@]}" == 2 ]] || die conversion_selection_invalid
-CONVERSION_ROOT="${CONVERSION_SELECTION[0]}"
-CONVERSION_REPORT="${CONVERSION_SELECTION[1]}"
-[[ -d "$CONVERSION_ROOT" && ! -L "$CONVERSION_ROOT" ]] || die conversion_root_invalid
-[[ -f "$CONVERSION_REPORT" && ! -L "$CONVERSION_REPORT" ]] || die conversion_report_not_found
-'''
-          remote = remote[:start] + selection + remote[end:]
-          remote = remote.replace('''import hashlib
-import json
-import sys
-from pathlib import Path
-''', '''import hashlib
-import json
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
-''', 1)
-          report_marker = '''authority = json.loads(authority_path.read_text(encoding="utf-8"))
-report = json.loads(report_path.read_text(encoding="utf-8"))
-unsigned = dict(report)
-'''
-          report_checks = '''authority = json.loads(authority_path.read_text(encoding="utf-8"))
-report = json.loads(report_path.read_text(encoding="utf-8"))
-conversion = authority["conversion"]
-assert report_path == Path(conversion["root"]) / conversion["report_path"]
-assert report["schema_version"] == "tai.model-conversion-report.v1"
-assert report["exact_main_sha"] == conversion["exact_main_sha"]
-assert report["workflow_run_id"] == conversion["workflow_run_id"]
-assert report["workflow_run_attempt"] == conversion["workflow_run_attempt"]
-completed_at = datetime.fromisoformat(str(report["completed_at"]).replace("Z", "+00:00"))
-assert completed_at.tzinfo is not None and completed_at <= datetime.now(timezone.utc)
-source_verification = report["source_verification"]
-assert source_verification["schema_version"] == "tai.model-conversion-source-verification.v1"
-assert source_verification["status"] == "VERIFIED" and source_verification["reasons"] == []
-source_models = [
-    item for item in source_verification["models"]
-    if item["model_id"] == authority["model"]["model_id"]
-    and item["revision"] == authority["model"]["revision"]
-]
-assert len(source_models) == 1
-unsigned = dict(report)
-'''
-          assert remote.count(report_marker) == 1
-          remote = remote.replace(report_marker, report_checks, 1)
-          record_marker = '''record = records[0]
-run_root = report_path.parents[1]
-'''
-          record_checks = '''record = records[0]
-steps = {item["step_key"]: item for item in report["steps"]}
-qwen_step = steps["qwen3-8b-q4-k-m"]
-assert qwen_step["status"] == "COMPLETE" and qwen_step["output"] == record
-run_root = report_path.parents[1]
-assert run_root == Path(conversion["root"])
-'''
-          assert remote.count(record_marker) == 1
-          remote = remote.replace(record_marker, record_checks, 1)
-          server_marker = '''SERVER_PID=$!
-
-READY=false
-'''
-          monitor = '''SERVER_PID=$!
-PEAK_RSS_FILE="$EVIDENCE_ROOT/peak-rss-bytes"
-MEMORY_LIMIT_FLAG="$EVIDENCE_ROOT/memory-limit-exceeded"
-printf '1\\n' >"$PEAK_RSS_FILE"
-(
-  peak=1
-  while kill -0 "$SERVER_PID" 2>/dev/null; do
-    rss_kb="$(awk '/VmRSS:/{print $2}' "/proc/$SERVER_PID/status" 2>/dev/null || true)"
-    if [[ "$rss_kb" =~ ^[0-9]+$ ]]; then
-      rss_bytes="$(( rss_kb * 1024 ))"
-      if (( rss_bytes > peak )); then
-        peak="$rss_bytes"
-        printf '%s\\n' "$peak" >"$PEAK_RSS_FILE.tmp"
-        mv "$PEAK_RSS_FILE.tmp" "$PEAK_RSS_FILE"
-      fi
-      if (( rss_bytes > 12000000000 )); then
-        : >"$MEMORY_LIMIT_FLAG"
-        kill -TERM "$SERVER_PID" 2>/dev/null || true
-        exit 1
-      fi
-    fi
-    sleep 0.2
-  done
-) &
-MONITOR_PID=$!
-
-READY=false
-'''
-          assert remote.count(server_marker) == 1
-          remote = remote.replace(server_marker, monitor, 1)
-          remote = remote.replace('''  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-    die server_exited_before_ready
-  fi
-''', '''  [[ ! -f "$MEMORY_LIMIT_FLAG" ]] || die memory_limit_exceeded
-  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-    die server_exited_before_ready
-  fi
-''', 1)
-          remote = remote.replace(''': >"$EVIDENCE_ROOT/smoke.jsonl"
-PEAK_RSS=1
-''', ''': >"$EVIDENCE_ROOT/smoke.jsonl"
-''', 1)
-          rss_block = '''  RSS_KB="$(awk '/VmRSS:/{print $2}' "/proc/$SERVER_PID/status")"
-  RSS_BYTES="$(( RSS_KB * 1024 ))"
-  if (( RSS_BYTES > PEAK_RSS )); then PEAK_RSS="$RSS_BYTES"; fi
-  (( PEAK_RSS <= 12000000000 )) || die memory_limit_exceeded
-  (( ELAPSED_MS > 0 && ELAPSED_MS <= 120000 )) || die request_timeout_exceeded
-'''
-          rss_replacement = '''  [[ ! -f "$MEMORY_LIMIT_FLAG" ]] || die memory_limit_exceeded
-  PEAK_RSS="$(cat "$PEAK_RSS_FILE")"
-  [[ "$PEAK_RSS" =~ ^[1-9][0-9]*$ ]] || die rss_evidence_invalid
-  (( PEAK_RSS <= 12000000000 )) || die memory_limit_exceeded
-  (( ELAPSED_MS > 0 && ELAPSED_MS <= 120000 )) || die request_timeout_exceeded
-'''
-          assert remote.count(rss_block) == 1
-          remote = remote.replace(rss_block, rss_replacement, 1)
-          remote = remote.replace('''kill -TERM "$SERVER_PID"
-''', '''[[ ! -f "$MEMORY_LIMIT_FLAG" ]] || die memory_limit_exceeded
-PEAK_RSS="$(cat "$PEAK_RSS_FILE")"
-kill -TERM "$SERVER_PID"
-''', 1)
-          remote = remote.replace('''SERVER_PID=""
-rm -rf "$RAW_ROOT"
-''', '''SERVER_PID=""
-if [[ -n "$MONITOR_PID" ]]; then
-  wait "$MONITOR_PID" 2>/dev/null || true
-  MONITOR_PID=""
-fi
-rm -rf "$RAW_ROOT"
-''', 1)
-          remote_path.write_text(remote, encoding='utf-8')
-
-          runbook_path = Path('apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md')
-          runbook = runbook_path.read_text(encoding='utf-8')
-          runbook = runbook.replace('- a completed conversion report under `/srv/tai-models/conversion-runs`;', '- the exact accepted conversion root `/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1`;')
-          runbook = runbook.replace('The runtime independently recomputes the conversion report self-digest, Q4_K_M size and SHA-256, and `llama-server` size and SHA-256 before execution. The newest valid completed conversion report is selected only from the governed conversion root.', 'The runtime uses only the exact accepted conversion main `8bd494dc4954baaf699cffa243951392ff451ebb`, workflow run `29810648430`, attempt `1`. It verifies report identity, Qwen source model/revision, conversion step output, report self-digest, Q4_K_M size/SHA-256, and `llama-server` size/SHA-256 before execution.')
-          runbook = runbook.replace('- peak RSS limit: 12,000,000,000 bytes;', '- peak RSS limit: 12,000,000,000 bytes, enforced continuously by a 200 ms monitor that terminates the server on breach;')
-          runbook_path.write_text(runbook, encoding='utf-8')
-
-          test_path = Path('apps/tai/tests/test_qwen_preview_runtime.py')
-          tests = test_path.read_text(encoding='utf-8')
-          old_digest = 'f7e25bfbcc8d39249d918c6800365734ab889e5d47f6e053c2df11214db461cb'
-          new_digest = authority['authority_sha256']
-          assert old_digest in tests
-          tests = tests.replace(old_digest, new_digest, 1)
-          append_marker = '''    with pytest.raises(runtime.PreviewRuntimeError, match="model authority"):
-        runtime.load_authority(path)
-'''
-          append = append_marker + '''
-    authority = runtime.load_json(authority_path())
-    authority["conversion"]["workflow_run_id"] = 1
-    authority.pop("authority_sha256")
-    authority["authority_sha256"] = runtime.canonical_sha256(authority)
-    runtime.write_json(path, authority)
-    with pytest.raises(runtime.PreviewRuntimeError, match="conversion authority"):
-        runtime.load_authority(path)
-'''
-          assert tests.count(append_marker) == 1
-          tests = tests.replace(append_marker, append, 1)
-          test_path.write_text(tests, encoding='utf-8')
-          PY
-          git show HEAD^:.github/workflows/tai-qwen-preview-runtime.yml > .github/workflows/tai-qwen-preview-runtime.yml
-      - name: Validate and publish
+      - name: Install exact TAI runtime authority
         shell: bash
         run: |
-          set -Eeuo pipefail
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e 'apps/tai[dev]'
+
+      - name: Validate authority before protected access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m tai.qwen_preview_runtime_cli validate-authority \
+            apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json \
+            --output qwen-preview-authority-validation.json
+          python -m ruff check \
+            apps/tai/tai/qwen_preview_runtime.py \
+            apps/tai/tai/qwen_preview_runtime_cli.py \
+            apps/tai/tests/qwen_preview_runtime_fixtures.py \
+            apps/tai/tests/test_qwen_preview_runtime.py \
+            apps/tai/tests/test_qwen_preview_runtime_cli.py \
+            apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          python -m mypy --strict \
+            apps/tai/tai/qwen_preview_runtime.py \
+            apps/tai/tai/qwen_preview_runtime_cli.py
+          python -m pytest \
+            apps/tai/tests/test_qwen_preview_runtime.py \
+            apps/tai/tests/test_qwen_preview_runtime_cli.py \
+            apps/tai/tests/test_qwen_preview_runtime_workflow.py
           bash -n apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
           bash -n apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh
-          python -m pip install -q -e 'apps/tai[dev]'
-          python -m ruff check apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py apps/tai/tests/qwen_preview_runtime_fixtures.py apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
-          python -m mypy --strict apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py
-          python -m pytest -q apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
-          GITHUB_HEAD_REF=agent/tai-ap-13c1f-qwen-preview-runtime bash scripts/p7-autopilot-guard.sh
-          git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/tai-qwen-preview-runtime.yml apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md apps/tai/tai/qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime.py
-          git commit -m 'fix(tai): pin Qwen conversion evidence and enforce RSS limit'
-          git push origin HEAD:agent/tai-ap-13c1f-qwen-preview-runtime
+
+      - name: Execute governed dedicated-host Qwen preview
+        shell: bash
+        env:
+          TAI_MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+          TAI_MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+          TAI_MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+          TAI_MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+        run: bash apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
+
+      - name: Upload bounded preview evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-qwen-preview-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            qwen-preview-authority-validation.json
+            qwen-preview-evidence/qwen-preview-runtime-evidence.json
+            qwen-preview-evidence/verified-report.json
+            apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded preview summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! -s qwen-preview-summary.md ]]; then
+            printf '%s\n' \
+              '## TAI Qwen read-only operational preview' \
+              '' \
+              "- exact-main: \`$GITHUB_SHA\`;" \
+              "- workflow run: \`$GITHUB_RUN_ID\` / attempt \`$GITHUB_RUN_ATTEMPT\`;" \
+              '- result: `FAILED_CLOSED`;' \
+              '- benchmark: `PENDING_BENCHMARK`;' \
+              '- model admission: `PENDING_ADMISSION`;' \
+              '- routing/UI/deployment: `NOT_ACTIVATED`;' \
+              '- production operational status: `NOT_ATTESTED`.' \
+              > qwen-preview-summary.md
+          fi
+          jq -n --rawfile body qwen-preview-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/3003/comments" --input -
