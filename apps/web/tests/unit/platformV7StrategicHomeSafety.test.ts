@@ -1,57 +1,71 @@
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const formPath = 'components/platform-v7/OrganizationConnectForm.tsx';
-const formCssPath = 'components/platform-v7/OrganizationConnectForm.module.css';
-const rolePath = 'components/platform-v7/PublicDealRoleScenario.tsx';
-const roleCssPath = 'components/platform-v7/PublicDealRoleScenario.module.css';
+const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-function read(path: string) {
-  return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
-}
+describe('platform-v7 strategic homepage safety and accessibility contract', () => {
+  const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
+  const form = read('components/platform-v7/OrganizationConnectForm.tsx');
+  const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
+  const formCopy = read('i18n/platform-v7-organization-connect.ts');
+  const roleScenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
+  const roleScenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
 
-describe('platform-v7 strategic public home contracts', () => {
-  it('keeps organization intake staged and does not persist personal data in the browser', () => {
-    const source = read(formPath);
-
-    expect(source).toContain("mode: 'staged_client_validation'");
-    expect(source).toContain("window.location.assign(`/platform-v7/register");
-    expect(source).not.toContain('localStorage');
-    expect(source).not.toContain('sessionStorage');
-    expect(source).not.toContain("fetch('");
-    expect(source).not.toContain('fake_success');
+  it('mounts the organization request form without fake submission success', () => {
+    expect(home).toContain('<OrganizationConnectForm locale={locale} />');
+    expect(home).toContain("href='#connect-organization'");
+    expect(form).toContain('window.location.assign(`/platform-v7/register?entry=organization-connect');
+    expect(form).not.toContain('setTimeout');
+    expect(form).not.toContain('fake_success');
   });
 
-  it('uses native validation, explicit consent and an accessible error channel', () => {
-    const source = read(formPath);
-
-    expect(source).toContain('form.checkValidity()');
-    expect(source).toContain('form.reportValidity()');
-    expect(source).toContain("name='consent'");
-    expect(source).toContain("role='alert'");
-    expect(source).toContain("autoComplete='organization'");
-    expect(source).toContain("autoComplete='email'");
+  it('does not persist or transmit public form personal data from the staged client boundary', () => {
+    expect(form).not.toContain('localStorage');
+    expect(form).not.toContain('sessionStorage');
+    expect(form).not.toContain('indexedDB');
+    expect(form).not.toContain('fetch(');
+    expect(form).not.toContain('XMLHttpRequest');
+    expect(form).toContain("mode: 'staged_client_validation'");
   });
 
-  it('keeps the role scenario demonstrational and outside RBAC authority', () => {
-    const source = read(rolePath);
-
-    expect(source).toContain("role='tablist'");
-    expect(source).toContain("aria-selected={active === item.id}");
-    expect(source).toContain("aria-live='polite'");
-    expect(source).toContain("mode: 'public_simulation'");
-    expect(source).not.toContain('/api/');
-    expect(source).not.toContain('setRole');
-    expect(source).not.toContain('tenantId');
+  it('keeps browser validation, consent and accessible error reporting active', () => {
+    expect(form).toContain('form.checkValidity()');
+    expect(form).toContain('form.reportValidity()');
+    expect(form).toContain("type='checkbox' required");
+    expect(form).toContain("role='alert'");
+    expect(form).toContain("autoComplete='organization'");
+    expect(form).toContain("autoComplete='email'");
+    expect(form).toContain("autoComplete='tel'");
   });
 
-  it('preserves mobile touch targets and reduced-motion behavior', () => {
-    const formCss = read(formCssPath);
-    const roleCss = read(roleCssPath);
-    const combined = `${formCss}\n${roleCss}`;
+  it('keeps RU EN ZH form copy complete and avoids locale inheritance', () => {
+    expect(formCopy).toContain('const ru: OrganizationConnectCopy =');
+    expect(formCopy).toContain('const en: OrganizationConnectCopy =');
+    expect(formCopy).toContain('const zh: OrganizationConnectCopy =');
+    expect(formCopy).not.toContain('...ru');
+    expect(formCopy).toContain("locale === 'en' ? en : locale === 'zh' ? zh : ru");
+  });
 
-    expect(combined).toMatch(/min-height:\s*44px/);
-    expect(combined).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(roleCss).toContain('overflow-x: auto');
+  it('keeps participant perspective informational and non-authoritative', () => {
+    expect(roleScenario).toContain("role='tablist'");
+    expect(roleScenario).toContain("role='tab'");
+    expect(roleScenario).toContain('aria-selected={role === key}');
+    expect(roleScenario).toContain("role='tabpanel'");
+    expect(roleScenario).toContain("aria-live='polite'");
+    expect(roleScenario).toContain('не изменяет RBAC');
+    expect(roleScenario).not.toContain('accessToken');
+    expect(roleScenario).not.toContain('tenantId');
+    expect(roleScenario).not.toContain('fetch(');
+  });
+
+  it('preserves mobile-first touch targets, horizontal role navigation and reduced motion', () => {
+    expect(formCss).toContain('min-height:48px');
+    expect(formCss).toContain(':focus-visible');
+    expect(formCss).toContain('@media(min-width:760px)');
+    expect(roleScenarioCss).toContain('min-height:44px');
+    expect(roleScenarioCss).toContain('overflow-x:auto');
+    expect(roleScenarioCss).toContain('scroll-snap-type:x mandatory');
+    expect(roleScenarioCss).toContain('@media(prefers-reduced-motion:reduce)');
   });
 });
