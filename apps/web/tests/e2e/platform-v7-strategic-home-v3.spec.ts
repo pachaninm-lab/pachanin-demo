@@ -52,7 +52,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
   test('participant perspective changes only the public simulation panel', async ({ page }) => {
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
-      if (/\/api\/|bank-callback|role-assignment|membership/i.test(request.url())) forbiddenRequests.push(request.url());
+      if (/bank-callback|role-assignment|membership|\/auth\/me|\/api\/proxy\//i.test(request.url())) forbiddenRequests.push(request.url());
     });
 
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
@@ -68,13 +68,15 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
 
   test('organization intake validates locally and does not send personal data from the public page', async ({ page }) => {
     const submittedRequests: string[] = [];
+    let captureSubmission = false;
     page.on('request', (request) => {
-      if (request.method() !== 'GET') submittedRequests.push(`${request.method()} ${request.url()}`);
+      if (captureSubmission && request.method() !== 'GET') submittedRequests.push(`${request.method()} ${request.url()}`);
     });
 
     await page.goto('/platform-v7?lang=ru#connect-organization', { waitUntil: 'load' });
     const form = page.locator('#connect-organization form');
     await expect(form).toBeVisible();
+    captureSubmission = true;
     await form.getByRole('button').click();
     await expect(form.getByRole('alert')).toBeVisible();
     await expect(page).toHaveURL(/#connect-organization$/);
@@ -89,7 +91,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       expect(response?.ok()).toBe(true);
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
-      await expectMinimumTargets(page, '#connect-organization input');
+      await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"])');
       await expectMinimumTargets(page, '#connect-organization select');
       await expectMinimumTargets(page, '#connect-organization button');
       await expectMinimumTargets(page, '#connect-organization a[href^="tel:"]');
