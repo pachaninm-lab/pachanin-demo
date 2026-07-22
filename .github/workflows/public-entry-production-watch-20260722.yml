@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   watch:
@@ -30,8 +31,42 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Run exact production watch
+        id: watch
+        continue-on-error: true
         working-directory: apps/web
         run: node scripts/public-entry-production-watch-20260722.mjs
+      - name: Publish exact watch summary
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'artifacts/public-entry-production-watch/public-entry-production-watch.json';
+            const report = fs.existsSync(reportPath)
+              ? JSON.parse(fs.readFileSync(reportPath, 'utf8'))
+              : { failures: [{ message: 'Evidence report was not produced' }], http: [], browser: [], failClosed: [] };
+            const summary = {
+              generatedAt: report.generatedAt,
+              baseURL: report.baseURL,
+              httpCases: report.http?.length || 0,
+              browserCases: report.browser?.length || 0,
+              failClosedCases: report.failClosed?.length || 0,
+              failures: report.failures || [],
+            };
+            const body = `<!-- public-entry-production-watch-20260722 -->\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes('public-entry-production-watch-20260722'));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
+            if ((report.failures || []).length > 0) core.setFailed('Production watch found failures');
       - name: Upload exact watch evidence
         if: always()
         uses: actions/upload-artifact@v4
