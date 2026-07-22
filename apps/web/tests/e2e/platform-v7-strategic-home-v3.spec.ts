@@ -42,6 +42,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('#deal-path')).toBeVisible();
       await expect(page.locator('#tai')).toBeVisible();
       await expect(page.locator('#connect-organization')).toBeVisible();
+      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expect(page.locator('html')).toHaveAttribute('lang', new RegExp(`^${locale}`));
       await expectNoHorizontalOverflow(page);
     }
@@ -76,6 +77,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await page.goto('/platform-v7?lang=ru#connect-organization', { waitUntil: 'load' });
     const form = page.locator('#connect-organization form');
     await expect(form).toBeVisible();
+    await expect(form).toHaveAttribute('data-ready', 'true');
     captureSubmission = true;
     await form.getByRole('button').click();
     await expect(form.getByRole('alert')).toBeVisible();
@@ -89,6 +91,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await page.setViewportSize({ width, height: 900 });
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
+      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
       await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"])');
@@ -97,4 +100,23 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expectMinimumTargets(page, '#connect-organization a[href^="tel:"]');
     });
   }
+});
+
+test.describe('Platform V7 strategic homepage no-JavaScript boundary', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('keeps public intake disabled and exposes only the protected-registration fallback', async ({ page }) => {
+    const response = await page.goto('/platform-v7?lang=ru#connect-organization', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    const form = page.locator('#connect-organization form');
+    await expect(form).toBeVisible();
+    await expect(form).toHaveAttribute('data-ready', 'false');
+    await expect(form.locator('input')).toBeDisabled();
+    await expect(form.locator('select')).toBeDisabled();
+    await expect(form.getByRole('button')).toBeDisabled();
+    expect(await form.getAttribute('action')).toBeNull();
+    await expect(page.getByText(/Без JavaScript публичная форма заблокирована/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Перейти в защищённую регистрацию' })).toHaveAttribute('href', /\/platform-v7\/register/);
+    await expectNoHorizontalOverflow(page);
+  });
 });
