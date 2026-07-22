@@ -40,7 +40,7 @@ async function expectMinimumTargets(page: Page, locator: string) {
 }
 
 test.describe('P0 public TAI intelligence layer browser acceptance', () => {
-  test('home intelligence is role-aware, interactive and fail-closed', async ({ page }) => {
+  test('home intelligence is Deal-aware, interactive and fail-closed', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
@@ -50,28 +50,31 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
 
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
+
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-    await expect(page.locator('.pc-public-hero-intelligence')).toBeVisible();
-    await expect(page.locator('.pc-public-deal-intelligence')).toHaveAttribute('data-lens', 'execution');
-    await expect(page.locator('#participants .pc-public-role-intelligence').first()).toBeVisible();
-    await expect(page.locator('#evidence-contour .pc-public-evidence-intelligence')).toBeVisible();
+    await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
+    await expect(page.locator('.pc-v6-control-tower')).toContainText('Расчёт заблокирован');
+    await expect(page.locator('.pc-v6-control-tower')).toContainText('TAI выявил два блокера');
 
-    const lenses = page.locator('.pc-ppe-preview-lenses');
-    await lenses.getByRole('tab', { name: 'Документы' }).click();
-    await expect(page.locator('.pc-public-deal-intelligence')).toHaveAttribute('data-lens', 'documents');
-    await expect(page.locator('.pc-public-deal-intelligence')).toContainText('Документальное основание');
-    await lenses.getByRole('tab', { name: 'Деньги' }).click();
-    await expect(page.locator('.pc-public-deal-intelligence')).toHaveAttribute('data-lens', 'money');
-    await expect(page.locator('.pc-public-deal-intelligence')).toContainText('6,9 млн ₽');
+    const tai = page.locator('#tai');
+    await expect(tai).toBeVisible();
+    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Источник: протокол лаборатории № L-204');
+    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Уверенность: высокая');
+    await expect(tai.locator('.pc-v6-prepared-action')).toContainText('требуется подтверждение пользователя');
+    await expect(tai).toContainText('TAI не меняет роль или организацию');
 
-    const government = page.locator('#government-data');
-    await expect(government).toBeVisible();
-    await expect(government.locator('.pc-public-government-source-grid [role="tab"]')).toHaveCount(8);
-    await expect(government.locator('[data-status="CONNECTED"]')).toHaveCount(0);
-    await expect(government.locator('.pc-public-government-result')).toContainText('Проверка не выполнялась');
-    await government.getByRole('tab', { name: /Аргус-Фито/ }).click();
-    await expect(government.locator('.pc-public-government-result')).toHaveAttribute('data-status', 'PUBLIC_REGISTRY');
-    await expect(government.locator('.pc-public-government-result')).toContainText('Доступна публичная проверка');
+    const perspectives = page.getByRole('tablist', { name: 'Посмотреть глазами участника' });
+    await expect(perspectives).toBeVisible();
+    await expect(perspectives.getByRole('tab')).toHaveCount(6);
+    await perspectives.getByRole('tab', { name: 'Банк' }).click();
+    await expect(page.getByRole('tabpanel')).toContainText('release запрещён политикой сделки');
+    await expect(page.getByText('Публичная симуляция. Роль не предоставляет доступ и не изменяет RBAC.')).toBeVisible();
+
+    const integrations = page.locator('#integrations');
+    await expect(integrations).toBeVisible();
+    await expect(integrations).toContainText('ФГИС «Зерно» / СДИЗ');
+    await expect(integrations).toContainText('Не подтверждено');
+    await expect(integrations).not.toContainText('Подключено');
 
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
