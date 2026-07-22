@@ -28,10 +28,10 @@ export async function PlatformV7StrategicHome() {
     <a className='pc-skip-link' href='#pc-v6-title'>{chrome('skipToContent')}</a>
     <PublicExperiencePageView locale={locale} name='home_v3_view' />
     <PublicSiteHeader
-      ariaLabel='Прозрачная Цена'
-      brandHomeLabel='Прозрачная Цена'
-      navLabel='Главная навигация'
-      menuLabel='Меню'
+      ariaLabel={copy.a11y.site}
+      brandHomeLabel={copy.a11y.site}
+      navLabel={copy.a11y.nav}
+      menuLabel={copy.a11y.menu}
       nav={nav}
       showMobileMenu
       localeControl={<PublicLocaleLink />}
@@ -51,15 +51,15 @@ export async function PlatformV7StrategicHome() {
           <PublicExperienceLink href={taiHref} className='pc-v6-text-link' eventName='open_tai' locale={locale} params={{ source: 'hero_v3' }}><Sparkles size={17}/>{copy.hero.tertiary}</PublicExperienceLink>
         </div>
 
-        <div className='pc-v6-control-tower' aria-label='Фрагмент control tower Сделки'>
-          <div className='pc-v6-ct-top'><span>Сделка PC-2026-0719</span><b>Приёмка и качество</b></div>
+        <div className='pc-v6-control-tower' aria-label={copy.a11y.controlTower}>
+          <div className='pc-v6-ct-top'><span>{copy.tower.deal}</span><b>{copy.tower.stage}</b></div>
           <div className='pc-v6-ct-grid'>
-            <article><small>Статус</small><strong>Расчёт заблокирован</strong><span className='pc-v6-status pc-v6-status-blocked'><TriangleAlert size={16}/>Отклонение</span></article>
-            <article><small>Ответственный</small><strong>Лаборатория</strong><span>До 16:30</span></article>
-            <article><small>Деньги</small><strong>Зарезервированы</strong><span className='pc-v6-status pc-v6-status-pending'><CircleDollarSign size={16}/>Release запрещён</span></article>
-            <article><small>Следующий шаг</small><strong>Подписать акт</strong><span>Затем — правило перерасчёта</span></article>
+            <article><small>{copy.tower.statusLabel}</small><strong>{copy.tower.status}</strong><span className='pc-v6-status pc-v6-status-blocked'><TriangleAlert size={16}/>{copy.tower.deviation}</span></article>
+            <article><small>{copy.tower.ownerLabel}</small><strong>{copy.tower.owner}</strong><span>{copy.tower.deadline}</span></article>
+            <article><small>{copy.tower.moneyLabel}</small><strong>{copy.tower.money}</strong><span className='pc-v6-status pc-v6-status-pending'><CircleDollarSign size={16}/>{copy.tower.release}</span></article>
+            <article><small>{copy.tower.nextLabel}</small><strong>{copy.tower.next}</strong><span>{copy.tower.nextNote}</span></article>
           </div>
-          <div className='pc-v6-tai-strip'><Sparkles size={18}/><div><strong>TAI выявил два блокера</strong><span>Расхождение качества и отсутствующая подпись. Подготовлен проект действия.</span></div></div>
+          <div className='pc-v6-tai-strip'><Sparkles size={18}/><div><strong>{copy.tower.taiTitle}</strong><span>{copy.tower.taiText}</span></div></div>
         </div>
       </section>
 
@@ -81,16 +81,14 @@ export async function PlatformV7StrategicHome() {
         <SectionHeader eyebrow={copy.scenario.eyebrow} title={copy.scenario.title} lead={copy.scenario.lead}/>
         <div className='pc-v6-scenario-grid'>
           <article className='pc-v6-scenario-main'>
-            <div><span>Сделка</span><strong>Подсолнечник · 1 200 т</strong></div>
-            <div><span>Текущий этап</span><strong>Приёмка / лаборатория</strong></div>
-            <div><span>Блокер</span><strong>{copy.scenario.blocker}</strong></div>
-            <div><span>Ответственный</span><strong>{copy.scenario.owner}</strong></div>
+            <div><span>{copy.scenario.dealLabel}</span><strong>{copy.scenario.dealValue}</strong></div>
+            <div><span>{copy.scenario.stageLabel}</span><strong>{copy.scenario.stageValue}</strong></div>
+            <div><span>{copy.scenario.blockerLabel}</span><strong>{copy.scenario.blocker}</strong></div>
+            <div><span>{copy.scenario.ownerLabel}</span><strong>{copy.scenario.owner}</strong></div>
           </article>
           <aside>
             <span className='pc-v6-status pc-v6-status-blocked'><TriangleAlert size={16}/>{copy.scenario.status}</span>
-            <p>{copy.scenario.money}</p>
-            <p>{copy.scenario.next}</p>
-            <p>{copy.scenario.evidence}</p>
+            <p>{copy.scenario.money}</p><p>{copy.scenario.next}</p><p>{copy.scenario.evidence}</p>
             <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'scenario_v3' }}>{copy.hero.primary}<ArrowRight size={18}/></PublicExperienceLink>
           </aside>
         </div>
@@ -100,8 +98,8 @@ export async function PlatformV7StrategicHome() {
         <SectionHeader eyebrow={copy.tai.eyebrow} title={copy.tai.title} lead={copy.tai.text}/>
         <div className='pc-v6-tai-layout'>
           <div className='pc-v6-tai-answer'>
-            <div className='pc-v6-tai-head'><Sparkles size={19}/><strong>TAI</strong><span>Операционный режим</span></div>
-            <p>Сделка не может перейти к окончательному расчёту: лабораторный показатель вышел за допуск, а акт расхождений не подписан покупателем.</p>
+            <div className='pc-v6-tai-head'><Sparkles size={19}/><strong>TAI</strong><span>{copy.tai.mode}</span></div>
+            <p>{copy.tai.answer}</p>
             <ul><li>{copy.tai.source}</li><li>{copy.tai.freshness}</li><li>{copy.tai.confidence}</li></ul>
             <div className='pc-v6-prepared-action'><FileCheck2 size={18}/><span>{copy.tai.action}</span></div>
           </div>
@@ -113,35 +111,16 @@ export async function PlatformV7StrategicHome() {
         </div>
       </section>
 
-      <section className='pc-v6-section'>
-        <SectionHeader eyebrow={copy.crops.eyebrow} title={copy.crops.title} lead={copy.crops.lead}/>
-        <div className='pc-v6-crop-grid'>{copy.crops.groups.map(([name,status]) => <article key={name}><strong>{name}</strong><span>{status}</span></article>)}</div>
-      </section>
+      <section className='pc-v6-section'><SectionHeader eyebrow={copy.crops.eyebrow} title={copy.crops.title} lead={copy.crops.lead}/><div className='pc-v6-crop-grid'>{copy.crops.groups.map(([name,status]) => <article key={name}><strong>{name}</strong><span>{status}</span></article>)}</div></section>
+      <section id='participants' className='pc-v6-section'><SectionHeader eyebrow={copy.participants.eyebrow} title={copy.participants.title}/><div className='pc-v6-value-grid'>{copy.participants.cards.map(([title,text]) => <article key={title}><strong>{title}</strong><p>{text}</p></article>)}</div></section>
+      <section className='pc-v6-section pc-v6-money'><SectionHeader eyebrow={copy.money.eyebrow} title={copy.money.title}/><div className='pc-v6-money-flow'><Landmark size={24}/><strong>{copy.money.chain}</strong></div><p>{copy.money.exception}</p></section>
+      <section id='integrations' className='pc-v6-section'><SectionHeader eyebrow={copy.integrations.eyebrow} title={copy.integrations.title}/><div className='pc-v6-integration-grid'>{copy.integrations.items.map(([name,status]) => <article key={name}><strong>{name}</strong><span>{status}</span></article>)}</div></section>
+      <section className='pc-v6-section'><SectionHeader eyebrow={copy.federal.eyebrow} title={copy.federal.title}/><div className='pc-v6-pillar-grid'>{copy.federal.pillars.map((pillar) => <div key={pillar}><ShieldCheck size={19}/><span>{pillar}</span></div>)}</div></section>
+      <section id='maturity' className='pc-v6-section'><SectionHeader eyebrow={copy.maturity.eyebrow} title={copy.maturity.title}/><div className='pc-v6-maturity-grid'>{copy.maturity.cards.map(([title,text]) => <article key={title}><strong>{title}</strong><p>{text}</p></article>)}</div></section>
 
-      <section id='participants' className='pc-v6-section'>
-        <SectionHeader eyebrow={copy.participants.eyebrow} title={copy.participants.title}/>
-        <div className='pc-v6-value-grid'>{copy.participants.cards.map(([title,text]) => <article key={title}><strong>{title}</strong><p>{text}</p></article>)}</div>
-      </section>
-
-      <section className='pc-v6-section pc-v6-money'>
-        <SectionHeader eyebrow={copy.money.eyebrow} title={copy.money.title}/>
-        <div className='pc-v6-money-flow'><Landmark size={24}/><strong>{copy.money.chain}</strong></div>
-        <p>{copy.money.exception}</p>
-      </section>
-
-      <section id='integrations' className='pc-v6-section'>
-        <SectionHeader eyebrow={copy.integrations.eyebrow} title={copy.integrations.title}/>
-        <div className='pc-v6-integration-grid'>{copy.integrations.items.map(([name,status]) => <article key={name}><strong>{name}</strong><span>{status}</span></article>)}</div>
-      </section>
-
-      <section className='pc-v6-section'>
-        <SectionHeader eyebrow={copy.federal.eyebrow} title={copy.federal.title}/>
-        <div className='pc-v6-pillar-grid'>{copy.federal.pillars.map((pillar) => <div key={pillar}><ShieldCheck size={19}/><span>{pillar}</span></div>)}</div>
-      </section>
-
-      <section id='maturity' className='pc-v6-section'>
-        <SectionHeader eyebrow={copy.maturity.eyebrow} title={copy.maturity.title}/>
-        <div className='pc-v6-maturity-grid'>{copy.maturity.cards.map(([title,text]) => <article key={title}><strong>{title}</strong><p>{text}</p></article>)}</div>
+      <section className='pc-v6-section pc-v6-faq'>
+        <SectionHeader eyebrow={copy.faq.eyebrow} title={copy.faq.title}/>
+        <div className='pc-v6-faq-list'>{copy.faq.items.map(([question,answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div>
       </section>
 
       <section className='pc-v6-final'>
@@ -150,6 +129,6 @@ export async function PlatformV7StrategicHome() {
       </section>
     </div>
 
-    <footer className='pc-v6-footer'><div className='pc-v6-shell'><strong>Прозрачная Цена</strong><p>{copy.footer}</p><nav><a href='/platform-v7/status'>{copy.nav.status}</a><a href='/platform-v7/privacy'>Privacy</a><a href='/platform-v7/contact'>Контакты</a></nav></div></footer>
+    <footer className='pc-v6-footer'><div className='pc-v6-shell'><strong>{copy.a11y.site}</strong><p>{copy.footer.note}</p><nav><a href='/platform-v7/status'>{copy.nav.status}</a><a href='/platform-v7/privacy'>{copy.footer.privacy}</a><a href='/platform-v7/contact'>{copy.footer.contacts}</a></nav></div></footer>
   </main>;
 }
