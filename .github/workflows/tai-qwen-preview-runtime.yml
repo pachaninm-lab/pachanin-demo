@@ -1,0 +1,100 @@
+name: TAI Qwen preview runtime implementation bootstrap
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1f-qwen-preview-runtime
+    paths:
+      - .github/workflows/tai-qwen-preview-runtime.yml
+
+permissions:
+  contents: write
+  issues: read
+
+concurrency:
+  group: tai-qwen-preview-runtime-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1f-qwen-preview-runtime
+          fetch-depth: 0
+      - name: Restore exact governed implementation payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh api -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$GITHUB_REPOSITORY/issues/3014/comments?per_page=100" > /tmp/comments.json
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import tarfile
+          from pathlib import Path
+
+          comments = json.loads(Path('/tmp/comments.json').read_text())
+          prefix = 'TAI_QWEN_RUNTIME_PAYLOAD_V1_PART_'
+          parts = {}
+          for comment in comments:
+              body = comment.get('body', '')
+              if not body.startswith(prefix):
+                  continue
+              header, payload = body.split('\n', 1)
+              part = int(header.removeprefix(prefix).split('_OF_')[0])
+              parts[part] = ''.join(payload.split())
+          assert set(parts) == {1, 2, 3, 4}, sorted(parts)
+          encoded = ''.join(parts[index] for index in range(1, 5))
+          assert hashlib.sha256(encoded.encode()).hexdigest() == '86e29f52f79caa64c0a28d4264088ad8e6190cea605753e71a6b1bf0f82378e9'
+          archive = Path('/tmp/qwen-runtime-payload.tar.gz')
+          archive.write_bytes(base64.b64decode(encoded, validate=True))
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == 'b148c1d1f2566b8fc6c154ea464835b246d4113ee89fd31c16a271408ca794de'
+          expected = {
+              '.github/workflows/tai-qwen-preview-runtime.yml',
+              'apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json',
+              'apps/tai/model-artifacts/qwen-preview-runtime.schema.v1.json',
+              'apps/tai/model-artifacts/qwen-preview-runtime.pending.json',
+              'apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md',
+              'apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh',
+              'apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh',
+              'apps/tai/tai/qwen_preview_runtime.py',
+              'apps/tai/tai/qwen_preview_runtime_cli.py',
+              'apps/tai/tests/qwen_preview_runtime_fixtures.py',
+              'apps/tai/tests/test_qwen_preview_runtime.py',
+              'apps/tai/tests/test_qwen_preview_runtime_cli.py',
+              'apps/tai/tests/test_qwen_preview_runtime_workflow.py',
+          }
+          with tarfile.open(archive, 'r:gz') as stream:
+              files = {item.name.lstrip('./') for item in stream.getmembers() if item.isfile()}
+              assert files == expected, (files - expected, expected - files)
+              for item in stream.getmembers():
+                  path = Path(item.name)
+                  assert not path.is_absolute() and '..' not in path.parts
+              stream.extractall('.', filter='data')
+          PY
+      - name: Validate and publish implementation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          chmod 700 apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh
+          bash -n apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
+          bash -n apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh
+          python -m compileall -q apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py apps/tai/tests/qwen_preview_runtime_fixtures.py apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          python -m pip install -q -e 'apps/tai[dev]'
+          python -m ruff check apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py apps/tai/tests/qwen_preview_runtime_fixtures.py apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          python -m mypy --strict apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py
+          python -m pytest -q apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          GITHUB_HEAD_REF=agent/tai-ap-13c1f-qwen-preview-runtime bash scripts/p7-autopilot-guard.sh
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tai-qwen-preview-runtime.yml apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json apps/tai/model-artifacts/qwen-preview-runtime.schema.v1.json apps/tai/model-artifacts/qwen-preview-runtime.pending.json apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py apps/tai/tests/qwen_preview_runtime_fixtures.py apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          git commit -m 'feat(tai): add governed Qwen preview runtime'
+          git push origin HEAD:agent/tai-ap-13c1f-qwen-preview-runtime
