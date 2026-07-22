@@ -198,11 +198,13 @@ function responseOf(value: unknown): AiGatewayFinalResponse {
   if (item.provider !== 'openai-compatible' && item.provider !== 'local-deterministic') throw new AiGatewayStreamError('AI_GATEWAY_STREAM_PROVIDER_REJECTED', false);
   if (item.dealId !== null && typeof item.dealId !== 'string') throw new AiGatewayStreamError('AI_GATEWAY_STREAM_DEAL_ID_REJECTED', false);
   if (!Array.isArray(item.limitations) || item.limitations.some((entry) => typeof entry !== 'string')) throw new AiGatewayStreamError('AI_GATEWAY_STREAM_LIMITATIONS_REJECTED', false);
+  const dealId = item.dealId === null ? null : text(item.dealId, 200, 'DEAL_ID');
+  const limitations = Object.freeze(item.limitations.map((entry) => text(entry, 500, 'LIMITATION')));
   return Object.freeze({
     requestId: text(item.requestId, 200, 'REQUEST_ID'), answer: text(item.answer, 12_000, 'ANSWER'), provider: item.provider,
-    mode: 'read_only', dataMode: 'authoritative', role: text(item.role, 160, 'ROLE'), dealId: item.dealId,
+    mode: 'read_only', dataMode: 'authoritative', role: text(item.role, 160, 'ROLE'), dealId,
     generatedAt: timestamp(item.generatedAt, 'GENERATED_AT'), citations: citationsOf(item.citations),
-    limitations: Object.freeze([...item.limitations]), decision: decisionOf(item.decision),
+    limitations, decision: decisionOf(item.decision),
   });
 }
 
