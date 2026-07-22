@@ -117,7 +117,10 @@ describe('TAI Gateway SSE parser', () => {
   });
 
   it('rejects incomplete streams instead of manufacturing a final answer', async () => {
-    const incomplete = validStream().split('event: done')[0];
+    const incomplete = `${validStream()
+      .split('\n\n')
+      .filter((frame) => frame && !frame.includes('event: done'))
+      .join('\n\n')}\n\n`;
     await expect(consumeAiGatewayStream(response(incomplete))).rejects.toMatchObject({
       code: 'AI_GATEWAY_STREAM_INCOMPLETE',
       retryable: true,
