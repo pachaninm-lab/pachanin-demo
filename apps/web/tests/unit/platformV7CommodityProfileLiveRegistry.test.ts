@@ -63,6 +63,26 @@ describe('PC-CROP-01B.4 strict live commodity registry', () => {
     expect(clientCss).toContain(':global([data-immutable] small)');
   });
 
+  it('accepts versionless aggregates without manufacturing a renderable version', () => {
+    expect(adapter).toContain('if (profile.selectedVersion === null) continue');
+    expect(adapter).toContain('const selected = record(profile.selectedVersion)');
+    expect(adapter).toContain('if (!selected) return null');
+    expect(adapter).not.toContain('selectedVersion ??');
+  });
+
+  it('traverses every cursor under one bounded fail-closed request authority', () => {
+    expect(client).toContain('collectCommodityProfilePages');
+    expect(client).toContain('`?limit=100&cursor=${encodeURIComponent(cursor)}`');
+    expect(client).toContain('staffAwareGet(path, controller.signal)');
+    expect(client).toContain('window.setTimeout(() => controller.abort(), 12_000)');
+    expect(adapter).toContain('COMMODITY_PROFILE_REGISTRY_MAX_PAGES = 20');
+    expect(adapter).toContain('COMMODITY_PROFILE_REGISTRY_MAX_ITEMS = 2_000');
+    expect(adapter).toContain('const seenCursors = new Set<string>()');
+    expect(adapter).toContain('if (seenCursors.has(page.nextCursor)) return null');
+    expect(adapter).toContain('if (observedItems > maxItems) return null');
+    expect(adapter).toContain('JSON.stringify(existing) !== JSON.stringify(item)');
+  });
+
   it('preserves authenticated and staff/JIT boundaries', () => {
     expect(readBff).toContain('Authorization: `Bearer ${accessToken}`');
     expect(readBff).not.toContain('X-Staff-Access-Session');
@@ -80,7 +100,7 @@ describe('PC-CROP-01B.4 strict live commodity registry', () => {
     expect(client).toContain("'X-CSRF-Token': csrfToken");
     expect(client).toContain("'If-Match': pending.etag");
     expect(client).toContain('commandToken(');
-    expect(client).toContain("response.status === 409");
+    expect(client).toContain('response.status === 409');
     expect(client).toContain('setReceipt(copy.receipt)');
     expect(client).toContain("role='dialog'");
     expect(page).toContain('CSRF_COOKIE');
