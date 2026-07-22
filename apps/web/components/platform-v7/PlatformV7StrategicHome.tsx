@@ -130,7 +130,7 @@ export async function PlatformV7StrategicHome() {
 
       <section className='pc-v6-final'>
         <h2>{copy.final.title}</h2><p>{copy.final.lead}</p>
-        <div className='pc-v6-actions'><PublicExperienceLink href='#connect-organization' className='pc-v6-primary' eventName='submit_organization_request' locale={locale} params={{ source: 'final_v3' }}>{copy.final.primary}<ArrowRight size={18}/></PublicExperienceLink><PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'final_v3' }}>{copy.final.secondary}</PublicExperienceLink></div>
+        <div className='pc-v6-actions'><PublicExperienceLink href='#connect-organization' className='pc-v6-primary' eventName='open_organization_connect' locale={locale} params={{ source: 'final_v3' }}>{copy.final.primary}<ArrowRight size={18}/></PublicExperienceLink><PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'final_v3' }}>{copy.final.secondary}</PublicExperienceLink></div>
       </section>
     </div>
 
