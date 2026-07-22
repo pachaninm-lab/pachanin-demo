@@ -1,0 +1,45 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3004,
+  "branch": "agent/tai-gateway-ui-readonly-3004",
+  "exact_base": "3270b89774f386d3a50935a967fc875d9e43486f",
+  "allowed_paths": [
+    ".env.example",
+    ".github/workflows/tai-gateway-ui-readonly-binding.yml",
+    "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.controller.spec.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.service.spec.ts",
+    "apps/tai/governance/scopes/ap-17-gateway-ui-3004.json",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+    "apps/web/tests/unit/platformV7AiGatewayStream.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
+    "apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts",
+    "docs/platform-v7/ai/gateway-ui-readonly-runtime-binding.md",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "authoritative approvedConcurrentScopes registration precedes implementation changes",
+    "public and private assistants use one strict contract-first read-only Gateway envelope",
+    "private identity, tenant, membership, role and Deal scope are resolved only by the server",
+    "production runtime is selected only after healthy admitted read-only readiness verification",
+    "stream events, citations, freshness, confidence, abstention, timeout, cancellation, retry and correlation fail closed",
+    "production mode has no static, synthetic, mock or deterministic answer fallback",
+    "all responses preserve actionAllowed=false and expose no write capability",
+    "RU, EN and ZH mobile and accessibility acceptance passes",
+    "exact-head API, web, security and repository gates pass with no open P1 or P2 review thread"
+  ],
+  "forbidden_capabilities": [
+    "model bundle, benchmark, admission authority, runtime-host or quality-scoring file changes",
+    "autonomous or confirmed write-tool activation",
+    "client-selected tenant, organization, membership or role authority",
+    "raw secrets, private model context or unrestricted Deal data in browser payloads",
+    "Netlify or Vercel production deployment",
+    "live-runtime or production-attestation claim without exact endpoint evidence"
+  ]
+}
