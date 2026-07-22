@@ -150,6 +150,7 @@ export default function Head() {
       <meta name="google" content="notranslate" />
       <meta httpEquiv="Content-Language" content="ru-RU" />
       <link rel="canonical" href={platformUrl} />
+      <link rel="stylesheet" href="/platform-v7-density-fix.css" />
       <meta property="og:title" content={pageTitle} />
       <meta property="og:description" content={pageDescription} />
       <meta property="og:url" content={platformUrl} />
