@@ -1,0 +1,150 @@
+name: TAI Gateway UI Read-only Binding
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-gateway-ui-readonly-binding.yml'
+      - 'apps/api/src/modules/ai-insights/ai-assistant-*.ts'
+      - 'apps/tai/governance/scopes/ap-17-gateway-ui-3004.json'
+      - 'apps/web/app/api/public-platform-assistant/route.ts'
+      - 'apps/web/components/platform-v7/AiAssistantPanel.tsx'
+      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+      - 'apps/web/lib/platform-v7/ai-gateway-stream.ts'
+      - 'apps/web/tests/unit/platformV7AiGatewayStream.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts'
+      - 'apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts'
+      - 'docs/platform-v7/ai/gateway-ui-readonly-runtime-binding.md'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-gateway-ui-readonly-binding.yml'
+      - 'apps/api/src/modules/ai-insights/ai-assistant-*.ts'
+      - 'apps/web/app/api/public-platform-assistant/route.ts'
+      - 'apps/web/components/platform-v7/AiAssistantPanel.tsx'
+      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+      - 'apps/web/lib/platform-v7/ai-gateway-stream.ts'
+      - 'apps/web/tests/unit/platformV7AiGatewayStream.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts'
+      - 'apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-gateway-ui-readonly-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  exact-head:
+    name: Exact-head read-only Gateway/UI acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enforce governed scope
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${BASE_REF}" --depth=1
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          scope = json.loads(Path('apps/tai/governance/scopes/ap-17-gateway-ui-3004.json').read_text())
+          allowed = set(scope['allowed_paths'])
+          base = os.environ['BASE_REF']
+          changed = subprocess.check_output(
+              ['git', 'diff', '--name-only', f'origin/{base}...HEAD'],
+              text=True,
+          ).splitlines()
+          forbidden = sorted(path for path in changed if path not in allowed)
+          if forbidden:
+              raise SystemExit('Forbidden AP-17 paths:\n' + '\n'.join(forbidden))
+          print(f'AP-17 governed scope PASS: {len(changed)} changed paths')
+          PY
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API and web
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee /tmp/tai-gateway-api-typecheck.log
+          pnpm --filter @pc/web typecheck 2>&1 | tee /tmp/tai-gateway-web-typecheck.log
+
+      - name: Focused API contract tests
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand \
+            src/modules/ai-insights/ai-assistant.controller.spec.ts \
+            2>&1 | tee /tmp/tai-gateway-api-tests.log
+
+      - name: Focused browser contract tests
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/platformV7AiGatewayStream.test.ts \
+            tests/unit/platformV7PublicAssistantTransportResilience.test.ts \
+            tests/unit/platformV7RoleScopedAiAssistant.test.ts \
+            2>&1 | tee /tmp/tai-gateway-web-tests.log
+
+      - name: Fail closed static audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          public_route = Path('apps/web/app/api/public-platform-assistant/route.ts').read_text()
+          public_ui = Path('apps/web/components/platform-v7/PublicPlatformAssistant.tsx').read_text()
+          private_ui = Path('apps/web/components/platform-v7/AiAssistantPanel.tsx').read_text()
+
+          required = {
+              'public admitted mode': 'admitted-read-only' in public_route,
+              'public provider': "provider: 'openai-compatible'" in public_route,
+              'public SSE': "Accept: 'text/event-stream'" in public_ui,
+              'private readiness': '/api/proxy/ai-assistant/readiness' in private_ui,
+              'private SSE': '/api/proxy/ai-assistant/chat/stream' in private_ui,
+              'private readiness gate': "availability !== 'ready'" in private_ui,
+          }
+          failed = [name for name, passed in required.items() if not passed]
+          forbidden = {
+              'public deterministic provider': "provider: 'local-deterministic'" in public_route,
+              'private legacy JSON chat': "fetch('/api/proxy/ai-assistant/chat'" in private_ui,
+              'browser localStorage': 'localStorage' in public_ui or 'localStorage' in private_ui,
+              'browser sessionStorage': 'sessionStorage' in public_ui or 'sessionStorage' in private_ui,
+          }
+          failed.extend(name for name, present in forbidden.items() if present)
+          if failed:
+              raise SystemExit('Read-only binding audit failed:\n' + '\n'.join(failed))
+          print('Read-only binding audit PASS')
+          PY
+
+      - name: Upload exact-head logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-gateway-ui-readonly-${{ github.event.pull_request.head.sha || github.sha }}
+          path: /tmp/tai-gateway-*.log
+          if-no-files-found: ignore
+          retention-days: 14
