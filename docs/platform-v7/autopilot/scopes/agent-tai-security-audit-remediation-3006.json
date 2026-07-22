@@ -10,6 +10,7 @@
     "pnpm-lock.yaml"
   ],
   "closeoutPaths": [
+    ".github/workflows/platform-v7-autopilot-guard.yml",
     "docs/platform-v7/autopilot/scopes/agent-tai-security-audit-remediation-3006.json",
     "docs/platform-v7/autopilot/deviations/pr-3008-security-audit-remediation.json",
     "docs/platform-v7/autopilot/verify-tai-security-audit-remediation-3006.mjs"
