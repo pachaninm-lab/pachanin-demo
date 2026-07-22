@@ -7,8 +7,11 @@
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
     "apps/web/components/platform-v7/PublicDealRoleScenario.module.css",
+    "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
+    "apps/web/components/platform-v7/OrganizationConnectForm.module.css",
     "apps/web/components/platform-v7/PublicExperienceAnalytics.tsx",
     "apps/web/i18n/platform-v7-home-v3.ts",
+    "apps/web/i18n/platform-v7-organization-connect.ts",
     "apps/web/styles/platform-v7-strategic-home-v3.css",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json",
@@ -19,6 +22,7 @@
     "No Netlify or Vercel production dependency",
     "No real transaction authority in the public scenario",
     "No unverified integration or maturity claims",
-    "RU, EN and ZH content remain complete"
+    "RU, EN and ZH content remain complete",
+    "No personal data persistence before a verified server endpoint is accepted"
   ]
 }
