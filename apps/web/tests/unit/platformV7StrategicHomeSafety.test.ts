@@ -11,10 +11,20 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const formCopy = read('i18n/platform-v7-organization-connect.ts');
   const roleScenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const roleScenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
+  const homeCss = read('styles/platform-v7-strategic-home-v3.css');
+  const rootLoading = read('app/loading.tsx');
   const acceptanceConfig = read('playwright.acceptance.config.ts');
   const scopeManifest = JSON.parse(read('../../docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json')) as {
     acceptanceEvidence?: { viewports?: number[]; locales?: string[]; browsers?: string[]; requiredBoundaries?: string[] };
   };
+
+  it('keeps a stable Deal cockpit locator and keyboard-focusable lifecycle', () => {
+    expect(home).toContain("data-testid='platform-v7-root-execution-cockpit'");
+    expect(home).toContain("className='pc-v6-lifecycle' role='list' tabIndex={0}");
+    expect(home).toContain('aria-label={copy.lifecycle.title}');
+    expect(homeCss).toContain('.pc-v6-lifecycle:focus-visible');
+    expect(homeCss).toMatch(/\.pc-v6-page\{[^}]*overflow-x:clip/);
+  });
 
   it('mounts the organization request form without fake submission success', () => {
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
@@ -40,6 +50,15 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(form).toContain('copy.jsRequired');
     expect(form).toContain('copy.protectedContinue');
     expect(formCopy).toContain('персональные данные не попали в URL');
+
+    expect(rootLoading).toContain('<noscript>');
+    expect(rootLoading).toContain('Без JavaScript персональные данные здесь не собираются и не передаются');
+    expect(rootLoading).toContain('/platform-v7/register?entry=organization-connect&lang=ru');
+    expect(rootLoading).toContain('/platform-v7/register?entry=organization-connect&lang=en');
+    expect(rootLoading).toContain('/platform-v7/register?entry=organization-connect&lang=zh');
+    expect(rootLoading).toContain("href='tel:+79162778989'");
+    expect(rootLoading).not.toContain('<form');
+    expect(rootLoading).not.toContain('<input');
   });
 
   it('does not persist or transmit public form personal data from the staged client boundary', () => {
