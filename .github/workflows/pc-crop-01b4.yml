@@ -1,10 +1,10 @@
-name: PC-CROP-01B.4 Private BFF Authority
+name: PC-CROP-01B.4 Post-merge Remediation Acceptance
 
-# Connector-authored post-sync retrigger; acceptance semantics are unchanged.
 on:
   pull_request:
     paths:
       - 'apps/api/src/modules/commodity-profiles/**'
+      - 'apps/api/src/modules/staff-access/staff-access.types.ts'
       - 'apps/web/app/api/platform-v7/commodity-profiles/**'
       - 'apps/web/app/api/staff/commodity-profile-registry/**'
       - 'apps/web/app/api/staff/commodity-profiles/**'
@@ -17,6 +17,7 @@ on:
       - 'apps/web/tests/unit/commodityProfileLiveAdapter.test.ts'
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-01b4-private-bff-live-registry.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-01b4-postmerge-remediation.json'
       - 'scripts/p7-autopilot-guard.sh'
       - 'scripts/verify-pc-crop-01a.mjs'
       - '.github/workflows/pc-crop-01a.yml'
@@ -26,6 +27,7 @@ on:
     branches: [main]
     paths:
       - 'apps/api/src/modules/commodity-profiles/**'
+      - 'apps/api/src/modules/staff-access/staff-access.types.ts'
       - 'apps/web/app/api/platform-v7/commodity-profiles/**'
       - 'apps/web/app/api/staff/commodity-profile-registry/**'
       - 'apps/web/app/api/staff/commodity-profiles/**'
@@ -38,6 +40,7 @@ on:
       - 'apps/web/tests/unit/commodityProfileLiveAdapter.test.ts'
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-01b4-private-bff-live-registry.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-01b4-postmerge-remediation.json'
       - 'scripts/p7-autopilot-guard.sh'
       - 'scripts/verify-pc-crop-01a.mjs'
       - '.github/workflows/pc-crop-01a.yml'
@@ -59,7 +62,7 @@ env:
 
 jobs:
   private-bff-contract:
-    name: PostgreSQL 16 · DTO · HTTP · roles · live UI
+    name: PostgreSQL 16 · scoped JIT · complete live registry
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
@@ -81,7 +84,7 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Enforce exact-head bounded successor scope
+      - name: Enforce exact-head bounded remediation scope
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
@@ -94,7 +97,7 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-01a\.yml|\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/.*|apps/web/app/api/platform-v7/commodity-profiles/.*|apps/web/app/api/staff/commodity-profile-registry/.*|apps/web/app/api/staff/commodity-profiles/.*|apps/web/app/platform-v7/commodity-profiles/.*|apps/web/components/crop-platform/(CommodityProfileRegistry(Client|View)(\.module\.css|\.tsx)?|commodity-profile-live-adapter\.ts|css-modules\.d\.ts)|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-01b4-private-bff-live-registry\.json|scripts/p7-autopilot-guard\.sh|scripts/verify-pc-crop-01a\.mjs)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+          if grep -Ev '^(\.github/workflows/pc-crop-01a\.yml|\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/.*|apps/api/src/modules/staff-access/staff-access\.types\.ts|apps/web/app/api/platform-v7/commodity-profiles/.*|apps/web/app/api/staff/commodity-profile-registry/.*|apps/web/app/api/staff/commodity-profiles/.*|apps/web/app/platform-v7/commodity-profiles/.*|apps/web/components/crop-platform/(CommodityProfileRegistry(Client|View)(\.module\.css|\.tsx)?|commodity-profile-live-adapter\.ts|css-modules\.d\.ts)|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-01b4-(private-bff-live-registry|postmerge-remediation)\.json|scripts/p7-autopilot-guard\.sh|scripts/verify-pc-crop-01a\.mjs)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.4 contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
@@ -186,14 +189,26 @@ jobs:
           if (roles.aggregateVersion !== '1') process.exit(1);
           const client = fs.readFileSync('apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx', 'utf8');
           const adapter = fs.readFileSync('apps/web/components/crop-platform/commodity-profile-live-adapter.ts', 'utf8');
+          const controller = fs.readFileSync('apps/api/src/modules/commodity-profiles/commodity-profiles.controller.ts', 'utf8');
+          const staffTypes = fs.readFileSync('apps/api/src/modules/staff-access/staff-access.types.ts', 'utf8');
           if (!client.includes("data-static-authority-fallback='false'")) process.exit(1);
           if (!client.includes("data-pinning-authority='not-in-slice'")) process.exit(1);
           if (!client.includes('/api/staff/commodity-profiles/')) process.exit(1);
           if (!client.includes("'X-CSRF-Token': csrfToken")) process.exit(1);
+          if (!client.includes('collectCommodityProfilePages')) process.exit(1);
+          if (!client.includes('encodeURIComponent(cursor)')) process.exit(1);
           if (!adapter.includes('profile.primaryAction')) process.exit(1);
+          if (!adapter.includes('if (profile.selectedVersion === null) continue')) process.exit(1);
+          if (!adapter.includes('COMMODITY_PROFILE_REGISTRY_MAX_PAGES = 20')) process.exit(1);
+          if (!adapter.includes('if (seenCursors.has(page.nextCursor)) return null')) process.exit(1);
           if (adapter.includes("|| 'DRAFT'") || adapter.includes("|| '—'")) process.exit(1);
+          if (!staffTypes.includes("COMMODITY_PROFILE_LIFECYCLE_MANAGE: 'commodity-profile:lifecycle:manage'")) process.exit(1);
+          if (!controller.includes('access.actorUserId !== user.id')) process.exit(1);
+          if (!controller.includes('StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE')) process.exit(1);
+          if (!controller.includes('access.effectiveUserId !== null')) process.exit(1);
+          if (!controller.includes('access.targetDealId != null')) process.exit(1);
           const report = {
-            schemaVersion: 'pc-crop.private-bff-acceptance.v3',
+            schemaVersion: 'pc-crop.private-bff-acceptance.v4',
             slice: 'PC-CROP-01B.4',
             status: 'PASS',
             operationalStatus: 'NOT_ATTESTED',
@@ -211,6 +226,10 @@ jobs:
               strictPayloadAdapter: true,
               liveUiBinding: true,
               commandReceiptUi: true,
+              scopedLifecycleJitAuthority: true,
+              versionlessAggregateOmitted: true,
+              boundedCursorTraversal: true,
+              cursorCycleRejected: true,
               interfaceStates: ['loading', 'ready', 'empty', 'error', 'forbidden', 'conflict', 'reconnecting'],
             },
             boundaries: {
@@ -232,11 +251,11 @@ jobs:
           find "$EVIDENCE_DIR" -type f -print0 | sort -z | xargs -0 sha256sum \
             > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
 
-      - name: Upload private BFF authority evidence
+      - name: Upload private BFF remediation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pc-crop-01b4-private-bff-${{ env.EXACT_HEAD }}
+          name: pc-crop-01b4-postmerge-remediation-${{ env.EXACT_HEAD }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90
@@ -249,5 +268,5 @@ jobs:
     runs-on: ubuntu-24.04
     needs: private-bff-contract
     steps:
-      - name: Enforce private BFF authority result
+      - name: Enforce private BFF remediation result
         run: test "${{ needs.private-bff-contract.result }}" = success

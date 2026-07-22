@@ -313,13 +313,16 @@ export function parseCommodityProfilePage(
     const aggregateVersion = requiredString(profile, 'version', 20);
     const updatedAt = requiredString(profile, 'updatedAt', 80);
     const updatedByUserId = requiredString(profile, 'updatedByUserId', 240);
-    const selected = record(profile.selectedVersion);
     if (
       !id || !canonicalCode || !archetype || !ARCHETYPES.has(archetype as CommodityArchetype)
       || !authoritativeNameRu || displayNameEn === undefined || displayNameZh === undefined
       || !aggregateVersion || !INTEGER_STRING.test(aggregateVersion)
-      || !updatedAt || !updatedByUserId || !selected
+      || !updatedAt || !updatedByUserId
     ) return null;
+
+    if (profile.selectedVersion === null) continue;
+    const selected = record(profile.selectedVersion);
+    if (!selected) return null;
 
     const versionId = requiredString(selected, 'id', 240);
     const sequence = selected.sequence;
@@ -377,6 +380,46 @@ export function parseCommodityProfilePage(
   }
 
   return { items, nextCursor };
+}
+
+export const COMMODITY_PROFILE_REGISTRY_MAX_PAGES = 20;
+export const COMMODITY_PROFILE_REGISTRY_MAX_ITEMS = 2_000;
+
+export async function collectCommodityProfilePages(
+  loadPage: (cursor: string | null) => Promise<unknown>,
+  locale: CommodityProfileLocale,
+  limits: Readonly<{ maxPages?: number; maxItems?: number }> = {},
+): Promise<CommodityProfileRegistryRecord[] | null> {
+  const maxPages = limits.maxPages ?? COMMODITY_PROFILE_REGISTRY_MAX_PAGES;
+  const maxItems = limits.maxItems ?? COMMODITY_PROFILE_REGISTRY_MAX_ITEMS;
+  if (!Number.isInteger(maxPages) || maxPages < 1 || !Number.isInteger(maxItems) || maxItems < 1) {
+    return null;
+  }
+
+  const records = new Map<string, CommodityProfileRegistryRecord>();
+  const seenCursors = new Set<string>();
+  let observedItems = 0;
+  let cursor: string | null = null;
+
+  for (let pageNumber = 0; pageNumber < maxPages; pageNumber += 1) {
+    const page = parseCommodityProfilePage(await loadPage(cursor), locale);
+    if (!page) return null;
+    observedItems += page.items.length;
+    if (observedItems > maxItems) return null;
+
+    for (const item of page.items) {
+      const existing = records.get(item.id);
+      if (existing && JSON.stringify(existing) !== JSON.stringify(item)) return null;
+      if (!existing) records.set(item.id, item);
+    }
+
+    if (page.nextCursor === null) return [...records.values()];
+    if (seenCursors.has(page.nextCursor)) return null;
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+
+  return null;
 }
 
 export function parseCommodityProfileHistory(payload: unknown): ParsedCommodityProfileHistory | null {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  collectCommodityProfilePages,
   parseCommodityProfileHistory,
   parseCommodityProfilePage,
   withCommodityProfileHistory,
@@ -71,6 +72,22 @@ const profile = {
   },
 };
 
+const secondProfile = {
+  ...profile,
+  id: 'profile-barley-1',
+  canonicalCode: 'BARLEY.FOOD',
+  authoritativeNameRu: 'Ячмень продовольственный',
+  displayNameEn: 'Food barley',
+  displayNameZh: '食用大麦',
+  version: '3',
+  selectedVersion: {
+    ...profile.selectedVersion,
+    id: 'profile-version-barley-3',
+    sequence: 3,
+    contentHash: 'b'.repeat(64),
+  },
+};
+
 describe('commodity profile live adapter', () => {
   it('maps only authoritative server fields and server-selected action', () => {
     const parsed = parseCommodityProfilePage({ items: [profile], nextCursor: null }, 'ru');
@@ -99,6 +116,28 @@ describe('commodity profile live adapter', () => {
     });
   });
 
+  it('omits a valid versionless aggregate without invalidating valid rows', () => {
+    const versionless = {
+      ...profile,
+      id: 'profile-versionless-1',
+      canonicalCode: 'WHEAT.VERSIONLESS',
+      version: '1',
+      selectedVersion: null,
+    };
+    const parsed = parseCommodityProfilePage({
+      items: [versionless, profile],
+      nextCursor: null,
+    }, 'ru');
+    expect(parsed?.items.map((item) => item.id)).toEqual([profile.id]);
+  });
+
+  it('rejects malformed non-null selected versions', () => {
+    expect(parseCommodityProfilePage({
+      items: [{ ...profile, selectedVersion: 'malformed' }],
+      nextCursor: null,
+    }, 'ru')).toBeNull();
+  });
+
   it('rejects incomplete content instead of manufacturing defaults', () => {
     const invalid = structuredClone(profile);
     delete (invalid.selectedVersion.content as Partial<typeof profile.selectedVersion.content>).storage;
@@ -117,6 +156,46 @@ describe('commodity profile live adapter', () => {
       }],
       nextCursor: null,
     }, 'ru')).toBeNull();
+  });
+
+  it('collects all pages and deterministically deduplicates identical records', async () => {
+    const cursors: Array<string | null> = [];
+    const records = await collectCommodityProfilePages(async (cursor) => {
+      cursors.push(cursor);
+      if (cursor === null) return { items: [profile], nextCursor: 'cursor-2' };
+      if (cursor === 'cursor-2') return { items: [profile, secondProfile], nextCursor: null };
+      throw new Error('unexpected cursor');
+    }, 'ru');
+
+    expect(cursors).toEqual([null, 'cursor-2']);
+    expect(records?.map((item) => item.id)).toEqual([profile.id, secondProfile.id]);
+  });
+
+  it('fails closed on a conflicting duplicate or invalid later page', async () => {
+    const conflicting = { ...profile, canonicalCode: 'WHEAT.CONFLICTING' };
+    await expect(collectCommodityProfilePages(async (cursor) => cursor === null
+      ? { items: [profile], nextCursor: 'next' }
+      : { items: [conflicting], nextCursor: null }, 'ru')).resolves.toBeNull();
+
+    await expect(collectCommodityProfilePages(async (cursor) => cursor === null
+      ? { items: [profile], nextCursor: 'next' }
+      : { items: 'invalid', nextCursor: null }, 'ru')).resolves.toBeNull();
+  });
+
+  it('fails closed on cursor cycles and hard page or item bounds', async () => {
+    await expect(collectCommodityProfilePages(async (cursor) => cursor === null
+      ? { items: [profile], nextCursor: 'cycle' }
+      : { items: [secondProfile], nextCursor: 'cycle' }, 'ru')).resolves.toBeNull();
+
+    await expect(collectCommodityProfilePages(async () => ({
+      items: [profile],
+      nextCursor: 'more',
+    }), 'ru', { maxPages: 1 })).resolves.toBeNull();
+
+    await expect(collectCommodityProfilePages(async () => ({
+      items: [profile, secondProfile],
+      nextCursor: null,
+    }), 'ru', { maxItems: 1 })).resolves.toBeNull();
   });
 
   it('binds authoritative history actors and reasons to the selected record', () => {

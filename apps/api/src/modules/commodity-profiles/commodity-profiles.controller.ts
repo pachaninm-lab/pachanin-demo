@@ -24,6 +24,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
 import {
   StaffAccessMode,
+  StaffPermission,
   type StaffAccessContext,
 } from '../staff-access/staff-access.types';
 import { CommodityProfileCommandValidationError } from './commodity-profile-command.contract';
@@ -92,8 +93,22 @@ function etag(version: string): string {
   return `"${version}"`;
 }
 
-function hasJitAuthority(request: AuthenticatedRequest): boolean {
-  return request.staffAccess?.accessMode === StaffAccessMode.JIT_PRIVILEGED;
+function hasJitAuthority(user: RequestUser, request: AuthenticatedRequest): boolean {
+  const access = request.staffAccess;
+  if (!access || access.accessMode !== StaffAccessMode.JIT_PRIVILEGED) return false;
+  if (access.actorUserId !== user.id) return false;
+  if (!(access.expiresAt instanceof Date) || access.expiresAt.getTime() <= Date.now()) return false;
+  if (!Array.isArray(access.permissions)
+    || !access.permissions.includes(StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE)) {
+    return false;
+  }
+  if (access.effectiveTenantId === null && access.effectiveOrganizationId === null) return false;
+  if (access.effectiveTenantId !== null && access.effectiveTenantId !== user.tenantId) return false;
+  if (access.effectiveOrganizationId !== null && access.effectiveOrganizationId !== user.orgId) return false;
+  if (access.effectiveUserId !== null || access.effectiveRole !== null || access.targetDealId != null) {
+    return false;
+  }
+  return true;
 }
 
 function conflictPayload(error: ConflictException): Record<string, unknown> | null {
@@ -157,7 +172,7 @@ export class CommodityProfilesController {
         sourceStatus: query.sourceStatus,
         search: query.search,
         effectiveAt: query.effectiveAt,
-        hasJitAuthority: hasJitAuthority(request),
+        hasJitAuthority: hasJitAuthority(user, request),
       });
     } catch (error) {
       return rethrowQueryError(error);
@@ -183,7 +198,7 @@ export class CommodityProfilesController {
       const result = await this.historyRepository.list(user, profileId, {
         limit: query.limit,
         cursor: query.cursor,
-        hasJitAuthority: hasJitAuthority(request),
+        hasJitAuthority: hasJitAuthority(user, request),
       });
       response.setHeader('ETag', etag(result.aggregateVersion));
       response.setHeader('Cache-Control', 'private, no-store');
@@ -212,7 +227,7 @@ export class CommodityProfilesController {
       const result = await this.repository.getById(user, profileId, {
         versionId: query.versionId,
         effectiveAt: query.effectiveAt,
-        hasJitAuthority: hasJitAuthority(request),
+        hasJitAuthority: hasJitAuthority(user, request),
       });
       response.setHeader('ETag', etag(result.version));
       response.setHeader('Cache-Control', 'private, no-store');
@@ -240,7 +255,7 @@ export class CommodityProfilesController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const jit = hasJitAuthority(request);
+    const jit = hasJitAuthority(user, request);
     try {
       const receipt = await this.commands.execute(
         user,

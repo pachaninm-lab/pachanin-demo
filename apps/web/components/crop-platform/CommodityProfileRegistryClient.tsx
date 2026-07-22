@@ -8,6 +8,7 @@ import {
   type CommodityProfileRegistryRecord,
 } from './CommodityProfileRegistryView';
 import {
+  collectCommodityProfilePages,
   parseCommodityProfileHistory,
   parseCommodityProfilePage,
   withCommodityProfileHistory,
@@ -211,39 +212,56 @@ export function CommodityProfileRegistryClient({
     }
 
     try {
-      const path = initialProfileId
-        ? `/${encodeURIComponent(initialProfileId)}`
-        : '?limit=100';
-      const response = await staffAwareGet(path, controller.signal);
-      const payload = await readJson(response);
-      if (requestId !== requestSequence.current) return;
-      if (!response.ok) {
-        const phase = responsePhase(response.status);
-        setLiveState(phase);
-        setState({
-          phase,
-          records: [],
-          selectedProfileId: initialProfileId,
-          message: payloadMessage(payload) ?? (phase === 'forbidden' ? copy.accessDenied : phase === 'conflict' ? copy.conflict : copy.loadFailed),
-        });
-        return;
+      let registryRecords: CommodityProfileRegistryRecord[] | null;
+      if (initialProfileId) {
+        const response = await staffAwareGet(`/${encodeURIComponent(initialProfileId)}`, controller.signal);
+        const payload = await readJson(response);
+        if (requestId !== requestSequence.current) return;
+        if (!response.ok) {
+          const phase = responsePhase(response.status);
+          setLiveState(phase);
+          setState({
+            phase,
+            records: [],
+            selectedProfileId: initialProfileId,
+            message: payloadMessage(payload) ?? (phase === 'forbidden' ? copy.accessDenied : phase === 'conflict' ? copy.conflict : copy.loadFailed),
+          });
+          return;
+        }
+        registryRecords = parseCommodityProfilePage({ items: [payload], nextCursor: null }, locale)?.items ?? null;
+      } else {
+        registryRecords = await collectCommodityProfilePages(async (cursor) => {
+          if (requestId !== requestSequence.current) {
+            throw new DOMException('Superseded request', 'AbortError');
+          }
+          const path = cursor === null
+            ? '?limit=100'
+            : `?limit=100&cursor=${encodeURIComponent(cursor)}`;
+          const response = await staffAwareGet(path, controller.signal);
+          const payload = await readJson(response);
+          if (!response.ok) {
+            const error = new Error(payloadMessage(payload) ?? copy.loadFailed) as Error & { status?: number };
+            error.status = response.status;
+            throw error;
+          }
+          return payload;
+        }, locale);
       }
 
-      const pagePayload = initialProfileId ? { items: [payload], nextCursor: null } : payload;
-      const page = parseCommodityProfilePage(pagePayload, locale);
-      if (!page) {
+      if (requestId !== requestSequence.current) return;
+      if (!registryRecords) {
         setLiveState('error');
         setState({ phase: 'error', records: [], selectedProfileId: initialProfileId, message: copy.invalidPayload });
         return;
       }
-      if (page.items.length === 0) {
+      if (registryRecords.length === 0) {
         setLiveState('empty');
         setState({ phase: 'empty', records: [], selectedProfileId: '', message: '' });
         return;
       }
 
-      const selectedProfileId = initialProfileId || page.items[0]!.id;
-      const records = await loadHistory(selectedProfileId, page.items, controller.signal);
+      const selectedProfileId = initialProfileId || registryRecords[0]!.id;
+      const records = await loadHistory(selectedProfileId, registryRecords, controller.signal);
       if (requestId !== requestSequence.current) return;
       if (!records) throw new Error(copy.invalidPayload);
       setLiveState('ready');

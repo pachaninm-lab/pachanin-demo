@@ -67,8 +67,11 @@ jobs:
           # PC-CROP-01B.4 owns its exact successor diff in pc-crop-01b4.yml.
           # The foundation verifier still checks every frozen 01A invariant, but
           # sees an empty synthetic diff so it cannot falsely claim ownership of
-          # new BFF/UI files from the accepted successor scope.
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.head_ref }}" == "agent/pc-crop-01b4-private-bff-live-registry" ]]; then
+          # new BFF/UI files from an accepted successor scope.
+          if [[ "${{ github.event_name }}" == "pull_request" && ( \
+            "${{ github.head_ref }}" == "agent/pc-crop-01b4-private-bff-live-registry" || \
+            "${{ github.head_ref }}" == "agent/pc-crop-01b4-postmerge-remediation" \
+          ) ]]; then
             git update-ref refs/remotes/origin/main HEAD
           fi
           node scripts/verify-pc-crop-01a.mjs --output pc-crop-01a-acceptance.json
