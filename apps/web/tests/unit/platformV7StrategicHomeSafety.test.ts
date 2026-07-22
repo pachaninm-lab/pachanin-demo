@@ -13,6 +13,7 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const roleScenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
   const rootLoading = read('app/loading.tsx');
+  const publicAuthorityPage = read('app/pc-public-entry/platform-v7/page.tsx');
   const acceptanceConfig = read('playwright.acceptance.config.ts');
   const lighthouseConfig = read('lighthouserc.cjs');
   const lighthouseWorkflow = read('../../.github/workflows/platform-v7-strategic-home-lighthouse.yml');
@@ -130,6 +131,17 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(scopeManifest.acceptanceEvidence?.requiredBoundaries).toContain('no-JavaScript intake fails closed');
   });
 
+  it('emits SEO metadata on the actual public authority route', () => {
+    expect(publicAuthorityPage).toContain('export const metadata: Metadata =');
+    expect(publicAuthorityPage).toContain("description: 'Единый цифровой контур Сделки:");
+    expect(publicAuthorityPage).toContain("canonical: '/platform-v7'");
+    expect(publicAuthorityPage).toContain("ru: '/platform-v7?lang=ru'");
+    expect(publicAuthorityPage).toContain("en: '/platform-v7?lang=en'");
+    expect(publicAuthorityPage).toContain("zh: '/platform-v7?lang=zh'");
+    expect(publicAuthorityPage).toContain('index: true');
+    expect(publicAuthorityPage).toContain('follow: true');
+  });
+
   it('collects pinned private Lighthouse evidence without presenting it as live VPS proof', () => {
     expect(lighthouseWorkflow).toContain('pnpm dlx @lhci/cli@0.15.1 autorun');
     expect(lighthouseWorkflow).toContain('matrix:');
@@ -142,9 +154,13 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(lighthouseConfig).toContain("target: 'filesystem'");
     expect(lighthouseConfig).toContain('numberOfRuns: 3');
     expect(lighthouseConfig).toContain("url: ['http://127.0.0.1:3000/platform-v7?lang=ru']");
-    expect(lighthouseConfig).toContain("'categories:accessibility': ['error'");
-    expect(lighthouseConfig).toContain("'categories:performance': ['warn'");
+    expect(lighthouseConfig).toContain("'categories:performance': ['error', { minScore: 0.85");
+    expect(lighthouseConfig).toContain("'categories:accessibility': ['error', { minScore: 0.95");
+    expect(lighthouseConfig).toContain("'categories:seo': ['error', { minScore: 0.95");
+    expect(lighthouseConfig).toContain("'largest-contentful-paint': ['error', { maxNumericValue: 3000");
+    expect(lighthouseConfig).toContain("'cumulative-layout-shift': ['error', { maxNumericValue: 0.05");
 
+    expect(lighthouseSummary).toContain('function isReportCandidate');
     expect(lighthouseSummary).toContain("source: 'local-production-build'");
     expect(lighthouseSummary).toContain('productionEvidence: false');
     expect(scopeManifest.acceptanceEvidence?.lighthouseModes).toEqual(['mobile', 'desktop']);
