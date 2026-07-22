@@ -17,14 +17,14 @@ module.exports = {
     },
     assert: {
       assertions: {
-        'categories:performance': ['warn', { minScore: 0.6, aggregationMethod: 'median-run' }],
-        'categories:accessibility': ['error', { minScore: 0.9, aggregationMethod: 'median-run' }],
-        'categories:best-practices': ['error', { minScore: 0.85, aggregationMethod: 'median-run' }],
-        'categories:seo': ['error', { minScore: 0.9, aggregationMethod: 'median-run' }],
-        'first-contentful-paint': ['warn', { maxNumericValue: 3000, aggregationMethod: 'median-run' }],
-        'largest-contentful-paint': ['warn', { maxNumericValue: 4000, aggregationMethod: 'median-run' }],
-        'total-blocking-time': ['warn', { maxNumericValue: 500, aggregationMethod: 'median-run' }],
-        'cumulative-layout-shift': ['error', { maxNumericValue: 0.1, aggregationMethod: 'median-run' }],
+        'categories:performance': ['error', { minScore: 0.85, aggregationMethod: 'median-run' }],
+        'categories:accessibility': ['error', { minScore: 0.95, aggregationMethod: 'median-run' }],
+        'categories:best-practices': ['error', { minScore: 0.95, aggregationMethod: 'median-run' }],
+        'categories:seo': ['error', { minScore: 0.95, aggregationMethod: 'median-run' }],
+        'first-contentful-paint': ['error', { maxNumericValue: 2500, aggregationMethod: 'median-run' }],
+        'largest-contentful-paint': ['error', { maxNumericValue: 3000, aggregationMethod: 'median-run' }],
+        'total-blocking-time': ['error', { maxNumericValue: 300, aggregationMethod: 'median-run' }],
+        'cumulative-layout-shift': ['error', { maxNumericValue: 0.05, aggregationMethod: 'median-run' }],
         'document-title': 'error',
         'meta-description': 'error',
         'html-has-lang': 'error',
@@ -35,7 +35,7 @@ module.exports = {
     upload: {
       target: 'filesystem',
       outputDir: `./lighthouseci-artifacts/${mode}`,
-      reportFilenamePattern: '%%PATHNAME%%-%%DATETIME%%-%%EXTENSION%%',
+      reportFilenamePattern: '%%PATHNAME%%-%%DATETIME%%.%%EXTENSION%%',
     },
   },
 };
