@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - ops/public-entry-watch-20260722
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
