@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   public-entry-watch:
@@ -24,6 +25,8 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Run production browser and fail-closed checks
+        id: smoke
+        continue-on-error: true
         working-directory: apps/web
         env:
           WATCH_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
@@ -37,3 +40,32 @@ jobs:
           path: artifacts/prod-public-entry-watch
           if-no-files-found: error
           retention-days: 7
+      - name: Publish compact watch result
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- prod-public-entry-watch-20260721 -->';
+            let report = { cases: [], failClosed: [], failures: ['report.json was not produced'] };
+            const reportPath = 'artifacts/prod-public-entry-watch/report.json';
+            if (fs.existsSync(reportPath)) report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            const summary = {
+              generatedAt: report.generatedAt,
+              cases: Array.isArray(report.cases) ? report.cases.length : 0,
+              failClosed: Array.isArray(report.failClosed) ? report.failClosed.length : 0,
+              failures: Array.isArray(report.failures) ? report.failures : ['invalid report'],
+            };
+            const body = `${marker}\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``;
+            const { data: comments } = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, per_page: 100 });
+            const existing = comments.find((comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
+      - name: Enforce watch result
+        if: always()
+        shell: bash
+        run: |
+          node -e "const fs=require('fs');const p='artifacts/prod-public-entry-watch/report.json';if(!fs.existsSync(p))process.exit(1);const r=JSON.parse(fs.readFileSync(p));if((r.failures||[]).length)process.exit(1)"
