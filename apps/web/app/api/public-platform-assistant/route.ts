@@ -36,7 +36,18 @@ type Readiness = Readonly<{
   admission: Readonly<{ status: 'READ_ONLY_ADMITTED'; evidenceSha256: string }>;
 }>;
 
-type PublicGrounding = ReturnType<typeof answerPublicPlatformQuestion>;
+type PublicGrounding = Readonly<{
+  knowledgeVersion: string;
+  topic: string;
+  title: string;
+  answer: string;
+  facts: readonly string[];
+  maturity: string;
+  confidence: 'medium' | 'high';
+  actionAllowed: false;
+  sources: readonly Readonly<{ label: string; href: string }>[];
+  suggestions: readonly string[];
+}>;
 
 function localeFrom(value: unknown): PublicAssistantLocale {
   return value === 'en' || value === 'zh' ? value : 'ru';
