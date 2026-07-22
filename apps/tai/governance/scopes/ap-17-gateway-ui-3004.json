@@ -3,7 +3,7 @@
   "program_issue": 2726,
   "issue": 3004,
   "branch": "agent/tai-gateway-ui-readonly-3004",
-  "exact_base": "3270b89774f386d3a50935a967fc875d9e43486f",
+  "exact_base": "ac2be31a054c705bc11c56ee01d73bf6800574b6",
   "allowed_paths": [
     ".env.example",
     ".github/workflows/tai-gateway-ui-readonly-binding.yml",
