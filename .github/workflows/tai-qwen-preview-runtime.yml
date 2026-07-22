@@ -1,119 +1,133 @@
-name: TAI Qwen preview runtime implementation bootstrap
+name: TAI Qwen Read-Only Preview Runtime
 
 on:
-  push:
-    branches:
-      - agent/tai-ap-13c1f-qwen-preview-runtime
-    paths:
-      - .github/workflows/tai-qwen-preview-runtime.yml
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-    paths:
-      - .github/workflows/tai-qwen-preview-runtime.yml
+  issue_comment:
+    types: [created]
 
 permissions:
-  contents: write
+  actions: read
+  contents: read
   issues: write
 
 concurrency:
-  group: tai-qwen-preview-runtime-bootstrap
+  group: tai-qwen-read-only-preview-runtime
   cancel-in-progress: false
 
 jobs:
-  implement:
-    if: github.event_name == 'push' || github.head_ref == 'agent/tai-ap-13c1f-qwen-preview-runtime'
+  preview:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 3003 &&
+      github.event.comment.body == '/tai run qwen read-only preview exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 60
     env:
       GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: agent/tai-ap-13c1f-qwen-preview-runtime
-          fetch-depth: 0
-      - name: Restore exact governed implementation payload
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          trap 'code=$?; gh issue comment 3014 --repo "$GITHUB_REPOSITORY" --body "Qwen runtime bootstrap failed before protected access (exit ${code}). No model, SSH or TAI_MODEL_* secret was used." || true; exit "$code"' ERR
-          git fetch origin agent/tai-ap-13c1f-qwen-preview-runtime
-          git reset --hard origin/agent/tai-ap-13c1f-qwen-preview-runtime
-          gh api --paginate --slurp \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "repos/$GITHUB_REPOSITORY/issues/3014/comments?per_page=100" > /tmp/comment-pages.json
-          python - <<'PY'
-          import base64
-          import hashlib
-          import json
-          import tarfile
-          from pathlib import Path
 
-          pages = json.loads(Path('/tmp/comment-pages.json').read_text())
-          comments = [comment for page in pages for comment in page]
-          prefix = 'TAI_QWEN_RUNTIME_PAYLOAD_V1_PART_'
-          parts: dict[int, str] = {}
-          for comment in comments:
-              body = comment.get('body', '')
-              if not body.startswith(prefix):
-                  continue
-              header, payload = body.split('\n', 1)
-              part = int(header.removeprefix(prefix).split('_OF_')[0])
-              parts[part] = ''.join(payload.split())
-          assert set(parts) == {1, 2, 3, 4}, sorted(parts)
-          encoded = ''.join(parts[index] for index in range(1, 5))
-          assert hashlib.sha256(encoded.encode()).hexdigest() == '86e29f52f79caa64c0a28d4264088ad8e6190cea605753e71a6b1bf0f82378e9'
-          archive = Path('/tmp/qwen-runtime-payload.tar.gz')
-          archive.write_bytes(base64.b64decode(encoded, validate=True))
-          assert hashlib.sha256(archive.read_bytes()).hexdigest() == 'b148c1d1f2566b8fc6c154ea464835b246d4113ee89fd31c16a271408ca794de'
-          expected = {
-              '.github/workflows/tai-qwen-preview-runtime.yml',
-              'apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json',
-              'apps/tai/model-artifacts/qwen-preview-runtime.schema.v1.json',
-              'apps/tai/model-artifacts/qwen-preview-runtime.pending.json',
-              'apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md',
-              'apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh',
-              'apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh',
-              'apps/tai/tai/qwen_preview_runtime.py',
-              'apps/tai/tai/qwen_preview_runtime_cli.py',
-              'apps/tai/tests/qwen_preview_runtime_fixtures.py',
-              'apps/tai/tests/test_qwen_preview_runtime.py',
-              'apps/tai/tests/test_qwen_preview_runtime_cli.py',
-              'apps/tai/tests/test_qwen_preview_runtime_workflow.py',
-          }
-          with tarfile.open(archive, 'r:gz') as stream:
-              files = {item.name.lstrip('./') for item in stream.getmembers() if item.isfile()}
-              assert files == expected, (files - expected, expected - files)
-              for item in stream.getmembers():
-                  path = Path(item.name)
-                  assert not path.is_absolute() and '..' not in path.parts
-                  assert not item.issym() and not item.islnk()
-              stream.extractall('.', filter='data')
-          PY
-      - name: Validate and publish implementation
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact-main immutable checkout
         shell: bash
         run: |
-          set -Eeuo pipefail
-          trap 'code=$?; gh issue comment 3014 --repo "$GITHUB_REPOSITORY" --body "Qwen runtime implementation validation or publication failed before protected execution (exit ${code}). No model, SSH or TAI_MODEL_* secret was used." || true; exit "$code"' ERR
-          chmod 700 apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI runtime authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e 'apps/tai[dev]'
+
+      - name: Validate authority before protected access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m tai.qwen_preview_runtime_cli validate-authority \
+            apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json \
+            --output qwen-preview-authority-validation.json
+          python -m ruff check \
+            apps/tai/tai/qwen_preview_runtime.py \
+            apps/tai/tai/qwen_preview_runtime_cli.py \
+            apps/tai/tests/qwen_preview_runtime_fixtures.py \
+            apps/tai/tests/test_qwen_preview_runtime.py \
+            apps/tai/tests/test_qwen_preview_runtime_cli.py \
+            apps/tai/tests/test_qwen_preview_runtime_workflow.py
+          python -m mypy --strict \
+            apps/tai/tai/qwen_preview_runtime.py \
+            apps/tai/tai/qwen_preview_runtime_cli.py
+          python -m pytest \
+            apps/tai/tests/test_qwen_preview_runtime.py \
+            apps/tai/tests/test_qwen_preview_runtime_cli.py \
+            apps/tai/tests/test_qwen_preview_runtime_workflow.py
           bash -n apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
           bash -n apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh
-          python -m compileall -q apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py apps/tai/tests/qwen_preview_runtime_fixtures.py apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
-          python -m pip install -q -e 'apps/tai[dev]'
-          python -m ruff check apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py apps/tai/tests/qwen_preview_runtime_fixtures.py apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
-          python -m mypy --strict apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py
-          python -m pytest -q apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
-          GITHUB_HEAD_REF=agent/tai-ap-13c1f-qwen-preview-runtime bash scripts/p7-autopilot-guard.sh
-          git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/tai-qwen-preview-runtime.yml apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json apps/tai/model-artifacts/qwen-preview-runtime.schema.v1.json apps/tai/model-artifacts/qwen-preview-runtime.pending.json apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh apps/tai/tai/qwen_preview_runtime.py apps/tai/tai/qwen_preview_runtime_cli.py apps/tai/tests/qwen_preview_runtime_fixtures.py apps/tai/tests/test_qwen_preview_runtime.py apps/tai/tests/test_qwen_preview_runtime_cli.py apps/tai/tests/test_qwen_preview_runtime_workflow.py
-          if git diff --cached --quiet; then
-            gh issue comment 3014 --repo "$GITHUB_REPOSITORY" --body 'Qwen runtime implementation payload is already published; protected execution has not run.'
-            exit 0
+
+      - name: Execute governed dedicated-host Qwen preview
+        shell: bash
+        env:
+          TAI_MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+          TAI_MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+          TAI_MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+          TAI_MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+        run: bash apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
+
+      - name: Upload bounded preview evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-qwen-preview-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            qwen-preview-authority-validation.json
+            qwen-preview-evidence/qwen-preview-runtime-evidence.json
+            qwen-preview-evidence/verified-report.json
+            apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded preview summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! -s qwen-preview-summary.md ]]; then
+            printf '%s\n' \
+              '## TAI Qwen read-only operational preview' \
+              '' \
+              "- exact-main: \`$GITHUB_SHA\`;" \
+              "- workflow run: \`$GITHUB_RUN_ID\` / attempt \`$GITHUB_RUN_ATTEMPT\`;" \
+              '- result: `FAILED_CLOSED`;' \
+              '- benchmark: `PENDING_BENCHMARK`;' \
+              '- model admission: `PENDING_ADMISSION`;' \
+              '- routing/UI/deployment: `NOT_ACTIVATED`;' \
+              '- production operational status: `NOT_ATTESTED`.' \
+              > qwen-preview-summary.md
           fi
-          git commit -m 'feat(tai): add governed Qwen preview runtime'
-          git push origin HEAD:agent/tai-ap-13c1f-qwen-preview-runtime
-          gh issue comment 3014 --repo "$GITHUB_REPOSITORY" --body "Qwen runtime implementation published at $(git rev-parse HEAD). Protected model execution has not run."
+          jq -n --rawfile body qwen-preview-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/3003/comments" --input -
