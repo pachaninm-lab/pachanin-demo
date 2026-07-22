@@ -50,11 +50,20 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install audited Chromium runtime
+      - name: Resolve Chrome runtime
         working-directory: apps/web
         run: |
-          pnpm exec playwright install --with-deps chromium
-          echo "CHROME_PATH=$(node -e \"console.log(require('@playwright/test').chromium.executablePath())\")" >> "$GITHUB_ENV"
+          CHROME_PATH="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          if [ -z "$CHROME_PATH" ]; then
+            pnpm exec playwright install --with-deps chromium
+            CHROME_PATH="$(find "$HOME/.cache/ms-playwright" -type f \( -name chrome -o -name headless_shell \) -perm -111 | head -n 1)"
+          fi
+          if [ -z "$CHROME_PATH" ] || [ ! -x "$CHROME_PATH" ]; then
+            echo 'No executable Chrome runtime was resolved.' >&2
+            exit 1
+          fi
+          "$CHROME_PATH" --version
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
       - name: Build production web bundle
         run: pnpm --filter @pc/web build
       - name: Collect and assert Lighthouse evidence
