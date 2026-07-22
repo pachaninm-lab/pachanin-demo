@@ -12,6 +12,7 @@ const SHARED_PATHS = [
   '/platform-v7/contact',
   '/platform-v7/notifications',
   '/platform-v7/api-docs',
+  '/platform-v7/commodity-profiles',
 ];
 const INTERNAL_OVERSIGHT_ROUTES = ['/platform-v7/support'];
 const NON_CORE_OVERSIGHT_ROUTES = ['/platform-v7/investor'];

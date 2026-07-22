@@ -196,3 +196,25 @@ export function deriveCommodityProfileActions(
     };
   });
 }
+
+/**
+ * The client receives one server-selected lifecycle action. An allowed action wins;
+ * otherwise the first lifecycle-relevant denial is returned so the UI can explain
+ * why the current user cannot proceed without reconstructing permissions locally.
+ */
+export function deriveCommodityProfilePrimaryAction(
+  user: RequestUser,
+  lifecycle: CommodityProfileLifecycle,
+  classification: CommodityProfileClassification,
+  hasJitAuthority: boolean,
+): ServerDerivedAction | null {
+  const actions = deriveCommodityProfileActions(
+    user,
+    lifecycle,
+    classification,
+    hasJitAuthority,
+  );
+  return actions.find((action) => action.allowed)
+    ?? actions.find((action) => action.reasonCode !== 'INVALID_LIFECYCLE_ACTION')
+    ?? null;
+}
