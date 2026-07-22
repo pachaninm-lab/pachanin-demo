@@ -5,6 +5,7 @@
   "allowedPaths": [
     ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
     "apps/web/app/loading.tsx",
+    "apps/web/app/pc-public-entry/platform-v7/page.tsx",
     "apps/web/app/platform-v7/page.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
@@ -45,6 +46,7 @@
       "no-JavaScript intake fails closed",
       "root no-JavaScript fallback exposes no personal-data fields",
       "form-open analytics is separate from validated request submission",
+      "public authority route emits title description canonical hreflang and crawlability metadata",
       "Lighthouse evidence is collected from a local production build and is not represented as live VPS evidence",
       "Lighthouse CLI version is pinned and reports are uploaded only as private GitHub Actions artifacts"
     ]
