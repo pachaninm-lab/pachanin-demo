@@ -1,3 +1,5 @@
+@import url('/platform-v7-density-fix.css');
+
 /* Public /platform-v7 mobile hardening: keep the fixed header below iOS safe area and remove the white dead-zone after the first control card. */
 .pc-v7-public-entry{
   --entry-public-header-offset:env(safe-area-inset-top,0px);
