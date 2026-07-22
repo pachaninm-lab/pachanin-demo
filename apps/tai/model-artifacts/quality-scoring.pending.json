@@ -1,0 +1,17 @@
+{
+  "annotations": [],
+  "authority_sha256": null,
+  "benchmark_status": "PENDING_BENCHMARK",
+  "exact_main": null,
+  "lifecycle": "PENDING_HUMAN_SCORING",
+  "manifest_sha256": "a61978272de31215729fe63689527d75b06d78b468a9c68d9e46b7ebe3e30095",
+  "model_admission_status": "PENDING_ADMISSION",
+  "observation_index_sha256": null,
+  "pending_reason": "Real external CPU runtime observations and independent human quality annotations are not yet available.",
+  "production_operational_status": "NOT_ATTESTED",
+  "quality_scoring_status": "PENDING_QUALITY_SCORING",
+  "runtime_report_sha256": null,
+  "schema_version": "tai.quality-scoring-evidence.v1",
+  "scored_at": null,
+  "storage": null
+}

@@ -36,5 +36,22 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         "generic-api-key:11",
         "d4f147c04c64b7565f11288b3b545c97340d7899:"
         "apps/tai/model-artifacts/model-conversion-authority.v1.json:generic-api-key:91",
+        "387c77b28f89b467080371c3e55cbf376acdd28e:"
+        "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json:"
+        "generic-api-key:75",
+        "d84b7faadf1b430e549850ccc5cce82a03d52d99:"
+        "apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json:"
+        "generic-api-key:67",
+        "ecdc1130ca1bc424f3ccecb072115e304722c971:"
+        "apps/tai/tai/cpu_benchmark_execution.py:generic-api-key:413",
+        "14f03a7cc036251ed9bafcf52d0b3f9107d3eedb:"
+        "apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json:"
+        "generic-api-key:85",
+        "14a80f93f2719a6fbf4edcf689ddfdf787430ec4:"
+        "apps/tai/tests/test_cpu_runtime_evidence.py:generic-api-key:407",
+        "58d22ac80dc1daf7ed62b38daccce77a3aabbcf4:"
+        "apps/tai/tai/cpu_runtime_evidence.py:generic-api-key:52",
+        "20109ee68ff5f1c69eb858d089460ba5d569456d:"
+        "apps/tai/tai/cpu_runtime_contract.py:generic-api-key:51",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)

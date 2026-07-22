@@ -1,0 +1,42 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "issue": 2993,
+  "branch": "agent/tai-ap-13c1d-quality-scoring-authority",
+  "allowed_paths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "apps/tai/governance/scopes/ap-13c1d-quality-scoring-2993.json",
+    "apps/tai/model-artifacts/quality-scoring-authority.v1.json",
+    "apps/tai/model-artifacts/quality-scoring-evidence.schema.v1.json",
+    "apps/tai/model-artifacts/quality-scoring.pending.json",
+    "apps/tai/model-artifacts/quality-scoring-runbook.v1.md",
+    "apps/tai/tai/quality_scoring_contract.py",
+    "apps/tai/tai/quality_scoring_inputs.py",
+    "apps/tai/tai/quality_scoring_annotations.py",
+    "apps/tai/tai/quality_scoring.py",
+    "apps/tai/tai/quality_scoring_cli.py",
+    "apps/tai/tests/quality_scoring_fixtures.py",
+    "apps/tai/tests/test_quality_scoring_authority.py",
+    "apps/tai/tests/test_quality_scoring_cli.py"
+  ],
+  "acceptance": [
+    "the branch is registered in authoritative approvedConcurrentScopes before merge",
+    "quality is scored only from exact AP-13C.1c raw-observation digests and accepted AP-14C case authority",
+    "LLM-as-judge and accuracy inference from runtime success are forbidden",
+    "all 348 model-case-locale observations require complete human annotation coverage",
+    "normal observations require the domain primary scorer and critical observations require an independent secondary scorer",
+    "stale digests, duplicate identities, disagreement, incomplete coverage, unsupported facts, safety failures and invalid citations fail closed",
+    "per-model platform accuracy is at least 95 percent and agro accuracy is at least 90 percent",
+    "raw answers, reviewer notes and reviewer evidence remain outside Git and GitHub artifacts",
+    "a successful result remains pending benchmark finalization and cannot create model admission",
+    "production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "automated human decisions, fabricated scorer identity or fabricated evidence digest",
+    "LLM-as-judge, unbounded free-form scoring or runtime-derived semantic accuracy",
+    "raw prompt, response, reviewer notes or reviewer evidence in Git",
+    "open disagreement, same-reviewer critical approval or incomplete model-locale coverage",
+    "GPU benchmark, benchmark finalization, model admission, activation, deployment or production attestation"
+  ]
+}

@@ -21,7 +21,6 @@ on:
 permissions:
   contents: read
   packages: read
-  issues: write
 
 concurrency:
   group: deploy-tai-p0-web-24277e0
@@ -51,6 +50,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Validate branch, target and trigger
         shell: bash
         run: |
@@ -62,6 +62,7 @@ jobs:
           grep -Fq "$TARGET_SHA" .github/workflows/deploy-ai-web-vps-c21eec0.yml
           grep -Fq 'DEPLOY-24277e0' .github/workflows/deploy-ai-web-vps-c21eec0.yml
           bash scripts/p7-autopilot-guard.sh
+
       - name: Verify exact canonical image exists
         env:
           GH_TOKEN: ${{ github.token }}
@@ -74,7 +75,7 @@ jobs:
           test "$actual" = "$TARGET_SHA"
 
   deploy-web:
-    name: Key-only targeted VPS web deployment and exact live verification
+    name: Hardened key-only VPS web deployment and exact live verification
     if: >-
       (
         github.event_name == 'push' &&
@@ -86,7 +87,7 @@ jobs:
         inputs.confirmation == 'DEPLOY-24277e0'
       )
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - name: Initialize release evidence
         shell: bash
@@ -98,58 +99,161 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > "$EVIDENCE_DIR/release-authority-sha.txt"
           printf '%s\n' "$GITHUB_EVENT_NAME" > "$EVIDENCE_DIR/release-event.txt"
 
-      - name: Wait for exact canonical GHCR image
+      - name: Verify exact canonical GHCR image
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-          for attempt in $(seq 1 90); do
+          for attempt in $(seq 1 18); do
             if docker pull "$EXACT_IMAGE" >/dev/null 2>&1; then
               actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE" 2>/dev/null || true)"
-              echo "Registry attempt $attempt/90: expected=$TARGET_SHA actual=${actual:-missing}"
+              echo "Registry attempt $attempt/18: expected=$TARGET_SHA actual=${actual:-missing}"
               if [[ "$actual" == "$TARGET_SHA" ]]; then
                 docker image inspect "$EXACT_IMAGE" > "$EVIDENCE_DIR/registry-image-inspect.json"
                 exit 0
               fi
             fi
-            sleep 10
+            sleep 5
           done
           echo 'Exact canonical web image is unavailable.' >&2
           exit 1
 
-      - name: Resolve key-only SSH transport and DNS authority
+      - name: Resolve and prove key-only SSH transport
         id: ssh
         shell: bash
         run: |
           set -euo pipefail
-          host="${SSH_HOST_SECRET:-$DEFAULT_HOST}"
-          user="${SSH_USER_SECRET:-root}"
-          port="${SSH_PORT_SECRET:-22}"
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-root}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
           key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
-          if [[ -z "$key" ]]; then
-            echo 'No protected key-only SSH credential is configured; production was not changed.' >&2
+
+          [[ -n "$key" ]] || {
+            echo 'PC_PROD_SSH_KEY or an approved fallback is not configured.' >&2
             exit 2
-          fi
-          [[ "$port" =~ ^[0-9]{1,5}$ ]]
-          [[ "$host" =~ ^[A-Za-z0-9._:-]+$ ]]
+          }
+          [[ "$host" == "$DEFAULT_HOST" ]] || {
+            echo 'Protected SSH host is not the canonical production VPS.' >&2
+            exit 3
+          }
+          [[ "$user" == 'root' ]] || {
+            echo 'Protected SSH user is not the accepted production principal.' >&2
+            exit 4
+          }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || {
+            echo 'Protected SSH port is invalid.' >&2
+            exit 5
+          }
 
-          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
-          host_ips="$(getent ahostsv4 "$host" | awk '{print $1}' | sort -u || true)"
-          if [[ -z "$host_ips" && "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            host_ips="$host"
-          fi
-          printf 'domain=%s\n%s\n\nhost=%s\n%s\n' "$LIVE_DOMAIN" "$domain_ips" "$host" "$host_ips" > "$EVIDENCE_DIR/dns-authority.txt"
-          [[ -n "$domain_ips" && -n "$host_ips" ]]
-          comm -12 <(printf '%s\n' "$domain_ips" | sort -u) <(printf '%s\n' "$host_ips" | sort -u) | grep -q .
-
-          mkdir -p "$HOME/.ssh"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
           chmod 700 "$HOME/.ssh"
-          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
-          printf '%s\n' "$key" > "$HOME/.ssh/id_pc_prod"
+          printf '%s\n' "$key" | tr -d '\r' > "$HOME/.ssh/id_pc_prod"
           chmod 600 "$HOME/.ssh/id_pc_prod"
+
+          public_key_tmp="$(mktemp)"
+          key_error_tmp="$(mktemp)"
+          if ! ssh-keygen -y -f "$HOME/.ssh/id_pc_prod" > "$public_key_tmp" 2> "$key_error_tmp"; then
+            printf 'invalid-open-ssh-private-key\n' > "$EVIDENCE_DIR/ssh-key-validation.txt"
+            rm -f "$public_key_tmp" "$key_error_tmp"
+            echo 'Protected SSH private key is not a valid OpenSSH private key.' >&2
+            exit 6
+          fi
+          ssh-keygen -lf "$public_key_tmp" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+          rm -f "$public_key_tmp" "$key_error_tmp"
+          cat "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+
+          dns_ok=0
+          for attempt in $(seq 1 12); do
+            domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+            host_ips="$DEFAULT_HOST"
+            printf 'attempt=%s\ndomain=%s\n%s\n\ncanonical-host=%s\n%s\n' \
+              "$attempt" "$LIVE_DOMAIN" "$domain_ips" "$DEFAULT_HOST" "$host_ips" \
+              > "$EVIDENCE_DIR/dns-authority.txt"
+            if [[ -n "$domain_ips" ]] &&
+              comm -12 <(printf '%s\n' "$domain_ips" | sort -u) \
+                <(printf '%s\n' "$host_ips" | sort -u) | grep -q .; then
+              dns_ok=1
+              break
+            fi
+            echo "DNS authority attempt $attempt/12 did not match yet."
+            sleep 5
+          done
+          (( dns_ok == 1 )) || {
+            cat "$EVIDENCE_DIR/dns-authority.txt" >&2
+            echo 'Canonical domain does not resolve to the canonical production VPS.' >&2
+            exit 7
+          }
+
+          : > "$HOME/.ssh/known_hosts"
+          keyscan_ok=0
+          for attempt in $(seq 1 12); do
+            keyscan_tmp="$(mktemp)"
+            if ssh-keyscan -T 10 -p "$port" -H "$host" > "$keyscan_tmp" 2>/dev/null &&
+              [[ -s "$keyscan_tmp" ]]; then
+              mv "$keyscan_tmp" "$HOME/.ssh/known_hosts"
+              keyscan_ok=1
+              printf 'success attempt=%s\n' "$attempt" > "$EVIDENCE_DIR/ssh-keyscan-status.txt"
+              break
+            fi
+            rm -f "$keyscan_tmp"
+            echo "SSH keyscan attempt $attempt/12 failed; retrying."
+            sleep 5
+          done
+          (( keyscan_ok == 1 )) || {
+            printf 'failed attempts=12\n' > "$EVIDENCE_DIR/ssh-keyscan-status.txt"
+            echo 'Unable to obtain the production SSH host key.' >&2
+            exit 8
+          }
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh_options=(
+            -i "$HOME/.ssh/id_pc_prod"
+            -p "$port"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o ConnectionAttempts=1
+            -o IdentitiesOnly=yes
+            -o ServerAliveInterval=10
+            -o ServerAliveCountMax=3
+            -o StrictHostKeyChecking=yes
+          )
+
+          auth_ok=0
+          for attempt in $(seq 1 3); do
+            auth_error_tmp="$(mktemp)"
+            set +e
+            ssh "${ssh_options[@]}" "$user@$host" \
+              'set -euo pipefail; test "$(id -u)" -eq 0; command -v docker >/dev/null; docker version --format "{{.Server.Version}}" >/dev/null; printf "SSH_AUTH_OK\n"' \
+              > "$EVIDENCE_DIR/ssh-auth.out" 2> "$auth_error_tmp"
+            auth_rc=$?
+            set -e
+            if (( auth_rc == 0 )) && grep -Fxq 'SSH_AUTH_OK' "$EVIDENCE_DIR/ssh-auth.out"; then
+              auth_ok=1
+              printf 'success attempt=%s\n' "$attempt" > "$EVIDENCE_DIR/ssh-auth-status.txt"
+              rm -f "$auth_error_tmp"
+              break
+            fi
+            printf 'failed attempt=%s exit=%s\n' "$attempt" "$auth_rc" \
+              > "$EVIDENCE_DIR/ssh-auth-status.txt"
+            rm -f "$auth_error_tmp"
+            echo "SSH authentication attempt $attempt/3 failed with exit $auth_rc."
+            sleep 10
+          done
+          (( auth_ok == 1 )) || {
+            echo 'Protected key-only SSH authentication failed; production was not changed.' >&2
+            exit 9
+          }
+
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "user=$user" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
@@ -163,6 +267,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           remote_script="$(cat <<'REMOTE'
           set -Eeuo pipefail
           TARGET_SHA='24277e008d25f66f52b56284ff83ca3eead39fb2'
@@ -170,7 +275,10 @@ jobs:
           DEPLOY_STARTED=0
 
           mapfile -t WEB_IDS < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-          (( ${#WEB_IDS[@]} == 1 )) || { echo "Expected one web container; found ${#WEB_IDS[@]}." >&2; exit 10; }
+          (( ${#WEB_IDS[@]} == 1 )) || {
+            echo "Expected one web container; found ${#WEB_IDS[@]}." >&2
+            exit 10
+          }
           WEB_ID="${WEB_IDS[0]}"
           PROJECT="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$WEB_ID")"
           WORKDIR="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$WEB_ID")"
@@ -179,10 +287,17 @@ jobs:
           OLD_REV="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$WEB_ID" 2>/dev/null || true)"
           OLD_IMAGE_ID="$(docker inspect --format '{{ .Image }}' "$WEB_ID")"
           OLD_DIGEST="$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$OLD_IMAGE_ID" 2>/dev/null || true)"
+
           for value in PROJECT WORKDIR CONFIG_FILES IMAGE_REF OLD_IMAGE_ID; do
-            [[ -n "${!value}" && "${!value}" != '<no value>' ]] || { echo "Missing Compose metadata: $value" >&2; exit 11; }
+            [[ -n "${!value}" && "${!value}" != '<no value>' ]] || {
+              echo "Missing Compose metadata: $value" >&2
+              exit 11
+            }
           done
-          [[ "$IMAGE_REF" != *@* ]] || { echo 'Digest-only image reference is unsupported.' >&2; exit 12; }
+          [[ "$IMAGE_REF" != *@* ]] || {
+            echo 'Digest-only image reference is unsupported.' >&2
+            exit 12
+          }
 
           IFS=',' read -r -a RAW_CONFIGS <<< "$CONFIG_FILES"
           DC=(docker compose --project-name "$PROJECT")
@@ -190,19 +305,54 @@ jobs:
             cfg="${cfg#"${cfg%%[![:space:]]*}"}"
             cfg="${cfg%"${cfg##*[![:space:]]}"}"
             [[ "$cfg" = /* ]] || cfg="$WORKDIR/$cfg"
-            [[ -f "$cfg" ]] || { echo "Compose file missing: $cfg" >&2; exit 13; }
+            [[ -f "$cfg" ]] || {
+              echo "Compose file missing: $cfg" >&2
+              exit 13
+            }
             DC+=(-f "$cfg")
           done
           cd "$WORKDIR"
           "${DC[@]}" config --services | grep -qx web
-          mapfile -t BEFORE_OTHER_IDS < <(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" | grep -vx "$WEB_ID" | sort || true)
+          mapfile -t BEFORE_OTHER_IDS < <(
+            docker ps -q --filter "label=com.docker.compose.project=$PROJECT" |
+              grep -vx "$WEB_ID" |
+              sort || true
+          )
+
+          echo "ROLLBACK_IMAGE_ID=$OLD_IMAGE_ID"
+          echo "ROLLBACK_REVISION=${OLD_REV:-unknown}"
+          echo "ROLLBACK_REFERENCE=${OLD_DIGEST:-$OLD_IMAGE_ID}"
+          echo 'MUTATION_STARTED=0'
+          echo 'INLINE_ROLLBACK_COMPLETED=0'
 
           rollback_on_error() {
             rc=$?
             trap - ERR
             if (( DEPLOY_STARTED == 1 )); then
-              docker tag "$OLD_IMAGE_ID" "$IMAGE_REF"
-              "${DC[@]}" up -d --no-deps web || true
+              echo 'INLINE_ROLLBACK_ATTEMPTED=1'
+              rollback_ok=0
+              if docker tag "$OLD_IMAGE_ID" "$IMAGE_REF" &&
+                "${DC[@]}" up -d --no-deps web; then
+                ROLLED_ID="$("${DC[@]}" ps -q web)"
+                ROLLED_STATE='missing'
+                ROLLED_REV=''
+                if [[ -n "$ROLLED_ID" ]]; then
+                  ROLLED_STATE="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$ROLLED_ID")"
+                  ROLLED_REV="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$ROLLED_ID" 2>/dev/null || true)"
+                fi
+                if [[ -n "$ROLLED_ID" ]] &&
+                  [[ "$ROLLED_STATE" == healthy || "$ROLLED_STATE" == running ]] &&
+                  { [[ -z "$OLD_REV" ]] || [[ "$ROLLED_REV" == "$OLD_REV" ]]; }; then
+                  rollback_ok=1
+                fi
+              fi
+              if (( rollback_ok == 1 )); then
+                echo 'INLINE_ROLLBACK_COMPLETED=1'
+              else
+                echo 'INLINE_ROLLBACK_COMPLETED=0'
+                echo 'Inline web rollback failed.' >&2
+                exit 18
+              fi
             fi
             exit "$rc"
           }
@@ -210,9 +360,14 @@ jobs:
 
           docker pull "$EXACT_IMAGE"
           PULLED_REV="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE" 2>/dev/null || true)"
-          [[ "$PULLED_REV" == "$TARGET_SHA" ]] || { echo "Pulled revision mismatch: ${PULLED_REV:-missing}" >&2; exit 14; }
+          [[ "$PULLED_REV" == "$TARGET_SHA" ]] || {
+            echo "Pulled revision mismatch: ${PULLED_REV:-missing}" >&2
+            exit 14
+          }
+
           docker tag "$EXACT_IMAGE" "$IMAGE_REF"
           DEPLOY_STARTED=1
+          echo 'MUTATION_STARTED=1'
           "${DC[@]}" up -d --no-deps web
 
           NEW_ID=''
@@ -226,31 +381,68 @@ jobs:
             fi
             sleep 2
           done
-          [[ -n "$NEW_ID" && ( "$STATE" == healthy || "$STATE" == running ) ]] || { "${DC[@]}" logs --tail=200 web; exit 15; }
+          [[ -n "$NEW_ID" && ( "$STATE" == healthy || "$STATE" == running ) ]] || {
+            "${DC[@]}" logs --tail=200 web
+            exit 15
+          }
+
           NEW_REV="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$NEW_ID" 2>/dev/null || true)"
-          [[ "$NEW_REV" == "$TARGET_SHA" ]] || { echo "Running revision mismatch: ${NEW_REV:-missing}" >&2; exit 16; }
-          mapfile -t AFTER_OTHER_IDS < <(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" | grep -vx "$NEW_ID" | sort || true)
-          [[ "${BEFORE_OTHER_IDS[*]}" == "${AFTER_OTHER_IDS[*]}" ]] || { echo 'A non-web container changed.' >&2; exit 17; }
+          [[ "$NEW_REV" == "$TARGET_SHA" ]] || {
+            echo "Running revision mismatch: ${NEW_REV:-missing}" >&2
+            exit 16
+          }
+
+          mapfile -t AFTER_OTHER_IDS < <(
+            docker ps -q --filter "label=com.docker.compose.project=$PROJECT" |
+              grep -vx "$NEW_ID" |
+              sort || true
+          )
+          [[ "${BEFORE_OTHER_IDS[*]}" == "${AFTER_OTHER_IDS[*]}" ]] || {
+            echo 'A non-web container changed.' >&2
+            exit 17
+          }
 
           trap - ERR
           DEPLOY_STARTED=0
-          echo "ROLLBACK_IMAGE_ID=$OLD_IMAGE_ID"
-          echo "ROLLBACK_REVISION=${OLD_REV:-unknown}"
-          echo "ROLLBACK_REFERENCE=${OLD_DIGEST:-$OLD_IMAGE_ID}"
           echo "DEPLOYED_REVISION=$NEW_REV"
           echo "WEB_STATE=$STATE"
           REMOTE
           )"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            "$SSH_USER@$SSH_HOST" 'bash -s' <<< "$remote_script" > "$EVIDENCE_DIR/deploy-remote.log" 2>&1
-          cat "$EVIDENCE_DIR/deploy-remote.log"
+
+          ssh_options=(
+            -i "$HOME/.ssh/id_pc_prod"
+            -p "$SSH_PORT"
+            -o BatchMode=yes
+            -o ConnectTimeout=20
+            -o ConnectionAttempts=1
+            -o IdentitiesOnly=yes
+            -o ServerAliveInterval=10
+            -o ServerAliveCountMax=3
+            -o StrictHostKeyChecking=yes
+          )
+
+          set +e
+          ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" 'bash -s' \
+            <<< "$remote_script" > "$EVIDENCE_DIR/deploy-remote.log" 2>&1
+          rc=$?
+          set -e
+
           rollback_image_id="$(sed -n 's/^ROLLBACK_IMAGE_ID=//p' "$EVIDENCE_DIR/deploy-remote.log" | tail -1)"
           rollback_revision="$(sed -n 's/^ROLLBACK_REVISION=//p' "$EVIDENCE_DIR/deploy-remote.log" | tail -1)"
+          mutation_started="$(sed -n 's/^MUTATION_STARTED=//p' "$EVIDENCE_DIR/deploy-remote.log" | tail -1)"
+          inline_rollback_completed="$(sed -n 's/^INLINE_ROLLBACK_COMPLETED=//p' "$EVIDENCE_DIR/deploy-remote.log" | tail -1)"
           deployed_revision="$(sed -n 's/^DEPLOYED_REVISION=//p' "$EVIDENCE_DIR/deploy-remote.log" | tail -1)"
-          [[ -n "$rollback_image_id" && "$deployed_revision" == "$TARGET_SHA" ]]
-          echo "rollback_image_id=$rollback_image_id" >> "$GITHUB_OUTPUT"
-          echo "rollback_revision=$rollback_revision" >> "$GITHUB_OUTPUT"
-          echo "deployed_revision=$deployed_revision" >> "$GITHUB_OUTPUT"
+
+          [[ -n "$rollback_image_id" ]] &&
+            echo "rollback_image_id=$rollback_image_id" >> "$GITHUB_OUTPUT"
+          echo "rollback_revision=${rollback_revision:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "mutation_started=${mutation_started:-0}" >> "$GITHUB_OUTPUT"
+          echo "inline_rollback_completed=${inline_rollback_completed:-0}" >> "$GITHUB_OUTPUT"
+          echo "deployed_revision=${deployed_revision:-NOT_DEPLOYED}" >> "$GITHUB_OUTPUT"
+
+          cat "$EVIDENCE_DIR/deploy-remote.log"
+          (( rc == 0 )) || exit "$rc"
+          [[ "$deployed_revision" == "$TARGET_SHA" ]]
 
       - name: Verify exact live revision and P0 markers
         shell: bash
@@ -280,8 +472,12 @@ jobs:
           echo 'Exact live revision or P0 markers did not pass.' >&2
           exit 20
 
-      - name: Roll back web if live acceptance failed
-        if: failure() && steps.deploy.outputs.rollback_image_id != ''
+      - name: Roll back web if live acceptance or inline rollback failed
+        if: >-
+          failure() &&
+          steps.deploy.outputs.mutation_started == '1' &&
+          steps.deploy.outputs.rollback_image_id != '' &&
+          steps.deploy.outputs.inline_rollback_completed != '1'
         env:
           SSH_HOST: ${{ steps.ssh.outputs.host }}
           SSH_USER: ${{ steps.ssh.outputs.user }}
@@ -301,28 +497,56 @@ jobs:
           CONFIG_FILES="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$WEB_ID")"
           IMAGE_REF="$(docker inspect --format '{{ .Config.Image }}' "$WEB_ID")"
           docker image inspect "$ROLLBACK_IMAGE_ID" >/dev/null
+
           IFS=',' read -r -a RAW_CONFIGS <<< "$CONFIG_FILES"
           DC=(docker compose --project-name "$PROJECT")
           for cfg in "${RAW_CONFIGS[@]}"; do
             cfg="${cfg#"${cfg%%[![:space:]]*}"}"
             cfg="${cfg%"${cfg##*[![:space:]]}"}"
             [[ "$cfg" = /* ]] || cfg="$WORKDIR/$cfg"
+            [[ -f "$cfg" ]]
             DC+=(-f "$cfg")
           done
           cd "$WORKDIR"
+
+          mapfile -t BEFORE_OTHER_IDS < <(
+            docker ps -q --filter "label=com.docker.compose.project=$PROJECT" |
+              grep -vx "$WEB_ID" |
+              sort || true
+          )
+
           docker tag "$ROLLBACK_IMAGE_ID" "$IMAGE_REF"
           "${DC[@]}" up -d --no-deps web
           NEW_ID="$("${DC[@]}" ps -q web)"
           [[ -n "$NEW_ID" ]]
-          if [[ "$ROLLBACK_REVISION" != unknown ]]; then
+          STATE="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$NEW_ID")"
+          [[ "$STATE" == healthy || "$STATE" == running ]]
+
+          if [[ "$ROLLBACK_REVISION" != unknown && -n "$ROLLBACK_REVISION" ]]; then
             ACTUAL="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$NEW_ID" 2>/dev/null || true)"
             [[ "$ACTUAL" == "$ROLLBACK_REVISION" ]]
           fi
+
+          mapfile -t AFTER_OTHER_IDS < <(
+            docker ps -q --filter "label=com.docker.compose.project=$PROJECT" |
+              grep -vx "$NEW_ID" |
+              sort || true
+          )
+          [[ "${BEFORE_OTHER_IDS[*]}" == "${AFTER_OTHER_IDS[*]}" ]]
           echo "ROLLBACK_COMPLETED=$ROLLBACK_REVISION"
           REMOTE
           )"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            "$SSH_USER@$SSH_HOST" "ROLLBACK_IMAGE_ID='$ROLLBACK_IMAGE_ID' ROLLBACK_REVISION='$ROLLBACK_REVISION' bash -s" \
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o ConnectionAttempts=1 \
+            -o IdentitiesOnly=yes \
+            -o ServerAliveInterval=10 \
+            -o ServerAliveCountMax=3 \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "ROLLBACK_IMAGE_ID='$ROLLBACK_IMAGE_ID' ROLLBACK_REVISION='$ROLLBACK_REVISION' bash -s" \
             <<< "$remote_script" | tee "$EVIDENCE_DIR/rollback.log"
 
       - name: Build release evidence inventory
@@ -331,13 +555,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
-          find "$EVIDENCE_DIR" -type f ! -name exact-evidence-sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
+          find "$EVIDENCE_DIR" -type f ! -name exact-evidence-sha256.txt -print0 |
+            sort -z |
+            xargs -0 -r sha256sum > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
           {
             echo '## TAI P0 canonical VPS release'
             echo
             echo "- target: \`$TARGET_SHA\`"
             echo "- deployed: \`${{ steps.deploy.outputs.deployed_revision || 'NOT_DEPLOYED' }}\`"
             echo "- job status: \`${{ job.status }}\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
             echo '- TAI operational status: `NOT_ATTESTED`'
           } > "$EVIDENCE_DIR/summary.md"
           cat "$EVIDENCE_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
@@ -351,16 +578,3 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
-
-      - name: Publish deployment result to PR 2960
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          status='${{ job.status }}'
-          deployed='${{ steps.deploy.outputs.deployed_revision || 'NOT_DEPLOYED' }}'
-          body="## VPS deployment result\n\n- workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID};\n- exact target: \`${TARGET_SHA}\`;\n- deployed revision: \`${deployed}\`;\n- result: \`${status}\`;\n- release event: \`${GITHUB_EVENT_NAME}\`;\n- TAI operational status: \`NOT_ATTESTED\`."
-          gh api --method POST "repos/$REPOSITORY/issues/2960/comments" -f body="$body"

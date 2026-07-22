@@ -1,0 +1,152 @@
+{
+  "schema_version": "tai.cpu-benchmark-execution-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "issue": 2977,
+  "command": "/tai benchmark cpu-fallback exact-main",
+  "prerequisite_gate": {
+    "authority_schema": "tai.benchmark-prerequisite-authority.v1",
+    "report_schema": "tai.benchmark-prerequisite-report.v1",
+    "slice_id": "cpu-fallback-execution",
+    "required_status": "READY_FOR_CPU_FALLBACK_BENCHMARK",
+    "maximum_report_age_hours": 24
+  },
+  "benchmark_authority": {
+    "schema_version": "tai.model-benchmark-admission-authority.v2",
+    "issue": 2862,
+    "suite_id": "tai-platform-agro-58-v1",
+    "required_profiles": [
+      "qwen3-8b-cpu-q4-k-m",
+      "mistral-7b-fallback-cpu-q4-k-m"
+    ]
+  },
+  "bundle_authority": {
+    "schema_version": "tai.model-bundle-authority.v2",
+    "finalization_issue": 2961,
+    "required_finalization_status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED",
+    "verification_status": "VERIFIED",
+    "exact_version_restore_required": true,
+    "independent_restore_roots_required": true
+  },
+  "toolchain": {
+    "name": "ggml-org/llama.cpp",
+    "release": "b9637",
+    "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "profile": "linux-x86_64-cpu-release-static-v1",
+    "required_binaries": [
+      "llama-cli",
+      "llama-server",
+      "llama-bench"
+    ]
+  },
+  "target": {
+    "host_role": "DEDICATED_MODEL_HOST",
+    "required_user": "tai-model",
+    "workspace_root": "/srv/tai-models/benchmark-runs",
+    "ssh_secret_prefix": "TAI_MODEL_",
+    "production_fallback_allowed": false,
+    "network_egress": "S3_EXACT_VERSION_ONLY"
+  },
+  "models": [
+    {
+      "key": "qwen3-8b",
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "runtime_profile_id": "qwen3-8b-cpu-q4-k-m",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "artifact_path": "artifacts/qwen3-8b-q4-k-m.gguf",
+      "required_concurrency_levels": [
+        1,
+        2,
+        4
+      ]
+    },
+    {
+      "key": "mistral-7b-instruct-v0.3",
+      "role": "FALLBACK",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "runtime_profile_id": "mistral-7b-fallback-cpu-q4-k-m",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "artifact_path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+      "required_concurrency_levels": [
+        1,
+        2,
+        4
+      ]
+    }
+  ],
+  "evaluation": {
+    "suite_id": "tai-platform-agro-58-v1",
+    "assessment_schema": "tai.gold-set-assessment.v1",
+    "required_status": "ACCEPTED",
+    "required_accepted": true,
+    "required_total_cases": 58,
+    "required_critical_cases": 23,
+    "maximum_unreviewed_cases": 0,
+    "source_root": "docs/platform-v7/autopilot/tai-ap-14c",
+    "materializer": "docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs"
+  },
+  "measurements": {
+    "minimum_sample_count": 100,
+    "metrics": [
+      "prompt_tokens_per_second",
+      "generation_tokens_per_second",
+      "p50_latency_ms",
+      "p95_latency_ms",
+      "p99_latency_ms",
+      "error_rate",
+      "peak_ram_mb",
+      "cold_start_ms",
+      "warmup_ms",
+      "operating_cost_inputs"
+    ],
+    "concurrency_levels": [
+      1,
+      2,
+      4
+    ],
+    "deterministic_seed": 13001,
+    "temperature_milli": 0,
+    "maximum_output_tokens": 512
+  },
+  "fallback": {
+    "minimum_trigger_count": 100,
+    "forced_primary_failure_required": true,
+    "maximum_failed_transitions": 0,
+    "maximum_continuity_violations": 0,
+    "maximum_critical_unsupported_facts": 0
+  },
+  "soak": {
+    "minimum_duration_seconds": 3600,
+    "minimum_request_count": 1000,
+    "maximum_failed_requests": 10,
+    "maximum_critical_failures": 0,
+    "maximum_memory_drift_mb": 512
+  },
+  "evidence": {
+    "bounded_metadata_only": true,
+    "maximum_github_file_bytes": 10000000,
+    "forbidden_suffixes": [
+      ".gguf",
+      ".safetensors",
+      ".tar",
+      ".bin"
+    ],
+    "forbidden_path_fragments": [
+      "sources/",
+      "artifacts/",
+      "payload/"
+    ],
+    "artifact_retention_days": 90,
+    "independent_restore_required": true
+  },
+  "maturity_boundary": {
+    "benchmark_status": "PENDING_BENCHMARK",
+    "model_admission_status": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
