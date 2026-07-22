@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2, CircleDollarSign, FileCheck2, Landmark, Shiel
 import { PublicSiteHeader } from './PublicSiteHeader';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
+import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
@@ -92,6 +93,7 @@ export async function PlatformV7StrategicHome() {
             <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'scenario_v3' }}>{copy.hero.primary}<ArrowRight size={18}/></PublicExperienceLink>
           </aside>
         </div>
+        <PublicDealRoleScenario locale={locale} />
       </section>
 
       <section id='tai' className='pc-v6-section pc-v6-tai'>
