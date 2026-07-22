@@ -1,0 +1,19 @@
+{
+  "accepted": false,
+  "maturity_boundary": {
+    "benchmark_status": "PENDING_BENCHMARK",
+    "deployment_status": "NOT_ACTIVATED",
+    "model_admission_status": "PENDING_ADMISSION",
+    "preview_status": "READ_ONLY_OPERATIONAL_PREVIEW_PENDING_EXTERNAL_IMMUTABILITY",
+    "production_operational_status": "NOT_ATTESTED",
+    "routing_status": "NOT_ACTIVATED",
+    "ui_status": "NOT_ACTIVATED"
+  },
+  "protected_access_used": false,
+  "reasons": [
+    "Qwen preview runtime has not run on the governed model host.",
+    "No endpoint, benchmark, admission, routing, UI or deployment claim is permitted."
+  ],
+  "schema_version": "tai.qwen-preview-runtime-pending.v1",
+  "status": "PENDING_PROTECTED_EXECUTION"
+}
