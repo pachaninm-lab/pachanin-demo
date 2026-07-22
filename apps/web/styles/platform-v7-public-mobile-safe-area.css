@@ -17,6 +17,39 @@
   visibility:visible!important;
   opacity:1!important;
 }
+.pc-public-tai-intro{
+  display:grid;
+  gap:10px;
+  margin-top:18px;
+  padding:16px;
+  border:1px solid rgba(22,125,77,.22);
+  border-radius:18px;
+  background:#f7fbf8;
+}
+.pc-public-tai-intro-heading{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:#075f37;
+}
+.pc-public-tai-intro-heading>span{
+  display:grid;
+  width:34px;
+  height:34px;
+  place-items:center;
+  border-radius:11px;
+  background:#e8f5ed;
+}
+.pc-public-tai-intro-heading strong{
+  font-size:17px;
+  line-height:1.2;
+}
+.pc-public-tai-intro>p{
+  margin:0;
+  color:#52685d;
+  font-size:15px;
+  line-height:1.45;
+}
 @media (max-width:720px){
   .pc-v7-public-entry .entry-section{
     padding-top:26px!important;
@@ -50,5 +83,29 @@
   .pc-v7-public-entry .entry-control-tile span{
     font-size:15px!important;
     line-height:1.42!important;
+  }
+  .pc-ppe-page .pc-public-intelligence-hero h1{
+    max-width:12ch!important;
+    font-size:clamp(31px,8.4vw,36px)!important;
+    line-height:1.04!important;
+    letter-spacing:-.04em!important;
+  }
+  .pc-ppe-page .pc-public-intelligence-hero .pc-ppe-hero-copy>p{
+    font-size:15.5px!important;
+    line-height:1.45!important;
+  }
+  .pc-public-tai-intro{
+    margin-top:14px;
+    padding:14px;
+    border-radius:16px;
+  }
+  .pc-public-tai-intro-heading strong{
+    font-size:16px;
+  }
+  .pc-public-tai-intro>p{
+    font-size:14px;
+  }
+  .pc-public-tai-intro .pc-public-hero-metrics{
+    margin-top:2px!important;
   }
 }
