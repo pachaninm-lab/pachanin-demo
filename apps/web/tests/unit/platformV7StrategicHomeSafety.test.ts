@@ -12,6 +12,7 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const roleScenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const roleScenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
+  const rootLayout = read('app/layout.tsx');
   const rootLoading = read('app/loading.tsx');
   const publicAuthorityPage = read('app/pc-public-entry/platform-v7/page.tsx');
   const acceptanceConfig = read('playwright.acceptance.config.ts');
@@ -140,6 +141,17 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(publicAuthorityPage).toContain("zh: '/platform-v7?lang=zh'");
     expect(publicAuthorityPage).toContain('index: true');
     expect(publicAuthorityPage).toContain('follow: true');
+
+    expect(rootLayout).toContain('const PLATFORM_V7_DESCRIPTION =');
+    expect(rootLayout).toContain("pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'");
+    expect(rootLayout).toContain("<meta name='description' content={pageDescription} />");
+  });
+
+  it('preserves root service-worker recovery and analytics bootstrap while injecting metadata', () => {
+    expect(rootLayout).toContain("tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}");
+    expect(rootLayout).toContain("k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})");
+    expect(rootLayout).not.toContain("k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async");
+    expect(scopeManifest.acceptanceEvidence?.requiredBoundaries).toContain('root metadata injection preserves service worker recovery and analytics bootstrap scripts byte-for-byte');
   });
 
   it('collects pinned private Lighthouse evidence without presenting it as live VPS proof', () => {
