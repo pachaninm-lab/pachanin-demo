@@ -20,6 +20,22 @@
     "docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json",
     "scripts/p7-autopilot-guard.sh"
   ],
+  "acceptanceEvidence": {
+    "staticSafety": "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
+    "browserMatrix": "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+    "viewports": [320, 375, 390, 430, 768, 1280, 1440],
+    "locales": ["ru", "en", "zh"],
+    "browsers": ["chromium", "firefox", "webkit"],
+    "requiredBoundaries": [
+      "no horizontal overflow",
+      "WCAG serious and critical violations equal zero",
+      "minimum interactive target 44x44 CSS pixels",
+      "role perspective does not change RBAC",
+      "public form sends no personal data",
+      "no-JavaScript intake fails closed",
+      "form-open analytics is separate from validated request submission"
+    ]
+  },
   "constraints": [
     "No production deployment changes",
     "No Netlify or Vercel production dependency",
