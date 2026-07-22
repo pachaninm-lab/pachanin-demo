@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-01b4-postmerge-remediation",
+  "status": "active",
+  "issue": 2946,
+  "predecessorPullRequests": [2951, 3018, 3028],
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-01b4.yml",
+    ".github/workflows/pc-crop-01a.yml",
+    "apps/api/src/modules/staff-access/staff-access.types.ts",
+    "apps/api/src/modules/commodity-profiles/commodity-profiles.controller.ts",
+    "apps/api/src/modules/commodity-profiles/commodity-profiles.controller.spec.ts",
+    "apps/web/components/crop-platform/commodity-profile-live-adapter.ts",
+    "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",
+    "apps/web/tests/unit/commodityProfileLiveAdapter.test.ts",
+    "apps/web/tests/unit/platformV7CommodityProfileLiveRegistry.test.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-01b4-postmerge-remediation.json",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "findings": [
+    "P1_JIT_LEAST_PRIVILEGE_AND_SCOPE",
+    "P2_VERSIONLESS_AGGREGATE",
+    "P2_CURSOR_COMPLETENESS"
+  ],
+  "boundaries": {
+    "clientSelectedRoleTenantJitAuthority": false,
+    "staticAuthorityFallback": false,
+    "publicUnauthenticatedRoute": false,
+    "productionDeploymentEvidence": false,
+    "externalIntegrationChange": false,
+    "packageOrLockfileChange": false,
+    "databaseMigrationChange": false,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}

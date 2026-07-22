@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { Role, type RequestUser } from '../../common/types/request-user';
-import { StaffAccessMode, StaffRole } from '../staff-access/staff-access.types';
+import {
+  StaffAccessMode,
+  StaffPermission,
+  StaffRole,
+  type StaffAccessContext,
+} from '../staff-access/staff-access.types';
 import { CommodityProfileAction } from './commodity-profile.policy';
 import { CommodityProfilesController, parseCommodityProfileIfMatch } from './commodity-profiles.controller';
 import type { CommodityProfileRepository } from './commodity-profile.repository';
@@ -26,21 +31,21 @@ const user: RequestUser = {
   staffAssignmentIds: ['assignment-1'],
 };
 
-const staffAccess = {
+const staffAccess: StaffAccessContext = {
   accessSessionId: 'access-session-1',
   grantId: 'grant-1',
   actorUserId: user.id,
   staffRole: StaffRole.PLATFORM_ADMIN,
   accessMode: StaffAccessMode.JIT_PRIVILEGED,
-  permissions: [],
-  effectiveTenantId: null,
-  effectiveOrganizationId: null,
+  permissions: [StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE],
+  effectiveTenantId: user.tenantId,
+  effectiveOrganizationId: user.orgId,
   effectiveUserId: null,
   effectiveRole: null,
   targetDealId: null,
   reason: 'Approved commodity profile maintenance',
   ticketId: 'PC-CROP-2946',
-  expiresAt: new Date(Date.now() + 60_000),
+  expiresAt: new Date(Date.now() + 3_600_000),
 };
 
 function responseHarness() {
@@ -147,6 +152,30 @@ describe('CommodityProfilesController', () => {
       hasJitAuthority: true,
     }));
     expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
+  });
+
+  it.each([
+    ['unrelated permission', { permissions: [StaffPermission.AUDIT_READ] }],
+    ['non-JIT access mode', { accessMode: StaffAccessMode.OPERATIONS }],
+    ['actor mismatch', { actorUserId: 'other-actor' }],
+    ['expired session', { expiresAt: new Date(Date.now() - 1) }],
+    ['tenant mismatch', { effectiveTenantId: 'tenant-other' }],
+    ['organization mismatch', { effectiveOrganizationId: 'org-other' }],
+    ['unbounded tenant and organization scope', { effectiveTenantId: null, effectiveOrganizationId: null }],
+    ['target user scope', { effectiveUserId: 'target-user' }],
+    ['target role scope', { effectiveRole: Role.BUYER }],
+    ['target deal scope', { targetDealId: 'deal-unrelated' }],
+  ] satisfies Array<[string, Partial<StaffAccessContext>]>)('fails closed for %s', async (_label, override) => {
+    const { controller, repository } = makeController();
+    await controller.list(
+      { limit: 25 },
+      user,
+      { staffAccess: { ...staffAccess, ...override } },
+      responseHarness(),
+    );
+    expect(repository.list).toHaveBeenCalledWith(user, expect.objectContaining({
+      hasJitAuthority: false,
+    }));
   });
 
   it('returns deterministic version history with aggregate ETag', async () => {
