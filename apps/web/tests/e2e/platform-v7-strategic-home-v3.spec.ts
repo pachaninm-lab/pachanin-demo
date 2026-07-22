@@ -100,6 +100,35 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expectMinimumTargets(page, '#connect-organization a[href^="tel:"]');
     });
   }
+
+  test('captures responsive and multilingual visual evidence', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'Visual evidence is captured once in Chromium.');
+
+    for (const width of [320, 375, 390, 430, 768, 1280, 1440]) {
+      await page.setViewportSize({ width, height: width < 768 ? 900 : 1000 });
+      const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+      expect(response?.ok()).toBe(true);
+      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await expectNoHorizontalOverflow(page);
+      await page.screenshot({
+        path: testInfo.outputPath(`strategic-home-ru-${width}px.png`),
+        fullPage: true,
+        animations: 'disabled',
+      });
+    }
+
+    for (const locale of ['en', 'zh'] as const) {
+      await page.setViewportSize({ width: 390, height: 900 });
+      const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
+      expect(response?.ok()).toBe(true);
+      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await page.screenshot({
+        path: testInfo.outputPath(`strategic-home-${locale}-390px.png`),
+        fullPage: true,
+        animations: 'disabled',
+      });
+    }
+  });
 });
 
 test.describe('Platform V7 strategic homepage no-JavaScript boundary', () => {
