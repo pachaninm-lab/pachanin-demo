@@ -10,6 +10,6 @@
 - Rollback: previous immutable web image restored automatically if deployment or live acceptance fails
 - Netlify/Vercel: explicitly excluded from production evidence
 - TAI operational status after release: `NOT_ATTESTED`
-- Release attempt: `4` — hardened autonomous trusted `push/main` trigger
+- Release attempt: `5` — autonomous trusted `push/main` execution trigger
 
 This file is a one-release trigger. It authorizes no API, database, Caddy, Compose configuration, environment, volume, network or non-web service mutation.
