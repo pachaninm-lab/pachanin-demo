@@ -11,6 +11,10 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const formCopy = read('i18n/platform-v7-organization-connect.ts');
   const roleScenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const roleScenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
+  const acceptanceConfig = read('playwright.acceptance.config.ts');
+  const scopeManifest = JSON.parse(read('../../docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json')) as {
+    acceptanceEvidence?: { viewports?: number[]; locales?: string[]; browsers?: string[]; requiredBoundaries?: string[] };
+  };
 
   it('mounts the organization request form without fake submission success', () => {
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
@@ -86,5 +90,13 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(roleScenarioCss).toMatch(/overflow-x:\s*auto/);
     expect(roleScenarioCss).toMatch(/scroll-snap-type:\s*x\s+(?:proximity|mandatory)/);
     expect(roleScenarioCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  });
+
+  it('runs the strategic browser spec and keeps acceptance evidence machine-readable', () => {
+    expect(acceptanceConfig).toContain('strategic-home-v3');
+    expect(scopeManifest.acceptanceEvidence?.viewports).toEqual([320, 375, 390, 430, 768, 1280, 1440]);
+    expect(scopeManifest.acceptanceEvidence?.locales).toEqual(['ru', 'en', 'zh']);
+    expect(scopeManifest.acceptanceEvidence?.browsers).toEqual(['chromium', 'firefox', 'webkit']);
+    expect(scopeManifest.acceptanceEvidence?.requiredBoundaries).toContain('no-JavaScript intake fails closed');
   });
 });
