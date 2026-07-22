@@ -38,6 +38,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     for (const locale of ['ru', 'en', 'zh'] as const) {
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
       expect(response?.ok(), `${locale} homepage response`).toBe(true);
+      await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expect(page.locator('#pc-v6-title')).toBeVisible();
       await expect(page.locator('#deal-path')).toBeVisible();
       await expect(page.locator('#tai')).toBeVisible();
@@ -134,19 +135,19 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
 test.describe('Platform V7 strategic homepage no-JavaScript boundary', () => {
   test.use({ javaScriptEnabled: false });
 
-  test('keeps public intake disabled and exposes only the protected-registration fallback', async ({ page }) => {
+  test('shows no personal-data form and exposes only protected continuation channels', async ({ page }) => {
     const response = await page.goto('/platform-v7?lang=ru#connect-organization', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
-    const form = page.locator('#connect-organization form');
-    await expect(form).toBeVisible();
-    await expect(form).toHaveAttribute('data-ready', 'false');
-    const controlsDisabled = await form.locator('input, select, button[type="submit"]').evaluateAll((nodes) => nodes.every((node) => (
-      node as HTMLInputElement | HTMLSelectElement | HTMLButtonElement
-    ).disabled));
-    expect(controlsDisabled).toBe(true);
-    expect(await form.getAttribute('action')).toBeNull();
-    await expect(page.getByText(/Без JavaScript публичная форма заблокирована/)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Перейти в защищённую регистрацию' })).toHaveAttribute('href', /\/platform-v7\/register/);
+
+    await expect(page.locator('.pc-root-loading-noscript')).toBeVisible();
+    await expect(page.getByText('Без JavaScript персональные данные здесь не собираются и не передаются. Продолжите через защищённую регистрацию или позвоните.')).toBeVisible();
+    await expect(page.locator('form:visible')).toHaveCount(0);
+    await expect(page.locator('input:visible, select:visible, textarea:visible')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'RU · Защищённая регистрация' })).toHaveAttribute('href', '/platform-v7/register?entry=organization-connect&lang=ru');
+    await expect(page.getByRole('link', { name: 'EN · Protected registration' })).toHaveAttribute('href', '/platform-v7/register?entry=organization-connect&lang=en');
+    await expect(page.getByRole('link', { name: '中文 · 受保护的注册' })).toHaveAttribute('href', '/platform-v7/register?entry=organization-connect&lang=zh');
+    await expect(page.getByRole('link', { name: 'Позвонить · Call · 致电' })).toHaveAttribute('href', 'tel:+79162778989');
+    await expectMinimumTargets(page, '.pc-root-loading-noscript a');
     await expectNoHorizontalOverflow(page);
   });
 });
