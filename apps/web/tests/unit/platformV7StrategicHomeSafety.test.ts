@@ -20,6 +20,13 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(form).not.toContain('fake_success');
   });
 
+  it('separates form-open analytics from a validated organization request', () => {
+    expect(home).toContain("eventName='open_organization_connect'");
+    expect(home).not.toContain("eventName='submit_organization_request'");
+    expect(form).toContain("name: 'submit_organization_request'");
+    expect(form).toContain("mode: 'staged_client_validation'");
+  });
+
   it('fails closed without JavaScript so personal data cannot enter a URL or unverified channel', () => {
     expect(form).toContain('const [ready, setReady] = useState(false)');
     expect(form).toContain('useEffect(() =>');
