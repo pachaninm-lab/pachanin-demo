@@ -1,0 +1,56 @@
+name: publish production public entry watch result
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  publish-watch-result:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact monitoring artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/${{ github.repository }}/actions/artifacts/8519342523/zip > /tmp/watch.zip
+          mkdir -p /tmp/watch
+          unzip -q /tmp/watch.zip -d /tmp/watch
+          test -f /tmp/watch/report.json
+      - name: Build concise report comment
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('/tmp/watch/report.json', 'utf8'));
+          const body = [
+            '<!-- public-entry-watch-20260722 -->',
+            '## Exact production public-entry watch',
+            '',
+            `Generated: ${report.generatedAt}`,
+            `Base: ${report.base}`,
+            `Route cases: ${report.cases?.length || 0}`,
+            `Failures: ${report.failures?.length || 0}`,
+            '',
+            '### Failures',
+            '```json',
+            JSON.stringify(report.failures || [], null, 2),
+            '```',
+            '',
+            '### Fail-closed login',
+            '```json',
+            JSON.stringify(report.failClosed || null, null, 2),
+            '```',
+          ].join('\n');
+          fs.writeFileSync('/tmp/comment.md', body);
+          NODE
+      - name: Publish to monitoring PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment 3016 --repo ${{ github.repository }} --body-file /tmp/comment.md
