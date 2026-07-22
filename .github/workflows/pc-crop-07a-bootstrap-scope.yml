@@ -1,3 +1,4 @@
+# Bootstrap trigger; the workflow deletes itself after materializing authority.
 name: PC-CROP-07A bootstrap scope authority
 
 on:
