@@ -20,6 +20,17 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(form).not.toContain('fake_success');
   });
 
+  it('fails closed without JavaScript so personal data cannot enter a URL or unverified channel', () => {
+    expect(form).toContain('const [ready, setReady] = useState(false)');
+    expect(form).toContain('useEffect(() =>');
+    expect(form).toContain('disabled={!ready}');
+    expect(form).toContain("data-ready={ready ? 'true' : 'false'}");
+    expect(form).toContain('<noscript>');
+    expect(form).toContain('copy.jsRequired');
+    expect(form).toContain('copy.protectedContinue');
+    expect(formCopy).toContain('персональные данные не попали в URL');
+  });
+
   it('does not persist or transmit public form personal data from the staged client boundary', () => {
     expect(form).not.toContain('localStorage');
     expect(form).not.toContain('sessionStorage');
@@ -63,6 +74,7 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(formCss).toContain('min-height:48px');
     expect(formCss).toContain(':focus-visible');
     expect(formCss).toContain('@media(min-width:760px)');
+    expect(formCss).toContain('@media(prefers-reduced-motion:reduce)');
     expect(roleScenarioCss).toContain('min-height:44px');
     expect(roleScenarioCss).toContain('overflow-x:auto');
     expect(roleScenarioCss).toContain('scroll-snap-type:x mandatory');
