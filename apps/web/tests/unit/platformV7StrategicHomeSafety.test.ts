@@ -14,8 +14,19 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
   const rootLoading = read('app/loading.tsx');
   const acceptanceConfig = read('playwright.acceptance.config.ts');
+  const lighthouseConfig = read('lighthouserc.cjs');
+  const lighthouseWorkflow = read('../../.github/workflows/platform-v7-strategic-home-lighthouse.yml');
+  const lighthouseSummary = read('../../scripts/platform-v7-lighthouse-summary.mjs');
   const scopeManifest = JSON.parse(read('../../docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json')) as {
-    acceptanceEvidence?: { viewports?: number[]; locales?: string[]; browsers?: string[]; requiredBoundaries?: string[] };
+    acceptanceEvidence?: {
+      viewports?: number[];
+      locales?: string[];
+      browsers?: string[];
+      lighthouseModes?: string[];
+      lighthouseRunsPerMode?: number;
+      lighthouseEvidenceClass?: string;
+      requiredBoundaries?: string[];
+    };
   };
 
   it('keeps a stable Deal cockpit locator and keyboard-focusable lifecycle', () => {
@@ -117,5 +128,27 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(scopeManifest.acceptanceEvidence?.locales).toEqual(['ru', 'en', 'zh']);
     expect(scopeManifest.acceptanceEvidence?.browsers).toEqual(['chromium', 'firefox', 'webkit']);
     expect(scopeManifest.acceptanceEvidence?.requiredBoundaries).toContain('no-JavaScript intake fails closed');
+  });
+
+  it('collects pinned private Lighthouse evidence without presenting it as live VPS proof', () => {
+    expect(lighthouseWorkflow).toContain('pnpm dlx @lhci/cli@0.15.1 autorun');
+    expect(lighthouseWorkflow).toContain('matrix:');
+    expect(lighthouseWorkflow).toContain('mode: [mobile, desktop]');
+    expect(lighthouseWorkflow).toContain('actions/upload-artifact@v4');
+    expect(lighthouseWorkflow).not.toContain('temporary-public-storage');
+    expect(lighthouseWorkflow).not.toContain('netlify');
+    expect(lighthouseWorkflow).not.toContain('vercel');
+
+    expect(lighthouseConfig).toContain("target: 'filesystem'");
+    expect(lighthouseConfig).toContain('numberOfRuns: 3');
+    expect(lighthouseConfig).toContain("url: ['http://127.0.0.1:3000/platform-v7?lang=ru']");
+    expect(lighthouseConfig).toContain("'categories:accessibility': ['error'");
+    expect(lighthouseConfig).toContain("'categories:performance': ['warn'");
+
+    expect(lighthouseSummary).toContain("source: 'local-production-build'");
+    expect(lighthouseSummary).toContain('productionEvidence: false');
+    expect(scopeManifest.acceptanceEvidence?.lighthouseModes).toEqual(['mobile', 'desktop']);
+    expect(scopeManifest.acceptanceEvidence?.lighthouseRunsPerMode).toBe(3);
+    expect(scopeManifest.acceptanceEvidence?.lighthouseEvidenceClass).toBe('local-production-build-not-live-vps');
   });
 });
