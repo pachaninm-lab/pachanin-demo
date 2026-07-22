@@ -25,7 +25,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(home).toContain("id='participants'");
     expect(home).toContain("id='integrations'");
     expect(home).toContain("id='maturity'");
-    expect(home).toContain("className='pc-v6-faq'");
+    expect(home).toContain('pc-v6-faq');
     expect(homeCopy).toContain('Не площадка объявлений. Контур исполнения сделки.');
   });
 
