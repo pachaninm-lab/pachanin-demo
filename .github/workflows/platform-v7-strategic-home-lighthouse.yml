@@ -1,0 +1,88 @@
+name: Platform V7 Strategic Home Lighthouse
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/app/loading.tsx'
+      - 'apps/web/app/platform-v7/page.tsx'
+      - 'apps/web/components/platform-v7/PlatformV7StrategicHome.tsx'
+      - 'apps/web/components/platform-v7/PublicDealRoleScenario*'
+      - 'apps/web/components/platform-v7/OrganizationConnectForm*'
+      - 'apps/web/i18n/platform-v7-home-v3.ts'
+      - 'apps/web/i18n/platform-v7-organization-connect.ts'
+      - 'apps/web/styles/platform-v7-strategic-home-v3.css'
+      - 'apps/web/lighthouserc.cjs'
+      - 'scripts/platform-v7-lighthouse-summary.mjs'
+      - '.github/workflows/platform-v7-strategic-home-lighthouse.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-v7-strategic-home-lighthouse-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Lighthouse ${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [mobile, desktop]
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      JWT_SECRET: pc-strategic-home-lighthouse-secret-2026
+      PC_CABINET_SESSION_SECRET: pc-strategic-home-lighthouse-secret-2026
+      LHCI_FORM_FACTOR: ${{ matrix.mode }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Resolve Chrome runtime
+        working-directory: apps/web
+        run: |
+          CHROME_PATH="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          if [ -z "$CHROME_PATH" ]; then
+            pnpm exec playwright install --with-deps chromium
+            CHROME_PATH="$(find "$HOME/.cache/ms-playwright" -type f \( -name chrome -o -name headless_shell \) -perm -111 | head -n 1)"
+          fi
+          if [ -z "$CHROME_PATH" ] || [ ! -x "$CHROME_PATH" ]; then
+            echo 'No executable Chrome runtime was resolved.' >&2
+            exit 1
+          fi
+          "$CHROME_PATH" --version
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web build
+      - name: Collect and assert Lighthouse evidence
+        working-directory: apps/web
+        run: pnpm dlx @lhci/cli@0.15.1 autorun --config=./lighthouserc.cjs
+      - name: Publish machine-readable Lighthouse summary
+        if: always()
+        run: |
+          node scripts/platform-v7-lighthouse-summary.mjs \
+            --mode=${{ matrix.mode }} \
+            --input=apps/web/lighthouseci-artifacts/${{ matrix.mode }} \
+            --output=apps/web/lighthouseci-artifacts/${{ matrix.mode }}/lighthouse-summary.json
+      - name: Upload Lighthouse evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-strategic-home-lighthouse-${{ matrix.mode }}-${{ github.sha }}
+          path: |
+            apps/web/lighthouseci-artifacts/${{ matrix.mode }}
+            apps/web/.lighthouseci
+          if-no-files-found: error
+          retention-days: 14

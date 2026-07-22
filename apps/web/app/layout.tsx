@@ -36,6 +36,7 @@ const jetbrainsMono = JetBrains_Mono({
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 const SITE_TITLE = 'Процент-Агро | Прозрачная Цена — цифровой контур зерновой сделки';
 const SITE_DESCRIPTION = 'Процент-Агро — публичный контур проекта «Прозрачная Цена»: зерновая сделка после согласования цены, логистика, приёмка, качество, документы, расчёты, спор и доказательства.';
+const PLATFORM_V7_DESCRIPTION = 'Единый цифровой контур исполнения Сделки в растениеводстве: условия, допуск, торги, логистика, качество, документы, финансирование, деньги, споры, доказательства и закрытие.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -107,6 +108,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname)
     || pathname === '/platform-v7/staff'
     || pathname.startsWith('/platform-v7/staff/');
+  const pageDescription = pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'
+    ? PLATFORM_V7_DESCRIPTION
+    : SITE_DESCRIPTION;
   const content = leanPublicEntry
     ? children
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
@@ -124,6 +128,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <meta name='description' content={pageDescription} />
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
