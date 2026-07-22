@@ -1,0 +1,39 @@
+name: public entry production watch 20260722
+
+on:
+  push:
+    branches:
+      - ops/public-entry-watch-20260722
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ARTIFACT_DIR: ../../artifacts/public-entry-production-watch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run exact production watch
+        working-directory: apps/web
+        run: node scripts/public-entry-production-watch-20260722.mjs
+      - name: Upload exact watch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-production-watch-20260722
+          path: artifacts/public-entry-production-watch
+          if-no-files-found: warn
+          retention-days: 7
