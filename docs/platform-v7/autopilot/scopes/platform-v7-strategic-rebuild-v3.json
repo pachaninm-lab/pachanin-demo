@@ -1,0 +1,22 @@
+{
+  "branch": "agent/platform-v7-strategic-rebuild-v3",
+  "status": "active",
+  "purpose": "Strategic transaction-centric rebuild of the public /platform-v7 homepage without changing production authority or deployment topology.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicExperienceAnalytics.tsx",
+    "apps/web/i18n/platform-v7-home-v3.ts",
+    "apps/web/styles/platform-v7-strategic-home-v3.css",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "constraints": [
+    "No production deployment changes",
+    "No Netlify or Vercel production dependency",
+    "No real transaction authority in the public scenario",
+    "No unverified integration or maturity claims",
+    "RU, EN and ZH content remain complete"
+  ]
+}
