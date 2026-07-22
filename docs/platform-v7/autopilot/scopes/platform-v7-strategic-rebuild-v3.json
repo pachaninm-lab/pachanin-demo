@@ -5,6 +5,8 @@
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
+    "apps/web/components/platform-v7/PublicDealRoleScenario.module.css",
     "apps/web/components/platform-v7/PublicExperienceAnalytics.tsx",
     "apps/web/i18n/platform-v7-home-v3.ts",
     "apps/web/styles/platform-v7-strategic-home-v3.css",
