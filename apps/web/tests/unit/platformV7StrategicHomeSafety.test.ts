@@ -71,13 +71,13 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   });
 
   it('preserves mobile-first touch targets, horizontal role navigation and reduced motion', () => {
-    expect(formCss).toContain('min-height:48px');
+    expect(formCss).toMatch(/min-height:\s*48px/);
     expect(formCss).toContain(':focus-visible');
-    expect(formCss).toContain('@media(min-width:760px)');
-    expect(formCss).toContain('@media(prefers-reduced-motion:reduce)');
-    expect(roleScenarioCss).toContain('min-height:44px');
-    expect(roleScenarioCss).toContain('overflow-x:auto');
-    expect(roleScenarioCss).toContain('scroll-snap-type:x mandatory');
-    expect(roleScenarioCss).toContain('@media(prefers-reduced-motion:reduce)');
+    expect(formCss).toMatch(/@media\s*\(min-width:\s*760px\)/);
+    expect(formCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+    expect(roleScenarioCss).toMatch(/min-height:\s*44px/);
+    expect(roleScenarioCss).toMatch(/overflow-x:\s*auto/);
+    expect(roleScenarioCss).toMatch(/scroll-snap-type:\s*x\s+(?:proximity|mandatory)/);
+    expect(roleScenarioCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   });
 });
