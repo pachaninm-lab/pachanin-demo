@@ -1,0 +1,33 @@
+name: expose production watch summary
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  expose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- prod-public-entry-watch-20260721 -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const result = comments.find((comment) => comment.body?.includes(marker));
+            const base = `Одноразовый production smoke. Не предназначен для merge.\n\nПроверяет канонический punycode-домен на маршрутах \`/platform-v7\`, \`/platform-v7/login\`, \`/platform-v7/forgot-password\` в Chromium desktop/mobile и WebKit, RU/EN/ZH, HTTP 200, redirect loops, blank screen, role query, runtime/hydration errors и fail-closed login без demo/auth session.`;
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              body: `${base}\n\n## Machine result\n${result?.body || 'Watch result comment not found.'}`,
+            });
