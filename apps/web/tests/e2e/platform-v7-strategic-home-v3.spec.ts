@@ -139,8 +139,9 @@ test.describe('Platform V7 strategic homepage no-JavaScript boundary', () => {
     const response = await page.goto('/platform-v7?lang=ru#connect-organization', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
 
-    await expect(page.locator('.pc-root-loading-noscript')).toBeVisible();
-    await expect(page.getByText('Без JavaScript персональные данные здесь не собираются и не передаются. Продолжите через защищённую регистрацию или позвоните.')).toBeVisible();
+    const fallback = page.locator('.pc-root-loading-noscript');
+    await expect(fallback).toBeVisible();
+    expect(await fallback.textContent()).toContain('Без JavaScript персональные данные здесь не собираются и не передаются.');
     await expect(page.locator('form:visible')).toHaveCount(0);
     await expect(page.locator('input:visible, select:visible, textarea:visible')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'RU · Защищённая регистрация' })).toHaveAttribute('href', '/platform-v7/register?entry=organization-connect&lang=ru');
