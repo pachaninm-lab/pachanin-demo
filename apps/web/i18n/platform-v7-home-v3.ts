@@ -23,7 +23,7 @@ const ru = {
 type WidenCopy<T> = T extends string
   ? string
   : T extends readonly (infer Item)[]
-    ? WidenCopy<Item>[]
+    ? readonly WidenCopy<Item>[]
     : T extends object
       ? { -readonly [Key in keyof T]: WidenCopy<T[Key]> }
       : T;
