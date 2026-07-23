@@ -99,7 +99,7 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Create isolated Prisma shadow database
+      - name: Create isolated migration authority database
         shell: bash
         run: |
           set -euo pipefail
@@ -118,14 +118,21 @@ jobs:
           pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$EVIDENCE_DIR/prisma-validate.log"
           pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
 
-      - name: Prove migration and Prisma schema are drift-free
+      - name: Deploy migrations into isolated authority database
+        shell: bash
+        run: |
+          set -o pipefail
+          DATABASE_URL="$SHADOW_DATABASE_URL" \
+            pnpm --filter @pc/api exec prisma migrate deploy 2>&1 \
+            | tee "$EVIDENCE_DIR/shadow-migrate-deploy.log"
+
+      - name: Prove deployed migration authority and Prisma schema are drift-free
         shell: bash
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec prisma migrate diff \
-            --from-migrations prisma/migrations \
+            --from-url "$SHADOW_DATABASE_URL" \
             --to-schema-datamodel prisma/schema.prisma \
-            --shadow-database-url "$SHADOW_DATABASE_URL" \
             --exit-code 2>&1 | tee "$EVIDENCE_DIR/prisma-migrate-diff.log"
 
       - name: Apply complete migration chain and RLS overlay
