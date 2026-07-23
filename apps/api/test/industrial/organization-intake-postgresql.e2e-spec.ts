@@ -1,4 +1,4 @@
-import { ConflictException, TooManyRequestsException } from '@nestjs/common';
+import { ConflictException, HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
@@ -34,6 +34,7 @@ function dto(overrides: Partial<CreateOrganizationIntakeDto> = {}): CreateOrgani
     scenario: 'DEAL_EXECUTION',
     locale: 'ru',
     consent: true,
+    website: '',
     ...overrides,
   };
 }
@@ -53,6 +54,16 @@ async function cleanup(): Promise<void> {
   `);
 }
 
+async function expectRateLimited(promise: Promise<unknown>): Promise<void> {
+  try {
+    await promise;
+    throw new Error('Expected rate limit rejection');
+  } catch (error) {
+    expect(error).toBeInstanceOf(HttpException);
+    expect((error as HttpException).getStatus()).toBe(429);
+  }
+}
+
 describe('public organization intake PostgreSQL authority', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -64,9 +75,11 @@ describe('public organization intake PostgreSQL authority', () => {
     await prisma.$disconnect();
   });
 
-  it('commits request, non-PII audit and non-PII outbox atomically', async () => {
+  it('commits request, non-PII audit and non-PII outbox atomically without creating platform authority', async () => {
     const input = dto();
     const idempotencyKey = `intake:${randomUUID()}`;
+    const organizationsBefore = await prisma.organization.count({ where: { inn: input.inn } });
+    const usersBefore = await prisma.user.count({ where: { email: input.email } });
     const result = await service.create(input, {
       idempotencyKey,
       correlationId: randomUUID(),
@@ -89,6 +102,7 @@ describe('public organization intake PostgreSQL authority', () => {
     `);
     expect(requests).toHaveLength(1);
     expect(requests[0].request_number).toBe(result.requestNumber);
+    expect(requests[0].payload_hash).toMatch(/^[0-9a-f]{64}$/);
 
     const audit = await prisma.$queryRaw<JsonEvidenceRow[]>(Prisma.sql`
       SELECT metadata AS payload
@@ -107,7 +121,10 @@ describe('public organization intake PostgreSQL authority', () => {
     for (const personalValue of [input.organizationName, input.inn, input.contactName, input.position, input.phone, input.email]) {
       expect(evidence).not.toContain(personalValue);
     }
-    expect(evidence).toContain(requests[0].payload_hash);
+    expect(evidence).not.toContain(requests[0].payload_hash);
+    expect(evidence).not.toContain('payloadHash');
+    expect(await prisma.organization.count({ where: { inn: input.inn } })).toBe(organizationsBefore);
+    expect(await prisma.user.count({ where: { email: input.email } })).toBe(usersBefore);
   });
 
   it('returns the original request for exact replay and rejects conflicting replay', async () => {
@@ -118,6 +135,7 @@ describe('public organization intake PostgreSQL authority', () => {
     const first = await service.create(input, context);
     const replay = await service.create(input, { ...context, correlationId: randomUUID() });
     expect(replay.requestNumber).toBe(first.requestNumber);
+    expect(replay.correlationId).toBe(first.correlationId);
     expect(replay.replay).toBe(true);
 
     await expect(service.create({ ...input, organizationName: 'ООО Другой Пейлоад' }, {
@@ -133,6 +151,25 @@ describe('public organization intake PostgreSQL authority', () => {
     expect(Number(rows[0].count)).toBe(1);
   });
 
+  it('serializes simultaneous exact submissions into one durable request', async () => {
+    const input = dto();
+    const idempotencyKey = `intake-race:${randomUUID()}`;
+    const [first, second] = await Promise.all([
+      service.create(input, {
+        idempotencyKey,
+        correlationId: `race-a:${randomUUID()}`,
+        sourceIp: '203.0.113.31',
+      }),
+      service.create(input, {
+        idempotencyKey,
+        correlationId: `race-b:${randomUUID()}`,
+        sourceIp: '203.0.113.32',
+      }),
+    ]);
+    expect(first.requestNumber).toBe(second.requestNumber);
+    expect([first.replay, second.replay].sort()).toEqual([false, true]);
+  });
+
   it('enforces database-backed per-IP and per-email limits using no raw network fields in request rows', async () => {
     const sharedIp = '192.0.2.31';
     for (let index = 0; index < 5; index += 1) {
@@ -142,11 +179,11 @@ describe('public organization intake PostgreSQL authority', () => {
         sourceIp: sharedIp,
       });
     }
-    await expect(service.create(dto(), {
+    await expectRateLimited(service.create(dto(), {
       idempotencyKey: `intake:${randomUUID()}`,
       correlationId: randomUUID(),
       sourceIp: sharedIp,
-    })).rejects.toBeInstanceOf(TooManyRequestsException);
+    }));
 
     const sharedEmail = `email-limit-${randomUUID()}@example.test`;
     for (let index = 0; index < 3; index += 1) {
@@ -156,11 +193,11 @@ describe('public organization intake PostgreSQL authority', () => {
         sourceIp: `198.18.${index + 1}.41`,
       });
     }
-    await expect(service.create(dto({ email: sharedEmail }), {
+    await expectRateLimited(service.create(dto({ email: sharedEmail }), {
       idempotencyKey: `intake:${randomUUID()}`,
       correlationId: randomUUID(),
       sourceIp: '198.19.1.51',
-    })).rejects.toBeInstanceOf(TooManyRequestsException);
+    }));
 
     const columns = await prisma.$queryRaw<Array<{ column_name: string }>>(Prisma.sql`
       SELECT column_name
