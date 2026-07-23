@@ -1,7 +1,7 @@
 {
   "branch": "agent/platform-v7-strategic-rebuild-v3",
   "status": "active",
-  "purpose": "Strategic transaction-centric rebuild of the public /platform-v7 homepage, including the industrial infrastructure hero message and responsive typography, without changing production authority or deployment topology.",
+  "purpose": "Strategic transaction-centric rebuild of the public /platform-v7 homepage, including industrial positioning, responsive typography and capability-led RU/EN/ZH copy, without changing production authority or deployment topology.",
   "allowedPaths": [
     ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
     "apps/web/app/layout.tsx",
@@ -24,6 +24,7 @@
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
     "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+    "apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts",
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
     "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json",
@@ -32,6 +33,7 @@
   ],
   "acceptanceEvidence": {
     "staticSafety": "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
+    "publicCopy": "apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts",
     "browserMatrix": "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "lighthouseConfig": "apps/web/lighthouserc.cjs",
     "lighthouseWorkflow": ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
@@ -50,6 +52,8 @@
       "no-JavaScript intake fails closed",
       "root no-JavaScript fallback exposes no personal-data fields",
       "form-open analytics is separate from validated request submission",
+      "public capability copy contains no development-stage or maturity-status language",
+      "external-system descriptions communicate function without claiming verified connectivity",
       "public authority route emits title description canonical hreflang and crawlability metadata",
       "root metadata injection preserves service worker recovery and analytics bootstrap scripts byte-for-byte",
       "Lighthouse evidence is collected from a local production build and is not represented as live VPS evidence",
@@ -60,7 +64,7 @@
     "No production deployment changes",
     "No Netlify or Vercel production dependency",
     "No real transaction authority in the public scenario",
-    "No unverified integration or maturity claims",
+    "No claim that bank, FGIS, EDI or another external system is connected without verified runtime evidence",
     "RU, EN and ZH content remain complete",
     "No personal data persistence before a verified server endpoint is accepted"
   ]
