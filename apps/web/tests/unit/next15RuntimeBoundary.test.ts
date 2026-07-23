@@ -18,7 +18,7 @@ function collectSourceFiles(directory: string): string[] {
 
 describe('Next.js 15 runtime boundary', () => {
   it('pins the minimum security-qualified Next.js release', () => {
-    expect(packageJson.dependencies?.next).toBe('15.5.16');
+    expect(packageJson.dependencies?.next).toBe('15.5.21');
   });
 
   it('does not couple the framework security patch to a React major migration', () => {

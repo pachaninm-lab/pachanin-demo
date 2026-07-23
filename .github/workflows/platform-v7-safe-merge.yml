@@ -12,6 +12,7 @@ permissions:
   pull-requests: write
   checks: read
   statuses: read
+  issues: write
 
 concurrency:
   group: platform-v7-safe-merge
@@ -30,130 +31,86 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           echo "## platform-v7 safe merge" >> "$GITHUB_STEP_SUMMARY"
 
-          prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,headRefName,isDraft,mergeable,reviewDecision,statusCheckRollup,files --jq '.[] | @base64')
-
+          prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,headRefName --jq '.[] | @base64')
           if [ -z "${prs:-}" ]; then
             echo "- no eligible PRs" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-
-          blocked_path_re='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$)'
 
           while IFS= read -r encoded; do
             [ -z "$encoded" ] && continue
             pr_json=$(printf '%s' "$encoded" | base64 -d)
             number=$(printf '%s' "$pr_json" | jq -r '.number')
             head=$(printf '%s' "$pr_json" | jq -r '.headRefName')
-            is_draft=$(printf '%s' "$pr_json" | jq -r '.isDraft')
-            mergeable=$(printf '%s' "$pr_json" | jq -r '.mergeable')
-            review_decision=$(printf '%s' "$pr_json" | jq -r '.reviewDecision // ""')
-
             echo "- checking #$number ($head)" >> "$GITHUB_STEP_SUMMARY"
             echo "  - skipped: platform-v7 agent-generated PRs are reserved for platform-v7-autopilot-generated-merge.yml" >> "$GITHUB_STEP_SUMMARY"
-            continue
-
-            if [ "$is_draft" = "true" ]; then
-              echo "  - skipped: draft" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            if [ "$mergeable" != "MERGEABLE" ]; then
-              echo "  - skipped: not mergeable ($mergeable)" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            if [ "$review_decision" = "CHANGES_REQUESTED" ]; then
-              echo "  - skipped: changes requested" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            blocked_files=$(printf '%s' "$pr_json" | jq -r '.files[].path' | grep -E "$blocked_path_re" || true)
-            if [ -n "$blocked_files" ]; then
-              echo "  - skipped: blocked path changed" >> "$GITHUB_STEP_SUMMARY"
-              printf '%s\n' "$blocked_files" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            failed_checks=$(printf '%s' "$pr_json" | jq '[.statusCheckRollup[]? | select((.conclusion != null and .conclusion != "SUCCESS" and .conclusion != "SKIPPED") or (.status != null and .status != "COMPLETED"))] | length')
-            if [ "$failed_checks" != "0" ]; then
-              echo "  - skipped: checks not all green" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            gh pr merge "$number" --repo "$REPO" --squash --delete-branch
-            echo "  - merged" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$prs"
 
-  squash-release-authority-3075:
+  authorize-runtime-build-diagnostics-3095:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
       github.event.issue.number == 3075 &&
-      github.event.comment.user.login == github.repository_owner &&
-      github.event.comment.body == '/release squash-history 3075 b3fcbbf2098ea65b3b785df405280d799d453015'
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/runtime authorize-build-diagnostics 3095'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout exact release branch
+      - name: Checkout exact main
         uses: actions/checkout@v4
         with:
-          ref: ops/production-full-stack-release-v1
+          ref: main
           fetch-depth: 0
 
-      - name: Rebuild clean exact-main lineage
+      - name: Create source-controlled diagnostics authority
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_HEAD: b3fcbbf2098ea65b3b785df405280d799d453015
-          RELEASE_BRANCH: ops/production-full-stack-release-v1
+          AUTHORITY_BRANCH: governance/runtime-build-diagnostics-3095-applied
+          IMPLEMENTATION_BRANCH: ops/runtime-build-diagnostics-3095
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-
-          actual_head="$(git rev-parse HEAD)"
-          [[ "$actual_head" == "$EXPECTED_HEAD" ]] || {
-            echo "Release head moved: expected $EXPECTED_HEAD, found $actual_head" >&2
-            exit 20
-          }
-
           git fetch --no-tags origin main
-          git merge --no-edit origin/main
-          git reset --soft origin/main
+          git checkout -B "$AUTHORITY_BRANCH" origin/main
 
-          expected_files="$({
-            printf '%s\n' \
-              '.github/workflows/docker-publish.yml' \
-              '.github/workflows/production-full-stack-exact-sha.yml' \
-              'docs/ops/production-full-stack-release.md' \
-              'scripts/check-production-full-stack-release.mjs' \
-              'scripts/production-full-stack-exact-sha.sh' \
-              'scripts/production-full-stack-live-acceptance.sh'
-          } | sort)"
-          actual_files="$(git diff --cached --name-only | sort)"
-          [[ "$actual_files" == "$expected_files" ]] || {
-            echo 'Clean squash scope mismatch.' >&2
-            diff -u <(printf '%s\n' "$expected_files") <(printf '%s\n' "$actual_files") || true
-            exit 21
-          }
+          IMPLEMENTATION_BRANCH="$IMPLEMENTATION_BRANCH" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-          git diff --cached --check
-          node scripts/check-production-full-stack-release.mjs
-          git commit -m 'feat(release): add REG.RU full-stack exact-SHA authority'
-          clean_head="$(git rev-parse HEAD)"
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text())
+          branch = os.environ['IMPLEMENTATION_BRANCH']
+          allowed = ['.github/workflows/runtime-context-security-gate.yml']
+          scopes = state.setdefault('approvedConcurrentScopes', {})
+          existing = scopes.get(branch)
+          if existing not in (None, allowed):
+              raise SystemExit(f'conflicting scope for {branch}: {existing!r}')
+          scopes[branch] = allowed
+          path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')) + '\n')
+          PY
 
-          git push \
-            --force-with-lease="refs/heads/${RELEASE_BRANCH}:${EXPECTED_HEAD}" \
-            origin "HEAD:refs/heads/${RELEASE_BRANCH}"
+          node -e "JSON.parse(require('node:fs').readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8'))"
+          test "$(git diff --name-only)" = 'docs/platform-v7/autopilot/autopilot-state.json'
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'governance: authorize runtime image build diagnostics'
+          GITHUB_HEAD_REF="$AUTHORITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
+          git push --force-with-lease origin "HEAD:refs/heads/$AUTHORITY_BRANCH"
 
-          gh pr comment 3075 --repo "$GITHUB_REPOSITORY" --body "Release history rebuilt from exact current main. Clean head: \`${clean_head}\`; final diff remains the six governed release-authority paths. No allowlist or gate weakening was introduced."
-          {
-            echo '## Release history squash'
-            echo
-            echo "- previous head: \`$EXPECTED_HEAD\`"
-            echo "- clean head: \`$clean_head\`"
-            echo '- result: PASS'
-          } >> "$GITHUB_STEP_SUMMARY"
+          existing_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$AUTHORITY_BRANCH" --json number --jq '.[0].number // empty')
+          if [ -z "$existing_pr" ]; then
+            pr_url=$(gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$AUTHORITY_BRANCH" \
+              --title 'Authorize runtime image build diagnostics' \
+              --body 'One-file governance prerequisite. Authorizes only `.github/workflows/runtime-context-security-gate.yml` on `ops/runtime-build-diagnostics-3095` to persist canonical API/web Docker build logs while preserving fail-closed build and scanner semantics. No exception, product, package, Dockerfile or production change.')
+          else
+            pr_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$existing_pr"
+          fi
+
+          gh pr comment 3075 --repo "$GITHUB_REPOSITORY" --body "Runtime build diagnostics governance created: ${pr_url}. Exact implementation scope is one workflow file; production and pass/fail gates are unchanged."

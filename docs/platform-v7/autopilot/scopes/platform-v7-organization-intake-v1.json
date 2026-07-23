@@ -6,6 +6,7 @@
   "allowedPaths": [
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260723113000_public_organization_connection_intake/**",
+    "apps/api/prisma/migrations/20260723150000_public_organization_intake_consent_precision/**",
     "apps/api/src/modules/organization-intake/**",
     "apps/api/src/modules/organizations/organizations.module.ts",
     "apps/api/test/industrial/organization-intake-postgresql.e2e-spec.ts",
@@ -29,7 +30,7 @@
     "request plus audit plus outbox commit atomically through an EXECUTE-only pre-tenant command boundary",
     "exact idempotency replay returns the original request before new-request rate limiting and conflicting replay fails closed",
     "database-backed per-IP and per-email rate limits use only keyed hashes and trusted-proxy-derived network identity",
-    "consent version and timestamp are persisted",
+    "consent version and timestamp are persisted with a deterministic consentedAt <= createdAt invariant at database precision",
     "public response contains only request number, status, replay flag and correlation id",
     "RU EN ZH form submits to the server and displays the real request number",
     "no-JavaScript boundary remains fail closed"
