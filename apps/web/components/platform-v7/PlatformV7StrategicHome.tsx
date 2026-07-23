@@ -12,10 +12,17 @@ function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: strin
   return <div className='pc-v6-section-head'><span>{eyebrow}</span><h2>{title}</h2>{lead ? <p>{lead}</p> : null}</div>;
 }
 
+function getTaiName(locale: string) {
+  if (locale === 'zh') return 'Transparent Agro Intelligence · 透明农业智能';
+  if (locale === 'en') return 'Transparent Agro Intelligence';
+  return 'Transparent Agro Intelligence — прозрачный агроинтеллект';
+}
+
 export async function PlatformV7StrategicHome() {
   const locale = await getLocale();
   const copy = getPlatformV7HomeCopy(locale);
   const heroMessage = getPlatformV7HeroMessage(locale);
+  const taiName = getTaiName(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
@@ -103,10 +110,10 @@ export async function PlatformV7StrategicHome() {
       </section>
 
       <section id='tai' className='pc-v6-section pc-v6-tai'>
-        <SectionHeader eyebrow={copy.tai.eyebrow} title={copy.tai.title} lead={copy.tai.text}/>
+        <SectionHeader eyebrow={`${copy.tai.eyebrow} · ${taiName}`} title={copy.tai.title} lead={copy.tai.text}/>
         <div className='pc-v6-tai-layout'>
           <div className='pc-v6-tai-answer'>
-            <div className='pc-v6-tai-head'><Sparkles size={19}/><strong>TAI</strong><span>{copy.tai.mode}</span></div>
+            <div className='pc-v6-tai-head'><Sparkles size={19}/><strong>TAI</strong><span>{taiName} · {copy.tai.mode}</span></div>
             <p>{copy.tai.answer}</p>
             <ul><li>{copy.tai.source}</li><li>{copy.tai.freshness}</li><li>{copy.tai.confidence}</li></ul>
             <div className='pc-v6-prepared-action'><FileCheck2 size={18}/><span>{copy.tai.action}</span></div>
