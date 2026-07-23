@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -54,12 +55,12 @@ function json(body: Record<string, unknown>, status: number) {
 }
 
 function requestIp(request: Request): string {
-  return (
-    request.headers.get('x-real-ip') ||
-    request.headers.get('cf-connecting-ip') ||
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    ''
-  );
+  const chain = String(request.headers.get('x-forwarded-for') || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const nearestProxyAddress = chain.at(-1) || '';
+  return isIP(nearestProxyAddress) ? nearestProxyAddress : '';
 }
 
 function text(value: unknown, max: number): string {
