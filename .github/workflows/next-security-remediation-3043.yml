@@ -1,0 +1,157 @@
+name: Next.js 15.5.21 Security Remediation Controller
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: next-security-remediation-3043
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.issue.number == 3075 &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/security patch-next 3043 15.5.21-v2'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout dedicated security branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ir-sec-next-15-5-16-final
+          fetch-depth: 0
+
+      - name: Patch, verify and publish exact dependency remediation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECURITY_BRANCH: agent/ir-sec-next-15-5-16-final
+          RELEASE_PR: '3075'
+          TRACKING_ISSUE: '3043'
+        shell: bash
+        run: |
+          set -euo pipefail
+          phase='initialization'
+          canonical_title='Add REG.RU full-stack exact-SHA release authority'
+
+          on_failure() {
+            rc=$?
+            trap - ERR
+            failed_line="$1"
+            safe_phase="$(printf '%s' "$phase" | tr -cd 'A-Za-z0-9._:-' | cut -c1-80)"
+            set +e
+            gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+              --title "$canonical_title [NEXT FAIL: ${safe_phase}:${rc}]"
+            gh pr comment "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+              --body "Next.js 15.5.21 controller failed. Phase: \`${safe_phase}\`; workflow line: \`${failed_line}\`; exit: \`${rc}\`; run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. No protected value is included."
+            gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "Next.js 15.5.21 controller failed in phase \`${safe_phase}\`, exit \`${rc}\`. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+            set -e
+            exit "$rc"
+          }
+          trap 'on_failure "$LINENO"' ERR
+
+          gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+            --title "$canonical_title [NEXT RUNNING]"
+
+          phase='git-sync'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main
+          git reset --hard origin/main
+
+          phase='patch-package-manifest'
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = 'apps/web/package.json';
+          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (manifest.dependencies?.next !== '15.5.18') {
+            throw new Error(`Expected exact next 15.5.18, received ${manifest.dependencies?.next ?? '<missing>'}`);
+          }
+          manifest.dependencies.next = '15.5.21';
+          fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+
+          phase='install-pnpm'
+          npm install --global pnpm@10.2.1
+          pnpm --version | grep -Fxq '10.2.1'
+
+          phase='regenerate-lockfile'
+          pnpm --filter @pc/web update next@15.5.21 --lockfile-only
+
+          phase='validate-lockfile'
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
+          if (manifest.dependencies?.next !== '15.5.21') throw new Error('Next.js exact pin failed');
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          if (!lock.includes('next@15.5.21')) throw new Error('Patched Next.js package missing from lockfile');
+          NODE
+
+          phase='validate-two-file-scope'
+          expected="$({ printf '%s\n' 'apps/web/package.json' 'pnpm-lock.yaml'; } | sort)"
+          actual="$(git diff --name-only | sort)"
+          [[ "$actual" == "$expected" ]] || {
+            echo 'Unexpected dependency remediation paths:' >&2
+            diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+            exit 20
+          }
+          git diff --check
+
+          phase='frozen-install'
+          pnpm install --frozen-lockfile
+
+          phase='web-typecheck'
+          pnpm --filter @pc/web typecheck
+
+          phase='web-tests'
+          pnpm --filter @pc/web test
+
+          phase='web-production-build'
+          NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
+
+          phase='production-dependency-audit'
+          pnpm audit --prod --audit-level high
+
+          phase='commit-and-scope-guard'
+          git add apps/web/package.json pnpm-lock.yaml
+          git commit -m 'fix(security): patch Next.js to 15.5.21'
+          GITHUB_HEAD_REF="$SECURITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD \
+            bash scripts/p7-autopilot-guard.sh
+
+          phase='publish-security-branch'
+          git push origin "HEAD:$SECURITY_BRANCH"
+          head_sha="$(git rev-parse HEAD)"
+
+          gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" --title "$canonical_title"
+          gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" \
+            --body "Next.js security remediation published. Head: \`${head_sha}\`; exact diff: \`apps/web/package.json\` and \`pnpm-lock.yaml\`; target: \`next@15.5.21\`; frozen install, web typecheck/tests/build and production HIGH audit passed; no exception or allowlist."
+          gh pr comment "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+            --body "Next.js 15.5.21 security branch published at \`${head_sha}\`. Opening the isolated two-file security PR next."
+
+          {
+            echo '## Next.js 15.5.21 remediation'
+            echo
+            echo "- head: \`$head_sha\`"
+            echo '- changed paths: apps/web/package.json, pnpm-lock.yaml'
+            echo '- frozen install: PASS'
+            echo '- web typecheck/tests/build: PASS'
+            echo '- production high/critical audit: PASS'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record terminal controller result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ job.status }}
+        shell: bash
+        run: |
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" \
+            --body "Standalone Next.js 15.5.21 controller run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
