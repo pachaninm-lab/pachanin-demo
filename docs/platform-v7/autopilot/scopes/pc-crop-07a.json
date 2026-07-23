@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-07a-integration-inbox",
+  "status": "active",
+  "issue": 3030,
+  "predecessorPullRequests": [3038, 3055],
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-07a.yml",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/migration.sql",
+    "apps/api/src/modules/regulatory-integration/**",
+    "apps/api/src/modules/integration-events/integration-events.module.ts",
+    "apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts",
+    "infra/sql/postgresql-regulatory-integration-inbox-policies.sql",
+    "scripts/verify-pc-crop-07a.mjs",
+    "docs/platform-v7/autopilot/scopes/pc-crop-07a.json",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "invariants": [
+    "DURABLE_INSERT_BEFORE_PROVIDER_ACK",
+    "SAME_IDENTITY_SAME_HASH_REPLAY",
+    "SAME_IDENTITY_DIFFERENT_HASH_SECURITY_CONFLICT",
+    "SERVER_DERIVED_TENANT_ORGANIZATION_AUTHORITY",
+    "POSTGRESQL_FORCE_RLS",
+    "FOR_UPDATE_SKIP_LOCKED_COMPETING_WORKERS",
+    "EXPIRED_LEASE_RECLAIM",
+    "RETRY_QUARANTINE_DEAD_TRANSITIONS",
+    "CANONICAL_OUTBOX_ONLY",
+    "NO_RAW_PAYLOAD_LOGGING"
+  ],
+  "boundaries": {
+    "publicWebhookController": false,
+    "vendorSpecificMapping": false,
+    "liveCredentialOrExternalCall": false,
+    "clientSelectedTenantOrganizationRole": false,
+    "staticOrMemoryAuthority": false,
+    "secondOutboxOrRelay": false,
+    "packageOrLockfileChange": false,
+    "productionDeploymentEvidence": false,
+    "productionHosting": "REG_RU_VPS_ONLY",
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
