@@ -3,6 +3,10 @@
   "status": "active",
   "purpose": "Register the exact source-controlled scope for a fail-closed REG.RU full-stack exact-SHA release authority.",
   "approvedBy": "user-directed-finish-homepage-2026-07-23",
+  "validation": {
+    "pullRequest": 3073,
+    "mode": "connector-authored-exact-head"
+  },
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/governance-production-full-stack-release-v1.json",
     "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json",
