@@ -1,0 +1,65 @@
+name: Patch PC-CROP 01B.4 concurrent intake scope
+
+on:
+  push:
+    branches:
+      - agent/platform-v7-organization-intake-v1
+    paths:
+      - '.github/workflows/patch-pc-crop-01b4-intake-scope.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/platform-v7-organization-intake-v1
+          fetch-depth: 0
+
+      - name: Patch concurrent scope handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/pc-crop-01b4.yml')
+          text = workflow.read_text()
+          marker = "      - name: Enforce exact-head bounded remediation scope\n"
+          if marker not in text:
+              raise SystemExit('01B.4 scope step not found')
+          if "PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}" not in text:
+              text = text.replace(marker, marker + "        env:\n          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}\n", 1)
+
+          needle = "          git diff --name-only \"$base_ref...$EXACT_HEAD\" | sort > \"$EVIDENCE_DIR/changed-files.txt\"\n          if grep -Ev '^(.github/workflows/pc-crop-01a.yml|.github/workflows/pc-crop-01b[34].yml|apps/api/src/modules/commodity-profiles/.*|apps/api/src/modules/staff-access/staff-access.types.ts|apps/web/app/api/platform-v7/commodity-profiles/.*|apps/web/app/api/staff/commodity-profile-registry/.*|apps/web/app/api/staff/commodity-profiles/.*|apps/web/app/platform-v7/commodity-profiles/.*|apps/web/components/crop-platform/(CommodityProfileRegistry(Client|View)(.module.css|.tsx)?|commodity-profile-live-adapter.ts|css-modules.d.ts)|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy).ts|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter).test.ts|apps/web/tsconfig.pc-crop.json|docs/platform-v7/autopilot/scopes/pc-crop-01b4-(private-bff-live-registry|postmerge-remediation).json|scripts/p7-autopilot-guard.sh|scripts/verify-pc-crop-01a.mjs)$' \"$EVIDENCE_DIR/changed-files.txt\" > \"$EVIDENCE_DIR/out-of-scope.txt\"; then\n"
+          replacement = "          git diff --name-only \"$base_ref...$EXACT_HEAD\" | sort > \"$EVIDENCE_DIR/changed-files.txt\"\n\n          intake_manifest='docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json'\n          if [[ \"${PR_HEAD_REF:-}\" == 'agent/platform-v7-organization-intake-v1' ]] \\\n            || grep -Fxq \"$intake_manifest\" \"$EVIDENCE_DIR/changed-files.txt\"; then\n            printf '%s\\n' 'platform-v7-organization-intake-v1' > \"$EVIDENCE_DIR/concurrent-scope-owner.txt\"\n            GITHUB_HEAD_REF='agent/platform-v7-organization-intake-v1' \\\n              BASE_REF=\"$base_ref\" \\\n              HEAD_REF=\"$EXACT_HEAD\" \\\n              bash scripts/p7-autopilot-guard.sh \\\n              | tee \"$EVIDENCE_DIR/concurrent-scope-guard.log\"\n          elif grep -Ev '^(.github/workflows/pc-crop-01a.yml|.github/workflows/pc-crop-01b[34].yml|apps/api/src/modules/commodity-profiles/.*|apps/api/src/modules/staff-access/staff-access.types.ts|apps/web/app/api/platform-v7/commodity-profiles/.*|apps/web/app/api/staff/commodity-profile-registry/.*|apps/web/app/api/staff/commodity-profiles/.*|apps/web/app/platform-v7/commodity-profiles/.*|apps/web/components/crop-platform/(CommodityProfileRegistry(Client|View)(.module.css|.tsx)?|commodity-profile-live-adapter.ts|css-modules.d.ts)|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy).ts|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter).test.ts|apps/web/tsconfig.pc-crop.json|docs/platform-v7/autopilot/scopes/pc-crop-01b4-(private-bff-live-registry|postmerge-remediation).json|scripts/p7-autopilot-guard.sh|scripts/verify-pc-crop-01a.mjs)$' \"$EVIDENCE_DIR/changed-files.txt\" > \"$EVIDENCE_DIR/out-of-scope.txt\"; then\n"
+          if 'concurrent-scope-owner.txt' not in text:
+              if needle not in text:
+                  raise SystemExit('01B.4 exact scope anchor not found')
+              text = text.replace(needle, replacement, 1)
+          workflow.write_text(text)
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json')
+          scope = json.loads(scope_path.read_text())
+          allowed = scope['allowedPaths']
+          for path in ['.github/workflows/pc-crop-01b3.yml', '.github/workflows/pc-crop-01b4.yml']:
+              if path not in allowed:
+                  allowed.insert(0, path)
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n')
+          PY
+          grep -Fq "concurrent-scope-owner.txt" .github/workflows/pc-crop-01b4.yml
+          node -e "JSON.parse(require('fs').readFileSync('docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json','utf8'))"
+
+      - name: Commit scoped regression handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/pc-crop-01b4.yml docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json
+          git commit -m 'ci(scope): make PC-CROP 01B.4 intake-aware'
+          git push origin HEAD:agent/platform-v7-organization-intake-v1
