@@ -7,6 +7,7 @@ const files = {
   contour: 'docs/ops/active-hosting-contour.md',
   runbook: 'docs/ops/virtual-server-production-runbook.md',
   checklist: 'docs/ops/vps-post-deploy-checklist.md',
+  hardening: 'docs/ops/production-web-hardening.md',
   pilot: 'scripts/pilot-up.sh',
 };
 
@@ -56,9 +57,37 @@ requireText('canonical', [
   'Definition of deployed',
 ]);
 requireText('cutover', [...commonAuthority, 'VPS deployment pending']);
-requireText('contour', [...commonAuthority, 'Netlify is retired', 'Vercel is retired']);
-requireText('runbook', [...commonAuthority, 'PC_TARGET_SHA', 'org.opencontainers.image.revision']);
-requireText('checklist', ['процент-агро.рф', 'running OCI revision', 'Contact dock acceptance']);
+requireText('contour', [
+  ...commonAuthority,
+  'Netlify is retired',
+  'Vercel is retired',
+  'Watchtower is retired',
+  'exact-SHA',
+  'must not use a fixed `container_name`',
+]);
+requireText('runbook', [
+  ...commonAuthority,
+  'PC_TARGET_SHA',
+  'org.opencontainers.image.revision',
+  'production-web-exact-sha.yml',
+  'Watchtower is retired from release authority',
+  'compose.production-hardening.override.yml',
+]);
+requireText('checklist', [
+  'процент-агро.рф',
+  'running OCI revision',
+  'Contact dock acceptance',
+  'Docker reports the `web` container as `healthy`',
+  'Watchtower is stopped',
+]);
+requireText('hardening', [
+  'REG.RU',
+  'exact-SHA operations',
+  'Watchtower is retired',
+  'must not have a fixed `container_name`',
+  'Docker Compose `2.24.4` or later',
+  'automatic rollback',
+]);
 requireText('pilot', [...commonAuthority, 'virtual-server deployment remains pending until verified']);
 
 forbid('canonical', [
@@ -70,7 +99,13 @@ forbid('canonical', [
 forbid('contour', [
   /Netlify is the sole production host/i,
   /Green working status:\s*`?@pc\/web`? build success \+ Netlify deploy/i,
+  /Watchtower may perform the pull automatically/i,
 ]);
+forbid('runbook', [
+  /Allow Watchtower to pull/i,
+  /docker compose[^\n]*pull web[\s\S]{0,120}docker compose[^\n]*up -d --no-deps web/i,
+]);
+forbid('hardening', [/grainflow-web:latest/i, /automatic updater.*release authority/i]);
 forbid('cutover', [
   /Хостинг:\s*Netlify/i,
   /Netlify\s*→\s*Site settings/i,
@@ -84,4 +119,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('PASS: production authority is the REG.RU virtual server at the recorded endpoint; retired providers are not release gates.');
+console.log('PASS: production authority is the REG.RU virtual server with exact-SHA, health-gated web releases; retired providers and Watchtower are not release gates.');
