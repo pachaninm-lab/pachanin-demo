@@ -19,7 +19,7 @@ jobs:
       github.event.issue.pull_request != null &&
       github.event.issue.number == 3075 &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/security patch-next 3043 15.5.21-v3'
+      github.event.comment.body == '/security patch-next 3043 15.5.21-v4'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -57,6 +57,45 @@ jobs:
             exit "$rc"
           }
           trap 'on_failure "$LINENO"' ERR
+
+          write_test_diagnostic() {
+            local source_log="$1"
+            local current_body="$RUNNER_TEMP/release-pr-current.md"
+            local next_body="$RUNNER_TEMP/release-pr-next.md"
+            local summary="$RUNNER_TEMP/web-test-failure-summary.txt"
+
+            sed -E $'s/\x1B\[[0-9;]*[mK]//g' "$source_log" \
+              | grep -E 'FAIL|AssertionError|Error:|expected|received|Test Files|Tests|❯|×' \
+              | tail -n 120 \
+              | head -c 6000 > "$summary" || true
+            [[ -s "$summary" ]] || tail -n 80 "$source_log" | head -c 6000 > "$summary"
+            gh pr view "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$current_body"
+
+            python3 - "$current_body" "$summary" "$next_body" <<'PY'
+          import sys
+          from pathlib import Path
+
+          current_path, summary_path, output_path = map(Path, sys.argv[1:])
+          body = current_path.read_text()
+          summary = summary_path.read_text(errors='replace').replace('```', "'''").strip()
+          start = '<!-- NEXT_WEB_TEST_DIAGNOSTIC_START -->'
+          end = '<!-- NEXT_WEB_TEST_DIAGNOSTIC_END -->'
+          if start in body and end in body:
+              prefix, remainder = body.split(start, 1)
+              _, suffix = remainder.split(end, 1)
+              body = f'{prefix.rstrip()}\n{suffix.lstrip()}'
+          block = f'''{start}
+          ## Next.js security web-test diagnostic
+
+          ```text
+          {summary}
+          ```
+
+          {end}'''
+          output_path.write_text(f'{body.rstrip()}\n\n{block}\n')
+          PY
+            gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" --body-file "$next_body"
+          }
 
           gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
             --title "$canonical_title [NEXT RUNNING]"
@@ -128,7 +167,15 @@ jobs:
           pnpm --filter @pc/web typecheck
 
           phase='web-tests'
-          pnpm --filter @pc/web test
+          test_log="$RUNNER_TEMP/web-tests.log"
+          set +e
+          pnpm --filter @pc/web test 2>&1 | tee "$test_log"
+          test_rc=${PIPESTATUS[0]}
+          set -e
+          if (( test_rc != 0 )); then
+            write_test_diagnostic "$test_log"
+            exit "$test_rc"
+          fi
 
           phase='web-production-build'
           NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
@@ -173,4 +220,4 @@ jobs:
         shell: bash
         run: |
           gh issue comment 3043 --repo "$GITHUB_REPOSITORY" \
-            --body "Standalone Next.js 15.5.21 controller v3 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
+            --body "Standalone Next.js 15.5.21 controller v4 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
