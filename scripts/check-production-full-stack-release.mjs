@@ -35,6 +35,7 @@ requireAll('workflow', [
   'for component in api web migration',
   'grainflow-${component}:sha-${SHORT_SHA}',
   'PC_PROD_SSH_HOST_FINGERPRINT',
+  'PC_PROD_BACKUP_EVIDENCE_FILE_B64',
   'No valid protected SSH private key is configured.',
   'scripts/production-full-stack-exact-sha.sh',
   'scripts/production-full-stack-live-acceptance.sh',
@@ -50,6 +51,7 @@ requireAll('workflow', [
 requireAll('executor', [
   'COMPOSE_SERVICE_DISCOVERY_FAILED',
   'BACKUP_MODE=LOGICAL_COMPOSE_POSTGRES',
+  'PC_PROD_BACKUP_EVIDENCE_FILE_B64',
   'BACKUP_AUTHORITY_UNAVAILABLE',
   'run --rm --no-deps --pull never "$migration_service"',
   'MIGRATION_COMPLETE=1',
