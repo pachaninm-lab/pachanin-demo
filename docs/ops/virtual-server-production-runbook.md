@@ -42,6 +42,7 @@ export PC_PROD_DIR=<from-protected-inventory>
 export PC_PROD_COMPOSE=<from-protected-inventory>
 export PC_PROD_PROJECT=<from-protected-inventory-if-required>
 export PC_HARDENING_OVERRIDE="$PC_PROD_DIR/compose.production-hardening.override.yml"
+export PC_IMAGE_OVERRIDE="$PC_PROD_DIR/compose.production-web-image.override.yml"
 ```
 
 ## 3. Pre-deploy checks
@@ -55,13 +56,14 @@ Before touching the server:
 5. Confirm the image build used `infra/docker/Dockerfile.web`.
 6. Confirm the domain currently resolves to the expected REG.RU VPS.
 7. Classify the change as application image, protected Compose/Caddy/environment, migration, or mixed release.
-8. Record the current running web image ID and exact revision for rollback.
+8. Record the current running web image reference, immutable image ID and exact revision for rollback.
+9. Confirm the current persistent image override, when present, matches the accepted running image.
 
 The root `docker-compose.yml` in the repository is local-development infrastructure. Do not use it as production authority.
 
 ## 4. Canonical Compose model
 
-Every production web operation must include the persistent hardening override:
+After the first hardened release, every production web operation must include the protected base file and both persistent overrides:
 
 ```bash
 DC=(
@@ -74,20 +76,23 @@ fi
 DC+=(
   -f "$PC_PROD_COMPOSE"
   -f "$PC_HARDENING_OVERRIDE"
+  -f "$PC_IMAGE_OVERRIDE"
 )
 
 "${DC[@]}" config --quiet
 "${DC[@]}" config --services
+"${DC[@]}" config --images
 ```
 
 Required merged-model properties:
 
 - `web.container_name` is absent;
 - `web` has restart, graceful-stop and healthcheck policy;
+- `web.image` is the accepted immutable exact-SHA image;
 - `watchtower` is in the inactive `retired-watchtower` profile;
 - Docker Compose version is at least `2.24.4`.
 
-Do not run the protected base Compose file alone after the hardening transition.
+Do not run the protected base Compose file alone after the hardening transition. Omitting the image override can reintroduce an older exact image from the protected base file.
 
 ## 5. Connect and inspect
 
@@ -105,9 +110,10 @@ docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revis
 docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$WEB_ID"
 docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$WEB_ID"
 docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$WEB_ID"
+docker inspect --format '{{ .Config.Image }}' "$WEB_ID"
 ```
 
-The accepted state is one Compose-managed `web` container with exact OCI revision and `healthy` Docker state.
+The accepted state is one Compose-managed `web` container with exact OCI revision, exact persisted image reference and `healthy` Docker state.
 
 ## 6. Application-image deployment
 
@@ -115,7 +121,8 @@ Primary authority:
 
 - workflow: `.github/workflows/production-web-exact-sha.yml`;
 - server operation: `scripts/production-web-exact-sha.sh`;
-- persistent override: `infra/compose/production-web-hardening.override.yml`;
+- hardening override source: `infra/compose/production-web-hardening.override.yml`;
+- generated exact-image override: `compose.production-web-image.override.yml` on the server;
 - detailed contract: `docs/ops/production-web-hardening.md`.
 
 The workflow supports:
@@ -128,16 +135,19 @@ For a web-only release, only service `web` may be recreated. API, PostgreSQL, Re
 
 The release script:
 
-1. validates the merged Compose model;
+1. validates the base Compose model plus hardening override;
 2. records current web image/revision;
 3. verifies the exact target image OCI revision;
-4. adopts one unambiguous legacy unlabeled web container when necessary;
-5. recreates only `web`;
-6. requires `healthy` state and canonical Compose labels;
-7. retires Watchtower by stopping it and setting restart policy `no`;
-8. restores the previous web image automatically on an internal failure.
+4. atomically persists the target exact image in the generated image override;
+5. validates that the merged Compose model resolves `web.image` to the requested exact image;
+6. adopts one unambiguous legacy unlabeled web container when necessary;
+7. recreates only `web` with `--pull never` after the exact image is already pulled and verified;
+8. requires `healthy` state, exact OCI revision and canonical Compose labels;
+9. performs exact live acceptance inside the rollback boundary;
+10. retires Watchtower by stopping it and setting restart policy `no`;
+11. restores both previous web runtime and previous image authority automatically on failure.
 
-A registry push or available `latest` tag does not mean production changed.
+A registry push, local retag or available `latest` tag does not mean production changed.
 
 ## 7. Compose, Caddy or environment deployment
 
@@ -147,7 +157,7 @@ Image deployment authority does not authorize infrastructure changes. For a prot
 2. back up the protected file before mutation;
 3. validate the merged Compose model without printing resolved secrets;
 4. apply the narrowest service list possible;
-5. preserve the hardening override;
+5. preserve both persistent overrides;
 6. confirm Caddy and unrelated container IDs did not change unexpectedly.
 
 For Caddy changes, validate routing and inspect recent logs:
@@ -185,7 +195,7 @@ curl -fsS "https://процент-агро.рф/robots.txt" >/dev/null
 curl -fsS "https://процент-агро.рф/sitemap.xml" >/dev/null
 ```
 
-Readiness response and `manifest-pc-deploy.json` must contain the exact target revision. A 200 response without exact revision evidence is insufficient.
+Readiness response and `manifest-pc-deploy.json` must contain the exact target revision for a hardened target. A 200 response without exact revision evidence is insufficient.
 
 For a UI release, verify the actual mobile viewport and the exact changed element. Command-line smoke checks do not replace live visual QA.
 
@@ -203,10 +213,11 @@ After rollback:
 
 1. confirm Docker state is `healthy`;
 2. confirm running OCI revision equals the rollback SHA;
-3. confirm Compose project/service labels are present;
-4. rerun live route and Caddy checks;
-5. confirm Watchtower remains stopped;
-6. record failed target SHA and restored SHA.
+3. confirm the persistent image override points to the rollback exact image;
+4. confirm Compose project/service labels are present;
+5. rerun live route and Caddy checks;
+6. confirm Watchtower remains stopped;
+7. record failed target SHA and restored SHA.
 
 Do not roll back database schemas destructively. Use forward recovery or an approved restore procedure.
 
@@ -215,7 +226,8 @@ Do not roll back database schemas destructively. Use forward recovery or an appr
 Every production release record must contain:
 
 - target Git SHA;
-- image tag and digest when available;
+- exact image tag and digest when available;
+- persisted merged Compose web image;
 - running OCI revision;
 - Docker health state;
 - Compose project/service labels;
@@ -240,4 +252,4 @@ Allowed only after server and live-domain verification:
 
 - deployed to production;
 - live on `процент-агро.рф`;
-- exact running revision accepted.
+- exact running revision and persisted image authority accepted.
