@@ -86,7 +86,7 @@ requireText('schema', [
   '@@map("regulatory_integration_inbox_entries")',
   '@@map("regulatory_integration_inbox_conflicts")',
   'regulatoryIntegrationInboxEntries',
-  'regulatoryIntegrationInboxConflicts',
+  'conflicts     RegulatoryIntegrationInboxConflict[]',
 ]);
 
 requireText('types', [
@@ -130,7 +130,7 @@ requireText('module', [
 
 requireText('e2e', [
   'commits before ACK eligibility',
-  'same-hash deterministic replay',
+  'separates replay from immutable conflict',
   'two concurrent workers disjoint claims',
   'reclaims an expired crash lease',
   'fails closed across tenant and organization boundaries',
