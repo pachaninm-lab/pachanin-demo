@@ -6,6 +6,7 @@ import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperien
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
+import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
   return <div className='pc-v6-section-head'><span>{eyebrow}</span><h2>{title}</h2>{lead ? <p>{lead}</p> : null}</div>;
@@ -14,6 +15,7 @@ function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: strin
 export async function PlatformV7StrategicHome() {
   const locale = await getLocale();
   const copy = getPlatformV7HomeCopy(locale);
+  const heroMessage = getPlatformV7HeroMessage(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
@@ -43,9 +45,12 @@ export async function PlatformV7StrategicHome() {
     <div className='pc-v6-shell'>
       <section className='pc-v6-hero' aria-labelledby='pc-v6-title'>
         <div className='pc-v6-hero-copy'>
-          <span className='pc-v6-kicker'>{copy.hero.kicker}</span>
-          <h1 id='pc-v6-title'>{copy.hero.title}</h1>
-          <p>{copy.hero.lead}</p>
+          <span className='pc-v6-kicker'>{heroMessage.kicker}</span>
+          <h1 id='pc-v6-title' className='pc-v6-hero-title'>
+            <span className='pc-v6-hero-brand'>{heroMessage.brand}</span>
+            <span className='pc-v6-hero-title-line'>{heroMessage.title}</span>
+          </h1>
+          <p className='pc-v6-hero-lead'>{heroMessage.lead}</p>
           <div className='pc-v6-actions'>
             <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='hero_primary_cta' locale={locale} params={{ source: 'hero_v3' }}>{copy.hero.primary}<ArrowRight size={19}/></PublicExperienceLink>
             <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='hero_secondary_cta' locale={locale} params={{ source: 'hero_v3' }}>{copy.hero.secondary}</PublicExperienceLink>
