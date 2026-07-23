@@ -29,6 +29,13 @@ require_path() {
   [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || fail "$name contains a newline"
 }
 
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
 write_image_override() {
   local image="$1"
   [[ "$image" =~ ^[A-Za-z0-9._/@:-]+$ ]] || fail "unsafe image reference: $image"
@@ -57,16 +64,12 @@ require_path "$PC_HARDENING_OVERRIDE" PC_HARDENING_OVERRIDE
 require_path "$PC_IMAGE_OVERRIDE" PC_IMAGE_OVERRIDE
 [[ -d "$PC_PROD_DIR" ]] || fail "production directory does not exist: $PC_PROD_DIR"
 
-if [[ "$PC_PROD_COMPOSE" != /* ]]; then
-  PC_PROD_COMPOSE="${PC_PROD_DIR%/}/$PC_PROD_COMPOSE"
-fi
 if [[ "$PC_HARDENING_OVERRIDE" != /* ]]; then
   PC_HARDENING_OVERRIDE="${PC_PROD_DIR%/}/$PC_HARDENING_OVERRIDE"
 fi
 if [[ "$PC_IMAGE_OVERRIDE" != /* ]]; then
   PC_IMAGE_OVERRIDE="${PC_PROD_DIR%/}/$PC_IMAGE_OVERRIDE"
 fi
-[[ -f "$PC_PROD_COMPOSE" ]] || fail "production Compose file does not exist: $PC_PROD_COMPOSE"
 [[ -f "$PC_HARDENING_OVERRIDE" ]] || fail "hardening override does not exist: $PC_HARDENING_OVERRIDE"
 [[ -d "$(dirname "$PC_IMAGE_OVERRIDE")" ]] || fail "image override directory does not exist: $(dirname "$PC_IMAGE_OVERRIDE")"
 if [[ "$ACTION" != audit ]]; then
@@ -81,7 +84,21 @@ if [[ -n "$PC_PROD_PROJECT" ]]; then
   [[ "$PC_PROD_PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || fail 'PC_PROD_PROJECT is invalid'
   BASE_DC+=(--project-name "$PC_PROD_PROJECT")
 fi
-BASE_DC+=(-f "$PC_PROD_COMPOSE" -f "$PC_HARDENING_OVERRIDE")
+
+IFS=',' read -r -a RAW_COMPOSE_FILES <<< "$PC_PROD_COMPOSE"
+compose_file_count=0
+for raw_file in "${RAW_COMPOSE_FILES[@]}"; do
+  compose_file="$(trim "$raw_file")"
+  [[ -n "$compose_file" ]] || continue
+  if [[ "$compose_file" != /* ]]; then
+    compose_file="${PC_PROD_DIR%/}/$compose_file"
+  fi
+  [[ -f "$compose_file" ]] || fail "production Compose file does not exist: $compose_file"
+  BASE_DC+=(-f "$compose_file")
+  compose_file_count=$((compose_file_count + 1))
+done
+(( compose_file_count >= 1 )) || fail 'no production Compose files were resolved'
+BASE_DC+=(-f "$PC_HARDENING_OVERRIDE")
 
 cd "$PC_PROD_DIR"
 "${BASE_DC[@]}" config --quiet
@@ -138,6 +155,7 @@ mapfile -t watchtower_ids < <(
 
 printf 'ACTION=%s\n' "$ACTION"
 printf 'COMPOSE_VERSION=%s\n' "$compose_version"
+printf 'COMPOSE_FILE_COUNT=%s\n' "$compose_file_count"
 printf 'CURRENT_WEB_ID=%s\n' "$current_web_id"
 printf 'CURRENT_WEB_NAME=%s\n' "$current_name"
 printf 'CURRENT_WEB_IMAGE=%s\n' "$current_image_ref"
