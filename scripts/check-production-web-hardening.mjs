@@ -40,7 +40,12 @@ function forbid(name, patterns) {
   }
 }
 
-requireText('route', ['status: \'ok\'', 'process.env.APP_REVISION', "'Cache-Control': 'no-store, max-age=0'"]);
+requireText('route', [
+  'status: \'ok\'',
+  "releaseAuthority: 'exact-sha'",
+  'process.env.APP_REVISION',
+  "'Cache-Control': 'no-store, max-age=0'",
+]);
 requireText('dockerfile', [
   'ARG GIT_COMMIT=unknown',
   'COMMIT_REF="$GIT_COMMIT" BRANCH=main node scripts/write-deploy-evidence.mjs',
@@ -102,6 +107,8 @@ requireText('workflow', [
   'workflow_dispatch:',
   'DEPLOY-EXACT-SHA',
   'ROLLBACK-EXACT-SHA',
+  'issues: write',
+  'RELEASE_ISSUE_NUMBER: 3048',
   "github.actor == github.repository_owner",
   'PC_PROD_SSH_USER',
   'PC_PROD_SSH_KEY',
@@ -109,7 +116,13 @@ requireText('workflow', [
   'scripts/production-web-live-acceptance.sh',
   'scripts/production-web-remote-entrypoint.sh',
   'persistent_override_mutated',
+  'deployed_revision',
+  'deployed_state',
   'Restore previous exact revision after live failure',
+  'Publish release record',
+  'gh issue comment',
+  'gh issue close',
+  'LIVE_ACCEPTANCE=',
   'retention-days: 90',
 ]);
 requireText('hardening', [
@@ -175,4 +188,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, observable through issue #3048, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
