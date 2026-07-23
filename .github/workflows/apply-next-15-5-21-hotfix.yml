@@ -1,0 +1,114 @@
+name: Apply Next 15.5.21 security hotfix
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths: [.github/workflows/apply-next-15-5-21-hotfix.yml]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: apply-next-15-5-21-hotfix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.head_ref == 'security/next-15-5-21-hotfix'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: security/next-15-5-21-hotfix
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply exact patch dependency update
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('apps/web/package.json')
+          package = json.loads(path.read_text())
+          current = package['dependencies'].get('next')
+          if current != '15.5.18':
+            raise SystemExit(f'unexpected Next.js baseline: {current!r}')
+          package['dependencies']['next'] = '15.5.21'
+          path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n')
+          PY
+          pnpm install --lockfile-only
+          pnpm install --frozen-lockfile
+      - name: Verify security and compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/web typecheck
+          pnpm --filter @pc/web build
+          set +e
+          pnpm audit --prod --audit-level high --json > /tmp/pnpm-audit-next-15-5-21.json
+          audit_rc=$?
+          set -e
+          node - /tmp/pnpm-audit-next-15-5-21.json <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const advisories = Object.values(payload.advisories || {});
+          const blocked = advisories.filter((item) => ['high','critical'].includes(String(item.severity || '').toLowerCase()));
+          if (blocked.length) {
+            console.error(JSON.stringify(blocked.map(({id,module_name,severity,title,vulnerable_versions,url}) => ({id,module_name,severity,title,vulnerable_versions,url})), null, 2));
+            process.exit(1);
+          }
+          NODE
+          test "$audit_rc" -eq 0 || {
+            echo 'pnpm audit returned non-zero without HIGH/CRITICAL findings; refusing ambiguous scanner state.' >&2
+            exit 21
+          }
+          node -e "const p=require('./apps/web/package.json'); if(p.dependencies.next!=='15.5.21'||p.dependencies.react!=='18.3.1'||p.dependencies['react-dom']!=='18.3.1') process.exit(1)"
+          git diff --check
+      - name: Record bounded evidence and remove executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/security
+          cat > docs/security/next-15-5-21-security-hotfix.md <<'MD'
+          # Next.js 15.5.21 security hotfix
+
+          Status: source acceptance PASS on the implementation branch; production deployment is not claimed here.
+
+          Exact change: `apps/web` Next.js `15.5.18` → `15.5.21`, with the corresponding pnpm lockfile update.
+
+          Closed unexcepted HIGH advisories:
+
+          - `GHSA-89xv-2m56-2m9x` — Server-Side Request Forgery in Server Actions on custom servers;
+          - `GHSA-m99w-x7hq-7vfj` — Denial of Service in App Router using Server Actions;
+          - `GHSA-p9j2-gv94-2wf4` — Server-Side Request Forgery in rewrites via attacker-controlled destination hostname.
+
+          Acceptance executed before commit:
+
+          - frozen-lockfile install;
+          - `@pc/web` strict typecheck;
+          - `@pc/web` production build;
+          - production dependency audit with zero HIGH/CRITICAL findings;
+          - React and React DOM remained `18.3.1`;
+          - no application, route, UI, API or production deployment change.
+          MD
+          git rm .github/workflows/apply-next-15-5-21-hotfix.yml
+      - name: Commit verified hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --name-only | sort > /tmp/actual-files
+          printf '%s\n' apps/web/package.json docs/security/next-15-5-21-security-hotfix.md pnpm-lock.yaml | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git commit -m 'fix(web): update Next.js to 15.5.21 for security advisories'
+          git push origin HEAD:security/next-15-5-21-hotfix
