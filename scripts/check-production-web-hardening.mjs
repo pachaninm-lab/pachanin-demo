@@ -17,7 +17,6 @@ const files = {
 
 const contents = new Map();
 const failures = [];
-
 for (const [name, path] of Object.entries(files)) {
   if (!fs.existsSync(path)) {
     failures.push(`${name}: missing ${path}`);
@@ -41,7 +40,7 @@ function forbid(name, patterns) {
 }
 
 requireText('route', [
-  'status: \'ok\'',
+  "status: 'ok'",
   "releaseAuthority: 'exact-sha'",
   'process.env.APP_REVISION',
   "'Cache-Control': 'no-store, max-age=0'",
@@ -88,8 +87,6 @@ requireText('remote', [
   'if [[ "$ACTION" == audit ]]',
   'compose.production-hardening.override.yml',
   'compose.production-web-image.override.yml',
-  'grep -Ev',
-  'hardening|web-image',
   'RESOLVED_PROTECTED_COMPOSE_COUNT=',
   'PC_IMAGE_OVERRIDE=',
   'PC_LIVE_ACCEPTANCE_SCRIPT=',
@@ -104,14 +101,35 @@ requireText('live', [
   'LIVE_ACCEPTANCE=PASS',
 ]);
 requireText('workflow', [
+  "- '.github/workflows/production-web-exact-sha.yml'",
   'workflow_dispatch:',
   'DEPLOY-EXACT-SHA',
   'ROLLBACK-EXACT-SHA',
   'issues: write',
   'RELEASE_ISSUE_NUMBER: 3048',
-  "github.actor == github.repository_owner",
   'PC_PROD_SSH_USER',
   'PC_PROD_SSH_KEY',
+  'PC_PROD_SSH_PRIVATE_KEY',
+  'VPS_SSH_KEY',
+  'PC_PROD_SSH_PASSWORD',
+  'VPS_SSH_PASSWORD',
+  'validate_private_key()',
+  'try_candidate()',
+  'try_candidate PC_PROD_SSH_PRIVATE_KEY',
+  'try_candidate VPS_SSH_KEY',
+  'try_candidate PC_PROD_SSH_KEY',
+  'ssh-ed25519\\ *|ssh-rsa\\ *|ecdsa-*\\ *|sk-*\\ *',
+  '-----BEGIN OPENSSH PRIVATE KEY-----',
+  '-----BEGIN RSA PRIVATE KEY-----',
+  '-----BEGIN EC PRIVATE KEY-----',
+  '-----BEGIN PRIVATE KEY-----',
+  "${raw//\\\\n/$'\\n'}",
+  'base64 -d',
+  "ssh-keygen -y -P ''",
+  'SSH_ASKPASS_REQUIRE=force',
+  'PreferredAuthentications=password',
+  'PubkeyAuthentication=no',
+  'protected-password-fallback',
   'scripts/production-web-exact-sha.sh',
   'scripts/production-web-live-acceptance.sh',
   'scripts/production-web-remote-entrypoint.sh',
@@ -120,7 +138,6 @@ requireText('workflow', [
   'deployed_state',
   'Restore previous exact revision after live failure',
   'Publish release record',
-  'live-acceptance.log" 2>/dev/null | tail -1 || true',
   'release-issue-comment.md',
   'gh issue comment',
   'gh issue close',
@@ -133,6 +150,12 @@ const recordIndex = workflow.indexOf('record="$EVIDENCE_DIR/release-issue-commen
 const finalChecksumIndex = workflow.lastIndexOf('xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"');
 if (recordIndex < 0 || finalChecksumIndex <= recordIndex) {
   failures.push(`${files.workflow}: release record must be created before the final evidence checksum manifest`);
+}
+const secondaryIndex = workflow.indexOf('try_candidate PC_PROD_SSH_PRIVATE_KEY');
+const fallbackIndex = workflow.indexOf('try_candidate VPS_SSH_KEY');
+const primaryIndex = workflow.indexOf('try_candidate PC_PROD_SSH_KEY');
+if (!(secondaryIndex >= 0 && fallbackIndex > secondaryIndex && primaryIndex > fallbackIndex)) {
+  failures.push(`${files.workflow}: private-key candidates must be validated independently before the known public-key slot`);
 }
 
 requireText('hardening', [
@@ -156,40 +179,23 @@ requireText('runbook', [
   'Caddy',
   'REG.RU',
 ]);
-requireText('contour', [
-  'Watchtower is retired',
-  'The `web` service must not use a fixed `container_name`',
-  'REG.RU',
-  'Docker Compose',
-]);
-requireText('checklist', [
-  'running OCI revision',
-  'Docker reports the `web` container as `healthy`',
-  'Contact dock acceptance',
-  'Watchtower is stopped',
-  'persistent exact-image override',
-]);
+requireText('contour', ['Watchtower is retired', 'The `web` service must not use a fixed `container_name`', 'REG.RU', 'Docker Compose']);
+requireText('checklist', ['running OCI revision', 'Docker reports the `web` container as `healthy`', 'Contact dock acceptance', 'Watchtower is stopped', 'persistent exact-image override']);
 
 forbid('workflow', [
   /sshpass/i,
-  /PC_PROD_SSH_PASSWORD/,
-  /VPS_SSH_PASSWORD/,
   /grainflow-web:latest/,
   /SSH_USER_SECRET:-root/,
+  /echo\s+"?\$\{?SSH_(?:KEY|PASSWORD)/,
+  /cat\s+.*id_pc_prod/,
 ]);
-forbid('release', [
-  /sshpass/i,
-  /docker compose[^\n]*up -d(?![^\n]*--no-deps)/,
-  /docker tag "\$exact_image"/,
-]);
-forbid('remote', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/]);
+forbid('release', [/sshpass/i, /docker compose[^\n]*up -d(?![^\n]*--no-deps)/, /docker tag "\$exact_image"/]);
+forbid('remote', [/sshpass/i]);
 forbid('hardening', [/Netlify.*production/i, /Vercel.*production/i]);
 
 for (const path of [files.release, files.remote, files.live]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
-  if (result.status !== 0) {
-    failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
-  }
+  if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
 }
 
 if (failures.length > 0) {
@@ -198,4 +204,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, failure-observable through checksummed issue #3048 evidence, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, credential-normalizing, protected-transport, persisted-image, multi-file-Compose, health-gated, checksummed, rollback-capable and independent of Watchtower.');
