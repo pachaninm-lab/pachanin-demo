@@ -29,6 +29,7 @@ on:
 permissions:
   contents: read
   packages: read
+  issues: write
 
 concurrency:
   group: production-web-exact-sha
@@ -38,6 +39,7 @@ env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-web-exact-sha
+  RELEASE_ISSUE_NUMBER: 3048
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -267,10 +269,14 @@ jobs:
           deployment_complete="$(sed -n 's/^DEPLOYMENT_COMPLETE=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
           watchtower_retired="$(sed -n 's/^WATCHTOWER_RETIRED=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
           persistent_override_mutated="$(sed -n 's/^PERSISTENT_OVERRIDE_MUTATED=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
+          deployed_revision="$(sed -n 's/^DEPLOYED_WEB_REVISION=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
+          deployed_state="$(sed -n 's/^DEPLOYED_WEB_STATE=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
           echo "baseline_revision=${baseline_revision:-unknown}" >> "$GITHUB_OUTPUT"
           echo "deployment_complete=${deployment_complete:-0}" >> "$GITHUB_OUTPUT"
           echo "watchtower_retired=${watchtower_retired:-0}" >> "$GITHUB_OUTPUT"
           echo "persistent_override_mutated=${persistent_override_mutated:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "deployed_revision=${deployed_revision:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "deployed_state=${deployed_state:-unknown}" >> "$GITHUB_OUTPUT"
 
           if [[ "$ACTION" == audit ]]; then
             [[ "${persistent_override_mutated:-unknown}" == 0 ]]
@@ -344,6 +350,67 @@ jobs:
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 |
             sort -z |
             xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Publish release record
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ steps.intent.outputs.action }}
+          TARGET_SHA: ${{ steps.intent.outputs.target_sha }}
+          DEPLOYMENT_COMPLETE: ${{ steps.production.outputs.deployment_complete }}
+          DEPLOYED_REVISION: ${{ steps.production.outputs.deployed_revision }}
+          DEPLOYED_STATE: ${{ steps.production.outputs.deployed_state }}
+          BASELINE_REVISION: ${{ steps.production.outputs.baseline_revision }}
+          WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
+          PERSISTENT_OVERRIDE_MUTATED: ${{ steps.production.outputs.persistent_override_mutated }}
+          LIVE_OUTCOME: ${{ steps.live.outcome }}
+          FINAL_JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="${TARGET_SHA:-AUDIT}"
+          live_acceptance="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live-acceptance.log" 2>/dev/null | tail -1 || true)"
+          rollback_result='not-required'
+          if [[ -f "$EVIDENCE_DIR/live-failure-rollback.log" ]]; then
+            rollback_result="$(sed -n 's/^DEPLOYMENT_COMPLETE=//p' "$EVIDENCE_DIR/live-failure-rollback.log" | tail -1)"
+            rollback_result="${rollback_result:-attempted}"
+          fi
+
+          record="$EVIDENCE_DIR/release-issue-comment.md"
+          {
+            echo "## Production web release run \`$GITHUB_RUN_ID\`"
+            echo
+            echo "- action: \`${ACTION:-unknown}\`"
+            echo "- target SHA: \`$target\`"
+            echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
+            echo "- running OCI revision: \`${DEPLOYED_REVISION:-unknown}\`"
+            echo "- Docker state: \`${DEPLOYED_STATE:-unknown}\`"
+            echo "- live acceptance: \`${live_acceptance:-${LIVE_OUTCOME:-not-run}}\`"
+            echo "- rollback baseline: \`${BASELINE_REVISION:-unknown}\`"
+            echo "- rollback result: \`$rollback_result\`"
+            echo "- Watchtower retired: \`${WATCHTOWER_RETIRED:-0}\`"
+            echo "- persistent override mutation: \`${PERSISTENT_OVERRIDE_MUTATED:-unknown}\`"
+            echo "- workflow status at record: \`${FINAL_JOB_STATUS:-unknown}\`"
+            echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
+          } > "$record"
+
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 |
+            sort -z |
+            xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+          gh issue comment "$RELEASE_ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file "$record"
+
+          if [[ "${ACTION:-}" == deploy \
+            && "${DEPLOYMENT_COMPLETE:-0}" == 1 \
+            && "${DEPLOYED_REVISION:-}" == "$TARGET_SHA" \
+            && "${live_acceptance:-}" == PASS \
+            && "${WATCHTOWER_RETIRED:-0}" == 1 ]]; then
+            gh issue close "$RELEASE_ISSUE_NUMBER" \
+              --repo "$GITHUB_REPOSITORY" \
+              --reason completed
+          fi
 
       - name: Upload production evidence
         if: always()

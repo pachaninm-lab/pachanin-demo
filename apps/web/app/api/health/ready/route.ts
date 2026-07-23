@@ -9,6 +9,7 @@ export function GET() {
     {
       status: 'ok',
       service: 'web',
+      releaseAuthority: 'exact-sha',
       revision: process.env.APP_REVISION ?? 'unknown',
       checkedAt: new Date().toISOString(),
     },
