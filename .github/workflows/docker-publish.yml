@@ -10,6 +10,10 @@ on:
       - "infra/docker/Dockerfile.web"
       - "infra/docker/Dockerfile.migrations"
       - ".github/workflows/docker-publish.yml"
+      - ".github/workflows/production-full-stack-exact-sha.yml"
+      - "scripts/production-full-stack-exact-sha.sh"
+      - "scripts/production-full-stack-live-acceptance.sh"
+      - "scripts/check-production-full-stack-release.mjs"
   workflow_dispatch:
     inputs:
       services:
