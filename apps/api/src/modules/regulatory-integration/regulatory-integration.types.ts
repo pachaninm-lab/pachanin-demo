@@ -58,17 +58,21 @@ export interface RegulatoryInboundEnvelope {
 
 export type RegulatoryVerificationResult =
   | {
-    readonly verified: true;
-    readonly verifiedAt: string;
-    readonly schemaVersion: string;
-    readonly mappingVersion: string;
-    readonly signatureKeyReference: string | null;
-  }
+      readonly verified: true;
+      readonly verifiedAt: string;
+      readonly schemaVersion: string;
+      readonly mappingVersion: string;
+      readonly signatureKeyReference: string | null;
+      readonly errorCode?: never;
+    }
   | {
-    readonly verified: false;
-    readonly verifiedAt: string;
-    readonly errorCode: RegulatoryIntegrationErrorCode;
-  };
+      readonly verified: false;
+      readonly verifiedAt: string;
+      readonly errorCode: RegulatoryIntegrationErrorCode;
+      readonly schemaVersion?: never;
+      readonly mappingVersion?: never;
+      readonly signatureKeyReference?: never;
+    };
 
 export type ProviderAcknowledgementState =
   | 'NOT_ELIGIBLE'
@@ -95,13 +99,13 @@ export interface RegulatoryEnvelopePolicy {
 export type RegulatoryEnvelopeValidationResult =
   | { readonly valid: true }
   | {
-    readonly valid: false;
-    readonly errorCode:
-      | 'MALFORMED_ENVELOPE'
-      | 'UNSUPPORTED_SCHEMA_VERSION'
-      | 'UNSUPPORTED_MAPPING_VERSION'
-      | 'SIGNATURE_REQUIRED';
-  };
+      readonly valid: false;
+      readonly errorCode:
+        | 'MALFORMED_ENVELOPE'
+        | 'UNSUPPORTED_SCHEMA_VERSION'
+        | 'UNSUPPORTED_MAPPING_VERSION'
+        | 'SIGNATURE_REQUIRED';
+    };
 
 const SHA_256_PATTERN = /^[a-f0-9]{64}$/u;
 
