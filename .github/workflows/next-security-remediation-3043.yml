@@ -19,7 +19,7 @@ jobs:
       github.event.issue.pull_request != null &&
       github.event.issue.number == 3075 &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/security patch-next 3043 15.5.21-v6'
+      github.event.comment.body == '/security patch-next 3043 15.5.21-v7'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -130,7 +130,7 @@ jobs:
           pnpm --filter @pc/web typecheck
 
           phase='focused-version-contract-test'
-          pnpm --filter @pc/web test -- next15RuntimeContracts.test.ts
+          pnpm --filter @pc/web exec vitest run tests/unit/next15RuntimeContracts.test.ts
 
           phase='web-production-build'
           NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
@@ -177,4 +177,4 @@ jobs:
         shell: bash
         run: |
           gh issue comment 3043 --repo "$GITHUB_REPOSITORY" \
-            --body "Standalone Next.js 15.5.21 controller v6 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
+            --body "Standalone Next.js 15.5.21 controller v7 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
