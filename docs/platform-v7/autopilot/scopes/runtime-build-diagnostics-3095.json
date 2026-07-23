@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "scopeId": "runtime-build-diagnostics-3095",
+  "branch": "ops/runtime-build-diagnostics-3095",
+  "status": "active",
+  "purpose": "Capture exact API and web Docker build logs in the existing fail-closed Runtime Context Security Gate without changing build commands, scanner policy, pass/fail semantics or production runtime.",
+  "allowedPaths": [
+    ".github/workflows/runtime-context-security-gate.yml"
+  ],
+  "acceptance": [
+    "API and web docker build output is persisted as exact-head artifacts even when the build fails",
+    "docker build retains pipefail semantics and any non-zero build exit still fails the job",
+    "Trivy scanner and evidence-manifest gates remain fail closed",
+    "no Dockerfile, package, lockfile, application or production changes"
+  ],
+  "forbidden": [
+    "continue-on-error for docker builds",
+    "scanner exception or allowlist",
+    "removing non-root or HIGH/CRITICAL checks",
+    "production deployment mutation"
+  ]
+}
