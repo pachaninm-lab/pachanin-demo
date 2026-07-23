@@ -34,6 +34,15 @@ describe('platform-v7 durable organization connection intake', () => {
     expect(bff).toContain("cache: 'no-store'");
   });
 
+  it('derives the anti-abuse key only from the nearest trusted proxy address', () => {
+    expect(bff).toContain("request.headers.get('x-forwarded-for')");
+    expect(bff).toContain("chain.at(-1)");
+    expect(bff).toContain('isIP(nearestProxyAddress)');
+    expect(bff).not.toContain("request.headers.get('x-real-ip')");
+    expect(bff).not.toContain("request.headers.get('cf-connecting-ip')");
+    expect(bff).not.toContain("split(',')[0]");
+  });
+
   it('enforces body bounds and a server-validated honeypot', () => {
     expect(bff).toContain("Buffer.byteLength(rawBody, 'utf8')");
     expect(bff).toContain('MAX_BODY_BYTES');
@@ -57,37 +66,54 @@ describe('platform-v7 durable organization connection intake', () => {
     expect(copy).not.toContain('не подтвержд');
   });
 
-  it('binds request, audit and outbox in one serializable PostgreSQL transaction', () => {
+  it('uses EXECUTE-only command functions for atomic PostgreSQL persistence', () => {
     expect(apiService).toContain('Prisma.TransactionIsolationLevel.Serializable');
-    expect(apiService).toContain('pg_advisory_xact_lock');
-    expect(apiService).toContain('INSERT INTO public.audit_events');
-    expect(apiService).toContain('INSERT INTO public.outbox_entries');
-    expect(apiService).toContain('INSERT INTO public.public_organization_connection_requests');
+    expect(apiService).toContain('lookup_public_organization_connection_request');
+    expect(apiService).toContain('create_public_organization_connection_request');
+    expect(apiService).not.toContain('INSERT INTO public.audit_events');
+    expect(apiService).not.toContain('INSERT INTO public.outbox_entries');
+    expect(apiService).not.toContain('INSERT INTO public.public_organization_connection_requests');
+    expect(migration).toContain('SECURITY DEFINER');
+    expect(migration).toContain('pg_advisory_xact_lock');
+    expect(migration).toContain('INSERT INTO public.audit_events');
+    expect(migration).toContain('INSERT INTO public.outbox_entries');
+    expect(migration).toContain('INSERT INTO public.public_organization_connection_requests');
+    expect(migration).toContain('REVOKE ALL ON FUNCTION public.create_public_organization_connection_request');
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.create_public_organization_connection_request');
     expect(apiService).toContain("this.rateLimit.consume('public_org_connect_ip'");
     expect(apiService).toContain("this.rateLimit.consume('public_org_connect_email'");
+  });
+
+  it('checks exact replay before consuming new-request rate limits', () => {
+    const lookupIndex = apiService.indexOf('const replay = await this.lookup');
+    const ipLimitIndex = apiService.indexOf("this.rateLimit.consume('public_org_connect_ip'");
+    expect(lookupIndex).toBeGreaterThan(0);
+    expect(ipLimitIndex).toBeGreaterThan(lookupIndex);
     expect(apiService).toContain('IDEMPOTENCY_PAYLOAD_MISMATCH');
     expect(apiService).toContain('correlation_id');
   });
 
   it('keeps personal payload and its hash out of audit and outbox events', () => {
-    const eventFunction = apiService.slice(
-      apiService.indexOf('function safeOperationalEvent'),
-      apiService.indexOf('function isRetryableTransactionError'),
+    const eventSlice = migration.slice(
+      migration.indexOf("v_event := jsonb_build_object"),
+      migration.indexOf('INSERT INTO public.audit_events'),
     );
-    expect(eventFunction).not.toMatch(/organizationName|contactName|phone|email|inn|payloadHash/);
+    expect(eventSlice).not.toMatch(/organizationName|contactName|phone|email|inn|payloadHash/);
     expect(apiService).toContain('const payloadHash = canonicalHash(request)');
-    expect(apiService).toContain('${payloadHash}');
-    expect(apiService).not.toContain('payloadHash: params.payloadHash');
+    expect(migration).toContain("NOT (payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])");
   });
 
-  it('persists consent and excludes raw network inventory from the request model', () => {
+  it('persists consent, forces RLS and excludes raw network inventory', () => {
     expect(migration).toContain('"consentVersion"');
     expect(migration).toContain('"consentedAt"');
     expect(migration).toContain('"payloadHash" char(64)');
     expect(migration).toContain('"idempotencyKey" varchar(128)');
+    expect(migration).toContain('ENABLE ROW LEVEL SECURITY');
+    expect(migration).toContain('FORCE ROW LEVEL SECURITY');
+    expect(migration).toContain('public_org_intake_audit_insert');
+    expect(migration).toContain('public_org_intake_outbox_insert');
     expect(migration).toContain('public_org_connection_requests_audit_fkey');
     expect(migration).toContain('public_org_connection_requests_outbox_fkey');
     expect(migration).not.toMatch(/\bip_address\b|\buser_agent\b|\bremote_addr\b/i);
-    expect(migration).not.toMatch(/CREATE\s+(?:OR\s+REPLACE\s+)?(?:PROCEDURE|FUNCTION)[\s\S]*Organization/i);
   });
 });
