@@ -89,9 +89,11 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNTIME_SECURITY_DIR"
           docker build --progress=plain -f infra/docker/Dockerfile.api \
+            --build-arg GIT_COMMIT="${EXACT_HEAD}" \
             -t prozrachnaya-cena-api:runtime-${EXACT_HEAD} . \
             2>&1 | tee "$RUNTIME_SECURITY_DIR/api-image-build.log"
           docker build --progress=plain -f infra/docker/Dockerfile.web \
+            --build-arg GIT_COMMIT="${EXACT_HEAD}" \
             -t prozrachnaya-cena-web:runtime-${EXACT_HEAD} . \
             2>&1 | tee "$RUNTIME_SECURITY_DIR/web-image-build.log"
           docker image inspect --format='{{.Id}}' prozrachnaya-cena-api:runtime-${EXACT_HEAD} > "$RUNTIME_SECURITY_DIR/api-image-digest.txt"
