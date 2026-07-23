@@ -1,6 +1,9 @@
 name: platform-v7 safe merge
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/platform-v7-safe-merge.yml]
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
@@ -50,11 +53,14 @@ jobs:
 
   authorize-runtime-build-diagnostics-3095:
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request != null &&
-      github.event.issue.number == 3075 &&
-      github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/runtime authorize-build-diagnostics 3095'
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        github.event.issue.number == 3075 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.body == '/runtime authorize-build-diagnostics 3095'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
