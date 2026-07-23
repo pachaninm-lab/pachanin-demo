@@ -139,49 +139,72 @@ if (recordIndex < 0 || finalChecksumIndex <= recordIndex) {
 requireText('retryWorkflow', [
   'TARGET_SHA: 58b46246ac67eb31a913a8da0de74a78ed1fd095',
   'EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-58b4624',
-  'Normalize key and verify pinned VPS host identity',
-  "printf '%b' \"$key_material\"",
-  "key_material=\"${key_material//$'\\r'/}\"",
-  'base64 --decode',
-  'ssh-keygen -y -P',
-  'public-key-only',
-  'invalid-private-key',
+  'SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}',
+  'SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}',
+  'Resolve protected credential and pinned host identity',
+  'validate_private_key()',
+  'try_key_slot()',
+  'try_key_slot PC_PROD_SSH_PRIVATE_KEY',
+  'try_key_slot VPS_SSH_KEY',
+  'try_key_slot PC_PROD_SSH_KEY',
+  'multiline-private-key',
   'escaped-newline-private-key',
   'base64-private-key',
-  'multiline-private-key',
-  'SSH_HOST_FINGERPRINT_SECRET',
+  'ssh-keygen -y -P',
+  'protected-password-fallback',
+  'SSH_ASKPASS_REQUIRE=force',
+  'setsid -w ssh',
+  'setsid -w scp',
+  'PreferredAuthentications=password',
+  'PubkeyAuthentication=no',
+  'NumberOfPasswordPrompts=1',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'expected_host_fingerprint',
-  'matching_hosts="$(mktemp)"',
-  'actual_fingerprint=',
-  'match_count=',
-  'mismatch-or-ambiguous',
-  'mv "$matching_hosts" "$HOME/.ssh/known_hosts"',
-  'ssh-host-key-status.txt',
-  'BatchMode=yes',
-  'IdentitiesOnly=yes',
+  'for attempt in 1 2 3',
+  'cmp -s "${scans[0]}" "${scans[1]}"',
+  'stable-canonical-scan',
+  'verified-secret',
   'StrictHostKeyChecking=yes',
-  'raw_log="$(mktemp)"',
+  'ssh-host-key-fingerprints.txt',
+  'Execute bounded web-only deployment',
+  'PROD_DIR_B64=\'\' PROD_COMPOSE_B64=\'\' PROD_PROJECT_B64=\'\'',
+  'Restore exact baseline after live failure',
   'PERSISTENT_IMAGE_OVERRIDE|PC_IMAGE_OVERRIDE|PROD_DIR|PRODUCTION_DIR|WORKDIR|CONFIG_FILES|COMPOSE_FILES?',
   '=[REDACTED]',
-  'rm -f "$raw_log"',
-  'PROD_DIR_B64=\'\' PROD_COMPOSE_B64=\'\' PROD_PROJECT_B64=\'\'',
-  'Execute bounded web-only deployment',
-  'Restore exact baseline after live failure',
   'Publish retry record',
-  'SSH key classification',
-  'VPS host-key verification',
+  'protected transport:',
+  'deployment complete:',
+  'running OCI revision:',
+  'live acceptance:',
+  'Watchtower retired:',
   'gh issue close',
   'retention-days: 90',
 ]);
+
+const retryWorkflow = contents.get('retryWorkflow') ?? '';
+const secondaryIndex = retryWorkflow.indexOf('try_key_slot PC_PROD_SSH_PRIVATE_KEY');
+const fallbackKeyIndex = retryWorkflow.indexOf('try_key_slot VPS_SSH_KEY');
+const primaryIndex = retryWorkflow.indexOf('try_key_slot PC_PROD_SSH_KEY');
+const passwordFallbackIndex = retryWorkflow.indexOf('protected-password-fallback');
+if (!(secondaryIndex >= 0 && fallbackKeyIndex > secondaryIndex && primaryIndex > fallbackKeyIndex && passwordFallbackIndex > primaryIndex)) {
+  failures.push(`${files.retryWorkflow}: all protected private-key slots must be validated before password fallback`);
+}
+const retryRecordIndex = retryWorkflow.indexOf('record="$EVIDENCE_DIR/retry-issue-comment.md"');
+const retryChecksumIndex = retryWorkflow.lastIndexOf('xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"');
+if (retryRecordIndex < 0 || retryChecksumIndex <= retryRecordIndex) {
+  failures.push(`${files.retryWorkflow}: retry record must be created before the final evidence checksum manifest`);
+}
+
 forbid('retryWorkflow', [
   /sshpass/i,
-  /PC_PROD_SSH_PASSWORD/,
-  /VPS_SSH_PASSWORD/,
   /grainflow-web:latest/,
-  /echo\s+"?\$raw_key/i,
+  /echo\s+"?\$\{?SSH_(?:KEY|PASSWORD)/,
+  /printf[^\n]*\$\{?SSH_(?:KEY|PASSWORD)/,
   /cat\s+.*id_pc_prod/,
-  /cp\s+"?\$scanned_hosts"?\s+"?\$HOME\/\.ssh\/known_hosts"?/,
+  /set\s+-x/,
+  /StrictHostKeyChecking=no/,
+  /UserKnownHostsFile=\/dev\/null/,
+  /docker compose[^\n]*up -d(?![^\n]*--no-deps)/,
 ]);
 
 requireText('hardening', [
@@ -236,9 +259,7 @@ forbid('hardening', [/Netlify.*production/i, /Vercel.*production/i]);
 
 for (const path of [files.release, files.remote, files.live]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
-  if (result.status !== 0) {
-    failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
-  }
+  if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
 }
 
 if (failures.length > 0) {
@@ -247,4 +268,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, uniquely-pinned-host, redacted-path, persisted-image, multi-file-Compose, health-gated, failure-observable through checksummed issue #3048 evidence, SSH-key-normalization fail-closed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-transport, stable-host-verified, persisted-image, web-only, health-gated, checksummed, rollback-capable and independent of Watchtower.');
