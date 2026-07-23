@@ -11,8 +11,9 @@ on:
     types: [created]
 
 permissions:
-  contents: write
-  pull-requests: write
+  actions: write
+  contents: read
+  pull-requests: read
   checks: read
   statuses: read
   issues: write
@@ -51,72 +52,93 @@ jobs:
             echo "  - skipped: platform-v7 agent-generated PRs are reserved for platform-v7-autopilot-generated-merge.yml" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$prs"
 
-  authorize-runtime-build-diagnostics-3095:
+  production-release-control-3072:
     if: >-
-      github.event_name == 'push' ||
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
       (
-        github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request != null &&
-        github.event.issue.number == 3075 &&
-        github.event.comment.user.login == github.repository_owner &&
-        github.event.comment.body == '/runtime authorize-build-diagnostics 3095'
+        github.event.comment.body == '/production release current-main' ||
+        github.event.comment.body == '/production status current-main'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout exact main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Create source-controlled diagnostics authority
+      - name: Dispatch or inspect exact-current-main release
         env:
           GH_TOKEN: ${{ github.token }}
-          AUTHORITY_BRANCH: governance/runtime-build-diagnostics-3095-applied
-          IMPLEMENTATION_BRANCH: ops/runtime-build-diagnostics-3095
+          REPO: ${{ github.repository }}
+          COMMAND: ${{ github.event.comment.body }}
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch --no-tags origin main
-          git checkout -B "$AUTHORITY_BRANCH" origin/main
 
-          IMPLEMENTATION_BRANCH="$IMPLEMENTATION_BRANCH" python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
+          main_sha=$(gh api "repos/$REPO/commits/main" --jq .sha)
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
 
-          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
-          state = json.loads(path.read_text())
-          branch = os.environ['IMPLEMENTATION_BRANCH']
-          allowed = ['.github/workflows/runtime-context-security-gate.yml']
-          scopes = state.setdefault('approvedConcurrentScopes', {})
-          existing = scopes.get(branch)
-          if existing not in (None, allowed):
-              raise SystemExit(f'conflicting scope for {branch}: {existing!r}')
-          scopes[branch] = allowed
-          path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')) + '\n')
-          PY
+          if [[ "$COMMAND" == '/production release current-main' ]]; then
+            gh workflow run docker-publish.yml \
+              --repo "$REPO" \
+              --ref main \
+              -f services=all
 
-          node -e "JSON.parse(require('node:fs').readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8'))"
-          test "$(git diff --name-only)" = 'docs/platform-v7/autopilot/autopilot-state.json'
-          git add docs/platform-v7/autopilot/autopilot-state.json
-          git commit -m 'governance: authorize runtime image build diagnostics'
-          GITHUB_HEAD_REF="$AUTHORITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
-          git push --force-with-lease origin "HEAD:refs/heads/$AUTHORITY_BRANCH"
+            gh workflow run production-full-stack-exact-sha.yml \
+              --repo "$REPO" \
+              --ref main \
+              -f target_sha="$main_sha" \
+              -f confirmation=DEPLOY-FULL-STACK-EXACT-SHA
 
-          existing_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$AUTHORITY_BRANCH" --json number --jq '.[0].number // empty')
-          if [ -z "$existing_pr" ]; then
-            pr_url=$(gh pr create \
-              --repo "$GITHUB_REPOSITORY" \
-              --base main \
-              --head "$AUTHORITY_BRANCH" \
-              --title 'Authorize runtime image build diagnostics' \
-              --body 'One-file governance prerequisite. Authorizes only `.github/workflows/runtime-context-security-gate.yml` on `ops/runtime-build-diagnostics-3095` to persist canonical API/web Docker build logs while preserving fail-closed build and scanner semantics. No exception, product, package, Dockerfile or production change.')
-          else
-            pr_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$existing_pr"
+            sleep 10
           fi
 
-          gh pr comment 3075 --repo "$GITHUB_REPOSITORY" --body "Runtime build diagnostics governance created: ${pr_url}. Exact implementation scope is one workflow file; production and pass/fail gates are unchanged."
+          collect_runs() {
+            local workflow="$1"
+            gh api --paginate \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/$REPO/actions/workflows/$workflow/runs?head_sha=$main_sha&per_page=20" \
+              --jq '.workflow_runs
+                | map(select(.event == "workflow_dispatch" or .event == "push"))
+                | sort_by(.created_at)
+                | reverse
+                | .[:3]
+                | .[]
+                | [.id, .event, .status, (.conclusion // "pending"), .created_at, .updated_at, .html_url]
+                | @tsv'
+          }
+
+          docker_runs=$(collect_runs docker-publish.yml || true)
+          release_runs=$(collect_runs production-full-stack-exact-sha.yml || true)
+
+          record=$(mktemp)
+          {
+            echo "## Exact-current-main release control"
+            echo
+            echo "- command: \`$COMMAND\`"
+            echo "- exact main: \`$main_sha\`"
+            echo "- controller run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "### Docker image workflow"
+            if [[ -n "$docker_runs" ]]; then
+              while IFS=$'\t' read -r id event status conclusion created updated url; do
+                echo "- run [\`$id\`]($url): event=\`$event\`, status=\`$status\`, conclusion=\`$conclusion\`, created=\`$created\`, updated=\`$updated\`"
+              done <<< "$docker_runs"
+            else
+              echo "- no run found for exact main"
+            fi
+            echo
+            echo "### Full-stack release workflow"
+            if [[ -n "$release_runs" ]]; then
+              while IFS=$'\t' read -r id event status conclusion created updated url; do
+                echo "- run [\`$id\`]($url): event=\`$event\`, status=\`$status\`, conclusion=\`$conclusion\`, created=\`$created\`, updated=\`$updated\`"
+                echo "  - jobs:"
+                gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/actions/runs/$id/jobs?per_page=100" \
+                  --jq '.jobs[]
+                    | "    - " + .name + ": status=`" + .status + "`, conclusion=`" + (.conclusion // "pending") + "`, active/failed step=`" + (([.steps[]? | select(.status == "in_progress" or .conclusion == "failure") | .name][0]) // "none") + "`"'
+              done <<< "$release_runs"
+            else
+              echo "- no run found for exact main"
+            fi
+          } > "$record"
+
+          gh issue comment 3072 --repo "$REPO" --body-file "$record"
+          cat "$record" >> "$GITHUB_STEP_SUMMARY"
