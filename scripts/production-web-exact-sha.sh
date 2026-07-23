@@ -8,6 +8,7 @@ PC_PROD_COMPOSE="${PC_PROD_COMPOSE:-}"
 PC_PROD_PROJECT="${PC_PROD_PROJECT:-}"
 PC_HARDENING_OVERRIDE="${PC_HARDENING_OVERRIDE:-${PC_PROD_DIR%/}/compose.production-hardening.override.yml}"
 IMAGE_REPOSITORY="${PC_WEB_IMAGE_REPOSITORY:-ghcr.io/pachaninm-lab/grainflow-web}"
+LIVE_ACCEPTANCE_SCRIPT="${PC_LIVE_ACCEPTANCE_SCRIPT:-}"
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -50,6 +51,9 @@ if [[ "$PC_HARDENING_OVERRIDE" != /* ]]; then
 fi
 [[ -f "$PC_PROD_COMPOSE" ]] || fail "production Compose file does not exist: $PC_PROD_COMPOSE"
 [[ -f "$PC_HARDENING_OVERRIDE" ]] || fail "hardening override does not exist: $PC_HARDENING_OVERRIDE"
+if [[ "$ACTION" != audit ]]; then
+  [[ -x "$LIVE_ACCEPTANCE_SCRIPT" ]] || fail "PC_LIVE_ACCEPTANCE_SCRIPT must point to an executable acceptance script"
+fi
 
 compose_version="$(docker compose version --short | sed 's/^v//')"
 version_at_least "$compose_version" '2.24.4' || fail "Docker Compose >= 2.24.4 is required; found $compose_version"
@@ -179,17 +183,30 @@ mapfile -t protected_other_ids < <(
 )
 
 deploy_started=0
+legacy_parked=0
+legacy_parked_name=""
 
 rollback_on_error() {
   original_rc=$?
   trap - ERR
   if (( deploy_started == 1 )); then
     printf 'AUTOMATIC_ROLLBACK_ATTEMPTED=1\n'
-    docker tag "$current_image_id" "$compose_image_ref"
-    "${DC[@]}" up -d --no-deps --force-recreate web
-    rollback_id="$("${DC[@]}" ps -q web)"
+    rollback_id=''
     rollback_state='missing'
     rollback_revision=''
+    if (( legacy_parked == 1 )); then
+      compose_candidate="$("${DC[@]}" ps -q web 2>/dev/null || true)"
+      if [[ -n "$compose_candidate" ]]; then
+        docker rm -f "$compose_candidate" >/dev/null 2>&1 || true
+      fi
+      docker rename "$current_web_id" "$current_name"
+      docker start "$current_web_id" >/dev/null
+      rollback_id="$current_web_id"
+    else
+      docker tag "$current_image_id" "$compose_image_ref"
+      "${DC[@]}" up -d --no-deps --force-recreate web
+      rollback_id="$("${DC[@]}" ps -q web)"
+    fi
     if [[ -n "$rollback_id" ]]; then
       rollback_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$rollback_id")"
       rollback_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$rollback_id" 2>/dev/null || true)"
@@ -199,6 +216,7 @@ rollback_on_error() {
       { [[ -z "$current_revision" ]] || [[ "$rollback_revision" == "$current_revision" ]]; }; then
       printf 'AUTOMATIC_ROLLBACK_COMPLETED=1\n'
       printf 'ROLLBACK_WEB_REVISION=%s\n' "${rollback_revision:-unknown}"
+      printf 'LEGACY_CONTAINER_RESTORED=%s\n' "$legacy_parked"
     else
       printf 'AUTOMATIC_ROLLBACK_COMPLETED=0\n' >&2
       exit 90
@@ -213,9 +231,12 @@ deploy_started=1
 printf 'MUTATION_STARTED=1\n'
 
 if (( legacy_web == 1 )); then
+  legacy_parked_name="${current_name}-pre-hardening-${short_sha}"
   docker stop --time 30 "$current_web_id"
-  docker rm "$current_web_id"
-  printf 'LEGACY_WEB_ADOPTED=1\n'
+  docker rename "$current_web_id" "$legacy_parked_name"
+  legacy_parked=1
+  printf 'LEGACY_WEB_PARKED=1\n'
+  printf 'LEGACY_WEB_PARKED_NAME=%s\n' "$legacy_parked_name"
 fi
 
 "${DC[@]}" up -d --no-deps --force-recreate web
@@ -243,6 +264,16 @@ new_project_label="$(docker inspect --format '{{ index .Config.Labels "com.docke
 [[ "$new_revision" == "$TARGET_SHA" ]] || fail "running web revision mismatch: ${new_revision:-missing}"
 [[ "$new_service_label" == web ]] || fail 'running web container lacks canonical Compose service label'
 [[ -n "$new_project_label" ]] || fail 'running web container lacks canonical Compose project label'
+
+PC_LIVE_BASE="${PC_LIVE_BASE:-https://xn----8sbjf4befbjgs9b.xn--p1ai}" \
+  "$LIVE_ACCEPTANCE_SCRIPT" "$TARGET_SHA" "$ACTION"
+printf 'INTERNAL_LIVE_ACCEPTANCE=PASS\n'
+
+if (( legacy_parked == 1 )); then
+  docker rm "$current_web_id" >/dev/null
+  legacy_parked=0
+  printf 'LEGACY_WEB_ADOPTED=1\n'
+fi
 
 for id in "${watchtower_ids[@]}"; do
   docker update --restart=no "$id" >/dev/null
