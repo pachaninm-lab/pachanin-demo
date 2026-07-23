@@ -28,8 +28,9 @@ model Organization {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users            UserOrg[]
-  dealParticipants DealParticipant[]
+  users                               UserOrg[]
+  dealParticipants                    DealParticipant[]
+  regulatoryIntegrationInboxEntries   RegulatoryIntegrationInboxEntry[]
 
   @@index([tenantId])
   @@index([inn])
@@ -489,8 +490,9 @@ model OutboxEntry {
   confirmedAt           DateTime?
   failedAt              DateTime?
 
-  runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
-  redriveEvents         OutboxRedriveEvent[]
+  runtimeSnapshot                    DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
+  redriveEvents                      OutboxRedriveEvent[]
+  regulatoryIntegrationInboxEntries RegulatoryIntegrationInboxEntry[]
 
   @@index([status, nextRetryAt])
   @@index([status, nextRetryAt, createdAt, id], map: "outbox_entries_claim_idx")
@@ -1044,4 +1046,78 @@ model CommodityProfileTransition {
   @@index([profileVersionId, createdAt, id], map: "commodity_profile_transitions_version_created_idx")
   @@index([correlationId], map: "commodity_profile_transitions_correlation_idx")
   @@map("commodity_profile_transitions")
+}
+
+// ── Regulatory integration inbox ──────────────────────────────────────────────
+
+model RegulatoryIntegrationInboxEntry {
+  id                         String    @id
+  tenantId                   String    @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  organizationId             String    @default(dbgenerated("current_setting('app.current_org_id'::text, true)"))
+  adapterCode                String    @db.VarChar(64)
+  adapterVersion             String    @db.VarChar(32)
+  provider                   String    @db.VarChar(64)
+  externalEventId            String    @db.VarChar(255)
+  schemaVersion              String    @db.VarChar(64)
+  mappingVersion             String    @db.VarChar(64)
+  environment                String    @db.VarChar(24)
+  capabilities               Json      @default("[]")
+  occurredAt                 DateTime  @db.Timestamptz(3)
+  receivedAt                 DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  rawBodySha256              String    @db.Char(64)
+  evidenceReference          String
+  signatureStatus            String    @db.VarChar(24)
+  signatureAlgorithm         String?   @db.VarChar(64)
+  signatureKeyReference      String?
+  signatureKeyVersion        String?   @db.VarChar(64)
+  verificationResult         Json?
+  state                      String    @default("RECEIVED") @db.VarChar(24)
+  attempts                   Int       @default(0)
+  nextAttemptAt              DateTime? @db.Timestamptz(3)
+  leaseOwner                 String?
+  leaseExpiresAt             DateTime? @db.Timestamptz(3)
+  lastErrorCode              String?   @db.VarChar(64)
+  lastErrorCategory          String?   @db.VarChar(32)
+  lastErrorDetailReference   String?
+  correlationId              String
+  causationId                String?
+  linkedDomainOperationType  String?   @db.VarChar(64)
+  linkedDomainOperationId    String?
+  outboxEntryId              String?
+  providerAcknowledgedAt     DateTime? @db.Timestamptz(3)
+  businessAcceptedAt         DateTime? @db.Timestamptz(3)
+  version                    BigInt    @default(0)
+  createdAt                  DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  updatedAt                  DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+
+  organization Organization                           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  outboxEntry   OutboxEntry?                          @relation(fields: [outboxEntryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  conflicts     RegulatoryIntegrationInboxConflict[]
+
+  @@unique([tenantId, organizationId, provider, externalEventId], map: "regulatory_integration_inbox_identity_key")
+  @@index([state, nextAttemptAt, leaseExpiresAt, receivedAt, id], map: "regulatory_integration_inbox_claim_idx")
+  @@index([tenantId, organizationId, state, receivedAt(sort: Desc)], map: "regulatory_integration_inbox_tenant_org_state_idx")
+  @@index([correlationId], map: "regulatory_integration_inbox_correlation_idx")
+  @@map("regulatory_integration_inbox_entries")
+}
+
+model RegulatoryIntegrationInboxConflict {
+  id                         String   @id
+  inboxEntryId               String
+  tenantId                   String
+  organizationId             String
+  provider                   String   @db.VarChar(64)
+  externalEventId            String   @db.VarChar(255)
+  existingRawBodySha256      String   @db.Char(64)
+  incomingRawBodySha256      String   @db.Char(64)
+  incomingEvidenceReference  String
+  correlationId              String
+  detectedAt                 DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+
+  inboxEntry RegulatoryIntegrationInboxEntry @relation(fields: [inboxEntryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, organizationId, provider, externalEventId, incomingRawBodySha256], map: "regulatory_integration_inbox_conflict_identity_key")
+  @@index([inboxEntryId, detectedAt(sort: Desc)], map: "regulatory_integration_inbox_conflict_entry_idx")
+  @@index([correlationId], map: "regulatory_integration_inbox_conflict_correlation_idx")
+  @@map("regulatory_integration_inbox_conflicts")
 }
