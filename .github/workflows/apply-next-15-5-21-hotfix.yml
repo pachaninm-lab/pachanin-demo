@@ -19,7 +19,7 @@ jobs:
   apply:
     if: github.head_ref == 'security/next-15-5-21-hotfix'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,21 +49,35 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          path = Path('apps/web/package.json')
-          package = json.loads(path.read_text())
+
+          package_path = Path('apps/web/package.json')
+          package = json.loads(package_path.read_text())
           current = package['dependencies'].get('next')
           if current != '15.5.18':
               raise SystemExit(f'unexpected Next.js baseline: {current!r}')
           package['dependencies']['next'] = '15.5.21'
-          path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n')
+          package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n')
+
+          contract_path = Path('apps/web/tests/unit/next15RuntimeContracts.test.ts')
+          contract = contract_path.read_text()
+          needle = "expect(webPackage.dependencies?.next).toBe('15.5.18');"
+          replacement = "expect(webPackage.dependencies?.next).toBe('15.5.21');"
+          if contract.count(needle) != 1:
+              raise SystemExit('Next.js runtime version contract baseline is missing or ambiguous')
+          contract_path.write_text(contract.replace(needle, replacement))
           PY
+
           pnpm install --lockfile-only
           pnpm install --frozen-lockfile
           node -e "const p=require('./apps/web/package.json'); if(p.dependencies.next!=='15.5.21'||p.dependencies.react!=='18.3.1'||p.dependencies['react-dom']!=='18.3.1') process.exit(1)"
+          grep -Fq "expect(webPackage.dependencies?.next).toBe('15.5.21');" apps/web/tests/unit/next15RuntimeContracts.test.ts
           git diff --check
 
       - name: Run strict web typecheck
         run: pnpm --filter @pc/web typecheck
+
+      - name: Run complete web unit suite
+        run: pnpm --filter @pc/web test
 
       - name: Run production web build
         env:
@@ -105,16 +119,16 @@ jobs:
           if (report.passed !== true || report.blocked.length !== 0 || report.highOrCriticalFindings.length !== 0) process.exit(1);
           NODE
 
-      - name: Publish verified two-file hotfix PR
+      - name: Publish verified three-file hotfix PR
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_BRANCH: agent/ir-sec-next-15-5-16-final
         shell: bash
         run: |
           set -euo pipefail
-          git add apps/web/package.json pnpm-lock.yaml
+          git add apps/web/package.json apps/web/tests/unit/next15RuntimeContracts.test.ts pnpm-lock.yaml
           git diff --cached --name-only | sort > /tmp/actual-files
-          printf '%s\n' apps/web/package.json pnpm-lock.yaml | sort > /tmp/expected-files
+          printf '%s\n' apps/web/package.json apps/web/tests/unit/next15RuntimeContracts.test.ts pnpm-lock.yaml | sort > /tmp/expected-files
           diff -u /tmp/expected-files /tmp/actual-files
           git commit -m 'fix(web): update Next.js to 15.5.21 for security advisories'
           GITHUB_HEAD_REF="$TARGET_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
@@ -133,11 +147,13 @@ jobs:
               --base main \
               --head "$TARGET_BRANCH" \
               --title 'Patch Next.js 15.5.18 to 15.5.21' \
-              --body 'Exact two-file security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json and pnpm-lock.yaml. No exception, React upgrade, product code or production deployment change. Source acceptance passed; merge requires the full repository CI/security matrix.'
+              --body 'Exact security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json, pnpm-lock.yaml and the directly coupled Next.js runtime version contract. No exception, React upgrade, product logic or production deployment change. Source acceptance includes full web tests; merge requires the complete repository CI/security matrix.'
             pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --state open --json number --jq '.[0].number')"
+          else
+            gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --body 'Exact security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json, pnpm-lock.yaml and the directly coupled Next.js runtime version contract. No exception, React upgrade, product logic or production deployment change. Source acceptance includes full web tests; merge requires the complete repository CI/security matrix.'
           fi
           head_sha="$(git rev-parse HEAD)"
-          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 hotfix PR published: #${pr_number}; head \`${head_sha}\`; exact two-file diff; source acceptance PASS; full repository CI is authoritative."
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 hotfix PR refreshed: #${pr_number}; clean head \`${head_sha}\`; three-file coupled diff; full web tests and source acceptance PASS."
 
       - name: Upload audit evidence
         if: always()
