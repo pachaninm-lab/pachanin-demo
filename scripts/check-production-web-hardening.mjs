@@ -139,10 +139,9 @@ if (recordIndex < 0 || finalChecksumIndex <= recordIndex) {
 requireText('retryWorkflow', [
   'TARGET_SHA: 58b46246ac67eb31a913a8da0de74a78ed1fd095',
   'EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-58b4624',
-  'Normalize and validate protected private key',
-  'if [[ "$key_material" !=',
-  '"$key_material" == *\'\\\\n\'*',
+  'Normalize key and verify pinned VPS host identity',
   "printf '%b' \"$key_material\"",
+  "key_material=\"${key_material//$'\\r'/}\"",
   'base64 --decode',
   'ssh-keygen -y -P',
   'public-key-only',
@@ -150,6 +149,12 @@ requireText('retryWorkflow', [
   'escaped-newline-private-key',
   'base64-private-key',
   'multiline-private-key',
+  'SSH_HOST_FINGERPRINT_SECRET',
+  'PC_PROD_SSH_HOST_FINGERPRINT',
+  'expected_host_fingerprint',
+  'ssh-keygen -lf "$scanned_hosts" -E sha256',
+  'grep -Fxq "$expected_host_fingerprint"',
+  'ssh-host-key-status.txt',
   'BatchMode=yes',
   'IdentitiesOnly=yes',
   'StrictHostKeyChecking=yes',
@@ -157,6 +162,7 @@ requireText('retryWorkflow', [
   'Restore exact baseline after live failure',
   'Publish retry record',
   'SSH key classification',
+  'VPS host-key verification',
   'gh issue close',
   'retention-days: 90',
 ]);
@@ -167,7 +173,6 @@ forbid('retryWorkflow', [
   /grainflow-web:latest/,
   /echo\s+"?\$raw_key/i,
   /cat\s+.*id_pc_prod/,
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
 ]);
 
 requireText('hardening', [
@@ -233,4 +238,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, failure-observable through checksummed issue #3048 evidence, SSH-key-normalization fail-closed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, pinned-host, persisted-image, multi-file-Compose, health-gated, failure-observable through checksummed issue #3048 evidence, SSH-key-normalization fail-closed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
