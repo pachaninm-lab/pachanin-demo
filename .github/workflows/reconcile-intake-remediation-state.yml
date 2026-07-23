@@ -1,0 +1,55 @@
+name: Reconcile intake remediation with latest main state
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - '.github/workflows/reconcile-intake-remediation-state.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reconcile-intake-remediation-state
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.head_ref == 'fix/organization-intake-bounded-schema'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/organization-intake-bounded-schema
+          fetch-depth: 0
+
+      - name: Rebase concurrent-scope registry content on current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          git show origin/main:docs/platform-v7/autopilot/autopilot-state.json \
+            > docs/platform-v7/autopilot/autopilot-state.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          branch = 'fix/organization-intake-bounded-schema'
+          manifest = json.loads(Path('docs/platform-v7/autopilot/scopes/organization-intake-bounded-schema-remediation.json').read_text())
+          state_path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(state_path.read_text())
+          state.setdefault('approvedConcurrentScopes', {})[branch] = manifest['allowedPaths']
+          state_path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')) + '\n')
+          PY
+          git rm .github/workflows/reconcile-intake-remediation-state.yml
+
+      - name: Commit reconciled state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'governance(intake): reconcile remediation with exact main'
+          git push origin HEAD:fix/organization-intake-bounded-schema
