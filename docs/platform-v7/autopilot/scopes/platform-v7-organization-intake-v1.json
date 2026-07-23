@@ -4,9 +4,10 @@
   "purpose": "Replace the staged public organization-connect form with a durable PostgreSQL-authoritative intake that records consent, enforces idempotency and anti-spam controls, emits audit/outbox evidence and returns a real request number without changing transaction, money or external-integration authority.",
   "approvedBy": "user-directed-finish-homepage-2026-07-23",
   "allowedPaths": [
+    ".github/workflows/pc-crop-01b3.yml",
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260723113000_public_organization_connection_intake/**",
-    "apps/api/src/modules/organizations/organizations.module.ts",
+    "apps/api/src/app.module.ts",
     "apps/api/src/modules/organization-intake/**",
     "apps/api/test/industrial/organization-intake-postgresql.e2e-spec.ts",
     "apps/web/app/api/platform-v7/organization-connect/route.ts",
