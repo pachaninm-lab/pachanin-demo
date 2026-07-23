@@ -1,0 +1,196 @@
+name: PC-CROP-07A Regulatory Integration Inbox Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-07a.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/**'
+      - 'apps/api/src/modules/regulatory-integration/**'
+      - 'apps/api/src/modules/integration-events/integration-events.module.ts'
+      - 'apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts'
+      - 'infra/sql/postgresql-regulatory-integration-inbox-policies.sql'
+      - 'scripts/verify-pc-crop-07a.mjs'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
+      - 'scripts/p7-autopilot-guard.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-07a.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/**'
+      - 'apps/api/src/modules/regulatory-integration/**'
+      - 'apps/api/src/modules/integration-events/integration-events.module.ts'
+      - 'apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts'
+      - 'infra/sql/postgresql-regulatory-integration-inbox-policies.sql'
+      - 'scripts/verify-pc-crop-07a.mjs'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
+      - 'scripts/p7-autopilot-guard.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-07a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow_shadow?schema=public
+  EVIDENCE_DIR: artifacts/pc-crop-07a
+
+jobs:
+  durable-inbox:
+    name: PostgreSQL 16 · durable inbox · RLS · competing workers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-07A scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref="HEAD^"
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-07a\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/.*|apps/api/src/modules/regulatory-integration/.*|apps/api/src/modules/integration-events/integration-events\.module\.ts|apps/api/test/industrial/regulatory-integration-inbox\.e2e-spec\.ts|infra/sql/postgresql-regulatory-integration-inbox-policies\.sql|scripts/verify-pc-crop-07a\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-07a\.json|scripts/p7-autopilot-guard\.sh)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-07A contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create isolated Prisma shadow database
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres createdb -h localhost -U postgres grainflow_shadow
+
+      - name: Validate Prisma schema and prove formatting is stable
+        shell: bash
+        run: |
+          set -o pipefail
+          cp apps/api/prisma/schema.prisma "$EVIDENCE_DIR/schema-before.prisma"
+          pnpm --filter @pc/api exec prisma format 2>&1 | tee "$EVIDENCE_DIR/prisma-format.log"
+          diff -u "$EVIDENCE_DIR/schema-before.prisma" apps/api/prisma/schema.prisma \
+            | tee "$EVIDENCE_DIR/prisma-format.diff"
+          pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$EVIDENCE_DIR/prisma-validate.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Prove migration and Prisma schema are drift-free
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate diff \
+            --from-migrations prisma/migrations \
+            --to-schema-datamodel prisma/schema.prisma \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
+            --exit-code 2>&1 | tee "$EVIDENCE_DIR/prisma-migrate-diff.log"
+
+      - name: Apply complete migration chain and RLS overlay
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 \
+            | tee "$EVIDENCE_DIR/prisma-migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 \
+            | tee "$EVIDENCE_DIR/prisma-migrate-status.log"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f infra/sql/postgresql-regulatory-integration-inbox-policies.sql \
+            2>&1 | tee "$EVIDENCE_DIR/rls-overlay.log"
+
+      - name: Typecheck API runtime
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+
+      - name: Run deterministic module unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/regulatory-integration.types.spec.ts \
+            src/modules/regulatory-integration/regulatory-integration.state-machine.spec.ts \
+            src/modules/regulatory-integration/regulatory-integration.inbox-policy.spec.ts \
+            src/modules/regulatory-integration/regulatory-integration.inbox.repository.spec.ts \
+            src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+
+      - name: Run PostgreSQL 16 industrial acceptance
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            --runInBand \
+            --runTestsByPath test/industrial/regulatory-integration-inbox.e2e-spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-industrial-e2e.log"
+
+      - name: Build fail-closed machine-readable acceptance
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-pc-crop-07a.mjs 2>&1 | tee "$EVIDENCE_DIR/verifier.log"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(
+            'artifacts/pc-crop-07a/pc-crop-07a-acceptance.json',
+            'utf8',
+          ));
+          if (report.schemaVersion !== 'pc-crop.regulatory-integration-inbox-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-07A' || report.status !== 'PASS') process.exit(1);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.exactHead !== process.env.EXACT_HEAD) process.exit(1);
+          if (report.postgresql !== '16') process.exit(1);
+          if (report.failures.length !== 0) process.exit(1);
+          if (!Object.values(report.invariants).every(Boolean)) process.exit(1);
+          NODE
+
+      - name: Upload exact-head acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-07a-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-07a
+          if-no-files-found: error
+          retention-days: 90
