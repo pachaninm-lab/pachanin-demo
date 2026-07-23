@@ -84,16 +84,24 @@ describe('public organization intake PostgreSQL authority', () => {
         ALTER ROLE app_deal LOGIN PASSWORD 'app_deal_intake_e2e';
       END
       $role$;
+    `);
+    await admin.$executeRawUnsafe(`
       DO $grant$
       BEGIN
         EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_deal', current_database());
       END
       $grant$;
-      GRANT USAGE ON SCHEMA public, security TO app_deal;
-      GRANT EXECUTE ON FUNCTION public.lookup_public_organization_connection_request(text, text) TO app_deal;
-      GRANT EXECUTE ON FUNCTION public.create_public_organization_connection_request(text, text, text, text, text, text, text, text, text, text, text, text, text) TO app_deal;
-      GRANT EXECUTE ON FUNCTION security.consume_api_rate_limit(text, text, integer) TO app_deal;
     `);
+    await admin.$executeRawUnsafe('GRANT USAGE ON SCHEMA public, security TO app_deal');
+    await admin.$executeRawUnsafe(
+      'GRANT EXECUTE ON FUNCTION public.lookup_public_organization_connection_request(text, text) TO app_deal',
+    );
+    await admin.$executeRawUnsafe(
+      'GRANT EXECUTE ON FUNCTION public.create_public_organization_connection_request(text, text, text, text, text, text, text, text, text, text, text, text, text) TO app_deal',
+    );
+    await admin.$executeRawUnsafe(
+      'GRANT EXECUTE ON FUNCTION security.consume_api_rate_limit(text, text, integer) TO app_deal',
+    );
     restricted = new PrismaClient({ datasources: { db: { url: restrictedUrl() } } });
     await restricted.$connect();
     const restrictedPrisma = restricted as unknown as PrismaService;
