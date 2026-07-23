@@ -19,7 +19,7 @@ jobs:
       github.event.issue.pull_request != null &&
       github.event.issue.number == 3075 &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/security patch-next 3043 15.5.21-v8'
+      github.event.comment.body == '/security patch-next 3043 15.5.21-v9'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -145,7 +145,9 @@ jobs:
           pnpm --filter @pc/web typecheck
 
           phase='focused-version-contract-test'
-          pnpm --filter @pc/web exec vitest run tests/unit/next15RuntimeContracts.test.ts
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/next15RuntimeContracts.test.ts \
+            -t 'pins the patched Next.js line without coupling the change to React 19'
 
           phase='web-production-build'
           NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
@@ -170,7 +172,7 @@ jobs:
 
           gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" --title "$canonical_title"
           gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Next.js security remediation branch rebuilt from exact current main and published. Head: \`${head_sha}\`; replaced remote head: \`${remote_security_head}\`; exact diff: package, lockfile and cwd-independent version-contract test; target: \`next@15.5.21\`; focused contract, frozen install, typecheck, production build and HIGH audit passed. Full web and repository suites remain mandatory on the security PR; no exception or allowlist."
+            --body "Next.js security remediation branch rebuilt from exact current main and published. Head: \`${head_sha}\`; replaced remote head: \`${remote_security_head}\`; exact diff: package, lockfile and cwd-independent version-contract test; target: \`next@15.5.21\`; exact version assertion, frozen install, typecheck, production build and HIGH audit passed. Full web and repository suites remain mandatory on the security PR; no exception or allowlist."
           gh pr comment "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
             --body "Next.js 15.5.21 clean security branch published at \`${head_sha}\`. The isolated three-file security PR remains subject to the standard CI matrix."
 
@@ -180,7 +182,7 @@ jobs:
             echo "- previous remote head: \`$remote_security_head\`"
             echo "- clean head: \`$head_sha\`"
             echo '- changed paths: package, lockfile, cwd-independent version-contract test'
-            echo '- focused contract/typecheck/build/audit: PASS'
+            echo '- exact version contract/typecheck/build/audit: PASS'
             echo '- full suite authority: security PR checks'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -192,4 +194,4 @@ jobs:
         shell: bash
         run: |
           gh issue comment 3043 --repo "$GITHUB_REPOSITORY" \
-            --body "Standalone Next.js 15.5.21 controller v8 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
+            --body "Standalone Next.js 15.5.21 controller v9 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
