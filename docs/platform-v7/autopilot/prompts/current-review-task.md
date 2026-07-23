@@ -6,7 +6,7 @@ Do not auto-merge. Review exact diff, exact-head evidence and repository scope.
 
 ## Required scope checks
 
-- `apps/landing`, `apps/web`, lockfiles and packages diff must be 0;
+- `apps/landing`, `apps/web`, lockfiles and packages diff must be 0 for the serialized IR-10.4 branch, except for the explicitly approved concurrent scopes below;
 - no live provider activation, credentials or fake-live claims;
 - no RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority or process-memory OutboxService in the production settlement graph;
 - no float/`amountRub` financial authority;
@@ -24,6 +24,37 @@ The serialized primary task remains IR-10.4. A separate, isolated infrastructure
 Review this branch only against that exact allow-list. It may add the production-like Kubernetes workflow, disposable kind topology, runtime dependencies, hardening manifests, PgBouncer configuration and `scripts/release/production-like-kubernetes-*` acceptance/evidence tooling. It must not change application/domain code, Prisma schema or migrations, web code, packages or lockfiles.
 
 This concurrent scope proves only a disposable multi-node production-like deployment, immutable rollout and same-schema rollback. It does not advance the global maturity status, does not prove provider HA/PITR or production capacity, and does not authorize any live external integration.
+
+## Approved concurrent public homepage scope — PR #3046
+
+The user explicitly authorized a narrow public-copy completion slice on branch `agent/platform-v7-strategic-rebuild-v3` under:
+
+`docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json`
+
+Review this branch only against its exact allow-list. It may change the RU/EN/ZH public homepage copy, the dedicated public-copy test and the bound scope manifest. It must not change API, database, RBAC, protected routes, TAI runtime, intake persistence, deployment topology, lockfiles or packages.
+
+The public text must present the platform through capabilities and user outcomes, must not contain development-stage or maturity-status language, and must not claim that bank, FGIS, EDI or another external system is connected without separate runtime evidence.
+
+## Approved concurrent production web hardening scope — PR #3044
+
+The user explicitly authorized a narrow REG.RU web-only operational slice on branch `ops/production-web-hardening-v1`. Review only these paths:
+
+- `.github/workflows/production-hosting-authority.yml`;
+- `.github/workflows/production-web-exact-sha.yml`;
+- `apps/web/app/api/health/ready/route.ts`;
+- `docs/ops/active-hosting-contour.md`;
+- `docs/ops/production-web-hardening.md`;
+- `docs/ops/virtual-server-production-runbook.md`;
+- `docs/ops/vps-post-deploy-checklist.md`;
+- `infra/compose/production-web-hardening.override.yml`;
+- `infra/docker/Dockerfile.web`;
+- `scripts/check-production-hosting-authority.mjs`;
+- `scripts/check-production-web-hardening.mjs`;
+- `scripts/production-web-exact-sha.sh`;
+- `scripts/production-web-live-acceptance.sh`;
+- `scripts/production-web-remote-entrypoint.sh`.
+
+This slice may add exact-SHA web deployment, readiness healthcheck, immutable rollback, Compose metadata recovery and Watchtower retirement. It must not change API, PostgreSQL, migrations, Caddy, production environment values, volumes, networks, domain logic, money logic, external integrations, packages or lockfiles. Production claims require running OCI revision and live-domain evidence.
 
 ## Automatic hard blockers
 
@@ -49,6 +80,21 @@ For the approved IR-K8S concurrent scope, also return BLOCKED if:
 15. Images are mutable, mixed-commit, not registry-digest addressed or not bound to the exact head.
 16. API or worker runs schema migrations, or application principals gain DDL authority.
 17. Evidence is not machine-readable, exact-head bound or contains violated thresholds.
+
+For the public homepage concurrent scope, return BLOCKED if:
+
+18. The diff exceeds the bound homepage scope.
+19. Public copy includes implementation-stage, pilot, pre-live or maturity-status language.
+20. Public copy states that an external system is connected without verified runtime evidence.
+21. RU, EN or ZH is incomplete or semantically inconsistent.
+
+For the production web hardening concurrent scope, return BLOCKED if:
+
+22. The diff exceeds the 14-path hardening allow-list.
+23. SSH identity or protected server paths are committed, printed or defaulted to an unprotected principal.
+24. Deployment uses `latest`, mutable-image acceptance or Watchtower polling as release evidence.
+25. A non-web service, Caddy, environment, volume, network, API or database is mutated.
+26. The image lacks exact manifest/revision binding, readiness healthcheck or an immutable rollback path.
 
 ## Review questions
 
