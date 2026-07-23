@@ -12,6 +12,13 @@ decode() {
   if [[ -n "$1" ]]; then printf '%s' "$1" | base64 -d; fi
 }
 
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
   return 1
@@ -43,10 +50,24 @@ if [[ -z "$prod_dir" || -z "$prod_compose" ]]; then
     candidate_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$candidate_id" 2>/dev/null || true)"
     candidate_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$candidate_id" 2>/dev/null || true)"
     candidate_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$candidate_id" 2>/dev/null || true)"
-    if [[ -n "$candidate_dir" && "$candidate_files" != *,* && -f "$candidate_files" ]]; then
-      prod_dir="$candidate_dir"
-      prod_compose="$candidate_files"
-      [[ -n "$prod_project" ]] || prod_project="$candidate_project"
+
+    if [[ -n "$candidate_dir" && -n "$candidate_files" ]]; then
+      protected_files=()
+      IFS=',' read -r -a raw_candidate_files <<< "$candidate_files"
+      for raw_file in "${raw_candidate_files[@]}"; do
+        candidate_file="$(trim "$raw_file")"
+        [[ -n "$candidate_file" ]] || continue
+        if [[ "$candidate_file" != /* ]]; then candidate_file="${candidate_dir%/}/$candidate_file"; fi
+        case "$candidate_file" in
+          */compose.production-hardening.override.yml|*/compose.production-web-image.override.yml) ;;
+          *) [[ -f "$candidate_file" ]] && protected_files+=("$candidate_file") ;;
+        esac
+      done
+      if (( ${#protected_files[@]} >= 1 )); then
+        prod_dir="$candidate_dir"
+        prod_compose="$(IFS=','; printf '%s' "${protected_files[*]}")"
+        [[ -n "$prod_project" ]] || prod_project="$candidate_project"
+      fi
     fi
   fi
 fi
@@ -72,7 +93,16 @@ if [[ -z "$prod_dir" || -z "$prod_compose" ]]; then
 fi
 
 [[ -d "$prod_dir" ]] || fail 'resolved production directory is invalid'
-[[ -f "$prod_compose" ]] || fail 'resolved production Compose file is invalid'
+IFS=',' read -r -a resolved_files <<< "$prod_compose"
+resolved_count=0
+for raw_file in "${resolved_files[@]}"; do
+  resolved_file="$(trim "$raw_file")"
+  [[ -n "$resolved_file" ]] || continue
+  if [[ "$resolved_file" != /* ]]; then resolved_file="${prod_dir%/}/$resolved_file"; fi
+  [[ -f "$resolved_file" ]] || fail "resolved production Compose file is invalid: $resolved_file"
+  resolved_count=$((resolved_count + 1))
+done
+(( resolved_count >= 1 )) || fail 'no protected production Compose files were resolved'
 
 chmod 0700 "$remote_script" "$remote_live"
 
@@ -86,6 +116,7 @@ else
 fi
 
 image_override="${prod_dir%/}/compose.production-web-image.override.yml"
+printf 'RESOLVED_PROTECTED_COMPOSE_COUNT=%s\n' "$resolved_count"
 
 PC_PROD_DIR="$prod_dir" \
 PC_PROD_COMPOSE="$prod_compose" \
