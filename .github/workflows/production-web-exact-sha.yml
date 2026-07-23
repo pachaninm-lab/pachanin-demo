@@ -1,0 +1,356 @@
+name: Production Web Exact-SHA Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/app/api/health/ready/route.ts'
+      - 'infra/docker/Dockerfile.web'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'audit, deploy or rollback'
+        required: true
+        default: audit
+        type: choice
+        options:
+          - audit
+          - deploy
+          - rollback
+      target_sha:
+        description: 'Full main commit SHA for deploy or rollback'
+        required: false
+        type: string
+      confirmation:
+        description: 'DEPLOY-EXACT-SHA or ROLLBACK-EXACT-SHA'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: production-web-exact-sha
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/production-web-exact-sha
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+
+jobs:
+  release:
+    name: Bounded web-only production release
+    if: github.event_name == 'push' || github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release intent
+        id: intent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            action=deploy
+            target_sha="$GITHUB_SHA"
+          else
+            action='${{ inputs.action }}'
+            target_sha='${{ inputs.target_sha }}'
+            confirmation='${{ inputs.confirmation }}'
+            case "$action" in
+              audit)
+                [[ -z "$confirmation" ]] || {
+                  echo 'Audit does not accept a mutation confirmation.' >&2
+                  exit 2
+                }
+                ;;
+              deploy)
+                [[ "$confirmation" == DEPLOY-EXACT-SHA ]] || {
+                  echo 'Deploy confirmation is invalid.' >&2
+                  exit 3
+                }
+                ;;
+              rollback)
+                [[ "$confirmation" == ROLLBACK-EXACT-SHA ]] || {
+                  echo 'Rollback confirmation is invalid.' >&2
+                  exit 4
+                }
+                ;;
+            esac
+          fi
+
+          if [[ "$action" != audit ]]; then
+            [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || {
+              echo 'A full lowercase 40-character target SHA is required.' >&2
+              exit 5
+            }
+            git fetch --no-tags origin main
+            git cat-file -e "${target_sha}^{commit}"
+            git merge-base --is-ancestor "$target_sha" origin/main
+          else
+            target_sha=''
+          fi
+
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$action" > "$EVIDENCE_DIR/action.txt"
+          printf '%s\n' "${target_sha:-AUDIT}" > "$EVIDENCE_DIR/target-sha.txt"
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for exact canonical image
+        if: steps.intent.outputs.action != 'audit'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.intent.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          exact_image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/grainflow-web:sha-${TARGET_SHA:0:7}"
+          for attempt in $(seq 1 90); do
+            if docker pull "$exact_image" >/dev/null 2>&1; then
+              actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$exact_image" 2>/dev/null || true)"
+              echo "Image attempt $attempt/90: expected=$TARGET_SHA actual=${actual:-missing}"
+              if [[ "$actual" == "$TARGET_SHA" ]]; then
+                docker image inspect "$exact_image" > "$EVIDENCE_DIR/registry-image.json"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo 'Exact canonical web image is unavailable.' >&2
+          exit 6
+
+      - name: Resolve key-only production SSH
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+
+          [[ "$host" == "$DEFAULT_HOST" ]] || {
+            echo 'SSH host is not the canonical REG.RU VPS.' >&2
+            exit 7
+          }
+          [[ -n "$user" ]] || {
+            echo 'PC_PROD_SSH_USER is required in protected operational storage.' >&2
+            exit 8
+          }
+          [[ -n "$key" ]] || {
+            echo 'No approved key-only production SSH credential is configured.' >&2
+            exit 9
+          }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || {
+            echo 'Protected production SSH port is invalid.' >&2
+            exit 10
+          }
+
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$key" | tr -d '\r' > "$HOME/.ssh/id_pc_prod"
+          chmod 600 "$HOME/.ssh/id_pc_prod"
+          ssh-keygen -y -f "$HOME/.ssh/id_pc_prod" > "$EVIDENCE_DIR/ssh-public-key.txt"
+          ssh-keygen -lf "$EVIDENCE_DIR/ssh-public-key.txt" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+          rm -f "$EVIDENCE_DIR/ssh-public-key.txt"
+
+          domain_ips="$(getent ahostsv4 xn----8sbjf4befbjgs9b.xn--p1ai | awk '{print $1}' | sort -u || true)"
+          printf '%s\n' "$domain_ips" > "$EVIDENCE_DIR/domain-ip.txt"
+          grep -Fxq "$DEFAULT_HOST" "$EVIDENCE_DIR/domain-ip.txt"
+
+          ssh-keyscan -T 10 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Copy immutable release assets
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp_options=(
+            -i "$HOME/.ssh/id_pc_prod"
+            -P "$SSH_PORT"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+          )
+          scp "${scp_options[@]}" \
+            scripts/production-web-exact-sha.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-exact-sha-${GITHUB_RUN_ID}.sh"
+          scp "${scp_options[@]}" \
+            scripts/production-web-live-acceptance.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-live-acceptance-${GITHUB_RUN_ID}.sh"
+          scp "${scp_options[@]}" \
+            scripts/production-web-remote-entrypoint.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+          scp "${scp_options[@]}" \
+            infra/compose/production-web-hardening.override.yml \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-hardening-${GITHUB_RUN_ID}.yml"
+
+      - name: Execute bounded production action
+        id: production
+        env:
+          ACTION: ${{ steps.intent.outputs.action }}
+          TARGET_SHA: ${{ steps.intent.outputs.target_sha }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          encode() {
+            printf '%s' "$1" | base64 -w0
+          }
+
+          prod_dir_b64="$(encode "${PROD_DIR_SECRET:-}")"
+          prod_compose_b64="$(encode "${PROD_COMPOSE_SECRET:-}")"
+          prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
+          remote_entrypoint="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "chmod 0700 '$remote_entrypoint' && PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' '$ACTION' '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            > "$EVIDENCE_DIR/production-action.log" 2>&1
+          rc=$?
+          set -e
+
+          cat "$EVIDENCE_DIR/production-action.log"
+
+          baseline_revision="$(sed -n 's/^ROLLBACK_BASELINE_REVISION=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
+          deployment_complete="$(sed -n 's/^DEPLOYMENT_COMPLETE=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
+          watchtower_retired="$(sed -n 's/^WATCHTOWER_RETIRED=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
+          persistent_override_mutated="$(sed -n 's/^PERSISTENT_OVERRIDE_MUTATED=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
+          echo "baseline_revision=${baseline_revision:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "deployment_complete=${deployment_complete:-0}" >> "$GITHUB_OUTPUT"
+          echo "watchtower_retired=${watchtower_retired:-0}" >> "$GITHUB_OUTPUT"
+          echo "persistent_override_mutated=${persistent_override_mutated:-unknown}" >> "$GITHUB_OUTPUT"
+
+          if [[ "$ACTION" == audit ]]; then
+            [[ "${persistent_override_mutated:-unknown}" == 0 ]]
+          fi
+          (( rc == 0 )) || exit "$rc"
+
+      - name: Verify exact public runtime
+        id: live
+        if: steps.intent.outputs.action != 'audit' && steps.production.outputs.deployment_complete == '1'
+        continue-on-error: true
+        env:
+          PC_LIVE_BASE: ${{ env.LIVE_BASE }}
+          TARGET_SHA: ${{ steps.intent.outputs.target_sha }}
+          ACTION: ${{ steps.intent.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" "$ACTION" |
+            tee "$EVIDENCE_DIR/live-acceptance.log"
+
+      - name: Restore previous exact revision after live failure
+        if: steps.live.outcome == 'failure'
+        env:
+          BASELINE_SHA: ${{ steps.production.outputs.baseline_revision }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'No exact rollback baseline revision is available.' >&2
+            exit 30
+          }
+
+          encode() {
+            printf '%s' "$1" | base64 -w0
+          }
+          prod_dir_b64="$(encode "${PROD_DIR_SECRET:-}")"
+          prod_compose_b64="$(encode "${PROD_COMPOSE_SECRET:-}")"
+          prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
+          remote_entrypoint="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' rollback '$BASELINE_SHA' '$GITHUB_RUN_ID'" \
+            | tee "$EVIDENCE_DIR/live-failure-rollback.log"
+
+      - name: Enforce final release result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          action='${{ steps.intent.outputs.action }}'
+          live_outcome='${{ steps.live.outcome }}'
+          if [[ "$action" != audit && "$live_outcome" != success ]]; then
+            echo 'Production was restored when possible, but exact live acceptance failed.' >&2
+            exit 40
+          fi
+
+      - name: Build evidence checksums
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 |
+            sort -z |
+            xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Upload production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-web-exact-sha-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
