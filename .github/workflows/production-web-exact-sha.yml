@@ -369,7 +369,7 @@ jobs:
         run: |
           set -euo pipefail
           target="${TARGET_SHA:-AUDIT}"
-          live_acceptance="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live-acceptance.log" 2>/dev/null | tail -1)"
+          live_acceptance="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live-acceptance.log" 2>/dev/null | tail -1 || true)"
           rollback_result='not-required'
           if [[ -f "$EVIDENCE_DIR/live-failure-rollback.log" ]]; then
             rollback_result="$(sed -n 's/^DEPLOYMENT_COMPLETE=//p' "$EVIDENCE_DIR/live-failure-rollback.log" | tail -1)"
@@ -393,6 +393,10 @@ jobs:
             echo "- workflow status at record: \`${FINAL_JOB_STATUS:-unknown}\`"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
           } > "$record"
+
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 |
+            sort -z |
+            xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 
           gh issue comment "$RELEASE_ISSUE_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
