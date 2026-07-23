@@ -2,6 +2,7 @@ import {
   Equals,
   IsEmail,
   IsIn,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -74,6 +75,11 @@ export class CreateOrganizationIntakeDto {
 
   @Equals(true)
   consent!: true;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  website?: string;
 }
 
 export type OrganizationIntakeResponse = Readonly<{
