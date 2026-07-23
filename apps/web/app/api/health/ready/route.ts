@@ -10,6 +10,7 @@ export function GET() {
       status: 'ok',
       service: 'web',
       releaseAuthority: 'exact-sha',
+      transportPolicy: 'protected',
       revision: process.env.APP_REVISION ?? 'unknown',
       checkedAt: new Date().toISOString(),
     },
