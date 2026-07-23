@@ -68,7 +68,8 @@ jobs:
               source = contract_path.read_text()
               if source.count(needle) != 1:
                   raise SystemExit(f'Next.js version contract missing or ambiguous: {contract_path}')
-              contract_path.write_text(source.replace(needle, needle.replace('15.5.18', '15.5.21').replace('15.5.16', '15.5.21')))
+              replacement = needle.replace('15.5.18', '15.5.21').replace('15.5.16', '15.5.21')
+              contract_path.write_text(source.replace(needle, replacement))
           PY
 
           pnpm install --lockfile-only
@@ -82,7 +83,22 @@ jobs:
         run: pnpm --filter @pc/web typecheck
 
       - name: Run coupled Next.js runtime contracts
-        run: pnpm --filter @pc/web exec vitest run tests/unit/next15RuntimeContracts.test.ts tests/unit/next15RuntimeBoundary.test.ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/security
+          set +e
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/next15RuntimeContracts.test.ts \
+            tests/unit/next15RuntimeBoundary.test.ts \
+            > artifacts/security/next-contract-tests.log 2>&1
+          test_rc=$?
+          set -e
+          if (( test_rc != 0 )); then
+            tail -n 260 artifacts/security/next-contract-tests.log > artifacts/security/next-contract-tests-failure.txt
+            exit "$test_rc"
+          fi
+          tail -n 120 artifacts/security/next-contract-tests.log > artifacts/security/next-contract-tests-pass.txt
 
       - name: Run production web build
         env:
