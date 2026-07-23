@@ -1,6 +1,6 @@
 # Active hosting contour
 
-Date: 2026-07-19
+Date: 2026-07-23
 
 ## Canonical production
 
@@ -17,12 +17,22 @@ Date: 2026-07-19
 | Web path | Internet → Caddy → `web` container → Next.js |
 | Source authority | GitHub `main` |
 | Image registry | GHCR |
+| Web release authority | Exact-SHA workflow, persistent exact-image override and immutable OCI revision |
 
 DNS is the routing authority. The recorded IP must be confirmed before operational access because it can change.
 
 ## Server services
 
-The current single-server contour includes Caddy and containerized application services. Operational inventory records the following service classes: PostgreSQL 16, Redis, MinIO, one-shot migrations/provisioning, API, web, Caddy and Watchtower. The exact production Compose file, working directory, SSH identity and environment are protected operational data and are not stored in this document.
+The current single-server contour includes Caddy and containerized application services. Operational inventory records PostgreSQL 16, Redis, MinIO, one-shot migrations/provisioning, API, web and Caddy.
+
+Watchtower is retired from the active production profile. A stopped Watchtower container may temporarily remain for forensic continuity, but it must have restart policy `no` and must not participate in releases.
+
+The exact protected production Compose file, working directory, SSH identity and environment are not stored in this document. Every production Compose operation after hardening must preserve both server-side overrides:
+
+- `compose.production-hardening.override.yml`;
+- `compose.production-web-image.override.yml`.
+
+The first removes the fixed container name, defines health policy and retires Watchtower. The second persists the accepted immutable exact-SHA web image so a later recreate cannot silently return to an older image declared in the protected base Compose file.
 
 The repository root `docker-compose.yml` is for local development and is not production authority.
 
@@ -30,20 +40,24 @@ The repository root `docker-compose.yml` is for local development and is not pro
 
 - A merge to `main` updates source authority.
 - The canonical image workflow publishes GHCR artifacts for application changes.
-- The virtual server must pull and run the intended artifact.
-- Watchtower may perform the pull automatically, but its activity is not proof of deployment.
-- Infrastructure changes require an explicit server-side Git/config update and Compose reconciliation.
-- Production is accepted only after the running container revision matches the intended Git SHA and the live domain passes smoke checks.
+- The virtual server must pull and run the intended exact-SHA artifact.
+- The merged Compose model must persist the same exact image reference.
+- Local retagging of an older exact-SHA tag is not release authority.
+- `latest`, registry polling and automatic updater activity are not release authority.
+- Infrastructure changes require an explicit protected server-side configuration update and Compose reconciliation.
+- Production is accepted only after the persisted image, running container revision and intended Git SHA agree, Docker state is `healthy`, canonical Compose labels are present and the live domain passes smoke checks.
+- The `web` service must not use a fixed `container_name`.
 
-## Retired hosting
+## Retired hosting and release mechanisms
 
 - Netlify is retired and is not production.
 - Vercel is retired and is not production.
 - Deno Deploy is legacy and is not production.
-- Deploy previews or commit statuses from any retired provider must be ignored as release gates.
+- Watchtower is retired and is not production release authority.
+- Mutable tags, local retags, deploy previews or commit statuses from retired providers must be ignored as release gates.
 
 ## Operational rule
 
-Never report a change as live merely because it was merged, built or published to a registry. Without evidence from the virtual server and `https://процент-агро.рф`, the correct state is **deployment pending**.
+Never report a change as live merely because it was merged, built or published to a registry. Without evidence from the REG.RU virtual server and `https://процент-агро.рф`, the correct state is **deployment pending**.
 
-See `CANONICAL_DEPLOY.md` and `docs/ops/virtual-server-production-runbook.md`.
+See `CANONICAL_DEPLOY.md`, `docs/ops/virtual-server-production-runbook.md` and `docs/ops/production-web-hardening.md`.
