@@ -150,7 +150,7 @@ jobs:
           }
 
           host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
-          user="$(trim "${SSH_USER_SECRET:-root}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
           port="$(trim "${SSH_PORT_SECRET:-22}")"
           key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
 
@@ -158,11 +158,18 @@ jobs:
             echo 'SSH host is not the canonical REG.RU VPS.' >&2
             exit 7
           }
-          [[ -n "$key" ]] || {
-            echo 'No approved key-only production SSH credential is configured.' >&2
+          [[ -n "$user" ]] || {
+            echo 'PC_PROD_SSH_USER is required in protected operational storage.' >&2
             exit 8
           }
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ -n "$key" ]] || {
+            echo 'No approved key-only production SSH credential is configured.' >&2
+            exit 9
+          }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || {
+            echo 'Protected production SSH port is invalid.' >&2
+            exit 10
+          }
 
           mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
           chmod 700 "$HOME/.ssh"
