@@ -59,6 +59,10 @@ requireText('release', [
   'deploy|rollback',
   'Docker Compose >= 2.24.4',
   'org.opencontainers.image.revision',
+  'PC_IMAGE_OVERRIDE=',
+  'write_image_override',
+  'PERSISTED_WEB_IMAGE=',
+  '--pull never',
   'PC_LIVE_ACCEPTANCE_SCRIPT',
   'LEGACY_WEB_PARKED=1',
   'LEGACY_WEB_ADOPTED=1',
@@ -75,7 +79,9 @@ requireText('remote', [
   'PERSISTENT_OVERRIDE_MUTATED=1',
   'if [[ "$ACTION" == audit ]]',
   'compose.production-hardening.override.yml',
-  "grep -v '/compose.production-hardening.override.yml$'",
+  'compose.production-web-image.override.yml',
+  "grep -Ev '/compose\\.production-(hardening|web-image)\\.override\\.yml$'",
+  'PC_IMAGE_OVERRIDE=',
   'PC_LIVE_ACCEPTANCE_SCRIPT=',
 ]);
 requireText('live', [
@@ -105,13 +111,18 @@ requireText('hardening', [
   'must not have a fixed `container_name`',
   'exact-SHA operations',
   'Docker Compose `2.24.4` or later',
-  'parked',
+  'parked legacy container',
+  'compose.production-web-image.override.yml',
+  'local retagging of an older SHA tag is prohibited',
 ]);
 requireText('runbook', [
   'Watchtower is retired from release authority',
   'production-web-exact-sha.yml',
   'PC_TARGET_SHA',
+  'PC_IMAGE_OVERRIDE',
   'org.opencontainers.image.revision',
+  'compose.production-web-image.override.yml',
+  '--pull never',
   'Docker Compose',
   'Caddy',
   'REG.RU',
@@ -127,10 +138,15 @@ requireText('checklist', [
   'Docker reports the `web` container as `healthy`',
   'Contact dock acceptance',
   'Watchtower is stopped',
+  'persistent exact-image override',
 ]);
 
 forbid('workflow', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/, /grainflow-web:latest/]);
-forbid('release', [/sshpass/i, /docker compose[^\n]*up -d(?![^\n]*--no-deps)/]);
+forbid('release', [
+  /sshpass/i,
+  /docker compose[^\n]*up -d(?![^\n]*--no-deps)/,
+  /docker tag "\$exact_image"/,
+]);
 forbid('remote', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/]);
 forbid('hardening', [/Netlify.*production/i, /Vercel.*production/i]);
 
@@ -147,4 +163,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, health-gated, Compose-managed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, persisted-image, health-gated, Compose-managed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
