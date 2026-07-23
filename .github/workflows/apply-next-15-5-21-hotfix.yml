@@ -58,23 +58,28 @@ jobs:
           package['dependencies']['next'] = '15.5.21'
           package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n')
 
-          contracts = {
-              Path('apps/web/tests/unit/next15RuntimeContracts.test.ts'):
-                  "expect(webPackage.dependencies?.next).toBe('15.5.18');",
-              Path('apps/web/tests/unit/next15RuntimeBoundary.test.ts'):
-                  "expect(packageJson.dependencies?.next).toBe('15.5.16');",
-          }
-          for contract_path, needle in contracts.items():
-              source = contract_path.read_text()
-              if source.count(needle) != 1:
-                  raise SystemExit(f'Next.js version contract missing or ambiguous: {contract_path}')
-              replacement = needle.replace('15.5.18', '15.5.21').replace('15.5.16', '15.5.21')
-              contract_path.write_text(source.replace(needle, replacement))
+          contracts_path = Path('apps/web/tests/unit/next15RuntimeContracts.test.ts')
+          contracts = contracts_path.read_text()
+          root_needle = 'const ROOT = process.cwd();'
+          version_needle = "expect(webPackage.dependencies?.next).toBe('15.5.18');"
+          if contracts.count(root_needle) != 1 or contracts.count(version_needle) != 1:
+              raise SystemExit('Next.js runtime contracts baseline is missing or ambiguous')
+          contracts = contracts.replace(root_needle, "const ROOT = path.resolve(__dirname, '../../../..');")
+          contracts = contracts.replace(version_needle, "expect(webPackage.dependencies?.next).toBe('15.5.21');")
+          contracts_path.write_text(contracts)
+
+          boundary_path = Path('apps/web/tests/unit/next15RuntimeBoundary.test.ts')
+          boundary = boundary_path.read_text()
+          boundary_needle = "expect(packageJson.dependencies?.next).toBe('15.5.16');"
+          if boundary.count(boundary_needle) != 1:
+              raise SystemExit('Next.js runtime boundary baseline is missing or ambiguous')
+          boundary_path.write_text(boundary.replace(boundary_needle, "expect(packageJson.dependencies?.next).toBe('15.5.21');"))
           PY
 
           pnpm install --lockfile-only
           pnpm install --frozen-lockfile
           node -e "const p=require('./apps/web/package.json'); if(p.dependencies.next!=='15.5.21'||p.dependencies.react!=='18.3.1'||p.dependencies['react-dom']!=='18.3.1') process.exit(1)"
+          grep -Fq "const ROOT = path.resolve(__dirname, '../../../..');" apps/web/tests/unit/next15RuntimeContracts.test.ts
           grep -Fq "expect(webPackage.dependencies?.next).toBe('15.5.21');" apps/web/tests/unit/next15RuntimeContracts.test.ts
           grep -Fq "expect(packageJson.dependencies?.next).toBe('15.5.21');" apps/web/tests/unit/next15RuntimeBoundary.test.ts
           git diff --check
@@ -88,10 +93,9 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/security
           set +e
-          pnpm exec vitest run \
-            --config vitest.config.ts \
-            apps/web/tests/unit/next15RuntimeContracts.test.ts \
-            apps/web/tests/unit/next15RuntimeBoundary.test.ts \
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/next15RuntimeContracts.test.ts \
+            tests/unit/next15RuntimeBoundary.test.ts \
             > artifacts/security/next-contract-tests.log 2>&1
           test_rc=$?
           set -e
@@ -163,7 +167,7 @@ jobs:
           fi
 
           pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --state open --json number --jq '.[0].number // empty')"
-          body='Exact security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json, pnpm-lock.yaml and two directly coupled Next.js runtime version contracts. No exception, React upgrade, product logic or production deployment change. Source acceptance includes focused contract tests, strict typecheck, production build and zero HIGH/CRITICAL audit. The independent full-web-suite baseline debt is tracked separately; merge requires the repository security matrix for this exact head.'
+          body='Exact security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json, pnpm-lock.yaml and two directly coupled Next.js runtime contracts. The contracts are anchored to repository paths, not ambient cwd. No exception, React upgrade, product logic or production deployment change. Source acceptance includes focused contract tests, strict typecheck, production build and zero HIGH/CRITICAL audit. The independent full-web-suite baseline debt is tracked in issue #3099.'
           if [[ -z "$pr_number" ]]; then
             gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --title 'Patch Next.js 15.5.18 to 15.5.21' --body "$body"
             pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --state open --json number --jq '.[0].number')"
@@ -171,7 +175,7 @@ jobs:
             gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --body "$body"
           fi
           head_sha="$(git rev-parse HEAD)"
-          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 hotfix PR refreshed: #${pr_number}; clean head \`${head_sha}\`; four-file coupled diff; focused contracts, build and source audit PASS."
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 hotfix PR refreshed: #${pr_number}; clean head \`${head_sha}\`; current-main lineage; focused contracts, build and source audit PASS."
 
       - name: Upload audit evidence
         if: always()
