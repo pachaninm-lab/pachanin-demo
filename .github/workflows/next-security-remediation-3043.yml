@@ -19,7 +19,7 @@ jobs:
       github.event.issue.pull_request != null &&
       github.event.issue.number == 3075 &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/security patch-next 3043 15.5.21-v7'
+      github.event.comment.body == '/security patch-next 3043 15.5.21-v8'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -81,13 +81,25 @@ jobs:
           manifest.dependencies.next = '15.5.21';
           fs.writeFileSync(packagePath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-          const test = fs.readFileSync(testPath, 'utf8');
+          let test = fs.readFileSync(testPath, 'utf8');
           const oldAssertion = "expect(webPackage.dependencies?.next).toBe('15.5.18');";
           const newAssertion = "expect(webPackage.dependencies?.next).toBe('15.5.21');";
-          if (!test.includes(oldAssertion) || test.includes(newAssertion)) {
-            throw new Error('Next.js runtime contract assertion anchor mismatch');
+          const oldImport = "import { describe, expect, it } from 'vitest';";
+          const newImport = "import { fileURLToPath } from 'node:url';\nimport { describe, expect, it } from 'vitest';";
+          const oldRoot = 'const ROOT = process.cwd();';
+          const newRoot = "const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');";
+          if (
+            !test.includes(oldAssertion) || test.includes(newAssertion)
+            || !test.includes(oldImport) || test.includes("from 'node:url'")
+            || !test.includes(oldRoot) || test.includes(newRoot)
+          ) {
+            throw new Error('Next.js runtime contract patch anchor mismatch');
           }
-          fs.writeFileSync(testPath, test.replace(oldAssertion, newAssertion));
+          test = test
+            .replace(oldImport, newImport)
+            .replace(oldRoot, newRoot)
+            .replace(oldAssertion, newAssertion);
+          fs.writeFileSync(testPath, test);
           NODE
 
           phase='install-pnpm'
@@ -105,6 +117,9 @@ jobs:
           if (manifest.dependencies?.next !== '15.5.21') throw new Error('Next.js exact pin failed');
           if (!test.includes("expect(webPackage.dependencies?.next).toBe('15.5.21');")) {
             throw new Error('Runtime version contract was not updated');
+          }
+          if (!test.includes("fileURLToPath(import.meta.url)")) {
+            throw new Error('Runtime version contract remains cwd-dependent');
           }
           const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
           if (!lock.includes('next@15.5.21')) throw new Error('Patched Next.js package missing from lockfile');
@@ -155,16 +170,16 @@ jobs:
 
           gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" --title "$canonical_title"
           gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Next.js security remediation branch rebuilt from exact current main and published. Head: \`${head_sha}\`; replaced remote head: \`${remote_security_head}\`; exact diff: package, lockfile and version-contract test; target: \`next@15.5.21\`; focused contract, frozen install, typecheck, production build and HIGH audit passed. Full web and repository suites remain mandatory on the security PR; no exception or allowlist."
+            --body "Next.js security remediation branch rebuilt from exact current main and published. Head: \`${head_sha}\`; replaced remote head: \`${remote_security_head}\`; exact diff: package, lockfile and cwd-independent version-contract test; target: \`next@15.5.21\`; focused contract, frozen install, typecheck, production build and HIGH audit passed. Full web and repository suites remain mandatory on the security PR; no exception or allowlist."
           gh pr comment "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
-            --body "Next.js 15.5.21 clean security branch published at \`${head_sha}\`. Opening the isolated three-file security PR; its standard CI remains the merge authority."
+            --body "Next.js 15.5.21 clean security branch published at \`${head_sha}\`. The isolated three-file security PR remains subject to the standard CI matrix."
 
           {
             echo '## Next.js 15.5.21 remediation branch'
             echo
             echo "- previous remote head: \`$remote_security_head\`"
             echo "- clean head: \`$head_sha\`"
-            echo '- changed paths: package, lockfile, version-contract test'
+            echo '- changed paths: package, lockfile, cwd-independent version-contract test'
             echo '- focused contract/typecheck/build/audit: PASS'
             echo '- full suite authority: security PR checks'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -177,4 +192,4 @@ jobs:
         shell: bash
         run: |
           gh issue comment 3043 --repo "$GITHUB_REPOSITORY" \
-            --body "Standalone Next.js 15.5.21 controller v7 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
+            --body "Standalone Next.js 15.5.21 controller v8 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
