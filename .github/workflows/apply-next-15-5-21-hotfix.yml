@@ -89,9 +89,9 @@ jobs:
           mkdir -p artifacts/security
           set +e
           pnpm exec vitest run \
-            --root apps/web \
-            tests/unit/next15RuntimeContracts.test.ts \
-            tests/unit/next15RuntimeBoundary.test.ts \
+            --config vitest.config.ts \
+            apps/web/tests/unit/next15RuntimeContracts.test.ts \
+            apps/web/tests/unit/next15RuntimeBoundary.test.ts \
             > artifacts/security/next-contract-tests.log 2>&1
           test_rc=$?
           set -e
