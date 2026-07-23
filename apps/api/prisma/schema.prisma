@@ -28,9 +28,8 @@ model Organization {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users                             UserOrg[]
-  dealParticipants                  DealParticipant[]
-  regulatoryIntegrationInboxEntries RegulatoryIntegrationInboxEntry[]
+  users            UserOrg[]
+  dealParticipants DealParticipant[]
 
   @@index([tenantId])
   @@index([inn])
@@ -95,7 +94,7 @@ model UkepCertificate {
   @@map("ukep_certificates")
 }
 
-// ── Deals ────────────────────────────────────────────────────────────────────
+// ── Deals ─────────────────────────────────────────────────────────────────────
 
 model Deal {
   id                String   @id
@@ -233,4 +232,816 @@ model Shipment {
   @@index([driverUserId])
   @@index([carrierOrgId])
   @@index([status])
-  @@map("s
+  @@map("shipments")
+}
+
+model Checkpoint {
+  id             String   @id @default(cuid())
+  shipmentId     String
+  tenantId       String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  type           String
+  completedAt    DateTime?
+  lat            Float?
+  lng            Float?
+  note           String?
+  photoUrl       String?
+  actorId        String?
+  commandId      String?
+  idempotencyKey String?  @unique
+  correlationId  String?
+  createdAt      DateTime @default(now())
+
+  shipment       Shipment @relation(fields: [shipmentId], references: [id])
+
+  @@index([shipmentId])
+  @@index([tenantId])
+  @@index([completedAt])
+  @@index([correlationId])
+  @@map("checkpoints")
+}
+
+model ShipmentGpsPoint {
+  id             String   @id
+  shipmentId     String
+  tenantId       String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  actorUserId    String
+  lat            Float
+  lng            Float
+  speedKmh       Float?
+  headingDeg     Float?
+  accuracyM      Float?
+  recordedAt     DateTime
+  commandId      String
+  idempotencyKey String   @unique
+  correlationId  String?
+  createdAt      DateTime @default(now())
+
+  shipment       Shipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId, recordedAt])
+  @@index([tenantId])
+  @@index([actorUserId])
+  @@index([correlationId])
+  @@map("shipment_gps_points")
+}
+
+// ── Documents ─────────────────────────────────────────────────────────────────
+
+model DealDocument {
+  id               String   @id
+  dealId           String
+  tenantId         String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  type             String
+  status           String   @default("DRAFT")
+  name             String
+  mimeType         String?
+  s3Key            String?
+  sizeBytes        Int?
+  hash             String?
+  uploadedAt       DateTime @default(now())
+  uploadedByUserId String?
+  signedAt         DateTime?
+  signatories      String?
+  bankRequired     Boolean  @default(false)
+  releaseRequired  Boolean  @default(false)
+  bankAcceptance   String   @default("PENDING")
+  edoStatus        String?
+  edoExternalId    String?
+  version          Int      @default(1)
+  isImmutable      Boolean  @default(false)
+  sourceFileId     String?
+  signatureFileId  String?
+  supersedesId     String?
+  seriesId         String?
+  idempotencyKey   String?  @unique
+  correlationId    String?
+  createdByOrgId   String?
+  metadata         Json?
+
+  deal             Deal            @relation(fields: [dealId], references: [id])
+  sourceFile       DealDocument?   @relation("DocumentSourceFile", fields: [sourceFileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sourceFor        DealDocument[]  @relation("DocumentSourceFile")
+  signatureFile    DealDocument?   @relation("DocumentSignatureFile", fields: [signatureFileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  signatureFor     DealDocument[]  @relation("DocumentSignatureFile")
+  supersedes       DealDocument?   @relation("DocumentSupersession", fields: [supersedesId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  corrections      DealDocument[]  @relation("DocumentSupersession")
+
+  @@index([dealId])
+  @@index([tenantId])
+  @@index([type])
+  @@index([sourceFileId])
+  @@index([signatureFileId])
+  @@index([supersedesId])
+  @@unique([seriesId, version])
+  @@map("deal_documents")
+}
+
+// ── Payments & Ledger ─────────────────────────────────────────────────────────
+
+model Payment {
+  id                  String   @id @default(cuid())
+  dealId              String
+  status              String   @default("PENDING")
+  amountRub           Float?
+  amountKopecks       BigInt?
+  reservedAt          DateTime?
+  releasedAt          DateTime?
+  holdAmountKopecks   BigInt?
+  refundedKopecks     BigInt?
+  commissionKopecks   BigInt?
+  version             BigInt   @default(0)
+  callbackState       String   @default("NONE")
+  bankRef             String?
+  escrowAccount       String?
+  idempotencyKey      String?  @unique
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+
+  deal                Deal     @relation(fields: [dealId], references: [id])
+
+  @@index([dealId])
+  @@map("payments")
+}
+
+model LedgerEntry {
+  id                String   @id @default(cuid())
+  dealId            String?
+  entryType         String
+  debitAccount      String
+  creditAccount     String
+  amountKopecks     BigInt
+  currency          String   @default("RUB")
+  reference         String?
+  idempotencyKey    String   @unique
+  description       String?
+  createdAt         DateTime @default(now())
+  createdByUserId   String?
+
+  @@index([dealId])
+  @@index([debitAccount])
+  @@index([creditAccount])
+  @@index([createdAt], map: "ledger_entries_created_idx")
+  @@map("ledger_entries")
+}
+
+// ── Lab Samples ───────────────────────────────────────────────────────────────
+
+model LabSample {
+  id                    String   @id
+  dealId                String
+  shipmentId            String?
+  acceptanceId          String?
+  tenantId              String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  status                String   @default("PENDING")
+  custodyStatus         String   @default("CREATED")
+  sampleCode            String?
+  culture               String?
+  protocol              String?
+  protocolResult        String?
+  gost                  String?
+  labId                 String?
+  labName               String?
+  assignedActorUserId   String?
+  collectedAt           DateTime?
+  finalizedAt           DateTime?
+  moneyDeltaRub         Float?
+  moneyDeltaKopecks     BigInt?
+  certificateDocId      String?
+  latestEvidenceFileId  String?
+  version               BigInt   @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @default(now())
+
+  tests                 LabTest[]
+  deal                  Deal      @relation(fields: [dealId], references: [id])
+
+  @@unique([tenantId, sampleCode], map: "lab_samples_tenant_sampleCode_key")
+  @@index([dealId])
+  @@index([tenantId], map: "lab_samples_tenantId_idx")
+  @@index([shipmentId], map: "lab_samples_shipmentId_idx")
+  @@index([acceptanceId], map: "lab_samples_acceptanceId_idx")
+  @@index([labId], map: "lab_samples_labId_idx")
+  @@index([status], map: "lab_samples_status_idx")
+  @@map("lab_samples")
+}
+
+model LabTest {
+  id                String   @id @default(cuid())
+  sampleId          String
+  tenantId          String?  @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  parameter         String
+  value             Float
+  valueDec          Decimal? @db.Decimal(20, 6)
+  unit              String?
+  normMin           Float?
+  normMax           Float?
+  normMinDec        Decimal? @db.Decimal(20, 6)
+  normMaxDec        Decimal? @db.Decimal(20, 6)
+  passed            Boolean  @default(true)
+  result            String?
+  gradeDelta        Float?
+  methodId          String?
+  equipmentId       String?
+  evidenceFileId    String?
+  actorUserId       String?
+  commandId         String?
+  idempotencyKey    String?  @unique(map: "lab_tests_idempotencyKey_key")
+  correlationId     String?
+  supersedesId      String?
+  recordedAt        DateTime @default(now())
+
+  sample            LabSample @relation(fields: [sampleId], references: [id])
+
+  @@index([sampleId])
+  @@index([tenantId], map: "lab_tests_tenantId_idx")
+  @@index([sampleId, recordedAt], map: "lab_tests_sample_recorded_idx")
+  @@index([methodId], map: "lab_tests_methodId_idx")
+  @@index([equipmentId], map: "lab_tests_equipmentId_idx")
+  @@index([correlationId], map: "lab_tests_correlationId_idx")
+  @@map("lab_tests")
+}
+
+// ── Outbox ────────────────────────────────────────────────────────────────────
+
+model OutboxEntry {
+  id                    String   @id @default(cuid())
+  type                  String
+  dealId                String?
+  payload               Json
+  status                String   @default("PENDING")
+  triggeredByUserId     String?
+  idempotencyKey        String?  @unique
+  maxRetries            Int      @default(5)
+  retryCount            Int      @default(0)
+  nextRetryAt           DateTime @default(now())
+  lastError             String?
+  correlationId         String?
+  auditId               String?
+  runtimeSnapshotId     String?
+  runtimeIdempotencyKey String?
+  leaseOwner            String?
+  leaseToken            String?  @unique(map: "outbox_entries_active_lease_token_key")
+  leaseExpiresAt        DateTime?
+  heartbeatAt           DateTime?
+  deadLetterAt          DateTime?
+  createdAt             DateTime @default(now())
+  sentAt                DateTime?
+  confirmedAt           DateTime?
+  failedAt              DateTime?
+
+  runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
+  redriveEvents         OutboxRedriveEvent[]
+
+  @@index([status, nextRetryAt])
+  @@index([status, nextRetryAt, createdAt, id], map: "outbox_entries_claim_idx")
+  @@index([status, leaseExpiresAt], map: "outbox_entries_lease_idx")
+  @@index([dealId])
+  @@index([runtimeSnapshotId], map: "outbox_entries_runtime_snapshot_idx")
+  @@index([correlationId], map: "outbox_entries_runtime_correlation_idx")
+  @@index([createdAt], map: "outbox_entries_created_idx")
+  @@map("outbox_entries")
+}
+
+model OutboxRedriveEvent {
+  id                 String   @id @default(cuid())
+  outboxEntryId      String
+  idempotencyKey     String   @unique
+  actorUserId        String
+  reason             String
+  previousStatus     String
+  previousRetryCount Int
+  prevHash           String?
+  hash               String
+  createdAt          DateTime @default(now())
+
+  outboxEntry        OutboxEntry @relation(fields: [outboxEntryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([outboxEntryId, createdAt], map: "outbox_redrive_events_entry_created_idx")
+  @@index([createdAt], map: "outbox_redrive_events_created_idx")
+  @@map("outbox_redrive_events")
+}
+
+// ── Disputes ──────────────────────────────────────────────────────────────────
+
+model Dispute {
+  id                  String   @id @default(cuid())
+  dealId              String
+  shipmentId          String?
+  type                String
+  status              String   @default("OPEN")
+  description         String
+  initiatorOrgId      String
+  respondentOrgId     String?
+  claimAmountRub      Float?
+  claimAmountKopecks  BigInt?
+  severity            String   @default("MEDIUM")
+  slaMinutes          Int?
+  arbitratorId        String?
+  arbitratorNotes     String?
+  outcome             String?
+  outcomeSplitPct     Int?
+  resolvedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  moneyHold           DisputeMoneyHold?
+  evidence            DisputeEvidence[]
+  auditEvents         AuditEvent[]
+
+  @@index([dealId])
+  @@index([status])
+  @@index([arbitratorId])
+  @@map("disputes")
+}
+
+model DisputeMoneyHold {
+  id              String   @id @default(cuid())
+  disputeId       String   @unique
+  amountRub       Float?
+  amountKopecks   BigInt?
+  reason          String
+  heldAt          DateTime @default(now())
+  releasedAt      DateTime?
+  releaseReason   String?
+
+  dispute         Dispute  @relation(fields: [disputeId], references: [id])
+
+  @@map("dispute_money_holds")
+}
+
+model DisputeEvidence {
+  id          String   @id @default(cuid())
+  disputeId   String
+  fileId      String?
+  type        String
+  description String
+  trusted     Boolean  @default(false)
+  submittedBy String
+  submittedAt DateTime @default(now())
+  hash        String?
+  prevHash    String?
+
+  dispute     Dispute  @relation(fields: [disputeId], references: [id])
+
+  @@index([disputeId])
+  @@map("dispute_evidence")
+}
+
+// ── Evidence Pack ─────────────────────────────────────────────────────────────
+
+model EvidenceFile {
+  id          String   @id @default(cuid())
+  dealId      String
+  shipmentId  String?
+  disputeId   String?
+  type        String
+  filename    String
+  mimeType    String
+  sizeBytes   Int
+  hash        String
+  prevHash    String?
+  s3Key       String?
+  uploadedBy  String
+  uploadedAt  DateTime @default(now())
+  metadata    Json?
+
+  @@index([dealId])
+  @@index([disputeId])
+  @@map("evidence_files")
+}
+
+// ── Audit Events ──────────────────────────────────────────────────────────────
+
+model AuditEvent {
+  id                    String   @id @default(cuid())
+  action                String
+  actorUserId           String
+  actorRole             String
+  tenantId              String?
+  orgId                 String?
+  dealId                String?
+  disputeId             String?
+  objectType            String?
+  objectId              String?
+  beforeState           Json?
+  afterState            Json?
+  outcome               String
+  reason                String?
+  metadata              Json?
+  correlationId         String?
+  runtimeSnapshotId     String?
+  runtimeIdempotencyKey String?
+  hash                  String   @default("")
+  prevHash              String?
+  createdAt             DateTime @default(now())
+
+  dispute               Dispute? @relation(fields: [disputeId], references: [id])
+  runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotAudit")
+
+  @@index([dealId])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([tenantId])
+  @@index([runtimeSnapshotId], map: "audit_events_runtime_snapshot_idx")
+  @@index([correlationId], map: "audit_events_runtime_correlation_idx")
+  @@index([createdAt], map: "audit_events_created_idx")
+  @@map("audit_events")
+}
+
+// ── Integration Events ────────────────────────────────────────────────────────
+
+model IntegrationEvent {
+  id              String   @id @default(cuid())
+  adapterName     String
+  direction       String
+  eventType       String
+  externalId      String?
+  dealId          String?
+  requestPayload  Json?
+  responsePayload Json?
+  status          String
+  errorMessage    String?
+  httpStatus      Int?
+  durationMs      Int?
+  idempotencyKey  String?
+  createdAt       DateTime @default(now())
+
+  @@index([adapterName, status])
+  @@index([dealId])
+  @@index([externalId])
+  @@index([createdAt], map: "integration_events_created_idx")
+  @@map("integration_events")
+}
+
+model WebhookIdempotency {
+  id           String   @id @default(cuid())
+  eventId      String   @unique
+  adapterName  String
+  processedAt  DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([expiresAt])
+  @@map("webhook_idempotency")
+}
+
+// ── KYC / AML Queue ───────────────────────────────────────────────────────────
+
+model KycTask {
+  id             String   @id @default(cuid())
+  organizationId String
+  type           String
+  status         String   @default("PENDING")
+  assignedTo     String?
+  notes          String?
+  fnsResponse    Json?
+  sanctionResult Json?
+  amlResult      Json?
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([organizationId])
+  @@map("kyc_tasks")
+}
+
+model StoredFile {
+  id               String   @id @default(cuid())
+  dealId           String?
+  s3Key            String
+  bucket           String   @default("grainflow-documents")
+  filename         String
+  mimeType         String
+  sizeBytes        BigInt?
+  sha256           String?
+  status           String   @default("PENDING_UPLOAD")
+  uploadedByUserId String?
+  confirmedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([dealId])
+  @@index([s3Key])
+  @@map("stored_files")
+}
+
+model FactoringApplication {
+  id                String   @id @default(cuid())
+  organizationId    String
+  dealId            String?
+  status            String   @default("PENDING")
+  requestedKopecks  BigInt?
+  approvedKopecks   BigInt?
+  factorName        String?
+  dueDate           DateTime?
+  repaidAt          DateTime?
+  contractDocId     String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("factoring_applications")
+}
+
+model Geofence {
+  id            String   @id @default(cuid())
+  dealId        String?
+  name          String
+  type          String   @default("CIRCLE")
+  centerLat     Float?
+  centerLng     Float?
+  radiusMeters  Float?
+  polygon       Json?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([dealId])
+  @@map("geofences")
+}
+
+model AcceptanceRecord {
+  id                 String   @id @default(cuid())
+  dealId             String
+  shipmentId         String?
+  status             String   @default("PENDING")
+  weightActualTons   Float?
+  volumeActualTons   Float?
+  qualityStatus      String   @default("PENDING")
+  gost               String?
+  actDocId           String?
+  actSignedAt        DateTime?
+  actorId            String
+  notes              String?
+  moneyAdjustKopecks BigInt?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  deal               Deal     @relation(fields: [dealId], references: [id])
+
+  @@index([dealId])
+  @@index([shipmentId])
+  @@map("acceptance_records")
+}
+
+model BankOperation {
+  id                String   @id @default(cuid())
+  dealId            String
+  type              String
+  status            String   @default("PENDING")
+  amountKopecks     BigInt
+  currency          String   @default("RUB")
+  debitAccount      String
+  creditAccount     String
+  bankRef           String?
+  bankName          String?
+  idempotencyKey    String   @unique
+  requestPayload    Json?
+  responsePayload   Json?
+  initiatorUserId   String?
+  confirmedAt       DateTime?
+  failureReason     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  deal              Deal     @relation(fields: [dealId], references: [id])
+
+  @@index([dealId])
+  @@index([status])
+  @@index([type])
+  @@map("bank_operations")
+}
+
+model Account {
+  id              String   @id
+  orgId           String?
+  type            String   @default("ORG")
+  balanceKopecks  BigInt   @default(0)
+  reservedKopecks BigInt   @default(0)
+  currency        String   @default("RUB")
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("accounts")
+}
+
+// ── Bank Reconciliation ───────────────────────────────────────────────────────
+
+model BankStatementEntry {
+  id                     String    @id @default(cuid())
+  importBatchId          String
+  source                 String    @default("MT940")
+  lineNo                 Int
+  statementDate          DateTime? @db.Date
+  valueDate              DateTime? @db.Date
+  amountKopecks          BigInt
+  currency               String    @default("RUB")
+  reference              String
+  counterpartyName       String?
+  counterpartyInn        String?
+  counterpartyAccount    String?
+  description            String?
+  contentHash            String    @unique(map: "bank_statement_entries_content_hash_key")
+  matchStatus            String    @default("UNMATCHED")
+  matchedDealId          String?
+  matchedBankOperationId String?
+  mismatchReason         String?
+  matchedAt              DateTime?
+  matchedByUserId        String?
+  createdAt              DateTime  @default(now())
+
+  @@index([importBatchId], map: "bank_statement_entries_batch_idx")
+  @@index([matchStatus], map: "bank_statement_entries_status_idx")
+  @@index([matchedDealId], map: "bank_statement_entries_deal_idx")
+  @@map("bank_statement_entries")
+}
+
+model ReconciliationRun {
+  id              String    @id @default(cuid())
+  source          String    @default("MT940")
+  importBatchId   String    @unique(map: "reconciliation_runs_batch_key")
+  statementSha256 String
+  importedCount   Int       @default(0)
+  duplicateCount  Int       @default(0)
+  matchedCount    Int       @default(0)
+  mismatchCount   Int       @default(0)
+  unmatchedCount  Int       @default(0)
+  status          String    @default("COMPLETED")
+  startedByUserId String
+  createdAt       DateTime  @default(now())
+  finishedAt      DateTime?
+
+  @@index([createdAt], map: "reconciliation_runs_created_idx")
+  @@map("reconciliation_runs")
+}
+
+model ReconciliationCursor {
+  source              String    @id
+  lastValueDate       DateTime? @db.Date
+  lastRunId           String?
+  lastStatementSha256 String?
+  updatedAt           DateTime  @updatedAt
+
+  @@map("reconciliation_cursors")
+}
+
+model BankKeyRevocation {
+  keyId           String   @id
+  partnerId       String   @default("safe-deals")
+  revokedAt       DateTime @default(now())
+  revokedByUserId String
+  reason          String
+
+  @@map("bank_key_revocations")
+}
+
+// ── Deal Workspace Runtime Persistence ────────────────────────────────────────
+
+model DealWorkspaceRuntimeSnapshot {
+  id                   String   @id @default(cuid())
+  runtimeSnapshotId    String
+  idempotencyKey       String
+  dealId               String
+  intentId             String
+  state                String
+  snapshotState        String
+  statusLabel          String
+  runtimeStoreRecordId String
+  runtimeStoreVersion  String
+  actorId              String
+  actorRole            String
+  correlationId        String
+  auditId              String
+  contractHash         String
+  payload              Json
+  outboxEntryId        String?
+  auditEventId         String?
+  version              Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deal                 Deal      @relation("RuntimeSnapshotDeal", fields: [dealId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_deal_fkey")
+  outboxEntry          OutboxEntry? @relation("RuntimeSnapshotOutbox", fields: [outboxEntryId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_outbox_fkey")
+  auditEvent           AuditEvent? @relation("RuntimeSnapshotAudit", fields: [auditEventId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_audit_fkey")
+  attempts             DealWorkspaceRuntimeTransactionAttempt[]
+
+  @@unique([runtimeSnapshotId], map: "dw_runtime_snapshots_runtime_snapshot_id_key")
+  @@unique([idempotencyKey], map: "dw_runtime_snapshots_idempotency_key_key")
+  @@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_entry_id_key")
+  @@unique([auditEventId], map: "dw_runtime_snapshots_audit_event_id_key")
+  @@index([dealId, createdAt], map: "dw_runtime_snapshots_deal_created_idx")
+  @@index([intentId, state], map: "dw_runtime_snapshots_intent_state_idx")
+  @@index([correlationId], map: "dw_runtime_snapshots_correlation_idx")
+  @@index([state, updatedAt], map: "dw_runtime_snapshots_state_updated_idx")
+  @@map("deal_workspace_runtime_snapshots")
+}
+
+model DealWorkspaceRuntimeTransactionAttempt {
+  id             String   @id @default(cuid())
+  transactionId  String
+  snapshotId     String
+  idempotencyKey String
+  correlationId  String
+  auditId        String
+  stage          String
+  outcome        String?
+  failureCode    String?
+  failureReason  String?
+  isReplay       Boolean  @default(false)
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+  metadata       Json?
+
+  snapshot       DealWorkspaceRuntimeSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict, map: "dw_runtime_attempts_snapshot_fkey")
+
+  @@unique([transactionId], map: "dw_runtime_attempts_transaction_id_key")
+  @@index([snapshotId, startedAt], map: "dw_runtime_attempts_snapshot_started_idx")
+  @@index([stage, startedAt], map: "dw_runtime_attempts_stage_started_idx")
+  @@index([idempotencyKey], map: "dw_runtime_attempts_idempotency_idx")
+  @@index([correlationId], map: "dw_runtime_attempts_correlation_idx")
+  @@map("deal_workspace_runtime_transaction_attempts")
+}
+
+// ── Commodity Profile Registry Authority ──────────────────────────────────────
+
+model CommodityProfile {
+  id                  String   @id
+  canonicalCode       String   @unique(map: "commodity_profiles_canonical_code_key") @db.VarChar(64)
+  archetype           String   @db.VarChar(40)
+  authoritativeNameRu String
+  displayNameEn       String?
+  displayNameZh       String?
+  classification      String   @default("INTERNAL") @db.VarChar(32)
+  version             BigInt   @default(0)
+  createdByUserId     String
+  updatedByUserId     String
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+
+  versions            CommodityProfileVersion[]
+  transitions         CommodityProfileTransition[]
+
+  @@index([archetype], map: "commodity_profiles_archetype_idx")
+  @@index([updatedAt(sort: Desc), id], map: "commodity_profiles_updated_idx")
+  @@map("commodity_profiles")
+}
+
+model CommodityProfileVersion {
+  id                   String    @id
+  profileId            String
+  sequence             Int
+  status               String    @default("DRAFT") @db.VarChar(24)
+  content              Json      @db.JsonB
+  contentHashAlgorithm String    @default("SHA-256") @db.VarChar(16)
+  contentHash          String    @db.Char(64)
+  sourceStatus         String    @default("REVERIFY_REQUIRED") @db.VarChar(32)
+  effectiveFrom        DateTime? @db.Timestamptz(3)
+  effectiveTo          DateTime? @db.Timestamptz(3)
+  approvalReason       String?
+  approvedByUserId     String?
+  approvedAt           DateTime? @db.Timestamptz(3)
+  version              BigInt    @default(0)
+  createdByUserId      String
+  updatedByUserId      String
+  createdAt            DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+
+  profile              CommodityProfile @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "commodity_profile_versions_profile_id_fkey")
+  transitions          CommodityProfileTransition[]
+
+  @@unique([profileId, sequence], map: "commodity_profile_versions_profile_sequence_key")
+  @@unique([profileId, contentHash], map: "commodity_profile_versions_profile_hash_key")
+  @@unique([id, profileId], map: "commodity_profile_versions_id_profile_key")
+  @@index([profileId, status, sequence(sort: Desc)], map: "commodity_profile_versions_profile_status_idx")
+  @@index([sourceStatus, status], map: "commodity_profile_versions_source_status_idx")
+  @@map("commodity_profile_versions")
+}
+
+model CommodityProfileTransition {
+  id               String    @id
+  profileId        String
+  profileVersionId String
+  fromStatus       String?   @db.VarChar(24)
+  toStatus         String    @db.VarChar(24)
+  actorUserId      String
+  actorRole        String
+  tenantId         String?
+  purpose          String
+  reason           String
+  commandId        String    @unique(map: "commodity_profile_transitions_command_id_key")
+  idempotencyKey   String    @unique(map: "commodity_profile_transitions_idempotency_key_key")
+  correlationId    String
+  contentHash      String    @db.Char(64)
+  prevHash         String?   @db.Char(64)
+  hash             String    @db.Char(64)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+
+  profile          CommodityProfile @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "commodity_profile_transitions_profile_id_fkey")
+  profileVersion   CommodityProfileVersion @relation(fields: [profileVersionId, profileId], references: [id, profileId], onDelete: Restrict, onUpdate: Cascade, map: "commodity_profile_transitions_version_profile_fkey")
+
+  @@index([profileVersionId, createdAt, id], map: "commodity_profile_transitions_version_created_idx")
+  @@index([correlationId], map: "commodity_profile_transitions_correlation_idx")
+  @@map("commodity_profile_transitions")
+}
