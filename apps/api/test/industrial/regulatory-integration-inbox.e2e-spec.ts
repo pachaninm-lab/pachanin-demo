@@ -90,10 +90,10 @@ async function seedOrganization(
 ): Promise<void> {
   await prisma.$executeRaw(Prisma.sql`
     INSERT INTO public."organizations" (
-      "id", "inn", "name", "status", "tenantId"
+      "id", "inn", "name", "status", "tenantId", "createdAt", "updatedAt"
     ) VALUES (
       ${id}, ${`7700${innSuffix.padStart(6, '0')}`}, ${`Industrial ${innSuffix}`},
-      'VERIFIED', ${tenantId}
+      'VERIFIED', ${tenantId}, clock_timestamp(), clock_timestamp()
     )
     ON CONFLICT ("id") DO NOTHING
   `);
