@@ -325,6 +325,7 @@ const manifests = {
   'feat/assistant-universal-understanding': 'docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json',
   'fix/public-ai-layout-authority': 'docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json',
   'agent/platform-v7-strategic-rebuild-v3': 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json',
+  'agent/platform-v7-organization-intake-v1': 'docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json',
 };
 const path = manifests[branch];
 if (!path) process.exit(0);
