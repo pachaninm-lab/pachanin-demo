@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/production-web-exact-sha.yml'
       - 'apps/web/app/api/health/ready/route.ts'
       - 'infra/docker/Dockerfile.web'
   workflow_dispatch:
@@ -37,6 +38,7 @@ concurrency:
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-web-exact-sha
   RELEASE_ISSUE_NUMBER: 3048
@@ -46,6 +48,8 @@ env:
   SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
   SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
   SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+  SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
   PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
   PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
   PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
@@ -76,31 +80,19 @@ jobs:
             confirmation='${{ inputs.confirmation }}'
             case "$action" in
               audit)
-                [[ -z "$confirmation" ]] || {
-                  echo 'Audit does not accept a mutation confirmation.' >&2
-                  exit 2
-                }
+                [[ -z "$confirmation" ]] || { echo 'Audit does not accept a mutation confirmation.' >&2; exit 2; }
                 ;;
               deploy)
-                [[ "$confirmation" == DEPLOY-EXACT-SHA ]] || {
-                  echo 'Deploy confirmation is invalid.' >&2
-                  exit 3
-                }
+                [[ "$confirmation" == DEPLOY-EXACT-SHA ]] || { echo 'Deploy confirmation is invalid.' >&2; exit 3; }
                 ;;
               rollback)
-                [[ "$confirmation" == ROLLBACK-EXACT-SHA ]] || {
-                  echo 'Rollback confirmation is invalid.' >&2
-                  exit 4
-                }
+                [[ "$confirmation" == ROLLBACK-EXACT-SHA ]] || { echo 'Rollback confirmation is invalid.' >&2; exit 4; }
                 ;;
             esac
           fi
 
           if [[ "$action" != audit ]]; then
-            [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || {
-              echo 'A full lowercase 40-character target SHA is required.' >&2
-              exit 5
-            }
+            [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'A full lowercase 40-character target SHA is required.' >&2; exit 5; }
             git fetch --no-tags origin main
             git cat-file -e "${target_sha}^{commit}"
             git merge-base --is-ancestor "$target_sha" origin/main
@@ -138,7 +130,7 @@ jobs:
           echo 'Exact canonical web image is unavailable.' >&2
           exit 6
 
-      - name: Resolve key-only production SSH
+      - name: Resolve protected production transport
         id: ssh
         shell: bash
         run: |
@@ -154,81 +146,168 @@ jobs:
           host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
           user="$(trim "${SSH_USER_SECRET:-}")"
           port="$(trim "${SSH_PORT_SECRET:-22}")"
-          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
-
-          [[ "$host" == "$DEFAULT_HOST" ]] || {
-            echo 'SSH host is not the canonical REG.RU VPS.' >&2
-            exit 7
-          }
-          [[ -n "$user" ]] || {
-            echo 'PC_PROD_SSH_USER is required in protected operational storage.' >&2
-            exit 8
-          }
-          [[ -n "$key" ]] || {
-            echo 'No approved key-only production SSH credential is configured.' >&2
-            exit 9
-          }
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || {
-            echo 'Protected production SSH port is invalid.' >&2
-            exit 10
-          }
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'SSH host is not the canonical REG.RU VPS.' >&2; exit 7; }
+          [[ "$user" == root ]] || { echo 'Protected SSH user is not the accepted production principal.' >&2; exit 8; }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || { echo 'Protected production SSH port is invalid.' >&2; exit 9; }
 
           mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
           chmod 700 "$HOME/.ssh"
-          printf '%s\n' "$key" | tr -d '\r' > "$HOME/.ssh/id_pc_prod"
-          chmod 600 "$HOME/.ssh/id_pc_prod"
-          ssh-keygen -y -f "$HOME/.ssh/id_pc_prod" > "$EVIDENCE_DIR/ssh-public-key.txt"
-          ssh-keygen -lf "$EVIDENCE_DIR/ssh-public-key.txt" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
-          rm -f "$EVIDENCE_DIR/ssh-public-key.txt"
+          selected_slot=''
+          selected_encoding=''
+          selected_header=''
 
-          domain_ips="$(getent ahostsv4 xn----8sbjf4befbjgs9b.xn--p1ai | awk '{print $1}' | sort -u || true)"
+          validate_private_key() {
+            local slot="$1"
+            local encoding="$2"
+            local source_file="$3"
+            local normalized="$HOME/.ssh/id_pc_prod"
+            local first_line public_tmp
+            [[ -s "$source_file" ]] || return 1
+            tr -d '\r' < "$source_file" > "$normalized"
+            chmod 600 "$normalized"
+            first_line="$(head -n 1 "$normalized" | tr -d '\r')"
+            case "$first_line" in
+              ssh-ed25519\ *|ssh-rsa\ *|ecdsa-*\ *|sk-*\ *) return 1 ;;
+              '-----BEGIN OPENSSH PRIVATE KEY-----'|'-----BEGIN RSA PRIVATE KEY-----'|'-----BEGIN EC PRIVATE KEY-----'|'-----BEGIN PRIVATE KEY-----') ;;
+              *) return 1 ;;
+            esac
+            public_tmp="$(mktemp)"
+            if ! ssh-keygen -y -P '' -f "$normalized" > "$public_tmp" 2>/dev/null; then
+              rm -f "$public_tmp"
+              return 1
+            fi
+            ssh-keygen -lf "$public_tmp" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$public_tmp"
+            selected_slot="$slot"
+            selected_encoding="$encoding"
+            selected_header="$first_line"
+            return 0
+          }
+
+          try_candidate() {
+            local slot="$1"
+            local raw="$2"
+            local raw_file escaped_file decoded_file
+            [[ -n "$raw" ]] || return 1
+            raw_file="$(mktemp)"
+            escaped_file="$(mktemp)"
+            decoded_file="$(mktemp)"
+            printf '%s\n' "$raw" > "$raw_file"
+            if validate_private_key "$slot" raw "$raw_file"; then rm -f "$raw_file" "$escaped_file" "$decoded_file"; return 0; fi
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped_file"
+            if validate_private_key "$slot" literal-newline "$escaped_file"; then rm -f "$raw_file" "$escaped_file" "$decoded_file"; return 0; fi
+            if printf '%s' "$raw" | base64 -d > "$decoded_file" 2>/dev/null && validate_private_key "$slot" base64 "$decoded_file"; then
+              rm -f "$raw_file" "$escaped_file" "$decoded_file"
+              return 0
+            fi
+            rm -f "$raw_file" "$escaped_file" "$decoded_file"
+            return 1
+          }
+
+          mode=''
+          if try_candidate PC_PROD_SSH_PRIVATE_KEY "${SSH_KEY_SECONDARY:-}" ||
+             try_candidate VPS_SSH_KEY "${SSH_KEY_FALLBACK:-}" ||
+             try_candidate PC_PROD_SSH_KEY "${SSH_KEY_PRIMARY:-}"; then
+            mode=key
+            printf '%s\n' "$selected_slot" > "$EVIDENCE_DIR/ssh-credential-slot.txt"
+            printf '%s\n' "$selected_encoding" > "$EVIDENCE_DIR/ssh-key-encoding.txt"
+            printf '%s\n' "$selected_header" > "$EVIDENCE_DIR/ssh-key-header.txt"
+          elif [[ -n "${SSH_PASSWORD_PRIMARY:-}" || -n "${SSH_PASSWORD_FALLBACK:-}" ]]; then
+            mode=password
+            printf '%s\n' protected-password-fallback > "$EVIDENCE_DIR/ssh-credential-slot.txt"
+            cat > "$HOME/.ssh/askpass.sh" <<'ASKPASS'
+          #!/usr/bin/env sh
+          printf '%s\n' "$PC_SSH_PASSWORD"
+          ASKPASS
+            chmod 700 "$HOME/.ssh/askpass.sh"
+          else
+            printf '%s\n' no-valid-protected-credential > "$EVIDENCE_DIR/ssh-credential-slot.txt"
+            echo 'No valid protected production SSH credential is configured.' >&2
+            exit 10
+          fi
+
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
           printf '%s\n' "$domain_ips" > "$EVIDENCE_DIR/domain-ip.txt"
           grep -Fxq "$DEFAULT_HOST" "$EVIDENCE_DIR/domain-ip.txt"
 
-          ssh-keyscan -T 10 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          : > "$HOME/.ssh/known_hosts"
+          keyscan_ok=0
+          for attempt in $(seq 1 12); do
+            candidate="$(mktemp)"
+            if ssh-keyscan -T 10 -p "$port" -H "$host" > "$candidate" 2>/dev/null && [[ -s "$candidate" ]]; then
+              mv "$candidate" "$HOME/.ssh/known_hosts"
+              keyscan_ok=1
+              break
+            fi
+            rm -f "$candidate"
+            sleep 5
+          done
+          (( keyscan_ok == 1 )) || { echo 'Unable to obtain the canonical production SSH host key.' >&2; exit 11; }
           chmod 600 "$HOME/.ssh/known_hosts"
 
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
-            -o BatchMode=yes \
-            -o ConnectTimeout=15 \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$user@$host" \
-            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
-            > "$EVIDENCE_DIR/ssh-auth.txt"
-          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          common=(-p "$port" -o ConnectTimeout=15 -o ConnectionAttempts=1 -o StrictHostKeyChecking=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
+          auth_ok=0
+          for attempt in $(seq 1 3); do
+            if [[ "$mode" == key ]]; then
+              set +e
+              ssh -i "$HOME/.ssh/id_pc_prod" "${common[@]}" -o BatchMode=yes -o IdentitiesOnly=yes "$user@$host" \
+                'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
+                > "$EVIDENCE_DIR/ssh-auth.txt" 2>/dev/null
+              rc=$?
+              set -e
+            else
+              password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+              set +e
+              PC_SSH_PASSWORD="$password" SSH_ASKPASS="$HOME/.ssh/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+                setsid -w ssh "${common[@]}" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no "$user@$host" \
+                'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
+                > "$EVIDENCE_DIR/ssh-auth.txt" 2>/dev/null
+              rc=$?
+              set -e
+            fi
+            if (( rc == 0 )) && grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"; then auth_ok=1; break; fi
+            sleep 10
+          done
+          (( auth_ok == 1 )) || { echo 'Protected SSH authentication failed; production was not changed.' >&2; exit 12; }
 
+          printf '%s\n' "$mode" > "$EVIDENCE_DIR/ssh-transport-mode.txt"
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "user=$user" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Copy immutable release assets
         env:
           SSH_HOST: ${{ steps.ssh.outputs.host }}
           SSH_USER: ${{ steps.ssh.outputs.user }}
           SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
-          scp_options=(
-            -i "$HOME/.ssh/id_pc_prod"
-            -P "$SSH_PORT"
-            -o BatchMode=yes
-            -o IdentitiesOnly=yes
-            -o StrictHostKeyChecking=yes
+          files=(
+            scripts/production-web-exact-sha.sh
+            scripts/production-web-live-acceptance.sh
+            scripts/production-web-remote-entrypoint.sh
+            infra/compose/production-web-hardening.override.yml
           )
-          scp "${scp_options[@]}" \
-            scripts/production-web-exact-sha.sh \
-            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-exact-sha-${GITHUB_RUN_ID}.sh"
-          scp "${scp_options[@]}" \
-            scripts/production-web-live-acceptance.sh \
-            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-live-acceptance-${GITHUB_RUN_ID}.sh"
-          scp "${scp_options[@]}" \
-            scripts/production-web-remote-entrypoint.sh \
-            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
-          scp "${scp_options[@]}" \
-            infra/compose/production-web-hardening.override.yml \
-            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-hardening-${GITHUB_RUN_ID}.yml"
+          destinations=(
+            "/tmp/pc-production-web-exact-sha-${GITHUB_RUN_ID}.sh"
+            "/tmp/pc-production-web-live-acceptance-${GITHUB_RUN_ID}.sh"
+            "/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+            "/tmp/pc-production-web-hardening-${GITHUB_RUN_ID}.yml"
+          )
+          for index in "${!files[@]}"; do
+            if [[ "$SSH_MODE" == key ]]; then
+              scp -i "$HOME/.ssh/id_pc_prod" -P "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+                "${files[$index]}" "$SSH_USER@$SSH_HOST:${destinations[$index]}"
+            else
+              password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+              PC_SSH_PASSWORD="$password" SSH_ASKPASS="$HOME/.ssh/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+                setsid -w scp -P "$SSH_PORT" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes \
+                "${files[$index]}" "$SSH_USER@$SSH_HOST:${destinations[$index]}"
+            fi
+          done
 
       - name: Execute bounded production action
         id: production
@@ -238,31 +317,30 @@ jobs:
           SSH_HOST: ${{ steps.ssh.outputs.host }}
           SSH_USER: ${{ steps.ssh.outputs.user }}
           SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
-
-          encode() {
-            printf '%s' "$1" | base64 -w0
-          }
-
+          encode() { printf '%s' "$1" | base64 -w0; }
           prod_dir_b64="$(encode "${PROD_DIR_SECRET:-}")"
           prod_compose_b64="$(encode "${PROD_COMPOSE_SECRET:-}")"
           prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
           remote_entrypoint="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+          remote_command="chmod 0700 '$remote_entrypoint' && PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' '$ACTION' '$TARGET_SHA' '$GITHUB_RUN_ID'"
 
           set +e
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$SSH_USER@$SSH_HOST" \
-            "chmod 0700 '$remote_entrypoint' && PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' '$ACTION' '$TARGET_SHA' '$GITHUB_RUN_ID'" \
-            > "$EVIDENCE_DIR/production-action.log" 2>&1
-          rc=$?
+          if [[ "$SSH_MODE" == key ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" "$remote_command" > "$EVIDENCE_DIR/production-action.log" 2>&1
+            rc=$?
+          else
+            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+            PC_SSH_PASSWORD="$password" SSH_ASKPASS="$HOME/.ssh/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+              setsid -w ssh -p "$SSH_PORT" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=20 -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" "$remote_command" > "$EVIDENCE_DIR/production-action.log" 2>&1
+            rc=$?
+          fi
           set -e
-
           cat "$EVIDENCE_DIR/production-action.log"
 
           baseline_revision="$(sed -n 's/^ROLLBACK_BASELINE_REVISION=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
@@ -277,10 +355,7 @@ jobs:
           echo "persistent_override_mutated=${persistent_override_mutated:-unknown}" >> "$GITHUB_OUTPUT"
           echo "deployed_revision=${deployed_revision:-unknown}" >> "$GITHUB_OUTPUT"
           echo "deployed_state=${deployed_state:-unknown}" >> "$GITHUB_OUTPUT"
-
-          if [[ "$ACTION" == audit ]]; then
-            [[ "${persistent_override_mutated:-unknown}" == 0 ]]
-          fi
+          if [[ "$ACTION" == audit ]]; then [[ "${persistent_override_mutated:-unknown}" == 0 ]]; fi
           (( rc == 0 )) || exit "$rc"
 
       - name: Verify exact public runtime
@@ -294,8 +369,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" "$ACTION" |
-            tee "$EVIDENCE_DIR/live-acceptance.log"
+          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" "$ACTION" | tee "$EVIDENCE_DIR/live-acceptance.log"
 
       - name: Restore previous exact revision after live failure
         if: steps.live.outcome == 'failure'
@@ -304,30 +378,26 @@ jobs:
           SSH_HOST: ${{ steps.ssh.outputs.host }}
           SSH_USER: ${{ steps.ssh.outputs.user }}
           SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
-            echo 'No exact rollback baseline revision is available.' >&2
-            exit 30
-          }
-
-          encode() {
-            printf '%s' "$1" | base64 -w0
-          }
+          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'No exact rollback baseline revision is available.' >&2; exit 30; }
+          encode() { printf '%s' "$1" | base64 -w0; }
           prod_dir_b64="$(encode "${PROD_DIR_SECRET:-}")"
           prod_compose_b64="$(encode "${PROD_COMPOSE_SECRET:-}")"
           prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
           remote_entrypoint="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
-
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
-            -o BatchMode=yes \
-            -o ConnectTimeout=20 \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$SSH_USER@$SSH_HOST" \
-            "PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' rollback '$BASELINE_SHA' '$GITHUB_RUN_ID'" \
-            | tee "$EVIDENCE_DIR/live-failure-rollback.log"
+          remote_command="PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' rollback '$BASELINE_SHA' '$GITHUB_RUN_ID'"
+          if [[ "$SSH_MODE" == key ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" "$remote_command" | tee "$EVIDENCE_DIR/live-failure-rollback.log"
+          else
+            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+            PC_SSH_PASSWORD="$password" SSH_ASKPASS="$HOME/.ssh/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+              setsid -w ssh -p "$SSH_PORT" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" "$remote_command" | tee "$EVIDENCE_DIR/live-failure-rollback.log"
+          fi
 
       - name: Enforce final release result
         if: always()
@@ -347,9 +417,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
-          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 |
-            sort -z |
-            xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 
       - name: Publish release record
         if: always()
@@ -363,6 +431,7 @@ jobs:
           BASELINE_REVISION: ${{ steps.production.outputs.baseline_revision }}
           WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
           PERSISTENT_OVERRIDE_MUTATED: ${{ steps.production.outputs.persistent_override_mutated }}
+          TRANSPORT_MODE: ${{ steps.ssh.outputs.mode }}
           LIVE_OUTCOME: ${{ steps.live.outcome }}
           FINAL_JOB_STATUS: ${{ job.status }}
         shell: bash
@@ -370,12 +439,11 @@ jobs:
           set -euo pipefail
           target="${TARGET_SHA:-AUDIT}"
           live_acceptance="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live-acceptance.log" 2>/dev/null | tail -1 || true)"
-          rollback_result='not-required'
+          rollback_result=not-required
           if [[ -f "$EVIDENCE_DIR/live-failure-rollback.log" ]]; then
             rollback_result="$(sed -n 's/^DEPLOYMENT_COMPLETE=//p' "$EVIDENCE_DIR/live-failure-rollback.log" | tail -1)"
             rollback_result="${rollback_result:-attempted}"
           fi
-
           record="$EVIDENCE_DIR/release-issue-comment.md"
           {
             echo "## Production web release run \`$GITHUB_RUN_ID\`"
@@ -390,26 +458,14 @@ jobs:
             echo "- rollback result: \`$rollback_result\`"
             echo "- Watchtower retired: \`${WATCHTOWER_RETIRED:-0}\`"
             echo "- persistent override mutation: \`${PERSISTENT_OVERRIDE_MUTATED:-unknown}\`"
+            echo "- protected transport: \`${TRANSPORT_MODE:-not-resolved}\`"
             echo "- workflow status at record: \`${FINAL_JOB_STATUS:-unknown}\`"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
           } > "$record"
-
-          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 |
-            sort -z |
-            xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
-
-          gh issue comment "$RELEASE_ISSUE_NUMBER" \
-            --repo "$GITHUB_REPOSITORY" \
-            --body-file "$record"
-
-          if [[ "${ACTION:-}" == deploy \
-            && "${DEPLOYMENT_COMPLETE:-0}" == 1 \
-            && "${DEPLOYED_REVISION:-}" == "$TARGET_SHA" \
-            && "${live_acceptance:-}" == PASS \
-            && "${WATCHTOWER_RETIRED:-0}" == 1 ]]; then
-            gh issue close "$RELEASE_ISSUE_NUMBER" \
-              --repo "$GITHUB_REPOSITORY" \
-              --reason completed
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          if [[ "${ACTION:-}" == deploy && "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${DEPLOYED_REVISION:-}" == "$TARGET_SHA" && "${live_acceptance:-}" == PASS && "${WATCHTOWER_RETIRED:-0}" == 1 ]]; then
+            gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
           fi
 
       - name: Upload production evidence
