@@ -3,6 +3,10 @@
   "status": "active",
   "purpose": "Close the post-merge Prisma drift defect without editing the accepted migration: move the pre-tenant request table to a bounded PostgreSQL schema through a forward-only compatibility migration, bind the runtime to the new EXECUTE-only functions and preserve previous-image rollback through public wrappers.",
   "approvedBy": "user-directed-finish-homepage-2026-07-23",
+  "validation": {
+    "pullRequest": 3066,
+    "mode": "connector-authored-exact-head"
+  },
   "allowedPaths": [
     "apps/api/prisma/migrations/20260723121000_organization_intake_bounded_schema/**",
     "apps/api/src/modules/organization-intake/organization-intake.service.ts",
