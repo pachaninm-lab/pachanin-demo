@@ -88,7 +88,8 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/security
           set +e
-          pnpm --filter @pc/web exec vitest run \
+          pnpm exec vitest run \
+            --root apps/web \
             tests/unit/next15RuntimeContracts.test.ts \
             tests/unit/next15RuntimeBoundary.test.ts \
             > artifacts/security/next-contract-tests.log 2>&1
