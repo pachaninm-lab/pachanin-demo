@@ -95,7 +95,7 @@ jobs:
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.body == '/security patch-next 3043 15.5.21'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 20
     steps:
       - name: Checkout dedicated security branch
         uses: actions/checkout@v4
@@ -103,7 +103,7 @@ jobs:
           ref: agent/ir-sec-next-15-5-16-final
           fetch-depth: 0
 
-      - name: Patch exact Next.js dependency
+      - name: Materialize exact two-file security PR
         env:
           GH_TOKEN: ${{ github.token }}
           SECURITY_BRANCH: agent/ir-sec-next-15-5-16-final
@@ -148,27 +148,31 @@ jobs:
           }
 
           git diff --check
-          pnpm install --frozen-lockfile
-          pnpm --filter @pc/web typecheck
-          pnpm --filter @pc/web test
-          NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
-          pnpm audit --prod --audit-level high
-
           git add apps/web/package.json pnpm-lock.yaml
           git commit -m 'fix(security): patch Next.js to 15.5.21'
           GITHUB_HEAD_REF="$SECURITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
           git push origin "HEAD:$SECURITY_BRANCH"
 
+          pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$SECURITY_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$SECURITY_BRANCH" \
+              --title 'Patch Next.js 15.5.18 to 15.5.21' \
+              --body 'Exact two-file security remediation for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json and pnpm-lock.yaml. No exception, allowlist, product code or production change. Merge requires the complete repository CI/security matrix.'
+            pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$SECURITY_BRANCH" --state open --json number --jq '.[0].number')"
+          fi
+
           head_sha="$(git rev-parse HEAD)"
-          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js security remediation published. Head: \`${head_sha}\`; exact diff: \`apps/web/package.json\` and \`pnpm-lock.yaml\`; target: \`next@15.5.21\`; no exception or allowlist."
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js security PR published: #${pr_number}; head \`${head_sha}\`; exact diff \`apps/web/package.json\` + \`pnpm-lock.yaml\`; target \`next@15.5.21\`. Full CI is now authoritative."
           {
-            echo '## Next.js 15.5.21 remediation'
+            echo '## Next.js 15.5.21 remediation materialized'
             echo
+            echo "- PR: #$pr_number"
             echo "- head: \`$head_sha\`"
             echo '- changed paths: apps/web/package.json, pnpm-lock.yaml'
-            echo '- frozen install: PASS'
-            echo '- web typecheck/tests/build: PASS'
-            echo '- production high/critical audit: PASS'
+            echo '- next phase: repository CI/security matrix'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report controller result
