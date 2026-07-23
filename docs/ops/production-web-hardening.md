@@ -68,14 +68,21 @@ The target must be a full 40-character commit SHA reachable from `main`. The ser
 
 The first hardened release may encounter a running web container without Compose labels. The release script may adopt it only when exactly one running container uses a `grainflow-web` image.
 
-Before removing that legacy container, the script records:
+Before creating the replacement, the script records:
 
 - current image reference;
 - immutable image ID;
 - OCI revision when present;
 - current container name and runtime state.
 
-It then creates a canonical Compose-managed replacement. Ambiguous candidates fail closed.
+The legacy container is stopped and parked under a temporary name, not deleted. The new Compose-managed container must then pass all of the following inside the server-side rollback boundary:
+
+- Docker `healthy` state;
+- exact target OCI revision;
+- canonical Compose project/service labels;
+- exact live-domain acceptance.
+
+If any of these checks fails, the candidate container is removed and the parked legacy container is renamed to its original name and restarted. The parked container is deleted only after internal exact live acceptance passes. Ambiguous legacy candidates fail closed without mutation.
 
 ## Acceptance
 
@@ -87,7 +94,7 @@ A successful release requires all of the following:
 - canonical Compose project and service labels are present;
 - all non-web, non-Watchtower running container IDs are unchanged;
 - Watchtower is stopped and its restart policy is `no`;
-- readiness endpoint returns the exact revision;
+- readiness endpoint returns the exact revision for a hardened target;
 - deployment manifest returns the exact revision;
 - RU, EN and ZH public routes return HTTP 200;
 - robots and sitemap remain reachable.
@@ -96,6 +103,6 @@ Evidence is stored as a checksummed GitHub Actions artifact for 90 days.
 
 ## Failure behavior
 
-An internal deployment failure triggers automatic rollback to the previously running image ID. A failure discovered by public live acceptance triggers an explicit exact-revision rollback when the baseline revision is available.
+An internal deployment failure triggers automatic rollback to the previously running image ID or restoration of the parked legacy container. A failure discovered by the independent runner-side live acceptance triggers an explicit exact-revision rollback when the baseline revision is available.
 
 Database schema rollback, non-web restart, Caddy mutation, environment rewriting and secret disclosure are prohibited in this workflow.
