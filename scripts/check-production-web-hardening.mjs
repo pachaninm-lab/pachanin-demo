@@ -40,8 +40,10 @@ function forbid(name, patterns) {
   }
 }
 
-requireText('route', ['status: \'ok\'', "process.env.APP_REVISION", "'Cache-Control': 'no-store, max-age=0'"]);
+requireText('route', ['status: \'ok\'', 'process.env.APP_REVISION', "'Cache-Control': 'no-store, max-age=0'"]);
 requireText('dockerfile', [
+  'ARG GIT_COMMIT=unknown',
+  'COMMIT_REF="$GIT_COMMIT" BRANCH=main node scripts/write-deploy-evidence.mjs',
   'ENV APP_REVISION=$GIT_COMMIT',
   'HEALTHCHECK --interval=30s',
   '/api/health/ready',
@@ -101,6 +103,7 @@ requireText('workflow', [
   'DEPLOY-EXACT-SHA',
   'ROLLBACK-EXACT-SHA',
   "github.actor == github.repository_owner",
+  'PC_PROD_SSH_USER',
   'PC_PROD_SSH_KEY',
   'scripts/production-web-exact-sha.sh',
   'scripts/production-web-live-acceptance.sh',
@@ -144,7 +147,13 @@ requireText('checklist', [
   'persistent exact-image override',
 ]);
 
-forbid('workflow', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/, /grainflow-web:latest/]);
+forbid('workflow', [
+  /sshpass/i,
+  /PC_PROD_SSH_PASSWORD/,
+  /VPS_SSH_PASSWORD/,
+  /grainflow-web:latest/,
+  /SSH_USER_SECRET:-root/,
+]);
 forbid('release', [
   /sshpass/i,
   /docker compose[^\n]*up -d(?![^\n]*--no-deps)/,
@@ -166,4 +175,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, persisted-image, multi-file-Compose, health-gated, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
