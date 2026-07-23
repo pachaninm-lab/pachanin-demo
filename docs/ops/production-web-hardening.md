@@ -96,6 +96,6 @@ Evidence is stored as a checksummed GitHub Actions artifact for 90 days.
 
 ## Failure behavior
 
-An internal deployment failure triggers inline rollback to the previously running image ID. A failure discovered by public live acceptance triggers an explicit exact-revision rollback when the baseline revision is available.
+An internal deployment failure triggers automatic rollback to the previously running image ID. A failure discovered by public live acceptance triggers an explicit exact-revision rollback when the baseline revision is available.
 
 Database schema rollback, non-web restart, Caddy mutation, environment rewriting and secret disclosure are prohibited in this workflow.
