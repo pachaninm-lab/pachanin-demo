@@ -13,21 +13,16 @@ ALTER TABLE public.public_organization_connection_requests
     AND "consentedAt" <= "createdAt"
   );
 
--- PostgreSQL PL/pgSQL RETURN QUERY requires the stored column type to match the
--- declared table return type exactly. Keep the persisted status as varchar(24)
--- (matching Prisma) and recreate both EXECUTE-only functions with varchar(24).
-DROP FUNCTION IF EXISTS public.lookup_public_organization_connection_request(text, text);
-DROP FUNCTION IF EXISTS public.create_public_organization_connection_request(
-  text, text, text, text, text, text, text, text, text, text, text, text, text
-);
-
-CREATE FUNCTION public.lookup_public_organization_connection_request(
+-- Preserve the existing function signatures and privileges. PL/pgSQL requires
+-- RETURN QUERY expressions to match RETURNS TABLE exactly, so cast the stored
+-- varchar status to the already-public text return contract.
+CREATE OR REPLACE FUNCTION public.lookup_public_organization_connection_request(
   p_idempotency_key text,
   p_payload_hash text
 )
 RETURNS TABLE (
   request_number text,
-  request_status varchar(24),
+  request_status text,
   replay boolean,
   correlation_id text
 )
@@ -55,11 +50,11 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'IDEMPOTENCY_PAYLOAD_MISMATCH';
   END IF;
 
-  RETURN QUERY SELECT stored."requestNumber", stored.status, TRUE, stored."correlationId";
+  RETURN QUERY SELECT stored."requestNumber", stored.status::text, TRUE, stored."correlationId";
 END
 $function$;
 
-CREATE FUNCTION public.create_public_organization_connection_request(
+CREATE OR REPLACE FUNCTION public.create_public_organization_connection_request(
   p_organization_name text,
   p_inn text,
   p_contact_name text,
@@ -76,7 +71,7 @@ CREATE FUNCTION public.create_public_organization_connection_request(
 )
 RETURNS TABLE (
   request_number text,
-  request_status varchar(24),
+  request_status text,
   replay boolean,
   correlation_id text
 )
@@ -120,7 +115,7 @@ BEGIN
     IF stored."payloadHash" <> p_payload_hash THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'IDEMPOTENCY_PAYLOAD_MISMATCH';
     END IF;
-    RETURN QUERY SELECT stored."requestNumber", stored.status, TRUE, stored."correlationId";
+    RETURN QUERY SELECT stored."requestNumber", stored.status::text, TRUE, stored."correlationId";
     RETURN;
   END IF;
 
@@ -204,7 +199,7 @@ BEGIN
     v_created_at
   );
 
-  RETURN QUERY SELECT v_request_number, 'NEW'::varchar(24), FALSE, p_correlation_id;
+  RETURN QUERY SELECT v_request_number, 'NEW'::text, FALSE, p_correlation_id;
 END
 $function$;
 
