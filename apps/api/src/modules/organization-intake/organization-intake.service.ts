@@ -7,7 +7,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RateLimitService } from '../../common/security/rate-limit.service';
 import {
@@ -29,11 +29,10 @@ type NormalizedRequest = Readonly<{
   consentVersion: string;
 }>;
 
-type ExistingRequestRow = {
-  id: string;
+type AuthorityRow = {
   request_number: string;
-  status: string;
-  payload_hash: string;
+  request_status: string;
+  replay: boolean;
   correlation_id: string;
 };
 
@@ -46,15 +45,13 @@ type CreateContext = Readonly<{
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
 const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
 const MAX_TRANSACTION_ATTEMPTS = 3;
-const RETENTION_DAYS = 180;
 
 function cleanText(value: string): string {
   return String(value ?? '').trim().replace(/\s+/g, ' ');
 }
 
 function normalizePhone(value: string): string {
-  const raw = String(value ?? '').trim();
-  const digits = raw.replace(/\D/g, '');
+  const digits = String(value ?? '').replace(/\D/g, '');
   if (digits.length < 7 || digits.length > 15) throw new BadRequestException('INVALID_PHONE');
   if (digits.length === 11 && digits.startsWith('8')) return `+7${digits.slice(1)}`;
   if (digits.length === 10) return `+7${digits}`;
@@ -65,28 +62,20 @@ function canonicalHash(value: NormalizedRequest): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function safeOperationalEvent(params: {
-  requestId: string;
-  requestNumber: string;
-  request: NormalizedRequest;
-  createdAt: Date;
-}) {
-  return {
-    requestId: params.requestId,
-    requestNumber: params.requestNumber,
-    status: 'NEW',
-    source: 'PUBLIC_PLATFORM_V7',
-    locale: params.request.locale,
-    organizationRole: params.request.organizationRole,
-    scenario: params.request.scenario,
-    consentVersion: params.request.consentVersion,
-    createdAt: params.createdAt.toISOString(),
-  };
+function databaseMessage(error: unknown): string {
+  return String((error as { message?: unknown })?.message ?? error ?? '');
+}
+
+function isIdempotencyConflict(error: unknown): boolean {
+  return databaseMessage(error).includes('IDEMPOTENCY_PAYLOAD_MISMATCH');
 }
 
 function isRetryableTransactionError(error: unknown): boolean {
   const code = String((error as { code?: unknown })?.code ?? '');
-  return code === 'P2034' || code === '40001' || code === '40P01';
+  const message = databaseMessage(error);
+  return code === 'P2034' || code === '40001' || code === '40P01'
+    || message.includes('could not serialize access')
+    || message.includes('deadlock detected');
 }
 
 @Injectable()
@@ -101,24 +90,23 @@ export class OrganizationIntakeService {
     if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
       throw new BadRequestException('INVALID_IDEMPOTENCY_KEY');
     }
-    const sourceIp = String(context.sourceIp ?? '').trim();
-    if (!sourceIp) throw new ServiceUnavailableException('REQUEST_SOURCE_UNAVAILABLE');
     if (String(dto.website ?? '').trim()) throw new BadRequestException('INVALID_REQUEST');
 
+    const sourceIp = String(context.sourceIp ?? '').trim();
+    if (!sourceIp) throw new ServiceUnavailableException('REQUEST_SOURCE_UNAVAILABLE');
     const correlationId = CORRELATION_PATTERN.test(String(context.correlationId ?? '').trim())
       ? String(context.correlationId).trim()
       : randomUUID();
     const request = this.normalize(dto);
     const payloadHash = canonicalHash(request);
 
+    const replay = await this.lookup(idempotencyKey, payloadHash);
+    if (replay) return replay;
+
     const ipDecision = await this.rateLimit.consume('public_org_connect_ip', sourceIp, 5, 15 * 60);
     if (!ipDecision.allowed) {
       throw new HttpException('PUBLIC_INTAKE_RATE_LIMITED', HttpStatus.TOO_MANY_REQUESTS);
     }
-
-    const replay = await this.findByIdempotencyKey(idempotencyKey);
-    if (replay) return this.replayOrConflict(replay, payloadHash);
-
     const emailDecision = await this.rateLimit.consume('public_org_connect_email', request.email, 3, 24 * 60 * 60);
     if (!emailDecision.allowed) {
       throw new HttpException('PUBLIC_INTAKE_RATE_LIMITED', HttpStatus.TOO_MANY_REQUESTS);
@@ -126,14 +114,15 @@ export class OrganizationIntakeService {
 
     for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
-        return await this.persist(request, payloadHash, idempotencyKey, correlationId);
+        return await this.createThroughAuthority(request, payloadHash, idempotencyKey, correlationId);
       } catch (error) {
-        if (error instanceof BadRequestException || error instanceof ConflictException || error instanceof HttpException) {
-          throw error;
-        }
+        if (isIdempotencyConflict(error)) throw new ConflictException('IDEMPOTENCY_PAYLOAD_MISMATCH');
         if (attempt < MAX_TRANSACTION_ATTEMPTS && isRetryableTransactionError(error)) continue;
-        const concurrent = await this.findByIdempotencyKey(idempotencyKey).catch(() => null);
-        if (concurrent) return this.replayOrConflict(concurrent, payloadHash);
+        const concurrent = await this.lookup(idempotencyKey, payloadHash).catch((lookupError) => {
+          if (lookupError instanceof ConflictException) throw lookupError;
+          return null;
+        });
+        if (concurrent) return concurrent;
         throw new ServiceUnavailableException('PUBLIC_INTAKE_TRANSACTION_UNAVAILABLE');
       }
     }
@@ -156,118 +145,29 @@ export class OrganizationIntakeService {
     };
   }
 
-  private async findByIdempotencyKey(idempotencyKey: string): Promise<ExistingRequestRow | null> {
-    const rows = await this.prisma.$queryRaw<ExistingRequestRow[]>(Prisma.sql`
-      SELECT
-        id,
-        "requestNumber" AS request_number,
-        status,
-        "payloadHash" AS payload_hash,
-        "correlationId" AS correlation_id
-      FROM public.public_organization_connection_requests
-      WHERE "idempotencyKey" = ${idempotencyKey}
-      LIMIT 1
-    `);
-    return rows[0] ?? null;
-  }
-
-  private replayOrConflict(existing: ExistingRequestRow, payloadHash: string): OrganizationIntakeResponse {
-    if (existing.payload_hash !== payloadHash) {
-      throw new ConflictException('IDEMPOTENCY_PAYLOAD_MISMATCH');
+  private async lookup(idempotencyKey: string, payloadHash: string): Promise<OrganizationIntakeResponse | null> {
+    try {
+      const rows = await this.prisma.$queryRaw<AuthorityRow[]>(Prisma.sql`
+        SELECT request_number, request_status, replay, correlation_id
+        FROM public.lookup_public_organization_connection_request(${idempotencyKey}, ${payloadHash})
+      `);
+      return rows[0] ? this.result(rows[0]) : null;
+    } catch (error) {
+      if (isIdempotencyConflict(error)) throw new ConflictException('IDEMPOTENCY_PAYLOAD_MISMATCH');
+      throw error;
     }
-    return {
-      requestNumber: existing.request_number,
-      status: existing.status,
-      replay: true,
-      correlationId: existing.correlation_id,
-    };
   }
 
-  private async persist(
+  private async createThroughAuthority(
     request: NormalizedRequest,
     payloadHash: string,
     idempotencyKey: string,
     correlationId: string,
   ): Promise<OrganizationIntakeResponse> {
-    const requestId = `public-org-request-${randomUUID()}`;
-    const auditId = `audit-${randomUUID()}`;
-    const outboxId = `outbox-${randomUUID()}`;
-    const requestNumber = this.issueRequestNumber();
-    const createdAt = new Date();
-    const retentionUntil = new Date(createdAt.getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const event = safeOperationalEvent({ requestId, requestNumber, request, createdAt });
-
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw(Prisma.sql`
-        SELECT pg_advisory_xact_lock(hashtextextended(${idempotencyKey}, 0))
-      `);
-
-      const existingRows = await tx.$queryRaw<ExistingRequestRow[]>(Prisma.sql`
-        SELECT
-          id,
-          "requestNumber" AS request_number,
-          status,
-          "payloadHash" AS payload_hash,
-          "correlationId" AS correlation_id
-        FROM public.public_organization_connection_requests
-        WHERE "idempotencyKey" = ${idempotencyKey}
-        LIMIT 1
-      `);
-      const existing = existingRows[0];
-      if (existing) return this.replayOrConflict(existing, payloadHash);
-
-      await tx.$executeRaw(Prisma.sql`
-        INSERT INTO public.audit_events (
-          id, action, "actorUserId", "actorRole", "objectType", "objectId",
-          outcome, metadata, "correlationId", hash, "prevHash", "createdAt"
-        ) VALUES (
-          ${auditId},
-          'public:organization-intake:create',
-          'public:organization-intake',
-          'PUBLIC',
-          'PublicOrganizationConnectionRequest',
-          ${requestId},
-          'SUCCESS',
-          ${JSON.stringify(event)}::jsonb,
-          ${correlationId},
-          '',
-          NULL,
-          ${createdAt}
-        )
-      `);
-
-      await tx.$executeRaw(Prisma.sql`
-        INSERT INTO public.outbox_entries (
-          id, type, payload, status, "triggeredByUserId", "idempotencyKey",
-          "maxRetries", "retryCount", "nextRetryAt", "correlationId", "auditId", "createdAt"
-        ) VALUES (
-          ${outboxId},
-          'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED',
-          ${JSON.stringify(event)}::jsonb,
-          'PENDING',
-          NULL,
-          ${`public-org-intake:${idempotencyKey}`},
-          5,
-          0,
-          ${createdAt},
-          ${correlationId},
-          ${auditId},
-          ${createdAt}
-        )
-      `);
-
-      await tx.$executeRaw(Prisma.sql`
-        INSERT INTO public.public_organization_connection_requests (
-          id, "requestNumber", status, locale, "organizationName", inn,
-          "contactName", position, phone, email, "organizationRole", scenario,
-          "consentVersion", "consentedAt", "payloadHash", "idempotencyKey",
-          "correlationId", source, "auditEventId", "outboxEntryId",
-          "retentionUntil", "createdAt", "updatedAt"
-        ) VALUES (
-          ${requestId},
-          ${requestNumber},
-          'NEW',
-          ${request.locale},
+      const rows = await tx.$queryRaw<AuthorityRow[]>(Prisma.sql`
+        SELECT request_number, request_status, replay, correlation_id
+        FROM public.create_public_organization_connection_request(
           ${request.organizationName},
           ${request.inn},
           ${request.contactName},
@@ -276,26 +176,15 @@ export class OrganizationIntakeService {
           ${request.email},
           ${request.organizationRole},
           ${request.scenario},
+          ${request.locale},
           ${request.consentVersion},
-          ${createdAt},
           ${payloadHash},
           ${idempotencyKey},
-          ${correlationId},
-          'PUBLIC_PLATFORM_V7',
-          ${auditId},
-          ${outboxId},
-          ${retentionUntil},
-          ${createdAt},
-          ${createdAt}
+          ${correlationId}
         )
       `);
-
-      return {
-        requestNumber,
-        status: 'NEW',
-        replay: false,
-        correlationId,
-      };
+      if (!rows[0]) throw new Error('PUBLIC_INTAKE_AUTHORITY_RETURNED_NO_ROW');
+      return this.result(rows[0]);
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       maxWait: 5_000,
@@ -303,8 +192,12 @@ export class OrganizationIntakeService {
     });
   }
 
-  private issueRequestNumber(): string {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    return `PC-${date}-${randomBytes(6).toString('hex').toUpperCase()}`;
+  private result(row: AuthorityRow): OrganizationIntakeResponse {
+    return {
+      requestNumber: row.request_number,
+      status: row.request_status,
+      replay: Boolean(row.replay),
+      correlationId: row.correlation_id,
+    };
   }
 }
