@@ -118,47 +118,92 @@ jobs:
           pnpm --filter @pc/api build:outbox-worker 2>&1 | tee "$EVIDENCE_DIR/build.log"
           test -s apps/api/dist-outbox-worker/outbox-worker.js
 
-      - name: Run unit and process acceptance
+      - name: Run worker unit contracts
+        id: unit-contracts
+        continue-on-error: true
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest \
             src/common/kafka/kafka-producer.service.spec.ts \
             src/modules/integration-events/durable-outbox.runner.spec.ts \
-            --runInBand 2>&1 | tee "$EVIDENCE_DIR/unit-jest.log"
+            --runInBand --json \
+            --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/unit-jest.json" \
+            2>&1 | tee "$EVIDENCE_DIR/unit-jest.log"
+
+      - name: Run PostgreSQL lease and two-process Kafka acceptance
+        id: lifecycle
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
           DATABASE_URL="$TEST_ADMIN_DATABASE_URL" \
             pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
-              test/industrial/durable-outbox.e2e-spec.ts --runInBand \
+              test/industrial/durable-outbox.e2e-spec.ts --runInBand --json \
+              --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/lease-jest.json" \
               2>&1 | tee "$EVIDENCE_DIR/lease-jest.log"
           OUTBOX_DATABASE_URL="$OUTBOX_DATABASE_URL" \
           TEST_ADMIN_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" \
           KAFKA_BROKERS="$KAFKA_BROKERS" \
             pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
-              test/industrial/outbox-worker-process.e2e-spec.ts --runInBand \
+              test/industrial/outbox-worker-process.e2e-spec.ts --runInBand --json \
+              --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/process-jest.json" \
               2>&1 | tee "$EVIDENCE_DIR/process-jest.log"
 
       - name: Write lifecycle evidence
+        if: always()
+        env:
+          UNIT_OUTCOME: ${{ steps.unit-contracts.outcome }}
+          LIFECYCLE_OUTCOME: ${{ steps.lifecycle.outcome }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.EVIDENCE_DIR;
+          const readJson = (name) => {
+            const file = path.join(dir, name);
+            return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+          };
+          const unit = readJson('unit-jest.json');
+          const lease = readJson('lease-jest.json');
+          const processResult = readJson('process-jest.json');
+          const pass = process.env.UNIT_OUTCOME === 'success'
+            && process.env.LIFECYCLE_OUTCOME === 'success'
+            && unit?.success === true
+            && lease?.success === true
+            && processResult?.success === true;
           const report = {
             schemaVersion: 1,
             repository: process.env.GITHUB_REPOSITORY,
             commitSha: process.env.EXACT_HEAD,
             environment: 'github-actions-postgresql16-single-kafka-process-topology',
             timestamp: new Date().toISOString(),
-            pass: true,
+            pass,
+            outcomes: {
+              unit: process.env.UNIT_OUTCOME,
+              lifecycle: process.env.LIFECYCLE_OUTCOME,
+              unitJest: unit?.success ?? null,
+              leaseJest: lease?.success ?? null,
+              processJest: processResult?.success ?? null,
+            },
             thresholds: { replicaCount: 2, deliveredEntries: 40, duplicateBusinessEffects: 0, lostEvents: 0, workerDealPrivileges: 0 },
             maturityBoundary: 'Two local worker OS processes with app_outbox, PostgreSQL 16 and single-node Kafka; not Kubernetes HA, database HA or operational soak.'
           };
-          fs.writeFileSync(`${process.env.EVIDENCE_DIR}/outbox-worker-acceptance.json`, `${JSON.stringify(report, null, 2)}\n`);
+          fs.writeFileSync(`${dir}/outbox-worker-acceptance.json`, `${JSON.stringify(report, null, 2)}\n`);
           NODE
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: outbox-worker-process-${{ env.EXACT_HEAD }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90
+
+      - name: Enforce lifecycle acceptance
+        if: always()
+        run: |
+          test "${{ steps.unit-contracts.outcome }}" = success
+          test "${{ steps.lifecycle.outcome }}" = success
 
   image-and-iac:
     name: Worker image · immutable Helm · container and IaC security

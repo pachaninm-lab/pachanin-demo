@@ -190,6 +190,7 @@ scripts/p7-autopilot-guard.sh'
 
 TRANSITIVE_RUNTIME_REMEDIATION_SCOPE='package.json
 pnpm-lock.yaml
+apps/api/prisma/migrations/20260723182500_public_organization_intake_correlation_return_contract/**
 docs/platform-v7/autopilot/security-exceptions.json
 scripts/p7-autopilot-guard.sh'
 
