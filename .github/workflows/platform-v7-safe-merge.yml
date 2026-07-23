@@ -31,223 +31,86 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           echo "## platform-v7 safe merge" >> "$GITHUB_STEP_SUMMARY"
 
-          prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,headRefName,isDraft,mergeable,reviewDecision,statusCheckRollup,files --jq '.[] | @base64')
-
+          prs=$(gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated --json number,headRefName --jq '.[] | @base64')
           if [ -z "${prs:-}" ]; then
             echo "- no eligible PRs" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-
-          blocked_path_re='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$)'
 
           while IFS= read -r encoded; do
             [ -z "$encoded" ] && continue
             pr_json=$(printf '%s' "$encoded" | base64 -d)
             number=$(printf '%s' "$pr_json" | jq -r '.number')
             head=$(printf '%s' "$pr_json" | jq -r '.headRefName')
-            is_draft=$(printf '%s' "$pr_json" | jq -r '.isDraft')
-            mergeable=$(printf '%s' "$pr_json" | jq -r '.mergeable')
-            review_decision=$(printf '%s' "$pr_json" | jq -r '.reviewDecision // ""')
-
             echo "- checking #$number ($head)" >> "$GITHUB_STEP_SUMMARY"
             echo "  - skipped: platform-v7 agent-generated PRs are reserved for platform-v7-autopilot-generated-merge.yml" >> "$GITHUB_STEP_SUMMARY"
-            continue
-
-            if [ "$is_draft" = "true" ]; then
-              echo "  - skipped: draft" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            if [ "$mergeable" != "MERGEABLE" ]; then
-              echo "  - skipped: not mergeable ($mergeable)" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            if [ "$review_decision" = "CHANGES_REQUESTED" ]; then
-              echo "  - skipped: changes requested" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            blocked_files=$(printf '%s' "$pr_json" | jq -r '.files[].path' | grep -E "$blocked_path_re" || true)
-            if [ -n "$blocked_files" ]; then
-              echo "  - skipped: blocked path changed" >> "$GITHUB_STEP_SUMMARY"
-              printf '%s\n' "$blocked_files" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            failed_checks=$(printf '%s' "$pr_json" | jq '[.statusCheckRollup[]? | select((.conclusion != null and .conclusion != "SUCCESS" and .conclusion != "SKIPPED") or (.status != null and .status != "COMPLETED"))] | length')
-            if [ "$failed_checks" != "0" ]; then
-              echo "  - skipped: checks not all green" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            gh pr merge "$number" --repo "$REPO" --squash --delete-branch
-            echo "  - merged" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$prs"
 
-  patch-next-security-3043:
+  authorize-runtime-build-diagnostics-3095:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
       github.event.issue.number == 3075 &&
-      github.event.comment.user.login == github.repository_owner &&
-      github.event.comment.body == '/security patch-next 3043 15.5.21'
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/runtime authorize-build-diagnostics 3095'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 10
     steps:
-      - name: Checkout dedicated security branch
+      - name: Checkout exact main
         uses: actions/checkout@v4
         with:
-          ref: agent/ir-sec-next-15-5-16-final
+          ref: main
           fetch-depth: 0
 
-      - name: Patch exact Next.js dependency
+      - name: Create source-controlled diagnostics authority
         env:
           GH_TOKEN: ${{ github.token }}
-          SECURITY_BRANCH: agent/ir-sec-next-15-5-16-final
+          AUTHORITY_BRANCH: governance/runtime-build-diagnostics-3095-applied
+          IMPLEMENTATION_BRANCH: ops/runtime-build-diagnostics-3095
         shell: bash
         run: |
           set -euo pipefail
-          phase='initialization'
-
-          on_failure() {
-            rc=$?
-            trap - ERR
-            failed_line="$1"
-            failed_command="$2"
-            command_file="$RUNNER_TEMP/next-controller-command.txt"
-            current_body_file="$RUNNER_TEMP/release-pr-body-current.md"
-            next_body_file="$RUNNER_TEMP/release-pr-body-next.md"
-
-            printf '%s' "$failed_command" \
-              | sed -E 's/([A-Za-z0-9_]*(TOKEN|KEY|SECRET|PASSWORD)[A-Za-z0-9_]*)=([^[:space:]]+)/\1=[REDACTED]/Ig; s/(Authorization:)[^[:space:]]+/\1[REDACTED]/Ig' \
-              | head -c 500 > "$command_file"
-            gh pr view 3075 --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$current_body_file" || :
-
-            PHASE="$phase" FAILED_LINE="$failed_line" FAILURE_RC="$rc" RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-              python3 - "$current_body_file" "$command_file" "$next_body_file" <<'PY'
-          import os
-          import sys
-          from pathlib import Path
-
-          current_path, command_path, output_path = map(Path, sys.argv[1:])
-          body = current_path.read_text() if current_path.exists() else ''
-          command = command_path.read_text().strip() if command_path.exists() else '<unavailable>'
-          start = '<!-- NEXT_SECURITY_DIAGNOSTIC_START -->'
-          end = '<!-- NEXT_SECURITY_DIAGNOSTIC_END -->'
-          if start in body and end in body:
-              prefix, remainder = body.split(start, 1)
-              _, suffix = remainder.split(end, 1)
-              body = f'{prefix.rstrip()}\n{suffix.lstrip()}'
-          diagnostic = f'''{start}
-          ## Next.js security controller diagnostic
-
-          - result: `FAIL`
-          - phase: `{os.environ.get("PHASE", "unknown")}`
-          - workflow line: `{os.environ.get("FAILED_LINE", "unknown")}`
-          - exit code: `{os.environ.get("FAILURE_RC", "unknown")}`
-          - command: `{command.replace("`", "'")}`
-          - run: {os.environ.get("RUN_URL", "unknown")}
-
-          No protected value is included in this diagnostic.
-          {end}'''
-          output_path.write_text(f'{body.rstrip()}\n\n{diagnostic}\n')
-          PY
-
-            set +e
-            gh pr edit 3075 --repo "$GITHUB_REPOSITORY" --body-file "$next_body_file"
-            gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 controller failed in phase \`$phase\`, line \`$failed_line\`, exit \`$rc\`. Exact sanitized command is recorded in PR #3075. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
-            set -e
-            exit "$rc"
-          }
-          trap 'on_failure "$LINENO" "$BASH_COMMAND"' ERR
-
-          phase='git-sync'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --no-tags origin main
-          git reset --hard origin/main
+          git checkout -B "$AUTHORITY_BRANCH" origin/main
 
-          phase='patch-package-manifest'
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const path = 'apps/web/package.json';
-          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
-          if (manifest.dependencies?.next !== '15.5.18') {
-            throw new Error(`Expected next 15.5.18, received ${manifest.dependencies?.next ?? '<missing>'}`);
-          }
-          manifest.dependencies.next = '15.5.21';
-          fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
-          NODE
+          IMPLEMENTATION_BRANCH="$IMPLEMENTATION_BRANCH" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-          phase='regenerate-lockfile'
-          corepack enable
-          corepack prepare pnpm@10.2.1 --activate
-          pnpm --filter @pc/web update next@15.5.21 --lockfile-only
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text())
+          branch = os.environ['IMPLEMENTATION_BRANCH']
+          allowed = ['.github/workflows/runtime-context-security-gate.yml']
+          scopes = state.setdefault('approvedConcurrentScopes', {})
+          existing = scopes.get(branch)
+          if existing not in (None, allowed):
+              raise SystemExit(f'conflicting scope for {branch}: {existing!r}')
+          scopes[branch] = allowed
+          path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')) + '\n')
+          PY
 
-          phase='validate-lockfile'
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const manifest = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
-          if (manifest.dependencies?.next !== '15.5.21') throw new Error('Next.js exact pin failed');
-          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
-          if (!lock.includes('next@15.5.21')) throw new Error('Patched Next.js package missing from lockfile');
-          if (/next@15\.5\.18(?:\W|$)/u.test(lock)) throw new Error('Vulnerable Next.js package remains in lockfile');
-          NODE
+          node -e "JSON.parse(require('node:fs').readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8'))"
+          test "$(git diff --name-only)" = 'docs/platform-v7/autopilot/autopilot-state.json'
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'governance: authorize runtime image build diagnostics'
+          GITHUB_HEAD_REF="$AUTHORITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
+          git push --force-with-lease origin "HEAD:refs/heads/$AUTHORITY_BRANCH"
 
-          phase='validate-two-file-scope'
-          expected="$({ printf '%s\n' 'apps/web/package.json' 'pnpm-lock.yaml'; } | sort)"
-          actual="$(git diff --name-only | sort)"
-          [[ "$actual" == "$expected" ]] || {
-            echo 'Unexpected dependency remediation paths:' >&2
-            diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
-            exit 20
-          }
-          git diff --check
+          existing_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$AUTHORITY_BRANCH" --json number --jq '.[0].number // empty')
+          if [ -z "$existing_pr" ]; then
+            pr_url=$(gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$AUTHORITY_BRANCH" \
+              --title 'Authorize runtime image build diagnostics' \
+              --body 'One-file governance prerequisite. Authorizes only `.github/workflows/runtime-context-security-gate.yml` on `ops/runtime-build-diagnostics-3095` to persist canonical API/web Docker build logs while preserving fail-closed build and scanner semantics. No exception, product, package, Dockerfile or production change.')
+          else
+            pr_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$existing_pr"
+          fi
 
-          phase='frozen-install'
-          pnpm install --frozen-lockfile
-
-          phase='web-typecheck'
-          pnpm --filter @pc/web typecheck
-
-          phase='web-tests'
-          pnpm --filter @pc/web test
-
-          phase='web-production-build'
-          NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
-
-          phase='production-dependency-audit'
-          pnpm audit --prod --audit-level high
-
-          phase='commit-and-scope-guard'
-          git add apps/web/package.json pnpm-lock.yaml
-          git commit -m 'fix(security): patch Next.js to 15.5.21'
-          GITHUB_HEAD_REF="$SECURITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
-
-          phase='publish-security-branch'
-          git push origin "HEAD:$SECURITY_BRANCH"
-
-          head_sha="$(git rev-parse HEAD)"
-          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js security remediation published. Head: \`${head_sha}\`; exact diff: \`apps/web/package.json\` and \`pnpm-lock.yaml\`; target: \`next@15.5.21\`; no exception or allowlist."
-          {
-            echo '## Next.js 15.5.21 remediation'
-            echo
-            echo "- head: \`$head_sha\`"
-            echo '- changed paths: apps/web/package.json, pnpm-lock.yaml'
-            echo '- frozen install: PASS'
-            echo '- web typecheck/tests/build: PASS'
-            echo '- production high/critical audit: PASS'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Report controller result
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ job.status }}
-        shell: bash
-        run: |
-          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 controller run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} — result: \`${RESULT}\`."
+          gh pr comment 3075 --repo "$GITHUB_REPOSITORY" --body "Runtime build diagnostics governance created: ${pr_url}. Exact implementation scope is one workflow file; production and pass/fail gates are unchanged."
