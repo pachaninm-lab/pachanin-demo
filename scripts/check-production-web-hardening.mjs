@@ -120,11 +120,21 @@ requireText('workflow', [
   'deployed_state',
   'Restore previous exact revision after live failure',
   'Publish release record',
+  'live-acceptance.log" 2>/dev/null | tail -1 || true',
+  'release-issue-comment.md',
   'gh issue comment',
   'gh issue close',
   'LIVE_ACCEPTANCE=',
   'retention-days: 90',
 ]);
+
+const workflow = contents.get('workflow') ?? '';
+const recordIndex = workflow.indexOf('record="$EVIDENCE_DIR/release-issue-comment.md"');
+const finalChecksumIndex = workflow.lastIndexOf('xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"');
+if (recordIndex < 0 || finalChecksumIndex <= recordIndex) {
+  failures.push(`${files.workflow}: release record must be created before the final evidence checksum manifest`);
+}
+
 requireText('hardening', [
   'Watchtower is retired',
   'must not have a fixed `container_name`',
@@ -188,4 +198,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, observable through issue #3048, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, failure-observable through checksummed issue #3048 evidence, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
