@@ -1,0 +1,34 @@
+{
+  "branch": "integration/homepage-production-unblock-v1",
+  "status": "active",
+  "purpose": "Close the circular acceptance dependency between the durable public organization intake correction, the exact Next.js 15.5.21 security patch, and the canonical API/web runtime image gate before the REG.RU exact-SHA release.",
+  "approvedBy": "user-directed-finish-homepage-2026-07-23",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260723153000_public_organization_intake_time_and_status_contract/**",
+    "apps/api/test/industrial/organization-intake-postgresql.e2e-spec.ts",
+    "apps/web/package.json",
+    "apps/web/tests/unit/next15RuntimeBoundary.test.ts",
+    "apps/web/tests/unit/next15RuntimeContracts.test.ts",
+    "pnpm-lock.yaml",
+    "infra/docker/Dockerfile.api",
+    "infra/docker/Dockerfile.web",
+    "scripts/release/materialize-prisma-client.mjs",
+    ".github/workflows/runtime-context-security-gate.yml",
+    "docs/platform-v7/autopilot/scopes/homepage-production-unblock-v1.json"
+  ],
+  "forbiddenCapabilities": [
+    "dependency exceptions, advisory suppression or weakening HIGH/CRITICAL blocking",
+    "skipping canonical API or web image builds, non-root checks, Trivy evaluation or runtime evidence",
+    "editing an already applied migration or performing a down/destructive migration",
+    "changing Deal, money, bank, tenant, role or external-integration authority",
+    "changing production secrets, Caddy, volumes, networks or REG.RU topology",
+    "enabling TAI production flags or claiming ATTESTED/runtime readiness"
+  ],
+  "acceptance": [
+    "organization intake sequential, replay, concurrent and rate-limit PostgreSQL E2E pass",
+    "Next.js is pinned exactly to 15.5.21 and the vulnerable 15.5.18 resolution is absent",
+    "canonical API and web images build and run as nonroot",
+    "Runtime Context, Security Quality, Security Abuse, CI, Node CI and required acceptance matrix pass at exact head",
+    "final implementation branch is behind_by=0 with no unresolved review threads"
+  ]
+}
