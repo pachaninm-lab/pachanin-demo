@@ -1,0 +1,132 @@
+# Production web hardening
+
+## Status boundary
+
+This document defines the target operational contour for the public Next.js `web` service on the canonical REG.RU VPS. It does not claim that a change is active in production until the exact running OCI revision, Docker health state and live-domain acceptance are recorded.
+
+## Decisions
+
+1. Production releases are exact-SHA operations. `latest`, registry polling and an automatic updater are not release authority.
+2. Watchtower is retired from the active production profile. It must be stopped with restart policy `no`; it may remain as a stopped container only for forensic continuity until the next approved infrastructure cleanup.
+3. The `web` service must not have a fixed `container_name`. Compose-generated names and canonical `com.docker.compose.*` labels are required.
+4. The active `web` container must expose a Docker healthcheck. A successful process start without `healthy` state is not accepted.
+5. A web-only release must not recreate API, PostgreSQL, Redis, MinIO, Caddy or any unrelated service.
+6. A post-deploy failure must restore the previous immutable web image automatically when the previous exact revision is known.
+7. The exact running web image must remain persisted in the merged Compose model after the release; local retagging of an older SHA tag is prohibited.
+
+## Persistent server overrides
+
+The release authority installs the repository file
+`infra/compose/production-web-hardening.override.yml` beside the protected production Compose file as:
+
+`compose.production-hardening.override.yml`
+
+It also generates and maintains:
+
+`compose.production-web-image.override.yml`
+
+The generated image override contains only the immutable exact image reference for `web`, for example:
+
+```yaml
+services:
+  web:
+    image: ghcr.io/pachaninm-lab/grainflow-web:sha-abcdef0
+```
+
+All production Compose operations after the first hardened release must include the protected base file and both persistent overrides, in this order:
+
+```bash
+docker compose \
+  --project-directory "$PC_PROD_DIR" \
+  -f "$PC_PROD_COMPOSE" \
+  -f "$PC_PROD_DIR/compose.production-hardening.override.yml" \
+  -f "$PC_PROD_DIR/compose.production-web-image.override.yml" \
+  config --quiet
+```
+
+The hardening override:
+
+- resets any inherited fixed `web.container_name`;
+- supplies restart, init, shutdown and healthcheck policy;
+- places `watchtower` in the inactive `retired-watchtower` profile;
+- prevents an ordinary production Compose reconciliation from starting Watchtower.
+
+The image override:
+
+- prevents the protected base Compose file from silently retaining an older exact SHA;
+- is written atomically before a web replacement;
+- is restored to the previous running image reference by the rollback trap;
+- is validated against the requested exact image before `docker compose up`;
+- is used with `--pull never` after the exact image has already been pulled and verified.
+
+Docker Compose `2.24.4` or later is required so the merged model can use `!reset` safely.
+
+## Exact-SHA release authority
+
+Canonical workflow:
+
+`.github/workflows/production-web-exact-sha.yml`
+
+Canonical server operation:
+
+`scripts/production-web-exact-sha.sh`
+
+Supported actions:
+
+```bash
+scripts/production-web-exact-sha.sh audit
+scripts/production-web-exact-sha.sh deploy <full-main-sha>
+scripts/production-web-exact-sha.sh rollback <full-main-sha>
+```
+
+The workflow is automatically invoked only for the hardening image transition. Future deployments use `workflow_dispatch` and require:
+
+- `deploy` + `DEPLOY-EXACT-SHA`; or
+- `rollback` + `ROLLBACK-EXACT-SHA`.
+
+The target must be a full 40-character commit SHA reachable from `main`. The server pulls `grainflow-web:sha-<7>`, verifies `org.opencontainers.image.revision`, persists that exact image in the generated override, and then recreates only `web`.
+
+## Legacy-container adoption
+
+The first hardened release may encounter a running web container without Compose labels. The release script may adopt it only when exactly one running container uses a `grainflow-web` image.
+
+Before creating the replacement, the script records:
+
+- current image reference;
+- immutable image ID;
+- OCI revision when present;
+- current container name and runtime state.
+
+The legacy container is stopped and parked under a temporary name, not deleted. The new Compose-managed container must then pass all of the following inside the server-side rollback boundary:
+
+- Docker `healthy` state;
+- exact target OCI revision;
+- canonical Compose project/service labels;
+- exact persisted image reference in the merged Compose model;
+- exact live-domain acceptance.
+
+If any of these checks fails, the candidate container is removed, the image override is restored to the previous running image, and the parked legacy container is renamed to its original name and restarted. The parked container is deleted only after internal exact live acceptance passes. Ambiguous legacy candidates fail closed without mutation.
+
+## Acceptance
+
+A successful release requires all of the following:
+
+- merged Compose model has no fixed `web.container_name`;
+- merged Compose model points `web` to the requested exact image;
+- new web container is `healthy`;
+- running OCI revision equals the requested full SHA;
+- canonical Compose project and service labels are present;
+- all non-web, non-Watchtower running container IDs are unchanged;
+- Watchtower is stopped and its restart policy is `no`;
+- readiness endpoint returns the exact revision for a hardened target;
+- deployment manifest returns the exact revision;
+- RU, EN and ZH public routes return HTTP 200;
+- robots and sitemap remain reachable.
+
+Evidence is stored as a checksummed GitHub Actions artifact for 90 days.
+
+## Failure behavior
+
+An internal deployment failure triggers automatic rollback to the previously running image ID or restoration of the parked legacy container, together with restoration of the previous persistent image authority. A failure discovered by the independent runner-side live acceptance triggers an explicit exact-revision rollback when the baseline revision is available.
+
+Database schema rollback, non-web restart, Caddy mutation, environment rewriting, mutable image tags and secret disclosure are prohibited in this workflow.
