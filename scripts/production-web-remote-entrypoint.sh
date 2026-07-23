@@ -31,9 +31,11 @@ prod_dir="$(decode "$PROD_DIR_B64")"
 prod_compose="$(decode "$PROD_COMPOSE_B64")"
 prod_project="$(decode "$PROD_PROJECT_B64")"
 remote_script="/tmp/pc-production-web-exact-sha-${RUN_ID}.sh"
+remote_live="/tmp/pc-production-web-live-acceptance-${RUN_ID}.sh"
 remote_override="/tmp/pc-production-web-hardening-${RUN_ID}.yml"
 
 [[ -f "$remote_script" ]] || fail 'release script is missing on the server'
+[[ -f "$remote_live" ]] || fail 'live acceptance script is missing on the server'
 [[ -f "$remote_override" ]] || fail 'hardening override is missing on the server'
 
 if [[ -z "$prod_dir" || -z "$prod_compose" ]]; then
@@ -74,7 +76,7 @@ fi
 [[ -d "$prod_dir" ]] || fail 'resolved production directory is invalid'
 [[ -f "$prod_compose" ]] || fail 'resolved production Compose file is invalid'
 
-chmod 0700 "$remote_script"
+chmod 0700 "$remote_script" "$remote_live"
 
 if [[ "$ACTION" == audit ]]; then
   active_override="$remote_override"
@@ -89,4 +91,5 @@ PC_PROD_DIR="$prod_dir" \
 PC_PROD_COMPOSE="$prod_compose" \
 PC_PROD_PROJECT="$prod_project" \
 PC_HARDENING_OVERRIDE="$active_override" \
+PC_LIVE_ACCEPTANCE_SCRIPT="$remote_live" \
   "$remote_script" "$ACTION" "$TARGET_SHA"
