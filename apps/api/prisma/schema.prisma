@@ -248,7 +248,7 @@ model Checkpoint {
   actorId        String?
   commandId      String?
   idempotencyKey String?  @unique
-  correlationId  String?
+  correlationId String?
   createdAt      DateTime @default(now())
 
   shipment       Shipment @relation(fields: [shipmentId], references: [id])
@@ -273,7 +273,7 @@ model ShipmentGpsPoint {
   recordedAt     DateTime
   commandId      String
   idempotencyKey String   @unique
-  correlationId  String?
+  correlationId String?
   createdAt      DateTime @default(now())
 
   shipment       Shipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
@@ -491,6 +491,7 @@ model OutboxEntry {
 
   runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
   redriveEvents         OutboxRedriveEvent[]
+  publicOrganizationConnectionRequest PublicOrganizationConnectionRequest?
 
   @@index([status, nextRetryAt])
   @@index([status, nextRetryAt, createdAt, id], map: "outbox_entries_claim_idx")
@@ -637,6 +638,7 @@ model AuditEvent {
 
   dispute               Dispute? @relation(fields: [disputeId], references: [id])
   runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotAudit")
+  publicOrganizationConnectionRequest PublicOrganizationConnectionRequest?
 
   @@index([dealId])
   @@index([actorUserId])
@@ -1044,4 +1046,40 @@ model CommodityProfileTransition {
   @@index([profileVersionId, createdAt, id], map: "commodity_profile_transitions_version_created_idx")
   @@index([correlationId], map: "commodity_profile_transitions_correlation_idx")
   @@map("commodity_profile_transitions")
+}
+
+model PublicOrganizationConnectionRequest {
+  id               String   @id
+  requestNumber    String   @unique(map: "public_org_connection_requests_number_key")
+  status           String   @default("NEW") @db.VarChar(24)
+  locale           String   @db.VarChar(2)
+  organizationName String
+  inn              String   @db.VarChar(12)
+  contactName      String
+  position         String
+  phone            String   @db.VarChar(32)
+  email            String   @db.VarChar(254)
+  organizationRole String   @db.VarChar(48)
+  scenario         String   @db.VarChar(48)
+  consentVersion   String   @db.VarChar(64)
+  consentedAt      DateTime @db.Timestamptz(3)
+  payloadHash      String   @db.Char(64)
+  idempotencyKey   String   @unique(map: "public_org_connection_requests_idempotency_key") @db.VarChar(128)
+  correlationId    String   @db.VarChar(128)
+  source           String   @default("PUBLIC_PLATFORM_V7") @db.VarChar(48)
+  auditEventId     String   @unique(map: "public_org_connection_requests_audit_key")
+  outboxEntryId    String   @unique(map: "public_org_connection_requests_outbox_key")
+  retentionUntil   DateTime @db.Timestamptz(3)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  auditEvent        AuditEvent  @relation(fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "public_org_connection_requests_audit_fkey")
+  outboxEntry       OutboxEntry @relation(fields: [outboxEntryId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "public_org_connection_requests_outbox_fkey")
+
+  @@index([status, createdAt(sort: Desc), id], map: "public_org_connection_requests_status_created_idx")
+  @@index([inn, createdAt(sort: Desc)], map: "public_org_connection_requests_inn_created_idx")
+  @@index([email, createdAt(sort: Desc)], map: "public_org_connection_requests_email_created_idx")
+  @@index([payloadHash], map: "public_org_connection_requests_payload_hash_idx")
+  @@index([retentionUntil], map: "public_org_connection_requests_retention_idx")
+  @@map("public_organization_connection_requests")
 }
