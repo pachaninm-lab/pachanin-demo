@@ -11,7 +11,7 @@ IMAGE_REPOSITORY="${PC_WEB_IMAGE_REPOSITORY:-ghcr.io/pachaninm-lab/grainflow-web
 
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
-  exit 1
+  return 1
 }
 
 version_at_least() {
