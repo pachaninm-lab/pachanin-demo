@@ -229,10 +229,14 @@ export class RegulatoryIntegrationInboxLifecycleRepository {
           command.idempotencyKey,
         );
 
-        await tx.$queryRaw(Prisma.sql`
-          SELECT pg_advisory_xact_lock(
-            hashtextextended(${canonicalIdempotencyKey}, 0)
+        await tx.$queryRaw<Array<{ locked: boolean }>>(Prisma.sql`
+          WITH acquired AS MATERIALIZED (
+            SELECT pg_advisory_xact_lock(
+              hashtextextended(${canonicalIdempotencyKey}, 0)
+            )
           )
+          SELECT true AS "locked"
+          FROM acquired
         `);
 
         const replayOutbox = await tx.$queryRaw<RedriveOutboxRow[]>(Prisma.sql`
