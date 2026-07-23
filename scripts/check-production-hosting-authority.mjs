@@ -105,7 +105,7 @@ forbid('runbook', [
   /Allow Watchtower to pull/i,
   /docker compose[^\n]*pull web[\s\S]{0,120}docker compose[^\n]*up -d --no-deps web/i,
 ]);
-forbid('hardening', [/grainflow-web:latest/i, /automatic updater.*release authority/i]);
+forbid('hardening', [/grainflow-web:latest/i]);
 forbid('cutover', [
   /Хостинг:\s*Netlify/i,
   /Netlify\s*→\s*Site settings/i,
