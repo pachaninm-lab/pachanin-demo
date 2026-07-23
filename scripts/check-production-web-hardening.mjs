@@ -9,6 +9,7 @@ const files = {
   remote: 'scripts/production-web-remote-entrypoint.sh',
   live: 'scripts/production-web-live-acceptance.sh',
   workflow: '.github/workflows/production-web-exact-sha.yml',
+  retryWorkflow: '.github/workflows/production-web-key-normalization-retry.yml',
   hardening: 'docs/ops/production-web-hardening.md',
   runbook: 'docs/ops/virtual-server-production-runbook.md',
   contour: 'docs/ops/active-hosting-contour.md',
@@ -135,6 +136,54 @@ if (recordIndex < 0 || finalChecksumIndex <= recordIndex) {
   failures.push(`${files.workflow}: release record must be created before the final evidence checksum manifest`);
 }
 
+requireText('retryWorkflow', [
+  'TARGET_SHA: 58b46246ac67eb31a913a8da0de74a78ed1fd095',
+  'EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-58b4624',
+  'Normalize key and verify pinned VPS host identity',
+  "printf '%b' \"$key_material\"",
+  "key_material=\"${key_material//$'\\r'/}\"",
+  'base64 --decode',
+  'ssh-keygen -y -P',
+  'public-key-only',
+  'invalid-private-key',
+  'escaped-newline-private-key',
+  'base64-private-key',
+  'multiline-private-key',
+  'SSH_HOST_FINGERPRINT_SECRET',
+  'PC_PROD_SSH_HOST_FINGERPRINT',
+  'expected_host_fingerprint',
+  'matching_hosts="$(mktemp)"',
+  'actual_fingerprint=',
+  'match_count=',
+  'mismatch-or-ambiguous',
+  'mv "$matching_hosts" "$HOME/.ssh/known_hosts"',
+  'ssh-host-key-status.txt',
+  'BatchMode=yes',
+  'IdentitiesOnly=yes',
+  'StrictHostKeyChecking=yes',
+  'raw_log="$(mktemp)"',
+  'PERSISTENT_IMAGE_OVERRIDE|PC_IMAGE_OVERRIDE|PROD_DIR|PRODUCTION_DIR|WORKDIR|CONFIG_FILES|COMPOSE_FILES?',
+  '=[REDACTED]',
+  'rm -f "$raw_log"',
+  'PROD_DIR_B64=\'\' PROD_COMPOSE_B64=\'\' PROD_PROJECT_B64=\'\'',
+  'Execute bounded web-only deployment',
+  'Restore exact baseline after live failure',
+  'Publish retry record',
+  'SSH key classification',
+  'VPS host-key verification',
+  'gh issue close',
+  'retention-days: 90',
+]);
+forbid('retryWorkflow', [
+  /sshpass/i,
+  /PC_PROD_SSH_PASSWORD/,
+  /VPS_SSH_PASSWORD/,
+  /grainflow-web:latest/,
+  /echo\s+"?\$raw_key/i,
+  /cat\s+.*id_pc_prod/,
+  /cp\s+"?\$scanned_hosts"?\s+"?\$HOME\/\.ssh\/known_hosts"?/,
+]);
+
 requireText('hardening', [
   'Watchtower is retired',
   'must not have a fixed `container_name`',
@@ -198,4 +247,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, persisted-image, multi-file-Compose, health-gated, failure-observable through checksummed issue #3048 evidence, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-user, uniquely-pinned-host, redacted-path, persisted-image, multi-file-Compose, health-gated, failure-observable through checksummed issue #3048 evidence, SSH-key-normalization fail-closed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
