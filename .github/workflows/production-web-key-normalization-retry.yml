@@ -1,0 +1,342 @@
+name: Retry Exact Web Release 58b4624
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-web-key-normalization-retry.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Enter RETRY-58B4624'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: production-web-key-normalization-retry
+  cancel-in-progress: false
+
+env:
+  TARGET_SHA: 58b46246ac67eb31a913a8da0de74a78ed1fd095
+  EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-58b4624
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/production-web-key-normalization-retry
+  RELEASE_ISSUE_NUMBER: 3048
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+
+jobs:
+  retry:
+    name: Normalize protected key and retry web-only rollout
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.actor == github.repository_owner &&
+       inputs.confirmation == 'RETRY-58B4624')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate immutable target and image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" origin/main
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          docker pull "$EXACT_IMAGE"
+          actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE")"
+          [[ "$actual" == "$TARGET_SHA" ]]
+          docker image inspect "$EXACT_IMAGE" > "$EVIDENCE_DIR/registry-image.json"
+          printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Normalize and validate protected private key
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          fail_key() {
+            local class="$1"
+            local message="$2"
+            printf '%s\n' "$class" > "$EVIDENCE_DIR/ssh-key-class.txt"
+            echo "$message" >&2
+            exit 11
+          }
+
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          raw_key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+
+          [[ "$host" == "$DEFAULT_HOST" ]] || {
+            echo 'SSH host is not the canonical REG.RU VPS.' >&2
+            exit 7
+          }
+          [[ -n "$user" ]] || {
+            echo 'PC_PROD_SSH_USER is required.' >&2
+            exit 8
+          }
+          [[ -n "$raw_key" ]] || fail_key missing 'No protected SSH key material is configured.'
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || {
+            echo 'Protected SSH port is invalid.' >&2
+            exit 9
+          }
+
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          key_material="$raw_key"
+          if [[ "$key_material" == \"*\" && "$key_material" == *\" ]]; then
+            key_material="${key_material:1:${#key_material}-2}"
+          elif [[ "$key_material" == \'*\' && "$key_material" == *\' ]]; then
+            key_material="${key_material:1:${#key_material}-2}"
+          fi
+          if [[ "$key_material" != *$'\n'* && "$key_material" == *'\\n'* ]]; then
+            key_material="$(printf '%b' "$key_material")"
+          fi
+          key_material="${key_material//$'\r'/}"
+          key_material="$(trim "$key_material")"
+
+          case "$key_material" in
+            ssh-*|ecdsa-*|sk-*)
+              fail_key public-key-only 'The configured secret contains a public SSH key, not a private key.'
+              ;;
+          esac
+
+          key_path="$HOME/.ssh/id_pc_prod"
+          printf '%s\n' "$key_material" > "$key_path"
+          chmod 600 "$key_path"
+
+          public_tmp="$(mktemp)"
+          if ! ssh-keygen -y -P '' -f "$key_path" > "$public_tmp" 2>/dev/null; then
+            decoded_tmp="$(mktemp)"
+            valid_decoded=0
+            if printf '%s' "$key_material" | base64 --decode > "$decoded_tmp" 2>/dev/null; then
+              first_line="$(head -n 1 "$decoded_tmp")"
+              private_label='PRIVATE KEY-----'
+              case "$first_line" in
+                "-----BEGIN OPENSSH ${private_label}"|"-----BEGIN RSA ${private_label}"|"-----BEGIN EC ${private_label}"|"-----BEGIN DSA ${private_label}"|"-----BEGIN ${private_label}")
+                  valid_decoded=1
+                  ;;
+              esac
+            fi
+            if (( valid_decoded == 1 )); then
+              mv "$decoded_tmp" "$key_path"
+              chmod 600 "$key_path"
+              if ! ssh-keygen -y -P '' -f "$key_path" > "$public_tmp" 2>/dev/null; then
+                rm -f "$public_tmp"
+                fail_key invalid-private-key 'Decoded key material is not a valid unencrypted SSH private key.'
+              fi
+              printf '%s\n' base64-private-key > "$EVIDENCE_DIR/ssh-key-class.txt"
+            else
+              rm -f "$decoded_tmp" "$public_tmp"
+              fail_key invalid-private-key 'Protected key material is not a valid unencrypted OpenSSH private key.'
+            fi
+          else
+            if [[ "$raw_key" == *'\\n'* && "$raw_key" != *$'\n'* ]]; then
+              printf '%s\n' escaped-newline-private-key > "$EVIDENCE_DIR/ssh-key-class.txt"
+            else
+              printf '%s\n' multiline-private-key > "$EVIDENCE_DIR/ssh-key-class.txt"
+            fi
+          fi
+
+          ssh-keygen -lf "$public_tmp" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+          rm -f "$public_tmp"
+
+          domain_ips="$(getent ahostsv4 xn----8sbjf4befbjgs9b.xn--p1ai | awk '{print $1}' | sort -u || true)"
+          printf '%s\n' "$domain_ips" > "$EVIDENCE_DIR/domain-ip.txt"
+          grep -Fxq "$DEFAULT_HOST" "$EVIDENCE_DIR/domain-ip.txt"
+
+          ssh-keyscan -T 10 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$key_path" -p "$port" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Copy immutable release assets
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          common=(
+            -i "$HOME/.ssh/id_pc_prod"
+            -P "$SSH_PORT"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+          )
+          scp "${common[@]}" scripts/production-web-exact-sha.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-exact-sha-${GITHUB_RUN_ID}.sh"
+          scp "${common[@]}" scripts/production-web-live-acceptance.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-live-acceptance-${GITHUB_RUN_ID}.sh"
+          scp "${common[@]}" scripts/production-web-remote-entrypoint.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+          scp "${common[@]}" infra/compose/production-web-hardening.override.yml \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-hardening-${GITHUB_RUN_ID}.yml"
+
+      - name: Execute bounded web-only deployment
+        id: production
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          encode() { printf '%s' "$1" | base64 -w0; }
+          prod_dir_b64="$(encode "${PROD_DIR_SECRET:-}")"
+          prod_compose_b64="$(encode "${PROD_COMPOSE_SECRET:-}")"
+          prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
+          remote="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
+            -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "chmod 0700 '$remote' && PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote' deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            > "$EVIDENCE_DIR/production-action.log" 2>&1
+          rc=$?
+          set -e
+          cat "$EVIDENCE_DIR/production-action.log"
+
+          for field in ROLLBACK_BASELINE_REVISION DEPLOYMENT_COMPLETE WATCHTOWER_RETIRED PERSISTENT_OVERRIDE_MUTATED DEPLOYED_WEB_REVISION DEPLOYED_WEB_STATE; do
+            value="$(sed -n "s/^${field}=//p" "$EVIDENCE_DIR/production-action.log" | tail -1)"
+            output_name="$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')"
+            echo "${output_name}=${value:-unknown}" >> "$GITHUB_OUTPUT"
+          done
+          (( rc == 0 )) || exit "$rc"
+
+      - name: Verify exact public runtime
+        id: live
+        if: steps.production.outputs.deployment_complete == '1'
+        continue-on-error: true
+        env:
+          PC_LIVE_BASE: ${{ env.LIVE_BASE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" deploy |
+            tee "$EVIDENCE_DIR/live-acceptance.log"
+
+      - name: Restore exact baseline after live failure
+        if: steps.live.outcome == 'failure'
+        env:
+          BASELINE_SHA: ${{ steps.production.outputs.rollback_baseline_revision }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          encode() { printf '%s' "$1" | base64 -w0; }
+          remote="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
+            -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "PROD_DIR_B64='$(encode "${PROD_DIR_SECRET:-}")' PROD_COMPOSE_B64='$(encode "${PROD_COMPOSE_SECRET:-}")' PROD_PROJECT_B64='$(encode "${PROD_PROJECT_SECRET:-}")' '$remote' rollback '$BASELINE_SHA' '$GITHUB_RUN_ID'" \
+            | tee "$EVIDENCE_DIR/live-failure-rollback.log"
+
+      - name: Publish retry record
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_COMPLETE: ${{ steps.production.outputs.deployment_complete }}
+          DEPLOYED_REVISION: ${{ steps.production.outputs.deployed_web_revision }}
+          DEPLOYED_STATE: ${{ steps.production.outputs.deployed_web_state }}
+          BASELINE_REVISION: ${{ steps.production.outputs.rollback_baseline_revision }}
+          WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
+          PERSISTENT_OVERRIDE_MUTATED: ${{ steps.production.outputs.persistent_override_mutated }}
+          LIVE_OUTCOME: ${{ steps.live.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_class="$(cat "$EVIDENCE_DIR/ssh-key-class.txt" 2>/dev/null || echo not-validated)"
+          live_acceptance="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live-acceptance.log" 2>/dev/null | tail -1 || true)"
+          rollback_result='not-required'
+          [[ ! -f "$EVIDENCE_DIR/live-failure-rollback.log" ]] || rollback_result=attempted
+          record="$EVIDENCE_DIR/retry-issue-comment.md"
+          {
+            echo "## SSH-normalized production retry \`$GITHUB_RUN_ID\`"
+            echo
+            echo "- target SHA: \`$TARGET_SHA\`"
+            echo "- SSH key classification: \`$key_class\`"
+            echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
+            echo "- running OCI revision: \`${DEPLOYED_REVISION:-unknown}\`"
+            echo "- Docker state: \`${DEPLOYED_STATE:-unknown}\`"
+            echo "- live acceptance: \`${live_acceptance:-${LIVE_OUTCOME:-skipped}}\`"
+            echo "- rollback baseline: \`${BASELINE_REVISION:-unknown}\`"
+            echo "- rollback result: \`$rollback_result\`"
+            echo "- Watchtower retired: \`${WATCHTOWER_RETIRED:-0}\`"
+            echo "- persistent override mutation: \`${PERSISTENT_OVERRIDE_MUTATED:-unknown}\`"
+          } > "$record"
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z |
+            xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 \
+            && "${DEPLOYED_REVISION:-}" == "$TARGET_SHA" \
+            && "${live_acceptance:-}" == PASS \
+            && "${WATCHTOWER_RETIRED:-0}" == 1 ]]; then
+            gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
+          fi
+
+      - name: Enforce retry result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ steps.production.outputs.deployment_complete }}' == 1 ]]
+          [[ '${{ steps.production.outputs.deployed_web_revision }}' == "$TARGET_SHA" ]]
+          [[ '${{ steps.live.outcome }}' == success ]]
+
+      - name: Upload retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-web-key-normalization-retry-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
