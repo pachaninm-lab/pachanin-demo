@@ -212,6 +212,9 @@ jobs:
             scripts/production-web-exact-sha.sh \
             "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-exact-sha-${GITHUB_RUN_ID}.sh"
           scp "${scp_options[@]}" \
+            scripts/production-web-live-acceptance.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-live-acceptance-${GITHUB_RUN_ID}.sh"
+          scp "${scp_options[@]}" \
             scripts/production-web-remote-entrypoint.sh \
             "$SSH_USER@$SSH_HOST:/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
           scp "${scp_options[@]}" \
@@ -274,10 +277,11 @@ jobs:
         env:
           PC_LIVE_BASE: ${{ env.LIVE_BASE }}
           TARGET_SHA: ${{ steps.intent.outputs.target_sha }}
+          ACTION: ${{ steps.intent.outputs.action }}
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" |
+          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" "$ACTION" |
             tee "$EVIDENCE_DIR/live-acceptance.log"
 
       - name: Restore previous exact revision after live failure
