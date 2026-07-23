@@ -3,7 +3,7 @@
   "branch": "agent/pc-crop-07a-integration-inbox",
   "status": "active",
   "issue": 3030,
-  "predecessorPullRequests": [3038, 3055],
+  "predecessorPullRequests": [3038, 3055, 3063],
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
     ".github/workflows/pc-crop-07a.yml",
@@ -26,6 +26,10 @@
     "FOR_UPDATE_SKIP_LOCKED_COMPETING_WORKERS",
     "EXPIRED_LEASE_RECLAIM",
     "RETRY_QUARANTINE_DEAD_TRANSITIONS",
+    "GOVERNED_REDRIVE_PERMISSION_MFA_JUSTIFICATION",
+    "IMMUTABLE_REDRIVE_AUDIT_CANONICAL_OUTBOX",
+    "IDEMPOTENT_REDRIVE_REPLAY",
+    "REDRIVE_TENANT_ORGANIZATION_ISOLATION",
     "CANONICAL_OUTBOX_ONLY",
     "NO_RAW_PAYLOAD_LOGGING"
   ],
