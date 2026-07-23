@@ -40,7 +40,7 @@ function dto(overrides: Partial<CreateOrganizationIntakeDto> = {}): CreateOrgani
 
 async function cleanup(): Promise<void> {
   await admin.$executeRaw(Prisma.sql`
-    DELETE FROM public.public_organization_connection_requests
+    DELETE FROM organization_intake.requests
     WHERE source = 'PUBLIC_PLATFORM_V7'
   `);
   await admin.$executeRaw(Prisma.sql`
@@ -89,9 +89,9 @@ describe('public organization intake PostgreSQL authority', () => {
         EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_deal', current_database());
       END
       $grant$;
-      GRANT USAGE ON SCHEMA public, security TO app_deal;
-      GRANT EXECUTE ON FUNCTION public.lookup_public_organization_connection_request(text, text) TO app_deal;
-      GRANT EXECUTE ON FUNCTION public.create_public_organization_connection_request(text, text, text, text, text, text, text, text, text, text, text, text, text) TO app_deal;
+      GRANT USAGE ON SCHEMA public, security, organization_intake TO app_deal;
+      GRANT EXECUTE ON FUNCTION organization_intake.lookup_request(text, text) TO app_deal;
+      GRANT EXECUTE ON FUNCTION organization_intake.create_request(text, text, text, text, text, text, text, text, text, text, text, text, text) TO app_deal;
       GRANT EXECUTE ON FUNCTION security.consume_api_rate_limit(text, text, integer) TO app_deal;
     `);
     restricted = new PrismaClient({ datasources: { db: { url: restrictedUrl() } } });
@@ -132,7 +132,7 @@ describe('public organization intake PostgreSQL authority', () => {
         "auditEventId" AS audit_event_id,
         "outboxEntryId" AS outbox_entry_id,
         "payloadHash" AS payload_hash
-      FROM public.public_organization_connection_requests
+      FROM organization_intake.requests
       WHERE "idempotencyKey" = ${idempotencyKey}
     `);
     expect(requests).toHaveLength(1);
@@ -246,8 +246,8 @@ describe('public organization intake PostgreSQL authority', () => {
     const columns = await admin.$queryRaw<Array<{ column_name: string }>>(Prisma.sql`
       SELECT column_name
       FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = 'public_organization_connection_requests'
+      WHERE table_schema = 'organization_intake'
+        AND table_name = 'requests'
     `);
     const names = columns.map((column) => column.column_name.toLowerCase());
     expect(names).not.toContain('ip');

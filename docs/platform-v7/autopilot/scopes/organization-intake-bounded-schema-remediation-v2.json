@@ -1,0 +1,27 @@
+{
+  "branch": "fix/organization-intake-bounded-schema-v2",
+  "status": "active",
+  "purpose": "Forward-only post-merge remediation: move public organization intake authority outside Prisma-managed public schema while preserving rollback-compatible public wrappers.",
+  "approvedBy": "user-directed-finish-homepage-2026-07-23",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260723121000_organization_intake_bounded_schema/**",
+    "apps/api/src/modules/organization-intake/organization-intake.service.ts",
+    "apps/api/test/industrial/organization-intake-postgresql.e2e-spec.ts",
+    "apps/web/tests/unit/platformV7OrganizationConnectIntake.test.ts",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/organization-intake-bounded-schema-remediation-v2.json"
+  ],
+  "forbiddenCapabilities": [
+    "editing the merged 20260723113000 migration",
+    "creating Organization User membership role or tenant authority",
+    "weakening RLS audit outbox consent idempotency or rate limits",
+    "breaking previous-image rollback compatibility",
+    "changing packages lockfiles Caddy deployment topology or production secrets"
+  ],
+  "acceptance": [
+    "forward-only migration moves the table into organization_intake schema",
+    "old public functions remain compatibility wrappers",
+    "new runtime uses schema-qualified EXECUTE-only functions",
+    "Prisma drift and restricted-principal E2E pass"
+  ]
+}
