@@ -6,6 +6,11 @@ on:
       - fix/postcss-ghsa-6g55-p6wh-862q
     paths:
       - .github/workflows/postcss-hotfix-bootstrap.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/postcss-hotfix-bootstrap.yml
 
 permissions:
   contents: write
@@ -30,9 +35,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${GITHUB_REF_NAME}" = "fix/postcss-ghsa-6g55-p6wh-862q"
+          test "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" = "fix/postcss-ghsa-6g55-p6wh-862q"
           git fetch --no-tags origin main
-          test "$(git rev-list --count origin/main..HEAD)" -eq 1
           test "$(git diff --name-only origin/main...HEAD)" = ".github/workflows/postcss-hotfix-bootstrap.yml"
 
       - uses: pnpm/action-setup@v4
