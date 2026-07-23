@@ -104,6 +104,15 @@ requireText('types', [
   'BusinessAcceptanceState',
 ]);
 
+requireText('policy', [
+  "INBOX_REDRIVE: 'regulatory-integration:inbox:redrive'",
+  'assertRegulatoryInboxRedriveAuthority(',
+  'staffRoles',
+  'mfaVerified',
+  'reason must contain at least 12 characters',
+  'trusted identity is required for regulatory inbox redrive',
+]);
+
 requireText('repository', [
   'Prisma.TransactionIsolationLevel.Serializable',
   'FOR UPDATE SKIP LOCKED',
@@ -120,9 +129,22 @@ requireText('repository', [
 requireText('lifecycle', [
   'recordVerification(',
   'markProviderAcknowledged(',
+  'async redrive(',
+  'assertRegulatoryInboxRedriveAuthority(',
+  'REGULATORY_INTEGRATION_INBOX_REDRIVE',
+  'REGULATORY_INTEGRATION_INBOX_REDRIVEN',
+  'regulatory-integration:inbox-redrive',
+  'pg_advisory_xact_lock',
+  'audit_events',
+  'outbox_entries',
+  'runtimeIdempotencyKey',
+  'idempotency key is already bound to another inbox identity',
+  'missing matching immutable audit evidence',
+  'inbox entry cannot be redriven from state',
+  'state" = \'RETRY\'',
+  "kind: 'REPLAY'",
   "? 'VERIFIED'",
   ": 'QUARANTINED'",
-  "kind: 'REPLAY'",
 ]);
 
 requireText('module', [
@@ -137,6 +159,13 @@ requireText('e2e', [
   'two concurrent workers disjoint claims',
   'reclaims an expired crash lease',
   'fails closed across tenant and organization boundaries',
+  'redrives a quarantined entry with immutable audit and canonical outbox evidence',
+  'REGULATORY_INTEGRATION_INBOX_REDRIVE',
+  'REGULATORY_INTEGRATION_INBOX_REDRIVEN',
+  "kind: 'REPLAY'",
+  'staffRoles: [StaffRole.PLATFORM_ADMIN]',
+  "not.toContain('rawBodySha256')",
+  "not.toContain('evidenceReference')",
   'requires provider ACK before recording business acceptance',
 ]);
 
@@ -156,6 +185,9 @@ requireText('scope', [
   '"operationalStatus": "NOT_ATTESTED"',
   '"DURABLE_INSERT_BEFORE_PROVIDER_ACK"',
   '"FOR_UPDATE_SKIP_LOCKED_COMPETING_WORKERS"',
+  '"GOVERNED_REDRIVE_PERMISSION_MFA_JUSTIFICATION"',
+  '"IMMUTABLE_REDRIVE_AUDIT_CANONICAL_OUTBOX"',
+  '"IDEMPOTENT_REDRIVE_REPLAY"',
   '"secondOutboxOrRelay": false',
   '"productionHosting": "REG_RU_VPS_ONLY"',
 ]);
@@ -166,31 +198,42 @@ forbidText('repository', [
   'rawPayload',
   'console.log(',
 ]);
-forbidText('lifecycle', ['localStorage', 'sessionStorage', 'console.log(']);
+forbidText('lifecycle', [
+  'localStorage',
+  'sessionStorage',
+  'rawPayload',
+  'console.log(',
+  'CREATE TABLE',
+]);
 forbidText('migration', [
   'CREATE TABLE "regulatory_integration_outbox',
   'CREATE TABLE "regulatory_integration_relay',
 ]);
 forbidText('workflow', ['netlify', 'vercel', 'production deployment']);
 
+const pass = failures.length === 0;
 const report = {
   schemaVersion: 'pc-crop.regulatory-integration-inbox-acceptance.v1',
   slice: 'PC-CROP-07A',
   exactHead,
-  status: failures.length === 0 ? 'PASS' : 'FAIL',
+  status: pass ? 'PASS' : 'FAIL',
   operationalStatus: 'NOT_ATTESTED',
   postgresql: '16',
   invariants: {
-    durableInsertBeforeProviderAck: failures.length === 0,
-    deterministicReplay: failures.length === 0,
-    immutableHashConflict: failures.length === 0,
-    serverDerivedTenantOrganization: failures.length === 0,
-    forceRls: failures.length === 0,
-    competingWorkerSkipLocked: failures.length === 0,
-    expiredLeaseReclaim: failures.length === 0,
-    retryQuarantineDead: failures.length === 0,
-    canonicalOutboxOnly: failures.length === 0,
-    rawPayloadNotPersistedOrLogged: failures.length === 0,
+    durableInsertBeforeProviderAck: pass,
+    deterministicReplay: pass,
+    immutableHashConflict: pass,
+    serverDerivedTenantOrganization: pass,
+    forceRls: pass,
+    competingWorkerSkipLocked: pass,
+    expiredLeaseReclaim: pass,
+    retryQuarantineDead: pass,
+    governedRedrivePermissionMfaJustification: pass,
+    immutableRedriveAuditCanonicalOutbox: pass,
+    idempotentRedriveReplay: pass,
+    redriveTenantOrganizationIsolation: pass,
+    canonicalOutboxOnly: pass,
+    rawPayloadNotPersistedOrLogged: pass,
   },
   boundaries: {
     publicWebhookController: false,
