@@ -12,6 +12,7 @@ permissions:
   pull-requests: write
   checks: read
   statuses: read
+  issues: write
 
 concurrency:
   group: platform-v7-safe-merge
@@ -87,73 +88,86 @@ jobs:
             echo "  - merged" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$prs"
 
-  squash-release-authority-3075:
+  patch-next-security-3043:
     if: >-
       github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request != null &&
-      github.event.issue.number == 3075 &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 3043 &&
       github.event.comment.user.login == github.repository_owner &&
-      github.event.comment.body == '/release squash-history 3075 b3fcbbf2098ea65b3b785df405280d799d453015'
+      github.event.comment.body == '/security patch-next 3043 15.5.21'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 60
     steps:
-      - name: Checkout exact release branch
+      - name: Checkout dedicated security branch
         uses: actions/checkout@v4
         with:
-          ref: ops/production-full-stack-release-v1
+          ref: agent/ir-sec-next-15-5-16-final
           fetch-depth: 0
 
-      - name: Rebuild clean exact-main lineage
+      - name: Patch exact Next.js dependency
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_HEAD: b3fcbbf2098ea65b3b785df405280d799d453015
-          RELEASE_BRANCH: ops/production-full-stack-release-v1
+          SECURITY_BRANCH: agent/ir-sec-next-15-5-16-final
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main
+          git reset --hard origin/main
 
-          actual_head="$(git rev-parse HEAD)"
-          [[ "$actual_head" == "$EXPECTED_HEAD" ]] || {
-            echo "Release head moved: expected $EXPECTED_HEAD, found $actual_head" >&2
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = 'apps/web/package.json';
+          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (manifest.dependencies?.next !== '15.5.18') {
+            throw new Error(`Expected next 15.5.18, received ${manifest.dependencies?.next ?? '<missing>'}`);
+          }
+          manifest.dependencies.next = '15.5.21';
+          fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+
+          corepack enable
+          corepack prepare pnpm@10.2.1 --activate
+          pnpm --filter @pc/web update next@15.5.21 --lockfile-only
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
+          if (manifest.dependencies?.next !== '15.5.21') throw new Error('Next.js exact pin failed');
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          if (!lock.includes('next@15.5.21')) throw new Error('Patched Next.js package missing from lockfile');
+          if (/next@15\.5\.18(?:\W|$)/u.test(lock)) throw new Error('Vulnerable Next.js package remains in lockfile');
+          NODE
+
+          expected="$({ printf '%s\n' 'apps/web/package.json' 'pnpm-lock.yaml'; } | sort)"
+          actual="$(git diff --name-only | sort)"
+          [[ "$actual" == "$expected" ]] || {
+            echo 'Unexpected dependency remediation paths:' >&2
+            diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
             exit 20
           }
 
-          git fetch --no-tags origin main
-          git merge --no-edit origin/main
-          git reset --soft origin/main
+          git diff --check
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/web typecheck
+          pnpm --filter @pc/web test
+          NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
+          pnpm audit --prod --audit-level high
 
-          expected_files="$({
-            printf '%s\n' \
-              '.github/workflows/docker-publish.yml' \
-              '.github/workflows/production-full-stack-exact-sha.yml' \
-              'docs/ops/production-full-stack-release.md' \
-              'scripts/check-production-full-stack-release.mjs' \
-              'scripts/production-full-stack-exact-sha.sh' \
-              'scripts/production-full-stack-live-acceptance.sh'
-          } | sort)"
-          actual_files="$(git diff --cached --name-only | sort)"
-          [[ "$actual_files" == "$expected_files" ]] || {
-            echo 'Clean squash scope mismatch.' >&2
-            diff -u <(printf '%s\n' "$expected_files") <(printf '%s\n' "$actual_files") || true
-            exit 21
-          }
+          git add apps/web/package.json pnpm-lock.yaml
+          git commit -m 'fix(security): patch Next.js to 15.5.21'
+          GITHUB_HEAD_REF="$SECURITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
+          git push origin "HEAD:$SECURITY_BRANCH"
 
-          git diff --cached --check
-          node scripts/check-production-full-stack-release.mjs
-          git commit -m 'feat(release): add REG.RU full-stack exact-SHA authority'
-          clean_head="$(git rev-parse HEAD)"
-
-          git push \
-            --force-with-lease="refs/heads/${RELEASE_BRANCH}:${EXPECTED_HEAD}" \
-            origin "HEAD:refs/heads/${RELEASE_BRANCH}"
-
-          gh pr comment 3075 --repo "$GITHUB_REPOSITORY" --body "Release history rebuilt from exact current main. Clean head: \`${clean_head}\`; final diff remains the six governed release-authority paths. No allowlist or gate weakening was introduced."
+          head_sha="$(git rev-parse HEAD)"
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js security remediation published. Head: \`${head_sha}\`; exact diff: \`apps/web/package.json\` and \`pnpm-lock.yaml\`; target: \`next@15.5.21\`; no exception or allowlist."
           {
-            echo '## Release history squash'
+            echo '## Next.js 15.5.21 remediation'
             echo
-            echo "- previous head: \`$EXPECTED_HEAD\`"
-            echo "- clean head: \`$clean_head\`"
-            echo '- result: PASS'
+            echo "- head: \`$head_sha\`"
+            echo '- changed paths: apps/web/package.json, pnpm-lock.yaml'
+            echo '- frozen install: PASS'
+            echo '- web typecheck/tests/build: PASS'
+            echo '- production high/critical audit: PASS'
           } >> "$GITHUB_STEP_SUMMARY"
