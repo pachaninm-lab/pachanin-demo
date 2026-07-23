@@ -12,13 +12,14 @@ Use this checklist only against the real production domain after the REG.RU virt
 - Active image reference/digest is recorded.
 - Rollback SHA and immutable image ID are recorded.
 
-A registry push, `latest` tag or automatic updater event is not sufficient without the running OCI revision check.
+A registry push, `latest` tag, local retag or automatic updater event is not sufficient without the running OCI revision check.
 
 ## 2. Hardened Compose runtime
 
 - Docker Compose is version `2.24.4` or later.
-- The protected base file and persistent hardening override both validate.
+- The protected base file, persistent hardening override and persistent exact-image override all validate.
 - Merged `web` service has no fixed `container_name`.
+- Merged `web.image` equals the requested immutable exact-SHA image.
 - Exactly one Compose-managed `web` container exists.
 - `com.docker.compose.project` label is present.
 - `com.docker.compose.service=web` label is present.
@@ -38,7 +39,7 @@ A registry push, `latest` tag or automatic updater event is not sufficient witho
 
 ## 4. Readiness and exact live revision
 
-- `/api/health/ready` returns HTTP 200.
+- `/api/health/ready` returns HTTP 200 for a hardened target.
 - Readiness payload reports `status=ok`.
 - Readiness payload contains the exact target revision.
 - `/manifest-pc-deploy.json` contains the same exact target revision.
@@ -138,7 +139,8 @@ For a web-only release, no API/data service restart is permitted.
 Record:
 
 - Git SHA;
-- image tag/digest;
+- exact image tag/digest;
+- merged Compose web image from the persistent image override;
 - running OCI revision;
 - Docker health state;
 - Compose project/service labels;
