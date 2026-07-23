@@ -9,9 +9,7 @@ PROD_COMPOSE_B64="${PROD_COMPOSE_B64:-}"
 PROD_PROJECT_B64="${PROD_PROJECT_B64:-}"
 
 decode() {
-  if [[ -n "$1" ]]; then
-    printf '%s' "$1" | base64 -d
-  fi
+  if [[ -n "$1" ]]; then printf '%s' "$1" | base64 -d; fi
 }
 
 fail() {
@@ -65,7 +63,7 @@ if [[ -z "$prod_dir" || -z "$prod_compose" ]]; then
     find /opt /srv /root /home -maxdepth 6 -type f \
       \( -name 'compose*.yml' -o -name 'compose*.yaml' -o -name 'docker-compose*.yml' -o -name 'docker-compose*.yaml' \) \
       -readable 2>/dev/null |
-      grep -v '/compose.production-hardening.override.yml$' |
+      grep -Ev '/compose\.production-(hardening|web-image)\.override\.yml$' |
       sort -u
   )
   (( ${#candidates[@]} == 1 )) || fail "unable to resolve one production Compose authority; candidates=${#candidates[@]}"
@@ -79,17 +77,20 @@ fi
 chmod 0700 "$remote_script" "$remote_live"
 
 if [[ "$ACTION" == audit ]]; then
-  active_override="$remote_override"
+  active_hardening_override="$remote_override"
   printf 'PERSISTENT_OVERRIDE_MUTATED=0\n'
 else
-  active_override="${prod_dir%/}/compose.production-hardening.override.yml"
-  install -m 0644 "$remote_override" "$active_override"
+  active_hardening_override="${prod_dir%/}/compose.production-hardening.override.yml"
+  install -m 0644 "$remote_override" "$active_hardening_override"
   printf 'PERSISTENT_OVERRIDE_MUTATED=1\n'
 fi
+
+image_override="${prod_dir%/}/compose.production-web-image.override.yml"
 
 PC_PROD_DIR="$prod_dir" \
 PC_PROD_COMPOSE="$prod_compose" \
 PC_PROD_PROJECT="$prod_project" \
-PC_HARDENING_OVERRIDE="$active_override" \
+PC_HARDENING_OVERRIDE="$active_hardening_override" \
+PC_IMAGE_OVERRIDE="$image_override" \
 PC_LIVE_ACCEPTANCE_SCRIPT="$remote_live" \
   "$remote_script" "$ACTION" "$TARGET_SHA"
