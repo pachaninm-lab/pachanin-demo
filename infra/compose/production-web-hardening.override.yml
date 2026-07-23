@@ -1,0 +1,11 @@
+services:
+  web:
+    container_name: !reset null
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  watchtower:
+    profiles:
+      - retired-watchtower
+    restart: "no"
