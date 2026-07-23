@@ -8,9 +8,15 @@ on:
       - 'CANONICAL_DEPLOY.md'
       - 'PRODUCTION_CUTOVER.md'
       - 'docs/ops/**'
+      - 'infra/compose/production-web-hardening.override.yml'
+      - 'infra/docker/Dockerfile.web'
+      - 'apps/web/app/api/health/ready/route.ts'
       - 'scripts/pilot-up.sh'
+      - 'scripts/production-web-*.sh'
       - 'scripts/check-production-hosting-authority.mjs'
+      - 'scripts/check-production-web-hardening.mjs'
       - '.github/workflows/production-hosting-authority.yml'
+      - '.github/workflows/production-web-exact-sha.yml'
   pull_request:
     branches: [main]
     paths:
@@ -18,9 +24,15 @@ on:
       - 'CANONICAL_DEPLOY.md'
       - 'PRODUCTION_CUTOVER.md'
       - 'docs/ops/**'
+      - 'infra/compose/production-web-hardening.override.yml'
+      - 'infra/docker/Dockerfile.web'
+      - 'apps/web/app/api/health/ready/route.ts'
       - 'scripts/pilot-up.sh'
+      - 'scripts/production-web-*.sh'
       - 'scripts/check-production-hosting-authority.mjs'
+      - 'scripts/check-production-web-hardening.mjs'
       - '.github/workflows/production-hosting-authority.yml'
+      - '.github/workflows/production-web-exact-sha.yml'
   workflow_dispatch:
 
 permissions:
@@ -32,12 +44,45 @@ concurrency:
 
 jobs:
   authority:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - name: Enforce REG.RU virtual-server production authority
         run: node scripts/check-production-hosting-authority.mjs
+      - name: Enforce exact-SHA web hardening contract
+        run: node scripts/check-production-web-hardening.mjs
+      - name: Validate hardening override merge semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/pc-compose-base.yml <<'YAML'
+          services:
+            web:
+              image: ghcr.io/pachaninm-lab/grainflow-web:local
+              container_name: legacy-fixed-web
+            watchtower:
+              image: containrrr/watchtower:latest
+              restart: always
+          YAML
+          docker compose \
+            -f /tmp/pc-compose-base.yml \
+            -f infra/compose/production-web-hardening.override.yml \
+            config --format json > /tmp/pc-compose-merged.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const model = JSON.parse(fs.readFileSync('/tmp/pc-compose-merged.json', 'utf8'));
+          const web = model.services?.web;
+          const watchtower = model.services?.watchtower;
+          if (!web) throw new Error('merged web service is missing');
+          if ('container_name' in web) throw new Error('fixed web container_name survived !reset');
+          if (!web.healthcheck?.test) throw new Error('web healthcheck is missing');
+          if (!Array.isArray(watchtower?.profiles) || !watchtower.profiles.includes('retired-watchtower')) {
+            throw new Error('Watchtower is not isolated behind retired-watchtower profile');
+          }
+          if (watchtower.restart !== 'no') throw new Error('Watchtower restart policy is not no');
+          console.log('PASS: Compose override removes the fixed name, adds health policy and retires Watchtower.');
+          NODE
