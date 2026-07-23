@@ -1,3 +1,5 @@
+import { Role, type RequestUser } from '../../common/types/request-user';
+import { StaffRole } from '../staff-access/staff-access.types';
 import {
   decideRegulatoryReplay,
   type RegulatoryReplayDecision,
@@ -5,6 +7,10 @@ import {
 import type {
   RegulatoryIntegrationState,
 } from './regulatory-integration.types';
+
+export const RegulatoryIntegrationPermission = {
+  INBOX_REDRIVE: 'regulatory-integration:inbox:redrive',
+} as const;
 
 export type RegulatoryInboxAuthorityContext = Readonly<
   | {
@@ -52,6 +58,18 @@ export class RegulatoryInboxAuthorityError extends Error {
   }
 }
 
+const REDRIVE_ACTOR_ROLES = new Set<string>([
+  Role.ADMIN,
+  Role.COMPLIANCE_OFFICER,
+]);
+
+const REDRIVE_STAFF_ROLES = new Set<string>([
+  StaffRole.PLATFORM_OWNER,
+  StaffRole.PLATFORM_ADMIN,
+  StaffRole.OPERATIONS_SUPERVISOR,
+  StaffRole.COMPLIANCE_STAFF,
+]);
+
 function isNonEmpty(value: string): boolean {
   return value.trim().length > 0;
 }
@@ -91,6 +109,56 @@ export function assertRegulatoryInboxIdentityAuthority(
 
   if (identity.organizationId !== authorityOrganizationId(context)) {
     throw new RegulatoryInboxAuthorityError('organization authority mismatch');
+  }
+}
+
+export function assertRegulatoryInboxRedriveAuthority(
+  user: RequestUser | undefined,
+  reason: string,
+  idempotencyKey: string,
+): void {
+  if (
+    !user?.id?.trim()
+    || !user.sessionId?.trim()
+    || !user.membershipId?.trim()
+    || !user.tenantId?.trim()
+    || !user.orgId?.trim()
+  ) {
+    throw new RegulatoryInboxAuthorityError(
+      'trusted identity is required for regulatory inbox redrive',
+    );
+  }
+
+  if (!REDRIVE_ACTOR_ROLES.has(user.role)) {
+    throw new RegulatoryInboxAuthorityError(
+      `${RegulatoryIntegrationPermission.INBOX_REDRIVE} permission is required`,
+    );
+  }
+
+  if (!user.staffRoles?.some((role) => REDRIVE_STAFF_ROLES.has(role))) {
+    throw new RegulatoryInboxAuthorityError(
+      `${RegulatoryIntegrationPermission.INBOX_REDRIVE} staff authority is required`,
+    );
+  }
+
+  if (!user.mfaVerified) {
+    throw new RegulatoryInboxAuthorityError(
+      'recent MFA verification is required for regulatory inbox redrive',
+    );
+  }
+
+  assertNonEmpty(reason, 'reason');
+  if (reason.trim().length < 12) {
+    throw new RegulatoryInboxAuthorityError(
+      'reason must contain at least 12 characters',
+    );
+  }
+
+  assertNonEmpty(idempotencyKey, 'idempotencyKey');
+  if (idempotencyKey.trim().length > 160) {
+    throw new RegulatoryInboxAuthorityError(
+      'idempotencyKey must not exceed 160 characters',
+    );
   }
 }
 
