@@ -4,8 +4,8 @@ set -euo pipefail
 TARGET_SHA="${1:-}"
 ACTION="${2:-deploy}"
 LIVE_BASE="${PC_LIVE_BASE:-https://xn----8sbjf4befbjgs9b.xn--p1ai}"
-ATTEMPTS="${PC_LIVE_ACCEPTANCE_ATTEMPTS:-45}"
-DELAY_SECONDS="${PC_LIVE_ACCEPTANCE_DELAY_SECONDS:-5}"
+ATTEMPTS="${PC_LIVE_ACCEPTANCE_ATTEMPTS:-12}"
+DELAY_SECONDS="${PC_LIVE_ACCEPTANCE_DELAY_SECONDS:-3}"
 
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || {
   echo 'A full lowercase 40-character target SHA is required.' >&2
