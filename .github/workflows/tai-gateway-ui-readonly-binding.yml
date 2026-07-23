@@ -1,222 +1,150 @@
-name: Apply TAI Gateway UI remediation
+name: TAI Gateway UI Read-only Binding
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-gateway-ui-readonly-binding.yml'
+      - 'apps/api/src/modules/ai-insights/ai-assistant-*.ts'
+      - 'apps/tai/governance/scopes/ap-17-gateway-ui-3004.json'
+      - 'apps/web/app/api/public-platform-assistant/route.ts'
+      - 'apps/web/components/platform-v7/AiAssistantPanel.tsx'
+      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+      - 'apps/web/lib/platform-v7/ai-gateway-stream.ts'
+      - 'apps/web/tests/unit/platformV7AiGatewayStream.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts'
+      - 'apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts'
+      - 'docs/platform-v7/ai/gateway-ui-readonly-runtime-binding.md'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
   push:
-    branches: [agent/tai-gateway-ui-readonly-3004]
-    paths: [.github/workflows/tai-gateway-ui-readonly-binding.yml]
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-gateway-ui-readonly-binding.yml'
+      - 'apps/api/src/modules/ai-insights/ai-assistant-*.ts'
+      - 'apps/web/app/api/public-platform-assistant/route.ts'
+      - 'apps/web/components/platform-v7/AiAssistantPanel.tsx'
+      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+      - 'apps/web/lib/platform-v7/ai-gateway-stream.ts'
+      - 'apps/web/tests/unit/platformV7AiGatewayStream.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts'
+      - 'apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: apply-tai-gateway-ui-remediation-3004
-  cancel-in-progress: false
+  group: tai-gateway-ui-readonly-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
 
 jobs:
-  remediate:
+  exact-head:
+    name: Exact-head read-only Gateway/UI acceptance
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact head
+        uses: actions/checkout@v4
         with:
-          ref: agent/tai-gateway-ui-readonly-3004
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-      - name: Resolve admitted-runtime and SSE review blockers
-        shell: bash
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enforce governed scope
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          git fetch --no-tags origin "${BASE_REF}" --depth=1
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
           from pathlib import Path
 
-          def replace(path, old, new):
-              p = Path(path)
-              text = p.read_text()
-              if old not in text:
-                  raise SystemExit(f"replacement anchor missing: {path}: {old[:100]!r}")
-              p.write_text(text.replace(old, new, 1))
-
-          proxy = 'apps/web/app/api/proxy/[...path]/route.ts'
-          replace(proxy, """      const response = await fetch(target, {
-        method: request.method,
-        headers,
-        body: requestBody,
-        cache: 'no-store',
-        signal: AbortSignal.timeout(8_000),
-      });
-      const text = await response.text();
-      return new NextResponse(text, {
-        status: response.status,
-        headers: {
-          'content-type': response.headers.get('content-type') || 'application/json',
-          'Cache-Control': 'no-store',
-        },
-      });
-""", """      const assistantStream = isAssistantPath(path);
-      const response = await fetch(target, {
-        method: request.method,
-        headers,
-        body: requestBody,
-        cache: 'no-store',
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(assistantStream ? 25_000 : 8_000)]),
-      });
-      const contentType = response.headers.get('content-type') || 'application/json';
-      if (assistantStream && contentType.toLowerCase().includes('text/event-stream')) {
-        return new NextResponse(response.body, {
-          status: response.status,
-          headers: {
-            'content-type': contentType,
-            'Cache-Control': 'no-store, max-age=0',
-            'X-Accel-Buffering': 'no',
-            Connection: 'keep-alive',
-          },
-        });
-      }
-      const text = await response.text();
-      return new NextResponse(text, {
-        status: response.status,
-        headers: {
-          'content-type': contentType,
-          'Cache-Control': 'no-store',
-        },
-      });
-""")
-
-          public = 'apps/web/app/api/public-platform-assistant/route.ts'
-          replace(public, "runtime: Readonly<{ id: string; imageDigest: string }>;", "runtime: Readonly<{ id: string; imageDigest: string; providerBaseUrl: string }>;")
-          replace(public, "const runtimeValue = strictRecord(root.runtime, ['id', 'imageDigest'], 'readiness_runtime');", "const runtimeValue = strictRecord(root.runtime, ['id', 'imageDigest', 'providerBaseUrl'], 'readiness_runtime');")
-          replace(public, """      runtime: Object.freeze({
-        id: boundedText(runtimeValue.id, 200, 'runtime_id'),
-        imageDigest: digest(runtimeValue.imageDigest, 'runtime_digest'),
-      }),
-""", """      runtime: Object.freeze({
-        id: boundedText(runtimeValue.id, 200, 'runtime_id'),
-        imageDigest: digest(runtimeValue.imageDigest, 'runtime_digest'),
-        providerBaseUrl: allowedUrl(
-          boundedText(runtimeValue.providerBaseUrl, 2_048, 'runtime_provider_base_url'),
-          'readiness_provider',
-        ).toString().replace(/\\/+$/u, ''),
-      }),
-""")
-          replace(public, """async function callModel(question: string, locale: PublicAssistantLocale, grounding: PublicGrounding): Promise<string> {
-  const baseUrl = process.env.AI_ASSISTANT_BASE_URL?.trim();
-  const model = process.env.AI_ASSISTANT_MODEL?.trim();
-  if (!baseUrl || !model) throw new Error('provider_configuration_missing');
-  const endpoint = new URL('chat/completions', `${allowedUrl(baseUrl, 'provider').toString().replace(/\\/+$/u, '')}/`);
-""", """async function callModel(
-  question: string,
-  locale: PublicAssistantLocale,
-  grounding: PublicGrounding,
-  readiness: Readiness,
-): Promise<string> {
-  const model = readiness.model.id;
-  const endpoint = new URL('chat/completions', `${readiness.runtime.providerBaseUrl}/`);
-  const admittedProvider = allowedUrl(readiness.runtime.providerBaseUrl, 'readiness_provider');
-  const generationProvider = allowedUrl(endpoint.toString(), 'provider');
-  if (generationProvider.origin !== admittedProvider.origin) throw new Error('provider_runtime_identity_mismatch');
-""")
-          replace(public, "const answer = await callModel(correctedQuestion, locale, grounding);", "const answer = await callModel(correctedQuestion, locale, grounding, readiness);")
-
-          insertion = """
-
-const ROLE_ONLY_WORDS = new Set([
-  'банк', 'покупатель', 'продавец', 'фермер', 'трейдер', 'элеватор', 'логист', 'водитель',
-  'bank', 'buyer', 'seller', 'farmer', 'trader', 'elevator', 'logistics', 'driver',
-  '银行', '买方', '卖方', '农户', '贸易商', '粮库', '物流', '司机',
-]);
-const ACTION_OR_TOPIC_WORDS = [
-  'как', 'что', 'почему', 'зачем', 'сколько', 'стоимость', 'цена', 'внедрение', 'сделк', 'аукцион',
-  'логист', 'прием', 'приём', 'документ', 'деньг', 'выплат', 'спор', 'фгис', 'интеграц', 'безопас',
-  'how', 'what', 'why', 'cost', 'price', 'implementation', 'deal', 'auction', 'payment', 'document',
-  'dispute', 'integration', 'security', '如何', '什么', '为什么', '价格', '实施', '交易', '竞价', '付款', '文件', '争议', '集成', '安全',
-] as const;
-
-function normalizeIntent(value: string): string {
-  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е').replace(/[^\\p{L}\\p{N}\\s]+/gu, ' ').replace(/\\s+/gu, ' ').trim();
-}
-
-function hasSubstantiveIntent(value: string): boolean {
-  const normalized = normalizeIntent(value);
-  const tokens = normalized.split(' ').filter(Boolean);
-  if (tokens.length === 0 || tokens.every((token) => ROLE_ONLY_WORDS.has(token))) return false;
-  return ACTION_OR_TOPIC_WORDS.some((word) => normalized.includes(word));
-}
-"""
-          p = Path(public)
-          text = p.read_text()
-          marker = "];\n\ntype Readiness"
-          if marker not in text:
-              raise SystemExit('public intent insertion anchor missing')
-          text = text.replace(marker, "];" + insertion + "\ntype Readiness", 1)
-          p.write_text(text)
-
-          replace(public, """    const readiness = await resolveReadiness();
-    const grounding = answerProspectQuestion(correctedQuestion, locale)
-      ?? answerPublicPlatformQuestion(correctedQuestion, locale);
-    const answer = await callModel(correctedQuestion, locale, grounding, readiness);
-""", """    const readiness = await resolveReadiness();
-    const substantiveIntent = hasSubstantiveIntent(correctedQuestion);
-    const prospectGrounding = substantiveIntent ? answerProspectQuestion(correctedQuestion, locale) : null;
-    const platformGrounding = answerPublicPlatformQuestion(correctedQuestion, locale);
-    const unresolved = understanding.ambiguous
-      || !substantiveIntent
-      || (!prospectGrounding && platformGrounding.confidence === 'medium' && understanding.corrections.length === 0);
-    if (unresolved) {
-      const clarification = locale === 'en'
-        ? 'Please clarify the platform or agribusiness topic. I will not invent an answer without verified grounding.'
-        : locale === 'zh'
-          ? '请明确平台或农业业务主题。没有已验证依据时，我不会编造答案。'
-          : 'Уточните тему платформы или агробизнеса. Без подтверждённого основания я не буду придумывать ответ.';
-      return json({
-        code: 'PUBLIC_ASSISTANT_CLARIFICATION_REQUIRED',
-        resolution: 'abstained',
-        retryable: false,
-        message: clarification,
-        actionAllowed: false,
-      }, 422);
-    }
-    const grounding = prospectGrounding ?? platformGrounding;
-    const answer = await callModel(correctedQuestion, locale, grounding, readiness);
-""")
-
-          replace('apps/web/components/platform-v7/PublicPlatformAssistant.tsx', """    } catch (reason) {
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
-      setMessages((current) => current.filter((message) => message.id !== streamMessageId || Boolean(message.text)));
-      setError(ui.error);
-""", """    } catch (reason) {
-      setMessages((current) => current.filter((message) => message.id !== streamMessageId));
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
-      setError(ui.error);
-""")
-          replace('apps/web/components/platform-v7/AiAssistantPanel.tsx', """    } catch (reason) {
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
-      setMessages((current) => current.filter((item) => item.id !== streamId || Boolean(item.content)));
-      setError(reason instanceof AiGatewayStreamError ? `${ui.error} (${reason.code})` : ui.error);
-""", """    } catch (reason) {
-      setMessages((current) => current.filter((item) => item.id !== streamId));
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
-      setError(reason instanceof AiGatewayStreamError ? `${ui.error} (${reason.code})` : ui.error);
-""")
-
-          test = Path('apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts')
-          text = test.read_text()
-          text = text.replace("expect(route).toContain('AI_ASSISTANT_BASE_URL');", "expect(route).toContain('providerBaseUrl');")
-          text = text.replace("expect(route).toContain('PUBLIC_ASSISTANT_RUNTIME_UNAVAILABLE');", "expect(route).toContain('PUBLIC_ASSISTANT_RUNTIME_UNAVAILABLE');\n    expect(route).toContain('PUBLIC_ASSISTANT_CLARIFICATION_REQUIRED');\n    expect(route).toContain(\"resolution: 'abstained'\");")
-          text = text.replace("expect(assistant).not.toContain('localStorage');", "expect(assistant).not.toContain('localStorage');\n    expect(assistant).toContain('message.id !== streamMessageId');\n    expect(assistant).not.toContain('message.id !== streamMessageId || Boolean(message.text)');")
-          test.write_text(text)
-
-          test = Path('apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts')
-          text = test.read_text()
-          text = text.replace("expect(proxy).toContain('const strictRealPath = requiresRealBackend(path)');", "expect(proxy).toContain('const strictRealPath = requiresRealBackend(path)');\n    expect(proxy).toContain('AbortSignal.any([request.signal');\n    expect(proxy).toContain('new NextResponse(response.body');\n    expect(proxy).toContain(\"includes('text/event-stream')\");")
-          text = text.replace("expect(panel).not.toContain(\"provider: 'local-deterministic'\");", "expect(panel).not.toContain(\"provider: 'local-deterministic'\");\n    expect(panel).toContain('item.id !== streamId');\n    expect(panel).not.toContain('item.id !== streamId || Boolean(item.content)');")
-          test.write_text(text)
+          scope = json.loads(Path('apps/tai/governance/scopes/ap-17-gateway-ui-3004.json').read_text())
+          allowed = set(scope['allowed_paths'])
+          base = os.environ['BASE_REF']
+          changed = subprocess.check_output(
+              ['git', 'diff', '--name-only', f'origin/{base}...HEAD'],
+              text=True,
+          ).splitlines()
+          forbidden = sorted(path for path in changed if path not in allowed)
+          if forbidden:
+              raise SystemExit('Forbidden AP-17 paths:\n' + '\n'.join(forbidden))
+          print(f'AP-17 governed scope PASS: {len(changed)} changed paths')
           PY
 
-          git checkout 29dd942ddd14425a19f0bf8893c8e6697282d766 -- .github/workflows/tai-gateway-ui-readonly-binding.yml
-      - name: Commit remediation
-        shell: bash
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API and web
         run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'fix(tai): bind admitted runtime and validate streamed answers'
-          git push origin HEAD:agent/tai-gateway-ui-readonly-3004
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee /tmp/tai-gateway-api-typecheck.log
+          pnpm --filter @pc/web typecheck 2>&1 | tee /tmp/tai-gateway-web-typecheck.log
+
+      - name: Focused API contract tests
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand \
+            src/modules/ai-insights/ai-assistant.controller.spec.ts \
+            2>&1 | tee /tmp/tai-gateway-api-tests.log
+
+      - name: Focused browser contract tests
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/platformV7AiGatewayStream.test.ts \
+            tests/unit/platformV7PublicAssistantTransportResilience.test.ts \
+            tests/unit/platformV7RoleScopedAiAssistant.test.ts \
+            2>&1 | tee /tmp/tai-gateway-web-tests.log
+
+      - name: Fail closed static audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          public_route = Path('apps/web/app/api/public-platform-assistant/route.ts').read_text()
+          public_ui = Path('apps/web/components/platform-v7/PublicPlatformAssistant.tsx').read_text()
+          private_ui = Path('apps/web/components/platform-v7/AiAssistantPanel.tsx').read_text()
+
+          required = {
+              'public admitted mode': 'admitted-read-only' in public_route,
+              'public provider': "provider: 'openai-compatible'" in public_route,
+              'public SSE': "Accept: 'text/event-stream'" in public_ui,
+              'private readiness': '/api/proxy/ai-assistant/readiness' in private_ui,
+              'private SSE': '/api/proxy/ai-assistant/chat/stream' in private_ui,
+              'private readiness gate': "availability !== 'ready'" in private_ui,
+          }
+          failed = [name for name, passed in required.items() if not passed]
+          forbidden = {
+              'public deterministic provider': "provider: 'local-deterministic'" in public_route,
+              'private legacy JSON chat': "fetch('/api/proxy/ai-assistant/chat'" in private_ui,
+              'browser localStorage': 'localStorage' in public_ui or 'localStorage' in private_ui,
+              'browser sessionStorage': 'sessionStorage' in public_ui or 'sessionStorage' in private_ui,
+          }
+          failed.extend(name for name, present in forbidden.items() if present)
+          if failed:
+              raise SystemExit('Read-only binding audit failed:\n' + '\n'.join(failed))
+          print('Read-only binding audit PASS')
+          PY
+
+      - name: Upload exact-head logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-gateway-ui-readonly-${{ github.event.pull_request.head.sha || github.sha }}
+          path: /tmp/tai-gateway-*.log
+          if-no-files-found: ignore
+          retention-days: 14
