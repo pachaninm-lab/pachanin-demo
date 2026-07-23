@@ -4,6 +4,21 @@ services:
     init: true
     restart: unless-stopped
     stop_grace_period: 30s
+    healthcheck:
+      test:
+        - CMD
+        - /nodejs/bin/node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/health/ready',{signal:AbortSignal.timeout(5000)})
+          .then((response)=>response.ok?true:fetch('http://127.0.0.1:3000/platform-v7',{signal:AbortSignal.timeout(5000)}).then((fallback)=>fallback.ok))
+          .then((ok)=>{if(!ok)process.exit(1)})
+          .catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 7s
+      retries: 3
+      start_period: 45s
+      start_interval: 5s
 
   watchtower:
     profiles:
