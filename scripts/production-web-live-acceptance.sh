@@ -4,6 +4,8 @@ set -euo pipefail
 TARGET_SHA="${1:-}"
 ACTION="${2:-deploy}"
 LIVE_BASE="${PC_LIVE_BASE:-https://xn----8sbjf4befbjgs9b.xn--p1ai}"
+ATTEMPTS="${PC_LIVE_ACCEPTANCE_ATTEMPTS:-45}"
+DELAY_SECONDS="${PC_LIVE_ACCEPTANCE_DELAY_SECONDS:-5}"
 
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || {
   echo 'A full lowercase 40-character target SHA is required.' >&2
@@ -13,14 +15,22 @@ LIVE_BASE="${PC_LIVE_BASE:-https://xn----8sbjf4befbjgs9b.xn--p1ai}"
   echo 'Live acceptance action must be deploy or rollback.' >&2
   exit 3
 }
+[[ "$ATTEMPTS" =~ ^[0-9]+$ ]] && (( ATTEMPTS >= 1 && ATTEMPTS <= 90 )) || {
+  echo 'PC_LIVE_ACCEPTANCE_ATTEMPTS must be between 1 and 90.' >&2
+  exit 4
+}
+[[ "$DELAY_SECONDS" =~ ^[0-9]+$ ]] && (( DELAY_SECONDS >= 1 && DELAY_SECONDS <= 30 )) || {
+  echo 'PC_LIVE_ACCEPTANCE_DELAY_SECONDS must be between 1 and 30.' >&2
+  exit 5
+}
 
-for attempt in $(seq 1 45); do
+for attempt in $(seq 1 "$ATTEMPTS"); do
   cache_bust="${TARGET_SHA:0:7}-${attempt}-$(date +%s)"
-  health="$(curl -fsSL --compressed --max-time 20 "$LIVE_BASE/api/health/ready?release=$cache_bust" 2>/dev/null || true)"
-  manifest="$(curl -fsSL --compressed --max-time 20 "$LIVE_BASE/manifest-pc-deploy.json?release=$cache_bust" 2>/dev/null || true)"
-  ru_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 20 "$LIVE_BASE/platform-v7?lang=ru&release=$cache_bust" || true)"
-  en_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 20 "$LIVE_BASE/platform-v7?lang=en&release=$cache_bust" || true)"
-  zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 20 "$LIVE_BASE/platform-v7?lang=zh&release=$cache_bust" || true)"
+  health="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/api/health/ready?release=$cache_bust" 2>/dev/null || true)"
+  manifest="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/manifest-pc-deploy.json?release=$cache_bust" 2>/dev/null || true)"
+  ru_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 15 "$LIVE_BASE/platform-v7?lang=ru&release=$cache_bust" || true)"
+  en_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 15 "$LIVE_BASE/platform-v7?lang=en&release=$cache_bust" || true)"
+  zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 15 "$LIVE_BASE/platform-v7?lang=zh&release=$cache_bust" || true)"
 
   health_ok=0
   if [[ "$ACTION" == rollback ]]; then
@@ -32,8 +42,8 @@ for attempt in $(seq 1 45); do
   if (( health_ok == 1 )) &&
     grep -Fq "$TARGET_SHA" <<< "$manifest" &&
     [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]]; then
-    curl -fsSL --compressed --max-time 20 "$LIVE_BASE/robots.txt" >/dev/null
-    curl -fsSL --compressed --max-time 20 "$LIVE_BASE/sitemap.xml" >/dev/null
+    curl -fsSL --compressed --max-time 15 "$LIVE_BASE/robots.txt" >/dev/null
+    curl -fsSL --compressed --max-time 15 "$LIVE_BASE/sitemap.xml" >/dev/null
     printf 'LIVE_ACCEPTANCE=PASS\n'
     printf 'LIVE_ACTION=%s\n' "$ACTION"
     printf 'LIVE_REVISION=%s\n' "$TARGET_SHA"
@@ -41,12 +51,12 @@ for attempt in $(seq 1 45); do
     exit 0
   fi
 
-  printf 'LIVE_ATTEMPT=%s action=%s health=%s manifest_sha=%s codes=ru:%s,en:%s,zh:%s\n' \
-    "$attempt" "$ACTION" \
+  printf 'LIVE_ATTEMPT=%s/%s action=%s health=%s manifest_sha=%s codes=ru:%s,en:%s,zh:%s\n' \
+    "$attempt" "$ATTEMPTS" "$ACTION" \
     "$([[ "$health_ok" == 1 ]] && echo accepted || echo mismatch)" \
     "$(grep -Fq "$TARGET_SHA" <<< "$manifest" && echo match || echo mismatch)" \
     "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}"
-  sleep 5
+  sleep "$DELAY_SECONDS"
 done
 
 echo 'Exact live web acceptance failed.' >&2
