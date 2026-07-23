@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   ServiceUnavailableException,
-  TooManyRequestsException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -32,6 +34,7 @@ type ExistingRequestRow = {
   request_number: string;
   status: string;
   payload_hash: string;
+  correlation_id: string;
 };
 
 type CreateContext = Readonly<{
@@ -52,7 +55,7 @@ function cleanText(value: string): string {
 function normalizePhone(value: string): string {
   const raw = String(value ?? '').trim();
   const digits = raw.replace(/\D/g, '');
-  if (digits.length < 7 || digits.length > 15) throw new ConflictException('INVALID_PHONE');
+  if (digits.length < 7 || digits.length > 15) throw new BadRequestException('INVALID_PHONE');
   if (digits.length === 11 && digits.startsWith('8')) return `+7${digits.slice(1)}`;
   if (digits.length === 10) return `+7${digits}`;
   return `+${digits}`;
@@ -62,10 +65,9 @@ function canonicalHash(value: NormalizedRequest): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function publicEventPayload(params: {
+function safeOperationalEvent(params: {
   requestId: string;
   requestNumber: string;
-  payloadHash: string;
   request: NormalizedRequest;
   createdAt: Date;
 }) {
@@ -77,7 +79,6 @@ function publicEventPayload(params: {
     locale: params.request.locale,
     organizationRole: params.request.organizationRole,
     scenario: params.request.scenario,
-    payloadHash: params.payloadHash,
     consentVersion: params.request.consentVersion,
     createdAt: params.createdAt.toISOString(),
   };
@@ -98,34 +99,42 @@ export class OrganizationIntakeService {
   async create(dto: CreateOrganizationIntakeDto, context: CreateContext): Promise<OrganizationIntakeResponse> {
     const idempotencyKey = String(context.idempotencyKey ?? '').trim();
     if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
-      throw new ConflictException('INVALID_IDEMPOTENCY_KEY');
+      throw new BadRequestException('INVALID_IDEMPOTENCY_KEY');
     }
     const sourceIp = String(context.sourceIp ?? '').trim();
     if (!sourceIp) throw new ServiceUnavailableException('REQUEST_SOURCE_UNAVAILABLE');
+    if (String(dto.website ?? '').trim()) throw new BadRequestException('INVALID_REQUEST');
+
     const correlationId = CORRELATION_PATTERN.test(String(context.correlationId ?? '').trim())
       ? String(context.correlationId).trim()
       : randomUUID();
-
     const request = this.normalize(dto);
     const payloadHash = canonicalHash(request);
 
     const ipDecision = await this.rateLimit.consume('public_org_connect_ip', sourceIp, 5, 15 * 60);
-    if (!ipDecision.allowed) throw new TooManyRequestsException('PUBLIC_INTAKE_RATE_LIMITED');
+    if (!ipDecision.allowed) {
+      throw new HttpException('PUBLIC_INTAKE_RATE_LIMITED', HttpStatus.TOO_MANY_REQUESTS);
+    }
 
     const replay = await this.findByIdempotencyKey(idempotencyKey);
-    if (replay) return this.replayOrConflict(replay, payloadHash, correlationId);
+    if (replay) return this.replayOrConflict(replay, payloadHash);
 
     const emailDecision = await this.rateLimit.consume('public_org_connect_email', request.email, 3, 24 * 60 * 60);
-    if (!emailDecision.allowed) throw new TooManyRequestsException('PUBLIC_INTAKE_RATE_LIMITED');
+    if (!emailDecision.allowed) {
+      throw new HttpException('PUBLIC_INTAKE_RATE_LIMITED', HttpStatus.TOO_MANY_REQUESTS);
+    }
 
     for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
         return await this.persist(request, payloadHash, idempotencyKey, correlationId);
       } catch (error) {
+        if (error instanceof BadRequestException || error instanceof ConflictException || error instanceof HttpException) {
+          throw error;
+        }
         if (attempt < MAX_TRANSACTION_ATTEMPTS && isRetryableTransactionError(error)) continue;
         const concurrent = await this.findByIdempotencyKey(idempotencyKey).catch(() => null);
-        if (concurrent) return this.replayOrConflict(concurrent, payloadHash, correlationId);
-        throw error;
+        if (concurrent) return this.replayOrConflict(concurrent, payloadHash);
+        throw new ServiceUnavailableException('PUBLIC_INTAKE_TRANSACTION_UNAVAILABLE');
       }
     }
 
@@ -153,7 +162,8 @@ export class OrganizationIntakeService {
         id,
         "requestNumber" AS request_number,
         status,
-        "payloadHash" AS payload_hash
+        "payloadHash" AS payload_hash,
+        "correlationId" AS correlation_id
       FROM public.public_organization_connection_requests
       WHERE "idempotencyKey" = ${idempotencyKey}
       LIMIT 1
@@ -161,11 +171,7 @@ export class OrganizationIntakeService {
     return rows[0] ?? null;
   }
 
-  private replayOrConflict(
-    existing: ExistingRequestRow,
-    payloadHash: string,
-    correlationId: string,
-  ): OrganizationIntakeResponse {
+  private replayOrConflict(existing: ExistingRequestRow, payloadHash: string): OrganizationIntakeResponse {
     if (existing.payload_hash !== payloadHash) {
       throw new ConflictException('IDEMPOTENCY_PAYLOAD_MISMATCH');
     }
@@ -173,7 +179,7 @@ export class OrganizationIntakeService {
       requestNumber: existing.request_number,
       status: existing.status,
       replay: true,
-      correlationId,
+      correlationId: existing.correlation_id,
     };
   }
 
@@ -189,7 +195,7 @@ export class OrganizationIntakeService {
     const requestNumber = this.issueRequestNumber();
     const createdAt = new Date();
     const retentionUntil = new Date(createdAt.getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const event = publicEventPayload({ requestId, requestNumber, payloadHash, request, createdAt });
+    const event = safeOperationalEvent({ requestId, requestNumber, request, createdAt });
     const auditHash = createHash('sha256').update(JSON.stringify({
       id: auditId,
       action: 'public:organization-intake:create',
@@ -198,7 +204,7 @@ export class OrganizationIntakeService {
       objectType: 'PublicOrganizationConnectionRequest',
       objectId: requestId,
       outcome: 'SUCCESS',
-      payloadHash,
+      event,
     })).digest('hex');
 
     return this.prisma.$transaction(async (tx) => {
@@ -211,13 +217,14 @@ export class OrganizationIntakeService {
           id,
           "requestNumber" AS request_number,
           status,
-          "payloadHash" AS payload_hash
+          "payloadHash" AS payload_hash,
+          "correlationId" AS correlation_id
         FROM public.public_organization_connection_requests
         WHERE "idempotencyKey" = ${idempotencyKey}
         LIMIT 1
       `);
       const existing = existingRows[0];
-      if (existing) return this.replayOrConflict(existing, payloadHash, correlationId);
+      if (existing) return this.replayOrConflict(existing, payloadHash);
 
       await tx.$executeRaw(Prisma.sql`
         INSERT INTO public.audit_events (
@@ -299,7 +306,11 @@ export class OrganizationIntakeService {
         replay: false,
         correlationId,
       };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 10_000,
+    });
   }
 
   private issueRequestNumber(): string {
