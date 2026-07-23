@@ -48,6 +48,13 @@ function requireText(key, needles) {
   }
 }
 
+function requirePattern(key, pattern, description) {
+  const source = content.get(key) || '';
+  if (!pattern.test(source)) {
+    failures.push(`${files[key]}: missing ${description}`);
+  }
+}
+
 function forbidText(key, needles) {
   const source = content.get(key) || '';
   for (const needle of needles) {
@@ -89,8 +96,12 @@ requireText('schema', [
   '@@map("regulatory_integration_inbox_entries")',
   '@@map("regulatory_integration_inbox_conflicts")',
   'regulatoryIntegrationInboxEntries',
-  'conflicts     RegulatoryIntegrationInboxConflict[]',
 ]);
+requirePattern(
+  'schema',
+  /\bconflicts\s+RegulatoryIntegrationInboxConflict\[\]/u,
+  'formatted reverse relation conflicts RegulatoryIntegrationInboxConflict[]',
+);
 
 requireText('types', [
   "'RECEIVED'",
