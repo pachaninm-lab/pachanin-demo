@@ -7,8 +7,8 @@ const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const form = read('components/platform-v7/OrganizationConnectForm.tsx');
 const copy = read('i18n/platform-v7-organization-connect.ts');
 const bff = read('app/api/platform-v7/organization-connect/route.ts');
-const apiService = read('../api/src/modules/organization-intake/organization-intake.service.ts'.replace('../api/', '../../api/'));
-const migration = read('../api/prisma/migrations/20260723113000_public_organization_connection_intake/migration.sql'.replace('../api/', '../../api/'));
+const apiService = read('../api/src/modules/organization-intake/organization-intake.service.ts');
+const migration = read('../api/prisma/migrations/20260723113000_public_organization_connection_intake/migration.sql');
 
 describe('platform-v7 durable organization connection intake', () => {
   it('submits through a same-origin BFF and displays a server-issued receipt', () => {
