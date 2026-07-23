@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 FROM node:24-bookworm-slim AS build
+ARG GIT_COMMIT=unknown
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /workspace
@@ -13,6 +14,7 @@ RUN apt-get update \
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
+RUN COMMIT_REF="$GIT_COMMIT" BRANCH=main node scripts/write-deploy-evidence.mjs
 RUN pnpm --filter @pc/web build
 RUN rm -rf /workspace/apps/web/.next/cache
 RUN pnpm --filter @pc/web --prod deploy --legacy /prod/web
@@ -29,6 +31,7 @@ LABEL org.opencontainers.image.title="Prozrachnaya Cena web" \
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV APP_REVISION=$GIT_COMMIT
 WORKDIR /app
 
 COPY --from=build --chown=nonroot:nonroot /prod/web/ ./
@@ -37,4 +40,6 @@ COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/public ./public
 
 EXPOSE 3000
 USER nonroot
+HEALTHCHECK --interval=30s --timeout=7s --start-period=45s --retries=3 \
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready',{signal:AbortSignal.timeout(5000)}).then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node_modules/next/dist/bin/next", "start", "-p", "3000"]
