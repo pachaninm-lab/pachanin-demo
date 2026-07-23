@@ -18,20 +18,24 @@ jobs:
   apply:
     if: github.head_ref == 'security/next-15-5-21-hotfix'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
           ref: security/next-15-5-21-hotfix
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: pnpm
+
       - name: Apply exact patch dependency update
         shell: bash
         run: |
           set -euo pipefail
-          corepack enable
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -45,37 +49,49 @@ jobs:
           PY
           pnpm install --lockfile-only
           pnpm install --frozen-lockfile
-      - name: Verify security and compatibility
+          node -e "const p=require('./apps/web/package.json'); if(p.dependencies.next!=='15.5.21'||p.dependencies.react!=='18.3.1'||p.dependencies['react-dom']!=='18.3.1') process.exit(1)"
+          git diff --check
+
+      - name: Run strict web typecheck
+        run: pnpm --filter @pc/web typecheck
+
+      - name: Run production web build
+        run: pnpm --filter @pc/web build
+
+      - name: Collect canonical production dependency audit
         shell: bash
         run: |
           set -euo pipefail
-          pnpm --filter @pc/web typecheck
-          pnpm --filter @pc/web build
+          mkdir -p artifacts/security
+          pnpm -r list --prod --json --depth Infinity > artifacts/security/pnpm-production-dependencies.json
           set +e
-          pnpm audit --prod --audit-level high --json > /tmp/pnpm-audit-next-15-5-21.json
-          audit_rc=$?
+          NPM_BULK_AUDIT_INPUT=artifacts/security/pnpm-production-dependencies.json \
+          PNPM_AUDIT_JSON=artifacts/security/pnpm-audit.json \
+          NPM_REGISTRY_URL=https://registry.npmjs.org \
+          node docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs \
+            > artifacts/security/pnpm-audit.stdout.txt \
+            2> artifacts/security/pnpm-audit.stderr.txt
+          audit_exit=$?
           set -e
-          node - /tmp/pnpm-audit-next-15-5-21.json <<'NODE'
-          const fs = require('node:fs');
-          const path = process.argv[2];
-          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const advisories = Object.values(payload.advisories || {});
-          const blocked = advisories.filter((item) => ['high','critical'].includes(String(item.severity || '').toLowerCase()));
-          if (blocked.length) {
-            console.error(JSON.stringify(blocked.map(({id,module_name,severity,title,vulnerable_versions,url}) => ({id,module_name,severity,title,vulnerable_versions,url})), null, 2));
-            process.exit(1);
-          }
-          NODE
-          test "$audit_rc" -eq 0 || {
-            echo 'pnpm audit returned non-zero without HIGH/CRITICAL findings; refusing ambiguous scanner state.' >&2
-            exit 21
-          }
-          node -e "const p=require('./apps/web/package.json'); if(p.dependencies.next!=='15.5.21'||p.dependencies.react!=='18.3.1'||p.dependencies['react-dom']!=='18.3.1') process.exit(1)"
-          git diff --check
+          echo "PNPM_AUDIT_EXIT=$audit_exit" >> "$GITHUB_ENV"
+
+      - name: Evaluate canonical audit fail closed
+        env:
+          SECURITY_EXACT_HEAD: ${{ github.event.pull_request.head.sha }}
+          PNPM_AUDIT_JSON: artifacts/security/pnpm-audit.json
+          PNPM_AUDIT_STDERR: artifacts/security/pnpm-audit.stderr.txt
+          PNPM_AUDIT_REPORT: artifacts/security/pnpm-audit-evaluation.json
+        run: node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
+
       - name: Record bounded evidence and remove executor
         shell: bash
         run: |
           set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('artifacts/security/pnpm-audit-evaluation.json', 'utf8'));
+          if (report.passed !== true || report.blocked.length !== 0 || report.highOrCriticalFindings.length !== 0) process.exit(1);
+          NODE
           mkdir -p docs/security
           cat > docs/security/next-15-5-21-security-hotfix.md <<'MD'
           # Next.js 15.5.21 security hotfix
@@ -95,11 +111,13 @@ jobs:
           - frozen-lockfile install;
           - `@pc/web` strict typecheck;
           - `@pc/web` production build;
-          - production dependency audit with zero HIGH/CRITICAL findings;
+          - canonical npm Bulk Advisory collection and repository fail-closed evaluation;
+          - zero HIGH/CRITICAL production dependency findings;
           - React and React DOM remained `18.3.1`;
           - no application, route, UI, API or production deployment change.
           MD
           git rm .github/workflows/apply-next-15-5-21-hotfix.yml
+
       - name: Commit verified hotfix
         shell: bash
         run: |
@@ -112,3 +130,12 @@ jobs:
           diff -u /tmp/expected-files /tmp/actual-files
           git commit -m 'fix(web): update Next.js to 15.5.21 for security advisories'
           git push origin HEAD:security/next-15-5-21-hotfix
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-15-5-21-security-hotfix-${{ github.run_id }}
+          path: artifacts/security
+          if-no-files-found: warn
+          retention-days: 90
