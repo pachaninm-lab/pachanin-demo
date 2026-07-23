@@ -62,6 +62,7 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
       scenario: String(values.get('scenario') || ''),
       locale: locale === 'en' || locale === 'zh' ? locale : 'ru',
       consent: values.get('consent') === 'on',
+      website: String(values.get('website') || ''),
     };
 
     setError('');
@@ -133,6 +134,7 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
           {result.replay ? <p className={styles.replay}>{copy.replayText}</p> : null}
         </div>
       </div> : <form className={styles.form} onSubmit={onSubmit} noValidate data-ready={ready ? 'true' : 'false'} aria-busy={submitting || !ready}>
+        <label className={styles.honeypot} aria-hidden='true'>Website<input name='website' type='text' tabIndex={-1} autoComplete='off' /></label>
         <label><span>{copy.organization}</span><input name='organizationName' autoComplete='organization' minLength={2} maxLength={200} required disabled={!ready || submitting} /></label>
         <label><span>{copy.inn}</span><input name='inn' inputMode='numeric' pattern='[0-9]{10}|[0-9]{12}' maxLength={12} required disabled={!ready || submitting} /></label>
         <label><span>{copy.name}</span><input name='contactName' autoComplete='name' minLength={2} maxLength={160} required disabled={!ready || submitting} /></label>
