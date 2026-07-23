@@ -95,7 +95,7 @@ jobs:
           PNPM_AUDIT_REPORT: artifacts/security/pnpm-audit-evaluation.json
         run: node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
 
-      - name: Record bounded evidence
+      - name: Validate bounded evidence
         shell: bash
         run: |
           set -euo pipefail
@@ -104,41 +104,17 @@ jobs:
           const report = JSON.parse(fs.readFileSync('artifacts/security/pnpm-audit-evaluation.json', 'utf8'));
           if (report.passed !== true || report.blocked.length !== 0 || report.highOrCriticalFindings.length !== 0) process.exit(1);
           NODE
-          mkdir -p docs/security
-          cat > docs/security/next-15-5-21-security-hotfix.md <<'MD'
-          # Next.js 15.5.21 security hotfix
 
-          Status: source acceptance PASS on the implementation branch; production deployment is not claimed here.
-
-          Exact change: `apps/web` Next.js `15.5.18` → `15.5.21`, with the corresponding pnpm lockfile update.
-
-          Closed unexcepted HIGH advisories:
-
-          - `GHSA-89xv-2m56-2m9x` — Server-Side Request Forgery in Server Actions on custom servers;
-          - `GHSA-m99w-x7hq-7vfj` — Denial of Service in App Router using Server Actions;
-          - `GHSA-p9j2-gv94-2wf4` — Server-Side Request Forgery in rewrites via attacker-controlled destination hostname.
-
-          Acceptance executed before commit:
-
-          - frozen-lockfile install;
-          - `@pc/web` strict typecheck;
-          - `@pc/web` production build;
-          - canonical npm Bulk Advisory collection and repository fail-closed evaluation;
-          - zero HIGH/CRITICAL production dependency findings;
-          - React and React DOM remained `18.3.1`;
-          - no application, route, UI, API or production deployment change.
-          MD
-
-      - name: Publish verified hotfix PR
+      - name: Publish verified two-file hotfix PR
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_BRANCH: agent/ir-sec-next-15-5-16-final
         shell: bash
         run: |
           set -euo pipefail
-          git add apps/web/package.json docs/security/next-15-5-21-security-hotfix.md pnpm-lock.yaml
+          git add apps/web/package.json pnpm-lock.yaml
           git diff --cached --name-only | sort > /tmp/actual-files
-          printf '%s\n' apps/web/package.json docs/security/next-15-5-21-security-hotfix.md pnpm-lock.yaml | sort > /tmp/expected-files
+          printf '%s\n' apps/web/package.json pnpm-lock.yaml | sort > /tmp/expected-files
           diff -u /tmp/expected-files /tmp/actual-files
           git commit -m 'fix(web): update Next.js to 15.5.21 for security advisories'
           GITHUB_HEAD_REF="$TARGET_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
@@ -157,11 +133,11 @@ jobs:
               --base main \
               --head "$TARGET_BRANCH" \
               --title 'Patch Next.js 15.5.18 to 15.5.21' \
-              --body 'Exact security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json, pnpm-lock.yaml and bounded evidence. No exception, React upgrade, product code or production deployment change. Merge requires the full repository CI/security matrix.'
+              --body 'Exact two-file security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json and pnpm-lock.yaml. No exception, React upgrade, product code or production deployment change. Source acceptance passed; merge requires the full repository CI/security matrix.'
             pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --state open --json number --jq '.[0].number')"
           fi
           head_sha="$(git rev-parse HEAD)"
-          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 hotfix PR published: #${pr_number}; head \`${head_sha}\`; source acceptance PASS; full repository CI is authoritative."
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 hotfix PR published: #${pr_number}; head \`${head_sha}\`; exact two-file diff; source acceptance PASS; full repository CI is authoritative."
 
       - name: Upload audit evidence
         if: always()
