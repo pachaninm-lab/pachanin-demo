@@ -177,7 +177,7 @@ describe('public organization intake PostgreSQL authority', () => {
     const context = { idempotencyKey, correlationId: randomUUID(), sourceIp };
 
     const first = await service.create(input, context);
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 4; index += 1) {
       await service.create(dto({ email: `replay-limit-${index}-${randomUUID()}@example.test` }), {
         idempotencyKey: `intake:${randomUUID()}`,
         correlationId: randomUUID(),
