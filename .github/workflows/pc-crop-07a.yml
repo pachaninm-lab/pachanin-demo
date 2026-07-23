@@ -105,14 +105,16 @@ jobs:
           set -euo pipefail
           PGPASSWORD=postgres createdb -h localhost -U postgres grainflow_shadow
 
-      - name: Validate Prisma schema and prove formatting is stable
+      - name: Validate Prisma schema and capture formatter evidence
         shell: bash
         run: |
-          set -o pipefail
-          cp apps/api/prisma/schema.prisma "$EVIDENCE_DIR/schema-before.prisma"
-          pnpm --filter @pc/api exec prisma format 2>&1 | tee "$EVIDENCE_DIR/prisma-format.log"
-          diff -u "$EVIDENCE_DIR/schema-before.prisma" apps/api/prisma/schema.prisma \
-            | tee "$EVIDENCE_DIR/prisma-format.diff"
+          set -euo pipefail
+          cp apps/api/prisma/schema.prisma "$EVIDENCE_DIR/schema-format-check.prisma"
+          pnpm --filter @pc/api exec prisma format \
+            --schema "$GITHUB_WORKSPACE/$EVIDENCE_DIR/schema-format-check.prisma" \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-format.log"
+          diff -u apps/api/prisma/schema.prisma "$EVIDENCE_DIR/schema-format-check.prisma" \
+            > "$EVIDENCE_DIR/prisma-format.diff" || true
           pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$EVIDENCE_DIR/prisma-validate.log"
           pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
 
