@@ -440,7 +440,12 @@ describe('PC-CROP-07A PostgreSQL 16 durable inbox acceptance', () => {
       correlationId: `${correlationId}.foreign`,
     })).rejects.toBeInstanceOf(RegulatoryInboxLifecycleError);
 
-    await expect(lifecycleA.redrive(USER_A, {
+    await expect(lifecycleA.redrive({
+      ...USER_A,
+      membershipId: `${RUN_ID}.membership-unauthorized`,
+      staffRoles: [],
+      mfaVerified: true,
+    }, {
       entryId: received.entryId,
       reason,
       idempotencyKey: `${idempotencyKey}.unauthorized`,
@@ -463,7 +468,10 @@ describe('PC-CROP-07A PostgreSQL 16 durable inbox acceptance', () => {
     );
     if (received.kind === 'CONFLICT') throw new Error('unexpected conflict');
     await verify(lifecycleA, USER_A, received.entryId);
-    const [claim] = await inboxA.claimBatch(USER_A, 'worker-ack', 1, 60);
+    const claims = await inboxA.claimBatch(USER_A, 'worker-ack', 25, 60);
+    const claim = claims.find((entry) => entry.id === received.entryId);
+    expect(claim).toBeDefined();
+    if (claim === undefined) throw new Error('ACK test entry was not claimable');
 
     await expect(
       inboxA.complete(USER_A, 'worker-ack', claim.id, true),
