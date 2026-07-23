@@ -236,6 +236,9 @@ scripts/security/capture-base-security-jobs.mjs
 scripts/write-deploy-evidence.mjs
 scripts/p7-autopilot-guard.sh'
 
+HOMEPAGE_PRODUCTION_UNBLOCK_GOVERNANCE_SCOPE='docs/platform-v7/autopilot/scopes/homepage-production-unblock-v1.json
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/exact-approved-header-logo" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -298,6 +301,10 @@ fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$EXACT_MAIN_LIVE_EVIDENCE_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "governance/homepage-production-unblock-manifest-v1" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$HOMEPAGE_PRODUCTION_UNBLOCK_GOVERNANCE_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
