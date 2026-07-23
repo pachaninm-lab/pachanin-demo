@@ -1,12 +1,14 @@
 name: Apply TAI Gateway UI remediation
 
 on:
-  push:
-    branches: [agent/tai-gateway-ui-readonly-3004]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
     paths: [.github/workflows/tai-gateway-ui-readonly-binding.yml]
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: apply-tai-gateway-ui-remediation-3004
@@ -14,25 +16,35 @@ concurrency:
 
 jobs:
   remediate:
+    if: github.head_ref == 'agent/tai-gateway-ui-readonly-3004'
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
           ref: agent/tai-gateway-ui-readonly-3004
           fetch-depth: 0
-      - name: Resolve admitted-runtime and SSE review blockers
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Apply four bounded review remediations
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          def replace(path, old, new):
-              p = Path(path)
-              text = p.read_text()
+          def replace(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text()
               if old not in text:
-                  raise SystemExit(f"replacement anchor missing: {path}: {old[:100]!r}")
-              p.write_text(text.replace(old, new, 1))
+                  raise SystemExit(f'anchor missing in {path}: {old[:120]!r}')
+              target.write_text(text.replace(old, new, 1))
 
           proxy = 'apps/web/app/api/proxy/[...path]/route.ts'
           replace(proxy, """      const response = await fetch(target, {
@@ -56,7 +68,10 @@ jobs:
         headers,
         body: requestBody,
         cache: 'no-store',
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(assistantStream ? 25_000 : 8_000)]),
+        signal: AbortSignal.any([
+          request.signal,
+          AbortSignal.timeout(assistantStream ? 25_000 : 8_000),
+        ]),
       });
       const contentType = response.headers.get('content-type') || 'application/json';
       if (assistantStream && contentType.toLowerCase().includes('text/event-stream')) {
@@ -80,57 +95,33 @@ jobs:
       });
 """)
 
-          public = 'apps/web/app/api/public-platform-assistant/route.ts'
-          replace(public, "runtime: Readonly<{ id: string; imageDigest: string }>;", "runtime: Readonly<{ id: string; imageDigest: string; providerBaseUrl: string }>;")
-          replace(public, "const runtimeValue = strictRecord(root.runtime, ['id', 'imageDigest'], 'readiness_runtime');", "const runtimeValue = strictRecord(root.runtime, ['id', 'imageDigest', 'providerBaseUrl'], 'readiness_runtime');")
-          replace(public, """      runtime: Object.freeze({
-        id: boundedText(runtimeValue.id, 200, 'runtime_id'),
-        imageDigest: digest(runtimeValue.imageDigest, 'runtime_digest'),
-      }),
-""", """      runtime: Object.freeze({
-        id: boundedText(runtimeValue.id, 200, 'runtime_id'),
-        imageDigest: digest(runtimeValue.imageDigest, 'runtime_digest'),
-        providerBaseUrl: allowedUrl(
-          boundedText(runtimeValue.providerBaseUrl, 2_048, 'runtime_provider_base_url'),
-          'readiness_provider',
-        ).toString().replace(/\\/+$/u, ''),
-      }),
-""")
-          replace(public, """async function callModel(question: string, locale: PublicAssistantLocale, grounding: PublicGrounding): Promise<string> {
-  const baseUrl = process.env.AI_ASSISTANT_BASE_URL?.trim();
-  const model = process.env.AI_ASSISTANT_MODEL?.trim();
-  if (!baseUrl || !model) throw new Error('provider_configuration_missing');
-  const endpoint = new URL('chat/completions', `${allowedUrl(baseUrl, 'provider').toString().replace(/\\/+$/u, '')}/`);
-""", """async function callModel(
-  question: string,
-  locale: PublicAssistantLocale,
-  grounding: PublicGrounding,
-  readiness: Readiness,
-): Promise<string> {
-  const model = readiness.model.id;
-  const endpoint = new URL('chat/completions', `${readiness.runtime.providerBaseUrl}/`);
-  const admittedProvider = allowedUrl(readiness.runtime.providerBaseUrl, 'readiness_provider');
-  const generationProvider = allowedUrl(endpoint.toString(), 'provider');
-  if (generationProvider.origin !== admittedProvider.origin) throw new Error('provider_runtime_identity_mismatch');
-""")
-          replace(public, "const answer = await callModel(correctedQuestion, locale, grounding);", "const answer = await callModel(correctedQuestion, locale, grounding, readiness);")
-
-          insertion = """
-
+          route = 'apps/web/app/api/public-platform-assistant/route.ts'
+          replace(route, """const FORBIDDEN_COMMAND_PATTERNS = [
+  /(?:покажи|открой|удали|измени|переведи|выплати).{0,40}(?:чуж|все|любые).{0,30}(?:сделк|данн|деньг)/iu,
+  /(?:show|open|delete|change|transfer|pay).{0,40}(?:other|all|any).{0,30}(?:deal|data|money)/iu,
+  /(?:显示|打开|删除|修改|转账).{0,30}(?:他人|全部|任意).{0,20}(?:交易|数据|资金)/u,
+];
+""", """const FORBIDDEN_COMMAND_PATTERNS = [
+  /(?:покажи|открой|удали|измени|переведи|выплати).{0,40}(?:чуж|все|любые).{0,30}(?:сделк|данн|деньг)/iu,
+  /(?:show|open|delete|change|transfer|pay).{0,40}(?:other|all|any).{0,30}(?:deal|data|money)/iu,
+  /(?:显示|打开|删除|修改|转账).{0,30}(?:他人|全部|任意).{0,20}(?:交易|数据|资金)/u,
+];
 const ROLE_ONLY_WORDS = new Set([
   'банк', 'покупатель', 'продавец', 'фермер', 'трейдер', 'элеватор', 'логист', 'водитель',
   'bank', 'buyer', 'seller', 'farmer', 'trader', 'elevator', 'logistics', 'driver',
   '银行', '买方', '卖方', '农户', '贸易商', '粮库', '物流', '司机',
 ]);
 const ACTION_OR_TOPIC_WORDS = [
-  'как', 'что', 'почему', 'зачем', 'сколько', 'стоимость', 'цена', 'внедрение', 'сделк', 'аукцион',
-  'логист', 'прием', 'приём', 'документ', 'деньг', 'выплат', 'спор', 'фгис', 'интеграц', 'безопас',
-  'how', 'what', 'why', 'cost', 'price', 'implementation', 'deal', 'auction', 'payment', 'document',
-  'dispute', 'integration', 'security', '如何', '什么', '为什么', '价格', '实施', '交易', '竞价', '付款', '文件', '争议', '集成', '安全',
+  'как', 'что', 'почему', 'зачем', 'сколько', 'стоимость', 'цена', 'внедрение', 'платформ',
+  'сделк', 'аукцион', 'логист', 'прием', 'приём', 'документ', 'деньг', 'выплат', 'спор',
+  'фгис', 'интеграц', 'безопас', 'how', 'what', 'why', 'cost', 'price', 'implementation',
+  'platform', 'deal', 'auction', 'payment', 'document', 'dispute', 'integration', 'security',
+  '如何', '什么', '为什么', '价格', '实施', '平台', '交易', '竞价', '付款', '文件', '争议', '集成', '安全',
 ] as const;
 
 function normalizeIntent(value: string): string {
-  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е').replace(/[^\\p{L}\\p{N}\\s]+/gu, ' ').replace(/\\s+/gu, ' ').trim();
+  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е')
+    .replace(/[^\\p{L}\\p{N}\\s]+/gu, ' ').replace(/\\s+/gu, ' ').trim();
 }
 
 function hasSubstantiveIntent(value: string): boolean {
@@ -139,19 +130,64 @@ function hasSubstantiveIntent(value: string): boolean {
   if (tokens.length === 0 || tokens.every((token) => ROLE_ONLY_WORDS.has(token))) return false;
   return ACTION_OR_TOPIC_WORDS.some((word) => normalized.includes(word));
 }
-"""
-          p = Path(public)
-          text = p.read_text()
-          marker = "];\n\ntype Readiness"
-          if marker not in text:
-              raise SystemExit('public intent insertion anchor missing')
-          text = text.replace(marker, "];" + insertion + "\ntype Readiness", 1)
-          p.write_text(text)
+""")
 
-          replace(public, """    const readiness = await resolveReadiness();
+          replace(route, """function languageName(locale: PublicAssistantLocale): string {
+  return locale === 'en' ? 'English' : locale === 'zh' ? 'Chinese' : 'Russian';
+}
+
+async function callModel(question: string, locale: PublicAssistantLocale, grounding: PublicGrounding): Promise<string> {
+  const baseUrl = process.env.AI_ASSISTANT_BASE_URL?.trim();
+  const model = process.env.AI_ASSISTANT_MODEL?.trim();
+  if (!baseUrl || !model) throw new Error('provider_configuration_missing');
+  const endpoint = new URL('chat/completions', `${allowedUrl(baseUrl, 'provider').toString().replace(/\\/+$/u, '')}/`);
+""", """function languageName(locale: PublicAssistantLocale): string {
+  return locale === 'en' ? 'English' : locale === 'zh' ? 'Chinese' : 'Russian';
+}
+
+type RuntimeProviderBinding = Readonly<{ baseUrl: string; modelId: string }>;
+
+function resolveRuntimeProviderBinding(readiness: Readiness): RuntimeProviderBinding {
+  const raw = process.env.AI_ASSISTANT_RUNTIME_PROVIDER_BINDINGS?.trim();
+  if (!raw) throw new Error('runtime_provider_bindings_missing');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('runtime_provider_bindings_invalid');
+  }
+  const root = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? parsed as Record<string, unknown>
+    : null;
+  if (!root) throw new Error('runtime_provider_bindings_invalid');
+  const binding = strictRecord(root[readiness.runtime.id], ['baseUrl', 'modelId'], 'runtime_provider_binding');
+  const modelId = boundedText(binding.modelId, 200, 'runtime_provider_model_id');
+  if (modelId !== readiness.model.id) throw new Error('runtime_provider_model_mismatch');
+  const baseUrl = allowedUrl(
+    boundedText(binding.baseUrl, 2_048, 'runtime_provider_base_url'),
+    'runtime_provider',
+  ).toString().replace(/\\/+$/u, '');
+  return Object.freeze({ baseUrl, modelId });
+}
+
+async function callModel(
+  question: string,
+  locale: PublicAssistantLocale,
+  grounding: PublicGrounding,
+  readiness: Readiness,
+): Promise<string> {
+  const binding = resolveRuntimeProviderBinding(readiness);
+  const model = binding.modelId;
+  const endpoint = new URL('chat/completions', `${binding.baseUrl}/`);
+  if (allowedUrl(endpoint.toString(), 'provider').origin !== allowedUrl(binding.baseUrl, 'runtime_provider').origin) {
+    throw new Error('runtime_provider_origin_mismatch');
+  }
+""")
+
+          replace(route, """    const readiness = await resolveReadiness();
     const grounding = answerProspectQuestion(correctedQuestion, locale)
       ?? answerPublicPlatformQuestion(correctedQuestion, locale);
-    const answer = await callModel(correctedQuestion, locale, grounding, readiness);
+    const answer = await callModel(correctedQuestion, locale, grounding);
 """, """    const readiness = await resolveReadiness();
     const substantiveIntent = hasSubstantiveIntent(correctedQuestion);
     const prospectGrounding = substantiveIntent ? answerProspectQuestion(correctedQuestion, locale) : null;
@@ -196,27 +232,48 @@ function hasSubstantiveIntent(value: string): boolean {
       setError(reason instanceof AiGatewayStreamError ? `${ui.error} (${reason.code})` : ui.error);
 """)
 
-          test = Path('apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts')
-          text = test.read_text()
-          text = text.replace("expect(route).toContain('AI_ASSISTANT_BASE_URL');", "expect(route).toContain('providerBaseUrl');")
-          text = text.replace("expect(route).toContain('PUBLIC_ASSISTANT_RUNTIME_UNAVAILABLE');", "expect(route).toContain('PUBLIC_ASSISTANT_RUNTIME_UNAVAILABLE');\n    expect(route).toContain('PUBLIC_ASSISTANT_CLARIFICATION_REQUIRED');\n    expect(route).toContain(\"resolution: 'abstained'\");")
+          resilience = Path('apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts')
+          text = resilience.read_text()
+          text = text.replace("expect(route).toContain('AI_ASSISTANT_BASE_URL');", "expect(route).toContain('AI_ASSISTANT_RUNTIME_PROVIDER_BINDINGS');")
+          text = text.replace("expect(route).toContain('PUBLIC_ASSISTANT_RUNTIME_UNAVAILABLE');", "expect(route).toContain('PUBLIC_ASSISTANT_RUNTIME_UNAVAILABLE');\n    expect(route).toContain('PUBLIC_ASSISTANT_CLARIFICATION_REQUIRED');\n    expect(route).toContain(\"resolution: 'abstained'\");\n    expect(route).toContain('runtime_provider_model_mismatch');")
           text = text.replace("expect(assistant).not.toContain('localStorage');", "expect(assistant).not.toContain('localStorage');\n    expect(assistant).toContain('message.id !== streamMessageId');\n    expect(assistant).not.toContain('message.id !== streamMessageId || Boolean(message.text)');")
-          test.write_text(text)
+          resilience.write_text(text)
 
-          test = Path('apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts')
-          text = test.read_text()
-          text = text.replace("expect(proxy).toContain('const strictRealPath = requiresRealBackend(path)');", "expect(proxy).toContain('const strictRealPath = requiresRealBackend(path)');\n    expect(proxy).toContain('AbortSignal.any([request.signal');\n    expect(proxy).toContain('new NextResponse(response.body');\n    expect(proxy).toContain(\"includes('text/event-stream')\");")
+          role_test = Path('apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts')
+          text = role_test.read_text()
+          text = text.replace("expect(proxy).toContain('const strictRealPath = requiresRealBackend(path)');", "expect(proxy).toContain('const strictRealPath = requiresRealBackend(path)');\n    expect(proxy).toContain('AbortSignal.any([');\n    expect(proxy).toContain('new NextResponse(response.body');\n    expect(proxy).toContain(\"includes('text/event-stream')\");")
           text = text.replace("expect(panel).not.toContain(\"provider: 'local-deterministic'\");", "expect(panel).not.toContain(\"provider: 'local-deterministic'\");\n    expect(panel).toContain('item.id !== streamId');\n    expect(panel).not.toContain('item.id !== streamId || Boolean(item.content)');")
-          test.write_text(text)
+          role_test.write_text(text)
           PY
 
-          git checkout 29dd942ddd14425a19f0bf8893c8e6697282d766 -- .github/workflows/tai-gateway-ui-readonly-binding.yml
-      - name: Commit remediation
+      - name: Run focused acceptance
         shell: bash
         run: |
           set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/web test -- \
+            platformV7AiGatewayStream.test.ts \
+            platformV7PublicAssistantTransportResilience.test.ts \
+            platformV7RoleScopedAiAssistant.test.ts
+          pnpm --filter @pc/web typecheck
+          git diff --check
+
+      - name: Remove executor and commit verified remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tai-gateway-ui-readonly-binding.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'fix(tai): bind admitted runtime and validate streamed answers'
+          git diff --cached --name-only | sort > /tmp/actual-files
+          printf '%s\n' \
+            apps/web/app/api/proxy/'[...path]'/route.ts \
+            apps/web/app/api/public-platform-assistant/route.ts \
+            apps/web/components/platform-v7/AiAssistantPanel.tsx \
+            apps/web/components/platform-v7/PublicPlatformAssistant.tsx \
+            apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts \
+            apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git commit -m 'fix(tai): bind admitted provider and preserve validated SSE'
           git push origin HEAD:agent/tai-gateway-ui-readonly-3004
