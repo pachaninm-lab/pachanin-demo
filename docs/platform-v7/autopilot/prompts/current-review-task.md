@@ -35,6 +35,16 @@ Review this branch only against its exact allow-list. It may change the RU/EN/ZH
 
 The public text must present the platform through capabilities and user outcomes, must not contain development-stage or maturity-status language, and must not claim that bank, FGIS, EDI or another external system is connected without separate runtime evidence.
 
+## Approved concurrent public organization intake scope
+
+The user explicitly authorized a durable organization-connection intake on branch `agent/platform-v7-organization-intake-v1` under:
+
+`docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json`
+
+Review this branch only against its exact allow-list. It may add one pre-tenant PostgreSQL request model and forward-only migration, a public API intake module, a same-origin web BFF, the existing RU/EN/ZH form wiring and targeted API/web tests. It must not create organizations, users, memberships, roles or tenants; it must not change Deal, money, bank, FGIS, EDI, TAI or deployment authority.
+
+The request, audit event and outbox event must commit atomically. Raw IP and user-agent values must never be stored. Personal data must not enter logs, analytics, audit metadata, outbox payloads or URLs. Exact idempotency replay must return the original request; conflicting replay and rate-limit violations must fail closed.
+
 ## Approved concurrent production web hardening scope — PR #3044
 
 The user explicitly authorized a narrow REG.RU web-only operational slice on branch `ops/production-web-hardening-v1`. Review only these paths:
@@ -89,14 +99,23 @@ For the public homepage concurrent scope, return BLOCKED if:
 20. Public copy states that an external system is connected without verified runtime evidence.
 21. RU, EN or ZH is incomplete or semantically inconsistent.
 
+For the public organization intake concurrent scope, return BLOCKED if:
+
+22. The diff exceeds the bound organization-intake scope.
+23. Request persistence is in-memory, client-authoritative or non-transactional.
+24. Personal data, raw IP or raw user-agent values enter logs, URLs, analytics, audit metadata or outbox payloads.
+25. Consent version/timestamp, payload hash, idempotency key or database-backed rate limits are missing.
+26. Exact replay creates a second request, conflicting replay is accepted, or request/audit/outbox can partially commit.
+27. The public endpoint creates an organization, user, membership, role, tenant or privileged session.
+
 For the production web hardening concurrent scope, return BLOCKED if:
 
-22. The diff exceeds the 15-path hardening allow-list.
-23. SSH identity or protected server paths are committed, printed or defaulted to an unprotected principal.
-24. Deployment uses `latest`, mutable-image acceptance or Watchtower polling as release evidence.
-25. A non-web service, Caddy, environment, volume, network, API or database is mutated.
-26. The image lacks exact manifest/revision binding, readiness healthcheck or an immutable rollback path.
-27. The retry workflow accepts a public key, encrypted key, unknown key material or secret disclosure instead of failing closed before SSH.
+28. The diff exceeds the 15-path hardening allow-list.
+29. SSH identity or protected server paths are committed, printed or defaulted to an unprotected principal.
+30. Deployment uses `latest`, mutable-image acceptance or Watchtower polling as release evidence.
+31. A non-web service, Caddy, environment, volume, network, API or database is mutated.
+32. The image lacks exact manifest/revision binding, readiness healthcheck or an immutable rollback path.
+33. The retry workflow accepts a public key, encrypted key, unknown key material or secret disclosure instead of failing closed before SSH.
 
 ## Review questions
 
