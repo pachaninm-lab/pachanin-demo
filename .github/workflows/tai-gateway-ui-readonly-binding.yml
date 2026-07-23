@@ -173,7 +173,7 @@ async function callModel"""
           replace(route, 'const answer = await callModel(correctedQuestion, locale, grounding);', 'const answer = await callModel(correctedQuestion, locale, grounding, readiness);')
 
           intent_marker = "];\n\ntype Readiness"
-          intent_helpers = """].join('');
+          intent_helpers = """ ];
 
 const ROLE_ONLY_WORDS = new Set([
   'банк', 'покупатель', 'продавец', 'фермер', 'трейдер', 'элеватор', 'логист', 'водитель',
@@ -205,7 +205,7 @@ type Readiness"""
           route_text = route_path.read_text()
           if intent_marker not in route_text:
               raise SystemExit('intent helper anchor missing')
-          route_path.write_text(route_text.replace(intent_marker, intent_helpers, 1))
+          route_path.write_text(route_text.replace(intent_marker, intent_helpers.lstrip(), 1))
 
           replace(route, """    const readiness = await resolveReadiness();
     const grounding = answerProspectQuestion(correctedQuestion, locale)
