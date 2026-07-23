@@ -70,7 +70,7 @@ describe('public organization intake PostgreSQL authority', () => {
     const result = await service.create(input, {
       idempotencyKey,
       correlationId: randomUUID(),
-      sourceIp: `198.51.100.${Math.floor(Math.random() * 100) + 1}`,
+      sourceIp: '198.51.100.11',
     });
 
     expect(result.status).toBe('NEW');
@@ -113,7 +113,7 @@ describe('public organization intake PostgreSQL authority', () => {
   it('returns the original request for exact replay and rejects conflicting replay', async () => {
     const input = dto();
     const idempotencyKey = `intake:${randomUUID()}`;
-    const context = { idempotencyKey, correlationId: randomUUID(), sourceIp: `203.0.113.${Date.now() % 200 + 1}` };
+    const context = { idempotencyKey, correlationId: randomUUID(), sourceIp: '203.0.113.21' };
 
     const first = await service.create(input, context);
     const replay = await service.create(input, { ...context, correlationId: randomUUID() });
@@ -134,7 +134,7 @@ describe('public organization intake PostgreSQL authority', () => {
   });
 
   it('enforces database-backed per-IP and per-email limits using no raw network fields in request rows', async () => {
-    const sharedIp = `192.0.2.${Date.now() % 200 + 1}`;
+    const sharedIp = '192.0.2.31';
     for (let index = 0; index < 5; index += 1) {
       await service.create(dto({ email: `ip-limit-${index}-${randomUUID()}@example.test` }), {
         idempotencyKey: `intake:${randomUUID()}`,
@@ -153,13 +153,13 @@ describe('public organization intake PostgreSQL authority', () => {
       await service.create(dto({ email: sharedEmail }), {
         idempotencyKey: `intake:${randomUUID()}`,
         correlationId: randomUUID(),
-        sourceIp: `198.18.${index + 1}.${(Date.now() + index) % 200 + 1}`,
+        sourceIp: `198.18.${index + 1}.41`,
       });
     }
     await expect(service.create(dto({ email: sharedEmail }), {
       idempotencyKey: `intake:${randomUUID()}`,
       correlationId: randomUUID(),
-      sourceIp: `198.19.1.${Date.now() % 200 + 1}`,
+      sourceIp: '198.19.1.51',
     })).rejects.toBeInstanceOf(TooManyRequestsException);
 
     const columns = await prisma.$queryRaw<Array<{ column_name: string }>>(Prisma.sql`
