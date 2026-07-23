@@ -91,7 +91,8 @@ jobs:
   patch-next-security-3043:
     if: >-
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3043 &&
+      github.event.issue.pull_request != null &&
+      github.event.issue.number == 3075 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.body == '/security patch-next 3043 15.5.21'
     runs-on: ubuntu-24.04
@@ -110,11 +111,67 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          phase='initialization'
+
+          on_failure() {
+            rc=$?
+            trap - ERR
+            failed_line="$1"
+            failed_command="$2"
+            command_file="$RUNNER_TEMP/next-controller-command.txt"
+            current_body_file="$RUNNER_TEMP/release-pr-body-current.md"
+            next_body_file="$RUNNER_TEMP/release-pr-body-next.md"
+
+            printf '%s' "$failed_command" \
+              | sed -E 's/([A-Za-z0-9_]*(TOKEN|KEY|SECRET|PASSWORD)[A-Za-z0-9_]*)=([^[:space:]]+)/\1=[REDACTED]/Ig; s/(Authorization:)[^[:space:]]+/\1[REDACTED]/Ig' \
+              | head -c 500 > "$command_file"
+            gh pr view 3075 --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$current_body_file" || :
+
+            PHASE="$phase" FAILED_LINE="$failed_line" FAILURE_RC="$rc" RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              python3 - "$current_body_file" "$command_file" "$next_body_file" <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          current_path, command_path, output_path = map(Path, sys.argv[1:])
+          body = current_path.read_text() if current_path.exists() else ''
+          command = command_path.read_text().strip() if command_path.exists() else '<unavailable>'
+          start = '<!-- NEXT_SECURITY_DIAGNOSTIC_START -->'
+          end = '<!-- NEXT_SECURITY_DIAGNOSTIC_END -->'
+          if start in body and end in body:
+              prefix, remainder = body.split(start, 1)
+              _, suffix = remainder.split(end, 1)
+              body = f'{prefix.rstrip()}\n{suffix.lstrip()}'
+          diagnostic = f'''{start}
+          ## Next.js security controller diagnostic
+
+          - result: `FAIL`
+          - phase: `{os.environ.get("PHASE", "unknown")}`
+          - workflow line: `{os.environ.get("FAILED_LINE", "unknown")}`
+          - exit code: `{os.environ.get("FAILURE_RC", "unknown")}`
+          - command: `{command.replace("`", "'")}`
+          - run: {os.environ.get("RUN_URL", "unknown")}
+
+          No protected value is included in this diagnostic.
+          {end}'''
+          output_path.write_text(f'{body.rstrip()}\n\n{diagnostic}\n')
+          PY
+
+            set +e
+            gh pr edit 3075 --repo "$GITHUB_REPOSITORY" --body-file "$next_body_file"
+            gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 controller failed in phase \`$phase\`, line \`$failed_line\`, exit \`$rc\`. Exact sanitized command is recorded in PR #3075. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+            set -e
+            exit "$rc"
+          }
+          trap 'on_failure "$LINENO" "$BASH_COMMAND"' ERR
+
+          phase='git-sync'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --no-tags origin main
           git reset --hard origin/main
 
+          phase='patch-package-manifest'
           node - <<'NODE'
           const fs = require('node:fs');
           const path = 'apps/web/package.json';
@@ -126,10 +183,12 @@ jobs:
           fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
           NODE
 
+          phase='regenerate-lockfile'
           corepack enable
           corepack prepare pnpm@10.2.1 --activate
           pnpm --filter @pc/web update next@15.5.21 --lockfile-only
 
+          phase='validate-lockfile'
           node - <<'NODE'
           const fs = require('node:fs');
           const manifest = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
@@ -139,6 +198,7 @@ jobs:
           if (/next@15\.5\.18(?:\W|$)/u.test(lock)) throw new Error('Vulnerable Next.js package remains in lockfile');
           NODE
 
+          phase='validate-two-file-scope'
           expected="$({ printf '%s\n' 'apps/web/package.json' 'pnpm-lock.yaml'; } | sort)"
           actual="$(git diff --name-only | sort)"
           [[ "$actual" == "$expected" ]] || {
@@ -146,17 +206,29 @@ jobs:
             diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
             exit 20
           }
-
           git diff --check
+
+          phase='frozen-install'
           pnpm install --frozen-lockfile
+
+          phase='web-typecheck'
           pnpm --filter @pc/web typecheck
+
+          phase='web-tests'
           pnpm --filter @pc/web test
+
+          phase='web-production-build'
           NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
+
+          phase='production-dependency-audit'
           pnpm audit --prod --audit-level high
 
+          phase='commit-and-scope-guard'
           git add apps/web/package.json pnpm-lock.yaml
           git commit -m 'fix(security): patch Next.js to 15.5.21'
           GITHUB_HEAD_REF="$SECURITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
+
+          phase='publish-security-branch'
           git push origin "HEAD:$SECURITY_BRANCH"
 
           head_sha="$(git rev-parse HEAD)"
