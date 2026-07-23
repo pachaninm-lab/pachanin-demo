@@ -1,0 +1,140 @@
+name: PostCSS security hotfix bootstrap
+
+on:
+  push:
+    branches:
+      - fix/postcss-ghsa-6g55-p6wh-862q
+    paths:
+      - .github/workflows/postcss-hotfix-bootstrap.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: postcss-hotfix-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  patch-verify-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact hotfix branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/postcss-ghsa-6g55-p6wh-862q
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Enforce exact bootstrap authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "fix/postcss-ghsa-6g55-p6wh-862q"
+          git fetch --no-tags origin main
+          test "$(git rev-list --count origin/main..HEAD)" -eq 1
+          test "$(git diff --name-only origin/main...HEAD)" = ".github/workflows/postcss-hotfix-bootstrap.yml"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Pin exact safe PostCSS and regenerate lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'package.json';
+          const root = JSON.parse(fs.readFileSync(path, 'utf8'));
+          root.pnpm ??= {};
+          root.pnpm.overrides ??= {};
+          root.pnpm.overrides.postcss = '8.5.12';
+          fs.writeFileSync(path, `${JSON.stringify(root, null, 2)}\n`);
+          NODE
+          pnpm install --lockfile-only
+
+      - name: Prove frozen dependency graph and safe production resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/web list postcss --prod --depth 100 --json > /tmp/postcss-production-tree.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const tree = JSON.parse(fs.readFileSync('/tmp/postcss-production-tree.json', 'utf8'));
+          const found = [];
+          function walk(node, chain = []) {
+            if (!node || typeof node !== 'object') return;
+            const deps = node.dependencies;
+            if (deps && typeof deps === 'object') {
+              for (const [name, dep] of Object.entries(deps)) {
+                const version = dep && typeof dep === 'object' ? dep.version : undefined;
+                const next = [...chain, `${name}@${version ?? '?'}`];
+                if (name === 'postcss') found.push({ version, chain: next });
+                walk(dep, next);
+              }
+            }
+            if (Array.isArray(node)) for (const item of node) walk(item, chain);
+          }
+          walk(tree);
+          if (found.length === 0) throw new Error('PostCSS is missing from the @pc/web production tree');
+          const unsafe = found.filter(({ version }) => version !== '8.5.12');
+          console.log(JSON.stringify({ found }, null, 2));
+          if (unsafe.length) throw new Error(`Unsafe or unexpected PostCSS resolution: ${JSON.stringify(unsafe)}`);
+          NODE
+
+      - name: Prove zero unexcepted HIGH or CRITICAL production findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          pnpm audit --prod --json > /tmp/pnpm-audit.json
+          audit_exit=$?
+          set -e
+          node <<'NODE'
+          const fs = require('node:fs');
+          const audit = JSON.parse(fs.readFileSync('/tmp/pnpm-audit.json', 'utf8'));
+          const metadata = audit.metadata?.vulnerabilities ?? {};
+          let high = Number(metadata.high ?? 0);
+          let critical = Number(metadata.critical ?? 0);
+          if (audit.advisories && typeof audit.advisories === 'object') {
+            high = 0;
+            critical = 0;
+            for (const advisory of Object.values(audit.advisories)) {
+              if (advisory?.severity === 'high') high += 1;
+              if (advisory?.severity === 'critical') critical += 1;
+            }
+          }
+          console.log(JSON.stringify({ high, critical, metadata }, null, 2));
+          if (high !== 0 || critical !== 0) process.exit(1);
+          NODE
+          echo "pnpm audit exit code (nonzero is permitted only for lower severities): ${audit_exit}"
+
+      - name: Run focused web and runtime validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/web typecheck
+          pnpm --filter @pc/web exec vitest run tests/unit/next15RuntimeContracts.test.ts
+          pnpm --filter @pc/web build
+
+      - name: Publish final two-file hotfix and remove bootstrap authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/postcss-hotfix-bootstrap.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json pnpm-lock.yaml .github/workflows/postcss-hotfix-bootstrap.yml
+          git commit -m "fix(security): pin patched PostCSS for GHSA-6g55-p6wh-862q"
+          changed="$(git diff --name-only origin/main...HEAD | sort)"
+          expected="$(printf '%s\n' package.json pnpm-lock.yaml | sort)"
+          test "$changed" = "$expected"
+          git push origin HEAD:fix/postcss-ghsa-6g55-p6wh-862q
