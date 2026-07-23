@@ -59,7 +59,11 @@ requireText('release', [
   'deploy|rollback',
   'Docker Compose >= 2.24.4',
   'org.opencontainers.image.revision',
+  'PC_LIVE_ACCEPTANCE_SCRIPT',
+  'LEGACY_WEB_PARKED=1',
   'LEGACY_WEB_ADOPTED=1',
+  'LEGACY_CONTAINER_RESTORED=',
+  'INTERNAL_LIVE_ACCEPTANCE=PASS',
   'AUTOMATIC_ROLLBACK_ATTEMPTED=1',
   'running web container lacks canonical Compose service label',
   'a non-web, non-Watchtower production container changed',
@@ -72,6 +76,7 @@ requireText('remote', [
   'if [[ "$ACTION" == audit ]]',
   'compose.production-hardening.override.yml',
   "grep -v '/compose.production-hardening.override.yml$'",
+  'PC_LIVE_ACCEPTANCE_SCRIPT=',
 ]);
 requireText('live', [
   '/api/health/ready',
@@ -79,6 +84,7 @@ requireText('live', [
   '?lang=ru',
   '?lang=en',
   '?lang=zh',
+  'LIVE_ACTION=',
   'LIVE_ACCEPTANCE=PASS',
 ]);
 requireText('workflow', [
@@ -88,6 +94,7 @@ requireText('workflow', [
   "github.actor == github.repository_owner",
   'PC_PROD_SSH_KEY',
   'scripts/production-web-exact-sha.sh',
+  'scripts/production-web-live-acceptance.sh',
   'scripts/production-web-remote-entrypoint.sh',
   'persistent_override_mutated',
   'Restore previous exact revision after live failure',
@@ -98,6 +105,7 @@ requireText('hardening', [
   'must not have a fixed `container_name`',
   'exact-SHA operations',
   'Docker Compose `2.24.4` or later',
+  'parked',
 ]);
 requireText('runbook', [
   'Watchtower is retired from release authority',
@@ -139,4 +147,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, health-gated, Compose-managed, rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, health-gated, Compose-managed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
