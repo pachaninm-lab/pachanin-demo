@@ -58,13 +58,14 @@ function forbidText(key, needles) {
 }
 
 requireText('migration', [
-  'CREATE TABLE "regulatory_integration_inbox_entries"',
-  'CREATE TABLE "regulatory_integration_inbox_conflicts"',
-  'regulatory_integration_inbox_identity_uidx',
+  'CREATE TABLE public."regulatory_integration_inbox_entries"',
+  'CREATE TABLE public."regulatory_integration_inbox_conflicts"',
+  'regulatory_integration_inbox_identity_key',
   'regulatory_integration_inbox_claim_idx',
-  'regulatory_integration_inbox_immutable_identity',
-  'regulatory_integration_inbox_conflicts_immutable',
-  'REFERENCES "outbox_entries"',
+  'regulatory_integration_inbox_identity_immutable',
+  'regulatory_integration_inbox_conflict_no_update',
+  'regulatory_integration_inbox_conflict_no_delete',
+  'REFERENCES public."outbox_entries"',
   '"leaseOwner"',
   '"leaseExpiresAt"',
   '"nextAttemptAt"',
@@ -74,10 +75,12 @@ requireText('migration', [
 requireText('rls', [
   'ENABLE ROW LEVEL SECURITY',
   'FORCE ROW LEVEL SECURITY',
-  "current_setting('app.current_tenant_id'::text, true)",
-  "current_setting('app.current_org_id'::text, true)",
-  'regulatory_integration_inbox_deny_delete',
-  'regulatory_integration_inbox_conflicts_deny_delete',
+  "current_setting('app.current_tenant_id', true)",
+  "current_setting('app.current_org_id', true)",
+  'CREATE POLICY regulatory_integration_inbox_delete',
+  'USING (false)',
+  'DROP POLICY IF EXISTS regulatory_integration_inbox_conflicts_update',
+  'DROP POLICY IF EXISTS regulatory_integration_inbox_conflicts_delete',
 ]);
 
 requireText('schema', [
