@@ -169,3 +169,5 @@ jobs:
 
       - name: Render Helm chart
         run: helm template grainflow infra/helm/grainflow --namespace grainflow-prod > /tmp/grainflow-rendered.yaml
+
+# Operational no-op: force canonical API/web/migration image publication for the current main SHA.
