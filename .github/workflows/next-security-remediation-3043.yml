@@ -19,7 +19,7 @@ jobs:
       github.event.issue.pull_request != null &&
       github.event.issue.number == 3075 &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/security patch-next 3043 15.5.21-v5'
+      github.event.comment.body == '/security patch-next 3043 15.5.21-v6'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -64,7 +64,9 @@ jobs:
           phase='git-sync'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch --no-tags origin main
+          git fetch --no-tags origin main "$SECURITY_BRANCH"
+          remote_security_head="$(git rev-parse "origin/$SECURITY_BRANCH")"
+          [[ "$remote_security_head" =~ ^[0-9a-f]{40}$ ]]
           git reset --hard origin/main
 
           phase='patch-package-and-version-contract'
@@ -146,19 +148,22 @@ jobs:
             bash scripts/p7-autopilot-guard.sh
 
           phase='publish-security-branch'
-          git push origin "HEAD:$SECURITY_BRANCH"
+          git push \
+            --force-with-lease="refs/heads/${SECURITY_BRANCH}:${remote_security_head}" \
+            origin "HEAD:refs/heads/${SECURITY_BRANCH}"
           head_sha="$(git rev-parse HEAD)"
 
           gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" --title "$canonical_title"
           gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Next.js security remediation branch published. Head: \`${head_sha}\`; exact diff: package, lockfile and version-contract test; target: \`next@15.5.21\`; focused contract, frozen install, typecheck, production build and HIGH audit passed. Full web and repository suites remain mandatory on the security PR; no exception or allowlist."
+            --body "Next.js security remediation branch rebuilt from exact current main and published. Head: \`${head_sha}\`; replaced remote head: \`${remote_security_head}\`; exact diff: package, lockfile and version-contract test; target: \`next@15.5.21\`; focused contract, frozen install, typecheck, production build and HIGH audit passed. Full web and repository suites remain mandatory on the security PR; no exception or allowlist."
           gh pr comment "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
-            --body "Next.js 15.5.21 security branch published at \`${head_sha}\`. Opening the isolated three-file security PR; its standard CI remains the merge authority."
+            --body "Next.js 15.5.21 clean security branch published at \`${head_sha}\`. Opening the isolated three-file security PR; its standard CI remains the merge authority."
 
           {
             echo '## Next.js 15.5.21 remediation branch'
             echo
-            echo "- head: \`$head_sha\`"
+            echo "- previous remote head: \`$remote_security_head\`"
+            echo "- clean head: \`$head_sha\`"
             echo '- changed paths: package, lockfile, version-contract test'
             echo '- focused contract/typecheck/build/audit: PASS'
             echo '- full suite authority: security PR checks'
@@ -172,4 +177,4 @@ jobs:
         shell: bash
         run: |
           gh issue comment 3043 --repo "$GITHUB_REPOSITORY" \
-            --body "Standalone Next.js 15.5.21 controller v5 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
+            --body "Standalone Next.js 15.5.21 controller v6 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
