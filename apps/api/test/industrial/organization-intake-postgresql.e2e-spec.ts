@@ -84,7 +84,11 @@ describe('public organization intake PostgreSQL authority', () => {
         ALTER ROLE app_deal LOGIN PASSWORD 'app_deal_intake_e2e';
       END
       $role$;
-      GRANT CONNECT ON DATABASE current_database() TO app_deal;
+      DO $grant$
+      BEGIN
+        EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_deal', current_database());
+      END
+      $grant$;
       GRANT USAGE ON SCHEMA public, security TO app_deal;
       GRANT EXECUTE ON FUNCTION public.lookup_public_organization_connection_request(text, text) TO app_deal;
       GRANT EXECUTE ON FUNCTION public.create_public_organization_connection_request(text, text, text, text, text, text, text, text, text, text, text, text, text) TO app_deal;
