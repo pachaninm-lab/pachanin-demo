@@ -6,6 +6,11 @@ on:
       - agent/platform-v7-organization-intake-v1
     paths:
       - '.github/workflows/finalize-org-intake-scope.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-org-intake-scope.yml'
 
 permissions:
   contents: write
@@ -16,6 +21,7 @@ concurrency:
 
 jobs:
   finalize:
+    if: github.event_name == 'push' || github.head_ref == 'agent/platform-v7-organization-intake-v1'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
