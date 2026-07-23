@@ -121,13 +121,28 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(home).toContain('copy.footer.privacy');
   });
 
-  it('keeps maturity language truthful and external systems explicitly qualified', () => {
+  it('presents industrial capabilities without development-stage language or false connectivity claims', () => {
     const combined = `${page}\n${home}\n${homeCopy}`.toLowerCase();
-    const forbidden = ['production' + '-ready', 'fully ' + 'live', 'bank ' + 'connected', 'fgis ' + 'connected', 'edo ' + 'connected', 'websocket'];
+    const forbidden = [
+      'production' + '-ready',
+      'fully ' + 'live',
+      'bank ' + 'connected',
+      'fgis ' + 'connected',
+      'edo ' + 'connected',
+      'банк подключён',
+      'фгис подключён',
+      'эдо подключён',
+      'техническая готовность',
+      'партнёрская зависимость',
+      'не подтверждено',
+      'в реализации',
+      'websocket',
+    ];
     for (const token of forbidden) expect(combined).not.toContain(token);
-    expect(homeCopy).toContain('Техническая готовность');
-    expect(homeCopy).toContain('Партнёрская зависимость');
-    expect(homeCopy).toContain('Не подтверждено');
-    expect(homeCopy).toContain('Архитектурная готовность не подменяет production-доказательства');
+    expect(homeCopy).toContain('Надёжность исполнения');
+    expect(homeCopy).toContain('Контроль встроен в каждый переход Сделки');
+    expect(homeCopy).toContain('Прослеживаемость партии');
+    expect(homeCopy).toContain('Юридически значимые документы');
+    expect(homeCopy).toContain('Промышленные принципы платформы');
   });
 });
