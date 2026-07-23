@@ -10,6 +10,7 @@ const copy = read('i18n/platform-v7-organization-connect.ts');
 const bff = read('app/api/platform-v7/organization-connect/route.ts');
 const apiService = read('../api/src/modules/organization-intake/organization-intake.service.ts');
 const migration = read('../api/prisma/migrations/20260723113000_public_organization_connection_intake/migration.sql');
+const prismaSchema = read('../api/prisma/schema.prisma');
 
 describe('platform-v7 durable organization connection intake', () => {
   it('submits through a same-origin BFF and displays a server-issued receipt', () => {
@@ -26,7 +27,7 @@ describe('platform-v7 durable organization connection intake', () => {
   it('keeps personal data out of URLs, logs and analytics events', () => {
     const analyticsSlice = form.slice(form.indexOf("name: 'organization_request_accepted'"));
     expect(analyticsSlice.slice(0, 220)).not.toMatch(/email|phone|inn|contactName|organizationName/);
-    expect(form).not.toMatch(/register\?[^`'\"]*(email|phone|inn|name)=/i);
+    expect(form).not.toMatch(/register\?[^`'"]*(email|phone|inn|name)=/i);
     expect(bff).not.toContain('console.log');
     expect(bff).not.toContain('console.error');
     expect(bff).not.toContain("'user-agent'");
@@ -36,7 +37,7 @@ describe('platform-v7 durable organization connection intake', () => {
 
   it('derives the anti-abuse key only from the nearest trusted proxy address', () => {
     expect(bff).toContain("request.headers.get('x-forwarded-for')");
-    expect(bff).toContain("chain.at(-1)");
+    expect(bff).toContain('chain.at(-1)');
     expect(bff).toContain('isIP(nearestProxyAddress)');
     expect(bff).not.toContain("request.headers.get('x-real-ip')");
     expect(bff).not.toContain("request.headers.get('cf-connecting-ip')");
@@ -84,6 +85,28 @@ describe('platform-v7 durable organization connection intake', () => {
     expect(apiService).toContain("this.rateLimit.consume('public_org_connect_email'");
   });
 
+  it('maps the durable table and both evidence relations exactly in Prisma', () => {
+    const modelStart = prismaSchema.indexOf('model PublicOrganizationConnectionRequest {');
+    const modelEnd = prismaSchema.indexOf('\n}', modelStart);
+    expect(modelStart).toBeGreaterThan(0);
+    expect(modelEnd).toBeGreaterThan(modelStart);
+    const model = prismaSchema.slice(modelStart, modelEnd + 2);
+
+    expect(model).toContain('@@map("public_organization_connection_requests")');
+    expect(model).toContain('@unique(map: "public_org_connection_requests_number_key")');
+    expect(model).toContain('@unique(map: "public_org_connection_requests_idempotency_key")');
+    expect(model).toContain('@unique(map: "public_org_connection_requests_audit_key")');
+    expect(model).toContain('@unique(map: "public_org_connection_requests_outbox_key")');
+    expect(model).toContain('map: "public_org_connection_requests_audit_fkey"');
+    expect(model).toContain('map: "public_org_connection_requests_outbox_fkey"');
+    expect(model).toContain('map: "public_org_connection_requests_status_created_idx"');
+    expect(model).toContain('map: "public_org_connection_requests_inn_created_idx"');
+    expect(model).toContain('map: "public_org_connection_requests_email_created_idx"');
+    expect(model).toContain('map: "public_org_connection_requests_payload_hash_idx"');
+    expect(model).toContain('map: "public_org_connection_requests_retention_idx"');
+    expect(prismaSchema).toContain('publicOrganizationConnectionRequest PublicOrganizationConnectionRequest?');
+  });
+
   it('checks exact replay before consuming new-request rate limits', () => {
     const lookupIndex = apiService.indexOf('const replay = await this.lookup');
     const ipLimitIndex = apiService.indexOf("this.rateLimit.consume('public_org_connect_ip'");
@@ -95,7 +118,7 @@ describe('platform-v7 durable organization connection intake', () => {
 
   it('keeps personal payload and its hash out of audit and outbox events', () => {
     const eventSlice = migration.slice(
-      migration.indexOf("v_event := jsonb_build_object"),
+      migration.indexOf('v_event := jsonb_build_object'),
       migration.indexOf('INSERT INTO public.audit_events'),
     );
     expect(eventSlice).not.toMatch(/organizationName|contactName|phone|email|inn|payloadHash/);
