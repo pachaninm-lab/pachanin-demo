@@ -42,10 +42,10 @@ CREATE TABLE public."regulatory_integration_inbox_entries" (
   "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT clock_timestamp(),
 
   CONSTRAINT "regulatory_integration_inbox_entries_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "regulatory_integration_inbox_entries_org_fkey"
+  CONSTRAINT "regulatory_integration_inbox_entries_organizationId_fkey"
     FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "regulatory_integration_inbox_entries_outbox_fkey"
+  CONSTRAINT "regulatory_integration_inbox_entries_outboxEntryId_fkey"
     FOREIGN KEY ("outboxEntryId") REFERENCES public."outbox_entries"("id")
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "regulatory_integration_inbox_state_check"
@@ -97,7 +97,7 @@ CREATE TABLE public."regulatory_integration_inbox_conflicts" (
   "detectedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT clock_timestamp(),
 
   CONSTRAINT "regulatory_integration_inbox_conflicts_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "regulatory_integration_inbox_conflicts_entry_fkey"
+  CONSTRAINT "regulatory_integration_inbox_conflicts_inboxEntryId_fkey"
     FOREIGN KEY ("inboxEntryId") REFERENCES public."regulatory_integration_inbox_entries"("id")
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "regulatory_integration_inbox_conflict_hashes_check"
