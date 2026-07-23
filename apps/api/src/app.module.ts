@@ -56,6 +56,7 @@ import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapsh
 import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-persistence.module';
 import { StaffAccessModule } from './modules/staff-access/staff-access.module';
 import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
+import { OrganizationIntakeModule } from './modules/organization-intake/organization-intake.module';
 
 @Module({
   imports: [
@@ -110,6 +111,7 @@ import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
     RuntimeSnapshotModule,
     RuntimePersistenceModule,
     TaiToolsModule,
+    OrganizationIntakeModule,
   ],
   controllers: [HealthController],
   providers: [
