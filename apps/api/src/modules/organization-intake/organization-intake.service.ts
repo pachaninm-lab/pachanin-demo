@@ -196,16 +196,6 @@ export class OrganizationIntakeService {
     const createdAt = new Date();
     const retentionUntil = new Date(createdAt.getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const event = safeOperationalEvent({ requestId, requestNumber, request, createdAt });
-    const auditHash = createHash('sha256').update(JSON.stringify({
-      id: auditId,
-      action: 'public:organization-intake:create',
-      actorUserId: 'public:organization-intake',
-      actorRole: 'PUBLIC',
-      objectType: 'PublicOrganizationConnectionRequest',
-      objectId: requestId,
-      outcome: 'SUCCESS',
-      event,
-    })).digest('hex');
 
     return this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`
@@ -240,7 +230,7 @@ export class OrganizationIntakeService {
           'SUCCESS',
           ${JSON.stringify(event)}::jsonb,
           ${correlationId},
-          ${auditHash},
+          '',
           NULL,
           ${createdAt}
         )
