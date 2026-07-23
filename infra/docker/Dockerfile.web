@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 FROM node:24-bookworm-slim AS build
+ARG GIT_COMMIT=unknown
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /workspace
@@ -13,6 +14,7 @@ RUN apt-get update \
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
+RUN COMMIT_REF="$GIT_COMMIT" BRANCH=main node scripts/write-deploy-evidence.mjs
 RUN pnpm --filter @pc/web build
 RUN rm -rf /workspace/apps/web/.next/cache
 RUN pnpm --filter @pc/web --prod deploy --legacy /prod/web
