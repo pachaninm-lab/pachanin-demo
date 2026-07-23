@@ -39,6 +39,7 @@ type IntakePayload = {
   scenario: string;
   locale: string;
   consent: true;
+  website?: string;
 };
 
 function json(body: Record<string, unknown>, status: number) {
@@ -54,8 +55,8 @@ function json(body: Record<string, unknown>, status: number) {
 
 function requestIp(request: Request): string {
   return (
-    request.headers.get('cf-connecting-ip') ||
     request.headers.get('x-real-ip') ||
+    request.headers.get('cf-connecting-ip') ||
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     ''
   );
@@ -77,6 +78,7 @@ function normalize(body: Record<string, unknown>): IntakePayload | null {
     scenario: text(body.scenario, 48),
     locale: text(body.locale, 2),
     consent: body.consent === true,
+    website: text(body.website, 200),
   };
   if (
     payload.organizationName.length < 2 ||
@@ -99,11 +101,18 @@ export async function POST(request: Request) {
   if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
     return json({ ok: false, code: 'INVALID_IDEMPOTENCY_KEY', correlationId }, 400);
   }
-  const contentLength = Number(request.headers.get('content-length') || 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return json({ ok: false, code: 'REQUEST_TOO_LARGE', correlationId }, 413);
+
+  const rawBody = await request.text().catch(() => '');
+  if (!rawBody || Buffer.byteLength(rawBody, 'utf8') > MAX_BODY_BYTES) {
+    return json({ ok: false, code: rawBody ? 'REQUEST_TOO_LARGE' : 'INVALID_REQUEST', correlationId }, rawBody ? 413 : 400);
   }
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const body = (() => {
+    try {
+      return JSON.parse(rawBody) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  })();
   const payload = body ? normalize(body) : null;
   if (!payload) return json({ ok: false, code: 'INVALID_REQUEST', correlationId }, 400);
   if (!API_URL) return json({ ok: false, code: 'INTAKE_UNAVAILABLE', correlationId }, 503);
@@ -120,7 +129,6 @@ export async function POST(request: Request) {
         'Idempotency-Key': idempotencyKey,
         'x-correlation-id': correlationId,
         'x-forwarded-for': ip,
-        ...(request.headers.get('user-agent') ? { 'user-agent': request.headers.get('user-agent')! } : {}),
       },
       body: JSON.stringify(payload),
       cache: 'no-store',
