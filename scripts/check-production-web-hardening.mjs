@@ -6,6 +6,7 @@ const files = {
   dockerfile: 'infra/docker/Dockerfile.web',
   override: 'infra/compose/production-web-hardening.override.yml',
   release: 'scripts/production-web-exact-sha.sh',
+  remote: 'scripts/production-web-remote-entrypoint.sh',
   live: 'scripts/production-web-live-acceptance.sh',
   workflow: '.github/workflows/production-web-exact-sha.yml',
   hardening: 'docs/ops/production-web-hardening.md',
@@ -65,6 +66,13 @@ requireText('release', [
   'docker update --restart=no',
   'WATCHTOWER_RETIRED=1',
 ]);
+requireText('remote', [
+  'PERSISTENT_OVERRIDE_MUTATED=0',
+  'PERSISTENT_OVERRIDE_MUTATED=1',
+  'if [[ "$ACTION" == audit ]]',
+  'compose.production-hardening.override.yml',
+  "grep -v '/compose.production-hardening.override.yml$'",
+]);
 requireText('live', [
   '/api/health/ready',
   '/manifest-pc-deploy.json',
@@ -80,6 +88,8 @@ requireText('workflow', [
   "github.actor == github.repository_owner",
   'PC_PROD_SSH_KEY',
   'scripts/production-web-exact-sha.sh',
+  'scripts/production-web-remote-entrypoint.sh',
+  'persistent_override_mutated',
   'Restore previous exact revision after live failure',
   'retention-days: 90',
 ]);
@@ -113,9 +123,10 @@ requireText('checklist', [
 
 forbid('workflow', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/, /grainflow-web:latest/]);
 forbid('release', [/sshpass/i, /docker compose[^\n]*up -d(?![^\n]*--no-deps)/]);
+forbid('remote', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/]);
 forbid('hardening', [/Netlify.*production/i, /Vercel.*production/i]);
 
-for (const path of [files.release, files.live]) {
+for (const path of [files.release, files.remote, files.live]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   if (result.status !== 0) {
     failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
@@ -128,4 +139,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, health-gated, Compose-managed, rollback-capable and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, health-gated, Compose-managed, rollback-capable, audit-read-only and independent of Watchtower.');
