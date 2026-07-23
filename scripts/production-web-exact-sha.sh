@@ -90,9 +90,7 @@ compose_file_count=0
 for raw_file in "${RAW_COMPOSE_FILES[@]}"; do
   compose_file="$(trim "$raw_file")"
   [[ -n "$compose_file" ]] || continue
-  if [[ "$compose_file" != /* ]]; then
-    compose_file="${PC_PROD_DIR%/}/$compose_file"
-  fi
+  if [[ "$compose_file" != /* ]]; then compose_file="${PC_PROD_DIR%/}/$compose_file"; fi
   [[ -f "$compose_file" ]] || fail "production Compose file does not exist: $compose_file"
   BASE_DC+=(-f "$compose_file")
   compose_file_count=$((compose_file_count + 1))
@@ -208,6 +206,7 @@ deploy_started=0
 container_mutation_started=0
 legacy_parked=0
 legacy_parked_name=''
+watchtower_retired=0
 
 rollback_on_error() {
   original_rc=$?
@@ -227,9 +226,7 @@ rollback_on_error() {
         compose_candidate="$("${ROLLBACK_DC[@]}" ps -q web 2>/dev/null || true)"
         if [[ -n "$compose_candidate" ]]; then docker rm -f "$compose_candidate" >/dev/null 2>&1 || true; fi
         docker rename "$current_web_id" "$current_name"
-        if [[ "$(docker inspect --format '{{.State.Running}}' "$current_web_id")" != true ]]; then
-          docker start "$current_web_id" >/dev/null
-        fi
+        if [[ "$(docker inspect --format '{{.State.Running}}' "$current_web_id")" != true ]]; then docker start "$current_web_id" >/dev/null; fi
         rollback_id="$current_web_id"
       else
         "${ROLLBACK_DC[@]}" up -d --no-deps --force-recreate --pull never web
@@ -245,6 +242,7 @@ rollback_on_error() {
       printf 'AUTOMATIC_ROLLBACK_COMPLETED=1\n'
       printf 'ROLLBACK_WEB_REVISION=%s\n' "${rollback_revision:-unknown}"
       printf 'LEGACY_CONTAINER_RESTORED=%s\n' "$legacy_parked"
+      printf 'WATCHTOWER_REMAINS_RETIRED=%s\n' "$watchtower_retired"
     else
       printf 'AUTOMATIC_ROLLBACK_COMPLETED=0\n' >&2
       exit 90
@@ -275,6 +273,18 @@ configured_web_image="$(
   fail "persistent Compose image authority mismatch: expected $exact_image, found ${configured_web_image:-missing}"
 printf 'PERSISTED_WEB_IMAGE=%s\n' "$configured_web_image"
 printf 'MUTATION_STARTED=1\n'
+
+for id in "${watchtower_ids[@]}"; do
+  docker update --restart=no "$id" >/dev/null
+  if [[ "$(docker inspect --format '{{.State.Running}}' "$id")" == true ]]; then docker stop --time 30 "$id" >/dev/null; fi
+done
+for id in "${watchtower_ids[@]}"; do
+  [[ "$(docker inspect --format '{{.State.Running}}' "$id")" != true ]] || fail "watchtower is still running: $id"
+  [[ "$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$id")" == no ]] ||
+    fail "watchtower restart policy was not disabled for $id"
+done
+watchtower_retired=1
+printf 'WATCHTOWER_QUIESCED_BEFORE_WEB=1\n'
 
 container_mutation_started=1
 if (( legacy_web == 1 )); then
@@ -323,17 +333,10 @@ if (( legacy_parked == 1 )); then
 fi
 
 for id in "${watchtower_ids[@]}"; do
-  docker update --restart=no "$id" >/dev/null
-  if [[ "$(docker inspect --format '{{.State.Running}}' "$id")" == true ]]; then docker stop --time 30 "$id" >/dev/null; fi
-done
-
-running_watchtower=0
-for id in "${watchtower_ids[@]}"; do
-  [[ "$(docker inspect --format '{{.State.Running}}' "$id")" == true ]] && running_watchtower=1
+  [[ "$(docker inspect --format '{{.State.Running}}' "$id")" != true ]] || fail "watchtower restarted unexpectedly: $id"
   [[ "$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$id")" == no ]] ||
-    fail "watchtower restart policy was not disabled for $id"
+    fail "watchtower restart policy drifted for $id"
 done
-(( running_watchtower == 0 )) || fail 'watchtower is still running'
 
 mapfile -t after_other_ids < <(
   docker ps -q |
