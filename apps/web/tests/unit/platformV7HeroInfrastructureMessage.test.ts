@@ -11,9 +11,10 @@ describe('platform-v7 infrastructure hero message', () => {
   const page = read('app/platform-v7/page.tsx');
 
   it('uses the approved RU message as the public first-screen hierarchy', () => {
+    expect(copy).toContain("kicker: 'Промышленная цифровая инфраструктура агробизнеса'");
     expect(copy).toContain("brand: '«Прозрачная Цена»'");
     expect(copy).toContain("title: '— единая цифровая инфраструктура исполнения агросделки.'");
-    expect(copy).toContain('Платформа связывает цену, участников, логистику, качество, документы, расчёты и доказательства в одном управляемом контуре.');
+    expect(copy).toContain('Платформа связывает цену, участников, логистику, качество, документы, расчёты и доказательства в одном управляемом контуре Сделки.');
     expect(component).toContain("className='pc-v6-hero-brand'");
     expect(component).toContain("className='pc-v6-hero-title-line'");
     expect(component).toContain("className='pc-v6-hero-lead'");
@@ -24,6 +25,12 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(copy).toContain("locale === 'en' ? messages.en : locale === 'zh' ? messages.zh : messages.ru");
     expect(copy).toContain("brand: 'Transparent Price'");
     expect(copy).toContain("brand: '透明价格'");
+  });
+
+  it('defines TAI consistently as Transparent Agro Intelligence', () => {
+    expect(component).toContain('Transparent Agro Intelligence — прозрачный агроинтеллект');
+    expect(component).toContain('Transparent Agro Intelligence · 透明农业智能');
+    expect(component).toContain("if (locale === 'en') return 'Transparent Agro Intelligence'");
   });
 
   it('loads the responsive layer after the strategic homepage base styles', () => {
