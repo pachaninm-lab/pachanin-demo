@@ -1,7 +1,10 @@
+import { Role, type RequestUser } from '../../common/types/request-user';
+import { StaffRole } from '../staff-access/staff-access.types';
 import {
   RegulatoryInboxAuthorityError,
   assertRegulatoryInboxIdentityAuthority,
   assertRegulatoryInboxLeaseConsistency,
+  assertRegulatoryInboxRedriveAuthority,
   decideRegulatoryInboxClaim,
   decideRegulatoryInboxInsert,
   type RegulatoryInboxIdentity,
@@ -12,6 +15,18 @@ const context = {
   tenantId: 'tenant-1',
   organizationId: 'organization-1',
 } as const;
+
+const redriveUser: RequestUser = {
+  id: 'admin-1',
+  orgId: 'organization-1',
+  tenantId: 'tenant-1',
+  role: Role.ADMIN,
+  email: 'admin@example.test',
+  sessionId: 'session-1',
+  membershipId: 'membership-1',
+  mfaVerified: true,
+  staffRoles: [StaffRole.PLATFORM_ADMIN],
+};
 
 function identity(
   overrides: Partial<RegulatoryInboxIdentity> = {},
@@ -66,6 +81,44 @@ describe('regulatory integration inbox authority policy', () => {
       identity(),
       identity({ externalEventId: 'event-2' }),
     )).toThrow(RegulatoryInboxAuthorityError);
+  });
+
+  it('allows governed redrive only with trusted staff authority and recent MFA', () => {
+    expect(() => assertRegulatoryInboxRedriveAuthority(
+      redriveUser,
+      'Повторная обработка после устранения ошибки подписи',
+      'redrive-command-1',
+    )).not.toThrow();
+  });
+
+  it('rejects redrive without separate staff authority', () => {
+    expect(() => assertRegulatoryInboxRedriveAuthority(
+      { ...redriveUser, staffRoles: [] },
+      'Повторная обработка после устранения ошибки подписи',
+      'redrive-command-1',
+    )).toThrow('staff authority is required');
+  });
+
+  it('rejects redrive without recent MFA or a meaningful human reason', () => {
+    expect(() => assertRegulatoryInboxRedriveAuthority(
+      { ...redriveUser, mfaVerified: false },
+      'Повторная обработка после устранения ошибки подписи',
+      'redrive-command-1',
+    )).toThrow('recent MFA verification is required');
+
+    expect(() => assertRegulatoryInboxRedriveAuthority(
+      redriveUser,
+      'повтор',
+      'redrive-command-1',
+    )).toThrow('at least 12 characters');
+  });
+
+  it('rejects redrive when trusted session or membership authority is absent', () => {
+    expect(() => assertRegulatoryInboxRedriveAuthority(
+      { ...redriveUser, membershipId: undefined },
+      'Повторная обработка после устранения ошибки подписи',
+      'redrive-command-1',
+    )).toThrow('trusted identity is required');
   });
 
   it('claims verified, due retry and expired processing leases', () => {
