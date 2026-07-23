@@ -76,8 +76,24 @@ jobs:
       - name: Run strict web typecheck
         run: pnpm --filter @pc/web typecheck
 
-      - name: Run complete web unit suite
-        run: pnpm --filter @pc/web test
+      - name: Run complete web unit suite with bounded failure evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/security
+          set +e
+          pnpm --filter @pc/web test > artifacts/security/web-unit-full.log 2>&1
+          test_rc=$?
+          set -e
+          if (( test_rc != 0 )); then
+            {
+              grep -E '^( FAIL | ❯ | × |AssertionError|Error:|Expected|Received|Test Files| Tests )' artifacts/security/web-unit-full.log || true
+              echo '--- bounded tail ---'
+              tail -n 240 artifacts/security/web-unit-full.log
+            } | tail -n 360 > artifacts/security/web-unit-failure.txt
+            exit "$test_rc"
+          fi
+          tail -n 120 artifacts/security/web-unit-full.log > artifacts/security/web-unit-pass.txt
 
       - name: Run production web build
         env:
