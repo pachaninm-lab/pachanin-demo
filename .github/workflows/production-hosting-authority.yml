@@ -69,6 +69,7 @@ jobs:
               restart: always
           YAML
           docker compose \
+            --profile retired-watchtower \
             -f /tmp/pc-compose-base.yml \
             -f infra/compose/production-web-hardening.override.yml \
             config --format json > /tmp/pc-compose-merged.json
