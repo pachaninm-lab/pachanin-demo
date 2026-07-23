@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
 const form = read('components/platform-v7/OrganizationConnectForm.tsx');
+const styles = read('components/platform-v7/OrganizationConnectForm.module.css');
 const copy = read('i18n/platform-v7-organization-connect.ts');
 const bff = read('app/api/platform-v7/organization-connect/route.ts');
 const apiService = read('../api/src/modules/organization-intake/organization-intake.service.ts');
@@ -22,14 +23,25 @@ describe('platform-v7 durable organization connection intake', () => {
     expect(form).not.toContain('Math.random');
   });
 
-  it('keeps personal data out of URLs and analytics events', () => {
+  it('keeps personal data out of URLs, logs and analytics events', () => {
     const analyticsSlice = form.slice(form.indexOf("name: 'organization_request_accepted'"));
     expect(analyticsSlice.slice(0, 220)).not.toMatch(/email|phone|inn|contactName|organizationName/);
     expect(form).not.toMatch(/register\?[^`'\"]*(email|phone|inn|name)=/i);
     expect(bff).not.toContain('console.log');
     expect(bff).not.toContain('console.error');
+    expect(bff).not.toContain("'user-agent'");
     expect(bff).toContain("body: JSON.stringify(payload)");
     expect(bff).toContain("cache: 'no-store'");
+  });
+
+  it('enforces body bounds and a server-validated honeypot', () => {
+    expect(bff).toContain("Buffer.byteLength(rawBody, 'utf8')");
+    expect(bff).toContain('MAX_BODY_BYTES');
+    expect(form).toContain("name='website'");
+    expect(form).toContain('tabIndex={-1}');
+    expect(styles).toContain('.honeypot');
+    expect(apiService).toContain("String(dto.website ?? '').trim()");
+    expect(apiService).toContain("throw new BadRequestException('INVALID_REQUEST')");
   });
 
   it('uses canonical role and scenario codes in complete RU EN ZH copy', () => {
@@ -41,6 +53,8 @@ describe('platform-v7 durable organization connection intake', () => {
     expect(copy).toContain('const zh: OrganizationConnectCopy');
     expect(copy).not.toContain('данные остаются в браузере');
     expect(copy).not.toContain('server endpoint');
+    expect(copy).not.toContain('в реализации');
+    expect(copy).not.toContain('не подтвержд');
   });
 
   it('binds request, audit and outbox in one serializable PostgreSQL transaction', () => {
@@ -52,6 +66,18 @@ describe('platform-v7 durable organization connection intake', () => {
     expect(apiService).toContain("this.rateLimit.consume('public_org_connect_ip'");
     expect(apiService).toContain("this.rateLimit.consume('public_org_connect_email'");
     expect(apiService).toContain('IDEMPOTENCY_PAYLOAD_MISMATCH');
+    expect(apiService).toContain('correlation_id');
+  });
+
+  it('keeps personal payload and its hash out of audit and outbox events', () => {
+    const eventFunction = apiService.slice(
+      apiService.indexOf('function safeOperationalEvent'),
+      apiService.indexOf('function isRetryableTransactionError'),
+    );
+    expect(eventFunction).not.toMatch(/organizationName|contactName|phone|email|inn|payloadHash/);
+    expect(apiService).toContain('const payloadHash = canonicalHash(request)');
+    expect(apiService).toContain('${payloadHash}');
+    expect(apiService).not.toContain('payloadHash: params.payloadHash');
   });
 
   it('persists consent and excludes raw network inventory from the request model', () => {
