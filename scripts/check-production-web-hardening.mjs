@@ -58,6 +58,7 @@ requireText('override', [
 requireText('release', [
   'deploy|rollback',
   'Docker Compose >= 2.24.4',
+  'COMPOSE_FILE_COUNT=',
   'org.opencontainers.image.revision',
   'PC_IMAGE_OVERRIDE=',
   'write_image_override',
@@ -80,7 +81,9 @@ requireText('remote', [
   'if [[ "$ACTION" == audit ]]',
   'compose.production-hardening.override.yml',
   'compose.production-web-image.override.yml',
-  "grep -Ev '/compose\\.production-(hardening|web-image)\\.override\\.yml$'",
+  'grep -Ev',
+  'hardening|web-image',
+  'RESOLVED_PROTECTED_COMPOSE_COUNT=',
   'PC_IMAGE_OVERRIDE=',
   'PC_LIVE_ACCEPTANCE_SCRIPT=',
 ]);
@@ -163,4 +166,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, persisted-image, health-gated, Compose-managed, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, persisted-image, multi-file-Compose, health-gated, parked-legacy rollback-capable, audit-read-only and independent of Watchtower.');
