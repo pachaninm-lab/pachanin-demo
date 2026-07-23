@@ -67,8 +67,6 @@ jobs:
           fetch-depth: 0
 
       - name: Initialize exact-head evidence and bounded scope
-        env:
-          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
@@ -81,17 +79,7 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-
-          intake_manifest='docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json'
-          if [[ "${PR_HEAD_REF:-}" == 'agent/platform-v7-organization-intake-v1' ]] \
-            || grep -Fxq "$intake_manifest" "$EVIDENCE_DIR/changed-files.txt"; then
-            printf '%s\n' 'platform-v7-organization-intake-v1' > "$EVIDENCE_DIR/concurrent-scope-owner.txt"
-            GITHUB_HEAD_REF='agent/platform-v7-organization-intake-v1' \
-              BASE_REF="$base_ref" \
-              HEAD_REF="$EXACT_HEAD" \
-              bash scripts/p7-autopilot-guard.sh \
-              | tee "$EVIDENCE_DIR/concurrent-scope-guard.log"
-          elif grep -qx '.github/workflows/pc-crop-01b4.yml' "$EVIDENCE_DIR/changed-files.txt"; then
+          if grep -qx '.github/workflows/pc-crop-01b4.yml' "$EVIDENCE_DIR/changed-files.txt"; then
             printf '%s\n' 'PC-CROP-01B.4' > "$EVIDENCE_DIR/successor-scope-owner.txt"
           elif grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.3 contains out-of-scope files:' >&2
@@ -206,7 +194,7 @@ jobs:
   command-authority-gate:
     name: PC-CROP-01B.3 Gate · all blocking checks
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: postgresql-command-authority
     steps:
       - name: Enforce PostgreSQL command authority result
