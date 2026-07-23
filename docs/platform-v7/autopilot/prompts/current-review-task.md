@@ -41,6 +41,7 @@ The user explicitly authorized a narrow REG.RU web-only operational slice on bra
 
 - `.github/workflows/production-hosting-authority.yml`;
 - `.github/workflows/production-web-exact-sha.yml`;
+- `.github/workflows/production-web-key-normalization-retry.yml`;
 - `apps/web/app/api/health/ready/route.ts`;
 - `docs/ops/active-hosting-contour.md`;
 - `docs/ops/production-web-hardening.md`;
@@ -54,7 +55,7 @@ The user explicitly authorized a narrow REG.RU web-only operational slice on bra
 - `scripts/production-web-live-acceptance.sh`;
 - `scripts/production-web-remote-entrypoint.sh`.
 
-This slice may add exact-SHA web deployment, readiness healthcheck, immutable rollback, Compose metadata recovery and Watchtower retirement. It must not change API, PostgreSQL, migrations, Caddy, production environment values, volumes, networks, domain logic, money logic, external integrations, packages or lockfiles. Production claims require running OCI revision and live-domain evidence.
+This slice may add exact-SHA web deployment, readiness healthcheck, immutable rollback, Compose metadata recovery, Watchtower retirement and a one-shot fail-closed SSH private-key normalization retry against the already published immutable target. It must not change API, PostgreSQL, migrations, Caddy, production environment values, volumes, networks, domain logic, money logic, external integrations, packages or lockfiles. Production claims require running OCI revision and live-domain evidence.
 
 ## Automatic hard blockers
 
@@ -90,11 +91,12 @@ For the public homepage concurrent scope, return BLOCKED if:
 
 For the production web hardening concurrent scope, return BLOCKED if:
 
-22. The diff exceeds the 14-path hardening allow-list.
+22. The diff exceeds the 15-path hardening allow-list.
 23. SSH identity or protected server paths are committed, printed or defaulted to an unprotected principal.
 24. Deployment uses `latest`, mutable-image acceptance or Watchtower polling as release evidence.
 25. A non-web service, Caddy, environment, volume, network, API or database is mutated.
 26. The image lacks exact manifest/revision binding, readiness healthcheck or an immutable rollback path.
+27. The retry workflow accepts a public key, encrypted key, unknown key material or secret disclosure instead of failing closed before SSH.
 
 ## Review questions
 
