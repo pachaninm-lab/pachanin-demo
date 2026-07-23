@@ -87,12 +87,8 @@ jobs:
 
           git rm .github/workflows/finalize-org-intake-scope.yml
           bash -n scripts/p7-autopilot-guard.sh
-          GITHUB_HEAD_REF=agent/platform-v7-organization-intake-v1 \
-            BASE_REF=origin/main \
-            HEAD_REF=HEAD \
-            bash scripts/p7-autopilot-guard.sh
 
-      - name: Commit final clean scope
+      - name: Commit, validate and push final clean scope
         shell: bash
         run: |
           set -euo pipefail
@@ -100,4 +96,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git commit -m 'refactor(intake): isolate module and use concurrent scope registry'
+          GITHUB_HEAD_REF=agent/platform-v7-organization-intake-v1 \
+            BASE_REF=origin/main \
+            HEAD_REF=HEAD \
+            bash scripts/p7-autopilot-guard.sh
           git push origin HEAD:agent/platform-v7-organization-intake-v1
