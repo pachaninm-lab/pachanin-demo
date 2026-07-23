@@ -51,6 +51,15 @@ CREATE INDEX IF NOT EXISTS public_org_connection_requests_payload_hash_idx
 CREATE INDEX IF NOT EXISTS public_org_connection_requests_retention_idx
   ON public.public_organization_connection_requests ("retentionUntil");
 
+REVOKE ALL ON TABLE public.public_organization_connection_requests FROM PUBLIC;
+DO $public_org_intake_grants$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
+    GRANT SELECT, INSERT ON TABLE public.public_organization_connection_requests TO app_deal;
+  END IF;
+END
+$public_org_intake_grants$;
+
 COMMENT ON TABLE public.public_organization_connection_requests IS
   'Pre-tenant public organization connection requests. Does not create Organization, User, membership, role or tenant authority.';
 COMMENT ON COLUMN public.public_organization_connection_requests."auditEventId" IS
