@@ -1,0 +1,231 @@
+name: Next.js 15.5.21 Security Remediation Controller
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: next-security-remediation-3043
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.issue.number == 3075 &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/security patch-next 3043 15.5.21-v10'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout dedicated security branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ir-sec-next-15-5-16-final
+          fetch-depth: 0
+
+      - name: Patch, verify and publish exact dependency remediation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECURITY_BRANCH: agent/ir-sec-next-15-5-16-final
+          SECURITY_PR: '3089'
+          RELEASE_PR: '3075'
+          TRACKING_ISSUE: '3043'
+        shell: bash
+        run: |
+          set -euo pipefail
+          phase='initialization'
+          canonical_release_title='Add REG.RU full-stack exact-SHA release authority'
+
+          on_failure() {
+            rc=$?
+            trap - ERR
+            failed_line="$1"
+            safe_phase="$(printf '%s' "$phase" | tr -cd 'A-Za-z0-9._:-' | cut -c1-80)"
+            set +e
+            gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+              --title "$canonical_release_title [NEXT FAIL: ${safe_phase}:${rc}]"
+            gh pr comment "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+              --body "Next.js 15.5.21 controller failed. Phase: \`${safe_phase}\`; workflow line: \`${failed_line}\`; exit: \`${rc}\`; run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. No protected value is included."
+            gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "Next.js 15.5.21 controller failed in phase \`${safe_phase}\`, exit \`${rc}\`. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+            set -e
+            exit "$rc"
+          }
+          trap 'on_failure "$LINENO"' ERR
+
+          gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+            --title "$canonical_release_title [NEXT RUNNING]"
+
+          phase='git-sync'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main "$SECURITY_BRANCH"
+          remote_security_head="$(git rev-parse "origin/$SECURITY_BRANCH")"
+          [[ "$remote_security_head" =~ ^[0-9a-f]{40}$ ]]
+          exact_main="$(git rev-parse origin/main)"
+          [[ "$exact_main" =~ ^[0-9a-f]{40}$ ]]
+          git reset --hard "$exact_main"
+
+          phase='patch-package-and-runtime-contracts'
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const packagePath = 'apps/web/package.json';
+          const contractsPath = 'apps/web/tests/unit/next15RuntimeContracts.test.ts';
+          const boundaryPath = 'apps/web/tests/unit/next15RuntimeBoundary.test.ts';
+
+          const manifest = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+          if (manifest.dependencies?.next !== '15.5.18') {
+            throw new Error(`Expected exact next 15.5.18, received ${manifest.dependencies?.next ?? '<missing>'}`);
+          }
+          manifest.dependencies.next = '15.5.21';
+          fs.writeFileSync(packagePath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+          let contracts = fs.readFileSync(contractsPath, 'utf8');
+          const contractsOldRoot = 'const ROOT = process.cwd();';
+          const contractsNewRoot = "const ROOT = path.resolve(__dirname, '../../../..');";
+          const contractsOldVersion = "expect(webPackage.dependencies?.next).toBe('15.5.18');";
+          const contractsNewVersion = "expect(webPackage.dependencies?.next).toBe('15.5.21');";
+          if (
+            !contracts.includes(contractsOldRoot)
+            || !contracts.includes(contractsOldVersion)
+            || contracts.includes(contractsNewVersion)
+          ) {
+            throw new Error('Next runtime contracts anchor mismatch');
+          }
+          contracts = contracts
+            .replace(contractsOldRoot, contractsNewRoot)
+            .replace(contractsOldVersion, contractsNewVersion);
+          fs.writeFileSync(contractsPath, contracts);
+
+          let boundary = fs.readFileSync(boundaryPath, 'utf8');
+          const boundaryOldVersion = "expect(packageJson.dependencies?.next).toBe('15.5.16');";
+          const boundaryNewVersion = "expect(packageJson.dependencies?.next).toBe('15.5.21');";
+          if (!boundary.includes(boundaryOldVersion) || boundary.includes(boundaryNewVersion)) {
+            throw new Error('Next runtime boundary anchor mismatch');
+          }
+          boundary = boundary.replace(boundaryOldVersion, boundaryNewVersion);
+          fs.writeFileSync(boundaryPath, boundary);
+          NODE
+
+          phase='install-pnpm'
+          npm install --global pnpm@10.2.1
+          pnpm --version | grep -Fxq '10.2.1'
+
+          phase='regenerate-lockfile'
+          pnpm --filter @pc/web update next@15.5.21 --lockfile-only
+
+          phase='validate-lockfile-and-contracts'
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
+          const contracts = fs.readFileSync('apps/web/tests/unit/next15RuntimeContracts.test.ts', 'utf8');
+          const boundary = fs.readFileSync('apps/web/tests/unit/next15RuntimeBoundary.test.ts', 'utf8');
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          if (manifest.dependencies?.next !== '15.5.21') throw new Error('Next.js exact pin failed');
+          if (!contracts.includes("expect(webPackage.dependencies?.next).toBe('15.5.21');")) {
+            throw new Error('Runtime contracts version was not updated');
+          }
+          if (!contracts.includes("path.resolve(__dirname, '../../../..')")) {
+            throw new Error('Runtime contracts remain cwd-dependent');
+          }
+          if (!boundary.includes("expect(packageJson.dependencies?.next).toBe('15.5.21');")) {
+            throw new Error('Runtime boundary version was not updated');
+          }
+          if (!lock.includes('next@15.5.21')) throw new Error('Patched Next.js package missing from lockfile');
+          if (/next@15\.5\.18(?:\W|$)/u.test(lock)) throw new Error('Vulnerable Next.js package remains in lockfile');
+          NODE
+
+          phase='validate-four-file-scope'
+          expected="$({ printf '%s\n' \
+            'apps/web/package.json' \
+            'apps/web/tests/unit/next15RuntimeBoundary.test.ts' \
+            'apps/web/tests/unit/next15RuntimeContracts.test.ts' \
+            'pnpm-lock.yaml'; } | sort)"
+          actual="$(git diff --name-only | sort)"
+          [[ "$actual" == "$expected" ]] || {
+            echo 'Unexpected dependency remediation paths:' >&2
+            diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+            exit 20
+          }
+          git diff --check
+
+          phase='frozen-install'
+          pnpm install --frozen-lockfile
+
+          phase='web-typecheck'
+          pnpm --filter @pc/web typecheck
+
+          phase='focused-version-contract-tests'
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/next15RuntimeContracts.test.ts \
+            tests/unit/next15RuntimeBoundary.test.ts \
+            -t 'pins the patched Next.js line without coupling the change to React 19|pins the minimum security-qualified Next.js release'
+
+          phase='web-production-build'
+          NEXT_TELEMETRY_DISABLED=1 pnpm --filter @pc/web build
+
+          phase='production-dependency-audit'
+          pnpm audit --prod --audit-level high
+
+          phase='commit-and-scope-guard'
+          git add \
+            apps/web/package.json \
+            apps/web/tests/unit/next15RuntimeBoundary.test.ts \
+            apps/web/tests/unit/next15RuntimeContracts.test.ts \
+            pnpm-lock.yaml
+          git commit -m 'fix(security): patch Next.js to 15.5.21'
+          GITHUB_HEAD_REF="$SECURITY_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD \
+            bash scripts/p7-autopilot-guard.sh
+
+          phase='publish-security-branch'
+          git push \
+            --force-with-lease="refs/heads/${SECURITY_BRANCH}:${remote_security_head}" \
+            origin "HEAD:refs/heads/${SECURITY_BRANCH}"
+          head_sha="$(git rev-parse HEAD)"
+
+          security_body="$RUNNER_TEMP/security-pr-body.md"
+          cat > "$security_body" <<'BODY'
+          ## Суть
+
+          Изолированно обновляет прямую production-зависимость `next` с `15.5.18` до `15.5.21`, соответствующий lockfile и два source-controlled runtime version contracts.
+
+          ## Точный scope
+
+          - `apps/web/package.json`
+          - `apps/web/tests/unit/next15RuntimeBoundary.test.ts`
+          - `apps/web/tests/unit/next15RuntimeContracts.test.ts`
+          - `pnpm-lock.yaml`
+
+          ## Причина
+
+          Закрывает `GHSA-89xv-2m56-2m9x`, `GHSA-m99w-x7hq-7vfj`, `GHSA-p9j2-gv94-2wf4` без exception или allowlist.
+
+          ## Границы
+
+          Без React major upgrade, product/routing изменений и production deployment. Merge требует полного exact-head CI/security PASS.
+          BODY
+          sed -i 's/^          //' "$security_body"
+          gh pr edit "$SECURITY_PR" --repo "$GITHUB_REPOSITORY" \
+            --title 'Patch Next.js 15.5.18 to 15.5.21 with runtime contracts' \
+            --body-file "$security_body"
+          gh pr edit "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" --title "$canonical_release_title"
+          gh issue comment "$TRACKING_ISSUE" --repo "$GITHUB_REPOSITORY" \
+            --body "Next.js security branch rebuilt from exact main \`${exact_main}\`. Head: \`${head_sha}\`; previous head: \`${remote_security_head}\`; exact four-file scope; focused contracts, frozen install, typecheck, production build and HIGH audit passed; full PR matrix remains mandatory."
+          gh pr comment "$RELEASE_PR" --repo "$GITHUB_REPOSITORY" \
+            --body "Next.js 15.5.21 clean security branch published at \`${head_sha}\` from exact main \`${exact_main}\`. PR #3089 now carries the four authoritative dependency/runtime-contract files."
+
+      - name: Record terminal controller result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ job.status }}
+        shell: bash
+        run: |
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" \
+            --body "Standalone Next.js 15.5.21 controller v10 run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID — result: \`${RESULT}\`."
