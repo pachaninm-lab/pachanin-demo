@@ -6,10 +6,18 @@ import type {
   RegulatoryIntegrationState,
 } from './regulatory-integration.types';
 
-export interface RegulatoryInboxAuthorityContext {
-  readonly tenantId: string;
-  readonly organizationId: string;
-}
+export type RegulatoryInboxAuthorityContext = Readonly<
+  | {
+      tenantId: string;
+      organizationId: string;
+      orgId?: never;
+    }
+  | {
+      tenantId: string;
+      orgId: string;
+      organizationId?: never;
+    }
+>;
 
 export interface RegulatoryInboxIdentity {
   readonly tenantId: string;
@@ -54,11 +62,19 @@ function assertNonEmpty(value: string, field: string): void {
   }
 }
 
+function authorityOrganizationId(
+  context: RegulatoryInboxAuthorityContext,
+): string {
+  const organizationId = context.organizationId ?? context.orgId;
+  assertNonEmpty(organizationId, 'organizationId');
+  return organizationId;
+}
+
 export function assertRegulatoryInboxAuthorityContext(
   context: RegulatoryInboxAuthorityContext,
 ): void {
   assertNonEmpty(context.tenantId, 'tenantId');
-  assertNonEmpty(context.organizationId, 'organizationId');
+  authorityOrganizationId(context);
 }
 
 export function assertRegulatoryInboxIdentityAuthority(
@@ -73,7 +89,7 @@ export function assertRegulatoryInboxIdentityAuthority(
     throw new RegulatoryInboxAuthorityError('tenant authority mismatch');
   }
 
-  if (identity.organizationId !== context.organizationId) {
+  if (identity.organizationId !== authorityOrganizationId(context)) {
     throw new RegulatoryInboxAuthorityError('organization authority mismatch');
   }
 }
