@@ -149,7 +149,7 @@ export class OrganizationIntakeService {
     try {
       const rows = await this.prisma.$queryRaw<AuthorityRow[]>(Prisma.sql`
         SELECT request_number, request_status, replay, correlation_id
-        FROM public.lookup_public_organization_connection_request(${idempotencyKey}, ${payloadHash})
+        FROM organization_intake.lookup_request(${idempotencyKey}, ${payloadHash})
       `);
       return rows[0] ? this.result(rows[0]) : null;
     } catch (error) {
@@ -167,7 +167,7 @@ export class OrganizationIntakeService {
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<AuthorityRow[]>(Prisma.sql`
         SELECT request_number, request_status, replay, correlation_id
-        FROM public.create_public_organization_connection_request(
+        FROM organization_intake.create_request(
           ${request.organizationName},
           ${request.inn},
           ${request.contactName},

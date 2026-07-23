@@ -9,7 +9,10 @@ const styles = read('components/platform-v7/OrganizationConnectForm.module.css')
 const copy = read('i18n/platform-v7-organization-connect.ts');
 const bff = read('app/api/platform-v7/organization-connect/route.ts');
 const apiService = read('../api/src/modules/organization-intake/organization-intake.service.ts');
-const migration = read('../api/prisma/migrations/20260723113000_public_organization_connection_intake/migration.sql');
+const migration = [
+  read('../api/prisma/migrations/20260723113000_public_organization_connection_intake/migration.sql'),
+  read('../api/prisma/migrations/20260723121000_organization_intake_bounded_schema/migration.sql'),
+].join('\n');
 
 describe('platform-v7 durable organization connection intake', () => {
   it('submits through a same-origin BFF and displays a server-issued receipt', () => {
@@ -68,8 +71,8 @@ describe('platform-v7 durable organization connection intake', () => {
 
   it('uses EXECUTE-only command functions for atomic PostgreSQL persistence', () => {
     expect(apiService).toContain('Prisma.TransactionIsolationLevel.Serializable');
-    expect(apiService).toContain('lookup_public_organization_connection_request');
-    expect(apiService).toContain('create_public_organization_connection_request');
+    expect(apiService).toContain('organization_intake.lookup_request');
+    expect(apiService).toContain('organization_intake.create_request');
     expect(apiService).not.toContain('INSERT INTO public.audit_events');
     expect(apiService).not.toContain('INSERT INTO public.outbox_entries');
     expect(apiService).not.toContain('INSERT INTO public.public_organization_connection_requests');
@@ -77,9 +80,9 @@ describe('platform-v7 durable organization connection intake', () => {
     expect(migration).toContain('pg_advisory_xact_lock');
     expect(migration).toContain('INSERT INTO public.audit_events');
     expect(migration).toContain('INSERT INTO public.outbox_entries');
-    expect(migration).toContain('INSERT INTO public.public_organization_connection_requests');
-    expect(migration).toContain('REVOKE ALL ON FUNCTION public.create_public_organization_connection_request');
-    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.create_public_organization_connection_request');
+    expect(migration).toContain('INSERT INTO organization_intake.requests');
+    expect(migration).toContain('REVOKE ALL ON FUNCTION organization_intake.create_request');
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION organization_intake.create_request');
     expect(apiService).toContain("this.rateLimit.consume('public_org_connect_ip'");
     expect(apiService).toContain("this.rateLimit.consume('public_org_connect_email'");
   });
