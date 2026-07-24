@@ -11,7 +11,8 @@
     "docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json",
     "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json",
     "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.lock.json",
-    "scripts/pc-crop-08b/**"
+    "scripts/pc-crop-08b/**",
+    "scripts/p7-autopilot-guard.sh"
   ],
   "boundaries": {
     "officialPinnedPackageOnly": true,
