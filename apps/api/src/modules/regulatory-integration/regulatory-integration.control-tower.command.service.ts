@@ -5,9 +5,9 @@ import { RlsTransactionService } from '../../common/prisma/rls-transaction.servi
 import { RegulatoryIntegrationInboxLifecycleRepository } from './regulatory-integration.inbox-lifecycle.repository';
 import {
   IntegrationControlTowerRepositoryError,
-  RegulatoryIntegrationControlTowerRepository,
   type IntegrationReconciliationReceipt,
 } from './regulatory-integration.control-tower.repository';
+import { RegulatoryIntegrationReconciliationRepository } from './regulatory-integration.reconciliation.repository';
 
 export type IntegrationControlTowerCommand = Readonly<{
   commandId: string;
@@ -30,7 +30,7 @@ export class RegulatoryIntegrationControlTowerCommandService {
   constructor(
     private readonly transactions: RlsTransactionService,
     private readonly lifecycle: RegulatoryIntegrationInboxLifecycleRepository,
-    private readonly controlTower: RegulatoryIntegrationControlTowerRepository,
+    private readonly reconciliation: RegulatoryIntegrationReconciliationRepository,
   ) {}
 
   async redrive(
@@ -68,13 +68,12 @@ export class RegulatoryIntegrationControlTowerCommandService {
       }
     });
 
-    const result = await this.lifecycle.redrive(user, {
+    return this.lifecycle.redrive(user, {
       entryId,
       reason: command.reason,
       idempotencyKey: `${command.commandId}:${command.idempotencyKey}`,
       correlationId: command.correlationId,
     });
-    return result;
   }
 
   async reconcile(
@@ -82,7 +81,7 @@ export class RegulatoryIntegrationControlTowerCommandService {
     adapterCode: string,
     command: IntegrationControlTowerCommand,
   ): Promise<IntegrationReconciliationReceipt> {
-    return this.controlTower.requestReconciliation(user, {
+    return this.reconciliation.request(user, {
       adapterCode,
       expectedVersion: command.expectedVersion,
       commandId: command.commandId,
