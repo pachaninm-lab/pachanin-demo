@@ -62,6 +62,7 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(adapter).not.toContain('LIVE_SIMULATED');
     expect(adapter).toContain('CONFIRMED_LIVE');
     expect(adapter).toContain('ADAPTER_READY');
+    expect(adapter).toContain('requiresConfirmation: true');
   });
 
   it('renders explicit loading, empty, forbidden, error, conflict, stale, reconnecting and degraded states', () => {
@@ -71,7 +72,6 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     }
     expect(client).toContain("role='dialog'");
     expect(client).toContain("aria-modal='true'");
-    expect(client).toContain('requiresConfirmation');
   });
 
   it('limits cabinet access to operator, compliance and executive', () => {
