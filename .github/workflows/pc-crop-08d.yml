@@ -3,6 +3,8 @@ name: PC-CROP-08D FGIS Signing Policy and Durable Dispatch Acceptance
 on:
   pull_request:
     paths:
+      - '.github/workflows/pc-crop-08b.yml'
+      - '.github/workflows/pc-crop-08c.yml'
       - '.github/workflows/pc-crop-08d.yml'
       - 'apps/api/src/outbox-worker.module.ts'
       - 'apps/api/src/modules/integration-events/durable-outbox.worker.ts'
@@ -19,6 +21,8 @@ on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/pc-crop-08b.yml'
+      - '.github/workflows/pc-crop-08c.yml'
       - '.github/workflows/pc-crop-08d.yml'
       - 'apps/api/src/outbox-worker.module.ts'
       - 'apps/api/src/modules/integration-events/durable-outbox.worker.ts'
@@ -46,12 +50,24 @@ env:
   EVIDENCE_DIR: artifacts/pc-crop-08d
   SOURCE_LOCK: docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json
   POLICY_LOCK: docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
 
 jobs:
-  official-signing-policy:
-    name: Pinned ZIP · safe DOCX · signing policy authority
+  signing-and-dispatch:
+    name: Official policy · fail-closed ports · PostgreSQL 16 · canonical outbox
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
 
     steps:
       - name: Checkout exact revision
@@ -74,12 +90,13 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-08d\.yml|apps/api/src/outbox-worker\.module\.ts|apps/api/src/modules/integration-events/durable-outbox\.worker(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-dispatch\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.signing-policy(\.lock)?\.json|infra/sql/postgresql-fgis-grain-dispatch-policies\.sql|scripts/pc-crop-08d/.*|scripts/p7-autopilot-guard\.sh)$' \
+          if grep -Ev '^(\.github/workflows/pc-crop-08[BCD]\.yml|apps/api/src/outbox-worker\.module\.ts|apps/api/src/modules/integration-events/durable-outbox\.worker(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-dispatch\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.signing-policy(\.lock)?\.json|infra/sql/postgresql-fgis-grain-dispatch-policies\.sql|scripts/pc-crop-08d/.*|scripts/p7-autopilot-guard\.sh)$' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-08D contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
           fi
+          touch "$EVIDENCE_DIR/scope-guard.ok"
 
       - uses: actions/setup-python@v5
         with:
@@ -96,7 +113,7 @@ jobs:
             --exact-head "$EXACT_HEAD" \
             2>&1 | tee "$EVIDENCE_DIR/source-intake.log"
 
-      - name: Discover or verify official signing policy
+      - name: Regenerate official signing policy
         run: |
           python scripts/pc-crop-08d/generate_signing_policy.py \
             --archive "$EVIDENCE_DIR/source/fgis-zerno-api-1.0.23.zip" \
@@ -116,18 +133,95 @@ jobs:
           root = Path(os.environ['EVIDENCE_DIR'])
           discovery = json.loads((root / 'signing-policy-discovery.json').read_text('utf-8'))
           if discovery.get('status') != 'PINNED' or discovery.get('pinned') is not True:
-              raise SystemExit('signing policy discovery is not pinned yet')
+              raise SystemExit('signing policy is not pinned')
           PY
           cmp "$EVIDENCE_DIR/fgis-grain-api-1.0.23.signing-policy.json" \
             docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json
           cmp "$EVIDENCE_DIR/fgis-grain-1.0.23.signing-policy.generated.ts" \
             apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.signing-policy.generated.ts
+          touch "$EVIDENCE_DIR/policy-authority.ok"
 
-      - name: Upload signing policy discovery evidence
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply complete migration chain
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Typecheck API and worker authority
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+          pnpm --filter @pc/api build:outbox-worker 2>&1 | tee "$EVIDENCE_DIR/outbox-worker-build.log"
+          touch "$EVIDENCE_DIR/api-typecheck.ok"
+
+      - name: Run dispatch and worker contract tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.contract.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/unit-contracts.log"
+          touch "$EVIDENCE_DIR/unit-contracts.ok"
+
+      - name: Run PostgreSQL atomic dispatch acceptance
+        env:
+          PC_CROP_08D_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-dispatch.e2e-spec.ts \
+            --runInBand 2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+          touch "$EVIDENCE_DIR/postgresql-acceptance.ok"
+
+      - name: Build fail-closed machine-readable acceptance
+        if: always()
+        run: node scripts/pc-crop-08d/verify.mjs
+
+      - name: Enforce exact-head acceptance evidence
+        if: always()
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-08d-acceptance.json`, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop.fgis-grain-signing-dispatch-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-08D' || report.issue !== 3168) process.exit(1);
+          if (report.status !== 'PASS' || report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.exactHead !== process.env.EXACT_HEAD || report.postgresql !== '16') process.exit(1);
+          if (!Object.values(report.invariants || {}).every((value) => value === true)) process.exit(1);
+          const boundaries = report.boundaries || {};
+          for (const [key, value] of Object.entries(boundaries)) {
+            if (key === 'productionHosting') {
+              if (value !== 'REG_RU_VPS_ONLY') process.exit(1);
+            } else if (value !== false) process.exit(1);
+          }
+          if ((report.failures || []).length !== 0) process.exit(1);
+          NODE
+
+      - name: Upload exact-head PC-CROP-08D evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pc-crop-08d-policy-${{ env.EXACT_HEAD }}
+          name: pc-crop-08d-${{ env.EXACT_HEAD }}
           path: artifacts/pc-crop-08d
           if-no-files-found: error
           retention-days: 90
