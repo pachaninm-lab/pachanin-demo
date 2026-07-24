@@ -90,6 +90,14 @@ async function seedInbox(input: Readonly<{
 
 async function cleanup(): Promise<void> {
   await prisma.$executeRaw(Prisma.sql`
+    DELETE FROM public."regulatory_integration_inbox_conflicts"
+    WHERE "tenantId" IN (${TENANT_A}, ${TENANT_B})
+  `);
+  await prisma.$executeRaw(Prisma.sql`
+    DELETE FROM public."regulatory_integration_inbox_entries"
+    WHERE "tenantId" IN (${TENANT_A}, ${TENANT_B})
+  `);
+  await prisma.$executeRaw(Prisma.sql`
     DELETE FROM public."outbox_entries"
     WHERE "correlationId" LIKE ${`${RUN_ID}.%`}
        OR "idempotencyKey" LIKE ${`%${RUN_ID}%`}
@@ -98,14 +106,6 @@ async function cleanup(): Promise<void> {
     DELETE FROM public."audit_events"
     WHERE "correlationId" LIKE ${`${RUN_ID}.%`}
        OR "runtimeIdempotencyKey" LIKE ${`%${RUN_ID}%`}
-  `);
-  await prisma.$executeRaw(Prisma.sql`
-    DELETE FROM public."regulatory_integration_inbox_conflicts"
-    WHERE "tenantId" IN (${TENANT_A}, ${TENANT_B})
-  `);
-  await prisma.$executeRaw(Prisma.sql`
-    DELETE FROM public."regulatory_integration_inbox_entries"
-    WHERE "tenantId" IN (${TENANT_A}, ${TENANT_B})
   `);
   await prisma.$executeRaw(Prisma.sql`
     DELETE FROM public."organizations" WHERE "id" IN (${ORG_A}, ${ORG_B})
