@@ -15,6 +15,7 @@
     "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
     "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
     "apps/web/components/crop-platform/integration-control-tower-live-adapter.ts",
+    "apps/web/components/platform-v7/OrganizationConnectForm.module.css",
     "apps/web/lib/platform-v7/cabinet-access-policy.ts",
     "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/lib/platform-v7/route-canonicalization.ts",
