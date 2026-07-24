@@ -10,6 +10,24 @@
   overflow: visible;
 }
 
+/* Lock the document while the modal assistant is open. The :has() selector is
+ * supported by current Chromium, Safari and Firefox and keeps this behavior
+ * fully scoped to the presence of the assistant dialog. */
+html:has(.pc-public-assistant-panel),
+body:has(.pc-public-assistant-panel) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body:has(.pc-public-assistant-panel) {
+  touch-action: none;
+}
+
+.pc-public-assistant-panel,
+.pc-public-assistant-panel * {
+  touch-action: auto;
+}
+
 .pc-public-assistant-messages {
   min-height: 0;
   scrollbar-gutter: stable;
