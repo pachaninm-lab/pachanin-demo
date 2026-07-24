@@ -1,0 +1,165 @@
+name: PC-CROP-08F FGIS SDIZ Registry Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08f.yml'
+      - 'apps/api/prisma/migrations/20260724*_fgis_grain_sdiz_registry/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-sdiz-registry.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-registry.json'
+      - 'scripts/pc-crop-08f/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-08f.yml'
+      - 'apps/api/prisma/migrations/20260724*_fgis_grain_sdiz_registry/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-sdiz-registry.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-registry.json'
+      - 'scripts/pc-crop-08f/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-08f-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08f
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+
+jobs:
+  sdiz-registry:
+    name: Verified inbox · monotonic SDIZ projection · PostgreSQL 16
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-08F scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref='HEAD^'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08f\.yml|apps/api/prisma/migrations/20260724[0-9_]*_fgis_grain_sdiz_registry/.*|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-sdiz-registry\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-registry\.json|scripts/pc-crop-08f/.*)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08F contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+          touch "$EVIDENCE_DIR/scope-guard.ok"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply complete migration chain
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+          test -f apps/api/prisma/migrations/20260724160500_fgis_grain_sdiz_registry/migration.sql
+          touch "$EVIDENCE_DIR/migration.ok"
+
+      - name: Typecheck API authority
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+          touch "$EVIDENCE_DIR/api-typecheck.ok"
+
+      - name: Run SDIZ contract and abuse tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-registry.contract.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/contract-tests.log"
+          touch "$EVIDENCE_DIR/contract-tests.ok"
+
+      - name: Run PostgreSQL SDIZ application acceptance
+        env:
+          PC_CROP_08F_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-sdiz-registry.e2e-spec.ts \
+            --runInBand 2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+          touch "$EVIDENCE_DIR/postgresql-acceptance.ok"
+
+      - name: Build machine-readable acceptance
+        if: always()
+        run: node scripts/pc-crop-08f/verify.mjs
+
+      - name: Enforce exact-head acceptance evidence
+        if: always()
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-08f-acceptance.json`, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop.fgis-grain-sdiz-registry-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-08F' || report.issue !== 3178) process.exit(1);
+          if (report.status !== 'PASS' || report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.exactHead !== process.env.EXACT_HEAD || report.postgresql !== '16') process.exit(1);
+          if (!Object.values(report.invariants || {}).every((value) => value === true)) process.exit(1);
+          for (const [key, value] of Object.entries(report.boundaries || {})) {
+            if (key === 'productionHosting') {
+              if (value !== 'REG_RU_VPS_ONLY') process.exit(1);
+            } else if (value !== false) process.exit(1);
+          }
+          if ((report.failures || []).length !== 0) process.exit(1);
+          NODE
+
+      - name: Upload exact-head PC-CROP-08F evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08f-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-08f
+          if-no-files-found: error
+          retention-days: 90
