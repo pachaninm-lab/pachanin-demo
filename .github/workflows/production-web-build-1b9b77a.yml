@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: production-web-build-1b9b77a
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   TARGET_SHA: 1b9b77acf17b8a74f90b0822dee429602e789c92
