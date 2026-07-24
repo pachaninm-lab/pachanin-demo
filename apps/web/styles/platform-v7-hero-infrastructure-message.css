@@ -30,8 +30,7 @@
 }
 
 .pc-v6-hero-brand {
-  display: block;
-  margin-bottom: 8px;
+  display: inline;
   color: var(--pc-v6-green);
   font-size: 0.62em;
   font-weight: 700;
@@ -39,7 +38,13 @@
   letter-spacing: -0.026em;
 }
 
-.pc-v6-hero-title-line { display: block; }
+.pc-v6-hero-brand::after {
+  content: '';
+  display: block;
+  height: 8px;
+}
+
+.pc-v6-hero-title-line { display: inline; }
 
 .pc-v6-hero-copy > p.pc-v6-hero-lead {
   max-width: 60ch;
@@ -75,7 +80,7 @@
   .pc-v6-hero { gap: 24px; padding-top: 34px; padding-bottom: 46px; }
   .pc-v6-hero .pc-v6-kicker { margin-bottom: 11px; font-size: 13px; }
   .pc-v6-hero h1.pc-v6-hero-title { max-width: none; font-size: 36px; line-height: 1.045; letter-spacing: -0.038em; }
-  .pc-v6-hero-brand { margin-bottom: 7px; font-size: 0.62em; }
+  .pc-v6-hero-brand::after { height: 7px; }
   .pc-v6-hero-copy > p.pc-v6-hero-lead { margin-top: 16px; font-size: 16px; line-height: 1.5; }
   .pc-v6-hero-proofs { display: grid; gap: 7px; margin-top: 16px; }
 }
