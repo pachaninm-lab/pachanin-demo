@@ -117,8 +117,8 @@ function attestationCommand(
 ): RecordProviderAttestationCommand {
   return {
     configurationId,
-    idempotencyKey: `${RUN_ID}.attest-${gate.toLowerCase()}-${suffix}`,
-    correlationId: `${RUN_ID}.attest-${gate.toLowerCase()}-${suffix}.correlation`,
+    idempotencyKey: `${RUN_ID}.${configurationId}.attest-${gate.toLowerCase()}-${suffix}`,
+    correlationId: `${RUN_ID}.${configurationId}.attest-${gate.toLowerCase()}-${suffix}.correlation`,
     reason: `${gate} attestation is recorded after independent MFA-backed review.`,
     expectedVersion: version,
     attestation: {
