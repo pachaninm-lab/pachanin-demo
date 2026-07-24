@@ -136,20 +136,35 @@ function attestationCommand(
 }
 
 async function seedAuthority(): Promise<void> {
+  const now = new Date();
+  const innA = `77${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`;
+  const innB = `78${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`;
   await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO public."organizations" ("id", "inn", "name", "tenantId") VALUES
-      (${ORG_A}, ${`77${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`}, ${`${RUN_ID} Org A`}, ${TENANT_A}),
-      (${ORG_B}, ${`78${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`}, ${`${RUN_ID} Org B`}, ${TENANT_B})
+    INSERT INTO public."organizations" (
+      "id", "inn", "name", "tenantId", "updatedAt"
+    ) VALUES
+      (${ORG_A}, ${innA}, ${`${RUN_ID} Org A`}, ${TENANT_A}, ${now}),
+      (${ORG_B}, ${innB}, ${`${RUN_ID} Org B`}, ${TENANT_B}, ${now})
     ON CONFLICT ("id") DO NOTHING
   `);
   const users = [EXEC_A, SECURITY_A, LEGAL_A, OPS_A, EXEC_B, NO_MFA_SECURITY];
   for (const user of users) {
     await prisma.$executeRaw(Prisma.sql`
-      INSERT INTO public."users" ("id", "email", "passwordHash", "fullName", "mfaEnabled")
-      VALUES (${user.id}, ${user.email}, 'not-a-real-password-hash', ${user.id}, ${user.mfaVerified === true})
+      INSERT INTO public."users" (
+        "id", "email", "passwordHash", "fullName", "mfaEnabled", "updatedAt"
+      ) VALUES (
+        ${user.id}, ${user.email}, 'not-a-real-password-hash', ${user.id},
+        ${user.mfaVerified === true}, ${now}
+      )
       ON CONFLICT ("id") DO NOTHING
     `);
   }
+}
+
+async function resetProviderAggregate(): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    'TRUNCATE TABLE public."fgis_grain_provider_attestations", public."fgis_grain_provider_configurations" RESTART IDENTITY CASCADE',
+  );
 }
 
 describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations', () => {
@@ -162,6 +177,10 @@ describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations
     repository = new FgisGrainProviderAttestationRepository(
       new RlsTransactionService(prisma),
     );
+  });
+
+  beforeEach(async () => {
+    await resetProviderAggregate();
   });
 
   afterAll(async () => {
@@ -318,11 +337,7 @@ describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations
       EXEC_A,
       review.configurationId,
       metadata('production-activate', review.version),
-    )).rejects.toMatchObject({
-      response: expect.objectContaining({
-        message: expect.stringMatching(/Production provider activation/iu),
-      }),
-    });
+    )).rejects.toMatchObject({ code: 'PRODUCTION_ACTIVATION_FORBIDDEN' });
     await expect(repository.getView(EXEC_B, production.configurationId))
       .rejects.toBeInstanceOf(NotFoundException);
 
