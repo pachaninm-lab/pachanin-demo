@@ -1,4 +1,4 @@
-name: Prepare and dispatch production web 1b9b77a
+name: Prepare release-control PR for web 1b9b77a
 
 on:
   push:
@@ -8,41 +8,32 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write
   contents: write
-  packages: write
+  packages: read
+  pull-requests: write
   issues: write
 
 concurrency:
-  group: prepare-and-dispatch-production-web-1b9b77a
+  group: prepare-release-control-web-1b9b77a
   cancel-in-progress: true
 
 env:
   TARGET_SHA: 1b9b77acf17b8a74f90b0822dee429602e789c92
   EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-1b9b77a
   RELEASE_ISSUE_NUMBER: 3187
-  CONTROL_DIR: control
-  SOURCE_DIR: source
+  RELEASE_BRANCH: ops/release-control-1b9b77a
 
 jobs:
   prepare:
-    name: Build authority and dispatch bounded deploy
+    name: Verify image and open governed release-control PR
     if: github.event_name == 'push' || github.actor == github.repository_owner
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    timeout-minutes: 25
     steps:
-      - name: Checkout exact application source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TARGET_SHA }}
-          path: ${{ env.SOURCE_DIR }}
-          fetch-depth: 0
-
-      - name: Checkout current main control plane
+      - name: Checkout current main
         uses: actions/checkout@v4
         with:
           ref: main
-          path: ${{ env.CONTROL_DIR }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -50,12 +41,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git -C "$CONTROL_DIR" fetch --no-tags origin main
-          git -C "$CONTROL_DIR" cat-file -e "${TARGET_SHA}^{commit}"
-          git -C "$CONTROL_DIR" merge-base --is-ancestor "$TARGET_SHA" origin/main
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+          git fetch --no-tags origin main
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" origin/main
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -64,36 +52,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build or verify exact linux-amd64 image
+      - name: Verify exact image authority
         id: image
         shell: bash
         run: |
           set -euo pipefail
-          build_required=1
-          if docker pull --platform linux/amd64 "$EXACT_IMAGE" >/dev/null 2>&1; then
-            current_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE" 2>/dev/null || true)"
-            current_arch="$(docker image inspect --format '{{ .Architecture }}' "$EXACT_IMAGE" 2>/dev/null || true)"
-            if [[ "$current_revision" == "$TARGET_SHA" && "$current_arch" == amd64 ]]; then
-              build_required=0
-            fi
-          fi
-
-          if (( build_required == 1 )); then
-            build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            docker buildx build \
-              --platform linux/amd64 \
-              --file "$SOURCE_DIR/infra/docker/Dockerfile.web" \
-              --tag "$EXACT_IMAGE" \
-              --label "org.opencontainers.image.revision=$TARGET_SHA" \
-              --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-              --build-arg "BUILD_DATE=$build_date" \
-              --build-arg "GIT_COMMIT=$TARGET_SHA" \
-              --cache-from type=gha,scope=web-amd64 \
-              --cache-to type=gha,mode=max,scope=web-amd64 \
-              --push \
-              "$SOURCE_DIR"
-          fi
-
           docker pull --platform linux/amd64 "$EXACT_IMAGE"
           actual_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE")"
           architecture="$(docker image inspect --format '{{ .Architecture }}' "$EXACT_IMAGE")"
@@ -103,11 +66,9 @@ jobs:
           echo "revision=$actual_revision" >> "$GITHUB_OUTPUT"
           echo "architecture=$architecture" >> "$GITHUB_OUTPUT"
           echo "image_id=$image_id" >> "$GITHUB_OUTPUT"
-          echo "build_required=$build_required" >> "$GITHUB_OUTPUT"
 
       - name: Bind bounded deploy workflow to exact target
         shell: bash
-        working-directory: ${{ env.CONTROL_DIR }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -146,7 +107,6 @@ jobs:
 
       - name: Remove temporary release preparation files
         shell: bash
-        working-directory: ${{ env.CONTROL_DIR }}
         run: |
           set -euo pipefail
           rm -f \
@@ -154,10 +114,9 @@ jobs:
             .github/workflows/production-web-build-1b9b77a.yml \
             .github/release-triggers/production-web-1b9b77a.md
 
-      - name: Commit exact deploy binding to main
+      - name: Commit governed release-control branch
         id: commit
         shell: bash
-        working-directory: ${{ env.CONTROL_DIR }}
         run: |
           set -euo pipefail
           git add -A \
@@ -177,40 +136,33 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'ops(release): bind bounded web deploy to 1b9b77a'
           release_commit="$(git rev-parse HEAD)"
-          git push origin HEAD:main
+          git push --force origin "HEAD:$RELEASE_BRANCH"
           echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for main workflow authority to update
+      - name: Open or update release-control PR
+        id: pr
         shell: bash
-        working-directory: ${{ env.CONTROL_DIR }}
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ steps.commit.outputs.release_commit }}
         run: |
           set -euo pipefail
-          expected_blob="$(git rev-parse "${RELEASE_COMMIT}:.github/workflows/production-web-key-normalization-retry.yml")"
-          for attempt in $(seq 1 30); do
-            remote_head="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
-            remote_blob="$(gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/production-web-key-normalization-retry.yml?ref=main" --jq '.sha')"
-            echo "Authority attempt $attempt: head=$remote_head blob=$remote_blob expected=$expected_blob"
-            if [[ "$remote_head" == "$RELEASE_COMMIT" && "$remote_blob" == "$expected_blob" ]]; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo 'Main release workflow authority did not converge.' >&2
-          exit 1
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$RELEASE_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            pr_number="$existing"
+          else
+            body_file="$(mktemp)"
+            cat > "$body_file" <<EOF
+          Binds the existing bounded REG.RU web-only release workflow to exact target \`$TARGET_SHA\`.
 
-      - name: Dispatch bounded production deployment
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run production-web-key-normalization-retry.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f confirmation=RETRY-1B9B77A
+          Exact image authority: \`$EXACT_IMAGE\` with matching OCI revision and linux/amd64 architecture.
+
+          On merge, the existing push trigger performs the bounded deployment and publishes evidence to issue #3187. No application, API, database, migration, Caddy or unrelated service changes.
+          EOF
+            pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$RELEASE_BRANCH" --title 'ops(release): bind bounded web deploy to 1b9b77a' --body-file "$body_file")"
+            pr_number="${pr_url##*/}"
+          fi
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "pr_url=https://github.com/$GITHUB_REPOSITORY/pull/$pr_number" >> "$GITHUB_OUTPUT"
 
       - name: Record successful preparation
         if: success()
@@ -218,13 +170,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_COMMIT: ${{ steps.commit.outputs.release_commit }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
           IMAGE_REVISION: ${{ steps.image.outputs.revision }}
           IMAGE_ARCH: ${{ steps.image.outputs.architecture }}
           IMAGE_ID: ${{ steps.image.outputs.image_id }}
-          IMAGE_BUILT: ${{ steps.image.outputs.build_required }}
         run: |
           set -euo pipefail
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Exact image verified and bounded deploy dispatched\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- OCI revision: \`$IMAGE_REVISION\`\n- architecture: \`$IMAGE_ARCH\`\n- image ID: \`$IMAGE_ID\`\n- image built in this run: \`$IMAGE_BUILT\`\n- release-control commit: \`$RELEASE_COMMIT\`\n- preparation workflow run: \`$GITHUB_RUN_ID\`"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Exact image verified and release-control PR opened\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- OCI revision: \`$IMAGE_REVISION\`\n- architecture: \`$IMAGE_ARCH\`\n- image ID: \`$IMAGE_ID\`\n- release-control commit: \`$RELEASE_COMMIT\`\n- release-control PR: #$PR_NUMBER\n- preparation workflow run: \`$GITHUB_RUN_ID\`"
 
       - name: Record preparation failure
         if: failure()
@@ -232,4 +185,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production preparation failed closed\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- preparation workflow run: \`$GITHUB_RUN_ID\`\n- VPS deployment was not accepted by this preparation job."
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Release-control preparation failed closed\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- preparation workflow run: \`$GITHUB_RUN_ID\`\n- production deployment was not dispatched."
