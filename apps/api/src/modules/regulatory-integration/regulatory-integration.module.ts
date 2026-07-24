@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FgisGrainContractCatalogService } from './fgis-grain/fgis-grain-contract-catalog.service';
 import { RegulatoryIntegrationControlTowerCommandService } from './regulatory-integration.control-tower.command.service';
 import { RegulatoryIntegrationControlTowerController } from './regulatory-integration.control-tower.controller';
 import { RegulatoryIntegrationControlTowerRepository } from './regulatory-integration.control-tower.repository';
@@ -16,6 +17,7 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
     RegulatoryIntegrationControlTowerRedriveRepository,
     RegulatoryIntegrationReconciliationRepository,
     RegulatoryIntegrationControlTowerCommandService,
+    FgisGrainContractCatalogService,
   ],
   exports: [
     RegulatoryIntegrationInboxRepository,
@@ -24,6 +26,7 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
     RegulatoryIntegrationControlTowerRedriveRepository,
     RegulatoryIntegrationReconciliationRepository,
     RegulatoryIntegrationControlTowerCommandService,
+    FgisGrainContractCatalogService,
   ],
 })
 export class RegulatoryIntegrationModule {}

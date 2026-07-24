@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08b-fgis-contract-catalog",
+  "status": "active",
+  "issue": 3158,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08b.yml",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/**",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json",
+    "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json",
+    "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.lock.json",
+    "scripts/pc-crop-08b/**",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "boundaries": {
+    "officialPinnedPackageOnly": true,
+    "generatedContractAuthority": true,
+    "runtimeEndpointConfigured": false,
+    "placeholderEndpointAllowed": false,
+    "xmlSerializationOrParsing": false,
+    "signatureGenerationOrVerification": false,
+    "liveCredentialOrCertificateUse": false,
+    "externalProviderCall": false,
+    "domainMutation": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeploymentEvidence": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
