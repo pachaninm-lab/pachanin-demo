@@ -50,6 +50,15 @@ const MUTATION_ROLES = new Set<Role>([
   Role.COMPLIANCE_OFFICER,
   Role.SUPPORT_MANAGER,
 ]);
+const SUSPEND_ROLES = new Set<Role>([
+  Role.EXECUTIVE,
+  Role.ADMIN,
+  Role.COMPLIANCE_OFFICER,
+]);
+const REVOKE_ROLES = new Set<Role>([
+  Role.EXECUTIVE,
+  Role.COMPLIANCE_OFFICER,
+]);
 
 type ConfigRow = Readonly<{
   id: string;
@@ -177,6 +186,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 function canonicalJson(value: unknown): string {
+  if (value === undefined) return 'undefined';
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   const record = value as Record<string, unknown>;
@@ -617,7 +627,7 @@ export class FgisGrainProviderAttestationRepository {
     configurationId: string,
     metadata: ProviderCommandMetadata,
   ): Promise<ProviderConfigurationReceipt> {
-    if (![Role.EXECUTIVE, Role.ADMIN, Role.COMPLIANCE_OFFICER].includes(user.role)) {
+    if (!SUSPEND_ROLES.has(user.role)) {
       throw new ForbiddenException('Provider suspension authority is required');
     }
     requireMfa(user, 'MFA is required for provider suspension');
@@ -639,7 +649,7 @@ export class FgisGrainProviderAttestationRepository {
     configurationId: string,
     metadata: ProviderCommandMetadata,
   ): Promise<ProviderConfigurationReceipt> {
-    if (![Role.EXECUTIVE, Role.COMPLIANCE_OFFICER].includes(user.role)) {
+    if (!REVOKE_ROLES.has(user.role)) {
       throw new ForbiddenException('Provider revocation authority is required');
     }
     requireMfa(user, 'MFA is required for provider revocation');
