@@ -1,0 +1,131 @@
+name: PC-CROP-08C FGIS Grain SOAP XML Codec Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08c.yml'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json'
+      - 'scripts/pc-crop-08c/**'
+      - 'scripts/p7-autopilot-guard.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-08c.yml'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json'
+      - 'scripts/pc-crop-08c/**'
+      - 'scripts/p7-autopilot-guard.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-08c-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08c
+
+jobs:
+  hardened-xml-codec:
+    name: SOAP 1.1 · fail-closed XML · signing input · inbox mapping
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-08C scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref='HEAD^'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08c\.yml|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input\.json|scripts/pc-crop-08c/.*|scripts/p7-autopilot-guard\.sh)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08C contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+          touch "$EVIDENCE_DIR/scope-guard.ok"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API authority
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+          touch "$EVIDENCE_DIR/api-typecheck.ok"
+
+      - name: Run typed catalog and hardened codec contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/codec-tests.log"
+          touch "$EVIDENCE_DIR/codec-tests.ok"
+
+      - name: Build fail-closed machine-readable acceptance
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/pc-crop-08c/verify.mjs 2>&1 | tee "$EVIDENCE_DIR/verifier.log"
+
+      - name: Enforce exact-head acceptance evidence
+        if: always()
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = `${process.env.EVIDENCE_DIR}/pc-crop-08c-acceptance.json`;
+          if (!fs.existsSync(path)) process.exit(1);
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop.fgis-grain-xml-codec-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-08C' || report.issue !== 3163) process.exit(1);
+          if (report.status !== 'PASS' || report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.exactHead !== process.env.EXACT_HEAD) process.exit(1);
+          if (report.boundaries.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (report.failures.length !== 0) process.exit(1);
+          if (!Object.values(report.invariants).every(Boolean)) process.exit(1);
+          NODE
+
+      - name: Upload exact-head PC-CROP-08C evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08c-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-08c
+          if-no-files-found: error
+          retention-days: 90
