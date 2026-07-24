@@ -1,5 +1,6 @@
 export const PLATFORM_V7_CANONICAL_ROUTES = {
   connectors: '/platform-v7/connectors',
+  integrations: '/platform-v7/integrations',
   disputes: '/platform-v7/disputes',
   driverField: '/platform-v7/driver/field',
   lots: '/platform-v7/lots',
@@ -7,7 +8,6 @@ export const PLATFORM_V7_CANONICAL_ROUTES = {
 } as const;
 
 export const PLATFORM_V7_ROUTE_ALIASES: Readonly<Record<string, string>> = {
-  '/platform-v7/integrations': PLATFORM_V7_CANONICAL_ROUTES.connectors,
   '/platform-v7/marketplace': PLATFORM_V7_CANONICAL_ROUTES.lots,
   '/platform-v7/market': PLATFORM_V7_CANONICAL_ROUTES.lots,
   '/platform-v7/field': PLATFORM_V7_CANONICAL_ROUTES.driverField,
