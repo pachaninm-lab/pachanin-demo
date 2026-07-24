@@ -15,6 +15,7 @@
     "apps/api/src/modules/regulatory-integration/fgis-grain/**",
     "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
     "apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts",
+    "apps/api/test/industrial/outbox-worker-process.e2e-spec.ts",
     "docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport.json",
     "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json",
     "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json",
