@@ -1,0 +1,262 @@
+name: PC-CROP-08F exact-main synchronization
+
+on:
+  pull_request:
+    types: [ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: pc-crop-08f-exact-main-sync
+  cancel-in-progress: false
+
+env:
+  BRANCH: ${{ github.event.pull_request.head.ref }}
+  EXPECTED_BRANCH_HEAD: ${{ github.event.pull_request.head.sha }}
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+
+jobs:
+  synchronize:
+    if: github.event.pull_request.number == 3180 && github.event.pull_request.head.ref == 'agent/pc-crop-08f-sdiz-projection'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+
+      - name: Merge runtime-exact main and resolve only Prisma authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch --no-tags origin main
+          actual_branch_head="$(git rev-parse HEAD)"
+          [[ "$actual_branch_head" == "$EXPECTED_BRANCH_HEAD" ]] || {
+            echo "branch moved: expected $EXPECTED_BRANCH_HEAD, got $actual_branch_head" >&2
+            exit 19
+          }
+          base_main_sha="$(git rev-parse origin/main)"
+          git merge-base --is-ancestor "$base_main_sha" origin/main
+          printf 'BASE_MAIN_SHA=%s\n' "$base_main_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$base_main_sha" > /tmp/pc-crop-08f-base-main.txt
+
+          set +e
+          git merge --no-ff --no-commit "$base_main_sha"
+          merge_status=$?
+          set -e
+          if (( merge_status != 0 )); then
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+            printf '%s\n' "${conflicts[@]}"
+            [[ "${#conflicts[@]}" -eq 1 && "${conflicts[0]}" == "apps/api/prisma/schema.prisma" ]] || {
+              echo "unexpected merge conflicts" >&2
+              exit 21
+            }
+            git checkout --theirs -- apps/api/prisma/schema.prisma
+          fi
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'apps/api/prisma/schema.prisma';
+          let schema = fs.readFileSync(path, 'utf8');
+
+          function updateModel(name, mutate) {
+            const pattern = new RegExp(`model ${name} \\{[\\s\\S]*?\\n\\}`);
+            const match = schema.match(pattern);
+            if (!match) throw new Error(`missing Prisma model: ${name}`);
+            schema = schema.replace(match[0], mutate(match[0]));
+          }
+
+          function insertBefore(block, anchor, addition, token) {
+            if (block.includes(token)) return block;
+            const index = block.indexOf(anchor);
+            if (index < 0) throw new Error(`missing Prisma anchor: ${anchor}`);
+            return block.slice(0, index) + addition + block.slice(index);
+          }
+
+          updateModel('Organization', (block) => insertBefore(
+            block,
+            '\n  @@index([tenantId])',
+            '  fgisGrainSdizProjectionBatches FgisGrainSdizProjectionBatch[]\n  fgisGrainSdizProjections       FgisGrainSdizProjection[]\n\n',
+            'fgisGrainSdizProjectionBatches',
+          ));
+
+          updateModel('OutboxEntry', (block) => insertBefore(
+            block,
+            '\n  @@index([status, nextRetryAt])',
+            '  fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?\n\n',
+            'fgisGrainSdizProjectionBatch',
+          ));
+
+          updateModel('AuditEvent', (block) => insertBefore(
+            block,
+            '\n  @@index([dealId])',
+            '  fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?\n\n',
+            'fgisGrainSdizProjectionBatch',
+          ));
+
+          updateModel('RegulatoryIntegrationInboxEntry', (block) => {
+            if (!block.includes('signatureAlgorithmUri')) {
+              const pattern = /(\n\s*signatureAlgorithm\s+String\?\s+@db\.VarChar\(64\)\n)/;
+              if (!pattern.test(block)) throw new Error('missing compact signatureAlgorithm authority');
+              block = block.replace(pattern, '$1  signatureAlgorithmUri     String?\n');
+            }
+            return insertBefore(
+              block,
+              '\n  @@unique([tenantId, organizationId, provider, externalEventId]',
+              '  fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?\n  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n\n',
+              'fgisGrainSdizProjections',
+            );
+          });
+
+          if (!schema.includes('model FgisGrainSdizProjectionBatch {')) {
+            schema = schema.trimEnd() + `
+
+// ── FGIS Grain SDIZ projection authority ─────────────────────────────────────
+
+model FgisGrainSdizProjectionBatch {
+  id                         String   @id
+  tenantId                   String
+  organizationId             String
+  sourceInboxEntryId         String   @unique
+  sourceRawBodySha256        String
+  sourceEvidenceReference    String
+  providerMessageId          String
+  providerReferenceMessageId String?
+  providerOccurredAt         DateTime @db.Timestamptz(6)
+  batchFingerprint           String
+  recordCount                Int
+  auditEventId               String   @unique
+  outboxEntryId              String   @unique
+  createdAt                  DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+
+  organization     Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_org_fk")
+  sourceInboxEntry RegulatoryIntegrationInboxEntry @relation(fields: [sourceInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_inbox_fk")
+  auditEvent       AuditEvent                      @relation(fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_audit_fk")
+  outboxEntry      OutboxEntry                     @relation(fields: [outboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_outbox_fk")
+  projections      FgisGrainSdizProjection[]
+
+  @@unique([tenantId, organizationId, sourceInboxEntryId, batchFingerprint], map: "fgis_grain_sdiz_batch_identity_key")
+  @@index([tenantId, organizationId, providerMessageId], map: "fgis_grain_sdiz_batch_provider_message_idx")
+  @@index([createdAt(sort: Desc), id], map: "fgis_grain_sdiz_batch_created_idx")
+  @@map("fgis_grain_sdiz_projection_batches")
+}
+
+model FgisGrainSdizProjection {
+  id                         String   @id
+  tenantId                   String
+  organizationId             String
+  sdizId                     String
+  sdizNumber                 String
+  lotNumber                  String?
+  createLotNumber            String?
+  correctedBySdizNumber      String?
+  correctedSdizNumber        String?
+  extinctionId               String?
+  extinctionRefusalId        String?
+  status                     String
+  providerMessageId          String
+  providerReferenceMessageId String?
+  providerOccurredAt         DateTime @db.Timestamptz(6)
+  payloadFingerprint         String
+  sourceInboxEntryId         String
+  projectionBatchId          String
+  version                    BigInt   @default(0)
+  createdAt                  DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  updatedAt                  DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+
+  organization     Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_projection_org_fk")
+  sourceInboxEntry RegulatoryIntegrationInboxEntry @relation(fields: [sourceInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_projection_inbox_fk")
+  projectionBatch  FgisGrainSdizProjectionBatch    @relation(fields: [projectionBatchId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_projection_batch_fk")
+
+  @@unique([tenantId, organizationId, sdizId], map: "fgis_grain_sdiz_projection_identity_key")
+  @@unique([tenantId, organizationId, sdizNumber], map: "fgis_grain_sdiz_projection_number_key")
+  @@index([tenantId, organizationId, lotNumber], map: "fgis_grain_sdiz_projection_lot_idx")
+  @@index([tenantId, organizationId, status, providerOccurredAt(sort: Desc)], map: "fgis_grain_sdiz_projection_status_idx")
+  @@index([sourceInboxEntryId, projectionBatchId], map: "fgis_grain_sdiz_projection_source_idx")
+  @@index([updatedAt(sort: Desc), id], map: "fgis_grain_sdiz_projection_freshness_idx")
+  @@map("fgis_grain_sdiz_projections")
+}
+`;
+          }
+
+          fs.writeFileSync(path, schema, 'utf8');
+          NODE
+
+          git add apps/api/prisma/schema.prisma
+          [[ -z "$(git diff --name-only --diff-filter=U)" ]]
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Validate synchronized authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          node scripts/pc-crop-08f/normalize-signature-authority.mjs
+          pnpm --filter @pc/api exec prisma format
+          pnpm --filter @pc/api exec prisma validate
+          pnpm --filter @pc/api exec prisma migrate deploy
+          pnpm --filter @pc/api exec prisma generate
+          pnpm --filter @pc/api typecheck
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts
+          PC_CROP_08F_POSTGRESQL=1 pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts \
+            --runInBand
+
+      - name: Publish one clean exact-main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$BASE_MAIN_SHA" ]] || {
+            echo "main moved during synchronization" >&2
+            exit 29
+          }
+          rm -f .github/workflows/pc-crop-08f-sync-main.yml
+          git add -A
+          git commit -m "chore(pc-crop-08f): materialize synchronized tree"
+          git reset --soft "$BASE_MAIN_SHA"
+          git add -A
+
+          git diff --cached --name-only | sort > /tmp/changed-files.txt
+          cat /tmp/changed-files.txt
+          if grep -Ev '^(\.github/workflows/pc-crop-08f\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/migration\.sql|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection\.(contract\.spec|contract|repository)\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-sdiz-projection\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-projection\.json|scripts/pc-crop-08f/(normalize-signature-authority|verify)\.mjs)$' /tmp/changed-files.txt; then
+            echo "final diff exceeds PC-CROP-08F scope" >&2
+            exit 30
+          fi
+          [[ "$(wc -l < /tmp/changed-files.txt | tr -d ' ')" == "11" ]]
+
+          git commit -m "PC-CROP-08F: synchronize durable SDIZ authority with runtime-exact main"
+          git push --force-with-lease="refs/heads/${BRANCH}:${EXPECTED_BRANCH_HEAD}" origin "HEAD:refs/heads/${BRANCH}"
