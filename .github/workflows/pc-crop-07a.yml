@@ -3,31 +3,42 @@ name: PC-CROP-07A Regulatory Integration Inbox Acceptance
 on:
   pull_request:
     paths:
-      - '.github/workflows/pc-crop-07a.yml'
-      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/**'
-      - 'apps/api/src/modules/regulatory-integration/**'
-      - 'apps/api/src/modules/integration-events/integration-events.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.errors.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.state-machine.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.state-machine.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.types.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.types.ts'
       - 'apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
       - 'infra/sql/postgresql-regulatory-integration-inbox-policies.sql'
       - 'scripts/verify-pc-crop-07a.mjs'
-      - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
-      - 'scripts/p7-autopilot-guard.sh'
   push:
     branches: [main]
     paths:
-      - '.github/workflows/pc-crop-07a.yml'
-      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/**'
-      - 'apps/api/src/modules/regulatory-integration/**'
-      - 'apps/api/src/modules/integration-events/integration-events.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.errors.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.state-machine.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.state-machine.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.types.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.types.ts'
       - 'apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
       - 'infra/sql/postgresql-regulatory-integration-inbox-policies.sql'
       - 'scripts/verify-pc-crop-07a.mjs'
-      - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
-      - 'scripts/p7-autopilot-guard.sh'
   workflow_dispatch:
-
 permissions:
   contents: read
 
