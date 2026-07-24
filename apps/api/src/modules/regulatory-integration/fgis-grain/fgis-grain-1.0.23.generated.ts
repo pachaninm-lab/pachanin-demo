@@ -4,7 +4,7 @@
  * Do not edit by hand. Regenerate with scripts/pc-crop-08b/generate_contract_catalog.py.
  */
 
-export const FGIS_GRAIN_1_0_23_CATALOG_SHA256 = "b17460c8a65ba7e984faa858537c6c4847b17732d079dc5722b0c2a6337a308b" as const;
+export const FGIS_GRAIN_1_0_23_CATALOG_SHA256 = "4fc7cc075b956f0adca26331a99627d07cde77d63ec2fc017d0cbbc5f701c87a" as const;
 export const FGIS_GRAIN_1_0_23_PACKAGE_SHA256 = "085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7" as const;
 export const FGIS_GRAIN_1_0_23_MAPPING_VERSION = "fgis-zerno-1.0.23-catalog.v1" as const;
 export const FGIS_GRAIN_1_0_23_TARGET_NAMESPACE = "urn://x-artefacts-mcx-gov-ru/fgiz-zerno/api/ws/1.0.23" as const;
