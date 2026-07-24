@@ -6,8 +6,11 @@
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
     ".github/workflows/pc-crop-07b.yml",
+    "apps/api/src/app.module.ts",
     "apps/api/src/modules/regulatory-integration/**",
     "apps/web/app/api/platform-v7/integrations/**",
+    "apps/web/app/api/staff/integration-control-tower/**",
+    "apps/web/app/api/staff/integrations/**",
     "apps/web/app/platform-v7/integrations/**",
     "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
     "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
