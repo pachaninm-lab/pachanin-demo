@@ -58,8 +58,8 @@ describe('RegulatoryIntegrationControlTowerRepository read model', () => {
     });
   });
 
-  it('keeps sandbox/pre-production facts explicitly in TEST', async () => {
-    const { repository } = repositoryWithRows([row({ environment: 'PRE_PRODUCTION' })]);
+  it('keeps sandbox/test/pre-production facts explicitly in TEST', async () => {
+    const { repository } = repositoryWithRows([row({ environment: 'PREPROD' })]);
     const result = await repository.list(user(), { limit: 10, hasJitAuthority: false });
     expect(result.items[0]?.honestStatus).toBe('TEST');
   });
