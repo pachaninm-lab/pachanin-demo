@@ -1,0 +1,142 @@
+name: PC-CROP-08B Typed FGIS Grain Contract Catalog Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08b.yml'
+      - 'apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.contract.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.contract.spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08b-typed-contract-catalog.json'
+      - 'docs/platform-v7/crop-platform/fgis-zerno-api-1.0.23-operation-catalog.json'
+      - 'scripts/pc-crop-08b/generate_contract_catalog.py'
+      - 'scripts/pc-crop-08b/test_generate_contract_catalog.py'
+      - 'scripts/p7-autopilot-guard.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-08b.yml'
+      - 'apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.contract.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.contract.spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08b-typed-contract-catalog.json'
+      - 'docs/platform-v7/crop-platform/fgis-zerno-api-1.0.23-operation-catalog.json'
+      - 'scripts/pc-crop-08b/generate_contract_catalog.py'
+      - 'scripts/pc-crop-08b/test_generate_contract_catalog.py'
+      - 'scripts/p7-autopilot-guard.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-08b-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08b
+
+jobs:
+  typed-contract-catalog:
+    name: Pinned ZIP · 3 transport · 57 paired operations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-08B scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref='HEAD^'
+          fi
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08b\.yml|apps/api/src/modules/regulatory-integration/fgis-zerno-api-1\.0\.23\.contract(\.spec)?\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08b-typed-contract-catalog\.json|docs/platform-v7/crop-platform/fgis-zerno-api-1\.0\.23-operation-catalog\.json|scripts/pc-crop-08b/(generate_contract_catalog|test_generate_contract_catalog)\.py|scripts/p7-autopilot-guard\.sh)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08B contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile generators
+        run: python -m py_compile scripts/pc-crop-08a/artifact_intake.py scripts/pc-crop-08b/generate_contract_catalog.py scripts/pc-crop-08b/test_generate_contract_catalog.py
+
+      - name: Run catalog generator unit tests
+        run: python -m unittest -v scripts/pc-crop-08b/test_generate_contract_catalog.py 2>&1 | tee "$EVIDENCE_DIR/generator-unit.log"
+
+      - name: Re-fetch accepted PC-CROP-08A package
+        run: |
+          python scripts/pc-crop-08a/artifact_intake.py \
+            --lock-file docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json \
+            --output-dir "$EVIDENCE_DIR/source" \
+            --exact-head "$EXACT_HEAD" \
+            2>&1 | tee "$EVIDENCE_DIR/source-intake.log"
+
+      - name: Generate typed operation catalog from pinned WSDL/XSD
+        run: |
+          python scripts/pc-crop-08b/generate_contract_catalog.py \
+            --archive "$EVIDENCE_DIR/source/fgis-zerno-api-1.0.23.zip" \
+            --source-lock docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json \
+            --output "$EVIDENCE_DIR/operation-catalog.json" \
+            2>&1 | tee "$EVIDENCE_DIR/catalog-generation.log"
+
+      - name: Enforce discovery invariants
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from collections import Counter
+          from pathlib import Path
+          root = Path(os.environ['EVIDENCE_DIR'])
+          source = json.loads((root / 'source/pc-crop-08a-acceptance.json').read_text('utf-8'))
+          catalog = json.loads((root / 'operation-catalog.json').read_text('utf-8'))
+          if source.get('status') != 'PASS' or source.get('invariants', {}).get('packagePinVerified') is not True: raise SystemExit(1)
+          if catalog.get('adapterCode') != 'FGIS_ZERNO' or catalog.get('apiVersion') != '1.0.23': raise SystemExit(1)
+          if catalog.get('packageSha256') != source.get('artifact', {}).get('sha256'): raise SystemExit(1)
+          if catalog.get('operationCount') != 57 or len(catalog.get('operations') or []) != 57: raise SystemExit(1)
+          transport = catalog.get('transport') or {}
+          if [item.get('name') for item in transport.get('operations') or []] != ['Ack','SendRequest','SendResponse']: raise SystemExit(1)
+          if transport.get('binding') != 'FGIS_Zerno_ExchangeSoap11Binding': raise SystemExit(1)
+          if transport.get('portType') != 'FGIS_Zerno_ExchangePortType': raise SystemExit(1)
+          if transport.get('documentationPlaceholderEndpoint') != 'http://localhost/api/ws/1.0.23': raise SystemExit(1)
+          if transport.get('runtimeEndpointAllowed') is not False: raise SystemExit(1)
+          codes = [item.get('operationCode') for item in catalog['operations']]
+          request_qnames = [item.get('requestQName') for item in catalog['operations']]
+          response_qnames = [item.get('responseQName') for item in catalog['operations']]
+          if len(set(codes)) != 57 or len(set(request_qnames)) != 57 or len(set(response_qnames)) != 57: raise SystemExit(1)
+          expected = {'DICTIONARIES':1,'GPB':6,'GPB_SDIZ':9,'GRAIN_MONITOR':12,'LOTS':10,'RSHN_DOCUMENTS':4,'SDIZ':11,'VED_CONTRACT':4}
+          if dict(Counter(item['family'] for item in catalog['operations'])) != expected: raise SystemExit(1)
+          if catalog.get('status') != 'ADAPTER_READY' or catalog.get('operationalStatus') != 'NOT_ATTESTED': raise SystemExit(1)
+          if catalog.get('confirmedLive') is not False: raise SystemExit(1)
+          if any(value is not False for value in (catalog.get('boundaries') or {}).values()): raise SystemExit(1)
+          report = {
+            'schemaVersion':'pc-crop.fgis-zerno-contract-catalog-acceptance.v1',
+            'slice':'PC-CROP-08B','issue':3158,'exactHead':os.environ['EXACT_HEAD'],'status':'DISCOVERY_PASS',
+            'operationalStatus':'NOT_ATTESTED','packageSha256':catalog['packageSha256'],
+            'catalogSha256':catalog['catalogSha256'],'transportOperationCount':3,'businessOperationCount':57,
+            'familyCounts':expected,'unresolvedQNameCount':0,'placeholderEndpointRejectedForRuntime':True,
+            'boundaries':catalog['boundaries'],
+          }
+          (root / 'pc-crop-08b-acceptance.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n','utf-8')
+          PY
+
+      - name: Upload discovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08b-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-08b
+          if-no-files-found: error
+          retention-days: 90
