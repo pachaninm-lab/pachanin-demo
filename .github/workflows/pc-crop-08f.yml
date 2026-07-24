@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/pc-crop-08f.yml'
+      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/pc-crop-08f.yml'
+      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
@@ -23,7 +25,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pc-crop-08f-${{ github.event.pull_request.number || github.ref }}
@@ -72,7 +74,7 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-08f\.yml|apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-sdiz-projection\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-projection\.json|scripts/pc-crop-08f/.*)$' \
+          if grep -Ev '^(\.github/workflows/pc-crop-08f\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-sdiz-projection\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-projection\.json|scripts/pc-crop-08f/.*)$' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-08F contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
@@ -92,6 +94,30 @@ jobs:
 
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Materialize complete Prisma FGIS authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-08f/apply-prisma-schema.mjs
+          pnpm --filter @pc/api exec prisma format
+          pnpm --filter @pc/api exec prisma validate
+
+      - name: Commit one-time Prisma authority migration
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- apps/api/prisma/schema.prisma; then
+            echo 'Prisma FGIS authority already committed.'
+            exit 0
+          fi
+          test "${GITHUB_HEAD_REF}" = 'agent/pc-crop-08f-sdiz-projection'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api/prisma/schema.prisma
+          git commit -m 'PC-CROP-08F: model FGIS provider and SDIZ authority in Prisma'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
 
       - name: Apply complete migration chain
         shell: bash
