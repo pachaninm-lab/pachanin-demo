@@ -56,6 +56,7 @@ The branch is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of1
 - `apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts`;
 - `apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts`;
 - `apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts`;
+- `apps/web/tests/unit/platformV7PublicTypography.test.ts`;
 - `apps/web/tests/unit/platformV7RootWorkEntry.test.ts`;
 - `apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts`;
 - `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json`.
