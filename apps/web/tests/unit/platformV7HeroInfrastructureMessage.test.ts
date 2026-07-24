@@ -7,7 +7,6 @@ const read = (relativePath: string) => readFileSync(join(process.cwd(), relative
 describe('platform-v7 infrastructure hero message', () => {
   const component = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const copy = read('i18n/platform-v7-hero-message.ts');
-  const css = read('styles/platform-v7-hero-infrastructure-message.css');
   const page = read('app/platform-v7/page.tsx');
 
   it('uses the approved product-led RU message as the first-screen hierarchy', () => {
@@ -38,31 +37,29 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(component).not.toContain('прозрачный агроинтеллект');
   });
 
-  it('inlines the critical shell and loads only the current responsive landing layers', () => {
-    const cjkIndex = page.indexOf('platform-v7-i18n-cjk.css');
-    const baseIndex = page.indexOf('platform-v7-strategic-home-v3.css');
-    const heroIndex = page.indexOf('platform-v7-hero-infrastructure-message.css');
-    expect(page).toContain('CRITICAL_HOME_SHELL_CSS');
+  it('inlines the critical shell, hero and CJK rules and loads one route stylesheet', () => {
+    expect(page).toContain('CRITICAL_HOME_CSS');
     expect(page).toContain('--entry-public-header-offset');
+    expect(page).toContain("html[data-p7-language='zh']");
+    expect(page).toContain("import '@/styles/platform-v7-strategic-home-v3.css';");
     expect(page).not.toContain('platform-v7-public-header.css');
     expect(page).not.toContain('platform-v7-public-mobile-safe-area.css');
     expect(page).not.toContain('platform-v7-public-typography.css');
-    expect(cjkIndex).toBeGreaterThanOrEqual(0);
-    expect(baseIndex).toBeGreaterThan(cjkIndex);
-    expect(heroIndex).toBeGreaterThan(baseIndex);
+    expect(page).not.toContain('platform-v7-i18n-cjk.css');
+    expect(page).not.toContain('platform-v7-hero-infrastructure-message.css');
   });
 
   it('defines deliberate typography for phone, tablet and desktop widths', () => {
-    expect(css).toContain('@media (max-width: 374px)');
-    expect(css).toContain('@media (min-width: 375px) and (max-width: 767px)');
-    expect(css).toContain('@media (min-width: 768px) and (max-width: 1023px)');
-    expect(css).toContain('@media (min-width: 1024px)');
-    expect(css).toContain('@media (min-width: 1280px)');
-    expect(css).toContain('text-wrap: balance');
-    expect(css).toContain('.pc-v6-hero-brand::after');
-    expect(css).toContain('.pc-v6-hero-title-line { display: inline; }');
-    expect(css).toContain(':lang(zh) .pc-v6-hero h1.pc-v6-hero-title');
-    expect(css).toContain('min-height: min(760px, calc(100dvh - 64px))');
-    expect(css).toContain('content-visibility: auto');
+    expect(page).toContain('@media (max-width: 374px)');
+    expect(page).toContain('@media (min-width: 375px) and (max-width: 767px)');
+    expect(page).toContain('@media (min-width: 768px) and (max-width: 1023px)');
+    expect(page).toContain('@media (min-width: 1024px)');
+    expect(page).toContain('@media (min-width: 1280px)');
+    expect(page).toContain('text-wrap: balance');
+    expect(page).toContain('.pc-v6-hero-brand::after');
+    expect(page).toContain('.pc-v6-hero-title-line { display: inline; }');
+    expect(page).toContain(':lang(zh) .pc-v6-hero h1.pc-v6-hero-title');
+    expect(page).toContain('min-height: min(760px, calc(100dvh - 64px))');
+    expect(page).toContain('content-visibility: auto');
   });
 });
