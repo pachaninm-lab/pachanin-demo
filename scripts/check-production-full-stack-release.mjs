@@ -21,17 +21,75 @@ const forbid = (name, patterns) => {
   for (const pattern of patterns) if (pattern.test(text[name] ?? '')) failures.push(`${paths[name]}: forbidden ${pattern}`);
 };
 
+const parsePushPaths = (source) => {
+  const lines = String(source ?? '').split(/\r?\n/);
+  const onIndex = lines.findIndex((line) => line === 'on:');
+  if (onIndex < 0) return null;
+
+  let onEnd = lines.length;
+  for (let index = onIndex + 1; index < lines.length; index += 1) {
+    if (/^[^\s#][^:]*:/.test(lines[index])) {
+      onEnd = index;
+      break;
+    }
+  }
+
+  const pushIndex = lines.findIndex((line, index) => index > onIndex && index < onEnd && line === '  push:');
+  if (pushIndex < 0) return null;
+
+  let pushEnd = onEnd;
+  for (let index = pushIndex + 1; index < onEnd; index += 1) {
+    if (/^  [^\s#][^:]*:/.test(lines[index])) {
+      pushEnd = index;
+      break;
+    }
+  }
+
+  const pathsIndex = lines.findIndex((line, index) => index > pushIndex && index < pushEnd && line === '    paths:');
+  if (pathsIndex < 0) return null;
+
+  const result = [];
+  for (let index = pathsIndex + 1; index < pushEnd; index += 1) {
+    const line = lines[index];
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    if (!/^\s{6,}/.test(line)) break;
+    const match = line.match(/^\s{6}-\s+(.+?)\s*$/);
+    if (!match) continue;
+    let value = match[1].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    } else {
+      value = value.replace(/\s+#.*$/, '').trim();
+    }
+    if (value) result.push(value);
+  }
+  return result;
+};
+
 requireAll('publish', [
   'infra/docker/Dockerfile.migrations',
   'build-migration:',
   '${{ env.IMAGE_PREFIX }}-migration',
   'file: infra/docker/Dockerfile.migrations',
   'GIT_COMMIT=${{ github.sha }}',
+]);
+
+const requiredReleaseTriggerPaths = [
   '.github/workflows/production-full-stack-exact-sha.yml',
   'scripts/production-full-stack-exact-sha.sh',
   'scripts/production-full-stack-live-acceptance.sh',
   'scripts/check-production-full-stack-release.mjs',
-]);
+];
+const pushPaths = parsePushPaths(text.publish);
+if (!pushPaths) {
+  failures.push(`${paths.publish}: missing on.push.paths sequence`);
+} else {
+  const pushPathSet = new Set(pushPaths);
+  for (const requiredPath of requiredReleaseTriggerPaths) {
+    if (!pushPathSet.has(requiredPath)) failures.push(`${paths.publish}: on.push.paths missing ${JSON.stringify(requiredPath)}`);
+  }
+}
+
 requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
   'DEPLOY-FULL-STACK-EXACT-SHA',
