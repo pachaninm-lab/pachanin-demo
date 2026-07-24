@@ -1,71 +1,70 @@
 #!/usr/bin/env python3
-"""Generate compact runtime operation metadata from the accepted catalog JSON."""
+"""Generate normalized runtime rows from the accepted operation catalog."""
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-from typing import Any
 
-FIELDS = (
+FAMILY_FIELDS = [
+    "code",
+    "namespace",
+    "schemaFile",
+    "schemaFileSha256",
+    "operationCount",
+    "readCount",
+    "mutationCount",
+]
+OPERATION_FIELDS = [
     "code",
     "name",
     "family",
     "classification",
-    "namespace",
-    "requestQName",
-    "responseQName",
-)
-
-
-def canonical(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2)
+    "requestLocalName",
+    "responseLocalName",
+]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--catalog", required=True, type=Path)
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--catalog", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-
     catalog = json.loads(args.catalog.read_text("utf-8"))
-    if catalog.get("schemaVersion") != "pc-crop.fgis-grain-operation-catalog.v1":
-        raise SystemExit("unexpected catalog schema")
-    adapter = catalog.get("adapter") or {}
-    if adapter.get("apiVersion") != "1.0.23" or adapter.get("status") != "ADAPTER_READY":
-        raise SystemExit("unexpected adapter authority")
-    source = catalog.get("sourceAuthority") or {}
-    if source.get("packageSha256") != "085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7":
-        raise SystemExit("package hash drift")
+    business = catalog.get("business") or {}
+    if (
+        catalog.get("schemaVersion")
+        != "pc-crop.fgis-grain-operation-catalog.v1"
+        or business.get("familyFields") != FAMILY_FIELDS
+        or business.get("operationFields") != OPERATION_FIELDS
+    ):
+        raise SystemExit("catalog schema drift")
+    families = business.get("families") or []
+    operations = business.get("operations") or []
+    if (
+        len(families) != 8
+        or len(operations) != 57
+        or len({row[0] for row in operations}) != 57
+    ):
+        raise SystemExit("catalog cardinality drift")
 
-    source_operations = (catalog.get("business") or {}).get("operations") or []
-    operations = [{field: row[field] for field in FIELDS} for row in source_operations]
-    codes = [row["code"] for row in operations]
-    if len(operations) != 57 or len(set(codes)) != 57:
-        raise SystemExit("operation cardinality drift")
-
-    payload = canonical(operations)
+    family_payload = json.dumps(
+        families,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    operation_payload = json.dumps(
+        operations,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     output = f'''/* eslint-disable */
-/**
- * Generated from fgis-grain-api-1.0.23.operation-catalog.json.
- * Do not edit by hand.
- */
-import type {{
-  FgisGrainBusinessFamily,
-  FgisGrainBusinessOperationCode,
-}} from './fgis-grain-1.0.23.generated';
-
-export type FgisGrainBusinessOperation = Readonly<{{
-  code: FgisGrainBusinessOperationCode;
-  name: string;
-  family: FgisGrainBusinessFamily;
-  classification: 'READ' | 'MUTATION';
-  namespace: string;
-  requestQName: string;
-  responseQName: string;
-}}>;
-
-export const FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS = {payload} as const satisfies readonly FgisGrainBusinessOperation[];
+/** Generated from the accepted FGIS Grain API 1.0.23 operation catalog. */
+import type {{ FgisGrainBusinessFamily, FgisGrainBusinessOperationCode }} from './fgis-grain-1.0.23.generated';
+export type FgisGrainBusinessFamilyRow = readonly [code:FgisGrainBusinessFamily,namespace:string,schemaFile:string,schemaFileSha256:string,operationCount:number,readCount:number,mutationCount:number];
+export type FgisGrainBusinessOperationRow = readonly [code:FgisGrainBusinessOperationCode,name:string,family:FgisGrainBusinessFamily,classification:'READ'|'MUTATION',requestLocalName:string,responseLocalName:string];
+export const FGIS_GRAIN_1_0_23_BUSINESS_FAMILY_ROWS = {family_payload} as const satisfies readonly FgisGrainBusinessFamilyRow[];
+export const FGIS_GRAIN_1_0_23_BUSINESS_OPERATION_ROWS = {operation_payload} as const satisfies readonly FgisGrainBusinessOperationRow[];
 '''
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(output, encoding="utf-8")
