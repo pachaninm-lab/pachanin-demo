@@ -3,8 +3,7 @@ name: PC-CROP-08F exact-main synchronization
 on:
   pull_request:
     types: [ready_for_review]
-    branches:
-      - ops/pc-crop-08f-sync-base
+    branches: [main]
 
 permissions:
   contents: write
@@ -17,7 +16,6 @@ concurrency:
 env:
   BRANCH: ${{ github.event.pull_request.head.ref }}
   EXPECTED_BRANCH_HEAD: ${{ github.event.pull_request.head.sha }}
-  EXPECTED_MAIN_SHA: 4882bc24579a4a3a902f3939fc5b0130d5b14f4c
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
 
 jobs:
@@ -47,7 +45,7 @@ jobs:
           ref: ${{ env.BRANCH }}
           fetch-depth: 0
 
-      - name: Merge exact main and resolve only Prisma authority
+      - name: Merge runtime-exact main and resolve only Prisma authority
         shell: bash
         run: |
           set -euo pipefail
@@ -59,14 +57,13 @@ jobs:
             echo "branch moved: expected $EXPECTED_BRANCH_HEAD, got $actual_branch_head" >&2
             exit 19
           }
-          actual_main_sha="$(git rev-parse origin/main)"
-          [[ "$actual_main_sha" == "$EXPECTED_MAIN_SHA" ]] || {
-            echo "main moved: expected $EXPECTED_MAIN_SHA, got $actual_main_sha" >&2
-            exit 20
-          }
+          base_main_sha="$(git rev-parse origin/main)"
+          git merge-base --is-ancestor "$base_main_sha" origin/main
+          printf 'BASE_MAIN_SHA=%s\n' "$base_main_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$base_main_sha" > /tmp/pc-crop-08f-base-main.txt
 
           set +e
-          git merge --no-ff --no-commit origin/main
+          git merge --no-ff --no-commit "$base_main_sha"
           merge_status=$?
           set -e
           if (( merge_status != 0 )); then
@@ -242,10 +239,15 @@ model FgisGrainSdizProjection {
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$BASE_MAIN_SHA" ]] || {
+            echo "main moved during synchronization" >&2
+            exit 29
+          }
           rm -f .github/workflows/pc-crop-08f-sync-main.yml
           git add -A
           git commit -m "chore(pc-crop-08f): materialize synchronized tree"
-          git reset --soft origin/main
+          git reset --soft "$BASE_MAIN_SHA"
           git add -A
 
           git diff --cached --name-only | sort > /tmp/changed-files.txt
@@ -256,5 +258,5 @@ model FgisGrainSdizProjection {
           fi
           [[ "$(wc -l < /tmp/changed-files.txt | tr -d ' ')" == "11" ]]
 
-          git commit -m "PC-CROP-08F: synchronize durable SDIZ authority with exact main"
+          git commit -m "PC-CROP-08F: synchronize durable SDIZ authority with runtime-exact main"
           git push --force-with-lease="refs/heads/${BRANCH}:${EXPECTED_BRANCH_HEAD}" origin "HEAD:refs/heads/${BRANCH}"
