@@ -72,7 +72,7 @@ jobs:
 
       - name: Verify exact production dependency graph
         run: |
-          pnpm --filter @pc/api list --prod --depth 20 --json > /tmp/brace-production-graph.json
+          pnpm --filter @pc/web list --prod --depth 20 --json > /tmp/brace-production-graph.json
           node <<'NODE'
           const fs = require('fs');
           const roots = JSON.parse(fs.readFileSync('/tmp/brace-production-graph.json', 'utf8'));
@@ -114,7 +114,7 @@ jobs:
 
       - name: Verify XLSX and archiver runtime contracts
         run: |
-          pnpm --filter @pc/api exec node <<'NODE'
+          pnpm --filter @pc/web exec node <<'NODE'
           const fs = require('fs');
           const os = require('os');
           const path = require('path');
