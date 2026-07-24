@@ -1,3 +1,23 @@
+.pc-v6-page .pc-skip-link {
+  position: fixed;
+  top: -96px;
+  left: 12px;
+  z-index: 2200;
+  padding: 10px 14px;
+  border: 1px solid #9fbaaa;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #07572e;
+  box-shadow: 0 8px 24px rgba(16, 42, 29, 0.16);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.pc-v6-page .pc-skip-link:focus-visible {
+  top: 8px;
+}
+
 .pc-v6-hero {
   display: grid;
   gap: 30px;
