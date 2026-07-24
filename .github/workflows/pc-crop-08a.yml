@@ -89,7 +89,7 @@ jobs:
             --exact-head "$EXACT_HEAD" \
             2>&1 | tee "$EVIDENCE_DIR/live-intake.log"
 
-      - name: Enforce exact-head machine-readable evidence
+      - name: Enforce hash pin, registry boundary and exact-head evidence
         shell: bash
         run: |
           python - <<'PY'
@@ -100,17 +100,35 @@ jobs:
           from urllib.parse import urlsplit
 
           root = Path(os.environ['EVIDENCE_DIR'])
+          source = json.loads(Path('docs/platform-v7/integrations/fgis-zerno-api-1.0.23-source.json').read_text('utf-8'))
+          pin = json.loads(Path('docs/platform-v7/integrations/fgis-zerno-api-1.0.23-manifest.json').read_text('utf-8'))
+          runtime_manifest = json.loads((root / 'fgis-zerno-api-1.0.23-manifest.json').read_text('utf-8'))
           report = json.loads((root / 'pc-crop-08a-acceptance.json').read_text('utf-8'))
           manifest_bytes = (root / 'fgis-zerno-api-1.0.23-manifest.json').read_bytes()
           archive = root / 'fgis-zerno-api-1.0.23.zip'
+          registry = Path('apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.registry.ts').read_text('utf-8')
+
           if report.get('schemaVersion') != 'pc-crop.fgis-zerno-official-intake-acceptance.v1': raise SystemExit(1)
           if report.get('slice') != 'PC-CROP-08A' or report.get('issue') != 3155: raise SystemExit(1)
           if report.get('status') != 'PASS' or report.get('operationalStatus') != 'NOT_ATTESTED': raise SystemExit(1)
           if report.get('exactHead') != os.environ['EXACT_HEAD']: raise SystemExit(1)
           if report.get('adapterCode') != 'FGIS_ZERNO' or report.get('apiVersion') != '1.0.23': raise SystemExit(1)
           if not archive.is_file() or archive.stat().st_size != report.get('packageSize'): raise SystemExit(1)
-          if hashlib.sha256(archive.read_bytes()).hexdigest() != report.get('packageSha256'): raise SystemExit(1)
-          if hashlib.sha256(manifest_bytes).hexdigest() != report.get('manifestSha256'): raise SystemExit(1)
+          package_sha = hashlib.sha256(archive.read_bytes()).hexdigest()
+          runtime_manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
+          if package_sha != report.get('packageSha256') or runtime_manifest_sha != report.get('manifestSha256'): raise SystemExit(1)
+          if source.get('expectedPackageSha256') != package_sha: raise SystemExit(1)
+          if source.get('expectedManifestSha256') != runtime_manifest_sha: raise SystemExit(1)
+          if pin.get('packageSha256') != package_sha or pin.get('manifestSha256') != runtime_manifest_sha: raise SystemExit(1)
+          for key in ('packageSize','fileCount','totalUncompressedSize','schemaFileCount','unresolvedReferenceCount'):
+              if pin.get(key) != runtime_manifest.get(key): raise SystemExit(1)
+          if pin.get('referenceCount') != len(runtime_manifest.get('references') or []): raise SystemExit(1)
+          if pin.get('namespaceCount') != len(runtime_manifest.get('namespaces') or []): raise SystemExit(1)
+          runtime_files = [
+              {key: row[key] for key in ('category','path','sha256','uncompressedSize')}
+              for row in runtime_manifest.get('files') or [] if not row.get('directory')
+          ]
+          if pin.get('files') != runtime_files: raise SystemExit(1)
           if report.get('fileCount', 0) < 1 or report.get('schemaFileCount', 0) < 1: raise SystemExit(1)
           if report.get('unresolvedReferenceCount') != 0: raise SystemExit(1)
           if urlsplit(report.get('sourcePageFinalUrl', '')).hostname != 'specagro.ru': raise SystemExit(1)
@@ -121,6 +139,20 @@ jobs:
           for key in ('credentialsOrCertificates','liveApiEndpointCall','handwrittenBusinessMapping','binaryArchiveCommittedToGit','secondInboxOutboxOrRelay','productionDeployment'):
               if boundaries.get(key) is not False: raise SystemExit(1)
           if boundaries.get('productionHosting') != 'REG_RU_VPS_ONLY': raise SystemExit(1)
+          for needle in (
+              "adapterCode: 'FGIS_ZERNO'",
+              "mappingPackageVersion: '1.0.23'",
+              "environmentStatus: 'ADAPTER_READY'",
+              "operationalStatus: 'NOT_ATTESTED'",
+              'confirmedLive: false',
+              f"packageSha256: '{package_sha}'",
+              f"manifestSha256: '{runtime_manifest_sha}'",
+              'liveEndpointUrl: null',
+              'credentialReference: null',
+              'certificateReference: null',
+          ):
+              if needle not in registry: raise SystemExit(1)
+          if 'CONFIRMED_LIVE' in registry or 'https://zerno.' in registry: raise SystemExit(1)
           PY
 
       - name: Upload official package and exact-head evidence
