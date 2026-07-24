@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: pc-crop-08f-exact-main-sync
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   BRANCH: agent/pc-crop-08f-sdiz-projection
