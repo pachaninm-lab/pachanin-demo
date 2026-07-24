@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
 from tai import qwen_preview_runtime as runtime
 from tests.qwen_preview_runtime_fixtures import (
     EVALUATED_AT,
