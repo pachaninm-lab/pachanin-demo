@@ -41,15 +41,15 @@ describe('platform-v7 public industrial copy', () => {
   });
 
   it('keeps the industrial value proposition and external-system functions explicit in RU EN ZH', () => {
-    expect(copy).toContain('Единая цифровая инфраструктура исполнения агросделки');
-    expect(copy).toContain('Промышленные принципы платформы');
-    expect(copy).toContain('Прослеживаемость партии');
-    expect(copy).toContain('Unified digital infrastructure for agricultural transaction execution');
-    expect(copy).toContain('Industrial platform principles');
-    expect(copy).toContain('Lot traceability');
-    expect(copy).toContain('农业交易执行的一体化数字基础设施');
-    expect(copy).toContain('工业级平台原则');
-    expect(copy).toContain('批次追溯');
+    expect(copy).toContain('Вся агросделка — от цены до закрытия');
+    expect(copy).toContain('Платформа рассчитана на промышленную эксплуатацию');
+    expect(copy).toContain('Партия и прослеживаемость');
+    expect(copy).toContain('The whole agricultural deal, from price to closure');
+    expect(copy).toContain('Built for industrial operation');
+    expect(copy).toContain('Lot and traceability');
+    expect(copy).toContain('贯通农业交易从定价到关闭的全过程');
+    expect(copy).toContain('面向工业化运行设计');
+    expect(copy).toContain('批次与追溯');
   });
 
   it('does not claim verified external connectivity', () => {

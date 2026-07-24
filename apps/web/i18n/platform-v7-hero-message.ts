@@ -7,22 +7,22 @@ export type PlatformV7HeroMessage = {
 
 const messages: Record<'ru' | 'en' | 'zh', PlatformV7HeroMessage> = {
   ru: {
-    kicker: 'Промышленная цифровая инфраструктура агробизнеса',
+    kicker: 'Цифровая инфраструктура исполнения сделок в растениеводстве',
     brand: '«Прозрачная Цена»',
-    title: '— единая цифровая инфраструктура исполнения агросделки.',
-    lead: 'Платформа связывает цену, участников, логистику, качество, документы, расчёты и доказательства в одном управляемом контуре Сделки.',
+    title: 'ведёт агросделку от цены до закрытия.',
+    lead: 'Условия, участники, торги, логистика, приёмка, качество, документы, расчёты и доказательства связаны вокруг одной Сделки.',
   },
   en: {
-    kicker: 'Industrial digital infrastructure for agribusiness',
+    kicker: 'Digital infrastructure for crop-trade execution',
     brand: 'Transparent Price',
-    title: 'is a unified digital infrastructure for agricultural transaction execution.',
-    lead: 'The platform connects price, participants, logistics, quality, documents, settlement and evidence within one governed Deal contour.',
+    title: 'carries an agricultural deal from price to closure.',
+    lead: 'Terms, participants, trading, logistics, acceptance, quality, documents, settlement and evidence stay connected around one Deal.',
   },
   zh: {
-    kicker: '农业业务工业级数字基础设施',
+    kicker: '种植业交易执行数字基础设施',
     brand: '透明价格',
-    title: '是一体化农业交易执行数字基础设施。',
-    lead: '平台在同一受控交易链路中连接价格、参与方、物流、质量、文件、结算与证据。',
+    title: '贯通农业交易从定价到关闭的全过程。',
+    lead: '条件、参与方、交易、物流、验收、质量、文件、结算与证据均围绕同一笔交易关联。',
   },
 };
 
