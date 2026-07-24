@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: pc-crop-predecessor-governance-${{ github.event.pull_request.number || github.ref }}
@@ -47,18 +47,12 @@ jobs:
         run: node --test scripts/pc-crop-owned-diff.test.mjs
 
       - name: Apply idempotent predecessor workflow migration
-        if: >-
-          (github.event_name == 'push' && github.ref_name == 'governance/pc-crop-predecessor-ownership-3170') ||
-          (github.event_name == 'pull_request' && github.head_ref == 'governance/pc-crop-predecessor-ownership-3170')
         run: node scripts/pc-crop-predecessor-governance-apply.mjs
 
       - name: Verify machine-readable predecessor governance
         run: node scripts/verify-pc-crop-predecessor-governance.mjs
 
-      - name: Commit migrated historical workflows
-        if: >-
-          (github.event_name == 'push' && github.ref_name == 'governance/pc-crop-predecessor-ownership-3170') ||
-          (github.event_name == 'pull_request' && github.head_ref == 'governance/pc-crop-predecessor-ownership-3170')
+      - name: Build audited workflow migration handoff
         shell: bash
         run: |
           set -euo pipefail
@@ -69,19 +63,21 @@ jobs:
             .github/workflows/pc-crop-08c.yml
             .github/workflows/pc-crop-08d.yml
           )
-          if git diff --quiet -- "${files[@]}"; then
-            echo 'Historical workflow ownership is already migrated.'
-            exit 0
+          git diff --check -- "${files[@]}"
+          mapfile -t changed < <(git diff --name-only -- "${files[@]}" | sort)
+          if (( ${#changed[@]} != 0 && ${#changed[@]} != 5 )); then
+            printf 'Expected either zero or exactly five migrated workflow files, received %s\n' "${#changed[@]}" >&2
+            printf '%s\n' "${changed[@]}" >&2
+            exit 1
           fi
-          target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-          test "$target_branch" = 'governance/pc-crop-predecessor-ownership-3170'
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add "${files[@]}"
-          git commit -m 'PC-CROP governance: isolate predecessor workflow ownership'
-          git push origin "HEAD:${target_branch}"
+          mkdir -p artifacts/pc-crop-predecessor-governance/workflows
+          git diff --binary -- "${files[@]}" > artifacts/pc-crop-predecessor-governance/migration.patch
+          for file in "${files[@]}"; do
+            cp "$file" "artifacts/pc-crop-predecessor-governance/workflows/$(basename "$file")"
+          done
+          sha256sum "${files[@]}" > artifacts/pc-crop-predecessor-governance/workflow-sha256.txt
 
-      - name: Upload predecessor governance evidence
+      - name: Upload predecessor governance evidence and migrated workflows
         if: always()
         uses: actions/upload-artifact@v4
         with:
