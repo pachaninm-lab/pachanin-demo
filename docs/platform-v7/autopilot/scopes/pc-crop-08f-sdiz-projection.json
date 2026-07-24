@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08f-sdiz-projection",
+  "status": "active",
+  "issue": 3178,
+  "baseCommit": "918e538cc48b53a17e845ddf2f5694d3f8c981ab",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08f.yml",
+    "apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-projection.json",
+    "scripts/pc-crop-08f/**"
+  ],
+  "boundaries": {
+    "existingInboxOnly": true,
+    "existingOutboxOnly": true,
+    "verifiedSignedInputOnly": true,
+    "rawXmlPersistence": false,
+    "directDealLotShipmentPaymentMutation": false,
+    "liveProviderCall": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
