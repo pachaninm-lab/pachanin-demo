@@ -109,6 +109,29 @@ jobs:
           docker_runs=$(collect_runs docker-publish.yml || true)
           release_runs=$(collect_runs production-full-stack-exact-sha.yml || true)
 
+          selected_release=''
+          if [[ -n "$release_runs" ]]; then
+            while IFS=$'\t' read -r id event status conclusion created updated url; do
+              deploy_state=$(gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/actions/runs/$id/jobs?per_page=100" \
+                --jq '[.jobs[] | select(.name == "Migrate, deploy API and web, verify live intake") | (.conclusion // .status)][0] // "missing"')
+              if [[ "$deploy_state" != 'skipped' && "$deploy_state" != 'missing' ]]; then
+                selected_release=$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s' "$id" "$event" "$status" "$conclusion" "$created" "$updated" "$url")
+                break
+              fi
+            done <<< "$release_runs"
+            [[ -n "$selected_release" ]] || selected_release=$(printf '%s\n' "$release_runs" | head -1)
+          fi
+
+          latest_release_id=none
+          latest_release_status=not-found
+          latest_release_conclusion=none
+          latest_release_step=none
+          if [[ -n "$selected_release" ]]; then
+            IFS=$'\t' read -r latest_release_id _ latest_release_status latest_release_conclusion _ _ _ <<< "$selected_release"
+            latest_release_step=$(gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/actions/runs/$latest_release_id/jobs?per_page=100" \
+              --jq '[.jobs[] | {name, step: (([.steps[]? | select(.status == "in_progress" or .conclusion == "failure") | .name][0]) // "none")} | select(.step != "none") | (.name + " / " + .step)][0] // "none"')
+          fi
+
           record=$(mktemp)
           {
             echo "## Exact-current-main release control"
@@ -140,5 +163,18 @@ jobs:
             fi
           } > "$record"
 
+          sha7=${main_sha:0:7}
+          if [[ "$latest_release_conclusion" == 'success' ]]; then
+            status_title="Production release success · $sha7"
+          elif [[ "$latest_release_status" == 'in_progress' || "$latest_release_status" == 'queued' || "$latest_release_status" == 'pending' ]]; then
+            status_title="Production release running: $latest_release_step · $sha7"
+          elif [[ "$latest_release_conclusion" == 'failure' || "$latest_release_conclusion" == 'cancelled' || "$latest_release_conclusion" == 'timed_out' ]]; then
+            status_title="Production release blocked: $latest_release_step · $sha7"
+          else
+            status_title="Production release $latest_release_status/$latest_release_conclusion · $sha7"
+          fi
+          status_title=$(printf '%s' "$status_title" | cut -c1-240)
+
+          gh issue edit 3072 --repo "$REPO" --title "$status_title"
           gh issue comment 3072 --repo "$REPO" --body-file "$record"
           cat "$record" >> "$GITHUB_STEP_SUMMARY"
