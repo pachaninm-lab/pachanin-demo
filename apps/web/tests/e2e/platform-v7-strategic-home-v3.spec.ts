@@ -23,7 +23,15 @@ async function expectMinimumTargets(page: Page, selector: string) {
   expect(valid, `${selector} must expose 44×44 CSS px visible targets`).toBe(true);
 }
 
+async function settleContactDock(page: Page) {
+  const dock = page.locator('.pc-public-contact-dock');
+  if (await dock.count() === 0) return;
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+}
+
 async function expectNoSeriousAxeViolations(page: Page) {
+  await settleContactDock(page);
   const result = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -149,10 +157,17 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     const dock = page.locator('.pc-public-contact-dock');
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
-    await page.evaluate(() => window.scrollTo({ top: 1300, behavior: 'instant' }));
+    await settleContactDock(page);
+    await expect(dock.locator('button').first()).toBeEnabled();
+    await page.evaluate(() => {
+      window.scrollTo({ top: 1300, behavior: 'instant' });
+      window.dispatchEvent(new Event('scroll'));
+    });
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-    await page.evaluate(() => window.scrollTo({ top: 900, behavior: 'instant' }));
+    await page.evaluate(() => {
+      window.scrollTo({ top: 900, behavior: 'instant' });
+      window.dispatchEvent(new Event('scroll'));
+    });
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
   });
 
