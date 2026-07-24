@@ -146,7 +146,7 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><Sparkles size={17} strokeWidth={2.15} /></span>
         <strong>{ui.assistant}</strong>
       </button>
-      <button ref={supportButtonRef} type='button' className='pc-public-contact-dock-action' aria-label={ui.supportAria} aria-haspopup='dialog' onClick={() => openSurface('support')}>
+      <button ref={supportButtonRef} type='button' className='pc-public-contact-dock-action' aria-label={ui.support} aria-haspopup='dialog' onClick={() => openSurface('support')}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><MessageCircle size={17} strokeWidth={2.1} /></span>
         <strong>{ui.support}</strong>
       </button>
