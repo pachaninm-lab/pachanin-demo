@@ -316,32 +316,7 @@ if [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
-SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
-const fs = require('fs');
-const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
-const manifests = {
-  'agent/pc-crop-01b4-private-bff-live-registry': 'docs/platform-v7/autopilot/scopes/pc-crop-01b4-private-bff-live-registry.json',
-  'agent/pc-crop-08b-fgis-contract-catalog': 'docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json',
-  'agent/pc-crop-08c-fgis-xml-signing-input': 'docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json',
-  'agent/restore-global-contact-dock': 'docs/platform-v7/autopilot/scopes/restore-global-contact-dock-2810.json',
-  'ir/k8s-production-like-2659': 'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json',
-  'feat/assistant-universal-understanding': 'docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json',
-  'fix/public-ai-layout-authority': 'docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json',
-  'agent/platform-v7-strategic-rebuild-v3': 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json',
-  'governance/production-full-stack-release-v1': 'docs/platform-v7/autopilot/scopes/governance-production-full-stack-release-v1.json',
-  'ops/production-full-stack-release-v1': 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
-};
-const path = manifests[branch];
-if (!path) process.exit(0);
-const scope = JSON.parse(fs.readFileSync(path, 'utf8'));
-if (scope.branch !== branch) throw new Error(`Scope manifest branch ${scope.branch} != ${branch}`);
-if (scope.status !== 'active') throw new Error(`Scope manifest ${path} is not active`);
-if (!Array.isArray(scope.allowedPaths) || scope.allowedPaths.length === 0) {
-  throw new Error(`Scope manifest ${path} has no allowedPaths`);
-}
-for (const file of scope.allowedPaths) console.log(file);
-JS
-)
+SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node scripts/p7-source-controlled-scope.mjs)
 
 if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
