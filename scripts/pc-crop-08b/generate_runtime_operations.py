@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate normalized runtime rows and immutable operation objects."""
+"""Generate normalized runtime rows from the accepted operation catalog."""
 from __future__ import annotations
 
 import argparse
@@ -63,12 +63,8 @@ def main() -> int:
 import type {{ FgisGrainBusinessFamily, FgisGrainBusinessOperationCode }} from './fgis-grain-1.0.23.generated';
 export type FgisGrainBusinessFamilyRow = readonly [code:FgisGrainBusinessFamily,namespace:string,schemaFile:string,schemaFileSha256:string,operationCount:number,readCount:number,mutationCount:number];
 export type FgisGrainBusinessOperationRow = readonly [code:FgisGrainBusinessOperationCode,name:string,family:FgisGrainBusinessFamily,classification:'READ'|'MUTATION',requestLocalName:string,responseLocalName:string];
-export type FgisGrainBusinessOperation = Readonly<{{code:FgisGrainBusinessOperationCode;name:string;family:FgisGrainBusinessFamily;classification:'READ'|'MUTATION';namespace:string;requestQName:string;responseQName:string;}}>;
 export const FGIS_GRAIN_1_0_23_BUSINESS_FAMILY_ROWS = {family_payload} as const satisfies readonly FgisGrainBusinessFamilyRow[];
 export const FGIS_GRAIN_1_0_23_BUSINESS_OPERATION_ROWS = {operation_payload} as const satisfies readonly FgisGrainBusinessOperationRow[];
-const NAMESPACE_BY_FAMILY = new Map<FgisGrainBusinessFamily,string>(FGIS_GRAIN_1_0_23_BUSINESS_FAMILY_ROWS.map((row)=>[row[0],row[1]]));
-export const FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS: readonly FgisGrainBusinessOperation[] = Object.freeze(FGIS_GRAIN_1_0_23_BUSINESS_OPERATION_ROWS.map((row)=>{{const [code,name,family,classification,requestLocalName,responseLocalName]=row;const namespace=NAMESPACE_BY_FAMILY.get(family);if(!namespace)throw new Error(`FGIS Grain family namespace missing: ${{family}}`);return Object.freeze({{code,name,family,classification,namespace,requestQName:`{{${{namespace}}}}${{requestLocalName}}`,responseQName:`{{${{namespace}}}}${{responseLocalName}}`}});}}));
-if(NAMESPACE_BY_FAMILY.size!==8||FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS.length!==57||new Set(FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS.map((operation)=>operation.code)).size!==57)throw new Error('FGIS Grain generated operation rows are inconsistent.');
 '''
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(output, encoding="utf-8")
