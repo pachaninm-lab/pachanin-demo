@@ -42,14 +42,18 @@ jobs:
         run: node --test scripts/p7-source-controlled-scope.test.mjs
 
       - name: Apply one-time central guard migration
-        if: github.event_name == 'push' && github.ref_name == 'governance/pc-crop-scope-autodiscovery-3170'
+        if: >-
+          (github.event_name == 'push' && github.ref_name == 'governance/pc-crop-scope-autodiscovery-3170') ||
+          (github.event_name == 'pull_request' && github.head_ref == 'governance/pc-crop-scope-autodiscovery-3170')
         run: node scripts/p7-scope-governance-apply.mjs
 
       - name: Verify machine-readable governance invariants
         run: node scripts/verify-p7-scope-governance.mjs
 
       - name: Commit idempotent migration to the governed branch
-        if: github.event_name == 'push' && github.ref_name == 'governance/pc-crop-scope-autodiscovery-3170'
+        if: >-
+          (github.event_name == 'push' && github.ref_name == 'governance/pc-crop-scope-autodiscovery-3170') ||
+          (github.event_name == 'pull_request' && github.head_ref == 'governance/pc-crop-scope-autodiscovery-3170')
         shell: bash
         run: |
           set -euo pipefail
@@ -57,11 +61,13 @@ jobs:
             echo 'Central guard already uses scope auto-discovery.'
             exit 0
           fi
+          target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          test "$target_branch" = 'governance/pc-crop-scope-autodiscovery-3170'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/p7-autopilot-guard.sh
           git commit -m 'PC-CROP governance: auto-discover source-controlled scopes'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:${target_branch}"
 
       - name: Upload governance evidence
         if: always()
