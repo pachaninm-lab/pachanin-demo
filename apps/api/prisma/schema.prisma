@@ -1114,7 +1114,8 @@ model RegulatoryIntegrationInboxEntry {
   rawBodySha256             String    @db.Char(64)
   evidenceReference         String
   signatureStatus           String    @db.VarChar(24)
-  signatureAlgorithm        String?   @db.VarChar(255)
+  signatureAlgorithm        String?   @db.VarChar(64)
+  signatureAlgorithmUri     String?
   signatureKeyReference     String?
   signatureKeyVersion       String?   @db.VarChar(64)
   verificationResult        Json?

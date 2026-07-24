@@ -78,7 +78,7 @@ async function seedInbox(input: SeedInboxInput): Promise<void> {
       "provider", "externalEventId", "schemaVersion", "mappingVersion",
       "environment", "capabilities", "occurredAt", "receivedAt",
       "rawBodySha256", "evidenceReference", "signatureStatus",
-      "signatureAlgorithm", "signatureKeyReference", "signatureKeyVersion",
+      "signatureAlgorithm", "signatureAlgorithmUri", "signatureKeyReference", "signatureKeyVersion",
       "verificationResult", "state", "attempts", "leaseOwner",
       "leaseExpiresAt", "correlationId", "causationId", "version",
       "createdAt", "updatedAt"
@@ -89,6 +89,7 @@ async function seedInbox(input: SeedInboxInput): Promise<void> {
       CAST('["INBOUND_EVENTS","SIGNATURE_VERIFICATION","SCHEMA_MAPPING"]' AS jsonb),
       ${input.occurredAt}, clock_timestamp(), ${input.rawBodySha256},
       ${`evidence://fgis-zerno/${input.id}`}, ${input.signatureStatus ?? 'VERIFIED'},
+      'GOST3410_2012_256',
       'urn:ietf:params:xml:ns:cpxmlsec:algorithms:gostr34102012-gostr34112012-256',
       'signing-key://fgis/preprod/test', 'v1',
       CAST(${JSON.stringify(verification)} AS jsonb), ${input.state ?? 'PROCESSING'}, 0,

@@ -13,6 +13,7 @@ import {
   type CanonicalFgisGrainSdizRecord,
   type FgisGrainSdizProjectionMutation,
 } from './fgis-grain-sdiz-projection.contract';
+import { FGIS_GRAIN_1_0_23_SIGNING_POLICY } from './fgis-grain-1.0.23.signing-policy.generated';
 
 const ADAPTER_CODE = 'FGIS_ZERNO';
 const PROVIDER = 'FGIS_ZERNO';
@@ -35,6 +36,7 @@ interface InboxAuthorityRow {
   readonly evidenceReference: string;
   readonly occurredAt: Date;
   readonly signatureStatus: string;
+  readonly signatureAlgorithmUri: string | null;
   readonly verificationResult: unknown;
   readonly state: string;
   readonly leaseOwner: string | null;
@@ -170,7 +172,8 @@ export class FgisGrainSdizProjectionRepository {
         const inboxRows = await tx.$queryRaw<InboxAuthorityRow[]>(Prisma.sql`
           SELECT "id", "provider", "adapterCode", "schemaVersion", "mappingVersion",
                  "externalEventId", "causationId", "rawBodySha256", "evidenceReference",
-                 "occurredAt", "signatureStatus", "verificationResult", "state",
+                 "occurredAt", "signatureStatus", "signatureAlgorithmUri",
+                 "verificationResult", "state",
                  "leaseOwner", "leaseExpiresAt", "version",
                  "linkedDomainOperationType", "linkedDomainOperationId"
           FROM public."regulatory_integration_inbox_entries"
@@ -423,6 +426,8 @@ function assertInboxAuthority(
     || inbox.schemaVersion !== API_VERSION
     || inbox.mappingVersion !== FGIS_GRAIN_SDIZ_MAPPING_VERSION
     || inbox.signatureStatus !== 'VERIFIED'
+    || inbox.signatureAlgorithmUri
+      !== FGIS_GRAIN_1_0_23_SIGNING_POLICY.algorithms.signatureAlgorithmUri
     || verification.verified !== true
     || verification.schemaVersion !== API_VERSION
     || verification.mappingVersion !== FGIS_GRAIN_SDIZ_MAPPING_VERSION
