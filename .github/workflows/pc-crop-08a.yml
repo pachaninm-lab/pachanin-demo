@@ -1,0 +1,177 @@
+name: PC-CROP-08A Official FGIS Grain API Artifact Intake
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08a.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08a-fgis-artifact-intake.json'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json'
+      - 'scripts/pc-crop-08a/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-08a.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08a-fgis-artifact-intake.json'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json'
+      - 'scripts/pc-crop-08a/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-08a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08a
+  SOURCE_LOCK: docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json
+
+jobs:
+  official-artifact-intake:
+    name: Official ZIP · SHA-256 · safe inventory · schema graph
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-08A scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref="HEAD^"
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08a\.yml|docs/platform-v7/autopilot/scopes/pc-crop-08a-fgis-artifact-intake\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.source-lock\.json|scripts/pc-crop-08a/.*)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08A contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+          if git ls-files '*.zip' '*.exe' '*.dll' '*.jar' | grep -q .; then
+            echo 'Tracked binary or executable artifacts are forbidden in PC-CROP-08A.' >&2
+            git ls-files '*.zip' '*.exe' '*.dll' '*.jar' >&2
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scripts/pc-crop-08a/artifact_intake.py
+
+      - name: Run deterministic security and parser tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s scripts/pc-crop-08a -p 'test_*.py' -v \
+            2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+
+      - name: Fetch and inspect official API 1.0.23 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/pc-crop-08a/artifact_intake.py \
+            --lock-file "$SOURCE_LOCK" \
+            --output-dir "$EVIDENCE_DIR" \
+            --exact-head "$EXACT_HEAD" \
+            2>&1 | tee "$EVIDENCE_DIR/intake.log"
+
+      - name: Enforce discovery or pinned acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          root = Path(os.environ['EVIDENCE_DIR'])
+          report = json.loads((root / 'pc-crop-08a-acceptance.json').read_text('utf-8'))
+          lock = json.loads(Path(os.environ['SOURCE_LOCK']).read_text('utf-8'))
+          expected_head = os.environ['EXACT_HEAD']
+
+          assert report['schemaVersion'] == 'pc-crop.fgis-grain-artifact-intake-acceptance.v1'
+          assert report['slice'] == 'PC-CROP-08A'
+          assert report['issue'] == 3155
+          assert report['apiVersion'] == '1.0.23'
+          assert report['exactHead'] == expected_head
+          assert report['operationalStatus'] == 'NOT_ATTESTED'
+          assert report['inventory']['entryCount'] > 0
+          assert report['inventory']['fileCount'] > 0
+          assert report['inventory']['schemaCount'] > 0
+          assert report['inventory']['unresolvedReferenceCount'] == 0
+          assert report['artifact']['filename'] == 'fgis-zerno-api-1.0.23.zip'
+          assert len(report['artifact']['sha256']) == 64
+          assert urlparse(report['source']['operatorPageFinalUrl']).hostname in {'specagro.ru', 'www.specagro.ru'}
+          assert urlparse(report['source']['artifactFinalUrl']).hostname == 'static.specagro.ru'
+          assert report['boundaries']['externalProductionApiCall'] is False
+          assert report['boundaries']['confirmedLiveClaim'] is False
+          assert report['boundaries']['secondInboxOutboxOrRelay'] is False
+          assert report['boundaries']['productionHosting'] == 'REG_RU_VPS_ONLY'
+
+          if lock['status'] == 'DISCOVERY_REQUIRED':
+              assert report['status'] == 'DISCOVERY_PASS'
+              assert report['invariants']['packagePinVerified'] is False
+          elif lock['status'] == 'PINNED':
+              assert report['status'] == 'PASS'
+              assert report['invariants']['packagePinVerified'] is True
+              assert report['artifact']['sha256'] == lock['packageSha256']
+              assert report['source']['artifactFinalUrl'] == lock['finalArtifactUrl']
+              assert report['artifact']['sizeBytes'] == lock['artifactSizeBytes']
+              assert report['artifact']['inventorySha256'] == lock['inventorySha256']
+              assert report['artifact']['schemaManifestSha256'] == lock['schemaManifestSha256']
+          else:
+              raise AssertionError('unknown source lock status')
+          PY
+
+      - name: Publish evidence summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## PC-CROP-08A official artifact intake'
+            if [[ -f "$EVIDENCE_DIR/pc-crop-08a-acceptance.json" ]]; then
+              python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads((Path(os.environ['EVIDENCE_DIR']) / 'pc-crop-08a-acceptance.json').read_text('utf-8'))
+          print(f"- Status: `{report.get('status')}`")
+          print(f"- Exact head: `{report.get('exactHead')}`")
+          artifact = report.get('artifact') or {}
+          inventory = report.get('inventory') or {}
+          if artifact:
+              print(f"- Package SHA-256: `{artifact.get('sha256')}`")
+              print(f"- Package bytes: `{artifact.get('sizeBytes')}`")
+          if inventory:
+              print(f"- Files: `{inventory.get('fileCount')}`")
+              print(f"- Schemas: `{inventory.get('schemaCount')}`")
+              print(f"- Unresolved references: `{inventory.get('unresolvedReferenceCount')}`")
+          PY
+            else
+              echo '- Status: `NO_REPORT`'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload official package and exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08a-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
