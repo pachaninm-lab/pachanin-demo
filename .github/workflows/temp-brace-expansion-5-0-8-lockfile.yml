@@ -84,7 +84,7 @@ jobs:
           }
           function walk(node, fallbackName) {
             if (!node || typeof node !== 'object') return;
-            add(node.name || fallbackName, node.version);
+            add(node.name || node.from || fallbackName, node.version);
             for (const [name, child] of Object.entries(node.dependencies || {})) {
               walk(child, name);
             }
@@ -121,6 +121,8 @@ jobs:
           const ExcelJS = require('exceljs');
           const archiverEntry = require.resolve('archiver', { paths: [require.resolve('exceljs')] });
           const archiver = require(archiverEntry);
+          const jszipEntry = require.resolve('jszip', { paths: [require.resolve('exceljs')] });
+          const JSZip = require(jszipEntry);
 
           async function verifyXlsx() {
             const workbook = new ExcelJS.Workbook();
@@ -148,6 +150,8 @@ jobs:
                 archive.finalize();
               });
               assert.ok(archive.pointer() > 0);
+              const zip = await JSZip.loadAsync(fs.readFileSync(outputPath));
+              assert.ok(zip.file('probe.txt'));
             } finally {
               fs.rmSync(directory, { recursive: true, force: true });
             }
