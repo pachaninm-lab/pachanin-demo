@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08c-hardened-soap-codec",
+  "status": "active",
+  "issue": 3162,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08c.yml",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08c-hardened-soap-codec.json",
+    "scripts/pc-crop-08c/verify_codec_vectors.py",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "boundaries": {
+    "dtdEntityXincludeAllowed": false,
+    "externalResourceResolution": false,
+    "unboundedXml": false,
+    "handwrittenOperationSwitch": false,
+    "standardXmlDsigCanonicalizationClaim": false,
+    "signatureGenerationOrVerification": false,
+    "privateKeyOrCertificateBytes": false,
+    "soapHttpClient": false,
+    "externalProviderCall": false,
+    "rawXmlPersistenceOrLogging": false,
+    "directDealLotSdizMutation": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeploymentEvidence": false
+  }
+}
