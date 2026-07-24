@@ -1,9 +1,0 @@
-{
-  "schemaVersion": "pc-crop.predecessor-trigger-lock.v1",
-  "baselineCommit": "3133779b10b69950ed0f01c9a58e9f98e4d957fe",
-  "status": "DISCOVERY_REQUIRED",
-  "workflowCount": 5,
-  "workflows": {},
-  "operationalStatus": "NOT_ATTESTED",
-  "productionHosting": "REG_RU_VPS_ONLY"
-}
