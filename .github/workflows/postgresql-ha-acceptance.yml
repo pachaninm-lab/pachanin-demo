@@ -1,0 +1,101 @@
+name: PostgreSQL HA Failover and PITR Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'infra/kind/postgresql-ha/**'
+      - 'scripts/release/postgresql-ha-**'
+      - 'scripts/release/enforce-postgresql-ha-evidence.mjs'
+      - '.github/workflows/postgresql-ha-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/kind/postgresql-ha/**'
+      - 'scripts/release/postgresql-ha-**'
+      - 'scripts/release/enforce-postgresql-ha-evidence.mjs'
+      - '.github/workflows/postgresql-ha-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: postgresql-ha-pitr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/industrial-readiness/postgresql-ha
+
+jobs:
+  postgresql-ha-pitr:
+    name: PostgreSQL 16 · 3-node HA · failover · full restore · PITR
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Reclaim runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          docker system prune --all --force || true
+          df -h
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install pinned kind and kubectl
+        run: |
+          set -euo pipefail
+          KIND_VERSION=v0.29.0
+          curl --fail --location --retry 5 "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64" -o /tmp/kind-linux-amd64
+          curl --fail --location --retry 5 "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64.sha256sum" -o /tmp/kind-linux-amd64.sha256sum
+          (cd /tmp && sha256sum --check kind-linux-amd64.sha256sum)
+          sudo install -m 0755 /tmp/kind-linux-amd64 /usr/local/bin/kind
+
+          KUBECTL_VERSION=v1.33.1
+          curl --fail --location --retry 5 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /tmp/kubectl
+          curl --fail --location --retry 5 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256" -o /tmp/kubectl.sha256
+          echo "$(cat /tmp/kubectl.sha256)  /tmp/kubectl" | sha256sum --check
+          sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+          kind version
+          kubectl version --client
+          docker version
+
+      - name: Execute PostgreSQL HA, failover and PITR acceptance
+        run: bash scripts/release/postgresql-ha-acceptance.sh
+
+      - name: Enforce exact-head machine-readable evidence
+        if: always()
+        run: |
+          node scripts/release/postgresql-ha-fallback-evidence.mjs
+          node scripts/release/enforce-postgresql-ha-evidence.mjs
+
+      - name: Upload PostgreSQL HA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgresql-ha-pitr-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Cleanup disposable HA environment
+        if: always()
+        run: |
+          kind delete cluster --name grainflow-ha || true
+          docker system df || true
+
+  postgresql-ha-pitr-gate:
+    name: PostgreSQL HA Failover and PITR Gate · blocking
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [postgresql-ha-pitr]
+    steps:
+      - name: Enforce acceptance job
+        run: test "${{ needs.postgresql-ha-pitr.result }}" = success
