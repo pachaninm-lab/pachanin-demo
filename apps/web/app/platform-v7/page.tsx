@@ -1,5 +1,6 @@
 import '@/styles/platform-v7-public-header.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
+import '@/styles/platform-v7-public-typography.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-strategic-home-v3.css';
 import '@/styles/platform-v7-hero-infrastructure-message.css';
