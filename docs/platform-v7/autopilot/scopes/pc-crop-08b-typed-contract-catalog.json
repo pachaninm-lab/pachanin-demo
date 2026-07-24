@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08b-typed-contract-catalog",
+  "status": "active",
+  "issue": 3158,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08b.yml",
+    "apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.contract.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.contract.spec.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08b-typed-contract-catalog.json",
+    "docs/platform-v7/crop-platform/fgis-zerno-api-1.0.23-operation-catalog.json",
+    "scripts/pc-crop-08b/generate_contract_catalog.py",
+    "scripts/pc-crop-08b/test_generate_contract_catalog.py",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "boundaries": {
+    "unpinnedPackageAllowed": false,
+    "handwrittenOperationCatalog": false,
+    "orphanRequestResponseAllowed": false,
+    "unknownQNameAllowed": false,
+    "placeholderEndpointAsRuntimeConfig": false,
+    "xmlSerialization": false,
+    "soapHttpClient": false,
+    "cryptographicSigning": false,
+    "credentialsOrCertificateBytes": false,
+    "directDealLotSdizMutation": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeploymentEvidence": false
+  }
+}
