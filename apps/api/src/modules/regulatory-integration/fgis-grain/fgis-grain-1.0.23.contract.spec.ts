@@ -1,183 +1,193 @@
 import {
-  FGIS_GRAIN_1_0_23_CATALOG_SHA256,
+  FGIS_GRAIN_ADAPTER_CODE,
+  FGIS_GRAIN_ADAPTER_IDENTITY,
+  FGIS_GRAIN_CATALOG_STATUS,
+  FGIS_GRAIN_OPERATIONAL_STATUS,
+  FGIS_GRAIN_BUSINESS_OPERATIONS,
+  getFgisGrainBusinessOperation,
+  toFgisGrainOutboundEnvelopeMetadata,
+  toRegulatoryInboundEnvelope,
+  validateFgisGrainContractEnvelope,
+  validateFgisGrainRuntimeEndpoint,
+  type FgisGrainContractEnvelopeMetadata,
+} from './fgis-grain-1.0.23.contract';
+import {
+  FGIS_GRAIN_1_0_23_BUSINESS_FAMILIES,
+  FGIS_GRAIN_1_0_23_DOCUMENTATION_ENDPOINT,
+  FGIS_GRAIN_1_0_23_MAPPING_VERSION,
   FGIS_GRAIN_1_0_23_PACKAGE_SHA256,
+  FGIS_GRAIN_1_0_23_SDIZ_IDENTIFIER_FIELDS,
   FGIS_GRAIN_1_0_23_TRANSPORT_OPERATIONS,
 } from './fgis-grain-1.0.23.generated';
-import { FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS } from './fgis-grain-1.0.23.operations.generated';
-import {
-  FGIS_GRAIN_1_0_23_MAPPING_VERSION,
-  FgisGrain1023ContractCatalog,
-  FgisGrain1023ContractError,
-  assertFgisGrain1023AckEnvelope,
-  assertFgisGrain1023BusinessEnvelope,
-  assertFgisGrain1023FaultQName,
-  assertFgisGrain1023RuntimeEndpointCandidate,
-} from './fgis-grain-1.0.23.contract';
+import { FgisGrainContractCatalogService } from './fgis-grain-contract-catalog.service';
 
-const MESSAGE_ID = '123e4567-e89b-12d3-a456-426614174000';
-const RESPONSE_ID = '123e4567-e89b-12d3-a456-426614174001';
-
-function requestEnvelope() {
-  const operation = FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS[0]!;
+function envelope(
+  overrides: Partial<FgisGrainContractEnvelopeMetadata> = {},
+): FgisGrainContractEnvelopeMetadata {
+  const operation = getFgisGrainBusinessOperation('GET_LIST_SDIZ');
+  if (!operation) throw new Error('fixture operation missing');
   return {
-    adapterCode: 'FGIS_ZERNO',
+    adapterCode: FGIS_GRAIN_ADAPTER_CODE,
     apiVersion: '1.0.23',
-    packageSha256: FGIS_GRAIN_1_0_23_PACKAGE_SHA256,
-    catalogSha256: FGIS_GRAIN_1_0_23_CATALOG_SHA256,
     mappingVersion: FGIS_GRAIN_1_0_23_MAPPING_VERSION,
-    direction: 'REQUEST',
-    operationCode: operation.code,
-    family: operation.family,
-    elementQName: operation.requestQName,
-    transportOperation: 'SendRequest',
-    messageId: MESSAGE_ID,
-    correlationId: 'fgis:correlation:001',
-    causationId: null,
-    contentSha256: 'a'.repeat(64),
-    signatureMetadata: {
-      algorithm: 'GOST-2012',
-      keyReference: 'vault:fgis:key:1',
+    direction: 'INBOUND_RESPONSE',
+    transportOperation: 'SendResponse',
+    businessOperationCode: 'GET_LIST_SDIZ',
+    payloadQName: operation.responseQName,
+    messageId: 'f47ac10b-58cc-11cf-a447-001122334455',
+    referenceMessageId: 'd9428888-122b-11e1-b85c-61cd3cbb3210',
+    occurredAt: '2026-07-24T10:00:00.000Z',
+    rawBodySha256: 'a'.repeat(64),
+    signature: {
+      algorithm: 'GOST-2012-256',
+      keyReference: 'certificate-registry:fgis-zerno:test:1',
       keyVersion: '1',
-      signatureVersion: '1',
-      verificationPolicyVersion: 'fgis-1.0.23',
+      signatureVersion: 'XMLDSig-1',
+      verificationPolicyVersion: 'fgis-zerno-1.0.23-signature.v1',
     },
+    responseCode: 'success',
+    ...overrides,
   };
 }
 
-function expectCode(work: () => unknown, code: string): void {
-  try {
-    work();
-    throw new Error('expected contract error');
-  } catch (error) {
-    expect(error).toBeInstanceOf(FgisGrain1023ContractError);
-    expect((error as FgisGrain1023ContractError).code).toBe(code);
-  }
-}
-
-describe('FGIS Grain API 1.0.23 contract authority', () => {
-  it('exposes only pinned adapter-ready metadata and exact cardinalities', () => {
-    const catalog = new FgisGrain1023ContractCatalog();
-    expect(catalog.adapterCode).toBe('FGIS_ZERNO');
-    expect(catalog.apiVersion).toBe('1.0.23');
-    expect(catalog.operationalStatus).toBe('NOT_ATTESTED');
-    expect(catalog.honestStatus).toBe('ADAPTER_READY');
-    expect(catalog.liveConnection).toBe(false);
-    expect(catalog.credentialsPresent).toBe(false);
-    expect(catalog.runtimeEndpointAllowed).toBe(false);
-    expect(FGIS_GRAIN_1_0_23_TRANSPORT_OPERATIONS.map((row) => row.name).sort())
+describe('FGIS Grain API 1.0.23 generated contract authority', () => {
+  it('pins the accepted package and complete operation graph', () => {
+    expect(FGIS_GRAIN_1_0_23_PACKAGE_SHA256).toBe(
+      '085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7',
+    );
+    expect(FGIS_GRAIN_1_0_23_TRANSPORT_OPERATIONS.map((row) => row.name))
       .toEqual(['Ack', 'SendRequest', 'SendResponse']);
-    expect(catalog.listOperations()).toHaveLength(57);
-    expect(new Set(catalog.listOperations().map((row) => row.code)).size).toBe(57);
-    expect(new Set(catalog.listOperations().map((row) => row.family)).size).toBe(8);
+    expect(FGIS_GRAIN_BUSINESS_OPERATIONS).toHaveLength(57);
+    expect(new Set(FGIS_GRAIN_BUSINESS_OPERATIONS.map((row) => row.code)).size)
+      .toBe(57);
+    expect(FGIS_GRAIN_1_0_23_BUSINESS_FAMILIES).toContain('SDIZ');
   });
 
-  it('accepts exact request and response envelopes', () => {
-    const request = assertFgisGrain1023BusinessEnvelope(requestEnvelope());
-    expect(request.direction).toBe('REQUEST');
-    expect(request.transportOperation).toBe('SendRequest');
-    const operation = FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS[0]!;
-    const response = assertFgisGrain1023BusinessEnvelope({
-      ...requestEnvelope(),
-      direction: 'RESPONSE',
-      elementQName: operation.responseQName,
-      transportOperation: 'SendResponse',
-      messageId: RESPONSE_ID,
-      causationId: 'fgis:request:001',
-      signatureMetadata: null,
+  it('preserves exact SDIZ request/response QNames and identifiers', () => {
+    const create = getFgisGrainBusinessOperation('CREATE_SDIZ');
+    expect(create).toEqual(expect.objectContaining({
+      family: 'SDIZ',
+      classification: 'MUTATION',
+      requestQName: '{urn://x-artefacts-mcx-gov-ru/fgiz-zerno/api/ws/sdiz/1.0.23}RequestCreateSDIZ',
+      responseQName: '{urn://x-artefacts-mcx-gov-ru/fgiz-zerno/api/ws/sdiz/1.0.23}ResponseCreateSDIZ',
+    }));
+    expect(FGIS_GRAIN_1_0_23_SDIZ_IDENTIFIER_FIELDS).toEqual(expect.arrayContaining([
+      'MessageID',
+      'ReferenceMessageID',
+      'lotNumber',
+      'sdizID',
+      'sdizNumber',
+      'SDIZNumber',
+      'extinctionId',
+      'extinctionRefusalId',
+    ]));
+  });
+
+  it('maps a validated provider response into the canonical durable inbox envelope', () => {
+    const candidate = envelope();
+    expect(validateFgisGrainContractEnvelope(candidate)).toEqual({
+      valid: true,
+      operation: getFgisGrainBusinessOperation('GET_LIST_SDIZ'),
     });
-    expect(response.direction).toBe('RESPONSE');
-    expect(response.transportOperation).toBe('SendResponse');
-  });
-
-  it('rejects operation, family, QName and transport substitution', () => {
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), operationCode: 'UNKNOWN' }),
-      'OPERATION_UNKNOWN',
-    );
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), family: 'SDIZ' }),
-      'FAMILY_MISMATCH',
-    );
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), elementQName: '{urn:wrong}Request' }),
-      'QNAME_MISMATCH',
-    );
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), transportOperation: 'Ack' }),
-      'TRANSPORT_OPERATION_MISMATCH',
-    );
-  });
-
-  it('rejects package, catalog, mapping and content hash drift', () => {
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), packageSha256: '0'.repeat(64) }),
-      'PACKAGE_HASH_MISMATCH',
-    );
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), catalogSha256: '0'.repeat(64) }),
-      'CATALOG_HASH_MISMATCH',
-    );
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), mappingVersion: 'mutable-latest' }),
-      'MAPPING_VERSION_MISMATCH',
-    );
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), contentSha256: 'ABC' }),
-      'CONTENT_HASH_INVALID',
-    );
-  });
-
-  it('rejects client authority and secret/signature payload fields', () => {
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({ ...requestEnvelope(), tenantId: 'attacker' }),
-      'CLIENT_AUTHORITY_FIELD_FORBIDDEN',
-    );
-    expectCode(
-      () => assertFgisGrain1023BusinessEnvelope({
-        ...requestEnvelope(),
-        signatureMetadata: {
-          ...requestEnvelope().signatureMetadata,
-          signatureBytes: 'secret',
-        },
-      }),
-      'INPUT_INVALID',
-    );
-  });
-
-  it('validates Ack separately from business acceptance', () => {
-    const ack = assertFgisGrain1023AckEnvelope({
-      adapterCode: 'FGIS_ZERNO',
-      apiVersion: '1.0.23',
-      catalogSha256: FGIS_GRAIN_1_0_23_CATALOG_SHA256,
-      transportOperation: 'Ack',
-      messageId: MESSAGE_ID,
-      correlationId: 'fgis:correlation:ack',
-      responseMessageId: RESPONSE_ID,
+    expect(toRegulatoryInboundEnvelope(candidate)).toEqual({
+      provider: 'FGIS_ZERNO',
+      externalEventId: candidate.messageId,
+      schemaVersion: '1.0.23',
+      mappingVersion: FGIS_GRAIN_1_0_23_MAPPING_VERSION,
+      occurredAt: candidate.occurredAt,
+      rawBodySha256: candidate.rawBodySha256,
+      signature: candidate.signature,
+      correlationId: candidate.referenceMessageId,
+      causationId: candidate.referenceMessageId,
     });
-    expect(ack.transportOperation).toBe('Ack');
-    expectCode(
-      () => assertFgisGrain1023AckEnvelope({ ...ack, transportOperation: 'SendResponse' }),
-      'TRANSPORT_OPERATION_MISMATCH',
-    );
   });
 
-  it('accepts only generated fault QNames', () => {
-    const qname = FGIS_GRAIN_1_0_23_TRANSPORT_OPERATIONS[0]!.faultQName;
-    expect(assertFgisGrain1023FaultQName(qname)).toBe(qname);
-    expectCode(
-      () => assertFgisGrain1023FaultQName('{urn:wrong}Fault'),
-      'FAULT_QNAME_UNKNOWN',
-    );
+  const invalidCases: ReadonlyArray<readonly [
+    Partial<FgisGrainContractEnvelopeMetadata>,
+    string,
+  ]> = [
+    [{ apiVersion: '1.0.22' as never }, 'IDENTITY_MISMATCH'],
+    [{ businessOperationCode: 'UNKNOWN' as never }, 'UNSUPPORTED_OPERATION'],
+    [{ transportOperation: 'Ack' }, 'TRANSPORT_OPERATION_MISMATCH'],
+    [{ payloadQName: '{urn:wrong}ResponseGetListSDIZ' }, 'PAYLOAD_QNAME_MISMATCH'],
+    [{ messageId: 'f47ac10b-58cc-41cf-a447-001122334455' }, 'MESSAGE_ID_INVALID'],
+    [{ referenceMessageId: 'invalid' }, 'REFERENCE_MESSAGE_ID_INVALID'],
+    [{ occurredAt: '2026-07-24T10:00:00' }, 'OCCURRED_AT_INVALID'],
+    [{ rawBodySha256: 'abc' }, 'CONTENT_HASH_INVALID'],
+    [{ signature: null }, 'SIGNATURE_REFERENCE_REQUIRED'],
+    [{ responseCode: undefined }, 'RESPONSE_CODE_REQUIRED'],
+    [{ responseCode: 'unknown' as never }, 'RESPONSE_CODE_UNSUPPORTED'],
+  ];
+
+  it.each(invalidCases)('fails closed for %o', (overrides, errorCode) => {
+    expect(validateFgisGrainContractEnvelope(envelope(overrides)))
+      .toEqual({ valid: false, errorCode });
   });
 
-  it('forbids the localhost placeholder and every runtime endpoint in this slice', () => {
-    expectCode(
-      () => assertFgisGrain1023RuntimeEndpointCandidate('http://localhost/api/ws/1.0.23'),
-      'PLACEHOLDER_ENDPOINT_FORBIDDEN',
-    );
-    expectCode(
-      () => assertFgisGrain1023RuntimeEndpointCandidate('https://example.invalid/api/ws/1.0.23'),
-      'RUNTIME_ENDPOINT_OUT_OF_SCOPE',
-    );
+  it('prepares outbound metadata without serializing XML or calling the provider', () => {
+    const operation = getFgisGrainBusinessOperation('CREATE_SDIZ');
+    if (!operation) throw new Error('fixture operation missing');
+    const outbound = envelope({
+      direction: 'OUTBOUND_REQUEST',
+      transportOperation: 'SendRequest',
+      businessOperationCode: 'CREATE_SDIZ',
+      payloadQName: operation.requestQName,
+      responseCode: undefined,
+    });
+    expect(validateFgisGrainContractEnvelope(outbound).valid).toBe(true);
+    expect(toFgisGrainOutboundEnvelopeMetadata(outbound)).toEqual({
+      adapterIdentity: FGIS_GRAIN_ADAPTER_IDENTITY,
+      schemaVersion: '1.0.23',
+      mappingVersion: FGIS_GRAIN_1_0_23_MAPPING_VERSION,
+      transportOperation: 'SendRequest',
+      businessOperationCode: 'CREATE_SDIZ',
+      payloadQName: operation.requestQName,
+      messageId: outbound.messageId,
+      correlationId: outbound.referenceMessageId,
+      rawBodySha256: outbound.rawBodySha256,
+      signature: outbound.signature,
+    });
+    expect(validateFgisGrainContractEnvelope({ ...outbound, responseCode: 'accepted' }))
+      .toEqual({ valid: false, errorCode: 'RESPONSE_CODE_FORBIDDEN' });
+  });
+
+  it('accepts only the official fault QName as inbound fault metadata', () => {
+    const faultQName = FGIS_GRAIN_1_0_23_TRANSPORT_OPERATIONS
+      .find((row) => row.name === 'SendRequest')?.faultQName;
+    if (!faultQName) throw new Error('fault QName missing');
+    const fault = envelope({
+      direction: 'INBOUND_FAULT',
+      transportOperation: 'SendRequest',
+      payloadQName: faultQName,
+      responseCode: undefined,
+    });
+    expect(validateFgisGrainContractEnvelope(fault).valid).toBe(true);
+    expect(validateFgisGrainContractEnvelope({ ...fault, payloadQName: '{urn:wrong}ZernoFault' }))
+      .toEqual({ valid: false, errorCode: 'FAULT_QNAME_MISMATCH' });
+  });
+
+  it('never promotes the documented localhost address into runtime configuration', () => {
+    expect(FGIS_GRAIN_1_0_23_DOCUMENTATION_ENDPOINT).toEqual({
+      url: 'http://localhost/api/ws/1.0.23',
+      placeholder: true,
+      runtimeAllowed: false,
+    });
+    expect(validateFgisGrainRuntimeEndpoint(FGIS_GRAIN_1_0_23_DOCUMENTATION_ENDPOINT.url))
+      .toEqual({ valid: false, errorCode: 'ENDPOINT_HTTPS_REQUIRED' });
+    expect(validateFgisGrainRuntimeEndpoint('https://localhost/api/ws/1.0.23'))
+      .toEqual({ valid: false, errorCode: 'ENDPOINT_PLACEHOLDER_FORBIDDEN' });
+    expect(validateFgisGrainRuntimeEndpoint('https://user:secret@example.test/api'))
+      .toEqual({ valid: false, errorCode: 'ENDPOINT_CREDENTIALS_FORBIDDEN' });
+    expect(validateFgisGrainRuntimeEndpoint('https://integration.example.test/api/ws/1.0.23'))
+      .toEqual({ valid: true, normalizedUrl: 'https://integration.example.test/api/ws/1.0.23' });
+  });
+
+  it('exposes read-only adapter metadata through the module service', () => {
+    const service = new FgisGrainContractCatalogService();
+    expect(service.identity).toEqual(FGIS_GRAIN_ADAPTER_IDENTITY);
+    expect(service.operationCount).toBe(57);
+    expect(service.catalogStatus).toBe(FGIS_GRAIN_CATALOG_STATUS);
+    expect(service.operationalStatus).toBe(FGIS_GRAIN_OPERATIONAL_STATUS);
+    expect(service.operationalStatus).not.toBe('CONFIRMED_LIVE');
   });
 });
