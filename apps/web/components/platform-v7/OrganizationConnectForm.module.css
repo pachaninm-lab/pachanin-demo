@@ -18,7 +18,7 @@
 .form,
 .success { border: 1px solid rgba(20, 62, 45, .14); border-radius: 18px; background: #fff; box-shadow: 0 18px 52px rgba(18, 53, 40, .07); }
 .form { position: relative; display: grid; gap: 18px; padding: 20px; }
-.form[data-ready='false'] { opacity: .72; }
+.form[data-ready='false'] { cursor: progress; }
 
 .progress { display: grid; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid rgba(20, 62, 45, .12); }
 .progress > div { display: grid; gap: 3px; }

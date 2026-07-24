@@ -20,7 +20,15 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function settleContactDock(page: Page) {
+  const dock = page.locator('.pc-public-contact-dock');
+  if (await dock.count() === 0) return;
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+}
+
 async function expectNoSeriousAxeViolations(page: Page) {
+  await settleContactDock(page);
   const result = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -58,17 +66,17 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
 
     const tai = page.locator('#tai');
     await expect(tai).toBeVisible();
-    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Основание: протокол лаборатории № L-204');
+    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Основание сценария: протокол лаборатории № L-204');
     await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Надёжность вывода: высокая');
     await expect(tai.locator('.pc-v6-prepared-action')).toContainText('ждёт подтверждения пользователя');
     await expect(tai).toContainText('TAI не меняет права');
 
-    const perspectives = page.getByRole('tablist', { name: 'Посмотреть глазами участника' });
+    const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(perspectives).toBeVisible();
     await expect(perspectives.getByRole('tab')).toHaveCount(6);
     await perspectives.getByRole('tab', { name: 'Банк' }).click();
     await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Публичная симуляция. Выбор участника не даёт доступ к данным и не меняет права.')).toBeVisible();
+    await expect(page.getByText('Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.')).toBeVisible();
 
     const integrations = page.locator('#integrations');
     await expect(integrations).toBeVisible();
@@ -76,6 +84,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expect(integrations).toContainText('Партия и прослеживаемость');
     await expect(integrations).not.toContainText('Подключено');
 
+    await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     await expectNoHorizontalOverflow(page);
@@ -115,6 +124,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expect(government.locator('[data-status="CONNECTED"]')).toHaveCount(0);
     await expect(government.locator('.pc-public-government-result')).toContainText('Проверка не выполнялась');
     await expect(page.locator('#limitations')).toContainText('Неподключённая государственная система не отображается как подключённая');
+    await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
 
     const media = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -144,12 +154,14 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
       expect(home?.ok(), `home ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expectNoHorizontalOverflow(page);
+      await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');
 
       const passport = await page.goto(`/platform-v7/ai-in-action?lang=${item.locale}`, { waitUntil: 'load' });
       expect(passport?.ok(), `passport ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-ai-in-action-authority"]')).toBeVisible();
       await expectNoHorizontalOverflow(page);
+      await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     }
   });

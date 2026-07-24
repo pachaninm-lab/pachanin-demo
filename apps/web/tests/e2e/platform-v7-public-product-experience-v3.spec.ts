@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 // WCAG assertions stay fail-closed across every configured desktop and mobile engine.
 function installLayoutShiftObserver(page: Page) {
@@ -39,7 +39,15 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function settleContactDock(page: Page) {
+  const dock = page.locator('.pc-public-contact-dock');
+  if (await dock.count() === 0) return;
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+}
+
 async function expectNoSeriousAxeViolations(page: Page) {
+  await settleContactDock(page);
   const result = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -68,6 +76,18 @@ async function expectMinimumTargets(page: Page, locator: string) {
     timeout: 5_000,
     message: `${locator} must settle at a minimum 44×44 CSS px target size`,
   }).toBe(true);
+}
+
+async function clickUntilAttribute(button: Locator, target: Locator, attribute: string, value: string) {
+  await expect(button).toBeVisible();
+  await expect.poll(async () => {
+    if (await target.getAttribute(attribute) !== value) await button.click();
+    return target.getAttribute(attribute);
+  }, {
+    timeout: 10_000,
+    intervals: [100, 200, 400],
+    message: `${attribute} must settle to ${value} after hydrated interaction`,
+  }).toBe(value);
 }
 
 test.describe('Public Product Experience V4 browser acceptance', () => {
@@ -147,20 +167,22 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
     );
 
     const explorer = page.locator('.pc-ppe-explorer');
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Риски и спор' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'risk');
+    const riskButton = page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Риски и спор' });
+    await clickUntilAttribute(riskButton, explorer, 'data-lens', 'risk');
     await expect(page).toHaveURL(/lens=risk/);
 
-    await page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спор по качеству' }).click();
-    await expect(explorer).toHaveAttribute('data-scenario', 'dispute');
+    const disputeButton = page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спор по качеству' });
+    await clickUntilAttribute(disputeButton, explorer, 'data-scenario', 'dispute');
     await expect(page).toHaveURL(/scenario=dispute/);
 
     await page.goBack();
+    await expect(page).toHaveURL(/lens=risk/);
+    await expect(page).toHaveURL(/scenario=partial/);
     await expect(explorer).toHaveAttribute('data-lens', 'risk');
     await expect(explorer).toHaveAttribute('data-scenario', 'partial');
 
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Документы' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'documents');
+    const documentsButton = page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Документы' });
+    await clickUntilAttribute(documentsButton, explorer, 'data-lens', 'documents');
     await expect(page).toHaveURL(/lens=documents/);
 
     await expectNoSeriousAxeViolations(page);
