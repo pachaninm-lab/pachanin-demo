@@ -3,15 +3,30 @@ name: PC-CROP-07B Integration Control Tower Acceptance
 on:
   pull_request:
     paths:
+      - '.github/workflows/pc-crop-07b.yml'
       - 'apps/api/src/app.module.ts'
-      - 'apps/api/src/modules/regulatory-integration/**'
-      - 'apps/web/app/api/platform-v7/integrations/**'
-      - 'apps/web/app/api/staff/integration-control-tower/**'
-      - 'apps/web/app/api/staff/integrations/**'
-      - 'apps/web/app/platform-v7/integrations/**'
-      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
-      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/api/src/modules/regulatory-integration/dto/regulatory-integration-control-tower.dto.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.command.service.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts'
+      - 'apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts'
+      - 'apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts'
+      - 'apps/web/app/api/staff/integrations/_command-proxy.ts'
+      - 'apps/web/app/api/staff/integrations/[adapterCode]/commands/reconcile/route.ts'
+      - 'apps/web/app/api/staff/integrations/inbox/[entryId]/commands/redrive/route.ts'
+      - 'apps/web/app/platform-v7/integrations/[adapterCode]/page.tsx'
+      - 'apps/web/app/platform-v7/integrations/integrations.module.css'
+      - 'apps/web/app/platform-v7/integrations/page.tsx'
       - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
       - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/route-canonicalization.ts'
@@ -22,19 +37,33 @@ on:
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
       - 'scripts/verify-pc-crop-07b.mjs'
-      - '.github/workflows/pc-crop-07b.yml'
   push:
     branches: [main]
     paths:
+      - '.github/workflows/pc-crop-07b.yml'
       - 'apps/api/src/app.module.ts'
-      - 'apps/api/src/modules/regulatory-integration/**'
-      - 'apps/web/app/api/platform-v7/integrations/**'
-      - 'apps/web/app/api/staff/integration-control-tower/**'
-      - 'apps/web/app/api/staff/integrations/**'
-      - 'apps/web/app/platform-v7/integrations/**'
-      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
-      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/api/src/modules/regulatory-integration/dto/regulatory-integration-control-tower.dto.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.command.service.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts'
+      - 'apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts'
+      - 'apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts'
+      - 'apps/web/app/api/staff/integrations/_command-proxy.ts'
+      - 'apps/web/app/api/staff/integrations/[adapterCode]/commands/reconcile/route.ts'
+      - 'apps/web/app/api/staff/integrations/inbox/[entryId]/commands/redrive/route.ts'
+      - 'apps/web/app/platform-v7/integrations/[adapterCode]/page.tsx'
+      - 'apps/web/app/platform-v7/integrations/integrations.module.css'
+      - 'apps/web/app/platform-v7/integrations/page.tsx'
       - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
       - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/route-canonicalization.ts'
@@ -45,7 +74,6 @@ on:
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
       - 'scripts/verify-pc-crop-07b.mjs'
-      - '.github/workflows/pc-crop-07b.yml'
   workflow_dispatch:
 
 permissions:
@@ -97,12 +125,12 @@ jobs:
             base_ref='HEAD^'
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
-          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-07b\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json|scripts/(p7-autopilot-guard\.sh|verify-pc-crop-07b\.mjs))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
-            echo 'PC-CROP-07B contains out-of-scope files:' >&2
-            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
-            exit 1
-          fi
+          node scripts/pc-crop-owned-diff.mjs \
+            --workflow 'PC-CROP-07B' \
+            --base-ref "$base_ref" \
+            --head-ref "$EXACT_HEAD" \
+            --evidence-dir "$EVIDENCE_DIR"
+          touch "$EVIDENCE_DIR/scope-guard.ok"
 
       - uses: pnpm/action-setup@v4
         with:
