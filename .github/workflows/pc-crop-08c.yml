@@ -3,23 +3,27 @@ name: PC-CROP-08C FGIS Grain SOAP XML Codec Acceptance
 on:
   pull_request:
     paths:
-      - '.github/workflows/pc-crop-08b.yml'
       - '.github/workflows/pc-crop-08c.yml'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-xml-codec.service.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json'
       - 'scripts/pc-crop-08c/**'
-      - 'scripts/p7-autopilot-guard.sh'
   push:
     branches: [main]
     paths:
-      - '.github/workflows/pc-crop-08b.yml'
       - '.github/workflows/pc-crop-08c.yml'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-xml-codec.service.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json'
       - 'scripts/pc-crop-08c/**'
-      - 'scripts/p7-autopilot-guard.sh'
   workflow_dispatch:
 
 permissions:
@@ -59,13 +63,11 @@ jobs:
             base_ref='HEAD^'
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
-          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-08b\.yml|\.github/workflows/pc-crop-08c\.yml|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input\.json|scripts/pc-crop-08c/.*|scripts/p7-autopilot-guard\.sh)$' \
-            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
-            echo 'PC-CROP-08C contains out-of-scope files:' >&2
-            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
-            exit 1
-          fi
+          node scripts/pc-crop-owned-diff.mjs \
+            --workflow 'PC-CROP-08C' \
+            --base-ref "$base_ref" \
+            --head-ref "$EXACT_HEAD" \
+            --evidence-dir "$EVIDENCE_DIR"
           touch "$EVIDENCE_DIR/scope-guard.ok"
 
       - uses: pnpm/action-setup@v4
