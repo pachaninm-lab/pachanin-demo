@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import stat
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -14,6 +15,7 @@ SPEC = importlib.util.spec_from_file_location("pc_crop_08a_artifact_intake", MOD
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("cannot load artifact_intake.py")
 intake = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = intake
 SPEC.loader.exec_module(intake)
 
 
