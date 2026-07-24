@@ -3,14 +3,22 @@ name: PC-CROP-07B Integration Control Tower Acceptance
 on:
   pull_request:
     paths:
-      - 'apps/api/src/app.module.ts'
-      - 'apps/api/src/modules/regulatory-integration/**'
+      - 'apps/api/src/modules/regulatory-integration/dto/regulatory-integration-control-tower.dto.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.command.service.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts'
       - 'apps/web/app/api/platform-v7/integrations/**'
       - 'apps/web/app/api/staff/integration-control-tower/**'
       - 'apps/web/app/api/staff/integrations/**'
       - 'apps/web/app/platform-v7/integrations/**'
-      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
       - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
       - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'
       - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
@@ -22,18 +30,25 @@ on:
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
       - 'scripts/verify-pc-crop-07b.mjs'
-      - '.github/workflows/pc-crop-07b.yml'
   push:
     branches: [main]
     paths:
-      - 'apps/api/src/app.module.ts'
-      - 'apps/api/src/modules/regulatory-integration/**'
+      - 'apps/api/src/modules/regulatory-integration/dto/regulatory-integration-control-tower.dto.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.command.service.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts'
       - 'apps/web/app/api/platform-v7/integrations/**'
       - 'apps/web/app/api/staff/integration-control-tower/**'
       - 'apps/web/app/api/staff/integrations/**'
       - 'apps/web/app/platform-v7/integrations/**'
-      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
       - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
       - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'
       - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
@@ -45,9 +60,7 @@ on:
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
       - 'scripts/verify-pc-crop-07b.mjs'
-      - '.github/workflows/pc-crop-07b.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
 
