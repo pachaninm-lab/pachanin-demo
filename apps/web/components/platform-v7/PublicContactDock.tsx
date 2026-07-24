@@ -56,19 +56,34 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
 
   React.useEffect(() => {
     let previousY = window.scrollY;
+    let accumulatedDelta = 0;
     let frame = 0;
+
     const onScroll = () => {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         const currentY = window.scrollY;
         const delta = currentY - previousY;
-        if (currentY < 120) setHiddenByScroll(false);
-        else if (delta > 10) setHiddenByScroll(true);
-        else if (delta < -10) setHiddenByScroll(false);
+
+        if ((delta > 0 && accumulatedDelta < 0) || (delta < 0 && accumulatedDelta > 0)) accumulatedDelta = 0;
+        accumulatedDelta += delta;
+
+        if (currentY < 120) {
+          setHiddenByScroll(false);
+          accumulatedDelta = 0;
+        } else if (accumulatedDelta > 8) {
+          setHiddenByScroll(true);
+          accumulatedDelta = 0;
+        } else if (accumulatedDelta < -8) {
+          setHiddenByScroll(false);
+          accumulatedDelta = 0;
+        }
+
         previousY = currentY;
         frame = 0;
       });
     };
+
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
@@ -133,24 +148,25 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
     trigger.click();
   };
 
+  const hidden = dialogOpen || hiddenByScroll;
+
   return (
     <nav
       className='pc-public-contact-dock'
       aria-label={ui.group}
-      aria-hidden={dialogOpen || hiddenByScroll}
       data-dialog-open={dialogOpen ? 'true' : 'false'}
       data-scroll-hidden={hiddenByScroll ? 'true' : 'false'}
       data-assistant-context={assistantContext}
     >
-      <button ref={assistantButtonRef} type='button' className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistantAria} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
+      <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistantAria} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><Sparkles size={17} strokeWidth={2.15} /></span>
         <strong>{ui.assistant}</strong>
       </button>
-      <button ref={supportButtonRef} type='button' className='pc-public-contact-dock-action' aria-label={ui.support} aria-haspopup='dialog' onClick={() => openSurface('support')}>
+      <button ref={supportButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action' aria-label={ui.support} aria-haspopup='dialog' onClick={() => openSurface('support')}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><MessageCircle size={17} strokeWidth={2.1} /></span>
         <strong>{ui.support}</strong>
       </button>
-      <a className='pc-public-contact-dock-action pc-public-contact-dock-call' href={SUPPORT_PHONE_HREF} aria-label={ui.callAria} onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock', assistantContext })}>
+      <a className='pc-public-contact-dock-action pc-public-contact-dock-call' tabIndex={hidden ? -1 : 0} href={SUPPORT_PHONE_HREF} aria-label={ui.callAria} onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock', assistantContext })}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><Phone size={17} strokeWidth={2.1} /></span>
         <strong>{ui.call}</strong>
       </a>
@@ -236,6 +252,7 @@ const css = `
   -webkit-tap-highlight-color: transparent;
   transition: background-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
+.pc-public-contact-dock-action:disabled { cursor: default; }
 .pc-public-contact-dock-icon {
   width: 25px;
   height: 25px;
@@ -252,8 +269,8 @@ const css = `
 .pc-public-contact-dock-assistant .pc-public-contact-dock-icon { color: var(--pc-ppe-v5-green-dark, #07572e); background: linear-gradient(145deg, rgba(8, 122, 59, .19), rgba(8, 122, 59, .08)); box-shadow: inset 0 0 0 1px rgba(8, 122, 59, .22); }
 .pc-public-contact-dock-assistant strong { color: var(--pc-ppe-v5-green-dark, #07572e); font-weight: 780; }
 @media (hover: hover) {
-  .pc-public-contact-dock-action:hover { background: rgba(8, 122, 59, .065); transform: translateY(-1px); }
-  .pc-public-contact-dock-action:hover .pc-public-contact-dock-icon { color: #ffffff; background: var(--pc-ppe-v5-green, #087a3b); box-shadow: 0 4px 10px rgba(8, 122, 59, .18); }
+  .pc-public-contact-dock-action:hover:not(:disabled) { background: rgba(8, 122, 59, .065); transform: translateY(-1px); }
+  .pc-public-contact-dock-action:hover:not(:disabled) .pc-public-contact-dock-icon { color: #ffffff; background: var(--pc-ppe-v5-green, #087a3b); box-shadow: 0 4px 10px rgba(8, 122, 59, .18); }
 }
 .pc-public-contact-dock-action:active { background: rgba(8, 122, 59, .10); transform: translateY(0) scale(.985); }
 .pc-public-contact-dock-action:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--pc-ppe-v5-green, #087a3b); outline-offset: -2px; box-shadow: 0 0 0 3px rgba(8, 122, 59, .14); }
