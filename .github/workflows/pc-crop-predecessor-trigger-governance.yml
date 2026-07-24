@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   predecessor-trigger-governance:
@@ -46,45 +46,25 @@ jobs:
         run: |
           set -euo pipefail
           git diff --name-only | sort > "$EVIDENCE_DIR/working-tree-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-(07a|07b|08b|08c|08d)\.yml|docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock\.json)$' \
+          if grep -Ev '^(\.github/workflows/pc-crop-(07a|07b|08b|08c|08d)\.yml)$' \
             "$EVIDENCE_DIR/working-tree-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
           fi
+          test -f docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json
 
-      - name: Commit one-time trigger migration
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- \
-            .github/workflows/pc-crop-07a.yml \
-            .github/workflows/pc-crop-07b.yml \
-            .github/workflows/pc-crop-08b.yml \
-            .github/workflows/pc-crop-08c.yml \
-            .github/workflows/pc-crop-08d.yml \
-            docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json; then
-            echo 'Predecessor triggers are already isolated.'
-            exit 0
-          fi
-          target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-          test "$target_branch" = 'governance/pc-crop-predecessor-trigger-isolation-3170'
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            .github/workflows/pc-crop-07a.yml \
-            .github/workflows/pc-crop-07b.yml \
-            .github/workflows/pc-crop-08b.yml \
-            .github/workflows/pc-crop-08c.yml \
-            .github/workflows/pc-crop-08d.yml \
-            docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json
-          git commit -m 'PC-CROP governance: isolate predecessor workflow triggers'
-          git push origin "HEAD:${target_branch}"
-
-      - name: Upload governance evidence
+      - name: Upload governance evidence and migration bundle
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pc-crop-predecessor-trigger-governance-${{ github.event.pull_request.head.sha || github.sha }}
-          path: artifacts/pc-crop-predecessor-trigger-governance
+          path: |
+            artifacts/pc-crop-predecessor-trigger-governance
+            .github/workflows/pc-crop-07a.yml
+            .github/workflows/pc-crop-07b.yml
+            .github/workflows/pc-crop-08b.yml
+            .github/workflows/pc-crop-08c.yml
+            .github/workflows/pc-crop-08d.yml
+            docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json
           if-no-files-found: error
           retention-days: 90
