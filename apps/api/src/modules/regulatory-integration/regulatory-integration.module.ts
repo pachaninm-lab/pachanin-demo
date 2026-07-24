@@ -1,3 +1,4 @@
+// Governance-only shared regression trigger for PC-CROP-07A/07B/08B/08C/08D.
 import { Module } from '@nestjs/common';
 import { FgisGrainContractCatalogService } from './fgis-grain/fgis-grain-contract-catalog.service';
 import { FgisGrainDispatchRepository } from './fgis-grain/fgis-grain-dispatch.repository';
