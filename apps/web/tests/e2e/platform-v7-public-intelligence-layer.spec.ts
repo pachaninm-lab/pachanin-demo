@@ -53,27 +53,27 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
 
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
     await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
-    await expect(page.locator('.pc-v6-control-tower')).toContainText('Расчёт заблокирован');
-    await expect(page.locator('.pc-v6-control-tower')).toContainText('TAI выявил два блокера');
+    await expect(page.locator('.pc-v6-control-tower')).toContainText('Расчёт остановлен');
+    await expect(page.locator('.pc-v6-control-tower')).toContainText('TAI нашёл две причины остановки');
 
     const tai = page.locator('#tai');
     await expect(tai).toBeVisible();
-    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Источник: протокол лаборатории № L-204');
-    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Уверенность: высокая');
-    await expect(tai.locator('.pc-v6-prepared-action')).toContainText('требуется подтверждение пользователя');
-    await expect(tai).toContainText('TAI не меняет роль или организацию');
+    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Основание: протокол лаборатории № L-204');
+    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Надёжность вывода: высокая');
+    await expect(tai.locator('.pc-v6-prepared-action')).toContainText('ждёт подтверждения пользователя');
+    await expect(tai).toContainText('TAI не меняет права');
 
     const perspectives = page.getByRole('tablist', { name: 'Посмотреть глазами участника' });
     await expect(perspectives).toBeVisible();
     await expect(perspectives.getByRole('tab')).toHaveCount(6);
     await perspectives.getByRole('tab', { name: 'Банк' }).click();
-    await expect(page.getByRole('tabpanel')).toContainText('release запрещён политикой сделки');
-    await expect(page.getByText('Публичная симуляция. Роль не предоставляет доступ и не изменяет RBAC.')).toBeVisible();
+    await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
+    await expect(page.getByText('Публичная симуляция. Выбор участника не даёт доступ к данным и не меняет права.')).toBeVisible();
 
     const integrations = page.locator('#integrations');
     await expect(integrations).toBeVisible();
     await expect(integrations).toContainText('ФГИС «Зерно» / СДИЗ');
-    await expect(integrations).toContainText('Не подтверждено');
+    await expect(integrations).toContainText('Партия и прослеживаемость');
     await expect(integrations).not.toContainText('Подключено');
 
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
