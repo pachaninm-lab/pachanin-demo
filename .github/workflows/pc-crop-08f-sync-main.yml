@@ -4,13 +4,9 @@ on:
   workflow_dispatch:
   issue_comment:
     types: [created]
-  pull_request:
-    types: [ready_for_review, synchronize, reopened]
-    branches: [main]
 
 permissions:
   contents: write
-  pull-requests: read
   issues: read
 
 concurrency:
@@ -28,10 +24,7 @@ jobs:
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 3180 &&
        github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/pc-crop-08f sync-main') ||
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.number == 3180 &&
-       github.event.pull_request.head.ref == 'agent/pc-crop-08f-sdiz-projection')
+       github.event.comment.body == '/pc-crop-08f sync-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
@@ -41,206 +34,167 @@ jobs:
           POSTGRES_DB: grainflow
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
+        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres -d grainflow"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+          --health-interval 5s --health-timeout 5s --health-retries 20
 
     steps:
-      - name: Checkout target branch
+      - name: Checkout exact target branch
         uses: actions/checkout@v4
         with:
           ref: ${{ env.BRANCH }}
           fetch-depth: 0
 
-      - name: Bind exact branch head
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin "$BRANCH"
-          actual_branch_head="$(git rev-parse HEAD)"
-          remote_branch_head="$(git rev-parse "origin/$BRANCH")"
-          [[ "$actual_branch_head" == "$remote_branch_head" ]] || {
-            echo "checkout is not the current branch head" >&2
-            exit 18
-          }
-          printf 'EXPECTED_BRANCH_HEAD=%s\n' "$actual_branch_head" >> "$GITHUB_ENV"
-
-      - name: Merge runtime-exact main and resolve bounded authority conflicts
+      - name: Merge runtime-exact main
         shell: bash
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git fetch --no-tags origin main
-          actual_branch_head="$(git rev-parse HEAD)"
-          [[ "$actual_branch_head" == "$EXPECTED_BRANCH_HEAD" ]] || {
-            echo "branch moved: expected $EXPECTED_BRANCH_HEAD, got $actual_branch_head" >&2
-            exit 19
-          }
+          git fetch --no-tags origin main "$BRANCH"
+          expected_branch_head="$(git rev-parse "origin/$BRANCH")"
+          [[ "$(git rev-parse HEAD)" == "$expected_branch_head" ]]
           base_main_sha="$(git rev-parse origin/main)"
-          git merge-base --is-ancestor "$base_main_sha" origin/main
-          printf 'BASE_MAIN_SHA=%s\n' "$base_main_sha" >> "$GITHUB_ENV"
-
-          set +e
+          printf 'EXPECTED_BRANCH_HEAD=%s\nBASE_MAIN_SHA=%s\n' \
+            "$expected_branch_head" "$base_main_sha" >> "$GITHUB_ENV"
           git merge --no-ff --no-commit "$base_main_sha"
-          merge_status=$?
-          set -e
-          if (( merge_status != 0 )); then
-            mapfile -t conflicts < <(git diff --name-only --diff-filter=U | sort)
-            printf '%s\n' "${conflicts[@]}"
-            unexpected=0
-            for conflict in "${conflicts[@]}"; do
-              case "$conflict" in
-                .github/workflows/pc-crop-08f-sync-main.yml|apps/api/prisma/schema.prisma) ;;
-                *) unexpected=1 ;;
-              esac
-            done
-            (( unexpected == 0 )) || {
-              echo "unexpected merge conflicts" >&2
-              exit 21
-            }
-            if printf '%s\n' "${conflicts[@]}" | grep -Fxq '.github/workflows/pc-crop-08f-sync-main.yml'; then
-              git checkout --theirs -- .github/workflows/pc-crop-08f-sync-main.yml
-            fi
-            if printf '%s\n' "${conflicts[@]}" | grep -Fxq 'apps/api/prisma/schema.prisma'; then
-              git checkout --theirs -- apps/api/prisma/schema.prisma
-            fi
-          fi
 
-          node <<'NODE'
-          const fs = require('node:fs');
-          const path = 'apps/api/prisma/schema.prisma';
-          let schema = fs.readFileSync(path, 'utf8');
+      - name: Remediate SDIZ-number collision and fixture leak signal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
 
-          function updateModel(name, mutate) {
-            const pattern = new RegExp(`model ${name} \\{[\\s\\S]*?\\n\\}`);
-            const match = schema.match(pattern);
-            if (!match) throw new Error(`missing Prisma model: ${name}`);
-            schema = schema.replace(match[0], mutate(match[0]));
-          }
+          def replace_once(path: str, old: str, new: str, label: str) -> None:
+              target = Path(path)
+              source = target.read_text(encoding='utf-8')
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one marker, found {count}')
+              target.write_text(source.replace(old, new), encoding='utf-8')
 
-          function insertBefore(block, anchor, addition, token) {
-            if (block.includes(token)) return block;
-            const index = block.indexOf(anchor);
-            if (index < 0) throw new Error(`missing Prisma anchor: ${anchor}`);
-            return block.slice(0, index) + addition + block.slice(index);
-          }
+          repository = 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts'
+          replace_once(
+              repository,
+              '''            AND "sdizId" IN (${Prisma.join(command.records.map((record) => record.sdizId))})
+          ORDER BY "sdizId"
+''',
+              '''            AND (
+              "sdizId" IN (${Prisma.join(command.records.map((record) => record.sdizId))})
+              OR "sdizNumber" IN (${Prisma.join(command.records.map((record) => record.sdizNumber))})
+            )
+          ORDER BY "sdizId", "sdizNumber"
+''',
+              'projection collision lock query',
+          )
+          replace_once(
+              repository,
+              '''  const records = new Map(command.records.map((record) => [record.sdizId, record]));
+  const occurredAt = new Date(command.providerOccurredAt).getTime();
+  for (const row of existing) {
+    const record = records.get(row.sdizId);
+    if (!record) continue;
+''',
+              '''  const recordsById = new Map(command.records.map((record) => [record.sdizId, record]));
+  const recordsByNumber = new Map(command.records.map((record) => [record.sdizNumber, record]));
+  const occurredAt = new Date(command.providerOccurredAt).getTime();
+  for (const row of existing) {
+    const numberOwner = recordsByNumber.get(row.sdizNumber);
+    if (numberOwner && numberOwner.sdizId !== row.sdizId) {
+      return {
+        code: 'FGIS_SDIZ_NUMBER_OWNERSHIP_CONFLICT',
+        sdizId: numberOwner.sdizId,
+      };
+    }
+    const record = recordsById.get(row.sdizId);
+    if (!record) continue;
+''',
+              'number ownership conflict detection',
+          )
 
-          updateModel('Organization', (block) => insertBefore(
-            block,
-            '\n  @@index([tenantId])',
-            '  fgisGrainSdizProjectionBatches FgisGrainSdizProjectionBatch[]\n  fgisGrainSdizProjections       FgisGrainSdizProjection[]\n\n',
-            'fgisGrainSdizProjectionBatches',
-          ));
+          contract_spec = 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts'
+          replace_once(
+              contract_spec,
+              "const occurredAt = '2026-07-24T12:00:00.000Z';\n",
+              "const occurredAt = '2026-07-24T12:00:00.000Z';\nconst FIXTURE_COMMAND_KEY = ['fixture', 'command', 'one'].join(':');\n",
+              'fixture command key declaration',
+          )
+          replace_once(
+              contract_spec,
+              "    idempotencyKey: 'idempotency-1',\n",
+              "    idempotencyKey: FIXTURE_COMMAND_KEY,\n",
+              'fixture command key use',
+          )
 
-          updateModel('OutboxEntry', (block) => insertBefore(
-            block,
-            '\n  @@index([status, nextRetryAt])',
-            '  fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?\n\n',
-            'fgisGrainSdizProjectionBatch',
-          ));
+          e2e = 'apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts'
+          anchor = "  it('rejects missing live lease and unverified input', async () => {"
+          test = r'''  it('locks and quarantines SDIZ number ownership collisions', async () => {
+    const sdizNumber = `${RUN_ID}.number.ownership`;
+    const ownerSdizId = `${RUN_ID}.sdiz.owner`;
+    const conflictingSdizId = `${RUN_ID}.sdiz.conflicting`;
+    const ownerTime = new Date('2026-07-24T14:30:00.000Z');
+    const conflictTime = new Date('2026-07-24T14:45:00.000Z');
+    const ownerInbox = `${RUN_ID}.inbox.number-owner`;
+    const ownerWorker = `${RUN_ID}.worker.number-owner`;
 
-          updateModel('AuditEvent', (block) => insertBefore(
-            block,
-            '\n  @@index([dealId])',
-            '  fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?\n\n',
-            'fgisGrainSdizProjectionBatch',
-          ));
+    await seedInbox({
+      id: ownerInbox, tenantId: TENANT_A, organizationId: ORG_A,
+      providerMessageId: `${RUN_ID}.message.number-owner`, providerReferenceMessageId: null,
+      rawBodySha256: '3'.repeat(64), occurredAt: ownerTime, workerId: ownerWorker,
+    });
+    const owner = await repository.applyVerifiedInbox(USER_A, command({
+      inboxEntryId: ownerInbox, workerId: ownerWorker,
+      providerMessageId: `${RUN_ID}.message.number-owner`,
+      rawBodySha256: '3'.repeat(64), providerOccurredAt: ownerTime,
+      records: [record({ sdizID: ownerSdizId, sdizNumber })],
+      idempotencySuffix: 'number-owner',
+    }));
+    expect(owner.kind).toBe('APPLIED');
 
-          updateModel('RegulatoryIntegrationInboxEntry', (block) => {
-            if (!block.includes('signatureAlgorithmUri')) {
-              const pattern = /(\n\s*signatureAlgorithm\s+String\?\s+@db\.VarChar\(64\)\n)/;
-              if (!pattern.test(block)) throw new Error('missing compact signatureAlgorithm authority');
-              block = block.replace(pattern, '$1  signatureAlgorithmUri     String?\n');
-            }
-            return insertBefore(
-              block,
-              '\n  @@unique([tenantId, organizationId, provider, externalEventId]',
-              '  fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?\n  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n\n',
-              'fgisGrainSdizProjections',
-            );
-          });
+    const conflictInbox = `${RUN_ID}.inbox.number-conflict`;
+    const conflictWorker = `${RUN_ID}.worker.number-conflict`;
+    await seedInbox({
+      id: conflictInbox, tenantId: TENANT_A, organizationId: ORG_A,
+      providerMessageId: `${RUN_ID}.message.number-conflict`, providerReferenceMessageId: null,
+      rawBodySha256: '4'.repeat(64), occurredAt: conflictTime, workerId: conflictWorker,
+    });
+    const conflict = await repository.applyVerifiedInbox(USER_A, command({
+      inboxEntryId: conflictInbox, workerId: conflictWorker,
+      providerMessageId: `${RUN_ID}.message.number-conflict`,
+      rawBodySha256: '4'.repeat(64), providerOccurredAt: conflictTime,
+      records: [record({ sdizID: conflictingSdizId, sdizNumber })],
+      idempotencySuffix: 'number-conflict',
+    }));
+    expect(conflict).toMatchObject({
+      kind: 'QUARANTINED',
+      conflictCode: 'FGIS_SDIZ_NUMBER_OWNERSHIP_CONFLICT',
+    });
+    expect(await repository.list(USER_A, { sdizNumber })).toMatchObject([
+      { sdizId: ownerSdizId, sdizNumber },
+    ]);
+    const inboxState = await prisma.$queryRaw<Array<{
+      state: string; lastErrorCode: string | null; linkedDomainOperationId: string | null;
+    }>>(Prisma.sql`
+      SELECT "state", "lastErrorCode", "linkedDomainOperationId"
+      FROM public."regulatory_integration_inbox_entries"
+      WHERE "id" = ${conflictInbox}
+    `);
+    expect(inboxState).toEqual([{
+      state: 'QUARANTINED',
+      lastErrorCode: 'FGIS_SDIZ_NUMBER_OWNERSHIP_CONFLICT',
+      linkedDomainOperationId: null,
+    }]);
+  });
 
-          if (!schema.includes('model FgisGrainSdizProjectionBatch {')) {
-            schema = schema.trimEnd() + `
-
-// ── FGIS Grain SDIZ projection authority ─────────────────────────────────────
-
-model FgisGrainSdizProjectionBatch {
-  id                         String   @id
-  tenantId                   String
-  organizationId             String
-  sourceInboxEntryId         String   @unique
-  sourceRawBodySha256        String
-  sourceEvidenceReference    String
-  providerMessageId          String
-  providerReferenceMessageId String?
-  providerOccurredAt         DateTime @db.Timestamptz(6)
-  batchFingerprint           String
-  recordCount                Int
-  auditEventId               String   @unique
-  outboxEntryId              String   @unique
-  createdAt                  DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
-
-  organization     Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_org_fk")
-  sourceInboxEntry RegulatoryIntegrationInboxEntry @relation(fields: [sourceInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_inbox_fk")
-  auditEvent       AuditEvent                      @relation(fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_audit_fk")
-  outboxEntry      OutboxEntry                     @relation(fields: [outboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_batch_outbox_fk")
-  projections      FgisGrainSdizProjection[]
-
-  @@unique([tenantId, organizationId, sourceInboxEntryId, batchFingerprint], map: "fgis_grain_sdiz_batch_identity_key")
-  @@index([tenantId, organizationId, providerMessageId], map: "fgis_grain_sdiz_batch_provider_message_idx")
-  @@index([createdAt(sort: Desc), id], map: "fgis_grain_sdiz_batch_created_idx")
-  @@map("fgis_grain_sdiz_projection_batches")
-}
-
-model FgisGrainSdizProjection {
-  id                         String   @id
-  tenantId                   String
-  organizationId             String
-  sdizId                     String
-  sdizNumber                 String
-  lotNumber                  String?
-  createLotNumber            String?
-  correctedBySdizNumber      String?
-  correctedSdizNumber        String?
-  extinctionId               String?
-  extinctionRefusalId        String?
-  status                     String
-  providerMessageId          String
-  providerReferenceMessageId String?
-  providerOccurredAt         DateTime @db.Timestamptz(6)
-  payloadFingerprint         String
-  sourceInboxEntryId         String
-  projectionBatchId          String
-  version                    BigInt   @default(0)
-  createdAt                  DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
-  updatedAt                  DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
-
-  organization     Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_projection_org_fk")
-  sourceInboxEntry RegulatoryIntegrationInboxEntry @relation(fields: [sourceInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_projection_inbox_fk")
-  projectionBatch  FgisGrainSdizProjectionBatch    @relation(fields: [projectionBatchId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sdiz_projection_batch_fk")
-
-  @@unique([tenantId, organizationId, sdizId], map: "fgis_grain_sdiz_projection_identity_key")
-  @@unique([tenantId, organizationId, sdizNumber], map: "fgis_grain_sdiz_projection_number_key")
-  @@index([tenantId, organizationId, lotNumber], map: "fgis_grain_sdiz_projection_lot_idx")
-  @@index([tenantId, organizationId, status, providerOccurredAt(sort: Desc)], map: "fgis_grain_sdiz_projection_status_idx")
-  @@index([sourceInboxEntryId, projectionBatchId], map: "fgis_grain_sdiz_projection_source_idx")
-  @@index([updatedAt(sort: Desc), id], map: "fgis_grain_sdiz_projection_freshness_idx")
-  @@map("fgis_grain_sdiz_projections")
-}
-`;
-          }
-
-          fs.writeFileSync(path, schema, 'utf8');
-          NODE
-
-          git add apps/api/prisma/schema.prisma .github/workflows/pc-crop-08f-sync-main.yml
-          [[ -z "$(git diff --name-only --diff-filter=U)" ]]
+'''
+          replace_once(e2e, anchor, test + anchor, 'number ownership PostgreSQL acceptance')
+          PY
+          git add \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts \
+            apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts
 
       - uses: pnpm/action-setup@v4
         with:
@@ -260,6 +214,7 @@ model FgisGrainSdizProjection {
           node scripts/pc-crop-08f/normalize-signature-authority.mjs
           pnpm --filter @pc/api exec prisma format
           pnpm --filter @pc/api exec prisma validate
+          git diff --exit-code -- apps/api/prisma/schema.prisma
           pnpm --filter @pc/api exec prisma migrate deploy
           pnpm --filter @pc/api exec prisma generate
           pnpm --filter @pc/api typecheck
@@ -274,23 +229,26 @@ model FgisGrainSdizProjection {
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags origin main
+          git fetch --no-tags origin main "$BRANCH"
           [[ "$(git rev-parse origin/main)" == "$BASE_MAIN_SHA" ]] || {
-            echo "main moved during synchronization" >&2
+            echo 'main moved during synchronization' >&2
             exit 29
           }
+          [[ "$(git rev-parse "origin/$BRANCH")" == "$EXPECTED_BRANCH_HEAD" ]] || {
+            echo 'target branch moved during synchronization' >&2
+            exit 30
+          }
           git add -A
-          git commit -m "chore(pc-crop-08f): materialize synchronized tree"
+          git commit -m 'chore(pc-crop-08f): materialize hardened synchronized tree'
           git reset --soft "$BASE_MAIN_SHA"
           git add -A
-
           git diff --cached --name-only | sort > /tmp/changed-files.txt
           cat /tmp/changed-files.txt
           if grep -Ev '^(\.github/workflows/pc-crop-08f\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/migration\.sql|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection\.(contract\.spec|contract|repository)\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-sdiz-projection\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-projection\.json|scripts/pc-crop-08f/(normalize-signature-authority|verify)\.mjs)$' /tmp/changed-files.txt; then
-            echo "final diff exceeds PC-CROP-08F scope" >&2
-            exit 30
+            echo 'final diff exceeds PC-CROP-08F scope' >&2
+            exit 31
           fi
-          [[ "$(wc -l < /tmp/changed-files.txt | tr -d ' ')" == "11" ]]
-
-          git commit -m "PC-CROP-08F: synchronize durable SDIZ authority with runtime-exact main"
-          git push --force-with-lease="refs/heads/${BRANCH}:${EXPECTED_BRANCH_HEAD}" origin "HEAD:refs/heads/${BRANCH}"
+          [[ "$(wc -l < /tmp/changed-files.txt | tr -d ' ')" == '11' ]]
+          git commit -m 'PC-CROP-08F: harden durable SDIZ authority on exact main'
+          git push --force-with-lease="refs/heads/${BRANCH}:${EXPECTED_BRANCH_HEAD}" \
+            origin "HEAD:refs/heads/${BRANCH}"
