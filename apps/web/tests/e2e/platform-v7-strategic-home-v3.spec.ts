@@ -33,10 +33,10 @@ async function expectNoSeriousAxeViolations(page: Page) {
 
 async function fillFirstStep(page: Page) {
   const form = page.locator('#connect-organization form');
-  await form.getByLabel('Организация').fill('ООО Тест Агро');
-  await form.getByLabel('ИНН').fill('7700000000');
-  await form.getByLabel('ФИО').fill('Иван Иванов');
-  await form.getByRole('button', { name: 'Продолжить' }).click();
+  await form.getByLabel('Организация', { exact: true }).fill('ООО Тест Агро');
+  await form.getByLabel('ИНН', { exact: true }).fill('7700000000');
+  await form.getByLabel('ФИО', { exact: true }).fill('Иван Иванов');
+  await form.getByRole('button', { name: 'Продолжить', exact: true }).click();
   await expect(form).toHaveAttribute('data-step', '2');
   return form;
 }
