@@ -3,35 +3,28 @@ name: PC-CROP-08B Typed FGIS Grain Contract Catalog Acceptance
 on:
   pull_request:
     paths:
-      - '.github/workflows/pc-crop-08b.yml'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.generated.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.operations.generated.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-contract-catalog.service.ts'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.lock.json'
       - 'scripts/pc-crop-08b/**'
-      - 'scripts/p7-autopilot-guard.sh'
   push:
     branches: [main]
     paths:
-      - '.github/workflows/pc-crop-08b.yml'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.generated.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.operations.generated.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-contract-catalog.service.ts'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.lock.json'
       - 'scripts/pc-crop-08b/**'
-      - 'scripts/p7-autopilot-guard.sh'
   workflow_dispatch:
-
 permissions:
   contents: read
 
