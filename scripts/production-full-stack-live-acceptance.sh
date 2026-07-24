@@ -5,19 +5,31 @@ TARGET_SHA="${1:?target SHA is required}"
 LIVE_BASE="${PC_LIVE_BASE:-https://xn----8sbjf4befbjgs9b.xn--p1ai}"
 EVIDENCE_DIR="${PC_LIVE_EVIDENCE_DIR:-artifacts/production-full-stack-live}"
 RELEASE_RUN_ID="${PC_RELEASE_RUN_ID:-manual}"
+CURRENT_CHECK="bootstrap"
 
-[[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'LIVE_ACCEPTANCE=FAIL'; exit 2; }
-[[ "$RELEASE_RUN_ID" =~ ^[A-Za-z0-9._:-]{1,64}$ ]] || { echo 'LIVE_ACCEPTANCE=FAIL'; exit 2; }
+report_failure() {
+  local rc=$?
+  printf 'LIVE_ACCEPTANCE_STAGE=%s\n' "$CURRENT_CHECK"
+  printf 'LIVE_ACCEPTANCE=FAIL\n'
+  exit "$rc"
+}
+trap report_failure ERR
+
+[[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+[[ "$RELEASE_RUN_ID" =~ ^[A-Za-z0-9._:-]{1,64}$ ]]
 mkdir -p "$EVIDENCE_DIR"
 
 curl_common=(--fail-with-body --silent --show-error --connect-timeout 10 --max-time 30)
 for locale in ru en zh; do
+  CURRENT_CHECK="public-route-$locale"
   curl "${curl_common[@]}" "$LIVE_BASE/platform-v7?lang=$locale" > "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq 'connect-organization' "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq 'data-testid="platform-v7-root-execution-cockpit"' "$EVIDENCE_DIR/platform-$locale.html"
 done
 
-grep -Fq 'ведёт агросделку от цены до закрытия.' "$EVIDENCE_DIR/platform-ru.html"
-
+# The live gate verifies a stable semantic contract. Editorial wording may change
+# without weakening release safety or forcing a production rollback.
+CURRENT_CHECK="web-readiness"
 curl "${curl_common[@]}" "$LIVE_BASE/api/health/ready" > "$EVIDENCE_DIR/web-ready.json"
 python3 - "$EVIDENCE_DIR/web-ready.json" "$TARGET_SHA" <<'PY'
 import json,sys
@@ -45,9 +57,12 @@ post_intake() {
     --data-binary "@$input" > "$output"
 }
 
+CURRENT_CHECK="intake-first"
 post_intake "$EVIDENCE_DIR/intake-first.json" "$payload"
+CURRENT_CHECK="intake-exact-replay"
 post_intake "$EVIDENCE_DIR/intake-replay.json" "$payload"
 
+CURRENT_CHECK="intake-response-contract"
 python3 - "$EVIDENCE_DIR/intake-first.json" "$EVIDENCE_DIR/intake-replay.json" <<'PY'
 import json,re,sys
 first=json.load(open(sys.argv[1])); replay=json.load(open(sys.argv[2]))
@@ -60,7 +75,7 @@ if replay.get('replay') is not True: raise SystemExit('exact replay not recogniz
 PY
 request_number="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["requestNumber"])' "$EVIDENCE_DIR/intake-first.json")"
 response_correlation="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["correlationId"])' "$EVIDENCE_DIR/intake-first.json")"
-[[ "$response_correlation" == "$correlation" ]] || { echo 'LIVE_ACCEPTANCE=FAIL'; exit 3; }
+[[ "$response_correlation" == "$correlation" ]]
 
 conflict="$EVIDENCE_DIR/intake-conflict-request.json"
 python3 - "$payload" "$conflict" <<'PY'
@@ -68,6 +83,7 @@ import json,sys
 payload=json.load(open(sys.argv[1])); payload['organizationName'] += ' конфликт'
 json.dump(payload,open(sys.argv[2],'w'),ensure_ascii=False,separators=(',',':'))
 PY
+CURRENT_CHECK="intake-conflict-replay"
 set +e
 conflict_status="$(curl --silent --show-error --connect-timeout 10 --max-time 30 \
   -o "$EVIDENCE_DIR/intake-conflict-response.json" -w '%{http_code}' \
@@ -77,12 +93,14 @@ conflict_status="$(curl --silent --show-error --connect-timeout 10 --max-time 30
   --data-binary "@$conflict")"
 conflict_rc=$?
 set -e
-[[ "$conflict_rc" == 0 && "$conflict_status" == 409 ]] || { echo 'LIVE_ACCEPTANCE=FAIL'; exit 4; }
+[[ "$conflict_rc" == 0 && "$conflict_status" == 409 ]]
 
+CURRENT_CHECK="evidence-digest"
 find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 printf 'LIVE_REQUEST_NUMBER=%s\n' "$request_number"
 printf 'LIVE_CORRELATION_ID=%s\n' "$response_correlation"
 printf 'LIVE_RU_EN_ZH=PASS\n'
 printf 'LIVE_EXACT_REPLAY=PASS\n'
 printf 'LIVE_CONFLICT_REPLAY=PASS\n'
+printf 'LIVE_ACCEPTANCE_STAGE=complete\n'
 printf 'LIVE_ACCEPTANCE=PASS\n'
