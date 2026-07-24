@@ -1,6 +1,9 @@
 name: PC-CROP-08F exact-main synchronization
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/pc-crop-08f-sync-main.yml]
   workflow_dispatch:
   issue_comment:
     types: [created]
@@ -20,6 +23,7 @@ env:
 jobs:
   synchronize:
     if: >-
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 3180 &&
