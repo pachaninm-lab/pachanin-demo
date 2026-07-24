@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08f-sdiz-registry",
+  "status": "active",
+  "issue": 3178,
+  "baseCommit": "918e538cc48b53a17e845ddf2f5694d3f8c981ab",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08f.yml",
+    "apps/api/prisma/migrations/20260724*_fgis_grain_sdiz_registry/**",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/**",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "apps/api/test/industrial/fgis-grain-sdiz-registry.e2e-spec.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-registry.json",
+    "scripts/pc-crop-08f/**"
+  ],
+  "boundaries": {
+    "verifiedInboxOnly": true,
+    "postgresqlProjectionAuthority": true,
+    "canonicalInboxOnly": true,
+    "canonicalOutboxOnly": true,
+    "rawXmlOrSignatureBytesPersisted": false,
+    "networkClient": false,
+    "externalProviderCall": false,
+    "directDealLotShipmentOrPaymentMutation": false,
+    "automaticLegalAcceptance": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeploymentEvidence": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
