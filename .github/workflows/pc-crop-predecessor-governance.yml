@@ -27,6 +27,9 @@ concurrency:
   group: pc-crop-predecessor-governance-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   predecessor-governance:
     name: Exact ownership · successor isolation · predecessor regression preserved
@@ -36,7 +39,7 @@ jobs:
       - name: Checkout exact revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -81,7 +84,139 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pc-crop-predecessor-governance-${{ github.event.pull_request.head.sha || github.sha }}
+          name: pc-crop-predecessor-governance-${{ env.EXACT_HEAD }}
           path: artifacts/pc-crop-predecessor-governance
+          if-no-files-found: error
+          retention-days: 90
+
+  integration-control-tower-regression:
+    name: PC-CROP-07B exact fallback · PostgreSQL 16 · private BFF · governed commands
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+      EVIDENCE_DIR: artifacts/pc-crop-07b-governance
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Build exact owned-diff evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            git fetch --no-tags origin main
+            base_ref='origin/main'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          node scripts/pc-crop-owned-diff.mjs \
+            --workflow 'PC-CROP-07B' \
+            --base-ref "$base_ref" \
+            --head-ref "$EXACT_HEAD" \
+            --evidence-dir "$EVIDENCE_DIR"
+          touch "$EVIDENCE_DIR/scope-guard.ok"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply complete migration chain
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Typecheck API authority
+        run: pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+
+      - name: Run policy and read-model unit contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts \
+            src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/api-unit.log"
+
+      - name: Run PostgreSQL tenant and command acceptance
+        env:
+          PC_CROP_07B_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+
+      - name: Typecheck protected Integration Control Tower
+        run: pnpm --filter @pc/web exec tsc -p tsconfig.pc-crop.json --noEmit 2>&1 | tee "$EVIDENCE_DIR/web-typecheck.log"
+
+      - name: Run private BFF and UX contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/integrationControlTowerLiveAdapter.test.ts \
+            tests/unit/platformV7IntegrationControlTower.test.ts \
+            tests/unit/platformV7RouteCanonicalization.test.ts \
+            2>&1 | tee "$EVIDENCE_DIR/web-contracts.log"
+
+      - name: Build and enforce exact acceptance
+        shell: bash
+        run: |
+          node scripts/verify-pc-crop-07b.mjs
+          cp artifacts/pc-crop-07b/pc-crop-07b-acceptance.json "$EVIDENCE_DIR/pc-crop-07b-acceptance.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-07b-acceptance.json`, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop.integration-control-tower-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-07B' || report.issue !== 3040) process.exit(1);
+          if (report.status !== 'PASS' || report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.exactHead !== process.env.EXACT_HEAD || report.postgresql !== '16') process.exit(1);
+          if (!Object.values(report.invariants || {}).every((value) => value === true)) process.exit(1);
+          const boundaries = report.boundaries || {};
+          if (boundaries.publicUnauthenticatedIntegrationRoute !== false) process.exit(1);
+          if (boundaries.rawPayloadOrSecretDisplay !== false) process.exit(1);
+          if (boundaries.liveExternalProviderCall !== false) process.exit(1);
+          if (boundaries.secondInboxOutboxOrRelay !== false) process.exit(1);
+          if (boundaries.productionDeployment !== false || boundaries.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          NODE
+
+      - name: Upload exact PC-CROP-07B fallback evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-07b-governance-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-07b-governance
           if-no-files-found: error
           retention-days: 90
