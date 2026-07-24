@@ -14,8 +14,8 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(copy).toContain("kicker: 'Единая цифровая инфраструктура агросделки'");
     expect(copy).toContain("brand: 'Контроль исполнения Сделки'");
     expect(copy).toContain("title: 'от цены до расчёта и закрытия'");
-    expect(copy).toContain('Товар, участники, логистика, качество, документы и деньги связаны в одной Сделке.');
-    expect(copy).toContain('Платформа показывает блокер, ответственного, основание и следующий шаг.');
+    expect(copy).toContain('Товар, логистика, качество, документы и деньги связаны в одной Сделке.');
+    expect(copy).toContain('Видны блокер, ответственный, основание и следующий шаг.');
     expect(component).toContain("className='pc-v6-hero-brand'");
     expect(component).toContain("className='pc-v6-hero-title-line'");
     expect(component).toContain("className='pc-v6-hero-lead'");
@@ -54,6 +54,8 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(css).toContain('@media (min-width: 1024px)');
     expect(css).toContain('@media (min-width: 1280px)');
     expect(css).toContain('text-wrap: balance');
+    expect(css).toContain('.pc-v6-hero-brand::after');
+    expect(css).toContain('.pc-v6-hero-title-line { display: inline; }');
     expect(css).toContain(':lang(zh) .pc-v6-hero h1.pc-v6-hero-title');
     expect(css).toContain('min-height: min(760px, calc(100dvh - 64px))');
   });
