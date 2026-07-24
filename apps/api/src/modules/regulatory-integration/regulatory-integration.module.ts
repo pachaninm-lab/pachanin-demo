@@ -4,6 +4,7 @@ import { RegulatoryIntegrationControlTowerController } from './regulatory-integr
 import { RegulatoryIntegrationControlTowerRepository } from './regulatory-integration.control-tower.repository';
 import { RegulatoryIntegrationInboxLifecycleRepository } from './regulatory-integration.inbox-lifecycle.repository';
 import { RegulatoryIntegrationInboxRepository } from './regulatory-integration.inbox.repository';
+import { RegulatoryIntegrationReconciliationRepository } from './regulatory-integration.reconciliation.repository';
 
 @Module({
   controllers: [RegulatoryIntegrationControlTowerController],
@@ -11,12 +12,14 @@ import { RegulatoryIntegrationInboxRepository } from './regulatory-integration.i
     RegulatoryIntegrationInboxRepository,
     RegulatoryIntegrationInboxLifecycleRepository,
     RegulatoryIntegrationControlTowerRepository,
+    RegulatoryIntegrationReconciliationRepository,
     RegulatoryIntegrationControlTowerCommandService,
   ],
   exports: [
     RegulatoryIntegrationInboxRepository,
     RegulatoryIntegrationInboxLifecycleRepository,
     RegulatoryIntegrationControlTowerRepository,
+    RegulatoryIntegrationReconciliationRepository,
     RegulatoryIntegrationControlTowerCommandService,
   ],
 })
