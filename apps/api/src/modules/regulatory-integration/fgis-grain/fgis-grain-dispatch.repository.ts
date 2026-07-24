@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   ConflictException,
   Injectable,
@@ -6,7 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { RequestUser } from '../../../common/auth/request-user';
+import type { RequestUser } from '../../../common/types/request-user';
 import { RlsTransactionService } from '../../../common/prisma/rls-transaction.service';
 import {
   FGIS_GRAIN_DISPATCH_SCHEMA_VERSION,
@@ -28,6 +28,38 @@ const OBJECT_REFERENCE =
   /^object-store:\/\/[A-Za-z0-9][A-Za-z0-9:_.@/-]{2,500}$/u;
 const CONFIG_REFERENCE =
   /^config:\/\/[A-Za-z0-9][A-Za-z0-9:_.@/-]{2,500}$/u;
+const AUDIT_ACTION = FGIS_GRAIN_OUTBOX_EVENT_TYPE;
+const AUDIT_OBJECT_TYPE = 'FGIS_GRAIN_OUTBOUND_DISPATCH';
+const AUDIT_OBJECT_ID = 'FGIS_ZERNO';
+
+type OutboxReplayRow = Readonly<{
+  id: string;
+  type: string;
+  payload: unknown;
+  triggeredByUserId: string | null;
+  idempotencyKey: string | null;
+  correlationId: string | null;
+  auditId: string | null;
+}>;
+
+type AuditReplayRow = Readonly<{
+  id: string;
+  action: string;
+  actorUserId: string;
+  actorRole: string;
+  tenantId: string | null;
+  orgId: string | null;
+  objectType: string | null;
+  objectId: string | null;
+  outcome: string;
+  reason: string | null;
+  metadata: unknown;
+  correlationId: string | null;
+  runtimeIdempotencyKey: string | null;
+}>;
+
+type HashRow = Readonly<{ hash: string }>;
+type IdRow = Readonly<{ id: string }>;
 
 export interface EnqueueFgisGrainDispatchCommand {
   readonly commandId: string;
@@ -57,11 +89,6 @@ export interface FgisGrainDispatchReceipt {
   readonly replayed: boolean;
   readonly providerConfirmed: false;
   readonly operationalStatus: typeof FGIS_GRAIN_OPERATIONAL_STATUS;
-}
-
-function isPrismaUniqueViolation(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError
-    && error.code === 'P2002';
 }
 
 function assertCommandShape(command: EnqueueFgisGrainDispatchCommand): void {
@@ -95,13 +122,14 @@ function assertCommandShape(command: EnqueueFgisGrainDispatchCommand): void {
 }
 
 function canonicalIdempotencyKey(
-  user: RequestUser,
+  tenantId: string,
+  orgId: string,
   command: EnqueueFgisGrainDispatchCommand,
 ): string {
   const value = [
     'fgis-grain-dispatch',
-    user.tenantId,
-    user.orgId,
+    tenantId,
+    orgId,
     command.idempotencyKey,
   ].join(':');
   if (value.length > 255) {
@@ -111,7 +139,8 @@ function canonicalIdempotencyKey(
 }
 
 function buildPayload(
-  user: RequestUser,
+  tenantId: string,
+  orgId: string,
   command: EnqueueFgisGrainDispatchCommand,
 ): FgisGrainOutboundDispatchPayload {
   return assertFgisGrainDispatchPayload({
@@ -120,8 +149,8 @@ function buildPayload(
     apiVersion: '1.0.23',
     mappingVersion: 'fgis-zerno-1.0.23-catalog.v1',
     signingPolicyVersion: FGIS_GRAIN_SIGNING_POLICY_VERSION,
-    tenantId: user.tenantId,
-    organizationId: user.orgId,
+    tenantId,
+    organizationId: orgId,
     commandId: command.commandId,
     transportOperation: command.transportOperation,
     businessOperationCode: command.businessOperationCode,
@@ -143,25 +172,39 @@ function samePayload(
   expected: FgisGrainOutboundDispatchPayload,
 ): boolean {
   try {
-    const parsed = assertFgisGrainDispatchPayload(existing);
-    return JSON.stringify(parsed) === JSON.stringify(expected);
+    const actual = assertFgisGrainDispatchPayload(existing);
+    return actual.schemaVersion === expected.schemaVersion
+      && actual.adapterCode === expected.adapterCode
+      && actual.apiVersion === expected.apiVersion
+      && actual.mappingVersion === expected.mappingVersion
+      && actual.signingPolicyVersion === expected.signingPolicyVersion
+      && actual.tenantId === expected.tenantId
+      && actual.organizationId === expected.organizationId
+      && actual.commandId === expected.commandId
+      && actual.transportOperation === expected.transportOperation
+      && actual.businessOperationCode === expected.businessOperationCode
+      && actual.messageId === expected.messageId
+      && actual.referenceMessageId === expected.referenceMessageId
+      && actual.messageDataId === expected.messageDataId
+      && actual.unsignedEnvelopeReference === expected.unsignedEnvelopeReference
+      && actual.unsignedEnvelopeSha256 === expected.unsignedEnvelopeSha256
+      && actual.unsignedEnvelopeSizeBytes === expected.unsignedEnvelopeSizeBytes
+      && actual.messageDataSha256 === expected.messageDataSha256
+      && actual.providerConfigurationReference === expected.providerConfigurationReference
+      && actual.correlationId === expected.correlationId
+      && actual.causationId === expected.causationId;
   } catch {
     return false;
   }
 }
 
 function receipt(
-  row: {
-    readonly id: string;
-    readonly auditId: string | null;
-    readonly idempotencyKey: string;
-    readonly correlationId: string | null;
-  },
+  row: Pick<OutboxReplayRow, 'id' | 'auditId' | 'idempotencyKey' | 'correlationId'>,
   replayed: boolean,
 ): FgisGrainDispatchReceipt {
-  if (!row.auditId || !row.correlationId) {
+  if (!row.auditId || !row.idempotencyKey || !row.correlationId) {
     throw new ServiceUnavailableException(
-      'Canonical outbox row is missing audit or correlation authority',
+      'Canonical outbox row is missing audit, idempotency or correlation authority',
     );
   }
   return {
@@ -177,6 +220,10 @@ function receipt(
   };
 }
 
+function sha256Json(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
 @Injectable()
 export class FgisGrainDispatchRepository {
   constructor(private readonly rls: RlsTransactionService) {}
@@ -186,85 +233,155 @@ export class FgisGrainDispatchRepository {
     command: EnqueueFgisGrainDispatchCommand,
   ): Promise<FgisGrainDispatchReceipt> {
     assertCommandShape(command);
-    const payload = buildPayload(user, command);
-    const key = canonicalIdempotencyKey(user, command);
     try {
-      return await this.rls.transaction(user, async (tx) => {
-        await tx.$executeRaw`
-          SELECT pg_advisory_xact_lock(hashtext(${key}))
-        `;
-        const existing = await tx.outboxEntry.findUnique({
-          where: { idempotencyKey: key },
-          select: {
-            id: true,
-            type: true,
-            payload: true,
-            triggeredByUserId: true,
-            idempotencyKey: true,
-            correlationId: true,
-            auditId: true,
-          },
-        });
-        if (existing) {
-          if (
-            existing.type !== FGIS_GRAIN_OUTBOX_EVENT_TYPE
-            || existing.triggeredByUserId !== user.id
-            || existing.correlationId !== payload.correlationId
-            || !samePayload(existing.payload, payload)
-          ) {
-            throw new ConflictException(
-              'Idempotency key is already bound to another dispatch authority',
+      return await this.rls.withTrustedContext(
+        user,
+        async (tx, context) => {
+          const payload = buildPayload(context.tenantId, context.orgId, command);
+          const key = canonicalIdempotencyKey(
+            context.tenantId,
+            context.orgId,
+            command,
+          );
+          const reason = command.reason.trim();
+
+          await tx.$queryRaw<Array<{ locked: boolean }>>(Prisma.sql`
+            WITH acquired AS MATERIALIZED (
+              SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))
+            )
+            SELECT true AS "locked" FROM acquired
+          `);
+
+          const replayRows = await tx.$queryRaw<OutboxReplayRow[]>(Prisma.sql`
+            SELECT "id", "type", "payload", "triggeredByUserId",
+                   "idempotencyKey", "correlationId", "auditId"
+            FROM public."outbox_entries"
+            WHERE "idempotencyKey" = ${key}
+            FOR UPDATE
+          `);
+          const replay = replayRows[0];
+          if (replay) {
+            const auditRows = await tx.$queryRaw<AuditReplayRow[]>(Prisma.sql`
+              SELECT "id", "action", "actorUserId", "actorRole", "tenantId",
+                     "orgId", "objectType", "objectId", "outcome", "reason",
+                     "metadata", "correlationId", "runtimeIdempotencyKey"
+              FROM public."audit_events"
+              WHERE "id" = ${replay.auditId ?? ''}
+                AND "runtimeIdempotencyKey" = ${key}
+                AND "tenantId" = ${context.tenantId}
+                AND "orgId" = ${context.orgId}
+              FOR UPDATE
+            `);
+            const audit = auditRows[0];
+            const validReplay = replay.type === FGIS_GRAIN_OUTBOX_EVENT_TYPE
+              && replay.triggeredByUserId === context.userId
+              && replay.idempotencyKey === key
+              && replay.correlationId === payload.correlationId
+              && samePayload(replay.payload, payload)
+              && audit?.id === replay.auditId
+              && audit.action === AUDIT_ACTION
+              && audit.actorUserId === context.userId
+              && audit.actorRole === context.role
+              && audit.tenantId === context.tenantId
+              && audit.orgId === context.orgId
+              && audit.objectType === AUDIT_OBJECT_TYPE
+              && audit.objectId === AUDIT_OBJECT_ID
+              && audit.outcome === 'SUCCESS'
+              && audit.reason === reason
+              && audit.correlationId === payload.correlationId
+              && audit.runtimeIdempotencyKey === key
+              && samePayload(audit.metadata, payload);
+            if (!validReplay) {
+              throw new ConflictException(
+                'Idempotency key is already bound to another dispatch authority',
+              );
+            }
+            return receipt(replay, true);
+          }
+
+          const auditId = randomUUID();
+          const outboxId = randomUUID();
+          const previous = await tx.$queryRaw<HashRow[]>(Prisma.sql`
+            SELECT "hash"
+            FROM public."audit_events"
+            ORDER BY "createdAt" DESC, "id" DESC
+            LIMIT 1
+            FOR UPDATE
+          `);
+          const prevHash = previous[0]?.hash ?? '';
+          const auditHash = sha256Json({
+            id: auditId,
+            action: AUDIT_ACTION,
+            actorUserId: context.userId,
+            actorRole: context.role,
+            tenantId: context.tenantId,
+            orgId: context.orgId,
+            objectType: AUDIT_OBJECT_TYPE,
+            objectId: AUDIT_OBJECT_ID,
+            reason,
+            correlationId: payload.correlationId,
+            runtimeIdempotencyKey: key,
+            payload,
+            prevHash,
+          });
+
+          const insertedAudit = await tx.$queryRaw<IdRow[]>(Prisma.sql`
+            INSERT INTO public."audit_events" (
+              "id", "action", "actorUserId", "actorRole", "tenantId", "orgId",
+              "objectType", "objectId", "beforeState", "afterState", "outcome",
+              "reason", "metadata", "correlationId", "runtimeIdempotencyKey",
+              "hash", "prevHash"
+            ) VALUES (
+              ${auditId}, ${AUDIT_ACTION}, ${context.userId}, ${context.role},
+              ${context.tenantId}, ${context.orgId}, ${AUDIT_OBJECT_TYPE},
+              ${AUDIT_OBJECT_ID}, NULL,
+              CAST(${JSON.stringify({ state: 'PENDING', outboxId })} AS jsonb),
+              'SUCCESS', ${reason}, CAST(${JSON.stringify(payload)} AS jsonb),
+              ${payload.correlationId}, ${key}, ${auditHash}, ${prevHash || null}
+            )
+            RETURNING "id"
+          `);
+          if (insertedAudit[0]?.id !== auditId) {
+            throw new ServiceUnavailableException(
+              'Immutable dispatch audit was not persisted',
             );
           }
-          return receipt(existing, true);
-        }
 
-        const auditId = randomUUID();
-        const outboxId = randomUUID();
-        await tx.auditEvent.create({
-          data: {
-            id: auditId,
-            tenantId: user.tenantId,
-            organizationId: user.orgId,
-            userId: user.id,
-            action: FGIS_GRAIN_OUTBOX_EVENT_TYPE,
-            objectType: 'REGULATORY_ADAPTER',
-            objectId: 'FGIS_ZERNO',
-            reason: command.reason.trim(),
-            metadata: payload as unknown as Prisma.InputJsonValue,
-          },
-        });
-        const created = await tx.outboxEntry.create({
-          data: {
-            id: outboxId,
-            type: FGIS_GRAIN_OUTBOX_EVENT_TYPE,
-            payload: payload as unknown as Prisma.InputJsonValue,
-            status: 'PENDING',
-            triggeredByUserId: user.id,
-            idempotencyKey: key,
-            maxRetries: 5,
-            retryCount: 0,
-            nextRetryAt: new Date(),
-            correlationId: payload.correlationId,
-            auditId,
-          },
-          select: {
-            id: true,
-            auditId: true,
-            idempotencyKey: true,
-            correlationId: true,
-          },
-        });
-        return receipt(created, false);
-      });
+          const insertedOutbox = await tx.$queryRaw<OutboxReplayRow[]>(Prisma.sql`
+            INSERT INTO public."outbox_entries" (
+              "id", "type", "payload", "status", "triggeredByUserId",
+              "idempotencyKey", "maxRetries", "retryCount", "nextRetryAt",
+              "correlationId", "auditId"
+            ) VALUES (
+              ${outboxId}, ${FGIS_GRAIN_OUTBOX_EVENT_TYPE},
+              CAST(${JSON.stringify(payload)} AS jsonb), 'PENDING',
+              ${context.userId}, ${key}, 5, 0, clock_timestamp(),
+              ${payload.correlationId}, ${auditId}
+            )
+            RETURNING "id", "type", "payload", "triggeredByUserId",
+                      "idempotencyKey", "correlationId", "auditId"
+          `);
+          const created = insertedOutbox[0];
+          if (!created || created.id !== outboxId || created.auditId !== auditId) {
+            throw new ServiceUnavailableException(
+              'Canonical FGIS Grain outbox row was not persisted',
+            );
+          }
+          return receipt(created, false);
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          maxConflictRetries: 3,
+        },
+      );
     } catch (error) {
-      if (error instanceof ConflictException) throw error;
-      if (isPrismaUniqueViolation(error)) {
-        throw new ConflictException(
-          'Concurrent dispatch reused the same idempotency key',
-        );
+      if (
+        error instanceof ConflictException
+        || error instanceof UnprocessableEntityException
+        || error instanceof ServiceUnavailableException
+      ) {
+        throw error;
       }
-      if (error instanceof UnprocessableEntityException) throw error;
       throw new ServiceUnavailableException(
         'Unable to persist canonical FGIS Grain dispatch request',
       );
