@@ -8,9 +8,17 @@ const codecPath = path.join(
   root,
   'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts',
 );
+const policyPath = path.join(
+  root,
+  'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.ts',
+);
 const specPath = path.join(
   root,
   'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts',
+);
+const policySpecPath = path.join(
+  root,
+  'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts',
 );
 const scopePath = path.join(
   root,
@@ -30,7 +38,11 @@ for (const file of requiredFiles) {
 if (!/^[a-f0-9]{40}$/.test(exactHead)) failures.push('exact head is missing or invalid');
 
 const codec = fs.readFileSync(codecPath, 'utf8');
+const policy = fs.readFileSync(policyPath, 'utf8');
 const spec = fs.readFileSync(specPath, 'utf8');
+const policySpec = fs.readFileSync(policySpecPath, 'utf8');
+const runtimeAuthority = `${codec}\n${policy}`;
+const completeAbuseCorpus = `${spec}\n${policySpec}`;
 const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
 
 const forbiddenRuntimePatterns = [
@@ -44,7 +56,7 @@ const forbiddenRuntimePatterns = [
   /CONFIRMED_LIVE/u,
 ];
 for (const pattern of forbiddenRuntimePatterns) {
-  if (pattern.test(codec)) failures.push(`forbidden runtime pattern ${pattern}`);
+  if (pattern.test(runtimeAuthority)) failures.push(`forbidden runtime pattern ${pattern}`);
 }
 
 const requiredCodecMarkers = [
@@ -59,12 +71,21 @@ const requiredCodecMarkers = [
   'decodeFgisGrainSoapEnvelope',
   'mapDecodedFgisGrainInboundEnvelope',
   'EXTERNAL_SIGNER_POLICY_REQUIRED',
-  'REG_RU_VPS_ONLY',
 ];
 for (const marker of requiredCodecMarkers) {
-  if (!codec.includes(marker) && marker !== 'REG_RU_VPS_ONLY') {
-    failures.push(`codec marker missing: ${marker}`);
-  }
+  if (!codec.includes(marker)) failures.push(`codec marker missing: ${marker}`);
+}
+
+const requiredPolicyMarkers = [
+  'FGIS_GRAIN_XINCLUDE_NAMESPACE',
+  'XMLNS_ATTRIBUTE_PATTERN',
+  'decodeNamespaceValue',
+  'assertFgisGrainXIncludeForbidden',
+  'decodeGovernedFgisGrainSoapEnvelope',
+  'buildGovernedUnsignedFgisGrainSoapEnvelope',
+];
+for (const marker of requiredPolicyMarkers) {
+  if (!policy.includes(marker)) failures.push(`policy marker missing: ${marker}`);
 }
 
 const abuseMarkers = [
@@ -80,9 +101,13 @@ const abuseMarkers = [
   'duplicate XML IDs used by signature wrapping attacks',
   'signature blocks and transport wrappers inside caller payload',
   'oversized XML and excessive depth',
+  'XInclude nested inside an otherwise valid SDIZ request',
+  'entity-obfuscated XInclude namespace declarations',
 ];
 for (const marker of abuseMarkers) {
-  if (!spec.includes(marker)) failures.push(`abuse contract missing: ${marker}`);
+  if (!completeAbuseCorpus.includes(marker)) {
+    failures.push(`abuse contract missing: ${marker}`);
+  }
 }
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') {
@@ -119,12 +144,15 @@ const report = {
     namespaceRebindingRejected: codec.includes('NAMESPACE_REBINDING_FORBIDDEN'),
     duplicateAttributesRejected: codec.includes('DUPLICATE_ATTRIBUTE'),
     duplicateXmlIdsRejected: codec.includes('DUPLICATE_XML_ID'),
+    xincludeRejectedAfterEntityDecode:
+      policy.includes('decodeNamespaceValue')
+      && policy.includes('FGIS_GRAIN_XINCLUDE_NAMESPACE'),
     soap11Only: codec.includes('SOAP_11_ENVELOPE_REQUIRED'),
     exactCatalogQNameResolution: codec.includes('FGIS_GRAIN_BUSINESS_OPERATIONS'),
     deterministicUnsignedEnvelope: codec.includes('unsignedEnvelopeSha256'),
     immutableSigningInputDescriptor: codec.includes('messageDataSha256'),
     canonicalInboxMapping: codec.includes('toRegulatoryInboundEnvelope'),
-    abuseCorpusPresent: abuseMarkers.every((marker) => spec.includes(marker)),
+    abuseCorpusPresent: abuseMarkers.every((marker) => completeAbuseCorpus.includes(marker)),
   },
   boundaries: {
     generalPurposeXmlParser: false,
