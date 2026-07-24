@@ -95,10 +95,11 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
-      await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"])');
+      await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"])');
       await expectMinimumTargets(page, '#connect-organization select');
       await expectMinimumTargets(page, '#connect-organization button');
       await expectMinimumTargets(page, '#connect-organization a[href^="tel:"]');
+      await expect(page.locator('#connect-organization input[type="checkbox"]')).toBeVisible();
     });
   }
 
