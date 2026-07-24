@@ -135,8 +135,9 @@ def test_remote_is_loopback_read_only_and_cleans_up() -> None:
     remote = REMOTE.read_text(encoding="utf-8")
     assert "HOST=127.0.0.1" in remote
     assert "PORT=18080" in remote
-    assert "--parallel 1" in remote
-    assert "--ctx-size 4096" in remote
+    launcher = _heredoc(remote, "SERVER_LAUNCH_PY")
+    assert '"--parallel",\n        "1"' in launcher
+    assert '"--ctx-size",\n        "4096"' in launcher
     assert '"max_tokens": 128' in remote
     assert '"enable_thinking": False' in remote
     assert "listener_already_present" in remote
@@ -164,7 +165,7 @@ def test_remote_is_loopback_read_only_and_cleans_up() -> None:
     assert "valid.sort" not in remote
     assert 'root.glob("*/*/evidence/conversion-report.json")' not in remote
 
-    compile(_heredoc(remote, "SERVER_LAUNCH_PY"), "SERVER_LAUNCH_PY", "exec")
+    compile(launcher, "SERVER_LAUNCH_PY", "exec")
     compile(_heredoc(remote, "RSS_GUARD_PY"), "RSS_GUARD_PY", "exec")
     assert "RSS_GUARD_PID" in remote
     assert "RSS_READY_FILE" in remote
