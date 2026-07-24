@@ -16,7 +16,7 @@ for locale in ru en zh; do
   grep -Fq 'connect-organization' "$EVIDENCE_DIR/platform-$locale.html"
 done
 
-grep -Fq 'единая цифровая инфраструктура исполнения агросделки' "$EVIDENCE_DIR/platform-ru.html"
+grep -Fq 'ведёт агросделку от цены до закрытия.' "$EVIDENCE_DIR/platform-ru.html"
 
 curl "${curl_common[@]}" "$LIVE_BASE/api/health/ready" > "$EVIDENCE_DIR/web-ready.json"
 python3 - "$EVIDENCE_DIR/web-ready.json" "$TARGET_SHA" <<'PY'

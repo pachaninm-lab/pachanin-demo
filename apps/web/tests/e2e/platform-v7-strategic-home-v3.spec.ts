@@ -63,8 +63,8 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     const bank = page.getByRole('tab', { name: 'Банк' });
     await bank.click();
     await expect(bank).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tabpanel')).toContainText('release запрещён политикой сделки');
-    await expect(page.getByText('Публичная симуляция. Роль не предоставляет доступ и не изменяет RBAC.')).toBeVisible();
+    await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
+    await expect(page.getByText('Публичная симуляция. Выбор участника не даёт доступ к данным и не меняет права.')).toBeVisible();
     expect(forbiddenRequests).toEqual([]);
   });
 

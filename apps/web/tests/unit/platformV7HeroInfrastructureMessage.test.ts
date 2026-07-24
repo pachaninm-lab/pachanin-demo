@@ -10,11 +10,11 @@ describe('platform-v7 infrastructure hero message', () => {
   const css = read('styles/platform-v7-hero-infrastructure-message.css');
   const page = read('app/platform-v7/page.tsx');
 
-  it('uses the approved RU message as the public first-screen hierarchy', () => {
-    expect(copy).toContain("kicker: 'Промышленная цифровая инфраструктура агробизнеса'");
+  it('uses the approved plain-language RU message as the first-screen hierarchy', () => {
+    expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения сделок в растениеводстве'");
     expect(copy).toContain("brand: '«Прозрачная Цена»'");
-    expect(copy).toContain("title: '— единая цифровая инфраструктура исполнения агросделки.'");
-    expect(copy).toContain('Платформа связывает цену, участников, логистику, качество, документы, расчёты и доказательства в одном управляемом контуре Сделки.');
+    expect(copy).toContain("title: 'ведёт агросделку от цены до закрытия.'");
+    expect(copy).toContain('Условия, участники, торги, логистика, приёмка, качество, документы, расчёты и доказательства связаны вокруг одной Сделки.');
     expect(component).toContain("className='pc-v6-hero-brand'");
     expect(component).toContain("className='pc-v6-hero-title-line'");
     expect(component).toContain("className='pc-v6-hero-lead'");
@@ -27,16 +27,18 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(copy).toContain("brand: '透明价格'");
   });
 
-  it('defines TAI consistently as Transparent Agro Intelligence', () => {
-    expect(component).toContain('Transparent Agro Intelligence — прозрачный агроинтеллект');
-    expect(component).toContain('Transparent Agro Intelligence · 透明农业智能');
-    expect(component).toContain("if (locale === 'en') return 'Transparent Agro Intelligence'");
+  it('keeps TAI naming concise and user-facing', () => {
+    expect(component).toContain("<strong>TAI</strong><span>{copy.tai.mode}</span>");
+    expect(component).not.toContain('getTaiName');
+    expect(component).not.toContain('прозрачный агроинтеллект');
   });
 
-  it('loads the responsive layer after the strategic homepage base styles', () => {
-    const baseIndex = page.indexOf("platform-v7-strategic-home-v3.css");
-    const heroIndex = page.indexOf("platform-v7-hero-infrastructure-message.css");
-    expect(baseIndex).toBeGreaterThanOrEqual(0);
+  it('loads public typography before the page-specific responsive layers', () => {
+    const publicTypeIndex = page.indexOf('platform-v7-public-typography.css');
+    const baseIndex = page.indexOf('platform-v7-strategic-home-v3.css');
+    const heroIndex = page.indexOf('platform-v7-hero-infrastructure-message.css');
+    expect(publicTypeIndex).toBeGreaterThanOrEqual(0);
+    expect(baseIndex).toBeGreaterThan(publicTypeIndex);
     expect(heroIndex).toBeGreaterThan(baseIndex);
   });
 

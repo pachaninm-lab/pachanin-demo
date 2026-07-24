@@ -26,7 +26,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(home).toContain("id='integrations'");
     expect(home).toContain("id='maturity'");
     expect(home).toContain('pc-v6-faq');
-    expect(homeCopy).toContain('Не площадка объявлений. Контур исполнения сделки.');
+    expect(homeCopy).toContain('Не просто поиск цены. Платформа ведёт Сделку до закрытия.');
   });
 
   it('starts the public walkthrough from Deal terms and buyer perspective', () => {
@@ -57,8 +57,8 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     const firstHero = home.slice(home.indexOf("className='pc-v6-hero'"), home.indexOf("className='pc-v6-category'"));
     expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='hero_primary_cta'");
-    expect(homeCopy).toContain('Интерактивный сценарий работы платформы');
-    expect(homeCopy).toContain('Средства зарезервированы. Release запрещён');
+    expect(homeCopy).toContain('Сделка при отклонении');
+    expect(homeCopy).toContain('Деньги зарезервированы. Выплата остановлена');
     expect(home).not.toContain('Math.random');
     expect(home).not.toContain('setInterval');
   });
@@ -86,8 +86,8 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(home).toContain('copy.tai.freshness');
     expect(home).toContain('copy.tai.confidence');
     expect(home).toContain('copy.tai.action');
-    expect(homeCopy).toContain('требуется подтверждение пользователя');
-    expect(homeCopy).toContain('TAI не меняет роль или организацию');
+    expect(homeCopy).toContain('ждёт подтверждения пользователя');
+    expect(homeCopy).toContain('TAI не меняет права');
   });
 
   it('reserves the protected loading viewport instead of shifting after hydration', () => {
@@ -95,12 +95,12 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   });
 
   it('keeps mobile, touch-target and reduced-motion gates active', () => {
-    expect(homeCss).toContain('min-height:44px');
-    expect(homeCss).toContain('min-height:48px');
-    expect(homeCss).toContain('overflow-x:auto');
-    expect(homeCss).toContain('@media(max-width:767px)');
-    expect(homeCss).toContain('@media(prefers-reduced-motion:reduce)');
-    expect(homeCss).toContain('scroll-snap-type:x mandatory');
+    expect(homeCss).toContain('min-height: 44px');
+    expect(homeCss).toContain('min-height: 48px');
+    expect(homeCss).toContain('overflow-x: auto');
+    expect(homeCss).toContain('@media (max-width: 767px)');
+    expect(homeCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(homeCss).toContain('scroll-snap-type: x mandatory');
   });
 
   it('implements support as a real accessible dialog mounted at the public layout boundary', () => {
@@ -139,10 +139,10 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
       'websocket',
     ];
     for (const token of forbidden) expect(combined).not.toContain(token);
-    expect(homeCopy).toContain('Надёжность исполнения');
-    expect(homeCopy).toContain('Контроль встроен в каждый переход Сделки');
-    expect(homeCopy).toContain('Прослеживаемость партии');
-    expect(homeCopy).toContain('Юридически значимые документы');
-    expect(homeCopy).toContain('Промышленные принципы платформы');
+    expect(homeCopy).toContain('Контроль исполнения');
+    expect(homeCopy).toContain('Сделка не переходит дальше без подтверждённого основания');
+    expect(homeCopy).toContain('Партия и прослеживаемость');
+    expect(homeCopy).toContain('Подписание и обмен документами');
+    expect(homeCopy).toContain('Платформа рассчитана на промышленную эксплуатацию');
   });
 });
