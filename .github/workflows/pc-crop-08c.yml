@@ -3,25 +3,24 @@ name: PC-CROP-08C FGIS Grain SOAP XML Codec Acceptance
 on:
   pull_request:
     paths:
-      - '.github/workflows/pc-crop-08b.yml'
-      - '.github/workflows/pc-crop-08c.yml'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-xml-codec.service.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json'
       - 'scripts/pc-crop-08c/**'
-      - 'scripts/p7-autopilot-guard.sh'
   push:
     branches: [main]
     paths:
-      - '.github/workflows/pc-crop-08b.yml'
-      - '.github/workflows/pc-crop-08c.yml'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-xml-codec.service.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json'
       - 'scripts/pc-crop-08c/**'
-      - 'scripts/p7-autopilot-guard.sh'
   workflow_dispatch:
-
 permissions:
   contents: read
 
