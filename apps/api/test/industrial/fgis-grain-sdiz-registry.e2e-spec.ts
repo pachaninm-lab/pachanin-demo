@@ -28,19 +28,26 @@ const ORG_B = `${RUN_ID}.org-b`;
 const USER_A = `${RUN_ID}.user-a`;
 const USER_B = `${RUN_ID}.user-b`;
 const WORKER = `${RUN_ID}.worker`;
-const MESSAGE_1 = 'f47ac10b-58cc-11cf-a447-001122334455';
-const REFERENCE_1 = 'd9428888-122b-11e1-b85c-61cd3cbb3210';
-const MESSAGE_2 = 'f47ac10c-58cc-11cf-a447-001122334455';
-const REFERENCE_2 = 'd9428889-122b-11e1-b85c-61cd3cbb3210';
+let sequence = 1;
 
 let prisma: PrismaService;
 let repository: FgisGrainSdizRegistryRepository;
 
-function user(
-  tenantId: string,
-  orgId: string,
-  id: string,
-): RequestUser {
+function uuidV1(prefix: number): string {
+  return `${prefix.toString(16).padStart(8, '0')}-58cc-11cf-a447-001122334455`;
+}
+
+function nextAuthority(hashDigit = 'a') {
+  const current = sequence++;
+  return {
+    inboxId: `${RUN_ID}.inbox-${current}`,
+    messageId: uuidV1(0xf47ac100 + current),
+    referenceMessageId: uuidV1(0xd9428800 + current),
+    rawBodySha256: hashDigit.repeat(64),
+  };
+}
+
+function requestUser(tenantId: string, orgId: string, id: string): RequestUser {
   return {
     id,
     email: `${id}@industrial.invalid`,
@@ -53,8 +60,8 @@ function user(
   };
 }
 
-const USER_CONTEXT_A = user(TENANT_A, ORG_A, USER_A);
-const USER_CONTEXT_B = user(TENANT_B, ORG_B, USER_B);
+const CONTEXT_A = requestUser(TENANT_A, ORG_A, USER_A);
+const CONTEXT_B = requestUser(TENANT_B, ORG_B, USER_B);
 
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -118,10 +125,7 @@ function normalizedRecord(raw: ReturnType<typeof rawRecord>): ValidatedFgisGrain
 }
 
 function command(
-  inboxId: string,
-  messageId: string,
-  referenceMessageId: string,
-  rawBodySha256: string,
+  authority: ReturnType<typeof nextAuthority>,
   records: Array<ReturnType<typeof rawRecord>>,
 ): FgisGrainSdizApplicationCommand {
   const normalized = records
@@ -129,17 +133,18 @@ function command(
     .sort((left, right) =>
       left.providerSdizId.localeCompare(right.providerSdizId, 'en'),
     );
-  const candidate = {
+  const candidate: FgisGrainSdizApplicationCommand = {
     schemaVersion: FGIS_GRAIN_SDIZ_APPLICATION_SCHEMA_VERSION,
-    sourceInboxEntryId: inboxId,
+    sourceInboxEntryId: authority.inboxId,
     workerId: WORKER,
-    rawBodySha256,
-    messageId,
-    referenceMessageId,
+    rawBodySha256: authority.rawBodySha256,
+    messageId: authority.messageId,
+    referenceMessageId: authority.referenceMessageId,
     batchFingerprint: computeFgisGrainSdizBatchFingerprint(normalized),
     records,
-  } as const;
-  return assertFgisGrainSdizApplicationCommand(candidate);
+  };
+  assertFgisGrainSdizApplicationCommand(candidate);
+  return candidate;
 }
 
 async function seedAuthority(): Promise<void> {
@@ -152,7 +157,7 @@ async function seedAuthority(): Promise<void> {
       (${ORG_B}, ${`78${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`}, ${`${RUN_ID} Org B`}, ${TENANT_B}, ${now})
     ON CONFLICT ("id") DO NOTHING
   `);
-  for (const context of [USER_CONTEXT_A, USER_CONTEXT_B]) {
+  for (const context of [CONTEXT_A, CONTEXT_B]) {
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO public."users" (
         "id", "email", "passwordHash", "fullName", "mfaEnabled", "updatedAt"
@@ -171,36 +176,35 @@ async function resetProjection(): Promise<void> {
   );
   await prisma.$executeRaw(Prisma.sql`
     DELETE FROM public."regulatory_integration_inbox_entries"
-    WHERE "externalEventId" LIKE ${`${RUN_ID}%`}
+    WHERE "tenantId" IN (${TENANT_A}, ${TENANT_B})
   `);
 }
 
-async function insertInbox(input: {
-  id: string;
-  tenantId?: string;
-  organizationId?: string;
-  messageId: string;
-  referenceMessageId: string;
-  rawBodySha256: string;
-  occurredAt?: string;
-  state?: 'PROCESSING' | 'VERIFIED';
-  signatureStatus?: 'VERIFIED' | 'PENDING';
-  leaseOwner?: string | null;
-  leaseExpiresAt?: Date | null;
-  verificationResult?: unknown;
-}): Promise<void> {
-  const tenantId = input.tenantId ?? TENANT_A;
-  const organizationId = input.organizationId ?? ORG_A;
-  const state = input.state ?? 'PROCESSING';
+async function insertInbox(
+  authority: ReturnType<typeof nextAuthority>,
+  options: {
+    tenantId?: string;
+    organizationId?: string;
+    occurredAt?: string;
+    state?: 'PROCESSING' | 'VERIFIED';
+    signatureStatus?: 'VERIFIED' | 'PENDING';
+    leaseOwner?: string | null;
+    leaseExpiresAt?: Date | null;
+    verificationResult?: unknown;
+  } = {},
+): Promise<void> {
+  const tenantId = options.tenantId ?? TENANT_A;
+  const organizationId = options.organizationId ?? ORG_A;
+  const state = options.state ?? 'PROCESSING';
   const leaseOwner = state === 'PROCESSING'
-    ? input.leaseOwner === undefined ? WORKER : input.leaseOwner
+    ? options.leaseOwner === undefined ? WORKER : options.leaseOwner
     : null;
   const leaseExpiresAt = state === 'PROCESSING'
-    ? input.leaseExpiresAt === undefined
+    ? options.leaseExpiresAt === undefined
       ? new Date(Date.now() + 5 * 60_000)
-      : input.leaseExpiresAt
+      : options.leaseExpiresAt
     : null;
-  const verificationResult = input.verificationResult ?? {
+  const verificationResult = options.verificationResult ?? {
     verified: true,
     verifiedAt: new Date().toISOString(),
     schemaVersion: '1.0.23',
@@ -216,16 +220,16 @@ async function insertInbox(input: {
       "signatureKeyReference", "signatureKeyVersion", "verificationResult",
       "state", "attempts", "leaseOwner", "leaseExpiresAt", "correlationId"
     ) VALUES (
-      ${input.id}, ${tenantId}, ${organizationId}, 'FGIS_ZERNO', '1.0.23',
-      'FGIS_ZERNO', ${input.messageId}, '1.0.23',
+      ${authority.inboxId}, ${tenantId}, ${organizationId}, 'FGIS_ZERNO',
+      '1.0.23', 'FGIS_ZERNO', ${authority.messageId}, '1.0.23',
       'fgis-zerno-1.0.23-catalog.v1', 'TEST',
       CAST('["INBOUND_EVENTS","SIGNATURE_VERIFICATION","SCHEMA_MAPPING"]' AS jsonb),
-      ${new Date(input.occurredAt ?? '2026-07-24T12:00:00.000Z')},
-      ${input.rawBodySha256}, ${`evidence://fgis/${input.id}`},
-      ${input.signatureStatus ?? 'VERIFIED'}, 'GOST-2012-256',
+      ${new Date(options.occurredAt ?? '2026-07-24T12:00:00.000Z')},
+      ${authority.rawBodySha256}, ${`evidence://fgis/${authority.inboxId}`},
+      ${options.signatureStatus ?? 'VERIFIED'}, 'GOST-2012-256',
       'certificate-registry://fgis/test/1', '1',
       CAST(${JSON.stringify(verificationResult)} AS jsonb), ${state}, 1,
-      ${leaseOwner}, ${leaseExpiresAt}, ${input.referenceMessageId}
+      ${leaseOwner}, ${leaseExpiresAt}, ${authority.referenceMessageId}
     )
   `);
 }
@@ -249,14 +253,8 @@ describePostgres('PC-CROP-08F PostgreSQL SDIZ registry', () => {
   });
 
   it('atomically applies verified inbox, projection, immutable audit and canonical outbox', async () => {
-    const inboxId = `${RUN_ID}.inbox-apply`;
-    const rawHash = 'a'.repeat(64);
-    await insertInbox({
-      id: inboxId,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: rawHash,
-    });
+    const authority = nextAuthority('a');
+    await insertInbox(authority);
     const records = [
       rawRecord(),
       rawRecord({
@@ -267,8 +265,8 @@ describePostgres('PC-CROP-08F PostgreSQL SDIZ registry', () => {
       }),
     ];
     const applied = await repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(inboxId, MESSAGE_1, REFERENCE_1, rawHash, records),
+      CONTEXT_A,
+      command(authority, records),
     );
     expect(applied).toMatchObject({
       recordCount: 2,
@@ -295,7 +293,7 @@ describePostgres('PC-CROP-08F PostgreSQL SDIZ registry', () => {
         "state", "linkedDomainOperationType" AS "linkedType",
         "linkedDomainOperationId" AS "linkedId", "businessAcceptedAt"
       FROM public."regulatory_integration_inbox_entries"
-      WHERE "id" = ${inboxId}
+      WHERE "id" = ${authority.inboxId}
     `);
     expect(rows[0]).toEqual({
       batchCount: 1n,
@@ -314,163 +312,100 @@ describePostgres('PC-CROP-08F PostgreSQL SDIZ registry', () => {
   });
 
   it('replays the same inbox and rejects payload mismatch', async () => {
-    const inboxId = `${RUN_ID}.inbox-replay`;
-    const rawHash = 'b'.repeat(64);
-    await insertInbox({
-      id: inboxId,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: rawHash,
-    });
-    const original = command(
-      inboxId,
-      MESSAGE_1,
-      REFERENCE_1,
-      rawHash,
-      [rawRecord()],
-    );
-    const applied = await repository.applyVerifiedInbox(USER_CONTEXT_A, original);
-    const replay = await repository.applyVerifiedInbox(USER_CONTEXT_A, original);
+    const authority = nextAuthority('b');
+    await insertInbox(authority);
+    const original = command(authority, [rawRecord()]);
+    const applied = await repository.applyVerifiedInbox(CONTEXT_A, original);
+    const replay = await repository.applyVerifiedInbox(CONTEXT_A, original);
     expect(replay).toEqual({ ...applied, replayed: true });
     await expect(repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(
-        inboxId,
-        MESSAGE_1,
-        REFERENCE_1,
-        rawHash,
-        [rawRecord({ status: 'CANCELED' })],
-      ),
+      CONTEXT_A,
+      command(authority, [rawRecord({ status: 'CANCELED' })]),
     )).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('applies monotonic updates and rejects stale or same-time conflicting state', async () => {
-    const firstInbox = `${RUN_ID}.inbox-monotonic-1`;
-    const secondInbox = `${RUN_ID}.inbox-monotonic-2`;
-    const staleInbox = `${RUN_ID}.inbox-monotonic-stale`;
-    const conflictInbox = `${RUN_ID}.inbox-monotonic-conflict`;
-    await insertInbox({
-      id: firstInbox,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: 'c'.repeat(64),
-    });
+    const first = nextAuthority('c');
+    await insertInbox(first);
     await repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(firstInbox, MESSAGE_1, REFERENCE_1, 'c'.repeat(64), [rawRecord()]),
+      CONTEXT_A,
+      command(first, [rawRecord()]),
     );
-    await insertInbox({
-      id: secondInbox,
-      messageId: MESSAGE_2,
-      referenceMessageId: REFERENCE_2,
-      rawBodySha256: 'd'.repeat(64),
-      occurredAt: '2026-07-25T12:00:00.000Z',
-    });
+
+    const second = nextAuthority('d');
+    await insertInbox(second, { occurredAt: '2026-07-25T12:00:00.000Z' });
     await repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(secondInbox, MESSAGE_2, REFERENCE_2, 'd'.repeat(64), [
-        rawRecord({
-          status: 'CANCELED',
-          providerOccurredAt: '2026-07-25T12:00:00.000Z',
-        }),
-      ]),
+      CONTEXT_A,
+      command(second, [rawRecord({
+        status: 'CANCELED',
+        providerOccurredAt: '2026-07-25T12:00:00.000Z',
+      })]),
     );
     const view = await repository.getByProviderSdizId(
-      USER_CONTEXT_A,
+      CONTEXT_A,
       'provider-sdiz-1',
     );
     expect(view).toMatchObject({
       status: 'CANCELED',
       version: '1',
-      providerMessageId: MESSAGE_2,
+      providerMessageId: second.messageId,
     });
 
-    await insertInbox({
-      id: staleInbox,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: 'e'.repeat(64),
-      occurredAt: '2026-07-23T12:00:00.000Z',
-    });
+    const stale = nextAuthority('e');
+    await insertInbox(stale, { occurredAt: '2026-07-23T12:00:00.000Z' });
     await expect(repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(staleInbox, MESSAGE_1, REFERENCE_1, 'e'.repeat(64), [
-        rawRecord({ providerOccurredAt: '2026-07-23T12:00:00.000Z' }),
-      ]),
+      CONTEXT_A,
+      command(stale, [rawRecord({
+        providerOccurredAt: '2026-07-23T12:00:00.000Z',
+      })]),
     )).rejects.toBeInstanceOf(ConflictException);
 
-    await insertInbox({
-      id: conflictInbox,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: 'f'.repeat(64),
-      occurredAt: '2026-07-25T12:00:00.000Z',
-    });
+    const conflict = nextAuthority('f');
+    await insertInbox(conflict, { occurredAt: '2026-07-25T12:00:00.000Z' });
     await expect(repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(conflictInbox, MESSAGE_1, REFERENCE_1, 'f'.repeat(64), [
-        rawRecord({
-          status: 'EXTINGUISHED',
-          providerOccurredAt: '2026-07-25T12:00:00.000Z',
-        }),
-      ]),
+      CONTEXT_A,
+      command(conflict, [rawRecord({
+        status: 'EXTINGUISHED',
+        providerOccurredAt: '2026-07-25T12:00:00.000Z',
+      })]),
     )).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('fails closed for missing verification, lost lease or hash mismatch', async () => {
-    const pendingId = `${RUN_ID}.inbox-pending-signature`;
-    await insertInbox({
-      id: pendingId,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: '1'.repeat(64),
-      signatureStatus: 'PENDING',
-    });
+    const pending = nextAuthority('1');
+    await insertInbox(pending, { signatureStatus: 'PENDING' });
     await expect(repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(pendingId, MESSAGE_1, REFERENCE_1, '1'.repeat(64), [rawRecord()]),
+      CONTEXT_A,
+      command(pending, [rawRecord()]),
     )).rejects.toBeInstanceOf(PreconditionFailedException);
 
-    const leaseId = `${RUN_ID}.inbox-expired-lease`;
-    await insertInbox({
-      id: leaseId,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: '2'.repeat(64),
+    const expired = nextAuthority('2');
+    await insertInbox(expired, {
       leaseExpiresAt: new Date(Date.now() - 1000),
     });
     await expect(repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(leaseId, MESSAGE_1, REFERENCE_1, '2'.repeat(64), [rawRecord()]),
+      CONTEXT_A,
+      command(expired, [rawRecord()]),
     )).rejects.toBeInstanceOf(PreconditionFailedException);
 
-    const hashId = `${RUN_ID}.inbox-hash-mismatch`;
-    await insertInbox({
-      id: hashId,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: '3'.repeat(64),
-    });
+    const stored = nextAuthority('3');
+    await insertInbox(stored);
+    const mismatched = { ...stored, rawBodySha256: '4'.repeat(64) };
     await expect(repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(hashId, MESSAGE_1, REFERENCE_1, '4'.repeat(64), [rawRecord()]),
+      CONTEXT_A,
+      command(mismatched, [rawRecord()]),
     )).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('isolates projections by tenant and organization', async () => {
-    const inboxId = `${RUN_ID}.inbox-tenant-a`;
-    await insertInbox({
-      id: inboxId,
-      messageId: MESSAGE_1,
-      referenceMessageId: REFERENCE_1,
-      rawBodySha256: '5'.repeat(64),
-    });
+    const authority = nextAuthority('5');
+    await insertInbox(authority);
     await repository.applyVerifiedInbox(
-      USER_CONTEXT_A,
-      command(inboxId, MESSAGE_1, REFERENCE_1, '5'.repeat(64), [rawRecord()]),
+      CONTEXT_A,
+      command(authority, [rawRecord()]),
     );
     await expect(repository.getByProviderSdizId(
-      USER_CONTEXT_B,
+      CONTEXT_B,
       'provider-sdiz-1',
     )).rejects.toBeInstanceOf(NotFoundException);
   });
