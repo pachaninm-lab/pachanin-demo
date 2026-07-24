@@ -62,7 +62,6 @@ class FgisZernoArtifactIntakeTests(unittest.TestCase):
             intake.discover_archive_url(page.__class__(**{**page.__dict__, "body": duplicate}), "fgis-zerno-api-1.0.23.zip", "API 1.0.23")
 
     def test_path_normalization_rejects_traversal_absolute_and_drive_paths(self):
-        self.assertEqual(intake.normalize_member_path("schemas/../x.xsd"), "schemas/x.xsd") if False else None
         for value in ("../evil.xsd", "schemas/../../evil.xsd", "/absolute.xsd", "C:/evil.xsd", "schemas\\..\\evil.xsd"):
             with self.assertRaises(intake.IntakeError):
                 intake.normalize_member_path(value)
