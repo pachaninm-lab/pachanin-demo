@@ -43,10 +43,12 @@ import {
 } from './regulatory-integration.control-tower.repository';
 import { RegulatoryIntegrationControlTowerCommandService } from './regulatory-integration.control-tower.command.service';
 import { RegulatoryInboxAuthorityError } from './regulatory-integration.inbox-policy';
-import { RegulatoryInboxLifecycleError } from './regulatory-integration.inbox-lifecycle.repository';
 
 const SAFE_ADAPTER_CODE = /^[A-Za-z0-9][A-Za-z0-9_.-]{1,63}$/;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$/;
+const STRONG_IF_MATCH = /^"(0|[1-9][0-9]{0,18})"$/;
+const WEAK_IF_MATCH = /^W\/"(0|[1-9][0-9]{0,18})"$/;
+const BARE_IF_MATCH = /^(0|[1-9][0-9]{0,18})$/;
 
 type AuthenticatedRequest = { staffAccess?: StaffAccessContext };
 
@@ -58,8 +60,9 @@ export function parseIntegrationIfMatch(value: string | undefined): string {
     );
   }
   const normalized = value.trim();
-  const match = /^(?:W\/)?>?"(0|[1-9][0-9]{0,18})"$/.exec(normalized)
-    ?? /^(0|[1-9][0-9]{0,18})$/.exec(normalized);
+  const match = STRONG_IF_MATCH.exec(normalized)
+    ?? WEAK_IF_MATCH.exec(normalized)
+    ?? BARE_IF_MATCH.exec(normalized);
   if (!match) {
     throw new BadRequestException({ code: 'INTEGRATION_IF_MATCH_INVALID', retryable: false });
   }
@@ -132,7 +135,7 @@ function mapRepositoryError(error: IntegrationControlTowerRepositoryError): neve
 
 function rethrowControlTowerError(error: unknown): never {
   if (error instanceof IntegrationControlTowerRepositoryError) return mapRepositoryError(error);
-  if (error instanceof RegulatoryInboxAuthorityError || error instanceof RegulatoryInboxLifecycleError) {
+  if (error instanceof RegulatoryInboxAuthorityError) {
     throw new ConflictException({
       code: 'INTEGRATION_COMMAND_REJECTED',
       message: error.message,
