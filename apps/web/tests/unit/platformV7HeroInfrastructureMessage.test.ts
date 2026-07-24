@@ -38,12 +38,17 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(component).not.toContain('прозрачный агроинтеллект');
   });
 
-  it('loads public typography before the page-specific responsive layers', () => {
-    const publicTypeIndex = page.indexOf('platform-v7-public-typography.css');
+  it('inlines the critical shell and loads only the current responsive landing layers', () => {
+    const cjkIndex = page.indexOf('platform-v7-i18n-cjk.css');
     const baseIndex = page.indexOf('platform-v7-strategic-home-v3.css');
     const heroIndex = page.indexOf('platform-v7-hero-infrastructure-message.css');
-    expect(publicTypeIndex).toBeGreaterThanOrEqual(0);
-    expect(baseIndex).toBeGreaterThan(publicTypeIndex);
+    expect(page).toContain('CRITICAL_HOME_SHELL_CSS');
+    expect(page).toContain('--entry-public-header-offset');
+    expect(page).not.toContain('platform-v7-public-header.css');
+    expect(page).not.toContain('platform-v7-public-mobile-safe-area.css');
+    expect(page).not.toContain('platform-v7-public-typography.css');
+    expect(cjkIndex).toBeGreaterThanOrEqual(0);
+    expect(baseIndex).toBeGreaterThan(cjkIndex);
     expect(heroIndex).toBeGreaterThan(baseIndex);
   });
 
@@ -58,5 +63,6 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(css).toContain('.pc-v6-hero-title-line { display: inline; }');
     expect(css).toContain(':lang(zh) .pc-v6-hero h1.pc-v6-hero-title');
     expect(css).toContain('min-height: min(760px, calc(100dvh - 64px))');
+    expect(css).toContain('content-visibility: auto');
   });
 });
