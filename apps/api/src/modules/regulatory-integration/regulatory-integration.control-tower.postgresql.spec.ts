@@ -58,7 +58,7 @@ async function seedInbox(input: Readonly<{
   adapterCode: string;
   provider: string;
   externalEventId: string;
-  environment: 'PRODUCTION' | 'PRE_PRODUCTION';
+  environment: 'PRODUCTION' | 'PREPROD';
   state: 'PROCESSED' | 'QUARANTINED';
   version: bigint;
   errorCode?: string;
@@ -67,18 +67,20 @@ async function seedInbox(input: Readonly<{
     INSERT INTO public."regulatory_integration_inbox_entries" (
       "id", "tenantId", "organizationId", "provider", "externalEventId",
       "adapterCode", "adapterVersion", "capabilities", "environment",
-      "schemaVersion", "mappingVersion", "rawBodySha256",
-      "rawPayloadEvidenceReference", "occurredAt", "receivedAt", "state",
-      "attempts", "maxAttempts", "nextAttemptAt", "lastErrorCode",
-      "lastErrorCategory", "correlationId", "version", "createdAt", "updatedAt",
-      "providerAcknowledgedAt", "businessAcceptedAt"
+      "schemaVersion", "mappingVersion", "rawBodySha256", "evidenceReference",
+      "signatureStatus", "occurredAt", "receivedAt", "state", "attempts",
+      "nextAttemptAt", "lastErrorCode", "lastErrorCategory", "correlationId",
+      "version", "createdAt", "updatedAt", "providerAcknowledgedAt",
+      "businessAcceptedAt"
     ) VALUES (
       ${input.id}, ${input.tenantId}, ${input.orgId}, ${input.provider}, ${input.externalEventId},
       ${input.adapterCode}, '1.0.0', CAST('["INBOUND_EVENTS","SCHEMA_MAPPING"]' AS jsonb),
-      ${input.environment}, '1.0.0', '1.0.0', ${input.id.endsWith('redrive') ? 'b'.repeat(64) : 'a'.repeat(64)},
-      ${`evidence://${input.id}`}, clock_timestamp(), clock_timestamp(), ${input.state},
-      ${input.state === 'QUARANTINED' ? 3 : 0}, 5, clock_timestamp(), ${input.errorCode ?? null},
-      ${input.errorCode ? 'SECURITY' : null}, ${`${RUN_ID}.correlation.${input.id}`}, ${input.version},
+      ${input.environment}, '1.0.0', '1.0.0',
+      ${input.id.endsWith('redrive') ? 'b'.repeat(64) : 'a'.repeat(64)},
+      ${`evidence://${input.id}`}, 'NOT_REQUIRED', clock_timestamp(), clock_timestamp(),
+      ${input.state}, ${input.state === 'QUARANTINED' ? 3 : 0}, NULL,
+      ${input.errorCode ?? null}, ${input.errorCode ? 'SECURITY' : null},
+      ${`${RUN_ID}.correlation.${input.id}`}, ${input.version},
       clock_timestamp(), clock_timestamp(),
       ${input.state === 'PROCESSED' ? new Date() : null},
       ${input.state === 'PROCESSED' ? new Date() : null}
@@ -131,7 +133,7 @@ describePostgres('PC-CROP-07B PostgreSQL Integration Control Tower', () => {
     });
     await seedInbox({
       id: `${RUN_ID}.entry-b`, tenantId: TENANT_B, orgId: ORG_B, adapterCode: ADAPTER_B,
-      provider: 'provider-b', externalEventId: `${RUN_ID}.tenant-b`, environment: 'PRE_PRODUCTION',
+      provider: 'provider-b', externalEventId: `${RUN_ID}.tenant-b`, environment: 'PREPROD',
       state: 'PROCESSED', version: 2n,
     });
     const transactions = new RlsTransactionService(prisma);
