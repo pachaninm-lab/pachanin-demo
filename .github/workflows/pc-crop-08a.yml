@@ -1,0 +1,133 @@
+name: PC-CROP-08A Official FGIS Grain API Artifact Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08a.yml'
+      - 'apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.registry.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08a-official-artifact-intake.json'
+      - 'docs/platform-v7/integrations/fgis-zerno-api-1.0.23-source.json'
+      - 'docs/platform-v7/integrations/fgis-zerno-api-1.0.23-manifest.json'
+      - 'scripts/fgis-zerno-api-intake.py'
+      - 'scripts/tests/test_fgis_zerno_api_intake.py'
+      - 'scripts/p7-autopilot-guard.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-08a.yml'
+      - 'apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.registry.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08a-official-artifact-intake.json'
+      - 'docs/platform-v7/integrations/fgis-zerno-api-1.0.23-source.json'
+      - 'docs/platform-v7/integrations/fgis-zerno-api-1.0.23-manifest.json'
+      - 'scripts/fgis-zerno-api-intake.py'
+      - 'scripts/tests/test_fgis_zerno_api_intake.py'
+      - 'scripts/p7-autopilot-guard.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-08a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08a
+
+jobs:
+  official-artifact-intake:
+    name: Official HTTPS ZIP · hardened XML · deterministic manifest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-08A scope and no binary archive in Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref='HEAD^'
+          fi
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08a\.yml|apps/api/src/modules/regulatory-integration/fgis-zerno-api-1\.0\.23\.registry\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08a-official-artifact-intake\.json|docs/platform-v7/integrations/fgis-zerno-api-1\.0\.23-(source|manifest)\.json|scripts/fgis-zerno-api-intake\.py|scripts/tests/test_fgis_zerno_api_intake\.py|scripts/p7-autopilot-guard\.sh)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08A contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+          if git ls-files | grep -Ei '\.(zip|7z|rar|tar|tgz|gz)$' > "$EVIDENCE_DIR/tracked-archives.txt"; then
+            echo 'Binary archives are forbidden in Git for PC-CROP-08A:' >&2
+            cat "$EVIDENCE_DIR/tracked-archives.txt" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile intake code
+        run: python -m py_compile scripts/fgis-zerno-api-intake.py scripts/tests/test_fgis_zerno_api_intake.py
+
+      - name: Run deterministic safety and abuse tests
+        run: python -m unittest -v scripts/tests/test_fgis_zerno_api_intake.py 2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+
+      - name: Download and inventory the official API 1.0.23 package
+        run: |
+          python scripts/fgis-zerno-api-intake.py \
+            --source-policy docs/platform-v7/integrations/fgis-zerno-api-1.0.23-source.json \
+            --output-dir "$EVIDENCE_DIR" \
+            --exact-head "$EXACT_HEAD" \
+            2>&1 | tee "$EVIDENCE_DIR/live-intake.log"
+
+      - name: Enforce exact-head machine-readable evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          root = Path(os.environ['EVIDENCE_DIR'])
+          report = json.loads((root / 'pc-crop-08a-acceptance.json').read_text('utf-8'))
+          manifest_bytes = (root / 'fgis-zerno-api-1.0.23-manifest.json').read_bytes()
+          archive = root / 'fgis-zerno-api-1.0.23.zip'
+          if report.get('schemaVersion') != 'pc-crop.fgis-zerno-official-intake-acceptance.v1': raise SystemExit(1)
+          if report.get('slice') != 'PC-CROP-08A' or report.get('issue') != 3155: raise SystemExit(1)
+          if report.get('status') != 'PASS' or report.get('operationalStatus') != 'NOT_ATTESTED': raise SystemExit(1)
+          if report.get('exactHead') != os.environ['EXACT_HEAD']: raise SystemExit(1)
+          if report.get('adapterCode') != 'FGIS_ZERNO' or report.get('apiVersion') != '1.0.23': raise SystemExit(1)
+          if not archive.is_file() or archive.stat().st_size != report.get('packageSize'): raise SystemExit(1)
+          if hashlib.sha256(archive.read_bytes()).hexdigest() != report.get('packageSha256'): raise SystemExit(1)
+          if hashlib.sha256(manifest_bytes).hexdigest() != report.get('manifestSha256'): raise SystemExit(1)
+          if report.get('fileCount', 0) < 1 or report.get('schemaFileCount', 0) < 1: raise SystemExit(1)
+          if report.get('unresolvedReferenceCount') != 0: raise SystemExit(1)
+          if urlsplit(report.get('sourcePageFinalUrl', '')).hostname != 'specagro.ru': raise SystemExit(1)
+          if urlsplit(report.get('finalUrl', '')).hostname != 'static.specagro.ru': raise SystemExit(1)
+          for value in (report.get('invariants') or {}).values():
+              if value is not True: raise SystemExit(1)
+          boundaries = report.get('boundaries') or {}
+          for key in ('credentialsOrCertificates','liveApiEndpointCall','handwrittenBusinessMapping','binaryArchiveCommittedToGit','secondInboxOutboxOrRelay','productionDeployment'):
+              if boundaries.get(key) is not False: raise SystemExit(1)
+          if boundaries.get('productionHosting') != 'REG_RU_VPS_ONLY': raise SystemExit(1)
+          PY
+
+      - name: Upload official package and exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08a-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-08a
+          if-no-files-found: error
+          retention-days: 90
