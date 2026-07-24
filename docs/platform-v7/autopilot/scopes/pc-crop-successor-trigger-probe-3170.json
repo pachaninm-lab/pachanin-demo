@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/pc-crop-successor-trigger-probe-3170",
+  "status": "active",
+  "issue": 3170,
+  "baseCommit": "bfa2d9f4a9760a887fcdc33e844f21af00d590cb",
+  "operationalStatus": "GOVERNANCE_PROBE_ONLY",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-probe-3170.json",
+    "docs/platform-v7/autopilot/pc-crop-successor-trigger-probe-3170.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "databaseChange": false,
+    "adapterChange": false,
+    "predecessorAuthorityChange": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
