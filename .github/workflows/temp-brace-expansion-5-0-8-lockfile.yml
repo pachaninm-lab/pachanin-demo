@@ -1,9 +1,13 @@
 name: Temporary brace-expansion production lock remediation
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/ir-sec-transitive-runtime-remediation
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
