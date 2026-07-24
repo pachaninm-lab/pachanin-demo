@@ -1,0 +1,250 @@
+name: Ops Exact Web Release PR 1b9b77a
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ops-exact-web-release-pr-1b9b77a.yml'
+
+permissions:
+  contents: read
+  packages: write
+  issues: write
+
+concurrency:
+  group: ops-exact-web-release-1b9b77a
+  cancel-in-progress: false
+
+env:
+  TARGET_SHA: 1b9b77acf17b8a74f90b0822dee429602e789c92
+  EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-1b9b77a
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/ops-exact-web-release-1b9b77a
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+  SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+
+jobs:
+  release:
+    name: Build and deploy exact web SHA
+    if: github.head_ref == 'ops/exact-web-release-pr-1b9b77a' && github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact merge SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+
+      - name: Prove immutable target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$TARGET_SHA" origin/main
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Set build timestamp
+        id: build_time
+        shell: bash
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push exact canonical web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          push: true
+          tags: ${{ env.EXACT_IMAGE }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+          build-args: |
+            BUILD_DATE=${{ steps.build_time.outputs.value }}
+            GIT_COMMIT=${{ env.TARGET_SHA }}
+          labels: |
+            org.opencontainers.image.revision=${{ env.TARGET_SHA }}
+            org.opencontainers.image.created=${{ steps.build_time.outputs.value }}
+
+      - name: Verify registry OCI revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$EXACT_IMAGE"
+          actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE")"
+          test "$actual" = "$TARGET_SHA"
+          docker image inspect "$EXACT_IMAGE" > "$EVIDENCE_DIR/registry-image.json"
+          printf 'REGISTRY_OCI_REVISION=%s\n' "$actual" | tee "$EVIDENCE_DIR/registry-verification.txt"
+
+      - name: Resolve protected REG.RU transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          test "$host" = "$DEFAULT_HOST"
+          test -n "$user"
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key_file() {
+            local candidate="$1"
+            chmod 600 "$candidate"
+            ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1
+          }
+          try_key() {
+            local raw="$1" raw_file escaped_file decoded_file
+            test -n "$raw" || return 1
+            raw_file="$(mktemp)"
+            escaped_file="$(mktemp)"
+            decoded_file="$(mktemp)"
+            printf '%s\n' "$raw" | tr -d '\r' > "$raw_file"
+            if validate_key_file "$raw_file"; then mv "$raw_file" "$HOME/.ssh/id_pc_prod"; rm -f "$escaped_file" "$decoded_file"; return 0; fi
+            printf '%s' "${raw//\\n/$'\n'}" | tr -d '\r' > "$escaped_file"
+            if validate_key_file "$escaped_file"; then mv "$escaped_file" "$HOME/.ssh/id_pc_prod"; rm -f "$raw_file" "$decoded_file"; return 0; fi
+            if printf '%s' "$raw" | base64 --decode > "$decoded_file" 2>/dev/null && validate_key_file "$decoded_file"; then
+              mv "$decoded_file" "$HOME/.ssh/id_pc_prod"; rm -f "$raw_file" "$escaped_file"; return 0
+            fi
+            rm -f "$raw_file" "$escaped_file" "$decoded_file"
+            return 1
+          }
+
+          mode=''
+          if try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}" || try_key "${SSH_KEY_PRIMARY:-}"; then
+            mode=key
+            chmod 600 "$HOME/.ssh/id_pc_prod"
+          elif test -n "${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"; then
+            mode=password
+            printf '%s\n' '#!/usr/bin/env sh' 'printf '\''%s\n'\'' "$PC_SSH_PASSWORD"' > "$HOME/.ssh/askpass.sh"
+            chmod 700 "$HOME/.ssh/askpass.sh"
+          else
+            echo 'No valid protected VPS credential is configured.' >&2
+            exit 10
+          fi
+
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u > "$EVIDENCE_DIR/domain-ip.txt"
+          grep -Fxq "$DEFAULT_HOST" "$EVIDENCE_DIR/domain-ip.txt"
+          ssh-keyscan -T 10 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          common=(-p "$port" -o ConnectTimeout=15 -o ConnectionAttempts=1 -o StrictHostKeyChecking=yes)
+          if test "$mode" = key; then
+            ssh -i "$HOME/.ssh/id_pc_prod" "${common[@]}" -o BatchMode=yes -o IdentitiesOnly=yes "$user@$host" \
+              'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
+              > "$EVIDENCE_DIR/ssh-auth.txt"
+          else
+            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+            PC_SSH_PASSWORD="$password" SSH_ASKPASS="$HOME/.ssh/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+              setsid -w ssh "${common[@]}" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no "$user@$host" \
+              'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
+              > "$EVIDENCE_DIR/ssh-auth.txt"
+          fi
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+      - name: Copy immutable release assets
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(scripts/production-web-exact-sha.sh scripts/production-web-live-acceptance.sh scripts/production-web-remote-entrypoint.sh infra/compose/production-web-hardening.override.yml)
+          destinations=("/tmp/pc-production-web-exact-sha-${GITHUB_RUN_ID}.sh" "/tmp/pc-production-web-live-acceptance-${GITHUB_RUN_ID}.sh" "/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh" "/tmp/pc-production-web-hardening-${GITHUB_RUN_ID}.yml")
+          for index in "${!files[@]}"; do
+            if test "$SSH_MODE" = key; then
+              scp -i "$HOME/.ssh/id_pc_prod" -P "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "${files[$index]}" "$SSH_USER@$SSH_HOST:${destinations[$index]}"
+            else
+              password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+              PC_SSH_PASSWORD="$password" SSH_ASKPASS="$HOME/.ssh/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+                setsid -w scp -P "$SSH_PORT" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes "${files[$index]}" "$SSH_USER@$SSH_HOST:${destinations[$index]}"
+            fi
+          done
+
+      - name: Execute bounded production deployment
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          encode() { printf '%s' "$1" | base64 -w0; }
+          prod_dir_b64="$(encode "${PROD_DIR_SECRET:-}")"
+          prod_compose_b64="$(encode "${PROD_COMPOSE_SECRET:-}")"
+          prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
+          remote_entrypoint="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+          remote_command="chmod 0700 '$remote_entrypoint' && PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' deploy '$TARGET_SHA' '$GITHUB_RUN_ID'"
+          set +e
+          if test "$SSH_MODE" = key; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" "$remote_command" > "$EVIDENCE_DIR/production-action.log" 2>&1
+          else
+            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+            PC_SSH_PASSWORD="$password" SSH_ASKPASS="$HOME/.ssh/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+              setsid -w ssh -p "$SSH_PORT" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" "$remote_command" > "$EVIDENCE_DIR/production-action.log" 2>&1
+          fi
+          rc=$?
+          set -e
+          cat "$EVIDENCE_DIR/production-action.log"
+          test "$rc" -eq 0
+          grep -Fxq 'DEPLOYMENT_COMPLETE=1' "$EVIDENCE_DIR/production-action.log"
+          grep -Fxq "DEPLOYED_WEB_REVISION=$TARGET_SHA" "$EVIDENCE_DIR/production-action.log"
+          grep -Fxq 'DEPLOYED_WEB_STATE=healthy' "$EVIDENCE_DIR/production-action.log"
+          grep -Fxq 'INTERNAL_LIVE_ACCEPTANCE=PASS' "$EVIDENCE_DIR/production-action.log"
+          ! grep -Fxq 'AUTOMATIC_ROLLBACK_ATTEMPTED=1' "$EVIDENCE_DIR/production-action.log"
+          printf 'NON_WEB_CONTAINER_GUARD=PASS\nROLLBACK_ATTEMPTED=0\n' | tee "$EVIDENCE_DIR/release-invariants.txt"
+
+      - name: Verify exact public runtime
+        shell: bash
+        env:
+          PC_LIVE_BASE: ${{ env.LIVE_BASE }}
+        run: |
+          set -euo pipefail
+          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" deploy | tee "$EVIDENCE_DIR/live-acceptance.log"
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-exact-web-release-1b9b77a-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
