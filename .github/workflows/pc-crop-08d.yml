@@ -1,0 +1,133 @@
+name: PC-CROP-08D FGIS Signing Policy and Durable Dispatch Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08d.yml'
+      - 'apps/api/src/outbox-worker.module.ts'
+      - 'apps/api/src/modules/integration-events/durable-outbox.worker.ts'
+      - 'apps/api/src/modules/integration-events/durable-outbox.worker.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport.json'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json'
+      - 'infra/sql/postgresql-fgis-grain-dispatch-policies.sql'
+      - 'scripts/pc-crop-08d/**'
+      - 'scripts/p7-autopilot-guard.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-08d.yml'
+      - 'apps/api/src/outbox-worker.module.ts'
+      - 'apps/api/src/modules/integration-events/durable-outbox.worker.ts'
+      - 'apps/api/src/modules/integration-events/durable-outbox.worker.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport.json'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json'
+      - 'infra/sql/postgresql-fgis-grain-dispatch-policies.sql'
+      - 'scripts/pc-crop-08d/**'
+      - 'scripts/p7-autopilot-guard.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-08d-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08d
+  SOURCE_LOCK: docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json
+  POLICY_LOCK: docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json
+
+jobs:
+  official-signing-policy:
+    name: Pinned ZIP · safe DOCX · signing policy authority
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-08D scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref='HEAD^'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08d\.yml|apps/api/src/outbox-worker\.module\.ts|apps/api/src/modules/integration-events/durable-outbox\.worker(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-dispatch\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.signing-policy(\.lock)?\.json|infra/sql/postgresql-fgis-grain-dispatch-policies\.sql|scripts/pc-crop-08d/.*|scripts/p7-autopilot-guard\.sh)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08D contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile policy generator
+        run: python -m py_compile scripts/pc-crop-08a/artifact_intake.py scripts/pc-crop-08d/generate_signing_policy.py
+
+      - name: Re-fetch accepted official API package
+        run: |
+          python scripts/pc-crop-08a/artifact_intake.py \
+            --lock-file "$SOURCE_LOCK" \
+            --output-dir "$EVIDENCE_DIR/source" \
+            --exact-head "$EXACT_HEAD" \
+            2>&1 | tee "$EVIDENCE_DIR/source-intake.log"
+
+      - name: Discover or verify official signing policy
+        run: |
+          python scripts/pc-crop-08d/generate_signing_policy.py \
+            --archive "$EVIDENCE_DIR/source/fgis-zerno-api-1.0.23.zip" \
+            --lock "$POLICY_LOCK" \
+            --manifest-output "$EVIDENCE_DIR/fgis-grain-api-1.0.23.signing-policy.json" \
+            --typescript-output "$EVIDENCE_DIR/fgis-grain-1.0.23.signing-policy.generated.ts" \
+            --discovery-output "$EVIDENCE_DIR/signing-policy-discovery.json" \
+            2>&1 | tee "$EVIDENCE_DIR/signing-policy-generation.log"
+
+      - name: Enforce pinned byte-identical policy authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['EVIDENCE_DIR'])
+          discovery = json.loads((root / 'signing-policy-discovery.json').read_text('utf-8'))
+          if discovery.get('status') != 'PINNED' or discovery.get('pinned') is not True:
+              raise SystemExit('signing policy discovery is not pinned yet')
+          PY
+          cmp "$EVIDENCE_DIR/fgis-grain-api-1.0.23.signing-policy.json" \
+            docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json
+          cmp "$EVIDENCE_DIR/fgis-grain-1.0.23.signing-policy.generated.ts" \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.signing-policy.generated.ts
+
+      - name: Upload signing policy discovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08d-policy-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-08d
+          if-no-files-found: error
+          retention-days: 90
