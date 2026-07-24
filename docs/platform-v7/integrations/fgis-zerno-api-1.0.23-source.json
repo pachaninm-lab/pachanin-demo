@@ -3,6 +3,8 @@
   "adapterCode": "FGIS_ZERNO",
   "apiVersion": "1.0.23",
   "expectedFilename": "fgis-zerno-api-1.0.23.zip",
+  "expectedPackageSha256": "085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7",
+  "expectedManifestSha256": "6c67835d804a26e85bca1cb248a13f1405173f349cab4ef0b31fc10bd88ad96f",
   "operatorPageUrl": "https://specagro.ru/fgis/api",
   "operatorFaqUrl": "https://specagro.ru/fgis-faq",
   "allowedHttpsOrigins": [
