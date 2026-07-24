@@ -122,7 +122,7 @@ if (( ${#compose_web_ids[@]} == 1 )); then
   current_web_id="${compose_web_ids[0]}"
 elif (( ${#compose_web_ids[@]} == 0 )); then
   mapfile -t legacy_candidates < <(
-    docker ps -q |
+    docker ps -q --no-trunc |
       while read -r id; do
         image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
         if [[ "$image" == *grainflow-web* ]]; then printf '%s\n' "$id"; fi
@@ -192,7 +192,7 @@ pulled_revision="$(docker image inspect --format '{{ index .Config.Labels "org.o
   fail "exact image OCI revision mismatch: expected $TARGET_SHA, found ${pulled_revision:-missing}"
 
 mapfile -t protected_other_ids < <(
-  docker ps -q |
+  docker ps -q --no-trunc |
     grep -vx "$current_web_id" |
     while read -r id; do
       skip=0
@@ -339,7 +339,7 @@ for id in "${watchtower_ids[@]}"; do
 done
 
 mapfile -t after_other_ids < <(
-  docker ps -q |
+  docker ps -q --no-trunc |
     grep -vx "$new_web_id" |
     while read -r id; do
       skip=0
