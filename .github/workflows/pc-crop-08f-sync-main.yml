@@ -1,6 +1,8 @@
 name: PC-CROP-08F exact-main synchronization
 
 on:
+  issue_comment:
+    types: [created]
   pull_request:
     types: [ready_for_review, synchronize, reopened]
     branches: [main]
@@ -8,19 +10,26 @@ on:
 permissions:
   contents: write
   pull-requests: read
+  issues: read
 
 concurrency:
   group: pc-crop-08f-exact-main-sync
   cancel-in-progress: false
 
 env:
-  BRANCH: ${{ github.event.pull_request.head.ref }}
-  EXPECTED_BRANCH_HEAD: ${{ github.event.pull_request.head.sha }}
+  BRANCH: agent/pc-crop-08f-sdiz-projection
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
 
 jobs:
   synchronize:
-    if: github.event.pull_request.number == 3180 && github.event.pull_request.head.ref == 'agent/pc-crop-08f-sdiz-projection'
+    if: >-
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3180 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.body == '/pc-crop-08f sync-main') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.number == 3180 &&
+       github.event.pull_request.head.ref == 'agent/pc-crop-08f-sdiz-projection')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
@@ -39,11 +48,24 @@ jobs:
           --health-retries 20
 
     steps:
-      - name: Checkout exact branch head
+      - name: Checkout target branch
         uses: actions/checkout@v4
         with:
           ref: ${{ env.BRANCH }}
           fetch-depth: 0
+
+      - name: Bind exact branch head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BRANCH"
+          actual_branch_head="$(git rev-parse HEAD)"
+          remote_branch_head="$(git rev-parse "origin/$BRANCH")"
+          [[ "$actual_branch_head" == "$remote_branch_head" ]] || {
+            echo "checkout is not the current branch head" >&2
+            exit 18
+          }
+          printf 'EXPECTED_BRANCH_HEAD=%s\n' "$actual_branch_head" >> "$GITHUB_ENV"
 
       - name: Merge runtime-exact main and resolve only Prisma authority
         shell: bash
@@ -60,7 +82,6 @@ jobs:
           base_main_sha="$(git rev-parse origin/main)"
           git merge-base --is-ancestor "$base_main_sha" origin/main
           printf 'BASE_MAIN_SHA=%s\n' "$base_main_sha" >> "$GITHUB_ENV"
-          printf '%s\n' "$base_main_sha" > /tmp/pc-crop-08f-base-main.txt
 
           set +e
           git merge --no-ff --no-commit "$base_main_sha"
