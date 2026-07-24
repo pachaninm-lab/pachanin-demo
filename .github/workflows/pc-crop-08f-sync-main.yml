@@ -67,7 +67,7 @@ jobs:
           }
           printf 'EXPECTED_BRANCH_HEAD=%s\n' "$actual_branch_head" >> "$GITHUB_ENV"
 
-      - name: Merge runtime-exact main and resolve only Prisma authority
+      - name: Merge runtime-exact main and resolve bounded authority conflicts
         shell: bash
         run: |
           set -euo pipefail
@@ -88,13 +88,25 @@ jobs:
           merge_status=$?
           set -e
           if (( merge_status != 0 )); then
-            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U | sort)
             printf '%s\n' "${conflicts[@]}"
-            [[ "${#conflicts[@]}" -eq 1 && "${conflicts[0]}" == "apps/api/prisma/schema.prisma" ]] || {
+            unexpected=0
+            for conflict in "${conflicts[@]}"; do
+              case "$conflict" in
+                .github/workflows/pc-crop-08f-sync-main.yml|apps/api/prisma/schema.prisma) ;;
+                *) unexpected=1 ;;
+              esac
+            done
+            (( unexpected == 0 )) || {
               echo "unexpected merge conflicts" >&2
               exit 21
             }
-            git checkout --theirs -- apps/api/prisma/schema.prisma
+            if printf '%s\n' "${conflicts[@]}" | grep -Fxq '.github/workflows/pc-crop-08f-sync-main.yml'; then
+              git checkout --theirs -- .github/workflows/pc-crop-08f-sync-main.yml
+            fi
+            if printf '%s\n' "${conflicts[@]}" | grep -Fxq 'apps/api/prisma/schema.prisma'; then
+              git checkout --theirs -- apps/api/prisma/schema.prisma
+            fi
           fi
 
           node <<'NODE'
@@ -225,7 +237,7 @@ model FgisGrainSdizProjection {
           fs.writeFileSync(path, schema, 'utf8');
           NODE
 
-          git add apps/api/prisma/schema.prisma
+          git add apps/api/prisma/schema.prisma .github/workflows/pc-crop-08f-sync-main.yml
           [[ -z "$(git diff --name-only --diff-filter=U)" ]]
 
       - uses: pnpm/action-setup@v4
@@ -265,7 +277,6 @@ model FgisGrainSdizProjection {
             echo "main moved during synchronization" >&2
             exit 29
           }
-          rm -f .github/workflows/pc-crop-08f-sync-main.yml
           git add -A
           git commit -m "chore(pc-crop-08f): materialize synchronized tree"
           git reset --soft "$BASE_MAIN_SHA"
