@@ -1,16 +1,23 @@
 .root {
   display: grid;
-  gap: 16px;
-  margin-top: 24px;
+  gap: 14px;
+  margin-top: 26px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(29, 78, 56, 0.13);
 }
 
 .heading {
   display: grid;
-  gap: 4px;
+  gap: 5px;
+  max-width: 720px;
 }
 
 .heading strong {
-  font-size: 18px;
+  color: #162b21;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
 }
 
 .heading span {
@@ -23,9 +30,10 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 2px 2px 8px;
-  scroll-snap-type: x proximity;
+  padding: 2px 2px 9px;
+  scroll-snap-type: x mandatory;
   scrollbar-width: thin;
+  overscroll-behavior-inline: contain;
 }
 
 .tabs button {
@@ -36,10 +44,12 @@
   border-radius: 999px;
   background: #fff;
   color: #20342b;
-  padding: 10px 16px;
+  padding: 9px 15px;
   font: inherit;
-  font-weight: 650;
+  font-size: 14px;
+  font-weight: 670;
   cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .tabs button:hover,
@@ -47,43 +57,45 @@
   border-color: rgba(22, 101, 65, 0.5);
 }
 
+.tabs button:hover { transform: translateY(-1px); }
+
 .tabs button:focus-visible {
   outline: 3px solid rgba(29, 133, 85, 0.25);
   outline-offset: 2px;
 }
 
 .tabs .active {
-  background: #176a45;
-  border-color: #176a45;
+  background: #087a3b;
+  border-color: #087a3b;
   color: #fff;
+  box-shadow: 0 7px 18px rgba(8, 122, 59, 0.16);
 }
 
 .panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .panel article {
   display: flex;
-  gap: 12px;
+  gap: 11px;
   min-width: 0;
   border: 1px solid rgba(29, 78, 56, 0.12);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.84);
-  padding: 16px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 15px;
 }
 
 .panel svg {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  color: #176a45;
+  width: 19px;
+  height: 19px;
+  margin-top: 1px;
+  color: #087a3b;
 }
 
-.panel article:first-child svg {
-  color: #a24a22;
-}
+.panel article:first-child svg { color: #a24a22; }
 
 .panel div {
   display: grid;
@@ -101,21 +113,20 @@
 .panel strong {
   color: #172b22;
   font-size: 15px;
+  font-weight: 660;
   line-height: 1.45;
 }
 
 @media (max-width: 720px) {
-  .panel {
-    grid-template-columns: 1fr;
-  }
-
-  .tabs {
-    margin-inline: -2px;
-  }
+  .root { margin-top: 22px; padding-top: 21px; }
+  .heading strong { font-size: 19px; }
+  .panel { grid-template-columns: 1fr; }
+  .tabs { margin-inline: -2px; }
+  .panel article { padding: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tabs {
-    scroll-behavior: auto;
-  }
+  .tabs { scroll-behavior: auto; }
+  .tabs button { transition: none; }
+  .tabs button:hover { transform: none; }
 }
