@@ -1,0 +1,91 @@
+name: PC-CROP Predecessor Workflow Governance
+
+on:
+  push:
+    branches:
+      - governance/pc-crop-predecessor-ownership-3170
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-07a.yml'
+      - '.github/workflows/pc-crop-07b.yml'
+      - '.github/workflows/pc-crop-08b.yml'
+      - '.github/workflows/pc-crop-08c.yml'
+      - '.github/workflows/pc-crop-08d.yml'
+      - '.github/workflows/pc-crop-predecessor-governance.yml'
+      - 'docs/platform-v7/autopilot/pc-crop-workflow-ownership.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-predecessor-ownership-3170.json'
+      - 'scripts/pc-crop-owned-diff.mjs'
+      - 'scripts/pc-crop-owned-diff.test.mjs'
+      - 'scripts/pc-crop-predecessor-governance-apply.mjs'
+      - 'scripts/verify-pc-crop-predecessor-governance.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pc-crop-predecessor-governance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  predecessor-governance:
+    name: Exact ownership · successor isolation · predecessor regression preserved
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run owned-diff unit contracts
+        run: node --test scripts/pc-crop-owned-diff.test.mjs
+
+      - name: Apply idempotent predecessor workflow migration
+        if: >-
+          (github.event_name == 'push' && github.ref_name == 'governance/pc-crop-predecessor-ownership-3170') ||
+          (github.event_name == 'pull_request' && github.head_ref == 'governance/pc-crop-predecessor-ownership-3170')
+        run: node scripts/pc-crop-predecessor-governance-apply.mjs
+
+      - name: Verify machine-readable predecessor governance
+        run: node scripts/verify-pc-crop-predecessor-governance.mjs
+
+      - name: Commit migrated historical workflows
+        if: >-
+          (github.event_name == 'push' && github.ref_name == 'governance/pc-crop-predecessor-ownership-3170') ||
+          (github.event_name == 'pull_request' && github.head_ref == 'governance/pc-crop-predecessor-ownership-3170')
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            .github/workflows/pc-crop-07a.yml
+            .github/workflows/pc-crop-07b.yml
+            .github/workflows/pc-crop-08b.yml
+            .github/workflows/pc-crop-08c.yml
+            .github/workflows/pc-crop-08d.yml
+          )
+          if git diff --quiet -- "${files[@]}"; then
+            echo 'Historical workflow ownership is already migrated.'
+            exit 0
+          fi
+          target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          test "$target_branch" = 'governance/pc-crop-predecessor-ownership-3170'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "${files[@]}"
+          git commit -m 'PC-CROP governance: isolate predecessor workflow ownership'
+          git push origin "HEAD:${target_branch}"
+
+      - name: Upload predecessor governance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-predecessor-governance-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/pc-crop-predecessor-governance
+          if-no-files-found: error
+          retention-days: 90
