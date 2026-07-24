@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/pc-crop-scope-autodiscovery-3170",
+  "status": "active",
+  "issue": 3170,
+  "baseCommit": "cfad7089412c3c4bdd1cd866e08454a3451fa35f",
+  "operationalStatus": "GOVERNANCE_ONLY",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-scope-governance.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-scope-autodiscovery-3170.json",
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-source-controlled-scope.mjs",
+    "scripts/p7-source-controlled-scope.test.mjs",
+    "scripts/p7-scope-governance-apply.mjs",
+    "scripts/verify-p7-scope-governance.mjs"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
