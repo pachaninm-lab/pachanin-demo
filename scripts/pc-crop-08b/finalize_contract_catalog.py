@@ -11,6 +11,12 @@ from pathlib import Path
 CATALOG_HASH_PATTERN = re.compile(
     r'(FGIS_GRAIN_1_0_23_CATALOG_SHA256\s*=\s*")[0-9a-f]{64}("\s+as const;)',
 )
+BUSINESS_OPERATIONS_PATTERN = re.compile(
+    r'export const FGIS_GRAIN_1_0_23_BUSINESS_OPERATIONS = \[.*?\] as const;\n'
+    r'export type FgisGrainBusinessOperation = .*?;\n'
+    r'export type FgisGrainBusinessOperationCode = .*?;',
+    re.DOTALL,
+)
 OPERATION_FIELDS = [
     "code",
     "name",
@@ -47,6 +53,17 @@ def encode(value: object) -> bytes:
         )
         + "\n"
     ).encode("utf-8")
+
+
+def render_operation_codes(codes: list[str]) -> str:
+    body = "\n".join(f"  {json.dumps(code)}," for code in codes)
+    return (
+        "export const FGIS_GRAIN_1_0_23_BUSINESS_OPERATION_CODES = [\n"
+        + body
+        + "\n] as const;\n"
+        + "export type FgisGrainBusinessOperationCode = "
+        + "typeof FGIS_GRAIN_1_0_23_BUSINESS_OPERATION_CODES[number];"
+    )
 
 
 def main() -> int:
@@ -93,8 +110,8 @@ def main() -> int:
     for operation in raw["business"]["operations"]:
         namespace = operation["namespace"]
         prefix = "{" + namespace + "}"
-        request_qname = operation["requestQName"]
-        response_qname = operation["responseQName"]
+        request_qname = operation["request"]["qname"]
+        response_qname = operation["response"]["qname"]
         if (
             not request_qname.startswith(prefix)
             or not response_qname.startswith(prefix)
@@ -147,7 +164,9 @@ def main() -> int:
             "operations": operations,
         },
         "enums": raw["enums"],
-        "sdizIdentifiers": raw["sdizIdentifiers"],
+        "sdizIdentifiers": sorted({
+            row["name"] for row in raw["sdizIdentifiers"]
+        }),
         "boundaries": raw["boundaries"],
     }
     if len(operations) != 57 or len(normalized["transport"]["operations"]) != 3:
@@ -157,12 +176,19 @@ def main() -> int:
     catalog_hash = hashlib.sha256(catalog_payload).hexdigest()
     lock["catalogSha256"] = catalog_hash
     source = args.raw_typescript.read_text("utf-8")
-    typescript, replacements = CATALOG_HASH_PATTERN.subn(
+    source, operation_replacements = BUSINESS_OPERATIONS_PATTERN.subn(
+        render_operation_codes([row[0] for row in operations]),
+        source,
+        count=1,
+    )
+    if operation_replacements != 1:
+        raise SystemExit("business operation TypeScript block missing")
+    typescript, hash_replacements = CATALOG_HASH_PATTERN.subn(
         rf'\g<1>{catalog_hash}\g<2>',
         source,
         count=1,
     )
-    if replacements != 1:
+    if hash_replacements != 1:
         raise SystemExit("catalog hash marker missing")
 
     args.catalog_output.parent.mkdir(parents=True, exist_ok=True)
