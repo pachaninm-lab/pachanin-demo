@@ -93,6 +93,7 @@ jobs:
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
             src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts \
             src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/codec-tests.log"
           touch "$EVIDENCE_DIR/codec-tests.ok"
 
