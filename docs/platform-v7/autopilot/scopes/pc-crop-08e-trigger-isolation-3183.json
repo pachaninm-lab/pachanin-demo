@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/pc-crop-08e-trigger-isolation-3183",
+  "status": "active",
+  "issue": 3183,
+  "baseCommit": "bfa2d9f4a9760a887fcdc33e844f21af00d590cb",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08e.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08e-trigger-isolation-3183.json"
+  ],
+  "boundaries": {
+    "workflowJobBodyChange": false,
+    "acceptanceWeakening": false,
+    "runtimeBusinessCodeChange": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
