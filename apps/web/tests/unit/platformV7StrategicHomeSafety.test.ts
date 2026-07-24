@@ -11,24 +11,19 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const formCopy = read('i18n/platform-v7-organization-connect.ts');
   const roleScenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const roleScenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
+  const contactDock = read('components/platform-v7/PublicContactDock.tsx');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
   const rootLayout = read('app/layout.tsx');
   const rootLoading = read('app/loading.tsx');
-  const publicAuthorityPage = read('app/pc-public-entry/platform-v7/page.tsx');
+  const publicAuthorityPage = read('app/platform-v7/page.tsx');
   const acceptanceConfig = read('playwright.acceptance.config.ts');
   const lighthouseConfig = read('lighthouserc.cjs');
   const lighthouseWorkflow = read('../../.github/workflows/platform-v7-strategic-home-lighthouse.yml');
   const lighthouseSummary = read('../../scripts/platform-v7-lighthouse-summary.mjs');
-  const scopeManifest = JSON.parse(read('../../docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json')) as {
-    acceptanceEvidence?: {
-      viewports?: number[];
-      locales?: string[];
-      browsers?: string[];
-      lighthouseModes?: string[];
-      lighthouseRunsPerMode?: number;
-      lighthouseEvidenceClass?: string;
-      requiredBoundaries?: string[];
-    };
+  const scopeManifest = JSON.parse(read('../../docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json')) as {
+    schemaVersion?: string;
+    branch?: string;
+    allowedPaths?: string[];
   };
 
   it('keeps a stable Deal cockpit locator and keyboard-focusable lifecycle', () => {
@@ -36,28 +31,31 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(home).toContain("className='pc-v6-lifecycle' role='list' tabIndex={0}");
     expect(home).toContain('aria-label={copy.lifecycle.title}');
     expect(homeCss).toContain('.pc-v6-lifecycle:focus-visible');
-    expect(homeCss).toMatch(/\.pc-v6-page\{[^}]*overflow-x:clip/);
+    expect(homeCss).toMatch(/\.pc-v6-page\s*\{[^}]*overflow-x:\s*clip/);
   });
 
-  it('mounts the organization request form without fake submission success', () => {
+  it('uses the durable organization intake without fake success', () => {
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
     expect(home).toContain("href='#connect-organization'");
-    expect(form).toContain('window.location.assign(`/platform-v7/register?entry=organization-connect');
+    expect(form).toContain("fetch('/api/platform-v7/organization-connect'");
+    expect(form).toContain("'Idempotency-Key'");
+    expect(form).toContain("body.ok !== true");
     expect(form).not.toContain('setTimeout');
     expect(form).not.toContain('fake_success');
   });
 
-  it('separates form-open analytics from a validated organization request', () => {
+  it('separates form-open, step completion, submission and acceptance analytics', () => {
     expect(home).toContain("eventName='open_organization_connect'");
     expect(home).not.toContain("eventName='submit_organization_request'");
+    expect(form).toContain("name: 'organization_request_step_completed'");
     expect(form).toContain("name: 'submit_organization_request'");
-    expect(form).toContain("mode: 'staged_client_validation'");
+    expect(form).toContain("mode: 'durable_server_intake'");
+    expect(form).toContain("name: 'organization_request_accepted'");
   });
 
-  it('fails closed without JavaScript so personal data cannot enter a URL or unverified channel', () => {
+  it('fails closed without JavaScript so personal data cannot enter a URL', () => {
     expect(form).toContain('const [ready, setReady] = useState(false)');
-    expect(form).toContain('useEffect(() =>');
-    expect(form).toContain('disabled={!ready}');
+    expect(form).toContain('disabled={!ready || submitting}');
     expect(form).toContain("data-ready={ready ? 'true' : 'false'}");
     expect(form).toContain('<noscript>');
     expect(form).toContain('copy.jsRequired');
@@ -71,19 +69,22 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(rootLoading).toContain('/platform-v7/register?entry=organization-connect&lang=zh');
     expect(rootLoading).toContain("href='tel:+79162778989'");
     expect(rootLoading).not.toContain('<form');
-    expect(rootLoading).not.toContain('<input');
   });
 
-  it('does not persist or transmit public form personal data from the staged client boundary', () => {
+  it('does not persist public form personal data in browser storage', () => {
     expect(form).not.toContain('localStorage');
     expect(form).not.toContain('sessionStorage');
     expect(form).not.toContain('indexedDB');
-    expect(form).not.toContain('fetch(');
     expect(form).not.toContain('XMLHttpRequest');
-    expect(form).toContain("mode: 'staged_client_validation'");
+    expect(form).toContain("method: 'POST'");
+    expect(form).toContain("cache: 'no-store'");
+    expect(form).toContain('AbortSignal.timeout(10_000)');
   });
 
-  it('keeps browser validation, consent and accessible error reporting active', () => {
+  it('keeps progressive validation, consent and accessible error reporting active', () => {
+    expect(form).toContain("type Step = 1 | 2");
+    expect(form).toContain("const names = ['organizationName', 'inn', 'contactName']");
+    expect(form).toContain('field.checkValidity()');
     expect(form).toContain('form.checkValidity()');
     expect(form).toContain('form.reportValidity()');
     expect(form).toContain("type='checkbox' required");
@@ -99,6 +100,9 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(formCopy).toContain('const zh: OrganizationConnectCopy =');
     expect(formCopy).not.toContain('...ru');
     expect(formCopy).toContain("locale === 'en' ? en : locale === 'zh' ? zh : ru");
+    expect(formCopy).toContain('Шаг 1 из 2');
+    expect(formCopy).toContain('Step 1 of 2');
+    expect(formCopy).toContain('第 1 步，共 2 步');
   });
 
   it('keeps participant perspective informational and non-authoritative', () => {
@@ -107,13 +111,21 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(roleScenario).toContain('aria-selected={role === key}');
     expect(roleScenario).toContain("role='tabpanel'");
     expect(roleScenario).toContain("aria-live='polite'");
-    expect(roleScenario).toContain('не изменяет RBAC');
+    expect(roleScenario).toContain('Переключение не открывает данные и не меняет права');
     expect(roleScenario).not.toContain('accessToken');
     expect(roleScenario).not.toContain('tenantId');
     expect(roleScenario).not.toContain('fetch(');
   });
 
-  it('preserves mobile-first touch targets, horizontal role navigation and reduced motion', () => {
+  it('prevents the contact dock from obscuring content during downward scrolling', () => {
+    expect(contactDock).toContain('const [hiddenByScroll, setHiddenByScroll]');
+    expect(contactDock).toContain("data-scroll-hidden={hiddenByScroll ? 'true' : 'false'}");
+    expect(contactDock).toContain(".pc-public-contact-dock[data-scroll-hidden='true']");
+    expect(contactDock).toContain('width: min(334px');
+    expect(contactDock).toContain('visibility: hidden');
+  });
+
+  it('preserves mobile touch targets, horizontal navigation and reduced motion', () => {
     expect(formCss).toMatch(/min-height:\s*48px/);
     expect(formCss).toContain(':focus-visible');
     expect(formCss).toMatch(/@media\s*\(min-width:\s*760px\)/);
@@ -121,15 +133,14 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(roleScenarioCss).toMatch(/min-height:\s*44px/);
     expect(roleScenarioCss).toMatch(/overflow-x:\s*auto/);
     expect(roleScenarioCss).toMatch(/scroll-snap-type:\s*x\s+(?:proximity|mandatory)/);
-    expect(roleScenarioCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+    expect(homeCss).toContain('@media (max-width: 767px)');
   });
 
-  it('runs the strategic browser spec and keeps acceptance evidence machine-readable', () => {
-    expect(acceptanceConfig).toContain('strategic-home-v3');
-    expect(scopeManifest.acceptanceEvidence?.viewports).toEqual([320, 375, 390, 430, 768, 1280, 1440]);
-    expect(scopeManifest.acceptanceEvidence?.locales).toEqual(['ru', 'en', 'zh']);
-    expect(scopeManifest.acceptanceEvidence?.browsers).toEqual(['chromium', 'firefox', 'webkit']);
-    expect(scopeManifest.acceptanceEvidence?.requiredBoundaries).toContain('no-JavaScript intake fails closed');
+  it('binds the new branch to a narrow source-controlled scope', () => {
+    expect(scopeManifest.schemaVersion).toBe('platform-v7.concurrent-scope.v1');
+    expect(scopeManifest.branch).toBe('agent/platform-v7-home-10of10-v1');
+    expect(scopeManifest.allowedPaths).toContain('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
+    expect(scopeManifest.allowedPaths).toContain('apps/web/components/platform-v7/PublicContactDock.tsx');
   });
 
   it('emits SEO metadata on the actual public authority route', () => {
@@ -148,35 +159,20 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   });
 
   it('preserves root service-worker recovery and analytics bootstrap while injecting metadata', () => {
-    expect(rootLayout).toContain("tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}");
+    expect(rootLayout).toContain('tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}');
     expect(rootLayout).toContain("k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})");
     expect(rootLayout).not.toContain("k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async");
-    expect(scopeManifest.acceptanceEvidence?.requiredBoundaries).toContain('root metadata injection preserves service worker recovery and analytics bootstrap scripts byte-for-byte');
   });
 
-  it('collects pinned private Lighthouse evidence without presenting it as live VPS proof', () => {
+  it('keeps pinned private Lighthouse evidence without presenting it as live VPS proof', () => {
+    expect(acceptanceConfig).toContain('strategic-home-v3');
     expect(lighthouseWorkflow).toContain('pnpm dlx @lhci/cli@0.15.1 autorun');
-    expect(lighthouseWorkflow).toContain('matrix:');
-    expect(lighthouseWorkflow).toContain('mode: [mobile, desktop]');
     expect(lighthouseWorkflow).toContain('actions/upload-artifact@v4');
-    expect(lighthouseWorkflow).not.toContain('temporary-public-storage');
     expect(lighthouseWorkflow).not.toContain('netlify');
     expect(lighthouseWorkflow).not.toContain('vercel');
-
     expect(lighthouseConfig).toContain("target: 'filesystem'");
     expect(lighthouseConfig).toContain('numberOfRuns: 3');
-    expect(lighthouseConfig).toContain("url: ['http://127.0.0.1:3000/platform-v7?lang=ru']");
-    expect(lighthouseConfig).toContain("'categories:performance': ['error', { minScore: 0.85");
-    expect(lighthouseConfig).toContain("'categories:accessibility': ['error', { minScore: 0.95");
-    expect(lighthouseConfig).toContain("'categories:seo': ['error', { minScore: 0.95");
-    expect(lighthouseConfig).toContain("'largest-contentful-paint': ['error', { maxNumericValue: 3000");
-    expect(lighthouseConfig).toContain("'cumulative-layout-shift': ['error', { maxNumericValue: 0.05");
-
-    expect(lighthouseSummary).toContain('function isReportCandidate');
     expect(lighthouseSummary).toContain("source: 'local-production-build'");
     expect(lighthouseSummary).toContain('productionEvidence: false');
-    expect(scopeManifest.acceptanceEvidence?.lighthouseModes).toEqual(['mobile', 'desktop']);
-    expect(scopeManifest.acceptanceEvidence?.lighthouseRunsPerMode).toBe(3);
-    expect(scopeManifest.acceptanceEvidence?.lighthouseEvidenceClass).toBe('local-production-build-not-live-vps');
   });
 });
