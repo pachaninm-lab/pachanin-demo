@@ -8,6 +8,7 @@
   "allowedPaths": [
     ".github/workflows/pc-crop-08c.yml",
     "apps/api/src/modules/regulatory-integration/fgis-grain/**",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
     "docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json",
     "scripts/pc-crop-08c/**",
     "scripts/p7-autopilot-guard.sh"
