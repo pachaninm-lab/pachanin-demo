@@ -276,15 +276,11 @@ export function toRegulatoryInboundEnvelope(
   envelope: FgisGrainContractEnvelopeMetadata,
 ): RegulatoryInboundEnvelope {
   const validation = validateFgisGrainContractEnvelope(envelope);
-  if (
-    !validation.valid
-    || !['INBOUND_RESPONSE', 'INBOUND_FAULT'].includes(envelope.direction)
-  ) {
-    throw new Error(
-      validation.valid
-        ? 'FGIS_GRAIN_INBOUND_DIRECTION_REQUIRED'
-        : `FGIS_GRAIN_${validation.errorCode}`,
-    );
+  if (!validation.valid) {
+    throw new Error(`FGIS_GRAIN_${validation.errorCode}`);
+  }
+  if (!['INBOUND_RESPONSE', 'INBOUND_FAULT'].includes(envelope.direction)) {
+    throw new Error('FGIS_GRAIN_INBOUND_DIRECTION_REQUIRED');
   }
   return {
     provider: FGIS_GRAIN_ADAPTER_CODE,
@@ -303,12 +299,11 @@ export function toFgisGrainOutboundEnvelopeMetadata(
   envelope: FgisGrainContractEnvelopeMetadata,
 ): FgisGrainOutboundEnvelopeMetadata {
   const validation = validateFgisGrainContractEnvelope(envelope);
-  if (!validation.valid || envelope.direction !== 'OUTBOUND_REQUEST') {
-    throw new Error(
-      validation.valid
-        ? 'FGIS_GRAIN_OUTBOUND_DIRECTION_REQUIRED'
-        : `FGIS_GRAIN_${validation.errorCode}`,
-    );
+  if (!validation.valid) {
+    throw new Error(`FGIS_GRAIN_${validation.errorCode}`);
+  }
+  if (envelope.direction !== 'OUTBOUND_REQUEST') {
+    throw new Error('FGIS_GRAIN_OUTBOUND_DIRECTION_REQUIRED');
   }
   if (envelope.signature === null) {
     throw new Error('FGIS_GRAIN_SIGNATURE_REFERENCE_REQUIRED');
