@@ -12,11 +12,15 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function expectMinimumTargets(page: Page, selector: string) {
   const targets = page.locator(selector);
   await expect(targets.first()).toBeVisible();
-  const valid = await targets.evaluateAll((nodes) => nodes.every((node) => {
+  const valid = await targets.evaluateAll((nodes) => nodes.filter((node) => {
+    const style = window.getComputedStyle(node);
+    const box = node.getBoundingClientRect();
+    return style.visibility !== 'hidden' && style.display !== 'none' && box.width > 0 && box.height > 0;
+  }).every((node) => {
     const box = node.getBoundingClientRect();
     return box.width >= 44 && box.height >= 44;
   }));
-  expect(valid, `${selector} must expose 44×44 CSS px targets`).toBe(true);
+  expect(valid, `${selector} must expose 44×44 CSS px visible targets`).toBe(true);
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {
@@ -25,6 +29,16 @@ async function expectNoSeriousAxeViolations(page: Page) {
     .analyze();
   const blocking = result.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical');
   expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+}
+
+async function fillFirstStep(page: Page) {
+  const form = page.locator('#connect-organization form');
+  await form.getByLabel('Организация').fill('ООО Тест Агро');
+  await form.getByLabel('ИНН').fill('7700000000');
+  await form.getByLabel('ФИО').fill('Иван Иванов');
+  await form.getByRole('button', { name: 'Продолжить' }).click();
+  await expect(form).toHaveAttribute('data-step', '2');
+  return form;
 }
 
 test.describe('Platform V7 strategic homepage browser acceptance', () => {
@@ -40,10 +54,14 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       expect(response?.ok(), `${locale} homepage response`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expect(page.locator('#pc-v6-title')).toBeVisible();
+      await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
       await expect(page.locator('#deal-path')).toBeVisible();
+      await expect(page.locator('#participants')).toBeVisible();
+      await expect(page.locator('#money')).toBeVisible();
       await expect(page.locator('#tai')).toBeVisible();
       await expect(page.locator('#connect-organization')).toBeVisible();
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-step', '1');
       await expect(page.locator('html')).toHaveAttribute('lang', new RegExp(`^${locale}`));
       await expectNoHorizontalOverflow(page);
     }
@@ -51,24 +69,24 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('participant perspective changes only the public simulation panel', async ({ page }) => {
+  test('participant perspective changes only the public scenario panel', async ({ page }) => {
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
       if (/bank-callback|role-assignment|membership|\/auth\/me|\/api\/proxy\//i.test(request.url())) forbiddenRequests.push(request.url());
     });
 
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
-    const tabs = page.getByRole('tablist', { name: 'Посмотреть глазами участника' });
+    const tabs = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(tabs).toBeVisible();
     const bank = page.getByRole('tab', { name: 'Банк' });
     await bank.click();
     await expect(bank).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Публичная симуляция. Выбор участника не даёт доступ к данным и не меняет права.')).toBeVisible();
+    await expect(page.getByText('Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.')).toBeVisible();
     expect(forbiddenRequests).toEqual([]);
   });
 
-  test('organization intake validates locally and does not send personal data from the public page', async ({ page }) => {
+  test('organization intake validates step one locally without sending personal data', async ({ page }) => {
     const submittedRequests: string[] = [];
     let captureSubmission = false;
     page.on('request', (request) => {
@@ -80,26 +98,82 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expect(form).toBeVisible();
     await expect(form).toHaveAttribute('data-ready', 'true');
     captureSubmission = true;
-    await form.getByRole('button').click();
+    await form.getByRole('button', { name: 'Продолжить' }).click();
+    await expect(form).toHaveAttribute('data-step', '1');
     await expect(form.getByRole('alert')).toBeVisible();
     await expect(page).toHaveURL(/#connect-organization$/);
     expect(submittedRequests).toEqual([]);
     await expectNoSeriousAxeViolations(page);
   });
 
+  test('organization intake reaches durable acceptance through the existing endpoint', async ({ page }) => {
+    let payload: Record<string, unknown> | null = null;
+    let idempotencyKey = '';
+    await page.route('**/api/platform-v7/organization-connect', async (route) => {
+      const request = route.request();
+      payload = request.postDataJSON() as Record<string, unknown>;
+      idempotencyKey = request.headers()['idempotency-key'] || '';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, requestNumber: 'REQ-2026-TEST', status: 'ACCEPTED', replay: false, correlationId: 'corr-test' }),
+      });
+    });
+
+    await page.goto('/platform-v7?lang=ru#connect-organization', { waitUntil: 'load' });
+    const form = await fillFirstStep(page);
+    await form.getByLabel('Должность').fill('Директор');
+    await form.getByLabel('Телефон').fill('+7 900 000-00-00');
+    await form.getByLabel('Email').fill('test@example.com');
+    await form.getByLabel('Роль организации').selectOption('BUYER_PROCESSOR');
+    await form.getByLabel('Интересующий сценарий').selectOption('DEAL_EXECUTION');
+    await form.getByLabel(/Я согласен/).check();
+    await form.getByRole('button', { name: 'Зарегистрировать заявку' }).click();
+
+    await expect(page.getByRole('status')).toContainText('REQ-2026-TEST');
+    expect(idempotencyKey).toMatch(/^public-org-connect:/);
+    expect(payload).toMatchObject({
+      organizationName: 'ООО Тест Агро',
+      inn: '7700000000',
+      contactName: 'Иван Иванов',
+      position: 'Директор',
+      email: 'test@example.com',
+      organizationRole: 'BUYER_PROCESSOR',
+      scenario: 'DEAL_EXECUTION',
+      locale: 'ru',
+      consent: true,
+    });
+  });
+
+  test('contact dock stops obscuring content during downward scrolling and returns on upward scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    const dock = page.locator('.pc-public-contact-dock');
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+    await page.evaluate(() => window.scrollTo({ top: 1300, behavior: 'instant' }));
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+    await page.evaluate(() => window.scrollTo({ top: 900, behavior: 'instant' }));
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+  });
+
   for (const width of [320, 375, 390, 430]) {
-    test(`${width}px mobile reflow keeps touch targets and the form within the viewport`, async ({ page }) => {
+    test(`${width}px mobile reflow keeps all progressive-form controls within the viewport`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
-      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      const form = page.locator('#connect-organization form');
+      await expect(form).toHaveAttribute('data-ready', 'true');
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
-      await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"])');
-      await expectMinimumTargets(page, '#connect-organization select');
-      await expectMinimumTargets(page, '#connect-organization button');
-      await expectMinimumTargets(page, '#connect-organization a[href^="tel:"]');
+      await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible');
+      await expectMinimumTargets(page, '#connect-organization button:visible');
+
+      await fillFirstStep(page);
+      await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible');
+      await expectMinimumTargets(page, '#connect-organization select:visible');
+      await expectMinimumTargets(page, '#connect-organization button:visible');
       await expect(page.locator('#connect-organization input[type="checkbox"]')).toBeVisible();
+      await expectNoHorizontalOverflow(page);
     });
   }
 
