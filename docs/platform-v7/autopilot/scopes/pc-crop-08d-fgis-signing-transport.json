@@ -6,6 +6,8 @@
   "baseCommit": "97f3c140bd31b5ab46642eeaee9484a0a15491a2",
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
+    ".github/workflows/pc-crop-08b.yml",
+    ".github/workflows/pc-crop-08c.yml",
     ".github/workflows/pc-crop-08d.yml",
     "apps/api/src/outbox-worker.module.ts",
     "apps/api/src/modules/integration-events/durable-outbox.worker.ts",
