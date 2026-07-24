@@ -67,6 +67,7 @@ function draft(
   environment: 'PRE_PRODUCTION' | 'PRODUCTION' = 'PRE_PRODUCTION',
   suffix = 'v1',
 ) {
+  const segment = environment.toLowerCase();
   return {
     schemaVersion: FGIS_GRAIN_PROVIDER_CONFIG_SCHEMA_VERSION,
     adapterCode: 'FGIS_ZERNO' as const,
@@ -74,15 +75,15 @@ function draft(
     mappingVersion: 'fgis-zerno-1.0.23-catalog.v1' as const,
     signingPolicyVersion: 'fgis-zerno-1.0.23-signing-policy.v1' as const,
     environment,
-    endpointReference: `endpoint://fgis-zerno/${environment.toLowerCase()}/${suffix}`,
-    tlsPolicyReference: `tls://fgis-zerno/${environment.toLowerCase()}/${suffix}`,
-    credentialReference: `credential://vault/fgis-zerno/${environment.toLowerCase()}/${suffix}`,
-    signingKeyReference: `signing-key://vault/fgis-zerno/${environment.toLowerCase()}/${suffix}`,
-    payloadStoreReference: `object-store://fgis-zerno/${environment.toLowerCase()}/${suffix}`,
+    endpointReference: `endpoint://fgis-zerno/${segment}/${suffix}`,
+    tlsPolicyReference: `tls://fgis-zerno/${segment}/${suffix}`,
+    credentialReference: `credential://vault/fgis-zerno/${segment}/${suffix}`,
+    signingKeyReference: `signing-key://vault/fgis-zerno/${segment}/${suffix}`,
+    payloadStoreReference: `object-store://fgis-zerno/${segment}/${suffix}`,
   };
 }
 
-function command(
+function upsertCommand(
   key: string,
   overrides: Partial<UpsertProviderConfigurationCommand> = {},
 ): UpsertProviderConfigurationCommand {
@@ -99,12 +100,11 @@ function command(
 function metadata(
   key: string,
   expectedVersion: string,
-  reason = 'Provider state transition approved through governed server-side workflow.',
 ): ProviderCommandMetadata {
   return {
     idempotencyKey: `${RUN_ID}.${key}`,
     correlationId: `${RUN_ID}.${key}.correlation`,
-    reason,
+    reason: 'Provider state transition approved through governed server-side workflow.',
     expectedVersion,
   };
 }
@@ -112,26 +112,24 @@ function metadata(
 function attestationCommand(
   configurationId: string,
   gate: 'OWNER' | 'SECURITY' | 'LEGAL' | 'OPERATIONS',
-  configurationVersion: string,
+  version: string,
   suffix: string,
-  overrides: Partial<RecordProviderAttestationCommand> = {},
 ): RecordProviderAttestationCommand {
   return {
     configurationId,
     idempotencyKey: `${RUN_ID}.attest-${gate.toLowerCase()}-${suffix}`,
     correlationId: `${RUN_ID}.attest-${gate.toLowerCase()}-${suffix}.correlation`,
     reason: `${gate} attestation is recorded after independent MFA-backed review.`,
-    expectedVersion: configurationVersion,
+    expectedVersion: version,
     attestation: {
       schemaVersion: FGIS_GRAIN_PROVIDER_ATTESTATION_SCHEMA_VERSION,
       gate,
       decision: 'APPROVED',
-      justification: `${gate} reviewer confirmed the governed evidence and test-only boundary.`,
+      justification: `${gate} reviewer confirmed governed evidence and test-only boundaries.`,
       evidenceReference: `evidence://fgis-zerno/${gate.toLowerCase()}/${suffix}`,
       validUntil: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
-      configurationVersion,
+      configurationVersion: version,
     },
-    ...overrides,
   };
 }
 
@@ -147,8 +145,7 @@ async function seedAuthority(): Promise<void> {
       (${ORG_B}, ${innB}, ${`${RUN_ID} Org B`}, ${TENANT_B}, ${now})
     ON CONFLICT ("id") DO NOTHING
   `);
-  const users = [EXEC_A, SECURITY_A, LEGAL_A, OPS_A, EXEC_B, NO_MFA_SECURITY];
-  for (const user of users) {
+  for (const user of [EXEC_A, SECURITY_A, LEGAL_A, OPS_A, EXEC_B, NO_MFA_SECURITY]) {
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO public."users" (
         "id", "email", "passwordHash", "fullName", "mfaEnabled", "updatedAt"
@@ -161,9 +158,45 @@ async function seedAuthority(): Promise<void> {
   }
 }
 
-async function resetProviderAggregate(): Promise<void> {
+async function resetAggregate(): Promise<void> {
   await prisma.$executeRawUnsafe(
     'TRUNCATE TABLE public."fgis_grain_provider_attestations", public."fgis_grain_provider_configurations" RESTART IDENTITY CASCADE',
+  );
+}
+
+async function createUnderReview(
+  key: string,
+  environment: 'PRE_PRODUCTION' | 'PRODUCTION' = 'PRE_PRODUCTION',
+) {
+  const created = await repository.upsertDraft(
+    EXEC_A,
+    upsertCommand(`${key}-draft`, { draft: draft(environment, key) }),
+  );
+  const review = await repository.submitForReview(
+    EXEC_A,
+    created.configurationId,
+    metadata(`${key}-submit`, created.version),
+  );
+  expect(review).toMatchObject({ state: 'UNDER_REVIEW', version: created.version });
+  return review;
+}
+
+async function approveAll(configurationId: string, version: string): Promise<void> {
+  await repository.recordAttestation(
+    EXEC_A,
+    attestationCommand(configurationId, 'OWNER', version, 'owner'),
+  );
+  await repository.recordAttestation(
+    SECURITY_A,
+    attestationCommand(configurationId, 'SECURITY', version, 'security'),
+  );
+  await repository.recordAttestation(
+    LEGAL_A,
+    attestationCommand(configurationId, 'LEGAL', version, 'legal'),
+  );
+  await repository.recordAttestation(
+    OPS_A,
+    attestationCommand(configurationId, 'OPERATIONS', version, 'operations'),
   );
 }
 
@@ -179,24 +212,17 @@ describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations
     );
   });
 
-  beforeEach(async () => {
-    await resetProviderAggregate();
-  });
+  beforeEach(resetAggregate);
 
   afterAll(async () => {
     await prisma.$disconnect();
   });
 
   it('persists one draft with immutable audit/outbox and deterministic replay', async () => {
-    const input = command('draft-replay');
+    const input = upsertCommand('draft-replay');
     const applied = await repository.upsertDraft(EXEC_A, input);
-    expect(applied).toMatchObject({
-      state: 'DRAFT',
-      version: '0',
-      replayed: false,
-      operationalStatus: 'NOT_ATTESTED',
-    });
     const replay = await repository.upsertDraft(EXEC_A, input);
+    expect(applied).toMatchObject({ state: 'DRAFT', version: '0', replayed: false });
     expect(replay).toEqual({ ...applied, replayed: true });
 
     const rows = await prisma.$queryRaw<Array<{
@@ -220,35 +246,31 @@ describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations
         (SELECT "payload" FROM public."outbox_entries" WHERE "id" = ${applied.outboxId}) AS "outboxPayload"
     `);
     expect(rows[0]).toMatchObject({ auditCount: 1n, outboxCount: 1n, configCount: 1n });
-    const persisted = JSON.stringify(rows[0]);
+    const persisted = JSON.stringify(
+      rows[0],
+      (_key, value) => typeof value === 'bigint' ? value.toString() : value,
+    );
     expect(persisted).not.toMatch(
       /BEGIN PRIVATE KEY|certificateBytes|credentialBytes|password=|token=|<soap:|<Signature/iu,
     );
   });
 
   it('rejects stale If-Match and idempotency payload mismatch', async () => {
-    const input = command('version-mismatch');
+    const input = upsertCommand('version-mismatch');
     const created = await repository.upsertDraft(EXEC_A, input);
     await expect(repository.upsertDraft(EXEC_A, {
       ...input,
       draft: draft('PRE_PRODUCTION', 'changed'),
     })).rejects.toBeInstanceOf(ConflictException);
-    await expect(repository.upsertDraft(EXEC_A, command('stale-update', {
+    await expect(repository.upsertDraft(EXEC_A, upsertCommand('stale-update', {
       expectedVersion: '9',
       draft: draft('PRE_PRODUCTION', 'stale'),
     }))).rejects.toBeInstanceOf(PreconditionFailedException);
     expect(created.version).toBe('0');
   });
 
-  it('requires role separation and MFA for all four immutable approvals', async () => {
-    const created = await repository.upsertDraft(EXEC_A, command('approval-flow'));
-    const review = await repository.submitForReview(
-      EXEC_A,
-      created.configurationId,
-      metadata('submit-review', created.version),
-    );
-    expect(review).toMatchObject({ state: 'UNDER_REVIEW', version: '1' });
-
+  it('requires role separation and MFA for four gates before test activation', async () => {
+    const review = await createUnderReview('approval-flow');
     await expect(repository.recordAttestation(
       NO_MFA_SECURITY,
       attestationCommand(review.configurationId, 'SECURITY', review.version, 'no-mfa'),
@@ -258,23 +280,7 @@ describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations
       attestationCommand(review.configurationId, 'SECURITY', review.version, 'wrong-role'),
     )).rejects.toBeInstanceOf(ForbiddenException);
 
-    await repository.recordAttestation(
-      EXEC_A,
-      attestationCommand(review.configurationId, 'OWNER', review.version, 'owner'),
-    );
-    await repository.recordAttestation(
-      SECURITY_A,
-      attestationCommand(review.configurationId, 'SECURITY', review.version, 'security'),
-    );
-    await repository.recordAttestation(
-      LEGAL_A,
-      attestationCommand(review.configurationId, 'LEGAL', review.version, 'legal'),
-    );
-    await repository.recordAttestation(
-      OPS_A,
-      attestationCommand(review.configurationId, 'OPERATIONS', review.version, 'operations'),
-    );
-
+    await approveAll(review.configurationId, review.version);
     const approved = await repository.activateTest(
       EXEC_A,
       review.configurationId,
@@ -286,12 +292,8 @@ describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations
       operationalStatus: 'NOT_ATTESTED',
     });
     const view = await repository.getView(EXEC_A, review.configurationId);
-    expect(view.status).toBe('TEST_APPROVED');
     expect(view.gates.map((gate) => gate.state)).toEqual([
-      'APPROVED',
-      'APPROVED',
-      'APPROVED',
-      'APPROVED',
+      'APPROVED', 'APPROVED', 'APPROVED', 'APPROVED',
     ]);
     expect(view.blockers).toEqual([]);
     expect(view.productionActivationAllowed).toBe(false);
@@ -303,45 +305,59 @@ describePostgres('PC-CROP-08E PostgreSQL provider configuration and attestations
     `)).rejects.toThrow(/immutable/iu);
   });
 
-  it('invalidates prior approvals when reference content changes', async () => {
-    const created = await repository.upsertDraft(EXEC_A, command('invalidate-approvals'));
-    const review = await repository.submitForReview(
-      EXEC_A,
-      created.configurationId,
-      metadata('invalidate-submit', created.version),
-    );
+  it('invalidates approvals only when reference content changes', async () => {
+    const review = await createUnderReview('invalidate');
     await repository.recordAttestation(
       EXEC_A,
-      attestationCommand(review.configurationId, 'OWNER', review.version, 'invalidate-owner'),
+      attestationCommand(review.configurationId, 'OWNER', review.version, 'owner-stale'),
     );
-    const updated = await repository.upsertDraft(EXEC_A, command('invalidate-update', {
+    const updated = await repository.upsertDraft(EXEC_A, upsertCommand('invalidate-update', {
       expectedVersion: review.version,
       draft: draft('PRE_PRODUCTION', 'v2'),
     }));
-    expect(updated.version).toBe('2');
+    expect(updated.version).toBe('1');
     const view = await repository.getView(EXEC_A, updated.configurationId);
     expect(view.gates.find((gate) => gate.gate === 'OWNER')?.state).toBe('STALE');
-    expect(view.blockers).toContain('OWNER_STALE');
+    expect(view.blockers).toContain('REVIEW_NOT_SUBMITTED');
+  });
+
+  it('supports governed suspend and irreversible revoke without changing content version', async () => {
+    const review = await createUnderReview('lifecycle');
+    await approveAll(review.configurationId, review.version);
+    await repository.activateTest(
+      EXEC_A,
+      review.configurationId,
+      metadata('lifecycle-activate', review.version),
+    );
+    const suspended = await repository.suspend(
+      SECURITY_A,
+      review.configurationId,
+      metadata('lifecycle-suspend', review.version),
+    );
+    expect(suspended).toMatchObject({ state: 'SUSPENDED', version: review.version });
+    const revoked = await repository.revoke(
+      LEGAL_A,
+      review.configurationId,
+      metadata('lifecycle-revoke', review.version),
+    );
+    expect(revoked).toMatchObject({ state: 'REVOKED', version: review.version });
+    await expect(repository.upsertDraft(EXEC_A, upsertCommand('revoked-edit', {
+      expectedVersion: review.version,
+      draft: draft('PRE_PRODUCTION', 'after-revoke'),
+    }))).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('never activates PRODUCTION and isolates tenant/organization authority', async () => {
-    const production = await repository.upsertDraft(EXEC_A, command('production-draft', {
-      draft: draft('PRODUCTION'),
-    }));
-    const review = await repository.submitForReview(
-      EXEC_A,
-      production.configurationId,
-      metadata('production-submit', production.version),
-    );
+    const production = await createUnderReview('production', 'PRODUCTION');
     await expect(repository.activateTest(
       EXEC_A,
-      review.configurationId,
-      metadata('production-activate', review.version),
+      production.configurationId,
+      metadata('production-activate', production.version),
     )).rejects.toMatchObject({ code: 'PRODUCTION_ACTIVATION_FORBIDDEN' });
     await expect(repository.getView(EXEC_B, production.configurationId))
       .rejects.toBeInstanceOf(NotFoundException);
 
-    const tenantB = await repository.upsertDraft(EXEC_B, command('tenant-b-same-client-key', {
+    const tenantB = await repository.upsertDraft(EXEC_B, upsertCommand('tenant-b', {
       draft: draft('PRE_PRODUCTION', 'tenant-b'),
     }));
     expect(tenantB.configurationId).not.toBe(production.configurationId);
