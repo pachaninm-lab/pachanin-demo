@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08a-official-artifact-intake",
+  "status": "active",
+  "issue": 3155,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08a.yml",
+    "apps/api/src/modules/regulatory-integration/fgis-zerno-api-1.0.23.registry.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08a-official-artifact-intake.json",
+    "docs/platform-v7/integrations/fgis-zerno-api-1.0.23-source.json",
+    "docs/platform-v7/integrations/fgis-zerno-api-1.0.23-manifest.json",
+    "scripts/fgis-zerno-api-intake.py",
+    "scripts/tests/test_fgis_zerno_api_intake.py",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "boundaries": {
+    "binaryArchiveCommittedToGit": false,
+    "nonOfficialOriginAllowed": false,
+    "crossOriginRedirectAllowed": false,
+    "unsafeZipContentAllowed": false,
+    "unresolvedSchemaReferenceAllowed": false,
+    "handwrittenBusinessMapping": false,
+    "credentialsOrCertificates": false,
+    "liveApiEndpointCall": false,
+    "confirmedLiveClaim": false,
+    "secondInboxOutboxOrRelay": false,
+    "productionDeploymentEvidence": false
+  }
+}
