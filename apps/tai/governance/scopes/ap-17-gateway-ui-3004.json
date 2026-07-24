@@ -1,0 +1,41 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3004,
+  "branch": "agent/tai-gateway-ui-readonly-3004",
+  "exact_base": "2cb731d02e546d1240d601f57b8c396453306310",
+  "allowed_paths": [
+    ".env.example",
+    ".github/workflows/tai-gateway-ui-readonly-binding.yml",
+    "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.controller.spec.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.service.spec.ts",
+    "apps/tai/governance/scopes/ap-17-gateway-ui-3004.json",
+    "apps/web/app/api/proxy/[...path]/route.ts",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+    "apps/web/tests/unit/platformV7AiGatewayStream.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
+    "apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts",
+    "docs/platform-v7/ai/gateway-ui-readonly-runtime-binding.md",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "authoritative approvedConcurrentScopes registration precedes implementation changes",
+    "private SSE proxy preserves streaming with aligned timeout and cancellation",
+    "generation model and provider are exactly bound to admitted readiness identity",
+    "aborted or truncated streams never remain visually equivalent to validated answers",
+    "unsupported or ambiguous public questions abstain",
+    "production feature flags remain disabled until healthy admitted read-only runtime evidence exists"
+  ],
+  "forbidden_capabilities": [
+    "model bundle, benchmark, admission authority, runtime-host or quality-scoring changes",
+    "write-tool activation",
+    "client-selected tenant, organization, membership or role authority",
+    "live-runtime or production-attestation claim without exact endpoint evidence"
+  ]
+}

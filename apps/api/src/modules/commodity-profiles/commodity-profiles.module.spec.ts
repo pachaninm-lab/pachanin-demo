@@ -1,17 +1,19 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
+import { CommodityProfilesController } from './commodity-profiles.controller';
 import { CommodityProfileRepository } from './commodity-profile.repository';
 import {
   COMMODITY_PROFILE_TRANSACTION_PORT,
   CommodityProfileTransactionCommandService,
 } from './commodity-profile-transaction-command.service';
+import { CommodityProfileVersionHistoryRepository } from './commodity-profile-version-history.repository';
 import { CommodityProfilesModule } from './commodity-profiles.module';
 import { PostgresqlCommodityProfileTransactionPort } from './postgresql-commodity-profile-transaction.port';
 
 jest.setTimeout(10_000);
 
 describe('CommodityProfilesModule private authority wiring', () => {
-  it('binds the command service to the PostgreSQL port without publishing controllers', async () => {
+  it('publishes only the governed private controller and keeps PostgreSQL ports internal', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [CommodityProfilesModule],
     }).compile();
@@ -19,8 +21,10 @@ describe('CommodityProfilesModule private authority wiring', () => {
     try {
       const service = moduleRef.get(CommodityProfileTransactionCommandService);
       const repository = moduleRef.get(CommodityProfileRepository);
+      const history = moduleRef.get(CommodityProfileVersionHistoryRepository);
       const postgresPort = moduleRef.get(PostgresqlCommodityProfileTransactionPort);
       const boundPort = moduleRef.get(COMMODITY_PROFILE_TRANSACTION_PORT);
+      const controller = moduleRef.get(CommodityProfilesController);
       const controllers = Reflect.getMetadata(
         MODULE_METADATA.CONTROLLERS,
         CommodityProfilesModule,
@@ -32,12 +36,15 @@ describe('CommodityProfilesModule private authority wiring', () => {
 
       expect(service).toBeInstanceOf(CommodityProfileTransactionCommandService);
       expect(repository).toBeInstanceOf(CommodityProfileRepository);
+      expect(history).toBeInstanceOf(CommodityProfileVersionHistoryRepository);
       expect(boundPort).toBe(postgresPort);
-      expect(controllers).toEqual([]);
+      expect(controller).toBeInstanceOf(CommodityProfilesController);
+      expect(controllers).toEqual([CommodityProfilesController]);
       expect(exportedProviders).toEqual([
         CommodityProfileRepository,
         CommodityProfileTransactionCommandService,
       ]);
+      expect(exportedProviders).not.toContain(CommodityProfileVersionHistoryRepository);
       expect(exportedProviders).not.toContain(PostgresqlCommodityProfileTransactionPort);
       expect(exportedProviders).not.toContain(COMMODITY_PROFILE_TRANSACTION_PORT);
     } finally {

@@ -61,6 +61,7 @@ export const StaffPermission = {
   BREAK_GLASS_ACTIVATE: 'break-glass:activate',
   CRITICAL_ACTION_REQUEST: 'critical-action:request',
   CRITICAL_ACTION_APPROVE: 'critical-action:approve',
+  COMMODITY_PROFILE_LIFECYCLE_MANAGE: 'commodity-profile:lifecycle:manage',
 } as const;
 
 export type StaffPermission = typeof StaffPermission[keyof typeof StaffPermission];
@@ -106,6 +107,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.STAFF_SESSION_READ,
     StaffPermission.STAFF_SESSION_REVOKE,
     StaffPermission.CABINET_VIEW_AS,
+    StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE,
     StaffPermission.CRITICAL_ACTION_REQUEST,
     StaffPermission.CRITICAL_ACTION_APPROVE,
   ],
@@ -160,6 +162,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.CABINET_VIEW_AS,
     StaffPermission.STAFF_REQUEST_READ,
     StaffPermission.STAFF_REQUEST_APPROVE,
+    StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE,
     StaffPermission.CRITICAL_ACTION_REQUEST,
     StaffPermission.CRITICAL_ACTION_APPROVE,
   ],
@@ -187,6 +190,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.AUDIT_READ,
     StaffPermission.AUDIT_EXPORT,
     StaffPermission.CABINET_VIEW_AS,
+    StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE,
     StaffPermission.STAFF_REQUEST_READ,
     StaffPermission.STAFF_REQUEST_APPROVE,
     StaffPermission.CRITICAL_ACTION_APPROVE,

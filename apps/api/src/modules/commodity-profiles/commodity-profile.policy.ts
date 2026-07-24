@@ -1,4 +1,5 @@
 import { Role, type RequestUser } from '../../common/types/request-user';
+import { StaffRole } from '../staff-access/staff-access.types';
 
 export const CommodityProfileAction = {
   READ: 'READ',
@@ -75,6 +76,13 @@ const DRAFT_ROLES = new Set<string>([
   Role.SUPPORT_MANAGER,
 ]);
 
+const COMMODITY_PROFILE_STAFF_ROLES = new Set<string>([
+  StaffRole.PLATFORM_OWNER,
+  StaffRole.PLATFORM_ADMIN,
+  StaffRole.OPERATIONS_SUPERVISOR,
+  StaffRole.COMPLIANCE_STAFF,
+]);
+
 const PRIVILEGED_ACTIONS = new Set<CommodityProfileAction>([
   CommodityProfileAction.APPROVE,
   CommodityProfileAction.ACTIVATE,
@@ -87,9 +95,7 @@ function hasTrustedIdentity(user: RequestUser): boolean {
 }
 
 function hasStaffAuthority(user: RequestUser): boolean {
-  return Boolean(user.staffRoles?.some((role) =>
-    ['PLATFORM_ADMIN', 'COMMODITY_PROFILE_EDITOR', 'COMPLIANCE_CONTROL'].includes(role),
-  ));
+  return Boolean(user.staffRoles?.some((role) => COMMODITY_PROFILE_STAFF_ROLES.has(role)));
 }
 
 function lifecycleAllows(action: CommodityProfileAction, lifecycle?: CommodityProfileLifecycle): boolean {
@@ -195,4 +201,26 @@ export function deriveCommodityProfileActions(
           : 'MEDIUM',
     };
   });
+}
+
+/**
+ * The client receives one server-selected lifecycle action. An allowed action wins;
+ * otherwise the first lifecycle-relevant denial is returned so the UI can explain
+ * why the current user cannot proceed without reconstructing permissions locally.
+ */
+export function deriveCommodityProfilePrimaryAction(
+  user: RequestUser,
+  lifecycle: CommodityProfileLifecycle,
+  classification: CommodityProfileClassification,
+  hasJitAuthority: boolean,
+): ServerDerivedAction | null {
+  const actions = deriveCommodityProfileActions(
+    user,
+    lifecycle,
+    classification,
+    hasJitAuthority,
+  );
+  return actions.find((action) => action.allowed)
+    ?? actions.find((action) => action.reasonCode !== 'INVALID_LIFECYCLE_ACTION')
+    ?? null;
 }

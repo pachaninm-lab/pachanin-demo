@@ -1,13 +1,20 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { Public } from './common/decorators/public.decorator';
 import { OutboxService } from './common/outbox/outbox.service';
 
 const APP_VERSION = process.env.APP_VERSION ?? '3.0.0';
 const BUILD_DATE = process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 10);
 const GIT_COMMIT = process.env.GIT_COMMIT ?? 'local';
+const READINESS_DATABASE_GRACE_MS = 15_000;
 
 type CheckStatus = 'ok' | 'degraded' | 'down';
 type ReadinessStatus = 'ready' | 'degraded';
+type QueueStats = Awaited<ReturnType<OutboxService['queueStats']>>;
+
+interface ReadinessStats {
+  stats: QueueStats;
+  databaseCheck: string;
+}
 
 interface DetailedHealthCheck {
   status: CheckStatus;
@@ -31,6 +38,8 @@ interface DetailedHealthCheck {
 
 @Controller()
 export class HealthController {
+  private lastSuccessfulQueueStats: { stats: QueueStats; recordedAt: number } | null = null;
+
   constructor(private readonly outbox: OutboxService) {}
 
   @Public()
@@ -41,8 +50,12 @@ export class HealthController {
 
   @Public()
   @Get('ready')
-  async ready(): Promise<{ status: ReadinessStatus; checks: Record<string, string>; timestamp: string }> {
-    const stats = await this.outbox.queueStats();
+  async ready(): Promise<{
+    status: ReadinessStatus;
+    checks: Record<string, string>;
+    timestamp: string;
+  }> {
+    const { stats, databaseCheck } = await this.readinessStats();
     const dead = stats.deadLetter;
     const pending = stats.pending + stats.processing;
     const outboxOk = dead < 50;
@@ -54,7 +67,7 @@ export class HealthController {
       status: overall,
       checks: {
         api: 'ok',
-        database: 'ok',
+        database: databaseCheck,
         outbox: outboxOk
           ? `ok (pending=${pending}, dead_letter=${dead})`
           : `degraded (dead_letter=${dead})`,
@@ -151,5 +164,31 @@ export class HealthController {
       commit: GIT_COMMIT,
       nodeVersion: process.version,
     };
+  }
+
+  private async readinessStats(): Promise<ReadinessStats> {
+    try {
+      const stats = await this.outbox.queueStats();
+      this.lastSuccessfulQueueStats = { stats, recordedAt: Date.now() };
+      return { stats, databaseCheck: 'ok' };
+    } catch {
+      const now = Date.now();
+      const cached = this.lastSuccessfulQueueStats;
+      const ageMs = cached ? now - cached.recordedAt : Number.POSITIVE_INFINITY;
+
+      if (cached && ageMs >= 0 && ageMs <= READINESS_DATABASE_GRACE_MS) {
+        return {
+          stats: cached.stats,
+          databaseCheck: `transient-grace (cached_age_ms=${ageMs})`,
+        };
+      }
+
+      throw new ServiceUnavailableException({
+        status: 'unavailable',
+        code: 'READINESS_DATABASE_UNAVAILABLE',
+        checks: { api: 'ok', database: 'down' },
+        timestamp: new Date(now).toISOString(),
+      });
+    }
   }
 }

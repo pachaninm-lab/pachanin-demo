@@ -1,4 +1,5 @@
 import { Role, type RequestUser } from '../../common/types/request-user';
+import { StaffRole } from '../staff-access/staff-access.types';
 import {
   CommodityProfileAction,
   decideCommodityProfileAction,
@@ -68,9 +69,35 @@ describe('commodity profile policy', () => {
     }).reasonCode).toBe('STAFF_AUTHORITY_REQUIRED');
   });
 
+  it.each([
+    StaffRole.PLATFORM_OWNER,
+    StaffRole.PLATFORM_ADMIN,
+    StaffRole.OPERATIONS_SUPERVISOR,
+    StaffRole.COMPLIANCE_STAFF,
+  ])('recognizes canonical commodity-profile staff authority for %s', (staffRole) => {
+    expect(decideCommodityProfileAction({
+      user: user(Role.ADMIN, { staffRoles: [staffRole] }),
+      action: CommodityProfileAction.UPDATE_DRAFT,
+      lifecycle: 'DRAFT',
+      hasHumanReason: true,
+    })).toEqual({ allowed: true, reasonCode: 'ALLOWED' });
+  });
+
+  it.each([
+    'COMMODITY_PROFILE_EDITOR',
+    'COMPLIANCE_CONTROL',
+  ])('rejects deprecated non-authoritative staff alias %s', (staffRole) => {
+    expect(decideCommodityProfileAction({
+      user: user(Role.ADMIN, { staffRoles: [staffRole] }),
+      action: CommodityProfileAction.UPDATE_DRAFT,
+      lifecycle: 'DRAFT',
+      hasHumanReason: true,
+    })).toEqual({ allowed: false, reasonCode: 'STAFF_AUTHORITY_REQUIRED' });
+  });
+
   it('requires human reason for every write', () => {
     expect(decideCommodityProfileAction({
-      user: user(Role.ADMIN, { staffRoles: ['COMMODITY_PROFILE_EDITOR'] }),
+      user: user(Role.ADMIN, { staffRoles: [StaffRole.PLATFORM_ADMIN] }),
       action: CommodityProfileAction.SUBMIT_REVIEW,
       lifecycle: 'DRAFT',
       hasHumanReason: false,
@@ -79,7 +106,7 @@ describe('commodity profile policy', () => {
 
   it('requires MFA and JIT for approval', () => {
     const actor = user(Role.COMPLIANCE_OFFICER, {
-      staffRoles: ['COMPLIANCE_CONTROL'],
+      staffRoles: [StaffRole.COMPLIANCE_STAFF],
       mfaVerified: false,
     });
     expect(decideCommodityProfileAction({
@@ -102,7 +129,7 @@ describe('commodity profile policy', () => {
   it('allows privileged transition only with full server authority', () => {
     expect(decideCommodityProfileAction({
       user: user(Role.COMPLIANCE_OFFICER, {
-        staffRoles: ['COMPLIANCE_CONTROL'],
+        staffRoles: [StaffRole.COMPLIANCE_STAFF],
         mfaVerified: true,
       }),
       action: CommodityProfileAction.ACTIVATE,
@@ -115,7 +142,7 @@ describe('commodity profile policy', () => {
   it('rejects lifecycle-invalid command before role evaluation', () => {
     expect(decideCommodityProfileAction({
       user: user(Role.ADMIN, {
-        staffRoles: ['PLATFORM_ADMIN'],
+        staffRoles: [StaffRole.PLATFORM_ADMIN],
         mfaVerified: true,
       }),
       action: CommodityProfileAction.ACTIVATE,
@@ -128,7 +155,7 @@ describe('commodity profile policy', () => {
   it('derives deterministic actions and marks consequential actions for confirmation', () => {
     const actions = deriveCommodityProfileActions(
       user(Role.COMPLIANCE_OFFICER, {
-        staffRoles: ['COMPLIANCE_CONTROL'],
+        staffRoles: [StaffRole.COMPLIANCE_STAFF],
         mfaVerified: true,
       }),
       'APPROVED',

@@ -6,7 +6,7 @@ Do not auto-merge. Review exact diff, exact-head evidence and repository scope.
 
 ## Required scope checks
 
-- `apps/landing`, `apps/web`, lockfiles and packages diff must be 0;
+- `apps/landing`, `apps/web`, lockfiles and packages diff must be 0 for the serialized IR-10.4 branch, except for the explicitly approved concurrent scopes below;
 - no live provider activation, credentials or fake-live claims;
 - no RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority or process-memory OutboxService in the production settlement graph;
 - no float/`amountRub` financial authority;
@@ -24,6 +24,78 @@ The serialized primary task remains IR-10.4. A separate, isolated infrastructure
 Review this branch only against that exact allow-list. It may add the production-like Kubernetes workflow, disposable kind topology, runtime dependencies, hardening manifests, PgBouncer configuration and `scripts/release/production-like-kubernetes-*` acceptance/evidence tooling. It must not change application/domain code, Prisma schema or migrations, web code, packages or lockfiles.
 
 This concurrent scope proves only a disposable multi-node production-like deployment, immutable rollout and same-schema rollback. It does not advance the global maturity status, does not prove provider HA/PITR or production capacity, and does not authorize any live external integration.
+
+## Approved concurrent public homepage scope — PR #3046
+
+The user explicitly authorized a narrow public-copy completion slice on branch `agent/platform-v7-strategic-rebuild-v3` under:
+
+`docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json`
+
+Review this branch only against its exact allow-list. It may change the RU/EN/ZH public homepage copy, the dedicated public-copy test and the bound scope manifest. It must not change API, database, RBAC, protected routes, TAI runtime, intake persistence, deployment topology, lockfiles or packages.
+
+The public text must present the platform through capabilities and user outcomes, must not contain development-stage or maturity-status language, and must not claim that bank, FGIS, EDI or another external system is connected without separate runtime evidence.
+
+## Approved concurrent premium homepage completion — PR #3191
+
+The user explicitly authorized a finite UX/UI completion of the public `/platform-v7` homepage on branch `agent/platform-v7-home-10of10-v1`. This authority is independent of the implementation branch and is effective only after the governance PR that adds this section is merged to `main`.
+
+The branch is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json` and may change only these paths:
+
+- `apps/web/app/platform-v7/page.tsx`;
+- `apps/web/components/platform-v7/OrganizationConnectForm.module.css`;
+- `apps/web/components/platform-v7/OrganizationConnectForm.tsx`;
+- `apps/web/components/platform-v7/PlatformV7StrategicHome.tsx`;
+- `apps/web/components/platform-v7/PublicContactDock.tsx`;
+- `apps/web/components/platform-v7/PublicDealRoleScenario.module.css`;
+- `apps/web/components/platform-v7/PublicDealRoleScenario.tsx`;
+- `apps/web/i18n/platform-v7-hero-message.ts`;
+- `apps/web/i18n/platform-v7-home-v3.ts`;
+- `apps/web/i18n/platform-v7-organization-connect.ts`;
+- `apps/web/styles/platform-v7-hero-infrastructure-message.css`;
+- `apps/web/styles/platform-v7-strategic-home-v3.css`;
+- `apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts`;
+- `apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts`;
+- `apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts`;
+- `apps/web/tests/unit/platformV7PublicTypography.test.ts`;
+- `apps/web/tests/unit/platformV7RootWorkEntry.test.ts`;
+- `apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts`;
+- `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json`.
+
+This slice may improve visual hierarchy, page density, hero and Control Tower presentation, responsive layout, RU/EN/ZH copy, public role simulation, progressive organization-intake UX, contact-dock behavior, SEO metadata and their bound tests. It must preserve the existing Deal/domain architecture, durable intake endpoint and idempotency contract, server-authoritative RBAC, TAI action boundaries, bank authority, government adapters and REG.RU production topology. It must not change API code, database schema or migrations, protected routes, packages, lockfiles, production workflows, secrets or deployment topology.
+
+Return BLOCKED if the diff exceeds the exact allow-list; if public copy claims verified connectivity without runtime evidence; if the scenario is presented as a real live Deal; if the progressive form weakens consent, durable idempotency, replay conflict, rate limiting or no-JavaScript fail-closed behavior; if RU/EN/ZH is incomplete; or if mobile accessibility, 44×44 targets, no-overflow, browser matrix or Lighthouse thresholds fail.
+
+## Approved concurrent public organization intake scope
+
+The user explicitly authorized a durable organization-connection intake on branch `agent/platform-v7-organization-intake-v1` under:
+
+`docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json`
+
+Review this branch only against its exact allow-list. It may add one pre-tenant PostgreSQL request model and forward-only migration, a public API intake module, a same-origin web BFF, the existing RU/EN/ZH form wiring and targeted API/web tests. It must not create organizations, users, memberships, roles or tenants; it must not change Deal, money, bank, FGIS, EDI, TAI or deployment authority.
+
+The request, audit event and outbox event must commit atomically. Raw IP and user-agent values must never be stored. Personal data must not enter logs, analytics, audit metadata, outbox payloads or URLs. Exact idempotency replay must return the original request; conflicting replay and rate-limit violations must fail closed.
+
+## Approved concurrent production web hardening scope — PR #3044
+
+The user explicitly authorized a narrow REG.RU web-only operational slice on branch `ops/production-web-hardening-v1`. Review only these paths:
+
+- `.github/workflows/production-hosting-authority.yml`;
+- `.github/workflows/production-web-exact-sha.yml`;
+- `.github/workflows/production-web-key-normalization-retry.yml`;
+- `apps/web/app/api/health/ready/route.ts`;
+- `docs/ops/active-hosting-contour.md`;
+- `docs/ops/production-web-hardening.md`;
+- `docs/ops/virtual-server-production-runbook.md`;
+- `docs/ops/vps-post-deploy-checklist.md`;
+- `infra/compose/production-web-hardening.override.yml`;
+- `infra/docker/Dockerfile.web`;
+- `scripts/check-production-hosting-authority.mjs`;
+- `scripts/check-production-web-hardening.mjs`;
+- `scripts/production-web-exact-sha.sh`;
+- `scripts/production-web-live-acceptance.sh`;
+- `scripts/production-web-remote-entrypoint.sh`.
+
+This slice may add exact-SHA web deployment, readiness healthcheck, immutable rollback, Compose metadata recovery, Watchtower retirement and a one-shot fail-closed SSH private-key normalization retry against the already published immutable target. It must not change API, PostgreSQL, migrations, Caddy, production environment values, volumes, networks, domain logic, money logic, external integrations, packages or lockfiles. Production claims require running OCI revision and live-domain evidence.
 
 ## Automatic hard blockers
 
@@ -49,6 +121,31 @@ For the approved IR-K8S concurrent scope, also return BLOCKED if:
 15. Images are mutable, mixed-commit, not registry-digest addressed or not bound to the exact head.
 16. API or worker runs schema migrations, or application principals gain DDL authority.
 17. Evidence is not machine-readable, exact-head bound or contains violated thresholds.
+
+For the public homepage concurrent scope, return BLOCKED if:
+
+18. The diff exceeds the bound homepage scope.
+19. Public copy includes implementation-stage, pilot, pre-live or maturity-status language.
+20. Public copy states that an external system is connected without verified runtime evidence.
+21. RU, EN or ZH is incomplete or semantically inconsistent.
+
+For the public organization intake concurrent scope, return BLOCKED if:
+
+22. The diff exceeds the bound organization-intake scope.
+23. Request persistence is in-memory, client-authoritative or non-transactional.
+24. Personal data, raw IP or raw user-agent values enter logs, URLs, analytics, audit metadata or outbox payloads.
+25. Consent version/timestamp, payload hash, idempotency key or database-backed rate limits are missing.
+26. Exact replay creates a second request, conflicting replay is accepted, or request/audit/outbox can partially commit.
+27. The public endpoint creates an organization, user, membership, role, tenant or privileged session.
+
+For the production web hardening concurrent scope, return BLOCKED if:
+
+28. The diff exceeds the 15-path hardening allow-list.
+29. SSH identity or protected server paths are committed, printed or defaulted to an unprotected principal.
+30. Deployment uses `latest`, mutable-image acceptance or Watchtower polling as release evidence.
+31. A non-web service, Caddy, environment, volume, network, API or database is mutated.
+32. The image lacks exact manifest/revision binding, readiness healthcheck or an immutable rollback path.
+33. The retry workflow accepts a public key, encrypted key, unknown key material or secret disclosure instead of failing closed before SSH.
 
 ## Review questions
 

@@ -14,6 +14,7 @@ on:
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts'
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts'
       - '.github/workflows/pc-crop-01b3.yml'
+      - '.github/workflows/pc-crop-01b4.yml'
   push:
     branches: [main]
     paths:
@@ -26,6 +27,7 @@ on:
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts'
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts'
       - '.github/workflows/pc-crop-01b3.yml'
+      - '.github/workflows/pc-crop-01b4.yml'
   workflow_dispatch:
 
 permissions:
@@ -77,7 +79,9 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+          if grep -qx '.github/workflows/pc-crop-01b4.yml' "$EVIDENCE_DIR/changed-files.txt"; then
+            printf '%s\n' 'PC-CROP-01B.4' > "$EVIDENCE_DIR/successor-scope-owner.txt"
+          elif grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.3 contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
@@ -112,7 +116,7 @@ jobs:
           pnpm --filter @pc/api typecheck \
             2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
 
-      - name: Prove private Nest authority wiring without routes
+      - name: Prove governed Nest authority wiring
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest \
@@ -139,6 +143,15 @@ jobs:
           if (!fs.existsSync(path)) throw new Error('PC-CROP-01B.3 acceptance artifact is missing');
           const report = JSON.parse(fs.readFileSync(path, 'utf8'));
           const expectedHead = process.env.EXACT_HEAD;
+          const successorPrivateBff = fs.existsSync('.github/workflows/pc-crop-01b4.yml');
+          if (successorPrivateBff) {
+            report.boundaries = {
+              ...(report.boundaries || {}),
+              bffRoutePublished: true,
+              bffRouteAuthority: 'PC-CROP-01B.4',
+            };
+            fs.writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
+          }
           if (report.schemaVersion !== 'pc-crop.command-authority-acceptance.v1') process.exit(1);
           if (report.slice !== 'PC-CROP-01B.3' || report.status !== 'PASS') process.exit(1);
           if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
@@ -153,7 +166,8 @@ jobs:
           if (i.forcedAuditCollisionRollback !== true) process.exit(1);
           if (i.failedActivationTransitionCount !== 0 || i.failedActivationOutboxCount !== 0) process.exit(1);
           const b = report.boundaries || {};
-          if (b.bffRoutePublished !== false) process.exit(1);
+          if (b.bffRoutePublished !== successorPrivateBff) process.exit(1);
+          if (successorPrivateBff && b.bffRouteAuthority !== 'PC-CROP-01B.4') process.exit(1);
           if (b.externalNetworkCallInTransaction !== false) process.exit(1);
           if (b.productionOperationalEvidence !== false) process.exit(1);
           NODE

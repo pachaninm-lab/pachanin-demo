@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-01b4-private-bff-live-registry",
+  "status": "active",
+  "issue": 2946,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-01a.yml",
+    ".github/workflows/pc-crop-01b3.yml",
+    ".github/workflows/pc-crop-01b4.yml",
+    "apps/api/src/modules/commodity-profiles/**",
+    "apps/web/app/api/platform-v7/commodity-profiles/**",
+    "apps/web/app/api/staff/commodity-profile-registry/**",
+    "apps/web/app/api/staff/commodity-profiles/**",
+    "apps/web/app/platform-v7/commodity-profiles/**",
+    "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",
+    "apps/web/components/crop-platform/CommodityProfileRegistryClient.module.css",
+    "apps/web/components/crop-platform/commodity-profile-live-adapter.ts",
+    "apps/web/lib/platform-v7/cabinet-access-policy.ts",
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "apps/web/lib/platform-v7/routes.ts",
+    "apps/web/tests/unit/commodityProfileLiveAdapter.test.ts",
+    "apps/web/tests/unit/platformV7CommodityProfileLiveRegistry.test.ts",
+    "apps/web/tsconfig.pc-crop.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-01b4-private-bff-live-registry.json",
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/verify-pc-crop-01a.mjs"
+  ],
+  "boundaries": {
+    "clientSelectedRoleTenantJitAuthority": false,
+    "staticAuthorityFallback": false,
+    "publicUnauthenticatedRoute": false,
+    "productionDeploymentEvidence": false,
+    "regulatedSeedActivation": false,
+    "dealLotProfilePinning": false
+  }
+}

@@ -44,6 +44,7 @@ const outboxPrisma = new PrismaClient({
 });
 const kafka = new Kafka({ clientId: `${RUN_ID}.acceptance`, brokers: KAFKA_BROKERS.split(',') });
 let consumer: Consumer;
+let consumerJoined = false;
 const deliveredIds = new Set<string>();
 const deliveryCounts = new Map<string, number>();
 const workers: WorkerProcess[] = [];
@@ -158,6 +159,9 @@ beforeAll(async () => {
   await admin.disconnect();
 
   consumer = kafka.consumer({ groupId: `${RUN_ID}.consumer` });
+  consumer.on(consumer.events.GROUP_JOIN, () => {
+    consumerJoined = true;
+  });
   await consumer.connect();
   await consumer.subscribe({ topic: TOPIC, fromBeginning: false });
   await consumer.run({
@@ -170,6 +174,10 @@ beforeAll(async () => {
       }
     },
   });
+  // consumer.run() starts asynchronously. Do not seed durable work until the
+  // unique acceptance consumer has joined its Kafka group, otherwise
+  // fromBeginning=false can legitimately skip records produced in that window.
+  await waitFor(() => consumerJoined, 30_000);
 });
 
 afterAll(async () => {

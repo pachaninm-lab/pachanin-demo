@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { Languages } from 'lucide-react';
 import { isAppLocale, SUPPORTED_LOCALES, type AppLocale } from '@/i18n/locale';
 
 const SHORT_LABELS: Record<AppLocale, string> = {
@@ -39,7 +40,7 @@ export async function PublicLocaleLink() {
       data-current-locale={locale}
       data-next-locale={next}
     >
-      <b aria-hidden='true'>文</b>
+      <Languages aria-hidden='true' size={19} strokeWidth={1.9} />
       <span>{currentLabel}</span>
     </a>
   );

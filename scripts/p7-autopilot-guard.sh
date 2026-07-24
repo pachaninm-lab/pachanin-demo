@@ -190,6 +190,7 @@ scripts/p7-autopilot-guard.sh'
 
 TRANSITIVE_RUNTIME_REMEDIATION_SCOPE='package.json
 pnpm-lock.yaml
+apps/api/prisma/migrations/20260723182500_public_organization_intake_correlation_return_contract/**
 docs/platform-v7/autopilot/security-exceptions.json
 scripts/p7-autopilot-guard.sh'
 
@@ -315,26 +316,7 @@ if [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
-SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
-const fs = require('fs');
-const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
-const manifests = {
-  'agent/restore-global-contact-dock': 'docs/platform-v7/autopilot/scopes/restore-global-contact-dock-2810.json',
-  'ir/k8s-production-like-2659': 'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json',
-  'feat/assistant-universal-understanding': 'docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json',
-  'fix/public-ai-layout-authority': 'docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json',
-};
-const path = manifests[branch];
-if (!path) process.exit(0);
-const scope = JSON.parse(fs.readFileSync(path, 'utf8'));
-if (scope.branch !== branch) throw new Error(`Scope manifest branch ${scope.branch} != ${branch}`);
-if (scope.status !== 'active') throw new Error(`Scope manifest ${path} is not active`);
-if (!Array.isArray(scope.allowedPaths) || scope.allowedPaths.length === 0) {
-  throw new Error(`Scope manifest ${path} has no allowedPaths`);
-}
-for (const file of scope.allowedPaths) console.log(file);
-JS
-)
+SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node scripts/p7-source-controlled-scope.mjs)
 
 if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")

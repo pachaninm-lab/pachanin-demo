@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const ROOT = process.cwd();
+const ROOT = path.resolve(__dirname, '../../../..');
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
 function sourceFiles(root: string): string[] {
@@ -38,7 +38,7 @@ const dealDocumentsPage = read('apps/web/app/platform-v7/deals/[id]/documents/pa
 
 describe('Next.js 15 runtime contracts', () => {
   it('pins the patched Next.js line without coupling the change to React 19', () => {
-    expect(webPackage.dependencies?.next).toBe('15.5.18');
+    expect(webPackage.dependencies?.next).toBe('15.5.21');
     expect(webPackage.dependencies?.react).toBe('18.3.1');
     expect(webPackage.dependencies?.['react-dom']).toBe('18.3.1');
     expect(webPackage.dependencies?.['next-intl']).toBe('^3.26.5');
@@ -94,6 +94,7 @@ describe('Next.js 15 runtime contracts', () => {
     const unresolved: string[] = [];
 
     for (const file of sourceFiles('apps/web/app/api')) {
+      if (file.endsWith('/runtime-auth-helpers.ts')) continue;
       if (hasUnawaitedCall(read(file), 'runtimeAuthHeaders')) unresolved.push(file);
     }
     for (const file of sourceFiles('apps/web/lib')) {

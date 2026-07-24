@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "pc-crop.predecessor-trigger-lock.v1",
+  "baselineCommit": "3133779b10b69950ed0f01c9a58e9f98e4d957fe",
+  "workflowCount": 5,
+  "workflows": {
+    ".github/workflows/pc-crop-07a.yml": {
+      "permissionsAndJobsSha256": "e7db6fa3da6ef29ae7d83c2e8d7ba5b108f917315831413ccbb482760e66218c"
+    },
+    ".github/workflows/pc-crop-07b.yml": {
+      "permissionsAndJobsSha256": "b3037d4cd4337a2dd3ab9d400094bee21c2b89b7044b1b17e0f7a49dbaeedea0"
+    },
+    ".github/workflows/pc-crop-08b.yml": {
+      "permissionsAndJobsSha256": "d96b09bb58b0818f7b0f03e6f2c22bba257c5825fdedc029dd536af45489abcd"
+    },
+    ".github/workflows/pc-crop-08c.yml": {
+      "permissionsAndJobsSha256": "e7476625e3553755aff2ec932c82955852b0848a695ab0b01ce02c9399e7bdb2"
+    },
+    ".github/workflows/pc-crop-08d.yml": {
+      "permissionsAndJobsSha256": "1c9e6ce6afc2109e5eb668a550669116dfa8393bf6092101e3b63027c1003c74"
+    }
+  },
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
