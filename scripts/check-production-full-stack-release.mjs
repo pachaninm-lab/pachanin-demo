@@ -27,6 +27,10 @@ requireAll('publish', [
   '${{ env.IMAGE_PREFIX }}-migration',
   'file: infra/docker/Dockerfile.migrations',
   'GIT_COMMIT=${{ github.sha }}',
+  '.github/workflows/production-full-stack-exact-sha.yml',
+  'scripts/production-full-stack-exact-sha.sh',
+  'scripts/production-full-stack-live-acceptance.sh',
+  'scripts/check-production-full-stack-release.mjs',
 ]);
 requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
