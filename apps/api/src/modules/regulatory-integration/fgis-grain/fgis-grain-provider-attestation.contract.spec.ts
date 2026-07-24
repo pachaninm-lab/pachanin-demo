@@ -55,7 +55,7 @@ describe('FGIS Grain provider configuration and attestation contracts', () => {
   it.each([
     ['localhost placeholder', { endpointReference: 'endpoint://localhost/fgis' }, 'INLINE_SECRET_OR_ENDPOINT_FORBIDDEN'],
     ['raw userinfo', { credentialReference: 'credential://user@vault/fgis' }, 'INLINE_SECRET_OR_ENDPOINT_FORBIDDEN'],
-    ['raw token marker', { credentialReference: 'credential://vault/token=secret' }, 'INLINE_SECRET_OR_ENDPOINT_FORBIDDEN'],
+    ['malformed token-bearing reference', { credentialReference: 'credential://vault/token=secret' }, 'REFERENCE_INVALID'],
     ['raw private key marker', { signingKeyReference: 'signing-key://vault/-----BEGIN' }, 'INLINE_SECRET_OR_ENDPOINT_FORBIDDEN'],
     ['unexpected field', { password: 'secret' }, 'MALFORMED_CONFIGURATION'],
     ['wrong API pin', { apiVersion: '1.0.22' }, 'MALFORMED_CONFIGURATION'],
