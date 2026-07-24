@@ -6,6 +6,7 @@
   "baseCommit": "eafd90a675e83a4de1b0d296848dd0179263e745",
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
+    ".github/workflows/pc-crop-08b.yml",
     ".github/workflows/pc-crop-08c.yml",
     "apps/api/src/modules/regulatory-integration/fgis-grain/**",
     "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
