@@ -52,6 +52,8 @@ const required = [
   'public."outbox_entries"',
   'fgis_grain_provider_configurations',
   'fgis_grain_provider_attestations',
+  'SUSPENDED',
+  'REVOKED',
 ];
 for (const value of required) {
   if (!`${contract}\n${repository}\n${migration}`.includes(value)) {
@@ -61,22 +63,24 @@ for (const value of required) {
 
 if (!migration.includes('FORCE ROW LEVEL SECURITY')) failures.push('forced RLS missing');
 if (!migration.includes('reject_fgis_grain_provider_attestation_mutation')) failures.push('immutable attestation trigger missing');
-if (!migration.includes('current_setting(\'app.current_tenant_id\', true)')) failures.push('tenant RLS context missing');
-if (!migration.includes('current_setting(\'app.current_org_id\', true)')) failures.push('organization RLS context missing');
+if (!migration.includes("current_setting('app.current_tenant_id', true)")) failures.push('tenant RLS context missing');
+if (!migration.includes("current_setting('app.current_org_id', true)")) failures.push('organization RLS context missing');
 if (!moduleSource.includes('FgisGrainProviderAttestationRepository')) failures.push('module binding missing');
 if (!repository.includes('new Set([...approved.values()].map((row) => row.actorUserId))')
-  || !repository.includes('One actor cannot approve multiple gates')) {
+  || !repository.includes('One actor cannot decide multiple gates')) {
   failures.push('independent actor separation missing');
 }
 if (!repository.includes('validUntil.getTime() > Date.now()')) failures.push('live TTL approval check missing');
 if (!repository.includes('configurationVersion') || !repository.includes('STALE')) failures.push('configuration version binding missing');
+if (!repository.includes('contentMatches(current, draft)')) failures.push('content-version authority missing');
 if (repository.includes('clientTenantId') || repository.includes('clientOrganizationId')) failures.push('client-selected authority marker found');
 
 for (const value of [
   'deterministic replay',
   'stale If-Match',
   'role separation and MFA',
-  'invalidates prior approvals',
+  'invalidates approvals only when reference content changes',
+  'governed suspend and irreversible revoke',
   'never activates PRODUCTION',
   'immutable',
   'NotFoundException',
@@ -103,10 +107,14 @@ const invariants = {
     .every((gate) => repository.includes(gate)),
   mfaRequired: repository.includes('mfaVerified !== true'),
   ttlAndVersionBinding: repository.includes('validUntil') && repository.includes('configurationVersion'),
+  contentVersionInvalidation: repository.includes('contentMatches(current, draft)')
+    && repository.includes('version = current.version + 1n'),
   optimisticConcurrency: repository.includes('expectedVersion') && repository.includes('PreconditionFailedException'),
   atomicAuditAndCanonicalOutbox: repository.includes('public."audit_events"')
     && repository.includes('public."outbox_entries"')
     && repository.includes('TransactionIsolationLevel.Serializable'),
+  governedSuspendAndRevoke: repository.includes('async suspend(')
+    && repository.includes('async revoke('),
   productionActivationDenied: contract.includes('PRODUCTION_ACTIVATION_FORBIDDEN'),
   noSecondQueue: !runtime.includes('BullModule') && !runtime.includes('new Queue'),
   noNetworkOrCryptoImplementation: !runtime.includes('fetch(')
