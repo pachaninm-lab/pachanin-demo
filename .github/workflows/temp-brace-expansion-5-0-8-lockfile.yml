@@ -72,7 +72,7 @@ jobs:
 
       - name: Verify exact production dependency graph
         run: |
-          pnpm --filter @pc/api list brace-expansion minimatch readdir-glob glob --prod --depth 20 --json > /tmp/brace-production-graph.json
+          pnpm --filter @pc/api list --prod --depth 20 --json > /tmp/brace-production-graph.json
           node <<'NODE'
           const fs = require('fs');
           const roots = JSON.parse(fs.readFileSync('/tmp/brace-production-graph.json', 'utf8'));
@@ -102,6 +102,7 @@ jobs:
               throw new Error(name + ' versions ' + JSON.stringify(actual) + ' != ' + JSON.stringify(expected));
             }
           };
+          console.log(Object.fromEntries([...versions].map(([name, values]) => [name, [...values].sort()]).filter(([name]) => ['brace-expansion', 'readdir-glob', 'minimatch'].includes(name))));
           exact('brace-expansion', ['5.0.8']);
           exact('readdir-glob', ['3.0.0']);
           exact('minimatch', ['10.2.5']);
