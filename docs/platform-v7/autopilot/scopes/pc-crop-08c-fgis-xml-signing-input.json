@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08c-fgis-xml-signing-input",
+  "status": "active",
+  "issue": 3163,
+  "baseCommit": "eafd90a675e83a4de1b0d296848dd0179263e745",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08c.yml",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/**",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json",
+    "scripts/pc-crop-08c/**",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "boundaries": {
+    "officialPinnedPackageOnly": true,
+    "acceptedTypedCatalogOnly": true,
+    "generalPurposeXmlParser": false,
+    "networkClient": false,
+    "liveCredentialOrCertificateUse": false,
+    "cryptographicSigningOrVerification": false,
+    "externalProviderCall": false,
+    "dealLotOrSdizMutation": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeploymentEvidence": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
