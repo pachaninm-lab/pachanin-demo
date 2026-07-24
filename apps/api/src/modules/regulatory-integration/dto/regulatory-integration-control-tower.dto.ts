@@ -25,7 +25,8 @@ export const INTEGRATION_HONEST_STATUSES = [
 
 export const INTEGRATION_ENVIRONMENTS = [
   'SANDBOX',
-  'PRE_PRODUCTION',
+  'TEST',
+  'PREPROD',
   'PRODUCTION',
 ] as const;
 
