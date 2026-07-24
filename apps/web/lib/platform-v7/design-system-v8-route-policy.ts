@@ -4,6 +4,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/health',
   '/platform-v7/audit-log',
   '/platform-v7/connectors',
+  '/platform-v7/integrations',
   '/platform-v7/api-docs',
   '/platform-v7/profile',
   '/platform-v7/profile/team',
@@ -43,6 +44,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
 const DESIGN_SYSTEM_V8_PREFIX_ROUTES = [
   '/platform-v7/deals/',
   '/platform-v7/commodity-profiles',
+  '/platform-v7/integrations',
   '/platform-v7/auction',
   '/platform-v7/buyer/rfq',
   '/platform-v7/bank',
