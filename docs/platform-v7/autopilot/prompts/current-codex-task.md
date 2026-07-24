@@ -2,7 +2,7 @@
 
 Maturity: pre-integration / isolated PostgreSQL evidence only.
 Do not imply live bank, nominal-account, credit, reserve or payout integration.
-Do not change `apps/landing`, `apps/web`, lockfiles, packages or production credentials.
+Do not change `apps/landing`, `apps/web`, lockfiles, packages or production credentials except within an explicitly approved concurrent scope below.
 Do not auto-merge, create self-modifying workflows or push directly to `main`.
 
 ## Source of truth
@@ -57,10 +57,16 @@ Use the exact scope from `autopilot-state.json`, centred on:
 - migration and one-deal scripts listed in state
 - Source of Truth documents
 
+## Approved concurrent premium homepage completion — PR #3191
+
+The user explicitly authorized branch `agent/platform-v7-home-10of10-v1` to complete the public `/platform-v7` homepage without changing Deal/domain architecture. The implementation is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json` and the exact allow-list recorded in `current-review-task.md`.
+
+Allowed outcomes are limited to public UX/UI hierarchy, responsive CSS, RU/EN/ZH copy, public role simulation, progressive organization-intake presentation, contact-dock behavior, SEO metadata and their bound unit/E2E tests. Preserve the existing durable intake endpoint and idempotency/replay/rate-limit/no-JavaScript boundaries. Do not change API code, database schema or migrations, RBAC, protected routes, bank or TAI authority, external adapters, packages, lockfiles, production workflows or REG.RU deployment topology. No fake-live or unverified external-connectivity claim is permitted.
+
 ## Forbidden zones
 
 - apps/landing
-- apps/web
+- apps/web outside the exact approved concurrent homepage allow-list
 - package and lock files
 - live integration activation
 - production migration execution
