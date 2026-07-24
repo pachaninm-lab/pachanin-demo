@@ -9,7 +9,9 @@ from tai import qwen_preview_runtime as runtime
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Validate governed Qwen read-only preview runtime evidence.")
+    parser = argparse.ArgumentParser(
+        description="Validate governed Qwen read-only preview runtime evidence."
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
     validate = commands.add_parser("validate-authority")

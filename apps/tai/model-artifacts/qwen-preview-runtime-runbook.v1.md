@@ -30,12 +30,13 @@ The dedicated model host must provide:
 - Linux x86_64;
 - user `tai-model`;
 - non-symlink workspace `/srv/tai-models`;
-- a completed conversion report under `/srv/tai-models/conversion-runs`;
+- the exact accepted conversion root `8bd494dc…/29810648430-1`;
+- its exact `status.json`, conversion authority, canonical report, and Q4 step evidence;
 - the report-bound `artifacts/qwen3-8b-q4-k-m.gguf`;
 - the report-local `toolchain/bin/llama-server` from llama.cpp release `b9637`;
 - `curl`, `jq`, `python3`, `sha256sum`, `ss`, and `stat`.
 
-The runtime independently recomputes the conversion report self-digest, Q4_K_M size and SHA-256, and `llama-server` size and SHA-256 before execution. The newest valid completed conversion report is selected only from the governed conversion root. This host-local identity remains pending external immutable storage acceptance.
+The runtime accepts only conversion exact-main `8bd494dc4954baaf699cffa243951392ff451ebb`, workflow `29810648430`, attempt `1`. It verifies the pinned conversion-authority and report SHA-256 values, the exact Qwen source revision, the separate COMPLETE `qwen3-8b-q4-k-m` step with exit code 0, and the pinned 5,027,784,032-byte GGUF digest. Hint-based, glob-based, or newest-report selection is prohibited. This host-local identity remains pending external immutable storage acceptance.
 
 ## Runtime boundaries
 
@@ -47,7 +48,8 @@ The runtime independently recomputes the conversion report self-digest, Q4_K_M s
 - queued requests: 0 in the controlled driver;
 - startup timeout: 180 seconds;
 - request timeout: 120 seconds;
-- peak RSS limit: 12,000,000,000 bytes;
+- observed whole-process-tree RSS limit: 12,000,000,000 bytes;
+- 50 ms fail-closed RSS guard, active during model load, readiness, and every request;
 - tools and write authority: disabled;
 - public routing, Gateway/UI binding, service installation, and deployment: prohibited.
 
@@ -70,7 +72,7 @@ The verifier rejects raw fields, duplicate JSON keys, stale evidence, wrong exac
 
 ## Cleanup and rollback
 
-On success or failure the remote trap terminates `llama-server`, removes the host-only raw directory, and verifies that the preview port is no longer listening. The contour does not create a system service, container, public listener, route, or persistent deployment, so rollback is restoration of the pre-run no-listener state.
+The launcher creates a dedicated process session in a stopped state. The RSS guard validates PID, process group, session, start time, and its first sample before the model is resumed. On an observed breach or guard failure it terminates the entire tracked process group and descendants. On success or failure the remote trap terminates and reaps the server and guard, removes the host-only raw directory, and verifies that the preview port is no longer listening. This userspace guard is a fail-closed preview control, not evidence of a kernel cgroup memory cap. The contour does not create a system service, container, public listener, route, or persistent deployment, so rollback is restoration of the pre-run no-listener state.
 
 ## Maturity boundary
 

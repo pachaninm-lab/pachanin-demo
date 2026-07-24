@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import pytest
-
 from tai import qwen_preview_runtime as runtime
 from tests.qwen_preview_runtime_fixtures import (
     EVALUATED_AT,
@@ -28,7 +28,52 @@ def _verify(tmp_path: Path, evidence: dict[str, Any]) -> dict[str, Any]:
 
 def test_authority_pending_and_valid_evidence(tmp_path: Path) -> None:
     authority = runtime.load_authority(authority_path())
-    assert authority["authority_sha256"] == "f7e25bfbcc8d39249d918c6800365734ab889e5d47f6e053c2df11214db461cb"
+    assert authority["authority_sha256"] == (
+        "92519ae74be50687cee534f69e284108ee13dd2c317e4e2e0355554de6c65129"
+    )
+    assert authority["conversion_input"] == {
+        "exact_main_sha": "8bd494dc4954baaf699cffa243951392ff451ebb",
+        "workflow_run_id": 29810648430,
+        "workflow_run_attempt": 1,
+        "root": (
+            "/srv/tai-models/conversion-runs/"
+            "8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1"
+        ),
+        "report_path": (
+            "/srv/tai-models/conversion-runs/"
+            "8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1/"
+            "evidence/conversion-report.json"
+        ),
+        "conversion_authority_path": (
+            "/srv/tai-models/conversion-runs/"
+            "8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1/"
+            "control/model-conversion-authority.v1.json"
+        ),
+        "conversion_authority_sha256": (
+            "e7531a0d19fbdb92d14fa84d8bb3fd5a4a012ee61e3bf7cc632513bd435388f4"
+        ),
+        "step_report_path": (
+            "/srv/tai-models/conversion-runs/"
+            "8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1/"
+            "evidence/steps/qwen3-8b-q4-k-m.json"
+        ),
+        "required_root_state": "COMPLETE",
+        "required_report_status": (
+            "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE"
+        ),
+        "report_sha256": (
+            "056c0203f382f6e3e1e57ebf145448cfddbff4718456fac7a2a84c6420185241"
+        ),
+        "source_model_id": "Qwen/Qwen3-8B",
+        "source_revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+        "required_step_key": "qwen3-8b-q4-k-m",
+        "required_step_status": "COMPLETE",
+        "output_path": "artifacts/qwen3-8b-q4-k-m.gguf",
+        "model_sha256": (
+            "107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814"
+        ),
+        "model_size_bytes": 5027784032,
+    }
     pending = runtime.load_pending(pending_path())
     assert pending["accepted"] is False
     evidence = _verify(tmp_path, valid_evidence())
@@ -58,6 +103,12 @@ def _set(path: tuple[str | int, ...], value: object) -> Mutation:
         (_set(("host", "listener_after"), True), "listener lifecycle"),
         (_set(("host", "public_listener"), True), "listener lifecycle"),
         (_set(("model", "model_id"), "other/model"), "model identity"),
+        (_set(("model", "sha256"), "e" * 64), "conversion provenance"),
+        (_set(("model", "size_bytes"), 5_027_784_033), "conversion provenance"),
+        (
+            _set(("model", "conversion_report_sha256"), "f" * 64),
+            "conversion provenance",
+        ),
         (_set(("toolchain", "release"), "latest"), "toolchain"),
         (_set(("limits", "context_tokens"), 8192), "runtime limits"),
         (_set(("runtime", "health_status"), "STARTING"), "readiness"),
@@ -69,12 +120,13 @@ def _set(path: tuple[str | int, ...], value: object) -> Mutation:
         (_set(("smoke", 0, "completion_tokens"), 129), "token or payload"),
         (_set(("smoke", 0, "response_bytes"), 65537), "token or payload"),
         (_set(("cleanup", "raw_deleted"), False), "cleanup"),
-        (_set(("maturity_boundary", "production_operational_status"), "ATTESTED"), "maturity"),
+        (
+            _set(("maturity_boundary", "production_operational_status"), "ATTESTED"),
+            "maturity",
+        ),
     ],
 )
-def test_fail_closed_mutations(
-    tmp_path: Path, mutation: Mutation, match: str
-) -> None:
+def test_fail_closed_mutations(tmp_path: Path, mutation: Mutation, match: str) -> None:
     evidence = valid_evidence()
     mutation(evidence)
     with pytest.raises(runtime.PreviewRuntimeError, match=match):
@@ -98,7 +150,9 @@ def test_incomplete_duplicate_and_raw_evidence_are_rejected(tmp_path: Path) -> N
         _verify(tmp_path, resign(evidence))
 
     duplicate = tmp_path / "duplicate.json"
-    duplicate.write_text('{"schema_version":"x","schema_version":"y"}', encoding="utf-8")
+    duplicate.write_text(
+        '{"schema_version":"x","schema_version":"y"}', encoding="utf-8"
+    )
     with pytest.raises(runtime.PreviewRuntimeError, match="duplicate JSON key"):
         runtime.load_json(duplicate)
 
@@ -136,4 +190,12 @@ def test_authority_digest_and_model_drift_fail(tmp_path: Path) -> None:
     authority["authority_sha256"] = runtime.canonical_sha256(authority)
     runtime.write_json(path, authority)
     with pytest.raises(runtime.PreviewRuntimeError, match="model authority"):
+        runtime.load_authority(path)
+
+    authority = runtime.load_json(authority_path())
+    authority["conversion_input"]["workflow_run_id"] += 1
+    authority.pop("authority_sha256")
+    authority["authority_sha256"] = runtime.canonical_sha256(authority)
+    runtime.write_json(path, authority)
+    with pytest.raises(runtime.PreviewRuntimeError, match="conversion input authority"):
         runtime.load_authority(path)

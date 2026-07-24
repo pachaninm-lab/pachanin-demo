@@ -12,11 +12,19 @@ EVALUATED_AT = "2026-07-22T04:10:00+00:00"
 
 
 def authority_path() -> Path:
-    return Path(__file__).parents[1] / "model-artifacts" / "qwen-preview-runtime-authority.v1.json"
+    return (
+        Path(__file__).parents[1]
+        / "model-artifacts"
+        / "qwen-preview-runtime-authority.v1.json"
+    )
 
 
 def pending_path() -> Path:
-    return Path(__file__).parents[1] / "model-artifacts" / "qwen-preview-runtime.pending.json"
+    return (
+        Path(__file__).parents[1]
+        / "model-artifacts"
+        / "qwen-preview-runtime.pending.json"
+    )
 
 
 def valid_evidence() -> dict[str, Any]:
@@ -61,9 +69,13 @@ def valid_evidence() -> dict[str, Any]:
             "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
             "quantization": "Q4_K_M",
             "path_label": "artifacts/qwen3-8b-q4-k-m.gguf",
-            "sha256": "c" * 64,
-            "size_bytes": 5_000_000_000,
-            "conversion_report_sha256": "d" * 64,
+            "sha256": (
+                "107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814"
+            ),
+            "size_bytes": 5_027_784_032,
+            "conversion_report_sha256": (
+                "056c0203f382f6e3e1e57ebf145448cfddbff4718456fac7a2a84c6420185241"
+            ),
             "conversion_status": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
         },
         "toolchain": copy.deepcopy(authority["toolchain"]),
