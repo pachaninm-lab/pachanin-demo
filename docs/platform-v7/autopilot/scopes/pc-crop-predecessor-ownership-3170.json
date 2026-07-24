@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/pc-crop-predecessor-ownership-3170",
+  "status": "active",
+  "issue": 3170,
+  "baseCommit": "3133779b10b69950ed0f01c9a58e9f98e4d957fe",
+  "operationalStatus": "GOVERNANCE_ONLY",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-07a.yml",
+    ".github/workflows/pc-crop-07b.yml",
+    ".github/workflows/pc-crop-08b.yml",
+    ".github/workflows/pc-crop-08c.yml",
+    ".github/workflows/pc-crop-08d.yml",
+    ".github/workflows/pc-crop-predecessor-governance.yml",
+    "docs/platform-v7/autopilot/pc-crop-workflow-ownership.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-predecessor-ownership-3170.json",
+    "scripts/pc-crop-owned-diff.mjs",
+    "scripts/pc-crop-owned-diff.test.mjs",
+    "scripts/pc-crop-predecessor-governance-apply.mjs",
+    "scripts/verify-pc-crop-predecessor-governance.mjs"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "predecessorAcceptanceDisabled": false,
+    "securityGateDisabled": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
