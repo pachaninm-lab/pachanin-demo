@@ -10,24 +10,29 @@ describe('platform-v7 infrastructure hero message', () => {
   const css = read('styles/platform-v7-hero-infrastructure-message.css');
   const page = read('app/platform-v7/page.tsx');
 
-  it('uses the approved plain-language RU message as the first-screen hierarchy', () => {
-    expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения сделок в растениеводстве'");
-    expect(copy).toContain("brand: '«Прозрачная Цена»'");
-    expect(copy).toContain("title: 'ведёт агросделку от цены до закрытия.'");
-    expect(copy).toContain('Условия, участники, торги, логистика, приёмка, качество, документы, расчёты и доказательства связаны вокруг одной Сделки.');
+  it('uses the approved product-led RU message as the first-screen hierarchy', () => {
+    expect(copy).toContain("kicker: 'Единая цифровая инфраструктура агросделки'");
+    expect(copy).toContain("brand: 'Контроль исполнения Сделки'");
+    expect(copy).toContain("title: 'от цены до расчёта и закрытия'");
+    expect(copy).toContain('Товар, участники, логистика, качество, документы и деньги связаны в одной Сделке.');
+    expect(copy).toContain('Платформа показывает блокер, ответственного, основание и следующий шаг.');
     expect(component).toContain("className='pc-v6-hero-brand'");
     expect(component).toContain("className='pc-v6-hero-title-line'");
     expect(component).toContain("className='pc-v6-hero-lead'");
+    expect(component).toContain("className='pc-v6-control-tower'");
   });
 
   it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
     expect(copy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
     expect(copy).toContain("locale === 'en' ? messages.en : locale === 'zh' ? messages.zh : messages.ru");
-    expect(copy).toContain("brand: 'Transparent Price'");
-    expect(copy).toContain("brand: '透明价格'");
+    expect(copy).toContain("brand: 'Control Deal execution'");
+    expect(copy).toContain("brand: '控制交易执行'");
+    expect(copy).not.toContain('...messages.ru');
   });
 
-  it('keeps TAI naming concise and user-facing', () => {
+  it('keeps TAI inside the product cockpit rather than a detached AI landing', () => {
+    expect(component).toContain('copy.tower.taiTitle');
+    expect(component).toContain("eventName='open_tai'");
     expect(component).toContain("<strong>TAI</strong><span>{copy.tai.mode}</span>");
     expect(component).not.toContain('getTaiName');
     expect(component).not.toContain('прозрачный агроинтеллект');
@@ -50,5 +55,6 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(css).toContain('@media (min-width: 1280px)');
     expect(css).toContain('text-wrap: balance');
     expect(css).toContain(':lang(zh) .pc-v6-hero h1.pc-v6-hero-title');
+    expect(css).toContain('min-height: min(760px, calc(100dvh - 64px))');
   });
 });
