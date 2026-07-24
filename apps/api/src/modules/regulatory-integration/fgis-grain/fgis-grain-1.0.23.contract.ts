@@ -276,7 +276,7 @@ export function toRegulatoryInboundEnvelope(
   envelope: FgisGrainContractEnvelopeMetadata,
 ): RegulatoryInboundEnvelope {
   const validation = validateFgisGrainContractEnvelope(envelope);
-  if (!validation.valid) {
+  if ('errorCode' in validation) {
     throw new Error(`FGIS_GRAIN_${validation.errorCode}`);
   }
   if (!['INBOUND_RESPONSE', 'INBOUND_FAULT'].includes(envelope.direction)) {
@@ -299,7 +299,7 @@ export function toFgisGrainOutboundEnvelopeMetadata(
   envelope: FgisGrainContractEnvelopeMetadata,
 ): FgisGrainOutboundEnvelopeMetadata {
   const validation = validateFgisGrainContractEnvelope(envelope);
-  if (!validation.valid) {
+  if ('errorCode' in validation) {
     throw new Error(`FGIS_GRAIN_${validation.errorCode}`);
   }
   if (envelope.direction !== 'OUTBOUND_REQUEST') {
