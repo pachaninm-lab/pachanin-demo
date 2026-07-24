@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "pc-crop.fgis-zerno-official-source.v1",
+  "adapterCode": "FGIS_ZERNO",
+  "apiVersion": "1.0.23",
+  "expectedFilename": "fgis-zerno-api-1.0.23.zip",
+  "operatorPageUrl": "https://specagro.ru/fgis/api",
+  "operatorFaqUrl": "https://specagro.ru/fgis-faq",
+  "allowedHttpsOrigins": [
+    "https://specagro.ru",
+    "https://static.specagro.ru"
+  ],
+  "linkLabelContains": "API 1.0.23",
+  "environmentStatus": "ADAPTER_READY",
+  "operationalStatus": "NOT_ATTESTED",
+  "binaryArchiveInGit": false,
+  "liveEndpointCalls": false,
+  "credentialsIncluded": false,
+  "confirmedLive": false,
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
