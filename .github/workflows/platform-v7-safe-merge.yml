@@ -52,6 +52,33 @@ jobs:
             echo "  - skipped: platform-v7 agent-generated PRs are reserved for platform-v7-autopilot-generated-merge.yml" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$prs"
 
+  pc-crop-08f-sync-control:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3180 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/pc-crop-08f dispatch-sync'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Dispatch bounded exact-main synchronizer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch_head=$(gh api "repos/$REPO/commits/agent/pc-crop-08f-sdiz-projection" --jq .sha)
+          [[ "$branch_head" =~ ^[0-9a-f]{40}$ ]]
+          gh workflow run pc-crop-08f-sync-main.yml --repo "$REPO" --ref main
+          sleep 5
+          run=$(gh api "repos/$REPO/actions/workflows/pc-crop-08f-sync-main.yml/runs?event=workflow_dispatch&per_page=10" \
+            --jq '.workflow_runs | sort_by(.created_at) | reverse | .[0]')
+          run_id=$(printf '%s' "$run" | jq -r '.id // empty')
+          run_url=$(printf '%s' "$run" | jq -r '.html_url // empty')
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          gh issue comment 3180 --repo "$REPO" --body "PC-CROP-08F exact-main synchronization dispatched for branch head \`$branch_head\`: $run_url"
+
   production-release-control-3072:
     if: >-
       github.event_name == 'issue_comment' &&
