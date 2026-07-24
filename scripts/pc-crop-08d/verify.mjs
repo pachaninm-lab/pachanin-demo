@@ -168,6 +168,10 @@ const report = {
 };
 
 fs.mkdirSync(path.join(root, evidenceDir), { recursive: true });
+fs.copyFileSync(
+  path.join(root, 'scripts/p7-autopilot-guard.sh'),
+  path.join(root, evidenceDir, 'p7-autopilot-guard.sh'),
+);
 fs.writeFileSync(
   path.join(root, evidenceDir, 'pc-crop-08d-acceptance.json'),
   `${JSON.stringify(report, null, 2)}\n`,
