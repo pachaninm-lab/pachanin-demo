@@ -94,7 +94,7 @@ export async function PlatformV7StrategicHome() {
               <div><small>{copy.tower.sampleLabel}</small><span>{copy.tower.deal}</span></div>
               <b>{copy.tower.stage}</b>
             </div>
-            <div className='pc-v6-ct-progress' aria-label={copy.tower.progressLabel}>
+            <div className='pc-v6-ct-progress' role='progressbar' aria-label={copy.tower.progressLabel} aria-valuemin={1} aria-valuemax={5} aria-valuenow={3}>
               <span className='is-done' /><span className='is-done' /><span className='is-active' /><span /><span />
             </div>
             <div className='pc-v6-ct-grid'>
@@ -152,7 +152,7 @@ export async function PlatformV7StrategicHome() {
           <div className='pc-v6-lifecycle' role='list' tabIndex={0} aria-label={copy.lifecycle.title}>
             {copy.lifecycle.phases.map((phase, index) => <div key={phase} role='listitem'><i>{index + 1}</i><span>{phase}</span></div>)}
           </div>
-          <p className='pc-v6-scroll-hint'>{copy.lifecycle.hint}</p>
+          <p className='pc-v6-scroll-hint' style={{ color: '#596a61' }}>{copy.lifecycle.hint}</p>
         </section>
 
         <section id='participants' className='pc-v6-section pc-v6-scenario'>
