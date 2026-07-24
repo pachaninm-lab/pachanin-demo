@@ -1,11 +1,29 @@
-import '@/styles/platform-v7-public-header.css';
-import '@/styles/platform-v7-public-mobile-safe-area.css';
-import '@/styles/platform-v7-public-typography.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-strategic-home-v3.css';
 import '@/styles/platform-v7-hero-infrastructure-message.css';
 import type { Metadata } from 'next';
 import { PlatformV7StrategicHome } from '@/components/platform-v7/PlatformV7StrategicHome';
+
+const CRITICAL_HOME_SHELL_CSS = `
+.pc-v7-public-entry {
+  --pc-entry-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --pc-entry-font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --entry-public-header-offset: env(safe-area-inset-top, 0px);
+  --entry-public-header-base: 64px;
+  --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
+  min-height: 100dvh !important;
+  padding-top: var(--entry-header-height) !important;
+  font-family: var(--pc-entry-font-body);
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+}
+.pc-v7-public-entry .pc-site-header {
+  top: var(--entry-public-header-offset) !important;
+  height: var(--entry-public-header-base) !important;
+  min-height: var(--entry-public-header-base) !important;
+  max-height: var(--entry-public-header-base) !important;
+}
+`;
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта',
@@ -45,5 +63,5 @@ export const metadata: Metadata = {
 };
 
 export default function PlatformV7RootPage() {
-  return <PlatformV7StrategicHome />;
+  return <><style>{CRITICAL_HOME_SHELL_CSS}</style><PlatformV7StrategicHome /></>;
 }
