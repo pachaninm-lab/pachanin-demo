@@ -1,4 +1,4 @@
-name: Prepare release-control PR for web 1b9b77a
+name: Materialize release-control artifact for web 1b9b77a
 
 on:
   push:
@@ -8,34 +8,32 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   packages: read
-  pull-requests: write
   issues: write
 
 concurrency:
-  group: prepare-release-control-web-1b9b77a
+  group: materialize-release-control-web-1b9b77a
   cancel-in-progress: true
 
 env:
   TARGET_SHA: 1b9b77acf17b8a74f90b0822dee429602e789c92
   EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-1b9b77a
   RELEASE_ISSUE_NUMBER: 3187
-  RELEASE_BRANCH: ops/release-control-1b9b77a
+  EVIDENCE_DIR: artifacts/release-control-1b9b77a
 
 jobs:
-  prepare:
-    name: Verify image and open governed release-control PR
+  materialize:
+    name: Verify image and materialize governed deploy workflow
     if: github.event_name == 'push' || github.actor == github.repository_owner
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - name: Checkout current main
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-          persist-credentials: true
 
       - name: Verify immutable target lineage
         shell: bash
@@ -67,15 +65,15 @@ jobs:
           echo "architecture=$architecture" >> "$GITHUB_OUTPUT"
           echo "image_id=$image_id" >> "$GITHUB_OUTPUT"
 
-      - name: Bind bounded deploy workflow to exact target
+      - name: Materialize exact release binding
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('.github/workflows/production-web-key-normalization-retry.yml')
-          text = path.read_text()
+          source = Path('.github/workflows/production-web-key-normalization-retry.yml')
+          text = source.read_text()
           replacements = (
               ('name: Retry Exact Web Release 58b4624', 'name: Retry Exact Web Release 1b9b77a'),
               ('RETRY-58B4624', 'RETRY-1B9B77A'),
@@ -102,87 +100,59 @@ jobs:
           for marker in required:
               if marker not in text:
                   raise SystemExit(f'incomplete release binding: {marker}')
-          path.write_text(text)
+          destination = Path('artifacts/release-control-1b9b77a/production-web-key-normalization-retry.yml')
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          destination.write_text(text)
           PY
 
-      - name: Remove temporary release preparation files
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -f \
-            .github/workflows/prepare-and-dispatch-production-web-1b9b77a.yml \
-            .github/workflows/production-web-build-1b9b77a.yml \
-            .github/release-triggers/production-web-1b9b77a.md
-
-      - name: Commit governed release-control branch
-        id: commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          git add -A \
-            .github/workflows/production-web-key-normalization-retry.yml \
-            .github/workflows/prepare-and-dispatch-production-web-1b9b77a.yml \
-            .github/workflows/production-web-build-1b9b77a.yml \
-            .github/release-triggers/production-web-1b9b77a.md
-          changed="$(git diff --cached --name-only | sort)"
-          printf 'Governed release-control diff:\n%s\n' "$changed"
-          grep -Fxq '.github/workflows/production-web-key-normalization-retry.yml' <<< "$changed"
-          grep -Fxq '.github/workflows/prepare-and-dispatch-production-web-1b9b77a.yml' <<< "$changed"
-          if grep -Ev '^\.github/(workflows/(production-web-key-normalization-retry|prepare-and-dispatch-production-web-1b9b77a|production-web-build-1b9b77a)\.yml|release-triggers/production-web-1b9b77a\.md)$' <<< "$changed" | grep -q .; then
-            echo 'Unexpected file in release-control commit.' >&2
-            exit 1
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'ops(release): bind bounded web deploy to 1b9b77a'
-          release_commit="$(git rev-parse HEAD)"
-          git push --force origin "HEAD:$RELEASE_BRANCH"
-          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
-
-      - name: Open or update release-control PR
-        id: pr
+      - name: Build machine-readable evidence
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$RELEASE_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
-          if [[ -n "$existing" ]]; then
-            pr_number="$existing"
-          else
-            body_file="$(mktemp)"
-            cat > "$body_file" <<EOF
-          Binds the existing bounded REG.RU web-only release workflow to exact target \`$TARGET_SHA\`.
-
-          Exact image authority: \`$EXACT_IMAGE\` with matching OCI revision and linux/amd64 architecture.
-
-          On merge, the existing push trigger performs the bounded deployment and publishes evidence to issue #3187. No application, API, database, migration, Caddy or unrelated service changes.
-          EOF
-            pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$RELEASE_BRANCH" --title 'ops(release): bind bounded web deploy to 1b9b77a' --body-file "$body_file")"
-            pr_number="${pr_url##*/}"
-          fi
-          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
-          echo "pr_url=https://github.com/$GITHUB_REPOSITORY/pull/$pr_number" >> "$GITHUB_OUTPUT"
-
-      - name: Record successful preparation
-        if: success()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_COMMIT: ${{ steps.commit.outputs.release_commit }}
-          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
-          PR_URL: ${{ steps.pr.outputs.pr_url }}
           IMAGE_REVISION: ${{ steps.image.outputs.revision }}
           IMAGE_ARCH: ${{ steps.image.outputs.architecture }}
           IMAGE_ID: ${{ steps.image.outputs.image_id }}
         run: |
           set -euo pipefail
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Exact image verified and release-control PR opened\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- OCI revision: \`$IMAGE_REVISION\`\n- architecture: \`$IMAGE_ARCH\`\n- image ID: \`$IMAGE_ID\`\n- release-control commit: \`$RELEASE_COMMIT\`\n- release-control PR: #$PR_NUMBER\n- preparation workflow run: \`$GITHUB_RUN_ID\`"
+          cat > "$EVIDENCE_DIR/manifest.env" <<EOF
+          STATUS=PASS
+          TARGET_SHA=$TARGET_SHA
+          EXACT_IMAGE=$EXACT_IMAGE
+          OCI_REVISION=$IMAGE_REVISION
+          ARCHITECTURE=$IMAGE_ARCH
+          IMAGE_ID=$IMAGE_ID
+          SOURCE_MAIN_SHA=$GITHUB_SHA
+          WORKFLOW_RUN_ID=$GITHUB_RUN_ID
+          EOF
+          sha256sum \
+            "$EVIDENCE_DIR/production-web-key-normalization-retry.yml" \
+            "$EVIDENCE_DIR/manifest.env" \
+            > "$EVIDENCE_DIR/sha256.txt"
 
-      - name: Record preparation failure
+      - name: Upload governed release-control artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-control-1b9b77a-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Record successful materialization
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_REVISION: ${{ steps.image.outputs.revision }}
+          IMAGE_ARCH: ${{ steps.image.outputs.architecture }}
+          IMAGE_ID: ${{ steps.image.outputs.image_id }}
+        run: |
+          set -euo pipefail
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Governed release-control artifact ready\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- OCI revision: \`$IMAGE_REVISION\`\n- architecture: \`$IMAGE_ARCH\`\n- image ID: \`$IMAGE_ID\`\n- artifact: \`release-control-1b9b77a-$GITHUB_RUN_ID\`\n- materialization workflow run: \`$GITHUB_RUN_ID\`"
+
+      - name: Record materialization failure
         if: failure()
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Release-control preparation failed closed\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- preparation workflow run: \`$GITHUB_RUN_ID\`\n- production deployment was not dispatched."
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Release-control artifact materialization failed closed\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- workflow run: \`$GITHUB_RUN_ID\`\n- production deployment was not dispatched."
