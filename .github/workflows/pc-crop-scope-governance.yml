@@ -1,0 +1,73 @@
+name: PC-CROP Scope Governance Acceptance
+
+on:
+  push:
+    branches:
+      - governance/pc-crop-scope-autodiscovery-3170
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-scope-governance.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-scope-autodiscovery-3170.json'
+      - 'scripts/p7-autopilot-guard.sh'
+      - 'scripts/p7-source-controlled-scope.mjs'
+      - 'scripts/p7-source-controlled-scope.test.mjs'
+      - 'scripts/p7-scope-governance-apply.mjs'
+      - 'scripts/verify-p7-scope-governance.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pc-crop-scope-governance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope-governance:
+    name: Auto-discovery · fail-closed manifests · no runtime change
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run resolver abuse contracts
+        run: node --test scripts/p7-source-controlled-scope.test.mjs
+
+      - name: Apply one-time central guard migration
+        if: github.event_name == 'push' && github.ref_name == 'governance/pc-crop-scope-autodiscovery-3170'
+        run: node scripts/p7-scope-governance-apply.mjs
+
+      - name: Verify machine-readable governance invariants
+        run: node scripts/verify-p7-scope-governance.mjs
+
+      - name: Commit idempotent migration to the governed branch
+        if: github.event_name == 'push' && github.ref_name == 'governance/pc-crop-scope-autodiscovery-3170'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- scripts/p7-autopilot-guard.sh; then
+            echo 'Central guard already uses scope auto-discovery.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/p7-autopilot-guard.sh
+          git commit -m 'PC-CROP governance: auto-discover source-controlled scopes'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Upload governance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-scope-governance-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/pc-crop-scope-governance
+          if-no-files-found: error
+          retention-days: 90
