@@ -1,8 +1,18 @@
--- The accepted FGIS 1.0.23 GOST signature algorithm URI is longer than the
--- legacy 64-character inbox field. Preserve the exact provider identifier;
--- truncation or an invented alias is forbidden.
+-- Preserve the exact accepted FGIS 1.0.23 GOST algorithm URI without
+-- rewriting the legacy compact identifier column. The migration is additive
+-- and remains compatible with application rollback.
 ALTER TABLE public."regulatory_integration_inbox_entries"
-  ALTER COLUMN "signatureAlgorithm" TYPE varchar(255);
+  ADD COLUMN "signatureAlgorithmUri" text;
+
+ALTER TABLE public."regulatory_integration_inbox_entries"
+  ADD CONSTRAINT "regulatory_integration_inbox_signature_algorithm_uri_ck"
+  CHECK (
+    "signatureAlgorithmUri" IS NULL
+    OR (
+      char_length("signatureAlgorithmUri") BETWEEN 1 AND 1024
+      AND "signatureAlgorithmUri" !~ '[[:cntrl:]]'
+    )
+  );
 
 CREATE TABLE public."fgis_grain_sdiz_projection_batches" (
   "id" text PRIMARY KEY,
