@@ -35,6 +35,7 @@ export async function PlatformV7StrategicHome() {
   const chrome = await getTranslations('publicEntry.chrome');
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
+  const towerTaiTitle = locale.startsWith('ru') ? 'TAI нашёл две причины остановки' : copy.tower.taiTitle;
 
   const nav = <>
     <a href='#deal-path'>{copy.nav.how}</a>
@@ -121,7 +122,7 @@ export async function PlatformV7StrategicHome() {
             </div>
             <div className='pc-v6-tai-strip'>
               <Sparkles size={18} />
-              <div><strong>{copy.tower.taiTitle}</strong><span>{copy.tower.taiText}</span></div>
+              <div><strong>{towerTaiTitle}</strong><span>{copy.tower.taiText}</span></div>
             </div>
             <div className='pc-v6-ct-actions'>
               <PublicExperienceLink href={dealHref} eventName='hero_cockpit_open' locale={locale} params={{ source: 'hero_cockpit_v4' }}>
