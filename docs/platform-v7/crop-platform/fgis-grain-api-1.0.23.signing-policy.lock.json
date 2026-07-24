@@ -14,7 +14,8 @@
   },
   "policyManifestSha256": "e9851e9258cfef07a121c2558f2473228772134f78eeb22bc03f323093c66afe",
   "generatedTypescriptSha256": "3573604728a9fa303c0cf164f9ab88f8ffe79b0ae88b574704336d8b20d36428",
-  "pinnedAt": "2026-07-24T15:36:00Z",
+  "evidenceRunId": 30094916905,
+  "pinnedAt": null,
   "operationalStatus": "NOT_ATTESTED",
   "implementationStatus": "PORTS_ONLY",
   "productionHosting": "REG_RU_VPS_ONLY"
