@@ -20,7 +20,7 @@ env:
   TARGET_SHA: 1b9b77acf17b8a74f90b0822dee429602e789c92
   EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-1b9b77a
   EVIDENCE_DIR: artifacts/production-web-build-1b9b77a
-  RELEASE_ISSUE_NUMBER: 3048
+  RELEASE_ISSUE_NUMBER: 3187
 
 jobs:
   build:
