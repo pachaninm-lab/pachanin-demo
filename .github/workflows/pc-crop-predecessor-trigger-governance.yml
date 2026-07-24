@@ -1,0 +1,90 @@
+name: PC-CROP Predecessor Trigger Governance
+
+on:
+  push:
+    branches:
+      - governance/pc-crop-predecessor-trigger-isolation-3170
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-07a.yml'
+      - '.github/workflows/pc-crop-07b.yml'
+      - '.github/workflows/pc-crop-08b.yml'
+      - '.github/workflows/pc-crop-08c.yml'
+      - '.github/workflows/pc-crop-08d.yml'
+      - '.github/workflows/pc-crop-predecessor-trigger-governance.yml'
+      - 'docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-predecessor-trigger-isolation-3170.json'
+      - 'scripts/pc-crop-predecessor-trigger-governance.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  predecessor-trigger-governance:
+    name: Exact ownership paths · immutable predecessor jobs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EVIDENCE_DIR: artifacts/pc-crop-predecessor-trigger-governance
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Apply idempotent trigger isolation and verify immutable jobs
+        run: node scripts/pc-crop-predecessor-trigger-governance.mjs --apply
+
+      - name: Enforce exact governed diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only | sort > "$EVIDENCE_DIR/working-tree-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-(07a|07b|08b|08c|08d)\.yml|docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock\.json)$' \
+            "$EVIDENCE_DIR/working-tree-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+
+      - name: Commit one-time trigger migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- \
+            .github/workflows/pc-crop-07a.yml \
+            .github/workflows/pc-crop-07b.yml \
+            .github/workflows/pc-crop-08b.yml \
+            .github/workflows/pc-crop-08c.yml \
+            .github/workflows/pc-crop-08d.yml \
+            docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json; then
+            echo 'Predecessor triggers are already isolated.'
+            exit 0
+          fi
+          target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          test "$target_branch" = 'governance/pc-crop-predecessor-trigger-isolation-3170'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/pc-crop-07a.yml \
+            .github/workflows/pc-crop-07b.yml \
+            .github/workflows/pc-crop-08b.yml \
+            .github/workflows/pc-crop-08c.yml \
+            .github/workflows/pc-crop-08d.yml \
+            docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json
+          git commit -m 'PC-CROP governance: isolate predecessor workflow triggers'
+          git push origin "HEAD:${target_branch}"
+
+      - name: Upload governance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-predecessor-trigger-governance-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/pc-crop-predecessor-trigger-governance
+          if-no-files-found: error
+          retention-days: 90
