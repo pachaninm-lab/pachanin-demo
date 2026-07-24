@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   packages: write
+  issues: write
 
 concurrency:
   group: production-web-build-1b9b77a
@@ -19,6 +20,7 @@ env:
   TARGET_SHA: 1b9b77acf17b8a74f90b0822dee429602e789c92
   EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-1b9b77a
   EVIDENCE_DIR: artifacts/production-web-build-1b9b77a
+  RELEASE_ISSUE_NUMBER: 3048
 
 jobs:
   build:
@@ -91,6 +93,23 @@ jobs:
           [[ "$actual_revision" == "$TARGET_SHA" ]]
           [[ "$architecture" == amd64 ]]
           docker image inspect "$EXACT_IMAGE" > "$EVIDENCE_DIR/registry-image.json"
+
+      - name: Publish successful build record
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Exact web image built\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- OCI revision: \`$TARGET_SHA\`\n- architecture: \`linux/amd64\`\n- build workflow run: \`$GITHUB_RUN_ID\`"
+
+      - name: Publish failed build record
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Exact web image build failed\n\n- target SHA: \`$TARGET_SHA\`\n- exact image: \`$EXACT_IMAGE\`\n- build workflow run: \`$GITHUB_RUN_ID\`"
 
       - name: Build evidence checksums
         if: always()
