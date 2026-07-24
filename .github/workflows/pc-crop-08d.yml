@@ -12,6 +12,7 @@ on:
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts'
+      - 'apps/api/test/industrial/outbox-worker-process.e2e-spec.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json'
@@ -30,6 +31,7 @@ on:
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts'
+      - 'apps/api/test/industrial/outbox-worker-process.e2e-spec.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json'
@@ -90,7 +92,7 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-08[bcd]\.yml|apps/api/src/outbox-worker\.module\.ts|apps/api/src/modules/integration-events/durable-outbox\.worker(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-dispatch\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.signing-policy(\.lock)?\.json|infra/sql/postgresql-fgis-grain-dispatch-policies\.sql|scripts/pc-crop-08d/.*|scripts/p7-autopilot-guard\.sh)$' \
+          if grep -Ev '^(\.github/workflows/pc-crop-08[bcd]\.yml|apps/api/src/outbox-worker\.module\.ts|apps/api/src/modules/integration-events/durable-outbox\.worker(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/(fgis-grain-dispatch|outbox-worker-process)\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.signing-policy(\.lock)?\.json|infra/sql/postgresql-fgis-grain-dispatch-policies\.sql|scripts/pc-crop-08d/.*|scripts/p7-autopilot-guard\.sh)$' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-08D contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
