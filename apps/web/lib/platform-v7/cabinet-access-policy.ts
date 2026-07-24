@@ -4,6 +4,7 @@ import { platformV7RoleCanOpenHref, platformV7RoleRoute } from './shellRoutes';
 export const PLATFORM_V7_RBAC_FLAG = 'NEXT_PUBLIC_PLATFORM_V7_RBAC';
 
 const OVERSIGHT_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'executive']);
+const INTEGRATION_CONTROL_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'compliance', 'executive']);
 const SHARED_PATHS = [
   '/platform-v7/open',
   '/platform-v7/login',
@@ -16,6 +17,7 @@ const SHARED_PATHS = [
 ];
 const INTERNAL_OVERSIGHT_ROUTES = ['/platform-v7/support'];
 const NON_CORE_OVERSIGHT_ROUTES = ['/platform-v7/investor'];
+const INTEGRATION_CONTROL_ROUTE = '/platform-v7/integrations';
 
 export function platformV7RbacEnforced(): boolean {
   return true;
@@ -49,6 +51,7 @@ export function canRoleAccessCabinet(role: PlatformRole, pathname: string): bool
   const clean = normalize(pathname);
   if (!clean.startsWith('/platform-v7')) return true;
   if (isSharedPath(clean)) return true;
+  if (matchesPath(clean, INTEGRATION_CONTROL_ROUTE)) return INTEGRATION_CONTROL_ROLES.has(role);
   if (OVERSIGHT_ROLES.has(role)) return true;
   if (isPlatformV7InternalRoute(clean) || isPlatformV7NonCoreRoute(clean)) return false;
   return platformV7RoleCanOpenHref(role, clean);
