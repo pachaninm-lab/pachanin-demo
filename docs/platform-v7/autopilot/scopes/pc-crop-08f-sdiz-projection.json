@@ -7,6 +7,7 @@
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
     ".github/workflows/pc-crop-08f.yml",
+    "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts",
     "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
@@ -20,6 +21,8 @@
     "verifiedSignedInputOnly": true,
     "rawXmlPersistence": false,
     "directDealLotShipmentPaymentMutation": false,
+    "businessAcceptanceMutation": false,
+    "providerConfirmationMutation": false,
     "liveProviderCall": false,
     "secondInboxOutboxOrRelay": false,
     "confirmedLiveClaim": false,
