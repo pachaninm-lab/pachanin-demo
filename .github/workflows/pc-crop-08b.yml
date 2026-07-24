@@ -4,7 +4,11 @@ on:
   pull_request:
     paths:
       - '.github/workflows/pc-crop-08b.yml'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.generated.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.operations.generated.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-contract-catalog.service.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json'
@@ -15,7 +19,11 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/pc-crop-08b.yml'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.generated.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.operations.generated.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-contract-catalog.service.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json'
@@ -60,7 +68,10 @@ jobs:
             base_ref='HEAD^'
           fi
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-08b\.yml|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.operation-catalog(\.lock)?\.json|scripts/pc-crop-08b/.*|scripts/p7-autopilot-guard\.sh)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+          # PC-CROP-08C is the governed successor in the same adapter directory.
+          # Its governance files are allowed only for this trigger-separation migration;
+          # byte-identical generation below still proves the complete 08B catalog authority.
+          if grep -Ev '^(\.github/workflows/pc-crop-08b\.yml|\.github/workflows/pc-crop-08c\.yml|apps/api/src/modules/regulatory-integration/fgis-grain/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog\.json|docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input\.json|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.operation-catalog(\.lock)?\.json|scripts/pc-crop-08b/.*|scripts/pc-crop-08c/.*|scripts/p7-autopilot-guard\.sh)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-08B contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
