@@ -408,9 +408,11 @@ function deriveHonestStatus(row: AggregateRow): IntegrationHonestStatus {
     || row.deadCount > 0n
     || row.conflictCount > 0n
   ) return 'DEGRADED';
-  if (row.environment === 'SANDBOX' || row.environment === 'PRE_PRODUCTION') {
-    return 'TEST';
-  }
+  if (
+    row.environment === 'SANDBOX'
+    || row.environment === 'TEST'
+    || row.environment === 'PREPROD'
+  ) return 'TEST';
   if (row.environment === 'PRODUCTION') return 'ADAPTER_READY';
   return 'UNAVAILABLE';
 }
