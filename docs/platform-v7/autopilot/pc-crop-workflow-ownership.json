@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "pc-crop.predecessor-workflow-ownership.v1",
+  "workflows": {
+    "PC-CROP-07A": {
+      "workflowPath": ".github/workflows/pc-crop-07a.yml",
+      "scopeStepName": "Enforce exact PC-CROP-07A scope",
+      "triggerPaths": [
+        ".github/workflows/pc-crop-07a.yml",
+        "apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/migration.sql",
+        "apps/api/prisma/schema.prisma",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.errors.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-policy.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-policy.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.state-machine.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.state-machine.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.types.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.types.ts",
+        "apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts",
+        "docs/platform-v7/autopilot/scopes/pc-crop-07a.json",
+        "infra/sql/postgresql-regulatory-integration-inbox-policies.sql",
+        "scripts/verify-pc-crop-07a.mjs"
+      ]
+    },
+    "PC-CROP-07B": {
+      "workflowPath": ".github/workflows/pc-crop-07b.yml",
+      "scopeStepName": "Enforce exact PC-CROP-07B scope",
+      "triggerPaths": [
+        ".github/workflows/pc-crop-07b.yml",
+        "apps/api/src/app.module.ts",
+        "apps/api/src/modules/regulatory-integration/dto/regulatory-integration-control-tower.dto.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.command.service.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
+        "apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts",
+        "apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
+        "apps/web/app/api/staff/integrations/[adapterCode]/commands/reconcile/route.ts",
+        "apps/web/app/api/staff/integrations/_command-proxy.ts",
+        "apps/web/app/api/staff/integrations/inbox/[entryId]/commands/redrive/route.ts",
+        "apps/web/app/platform-v7/integrations/[adapterCode]/page.tsx",
+        "apps/web/app/platform-v7/integrations/integrations.module.css",
+        "apps/web/app/platform-v7/integrations/page.tsx",
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+        "apps/web/components/crop-platform/integration-control-tower-live-adapter.ts",
+        "apps/web/lib/platform-v7/cabinet-access-policy.ts",
+        "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+        "apps/web/lib/platform-v7/route-canonicalization.ts",
+        "apps/web/lib/platform-v7/routes.ts",
+        "apps/web/tests/unit/integrationControlTowerLiveAdapter.test.ts",
+        "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+        "apps/web/tests/unit/platformV7RouteCanonicalization.test.ts",
+        "apps/web/tsconfig.pc-crop.json",
+        "docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json",
+        "scripts/verify-pc-crop-07b.mjs"
+      ]
+    },
+    "PC-CROP-08B": {
+      "workflowPath": ".github/workflows/pc-crop-08b.yml",
+      "scopeStepName": "Enforce exact PC-CROP-08B scope",
+      "triggerPaths": [
+        ".github/workflows/pc-crop-08b.yml",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.generated.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.operations.generated.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-contract-catalog.service.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+        "docs/platform-v7/autopilot/scopes/pc-crop-08b-fgis-contract-catalog.json",
+        "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json",
+        "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.lock.json",
+        "scripts/pc-crop-08b/**"
+      ]
+    },
+    "PC-CROP-08C": {
+      "workflowPath": ".github/workflows/pc-crop-08c.yml",
+      "scopeStepName": "Enforce exact PC-CROP-08C scope",
+      "triggerPaths": [
+        ".github/workflows/pc-crop-08c.yml",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-xml-codec.service.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+        "docs/platform-v7/autopilot/scopes/pc-crop-08c-fgis-xml-signing-input.json",
+        "scripts/pc-crop-08c/**"
+      ]
+    },
+    "PC-CROP-08D": {
+      "workflowPath": ".github/workflows/pc-crop-08d.yml",
+      "scopeStepName": "Enforce exact PC-CROP-08D scope",
+      "triggerPaths": [
+        ".github/workflows/pc-crop-08d.yml",
+        "apps/api/src/modules/integration-events/durable-outbox.worker.spec.ts",
+        "apps/api/src/modules/integration-events/durable-outbox.worker.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.contract.spec.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.contract.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.fail-closed.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.signing-policy.generated.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-dispatch.repository.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
+        "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+        "apps/api/src/outbox-worker.module.ts",
+        "apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts",
+        "apps/api/test/industrial/outbox-worker-process.e2e-spec.ts",
+        "docs/platform-v7/autopilot/scopes/pc-crop-08d-fgis-signing-transport.json",
+        "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json",
+        "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json",
+        "scripts/pc-crop-08d/**"
+      ]
+    }
+  },
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "predecessorAcceptanceDisabled": false,
+    "unrelatedSuccessorFilesIgnoredByPredecessorScope": true,
+    "wholePullRequestStillGovernedByCentralGuard": true,
+    "productionHosting": "REG_RU_VPS_ONLY"
+  }
+}
