@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "pc-crop.predecessor-trigger-governance-plan.v1",
+  "issue": 3170,
+  "status": "PENDING_EXACT_HEAD",
+  "workflowCount": 5,
+  "jobBodiesMustRemainByteIdentical": true,
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
