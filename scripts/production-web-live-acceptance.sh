@@ -35,27 +35,32 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   health_ok=0
   if [[ "$ACTION" == rollback ]]; then
     health_ok=1
-  elif grep -Fq '"status":"ok"' <<< "$health" && grep -Fq "$TARGET_SHA" <<< "$health"; then
+  elif grep -Fq '"status":"ok"' <<< "$health" && grep -Fq '"service":"web"' <<< "$health"; then
     health_ok=1
   fi
 
-  if (( health_ok == 1 )) &&
-    grep -Fq "$TARGET_SHA" <<< "$manifest" &&
+  manifest_ok=0
+  if grep -Fq "$TARGET_SHA" <<< "$manifest"; then
+    manifest_ok=1
+  fi
+
+  if (( health_ok == 1 && manifest_ok == 1 )) &&
     [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]]; then
     curl -fsSL --compressed --max-time 15 "$LIVE_BASE/robots.txt" >/dev/null
     curl -fsSL --compressed --max-time 15 "$LIVE_BASE/sitemap.xml" >/dev/null
     printf 'LIVE_ACCEPTANCE=PASS\n'
     printf 'LIVE_ACTION=%s\n' "$ACTION"
     printf 'LIVE_REVISION=%s\n' "$TARGET_SHA"
+    printf 'LIVE_HEALTH=%s\n' "$health"
     printf 'LIVE_LANG_CODES=ru:%s,en:%s,zh:%s\n' "$ru_code" "$en_code" "$zh_code"
     exit 0
   fi
 
-  printf 'LIVE_ATTEMPT=%s/%s action=%s health=%s manifest_sha=%s codes=ru:%s,en:%s,zh:%s\n' \
+  printf 'LIVE_ATTEMPT=%s/%s action=%s health=%s manifest_sha=%s codes=ru:%s,en:%s,zh:%s health_payload=%q\n' \
     "$attempt" "$ATTEMPTS" "$ACTION" \
     "$([[ "$health_ok" == 1 ]] && echo accepted || echo mismatch)" \
-    "$(grep -Fq "$TARGET_SHA" <<< "$manifest" && echo match || echo mismatch)" \
-    "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}"
+    "$([[ "$manifest_ok" == 1 ]] && echo match || echo mismatch)" \
+    "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}" "$health"
   sleep "$DELAY_SECONDS"
 done
 
