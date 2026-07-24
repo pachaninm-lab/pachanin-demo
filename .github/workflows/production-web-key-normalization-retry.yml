@@ -1,34 +1,29 @@
-name: Retry Exact Web Release 58b4624
+name: One-shot REG.RU exact web release 1b9b77a
 
 on:
   push:
-    branches: [main]
+    branches:
+      - ops/prepare-production-web-1b9b77a
     paths:
       - '.github/workflows/production-web-key-normalization-retry.yml'
-  workflow_dispatch:
-    inputs:
-      confirmation:
-        description: 'Enter RETRY-58B4624'
-        required: true
-        type: string
 
 permissions:
-  contents: read
-  packages: read
+  contents: write
+  packages: write
   issues: write
 
 concurrency:
-  group: production-web-key-normalization-retry
+  group: production-web-exact-sha-1b9b77a
   cancel-in-progress: false
 
 env:
-  TARGET_SHA: 58b46246ac67eb31a913a8da0de74a78ed1fd095
-  EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-58b4624
+  TARGET_SHA: 1b9b77acf17b8a74f90b0822dee429602e789c92
+  EXACT_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-1b9b77a
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
-  EVIDENCE_DIR: artifacts/production-web-key-normalization-retry
-  RELEASE_ISSUE_NUMBER: 3048
+  EVIDENCE_DIR: artifacts/production-web-1b9b77a
+  RELEASE_ISSUE_NUMBER: '3187'
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -38,26 +33,22 @@ env:
   SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
   SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
   SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
 
 jobs:
-  retry:
-    name: Recover protected transport and retry web-only rollout
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-       github.actor == github.repository_owner &&
-       inputs.confirmation == 'RETRY-58B4624')
+  release:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-
+    timeout-minutes: 70
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact release source
+        uses: actions/checkout@v4
         with:
+          ref: ${{ env.TARGET_SHA }}
           fetch-depth: 0
 
-      - name: Validate immutable target and image
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Validate target lineage
         shell: bash
         run: |
           set -euo pipefail
@@ -65,12 +56,44 @@ jobs:
           git fetch --no-tags origin main
           git cat-file -e "${TARGET_SHA}^{commit}"
           git merge-base --is-ancestor "$TARGET_SHA" origin/main
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-          docker pull "$EXACT_IMAGE"
-          actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE")"
-          [[ "$actual" == "$TARGET_SHA" ]]
-          docker image inspect "$EXACT_IMAGE" > "$EVIDENCE_DIR/registry-image.json"
           printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish exact web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.EXACT_IMAGE }}
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_COMMIT=${{ env.TARGET_SHA }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Verify exact registry image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$EXACT_IMAGE"
+          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$EXACT_IMAGE")"
+          architecture="$(docker image inspect --format '{{ .Architecture }}' "$EXACT_IMAGE")"
+          [[ "$revision" == "$TARGET_SHA" ]]
+          [[ "$architecture" == amd64 ]]
+          docker image inspect "$EXACT_IMAGE" > "$EVIDENCE_DIR/registry-image.json"
+          printf '%s\n' "$revision" > "$EVIDENCE_DIR/registry-revision.txt"
+          printf '%s\n' "$architecture" > "$EVIDENCE_DIR/registry-architecture.txt"
 
       - name: Resolve protected credential and pinned host identity
         id: ssh
@@ -242,8 +265,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          encode() { printf '%s' "$1" | base64 -w0; }
+          prod_dir_b64="$(encode "${PROD_DIR_SECRET:-}")"
+          prod_compose_b64="$(encode "${PROD_COMPOSE_SECRET:-}")"
+          prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
           remote="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
-          remote_command="chmod 0700 '$remote' && PROD_DIR_B64='' PROD_COMPOSE_B64='' PROD_PROJECT_B64='' '$remote' deploy '$TARGET_SHA' '$GITHUB_RUN_ID'"
+          remote_command="chmod 0700 '$remote' && PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote' deploy '$TARGET_SHA' '$GITHUB_RUN_ID'"
           raw_log="$(mktemp)"
           set +e
           if [[ "$SSH_MODE" == key ]]; then
@@ -276,6 +303,18 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" deploy | tee "$EVIDENCE_DIR/live-acceptance.log"
+          cache="${TARGET_SHA:0:12}-$(date +%s)"
+          manifest="$(curl -fsSL --compressed --max-time 30 "$LIVE_BASE/manifest-pc-deploy.json?release=$cache")"
+          live_sha="$(jq -r '.commitSha // empty' <<<"$manifest")"
+          ru_code="$(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 30 "$LIVE_BASE/platform-v7?lang=ru&release=$cache")"
+          en_code="$(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 30 "$LIVE_BASE/platform-v7?lang=en&release=$cache")"
+          zh_code="$(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 30 "$LIVE_BASE/platform-v7?lang=zh&release=$cache")"
+          [[ "$live_sha" == "$TARGET_SHA" ]]
+          [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]]
+          printf '%s\n' "$live_sha" > "$EVIDENCE_DIR/live-revision.txt"
+          printf '%s\n' "$ru_code" > "$EVIDENCE_DIR/ru-http-code.txt"
+          printf '%s\n' "$en_code" > "$EVIDENCE_DIR/en-http-code.txt"
+          printf '%s\n' "$zh_code" > "$EVIDENCE_DIR/zh-http-code.txt"
 
       - name: Restore exact baseline after live failure
         if: steps.live.outcome == 'failure'
@@ -299,7 +338,7 @@ jobs:
               setsid -w ssh -p "$SSH_PORT" -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes -o NumberOfPasswordPrompts=1 "$SSH_USER@$SSH_HOST" "$remote_command"
           fi | sed -E '/^(PERSISTENT_IMAGE_OVERRIDE|PC_IMAGE_OVERRIDE|PROD_DIR|PRODUCTION_DIR|WORKDIR|CONFIG_FILES|COMPOSE_FILES?|[A-Z0-9_]*_PATH)=/ s#=.*#=[REDACTED]#' | tee "$EVIDENCE_DIR/live-failure-rollback.log"
 
-      - name: Publish retry record
+      - name: Publish exact-SHA release record
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -314,16 +353,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
           key_class="$(cat "$EVIDENCE_DIR/ssh-key-class.txt" 2>/dev/null || echo not-validated)"
           host_key_status="$(cat "$EVIDENCE_DIR/ssh-host-key-status.txt" 2>/dev/null || echo not-validated)"
           live_acceptance="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live-acceptance.log" 2>/dev/null | tail -1 || true)"
           rollback_result=not-required
           [[ ! -f "$EVIDENCE_DIR/live-failure-rollback.log" ]] || rollback_result=attempted
-          record="$EVIDENCE_DIR/retry-issue-comment.md"
+          non_web_unchanged=0
+          [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 ]] && non_web_unchanged=1
+          ru_code="$(cat "$EVIDENCE_DIR/ru-http-code.txt" 2>/dev/null || echo unknown)"
+          en_code="$(cat "$EVIDENCE_DIR/en-http-code.txt" 2>/dev/null || echo unknown)"
+          zh_code="$(cat "$EVIDENCE_DIR/zh-http-code.txt" 2>/dev/null || echo unknown)"
+          record="$EVIDENCE_DIR/release-issue-comment.md"
           {
-            echo "## Protected-transport production retry \`$GITHUB_RUN_ID\`"
+            echo "## Exact-SHA REG.RU web release \`$GITHUB_RUN_ID\`"
             echo
-            echo "- target SHA: \`$TARGET_SHA\`"
+            echo "- target / merge SHA: \`$TARGET_SHA\`"
+            echo "- exact image: \`$EXACT_IMAGE\`"
             echo "- protected transport: \`${TRANSPORT_MODE:-not-resolved}\`"
             echo "- SSH key classification: \`$key_class\`"
             echo "- VPS host-key verification: \`$host_key_status\`"
@@ -331,6 +377,8 @@ jobs:
             echo "- running OCI revision: \`${DEPLOYED_REVISION:-unknown}\`"
             echo "- Docker state: \`${DEPLOYED_STATE:-unknown}\`"
             echo "- live acceptance: \`${live_acceptance:-${LIVE_OUTCOME:-skipped}}\`"
+            echo "- RU / EN / ZH HTTP: \`$ru_code / $en_code / $zh_code\`"
+            echo "- non-web/non-Watchtower containers unchanged: \`$non_web_unchanged\`"
             echo "- rollback baseline: \`${BASELINE_REVISION:-unknown}\`"
             echo "- rollback result: \`$rollback_result\`"
             echo "- Watchtower retired: \`${WATCHTOWER_RETIRED:-0}\`"
@@ -338,25 +386,38 @@ jobs:
           } > "$record"
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${DEPLOYED_REVISION:-}" == "$TARGET_SHA" && "${live_acceptance:-}" == PASS && "${WATCHTOWER_RETIRED:-0}" == 1 && "$host_key_status" =~ ^(verified-secret|stable-canonical-scan)$ ]]; then
+          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${DEPLOYED_REVISION:-}" == "$TARGET_SHA" && "${live_acceptance:-}" == PASS && "${WATCHTOWER_RETIRED:-0}" == 1 && "$rollback_result" == not-required && "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]]; then
             gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
           fi
 
-      - name: Enforce retry result
+      - name: Enforce exact-SHA release result
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           [[ '${{ steps.production.outputs.deployment_complete }}' == 1 ]]
           [[ '${{ steps.production.outputs.deployed_web_revision }}' == "$TARGET_SHA" ]]
+          [[ '${{ steps.production.outputs.deployed_web_state }}' == healthy ]]
+          [[ '${{ steps.production.outputs.watchtower_retired }}' == 1 ]]
           [[ '${{ steps.live.outcome }}' == success ]]
+          [[ ! -f "$EVIDENCE_DIR/live-failure-rollback.log" ]]
 
-      - name: Upload retry evidence
+      - name: Upload exact-SHA evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: production-web-key-normalization-retry-${{ github.run_id }}
+          name: production-web-1b9b77a-${{ github.run_id }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
+
+      - name: Remove operational branch after success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set +e
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/ops/prepare-production-web-1b9b77a"
+          exit 0
