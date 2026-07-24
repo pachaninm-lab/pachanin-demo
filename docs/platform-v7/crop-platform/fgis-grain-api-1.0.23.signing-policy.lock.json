@@ -1,10 +1,10 @@
 {
   "schemaVersion": "pc-crop.fgis-grain-signing-policy-lock.v1",
   "apiVersion": "1.0.23",
-  "status": "DISCOVERY_REQUIRED",
+  "status": "PINNED",
   "packageSha256": "085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7",
   "protocolDocumentSha256": "b195a9928970761dde282c4789ebe71b6095435973028688fefbb1beb8e1de9a",
-  "protocolDocumentPath": null,
+  "protocolDocumentPath": "ФГИС ЗЕРНО - API 1.0.23/ФГИС ЗЕРНО API 1.0.23.docx",
   "policyVersion": "fgis-zerno-1.0.23-signing-policy.v1",
   "requiredIdentifiers": {
     "digestAlgorithmUri": "urn:ietf:params:xml:ns:cpxmlsec:algorithms:gostr34112012-256",
@@ -12,9 +12,9 @@
     "canonicalizationAlgorithmUri": "http://www.w3.org/2001/10/xml-exc-c14n#",
     "transformAlgorithmUri": "urn://smev-gov-ru/xmldsig/transform"
   },
-  "policyManifestSha256": null,
-  "generatedTypescriptSha256": null,
-  "pinnedAt": null,
+  "policyManifestSha256": "e9851e9258cfef07a121c2558f2473228772134f78eeb22bc03f323093c66afe",
+  "generatedTypescriptSha256": "3573604728a9fa303c0cf164f9ab88f8ffe79b0ae88b574704336d8b20d36428",
+  "pinnedAt": "2026-07-24T15:36:00Z",
   "operationalStatus": "NOT_ATTESTED",
   "implementationStatus": "PORTS_ONLY",
   "productionHosting": "REG_RU_VPS_ONLY"
