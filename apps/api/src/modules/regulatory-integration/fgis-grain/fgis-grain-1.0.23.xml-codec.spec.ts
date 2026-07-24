@@ -242,7 +242,10 @@ describe('FGIS Grain API 1.0.23 hardened SOAP/XML codec', () => {
   ];
 
   it.each(rejectedDocuments)('rejects %s', (_name, xml, code) => {
-    expectCodecError(() => decodeFgisGrainSoapEnvelope(xml), code);
+    expectCodecError(
+      () => decodeFgisGrainSoapEnvelope(xml),
+      typeof code === 'string' ? code : undefined,
+    );
   });
 
   it('rejects multiple SOAP Body and payload roots', () => {
