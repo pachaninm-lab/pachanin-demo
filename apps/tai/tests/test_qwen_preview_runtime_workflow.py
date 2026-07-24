@@ -166,7 +166,11 @@ def test_remote_is_loopback_read_only_and_cleans_up() -> None:
     assert 'root.glob("*/*/evidence/conversion-report.json")' not in remote
 
     compile(launcher, "SERVER_LAUNCH_PY", "exec")
-    compile(_heredoc(remote, "RSS_GUARD_PY"), "RSS_GUARD_PY", "exec")
+    rss_guard = _heredoc(remote, "RSS_GUARD_PY")
+    compile(rss_guard, "RSS_GUARD_PY", "exec")
+    assert "root = table.get(root_pid)" in rss_guard
+    assert "root identity changed" in rss_guard
+    assert "if not pids:\n        return" in rss_guard
     assert "RSS_GUARD_PID" in remote
     assert "RSS_READY_FILE" in remote
     assert "RSS_PEAK_FILE" in remote
