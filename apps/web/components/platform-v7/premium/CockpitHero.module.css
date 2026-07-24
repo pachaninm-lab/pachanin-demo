@@ -1,0 +1,38 @@
+.root {
+  --ds-text-gap-label: var(--ds-space-1, 4px);
+  --ds-text-gap-title: var(--ds-space-2, 8px);
+  --ds-text-gap-paragraph: var(--ds-space-3, 12px);
+  --ds-text-gap-action: var(--ds-space-4, 16px);
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-text-gap-action);
+}
+
+.layout {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-text-gap-paragraph);
+  flex-wrap: wrap;
+}
+
+.copy {
+  min-width: 0;
+  flex: 1 1 28rem;
+}
+
+.aside {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+@media (max-width: 720px) {
+  .layout {
+    display: grid;
+  }
+
+  .aside {
+    width: 100%;
+  }
+}
