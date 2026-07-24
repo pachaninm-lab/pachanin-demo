@@ -6,11 +6,25 @@ const CRITICAL_HOME_CSS = `
 .pc-v7-public-entry {
   --pc-entry-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
   --pc-entry-font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --pc-v6-green: #087a3b;
+  --pc-v6-green-dark: #07572e;
+  --pc-v6-ink: #102019;
+  --pc-v6-muted: #526159;
+  --pc-v6-line: #d7e1db;
+  --pc-v6-line-strong: #bfd0c6;
+  --pc-v6-bg: #f5f8f6;
+  --pc-v6-bg-strong: #edf5f0;
+  --pc-v6-warn: #8a5400;
+  --pc-v6-error: #a43132;
+  --pc-v6-font-body: var(--pc-entry-font-body);
+  --pc-v6-font-display: var(--pc-entry-font-display);
   --entry-public-header-offset: env(safe-area-inset-top, 0px);
   --entry-public-header-base: 64px;
   --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
   min-height: 100dvh !important;
   padding-top: var(--entry-header-height) !important;
+  background: #ffffff;
+  color: var(--pc-v6-ink);
   font-family: var(--pc-entry-font-body);
   text-rendering: auto;
   -webkit-font-smoothing: antialiased;
@@ -34,6 +48,7 @@ const CRITICAL_HOME_CSS = `
 .pc-v6-hero .pc-v6-kicker {
   max-width: 48ch;
   margin-bottom: 12px;
+  color: var(--pc-v6-green);
   font-size: 14px;
   font-weight: 680;
   line-height: 1.38;
