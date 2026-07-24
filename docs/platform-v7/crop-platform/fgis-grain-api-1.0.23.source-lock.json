@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "pc-crop.fgis-grain-source-lock.v1",
+  "version": "1.0.23",
+  "status": "DISCOVERY_REQUIRED",
+  "sourcePageUrl": "https://specagro.ru/fgis/api",
+  "expectedFilename": "fgis-zerno-api-1.0.23.zip",
+  "allowedPageHosts": [
+    "specagro.ru",
+    "www.specagro.ru"
+  ],
+  "allowedArtifactHosts": [
+    "static.specagro.ru"
+  ],
+  "packageSha256": null,
+  "finalArtifactUrl": null,
+  "artifactSizeBytes": null,
+  "inventorySha256": null,
+  "schemaManifestSha256": null,
+  "pinnedAt": null,
+  "operationalStatus": "NOT_ATTESTED",
+  "boundaries": {
+    "officialOperatorSourceOnly": true,
+    "liveConnection": false,
+    "credentialsPresent": false,
+    "confirmedLive": false
+  }
+}
