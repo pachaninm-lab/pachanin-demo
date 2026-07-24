@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08c-message-data-codec",
+  "status": "active",
+  "issue": 3165,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08c.yml",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/**",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08c-message-data-codec.json",
+    "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.message-data-profile.json",
+    "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.message-data-profile.lock.json",
+    "scripts/pc-crop-08c/**",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "boundaries": {
+    "officialPinnedPackageOnly": true,
+    "officialProtocolDocumentPinned": true,
+    "messageDataCodecOnly": true,
+    "fullSoapEnvelope": false,
+    "mtomOrXop": false,
+    "smevTransformImplemented": false,
+    "xmlCanonicalizationImplemented": false,
+    "gostDigestOrSigning": false,
+    "xmlDsigOrPkcs7Assembly": false,
+    "credentialOrCertificateMaterial": false,
+    "externalProviderCall": false,
+    "domainMutation": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeploymentEvidence": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
