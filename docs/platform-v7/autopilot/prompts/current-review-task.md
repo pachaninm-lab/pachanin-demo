@@ -35,6 +35,35 @@ Review this branch only against its exact allow-list. It may change the RU/EN/ZH
 
 The public text must present the platform through capabilities and user outcomes, must not contain development-stage or maturity-status language, and must not claim that bank, FGIS, EDI or another external system is connected without separate runtime evidence.
 
+## Approved concurrent premium homepage completion — PR #3191
+
+The user explicitly authorized a finite UX/UI completion of the public `/platform-v7` homepage on branch `agent/platform-v7-home-10of10-v1`. This authority is independent of the implementation branch and is effective only after the governance PR that adds this section is merged to `main`.
+
+The branch is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json` and may change only these paths:
+
+- `apps/web/app/platform-v7/page.tsx`;
+- `apps/web/components/platform-v7/OrganizationConnectForm.module.css`;
+- `apps/web/components/platform-v7/OrganizationConnectForm.tsx`;
+- `apps/web/components/platform-v7/PlatformV7StrategicHome.tsx`;
+- `apps/web/components/platform-v7/PublicContactDock.tsx`;
+- `apps/web/components/platform-v7/PublicDealRoleScenario.module.css`;
+- `apps/web/components/platform-v7/PublicDealRoleScenario.tsx`;
+- `apps/web/i18n/platform-v7-hero-message.ts`;
+- `apps/web/i18n/platform-v7-home-v3.ts`;
+- `apps/web/i18n/platform-v7-organization-connect.ts`;
+- `apps/web/styles/platform-v7-hero-infrastructure-message.css`;
+- `apps/web/styles/platform-v7-strategic-home-v3.css`;
+- `apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts`;
+- `apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts`;
+- `apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts`;
+- `apps/web/tests/unit/platformV7RootWorkEntry.test.ts`;
+- `apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts`;
+- `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json`.
+
+This slice may improve visual hierarchy, page density, hero and Control Tower presentation, responsive layout, RU/EN/ZH copy, public role simulation, progressive organization-intake UX, contact-dock behavior, SEO metadata and their bound tests. It must preserve the existing Deal/domain architecture, durable intake endpoint and idempotency contract, server-authoritative RBAC, TAI action boundaries, bank authority, government adapters and REG.RU production topology. It must not change API code, database schema or migrations, protected routes, packages, lockfiles, production workflows, secrets or deployment topology.
+
+Return BLOCKED if the diff exceeds the exact allow-list; if public copy claims verified connectivity without runtime evidence; if the scenario is presented as a real live Deal; if the progressive form weakens consent, durable idempotency, replay conflict, rate limiting or no-JavaScript fail-closed behavior; if RU/EN/ZH is incomplete; or if mobile accessibility, 44×44 targets, no-overflow, browser matrix or Lighthouse thresholds fail.
+
 ## Approved concurrent public organization intake scope
 
 The user explicitly authorized a durable organization-connection intake on branch `agent/platform-v7-organization-intake-v1` under:
