@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { LotsModule } from './modules/lots/lots.module';
 import { DealsModule } from './modules/deals/deals.module';
 import { CommodityProfilesModule } from './modules/commodity-profiles/commodity-profiles.module';
+import { RegulatoryIntegrationModule } from './modules/regulatory-integration/regulatory-integration.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { LabsModule } from './modules/labs/labs.module';
@@ -70,6 +71,7 @@ import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
     LotsModule,
     DealsModule,
     CommodityProfilesModule,
+    RegulatoryIntegrationModule,
     DisputesModule,
     DocumentsModule,
     LabsModule,

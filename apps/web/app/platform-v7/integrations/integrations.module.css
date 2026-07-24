@@ -1,0 +1,13 @@
+.page {
+  min-height: 100dvh;
+  padding: clamp(20px, 4vw, 48px) clamp(14px, 3vw, 32px) max(104px, calc(72px + env(safe-area-inset-bottom)));
+  background:
+    radial-gradient(circle at 90% 0%, rgba(8, 122, 59, 0.055), transparent 32rem),
+    #f4f8f5;
+}
+
+@media (max-width: 430px) {
+  .page {
+    padding: 14px 10px max(96px, calc(68px + env(safe-area-inset-bottom)));
+  }
+}

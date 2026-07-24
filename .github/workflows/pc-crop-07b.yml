@@ -1,0 +1,193 @@
+name: PC-CROP-07B Integration Control Tower Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/**'
+      - 'apps/web/app/api/platform-v7/integrations/**'
+      - 'apps/web/app/api/staff/integration-control-tower/**'
+      - 'apps/web/app/api/staff/integrations/**'
+      - 'apps/web/app/platform-v7/integrations/**'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'
+      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
+      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
+      - 'apps/web/lib/platform-v7/route-canonicalization.ts'
+      - 'apps/web/lib/platform-v7/routes.ts'
+      - 'apps/web/tests/unit/integrationControlTowerLiveAdapter.test.ts'
+      - 'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts'
+      - 'apps/web/tests/unit/platformV7RouteCanonicalization.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
+      - 'scripts/verify-pc-crop-07b.mjs'
+      - '.github/workflows/pc-crop-07b.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/**'
+      - 'apps/web/app/api/platform-v7/integrations/**'
+      - 'apps/web/app/api/staff/integration-control-tower/**'
+      - 'apps/web/app/api/staff/integrations/**'
+      - 'apps/web/app/platform-v7/integrations/**'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'
+      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'
+      - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'
+      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
+      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
+      - 'apps/web/lib/platform-v7/route-canonicalization.ts'
+      - 'apps/web/lib/platform-v7/routes.ts'
+      - 'apps/web/tests/unit/integrationControlTowerLiveAdapter.test.ts'
+      - 'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts'
+      - 'apps/web/tests/unit/platformV7RouteCanonicalization.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
+      - 'scripts/verify-pc-crop-07b.mjs'
+      - '.github/workflows/pc-crop-07b.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-07b-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  EVIDENCE_DIR: artifacts/pc-crop-07b
+
+jobs:
+  integration-control-tower:
+    name: PostgreSQL 16 · private BFF · honest statuses · governed commands
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-07B scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref='HEAD^'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-07b\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json|scripts/(p7-autopilot-guard\.sh|verify-pc-crop-07b\.mjs))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-07B contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply complete migration chain
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Typecheck API authority
+        run: pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+
+      - name: Run policy and read-model unit contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts \
+            src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/api-unit.log"
+
+      - name: Run PostgreSQL tenant and command acceptance
+        env:
+          PC_CROP_07B_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+
+      - name: Typecheck protected Integration Control Tower
+        run: pnpm --filter @pc/web exec tsc -p tsconfig.pc-crop.json --noEmit 2>&1 | tee "$EVIDENCE_DIR/web-typecheck.log"
+
+      - name: Run private BFF and UX contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/integrationControlTowerLiveAdapter.test.ts \
+            tests/unit/platformV7IntegrationControlTower.test.ts \
+            tests/unit/platformV7RouteCanonicalization.test.ts \
+            2>&1 | tee "$EVIDENCE_DIR/web-contracts.log"
+
+      - name: Build fail-closed machine-readable acceptance
+        run: node scripts/verify-pc-crop-07b.mjs
+
+      - name: Enforce exact-head acceptance evidence
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-07b-acceptance.json`, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop.integration-control-tower-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-07B' || report.issue !== 3040) process.exit(1);
+          if (report.status !== 'PASS' || report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.exactHead !== process.env.EXACT_HEAD || report.postgresql !== '16') process.exit(1);
+          const i = report.invariants || {};
+          for (const value of Object.values(i)) if (value !== true) process.exit(1);
+          const b = report.boundaries || {};
+          if (b.publicUnauthenticatedIntegrationRoute !== false) process.exit(1);
+          if (b.rawPayloadOrSecretDisplay !== false) process.exit(1);
+          if (b.liveExternalProviderCall !== false) process.exit(1);
+          if (b.secondInboxOutboxOrRelay !== false) process.exit(1);
+          if (b.productionDeployment !== false || b.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          NODE
+
+      - name: Upload exact-head PC-CROP-07B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-07b-${{ env.EXACT_HEAD }}
+          path: artifacts/pc-crop-07b
+          if-no-files-found: error
+          retention-days: 90
