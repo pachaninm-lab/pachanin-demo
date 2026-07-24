@@ -1,6 +1,7 @@
 name: PC-CROP-08F exact-main synchronization
 
 on:
+  workflow_dispatch:
   issue_comment:
     types: [created]
   pull_request:
@@ -23,6 +24,7 @@ env:
 jobs:
   synchronize:
     if: >-
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 3180 &&
        github.event.comment.user.login == github.repository_owner &&
