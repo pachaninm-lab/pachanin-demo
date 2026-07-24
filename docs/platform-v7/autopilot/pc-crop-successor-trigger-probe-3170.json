@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "pc-crop.successor-trigger-probe.v1",
+  "issue": 3170,
+  "purpose": "Prove that governance-only successor files do not trigger PC-CROP-07A, 07B, 08B, 08C or 08D acceptance workflows.",
+  "expectedTriggeredChecks": [
+    "platform-v7 autopilot guard",
+    "PC-CROP Predecessor Trigger Governance",
+    "Security Scan",
+    "Security Quality Gate",
+    "CodeQL platform-v7 report",
+    "Qodana platform-v7 report",
+    "Dependency Review"
+  ],
+  "forbiddenTriggeredChecks": [
+    "PC-CROP-07A Regulatory Integration Inbox Acceptance",
+    "PC-CROP-07B Integration Control Tower Acceptance",
+    "PC-CROP-08B Typed FGIS Grain Contract Catalog Acceptance",
+    "PC-CROP-08C FGIS Grain SOAP XML Codec Acceptance",
+    "PC-CROP-08D FGIS Signing Policy and Durable Dispatch Acceptance"
+  ],
+  "runtimeBusinessBehaviorChanged": false,
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
