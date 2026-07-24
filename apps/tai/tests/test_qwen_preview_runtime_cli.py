@@ -4,8 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from tai import qwen_preview_runtime_cli as cli
-from tests.qwen_preview_runtime_fixtures import (
+from qwen_preview_runtime_fixtures import (
     EVALUATED_AT,
     EXACT_MAIN,
     authority_path,
@@ -13,6 +12,8 @@ from tests.qwen_preview_runtime_fixtures import (
     valid_evidence,
     write_evidence,
 )
+
+from tai import qwen_preview_runtime_cli as cli
 
 
 def _run(monkeypatch: object, capsys: object, argv: list[str]) -> tuple[int, dict[str, object]]:

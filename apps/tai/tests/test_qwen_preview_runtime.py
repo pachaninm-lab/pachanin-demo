@@ -5,9 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-from tai import qwen_preview_runtime as runtime
-from tests.qwen_preview_runtime_fixtures import (
+from qwen_preview_runtime_fixtures import (
     EVALUATED_AT,
     EXACT_MAIN,
     authority_path,
@@ -16,6 +14,8 @@ from tests.qwen_preview_runtime_fixtures import (
     valid_evidence,
     write_evidence,
 )
+
+from tai import qwen_preview_runtime as runtime
 
 Mutation = Callable[[dict[str, Any]], None]
 
