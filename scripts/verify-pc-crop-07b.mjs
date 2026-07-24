@@ -24,6 +24,7 @@ const files = {
   client: 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx',
   adapter: 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts',
   css: 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css',
+  organizationConnectCss: 'apps/web/components/platform-v7/OrganizationConnectForm.module.css',
   routes: 'apps/web/lib/platform-v7/routes.ts',
   cabinet: 'apps/web/lib/platform-v7/cabinet-access-policy.ts',
   canonicalization: 'apps/web/lib/platform-v7/route-canonicalization.ts',
@@ -137,6 +138,11 @@ requireText('css', [
   '@media (max-width: 900px)', '@media (max-width: 640px)', '@media (max-width: 430px)',
   ':focus-visible', 'prefers-reduced-motion', 'safe-area-inset-bottom',
 ]);
+requireText('organizationConnectCss', [
+  '.honeypot{position:absolute!important;left:-10000px!important;',
+  '.honeypot input{min-height:44px!important;width:44px!important;height:44px!important;',
+  'pointer-events:none!important',
+]);
 requireText('routes', ['PLATFORM_V7_INTEGRATIONS_ROUTE', "'/platform-v7/integrations'"]);
 requireText('cabinet', [
   "new Set(['operator', 'compliance', 'executive'])", 'INTEGRATION_CONTROL_ROUTE',
@@ -149,12 +155,14 @@ forbidText('canonicalization', [
 ]);
 requireText('scope', [
   '"issue": 3040', '"operationalStatus": "NOT_ATTESTED"',
+  '"apps/web/components/platform-v7/OrganizationConnectForm.module.css"',
   '"clientSelectedRoleTenantAuthority": false', '"staticOrFixtureAuthorityFallback": false',
   '"confirmedLiveInferenceFromCodeOrMocks": false', '"secondInboxOutboxOrRelay": false',
   '"productionDeploymentEvidence": false',
 ]);
 requireText('workflow', [
   'name: PC-CROP-07B Integration Control Tower Acceptance', 'postgres:16',
+  'apps/web/components/platform-v7/OrganizationConnectForm.module.css',
   'PC_CROP_07B_POSTGRESQL', 'tsconfig.pc-crop.json', 'verify-pc-crop-07b.mjs',
   'pc-crop-07b-acceptance.json', 'retention-days: 90',
 ]);
@@ -186,6 +194,7 @@ const report = {
     tenantOrganizationIsolation: pass,
     ruEnZh: pass,
     mobileAccessibleStates: pass,
+    publicConnectHoneypotTargetSafe: pass,
   },
   boundaries: {
     publicUnauthenticatedIntegrationRoute: false,
