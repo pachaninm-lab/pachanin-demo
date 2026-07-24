@@ -2,7 +2,7 @@ name: PC-CROP-08F exact-main synchronization
 
 on:
   pull_request:
-    types: [ready_for_review]
+    types: [ready_for_review, synchronize]
     branches: [main]
 
 permissions:
