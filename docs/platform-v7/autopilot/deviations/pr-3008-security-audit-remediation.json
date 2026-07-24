@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "recordType": "post-merge-scope-deviation",
+  "status": "recorded-not-concealed",
+  "qualityStream": "issue-3007",
+  "acceptanceGapIssue": 3012,
+  "currentExactMainAtRecordCreation": "ac2be31a054c705bc11c56ee01d73bf6800574b6",
+  "scopeDeviation": {
+    "branch": "agent/tai-security-audit-remediation-3006",
+    "pullRequest": 3008,
+    "head": "d3707d43a28c6a6e55466b38837ecfe07bedbcaf",
+    "mergeCommit": "fcc61811e8c8ce2f9496c0c3d0bab894168b7615",
+    "mergedBeforeAuthorityRecord": true,
+    "pathsOutsideActiveScopeAtMerge": [
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "reviewThread": "PRRT_kwDOR7So_c6SwFR2",
+    "reviewFinding": "PR #3008 changed package.json and pnpm-lock.yaml while those paths were absent from the active allowedCurrentScope and approvedConcurrentScopes.",
+    "disposition": "Accepted only as an explicitly recorded emergency dependency-remediation deviation; this record does not assert that the original merge was in scope."
+  },
+  "finding": {
+    "findingId": "1124066",
+    "advisory": "GHSA-f88m-g3jw-g9cj",
+    "severity": "HIGH",
+    "package": "sharp",
+    "lockedVersion": "0.34.5",
+    "affectedRange": "<0.35.0",
+    "dependencyPath": [
+      "apps/web",
+      "next@15.5.18",
+      "optionalDependencies",
+      "sharp@0.34.5"
+    ],
+    "patchedVersion": "0.35.3",
+    "exceptionAdded": false
+  },
+  "failedEvidence": {
+    "rolloutHead": "b775d44b7ee1e506e9474fc239b48a94e23ab59f",
+    "securityQualityRun": 29874067248,
+    "originalAttemptDependencyJob": 88780865704,
+    "artifactId": 8512387299,
+    "artifactDigest": "sha256:b84f5932d05c0b7c0f0cdd36a7ae7bee164ba052b58dcb26289026d7ba6ba392",
+    "blockedFindings": 1
+  },
+  "reextractedEvidence": {
+    "rolloutHead": "b775d44b7ee1e506e9474fc239b48a94e23ab59f",
+    "securityQualityRun": 29874067248,
+    "latestAttemptDependencyJob": 88782837001,
+    "artifactId": 8512555577,
+    "artifactDigest": "sha256:1faf15cdb0c7d4e92e11297a0a956df3fda861307034886b0b06f0a6651563cc",
+    "blockedFindings": 1
+  },
+  "remediationEvidence": {
+    "pullRequest": 3008,
+    "head": "d3707d43a28c6a6e55466b38837ecfe07bedbcaf",
+    "mergeCommit": "fcc61811e8c8ce2f9496c0c3d0bab894168b7615",
+    "securityQualityRun": 29876163048,
+    "dependencyJob": 88787118794,
+    "artifactId": 8513058980,
+    "artifactDigest": "sha256:428c31460b6ba9e64178a7bd79567bd4cbb72dc6222add6f2bd45f87b98cb3c9",
+    "securityAbuseRun": 29876163131,
+    "runtimeContextRun": 29876163042,
+    "blockedFindings": 0,
+    "frozenInstall": "PASS",
+    "strictTypecheck": "PASS",
+    "relevantTests": "PASS",
+    "productionBuild": "PASS"
+  },
+  "boundaries": {
+    "productionDeploymentWorkflowChanged": false,
+    "runtimeHostChanged": false,
+    "modelBundleChanged": false,
+    "gatewayOrUiChanged": false,
+    "taiOperationalStatus": "NOT_ATTESTED"
+  }
+}

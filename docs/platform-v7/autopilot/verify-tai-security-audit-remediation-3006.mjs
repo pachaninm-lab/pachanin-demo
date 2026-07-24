@@ -1,0 +1,122 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+const workflowPath = '.github/workflows/platform-v7-autopilot-guard.yml';
+const scopePath = 'docs/platform-v7/autopilot/scopes/agent-tai-security-audit-remediation-3006.json';
+const deviationPath = 'docs/platform-v7/autopilot/deviations/pr-3008-security-audit-remediation.json';
+const verifierPath = 'docs/platform-v7/autopilot/verify-tai-security-audit-remediation-3006.mjs';
+const expectedCloseoutFiles = new Set([workflowPath, scopePath, deviationPath, verifierPath]);
+
+function readJson(path) {
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+const scope = readJson(scopePath);
+const deviation = readJson(deviationPath);
+const packageJson = readJson('package.json');
+const exceptions = readJson('docs/platform-v7/autopilot/security-exceptions.json');
+const lockfile = readFileSync('pnpm-lock.yaml', 'utf8');
+const workflow = readFileSync(workflowPath, 'utf8');
+
+assert(scope.branch === 'agent/tai-security-audit-remediation-3006', 'Unexpected scope branch.');
+assert(scope.status === 'closed-after-recorded-deviation', 'Scope status must preserve the post-merge deviation.');
+assert(scope.authorizationTiming === 'post-merge-governance-reconciliation', 'The authority must not be represented as pre-merge.');
+assert(scope.historicallyAuthorizedPaths?.join('\n') === 'package.json\npnpm-lock.yaml', 'Historical scope must stay limited to package.json and pnpm-lock.yaml.');
+assert(new Set(scope.closeoutPaths ?? []).size === expectedCloseoutFiles.size, 'Unexpected closeout path count.');
+for (const file of expectedCloseoutFiles) assert(scope.closeoutPaths.includes(file), `Missing closeout path: ${file}`);
+assert(scope.relatedAuthority?.issue === 3007, 'Scope issue binding changed.');
+assert(scope.relatedAuthority?.remediationPr === 3008, 'Scope remediation PR binding changed.');
+assert(scope.relatedAuthority?.acceptanceGapIssue === 3012, 'Scope acceptance-gap issue binding changed.');
+assert(scope.relatedAuthority?.remediationHead === 'd3707d43a28c6a6e55466b38837ecfe07bedbcaf', 'Scope remediation head changed.');
+assert(scope.relatedAuthority?.remediationMerge === 'fcc61811e8c8ce2f9496c0c3d0bab894168b7615', 'Scope remediation merge changed.');
+
+assert(deviation.recordType === 'post-merge-scope-deviation', 'Unexpected deviation record type.');
+assert(deviation.status === 'recorded-not-concealed', 'Deviation must remain explicitly recorded.');
+assert(deviation.qualityStream === 'issue-3007', 'Quality stream binding changed.');
+assert(deviation.acceptanceGapIssue === 3012, 'Acceptance-gap issue binding changed.');
+assert(deviation.currentExactMainAtRecordCreation === 'ac2be31a054c705bc11c56ee01d73bf6800574b6', 'Record-creation exact-main changed.');
+assert(deviation.scopeDeviation?.branch === 'agent/tai-security-audit-remediation-3006', 'Deviation branch binding changed.');
+assert(deviation.scopeDeviation?.pullRequest === 3008, 'Deviation must bind PR #3008.');
+assert(deviation.scopeDeviation?.head === 'd3707d43a28c6a6e55466b38837ecfe07bedbcaf', 'Deviation remediation head changed.');
+assert(deviation.scopeDeviation?.mergeCommit === 'fcc61811e8c8ce2f9496c0c3d0bab894168b7615', 'Deviation remediation merge changed.');
+assert(deviation.scopeDeviation?.mergedBeforeAuthorityRecord === true, 'Deviation timing must remain explicit.');
+assert(deviation.scopeDeviation?.pathsOutsideActiveScopeAtMerge?.join('\n') === 'package.json\npnpm-lock.yaml', 'Deviation paths changed.');
+assert(deviation.scopeDeviation?.reviewThread === 'PRRT_kwDOR7So_c6SwFR2', 'Review thread binding changed.');
+
+assert(deviation.finding?.findingId === '1124066', 'Finding ID changed.');
+assert(deviation.finding?.advisory === 'GHSA-f88m-g3jw-g9cj', 'Advisory changed.');
+assert(deviation.finding?.severity === 'HIGH', 'Finding severity changed.');
+assert(deviation.finding?.package === 'sharp', 'Package changed.');
+assert(deviation.finding?.lockedVersion === '0.34.5', 'Locked affected version changed.');
+assert(deviation.finding?.affectedRange === '<0.35.0', 'Affected range changed.');
+assert(deviation.finding?.patchedVersion === '0.35.3', 'Patched version changed.');
+assert(deviation.finding?.dependencyPath?.join(' > ') === 'apps/web > next@15.5.18 > optionalDependencies > sharp@0.34.5', 'Dependency path changed.');
+assert(deviation.finding?.exceptionAdded === false, 'A security exception must not be added.');
+
+assert(deviation.failedEvidence?.rolloutHead === 'b775d44b7ee1e506e9474fc239b48a94e23ab59f', 'Original rollout head changed.');
+assert(deviation.failedEvidence?.securityQualityRun === 29874067248, 'Original Security Quality run changed.');
+assert(deviation.failedEvidence?.originalAttemptDependencyJob === 88780865704, 'Original dependency job changed.');
+assert(deviation.failedEvidence?.artifactId === 8512387299, 'Original artifact binding changed.');
+assert(deviation.failedEvidence?.artifactDigest === 'sha256:b84f5932d05c0b7c0f0cdd36a7ae7bee164ba052b58dcb26289026d7ba6ba392', 'Original artifact digest changed.');
+assert(deviation.failedEvidence?.blockedFindings === 1, 'Original blocked finding count changed.');
+
+assert(deviation.reextractedEvidence?.rolloutHead === 'b775d44b7ee1e506e9474fc239b48a94e23ab59f', 'Re-extracted rollout head changed.');
+assert(deviation.reextractedEvidence?.securityQualityRun === 29874067248, 'Re-extracted Security Quality run changed.');
+assert(deviation.reextractedEvidence?.latestAttemptDependencyJob === 88782837001, 'Re-extracted dependency job changed.');
+assert(deviation.reextractedEvidence?.artifactId === 8512555577, 'Re-extracted artifact binding changed.');
+assert(deviation.reextractedEvidence?.artifactDigest === 'sha256:1faf15cdb0c7d4e92e11297a0a956df3fda861307034886b0b06f0a6651563cc', 'Re-extracted artifact digest changed.');
+assert(deviation.reextractedEvidence?.blockedFindings === 1, 'Re-extracted blocked finding count changed.');
+
+assert(deviation.remediationEvidence?.pullRequest === 3008, 'Remediation PR binding changed.');
+assert(deviation.remediationEvidence?.head === 'd3707d43a28c6a6e55466b38837ecfe07bedbcaf', 'Remediation exact-head changed.');
+assert(deviation.remediationEvidence?.mergeCommit === 'fcc61811e8c8ce2f9496c0c3d0bab894168b7615', 'Remediation merge commit changed.');
+assert(deviation.remediationEvidence?.securityQualityRun === 29876163048, 'Remediation Security Quality run changed.');
+assert(deviation.remediationEvidence?.dependencyJob === 88787118794, 'Remediation dependency job changed.');
+assert(deviation.remediationEvidence?.artifactId === 8513058980, 'Remediation artifact binding changed.');
+assert(deviation.remediationEvidence?.artifactDigest === 'sha256:428c31460b6ba9e64178a7bd79567bd4cbb72dc6222add6f2bd45f87b98cb3c9', 'Remediation artifact digest changed.');
+assert(deviation.remediationEvidence?.securityAbuseRun === 29876163131, 'Remediation Security Abuse run changed.');
+assert(deviation.remediationEvidence?.runtimeContextRun === 29876163042, 'Remediation Runtime Context run changed.');
+assert(deviation.remediationEvidence?.blockedFindings === 0, 'Remediation must have zero blocked findings.');
+assert(deviation.remediationEvidence?.frozenInstall === 'PASS', 'Frozen install evidence changed.');
+assert(deviation.remediationEvidence?.strictTypecheck === 'PASS', 'Strict typecheck evidence changed.');
+assert(deviation.remediationEvidence?.relevantTests === 'PASS', 'Relevant test evidence changed.');
+assert(deviation.remediationEvidence?.productionBuild === 'PASS', 'Production build evidence changed.');
+
+assert(packageJson.pnpm?.overrides?.sharp === '0.35.3', 'package.json must pin sharp to 0.35.3.');
+assert(lockfile.includes('sharp@0.35.3'), 'pnpm-lock.yaml does not contain sharp@0.35.3.');
+assert(!lockfile.includes('sharp@0.34.5'), 'pnpm-lock.yaml still contains sharp@0.34.5.');
+assert(exceptions.policy?.criticalExceptionsAllowed === false, 'Critical exceptions must remain prohibited.');
+assert(Array.isArray(exceptions.exceptions) && exceptions.exceptions.length === 0, 'No security exception is permitted for this remediation.');
+assert(workflow.includes("github.head_ref == 'agent/tai-security-audit-remediation-3006'"), 'Governance verifier is not bound to the remediation branch.');
+assert(workflow.includes('node docs/platform-v7/autopilot/verify-tai-security-audit-remediation-3006.mjs'), 'Governance verifier is not executed by the autopilot guard.');
+assert(deviation.boundaries?.productionDeploymentWorkflowChanged === false, 'Production deployment workflow boundary changed.');
+assert(deviation.boundaries?.runtimeHostChanged === false, 'Runtime-host boundary changed.');
+assert(deviation.boundaries?.modelBundleChanged === false, 'Model-bundle boundary changed.');
+assert(deviation.boundaries?.gatewayOrUiChanged === false, 'Gateway/UI boundary changed.');
+assert(deviation.boundaries?.taiOperationalStatus === 'NOT_ATTESTED', 'TAI maturity was overstated.');
+
+if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
+  const changed = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { encoding: 'utf8' })
+    .trim()
+    .split(/\r?\n/)
+    .filter(Boolean);
+  const unexpected = changed.filter((file) => !expectedCloseoutFiles.has(file));
+  const missing = [...expectedCloseoutFiles].filter((file) => !changed.includes(file));
+  assert(unexpected.length === 0 && missing.length === 0, `Closeout scope mismatch: ${JSON.stringify({ unexpected, missing })}`);
+}
+
+console.log(JSON.stringify({
+  status: 'PASS',
+  issue: 3007,
+  remediationPr: 3008,
+  acceptanceGapIssue: 3012,
+  findingId: '1124066',
+  package: 'sharp',
+  patchedVersion: '0.35.3',
+  blockedFindings: 0,
+  taiOperationalStatus: 'NOT_ATTESTED'
+}, null, 2));
