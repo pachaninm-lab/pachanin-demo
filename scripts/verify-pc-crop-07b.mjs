@@ -61,7 +61,7 @@ function forbidText(key, needles) {
 
 requireText('dto', [
   'role is server-derived', 'tenantId is server-derived', 'organizationId is server-derived',
-  'expectedVersion must be supplied only through If-Match', "'PRE_PRODUCTION'",
+  'expectedVersion must be supplied only through If-Match', "'TEST'", "'PREPROD'",
 ]);
 requireText('policy', [
   'Role.COMPLIANCE_OFFICER', 'Role.EXECUTIVE', 'StaffRole.OPERATIONS_SUPERVISOR',
@@ -71,7 +71,8 @@ requireText('policy', [
 requireText('readRepository', [
   'withTrustedContext', 'MAX_AGGREGATES = 1_000', 'credentialReferenceExpiresAt: null',
   'credentialMetadataAvailable: false', "return 'ADAPTER_READY'", "return 'TEST'",
-  "row.environment === 'PRE_PRODUCTION'", 'regulatory_integration_inbox_entries',
+  "row.environment === 'TEST'", "row.environment === 'PREPROD'",
+  'regulatory_integration_inbox_entries',
 ]);
 forbidText('readRepository', [
   "return 'CONFIRMED_LIVE'", 'requestReconciliation(', 'INSERT INTO', 'UPDATE public.',
