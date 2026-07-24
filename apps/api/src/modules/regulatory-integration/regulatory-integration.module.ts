@@ -1,3 +1,4 @@
+// Governance-only final trigger for unified predecessor acceptance.
 import { Module } from '@nestjs/common';
 import { FgisGrainContractCatalogService } from './fgis-grain/fgis-grain-contract-catalog.service';
 import { FgisGrainDispatchRepository } from './fgis-grain/fgis-grain-dispatch.repository';
