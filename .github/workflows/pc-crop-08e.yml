@@ -3,25 +3,23 @@ name: PC-CROP-08E FGIS Provider Attestation Acceptance
 on:
   pull_request:
     paths:
-      - '.github/workflows/pc-crop-08e.yml'
-      - 'apps/api/prisma/migrations/20260724*_fgis_grain_provider_attestation_authority/**'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/prisma/migrations/20260724145500_fgis_grain_provider_attestation_authority/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.contract.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.contract.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.repository.ts'
       - 'apps/api/test/industrial/fgis-grain-provider-attestation.e2e-spec.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08e-fgis-provider-attestation.json'
       - 'scripts/pc-crop-08e/**'
-      - 'scripts/p7-autopilot-guard.sh'
   push:
     branches: [main]
     paths:
-      - '.github/workflows/pc-crop-08e.yml'
-      - 'apps/api/prisma/migrations/20260724*_fgis_grain_provider_attestation_authority/**'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/**'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/prisma/migrations/20260724145500_fgis_grain_provider_attestation_authority/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.contract.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.contract.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.repository.ts'
       - 'apps/api/test/industrial/fgis-grain-provider-attestation.e2e-spec.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08e-fgis-provider-attestation.json'
       - 'scripts/pc-crop-08e/**'
-      - 'scripts/p7-autopilot-guard.sh'
   workflow_dispatch:
 
 permissions:
