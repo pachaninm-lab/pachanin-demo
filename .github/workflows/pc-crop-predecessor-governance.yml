@@ -95,7 +95,7 @@ jobs:
     timeout-minutes: 45
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
-      EVIDENCE_DIR: artifacts/pc-crop-07b-governance
+      EVIDENCE_DIR: artifacts/pc-crop-07b
     services:
       postgres:
         image: postgres:16
@@ -195,7 +195,6 @@ jobs:
         shell: bash
         run: |
           node scripts/verify-pc-crop-07b.mjs
-          cp artifacts/pc-crop-07b/pc-crop-07b-acceptance.json "$EVIDENCE_DIR/pc-crop-07b-acceptance.json"
           node <<'NODE'
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-07b-acceptance.json`, 'utf8'));
@@ -217,6 +216,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pc-crop-07b-governance-${{ env.EXACT_HEAD }}
-          path: artifacts/pc-crop-07b-governance
+          path: artifacts/pc-crop-07b
           if-no-files-found: error
           retention-days: 90
