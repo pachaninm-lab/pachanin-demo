@@ -9,6 +9,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
+  const head = read('app/platform-v7/head.tsx');
 
   it('exposes four public task-based perspectives without client-authoritative role selection', () => {
     expect(home).toContain("href='#role-entry'");
@@ -72,7 +73,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   });
 
   it('does not introduce unverified business proof or the rejected partner-positioning sentence', () => {
-    const combined = `${home}\n${enhancements}\n${copy}`.toLowerCase();
+    const combined = `${home}\n${enhancements}\n${copy}\n${head}`.toLowerCase();
     const forbidden = [
       'специализированные партнёры',
       'исполняют логистику, приёмку, лабораторию и расчёты',
@@ -82,8 +83,23 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
       'банк подключён',
       'фгис подключён',
       'эдо подключён',
+      'боевой контур',
     ];
     for (const phrase of forbidden) expect(combined).not.toContain(phrase);
+  });
+
+  it('keeps SEO, Open Graph and structured data aligned with the full agricultural Deal and TAI', () => {
+    expect(head).toContain("pageTitle = 'Прозрачная Цена — единый контур исполнения агросделки'");
+    expect(head).toContain('TAI объясняет блокеры, риски и следующий шаг');
+    expect(head).toContain('цифровая инфраструктура агросделки');
+    expect(head).toContain('TAI Transparent Agro Intelligence');
+    expect(head).toContain("name: 'Единый контур исполнения агросделки'");
+    expect(head).toContain('производители и продавцы сельскохозяйственной продукции');
+    expect(head).toContain('hrefLang="x-default"');
+    expect(head).toContain('property="og:type"');
+    expect(head).toContain('name="twitter:card"');
+    expect(head).not.toContain('контур исполнения зерновой сделки');
+    expect(head).not.toContain('исполнения зерновых сделок');
   });
 
   it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {
