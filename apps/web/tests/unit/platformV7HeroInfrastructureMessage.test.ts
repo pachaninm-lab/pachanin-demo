@@ -9,7 +9,6 @@ describe('platform-v7 infrastructure hero message', () => {
   const enhancementCopy = read('i18n/platform-v7-home-enhancements.ts');
   const copy = read('i18n/platform-v7-hero-message.ts');
   const page = read('app/platform-v7/page.tsx');
-  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.css');
 
   it('uses one unified platform-plus-TAI value proposition on the first screen', () => {
     expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения агросделки'");
@@ -22,7 +21,7 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(component).toContain("className='pc-v6-hero-title pc-v6-hero-title-unified'");
     expect(component).toContain("className='pc-v6-control-tower pc-v6-control-tower-unified'");
     expect(component).not.toContain("className='pc-v6-hero-proofs'");
-    expect(component).not.toContain("PlatformV7UnifiedHome.module.css");
+    expect(component).not.toContain('PlatformV7UnifiedHome');
   });
 
   it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
@@ -54,18 +53,19 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(scenario).toBeGreaterThan(cockpit);
   });
 
-  it('inlines critical shell rules and consolidates the responsive unified-home authority', () => {
+  it('keeps the unified hero authority inside the inline critical CSS', () => {
     expect(page).toContain('CRITICAL_HOME_CSS');
     expect(page).toContain('--entry-public-header-offset');
     expect(page).toContain("html[data-p7-language='zh']");
     expect(page).toContain("import '@/styles/platform-v7-strategic-home-v3.css';");
-    expect(unifiedCss).toContain('.pc-v6-hero-title-accent');
-    expect(unifiedCss).toContain('.pc-v6-tower-intelligence');
-    expect(unifiedCss).toContain('.pc-v6-tower-intelligence-link');
-    expect(unifiedCss).toContain('.pc-v6-trust-after-lifecycle');
-    expect(unifiedCss).toContain('@media (max-width: 767px)');
-    expect(unifiedCss).toContain('@media (max-width: 359px)');
-    expect(unifiedCss).toContain('width: 44px');
-    expect(unifiedCss).toContain('height: 44px');
+    expect(page).toContain('.pc-v6-hero-title-accent');
+    expect(page).toContain('.pc-v6-tower-intelligence');
+    expect(page).toContain('.pc-v6-tower-intelligence-link');
+    expect(page).toContain('.pc-v6-trust-after-lifecycle');
+    expect(page).toContain('@media (max-width: 767px)');
+    expect(page).toContain('@media (max-width: 359px)');
+    expect(page).toContain('width: 44px');
+    expect(page).toContain('height: 44px');
+    expect(page).not.toContain("PlatformV7UnifiedHome.css");
   });
 });
