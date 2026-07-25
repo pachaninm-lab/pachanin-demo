@@ -45,21 +45,6 @@ export async function PlatformV7StrategicHome() {
       ? 'TAI 发现两个暂停原因'
       : 'TAI нашёл две причины остановки';
 
-  const integratedTai = locale === 'en'
-    ? {
-        title: 'TAI works throughout the Deal execution path',
-        text: 'At every stage it connects permitted events and documents, explains risk to time and money, and prepares the next action under participant control.',
-      }
-    : locale === 'zh'
-      ? {
-          title: 'TAI 贯穿整个交易执行路径',
-          text: '在每个阶段，它关联允许访问的事件与文件，解释对时间和资金的风险，并在参与方控制下准备下一步行动。',
-        }
-      : {
-          title: 'TAI работает внутри всего контура Сделки',
-          text: 'На каждом этапе он связывает доступные события и документы, объясняет риск для сроков и денег и готовит следующее действие под контролем участника.',
-        };
-
   const nav = <>
     <a href='#deal-path'>{copy.nav.how}</a>
     <a href='#role-entry'>{enhancement.nav.participants}</a>
@@ -143,13 +128,15 @@ export async function PlatformV7StrategicHome() {
             <div id='tai' className={`pc-v6-tai-strip ${styles.towerIntelligence}`}>
               <Sparkles size={18} aria-hidden='true' />
               <div><strong>{towerTaiTitle}</strong><span>{copy.tower.taiText}</span></div>
-            </div>
-            <div className='pc-v6-ct-actions'>
-              <PublicExperienceLink href={dealHref} eventName='hero_cockpit_open' locale={locale} params={{ source: 'hero_cockpit_unified' }}>
-                {copy.hero.primary}<ArrowRight size={17} />
-              </PublicExperienceLink>
-              <PublicExperienceLink href={taiHref} eventName='open_tai' locale={locale} params={{ source: 'hero_cockpit_unified' }}>
-                <Sparkles size={16} />{copy.hero.tertiary}
+              <PublicExperienceLink
+                href={taiHref}
+                className={styles.towerIntelligenceLink}
+                eventName='open_tai'
+                locale={locale}
+                params={{ source: 'hero_cockpit_unified' }}
+                aria-label={copy.hero.tertiary}
+              >
+                <ArrowRight size={18} aria-hidden='true' />
               </PublicExperienceLink>
             </div>
           </div>
@@ -183,16 +170,6 @@ export async function PlatformV7StrategicHome() {
             {copy.lifecycle.phases.map((phase, index) => <div key={phase} role='listitem'><i>{index + 1}</i><span>{phase}</span></div>)}
           </div>
           <p className='pc-v6-scroll-hint' style={{ color: '#596a61' }}>{copy.lifecycle.hint}</p>
-          <div className={styles.lifecycleIntelligence}>
-            <Sparkles size={22} aria-hidden='true' />
-            <div className={styles.lifecycleIntelligenceCopy}>
-              <strong>{integratedTai.title}</strong>
-              <span>{integratedTai.text}</span>
-            </div>
-            <PublicExperienceLink href={taiHref} className={styles.lifecycleIntelligenceLink} eventName='open_tai' locale={locale} params={{ source: 'deal_path_unified' }}>
-              {copy.hero.tertiary}<ArrowRight size={16} />
-            </PublicExperienceLink>
-          </div>
         </section>
 
         <section className={`pc-v6-trust-strip ${styles.trustAfterLifecycle}`} aria-label={copy.trust.label}>
