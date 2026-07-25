@@ -9,7 +9,7 @@ describe('platform-v7 infrastructure hero message', () => {
   const enhancementCopy = read('i18n/platform-v7-home-enhancements.ts');
   const copy = read('i18n/platform-v7-hero-message.ts');
   const page = read('app/platform-v7/page.tsx');
-  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.module.css');
+  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.css');
 
   it('uses one unified platform-plus-TAI value proposition on the first screen', () => {
     expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения агросделки'");
@@ -19,9 +19,10 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(copy).toContain('TAI показывает блокеры и следующий шаг');
     expect(component).toContain('heroMessage.title');
     expect(component).toContain('heroMessage.accent');
-    expect(component).toContain("className={`pc-v6-hero-title ${styles.heroTitle}`}");
-    expect(component).toContain("className={`pc-v6-control-tower ${styles.tower}`}");
+    expect(component).toContain("className='pc-v6-hero-title pc-v6-hero-title-unified'");
+    expect(component).toContain("className='pc-v6-control-tower pc-v6-control-tower-unified'");
     expect(component).not.toContain("className='pc-v6-hero-proofs'");
+    expect(component).not.toContain("PlatformV7UnifiedHome.module.css");
   });
 
   it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
@@ -35,8 +36,8 @@ describe('platform-v7 infrastructure hero message', () => {
   it('embeds TAI in Deal execution and links to the dedicated product page without a standalone home section', () => {
     expect(component).toContain("const taiHref = `/platform-v7/ai-in-action");
     expect(component).toContain("id='tai'");
-    expect(component).toContain("className={`pc-v6-tai-strip ${styles.towerIntelligence}`}");
-    expect(component).toContain("className={styles.towerIntelligenceLink}");
+    expect(component).toContain("className='pc-v6-tai-strip pc-v6-tower-intelligence'");
+    expect(component).toContain("className='pc-v6-tower-intelligence-link'");
     expect(component).toContain("params={{ source: 'hero_cockpit_unified' }}");
     expect(component).not.toContain("<section id='tai' className='pc-v6-section pc-v6-tai'>");
     expect(component).not.toContain('<TaiImpact locale={locale} />');
@@ -45,23 +46,23 @@ describe('platform-v7 infrastructure hero message', () => {
   });
 
   it('keeps the product cockpit before secondary explanation', () => {
-    const heroStart = component.indexOf("className={`pc-v6-hero ${styles.hero}`}");
-    const cockpit = component.indexOf("className={`pc-v6-control-tower ${styles.tower}`}");
+    const heroStart = component.indexOf("className='pc-v6-hero pc-v6-hero-unified'");
+    const cockpit = component.indexOf("className='pc-v6-control-tower pc-v6-control-tower-unified'");
     const scenario = component.indexOf("id='participants'");
     expect(heroStart).toBeGreaterThan(-1);
     expect(cockpit).toBeGreaterThan(heroStart);
     expect(scenario).toBeGreaterThan(cockpit);
   });
 
-  it('inlines critical shell rules and adds a responsive unified-home authority', () => {
+  it('inlines critical shell rules and consolidates the responsive unified-home authority', () => {
     expect(page).toContain('CRITICAL_HOME_CSS');
     expect(page).toContain('--entry-public-header-offset');
     expect(page).toContain("html[data-p7-language='zh']");
     expect(page).toContain("import '@/styles/platform-v7-strategic-home-v3.css';");
-    expect(unifiedCss).toContain('.heroTitleAccent');
-    expect(unifiedCss).toContain('.towerIntelligence');
-    expect(unifiedCss).toContain('.towerIntelligenceLink');
-    expect(unifiedCss).toContain('.trustAfterLifecycle');
+    expect(unifiedCss).toContain('.pc-v6-hero-title-accent');
+    expect(unifiedCss).toContain('.pc-v6-tower-intelligence');
+    expect(unifiedCss).toContain('.pc-v6-tower-intelligence-link');
+    expect(unifiedCss).toContain('.pc-v6-trust-after-lifecycle');
     expect(unifiedCss).toContain('@media (max-width: 767px)');
     expect(unifiedCss).toContain('@media (max-width: 359px)');
     expect(unifiedCss).toContain('width: 44px');
