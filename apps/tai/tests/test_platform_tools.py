@@ -20,6 +20,7 @@ from tai.platform_tools import (
     PlatformToolEndpointPolicy,
     canonical_platform_tool_json,
 )
+from tai.read_tool_contracts import ReadToolArgumentError
 
 NOW = datetime(2026, 7, 19, 2, 0, tzinfo=UTC)
 SECRET = b"p" * 32
@@ -157,5 +158,12 @@ def test_platform_tool_contract_rejects_floating_point_arguments() -> None:
         idempotency_key=invocation.idempotency_key,
         requested_at=invocation.requested_at,
     )
-    with pytest.raises(TypeError, match="floating point"):
+    # The declared contract now refuses the argument before canonicalization runs,
+    # so a float can no longer reach the signed body by any route.
+    with pytest.raises(ReadToolArgumentError, match="amount is not a declared argument"):
         handler.execute(rebound)
+
+
+def test_canonical_json_still_rejects_floating_point_values() -> None:
+    with pytest.raises(TypeError, match="floating point"):
+        canonical_platform_tool_json({"amount": 1.5})

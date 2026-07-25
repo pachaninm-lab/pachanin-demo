@@ -53,5 +53,9 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         "apps/tai/tai/cpu_runtime_evidence.py:generic-api-key:52",
         "20109ee68ff5f1c69eb858d089460ba5d569456d:"
         "apps/tai/tai/cpu_runtime_contract.py:generic-api-key:51",
+        "35a5abc736593d472b2d6a2d19c9ac1666242dbd:"
+        ".github/scripts/pc-crop-08f-sdiz-remediation.py:generic-api-key:59",
+        "72c83adf77d1c7a42f190e1960bcf4d22674f740:"
+        ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)
