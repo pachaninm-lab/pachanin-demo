@@ -43,14 +43,14 @@
   .pc-v7-public-entry .pc-site-mobile-menu > summary,
   .pc-v7-public-entry .pc-site-locale-switch,
   .pc-v7-public-entry .entry-login {
-    min-height: 40px !important;
-    height: 40px !important;
+    min-height: 44px !important;
+    height: 44px !important;
     border-radius: 9px !important;
   }
 
   .pc-v7-public-entry .pc-site-mobile-menu > summary,
   .pc-v7-public-entry .entry-login {
-    width: 40px !important;
+    width: 44px !important;
   }
 
   .pc-v7-public-entry .pc-site-locale-switch {
