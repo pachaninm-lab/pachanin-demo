@@ -11,7 +11,7 @@ type AssistantContext = 'public' | 'private' | 'workspace';
 
 const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89';
 const SUPPORT_PHONE_HREF = 'tel:+79162778989';
-const PUBLIC_MOBILE_QUERY = '(max-width: 767px)';
+const PUBLIC_COMPACT_QUERY = '(max-width: 1023px)';
 const PUBLIC_HERO_THRESHOLD = 120;
 
 const COPY = {
@@ -42,10 +42,10 @@ function restoreAttribute(node: HTMLElement, name: string, value: string | null)
 
 export function PublicContactDock({ assistantContext = 'public' }: { assistantContext?: AssistantContext }) {
   const pathname = usePathname() || '/platform-v7';
-  const hideAtPublicMobileTop = assistantContext === 'public' && isStrategicHomepage(pathname);
+  const hideAtPublicCompactTop = assistantContext === 'public' && isStrategicHomepage(pathname);
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [hiddenByScroll, setHiddenByScroll] = React.useState(hideAtPublicMobileTop);
+  const [hiddenByScroll, setHiddenByScroll] = React.useState(hideAtPublicCompactTop);
   const assistantButtonRef = React.useRef<HTMLButtonElement>(null);
   const supportButtonRef = React.useRef<HTMLButtonElement>(null);
   const returnFocusRef = React.useRef<Surface | null>(null);
@@ -65,22 +65,22 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
   React.useEffect(() => setLocale(resolveLocale()), []);
 
   React.useEffect(() => {
-    const mobileQuery = window.matchMedia(PUBLIC_MOBILE_QUERY);
+    const compactQuery = window.matchMedia(PUBLIC_COMPACT_QUERY);
     let previousY = window.scrollY;
     let accumulatedDelta = 0;
     let frame = 0;
 
-    const isPublicMobileTop = (scrollY: number) => (
-      hideAtPublicMobileTop
-      && mobileQuery.matches
+    const isPublicCompactTop = (scrollY: number) => (
+      hideAtPublicCompactTop
+      && compactQuery.matches
       && scrollY < PUBLIC_HERO_THRESHOLD
     );
 
     const syncViewportVisibility = () => {
       const currentY = window.scrollY;
       if (currentY < PUBLIC_HERO_THRESHOLD) {
-        setHiddenByScroll(isPublicMobileTop(currentY));
-      } else if (!mobileQuery.matches) {
+        setHiddenByScroll(isPublicCompactTop(currentY));
+      } else if (!compactQuery.matches) {
         setHiddenByScroll(false);
       }
       previousY = currentY;
@@ -97,7 +97,7 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
         accumulatedDelta += delta;
 
         if (currentY < PUBLIC_HERO_THRESHOLD) {
-          setHiddenByScroll(isPublicMobileTop(currentY));
+          setHiddenByScroll(isPublicCompactTop(currentY));
           accumulatedDelta = 0;
         } else if (accumulatedDelta > 8) {
           setHiddenByScroll(true);
@@ -113,14 +113,14 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
     };
 
     syncViewportVisibility();
-    mobileQuery.addEventListener('change', syncViewportVisibility);
+    compactQuery.addEventListener('change', syncViewportVisibility);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      mobileQuery.removeEventListener('change', syncViewportVisibility);
+      compactQuery.removeEventListener('change', syncViewportVisibility);
       window.removeEventListener('scroll', onScroll);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [hideAtPublicMobileTop]);
+  }, [hideAtPublicCompactTop]);
 
   React.useEffect(() => {
     const assistantTrigger = assistantTriggerSelector ? document.querySelector<HTMLButtonElement>(assistantTriggerSelector) : null;
