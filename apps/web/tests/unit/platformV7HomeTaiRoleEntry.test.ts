@@ -74,15 +74,6 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(enhancements).toContain("<aside className={styles.heroTaiEntry} aria-label={copy.name}>");
   });
 
-  it('keeps contact dock labels at full contrast while visibility and transform handle hiding', () => {
-    expect(enhancements).toContain('CONTACT_DOCK_CONTRAST_BOUNDARY');
-    expect(enhancements).toContain('opacity: 1 !important');
-    expect(enhancements).toContain('transition: transform .2s ease !important');
-    expect(enhancements).toContain(".pc-public-contact-dock-action:disabled");
-    expect(enhancements).toContain('-webkit-text-fill-color: currentColor');
-    expect(enhancements).not.toContain('transition: transform .2s ease, opacity');
-  });
-
   it('does not introduce unverified business proof or the rejected partner-positioning sentence', () => {
     const combined = `${home}\n${enhancements}\n${copy}\n${head}`.toLowerCase();
     const forbidden = [
@@ -114,14 +105,15 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   });
 
   it('keeps contact-dock contrast rules inside the owning component', () => {
-  expect(enhancements).toContain("<aside className={styles.heroTaiEntry} aria-label={copy.name}>");
-  expect(enhancements).not.toContain('CONTACT_DOCK_CONTRAST_BOUNDARY');
-  expect(enhancements).not.toContain('.pc-public-contact-dock');
-  expect(contactDock).toContain('transition: transform .2s ease, visibility .18s ease;');
-  expect(contactDock).not.toContain('opacity .18s ease');
-  expect(contactDock).toContain('.pc-public-contact-dock-action:disabled {');
-  expect(contactDock).toContain('-webkit-text-fill-color: currentColor;');
-});
+    expect(enhancements).not.toContain('CONTACT_DOCK_CONTRAST_BOUNDARY');
+    expect(enhancements).not.toContain('.pc-public-contact-dock');
+    expect(contactDock).toContain('transition: transform .2s ease, visibility .18s ease;');
+    expect(contactDock).not.toContain('opacity .18s ease');
+    expect(contactDock).toContain('.pc-public-contact-dock-action:disabled {');
+    expect(contactDock).toContain('color: inherit;');
+    expect(contactDock).toContain('opacity: 1;');
+    expect(contactDock).toContain('-webkit-text-fill-color: currentColor;');
+  });
 
   it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {
     expect(enhancementCss).toContain('scroll-snap-type: x mandatory');
