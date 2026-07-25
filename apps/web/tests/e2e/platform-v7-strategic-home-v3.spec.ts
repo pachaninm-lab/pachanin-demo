@@ -48,6 +48,31 @@ async function settleContactDock(page: Page) {
   }).toBe(expected);
 }
 
+async function materializeDeferredSections(page: Page) {
+  const selectors = [
+    '.pc-v6-category',
+    '.pc-v6-crops',
+    '.pc-v6-integrations',
+    '.pc-v6-assurance',
+    '.pc-v6-faq',
+    '.pc-v6-final',
+  ];
+
+  await page.evaluate((deferredSelectors) => {
+    for (const selector of deferredSelectors) {
+      for (const node of document.querySelectorAll<HTMLElement>(selector)) {
+        node.style.contentVisibility = 'visible';
+        node.style.containIntrinsicSize = 'auto';
+      }
+    }
+  }, selectors);
+
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+  }));
+  await settleContactDock(page);
+}
+
 async function expectNoSeriousAxeViolations(page: Page) {
   await settleContactDock(page);
   const result = await new AxeBuilder({ page })
@@ -226,7 +251,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
-      await settleContactDock(page);
+      await materializeDeferredSections(page);
       await expectNoHorizontalOverflow(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-ru-${width}px.png`),
@@ -240,7 +265,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
-      await settleContactDock(page);
+      await materializeDeferredSections(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-${locale}-390px.png`),
         fullPage: true,
