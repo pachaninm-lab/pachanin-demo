@@ -104,7 +104,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expect(taiProductLink).toBeVisible();
     await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
-    const perspectives = page.getByRole('tablist', { name: 'Сделка в работе' });
+    const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(perspectives).toBeVisible();
     await expect(perspectives.getByRole('tab')).toHaveCount(6);
     await perspectives.getByRole('tab', { name: 'Банк' }).click();
