@@ -126,6 +126,9 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     contain-intrinsic-size: auto 680px;
   }
 }
+@media (max-width: 767px) {
+  .pc-v7-public-entry { --entry-public-header-base: 48px; }
+}
 @media (max-width: 374px) {
   .pc-v6-hero { gap: 24px; padding-top: 34px; padding-bottom: 46px; }
   .pc-v6-hero .pc-v6-kicker { margin-bottom: 11px; font-size: 13px; }
