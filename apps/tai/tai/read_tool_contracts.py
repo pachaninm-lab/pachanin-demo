@@ -122,6 +122,40 @@ PLATFORM_TOOL_SPECS: Final[tuple[PlatformToolSpec, ...]] = (
     PlatformToolSpec(
         "getRoleNextActions", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
     ),
+    PlatformToolSpec(
+        "getDealRisks", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
+    ),
+    # Each optional identifier narrows a collection the caller can already read; it is
+    # never a lookup, so an id from another deal yields an empty projection rather than
+    # disclosing whether it exists.
+    PlatformToolSpec(
+        "getDocumentStatus",
+        ToolMode.READ_ONLY,
+        (ArgumentSpec("dealId", required=True), ArgumentSpec("documentId")),
+    ),
+    PlatformToolSpec(
+        "getLogisticsStatus",
+        ToolMode.READ_ONLY,
+        (ArgumentSpec("dealId", required=True), ArgumentSpec("shipmentId")),
+    ),
+    PlatformToolSpec(
+        "getLaboratoryStatus",
+        ToolMode.READ_ONLY,
+        (ArgumentSpec("dealId", required=True), ArgumentSpec("sampleId")),
+    ),
+    PlatformToolSpec(
+        "getMoneyReadiness", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
+    ),
+    PlatformToolSpec(
+        "getDisputeStatus",
+        ToolMode.READ_ONLY,
+        (ArgumentSpec("dealId", required=True), ArgumentSpec("disputeId")),
+    ),
+    # The platform bounds this response itself; no paging argument is offered, so the
+    # caller cannot ask for more than the server chose to return.
+    PlatformToolSpec(
+        "getEvidenceTimeline", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
+    ),
     # The platform would also accept a free-form `payload` here, but the deterministic
     # planner has never produced one, and declaring it would put an arbitrary object
     # back on the path to a prepared write. It stays undeclared on purpose.

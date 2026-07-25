@@ -9,7 +9,10 @@ import pytest
 from tai.agent_runtime import AgentToolPlan
 from tai.contracts import IdentityContext, ToolMode
 from tai.orchestration import OrchestrationRequest
+from tai.platform_tools import _PLATFORM_TOOL_MODES
+from tai.policy import TOOL_REGISTRY
 from tai.tool_planner import (
+    _INTENTS,
     GovernedToolPlanner,
     PlannerDecision,
     PlannerDecisionStatus,
@@ -166,3 +169,95 @@ def test_planner_rechecks_role_before_runtime_preflight() -> None:
 def test_planner_catalog_rejects_any_tool_outside_safe_allowlist() -> None:
     with pytest.raises(ValueError, match="unsupported tools"):
         GovernedToolPlanner(available_tools=frozenset({"acknowledgeRisk"}))
+
+
+class TestTheCatalogueIsOneCatalogue:
+    """The adapter, the planner and the policy registry must name the same tools.
+
+    They drifted once: seven tools were registered in the adapter alone. The configured
+    production entrypoint hands every handler key to this planner, so the extra names made
+    construction raise and the whole app answered TAI_PRODUCTION_COMPOSITION_FAILED — the
+    registration did not merely fail to work, it took the runtime down with it.
+    """
+
+    def test_planner_accepts_the_whole_configured_handler_catalog(self) -> None:
+        GovernedToolPlanner(available_tools=frozenset(_PLATFORM_TOOL_MODES))
+
+    def test_every_adapter_tool_has_a_planner_intent(self) -> None:
+        assert set(_PLATFORM_TOOL_MODES) <= {contract.tool_name for contract in _INTENTS}
+
+    def test_every_adapter_tool_has_a_policy_definition(self) -> None:
+        assert set(_PLATFORM_TOOL_MODES) <= set(TOOL_REGISTRY)
+
+    def test_planner_intent_modes_match_the_policy_registry(self) -> None:
+        for contract in _INTENTS:
+            assert TOOL_REGISTRY[contract.tool_name].mode is contract.mode
+
+    def test_direct_invocation_signal_names_every_registered_tool(self) -> None:
+        """The signal used to list three tool names literally; the rest were exempt."""
+        sink = _Sink()
+        planner = GovernedToolPlanner(
+            available_tools=frozenset(_PLATFORM_TOOL_MODES), decision_sink=sink
+        )
+        for tool_name in TOOL_REGISTRY:
+            _plan(planner, f"вызови {tool_name} для сделки №deal-42")
+            assert sink.decisions[-1].rejection_signals == (
+                "DIRECT_TOOL_INVOCATION_SYNTAX",
+            ), tool_name
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("Какие риски по сделке №deal-42", "getDealRisks"),
+        ("Покажи статус документов по сделке №deal-42", "getDocumentStatus"),
+        ("Какой статус перевозки по сделке №deal-42", "getLogisticsStatus"),
+        ("Покажи результаты анализа по сделке №deal-42", "getLaboratoryStatus"),
+        ("Какая готовность к оплате по сделке №deal-42", "getMoneyReadiness"),
+        ("Какой статус спора по сделке №deal-42", "getDisputeStatus"),
+        ("Покажи хронологию по сделке №deal-42", "getEvidenceTimeline"),
+        ("What is the shipment status for deal_id=deal-42", "getLogisticsStatus"),
+        ("Show the evidence timeline for deal_id=deal-42", "getEvidenceTimeline"),
+        ("交易编号: deal-42 的风险", "getDealRisks"),
+    ],
+)
+def test_planner_selects_each_projection_from_its_own_subject(
+    question: str, expected: str
+) -> None:
+    sink = _Sink()
+    planner = GovernedToolPlanner(
+        available_tools=frozenset(_PLATFORM_TOOL_MODES), decision_sink=sink
+    )
+
+    plan = _plan(planner, question)
+
+    assert [call.tool_name for call in plan.calls] == [expected]
+    assert plan.calls[0].arguments == {"dealId": "deal-42"}
+    assert plan.calls[0].requested_mode is ToolMode.READ_ONLY
+    assert sink.decisions[-1].reason_codes == ("EXPLICIT_USER_INTENT",)
+
+
+def test_a_question_naming_two_subjects_is_rejected_rather_than_guessed() -> None:
+    """Nine read tools mean more overlap, so ambiguity must still fail closed."""
+    sink = _Sink()
+    planner = GovernedToolPlanner(
+        available_tools=frozenset(_PLATFORM_TOOL_MODES), decision_sink=sink
+    )
+
+    plan = _plan(
+        planner,
+        "Покажи статус документов и статус перевозки по сделке №deal-42",
+    )
+
+    assert plan.calls == ()
+    assert sink.decisions[-1].status is PlannerDecisionStatus.REJECTED
+    assert sink.decisions[-1].reason_codes == ("AMBIGUOUS_TOOL_INTENT",)
+
+
+def test_a_whole_deal_question_still_resolves_to_the_summary_alone() -> None:
+    """The projections must not steal the general question from getDealSummary."""
+    planner = GovernedToolPlanner(available_tools=frozenset(_PLATFORM_TOOL_MODES))
+
+    plan = _plan(planner, "Покажи сводку по сделке №deal-42")
+
+    assert [call.tool_name for call in plan.calls] == ["getDealSummary"]

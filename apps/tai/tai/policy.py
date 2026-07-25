@@ -13,30 +13,52 @@ class ToolDefinition:
     requires_mfa: bool = False
 
 
-TOOL_REGISTRY: dict[str, ToolDefinition] = {
-    "getDealSummary": ToolDefinition(
-        name="getDealSummary",
+# These read tools are projections of the one `workspace(dealId, user)` call the platform
+# already makes for `getDealSummary`, and the platform resolves membership and RLS on that
+# call. So a caller entitled to the summary is, by construction, entitled to any projection
+# of it: a narrower role set here would deny a read the same caller can already obtain from
+# the summary, which is theatre rather than a control. They share one set for that reason.
+#
+# `getRoleNextActions` is not in this group. It stays on its own narrower set, unchanged,
+# because it answers what the caller should do rather than what the deal contains.
+_WORKSPACE_READ_ROLES = frozenset(
+    {
+        "buyer",
+        "seller",
+        "logistics",
+        "driver",
+        "elevator",
+        "laboratory",
+        "surveyor",
+        "bank",
+        "operator",
+        "compliance",
+        "arbitrator",
+        "executive",
+        "administrator",
+        "support",
+        "auditor",
+    }
+)
+
+
+def _workspace_read_tool(name: str) -> ToolDefinition:
+    return ToolDefinition(
+        name=name,
         mode=ToolMode.READ_ONLY,
-        allowed_roles=frozenset(
-            {
-                "buyer",
-                "seller",
-                "logistics",
-                "driver",
-                "elevator",
-                "laboratory",
-                "surveyor",
-                "bank",
-                "operator",
-                "compliance",
-                "arbitrator",
-                "executive",
-                "administrator",
-                "support",
-                "auditor",
-            }
-        ),
-    ),
+        allowed_roles=_WORKSPACE_READ_ROLES,
+    )
+
+
+TOOL_REGISTRY: dict[str, ToolDefinition] = {
+    "getDealSummary": _workspace_read_tool("getDealSummary"),
+    "getDealRisks": _workspace_read_tool("getDealRisks"),
+    "getDocumentStatus": _workspace_read_tool("getDocumentStatus"),
+    "getLogisticsStatus": _workspace_read_tool("getLogisticsStatus"),
+    "getLaboratoryStatus": _workspace_read_tool("getLaboratoryStatus"),
+    "getMoneyReadiness": _workspace_read_tool("getMoneyReadiness"),
+    "getDisputeStatus": _workspace_read_tool("getDisputeStatus"),
+    "getEvidenceTimeline": _workspace_read_tool("getEvidenceTimeline"),
     "getRoleNextActions": ToolDefinition(
         name="getRoleNextActions",
         mode=ToolMode.READ_ONLY,

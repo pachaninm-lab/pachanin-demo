@@ -110,7 +110,104 @@ _INTENTS = (
             re.compile(r"(?:交易摘要|交易状态|交易概览)"),
         ),
     ),
+    # The seven projections below. Each names its own subject, so a question about the deal
+    # as a whole keeps matching `getDealSummary` alone; a question naming two subjects
+    # matches two contracts and is rejected as AMBIGUOUS_TOOL_INTENT rather than guessed at.
+    _IntentContract(
+        tool_name="getDealRisks",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(r"\bриск\w*", re.I),
+            re.compile(r"\b(?:блокер\w*|что\s+блокиру\w*|стоп-?фактор\w*)", re.I),
+            re.compile(r"\b(?:deal\s+)?risks?\b", re.I),
+            re.compile(r"\bblockers?\b", re.I),
+            re.compile(r"(?:风险|阻碍)"),
+        ),
+    ),
+    _IntentContract(
+        tool_name="getDocumentStatus",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(r"\b(?:статус\w*|состояни\w*)\s+(?:по\s+)?документ\w*", re.I),
+            re.compile(
+                r"\b(?:документ\w*|подпис\w*)\s+(?:подписан\w*|готов\w*|не\s+хвата\w*)",
+                re.I,
+            ),
+            re.compile(r"\bdocuments?\s+status\b", re.I),
+            re.compile(r"\bstatus\s+of\s+(?:the\s+)?documents?\b", re.I),
+            re.compile(r"(?:文件状态|单据状态)"),
+        ),
+    ),
+    _IntentContract(
+        tool_name="getLogisticsStatus",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(
+                r"\b(?:статус\w*|состояни\w*|где)\s+(?:по\s+)?"
+                r"(?:перевозк\w*|отгрузк\w*|логистик\w*|рейс\w*|машин\w*|транспорт\w*)",
+                re.I,
+            ),
+            re.compile(r"\b(?:logistics|shipment|transport)\s+status\b", re.I),
+            re.compile(r"(?:物流状态|运输状态)"),
+        ),
+    ),
+    _IntentContract(
+        tool_name="getLaboratoryStatus",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(
+                r"\b(?:статус\w*|результат\w*|состояни\w*)\s+(?:по\s+)?"
+                r"(?:лаборатор\w*|анализ\w*|проб\w*|образц\w*)",
+                re.I,
+            ),
+            re.compile(r"\b(?:lab|laboratory|sample)\s+(?:status|results?)\b", re.I),
+            re.compile(r"(?:化验状态|实验室状态|检测结果)"),
+        ),
+    ),
+    _IntentContract(
+        tool_name="getMoneyReadiness",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(
+                r"\bготовност\w*\s+(?:к\s+)?(?:оплат\w*|платеж\w*|расчёт\w*|расчет\w*|денег)",
+                re.I,
+            ),
+            re.compile(r"\b(?:статус\w*|состояни\w*)\s+(?:по\s+)?(?:оплат\w*|платеж\w*)", re.I),
+            re.compile(r"\b(?:money|payment)\s+readiness\b", re.I),
+            re.compile(r"\bpayment\s+status\b", re.I),
+            re.compile(r"(?:付款准备|资金准备|付款状态)"),
+        ),
+    ),
+    _IntentContract(
+        tool_name="getDisputeStatus",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(
+                r"\b(?:статус\w*|состояни\w*)\s+(?:по\s+)?(?:спор\w*|претенз\w*|арбитраж\w*)",
+                re.I,
+            ),
+            re.compile(r"\b(?:открыт\w*|активн\w*)\s+(?:спор\w*|претенз\w*)", re.I),
+            re.compile(r"\bdisputes?\s+status\b", re.I),
+            re.compile(r"\bopen\s+disputes?\b", re.I),
+            re.compile(r"(?:争议状态|纠纷状态)"),
+        ),
+    ),
+    _IntentContract(
+        tool_name="getEvidenceTimeline",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(r"\b(?:хронолог\w*|таймлайн\w*|лент\w*\s+событ\w*)", re.I),
+            re.compile(r"\bистори\w*\s+(?:событ\w*|изменен\w*|сделк\w*)", re.I),
+            re.compile(r"\bevidence\s+timeline\b", re.I),
+            re.compile(r"\b(?:event|deal)\s+history\b", re.I),
+            re.compile(r"(?:证据时间线|事件时间线|事件历史)"),
+        ),
+    ),
 )
+
+# Derived, not hand-listed. This alternation used to name three tools literally, so every
+# tool added afterwards was silently exempt from the direct-invocation signal.
+_INVOCABLE_TOOL_NAMES = "|".join(re.escape(name) for name in sorted(TOOL_REGISTRY))
 
 _INJECTION_SIGNALS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -135,7 +232,7 @@ _INJECTION_SIGNALS: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(
             r"(?:tool_call|function_call|<tool|<system|\{\s*\"tool_name\")|"
             r"(?:вызови|запусти|invoke|call)\s+"
-            r"(?:getDealSummary|getRoleNextActions|prepareCommandDraft)",
+            rf"(?:{_INVOCABLE_TOOL_NAMES})",
             re.I,
         ),
     ),

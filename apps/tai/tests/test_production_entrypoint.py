@@ -1,8 +1,30 @@
 from __future__ import annotations
 
+import base64
+
 from fastapi.testclient import TestClient
 
 from tai.production_entrypoint import create_production_app
+
+
+def _configured_environment() -> dict[str, str]:
+    """A production environment with the platform tool bridge switched on.
+
+    Every test here used to stop at an unconfigured or invalid environment, so nothing
+    exercised the branch where `production_platform_tool_handlers` actually returns
+    handlers. That is the branch that hands the whole handler catalogue to the planner.
+    """
+    return {
+        "TAI_RUNTIME_MODE": "production",
+        "TAI_DATABASE_URL": "postgresql://tai:secret@postgres.internal:5432/tai",
+        "TAI_IDENTITY_HMAC_SECRET_B64": base64.b64encode(b"i" * 32).decode(),
+        "TAI_CONFIRMATION_HMAC_SECRET_B64": base64.b64encode(b"c" * 32).decode(),
+        "TAI_MODEL_ENDPOINTS_JSON": (
+            '{"agro@r1":"http://model.svc/v1/chat/completions"}'
+        ),
+        "TAI_PLATFORM_TOOL_BASE_URL": "http://platform-api.svc",
+        "TAI_PLATFORM_TOOL_HMAC_SECRET_B64": base64.b64encode(b"p" * 32).decode(),
+    }
 
 
 def test_production_entrypoint_requires_explicit_mode() -> None:
@@ -18,3 +40,21 @@ def test_production_entrypoint_sanitizes_invalid_environment() -> None:
     assert response.status_code == 503
     assert response.json()["reasons"] == ["TAI_PRODUCTION_CONFIGURATION_INVALID"]
     assert "TAI_DATABASE_URL" not in response.text
+
+
+def test_production_entrypoint_composes_with_the_platform_bridge_configured() -> None:
+    """Registering a tool the planner does not know took the entire runtime down.
+
+    `create_production_app` passes every configured handler key to `GovernedToolPlanner`,
+    which raises on a name outside its intent catalogue. The bare `except Exception` then
+    turned that into TAI_PRODUCTION_COMPOSITION_FAILED for the whole app — not a degraded
+    tool, an unavailable service. The remaining reasons here are runtime facts about this
+    sandbox (no PostgreSQL, no admitted model); composition itself must succeed.
+    """
+    response = TestClient(create_production_app(_configured_environment())).get(
+        "/health/ready"
+    )
+
+    reasons = response.json()["reasons"]
+    assert "TAI_PRODUCTION_COMPOSITION_FAILED" not in reasons
+    assert "TAI_PRODUCTION_CONFIGURATION_INVALID" not in reasons
