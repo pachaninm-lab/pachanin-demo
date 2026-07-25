@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/platform-v7-mobile-product-ui-final",
+  "status": "active",
+  "operationalStatus": "PUBLIC_MOBILE_ACCEPTANCE_FINALIZATION",
+  "validationRevision": 1,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/i18n/platform-v7-organization-connect.ts",
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+    "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-exact-mobile-acceptance-v1.json"
+  ],
+  "boundaries": {
+    "dealArchitectureRewrite": false,
+    "apiOrDatabaseChange": false,
+    "authOrRbacChange": false,
+    "bankingAuthorityChange": false,
+    "externalConnectivityClaim": false,
+    "fakeLiveData": false,
+    "unverifiedProofBlock": false,
+    "productionTopologyChange": false,
+    "netlifyOrVercelProductionDependency": false
+  },
+  "acceptance": {
+    "mobileHeaderCssPx": 48,
+    "minimumTouchTargetCssPx": 44,
+    "mobileHeadingCssPx": "32-38",
+    "maximumHeadingLines": 3,
+    "formControlCssPx": "52-56",
+    "requiredViewports": ["390x844", "430x932"],
+    "languages": ["ru", "en", "zh"],
+    "productWorkspace": true,
+    "horizontalOverflow": false,
+    "anchorOffsetVerified": true
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
