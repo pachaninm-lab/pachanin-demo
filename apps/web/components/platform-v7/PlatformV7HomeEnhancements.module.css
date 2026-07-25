@@ -1,0 +1,345 @@
+.heroTaiEntry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: start;
+  margin-top: 18px;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--pc-v6-line);
+  color: var(--pc-v6-green-dark);
+}
+
+.heroTaiEntry > svg {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.heroTaiCopy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.heroTaiCopy strong {
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.heroTaiCopy span {
+  max-width: 62ch;
+  color: #53645b;
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.heroTaiLink {
+  grid-column: 2;
+  width: fit-content;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+  color: var(--pc-v6-green-dark);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.heroTaiLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.roleSection {
+  margin-top: 12px;
+  border-top: 1px solid var(--pc-v6-line);
+  border-bottom: 1px solid var(--pc-v6-line);
+}
+
+.roleGrid {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 2px 2px 14px;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.roleCard {
+  flex: 0 0 min(82vw, 320px);
+  min-width: 0;
+  min-height: 276px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 20px;
+  border: 1px solid var(--pc-v6-line);
+  border-radius: 15px;
+  background: #ffffff;
+  color: var(--pc-v6-ink);
+  box-shadow: 0 10px 30px rgba(16, 42, 29, 0.045);
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.roleCard:hover {
+  transform: translateY(-2px);
+  border-color: #9fc8b0;
+  box-shadow: 0 16px 38px rgba(16, 42, 29, 0.08);
+}
+
+.roleCard:focus-visible {
+  outline: 3px solid rgba(8, 122, 59, 0.24);
+  outline-offset: 3px;
+}
+
+.roleIndex {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  border-radius: 999px;
+  background: #edf7f1;
+  color: var(--pc-v6-green-dark);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.roleCard > strong {
+  font-family: var(--pc-v6-font-display);
+  font-size: 20px;
+  font-weight: 710;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.roleText {
+  margin-top: 10px;
+  color: var(--pc-v6-muted);
+  font-size: 14px;
+  line-height: 1.52;
+}
+
+.roleResult {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--pc-v6-line);
+  color: #263a30;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.48;
+}
+
+.roleCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 18px;
+  color: var(--pc-v6-green-dark);
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.roleNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 74ch;
+  margin: 12px 0 0;
+  color: #607067;
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.roleNote svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--pc-v6-green);
+}
+
+.taiDefinition {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1fr);
+  gap: 18px;
+  margin: -4px 0 18px;
+  padding: 18px 20px;
+  border: 1px solid #b8d7c5;
+  border-radius: 14px;
+  background: #f4faf6;
+}
+
+.taiDefinition span {
+  color: var(--pc-v6-green-dark);
+  font-size: 13px;
+  font-weight: 740;
+}
+
+.taiDefinition p {
+  margin: 0;
+  color: #31473b;
+  font-size: 15px;
+  line-height: 1.54;
+}
+
+.taiImpact {
+  display: grid;
+  gap: 5px;
+  margin-top: 15px;
+  padding: 14px;
+  border-left: 3px solid var(--pc-v6-green);
+  border-radius: 0 10px 10px 0;
+  background: #ffffff;
+}
+
+.taiImpact span {
+  color: var(--pc-v6-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.taiImpact strong {
+  color: #20352a;
+  font-size: 14px;
+  font-weight: 670;
+  line-height: 1.48;
+}
+
+.taiWorkflow {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.taiWorkflowTitle {
+  font-size: 15px;
+  font-weight: 720;
+}
+
+.taiWorkflowGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.taiWorkflowStep {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--pc-v6-line);
+}
+
+.taiWorkflowStep:last-child {
+  border-bottom: 0;
+}
+
+.taiWorkflowStep > span {
+  color: var(--pc-v6-green);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.taiWorkflowStep > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.taiWorkflowStep strong {
+  font-size: 14px;
+  font-weight: 690;
+}
+
+.taiWorkflowStep small {
+  color: var(--pc-v6-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 767px) {
+  .heroTaiEntry {
+    margin-top: 16px;
+  }
+
+  .heroTaiLink {
+    grid-column: 1 / -1;
+    margin-left: 30px;
+  }
+
+  .roleSection {
+    margin-top: 4px;
+  }
+
+  .taiDefinition {
+    grid-template-columns: 1fr;
+    gap: 7px;
+    padding: 16px;
+  }
+}
+
+@media (min-width: 768px) {
+  .heroTaiEntry {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .heroTaiEntry > svg {
+    margin-top: 0;
+  }
+
+  .heroTaiLink {
+    grid-column: 3;
+    grid-row: 1;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .roleGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    padding: 0;
+  }
+
+  .roleCard {
+    min-height: 280px;
+    width: auto;
+  }
+}
+
+@media (min-width: 1100px) {
+  .roleGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .roleCard {
+    min-height: 304px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roleCard {
+    transition: none;
+  }
+
+  .roleCard:hover {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .heroTaiEntry,
+  .roleCard,
+  .taiDefinition,
+  .taiImpact {
+    border: 2px solid ButtonText;
+  }
+}
