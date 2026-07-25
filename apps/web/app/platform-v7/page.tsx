@@ -119,10 +119,17 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   .pc-v6-category,
   .pc-v6-crops,
   .pc-v6-integrations,
-  .pc-v6-assurance {
+  .pc-v6-assurance,
+  .pc-v6-faq,
+  .pc-v6-final {
     content-visibility: auto;
-    contain-intrinsic-size: auto 680px;
   }
+  .pc-v6-category,
+  .pc-v6-crops,
+  .pc-v6-integrations,
+  .pc-v6-assurance { contain-intrinsic-size: auto 680px; }
+  .pc-v6-faq { contain-intrinsic-size: auto 520px; }
+  .pc-v6-final { contain-intrinsic-size: auto 300px; }
 }
 @media (max-width: 374px) {
   .pc-v6-hero { gap: 22px; padding-top: 32px; padding-bottom: 44px; }
