@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/platform-v7-home-tai-role-entry-v2",
+  "status": "active",
+  "operationalStatus": "PUBLIC_UI_REFINEMENT",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7HomeEnhancements.module.css",
+    "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/i18n/platform-v7-hero-message.ts",
+    "apps/web/i18n/platform-v7-home-enhancements.ts",
+    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+    "apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-tai-role-entry-v2.json"
+  ],
+  "boundaries": {
+    "dealArchitectureRewrite": false,
+    "apiOrDatabaseChange": false,
+    "authOrRbacChange": false,
+    "bankingAuthorityChange": false,
+    "externalConnectivityClaim": false,
+    "fakeLiveData": false,
+    "productionTopologyChange": false,
+    "netlifyOrVercelProductionDependency": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
