@@ -11,6 +11,7 @@ describe('platform-v7 final homepage polish contract', () => {
   const homeCopy = read('i18n/platform-v7-home-v3.ts');
   const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
   const formCopy = read('i18n/platform-v7-organization-connect.ts');
+  const lighthouseConfig = read('lighthouserc.cjs');
   const scenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const scenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
   const browserAcceptance = read('tests/e2e/platform-v7-strategic-home-v3.spec.ts');
@@ -50,6 +51,13 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(deferredBlock).toContain('contain-intrinsic-size: auto 1080px !important');
     expect(deferredBlock).not.toContain('.pc-v6-hero {');
     expect(deferredBlock).not.toContain('.pc-v6-trust-strip');
+  });
+
+  it('keeps the strict LCP threshold and uses five runs for a stable median', () => {
+    expect(lighthouseConfig).toContain('numberOfRuns: 5');
+    expect(lighthouseConfig).toContain("'largest-contentful-paint': ['error', { maxNumericValue: 3000");
+    expect(lighthouseConfig).toContain("'categories:performance': ['error', { minScore: 0.85");
+    expect(lighthouseConfig).not.toContain('maxNumericValue: 3500');
   });
 
   it('uses the approved mobile H2 scale and compact conversion controls', () => {
