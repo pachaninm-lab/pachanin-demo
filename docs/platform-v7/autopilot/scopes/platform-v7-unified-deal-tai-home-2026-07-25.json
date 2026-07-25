@@ -31,6 +31,8 @@
     "No standalone TAI marketing section remains on the homepage",
     "TAI remains visible inside Deal execution and links to the dedicated AI page",
     "Deal cockpit remains the first product proof",
+    "The Deal cockpit does not repeat the hero conversion actions",
+    "Mobile trust evidence uses a compact horizontal flow instead of a tall two-by-two wall",
     "RU, EN and ZH remain complete",
     "mobile 320, 375, 390 and 430 retain 44px touch targets and no horizontal overflow",
     "no fake-live or unconfirmed integration claims"
