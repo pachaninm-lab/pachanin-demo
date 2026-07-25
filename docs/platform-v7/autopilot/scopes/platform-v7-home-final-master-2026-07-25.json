@@ -2,9 +2,10 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "PLATFORM-V7-HOME-FINAL-MASTER-2026-07-25",
   "status": "active",
-  "maturityBoundary": "public-homepage-information-architecture-copy-and-responsive-presentation-only",
+  "maturityBoundary": "public-homepage-information-architecture-copy-seo-and-responsive-presentation-only",
   "globalProgramStateUnchanged": "This homepage refinement does not advance platform production maturity, banking readiness or integration attestation.",
   "allowedPaths": [
+    "apps/web/app/platform-v7/head.tsx",
     "apps/web/app/platform-v7/page.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
@@ -13,7 +14,12 @@
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/i18n/platform-v7-home-v3.ts",
     "apps/web/i18n/platform-v7-home-enhancements.ts",
+    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
     "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+    "apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts",
+    "apps/web/tests/unit/platformV7PublicTypography.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/.keep-final-homepage-branch",
     "docs/platform-v7/autopilot/scopes/platform-v7-home-final-master-2026-07-25.json"
   ],
   "forbiddenPaths": [
@@ -29,6 +35,8 @@
     "TAI is presented as a distinct agribusiness intelligence product created for Transparent Price",
     "RU, EN and ZH remain complete",
     "mobile 320, 375, 390 and 430 retain 44px touch targets and no horizontal overflow",
+    "critical first paint matches hydrated layout",
+    "SEO and structured data distinguish the platform and TAI without unsupported claims",
     "no fake-live or unconfirmed integration claims"
   ]
 }
