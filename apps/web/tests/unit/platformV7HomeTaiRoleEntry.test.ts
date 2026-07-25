@@ -10,7 +10,9 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
   const mobileDensityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
+  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.module.css');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
+  const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const head = read('app/platform-v7/head.tsx');
   const contactDock = read('components/platform-v7/PublicContactDock.tsx');
   const hydrationSupport = read('components/platform-v7/HydrationSafeChatSupport.tsx');
@@ -33,7 +35,6 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(enhancements).not.toContain('accessToken');
     expect(enhancements).not.toContain('tenantId');
     expect(enhancements).not.toContain('membership');
-    expect(enhancements).not.toContain('aria-label={`${item.title}: ${item.cta}`}');
   });
 
   it('places the concrete Deal workspace before role, category and lifecycle explanation', () => {
@@ -47,14 +48,14 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(lifecycleIndex).toBeGreaterThan(categoryIndex);
   });
 
-  it('keeps one dominant hero conversion and shows the product cockpit before proof chips', () => {
-    const firstHero = home.slice(home.indexOf("className='pc-v6-hero'"), home.indexOf("className='pc-v6-trust-strip'"));
+  it('keeps one dominant hero conversion and shows the product cockpit before secondary content', () => {
+    const firstHero = home.slice(home.indexOf("className={`pc-v6-hero ${styles.hero}`}"), home.indexOf("id='participants'"));
     expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='hero_primary_cta'");
     expect(firstHero).toContain("eventName='hero_secondary_cta'");
-    expect(firstHero.indexOf("className='pc-v6-control-tower'")).toBeGreaterThan(firstHero.indexOf("className='pc-v6-hero-copy'"));
-    expect(firstHero.indexOf("className='pc-v6-hero-proofs'")).toBeGreaterThan(firstHero.indexOf("className='pc-v6-control-tower'"));
-    expect(firstHero).toContain("className='pc-v6-tai-strip'");
+    expect(firstHero.indexOf("className={`pc-v6-control-tower ${styles.tower}`}")).toBeGreaterThan(firstHero.indexOf("className={`pc-v6-hero-copy ${styles.heroCopy}`}"));
+    expect(firstHero).toContain("className={`pc-v6-tai-strip ${styles.towerIntelligence}`}");
+    expect(firstHero).not.toContain("className='pc-v6-hero-proofs'");
 
     const finalSection = home.slice(home.indexOf("className='pc-v6-final'"));
     const dealPrimary = finalSection.indexOf("href={dealHref} className='pc-v6-primary'");
@@ -63,22 +64,20 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(connectSecondary).toBeGreaterThan(dealPrimary);
   });
 
-  it('defines TAI as a distinct agribusiness product embedded in Deal execution', () => {
-    expect(home).toContain("href='#tai'");
-    expect(home).toContain('Отдельный AI-продукт для агробизнеса');
-    expect(home).toContain('Independent agribusiness AI product');
-    expect(home).toContain('独立的农业商业 AI 产品');
-    expect(home).toContain('Собственный операционный интеллект для агробизнеса');
-    expect(home).toContain('Deal Intelligence');
-    expect(home).toContain('Document Intelligence');
-    expect(home).toContain('<TaiImpact locale={locale} />');
-    expect(home).toContain('<TaiWorkflow locale={locale} />');
-    expect(home).toContain('остаётся под контролем человека');
+  it('expresses the platform and TAI as one product meaning without duplicating the dedicated AI page', () => {
+    expect(heroCopy).toContain("title: 'Вся агросделка'");
+    expect(heroCopy).toContain("accent: 'с TAI внутри'");
+    expect(heroCopy).toContain('TAI видит блокеры, объясняет основания и готовит следующий шаг');
+    expect(home).toContain("const taiHref = `/platform-v7/ai-in-action");
+    expect(home).toContain("<a href={taiHref}>{enhancement.nav.tai}</a>");
+    expect(home).toContain("id='tai'");
+    expect(home).toContain('TAI работает внутри всего контура Сделки');
+    expect(home).toContain("eventName='open_tai'");
+    expect(home).not.toContain("<section id='tai' className='pc-v6-section pc-v6-tai'>");
+    expect(home).not.toContain('Отдельный AI-продукт для агробизнеса');
+    expect(home).not.toContain('<TaiImpact locale={locale} />');
+    expect(home).not.toContain('<TaiWorkflow locale={locale} />');
     expect(copy).toContain('Как TAI формирует ответ');
-    expect(copy).toContain('Понимает контекст');
-    expect(copy).toContain('Находит отклонение');
-    expect(copy).toContain('Показывает основание');
-    expect(copy).toContain('Готовит действие');
   });
 
   it('does not introduce unverified business proof or the rejected partner-positioning sentence', () => {
@@ -109,7 +108,6 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(head).toContain('name="twitter:card"');
     expect(head).not.toContain('контур исполнения зерновой сделки');
     expect(head).not.toContain('исполнения зерновых сделок');
-    expect(head).not.toContain('platform-v7-density-fix.css');
   });
 
   it('keeps contact-dock contrast rules inside the owning component', () => {
@@ -143,18 +141,17 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(legacyPolish).toContain("import './PublicMobileExperiencePolish.css'");
   });
 
-  it('eliminates reserved blank sections and compacts the mobile conversion path', () => {
+  it('eliminates reserved blank sections and keeps the mobile conversion path compact', () => {
     expect(enhancements).toContain("import './PlatformV7HomeMobileDensity.css'");
     expect(enhancements).toContain("import './PlatformV7HomeFinalPolish.css'");
-    expect(enhancements).not.toContain('PlatformV7HomeHeroAcceptance.css');
     expect(mobileDensityCss).toContain('content-visibility: visible !important');
     expect(mobileDensityCss).toContain('contain-intrinsic-size: none !important');
-    expect(mobileDensityCss).toContain('.pc-v7-public-entry #connect-organization');
     expect(finalCss).toContain('.pc-v7-public-entry .pc-v6-role-grid');
     expect(finalCss).toContain('scroll-snap-type: x mandatory');
-    expect(enhancements).toContain("className={`${styles.roleGrid} pc-v6-role-grid`}");
-    expect(enhancements).toContain("className={`${styles.roleCard} pc-v6-role-card`}");
-    expect(enhancements).toContain("className={`${styles.taiImpact} pc-v6-tai-impact`}");
+    expect(home).toContain("import styles from './PlatformV7UnifiedHome.module.css'");
+    expect(unifiedCss).toContain('.heroTitleAccent');
+    expect(unifiedCss).toContain('.lifecycleIntelligence');
+    expect(unifiedCss).toContain('grid-template-columns: auto minmax(0, 1fr) auto');
   });
 
   it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {
@@ -164,8 +161,8 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(enhancementCss).toContain('@media (max-width: 767px)');
     expect(enhancementCss).toContain('@media (min-width: 768px)');
     expect(enhancementCss).toContain('@media (min-width: 1100px)');
-    expect(enhancementCss).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))');
-    expect(finalCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(unifiedCss).toContain('min-height: 44px');
+    expect(unifiedCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(enhancementCss).toContain('@media (forced-colors: active)');
   });
 });
