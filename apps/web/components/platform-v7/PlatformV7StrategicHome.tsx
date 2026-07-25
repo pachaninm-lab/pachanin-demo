@@ -81,8 +81,8 @@ export async function PlatformV7StrategicHome() {
           <div className={`pc-v6-hero-copy ${styles.heroCopy}`}>
             <span className='pc-v6-kicker'>{heroMessage.kicker}</span>
             <h1 id='pc-v6-title' className={`pc-v6-hero-title ${styles.heroTitle}`}>
-              <span className={styles.heroTitleMain}>{heroMessage.title}</span>
-              <span className={styles.heroTitleAccent}>{heroMessage.accent}</span>
+              <span className={`pc-v6-hero-title-main ${styles.heroTitleMain}`}>{heroMessage.title}</span>
+              <span className={`pc-v6-hero-title-accent ${styles.heroTitleAccent}`}>{heroMessage.accent}</span>
             </h1>
             <p className={`pc-v6-hero-lead ${styles.heroLead}`}>{heroMessage.lead}</p>
             <div className={`pc-v6-actions ${styles.heroActions}`}>
