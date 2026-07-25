@@ -28,6 +28,22 @@ async function settleContactDock(page: Page) {
   if (await dock.count() === 0) return;
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+  }));
+}
+
+async function scrollAndSettle(page: Page, top: number) {
+  await page.evaluate(async (scrollTop) => {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
+    window.scrollTo({ top: scrollTop, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
+  }, top);
 }
 
 async function materializeDeferredSections(page: Page) {
@@ -178,15 +194,9 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     const dock = page.locator('.pc-public-contact-dock');
     await settleContactDock(page);
     await expect(dock.locator('button').first()).toBeEnabled();
-    await page.evaluate(() => {
-      window.scrollTo({ top: 1300, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-    });
+    await scrollAndSettle(page, 1300);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-    await page.evaluate(() => {
-      window.scrollTo({ top: 900, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-    });
+    await scrollAndSettle(page, 900);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
   });
 
