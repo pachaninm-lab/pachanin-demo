@@ -154,11 +154,24 @@ jobs:
                   printf '%s\n' SKIPPED_PRIMARY_RELEASE_SUCCEEDED > "$EVIDENCE_DIR/dispatch-status.txt"
                   exit 0
                   ;;
-                failure|cancelled|timed_out|action_required|stale)
-                  echo 'action=dispatch' >> "$GITHUB_OUTPUT"
-                  echo 'reason=primary_release_failed' >> "$GITHUB_OUTPUT"
-                  printf '%s\n' "$conclusion" > "$EVIDENCE_DIR/primary-release-status.txt"
-                  exit 0
+                failure)
+                  gh run view "$primary_run" \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --json jobs \
+                    > "$EVIDENCE_DIR/primary-release-jobs.json"
+                  image_wait_failures="$(jq '[.jobs[]?.steps[]? | select(.name == "Wait for exact canonical image" and .conclusion == "failure")] | length' "$EVIDENCE_DIR/primary-release-jobs.json")"
+                  if [[ "$image_wait_failures" == 1 ]]; then
+                    echo 'action=dispatch' >> "$GITHUB_OUTPUT"
+                    echo 'reason=primary_image_wait_exhausted' >> "$GITHUB_OUTPUT"
+                    printf '%s\n' PRIMARY_IMAGE_WAIT_EXHAUSTED > "$EVIDENCE_DIR/primary-release-status.txt"
+                    exit 0
+                  fi
+                  echo 'Primary release failed outside the canonical-image wait step; refusing to repeat a production mutation.' >&2
+                  exit 7
+                  ;;
+                cancelled|timed_out|action_required|stale|startup_failure|skipped|neutral)
+                  echo "Primary release ended as $conclusion; state is inconclusive for a safe fallback deploy." >&2
+                  exit 8
                   ;;
                 *)
                   echo "Primary release ended with an unsupported conclusion: $conclusion" >&2
