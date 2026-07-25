@@ -118,18 +118,19 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(contactDock).toContain('-webkit-text-fill-color: currentColor;');
   });
 
-  it('keeps the mobile first-screen dock rule scoped to the strategic homepage', () => {
+  it('keeps the compact first-screen dock rule scoped to the strategic homepage', () => {
     expect(contactDock).toContain("import { usePathname } from 'next/navigation'");
     expect(contactDock).toContain("clean === '/platform-v7'");
     expect(contactDock).toContain("clean === '/pc-public-entry/platform-v7'");
-    expect(contactDock).toContain("const hideAtPublicMobileTop = assistantContext === 'public' && isStrategicHomepage(pathname)");
-    expect(contactDock).toContain('React.useState(hideAtPublicMobileTop)');
+    expect(contactDock).toContain("const PUBLIC_COMPACT_QUERY = '(max-width: 1023px)'");
+    expect(contactDock).toContain("const hideAtPublicCompactTop = assistantContext === 'public' && isStrategicHomepage(pathname)");
+    expect(contactDock).toContain('React.useState(hideAtPublicCompactTop)');
     expect(contactDock).not.toContain("React.useState(assistantContext === 'public')");
-    expect(contactDock).toContain('const mobileQuery = window.matchMedia(PUBLIC_MOBILE_QUERY)');
-    expect(contactDock).toContain('hideAtPublicMobileTop');
-    expect(contactDock).toContain('setHiddenByScroll(isPublicMobileTop(currentY))');
-    expect(contactDock).toContain("mobileQuery.addEventListener('change', syncViewportVisibility)");
-    expect(contactDock).toContain('}, [hideAtPublicMobileTop]);');
+    expect(contactDock).toContain('const compactQuery = window.matchMedia(PUBLIC_COMPACT_QUERY)');
+    expect(contactDock).toContain('hideAtPublicCompactTop');
+    expect(contactDock).toContain('setHiddenByScroll(isPublicCompactTop(currentY))');
+    expect(contactDock).toContain("compactQuery.addEventListener('change', syncViewportVisibility)");
+    expect(contactDock).toContain('}, [hideAtPublicCompactTop]);');
   });
 
   it('loads legacy public mobile CSS only outside the strategic homepage', () => {
