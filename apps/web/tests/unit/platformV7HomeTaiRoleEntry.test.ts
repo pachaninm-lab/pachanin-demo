@@ -10,7 +10,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
   const mobileDensityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
-  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.css');
+  const page = read('app/platform-v7/page.tsx');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
   const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const head = read('app/platform-v7/head.tsx');
@@ -107,18 +107,18 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(legacyPolish).toContain("import './PublicMobileExperiencePolish.css'");
   });
 
-  it('uses consolidated responsive styles and preserves accessibility targets', () => {
+  it('uses inline unified styles and preserves accessibility targets', () => {
     expect(enhancements).toContain("import './PlatformV7HomeMobileDensity.css'");
     expect(enhancements).toContain("import './PlatformV7HomeFinalPolish.css'");
-    expect(enhancements).toContain("import './PlatformV7UnifiedHome.css'");
+    expect(enhancements).not.toContain('PlatformV7UnifiedHome.css');
     expect(home).not.toContain('PlatformV7UnifiedHome.module.css');
     expect(mobileDensityCss).toContain('content-visibility: visible !important');
     expect(finalCss).toContain('scroll-snap-type: x mandatory');
-    expect(unifiedCss).toContain('.pc-v6-tower-intelligence-link');
-    expect(unifiedCss).toContain('.pc-v6-trust-after-lifecycle');
-    expect(unifiedCss).toContain('width: 44px');
-    expect(unifiedCss).toContain('height: 44px');
-    expect(unifiedCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(page).toContain('.pc-v6-tower-intelligence-link');
+    expect(page).toContain('.pc-v6-trust-after-lifecycle');
+    expect(page).toContain('width: 44px');
+    expect(page).toContain('height: 44px');
+    expect(page).toContain('@media (max-width: 767px)');
     expect(enhancementCss).toMatch(/min-height:\s*44px/);
     expect(enhancementCss).toContain(':focus-visible');
     expect(enhancementCss).toContain('@media (forced-colors: active)');
