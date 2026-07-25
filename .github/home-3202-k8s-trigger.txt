@@ -1,0 +1,3 @@
+Exact application target: 93b4c2649a2499472d0245cfdb70adf777e4b0b7
+Workflow branch: ops/home-3202-k8s-evidence-93b4
+Purpose: independent uncancelled production-like Kubernetes evidence for PR #3202.
