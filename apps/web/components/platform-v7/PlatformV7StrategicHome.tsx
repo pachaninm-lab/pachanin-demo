@@ -18,7 +18,6 @@ import { PublicRoleEntrances } from './PlatformV7HomeEnhancements';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HomeEnhancementCopy } from '@/i18n/platform-v7-home-enhancements';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
-import styles from './PlatformV7UnifiedHome.module.css';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
   return (
@@ -77,15 +76,15 @@ export async function PlatformV7StrategicHome() {
       />
 
       <div className='pc-v6-shell'>
-        <section className={`pc-v6-hero ${styles.hero}`} aria-labelledby='pc-v6-title'>
-          <div className={`pc-v6-hero-copy ${styles.heroCopy}`}>
+        <section className='pc-v6-hero pc-v6-hero-unified' aria-labelledby='pc-v6-title'>
+          <div className='pc-v6-hero-copy pc-v6-hero-copy-unified'>
             <span className='pc-v6-kicker'>{heroMessage.kicker}</span>
-            <h1 id='pc-v6-title' className={`pc-v6-hero-title ${styles.heroTitle}`}>
-              <span className={`pc-v6-hero-title-main ${styles.heroTitleMain}`}>{heroMessage.title}</span>
-              <span className={`pc-v6-hero-title-accent ${styles.heroTitleAccent}`}>{heroMessage.accent}</span>
+            <h1 id='pc-v6-title' className='pc-v6-hero-title pc-v6-hero-title-unified'>
+              <span className='pc-v6-hero-title-main'>{heroMessage.title}</span>
+              <span className='pc-v6-hero-title-accent'>{heroMessage.accent}</span>
             </h1>
-            <p className={`pc-v6-hero-lead ${styles.heroLead}`}>{heroMessage.lead}</p>
-            <div className={`pc-v6-actions ${styles.heroActions}`}>
+            <p className='pc-v6-hero-lead pc-v6-hero-lead-unified'>{heroMessage.lead}</p>
+            <div className='pc-v6-actions pc-v6-hero-actions-unified'>
               <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='hero_primary_cta' locale={locale} params={{ source: 'hero_unified_deal_tai' }}>
                 {copy.hero.primary}<ArrowRight size={19} />
               </PublicExperienceLink>
@@ -95,7 +94,7 @@ export async function PlatformV7StrategicHome() {
             </div>
           </div>
 
-          <div className={`pc-v6-control-tower ${styles.tower}`} aria-label={copy.a11y.controlTower}>
+          <div className='pc-v6-control-tower pc-v6-control-tower-unified' aria-label={copy.a11y.controlTower}>
             <div className='pc-v6-ct-top'>
               <div><small>{copy.tower.sampleLabel}</small><span>{copy.tower.deal}</span></div>
               <b>{copy.tower.stage}</b>
@@ -125,12 +124,12 @@ export async function PlatformV7StrategicHome() {
                 <span>{copy.tower.nextNote}</span>
               </article>
             </div>
-            <div id='tai' className={`pc-v6-tai-strip ${styles.towerIntelligence}`}>
+            <div id='tai' className='pc-v6-tai-strip pc-v6-tower-intelligence'>
               <Sparkles size={18} aria-hidden='true' />
               <div><strong>{towerTaiTitle}</strong><span>{copy.tower.taiText}</span></div>
               <PublicExperienceLink
                 href={taiHref}
-                className={styles.towerIntelligenceLink}
+                className='pc-v6-tower-intelligence-link'
                 eventName='open_tai'
                 locale={locale}
                 params={{ source: 'hero_cockpit_unified' }}
@@ -172,7 +171,7 @@ export async function PlatformV7StrategicHome() {
           <p className='pc-v6-scroll-hint' style={{ color: '#596a61' }}>{copy.lifecycle.hint}</p>
         </section>
 
-        <section className={`pc-v6-trust-strip ${styles.trustAfterLifecycle}`} aria-label={copy.trust.label}>
+        <section className='pc-v6-trust-strip pc-v6-trust-after-lifecycle' aria-label={copy.trust.label}>
           {copy.trust.items.map(([title, text]) => <article key={title}><strong>{title}</strong><span>{text}</span></article>)}
         </section>
 
