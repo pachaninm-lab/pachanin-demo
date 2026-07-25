@@ -5,6 +5,7 @@
   "branch": "claude/tai-production-attestation-gizgzh",
   "exact_base": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
   "allowed_paths": [
+    ".gitleaksignore",
     ".github/scripts/pc-crop-08f-sdiz-remediation.py",
     ".github/scripts/tai-gateway-ui-readonly-remediation.py",
     ".github/workflows/pc-crop-08f-sync-main.yml",
