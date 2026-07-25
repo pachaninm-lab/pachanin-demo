@@ -58,7 +58,29 @@ class TestRegistryMatchesTheServer:
         assert set(_PLATFORM_TOOL_MODES.values()) <= {ToolMode.READ_ONLY, ToolMode.DRAFT}
 
     def test_read_tool_subset_excludes_drafts(self) -> None:
-        assert read_tool_names() == ("getDealSummary", "getRoleNextActions")
+        assert read_tool_names() == (
+            "getDealSummary",
+            "getRoleNextActions",
+            "getDealRisks",
+            "getDocumentStatus",
+            "getLogisticsStatus",
+            "getLaboratoryStatus",
+            "getMoneyReadiness",
+            "getDisputeStatus",
+            "getEvidenceTimeline",
+        )
+
+    def test_integration_status_stays_unregistered_until_it_has_a_read_path(self) -> None:
+        """The catalogue asks for ten; nine are served.
+
+        getIntegrationStatus needs outbox delivery state, which is not part of the
+        deal workspace projection the other nine read. Registering it before the
+        platform can answer it would sign requests that come back 401 — a capability
+        that only looks real.
+        """
+        assert "getIntegrationStatus" not in PLATFORM_TOOL_NAMES
+        assert "getIntegrationStatus" not in _server_tool_modes()
+        assert len(read_tool_names()) == 9
 
     def test_registry_names_are_unique(self) -> None:
         assert len(set(PLATFORM_TOOL_NAMES)) == len(PLATFORM_TOOL_NAMES)

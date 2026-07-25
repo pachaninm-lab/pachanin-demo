@@ -64,8 +64,17 @@ def test_platform_tools_register_only_read_and_draft_handlers() -> None:
     assert set(handlers) == {
         "getDealSummary",
         "getRoleNextActions",
+        "getDealRisks",
+        "getDocumentStatus",
+        "getLogisticsStatus",
+        "getLaboratoryStatus",
+        "getMoneyReadiness",
+        "getDisputeStatus",
+        "getEvidenceTimeline",
         "prepareCommandDraft",
     }
+    # Not yet served by the platform, so not reachable here either.
+    assert "getIntegrationStatus" not in handlers
     assert "acknowledgeRisk" not in handlers
     assert "createSupportCase" not in handlers
 
