@@ -102,13 +102,13 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
 
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
-    const tabs = page.getByRole('tablist', { name: 'Что видит каждый участник' });
+    const tabs = page.getByRole('tablist', { name: 'Сделка в работе' });
     await expect(tabs).toBeVisible();
     const bank = page.getByRole('tab', { name: 'Банк' });
     await bank.click();
     await expect(bank).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.')).toBeVisible();
+    await expect(page.getByText('Ролевое представление одного сценария. Переключение не открывает данные и не меняет права.')).toBeVisible();
     expect(forbiddenRequests).toEqual([]);
   });
 
