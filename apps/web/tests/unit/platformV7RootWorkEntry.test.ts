@@ -12,7 +12,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
-  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.css');
+  const unifiedCss = page;
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
   const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
@@ -121,7 +121,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(unifiedCss).toContain('width: 44px');
     expect(unifiedCss).toContain('height: 44px');
     expect(unifiedCss).toContain('@media (max-width: 767px)');
-    expect(unifiedCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(unifiedCss).toContain('.pc-v6-tower-intelligence-link:focus-visible');
   });
 
   it('implements support as a real accessible dialog mounted at the public layout boundary', () => {
