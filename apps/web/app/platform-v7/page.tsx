@@ -97,6 +97,24 @@ html[data-p7-language='zh'] * {
 html[data-p7-language='zh'] h1,
 html[data-p7-language='zh'] h2,
 html[data-p7-language='zh'] h3 { line-height: 1.14; }
+@supports (content-visibility: auto) {
+  .pc-v7-public-entry #participants,
+  .pc-v7-public-entry #role-entry,
+  .pc-v7-public-entry .pc-v6-category,
+  .pc-v7-public-entry #deal-path,
+  .pc-v7-public-entry #tai,
+  .pc-v7-public-entry #money,
+  .pc-v7-public-entry #integrations,
+  .pc-v7-public-entry .pc-v6-crops,
+  .pc-v7-public-entry #maturity,
+  .pc-v7-public-entry #connect-organization,
+  .pc-v7-public-entry .pc-v6-faq,
+  .pc-v7-public-entry .pc-v6-final {
+    content-visibility: visible !important;
+    contain: none !important;
+    contain-intrinsic-size: none !important;
+  }
+}
 @media (max-width: 767px) {
   .pc-v7-public-entry {
     --entry-public-header-base: 48px;
