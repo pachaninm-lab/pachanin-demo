@@ -3,7 +3,7 @@
   "branch": "agent/platform-v7-home-tai-role-entry-v3",
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
-  "validationRevision": 1,
+  "validationRevision": 2,
   "allowedPaths": [
     "apps/web/app/platform-v7/head.tsx",
     "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
