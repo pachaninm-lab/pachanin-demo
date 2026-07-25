@@ -31,6 +31,12 @@ async function settleContactDock(page: Page) {
   await expect(dock).toHaveAttribute('data-scroll-hidden', mobile ? 'true' : 'false');
 }
 
+async function flushScrollFrame(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+  }));
+}
+
 async function expectNoSeriousAxeViolations(page: Page) {
   await settleContactDock(page);
   const result = await new AxeBuilder({ page })
@@ -171,12 +177,14 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       window.scrollTo({ top: 1300, behavior: 'instant' });
       window.dispatchEvent(new Event('scroll'));
     });
+    await flushScrollFrame(page);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
 
     await page.evaluate(() => {
       window.scrollTo({ top: 900, behavior: 'instant' });
       window.dispatchEvent(new Event('scroll'));
     });
+    await flushScrollFrame(page);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
     await expect(dock).toBeVisible();
     await expect(assistant).toBeEnabled();
@@ -185,6 +193,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       window.scrollTo({ top: 0, behavior: 'instant' });
       window.dispatchEvent(new Event('scroll'));
     });
+    await flushScrollFrame(page);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
     await expect(dock).toBeHidden();
   });
