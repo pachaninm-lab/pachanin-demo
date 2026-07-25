@@ -8,6 +8,7 @@ describe('platform-v7 final homepage polish contract', () => {
   const page = read('app/platform-v7/page.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
+  const homeCopy = read('i18n/platform-v7-home-v3.ts');
   const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
   const formCopy = read('i18n/platform-v7-organization-connect.ts');
   const scenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
@@ -41,6 +42,8 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(finalCss).toContain('font-size: clamp(34px, 8.45vw, 37px) !important');
     expect(finalCss).toContain('gap: 12px !important');
     expect(finalCss).toContain('min-height: 54px !important');
+    expect(homeCopy).toContain("title: 'Подключите организацию к контуру Сделки'");
+    expect(homeCopy).not.toContain("title: 'Подключите организацию к единому контуру Сделки'");
     expect(formCss).toContain('.assurances a { width: fit-content; min-height: 44px;');
     expect(formCss).toContain('.error button { min-height: 44px;');
     expect(formCopy).toContain('Укажите организацию и контакт. На втором шаге — роль и рабочий сценарий.');
