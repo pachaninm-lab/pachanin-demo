@@ -36,9 +36,16 @@ async function scrollAndFlush(page: Page, top: number) {
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  await scrollAndFlush(page, 0);
-  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
-  await expect(dock).toHaveAttribute('data-scroll-hidden', mobile ? 'true' : 'false');
+  const expected = (page.viewportSize()?.width ?? 1024) <= 767 ? 'true' : 'false';
+
+  await expect.poll(async () => {
+    await scrollAndFlush(page, 0);
+    return dock.getAttribute('data-scroll-hidden');
+  }, {
+    timeout: 15_000,
+    intervals: [100, 250, 500],
+    message: 'contact dock must settle at the top after route hydration and hash restoration',
+  }).toBe(expected);
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {
