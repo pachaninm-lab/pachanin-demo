@@ -1,7 +1,14 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CircleDollarSign, FileCheck2, ShieldAlert, UserRoundCheck } from 'lucide-react';
+import {
+  CircleDollarSign,
+  FileCheck2,
+  FlaskConical,
+  MapPinned,
+  ShieldAlert,
+  UserRoundCheck,
+} from 'lucide-react';
 import styles from './PublicDealRoleScenario.module.css';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -16,10 +23,33 @@ type RoleScenario = {
   money: string;
 };
 
+type UiCopy = {
+  label: string;
+  note: string;
+  preview: string;
+  deal: string;
+  status: string;
+  stageLabel: string;
+  stages: [string, string, string, string, string];
+  route: string;
+  routeValue: string;
+  quality: string;
+  qualityValue: string;
+  documents: string;
+  documentsValue: string;
+  reserve: string;
+  reserveValue: string;
+  risk: string;
+  owner: string;
+  next: string;
+  evidence: string;
+  money: string;
+};
+
 const scenarios: Record<Locale, Record<RoleKey, RoleScenario>> = {
   ru: {
     seller: { label: 'Продавец', risk: 'Оплата остановлена из-за расхождения качества и неподписанного акта.', owner: 'Покупатель и лаборатория', next: 'Проверить проект акта и запросить подтверждение покупателя.', evidence: 'Протокол лаборатории, спецификация и акт расхождений.', money: 'Средства остаются зарезервированными; окончательная выплата остановлена.' },
-    buyer: { label: 'Покупатель', risk: 'Фактическая влажность выше договорного допуска на 0,8 п.п.', owner: 'Лаборатория', next: 'Выбрать договорное правило перерасчёта и подписать акт.', evidence: 'Проба, протокол лаборатории и версия спецификации.', money: 'Резерв сохраняется до подтверждения нового основания расчёта.' },
+    buyer: { label: 'Покупатель', risk: 'Фактическая влажность выше договорного допуска на 0,8 п.п.', owner: 'Лаборатория', next: 'Выбрать договорное правило перерасчёта и подписать акт.', evidence: 'Проба, лабораторный протокол и версия спецификации.', money: 'Резерв сохраняется до подтверждения нового основания расчёта.' },
     logistics: { label: 'Логистика', risk: 'Рейс завершён физически, но приёмка ещё не закрыта документально.', owner: 'Хранение и покупатель', next: 'Передать подтверждение рейса и дождаться закрытия приёмки.', evidence: 'ЭПД, отметки прибытия и весовые данные.', money: 'Расчёт за перевозку отделён от окончательного расчёта за товар.' },
     storage: { label: 'Хранение', risk: 'Партия принята условно до решения по показателю качества.', owner: 'Лаборатория и покупатель', next: 'Зафиксировать размещение партии и режим условного хранения.', evidence: 'Акт приёмки, вес, место хранения и статус партии.', money: 'Основание передачи товара есть, основания окончательного расчёта пока нет.' },
     laboratory: { label: 'Лаборатория', risk: 'Результат вышел за допуск и должен быть связан с конкретной пробой.', owner: 'Лаборатория', next: 'Подтвердить протокол, методику и идентификатор пробы.', evidence: 'Проба → измерение → протокол → партия.', money: 'Результат влияет на формулу цены, но сам по себе не запускает выплату.' },
@@ -43,11 +73,74 @@ const scenarios: Record<Locale, Record<RoleKey, RoleScenario>> = {
   },
 };
 
-const ui = {
-  ru: { label: 'Что видит каждый участник', risk: 'Риск', owner: 'Ответственный', next: 'Следующее действие', evidence: 'Доказательства', money: 'Деньги', note: 'Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.' },
-  en: { label: 'What each participant sees', risk: 'Risk', owner: 'Owner', next: 'Next action', evidence: 'Evidence', money: 'Money', note: 'This interactive scenario shows role context. Switching views grants no data access and changes no permissions.' },
-  zh: { label: '每个参与方看到什么', risk: '风险', owner: '责任方', next: '下一步', evidence: '证据', money: '资金', note: '交互场景仅展示角色上下文。切换视角不会授予数据访问权限，也不会更改权限。' },
-} satisfies Record<Locale, Record<string, string>>;
+const ui: Record<Locale, UiCopy> = {
+  ru: {
+    label: 'Сделка в работе',
+    note: 'Ролевое представление одного сценария. Переключение не открывает данные и не меняет права.',
+    preview: 'Пример интерфейса · данные сценария',
+    deal: 'Партия пшеницы · 420 т',
+    status: 'Отклонение качества',
+    stageLabel: 'Этапы исполнения сценария',
+    stages: ['Рейс', 'Прибытие', 'Вес', 'Лаборатория', 'Расчёт'],
+    route: 'Логистика',
+    routeValue: 'Рейс завершён · геозона подтверждена',
+    quality: 'Лаборатория',
+    qualityValue: 'Влажность 13,3% · +0,8 п.п.',
+    documents: 'Документы',
+    documentsValue: '5 из 6 подтверждены',
+    reserve: 'Деньги',
+    reserveValue: 'Средства зарезервированы',
+    risk: 'Причина остановки',
+    owner: 'Ответственный',
+    next: 'Следующее действие',
+    evidence: 'Основание',
+    money: 'Правило расчёта',
+  },
+  en: {
+    label: 'Deal in execution',
+    note: 'A role-based view of one scenario. Switching views grants no data access and changes no permissions.',
+    preview: 'Interface example · scenario data',
+    deal: 'Wheat lot · 420 t',
+    status: 'Quality deviation',
+    stageLabel: 'Scenario execution stages',
+    stages: ['Trip', 'Arrival', 'Weight', 'Laboratory', 'Settlement'],
+    route: 'Logistics',
+    routeValue: 'Trip complete · geofence confirmed',
+    quality: 'Laboratory',
+    qualityValue: 'Moisture 13.3% · +0.8 pp',
+    documents: 'Documents',
+    documentsValue: '5 of 6 confirmed',
+    reserve: 'Money',
+    reserveValue: 'Funds reserved',
+    risk: 'Reason for pause',
+    owner: 'Owner',
+    next: 'Next action',
+    evidence: 'Evidence',
+    money: 'Settlement rule',
+  },
+  zh: {
+    label: '执行中的交易',
+    note: '同一场景的角色视图。切换视角不会授予数据访问权限，也不会更改权限。',
+    preview: '界面示例 · 场景数据',
+    deal: '小麦批次 · 420 吨',
+    status: '质量偏差',
+    stageLabel: '场景执行阶段',
+    stages: ['运输', '到达', '称重', '实验室', '结算'],
+    route: '物流',
+    routeValue: '运输完成 · 地理围栏已确认',
+    quality: '实验室',
+    qualityValue: '水分 13.3% · +0.8 个百分点',
+    documents: '文件',
+    documentsValue: '6 份中 5 份已确认',
+    reserve: '资金',
+    reserveValue: '资金已预留',
+    risk: '暂停原因',
+    owner: '责任方',
+    next: '下一步',
+    evidence: '依据',
+    money: '结算规则',
+  },
+};
 
 export function PublicDealRoleScenario({ locale }: { locale: string }) {
   const normalized: Locale = locale === 'en' || locale === 'zh' ? locale : 'ru';
@@ -57,20 +150,53 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
 
   return (
     <div className={styles.root}>
-      <div className={styles.heading}><strong>{copy.label}</strong><span>{copy.note}</span></div>
-      <div className={styles.tabs} role='tablist' aria-label={copy.label}>
-        {(Object.keys(scenarios[normalized]) as RoleKey[]).map((key) => (
-          <button key={key} type='button' role='tab' aria-selected={role === key} className={role === key ? styles.active : undefined} onClick={() => setRole(key)}>
-            {scenarios[normalized][key].label}
-          </button>
-        ))}
+      <div className={styles.heading}>
+        <strong>{copy.label}</strong>
+        <span>{copy.note}</span>
       </div>
-      <div className={styles.panel} role='tabpanel' aria-live='polite'>
-        <article><ShieldAlert aria-hidden='true' /><div><span>{copy.risk}</span><strong>{selected.risk}</strong></div></article>
-        <article><UserRoundCheck aria-hidden='true' /><div><span>{copy.owner}</span><strong>{selected.owner}</strong></div></article>
-        <article><FileCheck2 aria-hidden='true' /><div><span>{copy.next}</span><strong>{selected.next}</strong><small>{copy.evidence}: {selected.evidence}</small></div></article>
-        <article><CircleDollarSign aria-hidden='true' /><div><span>{copy.money}</span><strong>{selected.money}</strong></div></article>
-      </div>
+
+      <section className={styles.workspace} aria-label={copy.preview}>
+        <div className={styles.workspaceHeader}>
+          <div><small>{copy.preview}</small><strong>{copy.deal}</strong></div>
+          <span>{copy.status}</span>
+        </div>
+
+        <div className={styles.stageRail} role='list' aria-label={copy.stageLabel}>
+          {copy.stages.map((stage, index) => (
+            <div key={stage} role='listitem' className={index < 3 ? styles.done : index === 3 ? styles.activeStage : undefined}>
+              <i aria-hidden='true' />
+              <span>{stage}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.metrics}>
+          <article><MapPinned aria-hidden='true' /><div><span>{copy.route}</span><strong>{copy.routeValue}</strong></div></article>
+          <article><FlaskConical aria-hidden='true' /><div><span>{copy.quality}</span><strong>{copy.qualityValue}</strong></div></article>
+          <article><FileCheck2 aria-hidden='true' /><div><span>{copy.documents}</span><strong>{copy.documentsValue}</strong></div></article>
+          <article><CircleDollarSign aria-hidden='true' /><div><span>{copy.reserve}</span><strong>{copy.reserveValue}</strong></div></article>
+        </div>
+
+        <div className={styles.tabs} role='tablist' aria-label={copy.label}>
+          {(Object.keys(scenarios[normalized]) as RoleKey[]).map((key) => (
+            <button key={key} type='button' role='tab' aria-selected={role === key} className={role === key ? styles.active : undefined} onClick={() => setRole(key)}>
+              {scenarios[normalized][key].label}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.rolePanel} role='tabpanel' aria-live='polite'>
+          <article className={styles.alert}><ShieldAlert aria-hidden='true' /><div><span>{copy.risk}</span><strong>{selected.risk}</strong></div></article>
+          <div className={styles.actionGrid}>
+            <article><UserRoundCheck aria-hidden='true' /><div><span>{copy.owner}</span><strong>{selected.owner}</strong></div></article>
+            <article><FileCheck2 aria-hidden='true' /><div><span>{copy.next}</span><strong>{selected.next}</strong></div></article>
+          </div>
+          <div className={styles.contextRow}>
+            <span><FileCheck2 aria-hidden='true' /><b>{copy.evidence}:</b> {selected.evidence}</span>
+            <span><CircleDollarSign aria-hidden='true' /><b>{copy.money}:</b> {selected.money}</span>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
