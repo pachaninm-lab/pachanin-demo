@@ -13,10 +13,10 @@ describe('platform-v7 infrastructure hero message', () => {
 
   it('uses one unified platform-plus-TAI value proposition on the first screen', () => {
     expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения агросделки'");
-    expect(copy).toContain("title: 'Вся агросделка'");
-    expect(copy).toContain("accent: 'с TAI внутри'");
-    expect(copy).toContain('Прозрачная Цена связывает торги, логистику, качество, документы и деньги');
-    expect(copy).toContain('TAI видит блокеры, объясняет основания и готовит следующий шаг');
+    expect(copy).toContain("title: 'Одна Сделка'");
+    expect(copy).toContain("accent: 'интеллект на каждом этапе'");
+    expect(copy).toContain('Прозрачная Цена связывает торги, логистику, качество, документы и деньги в одном контуре');
+    expect(copy).toContain('TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
     expect(component).toContain('heroMessage.title');
     expect(component).toContain('heroMessage.accent');
     expect(component).toContain("className={`pc-v6-hero-title ${styles.heroTitle}`}");
@@ -27,8 +27,8 @@ describe('platform-v7 infrastructure hero message', () => {
   it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
     expect(copy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
     expect(copy).toContain("locale === 'en' ? messages.en : locale === 'zh' ? messages.zh : messages.ru");
-    expect(copy).toContain("accent: 'with TAI inside'");
-    expect(copy).toContain("accent: '由 TAI 贯穿'");
+    expect(copy).toContain("accent: 'intelligence at every stage'");
+    expect(copy).toContain("accent: '每个阶段都有智能支持'");
     expect(copy).not.toContain('...messages.ru');
   });
 
@@ -36,8 +36,8 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(component).toContain("const taiHref = `/platform-v7/ai-in-action");
     expect(component).toContain("id='tai'");
     expect(component).toContain("className={`pc-v6-tai-strip ${styles.towerIntelligence}`}");
-    expect(component).toContain('TAI работает внутри всего контура Сделки');
-    expect(component).toContain("params={{ source: 'deal_path_unified' }}");
+    expect(component).toContain("className={styles.towerIntelligenceLink}");
+    expect(component).toContain("params={{ source: 'hero_cockpit_unified' }}");
     expect(component).not.toContain("<section id='tai' className='pc-v6-section pc-v6-tai'>");
     expect(component).not.toContain('<TaiImpact locale={locale} />');
     expect(component).not.toContain('<TaiWorkflow locale={locale} />');
@@ -60,9 +60,11 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(page).toContain("import '@/styles/platform-v7-strategic-home-v3.css';");
     expect(unifiedCss).toContain('.heroTitleAccent');
     expect(unifiedCss).toContain('.towerIntelligence');
-    expect(unifiedCss).toContain('.lifecycleIntelligence');
+    expect(unifiedCss).toContain('.towerIntelligenceLink');
+    expect(unifiedCss).toContain('.trustAfterLifecycle');
     expect(unifiedCss).toContain('@media (max-width: 767px)');
     expect(unifiedCss).toContain('@media (max-width: 359px)');
-    expect(unifiedCss).toContain('min-height: 44px');
+    expect(unifiedCss).toContain('width: 44px');
+    expect(unifiedCss).toContain('height: 44px');
   });
 });
