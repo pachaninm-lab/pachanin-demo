@@ -5,17 +5,20 @@ import { describe, expect, it } from 'vitest';
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('platform-v7 final homepage polish contract', () => {
+  const page = read('app/platform-v7/page.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
+  const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
   const scenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const scenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
 
-  it('loads the final override after the baseline mobile density layer', () => {
+  it('uses one final mobile style authority after the baseline density layer', () => {
     const baselineImport = enhancements.indexOf("import './PlatformV7HomeMobileDensity.css';");
     const finalImport = enhancements.indexOf("import './PlatformV7HomeFinalPolish.css';");
 
     expect(baselineImport).toBeGreaterThan(-1);
     expect(finalImport).toBeGreaterThan(baselineImport);
+    expect(page).not.toContain('platform-v7-mobile-10of10-final.css');
   });
 
   it('reduces the mobile header by 25 percent without shrinking touch targets below 44px', () => {
@@ -34,6 +37,8 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(finalCss).toContain('font-size: clamp(34px, 8.45vw, 37px) !important');
     expect(finalCss).toContain('gap: 12px !important');
     expect(finalCss).toContain('min-height: 54px !important');
+    expect(formCss).toContain('.assurances a { width: fit-content; min-height: 44px;');
+    expect(formCss).toContain('.error button { min-height: 44px;');
   });
 
   it('renders a real product-shaped Deal execution workspace without fake-live claims', () => {
