@@ -325,7 +325,7 @@
     },
     {
       "item_id": "I.01",
-      "reason": "2 of 10 required read tools are implemented",
+      "reason": "apps/api TAI_PLATFORM_TOOL_MODES serves only getDealSummary and getRoleNextActions, so the remaining 8 read tools need platform-side implementations before TAI can register them",
       "stage": "I",
       "status": "BLOCKED",
       "title": "Ten typed read-only Safe Tools"

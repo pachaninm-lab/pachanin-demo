@@ -565,8 +565,9 @@
       "title": "Production feature flag enabled only after model admission and runtime health"
     },
     {
-      "blocking_reason": "2 of 10 required read tools are implemented",
+      "blocking_reason": "apps/api TAI_PLATFORM_TOOL_MODES serves only getDealSummary and getRoleNextActions, so the remaining 8 read tools need platform-side implementations before TAI can register them",
       "evidence_refs": [
+        "apps/api/src/modules/tai-tools/tai-tool-assertion.ts",
         "apps/tai/tai/platform_tools.py"
       ],
       "item_id": "I.01",
@@ -595,6 +596,7 @@
     },
     {
       "evidence_refs": [
+        "apps/tai/tai/read_tool_contracts.py",
         "apps/tai/tai/tool_planner.py"
       ],
       "item_id": "I.04",

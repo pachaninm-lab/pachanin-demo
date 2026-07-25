@@ -15,11 +15,10 @@ from urllib.parse import urlsplit, urlunsplit
 
 from tai.agent_runtime import AuthorizedToolInvocation
 from tai.contracts import ToolMode
+from tai.read_tool_contracts import PLATFORM_TOOL_SPECS, normalize_platform_tool_arguments
 
 _PLATFORM_TOOL_MODES: dict[str, ToolMode] = {
-    "getDealSummary": ToolMode.READ_ONLY,
-    "getRoleNextActions": ToolMode.READ_ONLY,
-    "prepareCommandDraft": ToolMode.DRAFT,
+    spec.tool_name: spec.mode for spec in PLATFORM_TOOL_SPECS
 }
 _MAX_ARGUMENT_BYTES = 32_768
 _MAX_RESPONSE_BYTES = 262_144
@@ -242,7 +241,7 @@ class PlatformSafeToolHandler:
         expected_mode = _PLATFORM_TOOL_MODES.get(invocation.tool_name)
         if expected_mode is None or invocation.mode is not expected_mode:
             raise PermissionError("platform tool is not executable by this adapter")
-        body = {"arguments": _canonical_value(dict(invocation.arguments))}
+        body = {"arguments": _canonical_value(self._normalized_arguments(invocation))}
         encoded = canonical_platform_tool_json(body).encode()
         if len(encoded) > _MAX_ARGUMENT_BYTES:
             raise ValueError("platform tool arguments exceeded the byte budget")
@@ -267,6 +266,19 @@ class PlatformSafeToolHandler:
             },
             timeout_seconds=self._timeout_seconds,
             maximum_response_bytes=_MAX_RESPONSE_BYTES,
+        )
+
+    @staticmethod
+    def _normalized_arguments(
+        invocation: AuthorizedToolInvocation,
+    ) -> Mapping[str, Any]:
+        """Constrain the call to its declared contract before anything is signed.
+
+        Every tool the adapter can reach is covered, so no free-form object ever
+        reaches the platform and no caller can propose a server-derived argument.
+        """
+        return normalize_platform_tool_arguments(
+            invocation.tool_name, invocation.arguments
         )
 
 

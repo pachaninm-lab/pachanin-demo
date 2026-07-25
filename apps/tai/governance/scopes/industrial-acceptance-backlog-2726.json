@@ -5,19 +5,23 @@
   "branch": "claude/tai-production-attestation-gizgzh",
   "exact_base": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
   "allowed_paths": [
-    ".gitleaksignore",
     ".github/scripts/pc-crop-08f-sdiz-remediation.py",
     ".github/scripts/tai-gateway-ui-readonly-remediation.py",
     ".github/workflows/pc-crop-08f-sync-main.yml",
     ".github/workflows/tai-gateway-ui-readonly-binding.yml",
     ".github/workflows/workflow-syntax-guard.yml",
+    ".gitleaksignore",
     "apps/tai/governance/current-industrial-gap-report.json",
     "apps/tai/governance/industrial-acceptance-backlog.v1.json",
     "apps/tai/governance/scopes/industrial-acceptance-backlog-2726.json",
     "apps/tai/governance/tai-production-operational-manifest.json",
     "apps/tai/tai/industrial_gap_report.py",
     "apps/tai/tai/industrial_gap_report_cli.py",
+    "apps/tai/tai/platform_tools.py",
+    "apps/tai/tai/read_tool_contracts.py",
     "apps/tai/tests/test_industrial_gap_report.py",
+    "apps/tai/tests/test_platform_tools.py",
+    "apps/tai/tests/test_read_tool_contracts.py",
     "scripts/check-workflow-syntax.py"
   ],
   "acceptance": [
@@ -29,7 +33,9 @@
     "final_status is derived from the backlog and can never be supplied by a caller",
     "PASS requires every mandatory item accepted and no regression anywhere",
     "reported percentages ship with the counts and the formula that produced them",
-    "the committed gap report and manifest are re-derivable from the committed backlog with zero drift"
+    "the committed gap report and manifest are re-derivable from the committed backlog with zero drift",
+    "no free-form argument object reaches the platform: every adapter-reachable tool is constrained by its declared contract before anything is signed",
+    "the TAI tool registry never advertises a tool absent from the server registry"
   ],
   "forbidden_capabilities": [
     "model bundle, benchmark, admission authority, runtime-host or quality-scoring changes",
