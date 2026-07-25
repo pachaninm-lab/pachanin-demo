@@ -27,8 +27,8 @@ async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
-  await expect(dock).toHaveAttribute('data-scroll-hidden', mobile ? 'true' : 'false');
+  const compact = (page.viewportSize()?.width ?? 1024) <= 1023;
+  await expect(dock).toHaveAttribute('data-scroll-hidden', compact ? 'true' : 'false');
 }
 
 async function flushScrollFrame(page: Page) {
