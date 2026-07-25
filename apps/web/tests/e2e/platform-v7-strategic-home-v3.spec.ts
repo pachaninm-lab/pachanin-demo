@@ -47,21 +47,27 @@ async function scrollAndSettle(page: Page, top: number) {
 }
 
 async function materializeDeferredSections(page: Page) {
-  for (const selector of [
+  const selectors = [
     '.pc-v6-category',
     '.pc-v6-crops',
     '.pc-v6-integrations',
     '.pc-v6-assurance',
     '.pc-v6-faq',
     '.pc-v6-final',
-  ]) {
-    const section = page.locator(selector);
-    if (await section.count() === 0) continue;
-    await section.scrollIntoViewIfNeeded();
-    await page.evaluate(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
-    }));
-  }
+  ];
+
+  await page.evaluate((deferredSelectors) => {
+    for (const selector of deferredSelectors) {
+      for (const node of document.querySelectorAll<HTMLElement>(selector)) {
+        node.style.contentVisibility = 'visible';
+        node.style.containIntrinsicSize = 'auto';
+      }
+    }
+  }, selectors);
+
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+  }));
   await settleContactDock(page);
 }
 
