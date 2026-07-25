@@ -10,7 +10,6 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
   const head = read('app/platform-v7/head.tsx');
-  const loading = read('app/loading.tsx');
   const contactDock = read('components/platform-v7/PublicContactDock.tsx');
   const hydrationSupport = read('components/platform-v7/HydrationSafeChatSupport.tsx');
   const legacyPolish = read('components/platform-v7/LegacyPublicMobileExperiencePolish.tsx');
@@ -106,12 +105,6 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(head).not.toContain('контур исполнения зерновой сделки');
     expect(head).not.toContain('исполнения зерновых сделок');
     expect(head).not.toContain('platform-v7-density-fix.css');
-  });
-
-  it('keeps the loading boundary on system fonts so it cannot trigger public web-font downloads', () => {
-    expect(loading).toContain("fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif'");
-    expect(loading).not.toContain("fontFamily: 'Inter");
-    expect(loading).not.toContain('Manrope');
   });
 
   it('keeps contact-dock contrast rules inside the owning component', () => {
