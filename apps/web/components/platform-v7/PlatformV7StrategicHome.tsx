@@ -167,7 +167,7 @@ export async function PlatformV7StrategicHome() {
               </div>
             </div>
 
-            <div className={styles.aiAnalysis} aria-label={story.ai.title} data-testid='platform-v7-ai-analysis'>
+            <div id={'money'} className={styles.aiAnalysis} aria-label={story.ai.title} data-testid='platform-v7-ai-analysis'>
               <div className={styles.aiAnalysisHeader}><ScanSearch aria-hidden='true' /><strong>TAI · Transparent Agro Intelligence</strong></div>
               <div className={styles.analysisGrid}>
                 <article><span>{story.ai.detectedLabel}</span><strong>{story.ai.detected}</strong></article>
