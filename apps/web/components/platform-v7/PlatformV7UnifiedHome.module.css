@@ -1,20 +1,20 @@
 .hero {
-  align-items: start;
-  gap: 34px;
-  padding: 44px 0 28px !important;
+  align-items: center;
+  gap: 42px;
+  padding: 58px 0 42px !important;
 }
 
 .heroCopy {
   align-self: center;
-  max-width: 640px !important;
+  max-width: 650px !important;
 }
 
 .heroTitle {
-  max-width: 14ch !important;
+  max-width: 13ch !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
-  font-size: clamp(50px, 5vw, 66px) !important;
-  line-height: .96 !important;
-  letter-spacing: -.052em !important;
+  font-size: clamp(48px, 5vw, 64px) !important;
+  line-height: .98 !important;
+  letter-spacing: -.048em !important;
 }
 
 .heroTitleMain,
@@ -28,11 +28,11 @@
 }
 
 .heroLead {
-  max-width: 60ch !important;
+  max-width: 54ch !important;
   margin-top: 18px !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
   font-size: 18px !important;
-  line-height: 1.48 !important;
+  line-height: 1.5 !important;
 }
 
 .heroActions {
@@ -104,7 +104,7 @@
 @media (max-width: 767px) {
   .hero {
     gap: 14px !important;
-    padding: 18px 0 22px !important;
+    padding: 18px 0 24px !important;
   }
 
   .heroCopy {
@@ -113,9 +113,9 @@
 
   .heroTitle {
     max-width: 100% !important;
-    font-size: clamp(35px, 9vw, 38px) !important;
-    line-height: .99 !important;
-    letter-spacing: -.045em !important;
+    font-size: clamp(33px, 8.7vw, 36px) !important;
+    line-height: 1 !important;
+    letter-spacing: -.04em !important;
   }
 
   .heroTitleAccent {
@@ -188,7 +188,7 @@
 
 @media (max-width: 359px) {
   .heroTitle {
-    font-size: 33px !important;
+    font-size: 31px !important;
   }
 
   .towerIntelligence {
