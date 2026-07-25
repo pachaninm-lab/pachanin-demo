@@ -1,16 +1,23 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import './PublicMobileExperiencePolish.css';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export type HydrationSafeChatSupportProps = {
   verifiedRole?: PlatformRole;
   renderDock?: boolean;
+  legacyPublicPolish?: boolean;
 };
 
-const ContextualSupportOrAssistant = dynamic<HydrationSafeChatSupportProps>(
+type ContextualSupportProps = Omit<HydrationSafeChatSupportProps, 'legacyPublicPolish'>;
+
+const ContextualSupportOrAssistant = dynamic<ContextualSupportProps>(
   () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
+  { ssr: false, loading: () => null },
+);
+
+const LegacyPublicMobileExperiencePolish = dynamic(
+  () => import('@/components/platform-v7/LegacyPublicMobileExperiencePolish').then((module) => module.LegacyPublicMobileExperiencePolish),
   { ssr: false, loading: () => null },
 );
 
@@ -21,11 +28,15 @@ const ContextualSupportOrAssistant = dynamic<HydrationSafeChatSupportProps>(
  * The surface remains browser-only so time-aware greetings, focus management and
  * route context never destabilize streamed HTML or hydration.
  */
-export function HydrationSafeChatSupport(props: HydrationSafeChatSupportProps) {
+export function HydrationSafeChatSupport({
+  legacyPublicPolish = false,
+  ...supportProps
+}: HydrationSafeChatSupportProps) {
   return (
     <>
-      <ContextualSupportOrAssistant {...props} />
-      <style>{terminalPublicSpacingCss}</style>
+      {legacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
+      <ContextualSupportOrAssistant {...supportProps} />
+      {legacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
     </>
   );
 }
