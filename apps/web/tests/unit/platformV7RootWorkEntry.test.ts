@@ -13,6 +13,7 @@ describe('platform-v7 strategic five-block public entry', () => {
   const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
   const storyCss = read('components/platform-v7/PlatformV7StrategicHomeStory.module.css');
+  const dockCss = read('app/pc-public-entry/platform-v7/home-approved-contact-dock.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
@@ -81,7 +82,7 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(homeCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(storyCss).toMatch(/@media\s*\(max-width:\s*767px\)/);
     expect(storyCss).toMatch(/@media\s*\(forced-colors:\s*active\)/);
-    expect(storyCss).toContain('min-height: 46px !important');
+    expect(dockCss).toContain('min-height: 46px');
     expect(finalCss).toContain('min-height: 44px !important');
     expect(support).toContain("role='dialog'");
     expect(support).toContain("aria-modal='true'");
