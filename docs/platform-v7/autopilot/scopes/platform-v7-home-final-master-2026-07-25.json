@@ -1,6 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "PLATFORM-V7-HOME-FINAL-MASTER-2026-07-25",
+  "branch": "feat/platform-v7-home-final-master",
   "status": "active",
   "maturityBoundary": "public-homepage-information-architecture-copy-seo-and-responsive-presentation-only",
   "globalProgramStateUnchanged": "This homepage refinement does not advance platform production maturity, banking readiness or integration attestation.",
