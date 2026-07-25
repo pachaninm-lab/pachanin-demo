@@ -3,9 +3,10 @@
   "branch": "agent/platform-v7-mobile-product-ui-final",
   "status": "active",
   "operationalStatus": "PUBLIC_MOBILE_ACCEPTANCE_FINALIZATION",
-  "validationRevision": 1,
+  "validationRevision": 2,
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
+    "apps/web/i18n/platform-v7-home-v3.ts",
     "apps/web/i18n/platform-v7-organization-connect.ts",
     "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
