@@ -9,6 +9,7 @@
     "apps/web/components/platform-v7/PublicDealRoleScenario.module.css",
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/i18n/platform-v7-home-story.ts",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
     "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
