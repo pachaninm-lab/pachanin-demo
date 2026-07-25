@@ -89,7 +89,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   });
 
   it('keeps SEO, Open Graph and structured data aligned with the full agricultural Deal and TAI', () => {
-    expect(head).toContain("pageTitle = 'Прозрачная Цена — единый контур исполнения агросделки'");
+    expect(head).toContain("pageTitle = 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта'");
     expect(head).toContain('TAI объясняет блокеры, риски и следующий шаг');
     expect(head).toContain('цифровая инфраструктура агросделки');
     expect(head).toContain('TAI Transparent Agro Intelligence');
