@@ -14,9 +14,9 @@ describe('platform-v7 infrastructure hero message', () => {
   it('uses one unified platform-plus-TAI value proposition on the first screen', () => {
     expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения агросделки'");
     expect(copy).toContain("title: 'Одна Сделка.'");
-    expect(copy).toContain("accent: 'TAI помогает на каждом этапе.'");
-    expect(copy).toContain('Торги, логистика, качество, документы и деньги — в одной Сделке');
-    expect(copy).toContain('TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
+    expect(copy).toContain("accent: 'TAI помогает довести её до расчёта.'");
+    expect(copy).toContain('Торги, логистика, качество, документы и деньги — в одном контуре');
+    expect(copy).toContain('Собственный TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
     expect(component).toContain('heroMessage.title');
     expect(component).toContain('heroMessage.accent');
     expect(component).toContain("className={`pc-v6-hero-title ${styles.heroTitle}`}");
@@ -27,8 +27,8 @@ describe('platform-v7 infrastructure hero message', () => {
   it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
     expect(copy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
     expect(copy).toContain("locale === 'en' ? messages.en : locale === 'zh' ? messages.zh : messages.ru");
-    expect(copy).toContain("accent: 'TAI supports every stage.'");
-    expect(copy).toContain("accent: 'TAI 支持每个阶段。'");
+    expect(copy).toContain("accent: 'TAI helps carry it through settlement.'");
+    expect(copy).toContain("accent: 'TAI 协助推进至结算。'");
     expect(copy).not.toContain('...messages.ru');
   });
 
