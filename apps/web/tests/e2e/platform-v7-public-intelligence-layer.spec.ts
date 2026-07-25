@@ -38,8 +38,8 @@ async function settleContactDock(page: Page) {
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await flushScrollFrame(page);
 
-  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
-  if (mobile && isStrategicHome(page)) {
+  const compact = (page.viewportSize()?.width ?? 1024) <= 1023;
+  if (compact && isStrategicHome(page)) {
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
     await expect(dock).toBeHidden();
 
