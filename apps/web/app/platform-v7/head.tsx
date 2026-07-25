@@ -105,7 +105,7 @@ const structuredData = {
       name: 'TAI — Transparent Agro Intelligence',
       alternateName: ['TAI', 'Transparent Agro Intelligence', 'Операционный интеллект агросделки'],
       applicationCategory: 'BusinessApplication',
-      operatingSystem: 'Web, Private Cloud, On-Premise',
+      operatingSystem: 'Web',
       url: taiUrl,
       inLanguage: ['ru-RU', 'en', 'zh-CN'],
       description: taiDescription,
