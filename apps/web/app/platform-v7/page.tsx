@@ -204,6 +204,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function PlatformV7RootPage() {
-  return <><style>{CRITICAL_HOME_CSS}</style><PlatformV7StrategicHome /></>;
+export default async function PlatformV7RootPage() {
+  const home = await PlatformV7StrategicHome();
+  return <><style>{CRITICAL_HOME_CSS}</style>{home}</>;
 }
