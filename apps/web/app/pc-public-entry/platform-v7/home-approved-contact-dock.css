@@ -48,7 +48,7 @@
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action strong,
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant strong {
   color: inherit;
-  font-size: 11.75px;
+  font-size: 12px;
   font-weight: 720;
 }
 
@@ -69,6 +69,20 @@
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action:active {
   background: rgba(8, 122, 59, .11);
   transform: translateY(0) scale(.985);
+}
+
+@media (max-width:767px) {
+  /* Keep mobile density through layout, never through illegible body text. */
+  #deal-path > div:nth-of-type(2) p,
+  #deal-path > div:nth-of-type(3) span,
+  #tai [data-testid='platform-v7-ai-analysis'] article strong,
+  #tai [data-testid='platform-v7-ai-analysis'] > div span,
+  #maturity > div:nth-of-type(2) article span,
+  #maturity > div:nth-of-type(3) article span,
+  #participants [role='tabpanel'] span,
+  #participants [role='tabpanel'] strong {
+    font-size: 12px !important;
+  }
 }
 
 @media (max-width:520px) {
@@ -103,7 +117,7 @@
 
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action strong,
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant strong {
-    font-size: 10.75px;
+    font-size: 12px;
   }
 }
 
@@ -111,11 +125,6 @@
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action {
     gap: 3px;
     padding-inline: 3px;
-  }
-
-  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action strong,
-  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant strong {
-    font-size: 10px;
   }
 }
 
