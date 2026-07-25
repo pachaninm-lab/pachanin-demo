@@ -68,7 +68,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   it('expresses the platform and TAI as one product meaning without duplicating the dedicated AI page', () => {
     expect(heroCopy).toContain("title: 'Одна Сделка.'");
     expect(heroCopy).toContain("accent: 'TAI помогает довести её до расчёта.'");
-    expect(heroCopy).toContain('Собственный TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
+    expect(heroCopy).toContain('TAI показывает блокеры и следующий шаг');
     expect(home).toContain("const taiHref = `/platform-v7/ai-in-action");
     expect(home).toContain("<a href={taiHref}>{enhancement.nav.tai}</a>");
     expect(home).toContain("id='tai'");
