@@ -10,7 +10,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
   const mobileDensityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
-  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.module.css');
+  const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.css');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
   const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const head = read('app/platform-v7/head.tsx');
@@ -49,12 +49,12 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   });
 
   it('keeps one dominant hero conversion and shows the product cockpit before secondary content', () => {
-    const firstHero = home.slice(home.indexOf("className={`pc-v6-hero ${styles.hero}`}"), home.indexOf("id='participants'"));
+    const firstHero = home.slice(home.indexOf("className='pc-v6-hero pc-v6-hero-unified'"), home.indexOf("id='participants'"));
     expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='hero_primary_cta'");
     expect(firstHero).toContain("eventName='hero_secondary_cta'");
-    expect(firstHero.indexOf("className={`pc-v6-control-tower ${styles.tower}`}")).toBeGreaterThan(firstHero.indexOf("className={`pc-v6-hero-copy ${styles.heroCopy}`}"));
-    expect(firstHero).toContain("className={`pc-v6-tai-strip ${styles.towerIntelligence}`}");
+    expect(firstHero.indexOf("className='pc-v6-control-tower pc-v6-control-tower-unified'")).toBeGreaterThan(firstHero.indexOf("className='pc-v6-hero-copy pc-v6-hero-copy-unified'"));
+    expect(firstHero).toContain("className='pc-v6-tai-strip pc-v6-tower-intelligence'");
     expect(firstHero).not.toContain("className='pc-v6-hero-proofs'");
     expect(firstHero).not.toContain("className='pc-v6-ct-actions'");
 
@@ -72,7 +72,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(home).toContain("const taiHref = `/platform-v7/ai-in-action");
     expect(home).toContain("<a href={taiHref}>{enhancement.nav.tai}</a>");
     expect(home).toContain("id='tai'");
-    expect(home).toContain("className={styles.towerIntelligenceLink}");
+    expect(home).toContain("className='pc-v6-tower-intelligence-link'");
     expect(home).toContain("eventName='open_tai'");
     expect(home).not.toContain("<section id='tai' className='pc-v6-section pc-v6-tai'>");
     expect(home).not.toContain('Отдельный AI-продукт для агробизнеса');
@@ -130,7 +130,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(contactDock).toContain("assistantContext === 'public'");
     expect(contactDock).toContain('setHiddenByScroll(isPublicMobileTop(currentY))');
     expect(contactDock).toContain("mobileQuery.addEventListener('change', syncViewportVisibility)");
-    expect(contactDock).toContain('}, [assistantContext]);');
+    expect(contactDock).toContain('}, [assistantContext]);
   });
 
   it('loads legacy public mobile CSS only outside the strategic homepage', () => {
@@ -145,14 +145,15 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   it('eliminates reserved blank sections and keeps the mobile conversion path compact', () => {
     expect(enhancements).toContain("import './PlatformV7HomeMobileDensity.css'");
     expect(enhancements).toContain("import './PlatformV7HomeFinalPolish.css'");
+    expect(enhancements).toContain("import './PlatformV7UnifiedHome.css'");
     expect(mobileDensityCss).toContain('content-visibility: visible !important');
     expect(mobileDensityCss).toContain('contain-intrinsic-size: none !important');
     expect(finalCss).toContain('.pc-v7-public-entry .pc-v6-role-grid');
     expect(finalCss).toContain('scroll-snap-type: x mandatory');
-    expect(home).toContain("import styles from './PlatformV7UnifiedHome.module.css'");
-    expect(unifiedCss).toContain('.heroTitleAccent');
-    expect(unifiedCss).toContain('.towerIntelligenceLink');
-    expect(unifiedCss).toContain('.trustAfterLifecycle');
+    expect(home).not.toContain("PlatformV7UnifiedHome.module.css");
+    expect(unifiedCss).toContain('.pc-v6-hero-title-accent');
+    expect(unifiedCss).toContain('.pc-v6-tower-intelligence-link');
+    expect(unifiedCss).toContain('.pc-v6-trust-after-lifecycle');
     expect(unifiedCss).toContain('scroll-snap-type: x mandatory');
   });
 
