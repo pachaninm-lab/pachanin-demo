@@ -6,6 +6,13 @@ export type TaiToolMode = 'READ_ONLY' | 'DRAFT';
 export const TAI_PLATFORM_TOOL_MODES = {
   getDealSummary: 'READ_ONLY',
   getRoleNextActions: 'READ_ONLY',
+  getDealRisks: 'READ_ONLY',
+  getDocumentStatus: 'READ_ONLY',
+  getLogisticsStatus: 'READ_ONLY',
+  getLaboratoryStatus: 'READ_ONLY',
+  getMoneyReadiness: 'READ_ONLY',
+  getDisputeStatus: 'READ_ONLY',
+  getEvidenceTimeline: 'READ_ONLY',
   prepareCommandDraft: 'DRAFT',
 } as const satisfies Record<string, TaiToolMode>;
 

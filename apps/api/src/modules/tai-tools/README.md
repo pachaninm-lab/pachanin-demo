@@ -16,6 +16,19 @@ Registered tools:
 
 - `getDealSummary` — read-only;
 - `getRoleNextActions` — read-only;
+- `getDealRisks` — read-only;
+- `getDocumentStatus` — read-only, optional `documentId`;
+- `getLogisticsStatus` — read-only, optional `shipmentId`;
+- `getLaboratoryStatus` — read-only, optional `sampleId`;
+- `getMoneyReadiness` — read-only;
+- `getDisputeStatus` — read-only, optional `disputeId`;
+- `getEvidenceTimeline` — read-only;
 - `prepareCommandDraft` — draft only.
+
+Every read tool is a projection of the same `workspace(dealId, user)` call, so they all pass through one membership and RLS check and none of them widens what the caller could already read. The optional identifier narrows the returned collection; an identifier belonging to another deal simply yields an empty projection, because the workspace never contained it.
+
+`getEvidenceTimeline` returns at most the 100 most recent events with `eventCount`, `returnedCount` and `truncated`, so a long-running deal stays within the adapter's response budget instead of being refused wholesale.
+
+`getIntegrationStatus` from the TAI tool catalogue is deliberately **not** registered here: outbox delivery state is not part of this workspace projection, and widening the shared projection would change what every existing deal endpoint returns. It needs its own read path.
 
 The gateway re-resolves the caller's current PostgreSQL membership and active `DealParticipant` before returning any deal data. It never accepts role or organization authority from the model. `prepareCommandDraft` does not execute a command and cannot mutate the deal.
