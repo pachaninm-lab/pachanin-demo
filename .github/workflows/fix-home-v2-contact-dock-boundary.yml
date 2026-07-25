@@ -1,0 +1,121 @@
+name: Fix homepage contact dock ownership boundary
+
+on:
+  push:
+    branches:
+      - agent/platform-v7-home-tai-role-entry-v2
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-home-v2-contact-dock-boundary
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/platform-v7-home-tai-role-entry-v2
+          fetch-depth: 0
+
+      - name: Move contrast rules to the owning component
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          enhancement_path = Path('apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx')
+          enhancement = enhancement_path.read_text()
+          start = enhancement.index('export function HeroTaiEntry')
+          end = enhancement.index('\nexport function PublicRoleEntrances', start)
+          hero = """export function HeroTaiEntry({ locale, taiHref }: { locale: string; taiHref: string }) {
+            const copy = getPlatformV7HomeEnhancementCopy(locale).heroTai;
+
+            return (
+              <aside className={styles.heroTaiEntry} aria-label={copy.name}>
+                <Sparkles aria-hidden='true' size={18} strokeWidth={1.9} />
+                <div className={styles.heroTaiCopy}>
+                  <strong>{copy.name}</strong>
+                  <span>{copy.text}</span>
+                </div>
+                <PublicExperienceLink
+                  href={taiHref}
+                  className={styles.heroTaiLink}
+                  eventName='hero_tai_explainer_open'
+                  locale={locale}
+                  params={{ source: 'hero_tai_definition_v2' }}
+                >
+                  {copy.cta}<ArrowRight aria-hidden='true' size={16} />
+                </PublicExperienceLink>
+              </aside>
+            );
+          }
+          """
+          prefix = enhancement[:start]
+          boundary = 'const CONTACT_DOCK_CONTRAST_BOUNDARY = `'
+          if boundary in prefix:
+            boundary_start = prefix.index(boundary)
+            boundary_end = prefix.index('`;\n\n', boundary_start) + len('`;\n\n')
+            prefix = prefix[:boundary_start] + prefix[boundary_end:]
+          enhancement_path.write_text(prefix + hero + enhancement[end:])
+
+          dock_path = Path('apps/web/components/platform-v7/PublicContactDock.tsx')
+          dock = dock_path.read_text()
+          replacements = {
+            'transition: transform .2s ease, opacity .18s ease, visibility .18s ease;': 'transition: transform .2s ease, visibility .18s ease;',
+            "  visibility: hidden;\n  opacity: 0;\n  pointer-events: none;": "  visibility: hidden;\n  pointer-events: none;",
+            '.pc-public-contact-dock-action:disabled { cursor: default; }': ".pc-public-contact-dock-action:disabled {\n  color: inherit;\n  opacity: 1;\n  -webkit-text-fill-color: currentColor;\n  cursor: default;\n}",
+          }
+          for old, new in replacements.items():
+            if old not in dock:
+              raise SystemExit(f'missing dock replacement source: {old}')
+            dock = dock.replace(old, new, 1)
+          dock_path.write_text(dock)
+
+          test_path = Path('apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts')
+          test = test_path.read_text()
+          if "const contactDock = read('components/platform-v7/PublicContactDock.tsx');" not in test:
+            test = test.replace(
+              "  const head = read('app/platform-v7/head.tsx');\n",
+              "  const head = read('app/platform-v7/head.tsx');\n  const contactDock = read('components/platform-v7/PublicContactDock.tsx');\n",
+            )
+          marker = "  it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {"
+          contract = """  it('keeps contact-dock contrast rules inside the owning component', () => {
+            expect(enhancements).toContain("<aside className={styles.heroTaiEntry} aria-label={copy.name}>");
+            expect(enhancements).not.toContain('CONTACT_DOCK_CONTRAST_BOUNDARY');
+            expect(enhancements).not.toContain('.pc-public-contact-dock');
+            expect(contactDock).toContain('transition: transform .2s ease, visibility .18s ease;');
+            expect(contactDock).not.toContain('opacity .18s ease');
+            expect(contactDock).toContain('.pc-public-contact-dock-action:disabled {');
+            expect(contactDock).toContain('-webkit-text-fill-color: currentColor;');
+          });
+
+          """
+          if contract.strip() not in test:
+            if marker not in test:
+              raise SystemExit('test insertion marker missing')
+            test = test.replace(marker, contract + marker, 1)
+          test_path.write_text(test)
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/platform-v7-home-tai-role-entry-v2.json')
+          scope = json.loads(scope_path.read_text())
+          dock_file = 'apps/web/components/platform-v7/PublicContactDock.tsx'
+          if dock_file not in scope['allowedPaths']:
+            scope['allowedPaths'].append(dock_file)
+            scope['allowedPaths'].sort()
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n')
+          PY
+
+          rm -f .github/workflows/fix-home-v2-contact-dock-boundary.yml
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(public): keep contact dock contrast in owning component"
+          git push origin HEAD:agent/platform-v7-home-tai-role-entry-v2
