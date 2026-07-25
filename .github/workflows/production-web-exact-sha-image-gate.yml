@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - 'infra/docker/Dockerfile.web'
-      - '.github/workflows/production-web-exact-sha-image-gate.yml'
   workflow_dispatch:
     inputs:
       target_sha:
@@ -26,10 +25,14 @@ env:
   EVIDENCE_DIR: artifacts/production-web-exact-sha-image-gate
   IMAGE_WAIT_ATTEMPTS: '240'
   IMAGE_WAIT_SECONDS: '10'
+  PRIMARY_RELEASE_DISCOVERY_ATTEMPTS: '30'
+  PRIMARY_RELEASE_DISCOVERY_SECONDS: '2'
+  PRIMARY_RELEASE_WAIT_ATTEMPTS: '180'
+  PRIMARY_RELEASE_WAIT_SECONDS: '10'
 
 jobs:
   wait-and-dispatch:
-    name: Wait for canonical image and dispatch bounded release
+    name: Wait for canonical image and preserve a single bounded release
     if: github.event_name == 'push' || github.actor == github.repository_owner
     runs-on: ubuntu-24.04
     timeout-minutes: 50
@@ -91,10 +94,103 @@ jobs:
           echo 'Exact canonical web image was not published within the bounded wait window.' >&2
           exit 3
 
-      - name: Dispatch bounded exact-SHA production release
+      - name: Resolve primary push release authority
+        id: primary
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            echo 'action=dispatch' >> "$GITHUB_OUTPUT"
+            echo 'reason=manual_image_gate' >> "$GITHUB_OUTPUT"
+            printf '%s\n' MANUAL_IMAGE_GATE > "$EVIDENCE_DIR/primary-release-status.txt"
+            exit 0
+          fi
+
+          primary_run=''
+          for attempt in $(seq 1 "$PRIMARY_RELEASE_DISCOVERY_ATTEMPTS"); do
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow production-web-exact-sha.yml \
+              --branch main \
+              --event push \
+              --limit 50 \
+              --json databaseId,headSha,status,conclusion \
+              > "$EVIDENCE_DIR/primary-release-candidates.json"
+            primary_run="$(jq -r --arg sha "$TARGET_SHA" '.[] | select(.headSha == $sha) | .databaseId' "$EVIDENCE_DIR/primary-release-candidates.json" | head -n 1)"
+            if [[ "$primary_run" =~ ^[0-9]+$ ]]; then
+              break
+            fi
+            primary_run=''
+            sleep "$PRIMARY_RELEASE_DISCOVERY_SECONDS"
+          done
+
+          [[ "$primary_run" =~ ^[0-9]+$ ]] || {
+            echo 'The automatic primary push release run was not discoverable; refusing an uncoordinated fallback deploy.' >&2
+            exit 4
+          }
+
+          printf '%s\n' "$primary_run" > "$EVIDENCE_DIR/primary-release-run-id.txt"
+          echo "primary_run_id=$primary_run" >> "$GITHUB_OUTPUT"
+
+          for attempt in $(seq 1 "$PRIMARY_RELEASE_WAIT_ATTEMPTS"); do
+            gh run view "$primary_run" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json databaseId,headSha,status,conclusion,url \
+              > "$EVIDENCE_DIR/primary-release-run.json"
+            status="$(jq -r '.status' "$EVIDENCE_DIR/primary-release-run.json")"
+            conclusion="$(jq -r '.conclusion // ""' "$EVIDENCE_DIR/primary-release-run.json")"
+            echo "Primary release attempt $attempt/$PRIMARY_RELEASE_WAIT_ATTEMPTS: run=$primary_run status=$status conclusion=${conclusion:-pending}"
+
+            if [[ "$status" == completed ]]; then
+              case "$conclusion" in
+                success)
+                  echo 'action=skip' >> "$GITHUB_OUTPUT"
+                  echo 'reason=primary_release_succeeded' >> "$GITHUB_OUTPUT"
+                  printf '%s\n' SKIPPED_PRIMARY_RELEASE_SUCCEEDED > "$EVIDENCE_DIR/dispatch-status.txt"
+                  exit 0
+                  ;;
+                failure)
+                  gh run view "$primary_run" \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --json jobs \
+                    > "$EVIDENCE_DIR/primary-release-jobs.json"
+                  image_wait_failures="$(jq '[.jobs[]?.steps[]? | select(.name == "Wait for exact canonical image" and .conclusion == "failure")] | length' "$EVIDENCE_DIR/primary-release-jobs.json")"
+                  if [[ "$image_wait_failures" == 1 ]]; then
+                    echo 'action=dispatch' >> "$GITHUB_OUTPUT"
+                    echo 'reason=primary_image_wait_exhausted' >> "$GITHUB_OUTPUT"
+                    printf '%s\n' PRIMARY_IMAGE_WAIT_EXHAUSTED > "$EVIDENCE_DIR/primary-release-status.txt"
+                    exit 0
+                  fi
+                  echo 'Primary release failed outside the canonical-image wait step; refusing to repeat a production mutation.' >&2
+                  exit 7
+                  ;;
+                cancelled|timed_out|action_required|stale|startup_failure|skipped|neutral)
+                  echo "Primary release ended as $conclusion; state is inconclusive for a safe fallback deploy." >&2
+                  exit 8
+                  ;;
+                *)
+                  echo "Primary release ended with an unsupported conclusion: $conclusion" >&2
+                  exit 5
+                  ;;
+              esac
+            fi
+            sleep "$PRIMARY_RELEASE_WAIT_SECONDS"
+          done
+
+          echo 'Primary release did not reach a terminal state inside the bounded wait; refusing a duplicate fallback deploy.' >&2
+          exit 6
+
+      - name: Dispatch bounded exact-SHA fallback release
+        if: steps.primary.outputs.action == 'dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          DISPATCH_REASON: ${{ steps.primary.outputs.reason }}
         shell: bash
         run: |
           set -euo pipefail
@@ -104,7 +200,7 @@ jobs:
             -f action=deploy \
             -f target_sha="$TARGET_SHA" \
             -f confirmation=DEPLOY-EXACT-SHA
-          printf '%s\n' DISPATCHED > "$EVIDENCE_DIR/dispatch-status.txt"
+          printf 'DISPATCHED reason=%s\n' "$DISPATCH_REASON" > "$EVIDENCE_DIR/dispatch-status.txt"
 
       - name: Build evidence checksums
         if: always()
