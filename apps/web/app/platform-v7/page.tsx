@@ -127,17 +127,18 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   }
 }
 @media (max-width: 374px) {
-  .pc-v6-hero { gap: 24px; padding-top: 34px; padding-bottom: 46px; }
-  .pc-v6-hero .pc-v6-kicker { margin-bottom: 11px; font-size: 13px; }
-  .pc-v6-hero h1.pc-v6-hero-title { max-width: none; font-size: 36px; line-height: 1.045; letter-spacing: -0.038em; }
+  .pc-v6-hero { gap: 22px; padding-top: 32px; padding-bottom: 44px; }
+  .pc-v6-hero .pc-v6-kicker { margin-bottom: 10px; font-size: 13px; }
+  .pc-v6-hero h1.pc-v6-hero-title { max-width: none; font-size: 34px; font-weight: 700; line-height: 1.045; letter-spacing: -0.036em; text-wrap: wrap; }
+  .pc-v6-hero-brand { font-size: 0.6em; }
   .pc-v6-hero-brand::after { height: 7px; }
-  .pc-v6-hero-copy > p.pc-v6-hero-lead { margin-top: 16px; font-size: 16px; line-height: 1.5; }
-  .pc-v6-hero-proofs { display: grid; gap: 7px; margin-top: 16px; }
+  .pc-v6-hero-copy > p.pc-v6-hero-lead { margin-top: 15px; font-size: 16px; line-height: 1.5; }
+  .pc-v6-hero-proofs { display: grid; gap: 7px; margin-top: 15px; }
 }
 @media (min-width: 375px) and (max-width: 767px) {
-  .pc-v6-hero { gap: 26px; padding-top: 38px; padding-bottom: 50px; }
-  .pc-v6-hero h1.pc-v6-hero-title { max-width: 15ch; font-size: clamp(38px, 9.8vw, 41px); }
-  .pc-v6-hero-copy > p.pc-v6-hero-lead { font-size: 16.5px; }
+  .pc-v6-hero { gap: 24px; padding-top: 34px; padding-bottom: 46px; }
+  .pc-v6-hero h1.pc-v6-hero-title { max-width: 15ch; font-size: clamp(35px, 9.2vw, 37px); font-weight: 700; line-height: 1.04; letter-spacing: -0.037em; text-wrap: wrap; }
+  .pc-v6-hero-copy > p.pc-v6-hero-lead { margin-top: 16px; font-size: 16px; line-height: 1.5; }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .pc-v6-hero { grid-template-columns: minmax(0, 1fr); gap: 38px; padding-top: 64px; padding-bottom: 74px; }
@@ -170,18 +171,27 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта',
   description: 'Единый цифровой контур Сделки: товар, участники, торги, логистика, приёмка, качество, документы, деньги, спор, доказательства и закрытие.',
+  keywords: [
+    'цифровая инфраструктура агросделки',
+    'исполнение внебиржевой сделки в АПК',
+    'контроль агросделки после цены',
+    'логистика и приёмка сельхозпродукции',
+    'качество документы расчёты спор доказательства',
+    'TAI Transparent Agro Intelligence',
+  ],
   alternates: {
     canonical: '/platform-v7',
     languages: {
       ru: '/platform-v7?lang=ru',
       en: '/platform-v7?lang=en',
       zh: '/platform-v7?lang=zh',
+      'x-default': '/platform-v7',
     },
   },
   openGraph: {
     type: 'website',
     title: 'Прозрачная Цена — контроль исполнения Сделки',
-    description: 'Одна Сделка связывает товар, участников, логистику, качество, документы и деньги до расчёта и закрытия.',
+    description: 'Одна Сделка связывает товар, участников, логистику, качество, документы и деньги до расчёта и закрытия. TAI объясняет блокеры, риски и следующий шаг.',
     url: '/platform-v7',
     siteName: 'Прозрачная Цена',
     locale: 'ru_RU',
@@ -189,7 +199,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Прозрачная Цена — контроль исполнения Сделки',
-    description: 'Единая цифровая инфраструктура агросделки от цены до расчёта и закрытия.',
+    description: 'Единая цифровая инфраструктура агросделки с TAI: от цены до расчёта, доказательств и закрытия.',
   },
   robots: {
     index: true,
