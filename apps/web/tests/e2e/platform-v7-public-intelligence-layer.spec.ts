@@ -91,7 +91,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Окончательный расчёт нельзя продолжить');
     await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории L-204');
 
-    const taiProductLink = page.getByRole('link', { name: 'Посмотреть TAI подробнее' });
+    const taiProductLink = page.getByRole('link', { name: 'Посмотреть TAI подробнее' }).first();
     await expect(taiProductLink).toBeVisible();
     await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
@@ -138,10 +138,18 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     for (const selector of ['#role-analysis', '#documents', '#government-data', '#risks-money', '#prepared-actions', '#evidence', '#security', '#limitations', '#connection']) {
       await expect(page.locator(selector)).toBeVisible();
     }
+    const roleAnalysis = page.locator('#role-analysis');
+    await roleAnalysis.getByRole('tab', { name: 'Продавец' }).click();
+    await expect(roleAnalysis.locator('[role="tabpanel"]')).toContainText('Версия протокола не связана');
+
     const government = page.locator('#government-data');
     await expect(government.locator('[data-status="CONNECTED"]')).toHaveCount(0);
     await expect(government.locator('.pc-public-government-result')).toContainText('Проверка не выполнялась');
+    await expect(page.locator('#limitations')).toContainText('Неподключённая государственная система не отображается как подключённая');
     await settleContactDock(page);
+    await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
+    const media = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+    expect(media).toBe(true);
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
     expect(runtimeFailures).toEqual([]);
@@ -165,6 +173,8 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
       expect(passport?.ok(), `passport ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-ai-in-action-authority"]')).toBeVisible();
       await expectNoHorizontalOverflow(page);
+      await settleContactDock(page);
+      await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     }
   });
 });
