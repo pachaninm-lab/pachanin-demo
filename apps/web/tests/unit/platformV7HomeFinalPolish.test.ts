@@ -18,10 +18,12 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(finalImport).toBeGreaterThan(baselineImport);
   });
 
-  it('reduces the mobile header by 25 percent and preserves safe-area offsets', () => {
+  it('reduces the mobile header by 25 percent without shrinking touch targets below 44px', () => {
     expect(finalCss).toContain('--entry-public-header-base: 48px !important');
     expect(finalCss).toContain('--pc-public-header-base-height: 48px !important');
     expect(finalCss).toContain('height: 48px !important');
+    expect(finalCss).toContain('min-height: 44px !important');
+    expect(finalCss).toContain('width: 44px !important');
     expect(finalCss).toContain("env(safe-area-inset-bottom, 0px)");
     expect(finalCss).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 48px) + 12px) !important');
   });
