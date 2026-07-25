@@ -4,68 +4,59 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('platform-v7 infrastructure hero message', () => {
+describe('platform-v7 problem-first five-block homepage', () => {
   const component = read('components/platform-v7/PlatformV7StrategicHome.tsx');
-  const enhancementCopy = read('i18n/platform-v7-home-enhancements.ts');
-  const copy = read('i18n/platform-v7-hero-message.ts');
+  const heroCopy = read('i18n/platform-v7-hero-message.ts');
+  const storyCopy = read('i18n/platform-v7-home-story.ts');
   const page = read('app/platform-v7/page.tsx');
 
-  it('uses one unified platform-plus-TAI value proposition on the first screen', () => {
-    expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения агросделки'");
-    expect(copy).toContain("title: 'Одна Сделка.'");
-    expect(copy).toContain("accent: 'TAI помогает довести её до расчёта.'");
-    expect(copy).toContain('Торги, логистика, качество, документы и деньги — в одном контуре');
-    expect(copy).toContain('TAI показывает блокеры и следующий шаг');
-    expect(component).toContain('heroMessage.title');
-    expect(component).toContain('heroMessage.accent');
-    expect(component).toContain("className='pc-v6-hero-title pc-v6-hero-title-unified'");
-    expect(component).toContain("className='pc-v6-control-tower pc-v6-control-tower-unified'");
-    expect(component).not.toContain("className='pc-v6-hero-proofs'");
-    expect(component).not.toContain('PlatformV7UnifiedHome');
+  it('opens with a concrete execution problem and a clear resolution', () => {
+    expect(heroCopy).toContain("title: 'Цена согласована. Но сделка всё ещё может сорваться.'");
+    expect(heroCopy).toContain("accent: '«Прозрачная Цена» доводит её до исполнения и расчёта.'");
+    expect(heroCopy).toContain('где процесс остановился, кто отвечает и что делать дальше');
+    expect(component).toContain('story.heroMap.items.map');
+    expect(component).toContain('styles.problemMap');
+    expect(component).toContain('styles.solutionBar');
   });
 
-  it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
-    expect(copy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
-    expect(copy).toContain("locale === 'en' ? messages.en : locale === 'zh' ? messages.zh : messages.ru");
-    expect(copy).toContain("accent: 'TAI helps carry it through settlement.'");
-    expect(copy).toContain("accent: 'TAI 协助推进至结算。'");
-    expect(copy).not.toContain('...messages.ru');
+  it('ships explicit RU EN ZH problem-first copy', () => {
+    expect(heroCopy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
+    expect(heroCopy).toContain("title: 'The price is agreed. The Deal can still fail.'");
+    expect(heroCopy).toContain("title: '价格已经确定，但交易仍可能失败。'");
+    expect(storyCopy).toContain('const ru: PlatformV7HomeStoryCopy');
+    expect(storyCopy).toContain('const en: PlatformV7HomeStoryCopy');
+    expect(storyCopy).toContain('const zh: PlatformV7HomeStoryCopy');
+    expect(storyCopy).not.toContain('...ru');
   });
 
-  it('embeds TAI in Deal execution and links to the dedicated product page without a standalone home section', () => {
-    expect(component).toContain("const taiHref = `/platform-v7/ai-in-action");
-    expect(component).toContain("id='tai'");
-    expect(component).toContain("className='pc-v6-tai-strip pc-v6-tower-intelligence'");
-    expect(component).toContain("className='pc-v6-tower-intelligence-link'");
-    expect(component).toContain("params={{ source: 'hero_cockpit_unified' }}");
-    expect(component).not.toContain("<section id='tai' className='pc-v6-section pc-v6-tai'>");
-    expect(component).not.toContain('<TaiImpact locale={locale} />');
-    expect(component).not.toContain('<TaiWorkflow locale={locale} />');
-    expect(enhancementCopy).toContain('TAI — Transparent Agro Intelligence');
+  it('orders the five decisions as problem, process, TAI, role value and maturity', () => {
+    const hero = component.indexOf("className={`pc-v6-hero pc-v6-hero-unified ${styles.hero}`}");
+    const process = component.indexOf("id='deal-path'");
+    const tai = component.indexOf("id='tai'");
+    const roles = component.indexOf("id='participants'");
+    const maturity = component.indexOf("id='maturity'");
+    expect(hero).toBeGreaterThan(-1);
+    expect(process).toBeGreaterThan(hero);
+    expect(tai).toBeGreaterThan(process);
+    expect(roles).toBeGreaterThan(tai);
+    expect(maturity).toBeGreaterThan(roles);
   });
 
-  it('keeps the product cockpit before secondary explanation', () => {
-    const heroStart = component.indexOf("className='pc-v6-hero pc-v6-hero-unified'");
-    const cockpit = component.indexOf("className='pc-v6-control-tower pc-v6-control-tower-unified'");
-    const scenario = component.indexOf("id='participants'");
-    expect(heroStart).toBeGreaterThan(-1);
-    expect(cockpit).toBeGreaterThan(heroStart);
-    expect(scenario).toBeGreaterThan(cockpit);
+  it('keeps TAI as a governed operational layer inside the Deal', () => {
+    expect(component).toContain("className={`${styles.aiCockpit} pc-v6-control-tower pc-v6-control-tower-unified`}");
+    expect(component).toContain('story.ai.detected');
+    expect(component).toContain('story.ai.conclusion');
+    expect(component).toContain('story.ai.source');
+    expect(component).toContain('story.ai.confidence');
+    expect(storyCopy).toContain('Человек подтверждает критическое действие');
+    expect(storyCopy).toContain('не подписывает документы и не выпускает деньги сам');
   });
 
-  it('keeps the unified hero authority inside the inline critical CSS', () => {
+  it('retains critical public layout and accessibility CSS authority', () => {
     expect(page).toContain('CRITICAL_HOME_CSS');
     expect(page).toContain('--entry-public-header-offset');
     expect(page).toContain("html[data-p7-language='zh']");
-    expect(page).toContain("import '@/styles/platform-v7-strategic-home-v3.css';");
-    expect(page).toContain('.pc-v6-hero-title-accent');
-    expect(page).toContain('.pc-v6-tower-intelligence');
-    expect(page).toContain('.pc-v6-tower-intelligence-link');
-    expect(page).toContain('.pc-v6-trust-after-lifecycle');
     expect(page).toContain('@media (max-width: 767px)');
     expect(page).toContain('@media (max-width: 359px)');
-    expect(page).toContain('width: 44px');
-    expect(page).toContain('height: 44px');
-    expect(page).not.toContain("PlatformV7UnifiedHome.css");
   });
 });

@@ -7,22 +7,22 @@ export type PlatformV7HeroMessage = {
 
 const messages: Record<'ru' | 'en' | 'zh', PlatformV7HeroMessage> = {
   ru: {
-    kicker: 'Цифровая инфраструктура исполнения агросделки',
-    title: 'Одна Сделка.',
-    accent: 'TAI помогает довести её до расчёта.',
-    lead: 'Торги, логистика, качество, документы и деньги — в одном контуре. TAI показывает блокеры и следующий шаг.',
+    kicker: 'Для продавца, покупателя и всех участников исполнения',
+    title: 'Цена согласована. Но сделка всё ещё может сорваться.',
+    accent: '«Прозрачная Цена» доводит её до исполнения и расчёта.',
+    lead: 'Поставка, качество, документы, логистика и деньги часто расходятся по разным системам. Платформа связывает их в одной Сделке, а собственный AI TAI показывает, где процесс остановился, кто отвечает и что делать дальше.',
   },
   en: {
-    kicker: 'Digital infrastructure for agricultural Deal execution',
-    title: 'One Deal.',
-    accent: 'TAI helps carry it through settlement.',
-    lead: 'Trading, logistics, quality, documents and money stay in one framework. TAI shows blockers and the next action.',
+    kicker: 'For sellers, buyers and every execution participant',
+    title: 'The price is agreed. The Deal can still fail.',
+    accent: 'Transparent Price carries it through execution and settlement.',
+    lead: 'Delivery, quality, documents, logistics and money are often split across systems. The platform connects them in one Deal, while its own AI, TAI, shows where execution stopped, who owns it and what must happen next.',
   },
   zh: {
-    kicker: '农业交易执行的数字基础设施',
-    title: '一笔交易。',
-    accent: 'TAI 协助推进至结算。',
-    lead: '竞价、物流、质量、文件与资金统一在同一执行闭环中。TAI 显示阻碍与下一步行动。',
+    kicker: '面向卖方、买方及所有履约参与方',
+    title: '价格已经确定，但交易仍可能失败。',
+    accent: '“透明价格”将交易推进至履约与结算。',
+    lead: '交付、质量、文件、物流与资金往往分散在不同系统中。平台将其连接在同一笔交易内，自有 AI TAI 显示流程在哪里停止、谁负责以及下一步应做什么。',
   },
 };
 
