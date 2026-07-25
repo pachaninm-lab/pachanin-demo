@@ -43,7 +43,8 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='hero_primary_cta'");
     expect(firstHero).toContain("eventName='hero_secondary_cta'");
-    expect(firstHero).toContain("eventName='hero_tai_explainer_open'");
+    expect(firstHero).toContain('<HeroTaiEntry locale={locale} taiHref={taiHref} />');
+    expect(enhancements).toContain("eventName='hero_tai_explainer_open'");
 
     const finalSection = home.slice(home.indexOf("className='pc-v6-final'"));
     const dealPrimary = finalSection.indexOf("href={dealHref} className='pc-v6-primary'");
