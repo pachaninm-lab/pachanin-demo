@@ -3,45 +3,26 @@ import { PublicExperienceLink } from './PublicExperienceAnalytics';
 import { getPlatformV7HomeEnhancementCopy } from '@/i18n/platform-v7-home-enhancements';
 import styles from './PlatformV7HomeEnhancements.module.css';
 
-const CONTACT_DOCK_CONTRAST_BOUNDARY = `
-.pc-public-contact-dock {
-  opacity: 1 !important;
-  transition: transform .2s ease !important;
-}
-.pc-public-contact-dock[data-dialog-open='true'],
-.pc-public-contact-dock[data-scroll-hidden='true'] {
-  opacity: 1 !important;
-}
-.pc-public-contact-dock-action:disabled {
-  color: inherit !important;
-  opacity: 1 !important;
-  -webkit-text-fill-color: currentColor;
-}
-`;
-
 export function HeroTaiEntry({ locale, taiHref }: { locale: string; taiHref: string }) {
   const copy = getPlatformV7HomeEnhancementCopy(locale).heroTai;
 
   return (
-    <>
-      <style>{CONTACT_DOCK_CONTRAST_BOUNDARY}</style>
-      <aside className={styles.heroTaiEntry} aria-label={copy.name}>
-        <Sparkles aria-hidden='true' size={18} strokeWidth={1.9} />
-        <div className={styles.heroTaiCopy}>
-          <strong>{copy.name}</strong>
-          <span>{copy.text}</span>
-        </div>
-        <PublicExperienceLink
-          href={taiHref}
-          className={styles.heroTaiLink}
-          eventName='hero_tai_explainer_open'
-          locale={locale}
-          params={{ source: 'hero_tai_definition_v2' }}
-        >
-          {copy.cta}<ArrowRight aria-hidden='true' size={16} />
-        </PublicExperienceLink>
-      </aside>
-    </>
+    <aside className={styles.heroTaiEntry} aria-label={copy.name}>
+      <Sparkles aria-hidden='true' size={18} strokeWidth={1.9} />
+      <div className={styles.heroTaiCopy}>
+        <strong>{copy.name}</strong>
+        <span>{copy.text}</span>
+      </div>
+      <PublicExperienceLink
+        href={taiHref}
+        className={styles.heroTaiLink}
+        eventName='hero_tai_explainer_open'
+        locale={locale}
+        params={{ source: 'hero_tai_definition_v2' }}
+      >
+        {copy.cta}<ArrowRight aria-hidden='true' size={16} />
+      </PublicExperienceLink>
+    </aside>
   );
 }
 

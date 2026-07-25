@@ -8,6 +8,7 @@
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.module.css",
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/i18n/platform-v7-home-enhancements.ts",
     "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",

@@ -217,12 +217,11 @@ const css = `
   -webkit-backdrop-filter: blur(14px) saturate(125%);
   transform: translateY(0);
   transform-origin: bottom right;
-  transition: transform .2s ease, opacity .18s ease, visibility .18s ease;
+  transition: transform .2s ease, visibility .18s ease;
 }
 .pc-public-contact-dock[data-dialog-open='true'],
 .pc-public-contact-dock[data-scroll-hidden='true'] {
   visibility: hidden;
-  opacity: 0;
   pointer-events: none;
   transform: translateY(calc(100% + 24px));
 }
@@ -252,7 +251,12 @@ const css = `
   -webkit-tap-highlight-color: transparent;
   transition: background-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
-.pc-public-contact-dock-action:disabled { cursor: default; }
+.pc-public-contact-dock-action:disabled {
+  color: inherit;
+  opacity: 1;
+  -webkit-text-fill-color: currentColor;
+  cursor: default;
+}
 .pc-public-contact-dock-icon {
   width: 25px;
   height: 25px;

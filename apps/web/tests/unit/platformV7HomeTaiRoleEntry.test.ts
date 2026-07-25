@@ -10,6 +10,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
   const head = read('app/platform-v7/head.tsx');
+  const contactDock = read('components/platform-v7/PublicContactDock.tsx');
 
   it('exposes four public task-based perspectives without client-authoritative role selection', () => {
     expect(home).toContain("href='#role-entry'");
@@ -111,6 +112,16 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(head).not.toContain('контур исполнения зерновой сделки');
     expect(head).not.toContain('исполнения зерновых сделок');
   });
+
+  it('keeps contact-dock contrast rules inside the owning component', () => {
+  expect(enhancements).toContain("<aside className={styles.heroTaiEntry} aria-label={copy.name}>");
+  expect(enhancements).not.toContain('CONTACT_DOCK_CONTRAST_BOUNDARY');
+  expect(enhancements).not.toContain('.pc-public-contact-dock');
+  expect(contactDock).toContain('transition: transform .2s ease, visibility .18s ease;');
+  expect(contactDock).not.toContain('opacity .18s ease');
+  expect(contactDock).toContain('.pc-public-contact-dock-action:disabled {');
+  expect(contactDock).toContain('-webkit-text-fill-color: currentColor;');
+});
 
   it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {
     expect(enhancementCss).toContain('scroll-snap-type: x mandatory');
