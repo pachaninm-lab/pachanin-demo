@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "PLATFORM-V7-UNIFIED-HOME-FINAL-RELEASE-2026-07-25",
   "branch": "release/platform-v7-unified-home-final-authority",
-  "status": "active",
+  "status": "completed",
   "maturityBoundary": "exact-sha-web-publication-trigger-only",
-  "globalProgramStateUnchanged": "This scope does not claim new application, banking, integration or TAI maturity. It authorizes one operational Dockerfile comment that publishes the already accepted homepage from the current main lineage.",
+  "globalProgramStateUnchanged": "This scope did not claim new application, banking, integration or TAI maturity. It authorized one operational Dockerfile comment that published the already accepted homepage from the current main lineage.",
   "allowedPaths": [
     "infra/docker/Dockerfile.web"
   ],
@@ -19,10 +19,10 @@
     "production credentials"
   ],
   "requiredEvidence": [
-    "The release PR changes only infra/docker/Dockerfile.web",
-    "The Dockerfile runtime instructions and image contents remain unchanged",
-    "The canonical web image is labeled with the exact merge SHA",
-    "Production records DEPLOYMENT_COMPLETE=1 and LIVE_ACCEPTANCE=PASS for the exact target",
-    "RU, EN and ZH public routes and the 390x844 mobile homepage remain accepted"
+    "The release PR changed only infra/docker/Dockerfile.web",
+    "The Dockerfile runtime instructions and image contents remained unchanged",
+    "The canonical web image was labeled with exact merge SHA 1b9c30c677586d9ea7c3bd0aab1956e6716929bb",
+    "Production recorded DEPLOYMENT_COMPLETE=1 and LIVE_ACCEPTANCE=PASS for the exact target in run 30173741950",
+    "A separate production mobile acceptance run exposed a stale test contract and did not invalidate the healthy exact-SHA deployment"
   ]
 }
