@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-UNIFIED-DEAL-TAI-HOME-2026-07-25",
+  "branch": "fix/platform-v7-unified-deal-tai-home",
+  "status": "active",
+  "maturityBoundary": "public-homepage-positioning-information-architecture-copy-and-responsive-presentation-only",
+  "globalProgramStateUnchanged": "This homepage correction does not advance platform production maturity, banking readiness or integration attestation.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/head.tsx",
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
+    "apps/web/components/platform-v7/PlatformV7UnifiedHome.module.css",
+    "apps/web/components/platform-v7/PlatformV7UnifiedHome.css",
+    "apps/web/i18n/platform-v7-hero-message.ts",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+    "apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-unified-deal-tai-home-2026-07-25.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/app/api/**",
+    "packages/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The first screen expresses one combined platform-plus-TAI value proposition",
+    "No standalone TAI marketing section remains on the homepage",
+    "TAI remains visible inside Deal execution and links to the dedicated AI page",
+    "Deal cockpit remains the first product proof",
+    "The Deal cockpit does not repeat the hero conversion actions",
+    "Mobile trust evidence uses a compact horizontal flow instead of a tall two-by-two wall",
+    "RU, EN and ZH remain complete",
+    "mobile 320, 375, 390 and 430 retain 44px touch targets and no horizontal overflow",
+    "no fake-live or unconfirmed integration claims"
+  ]
+}

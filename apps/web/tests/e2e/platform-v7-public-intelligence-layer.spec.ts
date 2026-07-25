@@ -81,7 +81,7 @@ async function expectMinimumTargets(page: Page, locator: string) {
 }
 
 test.describe('P0 public TAI intelligence layer browser acceptance', () => {
-  test('home intelligence is Deal-aware, interactive and fail-closed', async ({ page }) => {
+  test('home intelligence is Deal-aware, integrated and fail-closed', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
@@ -93,16 +93,16 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     expect(response?.ok()).toBe(true);
 
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
+    await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка.');
+    await expect(page.locator('#pc-v6-title')).toContainText('TAI помогает довести её до расчёта.');
     await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
     await expect(page.locator('.pc-v6-control-tower')).toContainText('Расчёт остановлен');
-    await expect(page.locator('.pc-v6-control-tower')).toContainText('TAI нашёл две причины остановки');
+    await expect(page.locator('#tai')).toContainText('TAI нашёл две причины остановки');
+    await expect(page.locator('#tai')).toContainText('Влажность выше допуска');
 
-    const tai = page.locator('#tai');
-    await expect(tai).toBeVisible();
-    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Основание сценария: протокол лаборатории № L-204');
-    await expect(tai.locator('.pc-v6-tai-answer')).toContainText('Надёжность вывода: высокая');
-    await expect(tai.locator('.pc-v6-prepared-action')).toContainText('ждёт подтверждения пользователя');
-    await expect(tai).toContainText('TAI не меняет права');
+    const taiProductLink = page.getByRole('link', { name: 'Как работает TAI' }).first();
+    await expect(taiProductLink).toBeVisible();
+    await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
     const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(perspectives).toBeVisible();
@@ -124,6 +124,27 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expectNoSeriousAxeViolations(page);
     expect(forbiddenRequests).toEqual([]);
     expect(runtimeFailures).toEqual([]);
+  });
+
+  test('390×844 first viewport exposes the proposition, CTA and meaningful beginning of the real Deal cockpit', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    await expect(page.locator('#pc-v6-title')).toBeVisible();
+    await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка.');
+    await expect(page.locator('#pc-v6-title')).toContainText('TAI помогает довести её до расчёта.');
+    await expect(page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first()).toBeVisible();
+    await expect(page.locator('section.pc-v6-tai')).toHaveCount(0);
+
+    const tower = page.locator('.pc-v6-control-tower');
+    await expect(tower).toBeVisible();
+    const box = await tower.boundingBox();
+    expect(box, 'Deal cockpit must have a measurable viewport position').not.toBeNull();
+    expect(box!.y, 'A meaningful beginning of the Deal cockpit must appear without scrolling at 390×844').toBeLessThan(700);
+
+    await expect(page.locator('.pc-public-contact-dock')).toHaveAttribute('data-scroll-hidden', 'true');
+    await expectNoHorizontalOverflow(page);
   });
 
   test('TAI passport exposes all controlled layers without overstating maturity', async ({ page }) => {

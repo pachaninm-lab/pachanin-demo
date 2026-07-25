@@ -61,33 +61,76 @@ const CRITICAL_HOME_CSS = `
   max-width: 13ch;
   margin: 0;
   color: var(--pc-v6-ink);
-  font-family: var(--pc-v6-font-display);
+  font-family: Arial, sans-serif;
   font-size: clamp(48px, 5vw, 64px);
-  font-weight: 730;
+  font-weight: 700;
   line-height: .98;
   letter-spacing: -.048em;
   text-wrap: balance;
 }
-.pc-v6-hero-brand {
+.pc-v6-hero-title-main,
+.pc-v6-hero-title-accent {
   display: block;
-  margin-bottom: 8px;
-  color: var(--pc-v6-green);
-  font-size: .58em;
-  font-weight: 730;
-  line-height: 1.05;
-  letter-spacing: -.026em;
 }
-.pc-v6-hero-brand::after { display: none; }
-.pc-v6-hero-title-line { display: block; }
+.pc-v6-hero-title-accent {
+  margin-top: 8px;
+  color: var(--pc-v6-green);
+}
 .pc-v6-hero-copy > p.pc-v6-hero-lead {
   max-width: 54ch;
   margin: 18px 0 0;
   color: var(--pc-v6-muted);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-family: Arial, sans-serif;
   font-size: 18px;
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: -.006em;
+}
+.pc-v6-control-tower-unified {
+  align-self: start;
+  overflow: hidden;
+}
+.pc-v6-tower-intelligence {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px !important;
+  padding: 13px 14px 13px 18px !important;
+  border-top: 1px solid #d3e3da !important;
+  background: linear-gradient(90deg, #eaf7ef 0%, #f7fbf8 100%) !important;
+}
+.pc-v6-tower-intelligence > svg { color: var(--pc-v6-green); }
+.pc-v6-tower-intelligence strong {
+  display: block;
+  color: #07572e;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.pc-v6-tower-intelligence span {
+  display: block;
+  margin-top: 3px;
+  color: #42584d;
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+.pc-v6-tower-intelligence-link {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #c4dccd;
+  border-radius: 12px;
+  background: #fff;
+  color: #07572e;
+  text-decoration: none;
+}
+.pc-v6-tower-intelligence-link:focus-visible {
+  outline: 3px solid rgba(8, 122, 59, .25);
+  outline-offset: 2px;
+}
+.pc-v6-trust-after-lifecycle {
+  margin-top: 0 !important;
+  margin-bottom: 10px !important;
 }
 html[data-p7-language='zh'] * {
   letter-spacing: 0 !important;
@@ -137,15 +180,50 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     line-height: 1;
     letter-spacing: -.04em;
   }
-  .pc-v6-hero-brand {
-    margin-bottom: 6px;
-    font-size: .62em;
-  }
+  .pc-v6-hero-title-accent { margin-top: 5px; }
   .pc-v6-hero-copy > p.pc-v6-hero-lead {
     max-width: 42ch;
     margin-top: 12px;
-    font-size: 15px;
-    line-height: 1.42;
+    font-size: 14.5px;
+    line-height: 1.38;
+  }
+  .pc-v6-tower-intelligence {
+    grid-template-columns: auto minmax(0, 1fr) 44px;
+    gap: 8px !important;
+    padding: 10px 10px 10px 12px !important;
+  }
+  .pc-v6-tower-intelligence strong { font-size: 12.5px; }
+  .pc-v6-tower-intelligence span {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 11.5px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .pc-v6-tower-intelligence-link { border-radius: 10px; }
+  .pc-v6-trust-after-lifecycle {
+    display: flex !important;
+    gap: 10px !important;
+    overflow-x: auto;
+    margin: 0 -12px !important;
+    padding: 2px 12px 12px;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+  .pc-v6-trust-after-lifecycle::-webkit-scrollbar { display: none; }
+  .pc-v6-trust-after-lifecycle article {
+    flex: 0 0 min(78vw, 296px);
+    min-height: 112px;
+    scroll-snap-align: start;
+    padding: 15px !important;
+    border: 1px solid var(--pc-v6-line) !important;
+    border-radius: 14px;
+    background: #fff;
   }
 }
 @media (max-width: 359px) {
@@ -155,7 +233,7 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   .pc-v6-hero { grid-template-columns: minmax(0, 1.02fr) minmax(380px, .98fr); }
 }
 :lang(zh) .pc-v6-hero h1.pc-v6-hero-title { max-width: 11em; letter-spacing: -.015em; }
-:lang(zh) .pc-v6-hero-brand { letter-spacing: 0; }
+:lang(zh) .pc-v6-hero-title-accent { letter-spacing: 0; }
 `;
 
 export const metadata: Metadata = {
