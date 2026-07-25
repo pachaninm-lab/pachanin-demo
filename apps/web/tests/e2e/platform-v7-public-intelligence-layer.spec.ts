@@ -93,8 +93,8 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     expect(response?.ok()).toBe(true);
 
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-    await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка');
-    await expect(page.locator('#pc-v6-title')).toContainText('интеллект на каждом этапе');
+    await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка.');
+    await expect(page.locator('#pc-v6-title')).toContainText('TAI на каждом этапе.');
     await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
     await expect(page.locator('.pc-v6-control-tower')).toContainText('Расчёт остановлен');
     await expect(page.locator('#tai')).toContainText('TAI нашёл две причины остановки');
@@ -124,6 +124,27 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expectNoSeriousAxeViolations(page);
     expect(forbiddenRequests).toEqual([]);
     expect(runtimeFailures).toEqual([]);
+  });
+
+  test('390×844 first viewport exposes the proposition, CTA and beginning of the real Deal cockpit', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    await expect(page.locator('#pc-v6-title')).toBeVisible();
+    await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка.');
+    await expect(page.locator('#pc-v6-title')).toContainText('TAI на каждом этапе.');
+    await expect(page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first()).toBeVisible();
+    await expect(page.locator('section.pc-v6-tai')).toHaveCount(0);
+
+    const tower = page.locator('.pc-v6-control-tower');
+    await expect(tower).toBeVisible();
+    const box = await tower.boundingBox();
+    expect(box, 'Deal cockpit must have a measurable viewport position').not.toBeNull();
+    expect(box!.y, 'The beginning of the Deal cockpit must appear without scrolling at 390×844').toBeLessThan(820);
+
+    await expect(page.locator('.pc-public-contact-dock')).toHaveAttribute('data-scroll-hidden', 'true');
+    await expectNoHorizontalOverflow(page);
   });
 
   test('TAI passport exposes all controlled layers without overstating maturity', async ({ page }) => {
