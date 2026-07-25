@@ -25,6 +25,7 @@ type RoleScenario = {
 
 type UiCopy = {
   label: string;
+  rolesLabel: string;
   note: string;
   preview: string;
   deal: string;
@@ -76,6 +77,7 @@ const scenarios: Record<Locale, Record<RoleKey, RoleScenario>> = {
 const ui: Record<Locale, UiCopy> = {
   ru: {
     label: 'Сделка в работе',
+    rolesLabel: 'Что видит каждый участник',
     note: 'Ролевое представление одного сценария. Переключение не открывает данные и не меняет права.',
     preview: 'Пример интерфейса · данные сценария',
     deal: 'Партия пшеницы · 420 т',
@@ -98,6 +100,7 @@ const ui: Record<Locale, UiCopy> = {
   },
   en: {
     label: 'Deal in execution',
+    rolesLabel: 'What each participant sees',
     note: 'A role-based view of one scenario. Switching views grants no data access and changes no permissions.',
     preview: 'Interface example · scenario data',
     deal: 'Wheat lot · 420 t',
@@ -120,6 +123,7 @@ const ui: Record<Locale, UiCopy> = {
   },
   zh: {
     label: '执行中的交易',
+    rolesLabel: '各参与方看到的内容',
     note: '同一场景的角色视图。切换视角不会授予数据访问权限，也不会更改权限。',
     preview: '界面示例 · 场景数据',
     deal: '小麦批次 · 420 吨',
@@ -177,7 +181,7 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
           <article><CircleDollarSign aria-hidden='true' /><div><span>{copy.reserve}</span><strong>{copy.reserveValue}</strong></div></article>
         </div>
 
-        <div className={styles.tabs} role='tablist' aria-label={copy.label}>
+        <div className={styles.tabs} role='tablist' aria-label={copy.rolesLabel}>
           {(Object.keys(scenarios[normalized]) as RoleKey[]).map((key) => (
             <button key={key} type='button' role='tab' aria-selected={role === key} className={role === key ? styles.active : undefined} onClick={() => setRole(key)}>
               {scenarios[normalized][key].label}

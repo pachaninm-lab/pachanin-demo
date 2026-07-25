@@ -108,7 +108,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await bank.click();
     await expect(bank).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.')).toBeVisible();
+    await expect(page.getByText('Ролевое представление одного сценария. Переключение не открывает данные и не меняет права.')).toBeVisible();
     expect(forbiddenRequests).toEqual([]);
   });
 
