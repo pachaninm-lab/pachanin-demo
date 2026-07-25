@@ -17,7 +17,6 @@ import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
 import {
   PublicRoleEntrances,
-  TaiDefinition,
   TaiImpact,
   TaiWorkflow,
 } from './PlatformV7HomeEnhancements';
@@ -43,6 +42,35 @@ export async function PlatformV7StrategicHome() {
   const chrome = await getTranslations('publicEntry.chrome');
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
+  const taiProduct = locale === 'en'
+    ? {
+        productBadge: 'Independent agribusiness AI product',
+        title: 'Operational intelligence built for agribusiness',
+        lead: 'Created by Transparent Price and designed as a standalone product, TAI understands Deal execution, documents, logistics, quality, money and risk without becoming a chat detached from operations.',
+        definitionLabel: 'Why TAI is different',
+        definition: 'TAI combines platform architecture knowledge with agribusiness context. It explains the basis of a conclusion, respects organisation roles and prepares an action that remains under human control.',
+        domainsLabel: 'TAI product domains',
+        domains: ['Deal Intelligence', 'Document Intelligence', 'Logistics & Quality', 'Money & Risk', 'Dispute Evidence'],
+      }
+    : locale === 'zh'
+      ? {
+          productBadge: '独立的农业商业 AI 产品',
+          title: '为农业商业打造的运营智能',
+          lead: 'TAI 由“透明价格”创建，并按独立产品设计。它理解交易执行、文件、物流、质量、资金与风险，而不是脱离运营流程的聊天工具。',
+          definitionLabel: 'TAI 的独特之处',
+          definition: 'TAI 将平台架构知识与农业商业上下文结合起来，说明结论依据，遵守机构角色，并准备由人工确认的下一步行动。',
+          domainsLabel: 'TAI 产品领域',
+          domains: ['交易智能', '文件智能', '物流与质量', '资金与风险', '争议证据'],
+        }
+      : {
+          productBadge: 'Отдельный AI-продукт для агробизнеса',
+          title: 'Собственный операционный интеллект для агробизнеса',
+          lead: 'TAI создан нами для «Прозрачной Цены» и спроектирован как самостоятельный продукт. Он понимает исполнение Сделки, документы, логистику, качество, деньги и риск — без отрыва от реального процесса.',
+          definitionLabel: 'В чём уникальность TAI',
+          definition: 'TAI объединяет знание архитектуры платформы и контекст агробизнеса, показывает основание вывода, учитывает роль организации и готовит действие, которое остаётся под контролем человека.',
+          domainsLabel: 'Продуктовые контуры TAI',
+          domains: ['Deal Intelligence', 'Document Intelligence', 'Логистика и качество', 'Деньги и риск', 'Спор и доказательства'],
+        };
 
   const nav = <>
     <a href='#deal-path'>{copy.nav.how}</a>
@@ -181,10 +209,13 @@ export async function PlatformV7StrategicHome() {
           <div className='pc-v6-tai-lockup'>
             <span><Sparkles aria-hidden='true' size={20} /></span>
             <div><strong>TAI</strong><small>Transparent Agro Intelligence</small></div>
-            <em>{enhancement.tai.productBadge}</em>
+            <em>{taiProduct.productBadge}</em>
           </div>
-          <SectionHeader eyebrow={enhancement.tai.eyebrow} title={enhancement.tai.title} lead={enhancement.tai.lead} />
-          <TaiDefinition locale={locale} />
+          <SectionHeader eyebrow={enhancement.tai.eyebrow} title={taiProduct.title} lead={taiProduct.lead} />
+          <div className='pc-v6-tai-definition'>
+            <span>{taiProduct.definitionLabel}</span>
+            <p>{taiProduct.definition}</p>
+          </div>
           <div className='pc-v6-tai-layout'>
             <div className='pc-v6-tai-answer'>
               <div className='pc-v6-tai-head'><Sparkles size={19} /><strong>TAI</strong><span>{copy.tai.mode}</span></div>
@@ -200,8 +231,8 @@ export async function PlatformV7StrategicHome() {
             </div>
           </div>
           <div className='pc-v6-tai-product-footer'>
-            <div aria-label={enhancement.tai.domainsLabel}>
-              {enhancement.tai.domains.map((domain) => <span key={domain}>{domain}</span>)}
+            <div aria-label={taiProduct.domainsLabel}>
+              {taiProduct.domains.map((domain) => <span key={domain}>{domain}</span>)}
             </div>
             <PublicExperienceLink href={taiHref} className='pc-v6-primary' eventName='open_tai_fullscreen' locale={locale} params={{ source: 'tai_product_final' }}>
               {copy.hero.tertiary}<ArrowRight size={18} />
