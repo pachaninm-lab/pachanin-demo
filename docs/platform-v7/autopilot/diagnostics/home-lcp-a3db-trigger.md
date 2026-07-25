@@ -1,0 +1,1 @@
+Exact-head diagnostic branch for homepage LCP font and layout inspection. No production or pull-request changes.
