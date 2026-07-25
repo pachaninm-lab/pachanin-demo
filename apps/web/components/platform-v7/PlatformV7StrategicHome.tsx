@@ -71,6 +71,11 @@ export async function PlatformV7StrategicHome() {
           domainsLabel: 'Продуктовые контуры TAI',
           domains: ['Deal Intelligence', 'Document Intelligence', 'Логистика и качество', 'Деньги и риск', 'Спор и доказательства'],
         };
+  const towerTaiTitle = locale === 'en'
+    ? 'TAI found two reasons for the pause'
+    : locale === 'zh'
+      ? 'TAI 发现两个暂停原因'
+      : 'TAI нашёл две причины остановки';
 
   const nav = <>
     <a href='#deal-path'>{copy.nav.how}</a>
@@ -154,7 +159,7 @@ export async function PlatformV7StrategicHome() {
             </div>
             <div className='pc-v6-tai-strip'>
               <Sparkles size={18} />
-              <div><strong>{copy.tower.taiTitle}</strong><span>{copy.tower.taiText}</span></div>
+              <div><strong>{towerTaiTitle}</strong><span>{copy.tower.taiText}</span></div>
             </div>
             <div className='pc-v6-ct-actions'>
               <PublicExperienceLink href={dealHref} eventName='hero_cockpit_open' locale={locale} params={{ source: 'hero_cockpit_final' }}>
