@@ -19,6 +19,7 @@
     "apps/tai/tai/industrial_gap_report_cli.py",
     "apps/tai/tai/platform_tools.py",
     "apps/tai/tai/read_tool_contracts.py",
+    "apps/tai/tai/tool_planner.py",
     "apps/tai/tests/test_industrial_gap_report.py",
     "apps/tai/tests/test_platform_tools.py",
     "apps/tai/tests/test_read_tool_contracts.py",
@@ -35,7 +36,8 @@
     "reported percentages ship with the counts and the formula that produced them",
     "the committed gap report and manifest are re-derivable from the committed backlog with zero drift",
     "no free-form argument object reaches the platform: every adapter-reachable tool is constrained by its declared contract before anything is signed",
-    "the TAI tool registry never advertises a tool absent from the server registry"
+    "the TAI tool registry never advertises a tool absent from the server registry",
+    "the deterministic planner and the adapter share one argument declaration, so a plan that validates is exactly a plan the adapter accepts"
   ],
   "forbidden_capabilities": [
     "model bundle, benchmark, admission authority, runtime-host or quality-scoring changes",

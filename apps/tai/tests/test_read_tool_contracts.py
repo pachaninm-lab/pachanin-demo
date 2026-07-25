@@ -17,6 +17,7 @@ from tai.read_tool_contracts import (
     platform_tool_spec,
     read_tool_names,
 )
+from tai.tool_planner import _validate_arguments
 
 SERVER_REGISTRY = (
     Path(__file__).resolve().parents[3]
@@ -133,6 +134,37 @@ class TestUnknownAndMissingArguments:
         with pytest.raises(ReadToolArgumentError):
             normalize_platform_tool_arguments(
                 tool_name, {"dealId": DEAL, "sql": "SELECT 1"}
+            )
+
+
+class TestPlannerAndAdapterShareOneContract:
+    """The planner used to keep its own copy of the allowlist; the two must not drift."""
+
+    def test_planner_accepts_exactly_what_the_adapter_accepts(self) -> None:
+        for tool_name in PLATFORM_TOOL_NAMES:
+            _validate_arguments(tool_name, {"dealId": DEAL})
+
+    def test_planner_refuses_what_the_adapter_refuses(self) -> None:
+        with pytest.raises(ValueError, match="invalid argument schema"):
+            _validate_arguments("getDealSummary", {"dealId": DEAL, "tenantId": "t-1"})
+
+    def test_planner_still_requires_a_deal(self) -> None:
+        with pytest.raises(ValueError, match="invalid argument schema"):
+            _validate_arguments("getDealSummary", {})
+
+    def test_planner_still_refuses_non_portable_values(self) -> None:
+        with pytest.raises(ValueError, match="invalid argument schema"):
+            _validate_arguments("getDealSummary", {"dealId": "deal 1"})
+
+    def test_command_draft_payload_stays_undeclared(self) -> None:
+        """The platform accepts a payload here; TAI deliberately does not offer one.
+
+        Declaring it would put an arbitrary object back on the path to a prepared
+        write, and the deterministic planner has never produced one.
+        """
+        with pytest.raises(ReadToolArgumentError, match="payload is not a declared argument"):
+            normalize_platform_tool_arguments(
+                "prepareCommandDraft", {"dealId": DEAL, "payload": {"documentId": "doc-1"}}
             )
 
 

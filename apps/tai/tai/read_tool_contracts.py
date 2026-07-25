@@ -122,6 +122,9 @@ PLATFORM_TOOL_SPECS: Final[tuple[PlatformToolSpec, ...]] = (
     PlatformToolSpec(
         "getRoleNextActions", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
     ),
+    # The platform would also accept a free-form `payload` here, but the deterministic
+    # planner has never produced one, and declaring it would put an arbitrary object
+    # back on the path to a prepared write. It stays undeclared on purpose.
     PlatformToolSpec(
         "prepareCommandDraft",
         ToolMode.DRAFT,
