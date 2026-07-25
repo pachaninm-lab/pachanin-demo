@@ -12,6 +12,7 @@
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
     "apps/web/components/platform-v7/PlatformV7HomeFinalPolish.css",
     "apps/web/components/platform-v7/PlatformV7HomeHeroAcceptance.css",
+    "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/i18n/platform-v7-home-v3.ts",
     "apps/web/i18n/platform-v7-home-enhancements.ts",
