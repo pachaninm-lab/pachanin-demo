@@ -119,9 +119,7 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   .pc-v6-category,
   .pc-v6-crops,
   .pc-v6-integrations,
-  .pc-v6-assurance,
-  .pc-v6-faq,
-  .pc-v6-final {
+  .pc-v6-assurance {
     content-visibility: auto;
     contain-intrinsic-size: auto 680px;
   }
