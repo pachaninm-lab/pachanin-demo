@@ -10,19 +10,19 @@ const messages: Record<'ru' | 'en' | 'zh', PlatformV7HeroMessage> = {
     kicker: 'Единая цифровая инфраструктура исполнения агросделки',
     brand: 'Прозрачная Цена',
     title: 'связывает товар, исполнение и деньги в одной Сделке',
-    lead: 'От условий и аукциона до логистики, качества, документов, расчёта, спора и доказательств. На каждом этапе видны статус, блокер, ответственный, основание и следующий шаг.',
+    lead: 'Условия, торги, логистика, качество, документы и расчёт — в одном контуре. На каждом этапе видны статус, блокер, ответственный и следующий шаг.',
   },
   en: {
     kicker: 'Unified digital infrastructure for agricultural Deal execution',
     brand: 'Transparent Price',
     title: 'connects product, execution and money in one Deal',
-    lead: 'From terms and auction through logistics, quality, documents, settlement, dispute and evidence. Every stage shows status, blocker, owner, basis and next action.',
+    lead: 'Terms, auction, logistics, quality, documents and settlement stay in one Deal. Each stage shows the status, blocker, owner and next action.',
   },
   zh: {
     kicker: '农业交易执行的统一数字基础设施',
     brand: '透明价格',
     title: '在一笔交易中连接商品、执行与资金',
-    lead: '从条件和竞价到物流、质量、文件、结算、争议与证据。每个阶段都显示状态、阻塞项、责任方、依据和下一步。',
+    lead: '条件、竞价、物流、质量、文件和结算都在同一笔交易中。每个阶段都显示状态、阻塞项、责任方和下一步。',
   },
 };
 
