@@ -115,6 +115,17 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(contactDock).toContain('-webkit-text-fill-color: currentColor;');
   });
 
+  it('keeps the public mobile dock off the first screen without changing private or desktop behavior', () => {
+    expect(contactDock).toContain("const PUBLIC_MOBILE_QUERY = '(max-width: 767px)'");
+    expect(contactDock).toContain('const PUBLIC_HERO_THRESHOLD = 120');
+    expect(contactDock).toContain("React.useState(assistantContext === 'public')");
+    expect(contactDock).toContain('const mobileQuery = window.matchMedia(PUBLIC_MOBILE_QUERY)');
+    expect(contactDock).toContain("assistantContext === 'public'");
+    expect(contactDock).toContain('setHiddenByScroll(isPublicMobileTop(currentY))');
+    expect(contactDock).toContain("mobileQuery.addEventListener('change', syncViewportVisibility)");
+    expect(contactDock).toContain('}, [assistantContext]);');
+  });
+
   it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {
     expect(enhancementCss).toContain('scroll-snap-type: x mandatory');
     expect(enhancementCss).toMatch(/min-height:\s*44px/);
