@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { MessageCircle, Phone, Sparkles } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics/track';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -29,15 +30,22 @@ function resolveLocale(): Locale {
   return 'ru';
 }
 
+function isStrategicHomepage(pathname: string): boolean {
+  const clean = pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
+  return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';
+}
+
 function restoreAttribute(node: HTMLElement, name: string, value: string | null) {
   if (value === null) node.removeAttribute(name);
   else node.setAttribute(name, value);
 }
 
 export function PublicContactDock({ assistantContext = 'public' }: { assistantContext?: AssistantContext }) {
+  const pathname = usePathname() || '/platform-v7';
+  const hideAtPublicMobileTop = assistantContext === 'public' && isStrategicHomepage(pathname);
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [hiddenByScroll, setHiddenByScroll] = React.useState(assistantContext === 'public');
+  const [hiddenByScroll, setHiddenByScroll] = React.useState(hideAtPublicMobileTop);
   const assistantButtonRef = React.useRef<HTMLButtonElement>(null);
   const supportButtonRef = React.useRef<HTMLButtonElement>(null);
   const returnFocusRef = React.useRef<Surface | null>(null);
@@ -63,7 +71,7 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
     let frame = 0;
 
     const isPublicMobileTop = (scrollY: number) => (
-      assistantContext === 'public'
+      hideAtPublicMobileTop
       && mobileQuery.matches
       && scrollY < PUBLIC_HERO_THRESHOLD
     );
@@ -112,7 +120,7 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
       window.removeEventListener('scroll', onScroll);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [assistantContext]);
+  }, [hideAtPublicMobileTop]);
 
   React.useEffect(() => {
     const assistantTrigger = assistantTriggerSelector ? document.querySelector<HTMLButtonElement>(assistantTriggerSelector) : null;
