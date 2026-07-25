@@ -4,7 +4,6 @@ import { getPlatformV7HomeEnhancementCopy } from '@/i18n/platform-v7-home-enhanc
 import styles from './PlatformV7HomeEnhancements.module.css';
 import './PlatformV7HomeMobileDensity.css';
 import './PlatformV7HomeFinalPolish.css';
-import './PlatformV7UnifiedHome.css';
 
 export function HeroTaiEntry({ locale, taiHref }: { locale: string; taiHref: string }) {
   const copy = getPlatformV7HomeEnhancementCopy(locale).heroTai;
