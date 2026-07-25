@@ -6,15 +6,17 @@ const read = (relativePath: string) => readFileSync(join(process.cwd(), relative
 
 describe('platform-v7 infrastructure hero message', () => {
   const component = read('components/platform-v7/PlatformV7StrategicHome.tsx');
+  const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
+  const enhancementCopy = read('i18n/platform-v7-home-enhancements.ts');
   const copy = read('i18n/platform-v7-hero-message.ts');
   const page = read('app/platform-v7/page.tsx');
 
   it('uses the approved product-led RU message as the first-screen hierarchy', () => {
-    expect(copy).toContain("kicker: 'Единая цифровая инфраструктура агросделки'");
-    expect(copy).toContain("brand: 'Контроль исполнения Сделки'");
-    expect(copy).toContain("title: 'от цены до расчёта и закрытия'");
-    expect(copy).toContain('Товар, логистика, качество, документы и деньги связаны в одной Сделке.');
-    expect(copy).toContain('Видны блокер, ответственный, основание и следующий шаг.');
+    expect(copy).toContain("kicker: 'Единая цифровая инфраструктура исполнения агросделки'");
+    expect(copy).toContain("brand: 'Прозрачная Цена'");
+    expect(copy).toContain("title: 'связывает товар, исполнение и деньги в одной Сделке'");
+    expect(copy).toContain('От условий и аукциона до логистики, качества, документов, расчёта, спора и доказательств.');
+    expect(copy).toContain('На каждом этапе видны статус, блокер, ответственный, основание и следующий шаг.');
     expect(component).toContain("className='pc-v6-hero-brand'");
     expect(component).toContain("className='pc-v6-hero-title-line'");
     expect(component).toContain("className='pc-v6-hero-lead'");
@@ -24,17 +26,21 @@ describe('platform-v7 infrastructure hero message', () => {
   it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
     expect(copy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
     expect(copy).toContain("locale === 'en' ? messages.en : locale === 'zh' ? messages.zh : messages.ru");
-    expect(copy).toContain("brand: 'Control Deal execution'");
-    expect(copy).toContain("brand: '控制交易执行'");
+    expect(copy).toContain("brand: 'Transparent Price'");
+    expect(copy).toContain("brand: '透明价格'");
     expect(copy).not.toContain('...messages.ru');
   });
 
-  it('keeps TAI inside the product cockpit rather than a detached AI landing', () => {
+  it('defines TAI as operational intelligence inside the product rather than a detached AI landing', () => {
     expect(component).toContain('copy.tower.taiTitle');
     expect(component).toContain("eventName='open_tai'");
-    expect(component).toContain("<strong>TAI</strong><span>{copy.tai.mode}</span>");
-    expect(component).not.toContain('getTaiName');
-    expect(component).not.toContain('прозрачный агроинтеллект');
+    expect(component).toContain('<HeroTaiEntry locale={locale} taiHref={taiHref} />');
+    expect(component).toContain('<TaiDefinition locale={locale} />');
+    expect(component).toContain('<TaiWorkflow locale={locale} />');
+    expect(enhancements).toContain("eventName='hero_tai_explainer_open'");
+    expect(enhancementCopy).toContain('TAI — Transparent Agro Intelligence');
+    expect(enhancementCopy).toContain('Операционный интеллект «Прозрачной Цены»');
+    expect(enhancementCopy).toContain('не отдельный чат и не декоративный помощник');
   });
 
   it('inlines the critical shell, hero and CJK rules and loads one route stylesheet', () => {

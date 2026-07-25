@@ -23,11 +23,29 @@ async function expectMinimumTargets(page: Page, selector: string) {
   expect(valid, `${selector} must expose 44×44 CSS px visible targets`).toBe(true);
 }
 
+async function scrollAndFlush(page: Page, top: number) {
+  await page.evaluate(async (targetTop) => {
+    window.scrollTo({ top: targetTop, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
+  }, top);
+}
+
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-  await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+  const expected = (page.viewportSize()?.width ?? 1024) <= 767 ? 'true' : 'false';
+
+  await expect.poll(async () => {
+    await scrollAndFlush(page, 0);
+    return dock.getAttribute('data-scroll-hidden');
+  }, {
+    timeout: 15_000,
+    intervals: [100, 250, 500],
+    message: 'contact dock must settle at the top after route hydration and hash restoration',
+  }).toBe(expected);
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {
@@ -153,22 +171,30 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
   });
 
-  test('contact dock stops obscuring content during downward scrolling and returns on upward scrolling', async ({ page }) => {
+  test('mobile contact dock stays off the first screen and returns only on upward scrolling below the hero', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     const dock = page.locator('.pc-public-contact-dock');
-    await settleContactDock(page);
-    await expect(dock.locator('button').first()).toBeEnabled();
-    await page.evaluate(() => {
-      window.scrollTo({ top: 1300, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-    });
+    const assistant = dock.locator('button').first();
+    const call = dock.locator('a');
+
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-    await page.evaluate(() => {
-      window.scrollTo({ top: 900, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-    });
+    await expect(dock).toBeHidden();
+    await expect(assistant).toBeDisabled();
+    await expect(assistant).toHaveAttribute('tabindex', '-1');
+    await expect(call).toHaveAttribute('tabindex', '-1');
+
+    await scrollAndFlush(page, 1300);
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+
+    await scrollAndFlush(page, 900);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+    await expect(dock).toBeVisible();
+    await expect(assistant).toBeEnabled();
+
+    await scrollAndFlush(page, 0);
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+    await expect(dock).toBeHidden();
   });
 
   for (const width of [320, 375, 390, 430]) {
@@ -200,6 +226,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await settleContactDock(page);
       await expectNoHorizontalOverflow(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-ru-${width}px.png`),
@@ -213,6 +240,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await settleContactDock(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-${locale}-390px.png`),
         fullPage: true,
