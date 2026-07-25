@@ -3,9 +3,10 @@
   "branch": "agent/platform-v7-mobile-product-ui-final",
   "status": "active",
   "operationalStatus": "PUBLIC_MOBILE_ACCEPTANCE_FINALIZATION",
-  "validationRevision": 3,
+  "validationRevision": 4,
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7HomeFinalPolish.css",
     "apps/web/i18n/platform-v7-home-v3.ts",
     "apps/web/i18n/platform-v7-organization-connect.ts",
     "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
@@ -34,7 +35,9 @@
     "languages": ["ru", "en", "zh"],
     "productWorkspace": true,
     "horizontalOverflow": false,
-    "anchorOffsetVerified": true
+    "anchorOffsetVerified": true,
+    "mobileLighthouseLcpMs": 3000,
+    "belowFoldRenderingDeferred": true
   },
   "productionHosting": "REG_RU_VPS_ONLY"
 }
