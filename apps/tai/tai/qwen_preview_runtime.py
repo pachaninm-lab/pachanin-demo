@@ -37,7 +37,17 @@ _EXPECTED_CONVERSION_INPUT: dict[str, object] = {
         "8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1/"
         "control/model-conversion-authority.v1.json"
     ),
+    # The bytes that actually executed on the model host. The conversion workflow copies
+    # the committed authority into its control package and appends an `execution` block,
+    # so the executed file is by construction not byte-identical to its source.
     "conversion_authority_sha256": (
+        "4c7d8222f6bc2b7b81f29aaf4c575b611f611981d34a6a88772be4371350139b"
+    ),
+    # The canonical-JSON digest of that committed source, recorded inside the executed
+    # file as execution.committed_authority_sha256. Verified independently of the bytes:
+    # the raw digest alone would not tie the run to a reviewed source, and this field
+    # alone would accept any file that merely claims the right provenance.
+    "conversion_committed_authority_sha256": (
         "e7531a0d19fbdb92d14fa84d8bb3fd5a4a012ee61e3bf7cc632513bd435388f4"
     ),
     "step_report_path": (
