@@ -107,26 +107,21 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(head).not.toContain('platform-v7-density-fix.css');
   });
 
-  it('keeps contact-dock contrast rules inside the owning component', () => {
+  it('keeps contact-dock visibility, contrast and font rules inside the owning component', () => {
     expect(enhancements).not.toContain('CONTACT_DOCK_CONTRAST_BOUNDARY');
     expect(enhancements).not.toContain('.pc-public-contact-dock');
+    expect(contactDock).toContain('React.useState(false)');
+    expect(contactDock).toContain('if (currentY < 120)');
+    expect(contactDock).toContain('setHiddenByScroll(false)');
     expect(contactDock).toContain('transition: transform .2s ease, visibility .18s ease;');
     expect(contactDock).not.toContain('opacity .18s ease');
     expect(contactDock).toContain('.pc-public-contact-dock-action:disabled {');
     expect(contactDock).toContain('color: inherit;');
     expect(contactDock).toContain('opacity: 1;');
     expect(contactDock).toContain('-webkit-text-fill-color: currentColor;');
-  });
-
-  it('keeps the public mobile dock off the first screen without changing private or desktop behavior', () => {
-    expect(contactDock).toContain("const PUBLIC_MOBILE_QUERY = '(max-width: 767px)'");
-    expect(contactDock).toContain('const PUBLIC_HERO_THRESHOLD = 120');
-    expect(contactDock).toContain("React.useState(assistantContext === 'public')");
-    expect(contactDock).toContain('const mobileQuery = window.matchMedia(PUBLIC_MOBILE_QUERY)');
-    expect(contactDock).toContain("assistantContext === 'public'");
-    expect(contactDock).toContain('setHiddenByScroll(isPublicMobileTop(currentY))');
-    expect(contactDock).toContain("mobileQuery.addEventListener('change', syncViewportVisibility)");
-    expect(contactDock).toContain('}, [assistantContext]);');
+    expect(contactDock).toContain("font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;");
+    expect(contactDock).not.toContain('font-family: Inter');
+    expect(contactDock).not.toContain('PUBLIC_MOBILE_QUERY');
   });
 
   it('loads legacy public mobile CSS only outside the strategic homepage', () => {
