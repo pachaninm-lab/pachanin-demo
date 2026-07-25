@@ -15,7 +15,7 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения агросделки'");
     expect(copy).toContain("title: 'Одна Сделка.'");
     expect(copy).toContain("accent: 'TAI помогает на каждом этапе.'");
-    expect(copy).toContain('Прозрачная Цена связывает торги, логистику, качество, документы и деньги в одном контуре');
+    expect(copy).toContain('Торги, логистика, качество, документы и деньги — в одной Сделке');
     expect(copy).toContain('TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
     expect(component).toContain('heroMessage.title');
     expect(component).toContain('heroMessage.accent');
