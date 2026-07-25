@@ -40,16 +40,31 @@ describe('platform-v7 public industrial copy', () => {
     for (const phrase of forbidden) expect(copy).not.toContain(phrase);
   });
 
-  it('keeps the industrial value proposition and external-system functions explicit in RU EN ZH', () => {
-    expect(copy).toContain('Вся агросделка — от цены до закрытия');
-    expect(copy).toContain('Платформа рассчитана на промышленную эксплуатацию');
+  it('keeps the execution proposition and external-system functions explicit in RU EN ZH', () => {
+    expect(copy).toContain('Платформа не заканчивается после выбора цены');
+    expect(copy).toContain('Критические действия имеют проверяемое основание');
     expect(copy).toContain('Партия и прослеживаемость');
-    expect(copy).toContain('The whole agricultural deal, from price to closure');
-    expect(copy).toContain('Built for industrial operation');
-    expect(copy).toContain('Lot and traceability');
-    expect(copy).toContain('贯通农业交易从定价到关闭的全过程');
-    expect(copy).toContain('面向工业化运行设计');
+    expect(copy).toContain('Подписание и обмен документами');
+
+    expect(copy).toContain('The platform does not stop after price selection');
+    expect(copy).toContain('Critical actions require verifiable evidence');
+    expect(copy).toContain('Lot identity and traceability');
+    expect(copy).toContain('Document signing and exchange');
+
+    expect(copy).toContain('平台不会在确定价格后结束');
+    expect(copy).toContain('关键操作必须具有可核验依据');
     expect(copy).toContain('批次与追溯');
+    expect(copy).toContain('签署与文件交换');
+  });
+
+  it('keeps money, evidence and role control inside one Deal narrative', () => {
+    expect(copy).toContain('Выплата опирается на подтверждённые события');
+    expect(copy).toContain('История доказательств');
+    expect(copy).toContain('Каждый участник видит свой контекст и доступные ему действия');
+    expect(copy).toContain('Payout follows confirmed events');
+    expect(copy).toContain('Evidence history');
+    expect(copy).toContain('付款依据已确认事件');
+    expect(copy).toContain('证据历史');
   });
 
   it('does not claim verified external connectivity', () => {
@@ -60,6 +75,8 @@ describe('platform-v7 public industrial copy', () => {
       'bank is connected',
       'FGIS is connected',
       'EDI is connected',
+      '银行已连接',
+      '监管系统已连接',
     ];
 
     for (const claim of forbiddenClaims) expect(copy.toLowerCase()).not.toContain(claim.toLowerCase());

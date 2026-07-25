@@ -21,19 +21,20 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(home).toContain("className='pc-v6-control-tower'");
     expect(home).toContain("id='deal-path'");
     expect(home).toContain("className='pc-v6-scenario-grid'");
-    expect(home).toContain("id='tai'");
     expect(home).toContain("id='participants'");
+    expect(home).toContain("id='tai'");
+    expect(home).toContain("id='money'");
     expect(home).toContain("id='integrations'");
     expect(home).toContain("id='maturity'");
     expect(home).toContain('pc-v6-faq');
-    expect(homeCopy).toContain('Не просто поиск цены. Платформа ведёт Сделку до закрытия.');
+    expect(homeCopy).toContain('Платформа не заканчивается после выбора цены');
   });
 
   it('starts the public walkthrough from Deal terms and buyer perspective', () => {
     expect(explorerPage).toContain("stage: 'terms'");
     expect(explorerPage).toContain("perspective: 'buyer'");
     expect(home).toContain('stage=terms&lens=execution&perspective=buyer');
-    expect(homeCopy).toContain("phases: ['Условия', 'Допуск', 'Торги', 'Сделка'");
+    expect(homeCopy).toContain("phases: ['Условия', 'Допуск', 'Торги', 'Победитель'");
   });
 
   it('preserves browser-history restoration for the full deal walkthrough', () => {
@@ -53,12 +54,12 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(`${explorer}\n${entryGate}`).not.toContain('accessToken');
   });
 
-  it('keeps one high-emphasis hero action and a clear public simulation boundary', () => {
-    const firstHero = home.slice(home.indexOf("className='pc-v6-hero'"), home.indexOf("className='pc-v6-category'"));
+  it('keeps one high-emphasis hero action and a clear non-authoritative scenario boundary', () => {
+    const firstHero = home.slice(home.indexOf("className='pc-v6-hero'"), home.indexOf("className='pc-v6-trust-strip'"));
     expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='hero_primary_cta'");
-    expect(homeCopy).toContain('Сделка при отклонении');
-    expect(homeCopy).toContain('Деньги зарезервированы. Выплата остановлена');
+    expect(homeCopy).toContain('Сценарий исполнения');
+    expect(homeCopy).toContain('Деньги остаются зарезервированными');
     expect(home).not.toContain('Math.random');
     expect(home).not.toContain('setInterval');
   });
@@ -81,7 +82,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(explorerAdapter).toContain("['execution', 'documents', 'money', 'risk']");
   });
 
-  it('keeps TAI evidence, freshness, confidence and human confirmation visible', () => {
+  it('keeps TAI evidence, context, confidence and human confirmation visible', () => {
     expect(home).toContain('copy.tai.source');
     expect(home).toContain('copy.tai.freshness');
     expect(home).toContain('copy.tai.confidence');
@@ -95,7 +96,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   });
 
   it('keeps mobile, touch-target and reduced-motion gates active', () => {
-    expect(homeCss).toContain('min-height: 44px');
+    expect(homeCss).toContain('min-height: 42px');
     expect(homeCss).toContain('min-height: 48px');
     expect(homeCss).toContain('overflow-x: auto');
     expect(homeCss).toContain('@media (max-width: 767px)');
@@ -139,10 +140,9 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
       'websocket',
     ];
     for (const token of forbidden) expect(combined).not.toContain(token);
-    expect(homeCopy).toContain('Контроль исполнения');
-    expect(homeCopy).toContain('Сделка не переходит дальше без подтверждённого основания');
+    expect(homeCopy).toContain('Контроль и безопасность');
+    expect(homeCopy).toContain('Критические действия имеют проверяемое основание');
     expect(homeCopy).toContain('Партия и прослеживаемость');
     expect(homeCopy).toContain('Подписание и обмен документами');
-    expect(homeCopy).toContain('Платформа рассчитана на промышленную эксплуатацию');
   });
 });

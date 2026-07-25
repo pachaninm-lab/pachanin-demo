@@ -7,22 +7,22 @@ export type PlatformV7HeroMessage = {
 
 const messages: Record<'ru' | 'en' | 'zh', PlatformV7HeroMessage> = {
   ru: {
-    kicker: 'Цифровая инфраструктура исполнения сделок в растениеводстве',
-    brand: '«Прозрачная Цена»',
-    title: 'ведёт агросделку от цены до закрытия.',
-    lead: 'Условия, участники, торги, логистика, приёмка, качество, документы, расчёты и доказательства связаны вокруг одной Сделки.',
+    kicker: 'Единая цифровая инфраструктура агросделки',
+    brand: 'Контроль исполнения Сделки',
+    title: 'от цены до расчёта и закрытия',
+    lead: 'Товар, логистика, качество, документы и деньги связаны в одной Сделке. Видны блокер, ответственный, основание и следующий шаг.',
   },
   en: {
-    kicker: 'Digital infrastructure for crop-trade execution',
-    brand: 'Transparent Price',
-    title: 'carries an agricultural deal from price to closure.',
-    lead: 'Terms, participants, trading, logistics, acceptance, quality, documents, settlement and evidence stay connected around one Deal.',
+    kicker: 'Unified digital infrastructure for agricultural trade',
+    brand: 'Control Deal execution',
+    title: 'from price to settlement and closure',
+    lead: 'Product, logistics, quality, documents and money stay connected in one Deal. The blocker, owner, evidence and next action remain visible.',
   },
   zh: {
-    kicker: '种植业交易执行数字基础设施',
-    brand: '透明价格',
-    title: '贯通农业交易从定价到关闭的全过程。',
-    lead: '条件、参与方、交易、物流、验收、质量、文件、结算与证据均围绕同一笔交易关联。',
+    kicker: '农业交易统一数字基础设施',
+    brand: '控制交易执行',
+    title: '从定价到结算与关闭',
+    lead: '商品、物流、质量、文件与资金关联在同一笔交易中。阻塞项、责任方、依据和下一步清晰可见。',
   },
 };
 

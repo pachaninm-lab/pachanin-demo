@@ -18,11 +18,11 @@ type RoleScenario = {
 
 const scenarios: Record<Locale, Record<RoleKey, RoleScenario>> = {
   ru: {
-    seller: { label: 'Продавец', risk: 'Оплата остановлена из-за расхождения качества и неподписанного акта.', owner: 'Покупатель и лаборатория', next: 'Проверить проект акта и запросить подтверждение покупателя.', evidence: 'Протокол лаборатории, спецификация и акт расхождений.', money: 'Деньги зарезервированы; окончательная выплата остановлена.' },
-    buyer: { label: 'Покупатель', risk: 'Фактическая влажность выше договорного допуска на 0,8 п.п.', owner: 'Лаборатория', next: 'Выбрать договорное правило перерасчёта и подписать акт.', evidence: 'Проба, протокол лаборатории и версия спецификации.', money: 'Резерв сохранён до подтверждения нового основания расчёта.' },
-    logistics: { label: 'Логистика', risk: 'Рейс завершён физически, но приёмка не закрыта документально.', owner: 'Хранение и покупатель', next: 'Передать подтверждение рейса и дождаться закрытия приёмки.', evidence: 'ЭПД, отметки прибытия и весовые данные.', money: 'Расчёт за перевозку отделён от окончательного расчёта за товар.' },
+    seller: { label: 'Продавец', risk: 'Оплата остановлена из-за расхождения качества и неподписанного акта.', owner: 'Покупатель и лаборатория', next: 'Проверить проект акта и запросить подтверждение покупателя.', evidence: 'Протокол лаборатории, спецификация и акт расхождений.', money: 'Средства остаются зарезервированными; окончательная выплата остановлена.' },
+    buyer: { label: 'Покупатель', risk: 'Фактическая влажность выше договорного допуска на 0,8 п.п.', owner: 'Лаборатория', next: 'Выбрать договорное правило перерасчёта и подписать акт.', evidence: 'Проба, протокол лаборатории и версия спецификации.', money: 'Резерв сохраняется до подтверждения нового основания расчёта.' },
+    logistics: { label: 'Логистика', risk: 'Рейс завершён физически, но приёмка ещё не закрыта документально.', owner: 'Хранение и покупатель', next: 'Передать подтверждение рейса и дождаться закрытия приёмки.', evidence: 'ЭПД, отметки прибытия и весовые данные.', money: 'Расчёт за перевозку отделён от окончательного расчёта за товар.' },
     storage: { label: 'Хранение', risk: 'Партия принята условно до решения по показателю качества.', owner: 'Лаборатория и покупатель', next: 'Зафиксировать размещение партии и режим условного хранения.', evidence: 'Акт приёмки, вес, место хранения и статус партии.', money: 'Основание передачи товара есть, основания окончательного расчёта пока нет.' },
-    laboratory: { label: 'Лаборатория', risk: 'Результат вышел за допуск и должен быть подтверждённо связан с пробой.', owner: 'Лаборатория', next: 'Подтвердить протокол, методику и идентификатор пробы.', evidence: 'Проба → измерение → протокол → партия.', money: 'Результат влияет на формулу цены, но сам по себе не запускает выплату.' },
+    laboratory: { label: 'Лаборатория', risk: 'Результат вышел за допуск и должен быть связан с конкретной пробой.', owner: 'Лаборатория', next: 'Подтвердить протокол, методику и идентификатор пробы.', evidence: 'Проба → измерение → протокол → партия.', money: 'Результат влияет на формулу цены, но сам по себе не запускает выплату.' },
     bank: { label: 'Банк', risk: 'Основание для выплаты ещё не подтверждено: правило перерасчёта не подписано.', owner: 'Покупатель и продавец', next: 'Сохранить резерв и ожидать подтверждённое событие Сделки.', evidence: 'Статусы приёмки, качества, подписей и версии расчёта.', money: 'Резервирование действует; выплата остановлена правилами Сделки.' },
   },
   en: {
@@ -44,9 +44,9 @@ const scenarios: Record<Locale, Record<RoleKey, RoleScenario>> = {
 };
 
 const ui = {
-  ru: { label: 'Посмотреть глазами участника', risk: 'Риск', owner: 'Ответственный', next: 'Следующее действие', evidence: 'Доказательства', money: 'Деньги', note: 'Публичная симуляция. Выбор участника не даёт доступ к данным и не меняет права.' },
-  en: { label: 'View by participant perspective', risk: 'Risk', owner: 'Owner', next: 'Next action', evidence: 'Evidence', money: 'Money', note: 'Public simulation. Selecting a participant grants no data access and does not change permissions.' },
-  zh: { label: '按参与方视角查看', risk: '风险', owner: '责任方', next: '下一步', evidence: '证据', money: '资金', note: '公开模拟。选择参与方不会授予数据访问权限，也不会更改权限。' },
+  ru: { label: 'Что видит каждый участник', risk: 'Риск', owner: 'Ответственный', next: 'Следующее действие', evidence: 'Доказательства', money: 'Деньги', note: 'Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.' },
+  en: { label: 'What each participant sees', risk: 'Risk', owner: 'Owner', next: 'Next action', evidence: 'Evidence', money: 'Money', note: 'This interactive scenario shows role context. Switching views grants no data access and changes no permissions.' },
+  zh: { label: '每个参与方看到什么', risk: '风险', owner: '责任方', next: '下一步', evidence: '证据', money: '资金', note: '交互场景仅展示角色上下文。切换视角不会授予数据访问权限，也不会更改权限。' },
 } satisfies Record<Locale, Record<string, string>>;
 
 export function PublicDealRoleScenario({ locale }: { locale: string }) {
@@ -55,16 +55,22 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
   const copy = ui[normalized];
   const selected = useMemo(() => scenarios[normalized][role], [normalized, role]);
 
-  return <div className={styles.root}>
-    <div className={styles.heading}><strong>{copy.label}</strong><span>{copy.note}</span></div>
-    <div className={styles.tabs} role='tablist' aria-label={copy.label}>
-      {(Object.keys(scenarios[normalized]) as RoleKey[]).map((key) => <button key={key} type='button' role='tab' aria-selected={role === key} className={role === key ? styles.active : undefined} onClick={() => setRole(key)}>{scenarios[normalized][key].label}</button>)}
+  return (
+    <div className={styles.root}>
+      <div className={styles.heading}><strong>{copy.label}</strong><span>{copy.note}</span></div>
+      <div className={styles.tabs} role='tablist' aria-label={copy.label}>
+        {(Object.keys(scenarios[normalized]) as RoleKey[]).map((key) => (
+          <button key={key} type='button' role='tab' aria-selected={role === key} className={role === key ? styles.active : undefined} onClick={() => setRole(key)}>
+            {scenarios[normalized][key].label}
+          </button>
+        ))}
+      </div>
+      <div className={styles.panel} role='tabpanel' aria-live='polite'>
+        <article><ShieldAlert aria-hidden='true' /><div><span>{copy.risk}</span><strong>{selected.risk}</strong></div></article>
+        <article><UserRoundCheck aria-hidden='true' /><div><span>{copy.owner}</span><strong>{selected.owner}</strong></div></article>
+        <article><FileCheck2 aria-hidden='true' /><div><span>{copy.next}</span><strong>{selected.next}</strong><small>{copy.evidence}: {selected.evidence}</small></div></article>
+        <article><CircleDollarSign aria-hidden='true' /><div><span>{copy.money}</span><strong>{selected.money}</strong></div></article>
+      </div>
     </div>
-    <div className={styles.panel} role='tabpanel' aria-live='polite'>
-      <article><ShieldAlert aria-hidden='true'/><div><span>{copy.risk}</span><strong>{selected.risk}</strong></div></article>
-      <article><UserRoundCheck aria-hidden='true'/><div><span>{copy.owner}</span><strong>{selected.owner}</strong></div></article>
-      <article><FileCheck2 aria-hidden='true'/><div><span>{copy.next}</span><strong>{selected.next}</strong><small>{copy.evidence}: {selected.evidence}</small></div></article>
-      <article><CircleDollarSign aria-hidden='true'/><div><span>{copy.money}</span><strong>{selected.money}</strong></div></article>
-    </div>
-  </div>;
+  );
 }

@@ -1,4 +1,5 @@
 name: PC-CROP-08F exact-main synchronization
+# Final bounded run: restore canonical acceptance, remediate P2, validate and resquash.
 
 on:
   push:
@@ -7,14 +8,18 @@ on:
   workflow_dispatch:
   issue_comment:
     types: [created]
+  pull_request:
+    types: [ready_for_review]
+    branches: [main]
 
 permissions:
   contents: write
   issues: read
+  pull-requests: read
 
 concurrency:
   group: pc-crop-08f-exact-main-sync
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   BRANCH: agent/pc-crop-08f-sdiz-projection
@@ -25,6 +30,7 @@ jobs:
     if: >-
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number == 3180) ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 3180 &&
        github.event.comment.user.login == github.repository_owner &&
@@ -50,7 +56,7 @@ jobs:
           ref: ${{ env.BRANCH }}
           fetch-depth: 0
 
-      - name: Merge runtime-exact main
+      - name: Merge runtime-exact main and restore canonical acceptance workflow
         shell: bash
         run: |
           set -euo pipefail
@@ -63,6 +69,9 @@ jobs:
           printf 'EXPECTED_BRANCH_HEAD=%s\nBASE_MAIN_SHA=%s\n' \
             "$expected_branch_head" "$base_main_sha" >> "$GITHUB_ENV"
           git merge --no-ff --no-commit "$base_main_sha"
+          git show "${expected_branch_head}^:.github/workflows/pc-crop-08f.yml" \
+            > .github/workflows/pc-crop-08f.yml
+          git add .github/workflows/pc-crop-08f.yml
 
       - name: Remediate SDIZ-number collision and fixture leak signal
         shell: bash
