@@ -15,7 +15,15 @@ import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
+import {
+  HeroTaiEntry,
+  PublicRoleEntrances,
+  TaiDefinition,
+  TaiImpact,
+  TaiWorkflow,
+} from './PlatformV7HomeEnhancements';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
+import { getPlatformV7HomeEnhancementCopy } from '@/i18n/platform-v7-home-enhancements';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
@@ -31,6 +39,7 @@ function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: strin
 export async function PlatformV7StrategicHome() {
   const locale = await getLocale();
   const copy = getPlatformV7HomeCopy(locale);
+  const enhancement = getPlatformV7HomeEnhancementCopy(locale);
   const heroMessage = getPlatformV7HeroMessage(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
@@ -39,10 +48,10 @@ export async function PlatformV7StrategicHome() {
 
   const nav = <>
     <a href='#deal-path'>{copy.nav.how}</a>
-    <a href='#participants'>{copy.nav.participants}</a>
+    <a href='#role-entry'>{enhancement.nav.participants}</a>
+    <a href='#tai'>{enhancement.nav.tai}</a>
     <a href='#money'>{copy.nav.money}</a>
     <a href='#integrations'>{copy.nav.integrations}</a>
-    <a href='#maturity'>{copy.nav.status}</a>
   </>;
 
   return (
@@ -78,13 +87,14 @@ export async function PlatformV7StrategicHome() {
             </h1>
             <p className='pc-v6-hero-lead'>{heroMessage.lead}</p>
             <div className='pc-v6-actions'>
-              <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='hero_primary_cta' locale={locale} params={{ source: 'hero_v4' }}>
+              <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='hero_primary_cta' locale={locale} params={{ source: 'hero_v5' }}>
                 {copy.hero.primary}<ArrowRight size={19} />
               </PublicExperienceLink>
-              <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='hero_secondary_cta' locale={locale} params={{ source: 'hero_v4' }}>
+              <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='hero_secondary_cta' locale={locale} params={{ source: 'hero_v5' }}>
                 {copy.hero.secondary}
               </PublicExperienceLink>
             </div>
+            <HeroTaiEntry locale={locale} taiHref={taiHref} />
             <div className='pc-v6-hero-proofs' aria-label={copy.hero.proofLabel}>
               {copy.hero.proofs.map((proof) => <span key={proof}><CheckCircle2 aria-hidden='true' size={16} />{proof}</span>)}
             </div>
@@ -125,10 +135,10 @@ export async function PlatformV7StrategicHome() {
               <div><strong>{towerTaiTitle}</strong><span>{copy.tower.taiText}</span></div>
             </div>
             <div className='pc-v6-ct-actions'>
-              <PublicExperienceLink href={dealHref} eventName='hero_cockpit_open' locale={locale} params={{ source: 'hero_cockpit_v4' }}>
+              <PublicExperienceLink href={dealHref} eventName='hero_cockpit_open' locale={locale} params={{ source: 'hero_cockpit_v5' }}>
                 {copy.hero.primary}<ArrowRight size={17} />
               </PublicExperienceLink>
-              <PublicExperienceLink href={taiHref} eventName='open_tai' locale={locale} params={{ source: 'hero_cockpit_v4' }}>
+              <PublicExperienceLink href={taiHref} eventName='open_tai' locale={locale} params={{ source: 'hero_cockpit_v5' }}>
                 <Sparkles size={16} />{copy.hero.tertiary}
               </PublicExperienceLink>
             </div>
@@ -137,6 +147,30 @@ export async function PlatformV7StrategicHome() {
 
         <section className='pc-v6-trust-strip' aria-label={copy.trust.label}>
           {copy.trust.items.map(([title, text]) => <article key={title}><strong>{title}</strong><span>{text}</span></article>)}
+        </section>
+
+        <PublicRoleEntrances locale={locale} />
+
+        <section id='participants' className='pc-v6-section pc-v6-scenario'>
+          <SectionHeader eyebrow={copy.scenario.eyebrow} title={copy.scenario.title} lead={copy.scenario.lead} />
+          <div className='pc-v6-scenario-grid'>
+            <article className='pc-v6-scenario-main'>
+              <div><span>{copy.scenario.dealLabel}</span><strong>{copy.scenario.dealValue}</strong></div>
+              <div><span>{copy.scenario.stageLabel}</span><strong>{copy.scenario.stageValue}</strong></div>
+              <div><span>{copy.scenario.blockerLabel}</span><strong>{copy.scenario.blocker}</strong></div>
+              <div><span>{copy.scenario.ownerLabel}</span><strong>{copy.scenario.owner}</strong></div>
+            </article>
+            <aside>
+              <span className='pc-v6-status pc-v6-status-blocked'><TriangleAlert size={16} />{copy.scenario.status}</span>
+              <p>{copy.scenario.money}</p>
+              <p>{copy.scenario.next}</p>
+              <p>{copy.scenario.evidence}</p>
+              <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'scenario_v5' }}>
+                {copy.scenario.cta}<ArrowRight size={18} />
+              </PublicExperienceLink>
+            </aside>
+          </div>
+          <PublicDealRoleScenario locale={locale} />
         </section>
 
         <section className='pc-v6-category'>
@@ -156,41 +190,22 @@ export async function PlatformV7StrategicHome() {
           <p className='pc-v6-scroll-hint' style={{ color: '#596a61' }}>{copy.lifecycle.hint}</p>
         </section>
 
-        <section id='participants' className='pc-v6-section pc-v6-scenario'>
-          <SectionHeader eyebrow={copy.scenario.eyebrow} title={copy.scenario.title} lead={copy.scenario.lead} />
-          <div className='pc-v6-scenario-grid'>
-            <article className='pc-v6-scenario-main'>
-              <div><span>{copy.scenario.dealLabel}</span><strong>{copy.scenario.dealValue}</strong></div>
-              <div><span>{copy.scenario.stageLabel}</span><strong>{copy.scenario.stageValue}</strong></div>
-              <div><span>{copy.scenario.blockerLabel}</span><strong>{copy.scenario.blocker}</strong></div>
-              <div><span>{copy.scenario.ownerLabel}</span><strong>{copy.scenario.owner}</strong></div>
-            </article>
-            <aside>
-              <span className='pc-v6-status pc-v6-status-blocked'><TriangleAlert size={16} />{copy.scenario.status}</span>
-              <p>{copy.scenario.money}</p>
-              <p>{copy.scenario.next}</p>
-              <p>{copy.scenario.evidence}</p>
-              <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'scenario_v4' }}>
-                {copy.scenario.cta}<ArrowRight size={18} />
-              </PublicExperienceLink>
-            </aside>
-          </div>
-          <PublicDealRoleScenario locale={locale} />
-        </section>
-
         <section id='tai' className='pc-v6-section pc-v6-tai'>
-          <SectionHeader eyebrow={copy.tai.eyebrow} title={copy.tai.title} lead={copy.tai.text} />
+          <SectionHeader eyebrow={enhancement.tai.eyebrow} title={enhancement.tai.title} lead={enhancement.tai.lead} />
+          <TaiDefinition locale={locale} />
           <div className='pc-v6-tai-layout'>
             <div className='pc-v6-tai-answer'>
               <div className='pc-v6-tai-head'><Sparkles size={19} /><strong>TAI</strong><span>{copy.tai.mode}</span></div>
               <p>{copy.tai.answer}</p>
+              <TaiImpact locale={locale} />
               <ul><li>{copy.tai.source}</li><li>{copy.tai.freshness}</li><li>{copy.tai.confidence}</li></ul>
               <div className='pc-v6-prepared-action'><FileCheck2 size={18} /><span>{copy.tai.action}</span></div>
             </div>
             <div className='pc-v6-tai-rules'>
+              <TaiWorkflow locale={locale} />
               {copy.tai.modes.map((mode) => <div key={mode}><CheckCircle2 size={18} /><span>{mode}</span></div>)}
               <p><ShieldCheck size={19} />{copy.tai.boundaries}</p>
-              <PublicExperienceLink href={taiHref} className='pc-v6-secondary' eventName='open_tai_fullscreen' locale={locale} params={{ source: 'tai_section_v4' }}>
+              <PublicExperienceLink href={taiHref} className='pc-v6-secondary' eventName='open_tai_fullscreen' locale={locale} params={{ source: 'tai_section_v5' }}>
                 {copy.hero.tertiary}<ArrowRight size={18} />
               </PublicExperienceLink>
             </div>
@@ -234,11 +249,11 @@ export async function PlatformV7StrategicHome() {
         <section className='pc-v6-final'>
           <h2>{copy.final.title}</h2><p>{copy.final.lead}</p>
           <div className='pc-v6-actions'>
-            <PublicExperienceLink href='#connect-organization' className='pc-v6-primary' eventName='open_organization_connect' locale={locale} params={{ source: 'final_v4' }}>
-              {copy.final.primary}<ArrowRight size={18} />
+            <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'final_v5' }}>
+              {copy.final.secondary}<ArrowRight size={18} />
             </PublicExperienceLink>
-            <PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'final_v4' }}>
-              {copy.final.secondary}
+            <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='open_organization_connect' locale={locale} params={{ source: 'final_v5' }}>
+              {copy.final.primary}
             </PublicExperienceLink>
           </div>
         </section>
