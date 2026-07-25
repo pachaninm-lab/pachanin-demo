@@ -60,13 +60,24 @@ async function expectNoSeriousAxeViolations(page: Page) {
 
 async function expectMinimumTargets(page: Page, locator: string) {
   const elements = page.locator(locator);
-  await expect(elements.first()).toBeVisible();
-  const targets = await elements.evaluateAll((nodes) => nodes.map((element) => {
-    const box = element.getBoundingClientRect();
-    return { width: box.width, height: box.height };
-  }));
-  expect(targets.length).toBeGreaterThan(0);
-  expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
+  await expect.poll(async () => {
+    if (!(await elements.first().isVisible())) await settleContactDock(page);
+    const targets = await elements.evaluateAll((nodes) => nodes
+      .filter((element) => {
+        const style = window.getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        return style.visibility !== 'hidden' && style.display !== 'none' && box.width > 0 && box.height > 0;
+      })
+      .map((element) => {
+        const box = element.getBoundingClientRect();
+        return { width: box.width, height: box.height };
+      }));
+    return targets.length > 0 && targets.every((target) => target.width >= 44 && target.height >= 44);
+  }, {
+    timeout: 15_000,
+    intervals: [100, 250, 500],
+    message: `${locator} must remain visible with minimum 44×44 CSS px targets after route hydration`,
+  }).toBe(true);
 }
 
 test.describe('P0 public TAI intelligence layer browser acceptance', () => {
