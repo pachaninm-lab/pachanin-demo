@@ -28,7 +28,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(home).toContain("id='integrations'");
     expect(home).toContain("id='maturity'");
     expect(home).toContain('pc-v6-faq');
-    expect(homeCopy).toContain('Платформа не заканчивается после выбора цены');
+    expect(homeCopy).toContain('Платформа ведёт Сделку после выбора цены');
   });
 
   it('starts the public walkthrough from Deal terms and buyer perspective', () => {
@@ -142,7 +142,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     ];
     for (const token of forbidden) expect(combined).not.toContain(token);
     expect(homeCopy).toContain('Контроль и безопасность');
-    expect(homeCopy).toContain('Критические действия имеют проверяемое основание');
+    expect(homeCopy).toContain('Критические действия требуют основания');
     expect(homeCopy).toContain('Партия и прослеживаемость');
     expect(homeCopy).toContain('Подписание и обмен документами');
   });
