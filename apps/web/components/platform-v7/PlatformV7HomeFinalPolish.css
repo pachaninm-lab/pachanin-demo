@@ -8,6 +8,63 @@
   scroll-margin-top: calc(var(--pc-public-header-total-height, 48px) + 12px) !important;
 }
 
+@supports (content-visibility: auto) {
+  .pc-v7-public-entry #participants {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 1080px !important;
+  }
+
+  .pc-v7-public-entry .pc-v6-category {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 430px !important;
+  }
+
+  .pc-v7-public-entry #deal-path {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 380px !important;
+  }
+
+  .pc-v7-public-entry #tai {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 900px !important;
+  }
+
+  .pc-v7-public-entry #money {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 440px !important;
+  }
+
+  .pc-v7-public-entry .pc-v6-crops {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 650px !important;
+  }
+
+  .pc-v7-public-entry #integrations {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 820px !important;
+  }
+
+  .pc-v7-public-entry #maturity {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 720px !important;
+  }
+
+  .pc-v7-public-entry #connect-organization {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 820px !important;
+  }
+
+  .pc-v7-public-entry .pc-v6-faq {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 700px !important;
+  }
+
+  .pc-v7-public-entry .pc-v6-final {
+    content-visibility: auto !important;
+    contain-intrinsic-size: auto 360px !important;
+  }
+}
+
 @media (max-width: 767px) {
   .pc-v7-public-entry {
     padding-bottom: max(88px, calc(72px + env(safe-area-inset-bottom, 0px))) !important;
