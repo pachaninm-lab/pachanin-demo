@@ -6,8 +6,10 @@ const read = (relativePath: string) => readFileSync(join(process.cwd(), relative
 
 describe('platform-v7 final homepage polish contract', () => {
   const page = read('app/platform-v7/page.tsx');
+  const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
+  const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
   const scenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const scenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
@@ -18,6 +20,7 @@ describe('platform-v7 final homepage polish contract', () => {
 
     expect(baselineImport).toBeGreaterThan(-1);
     expect(finalImport).toBeGreaterThan(baselineImport);
+    expect(enhancements).not.toContain('PlatformV7HomeHeroAcceptance.css');
     expect(page).not.toContain('platform-v7-mobile-10of10-final.css');
   });
 
@@ -29,6 +32,23 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(finalCss).toContain('width: 44px !important');
     expect(finalCss).toContain("env(safe-area-inset-bottom, 0px)");
     expect(finalCss).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 48px) + 12px) !important');
+    expect(page).toContain('--entry-public-header-base: 48px');
+  });
+
+  it('keeps the first screen Deal-first and places product UI before secondary proof blocks', () => {
+    expect(heroCopy).toContain("brand: 'Одна Сделка'");
+    expect(heroCopy).not.toContain("brand: 'Прозрачная Цена'");
+    expect(home.indexOf("className='pc-v6-control-tower'")).toBeGreaterThan(home.indexOf("className='pc-v6-hero-copy'"));
+    expect(home.indexOf("className='pc-v6-hero-proofs'")).toBeGreaterThan(home.indexOf("className='pc-v6-control-tower'"));
+    expect(home.indexOf("id='participants'")).toBeLessThan(home.indexOf('<PublicRoleEntrances'));
+  });
+
+  it('presents TAI as a distinct agribusiness product without separating it from Deal execution', () => {
+    expect(home).toContain('Отдельный AI-продукт для агробизнеса');
+    expect(home).toContain('Собственный операционный интеллект для агробизнеса');
+    expect(home).toContain('Deal Intelligence');
+    expect(home).toContain('Document Intelligence');
+    expect(home).toContain("id='tai'");
   });
 
   it('uses the approved mobile H2 scale and compact conversion controls', () => {
@@ -54,6 +74,7 @@ describe('platform-v7 final homepage polish contract', () => {
 
   it('keeps the workspace mobile-first and free from page-level horizontal overflow', () => {
     expect(finalCss).toContain('overflow-x: clip');
+    expect(finalCss).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
     expect(scenarioCss).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
     expect(scenarioCss).toContain('@media (max-width: 359px)');
     expect(scenarioCss).toContain('grid-template-columns: 1fr');
