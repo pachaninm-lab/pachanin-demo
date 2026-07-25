@@ -47,7 +47,6 @@ export function PublicRoleEntrances({ locale }: { locale: string }) {
               eventName='home_role_entry_open'
               locale={locale}
               params={{ role_entry: item.key, stage: item.stage, lens: item.lens }}
-              aria-label={`${item.title}: ${item.cta}`}
             >
               <span className={styles.roleIndex}>{String(index + 1).padStart(2, '0')}</span>
               <strong>{item.title}</strong>
