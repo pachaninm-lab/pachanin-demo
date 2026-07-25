@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.example/schemas/tai/qwen-preview-runtime.v1.json",
+  "title": "TAI Qwen read-only operational preview evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "accepted",
+    "exact_main_sha",
+    "authority_sha256",
+    "executed_at",
+    "workflow",
+    "host",
+    "model",
+    "toolchain",
+    "limits",
+    "runtime",
+    "smoke",
+    "cleanup",
+    "maturity_boundary",
+    "reasons",
+    "evidence_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tai.qwen-preview-runtime-evidence.v1"},
+    "status": {"const": "READ_ONLY_OPERATIONAL_PREVIEW_PENDING_EXTERNAL_IMMUTABILITY"},
+    "accepted": {"const": true},
+    "exact_main_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "authority_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "executed_at": {"type": "string", "format": "date-time"},
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "run_attempt"],
+      "properties": {
+        "run_id": {"type": "integer", "minimum": 1},
+        "run_attempt": {"type": "integer", "minimum": 1}
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "user", "workspace_root", "hostname_sha256", "listen_host", "listen_port", "listener_before", "listener_during", "listener_after", "public_listener"],
+      "properties": {
+        "role": {"const": "DEDICATED_MODEL_HOST"},
+        "user": {"const": "tai-model"},
+        "workspace_root": {"const": "/srv/tai-models"},
+        "hostname_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "listen_host": {"const": "127.0.0.1"},
+        "listen_port": {"const": 18080},
+        "listener_before": {"const": false},
+        "listener_during": {"const": true},
+        "listener_after": {"const": false},
+        "public_listener": {"const": false}
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "revision", "quantization", "path_label", "sha256", "size_bytes", "conversion_report_sha256", "conversion_status"],
+      "properties": {
+        "model_id": {"const": "Qwen/Qwen3-8B"},
+        "revision": {"const": "895c8d171bc03c30e113cd7a28c02494b5e068b7"},
+        "quantization": {"const": "Q4_K_M"},
+        "path_label": {"const": "artifacts/qwen3-8b-q4-k-m.gguf"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "conversion_report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "conversion_status": {"const": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE"}
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "profile", "llama_server_sha256", "llama_server_size_bytes"],
+      "properties": {
+        "release": {"const": "b9637"},
+        "profile": {"const": "linux-x86_64-cpu-release-static-v1"},
+        "llama_server_sha256": {"const": "1b26384ad90d9ae8fe65b2a3e2dfd08c70d92663b2127d5f479f34774b4a6dbf"},
+        "llama_server_size_bytes": {"const": 12940416}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_tokens", "max_output_tokens", "request_timeout_seconds", "startup_timeout_seconds", "max_rss_bytes", "parallel_requests", "max_queued_requests"],
+      "properties": {
+        "context_tokens": {"const": 4096},
+        "max_output_tokens": {"const": 128},
+        "request_timeout_seconds": {"const": 120},
+        "startup_timeout_seconds": {"const": 180},
+        "max_rss_bytes": {"const": 12000000000},
+        "parallel_requests": {"const": 1},
+        "max_queued_requests": {"const": 0}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["health_status", "startup_ms", "peak_rss_bytes", "active_requests", "queued_requests"],
+      "properties": {
+        "health_status": {"const": "READY"},
+        "startup_ms": {"type": "integer", "minimum": 1, "maximum": 180000},
+        "peak_rss_bytes": {"type": "integer", "minimum": 1, "maximum": 12000000000},
+        "active_requests": {"type": "integer", "minimum": 0, "maximum": 1},
+        "queued_requests": {"const": 0}
+      }
+    },
+    "smoke": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["language", "prompt_sha256", "response_sha256", "elapsed_ms", "http_status", "prompt_tokens", "completion_tokens", "total_tokens", "response_bytes"],
+        "properties": {
+          "language": {"enum": ["RU", "EN", "ZH"]},
+          "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "response_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "elapsed_ms": {"type": "integer", "minimum": 1, "maximum": 120000},
+          "http_status": {"const": 200},
+          "prompt_tokens": {"type": "integer", "minimum": 1},
+          "completion_tokens": {"type": "integer", "minimum": 1, "maximum": 128},
+          "total_tokens": {"type": "integer", "minimum": 2},
+          "response_bytes": {"type": "integer", "minimum": 1, "maximum": 65536}
+        }
+      },
+      "uniqueItems": true
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_deleted", "process_stopped", "listener_removed", "rollback_verified"],
+      "properties": {
+        "raw_deleted": {"const": true},
+        "process_stopped": {"const": true},
+        "listener_removed": {"const": true},
+        "rollback_verified": {"const": true}
+      }
+    },
+    "maturity_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preview_status", "benchmark_status", "model_admission_status", "routing_status", "ui_status", "deployment_status", "production_operational_status"],
+      "properties": {
+        "preview_status": {"const": "READ_ONLY_OPERATIONAL_PREVIEW_PENDING_EXTERNAL_IMMUTABILITY"},
+        "benchmark_status": {"const": "PENDING_BENCHMARK"},
+        "model_admission_status": {"const": "PENDING_ADMISSION"},
+        "routing_status": {"const": "NOT_ACTIVATED"},
+        "ui_status": {"const": "NOT_ACTIVATED"},
+        "deployment_status": {"const": "NOT_ACTIVATED"},
+        "production_operational_status": {"const": "NOT_ATTESTED"}
+      }
+    },
+    "reasons": {"type": "array", "maxItems": 0},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

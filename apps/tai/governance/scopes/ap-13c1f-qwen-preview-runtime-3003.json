@@ -1,0 +1,38 @@
+{
+  "schema": "tai.concurrent-scope.v1",
+  "issue": 3003,
+  "branch": "agent/tai-ap-13c1f-qwen-preview-runtime",
+  "exact_base": "ac2be31a054c705bc11c56ee01d73bf6800574b6",
+  "purpose": "Qwen3-8B Q4_K_M loopback-only read-only operational preview runtime",
+  "maturity_boundary": {
+    "preview_status": "READ_ONLY_OPERATIONAL_PREVIEW_PENDING_EXTERNAL_IMMUTABILITY",
+    "benchmark": "PENDING_BENCHMARK",
+    "admission": "PENDING_ADMISSION",
+    "production": "NOT_ATTESTED"
+  },
+  "forbidden": [
+    "quality-scoring or remediation changes",
+    "web UI changes",
+    "Mistral or GPU execution",
+    "tool or write activation",
+    "public routing or deployment claims",
+    "model, benchmark, S3 or VPS evidence fabrication"
+  ],
+  "allowed_paths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "apps/tai/governance/scopes/ap-13c1f-qwen-preview-runtime-3003.json",
+    ".github/workflows/tai-qwen-preview-runtime.yml",
+    "apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json",
+    "apps/tai/model-artifacts/qwen-preview-runtime.schema.v1.json",
+    "apps/tai/model-artifacts/qwen-preview-runtime.pending.json",
+    "apps/tai/model-artifacts/qwen-preview-runtime-runbook.v1.md",
+    "apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh",
+    "apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh",
+    "apps/tai/tai/qwen_preview_runtime.py",
+    "apps/tai/tai/qwen_preview_runtime_cli.py",
+    "apps/tai/tests/qwen_preview_runtime_fixtures.py",
+    "apps/tai/tests/test_qwen_preview_runtime.py",
+    "apps/tai/tests/test_qwen_preview_runtime_cli.py",
+    "apps/tai/tests/test_qwen_preview_runtime_workflow.py"
+  ]
+}
