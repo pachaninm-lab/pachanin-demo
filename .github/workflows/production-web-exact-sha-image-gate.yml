@@ -92,13 +92,13 @@ jobs:
           echo 'Exact canonical web image was not published within the bounded wait window.' >&2
           exit 3
 
-      - name: Detect an already-live exact revision
+      - name: Wait for an already-live exact revision
         id: live
         env:
           PC_LIVE_BASE: ${{ env.LIVE_BASE }}
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
-          PC_LIVE_ACCEPTANCE_ATTEMPTS: '1'
-          PC_LIVE_ACCEPTANCE_DELAY_SECONDS: '1'
+          PC_LIVE_ACCEPTANCE_ATTEMPTS: '80'
+          PC_LIVE_ACCEPTANCE_DELAY_SECONDS: '6'
         shell: bash
         run: |
           set -euo pipefail
