@@ -93,8 +93,8 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     expect(response?.ok()).toBe(true);
 
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-    await expect(page.locator('#pc-v6-title')).toContainText('Вся агросделка');
-    await expect(page.locator('#pc-v6-title')).toContainText('с TAI внутри');
+    await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка');
+    await expect(page.locator('#pc-v6-title')).toContainText('интеллект на каждом этапе');
     await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
     await expect(page.locator('.pc-v6-control-tower')).toContainText('Расчёт остановлен');
     await expect(page.locator('#tai')).toContainText('TAI нашёл две причины остановки');
