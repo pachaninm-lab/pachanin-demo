@@ -23,6 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   EVIDENCE_DIR: artifacts/production-web-exact-sha-image-gate
   IMAGE_WAIT_ATTEMPTS: '240'
   IMAGE_WAIT_SECONDS: '10'
@@ -91,7 +92,33 @@ jobs:
           echo 'Exact canonical web image was not published within the bounded wait window.' >&2
           exit 3
 
+      - name: Detect an already-live exact revision
+        id: live
+        env:
+          PC_LIVE_BASE: ${{ env.LIVE_BASE }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          PC_LIVE_ACCEPTANCE_ATTEMPTS: '1'
+          PC_LIVE_ACCEPTANCE_DELAY_SECONDS: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" deploy \
+            > "$EVIDENCE_DIR/pre-dispatch-live-acceptance.log" 2>&1
+          rc=$?
+          set -e
+          cat "$EVIDENCE_DIR/pre-dispatch-live-acceptance.log"
+
+          if (( rc == 0 )); then
+            echo 'already_live=1' >> "$GITHUB_OUTPUT"
+            printf '%s\n' SKIPPED_ALREADY_LIVE > "$EVIDENCE_DIR/dispatch-status.txt"
+            exit 0
+          fi
+
+          echo 'already_live=0' >> "$GITHUB_OUTPUT"
+
       - name: Dispatch bounded exact-SHA production release
+        if: steps.live.outputs.already_live != '1'
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
