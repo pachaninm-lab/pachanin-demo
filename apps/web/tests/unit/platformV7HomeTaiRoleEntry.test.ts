@@ -31,6 +31,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(enhancements).not.toContain('accessToken');
     expect(enhancements).not.toContain('tenantId');
     expect(enhancements).not.toContain('membership');
+    expect(enhancements).not.toContain('aria-label={`${item.title}: ${item.cta}`}');
   });
 
   it('places the concrete Deal deviation before category and lifecycle explanation', () => {
