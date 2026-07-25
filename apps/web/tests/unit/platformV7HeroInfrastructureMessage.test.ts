@@ -16,7 +16,7 @@ describe('platform-v7 infrastructure hero message', () => {
     expect(copy).toContain("title: 'Одна Сделка.'");
     expect(copy).toContain("accent: 'TAI помогает довести её до расчёта.'");
     expect(copy).toContain('Торги, логистика, качество, документы и деньги — в одном контуре');
-    expect(copy).toContain('Собственный TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
+    expect(copy).toContain('TAI показывает блокеры и следующий шаг');
     expect(component).toContain('heroMessage.title');
     expect(component).toContain('heroMessage.accent');
     expect(component).toContain("className={`pc-v6-hero-title ${styles.heroTitle}`}");
