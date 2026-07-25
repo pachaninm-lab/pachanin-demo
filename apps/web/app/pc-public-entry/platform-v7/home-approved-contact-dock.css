@@ -2,12 +2,7 @@
   display: contents;
 }
 
-/*
- * The public-home marker and hydration-safe dock are siblings because the dock
- * mounts at the isolated route-layout boundary. The following-sibling scope
- * keeps the approved composition on the homepage without leaking to login,
- * recovery, supporting public routes or protected workspaces.
- */
+/* Homepage-only AI/support/call dock. */
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock {
   right: max(12px, env(safe-area-inset-right, 0px));
   bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) + 4px));
@@ -15,56 +10,56 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 2px;
   padding: 3px;
-  border: 1px solid rgba(8, 122, 59, .42);
-  border-radius: 20px;
-  background: var(--pc-ppe-v5-surface, #ffffff);
-  background: color-mix(in srgb, var(--pc-ppe-v5-surface, #ffffff) 94%, transparent);
+  border: 1px solid rgba(8, 122, 59, .38);
+  border-radius: 18px;
+  background: var(--pc-ppe-v5-surface, #fff);
+  background: color-mix(in srgb, var(--pc-ppe-v5-surface, #fff) 94%, transparent);
   box-shadow:
-    0 18px 42px rgba(9, 33, 24, .16),
-    0 4px 12px rgba(8, 122, 59, .08),
+    0 16px 38px rgba(9, 33, 24, .14),
+    0 3px 10px rgba(8, 122, 59, .07),
     inset 0 1px 0 rgba(255, 255, 255, .92);
   backdrop-filter: blur(18px) saturate(135%);
   -webkit-backdrop-filter: blur(18px) saturate(135%);
 }
 
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action {
-  min-height: 54px;
-  border-radius: 15px;
-  gap: 7px;
-  padding: 6px 10px;
+  min-height: 50px;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 13px;
 }
 
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-icon,
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
-  width: 30px;
-  height: 30px;
-  flex-basis: 30px;
-  border-radius: 10px;
+  width: 27px;
+  height: 27px;
+  flex-basis: 27px;
+  border-radius: 9px;
   color: var(--pc-ppe-v5-green, #087a3b);
   background: linear-gradient(145deg, rgba(8, 122, 59, .13), rgba(8, 122, 59, .055));
   box-shadow: inset 0 0 0 1px rgba(8, 122, 59, .12);
 }
 
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
 }
 
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action strong,
 [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant strong {
   color: inherit;
-  font-size: 12.5px;
+  font-size: 11.75px;
   font-weight: 720;
 }
 
-@media (hover: hover) {
+@media (hover:hover) {
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action:hover {
     background: rgba(8, 122, 59, .07);
     transform: translateY(-1px);
   }
 
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action:hover .pc-public-contact-dock-icon {
-    color: #ffffff;
+    color: #fff;
     background: var(--pc-ppe-v5-green, #087a3b);
     box-shadow: 0 5px 12px rgba(8, 122, 59, .20);
     transform: scale(1.035);
@@ -76,62 +71,55 @@
   transform: translateY(0) scale(.985);
 }
 
-@media (max-width: 520px) {
+@media (max-width:520px) {
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock {
     right: max(8px, env(safe-area-inset-right, 0px));
     left: max(8px, env(safe-area-inset-left, 0px));
     bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px));
     width: auto;
-    border-radius: 18px;
+    padding: 2px;
+    border-radius: 16px;
   }
 
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action {
-    min-height: 52px;
-    gap: 6px;
-    padding-inline: 6px;
-    border-radius: 13px;
+    min-height: 46px;
+    gap: 5px;
+    padding: 4px 5px;
+    border-radius: 12px;
   }
 
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-icon,
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
-    width: 28px;
-    height: 28px;
-    flex-basis: 28px;
-    border-radius: 9px;
-  }
-
-  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action strong,
-  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant strong {
-    font-size: 11.5px;
-  }
-}
-
-@media (max-width: 350px) {
-  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action {
-    gap: 4px;
-    padding-inline: 4px;
-  }
-
-  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-icon,
-  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
-    width: 26px;
-    height: 26px;
-    flex-basis: 26px;
+    width: 25px;
+    height: 25px;
+    flex-basis: 25px;
     border-radius: 8px;
   }
 
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-icon svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
   }
 
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action strong,
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant strong {
-    font-size: 10.5px;
+    font-size: 10.75px;
   }
 }
 
-@media (forced-colors: active) {
+@media (max-width:350px) {
+  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action {
+    gap: 3px;
+    padding-inline: 3px;
+  }
+
+  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-action strong,
+  [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock .pc-public-contact-dock-assistant strong {
+    font-size: 10px;
+  }
+}
+
+@media (forced-colors:active) {
   [data-contact-dock-visual='approved'] ~ .pc-public-contact-dock {
     border: 2px solid ButtonText;
     background: Canvas;
