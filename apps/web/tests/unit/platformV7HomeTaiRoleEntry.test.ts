@@ -53,7 +53,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='hero_primary_cta'");
     expect(firstHero).toContain("eventName='hero_secondary_cta'");
-    expect(firstHero.indexOf("className={`pc-v6-control-tower ${styles.tower}`}" )).toBeGreaterThan(firstHero.indexOf("className={`pc-v6-hero-copy ${styles.heroCopy}`}"));
+    expect(firstHero.indexOf("className={`pc-v6-control-tower ${styles.tower}`}")).toBeGreaterThan(firstHero.indexOf("className={`pc-v6-hero-copy ${styles.heroCopy}`}"));
     expect(firstHero).toContain("className={`pc-v6-tai-strip ${styles.towerIntelligence}`}");
     expect(firstHero).not.toContain("className='pc-v6-hero-proofs'");
     expect(firstHero).not.toContain("className='pc-v6-ct-actions'");
@@ -67,8 +67,8 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
 
   it('expresses the platform and TAI as one product meaning without duplicating the dedicated AI page', () => {
     expect(heroCopy).toContain("title: 'Одна Сделка.'");
-    expect(heroCopy).toContain("accent: 'TAI помогает на каждом этапе.'");
-    expect(heroCopy).toContain('TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
+    expect(heroCopy).toContain("accent: 'TAI помогает довести её до расчёта.'");
+    expect(heroCopy).toContain('Собственный TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
     expect(home).toContain("const taiHref = `/platform-v7/ai-in-action");
     expect(home).toContain("<a href={taiHref}>{enhancement.nav.tai}</a>");
     expect(home).toContain("id='tai'");
