@@ -62,6 +62,7 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(storyCopy).toContain('Private cloud и on-premise');
     expect(storyCopy).toContain('Роль, организация, права и контекст определяются сервером');
     expect(storyCopy).toContain('Доказательства и аудит');
+    expect(storyCopy).toContain('Зрелость эксплуатации и статусы интеграций подтверждаются только фактическими результатами');
   });
 
   it('ships explicit RU EN ZH story copy and problem-first hero', () => {
@@ -69,8 +70,8 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(storyCopy).toContain('const en: PlatformV7HomeStoryCopy');
     expect(storyCopy).toContain('const zh: PlatformV7HomeStoryCopy');
     expect(storyCopy).not.toContain('...ru');
-    expect(heroCopy).toContain("title: 'The price is agreed. The Deal can still fail.'");
-    expect(heroCopy).toContain("title: '价格已经确定，但交易仍可能失败。'");
+    expect(heroCopy).toContain("title: 'The price is agreed. Now the Deal must be executed.'");
+    expect(heroCopy).toContain("title: '价格已经确定。现在需要完成交易履约。'");
   });
 
   it('preserves mobile, touch-target, reduced-motion and support gates', () => {
@@ -78,8 +79,9 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(homeCss).toContain('overflow-x: auto');
     expect(homeCss).toContain('@media (max-width: 767px)');
     expect(homeCss).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(storyCss).toContain('@media (max-width:767px)');
-    expect(storyCss).toContain('@media (forced-colors:active)');
+    expect(storyCss).toMatch(/@media\s*\(max-width:\s*767px\)/);
+    expect(storyCss).toMatch(/@media\s*\(forced-colors:\s*active\)/);
+    expect(storyCss).toContain('min-height: 46px !important');
     expect(finalCss).toContain('min-height: 44px !important');
     expect(support).toContain("role='dialog'");
     expect(support).toContain("aria-modal='true'");
