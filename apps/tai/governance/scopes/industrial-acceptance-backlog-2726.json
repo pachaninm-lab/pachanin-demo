@@ -5,15 +5,23 @@
   "branch": "claude/tai-production-attestation-gizgzh",
   "exact_base": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
   "allowed_paths": [
+    ".github/scripts/pc-crop-08f-sdiz-remediation.py",
+    ".github/scripts/tai-gateway-ui-readonly-remediation.py",
+    ".github/workflows/pc-crop-08f-sync-main.yml",
+    ".github/workflows/tai-gateway-ui-readonly-binding.yml",
+    ".github/workflows/workflow-syntax-guard.yml",
     "apps/tai/governance/current-industrial-gap-report.json",
     "apps/tai/governance/industrial-acceptance-backlog.v1.json",
     "apps/tai/governance/scopes/industrial-acceptance-backlog-2726.json",
     "apps/tai/governance/tai-production-operational-manifest.json",
     "apps/tai/tai/industrial_gap_report.py",
     "apps/tai/tai/industrial_gap_report_cli.py",
-    "apps/tai/tests/test_industrial_gap_report.py"
+    "apps/tai/tests/test_industrial_gap_report.py",
+    "scripts/check-workflow-syntax.py"
   ],
   "acceptance": [
+    "every GitHub Actions workflow on the branch parses and declares triggers and jobs",
+    "extracted remediation programs are byte-identical to what the YAML block scalar produced",
     "every acceptance row is verified against exact main before it is recorded",
     "ACCEPTED is unrepresentable without at least one evidence reference",
     "BLOCKED and REGRESSED are unrepresentable without a stated blocking reason",
