@@ -36,6 +36,22 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(finalCss).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 48px) + 12px) !important');
   });
 
+  it('defers expensive below-fold layout while keeping hero and trust content immediate', () => {
+    const deferredStart = finalCss.indexOf('@supports (content-visibility: auto)');
+    const deferredEnd = finalCss.indexOf('@media (max-width: 767px)');
+    const deferredBlock = finalCss.slice(deferredStart, deferredEnd);
+
+    expect(deferredStart).toBeGreaterThan(-1);
+    expect(deferredEnd).toBeGreaterThan(deferredStart);
+    expect(deferredBlock).toContain('.pc-v7-public-entry #participants');
+    expect(deferredBlock).toContain('.pc-v7-public-entry #tai');
+    expect(deferredBlock).toContain('.pc-v7-public-entry #connect-organization');
+    expect(deferredBlock).toContain('content-visibility: auto !important');
+    expect(deferredBlock).toContain('contain-intrinsic-size: auto 1080px !important');
+    expect(deferredBlock).not.toContain('.pc-v6-hero {');
+    expect(deferredBlock).not.toContain('.pc-v6-trust-strip');
+  });
+
   it('uses the approved mobile H2 scale and compact conversion controls', () => {
     expect(finalCss).toContain('font-size: clamp(32px, 8.35vw, 36px) !important');
     expect(finalCss).toContain('line-height: 1.055 !important');
