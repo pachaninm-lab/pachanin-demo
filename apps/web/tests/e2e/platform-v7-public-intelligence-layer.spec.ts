@@ -126,7 +126,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('390×844 first viewport exposes the proposition, CTA and beginning of the real Deal cockpit', async ({ page }) => {
+  test('390×844 first viewport exposes the proposition, CTA and meaningful beginning of the real Deal cockpit', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
@@ -141,7 +141,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expect(tower).toBeVisible();
     const box = await tower.boundingBox();
     expect(box, 'Deal cockpit must have a measurable viewport position').not.toBeNull();
-    expect(box!.y, 'The beginning of the Deal cockpit must appear without scrolling at 390×844').toBeLessThan(820);
+    expect(box!.y, 'A meaningful beginning of the Deal cockpit must appear without scrolling at 390×844').toBeLessThan(700);
 
     await expect(page.locator('.pc-public-contact-dock')).toHaveAttribute('data-scroll-hidden', 'true');
     await expectNoHorizontalOverflow(page);
