@@ -1,0 +1,271 @@
+{
+  "deployment_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "K.01",
+      "K.02",
+      "K.03",
+      "K.04"
+    ],
+    "stage": "K",
+    "status": "NOT_ATTESTED",
+    "total": 4
+  },
+  "document_intelligence_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "G.01",
+      "G.02",
+      "G.03",
+      "G.04",
+      "G.05"
+    ],
+    "stage": "G",
+    "status": "NOT_ATTESTED",
+    "total": 5
+  },
+  "exact_main_sha": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
+  "fault_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "L.01",
+      "L.02",
+      "L.03",
+      "L.04",
+      "L.05",
+      "L.06",
+      "L.07",
+      "L.08",
+      "L.09",
+      "L.10"
+    ],
+    "stage": "L",
+    "status": "NOT_ATTESTED",
+    "total": 10
+  },
+  "final_status": "FAIL",
+  "gateway_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "H.01",
+      "H.02",
+      "H.03",
+      "H.04",
+      "H.05",
+      "H.06"
+    ],
+    "stage": "H",
+    "status": "NOT_ATTESTED",
+    "total": 6
+  },
+  "generated_at": "2026-07-25T14:10:00Z",
+  "governance_acceptance": {
+    "accepted": 3,
+    "blocking_items": [
+      "A.04",
+      "A.05",
+      "A.06",
+      "A.07"
+    ],
+    "stage": "A",
+    "status": "FAIL",
+    "total": 7
+  },
+  "infrastructure": {
+    "production_domain": "процент-агро.рф",
+    "provider": "REG.RU",
+    "region": "RU"
+  },
+  "knowledge_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "D.01",
+      "D.02",
+      "D.03",
+      "D.04",
+      "D.05",
+      "D.06"
+    ],
+    "stage": "D",
+    "status": "NOT_ATTESTED",
+    "total": 6
+  },
+  "model_admission": {
+    "accepted": 0,
+    "blocking_items": [
+      "C.01",
+      "C.02",
+      "C.03",
+      "C.04",
+      "C.05"
+    ],
+    "stage": "C",
+    "status": "NOT_ATTESTED",
+    "total": 5
+  },
+  "models": {
+    "fallback": {
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "quantization": "Q4_K_M",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "status": "PENDING_ACQUISITION"
+    },
+    "primary": {
+      "model_id": "Qwen/Qwen3-8B",
+      "quantization": "Q4_K_M",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "status": "PENDING_ACQUISITION"
+    }
+  },
+  "observability_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "J.01",
+      "J.02",
+      "J.03",
+      "J.04"
+    ],
+    "stage": "J",
+    "status": "NOT_ATTESTED",
+    "total": 4
+  },
+  "open_blockers": [
+    "A.04",
+    "A.05",
+    "A.06",
+    "A.07",
+    "B.01",
+    "B.02",
+    "B.03",
+    "B.04",
+    "B.05",
+    "B.06",
+    "B.07",
+    "B.08",
+    "B.09",
+    "C.01",
+    "C.02",
+    "C.03",
+    "C.04",
+    "C.05",
+    "D.01",
+    "D.02",
+    "D.03",
+    "D.04",
+    "D.05",
+    "D.06",
+    "E.01",
+    "E.02",
+    "E.03",
+    "E.04",
+    "E.05",
+    "E.06",
+    "F.01",
+    "F.02",
+    "F.03",
+    "F.04",
+    "F.05",
+    "G.01",
+    "G.02",
+    "G.03",
+    "G.04",
+    "G.05",
+    "H.01",
+    "H.02",
+    "H.03",
+    "H.04",
+    "H.05",
+    "H.06",
+    "I.01",
+    "I.02",
+    "I.03",
+    "I.04",
+    "J.01",
+    "J.02",
+    "J.03",
+    "J.04",
+    "K.01",
+    "K.02",
+    "K.03",
+    "K.04",
+    "L.01",
+    "L.02",
+    "L.03",
+    "L.04",
+    "L.05",
+    "L.06",
+    "L.07",
+    "L.08",
+    "L.09",
+    "L.10"
+  ],
+  "quality_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "E.01",
+      "E.02",
+      "E.03",
+      "E.04",
+      "E.05",
+      "E.06"
+    ],
+    "stage": "E",
+    "status": "NOT_ATTESTED",
+    "total": 6
+  },
+  "release_id": "tai-industrial-discovery-2026-07-25",
+  "retrieval_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "F.01",
+      "F.02",
+      "F.03",
+      "F.04",
+      "F.05"
+    ],
+    "stage": "F",
+    "status": "NOT_ATTESTED",
+    "total": 5
+  },
+  "runtime_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "B.01",
+      "B.02",
+      "B.03",
+      "B.04",
+      "B.05",
+      "B.06",
+      "B.07",
+      "B.08",
+      "B.09"
+    ],
+    "stage": "B",
+    "status": "NOT_ATTESTED",
+    "total": 9
+  },
+  "safe_tools_acceptance": {
+    "accepted": 0,
+    "blocking_items": [
+      "I.01",
+      "I.02",
+      "I.03",
+      "I.04"
+    ],
+    "stage": "I",
+    "status": "NOT_ATTESTED",
+    "total": 4
+  },
+  "schema": "tai.production-operational-manifest.v1",
+  "totals": {
+    "accepted": 3,
+    "blocked": 31,
+    "completion_formula": "100 * mandatory_accepted / mandatory_total",
+    "completion_percent": 4.23,
+    "mandatory_accepted": 3,
+    "mandatory_total": 71,
+    "regressed": 1,
+    "remaining": 68,
+    "total": 71
+  }
+}

@@ -1,0 +1,787 @@
+{
+  "discovery": {
+    "exact_main_sha": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
+    "failing_main_workflows": [
+      ".github/workflows/pc-crop-08f-sync-main.yml",
+      ".github/workflows/tai-gateway-ui-readonly-binding.yml"
+    ],
+    "generated_at": "2026-07-25T14:10:00Z",
+    "open_issues": [
+      2102,
+      2103,
+      2105,
+      2106,
+      2107,
+      2108,
+      2198,
+      2296,
+      2297,
+      2301,
+      2304,
+      2348,
+      2597,
+      2600,
+      2649,
+      2693,
+      2694,
+      2695,
+      2696,
+      2697,
+      2726,
+      2770,
+      2788,
+      2789,
+      2835,
+      2861,
+      2875,
+      2877,
+      2881,
+      2882,
+      2883,
+      2887,
+      2911,
+      2920,
+      2932,
+      2945,
+      2946,
+      2950,
+      2953,
+      2954,
+      2957,
+      2958,
+      2961,
+      2970,
+      2971,
+      2972,
+      2990,
+      2991,
+      2997,
+      2998,
+      3003,
+      3004,
+      3012,
+      3043,
+      3072,
+      3099,
+      3127,
+      3171,
+      3178,
+      3185
+    ],
+    "open_prs": [
+      2702,
+      2708,
+      2733,
+      2736,
+      2766,
+      2837,
+      2838,
+      2840,
+      2842,
+      2865,
+      2890,
+      2897,
+      2902,
+      2907,
+      2913,
+      2916,
+      2948,
+      3000,
+      3001,
+      3005,
+      3014,
+      3017,
+      3034,
+      3080,
+      3167,
+      3179,
+      3180,
+      3181,
+      3197,
+      3200
+    ],
+    "stale_branches": [
+      "agent/tai-ap-13b3e-immutable-storage-contract",
+      "agent/tai-ap-13c1d-remediation-2997",
+      "agent/tai-ap-13c1e-cpu-benchmark-finalization",
+      "agent/tai-ap-13c1f-qwen-preview-runtime",
+      "agent/tai-gateway-ui-readonly-3004",
+      "agent/tai-security-audit-remediation-3006",
+      "tai/ap12b-assign-logistics-confirmed-action"
+    ]
+  },
+  "items": [
+    {
+      "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160669024"
+      ],
+      "item_id": "A.01",
+      "mandatory": true,
+      "stage": "A",
+      "status": "ACCEPTED",
+      "title": "Exact-main TAI Foundation gate is green"
+    },
+    {
+      "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160669046"
+      ],
+      "item_id": "A.02",
+      "mandatory": true,
+      "stage": "A",
+      "status": "ACCEPTED",
+      "title": "Exact-main TAI Release Acceptance gate is green"
+    },
+    {
+      "evidence_refs": [
+        "git-tree:b6ed69c40e5b5faac14e2490ba2a3a06242dcc99"
+      ],
+      "item_id": "A.03",
+      "mandatory": true,
+      "stage": "A",
+      "status": "ACCEPTED",
+      "title": "No model weights or GGUF artifacts are tracked in Git"
+    },
+    {
+      "blocking_reason": "7 TAI branches are 55-135 commits behind exact main b6ed69c40e5b",
+      "evidence_refs": [],
+      "item_id": "A.04",
+      "mandatory": true,
+      "stage": "A",
+      "status": "BLOCKED",
+      "title": "All active TAI branches are synchronized with exact main"
+    },
+    {
+      "blocking_reason": "tai-gateway-ui-readonly-binding.yml and pc-crop-08f-sync-main.yml are invalid YAML and fail at startup on every push to main",
+      "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160676433",
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160676609"
+      ],
+      "item_id": "A.05",
+      "mandatory": true,
+      "stage": "A",
+      "status": "REGRESSED",
+      "title": "Zero failing workflows on exact main"
+    },
+    {
+      "blocking_reason": "8 TAI pull requests are open concurrently with overlapping scope and unmerged bases",
+      "evidence_refs": [],
+      "item_id": "A.06",
+      "mandatory": true,
+      "stage": "A",
+      "status": "BLOCKED",
+      "title": "Open TAI pull requests reduced to single-scope review-clean changes"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/industrial_gap_report.py"
+      ],
+      "item_id": "A.07",
+      "mandatory": true,
+      "stage": "A",
+      "status": "IN_PROGRESS",
+      "title": "Machine-readable acceptance backlog and derived gap report on exact main"
+    },
+    {
+      "blocking_reason": "bundle lifecycle is PENDING_ACQUISITION with an empty source inventory",
+      "evidence_refs": [
+        "apps/tai/model-artifacts/qwen3-8b.bundle.v2.pending.json"
+      ],
+      "item_id": "B.01",
+      "mandatory": true,
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Qwen3-8B primary source acquired at the pinned revision"
+    },
+    {
+      "blocking_reason": "bundle lifecycle is PENDING_ACQUISITION with an empty source inventory",
+      "evidence_refs": [
+        "apps/tai/model-artifacts/mistral-7b-instruct-v0.3.bundle.v2.pending.json"
+      ],
+      "item_id": "B.02",
+      "mandatory": true,
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Mistral-7B-Instruct-v0.3 fallback source acquired at the pinned revision"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/model-artifacts/legal-reviews/qwen3-8b.review-record.v1.json",
+        "apps/tai/model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-record.v1.json"
+      ],
+      "item_id": "B.03",
+      "mandatory": true,
+      "stage": "B",
+      "status": "IN_PROGRESS",
+      "title": "Human legal review recorded for both exact model revisions"
+    },
+    {
+      "blocking_reason": "conversion requires acquired sources on the dedicated model host (B.01, B.02)",
+      "evidence_refs": [],
+      "item_id": "B.04",
+      "mandatory": true,
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "GGUF conversion and Q4_K_M quantization with verified SHA-256"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json"
+      ],
+      "item_id": "B.05",
+      "mandatory": true,
+      "stage": "B",
+      "status": "IN_PROGRESS",
+      "title": "llama.cpp binaries verified against the pinned b9637 release"
+    },
+    {
+      "blocking_reason": "external immutable storage provisioning is unfinished (issues 2954, 2958, 2961)",
+      "evidence_refs": [],
+      "item_id": "B.06",
+      "mandatory": true,
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Immutable external bundle storage upload with proven retention"
+    },
+    {
+      "blocking_reason": "depends on B.06 immutable bundle upload",
+      "evidence_refs": [],
+      "item_id": "B.07",
+      "mandatory": true,
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Clean restore from immutable storage with re-verified digests"
+    },
+    {
+      "blocking_reason": "read-only preview runtime is unmerged and has never executed on the protected host",
+      "evidence_refs": [],
+      "item_id": "B.08",
+      "mandatory": true,
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Dedicated model host serves Qwen on loopback with memory and concurrency limits"
+    },
+    {
+      "blocking_reason": "depends on B.08 model-host execution",
+      "evidence_refs": [],
+      "item_id": "B.09",
+      "mandatory": true,
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Raw prompt and response cleanup with proven listener teardown"
+    },
+    {
+      "blocking_reason": "no admitted GGUF exists to benchmark (B.04)",
+      "evidence_refs": [
+        "apps/tai/model-artifacts/cpu-runtime-evidence.pending.json"
+      ],
+      "item_id": "C.01",
+      "mandatory": true,
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "CPU Qwen Q4_K_M measured profile including one-hour soak and operating cost"
+    },
+    {
+      "blocking_reason": "no admitted fallback GGUF exists to benchmark (B.04)",
+      "evidence_refs": [
+        "apps/tai/model-artifacts/mistral-7b-instruct-v0.3.benchmark.v2.pending.json"
+      ],
+      "item_id": "C.02",
+      "mandatory": true,
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "CPU Mistral Q4_K_M fallback profile"
+    },
+    {
+      "blocking_reason": "no GPU model host is provisioned (issue 2972)",
+      "evidence_refs": [],
+      "item_id": "C.03",
+      "mandatory": true,
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "GPU Qwen Q8_0 profile at concurrency 1/2/4/8 with VRAM and one-hour soak"
+    },
+    {
+      "blocking_reason": "depends on C.01 measured evidence",
+      "evidence_refs": [],
+      "item_id": "C.04",
+      "mandatory": true,
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "Primary model admission manifest"
+    },
+    {
+      "blocking_reason": "depends on C.02 and C.04",
+      "evidence_refs": [],
+      "item_id": "C.05",
+      "mandatory": true,
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "Fallback admission with routing, draining, health checks and version pinning"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/knowledge.py"
+      ],
+      "item_id": "D.01",
+      "mandatory": true,
+      "stage": "D",
+      "status": "IN_PROGRESS",
+      "title": "Platform Knowledge Base contour"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "D.02",
+      "mandatory": true,
+      "stage": "D",
+      "status": "NOT_STARTED",
+      "title": "Agro Knowledge Graph contour"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "D.03",
+      "mandatory": true,
+      "stage": "D",
+      "status": "NOT_STARTED",
+      "title": "Regulatory Knowledge contour"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "D.04",
+      "mandatory": true,
+      "stage": "D",
+      "status": "NOT_STARTED",
+      "title": "Market Data Layer contour"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/knowledge-sources/official-sources.v1.json"
+      ],
+      "item_id": "D.05",
+      "mandatory": true,
+      "stage": "D",
+      "status": "IN_PROGRESS",
+      "title": "Per-fact provenance, freshness, authority and expiry metadata"
+    },
+    {
+      "blocking_reason": "6 official sources are registered and none has accepted live ingestion evidence",
+      "evidence_refs": [
+        "apps/tai/knowledge-sources/official-sources.v1.json"
+      ],
+      "item_id": "D.06",
+      "mandatory": true,
+      "stage": "D",
+      "status": "BLOCKED",
+      "title": "At least 7 of 8 mandatory knowledge topics closed with live source evidence"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "E.01",
+      "mandatory": true,
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Platform gold set reaches 95 percent accuracy"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "E.02",
+      "mandatory": true,
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Agro gold set reaches 90 percent accuracy"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "E.03",
+      "mandatory": true,
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Groundedness, citation validity and unsupported-claim measurement"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "E.04",
+      "mandatory": true,
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Abstention precision and recall measurement"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "E.05",
+      "mandatory": true,
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "RU/EN/ZH, typo, translit, adversarial and leakage evaluation suite"
+    },
+    {
+      "blocking_reason": "requires owner-appointed authenticated domain reviewers that do not yet exist",
+      "evidence_refs": [],
+      "item_id": "E.06",
+      "mandatory": true,
+      "stage": "E",
+      "status": "BLOCKED",
+      "title": "Authenticated human reviewer attestation without LLM-only judging"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/semantic_retrieval.py"
+      ],
+      "item_id": "F.01",
+      "mandatory": true,
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Embeddings and semantic retrieval"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/hybrid_retrieval.py"
+      ],
+      "item_id": "F.02",
+      "mandatory": true,
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Hybrid fusion and reranking"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/retrieval_service.py"
+      ],
+      "item_id": "F.03",
+      "mandatory": true,
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Tenant, role, document and freshness retrieval filters"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/retrieval_benchmark.py"
+      ],
+      "item_id": "F.04",
+      "mandatory": true,
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Retrieval benchmark with Recall@K, Precision@K, MRR, nDCG and tenant isolation"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "F.05",
+      "mandatory": true,
+      "stage": "F",
+      "status": "NOT_STARTED",
+      "title": "Semantic cache with invalidation on knowledge update"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "G.01",
+      "mandatory": true,
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Document ingest with MIME validation, size limits, malware scan and quarantine"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "G.02",
+      "mandatory": true,
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Page-level extraction, table extraction, on-demand OCR and page provenance"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "G.03",
+      "mandatory": true,
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Document versioning and deduplication"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "G.04",
+      "mandatory": true,
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Prompt-injection, hidden-text and suspicious-link detection in documents"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "G.05",
+      "mandatory": true,
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Per-field extraction confidence with human review for critical fields"
+    },
+    {
+      "blocking_reason": "gateway and UI binding is an unmerged draft with 5 open acceptance items",
+      "evidence_refs": [],
+      "item_id": "H.01",
+      "mandatory": true,
+      "stage": "H",
+      "status": "BLOCKED",
+      "title": "Single production AI Gateway separating public and private contours"
+    },
+    {
+      "blocking_reason": "depends on H.01 gateway admission",
+      "evidence_refs": [],
+      "item_id": "H.02",
+      "mandatory": true,
+      "stage": "H",
+      "status": "BLOCKED",
+      "title": "Unbuffered SSE protocol with meta, token, citations, decision, prepared_action, done and error"
+    },
+    {
+      "blocking_reason": "depends on H.01 gateway admission",
+      "evidence_refs": [],
+      "item_id": "H.03",
+      "mandatory": true,
+      "stage": "H",
+      "status": "BLOCKED",
+      "title": "Cancelled or truncated responses are invalidated and never look confirmed"
+    },
+    {
+      "blocking_reason": "depends on H.01 gateway admission",
+      "evidence_refs": [],
+      "item_id": "H.04",
+      "mandatory": true,
+      "stage": "H",
+      "status": "BLOCKED",
+      "title": "Public contour proven free of identity, tenant and Deal context"
+    },
+    {
+      "blocking_reason": "depends on H.01 gateway admission",
+      "evidence_refs": [],
+      "item_id": "H.05",
+      "mandatory": true,
+      "stage": "H",
+      "status": "BLOCKED",
+      "title": "Private contour uses only server-derived identity, tenant, role and Deal access"
+    },
+    {
+      "blocking_reason": "depends on C.04 model admission and H.01 gateway admission",
+      "evidence_refs": [],
+      "item_id": "H.06",
+      "mandatory": true,
+      "stage": "H",
+      "status": "BLOCKED",
+      "title": "Production feature flag enabled only after model admission and runtime health"
+    },
+    {
+      "blocking_reason": "2 of 10 required read tools are implemented",
+      "evidence_refs": [
+        "apps/tai/tai/platform_tools.py"
+      ],
+      "item_id": "I.01",
+      "mandatory": true,
+      "stage": "I",
+      "status": "BLOCKED",
+      "title": "Ten typed read-only Safe Tools"
+    },
+    {
+      "blocking_reason": "0 of 8 required confirmed write actions are implemented",
+      "evidence_refs": [],
+      "item_id": "I.02",
+      "mandatory": true,
+      "stage": "I",
+      "status": "BLOCKED",
+      "title": "Eight confirmed write actions with prepared action, TTL, HMAC, idempotency and optimistic concurrency"
+    },
+    {
+      "blocking_reason": "depends on I.02",
+      "evidence_refs": [],
+      "item_id": "I.03",
+      "mandatory": true,
+      "stage": "I",
+      "status": "BLOCKED",
+      "title": "Separate acceptance authority per sensitive write class"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/tool_planner.py"
+      ],
+      "item_id": "I.04",
+      "mandatory": true,
+      "stage": "I",
+      "status": "IN_PROGRESS",
+      "title": "Model cannot mint action ids, select tenant or role, or self-confirm"
+    },
+    {
+      "evidence_refs": [
+        "apps/tai/tai/postgres_orchestration_observability.py"
+      ],
+      "item_id": "J.01",
+      "mandatory": true,
+      "stage": "J",
+      "status": "IN_PROGRESS",
+      "title": "Metrics, structured logs, traces and token accounting"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "J.02",
+      "mandatory": true,
+      "stage": "J",
+      "status": "NOT_STARTED",
+      "title": "AI quality telemetry for abstention, citation, unsupported claims and stale sources"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "J.03",
+      "mandatory": true,
+      "stage": "J",
+      "status": "NOT_STARTED",
+      "title": "AI Ops Console"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "J.04",
+      "mandatory": true,
+      "stage": "J",
+      "status": "NOT_STARTED",
+      "title": "Incident registry and rollback surface"
+    },
+    {
+      "blocking_reason": "no dedicated inference host is provisioned in the Russian production contour",
+      "evidence_refs": [],
+      "item_id": "K.01",
+      "mandatory": true,
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "REG.RU production contour with a separate inference host"
+    },
+    {
+      "blocking_reason": "depends on K.01",
+      "evidence_refs": [],
+      "item_id": "K.02",
+      "mandatory": true,
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "TLS, private network, firewall, secret management and rate limits"
+    },
+    {
+      "blocking_reason": "depends on K.01",
+      "evidence_refs": [],
+      "item_id": "K.03",
+      "mandatory": true,
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "Supervision, health, readiness, liveness, graceful shutdown, rolling deploy and rollback"
+    },
+    {
+      "blocking_reason": "depends on K.01",
+      "evidence_refs": [],
+      "item_id": "K.04",
+      "mandatory": true,
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "Backups, restore test and log/audit retention"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.01",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "12-role end-to-end acceptance"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.02",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Public/private and multi-tenant isolation acceptance"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.03",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Security red-team pass for escalation, injection, tool abuse, SSRF and exfiltration"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.04",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Fault injection for model outage, fallback, overload, backpressure and host restart"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.05",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Restore acceptance for backups and immutable bundles"
+    },
+    {
+      "blocking_reason": "target load acceptance is unproven and its remediation branches are unmerged (issue 2694)",
+      "evidence_refs": [],
+      "item_id": "L.06",
+      "mandatory": true,
+      "stage": "L",
+      "status": "BLOCKED",
+      "title": "Sustained load acceptance and backlog recovery"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.07",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Concurrent write, replay, idempotency, optimistic lock, audit and outbox verification"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.08",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "24-hour read-only production soak"
+    },
+    {
+      "evidence_refs": [],
+      "item_id": "L.09",
+      "mandatory": true,
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "72-hour confirmed-actions soak"
+    },
+    {
+      "blocking_reason": "attestation requires every preceding mandatory acceptance item",
+      "evidence_refs": [],
+      "item_id": "L.10",
+      "mandatory": true,
+      "stage": "L",
+      "status": "BLOCKED",
+      "title": "Published production operational attestation"
+    }
+  ],
+  "models": {
+    "fallback": {
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "quantization": "Q4_K_M",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "status": "PENDING_ACQUISITION"
+    },
+    "primary": {
+      "model_id": "Qwen/Qwen3-8B",
+      "quantization": "Q4_K_M",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "status": "PENDING_ACQUISITION"
+    }
+  },
+  "schema": "tai.industrial-acceptance-backlog.v1",
+  "subsystems": {
+    "benchmark": "PENDING_BENCHMARK",
+    "document_intelligence": "NOT_STARTED",
+    "gateway": "NOT_ACTIVATED",
+    "knowledge": "PARTIAL",
+    "model_admission": "PENDING_ADMISSION",
+    "model_artifact": "PENDING_ACQUISITION",
+    "observability": "PARTIAL",
+    "production_deployment": "NOT_ACTIVATED",
+    "retrieval": "PARTIAL",
+    "safe_tools": "PARTIAL",
+    "ui": "NOT_ACTIVATED"
+  }
+}
