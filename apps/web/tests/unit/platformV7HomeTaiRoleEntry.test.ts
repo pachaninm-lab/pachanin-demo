@@ -8,6 +8,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
+  const mobileDensityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
   const head = read('app/platform-v7/head.tsx');
   const contactDock = read('components/platform-v7/PublicContactDock.tsx');
@@ -140,11 +141,11 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   });
 
   it('eliminates reserved blank sections and compacts the mobile conversion path', () => {
-    expect(enhancements).toContain('const HOME_LAYOUT_POLISH');
-    expect(enhancements).toContain('content-visibility: visible !important');
-    expect(enhancements).toContain('contain-intrinsic-size: none !important');
-    expect(enhancements).toContain('.pc-v7-public-entry #connect-organization');
-    expect(enhancements).toContain('flex-basis: calc(100% - 24px) !important');
+    expect(enhancements).toContain("import './PlatformV7HomeMobileDensity.css'");
+    expect(mobileDensityCss).toContain('content-visibility: visible !important');
+    expect(mobileDensityCss).toContain('contain-intrinsic-size: none !important');
+    expect(mobileDensityCss).toContain('.pc-v7-public-entry #connect-organization');
+    expect(mobileDensityCss).toContain('flex-basis: calc(100% - 18px) !important');
     expect(enhancements).toContain("className={`${styles.roleGrid} pc-v6-role-grid`}");
     expect(enhancements).toContain("className={`${styles.roleCard} pc-v6-role-card`}");
     expect(enhancements).toContain("className={`${styles.taiDefinition} pc-v6-tai-definition`}");
