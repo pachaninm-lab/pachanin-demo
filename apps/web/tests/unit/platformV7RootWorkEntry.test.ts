@@ -92,7 +92,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
 
   it('keeps TAI visible inside Deal execution while evidence details remain on the dedicated product page', () => {
     expect(heroCopy).toContain("accent: 'TAI помогает довести её до расчёта.'");
-    expect(heroCopy).toContain('Собственный TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
+    expect(heroCopy).toContain('TAI показывает блокеры и следующий шаг');
     expect(home).toContain("id='tai'");
     expect(home).toContain('TAI нашёл две причины остановки');
     expect(home).toContain("className={styles.towerIntelligenceLink}");
