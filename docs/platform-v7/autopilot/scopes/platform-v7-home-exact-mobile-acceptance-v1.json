@@ -3,13 +3,14 @@
   "branch": "agent/platform-v7-mobile-product-ui-final",
   "status": "active",
   "operationalStatus": "PUBLIC_MOBILE_ACCEPTANCE_FINALIZATION",
-  "validationRevision": 2,
+  "validationRevision": 3,
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
     "apps/web/i18n/platform-v7-home-v3.ts",
     "apps/web/i18n/platform-v7-organization-connect.ts",
     "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/platform-v7/autopilot/scopes/platform-v7-home-exact-mobile-acceptance-v1.json"
   ],
   "boundaries": {
