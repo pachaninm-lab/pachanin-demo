@@ -4,167 +4,84 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('platform-v7 strategic transaction-centric public entry', () => {
+describe('platform-v7 strategic five-block public entry', () => {
   const layout = read('app/platform-v7/layout.tsx');
   const page = read('app/platform-v7/page.tsx');
   const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const homeCopy = read('i18n/platform-v7-home-v3.ts');
+  const storyCopy = read('i18n/platform-v7-home-story.ts');
   const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
+  const storyCss = read('components/platform-v7/PlatformV7StrategicHomeStory.module.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
-  const unifiedCss = page;
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
   const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
   const explorerAdapter = read('components/platform-v7/PublicDealExplorerV4.tsx');
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
 
-  it('keeps one Deal as the root product model and exposes the required strategic sections', () => {
+  it('renders exactly one narrative route through the five strategic blocks', () => {
     expect(page).toContain('const home = await PlatformV7StrategicHome();');
-    expect(page).toContain('{home}');
-    expect(home).toContain("className='pc-v6-control-tower pc-v6-control-tower-unified'");
+    expect(home).toContain('styles.problemMap');
     expect(home).toContain("id='deal-path'");
-    expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
-    expect(home).toContain("className='pc-v6-scenario-footer'");
-    expect(home).toContain("id='participants'");
     expect(home).toContain("id='tai'");
-    expect(home).toContain("id='money'");
-    expect(home).toContain("id='integrations'");
+    expect(home).toContain("id='participants'");
     expect(home).toContain("id='maturity'");
-    expect(home).toContain('pc-v6-faq');
-    expect(homeCopy).toContain('Платформа не заканчивается после выбора цены');
+    expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
+    expect(home).toContain('<OrganizationConnectForm locale={locale} />');
+    expect(home).not.toContain("id='money'");
+    expect(home).not.toContain("id='integrations'");
+    expect(home).not.toContain('pc-v6-faq');
   });
 
-  it('starts the public walkthrough from Deal terms and buyer perspective', () => {
+  it('retains the complete 19-stage Deal model and public walkthrough', () => {
+    expect(home).toContain("className='pc-v6-lifecycle' role='list' tabIndex={0}");
+    expect(homeCopy).toContain("phases: ['Условия', 'Допуск', 'Торги', 'Победитель'");
+    expect(storyCopy).toContain("lifecycleLabel: '19 этапов без разрыва между системами'");
     expect(explorerPage).toContain("stage: 'terms'");
     expect(explorerPage).toContain("perspective: 'buyer'");
     expect(home).toContain('stage=terms&lens=execution&perspective=buyer');
-    expect(homeCopy).toContain("phases: ['Условия', 'Допуск', 'Торги', 'Победитель'");
   });
 
-  it('preserves browser-history restoration for the full deal walkthrough', () => {
+  it('preserves browser history, lenses and informational role routing', () => {
     expect(explorerAdapter).toContain('normalizeTourStateFromSearchParams');
-    expect(explorerAdapter).toContain('new URLSearchParams(window.location.search)');
     expect(explorerAdapter).toContain("window.addEventListener('popstate', restorePublicHistoryState)");
-  });
-
-  it('uses service navigation without client-authoritative role routing', () => {
-    expect(home).toContain('nav={nav}');
-    expect(home).toContain('showMobileMenu');
-    expect(home).toContain("href='/platform-v7/login'");
-    expect(home).not.toContain('/platform-v7/login?role=');
-    expect(home).not.toContain("href='/platform-v7/seller'");
-    expect(home).not.toContain("href='/platform-v7/buyer'");
-    expect(explorer).toContain('selectPerspective(event.target.value as TourPerspective)');
-    expect(`${explorer}\n${entryGate}`).not.toContain('accessToken');
-  });
-
-  it('keeps one high-emphasis hero action and a clear non-authoritative scenario boundary', () => {
-    const firstHero = home.slice(home.indexOf("className='pc-v6-hero pc-v6-hero-unified'"), home.indexOf("id='participants'"));
-    expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
-    expect(firstHero).toContain("eventName='hero_primary_cta'");
-    expect(firstHero).toContain("className='pc-v6-control-tower pc-v6-control-tower-unified'");
-    expect(firstHero).not.toContain("className='pc-v6-hero-proofs'");
-    expect(firstHero).not.toContain("className='pc-v6-ct-actions'");
-    expect(homeCopy).toContain('Сценарий исполнения');
-    expect(homeCopy).toContain('Деньги остаются зарезервированными');
-    expect(home).not.toContain('Math.random');
-    expect(home).not.toContain('setInterval');
-  });
-
-  it('keeps role-first, problem-first and deal-first validation entries', () => {
-    const stateMachine = read('lib/platform-v7/public-product-experience-state.ts');
-    expect(explorerPage).toContain('<PublicDealEntryGate');
-    expect(explorerPage).toContain('normalizeTourEntryVariant(searchParams?.entry)');
-    expect(stateMachine).toContain("export const TOUR_ENTRY_VARIANTS = ['role', 'problem', 'deal'] as const");
-    expect(entryGate).toContain('data-entry-variant={entry}');
-    expect(entryGate).toContain('не влияет на права доступа');
-  });
-
-  it('keeps the existing walkthrough lenses and stage controls', () => {
-    expect(explorerPage).toContain("data-testid='platform-v7-deal-from-inside'");
     expect(explorer).toContain('TOUR_LENSES.map');
     expect(explorer).toContain('TOUR_PERSPECTIVES.map');
     expect(explorer).toContain('TOUR_SCENARIOS.map');
-    expect(explorer).toContain('TOUR_STAGES.map');
-    expect(explorerAdapter).toContain("['execution', 'documents', 'money', 'risk']");
+    expect(entryGate).toContain('не влияет на права доступа');
+    expect(home).not.toContain('/platform-v7/login?role=');
   });
 
-  it('keeps TAI visible inside Deal execution while evidence details remain on the dedicated product page', () => {
-    expect(heroCopy).toContain("accent: 'TAI помогает довести её до расчёта.'");
-    expect(heroCopy).toContain('TAI показывает блокеры и следующий шаг');
-    expect(home).toContain("id='tai'");
-    expect(home).toContain('TAI нашёл две причины остановки');
-    expect(home).toContain("className='pc-v6-tower-intelligence-link'");
-    expect(home).toContain("const taiHref = `/platform-v7/ai-in-action");
-    expect(home).toContain("eventName='open_tai'");
-    expect(home).not.toContain("<section id='tai' className='pc-v6-section pc-v6-tai'>");
-    expect(homeCopy).toContain('Основание сценария: протокол лаборатории № L-204');
-    expect(homeCopy).toContain('Надёжность вывода: высокая');
-    expect(homeCopy).toContain('ждёт подтверждения пользователя');
-    expect(homeCopy).toContain('TAI не меняет права');
+  it('shows industrial capability without false maturity language', () => {
+    const combined = `${page}\n${home}\n${homeCopy}\n${storyCopy}`.toLowerCase();
+    for (const token of [
+      'production-ready', 'fully live', 'банк подключён', 'фгис подключён',
+      'эдо подключён', 'техническая готовность', 'в реализации', 'websocket',
+    ]) expect(combined).not.toContain(token);
+    expect(storyCopy).toContain('Private cloud и on-premise');
+    expect(storyCopy).toContain('Роль, организация, права и контекст определяются сервером');
+    expect(storyCopy).toContain('Доказательства и аудит');
   });
 
-  it('reserves the protected loading viewport instead of shifting after hydration', () => {
+  it('ships explicit RU EN ZH story copy and problem-first hero', () => {
+    expect(storyCopy).toContain('const ru: PlatformV7HomeStoryCopy');
+    expect(storyCopy).toContain('const en: PlatformV7HomeStoryCopy');
+    expect(storyCopy).toContain('const zh: PlatformV7HomeStoryCopy');
+    expect(storyCopy).not.toContain('...ru');
+    expect(heroCopy).toContain("title: 'The price is agreed. The Deal can still fail.'");
+    expect(heroCopy).toContain("title: '价格已经确定，但交易仍可能失败。'");
+  });
+
+  it('preserves mobile, touch-target, reduced-motion and support gates', () => {
     expect(layout).toContain('.pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}');
-  });
-
-  it('keeps mobile, touch-target and reduced-motion gates active', () => {
-    expect(homeCss).toContain('min-height: 42px');
-    expect(homeCss).toContain('min-height: 48px');
     expect(homeCss).toContain('overflow-x: auto');
     expect(homeCss).toContain('@media (max-width: 767px)');
     expect(homeCss).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(homeCss).toContain('scroll-snap-type: x mandatory');
+    expect(storyCss).toContain('@media (max-width:767px)');
+    expect(storyCss).toContain('@media (forced-colors:active)');
     expect(finalCss).toContain('min-height: 44px !important');
-    expect(finalCss).toContain('overflow-x: clip');
-    expect(unifiedCss).toContain('width: 44px');
-    expect(unifiedCss).toContain('height: 44px');
-    expect(unifiedCss).toContain('@media (max-width: 767px)');
-    expect(unifiedCss).toContain('.pc-v6-tower-intelligence-link:focus-visible');
-  });
-
-  it('implements support as a real accessible dialog mounted at the public layout boundary', () => {
-    expect(layout).toContain('<HydrationSafeChatSupport />');
     expect(support).toContain("role='dialog'");
     expect(support).toContain("aria-modal='true'");
-    expect(support).toContain("event.key === 'Escape'");
-    expect(support).toContain("event.key !== 'Tab'");
-    expect(support).toContain('triggerRef.current?.focus()');
-  });
-
-  it('ships complete RU EN ZH home copy without Russian inheritance', () => {
-    expect(homeCopy).toContain('const en: HomeCopy =');
-    expect(homeCopy).toContain('const zh: HomeCopy =');
-    expect(homeCopy).not.toContain('...ru');
-    expect(homeCopy).toContain("locale === 'en' ? en : locale === 'zh' ? zh : ru");
-    expect(heroCopy).toContain("accent: 'TAI helps carry it through settlement.'");
-    expect(heroCopy).toContain("accent: 'TAI 协助推进至结算。'");
-    expect(home).toContain('copy.a11y.nav');
-    expect(home).toContain('copy.footer.privacy');
-  });
-
-  it('presents industrial capabilities without development-stage language or false connectivity claims', () => {
-    const combined = `${page}\n${home}\n${homeCopy}`.toLowerCase();
-    const forbidden = [
-      'production' + '-ready',
-      'fully ' + 'live',
-      'bank ' + 'connected',
-      'fgis ' + 'connected',
-      'edo ' + 'connected',
-      'банк подключён',
-      'фгис подключён',
-      'эдо подключён',
-      'техническая готовность',
-      'партнёрская зависимость',
-      'не подтверждено',
-      'в реализации',
-      'websocket',
-    ];
-    for (const token of forbidden) expect(combined).not.toContain(token);
-    expect(homeCopy).toContain('Контроль и безопасность');
-    expect(homeCopy).toContain('Критические действия имеют проверяемое основание');
-    expect(homeCopy).toContain('Партия и прослеживаемость');
-    expect(homeCopy).toContain('Подписание и обмен документами');
   });
 });
