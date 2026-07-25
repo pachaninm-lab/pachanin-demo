@@ -186,9 +186,9 @@ def normalize_platform_tool_arguments(
 
 
 def _normalize_identifier(tool_name: str, name: str, value: Any) -> str:
-    if isinstance(value, bool) or not isinstance(value, str):
+    if not isinstance(value, str):
         raise ReadToolArgumentError(f"{tool_name}: {name} must be a portable identifier")
-    candidate = value.strip()
+    candidate: str = value.strip()
     if _PORTABLE.fullmatch(candidate) is None:
         raise ReadToolArgumentError(f"{tool_name}: {name} must be a portable identifier")
     return candidate
