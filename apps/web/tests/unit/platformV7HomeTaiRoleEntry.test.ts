@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('platform-v7 homepage TAI and role-entry quality contract', () => {
+  const page = read('app/platform-v7/page.tsx');
   const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
@@ -55,6 +56,17 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     const connectSecondary = finalSection.indexOf("href='#connect-organization' className='pc-v6-secondary'");
     expect(dealPrimary).toBeGreaterThan(-1);
     expect(connectSecondary).toBeGreaterThan(dealPrimary);
+  });
+
+  it('keeps FAQ and final CTA eagerly rendered instead of reserving blank offscreen blocks', () => {
+    const deferredBlock = page.slice(
+      page.indexOf('@supports (content-visibility: auto)'),
+      page.indexOf('@media (max-width: 374px)'),
+    );
+    expect(deferredBlock).toContain('.pc-v6-category');
+    expect(deferredBlock).toContain('.pc-v6-assurance');
+    expect(deferredBlock).not.toContain('.pc-v6-faq');
+    expect(deferredBlock).not.toContain('.pc-v6-final');
   });
 
   it('explains TAI by name, purpose, reasoning path, monetary impact and human boundary in RU EN ZH', () => {
