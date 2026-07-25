@@ -1,5 +1,4 @@
 import '@/styles/platform-v7-strategic-home-v3.css';
-import '@/styles/platform-v7-mobile-10of10-final.css';
 import type { Metadata } from 'next';
 import { PlatformV7StrategicHome } from '@/components/platform-v7/PlatformV7StrategicHome';
 
