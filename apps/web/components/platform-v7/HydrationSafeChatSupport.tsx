@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export type HydrationSafeChatSupportProps = {
@@ -21,6 +22,11 @@ const LegacyPublicMobileExperiencePolish = dynamic(
   { ssr: false, loading: () => null },
 );
 
+function isStrategicHomepage(pathname: string): boolean {
+  const clean = pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
+  return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';
+}
+
 /**
  * Public pages keep the contact-support form. Authenticated platform-v7 workspaces
  * receive one role-scoped conversational assistant with presence, structured
@@ -29,14 +35,17 @@ const LegacyPublicMobileExperiencePolish = dynamic(
  * route context never destabilize streamed HTML or hydration.
  */
 export function HydrationSafeChatSupport({
-  legacyPublicPolish = false,
+  legacyPublicPolish,
   ...supportProps
 }: HydrationSafeChatSupportProps) {
+  const pathname = usePathname() || '/platform-v7';
+  const loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname);
+
   return (
     <>
-      {legacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
+      {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
       <ContextualSupportOrAssistant {...supportProps} />
-      {legacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
+      {loadLegacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
     </>
   );
 }
