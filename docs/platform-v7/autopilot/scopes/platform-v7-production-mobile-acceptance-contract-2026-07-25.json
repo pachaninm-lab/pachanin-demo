@@ -3,10 +3,11 @@
   "id": "PLATFORM-V7-PRODUCTION-MOBILE-ACCEPTANCE-CONTRACT-2026-07-25",
   "branch": "fix/platform-v7-production-mobile-acceptance-contract",
   "status": "active",
-  "maturityBoundary": "production-mobile-test-contract-only",
-  "globalProgramStateUnchanged": "This scope does not change the public application, production runtime, banking, integrations or TAI maturity. It only aligns the production mobile acceptance selector with the already deployed accessible role-view label.",
+  "maturityBoundary": "production-mobile-acceptance-and-release-trigger-only",
+  "globalProgramStateUnchanged": "This scope does not change public application behavior, production runtime logic, banking, integrations or TAI maturity. It aligns one Playwright selector with the deployed accessible role-view label and permits one Dockerfile comment-only trigger so the fixed acceptance code and exact production OCI revision share the same merge SHA.",
   "allowedPaths": [
-    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts"
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "infra/docker/Dockerfile.web"
   ],
   "forbiddenPaths": [
     "apps/web/app/**",
@@ -16,15 +17,17 @@
     "apps/api/**",
     "packages/**",
     ".github/workflows/**",
-    "infra/**",
+    "infra/compose/**",
+    "infra/helm/**",
     "pnpm-lock.yaml",
     "production credentials"
   ],
   "requiredEvidence": [
-    "The implementation PR changes exactly one existing Playwright acceptance file",
+    "The implementation PR changes exactly the Playwright acceptance file and infra/docker/Dockerfile.web",
     "The selector uses the accessible role-view label rendered by PublicDealRoleScenario",
     "The Bank role tab remains required and visible",
-    "No runtime, copy, CSS, deployment workflow or production configuration changes",
-    "The exact production mobile acceptance passes for 390x844 and 430x932 against the deployed SHA"
+    "The Dockerfile change is comment-only and does not alter image contents or runtime instructions",
+    "The exact merge SHA is deployed with DEPLOYMENT_COMPLETE=1, matching running OCI revision and LIVE_ACCEPTANCE=PASS",
+    "The exact production mobile acceptance passes for 390x844 and 430x932 against that same deployed SHA"
   ]
 }
