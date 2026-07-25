@@ -61,7 +61,7 @@ export async function PlatformV7StrategicHome() {
   return (
     <main id='main-content' className='pc-v6-page pc-v7-public-entry' data-testid='platform-v7-root-execution-cockpit'>
       <a className='pc-skip-link' href='#pc-v6-title'>{chrome('skipToContent')}</a>
-      <PublicExperiencePageView locale={locale} name='home_five_block_story_view' />
+      <PublicExperiencePageView locale={locale} name='home_v3_view' />
       <PublicSiteHeader
         ariaLabel={copy.a11y.site}
         brandHomeLabel={copy.a11y.site}
