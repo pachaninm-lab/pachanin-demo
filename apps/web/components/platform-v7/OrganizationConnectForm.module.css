@@ -13,7 +13,7 @@
 .assurances span,
 .assurances a { display: flex; align-items: center; gap: 8px; color: #365046; font-size: 13px; line-height: 1.4; text-decoration: none; }
 .assurances svg { flex: 0 0 auto; width: 17px; height: 17px; color: var(--pc-v6-green, #087a3b); }
-.assurances a { width: fit-content; min-height: 42px; padding: 0 11px; border: 1px solid rgba(20, 62, 45, .18); border-radius: 10px; background: #fff; font-weight: 650; }
+.assurances a { width: fit-content; min-height: 44px; padding: 0 11px; border: 1px solid rgba(20, 62, 45, .18); border-radius: 10px; background: #fff; font-weight: 650; }
 
 .form,
 .success { border: 1px solid rgba(20, 62, 45, .14); border-radius: 16px; background: #fff; box-shadow: 0 16px 44px rgba(18, 53, 40, .07); }
@@ -56,7 +56,7 @@
 
 .error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; border: 1px solid rgba(157, 45, 37, .2); border-radius: 10px; background: #fff7f5; color: #8b281f; }
 .error p { margin: 0; font-weight: 650; line-height: 1.4; }
-.error button { min-height: 40px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(157, 45, 37, .24); border-radius: 9px; padding: 0 12px; background: #fff; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.error button { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(157, 45, 37, .24); border-radius: 9px; padding: 0 12px; background: #fff; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
 
 .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 .actions button,
