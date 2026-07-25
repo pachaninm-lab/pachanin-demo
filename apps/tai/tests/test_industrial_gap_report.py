@@ -35,9 +35,9 @@ REPOSITORY_MANIFEST = (
     / "governance"
     / "tai-production-operational-manifest.json"
 )
-REPOSITORY_RELEASE_ID = "tai-industrial-discovery-2026-07-25"
+REPOSITORY_RELEASE_ID = "tai-industrial-refresh-2026-07-25"
 
-MAIN_SHA = "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99"
+MAIN_SHA = "b78b169a21e10aa890105b14f3712b091b7fe038"
 QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
 MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
 
@@ -60,8 +60,9 @@ def _discovery() -> DiscoveryContext:
     return DiscoveryContext(
         exact_main_sha=MAIN_SHA,
         generated_at=datetime(2026, 7, 25, 14, 10, tzinfo=UTC),
-        open_prs=(3005, 3014),
-        open_issues=(2726, 3004),
+        open_pull_request_count=170,
+        open_issue_count=100,
+        counts_method="search total_count for pull requests; list page floor for issues",
         stale_branches=("agent/tai-gateway-ui-readonly-3004",),
         failing_main_workflows=(".github/workflows/tai-gateway-ui-readonly-binding.yml",),
     )
@@ -215,13 +216,28 @@ class TestBacklogInvariants:
                 fallback_model=_model("fallback"),
             )
 
-    def test_open_pull_requests_must_be_sorted_and_unique(self) -> None:
-        with pytest.raises(ValueError, match="open_prs must be sorted ascending"):
+    @pytest.mark.parametrize("count", [-1, True])
+    def test_counts_must_be_non_negative_integers(self, count: object) -> None:
+        """A count cannot be silently truncated the way a paginated list was."""
+        with pytest.raises(ValueError, match="non-negative integer"):
             DiscoveryContext(
                 exact_main_sha=MAIN_SHA,
                 generated_at=datetime(2026, 7, 25, tzinfo=UTC),
-                open_prs=(3014, 3005),
-                open_issues=(),
+                open_pull_request_count=count,  # type: ignore[arg-type]
+                open_issue_count=0,
+                counts_method="test",
+                stale_branches=(),
+                failing_main_workflows=(),
+            )
+
+    def test_counts_method_is_required(self) -> None:
+        with pytest.raises(ValueError, match="counts_method"):
+            DiscoveryContext(
+                exact_main_sha=MAIN_SHA,
+                generated_at=datetime(2026, 7, 25, tzinfo=UTC),
+                open_pull_request_count=1,
+                open_issue_count=1,
+                counts_method="",
                 stale_branches=(),
                 failing_main_workflows=(),
             )
@@ -231,8 +247,9 @@ class TestBacklogInvariants:
             DiscoveryContext(
                 exact_main_sha=MAIN_SHA,
                 generated_at=datetime(2026, 7, 25),  # noqa: DTZ001
-                open_prs=(),
-                open_issues=(),
+                open_pull_request_count=0,
+                open_issue_count=0,
+                counts_method="test",
                 stale_branches=(),
                 failing_main_workflows=(),
             )

@@ -24,7 +24,7 @@
     "status": "NOT_ATTESTED",
     "total": 5
   },
-  "exact_main_sha": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
+  "exact_main_sha": "b78b169a21e10aa890105b14f3712b091b7fe038",
   "fault_acceptance": {
     "accepted": 0,
     "blocking_items": [
@@ -43,7 +43,7 @@
     "status": "NOT_ATTESTED",
     "total": 10
   },
-  "final_status": "FAIL",
+  "final_status": "NOT_ATTESTED",
   "gateway_acceptance": {
     "accepted": 0,
     "blocking_items": [
@@ -58,17 +58,15 @@
     "status": "NOT_ATTESTED",
     "total": 6
   },
-  "generated_at": "2026-07-25T14:10:00Z",
+  "generated_at": "2026-07-25T19:40:00Z",
   "governance_acceptance": {
-    "accepted": 3,
+    "accepted": 5,
     "blocking_items": [
       "A.04",
-      "A.05",
-      "A.06",
-      "A.07"
+      "A.06"
     ],
     "stage": "A",
-    "status": "FAIL",
+    "status": "NOT_ATTESTED",
     "total": 7
   },
   "infrastructure": {
@@ -131,18 +129,12 @@
   },
   "open_blockers": [
     "A.04",
-    "A.05",
     "A.06",
-    "A.07",
     "B.01",
     "B.02",
     "B.03",
-    "B.04",
-    "B.05",
     "B.06",
     "B.07",
-    "B.08",
-    "B.09",
     "C.01",
     "C.02",
     "C.03",
@@ -213,7 +205,7 @@
     "status": "NOT_ATTESTED",
     "total": 6
   },
-  "release_id": "tai-industrial-discovery-2026-07-25",
+  "release_id": "tai-industrial-refresh-2026-07-25",
   "retrieval_acceptance": {
     "accepted": 0,
     "blocking_items": [
@@ -228,17 +220,13 @@
     "total": 5
   },
   "runtime_acceptance": {
-    "accepted": 0,
+    "accepted": 4,
     "blocking_items": [
       "B.01",
       "B.02",
       "B.03",
-      "B.04",
-      "B.05",
       "B.06",
-      "B.07",
-      "B.08",
-      "B.09"
+      "B.07"
     ],
     "stage": "B",
     "status": "NOT_ATTESTED",
@@ -258,14 +246,14 @@
   },
   "schema": "tai.production-operational-manifest.v1",
   "totals": {
-    "accepted": 3,
-    "blocked": 31,
+    "accepted": 9,
+    "blocked": 28,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 4.23,
-    "mandatory_accepted": 3,
+    "completion_percent": 12.68,
+    "mandatory_accepted": 9,
     "mandatory_total": 71,
-    "regressed": 1,
-    "remaining": 68,
+    "regressed": 0,
+    "remaining": 62,
     "total": 71
   }
 }
