@@ -65,6 +65,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(firstHero).toContain("eventName='hero_primary_cta'");
     expect(firstHero).toContain('pc-v6-control-tower ${styles.tower}');
     expect(firstHero).not.toContain("className='pc-v6-hero-proofs'");
+    expect(firstHero).not.toContain("className='pc-v6-ct-actions'");
     expect(homeCopy).toContain('Сценарий исполнения');
     expect(homeCopy).toContain('Деньги остаются зарезервированными');
     expect(home).not.toContain('Math.random');
@@ -90,11 +91,11 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   });
 
   it('keeps TAI visible inside Deal execution while evidence details remain on the dedicated product page', () => {
-    expect(heroCopy).toContain("accent: 'с TAI внутри'");
-    expect(heroCopy).toContain('TAI видит блокеры, объясняет основания и готовит следующий шаг');
+    expect(heroCopy).toContain("accent: 'интеллект на каждом этапе'");
+    expect(heroCopy).toContain('TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
     expect(home).toContain("id='tai'");
     expect(home).toContain('TAI нашёл две причины остановки');
-    expect(home).toContain('TAI работает внутри всего контура Сделки');
+    expect(home).toContain("className={styles.towerIntelligenceLink}");
     expect(home).toContain("const taiHref = `/platform-v7/ai-in-action");
     expect(home).toContain("eventName='open_tai'");
     expect(home).not.toContain("<section id='tai' className='pc-v6-section pc-v6-tai'>");
@@ -117,7 +118,8 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(homeCss).toContain('scroll-snap-type: x mandatory');
     expect(finalCss).toContain('min-height: 44px !important');
     expect(finalCss).toContain('overflow-x: clip');
-    expect(unifiedCss).toContain('min-height: 44px');
+    expect(unifiedCss).toContain('width: 44px');
+    expect(unifiedCss).toContain('height: 44px');
     expect(unifiedCss).toContain('@media (max-width: 767px)');
     expect(unifiedCss).toContain('@media (prefers-reduced-motion: reduce)');
   });
@@ -136,8 +138,8 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(homeCopy).toContain('const zh: HomeCopy =');
     expect(homeCopy).not.toContain('...ru');
     expect(homeCopy).toContain("locale === 'en' ? en : locale === 'zh' ? zh : ru");
-    expect(heroCopy).toContain("accent: 'with TAI inside'");
-    expect(heroCopy).toContain("accent: '由 TAI 贯穿'");
+    expect(heroCopy).toContain("accent: 'intelligence at every stage'");
+    expect(heroCopy).toContain("accent: '每个阶段都有智能支持'");
     expect(home).toContain('copy.a11y.nav');
     expect(home).toContain('copy.footer.privacy');
   });
