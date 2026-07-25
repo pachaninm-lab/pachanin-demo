@@ -3,9 +3,12 @@
   "branch": "agent/platform-v7-home-tai-role-entry-v2",
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
-  "validationRevision": 3,
+  "validationRevision": 4,
   "allowedPaths": [
     "apps/web/app/platform-v7/head.tsx",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/components/platform-v7/LegacyPublicMobileExperiencePolish.tsx",
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.module.css",
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
