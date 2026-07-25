@@ -1,9 +1,9 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "agent/platform-v7-home-tai-role-entry-final-3201",
+  "branch": "agent/platform-v7-home-tai-role-entry-final-3203",
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
-  "validationRevision": 7,
+  "validationRevision": 8,
   "allowedPaths": [
     "apps/web/app/platform-v7/head.tsx",
     "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
