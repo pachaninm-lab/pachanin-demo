@@ -17,7 +17,8 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
 
   it('keeps one Deal as the root product model and exposes the required strategic sections', () => {
-    expect(page).toContain('<PlatformV7StrategicHome />');
+    expect(page).toContain('const home = await PlatformV7StrategicHome();');
+    expect(page).toContain('{home}');
     expect(home).toContain("className='pc-v6-control-tower'");
     expect(home).toContain("id='deal-path'");
     expect(home).toContain("className='pc-v6-scenario-grid'");
