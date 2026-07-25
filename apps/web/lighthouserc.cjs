@@ -8,7 +8,7 @@ module.exports = {
       startServerReadyPattern: 'Ready in',
       startServerReadyTimeout: 120_000,
       url: ['http://127.0.0.1:3000/platform-v7?lang=ru'],
-      numberOfRuns: 3,
+      numberOfRuns: 5,
       settings: {
         ...(isDesktop ? { preset: 'desktop' } : {}),
         chromeFlags: '--headless=new --no-sandbox --disable-dev-shm-usage',
