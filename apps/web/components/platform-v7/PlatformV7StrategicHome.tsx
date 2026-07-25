@@ -3,21 +3,26 @@ import {
   ArrowRight,
   CheckCircle2,
   CircleDollarSign,
-  Landmark,
+  FileCheck2,
+  FlaskConical,
+  Link2,
   LogIn,
+  MapPinned,
+  ScanSearch,
   ShieldCheck,
   Sparkles,
   TriangleAlert,
+  Waypoints,
 } from 'lucide-react';
 import { PublicSiteHeader } from './PublicSiteHeader';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
-import { PublicRoleEntrances } from './PlatformV7HomeEnhancements';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
-import { getPlatformV7HomeEnhancementCopy } from '@/i18n/platform-v7-home-enhancements';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
+import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
+import styles from './PlatformV7StrategicHomeStory.module.css';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
   return (
@@ -29,11 +34,13 @@ function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: strin
   );
 }
 
+const problemIcons = [MapPinned, FlaskConical, FileCheck2, CircleDollarSign] as const;
+
 export async function PlatformV7StrategicHome() {
   const locale = await getLocale();
   const copy = getPlatformV7HomeCopy(locale);
-  const enhancement = getPlatformV7HomeEnhancementCopy(locale);
   const heroMessage = getPlatformV7HeroMessage(locale);
+  const story = getPlatformV7HomeStoryCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
@@ -45,17 +52,16 @@ export async function PlatformV7StrategicHome() {
       : 'TAI нашёл две причины остановки';
 
   const nav = <>
-    <a href='#deal-path'>{copy.nav.how}</a>
-    <a href='#role-entry'>{enhancement.nav.participants}</a>
-    <a href={taiHref}>{enhancement.nav.tai}</a>
-    <a href='#money'>{copy.nav.money}</a>
-    <a href='#integrations'>{copy.nav.integrations}</a>
+    <a href='#deal-path'>{story.nav.how}</a>
+    <a href='#tai'>{story.nav.tai}</a>
+    <a href='#participants'>{story.nav.roles}</a>
+    <a href='#maturity'>{story.nav.maturity}</a>
   </>;
 
   return (
     <main id='main-content' className='pc-v6-page pc-v7-public-entry' data-testid='platform-v7-root-execution-cockpit'>
       <a className='pc-skip-link' href='#pc-v6-title'>{chrome('skipToContent')}</a>
-      <PublicExperiencePageView locale={locale} name='home_v3_view' />
+      <PublicExperiencePageView locale={locale} name='home_five_block_story_view' />
       <PublicSiteHeader
         ariaLabel={copy.a11y.site}
         brandHomeLabel={copy.a11y.site}
@@ -76,7 +82,7 @@ export async function PlatformV7StrategicHome() {
       />
 
       <div className='pc-v6-shell'>
-        <section className='pc-v6-hero pc-v6-hero-unified' aria-labelledby='pc-v6-title'>
+        <section className={`pc-v6-hero pc-v6-hero-unified ${styles.hero}`} aria-labelledby='pc-v6-title'>
           <div className='pc-v6-hero-copy pc-v6-hero-copy-unified'>
             <span className='pc-v6-kicker'>{heroMessage.kicker}</span>
             <h1 id='pc-v6-title' className='pc-v6-hero-title pc-v6-hero-title-unified'>
@@ -85,141 +91,132 @@ export async function PlatformV7StrategicHome() {
             </h1>
             <p className='pc-v6-hero-lead pc-v6-hero-lead-unified'>{heroMessage.lead}</p>
             <div className='pc-v6-actions pc-v6-hero-actions-unified'>
-              <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='hero_primary_cta' locale={locale} params={{ source: 'hero_unified_deal_tai' }}>
+              <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='hero_primary_cta' locale={locale} params={{ source: 'problem_first_home' }}>
                 {copy.hero.primary}<ArrowRight size={19} />
               </PublicExperienceLink>
-              <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='hero_secondary_cta' locale={locale} params={{ source: 'hero_unified_deal_tai' }}>
+              <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='hero_secondary_cta' locale={locale} params={{ source: 'problem_first_home' }}>
                 {copy.hero.secondary}<ArrowRight size={17} />
               </PublicExperienceLink>
             </div>
+            <div className={styles.audienceRail} aria-label={story.heroMap.eyebrow}>
+              {story.heroMap.audiences.map((audience) => <span key={audience}>{audience}</span>)}
+            </div>
           </div>
 
-          <div className='pc-v6-control-tower pc-v6-control-tower-unified' aria-label={copy.a11y.controlTower}>
-            <div className='pc-v6-ct-top'>
-              <div><small>{copy.tower.sampleLabel}</small><span>{copy.tower.deal}</span></div>
-              <b>{copy.tower.stage}</b>
+          <aside className={styles.problemMap} aria-label={story.heroMap.title} data-testid='platform-v7-problem-map'>
+            <div className={styles.problemHeader}>
+              <span>{story.heroMap.eyebrow}</span>
+              <strong>{story.heroMap.title}</strong>
             </div>
-            <div className='pc-v6-ct-progress' role='progressbar' aria-label={copy.tower.progressLabel} aria-valuemin={1} aria-valuemax={5} aria-valuenow={3}>
-              <span className='is-done' /><span className='is-done' /><span className='is-active' /><span /><span />
+            <div className={styles.problemGrid}>
+              {story.heroMap.items.map(([title, text], index) => {
+                const Icon = problemIcons[index] ?? TriangleAlert;
+                return <article key={title}><Icon aria-hidden='true' /><div><strong>{title}</strong><span>{text}</span></div></article>;
+              })}
             </div>
-            <div className='pc-v6-ct-grid'>
-              <article>
-                <small>{copy.tower.statusLabel}</small>
-                <strong>{copy.tower.status}</strong>
-                <span className='pc-v6-status pc-v6-status-blocked'><TriangleAlert size={16} />{copy.tower.deviation}</span>
-              </article>
-              <article>
-                <small>{copy.tower.ownerLabel}</small>
-                <strong>{copy.tower.owner}</strong>
-                <span>{copy.tower.deadline}</span>
-              </article>
-              <article>
-                <small>{copy.tower.moneyLabel}</small>
-                <strong>{copy.tower.money}</strong>
-                <span className='pc-v6-status pc-v6-status-pending'><CircleDollarSign size={16} />{copy.tower.release}</span>
-              </article>
-              <article>
-                <small>{copy.tower.nextLabel}</small>
-                <strong>{copy.tower.next}</strong>
-                <span>{copy.tower.nextNote}</span>
-              </article>
+            <div className={styles.solutionBar}>
+              <Link2 aria-hidden='true' />
+              <div><strong>{story.heroMap.solution}</strong><span>{story.heroMap.solutionText}</span></div>
             </div>
-            <div id='tai' className='pc-v6-tai-strip pc-v6-tower-intelligence'>
-              <Sparkles size={18} aria-hidden='true' />
-              <div><strong>{towerTaiTitle}</strong><span>{copy.tower.taiText}</span></div>
-              <PublicExperienceLink
-                href={taiHref}
-                className='pc-v6-tower-intelligence-link'
-                eventName='open_tai'
-                locale={locale}
-                params={{ source: 'hero_cockpit_unified' }}
-                aria-label={copy.hero.tertiary}
-              >
-                <ArrowRight size={18} aria-hidden='true' />
-              </PublicExperienceLink>
-            </div>
-          </div>
+          </aside>
         </section>
 
-        <section id='participants' className='pc-v6-section pc-v6-scenario'>
-          <SectionHeader eyebrow={copy.scenario.eyebrow} title={copy.scenario.title} lead={copy.scenario.lead} />
-          <PublicDealRoleScenario locale={locale} />
-          <div className='pc-v6-scenario-footer'>
-            <span>{copy.scenario.evidence}</span>
-            <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'scenario_unified' }}>
-              {copy.scenario.cta}<ArrowRight size={18} />
-            </PublicExperienceLink>
+        <section id='deal-path' className={`pc-v6-section ${styles.processSection}`} aria-labelledby='pc-v6-process-title'>
+          <div id='pc-v6-process-title'><SectionHeader eyebrow={story.process.eyebrow} title={story.process.title} lead={story.process.lead} /></div>
+          <div className={styles.processGrid}>
+            {story.process.steps.map((step) => (
+              <article key={step.index}>
+                <span className={styles.processIndex}>{step.index}</span>
+                <div><strong>{step.title}</strong><p>{step.text}</p></div>
+              </article>
+            ))}
           </div>
-        </section>
-
-        <PublicRoleEntrances locale={locale} />
-
-        <section className='pc-v6-category'>
-          <SectionHeader eyebrow={copy.category.eyebrow} title={copy.category.title} lead={copy.category.text} />
-          <div className='pc-v6-compare'>
-            <article><span>{copy.category.marketplace}</span><p>{copy.category.marketplaceText}</p></article>
-            <ArrowRight aria-hidden='true' />
-            <article className='is-platform'><span>{copy.category.platform}</span><p>{copy.category.platformText}</p></article>
+          <div className={styles.lifecycleSummary}>
+            <Waypoints aria-hidden='true' />
+            <div><strong>{story.process.lifecycleLabel}</strong><span>{story.process.lifecycleText}</span></div>
           </div>
-        </section>
-
-        <section id='deal-path' className='pc-v6-section'>
-          <SectionHeader eyebrow={copy.lifecycle.eyebrow} title={copy.lifecycle.title} lead={copy.lifecycle.lead} />
           <div className='pc-v6-lifecycle' role='list' tabIndex={0} aria-label={copy.lifecycle.title}>
             {copy.lifecycle.phases.map((phase, index) => <div key={phase} role='listitem'><i>{index + 1}</i><span>{phase}</span></div>)}
           </div>
           <p className='pc-v6-scroll-hint' style={{ color: '#596a61' }}>{copy.lifecycle.hint}</p>
         </section>
 
-        <section className='pc-v6-trust-strip pc-v6-trust-after-lifecycle' aria-label={copy.trust.label}>
-          {copy.trust.items.map(([title, text]) => <article key={title}><strong>{title}</strong><span>{text}</span></article>)}
-        </section>
+        <section id='tai' className={`pc-v6-section ${styles.aiSection}`} aria-labelledby='pc-v6-ai-title'>
+          <div id='pc-v6-ai-title'><SectionHeader eyebrow={story.ai.eyebrow} title={story.ai.title} lead={story.ai.lead} /></div>
+          <div className={styles.aiDemo}>
+            <div className={`${styles.aiCockpit} pc-v6-control-tower pc-v6-control-tower-unified`} aria-label={copy.a11y.controlTower}>
+              <div className='pc-v6-ct-top'>
+                <div><small>{copy.tower.sampleLabel}</small><span>{copy.tower.deal}</span></div>
+                <b>{copy.tower.stage}</b>
+              </div>
+              <div className='pc-v6-ct-progress' role='progressbar' aria-label={copy.tower.progressLabel} aria-valuemin={1} aria-valuemax={5} aria-valuenow={3}>
+                <span className='is-done' /><span className='is-done' /><span className='is-active' /><span /><span />
+              </div>
+              <div className='pc-v6-ct-grid'>
+                <article><small>{copy.tower.statusLabel}</small><strong>{copy.tower.status}</strong><span className='pc-v6-status pc-v6-status-blocked'><TriangleAlert size={16} />{copy.tower.deviation}</span></article>
+                <article><small>{copy.tower.ownerLabel}</small><strong>{copy.tower.owner}</strong><span>{copy.tower.deadline}</span></article>
+                <article><small>{copy.tower.moneyLabel}</small><strong>{copy.tower.money}</strong><span className='pc-v6-status pc-v6-status-pending'><CircleDollarSign size={16} />{copy.tower.release}</span></article>
+                <article><small>{copy.tower.nextLabel}</small><strong>{copy.tower.next}</strong><span>{copy.tower.nextNote}</span></article>
+              </div>
+              <div className='pc-v6-tai-strip pc-v6-tower-intelligence'>
+                <Sparkles size={18} aria-hidden='true' />
+                <div><strong>{towerTaiTitle}</strong><span>{copy.tower.taiText}</span></div>
+                <PublicExperienceLink href={taiHref} className='pc-v6-tower-intelligence-link' eventName='open_tai' locale={locale} params={{ source: 'ai_demo_control_tower' }} aria-label={story.ai.cta}>
+                  <ArrowRight size={18} aria-hidden='true' />
+                </PublicExperienceLink>
+              </div>
+            </div>
 
-        <section id='money' className='pc-v6-section pc-v6-money'>
-          <SectionHeader eyebrow={copy.money.eyebrow} title={copy.money.title} lead={copy.money.lead} />
-          <div className='pc-v6-money-flow'><Landmark size={24} /><strong>{copy.money.chain}</strong></div>
-          <div className='pc-v6-money-steps'>{copy.money.steps.map((step) => <span key={step}><CheckCircle2 size={16} />{step}</span>)}</div>
-          <p>{copy.money.exception}</p>
-        </section>
-
-        <section id='integrations' className='pc-v6-section pc-v6-integrations'>
-          <SectionHeader eyebrow={copy.integrations.eyebrow} title={copy.integrations.title} lead={copy.integrations.lead} />
-          <div className='pc-v6-integration-map'>
-            <div className='pc-v6-integration-hub'><small>{copy.integrations.hubLabel}</small><strong>{copy.integrations.hub}</strong><span>{copy.integrations.hubText}</span></div>
-            <div className='pc-v6-integration-grid'>{copy.integrations.items.map(([name, status]) => <article key={name}><strong>{name}</strong><span>{status}</span></article>)}</div>
+            <div className={styles.aiAnalysis} aria-label={story.ai.title} data-testid='platform-v7-ai-analysis'>
+              <div className={styles.aiAnalysisHeader}><ScanSearch aria-hidden='true' /><strong>TAI · Transparent Agro Intelligence</strong></div>
+              <div className={styles.analysisGrid}>
+                <article><span>{story.ai.detectedLabel}</span><strong>{story.ai.detected}</strong></article>
+                <article><span>{story.ai.conclusionLabel}</span><strong>{story.ai.conclusion}</strong></article>
+                <article><span>{story.ai.impactLabel}</span><strong>{story.ai.impact}</strong></article>
+                <article><span>{story.ai.nextLabel}</span><strong>{story.ai.next}</strong></article>
+              </div>
+              <div className={styles.aiEvidence}>
+                <span><b>{story.ai.sourceLabel}:</b> {story.ai.source}</span>
+                <span><b>{story.ai.confidenceLabel}:</b> {story.ai.confidence}</span>
+              </div>
+              <PublicExperienceLink href={taiHref} className={styles.aiLink} eventName='open_tai' locale={locale} params={{ source: 'structured_ai_analysis' }}>
+                {story.ai.cta}<ArrowRight size={17} aria-hidden='true' />
+              </PublicExperienceLink>
+            </div>
           </div>
-          <p className='pc-v6-integration-note'>{copy.integrations.note}</p>
         </section>
 
-        <section className='pc-v6-section pc-v6-crops'>
-          <SectionHeader eyebrow={copy.crops.eyebrow} title={copy.crops.title} lead={copy.crops.lead} />
-          <div className='pc-v6-crop-grid'>{copy.crops.groups.map(([name, status]) => <article key={name}><strong>{name}</strong><span>{status}</span></article>)}</div>
+        <section id='participants' className={`pc-v6-section pc-v6-scenario ${styles.roleSection}`} aria-labelledby='pc-v6-roles-title'>
+          <div id='pc-v6-roles-title'><SectionHeader eyebrow={story.roles.eyebrow} title={story.roles.title} lead={story.roles.lead} /></div>
+          <PublicDealRoleScenario locale={locale} />
+          <div className={styles.roleFooter}>
+            <span>{story.roles.proof}</span>
+            <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'twelve_role_scenario' }}>
+              {story.roles.cta}<ArrowRight size={18} />
+            </PublicExperienceLink>
+          </div>
         </section>
 
-        <section id='maturity' className='pc-v6-section pc-v6-assurance'>
-          <SectionHeader eyebrow={copy.federal.eyebrow} title={copy.federal.title} lead={copy.federal.lead} />
-          <div className='pc-v6-pillar-grid'>{copy.federal.pillars.map(([title, text]) => <div key={title}><ShieldCheck size={19} /><span><strong>{title}</strong><small>{text}</small></span></div>)}</div>
-          <div className='pc-v6-assurance-foot'><CheckCircle2 size={20} /><span>{copy.federal.foot}</span></div>
+        <section id='maturity' className={`pc-v6-section pc-v6-assurance ${styles.maturitySection}`} aria-labelledby='pc-v6-maturity-title'>
+          <div id='pc-v6-maturity-title'><SectionHeader eyebrow={story.maturity.eyebrow} title={story.maturity.title} lead={story.maturity.lead} /></div>
+          <div className={styles.metrics}>
+            {story.maturity.metrics.map(([value, label]) => <article key={label}><strong>{value}</strong><span>{label}</span></article>)}
+          </div>
+          <div className={styles.maturityPillars}>
+            {story.maturity.pillars.map(([title, text]) => <article key={title}><ShieldCheck aria-hidden='true' /><div><strong>{title}</strong><span>{text}</span></div></article>)}
+          </div>
+          <div className={styles.maturityFoot}><CheckCircle2 aria-hidden='true' /><span>{story.maturity.foot}</span></div>
+          <div className={`pc-v6-actions ${styles.maturityActions}`}>
+            <PublicExperienceLink href='#connect-organization' className='pc-v6-primary' eventName='open_organization_connect' locale={locale} params={{ source: 'maturity_block' }}>
+              {story.maturity.primary}<ArrowRight size={18} />
+            </PublicExperienceLink>
+            <PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'maturity_block' }}>
+              {story.maturity.secondary}<ArrowRight size={17} />
+            </PublicExperienceLink>
+          </div>
         </section>
 
         <OrganizationConnectForm locale={locale} />
-
-        <section className='pc-v6-section pc-v6-faq'>
-          <SectionHeader eyebrow={copy.faq.eyebrow} title={copy.faq.title} />
-          <div className='pc-v6-faq-list'>{copy.faq.items.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div>
-        </section>
-
-        <section className='pc-v6-final'>
-          <h2>{copy.final.title}</h2><p>{copy.final.lead}</p>
-          <div className='pc-v6-actions'>
-            <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'final_unified' }}>
-              {copy.final.secondary}<ArrowRight size={18} />
-            </PublicExperienceLink>
-            <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='open_organization_connect' locale={locale} params={{ source: 'final_unified' }}>
-              {copy.final.primary}<ArrowRight size={17} />
-            </PublicExperienceLink>
-          </div>
-        </section>
       </div>
 
       <footer className='pc-v6-footer'>
