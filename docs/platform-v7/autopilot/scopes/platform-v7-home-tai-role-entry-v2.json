@@ -3,9 +3,10 @@
   "branch": "agent/platform-v7-mobile-density-final",
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
-  "validationRevision": 11,
+  "validationRevision": 12,
   "allowedPaths": [
     ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
+    "apps/web/app/platform-v7/page.tsx",
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
     "apps/web/components/platform-v7/PlatformV7HomeMobileDensity.css",
     "apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts",
