@@ -3,8 +3,9 @@
   "branch": "agent/platform-v7-mobile-density-final",
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
-  "validationRevision": 9,
+  "validationRevision": 10,
   "allowedPaths": [
+    ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
     "apps/web/tests/unit/platformV7MobileDensityFinal.test.ts",
     "docs/platform-v7/autopilot/scopes/platform-v7-home-tai-role-entry-v2.json"
