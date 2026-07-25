@@ -9,6 +9,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const enhancementCss = read('components/platform-v7/PlatformV7HomeEnhancements.module.css');
   const mobileDensityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
+  const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
   const copy = read('i18n/platform-v7-home-enhancements.ts');
   const head = read('app/platform-v7/head.tsx');
   const contactDock = read('components/platform-v7/PublicContactDock.tsx');
@@ -35,22 +36,25 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(enhancements).not.toContain('aria-label={`${item.title}: ${item.cta}`}');
   });
 
-  it('places the concrete Deal deviation before category and lifecycle explanation', () => {
+  it('places the concrete Deal workspace before role, category and lifecycle explanation', () => {
     const scenarioIndex = home.indexOf("id='participants'");
+    const rolesIndex = home.indexOf('<PublicRoleEntrances locale={locale} />');
     const categoryIndex = home.indexOf("className='pc-v6-category'");
     const lifecycleIndex = home.indexOf("id='deal-path'");
     expect(scenarioIndex).toBeGreaterThan(-1);
-    expect(categoryIndex).toBeGreaterThan(scenarioIndex);
+    expect(rolesIndex).toBeGreaterThan(scenarioIndex);
+    expect(categoryIndex).toBeGreaterThan(rolesIndex);
     expect(lifecycleIndex).toBeGreaterThan(categoryIndex);
   });
 
-  it('keeps one dominant hero conversion and makes the Deal walkthrough dominant again at the close', () => {
+  it('keeps one dominant hero conversion and shows the product cockpit before proof chips', () => {
     const firstHero = home.slice(home.indexOf("className='pc-v6-hero'"), home.indexOf("className='pc-v6-trust-strip'"));
     expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='hero_primary_cta'");
     expect(firstHero).toContain("eventName='hero_secondary_cta'");
-    expect(firstHero).toContain('<HeroTaiEntry locale={locale} taiHref={taiHref} />');
-    expect(enhancements).toContain("eventName='hero_tai_explainer_open'");
+    expect(firstHero.indexOf("className='pc-v6-control-tower'")).toBeGreaterThan(firstHero.indexOf("className='pc-v6-hero-copy'"));
+    expect(firstHero.indexOf("className='pc-v6-hero-proofs'")).toBeGreaterThan(firstHero.indexOf("className='pc-v6-control-tower'"));
+    expect(firstHero).toContain("className='pc-v6-tai-strip'");
 
     const finalSection = home.slice(home.indexOf("className='pc-v6-final'"));
     const dealPrimary = finalSection.indexOf("href={dealHref} className='pc-v6-primary'");
@@ -59,23 +63,22 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(connectSecondary).toBeGreaterThan(dealPrimary);
   });
 
-  it('explains TAI by name, purpose, reasoning path, monetary impact and human boundary in RU EN ZH', () => {
+  it('defines TAI as a distinct agribusiness product embedded in Deal execution', () => {
     expect(home).toContain("href='#tai'");
-    expect(copy.match(/TAI — Transparent Agro Intelligence/g)?.length).toBe(3);
-    expect(copy).toContain('Для чего нужен TAI');
-    expect(copy).toContain('Влияние на Сделку');
+    expect(home).toContain('Отдельный AI-продукт для агробизнеса');
+    expect(home).toContain('Independent agribusiness AI product');
+    expect(home).toContain('独立的农业商业 AI 产品');
+    expect(home).toContain('Собственный операционный интеллект для агробизнеса');
+    expect(home).toContain('Deal Intelligence');
+    expect(home).toContain('Document Intelligence');
+    expect(home).toContain('<TaiImpact locale={locale} />');
+    expect(home).toContain('<TaiWorkflow locale={locale} />');
+    expect(home).toContain('остаётся под контролем человека');
     expect(copy).toContain('Как TAI формирует ответ');
     expect(copy).toContain('Понимает контекст');
     expect(copy).toContain('Находит отклонение');
     expect(copy).toContain('Показывает основание');
     expect(copy).toContain('Готовит действие');
-    expect(copy).toContain('для подтверждения человеком');
-    expect(copy).toContain('What TAI is for');
-    expect(copy).toContain('TAI 的用途');
-    expect(home).toContain('<TaiDefinition locale={locale} />');
-    expect(home).toContain('<TaiImpact locale={locale} />');
-    expect(home).toContain('<TaiWorkflow locale={locale} />');
-    expect(enhancements).toContain("className={`${styles.heroTaiEntry} pc-v6-hero-tai-entry`}");
   });
 
   it('does not introduce unverified business proof or the rejected partner-positioning sentence', () => {
@@ -142,13 +145,15 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
 
   it('eliminates reserved blank sections and compacts the mobile conversion path', () => {
     expect(enhancements).toContain("import './PlatformV7HomeMobileDensity.css'");
+    expect(enhancements).toContain("import './PlatformV7HomeFinalPolish.css'");
+    expect(enhancements).not.toContain('PlatformV7HomeHeroAcceptance.css');
     expect(mobileDensityCss).toContain('content-visibility: visible !important');
     expect(mobileDensityCss).toContain('contain-intrinsic-size: none !important');
     expect(mobileDensityCss).toContain('.pc-v7-public-entry #connect-organization');
-    expect(mobileDensityCss).toContain('flex-basis: calc(100% - 18px) !important');
+    expect(finalCss).toContain('.pc-v7-public-entry .pc-v6-role-grid');
+    expect(finalCss).toContain('scroll-snap-type: x mandatory');
     expect(enhancements).toContain("className={`${styles.roleGrid} pc-v6-role-grid`}");
     expect(enhancements).toContain("className={`${styles.roleCard} pc-v6-role-card`}");
-    expect(enhancements).toContain("className={`${styles.taiDefinition} pc-v6-tai-definition`}");
     expect(enhancements).toContain("className={`${styles.taiImpact} pc-v6-tai-impact`}");
   });
 
@@ -160,7 +165,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(enhancementCss).toContain('@media (min-width: 768px)');
     expect(enhancementCss).toContain('@media (min-width: 1100px)');
     expect(enhancementCss).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))');
-    expect(enhancementCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(finalCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(enhancementCss).toContain('@media (forced-colors: active)');
   });
 });
