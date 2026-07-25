@@ -9,7 +9,7 @@ export default function Loading() {
         padding: 24,
         background: '#fbfcf9',
         color: '#071611',
-        fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
       }}
     >
       <section className='pc-root-loading-live' style={{ display: 'grid', gap: 12, justifyItems: 'center', textAlign: 'center' }}>
