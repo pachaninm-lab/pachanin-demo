@@ -11,6 +11,7 @@
 
 .heroTitle {
   max-width: 14ch !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
   font-size: clamp(50px, 5vw, 66px) !important;
   line-height: .96 !important;
   letter-spacing: -.052em !important;
@@ -29,6 +30,7 @@
 .heroLead {
   max-width: 60ch !important;
   margin-top: 18px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
   font-size: 18px !important;
   line-height: 1.48 !important;
 }
@@ -123,8 +125,8 @@
   .heroLead {
     max-width: 42ch !important;
     margin-top: 12px !important;
-    font-size: 15px !important;
-    line-height: 1.42 !important;
+    font-size: 14.5px !important;
+    line-height: 1.38 !important;
   }
 
   .heroActions {
