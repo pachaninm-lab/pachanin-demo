@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PRODUCTION-WEB-SINGLE-DISPATCH-AUTHORITY-2026-07-25",
+  "branch": "fix/production-web-single-dispatch-authority",
+  "status": "active",
+  "maturityBoundary": "production-release-orchestration-idempotency-only",
+  "globalProgramStateUnchanged": "This change does not advance application, banking, integration or TAI production maturity. It only prevents duplicate exact-SHA web deployment dispatches.",
+  "allowedPaths": [
+    ".github/workflows/production-web-exact-sha-image-gate.yml",
+    "docs/platform-v7/autopilot/scopes/production-web-single-dispatch-authority-2026-07-25.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/**",
+    "packages/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The image gate checks exact live acceptance before dispatching a release",
+    "An already-live exact SHA records SKIPPED_ALREADY_LIVE and does not dispatch",
+    "A non-live exact SHA still dispatches the bounded production workflow",
+    "No production credential, application runtime or deployment script is changed"
+  ]
+}
