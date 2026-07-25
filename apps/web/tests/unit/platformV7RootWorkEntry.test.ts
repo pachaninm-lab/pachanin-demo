@@ -91,7 +91,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   });
 
   it('keeps TAI visible inside Deal execution while evidence details remain on the dedicated product page', () => {
-    expect(heroCopy).toContain("accent: 'TAI на каждом этапе.'");
+    expect(heroCopy).toContain("accent: 'TAI помогает на каждом этапе.'");
     expect(heroCopy).toContain('TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
     expect(home).toContain("id='tai'");
     expect(home).toContain('TAI нашёл две причины остановки');
@@ -138,8 +138,8 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(homeCopy).toContain('const zh: HomeCopy =');
     expect(homeCopy).not.toContain('...ru');
     expect(homeCopy).toContain("locale === 'en' ? en : locale === 'zh' ? zh : ru");
-    expect(heroCopy).toContain("accent: 'TAI at every stage.'");
-    expect(heroCopy).toContain("accent: 'TAI 贯穿每个阶段。'");
+    expect(heroCopy).toContain("accent: 'TAI supports every stage.'");
+    expect(heroCopy).toContain("accent: 'TAI 支持每个阶段。'");
     expect(home).toContain('copy.a11y.nav');
     expect(home).toContain('copy.footer.privacy');
   });
