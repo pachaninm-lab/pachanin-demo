@@ -42,7 +42,13 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(finalCss).toContain('font-size: clamp(34px, 8.45vw, 37px) !important');
     expect(finalCss).toContain('gap: 12px !important');
     expect(finalCss).toContain('min-height: 54px !important');
+    expect(homeCopy).toContain("title: 'Платформа ведёт Сделку после выбора цены'");
+    expect(homeCopy).toContain("title: 'Выплата — по подтверждённым событиям'");
+    expect(homeCopy).toContain("title: 'Критические действия требуют основания'");
     expect(homeCopy).toContain("title: 'Подключите организацию к контуру Сделки'");
+    expect(homeCopy).not.toContain("title: 'Платформа не заканчивается после выбора цены'");
+    expect(homeCopy).not.toContain("title: 'Выплата опирается на подтверждённые события'");
+    expect(homeCopy).not.toContain("title: 'Критические действия имеют проверяемое основание'");
     expect(homeCopy).not.toContain("title: 'Подключите организацию к единому контуру Сделки'");
     expect(formCss).toContain('.assurances a { width: fit-content; min-height: 44px;');
     expect(formCss).toContain('.error button { min-height: 44px;');
