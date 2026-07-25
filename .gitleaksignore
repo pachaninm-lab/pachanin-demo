@@ -34,3 +34,7 @@ ecdc1130ca1bc424f3ccecb072115e304722c971:apps/tai/tai/cpu_benchmark_execution.py
 # False positive: deterministic SDIZ idempotency test fixture carried verbatim out of the
 # workflow block scalar into the extracted remediation program, not a credential.
 35a5abc736593d472b2d6a2d19c9ac1666242dbd:.github/scripts/pc-crop-08f-sdiz-remediation.py:generic-api-key:59
+
+# False positive: the same deterministic SDIZ idempotency test fixture at its original
+# location inside the workflow block scalar, surfaced when a wider push range was scanned.
+72c83adf77d1c7a42f190e1960bcf4d22674f740:.github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126
