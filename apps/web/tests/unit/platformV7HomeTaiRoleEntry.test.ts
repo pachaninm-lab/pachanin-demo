@@ -72,6 +72,15 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(home).toContain('<TaiWorkflow locale={locale} />');
   });
 
+  it('keeps contact dock labels at full contrast while visibility and transform handle hiding', () => {
+    expect(enhancements).toContain('CONTACT_DOCK_CONTRAST_BOUNDARY');
+    expect(enhancements).toContain('opacity: 1 !important');
+    expect(enhancements).toContain('transition: transform .2s ease !important');
+    expect(enhancements).toContain(".pc-public-contact-dock-action:disabled");
+    expect(enhancements).toContain('-webkit-text-fill-color: currentColor');
+    expect(enhancements).not.toContain('transition: transform .2s ease, opacity');
+  });
+
   it('does not introduce unverified business proof or the rejected partner-positioning sentence', () => {
     const combined = `${home}\n${enhancements}\n${copy}\n${head}`.toLowerCase();
     const forbidden = [
