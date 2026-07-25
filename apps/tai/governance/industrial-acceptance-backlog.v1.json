@@ -1,10 +1,7 @@
 {
   "discovery": {
     "exact_main_sha": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
-    "failing_main_workflows": [
-      ".github/workflows/pc-crop-08f-sync-main.yml",
-      ".github/workflows/tai-gateway-ui-readonly-binding.yml"
-    ],
+    "failing_main_workflows": [],
     "generated_at": "2026-07-25T14:10:00Z",
     "open_issues": [
       2102,
@@ -151,15 +148,14 @@
       "title": "All active TAI branches are synchronized with exact main"
     },
     {
-      "blocking_reason": "tai-gateway-ui-readonly-binding.yml and pc-crop-08f-sync-main.yml are invalid YAML and fail at startup on every push to main",
       "evidence_refs": [
-        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160676433",
-        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160676609"
+        "scripts/check-workflow-syntax.py",
+        "git-commit:714b848daaa643085784a202c8a690c2d5ce3c82"
       ],
       "item_id": "A.05",
       "mandatory": true,
       "stage": "A",
-      "status": "REGRESSED",
+      "status": "ACCEPTED",
       "title": "Zero failing workflows on exact main"
     },
     {
@@ -173,12 +169,14 @@
     },
     {
       "evidence_refs": [
-        "apps/tai/tai/industrial_gap_report.py"
+        "apps/tai/tai/industrial_gap_report.py",
+        "apps/tai/tai/industrial_gap_report_cli.py",
+        "apps/tai/governance/industrial-acceptance-backlog.v1.json"
       ],
       "item_id": "A.07",
       "mandatory": true,
       "stage": "A",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "Machine-readable acceptance backlog and derived gap report on exact main"
     },
     {
@@ -252,21 +250,25 @@
       "title": "Clean restore from immutable storage with re-verified digests"
     },
     {
-      "blocking_reason": "read-only preview runtime is unmerged and has never executed on the protected host",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30170949129",
+        "git-commit:b78b169a21e10aa890105b14f3712b091b7fe038"
+      ],
       "item_id": "B.08",
       "mandatory": true,
       "stage": "B",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Dedicated model host serves Qwen on loopback with memory and concurrency limits"
     },
     {
-      "blocking_reason": "depends on B.08 model-host execution",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30170949129",
+        "apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh"
+      ],
       "item_id": "B.09",
       "mandatory": true,
       "stage": "B",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Raw prompt and response cleanup with proven listener teardown"
     },
     {
@@ -414,8 +416,10 @@
       "title": "RU/EN/ZH, typo, translit, adversarial and leakage evaluation suite"
     },
     {
-      "blocking_reason": "requires owner-appointed authenticated domain reviewers that do not yet exist",
-      "evidence_refs": [],
+      "blocking_reason": "gold-set-authority.mjs --require-accepted exits 2 with EXPERT_REVIEWS_MISSING: 0 of 58 cases reviewed, corpus and protocol present on exact main",
+      "evidence_refs": [
+        "docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs"
+      ],
       "item_id": "E.06",
       "mandatory": true,
       "stage": "E",
@@ -597,12 +601,13 @@
     {
       "evidence_refs": [
         "apps/tai/tai/read_tool_contracts.py",
-        "apps/tai/tai/tool_planner.py"
+        "apps/tai/tai/tool_planner.py",
+        "apps/tai/tests/test_read_tool_contracts.py"
       ],
       "item_id": "I.04",
       "mandatory": true,
       "stage": "I",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "Model cannot mint action ids, select tenant or role, or self-confirm"
     },
     {

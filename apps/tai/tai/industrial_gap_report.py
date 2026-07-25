@@ -27,6 +27,7 @@ from typing import Any, Final
 from tai.git_oid import validate_git_oid
 
 __all__ = [
+    "COMPLETION_SCOPE",
     "AcceptanceBacklog",
     "AcceptanceItem",
     "AcceptanceStatus",
@@ -48,6 +49,11 @@ __all__ = [
 BACKLOG_SCHEMA: Final = "tai.industrial-acceptance-backlog.v1"
 GAP_REPORT_SCHEMA: Final = "tai.current-industrial-gap-report.v1"
 MANIFEST_SCHEMA: Final = "tai.production-operational-manifest.v1"
+
+COMPLETION_SCOPE: Final = (
+    "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. "
+    "Not overall TAI implementation progress and not product readiness."
+)
 
 PRODUCTION_PROVIDER: Final = "REG.RU"
 PRODUCTION_REGION: Final = "RU"
@@ -195,6 +201,11 @@ class BacklogTotals:
             "blocked": self.blocked,
             "completion_formula": "100 * mandatory_accepted / mandatory_total",
             "completion_percent": self.completion_percent,
+            # Read once as product readiness, which it is not, and never again. This
+            # counts readiness evidence gates that have accepted evidence on exact main.
+            # A subsystem can be fully implemented and contribute nothing here until its
+            # gate has evidence, so the number floors well below what is actually built.
+            "completion_scope": COMPLETION_SCOPE,
             "mandatory_accepted": self.mandatory_accepted,
             "mandatory_total": self.mandatory_total,
             "regressed": self.regressed,

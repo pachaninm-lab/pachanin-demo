@@ -43,7 +43,7 @@
     "status": "NOT_ATTESTED",
     "total": 10
   },
-  "final_status": "FAIL",
+  "final_status": "NOT_ATTESTED",
   "gateway_acceptance": {
     "accepted": 0,
     "blocking_items": [
@@ -60,15 +60,13 @@
   },
   "generated_at": "2026-07-25T14:10:00Z",
   "governance_acceptance": {
-    "accepted": 3,
+    "accepted": 5,
     "blocking_items": [
       "A.04",
-      "A.05",
-      "A.06",
-      "A.07"
+      "A.06"
     ],
     "stage": "A",
-    "status": "FAIL",
+    "status": "NOT_ATTESTED",
     "total": 7
   },
   "infrastructure": {
@@ -131,9 +129,7 @@
   },
   "open_blockers": [
     "A.04",
-    "A.05",
     "A.06",
-    "A.07",
     "B.01",
     "B.02",
     "B.03",
@@ -141,8 +137,6 @@
     "B.05",
     "B.06",
     "B.07",
-    "B.08",
-    "B.09",
     "C.01",
     "C.02",
     "C.03",
@@ -179,7 +173,6 @@
     "I.01",
     "I.02",
     "I.03",
-    "I.04",
     "J.01",
     "J.02",
     "J.03",
@@ -228,7 +221,7 @@
     "total": 5
   },
   "runtime_acceptance": {
-    "accepted": 0,
+    "accepted": 2,
     "blocking_items": [
       "B.01",
       "B.02",
@@ -236,21 +229,18 @@
       "B.04",
       "B.05",
       "B.06",
-      "B.07",
-      "B.08",
-      "B.09"
+      "B.07"
     ],
     "stage": "B",
     "status": "NOT_ATTESTED",
     "total": 9
   },
   "safe_tools_acceptance": {
-    "accepted": 0,
+    "accepted": 1,
     "blocking_items": [
       "I.01",
       "I.02",
-      "I.03",
-      "I.04"
+      "I.03"
     ],
     "stage": "I",
     "status": "NOT_ATTESTED",
@@ -258,14 +248,15 @@
   },
   "schema": "tai.production-operational-manifest.v1",
   "totals": {
-    "accepted": 3,
-    "blocked": 31,
+    "accepted": 8,
+    "blocked": 29,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 4.23,
-    "mandatory_accepted": 3,
+    "completion_percent": 11.27,
+    "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
+    "mandatory_accepted": 8,
     "mandatory_total": 71,
-    "regressed": 1,
-    "remaining": 68,
+    "regressed": 0,
+    "remaining": 63,
     "total": 71
   }
 }

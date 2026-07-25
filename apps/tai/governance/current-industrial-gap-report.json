@@ -9,25 +9,11 @@
       "title": "All active TAI branches are synchronized with exact main"
     },
     {
-      "item_id": "A.05",
-      "reason": "tai-gateway-ui-readonly-binding.yml and pc-crop-08f-sync-main.yml are invalid YAML and fail at startup on every push to main",
-      "stage": "A",
-      "status": "REGRESSED",
-      "title": "Zero failing workflows on exact main"
-    },
-    {
       "item_id": "A.06",
       "reason": "8 TAI pull requests are open concurrently with overlapping scope and unmerged bases",
       "stage": "A",
       "status": "BLOCKED",
       "title": "Open TAI pull requests reduced to single-scope review-clean changes"
-    },
-    {
-      "item_id": "A.07",
-      "reason": "not yet accepted",
-      "stage": "A",
-      "status": "IN_PROGRESS",
-      "title": "Machine-readable acceptance backlog and derived gap report on exact main"
     },
     {
       "item_id": "B.01",
@@ -77,20 +63,6 @@
       "stage": "B",
       "status": "BLOCKED",
       "title": "Clean restore from immutable storage with re-verified digests"
-    },
-    {
-      "item_id": "B.08",
-      "reason": "read-only preview runtime is unmerged and has never executed on the protected host",
-      "stage": "B",
-      "status": "BLOCKED",
-      "title": "Dedicated model host serves Qwen on loopback with memory and concurrency limits"
-    },
-    {
-      "item_id": "B.09",
-      "reason": "depends on B.08 model-host execution",
-      "stage": "B",
-      "status": "BLOCKED",
-      "title": "Raw prompt and response cleanup with proven listener teardown"
     },
     {
       "item_id": "C.01",
@@ -206,7 +178,7 @@
     },
     {
       "item_id": "E.06",
-      "reason": "requires owner-appointed authenticated domain reviewers that do not yet exist",
+      "reason": "gold-set-authority.mjs --require-accepted exits 2 with EXPERT_REVIEWS_MISSING: 0 of 58 cases reviewed, corpus and protocol present on exact main",
       "stage": "E",
       "status": "BLOCKED",
       "title": "Authenticated human reviewer attestation without LLM-only judging"
@@ -345,13 +317,6 @@
       "title": "Separate acceptance authority per sensitive write class"
     },
     {
-      "item_id": "I.04",
-      "reason": "not yet accepted",
-      "stage": "I",
-      "status": "IN_PROGRESS",
-      "title": "Model cannot mint action ids, select tenant or role, or self-confirm"
-    },
-    {
       "item_id": "J.01",
       "reason": "not yet accepted",
       "stage": "J",
@@ -480,10 +445,7 @@
   ],
   "document_intelligence_status": "NOT_STARTED",
   "exact_main_sha": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
-  "failing_main_workflows": [
-    ".github/workflows/pc-crop-08f-sync-main.yml",
-    ".github/workflows/tai-gateway-ui-readonly-binding.yml"
-  ],
+  "failing_main_workflows": [],
   "gateway_status": "NOT_ACTIVATED",
   "generated_at": "2026-07-25T14:10:00Z",
   "knowledge_status": "PARTIAL",
@@ -584,13 +546,11 @@
     3197,
     3200
   ],
-  "operational_acceptance_status": "FAIL",
+  "operational_acceptance_status": "NOT_ATTESTED",
   "production_deployment_status": "NOT_ACTIVATED",
   "recommended_execution_order": [
     "A.04",
-    "A.05",
     "A.06",
-    "A.07",
     "B.01",
     "B.02",
     "B.03",
@@ -598,8 +558,6 @@
     "B.05",
     "B.06",
     "B.07",
-    "B.08",
-    "B.09",
     "C.01",
     "C.02",
     "C.03",
@@ -636,7 +594,6 @@
     "I.01",
     "I.02",
     "I.03",
-    "I.04",
     "J.01",
     "J.02",
     "J.03",
@@ -669,14 +626,15 @@
     "tai/ap12b-assign-logistics-confirmed-action"
   ],
   "totals": {
-    "accepted": 3,
-    "blocked": 31,
+    "accepted": 8,
+    "blocked": 29,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 4.23,
-    "mandatory_accepted": 3,
+    "completion_percent": 11.27,
+    "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
+    "mandatory_accepted": 8,
     "mandatory_total": 71,
-    "regressed": 1,
-    "remaining": 68,
+    "regressed": 0,
+    "remaining": 63,
     "total": 71
   },
   "ui_status": "NOT_ACTIVATED"

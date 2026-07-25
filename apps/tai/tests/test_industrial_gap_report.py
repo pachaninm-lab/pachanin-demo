@@ -300,6 +300,19 @@ class TestTotals:
             "100 * mandatory_accepted / mandatory_total"
         )
 
+    def test_percentage_states_what_it_counts(self) -> None:
+        """The number was read as overall product readiness. It never was that.
+
+        It counts readiness evidence gates carrying accepted exact-main evidence. A
+        subsystem can be fully built and still contribute nothing until its gate has
+        evidence, so the figure floors far below what exists — which is exactly the
+        misreading this label exists to prevent.
+        """
+        scope = _backlog(_accepted("A.01")).totals().to_json_object()["completion_scope"]
+        assert scope.startswith("READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE")
+        assert "Not overall TAI implementation progress" in scope
+        assert "not product readiness" in scope
+
 
 class TestManifest:
     def test_forbidden_production_provider_is_rejected(self) -> None:
@@ -449,7 +462,12 @@ class TestCli:
             str(manifest),
         ]
         assert main(["render", *arguments]) == 0
-        gap_report.write_text(gap_report.read_text(encoding="utf-8").replace("FAIL", "PASS"))
+        # Forge the number, which is what someone would actually forge. This used to
+        # rewrite the literal "FAIL", so the day the backlog stopped deriving FAIL the
+        # mutation silently became a no-op and the test passed by not testing anything.
+        forged = json.loads(gap_report.read_text(encoding="utf-8"))
+        forged["totals"]["completion_percent"] = 100.0
+        gap_report.write_text(canonical_json(forged), encoding="utf-8")
         assert main(["verify", *arguments]) == 2
 
     def test_verify_guards_the_committed_documents(self) -> None:
