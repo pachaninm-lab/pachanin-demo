@@ -11,6 +11,8 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const copy = read('i18n/platform-v7-home-enhancements.ts');
   const head = read('app/platform-v7/head.tsx');
   const contactDock = read('components/platform-v7/PublicContactDock.tsx');
+  const hydrationSupport = read('components/platform-v7/HydrationSafeChatSupport.tsx');
+  const legacyPolish = read('components/platform-v7/LegacyPublicMobileExperiencePolish.tsx');
 
   it('exposes four public task-based perspectives without client-authoritative role selection', () => {
     expect(home).toContain("href='#role-entry'");
@@ -102,6 +104,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(head).toContain('name="twitter:card"');
     expect(head).not.toContain('контур исполнения зерновой сделки');
     expect(head).not.toContain('исполнения зерновых сделок');
+    expect(head).not.toContain('platform-v7-density-fix.css');
   });
 
   it('keeps contact-dock contrast rules inside the owning component', () => {
@@ -124,6 +127,15 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(contactDock).toContain('setHiddenByScroll(isPublicMobileTop(currentY))');
     expect(contactDock).toContain("mobileQuery.addEventListener('change', syncViewportVisibility)");
     expect(contactDock).toContain('}, [assistantContext]);');
+  });
+
+  it('loads legacy public mobile CSS only outside the strategic homepage', () => {
+    expect(hydrationSupport).toContain("import { usePathname } from 'next/navigation'");
+    expect(hydrationSupport).toContain("clean === '/platform-v7'");
+    expect(hydrationSupport).toContain("clean === '/pc-public-entry/platform-v7'");
+    expect(hydrationSupport).toContain('const loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname)');
+    expect(hydrationSupport).not.toContain("import './PublicMobileExperiencePolish.css'");
+    expect(legacyPolish).toContain("import './PublicMobileExperiencePolish.css'");
   });
 
   it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {
