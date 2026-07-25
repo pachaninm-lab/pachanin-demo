@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-UNIFIED-HOME-FINAL-RELEASE-2026-07-25",
+  "branch": "release/platform-v7-unified-home-final-authority",
+  "status": "active",
+  "maturityBoundary": "exact-sha-web-publication-trigger-only",
+  "globalProgramStateUnchanged": "This scope does not claim new application, banking, integration or TAI maturity. It authorizes one operational Dockerfile comment that publishes the already accepted homepage from the current main lineage.",
+  "allowedPaths": [
+    "infra/docker/Dockerfile.web"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/**",
+    "packages/**",
+    ".github/workflows/**",
+    "infra/compose/**",
+    "infra/helm/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The release PR changes only infra/docker/Dockerfile.web",
+    "The Dockerfile runtime instructions and image contents remain unchanged",
+    "The canonical web image is labeled with the exact merge SHA",
+    "Production records DEPLOYMENT_COMPLETE=1 and LIVE_ACCEPTANCE=PASS for the exact target",
+    "RU, EN and ZH public routes and the 390x844 mobile homepage remain accepted"
+  ]
+}
