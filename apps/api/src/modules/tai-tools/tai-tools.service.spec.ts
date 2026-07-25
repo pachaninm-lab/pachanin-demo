@@ -53,6 +53,38 @@ function workspace() {
   };
 }
 
+function integrationStatus() {
+  return {
+    dealId: 'deal-2408',
+    entries: [
+      {
+        id: 'obx-1',
+        type: 'DEAL_CONFIRMED',
+        status: 'SENT',
+        retryCount: 0,
+        maxRetries: 5,
+        createdAt: '2026-07-19T02:00:00.000Z',
+        sentAt: '2026-07-19T02:00:01.000Z',
+        confirmedAt: null,
+        failedAt: null,
+        deadLetterAt: null,
+        nextRetryAt: '2026-07-19T02:00:00.000Z',
+      },
+    ],
+    returnedCount: 1,
+    truncated: false,
+    countsByStatus: { SENT: 1 },
+    deadLetterCount: 0,
+  };
+}
+
+function makeGateway(ws: unknown = workspace()) {
+  return {
+    workspace: jest.fn().mockResolvedValue(ws),
+    integrationStatus: jest.fn().mockResolvedValue(integrationStatus()),
+  };
+}
+
 const READ_ONLY_TOOLS = [
   'getDealSummary',
   'getRoleNextActions',
@@ -67,7 +99,7 @@ const READ_ONLY_TOOLS = [
 
 describe('TaiToolsService', () => {
   it('returns a bounded server-authoritative deal summary', async () => {
-    const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+    const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
 
     const result = await service.execute(
@@ -94,7 +126,7 @@ describe('TaiToolsService', () => {
   });
 
   it('creates a non-executing command draft bound to current workspace authority', async () => {
-    const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+    const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
     const identity: TaiDelegatedIdentity = {
       ...IDENTITY,
@@ -130,7 +162,7 @@ describe('TaiToolsService', () => {
 
   describe.each(READ_ONLY_TOOLS)('%s', (toolName) => {
     it('reads only the workspace the caller is already entitled to', async () => {
-      const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+      const gateway = makeGateway();
       const service = new TaiToolsService(gateway as any);
 
       await service.execute(toolName, { arguments: { dealId: 'deal-2408' } }, {
@@ -146,7 +178,7 @@ describe('TaiToolsService', () => {
     });
 
     it('refuses an undeclared argument', async () => {
-      const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+      const gateway = makeGateway();
       const service = new TaiToolsService(gateway as any);
 
       await expect(
@@ -160,7 +192,7 @@ describe('TaiToolsService', () => {
     });
 
     it('requires a deal', async () => {
-      const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+      const gateway = makeGateway();
       const service = new TaiToolsService(gateway as any);
 
       await expect(
@@ -169,8 +201,85 @@ describe('TaiToolsService', () => {
     });
   });
 
+  describe('getIntegrationStatus', () => {
+    const identity = { ...IDENTITY, toolName: 'getIntegrationStatus' } as const;
+
+    it('reads outbox state on the membership authority, not the workspace', async () => {
+      const gateway = makeGateway();
+      const service = new TaiToolsService(gateway as any);
+
+      const result = await service.execute(
+        'getIntegrationStatus',
+        { arguments: { dealId: 'deal-2408' } },
+        identity,
+      );
+
+      expect(gateway.integrationStatus).toHaveBeenCalledWith(
+        'deal-2408',
+        expect.objectContaining({ id: IDENTITY.userId, tenantId: IDENTITY.tenantId }),
+      );
+      expect(gateway.workspace).not.toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          schemaVersion: 'platform.integration-status.v1',
+          dealId: 'deal-2408',
+          returnedCount: 1,
+          truncated: false,
+          deadLetterCount: 0,
+          countsByStatus: { SENT: 1 },
+        }),
+      );
+    });
+
+    it('never relays payloads, failure text or lease identifiers', async () => {
+      const gateway = makeGateway();
+      const service = new TaiToolsService(gateway as any);
+
+      const result = await service.execute(
+        'getIntegrationStatus',
+        { arguments: { dealId: 'deal-2408' } },
+        identity,
+      );
+
+      const serialized = JSON.stringify(result);
+      for (const forbidden of [
+        'payload',
+        'lastError',
+        'leaseToken',
+        'leaseOwner',
+        'idempotencyKey',
+        'triggeredByUserId',
+      ]) {
+        expect(serialized).not.toContain(forbidden);
+      }
+    });
+
+    it('refuses an undeclared argument', async () => {
+      const gateway = makeGateway();
+      const service = new TaiToolsService(gateway as any);
+
+      await expect(
+        service.execute(
+          'getIntegrationStatus',
+          { arguments: { dealId: 'deal-2408', tenantId: 'tenant-9' } },
+          identity,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(gateway.integrationStatus).not.toHaveBeenCalled();
+    });
+
+    it('requires a deal', async () => {
+      const gateway = makeGateway();
+      const service = new TaiToolsService(gateway as any);
+
+      await expect(
+        service.execute('getIntegrationStatus', { arguments: {} }, identity),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   it('reports risks from server-derived blockers and open disputes', async () => {
-    const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+    const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
 
     const result = await service.execute(
@@ -191,7 +300,7 @@ describe('TaiToolsService', () => {
   });
 
   it('narrows a document collection to the named document', async () => {
-    const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+    const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
 
     const all = await service.execute(
@@ -213,7 +322,7 @@ describe('TaiToolsService', () => {
   });
 
   it('returns an empty projection when the named entry is not in the deal', async () => {
-    const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+    const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
 
     const result = await service.execute(
@@ -227,7 +336,7 @@ describe('TaiToolsService', () => {
   });
 
   it('separates open disputes from the full dispute history', async () => {
-    const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+    const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
 
     const result = await service.execute(
@@ -245,7 +354,7 @@ describe('TaiToolsService', () => {
     (long as any).timeline = Array.from({ length: 250 }, (_, index) => ({
       id: `ev-${index}`,
     }));
-    const gateway = { workspace: jest.fn().mockResolvedValue(long) };
+    const gateway = makeGateway(long);
     const service = new TaiToolsService(gateway as any);
 
     const result = await service.execute(
@@ -263,7 +372,7 @@ describe('TaiToolsService', () => {
   it('treats an absent collection as empty rather than malformed', async () => {
     const sparse = workspace();
     delete (sparse as any).shipments;
-    const gateway = { workspace: jest.fn().mockResolvedValue(sparse) };
+    const gateway = makeGateway(sparse);
     const service = new TaiToolsService(gateway as any);
 
     const result = await service.execute(
@@ -277,7 +386,7 @@ describe('TaiToolsService', () => {
   });
 
   it('rejects a model-selected action that is not the current server action', async () => {
-    const gateway = { workspace: jest.fn().mockResolvedValue(workspace()) };
+    const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
 
     await expect(

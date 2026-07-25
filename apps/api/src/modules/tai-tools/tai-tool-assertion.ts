@@ -13,6 +13,7 @@ export const TAI_PLATFORM_TOOL_MODES = {
   getMoneyReadiness: 'READ_ONLY',
   getDisputeStatus: 'READ_ONLY',
   getEvidenceTimeline: 'READ_ONLY',
+  getIntegrationStatus: 'READ_ONLY',
   prepareCommandDraft: 'DRAFT',
 } as const satisfies Record<string, TaiToolMode>;
 

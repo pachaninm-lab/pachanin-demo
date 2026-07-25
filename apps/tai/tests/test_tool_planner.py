@@ -216,6 +216,7 @@ class TestTheCatalogueIsOneCatalogue:
         ("Какая готовность к оплате по сделке №deal-42", "getMoneyReadiness"),
         ("Какой статус спора по сделке №deal-42", "getDisputeStatus"),
         ("Покажи хронологию по сделке №deal-42", "getEvidenceTimeline"),
+        ("Какой статус интеграции по сделке №deal-42", "getIntegrationStatus"),
         ("What is the shipment status for deal_id=deal-42", "getLogisticsStatus"),
         ("Show the evidence timeline for deal_id=deal-42", "getEvidenceTimeline"),
         ("交易编号: deal-42 的风险", "getDealRisks"),

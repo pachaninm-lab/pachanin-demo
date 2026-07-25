@@ -203,6 +203,21 @@ _INTENTS = (
             re.compile(r"(?:证据时间线|事件时间线|事件历史)"),
         ),
     ),
+    _IntentContract(
+        tool_name="getIntegrationStatus",
+        mode=ToolMode.READ_ONLY,
+        patterns=(
+            re.compile(
+                r"\b(?:статус\w*|состояни\w*)\s+(?:по\s+)?"
+                r"(?:интеграц\w*|отправк\w*\s+событ\w*|доставк\w*\s+событ\w*)",
+                re.I,
+            ),
+            re.compile(r"\b(?:ушл\w*|отправ\w*|доставл\w*)\s+(?:ли\s+)?событ\w*", re.I),
+            re.compile(r"\bintegration\s+status\b", re.I),
+            re.compile(r"\b(?:event|outbox)\s+delivery\b", re.I),
+            re.compile(r"(?:集成状态|事件投递状态)"),
+        ),
+    ),
 )
 
 # Derived, not hand-listed. This alternation used to name three tools literally, so every

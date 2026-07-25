@@ -156,6 +156,8 @@ export class TaiToolsService {
         return this.getDisputeStatus(args, user);
       case 'getEvidenceTimeline':
         return this.getEvidenceTimeline(args, user);
+      case 'getIntegrationStatus':
+        return this.getIntegrationStatus(args, user);
       case 'prepareCommandDraft':
         return this.prepareCommandDraft(args, user, identity);
       default:
@@ -305,6 +307,29 @@ export class TaiToolsService {
       eventCount: timeline.totalCount,
       truncated: timeline.truncated,
       returnedCount: timeline.events.length,
+    };
+  }
+
+  /**
+   * Outbox delivery state. Unlike the other read tools this does not project the deal
+   * workspace, because outbox rows are not in it; the gateway performs its own read on
+   * the same membership and RLS authority and returns audit-safe metadata only.
+   */
+  private async getIntegrationStatus(
+    args: JsonRecord,
+    user: RequestUser,
+  ): Promise<JsonRecord> {
+    exactKeys(args, ['dealId']);
+    const dealId = requiredPortable(args, 'dealId');
+    const status = record(await this.deals.integrationStatus(dealId, user), 'integrationStatus');
+    return {
+      schemaVersion: 'platform.integration-status.v1',
+      dealId,
+      entries: status.entries ?? [],
+      returnedCount: status.returnedCount ?? 0,
+      truncated: status.truncated ?? false,
+      countsByStatus: status.countsByStatus ?? {},
+      deadLetterCount: status.deadLetterCount ?? 0,
     };
   }
 
