@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-PRODUCTION-MOBILE-ACCEPTANCE-CONTRACT-2026-07-25",
+  "branch": "fix/platform-v7-production-mobile-acceptance-contract",
+  "status": "active",
+  "maturityBoundary": "production-mobile-test-contract-only",
+  "globalProgramStateUnchanged": "This scope does not change the public application, production runtime, banking, integrations or TAI maturity. It only aligns the production mobile acceptance selector with the already deployed accessible role-view label.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts"
+  ],
+  "forbiddenPaths": [
+    "apps/web/app/**",
+    "apps/web/components/**",
+    "apps/web/styles/**",
+    "apps/web/i18n/**",
+    "apps/api/**",
+    "packages/**",
+    ".github/workflows/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The implementation PR changes exactly one existing Playwright acceptance file",
+    "The selector uses the accessible role-view label rendered by PublicDealRoleScenario",
+    "The Bank role tab remains required and visible",
+    "No runtime, copy, CSS, deployment workflow or production configuration changes",
+    "The exact production mobile acceptance passes for 390x844 and 430x932 against the deployed SHA"
+  ]
+}
