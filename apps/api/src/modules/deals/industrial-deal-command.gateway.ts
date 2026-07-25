@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { RequestUser, Role } from '../../common/types/request-user';
@@ -102,12 +102,19 @@ export class IndustrialDealCommandGateway {
    * state. None of them belongs in an answer a model can relay, so none is read.
    *
    * The entry list is bounded; the counts are not derived from it.
+   *
+   * Read at REPEATABLE READ. Three statements at READ COMMITTED each take their own
+   * snapshot, so the outbox worker committing between them could produce a response
+   * listing a PENDING entry while the counts report no pending entries at all. One
+   * snapshot for the whole transaction makes the answer internally consistent, and a
+   * read-only transaction cannot hit the write conflicts that isolation level risks.
    */
   async integrationStatus(dealId: string, user: RequestUser) {
     const scoped = await this.resolveMembership(dealId, user);
-    return this.rls.withTrustedContext(scoped.user, async (tx) => {
-      const [entries, grouped, deadLetterCount] = await Promise.all([
-        tx.outboxEntry.findMany({
+    return this.rls.withTrustedContext(
+      scoped.user,
+      async (tx) => {
+        const entries = await tx.outboxEntry.findMany({
           where: { dealId },
           select: {
             id: true,
@@ -124,42 +131,49 @@ export class IndustrialDealCommandGateway {
           },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           take: MAX_INTEGRATION_ENTRIES + 1,
-        }),
+        });
         // Counted across the whole deal, not the returned page. Deriving these from the
         // bounded slice would report deadLetterCount 0 for a deal whose dead letters are
         // simply older than the hundred most recent rows — wrong exactly when it matters.
-        tx.outboxEntry.groupBy({ by: ['status'], where: { dealId }, _count: { _all: true } }),
-        tx.outboxEntry.count({ where: { dealId, deadLetterAt: { not: null } } }),
-      ]);
-      const truncated = entries.length > MAX_INTEGRATION_ENTRIES;
-      const bounded = truncated ? entries.slice(0, MAX_INTEGRATION_ENTRIES) : entries;
-      const countsByStatus: Record<string, number> = {};
-      for (const group of grouped) {
-        countsByStatus[group.status] = group._count._all;
-      }
-      return {
-        dealId,
-        // Timestamps are rendered here rather than left to a serializer, so the shape
-        // is the same whoever transports it.
-        entries: bounded.map((entry) => ({
-          id: entry.id,
-          type: entry.type,
-          status: entry.status,
-          retryCount: entry.retryCount,
-          maxRetries: entry.maxRetries,
-          createdAt: isoOrNull(entry.createdAt),
-          sentAt: isoOrNull(entry.sentAt),
-          confirmedAt: isoOrNull(entry.confirmedAt),
-          failedAt: isoOrNull(entry.failedAt),
-          deadLetterAt: isoOrNull(entry.deadLetterAt),
-          nextRetryAt: isoOrNull(entry.nextRetryAt),
-        })),
-        returnedCount: bounded.length,
-        truncated,
-        countsByStatus,
-        deadLetterCount,
-      };
-    });
+        const grouped = await tx.outboxEntry.groupBy({
+          by: ['status'],
+          where: { dealId },
+          _count: { _all: true },
+        });
+        const deadLetterCount = await tx.outboxEntry.count({
+          where: { dealId, deadLetterAt: { not: null } },
+        });
+        const truncated = entries.length > MAX_INTEGRATION_ENTRIES;
+        const bounded = truncated ? entries.slice(0, MAX_INTEGRATION_ENTRIES) : entries;
+        const countsByStatus: Record<string, number> = {};
+        for (const group of grouped) {
+          countsByStatus[group.status] = group._count._all;
+        }
+        return {
+          dealId,
+          // Timestamps are rendered here rather than left to a serializer, so the shape
+          // is the same whoever transports it.
+          entries: bounded.map((entry) => ({
+            id: entry.id,
+            type: entry.type,
+            status: entry.status,
+            retryCount: entry.retryCount,
+            maxRetries: entry.maxRetries,
+            createdAt: isoOrNull(entry.createdAt),
+            sentAt: isoOrNull(entry.sentAt),
+            confirmedAt: isoOrNull(entry.confirmedAt),
+            failedAt: isoOrNull(entry.failedAt),
+            deadLetterAt: isoOrNull(entry.deadLetterAt),
+            nextRetryAt: isoOrNull(entry.nextRetryAt),
+          })),
+          returnedCount: bounded.length,
+          truncated,
+          countsByStatus,
+          deadLetterCount,
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   /**

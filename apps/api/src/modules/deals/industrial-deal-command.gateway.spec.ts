@@ -314,6 +314,18 @@ describe('IndustrialDealCommandGateway', () => {
       );
     });
 
+    it('reads all three queries from one snapshot', async () => {
+      // At READ COMMITTED each statement takes its own snapshot, so a worker committing
+      // between them can produce a response that lists a PENDING entry while the counts
+      // report none. The answer has to be internally consistent to be worth relaying.
+      const test = fixture();
+
+      await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
+
+      const call = test.rls.withTrustedContext.mock.calls.at(-1);
+      expect(call?.[2]).toMatchObject({ isolationLevel: 'RepeatableRead' });
+    });
+
     it('never reads the payload, the failure text, the lease or the triggering user', async () => {
       const test = fixture();
 
