@@ -7,6 +7,7 @@ const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
 const pageTitle = 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта';
 const pageDescription = 'Товар, логистика, качество, документы, деньги, спор и доказательства связаны в одной Сделке. TAI объясняет блокеры, риски и следующий шаг.';
+const taiDescription = 'TAI — отдельный AI-продукт для агробизнеса, созданный «Прозрачной Ценой» для анализа контекста Сделки, документов, логистики, качества, денег, рисков и доказательств.';
 
 const brandNames = ['Прозрачная Цена', 'Процент Агро', 'Процент-Агро.рф', 'Prozrachnaya Cena', 'Transparent Price', 'Percent Agro'];
 
@@ -24,6 +25,7 @@ const semanticTopics = [
   'основание для расчёта по агросделке',
   'спор и доказательства по качеству',
   'TAI Transparent Agro Intelligence',
+  'AI-продукт для агробизнеса',
   'операционный интеллект агросделки',
   'agricultural Deal execution platform',
   'OTC agricultural transaction control',
@@ -39,6 +41,15 @@ const serviceAreas = [
   'Резервирование, выплата и сверка',
   'Спор, доказательства и закрытие',
   'TAI — объяснение блокеров, рисков и следующего действия',
+];
+
+const taiCapabilities = [
+  'Deal Intelligence',
+  'Document Intelligence',
+  'Логистика и качество',
+  'Деньги и риск',
+  'Спор и доказательства',
+  'Подготовка следующего действия под контролем человека',
 ];
 
 const platformDescription = 'Единая цифровая инфраструктура исполнения агросделки: цена, участники, логистика, приёмка, качество, документы, деньги, спор, доказательства и закрытие связаны в одном объекте Сделки. Внешние системы подключаются через управляемые API-адаптеры с отдельно определяемыми правами и режимом обмена.';
@@ -89,6 +100,25 @@ const structuredData = {
       publisher: { '@id': `${siteUrl}/#organization` },
     },
     {
+      '@type': 'SoftwareApplication',
+      '@id': `${taiUrl}#software`,
+      name: 'TAI — Transparent Agro Intelligence',
+      alternateName: ['TAI', 'Transparent Agro Intelligence', 'Операционный интеллект агросделки'],
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web, Private Cloud, On-Premise',
+      url: taiUrl,
+      inLanguage: ['ru-RU', 'en', 'zh-CN'],
+      description: taiDescription,
+      audience: [
+        { '@type': 'Audience', audienceType: 'участники агросделок' },
+        { '@type': 'Audience', audienceType: 'агрохолдинги и корпоративные заказчики' },
+        { '@type': 'Audience', audienceType: 'банки, комплаенс, операторы и арбитры' },
+      ],
+      featureList: taiCapabilities,
+      creator: { '@id': `${siteUrl}/#organization` },
+      publisher: { '@id': `${siteUrl}/#organization` },
+    },
+    {
       '@type': 'Service',
       '@id': `${platformUrl}#execution-service`,
       name: 'Единый контур исполнения агросделки',
@@ -132,7 +162,7 @@ const structuredData = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Главная платформы', url: platformUrl },
         { '@type': 'ListItem', position: 2, name: 'Сделка в работе', url: dealFlowUrl },
-        { '@type': 'ListItem', position: 3, name: 'TAI в действии', url: taiUrl },
+        { '@type': 'ListItem', position: 3, name: 'TAI — отдельный AI-продукт для агробизнеса', url: taiUrl },
         { '@type': 'ListItem', position: 4, name: 'Документный контур', url: docsUrl },
         { '@type': 'ListItem', position: 5, name: 'Контакты', url: contactUrl },
         { '@type': 'ListItem', position: 6, name: 'О платформе', url: aboutUrl },
