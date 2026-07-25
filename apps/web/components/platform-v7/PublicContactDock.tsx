@@ -10,6 +10,8 @@ type AssistantContext = 'public' | 'private' | 'workspace';
 
 const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89';
 const SUPPORT_PHONE_HREF = 'tel:+79162778989';
+const PUBLIC_MOBILE_QUERY = '(max-width: 767px)';
+const PUBLIC_HERO_THRESHOLD = 120;
 
 const COPY = {
   ru: { assistant: 'ИИ', assistantAria: 'Открыть ИИ-помощника по платформе', support: 'Поддержка', supportAria: 'Открыть поддержку', call: 'Позвонить', callAria: `Позвонить по номеру ${SUPPORT_PHONE_DISPLAY}`, group: 'Связь и помощь' },
@@ -35,7 +37,7 @@ function restoreAttribute(node: HTMLElement, name: string, value: string | null)
 export function PublicContactDock({ assistantContext = 'public' }: { assistantContext?: AssistantContext }) {
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [hiddenByScroll, setHiddenByScroll] = React.useState(false);
+  const [hiddenByScroll, setHiddenByScroll] = React.useState(assistantContext === 'public');
   const assistantButtonRef = React.useRef<HTMLButtonElement>(null);
   const supportButtonRef = React.useRef<HTMLButtonElement>(null);
   const returnFocusRef = React.useRef<Surface | null>(null);
@@ -55,9 +57,27 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
   React.useEffect(() => setLocale(resolveLocale()), []);
 
   React.useEffect(() => {
+    const mobileQuery = window.matchMedia(PUBLIC_MOBILE_QUERY);
     let previousY = window.scrollY;
     let accumulatedDelta = 0;
     let frame = 0;
+
+    const isPublicMobileTop = (scrollY: number) => (
+      assistantContext === 'public'
+      && mobileQuery.matches
+      && scrollY < PUBLIC_HERO_THRESHOLD
+    );
+
+    const syncViewportVisibility = () => {
+      const currentY = window.scrollY;
+      if (currentY < PUBLIC_HERO_THRESHOLD) {
+        setHiddenByScroll(isPublicMobileTop(currentY));
+      } else if (!mobileQuery.matches) {
+        setHiddenByScroll(false);
+      }
+      previousY = currentY;
+      accumulatedDelta = 0;
+    };
 
     const onScroll = () => {
       if (frame) return;
@@ -68,8 +88,8 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
         if ((delta > 0 && accumulatedDelta < 0) || (delta < 0 && accumulatedDelta > 0)) accumulatedDelta = 0;
         accumulatedDelta += delta;
 
-        if (currentY < 120) {
-          setHiddenByScroll(false);
+        if (currentY < PUBLIC_HERO_THRESHOLD) {
+          setHiddenByScroll(isPublicMobileTop(currentY));
           accumulatedDelta = 0;
         } else if (accumulatedDelta > 8) {
           setHiddenByScroll(true);
@@ -84,12 +104,15 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
       });
     };
 
+    syncViewportVisibility();
+    mobileQuery.addEventListener('change', syncViewportVisibility);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
+      mobileQuery.removeEventListener('change', syncViewportVisibility);
       window.removeEventListener('scroll', onScroll);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [assistantContext]);
 
   React.useEffect(() => {
     const assistantTrigger = assistantTriggerSelector ? document.querySelector<HTMLButtonElement>(assistantTriggerSelector) : null;
