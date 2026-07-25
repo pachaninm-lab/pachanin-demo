@@ -94,7 +94,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
 
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
     await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка.');
-    await expect(page.locator('#pc-v6-title')).toContainText('TAI помогает на каждом этапе.');
+    await expect(page.locator('#pc-v6-title')).toContainText('TAI помогает довести её до расчёта.');
     await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
     await expect(page.locator('.pc-v6-control-tower')).toContainText('Расчёт остановлен');
     await expect(page.locator('#tai')).toContainText('TAI нашёл две причины остановки');
@@ -133,7 +133,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
 
     await expect(page.locator('#pc-v6-title')).toBeVisible();
     await expect(page.locator('#pc-v6-title')).toContainText('Одна Сделка.');
-    await expect(page.locator('#pc-v6-title')).toContainText('TAI помогает на каждом этапе.');
+    await expect(page.locator('#pc-v6-title')).toContainText('TAI помогает довести её до расчёта.');
     await expect(page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first()).toBeVisible();
     await expect(page.locator('section.pc-v6-tai')).toHaveCount(0);
 
