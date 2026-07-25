@@ -23,10 +23,20 @@ async function expectMinimumTargets(page: Page, selector: string) {
   expect(valid, `${selector} must expose 44×44 CSS px visible targets`).toBe(true);
 }
 
+async function scrollAndFlush(page: Page, top: number) {
+  await page.evaluate(async (targetTop) => {
+    window.scrollTo({ top: targetTop, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
+  }, top);
+}
+
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await scrollAndFlush(page, 0);
   const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
   await expect(dock).toHaveAttribute('data-scroll-hidden', mobile ? 'true' : 'false');
 }
@@ -167,24 +177,15 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expect(assistant).toHaveAttribute('tabindex', '-1');
     await expect(call).toHaveAttribute('tabindex', '-1');
 
-    await page.evaluate(() => {
-      window.scrollTo({ top: 1300, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-    });
+    await scrollAndFlush(page, 1300);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
 
-    await page.evaluate(() => {
-      window.scrollTo({ top: 900, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-    });
+    await scrollAndFlush(page, 900);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
     await expect(dock).toBeVisible();
     await expect(assistant).toBeEnabled();
 
-    await page.evaluate(() => {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-    });
+    await scrollAndFlush(page, 0);
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
     await expect(dock).toBeHidden();
   });
