@@ -102,7 +102,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
 
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
-    const tabs = page.getByRole('tablist', { name: 'Сделка в работе' });
+    const tabs = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(tabs).toBeVisible();
     const bank = page.getByRole('tab', { name: 'Банк' });
     await bank.click();
