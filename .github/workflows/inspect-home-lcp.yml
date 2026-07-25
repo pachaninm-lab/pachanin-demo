@@ -1,0 +1,141 @@
+name: Inspect homepage LCP
+
+on:
+  push:
+    branches:
+      - ops/inspect-home-lcp-a3db
+
+permissions:
+  contents: read
+
+concurrency:
+  group: inspect-home-lcp-a3db
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      JWT_SECRET: pc-home-lcp-inspection-secret
+      PC_CABINET_SESSION_SECRET: pc-home-lcp-inspection-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies and Chromium
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir apps/web exec playwright install --with-deps chromium
+      - name: Build production web
+        run: pnpm --filter @pc/web build
+      - name: Inspect generated CSS and runtime font behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p lcp-inspection
+          {
+            echo '## CSS inventory'
+            find apps/web/.next/static/css -type f -printf '%p %s bytes\n' | sort
+            echo
+            echo '## Font-face and font-family declarations'
+            grep -RInE '@font-face|font-family|--font-(inter|manrope|mono)' apps/web/.next/static/css || true
+            echo
+            echo '## Generated font media'
+            find apps/web/.next/static/media -type f -name '*.woff2' -printf '%f %s bytes\n' | sort
+          } > lcp-inspection/css-report.txt
+
+          pnpm --filter @pc/web start > lcp-inspection/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS 'http://127.0.0.1:3000/platform-v7?lang=ru' >/dev/null; then break; fi
+            sleep 1
+          done
+
+          cat > lcp-inspection/inspect.cjs <<'NODE'
+          const fs = require('node:fs');
+          const { chromium } = require('@playwright/test');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const requests = [];
+            page.on('request', request => {
+              const type = request.resourceType();
+              if (type === 'font' || type === 'stylesheet' || type === 'script') {
+                requests.push({ at: Date.now(), type, url: request.url() });
+              }
+            });
+            const consoleMessages = [];
+            page.on('console', msg => consoleMessages.push({ type: msg.type(), text: msg.text() }));
+            const startedAt = Date.now();
+            await page.goto('http://127.0.0.1:3000/platform-v7?lang=ru', { waitUntil: 'domcontentloaded' });
+            const samples = [];
+            for (let index = 0; index < 60; index += 1) {
+              samples.push(await page.evaluate((elapsed) => {
+                const h1 = document.querySelector('#pc-v6-title');
+                const header = document.querySelector('.pc-site-header');
+                const dock = document.querySelector('.pc-public-contact-dock');
+                const style = h1 ? getComputedStyle(h1) : null;
+                const bodyStyle = getComputedStyle(document.body);
+                const rect = h1?.getBoundingClientRect();
+                return {
+                  elapsed,
+                  readyState: document.readyState,
+                  htmlClass: document.documentElement.className,
+                  bodyClass: document.body.className,
+                  bodyFont: bodyStyle.fontFamily,
+                  h1Text: h1?.textContent,
+                  h1Font: style?.fontFamily,
+                  h1FontSize: style?.fontSize,
+                  h1FontWeight: style?.fontWeight,
+                  h1LineHeight: style?.lineHeight,
+                  h1Rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+                  headerRect: header ? (() => { const r = header.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })() : null,
+                  dock: dock ? { hidden: dock.getAttribute('data-scroll-hidden'), visibility: getComputedStyle(dock).visibility, transform: getComputedStyle(dock).transform } : null,
+                  fonts: [...document.fonts].map(font => ({ family: font.family, status: font.status, weight: font.weight, style: font.style })),
+                };
+              }, Date.now() - startedAt));
+              await page.waitForTimeout(100);
+            }
+            const performanceResources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => ({
+              name: entry.name,
+              initiatorType: entry.initiatorType,
+              startTime: entry.startTime,
+              duration: entry.duration,
+              transferSize: entry.transferSize,
+              decodedBodySize: entry.decodedBodySize,
+            })));
+            const fontChecks = await page.evaluate(async () => ({
+              status: document.fonts.status,
+              readyAt: performance.now(),
+              systemH1: document.fonts.check('36px -apple-system'),
+              inter: document.fonts.check('36px Inter'),
+              manrope: document.fonts.check('36px Manrope'),
+              interVariable: document.fonts.check('36px "Inter Variable"'),
+              manropeVariable: document.fonts.check('36px "Manrope Variable"'),
+            }));
+            fs.writeFileSync('lcp-inspection/runtime-report.json', JSON.stringify({ startedAt, requests, consoleMessages, samples, performanceResources, fontChecks }, null, 2));
+            await page.screenshot({ path: 'lcp-inspection/home-390.png', fullPage: true, animations: 'disabled' });
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          node lcp-inspection/inspect.cjs
+      - name: Upload LCP inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-lcp-inspection-${{ github.sha }}
+          path: lcp-inspection
+          if-no-files-found: error
+          retention-days: 7
