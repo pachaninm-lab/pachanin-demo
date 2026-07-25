@@ -30,7 +30,7 @@ def _verify(tmp_path: Path, evidence: dict[str, Any]) -> dict[str, Any]:
 def test_authority_pending_and_valid_evidence(tmp_path: Path) -> None:
     authority = runtime.load_authority(authority_path())
     assert authority["authority_sha256"] == (
-        "92519ae74be50687cee534f69e284108ee13dd2c317e4e2e0355554de6c65129"
+        "e4dc4f47dd89092c1aecd0d164d322f2ca5e8a37c58b6b5bf49304168c1a3e98"
     )
     assert authority["conversion_input"] == {
         "exact_main_sha": "8bd494dc4954baaf699cffa243951392ff451ebb",
@@ -51,6 +51,9 @@ def test_authority_pending_and_valid_evidence(tmp_path: Path) -> None:
             "control/model-conversion-authority.v1.json"
         ),
         "conversion_authority_sha256": (
+            "4c7d8222f6bc2b7b81f29aaf4c575b611f611981d34a6a88772be4371350139b"
+        ),
+        "conversion_committed_authority_sha256": (
             "e7531a0d19fbdb92d14fa84d8bb3fd5a4a012ee61e3bf7cc632513bd435388f4"
         ),
         "step_report_path": (

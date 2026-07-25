@@ -134,6 +134,9 @@ expected = {
         "control/model-conversion-authority.v1.json"
     ),
     "conversion_authority_sha256": (
+        "4c7d8222f6bc2b7b81f29aaf4c575b611f611981d34a6a88772be4371350139b"
+    ),
+    "conversion_committed_authority_sha256": (
         "e7531a0d19fbdb92d14fa84d8bb3fd5a4a012ee61e3bf7cc632513bd435388f4"
     ),
     "step_report_path": (
@@ -196,11 +199,39 @@ if (
     or step_report_path.resolve(strict=True) != step_report_path
 ):
     raise SystemExit("conversion step evidence is not exact")
+# Two different digests describe this file and neither substitutes for the other.
+# The raw digest covers the bytes that actually executed: the conversion workflow copies
+# the committed authority into the control package and then appends an `execution` block,
+# so the executed file is by construction not byte-identical to its source. The committed
+# digest is the canonical-JSON digest of that source, recorded inside the executed file.
+# Checking only the raw bytes would not tie the run to a reviewed source; checking only
+# the recorded field would accept any file that merely claims the right provenance.
+conversion_authority_bytes = conversion_authority_path.read_bytes()
 if (
-    hashlib.sha256(conversion_authority_path.read_bytes()).hexdigest()
+    hashlib.sha256(conversion_authority_bytes).hexdigest()
     != conversion["conversion_authority_sha256"]
 ):
     raise SystemExit("conversion authority digest mismatch")
+conversion_authority = json.loads(conversion_authority_bytes.decode("utf-8"))
+if not isinstance(conversion_authority, dict):
+    raise SystemExit("conversion authority is not an object")
+conversion_execution = conversion_authority.get("execution")
+if not isinstance(conversion_execution, dict):
+    raise SystemExit("conversion authority execution block missing")
+if (
+    conversion_execution.get("committed_authority_sha256")
+    != conversion["conversion_committed_authority_sha256"]
+):
+    raise SystemExit("conversion committed authority digest mismatch")
+if conversion_execution.get("exact_main_sha") != conversion["exact_main_sha"]:
+    raise SystemExit("conversion authority exact-main mismatch")
+if conversion_execution.get("workflow_run_id") != conversion["workflow_run_id"]:
+    raise SystemExit("conversion authority workflow run mismatch")
+if (
+    conversion_execution.get("workflow_run_attempt")
+    != conversion["workflow_run_attempt"]
+):
+    raise SystemExit("conversion authority workflow attempt mismatch")
 status_path = conversion_root / "status.json"
 if not status_path.is_file() or status_path.is_symlink():
     raise SystemExit("conversion root status missing")
