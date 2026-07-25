@@ -41,7 +41,15 @@ cp apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh "$CONTROL_ROOT/"
     qwen-preview-runtime-remote.v1.sh > control-manifest.sha256
 )
 tar -czf "$LOCAL_ROOT/control-package.tar.gz" -C "$CONTROL_ROOT" .
-sha256sum "$LOCAL_ROOT/control-package.tar.gz" > "$LOCAL_ROOT/control-package.tar.gz.sha256"
+# sha256sum records the path exactly as given, so passing "$LOCAL_ROOT/..." wrote a
+# manifest naming qwen-preview-evidence/control-package.tar.gz. The remote verifies from
+# its own incoming directory, where that relative path does not exist, and sha256sum -c
+# failed to read the listed file. Record a bare filename, matching the control manifest
+# built just above.
+(
+  cd "$LOCAL_ROOT"
+  sha256sum control-package.tar.gz > control-package.tar.gz.sha256
+)
 
 # The host key comes from protected configuration, never from the network. Learning it
 # with ssh-keyscan moments before connecting is trust-on-first-use with no anchor: a
