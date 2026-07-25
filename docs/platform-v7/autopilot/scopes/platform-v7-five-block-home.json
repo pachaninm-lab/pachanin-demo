@@ -7,7 +7,6 @@
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHomeStory.module.css",
     "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
-    "apps/web/components/platform-v7/PublicExperienceAnalytics.tsx",
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/i18n/platform-v7-home-story.ts",
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
