@@ -68,17 +68,14 @@ const CRITICAL_HOME_CSS = `
   letter-spacing: -.048em;
   text-wrap: balance;
 }
-.pc-v6-hero-brand {
+.pc-v6-hero-title-main,
+.pc-v6-hero-title-accent {
   display: block;
-  margin-bottom: 8px;
-  color: var(--pc-v6-green);
-  font-size: .58em;
-  font-weight: 730;
-  line-height: 1.05;
-  letter-spacing: -.026em;
 }
-.pc-v6-hero-brand::after { display: none; }
-.pc-v6-hero-title-line { display: block; }
+.pc-v6-hero-title-accent {
+  margin-top: 8px;
+  color: var(--pc-v6-green);
+}
 .pc-v6-hero-copy > p.pc-v6-hero-lead {
   max-width: 54ch;
   margin: 18px 0 0;
@@ -137,15 +134,14 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     line-height: 1;
     letter-spacing: -.04em;
   }
-  .pc-v6-hero-brand {
-    margin-bottom: 6px;
-    font-size: .62em;
+  .pc-v6-hero-title-accent {
+    margin-top: 5px;
   }
   .pc-v6-hero-copy > p.pc-v6-hero-lead {
     max-width: 42ch;
     margin-top: 12px;
-    font-size: 15px;
-    line-height: 1.42;
+    font-size: 14.5px;
+    line-height: 1.38;
   }
 }
 @media (max-width: 359px) {
@@ -155,7 +151,7 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   .pc-v6-hero { grid-template-columns: minmax(0, 1.02fr) minmax(380px, .98fr); }
 }
 :lang(zh) .pc-v6-hero h1.pc-v6-hero-title { max-width: 11em; letter-spacing: -.015em; }
-:lang(zh) .pc-v6-hero-brand { letter-spacing: 0; }
+:lang(zh) .pc-v6-hero-title-accent { letter-spacing: 0; }
 `;
 
 export const metadata: Metadata = {
