@@ -23,6 +23,19 @@ async function expectMinimumTargets(page: Page, selector: string) {
   expect(valid, `${selector} must expose 44×44 CSS px visible targets`).toBe(true);
 }
 
+async function expectControlHeight(page: Page, selector: string, minimum: number, maximum: number) {
+  const controls = page.locator(selector);
+  await expect(controls.first()).toBeVisible();
+  const heights = await controls.evaluateAll((nodes) => nodes.filter((node) => {
+    const style = window.getComputedStyle(node);
+    const box = node.getBoundingClientRect();
+    return style.visibility !== 'hidden' && style.display !== 'none' && box.width > 0 && box.height > 0;
+  }).map((node) => Math.round(node.getBoundingClientRect().height)));
+  expect(heights.length).toBeGreaterThan(0);
+  for (const height of heights) expect(height).toBeGreaterThanOrEqual(minimum);
+  for (const height of heights) expect(height).toBeLessThanOrEqual(maximum);
+}
+
 async function scrollAndFlush(page: Page, top: number) {
   await page.evaluate(async (targetTop) => {
     window.scrollTo({ top: targetTop, behavior: 'instant' });
@@ -67,6 +80,57 @@ async function fillFirstStep(page: Page) {
   return form;
 }
 
+async function expectExactMobileComposition(page: Page) {
+  const header = page.locator('.pc-site-header');
+  await expect(header).toBeVisible();
+  const headerHeight = Math.round(await header.evaluate((node) => node.getBoundingClientRect().height));
+  expect(headerHeight).toBeGreaterThanOrEqual(47);
+  expect(headerHeight).toBeLessThanOrEqual(49);
+
+  const headingMetrics = await page.locator('.pc-v6-section-head h2, .pc-v6-final h2, #connect-organization h2').evaluateAll((nodes) => nodes.filter((node) => {
+    const style = window.getComputedStyle(node);
+    const box = node.getBoundingClientRect();
+    return style.visibility !== 'hidden' && style.display !== 'none' && box.width > 0 && box.height > 0;
+  }).map((node) => {
+    const style = window.getComputedStyle(node);
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    return {
+      fontSize: Number.parseFloat(style.fontSize),
+      lines: node.getBoundingClientRect().height / lineHeight,
+      text: node.textContent || '',
+    };
+  }));
+
+  expect(headingMetrics.length).toBeGreaterThan(5);
+  for (const metric of headingMetrics) {
+    expect(metric.fontSize, metric.text).toBeGreaterThanOrEqual(32);
+    expect(metric.fontSize, metric.text).toBeLessThanOrEqual(38);
+    expect(metric.lines, metric.text).toBeLessThanOrEqual(3.25);
+  }
+
+  await expectControlHeight(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible', 52, 56);
+  await expectControlHeight(page, '#connect-organization button:visible', 52, 56);
+
+  for (const hash of ['#participants', '#deal-path', '#tai', '#money', '#integrations', '#connect-organization']) {
+    const geometry = await page.evaluate(async (targetHash) => {
+      const target = document.querySelector(targetHash);
+      if (!(target instanceof HTMLElement)) throw new Error(`Missing anchor target ${targetHash}`);
+      target.scrollIntoView({ block: 'start', behavior: 'instant' });
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+      const headerNode = document.querySelector('.pc-site-header');
+      if (!(headerNode instanceof HTMLElement)) throw new Error('Missing public header');
+      return {
+        targetTop: target.getBoundingClientRect().top,
+        headerBottom: headerNode.getBoundingClientRect().bottom,
+      };
+    }, hash);
+    expect(geometry.targetTop, hash).toBeGreaterThanOrEqual(geometry.headerBottom - 1);
+    expect(geometry.targetTop, hash).toBeLessThanOrEqual(geometry.headerBottom + 20);
+  }
+
+  await expectNoHorizontalOverflow(page);
+}
+
 test.describe('Platform V7 strategic homepage browser acceptance', () => {
   test('RU EN ZH render the Deal-first homepage without runtime or horizontal-overflow failures', async ({ page }) => {
     const runtimeFailures: string[] = [];
@@ -81,6 +145,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expect(page.locator('#pc-v6-title')).toBeVisible();
       await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
+      await expect(page.locator('#participants section[aria-label]').first()).toBeVisible();
       await expect(page.locator('#deal-path')).toBeVisible();
       await expect(page.locator('#participants')).toBeVisible();
       await expect(page.locator('#money')).toBeVisible();
@@ -218,31 +283,60 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
   }
 
+  for (const viewport of [{ width: 390, height: 844 }, { width: 430, height: 932 }]) {
+    test(`${viewport.width}×${viewport.height} exact mobile composition passes`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+      expect(response?.ok()).toBe(true);
+      await expect(page.locator('#participants section[aria-label]').first()).toBeVisible();
+      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await expectExactMobileComposition(page);
+
+      await fillFirstStep(page);
+      await expectControlHeight(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible', 52, 56);
+      await expectControlHeight(page, '#connect-organization select:visible', 52, 56);
+      await expectControlHeight(page, '#connect-organization button:visible', 52, 56);
+      await expectNoHorizontalOverflow(page);
+    });
+  }
+
   test('captures responsive and multilingual visual evidence', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Visual evidence is captured once in Chromium.');
 
-    for (const width of [320, 375, 390, 430, 768, 1280, 1440]) {
-      await page.setViewportSize({ width, height: width < 768 ? 900 : 1000 });
+    const viewports = [
+      { width: 320, height: 900 },
+      { width: 375, height: 900 },
+      { width: 390, height: 844 },
+      { width: 430, height: 932 },
+      { width: 768, height: 1000 },
+      { width: 1280, height: 1000 },
+      { width: 1440, height: 1000 },
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
+      await expect(page.locator('#participants section[aria-label]').first()).toBeVisible();
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await settleContactDock(page);
       await expectNoHorizontalOverflow(page);
       await page.screenshot({
-        path: testInfo.outputPath(`strategic-home-ru-${width}px.png`),
+        path: testInfo.outputPath(`strategic-home-ru-${viewport.width}x${viewport.height}.png`),
         fullPage: true,
         animations: 'disabled',
       });
     }
 
     for (const locale of ['en', 'zh'] as const) {
-      await page.setViewportSize({ width: 390, height: 900 });
+      await page.setViewportSize({ width: 390, height: 844 });
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
+      await expect(page.locator('#participants section[aria-label]').first()).toBeVisible();
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await settleContactDock(page);
       await page.screenshot({
-        path: testInfo.outputPath(`strategic-home-${locale}-390px.png`),
+        path: testInfo.outputPath(`strategic-home-${locale}-390x844.png`),
         fullPage: true,
         animations: 'disabled',
       });
