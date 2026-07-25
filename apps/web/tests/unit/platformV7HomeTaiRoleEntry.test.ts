@@ -70,6 +70,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(home).toContain('<TaiDefinition locale={locale} />');
     expect(home).toContain('<TaiImpact locale={locale} />');
     expect(home).toContain('<TaiWorkflow locale={locale} />');
+    expect(enhancements).toContain("<aside className={styles.heroTaiEntry} aria-label={copy.name}>");
   });
 
   it('keeps contact dock labels at full contrast while visibility and transform handle hiding', () => {
