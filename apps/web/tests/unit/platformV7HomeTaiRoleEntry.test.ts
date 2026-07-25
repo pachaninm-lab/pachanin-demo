@@ -14,6 +14,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
   const contactDock = read('components/platform-v7/PublicContactDock.tsx');
   const hydrationSupport = read('components/platform-v7/HydrationSafeChatSupport.tsx');
   const legacyPolish = read('components/platform-v7/LegacyPublicMobileExperiencePolish.tsx');
+  const browserAcceptance = read('tests/e2e/platform-v7-strategic-home-v3.spec.ts');
 
   it('exposes four public task-based perspectives without client-authoritative role selection', () => {
     expect(home).toContain("href='#role-entry'");
@@ -58,15 +59,21 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(connectSecondary).toBeGreaterThan(dealPrimary);
   });
 
-  it('keeps FAQ and final CTA eagerly rendered instead of reserving blank offscreen blocks', () => {
+  it('defers offscreen FAQ and CTA for performance but materializes them before visual evidence', () => {
     const deferredBlock = page.slice(
       page.indexOf('@supports (content-visibility: auto)'),
       page.indexOf('@media (max-width: 374px)'),
     );
     expect(deferredBlock).toContain('.pc-v6-category');
     expect(deferredBlock).toContain('.pc-v6-assurance');
-    expect(deferredBlock).not.toContain('.pc-v6-faq');
-    expect(deferredBlock).not.toContain('.pc-v6-final');
+    expect(deferredBlock).toContain('.pc-v6-faq');
+    expect(deferredBlock).toContain('.pc-v6-final');
+    expect(deferredBlock).toContain('.pc-v6-faq { contain-intrinsic-size: auto 520px; }');
+    expect(deferredBlock).toContain('.pc-v6-final { contain-intrinsic-size: auto 300px; }');
+    expect(browserAcceptance).toContain('async function materializeDeferredSections(page: Page)');
+    expect(browserAcceptance).toContain("'.pc-v6-faq'");
+    expect(browserAcceptance).toContain("'.pc-v6-final'");
+    expect(browserAcceptance.match(/await materializeDeferredSections\(page\);/g)?.length).toBe(2);
   });
 
   it('explains TAI by name, purpose, reasoning path, monetary impact and human boundary in RU EN ZH', () => {
