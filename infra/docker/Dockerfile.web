@@ -48,3 +48,4 @@ CMD ["node_modules/next/dist/bin/next", "start", "-p", "3000"]
 # Operational release trigger: publish and deploy the compact mobile homepage from PR #3207.
 # Operational release trigger: publish and deploy the final mobile authority from PRs #3208 and #3210.
 # Operational release trigger: publish the image, then dispatch the bounded exact-SHA release through the image gate.
+# Operational release trigger: publish and verify the exact 390x844 and 430x932 production mobile release.
