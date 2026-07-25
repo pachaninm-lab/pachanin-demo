@@ -12,9 +12,9 @@ describe('platform-v7 infrastructure hero message', () => {
   const unifiedCss = read('components/platform-v7/PlatformV7UnifiedHome.module.css');
 
   it('uses one unified platform-plus-TAI value proposition on the first screen', () => {
-    expect(copy).toContain("kicker: 'Цифровая инфраструктура исполнения агросделки'");
-    expect(copy).toContain("title: 'Одна Сделка'");
-    expect(copy).toContain("accent: 'интеллект на каждом этапе'");
+    expect(copy).toContain("kicker: 'Инфраструктура исполнения агросделки'");
+    expect(copy).toContain("title: 'Одна Сделка.'");
+    expect(copy).toContain("accent: 'TAI на каждом этапе.'");
     expect(copy).toContain('Прозрачная Цена связывает торги, логистику, качество, документы и деньги в одном контуре');
     expect(copy).toContain('TAI выявляет блокеры, объясняет основания и готовит следующий шаг');
     expect(component).toContain('heroMessage.title');
@@ -27,8 +27,8 @@ describe('platform-v7 infrastructure hero message', () => {
   it('keeps RU EN ZH hero copy explicit without locale inheritance', () => {
     expect(copy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
     expect(copy).toContain("locale === 'en' ? messages.en : locale === 'zh' ? messages.zh : messages.ru");
-    expect(copy).toContain("accent: 'intelligence at every stage'");
-    expect(copy).toContain("accent: '每个阶段都有智能支持'");
+    expect(copy).toContain("accent: 'TAI at every stage.'");
+    expect(copy).toContain("accent: 'TAI 贯穿每个阶段。'");
     expect(copy).not.toContain('...messages.ru');
   });
 
