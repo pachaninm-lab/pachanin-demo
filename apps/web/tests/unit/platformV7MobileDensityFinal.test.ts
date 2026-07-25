@@ -5,8 +5,16 @@ import { describe, expect, it } from 'vitest';
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('platform-v7 final mobile density contract', () => {
+  const page = read('app/platform-v7/page.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const densityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
+
+  it('resolves the server homepage before returning the document stream', () => {
+    expect(page).toContain('export default async function PlatformV7RootPage()');
+    expect(page).toContain('const home = await PlatformV7StrategicHome();');
+    expect(page).toContain("return <><style>{CRITICAL_HOME_CSS}</style>{home}</>;");
+    expect(page).not.toContain('<PlatformV7StrategicHome />');
+  });
 
   it('loads density rules as an early stylesheet instead of a late inline style', () => {
     expect(enhancements).toContain("import './PlatformV7HomeMobileDensity.css'");
