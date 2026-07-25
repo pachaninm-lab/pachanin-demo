@@ -25,7 +25,7 @@ export function HeroTaiEntry({ locale, taiHref }: { locale: string; taiHref: str
   return (
     <>
       <style>{CONTACT_DOCK_CONTRAST_BOUNDARY}</style>
-      <div className={styles.heroTaiEntry} aria-label={copy.name}>
+      <aside className={styles.heroTaiEntry} aria-label={copy.name}>
         <Sparkles aria-hidden='true' size={18} strokeWidth={1.9} />
         <div className={styles.heroTaiCopy}>
           <strong>{copy.name}</strong>
@@ -40,7 +40,7 @@ export function HeroTaiEntry({ locale, taiHref }: { locale: string; taiHref: str
         >
           {copy.cta}<ArrowRight aria-hidden='true' size={16} />
         </PublicExperienceLink>
-      </div>
+      </aside>
     </>
   );
 }
