@@ -50,3 +50,4 @@ CMD ["node_modules/next/dist/bin/next", "start", "-p", "3000"]
 # Operational release trigger: publish the image, then dispatch the bounded exact-SHA release through the image gate.
 # Operational release trigger: publish and verify the exact 390x844 and 430x932 production mobile release.
 # Operational release trigger: publish the compact mobile hero accepted in PR #3214.
+# Operational release trigger: publish the unified Deal plus TAI homepage accepted in PR #3220.
