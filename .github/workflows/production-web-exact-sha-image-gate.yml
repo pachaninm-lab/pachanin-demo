@@ -1,0 +1,127 @@
+name: Production Web Exact-SHA Image Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/docker/Dockerfile.web'
+      - '.github/workflows/production-web-exact-sha-image-gate.yml'
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: 'Full main commit SHA to wait for and deploy'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  actions: write
+
+concurrency:
+  group: production-web-exact-sha-image-gate
+  cancel-in-progress: false
+
+env:
+  EVIDENCE_DIR: artifacts/production-web-exact-sha-image-gate
+  IMAGE_WAIT_ATTEMPTS: '240'
+  IMAGE_WAIT_SECONDS: '10'
+
+jobs:
+  wait-and-dispatch:
+    name: Wait for canonical image and dispatch bounded release
+    if: github.event_name == 'push' || github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve exact main target
+        id: target
+        env:
+          INPUT_TARGET_SHA: ${{ inputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            target_sha="$GITHUB_SHA"
+          else
+            target_sha="$INPUT_TARGET_SHA"
+          fi
+
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'A full lowercase 40-character target SHA is required.' >&2
+            exit 2
+          }
+
+          git fetch --no-tags origin main
+          git cat-file -e "${target_sha}^{commit}"
+          git merge-base --is-ancestor "$target_sha" origin/main
+
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for exact canonical web image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          exact_image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/grainflow-web:sha-${TARGET_SHA:0:7}"
+
+          for attempt in $(seq 1 "$IMAGE_WAIT_ATTEMPTS"); do
+            if docker pull "$exact_image" >/dev/null 2>&1; then
+              actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$exact_image" 2>/dev/null || true)"
+              echo "Image attempt $attempt/$IMAGE_WAIT_ATTEMPTS: expected=$TARGET_SHA actual=${actual:-missing}"
+              if [[ "$actual" == "$TARGET_SHA" ]]; then
+                docker image inspect "$exact_image" > "$EVIDENCE_DIR/registry-image.json"
+                printf '%s\n' "$exact_image" > "$EVIDENCE_DIR/image.txt"
+                exit 0
+              fi
+            fi
+            sleep "$IMAGE_WAIT_SECONDS"
+          done
+
+          echo 'Exact canonical web image was not published within the bounded wait window.' >&2
+          exit 3
+
+      - name: Dispatch bounded exact-SHA production release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run production-web-exact-sha.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f action=deploy \
+            -f target_sha="$TARGET_SHA" \
+            -f confirmation=DEPLOY-EXACT-SHA
+          printf '%s\n' DISPATCHED > "$EVIDENCE_DIR/dispatch-status.txt"
+
+      - name: Build evidence checksums
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 |
+            sort -z |
+            xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Upload image-gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-web-exact-sha-image-gate-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
