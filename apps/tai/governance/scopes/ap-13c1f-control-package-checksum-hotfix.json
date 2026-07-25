@@ -1,0 +1,24 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3003,
+  "branch": "claude/tai-qwen-preview-checksum-hotfix",
+  "exact_base": "4be37b5d733c73d565a1c3f78443a5f5963ef47a",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13c1f-control-package-checksum-hotfix.json",
+    "apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh",
+    "apps/tai/tests/test_qwen_preview_control_package_checksum.py"
+  ],
+  "acceptance": [
+    "the control package checksum manifest names only control-package.tar.gz",
+    "the manifest carries no qwen-preview-evidence/ path prefix",
+    "sha256sum -c succeeds after the archive and manifest are copied to a separate incoming directory",
+    "the pre-fix manifest form is proven to still fail the remote check"
+  ],
+  "forbidden_capabilities": [
+    "runtime authority, model digests, conversion provenance or toolchain changes",
+    "SSH host-key pinning, credential handling or limits changes",
+    "evidence schema, retention or maturity-status changes",
+    "Gateway, UI, routing, feature-flag, model-admission or deployment changes"
+  ]
+}

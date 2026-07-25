@@ -14,6 +14,10 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from tai.agent_runtime import AgentToolPlan, PlannedToolCall
 from tai.contracts import IdentityContext, ToolMode
 from tai.policy import TOOL_REGISTRY
+from tai.read_tool_contracts import (
+    ReadToolArgumentError,
+    normalize_platform_tool_arguments,
+)
 
 if TYPE_CHECKING:
     from tai.orchestration import OrchestrationRequest
@@ -325,16 +329,16 @@ def _extract_unique(patterns: tuple[re.Pattern[str], ...], value: str) -> tuple[
 
 
 def _validate_arguments(tool_name: str, arguments: Mapping[str, Any]) -> None:
-    allowed = {
-        "getDealSummary": frozenset({"dealId"}),
-        "getRoleNextActions": frozenset({"dealId"}),
-        "prepareCommandDraft": frozenset({"dealId", "actionId"}),
-    }[tool_name]
-    if not set(arguments).issubset(allowed) or "dealId" not in arguments:
-        raise ValueError("planner generated an invalid argument schema")
-    for key, value in arguments.items():
-        if not isinstance(value, str) or _PORTABLE.fullmatch(value) is None:
-            raise ValueError(f"planner argument {key} is not portable")
+    """Hold the planner to the same contract the adapter signs.
+
+    The allowlist used to live here as a second copy, which could drift from the
+    one the adapter enforces. There is now a single declaration, so a plan that
+    validates here is exactly a plan the adapter will accept.
+    """
+    try:
+        normalize_platform_tool_arguments(tool_name, arguments)
+    except ReadToolArgumentError as error:
+        raise ValueError(f"planner generated an invalid argument schema: {error}") from error
 
 
 def _input_sha256(identity: IdentityContext, request_id: str, question: str) -> str:
