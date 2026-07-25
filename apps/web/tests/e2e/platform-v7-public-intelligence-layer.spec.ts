@@ -109,7 +109,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expect(perspectives.getByRole('tab')).toHaveCount(6);
     await perspectives.getByRole('tab', { name: 'Банк' }).click();
     await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.')).toBeVisible();
+    await expect(page.getByText('Ролевое представление одного сценария. Переключение не открывает данные и не меняет права.')).toBeVisible();
 
     const integrations = page.locator('#integrations');
     await expect(integrations).toBeVisible();
