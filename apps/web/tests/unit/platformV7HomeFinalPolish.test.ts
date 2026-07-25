@@ -9,8 +9,10 @@ describe('platform-v7 final homepage polish contract', () => {
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
   const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
+  const formCopy = read('i18n/platform-v7-organization-connect.ts');
   const scenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const scenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
+  const browserAcceptance = read('tests/e2e/platform-v7-strategic-home-v3.spec.ts');
 
   it('uses one final mobile style authority after the baseline density layer', () => {
     const baselineImport = enhancements.indexOf("import './PlatformV7HomeMobileDensity.css';");
@@ -21,13 +23,15 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(page).not.toContain('platform-v7-mobile-10of10-final.css');
   });
 
-  it('reduces the mobile header by 25 percent without shrinking touch targets below 44px', () => {
+  it('reduces the mobile header by 25 percent without first-paint layout shift or sub-44px targets', () => {
+    expect(page).toContain('@media (max-width: 767px)');
+    expect(page).toContain('.pc-v7-public-entry { --entry-public-header-base: 48px; }');
     expect(finalCss).toContain('--entry-public-header-base: 48px !important');
     expect(finalCss).toContain('--pc-public-header-base-height: 48px !important');
     expect(finalCss).toContain('height: 48px !important');
     expect(finalCss).toContain('min-height: 44px !important');
     expect(finalCss).toContain('width: 44px !important');
-    expect(finalCss).toContain("env(safe-area-inset-bottom, 0px)");
+    expect(finalCss).toContain('env(safe-area-inset-bottom, 0px)');
     expect(finalCss).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 48px) + 12px) !important');
   });
 
@@ -39,6 +43,9 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(finalCss).toContain('min-height: 54px !important');
     expect(formCss).toContain('.assurances a { width: fit-content; min-height: 44px;');
     expect(formCss).toContain('.error button { min-height: 44px;');
+    expect(formCopy).toContain('Укажите организацию и контакт. На втором шаге — роль и рабочий сценарий.');
+    expect(formCopy).toContain('Enter the organisation and contact. Step two confirms the role and operating scenario.');
+    expect(formCopy).toContain('填写机构和联系人，第二步确认角色与运营场景。');
   });
 
   it('renders a real product-shaped Deal execution workspace without fake-live claims', () => {
@@ -58,5 +65,14 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(scenarioCss).toContain('@media (max-width: 359px)');
     expect(scenarioCss).toContain('grid-template-columns: 1fr');
     expect(scenarioCss).toContain('overflow-x: auto');
+  });
+
+  it('requires exact 390×844 and 430×932 runtime acceptance and visual evidence', () => {
+    expect(browserAcceptance).toContain("{ width: 390, height: 844 }");
+    expect(browserAcceptance).toContain("{ width: 430, height: 932 }");
+    expect(browserAcceptance).toContain('expectExactMobileComposition(page)');
+    expect(browserAcceptance).toContain('metric.lines, metric.text');
+    expect(browserAcceptance).toContain("'#participants', '#deal-path', '#tai', '#money', '#integrations', '#connect-organization'");
+    expect(browserAcceptance).toContain('strategic-home-ru-${viewport.width}x${viewport.height}.png');
   });
 });
