@@ -3,6 +3,7 @@
   "branch": "agent/platform-v7-home-tai-role-entry-v2",
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
+  "validationRevision": 2,
   "allowedPaths": [
     "apps/web/app/platform-v7/head.tsx",
     "apps/web/components/platform-v7/PlatformV7HomeEnhancements.module.css",
