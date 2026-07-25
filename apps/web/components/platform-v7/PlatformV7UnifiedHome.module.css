@@ -1,16 +1,16 @@
 .hero {
   align-items: start;
-  gap: 36px;
-  padding: 48px 0 30px !important;
+  gap: 34px;
+  padding: 44px 0 28px !important;
 }
 
 .heroCopy {
   align-self: center;
-  max-width: 620px !important;
+  max-width: 640px !important;
 }
 
 .heroTitle {
-  max-width: 13ch !important;
+  max-width: 14ch !important;
   font-size: clamp(50px, 5vw, 66px) !important;
   line-height: .96 !important;
   letter-spacing: -.052em !important;
@@ -27,14 +27,14 @@
 }
 
 .heroLead {
-  max-width: 58ch !important;
-  margin-top: 20px !important;
+  max-width: 60ch !important;
+  margin-top: 18px !important;
   font-size: 18px !important;
   line-height: 1.48 !important;
 }
 
 .heroActions {
-  margin-top: 24px !important;
+  margin-top: 22px !important;
 }
 
 .tower {
@@ -44,16 +44,15 @@
 
 .towerIntelligence {
   display: grid !important;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
+  grid-template-columns: auto minmax(0, 1fr) 44px;
+  align-items: center;
   gap: 10px !important;
-  padding: 14px 18px !important;
+  padding: 13px 14px 13px 18px !important;
   border-top: 1px solid #d3e3da !important;
   background: linear-gradient(90deg, #eaf7ef 0%, #f7fbf8 100%) !important;
 }
 
 .towerIntelligence > svg {
-  margin-top: 2px;
   color: var(--pc-v6-green);
 }
 
@@ -72,59 +71,25 @@
   line-height: 1.42;
 }
 
-.lifecycleIntelligence {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-  margin-top: 18px;
-  padding: 16px 18px;
-  border: 1px solid #b9d7c6;
-  border-radius: 15px;
-  background: linear-gradient(135deg, #eef8f2 0%, #f9fbfa 100%);
-}
-
-.lifecycleIntelligence > svg {
-  color: var(--pc-v6-green);
-}
-
-.lifecycleIntelligenceCopy {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.lifecycleIntelligenceCopy strong {
-  color: #0b5c32;
-  font-size: 15px;
-  line-height: 1.35;
-}
-
-.lifecycleIntelligenceCopy span {
-  color: #4e6258;
-  font-size: 13px;
-  line-height: 1.46;
-}
-
-.lifecycleIntelligenceLink {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 12px;
-  border-radius: 10px;
+.towerIntelligenceLink {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #c4dccd;
+  border-radius: 12px;
+  background: #fff;
   color: #07572e;
-  font-size: 13px;
-  font-weight: 700;
   text-decoration: none;
-  white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(8, 70, 40, .06);
 }
 
-.lifecycleIntelligenceLink:hover {
-  background: #e1f1e7;
+.towerIntelligenceLink:hover {
+  border-color: #9fc8b0;
+  background: #f5faf7;
 }
 
-.lifecycleIntelligenceLink:focus-visible {
+.towerIntelligenceLink:focus-visible {
   outline: 3px solid rgba(8, 122, 59, .25);
   outline-offset: 2px;
 }
@@ -136,8 +101,8 @@
 
 @media (max-width: 767px) {
   .hero {
-    gap: 16px !important;
-    padding: 22px 0 24px !important;
+    gap: 14px !important;
+    padding: 18px 0 22px !important;
   }
 
   .heroCopy {
@@ -146,29 +111,30 @@
 
   .heroTitle {
     max-width: 100% !important;
-    font-size: clamp(35px, 9.2vw, 40px) !important;
+    font-size: clamp(35px, 9vw, 38px) !important;
     line-height: .99 !important;
     letter-spacing: -.045em !important;
   }
 
   .heroTitleAccent {
-    margin-top: 6px;
+    margin-top: 5px;
   }
 
   .heroLead {
     max-width: 42ch !important;
-    margin-top: 14px !important;
-    font-size: 15.5px !important;
-    line-height: 1.43 !important;
+    margin-top: 12px !important;
+    font-size: 15px !important;
+    line-height: 1.42 !important;
   }
 
   .heroActions {
-    margin-top: 16px !important;
+    margin-top: 14px !important;
   }
 
   .towerIntelligence {
+    grid-template-columns: auto minmax(0, 1fr) 44px;
     gap: 8px !important;
-    padding: 11px 12px !important;
+    padding: 10px 10px 10px 12px !important;
   }
 
   .towerIntelligence strong {
@@ -184,24 +150,37 @@
     -webkit-line-clamp: 2;
   }
 
-  .lifecycleIntelligence {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 10px;
-    padding: 14px;
-  }
-
-  .lifecycleIntelligenceLink {
-    grid-column: 1 / -1;
-    width: 100%;
-    justify-content: center;
-    border-top: 1px solid #cde1d5;
-    border-radius: 0;
-    padding: 11px 4px 3px;
+  .towerIntelligenceLink {
+    border-radius: 10px;
+    box-shadow: none;
   }
 
   .trustAfterLifecycle {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    margin-bottom: 0 !important;
+    display: flex !important;
+    gap: 10px !important;
+    overflow-x: auto;
+    margin: 0 -12px !important;
+    padding: 2px 12px 12px;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .trustAfterLifecycle::-webkit-scrollbar {
+    display: none;
+  }
+
+  .trustAfterLifecycle :global(article) {
+    flex: 0 0 min(78vw, 296px);
+    min-height: 112px;
+    scroll-snap-align: start;
+    padding: 15px !important;
+    border: 1px solid var(--pc-v6-line) !important;
+    border-radius: 14px;
+    background: #fff;
   }
 }
 
@@ -209,10 +188,19 @@
   .heroTitle {
     font-size: 33px !important;
   }
+
+  .towerIntelligence {
+    grid-template-columns: auto minmax(0, 1fr) 40px;
+  }
+
+  .towerIntelligenceLink {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lifecycleIntelligenceLink {
+  .towerIntelligenceLink {
     transition: none;
   }
 }
