@@ -20,10 +20,32 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function scrollAndFlush(page: Page, top: number) {
+  await page.evaluate(async (targetTop) => {
+    window.scrollTo({ top: targetTop, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
+  }, top);
+}
+
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
+
+  if (!mobile) {
+    await scrollAndFlush(page, 0);
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+    return;
+  }
+
+  await scrollAndFlush(page, 0);
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+  await scrollAndFlush(page, 1400);
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+  await scrollAndFlush(page, 800);
   await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
 }
 
