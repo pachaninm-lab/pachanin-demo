@@ -20,11 +20,45 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+function isStrategicHome(page: Page) {
+  const pathname = new URL(page.url()).pathname.replace(/\/+$/u, '') || '/platform-v7';
+  return pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7';
+}
+
+async function flushScrollFrame(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+  }));
+}
+
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
+
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await flushScrollFrame(page);
+
+  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
+  if (mobile && isStrategicHome(page)) {
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+    await expect(dock).toBeHidden();
+
+    await page.evaluate(() => {
+      window.scrollTo({ top: 1300, behavior: 'instant' });
+      window.dispatchEvent(new Event('scroll'));
+    });
+    await flushScrollFrame(page);
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+
+    await page.evaluate(() => {
+      window.scrollTo({ top: 900, behavior: 'instant' });
+      window.dispatchEvent(new Event('scroll'));
+    });
+    await flushScrollFrame(page);
+  }
+
   await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+  await expect(dock).toBeVisible();
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {
