@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - ops/inspect-home-lcp-a3db
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-home-lcp.yml'
+      - 'docs/platform-v7/autopilot/diagnostics/home-lcp-a3db-trigger.md'
 
 permissions:
   contents: read
