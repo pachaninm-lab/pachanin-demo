@@ -74,7 +74,7 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(home).toContain('<TaiDefinition locale={locale} />');
     expect(home).toContain('<TaiImpact locale={locale} />');
     expect(home).toContain('<TaiWorkflow locale={locale} />');
-    expect(enhancements).toContain("<aside className={styles.heroTaiEntry} aria-label={copy.name}>");
+    expect(enhancements).toContain("className={`${styles.heroTaiEntry} pc-v6-hero-tai-entry`}");
   });
 
   it('does not introduce unverified business proof or the rejected partner-positioning sentence', () => {
@@ -137,6 +137,18 @@ describe('platform-v7 homepage TAI and role-entry quality contract', () => {
     expect(hydrationSupport).toContain('const loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname)');
     expect(hydrationSupport).not.toContain("import './PublicMobileExperiencePolish.css'");
     expect(legacyPolish).toContain("import './PublicMobileExperiencePolish.css'");
+  });
+
+  it('eliminates reserved blank sections and compacts the mobile conversion path', () => {
+    expect(enhancements).toContain('const HOME_LAYOUT_POLISH');
+    expect(enhancements).toContain('content-visibility: visible !important');
+    expect(enhancements).toContain('contain-intrinsic-size: none !important');
+    expect(enhancements).toContain('.pc-v7-public-entry #connect-organization');
+    expect(enhancements).toContain('flex-basis: calc(100% - 24px) !important');
+    expect(enhancements).toContain("className={`${styles.roleGrid} pc-v6-role-grid`}");
+    expect(enhancements).toContain("className={`${styles.roleCard} pc-v6-role-card`}");
+    expect(enhancements).toContain("className={`${styles.taiDefinition} pc-v6-tai-definition`}");
+    expect(enhancements).toContain("className={`${styles.taiImpact} pc-v6-tai-impact`}");
   });
 
   it('keeps mobile-first navigation, minimum targets, accessibility focus and reduced motion', () => {
