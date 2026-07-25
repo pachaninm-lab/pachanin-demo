@@ -5,7 +5,7 @@ const taiUrl = `${siteUrl}/platform-v7/ai-in-action`;
 const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
-const pageTitle = 'Прозрачная Цена — единый контур исполнения агросделки';
+const pageTitle = 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта';
 const pageDescription = 'Товар, логистика, качество, документы, деньги, спор и доказательства связаны в одной Сделке. TAI объясняет блокеры, риски и следующий шаг.';
 
 const brandNames = ['Прозрачная Цена', 'Процент Агро', 'Процент-Агро.рф', 'Prozrachnaya Cena', 'Transparent Price', 'Percent Agro'];
