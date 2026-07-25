@@ -111,6 +111,51 @@ def test_artifact_is_bounded_and_never_contains_raw_material() -> None:
         assert forbidden not in upload
 
 
+def test_host_key_is_pinned_before_the_credential_exists() -> None:
+    """A key learned from the network moments before connecting anchors nothing.
+
+    With DNS or the route hijacked, a substituted host would satisfy
+    StrictHostKeyChecking with its own key, emulate the remote script and return
+    self-digested evidence accepted as model provenance.
+    """
+    driver = DRIVER.read_text(encoding="utf-8")
+    assert 'MODEL_HOST_KEY="${TAI_MODEL_SSH_HOST_KEY:?' in driver
+
+    known_hosts = driver.index('> "$HOME/.ssh/known_hosts"')
+    credential = driver.index('printf \'%s\\n\' "$MODEL_SSH_KEY" > "$KEY_PATH"')
+    comparison = driver.index("$3 == pinned")
+    assert known_hosts < comparison < credential
+
+    # known_hosts is built from the pin, never from the scan.
+    pinned_write = driver[driver.index("KNOWN_HOST_PATTERN=") : known_hosts]
+    assert "ssh-keyscan" not in pinned_write
+    assert '"$PINNED_KEY_TYPE" "$PINNED_KEY_MATERIAL"' in driver
+    assert "exit 21" in driver
+
+
+def test_rejected_remote_evidence_is_deleted_and_never_uploaded() -> None:
+    driver = DRIVER.read_text(encoding="utf-8")
+    verify = driver.index("verify-evidence")
+    rejection = driver.index('rm -f "$LOCAL_ROOT/qwen-preview-runtime-evidence.json"')
+    assert verify < rejection
+    assert "exit 22" in driver
+
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    accepted = workflow[
+        workflow.index("Upload bounded preview evidence") : workflow.index(
+            "Upload bounded failure metadata"
+        )
+    ]
+    assert "if: success()" in accepted
+    assert "if: always()" not in accepted
+
+    failure = workflow[workflow.index("Upload bounded failure metadata") :]
+    assert "if: failure()" in failure
+    # Nothing that came off the model host may survive a rejected verification.
+    assert "qwen-preview-runtime-evidence.json" not in failure
+    assert "verified-report.json" not in failure
+
+
 def test_driver_uses_only_dedicated_model_host_and_bounded_evidence() -> None:
     driver = DRIVER.read_text(encoding="utf-8")
     assert '[[ "$MODEL_SSH_USER" == "tai-model" ]]' in driver

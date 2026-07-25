@@ -14,12 +14,35 @@ The command is accepted only as an owner-authored issue comment on issue `#3003`
 
 ## Protected inputs
 
-The workflow uses only the existing repository secrets:
+The workflow uses only these repository secrets:
 
 - `TAI_MODEL_HOST`;
 - `TAI_MODEL_SSH_USER`, required to resolve to `tai-model`;
 - `TAI_MODEL_SSH_PORT`;
-- `TAI_MODEL_SSH_KEY`.
+- `TAI_MODEL_SSH_KEY`;
+- `TAI_MODEL_SSH_HOST_KEY` — **new prerequisite**, the pinned public host key.
+
+`TAI_MODEL_SSH_HOST_KEY` holds one public host key line as the host presents it, for
+example `ssh-ed25519 AAAAC3Nza...`. Read it on the model host with:
+
+```
+ssh-keyscan -t ed25519 -p <port> <host>
+```
+
+taking the value from a trusted path — a console session on the host itself, not the
+same network path the workflow will later use.
+
+The driver builds `known_hosts` from this pin alone, then confirms the host presents the
+same key before the SSH credential is ever written to disk. Without the secret the run
+fails closed before any protected access; on a mismatch it exits `21` and the credential
+never reaches the runner. Learning the key with `ssh-keyscan` at connection time would be
+trust-on-first-use with nothing to anchor it: a hijacked DNS entry or route could present
+its own key, satisfy `StrictHostKeyChecking`, emulate the remote script and return
+self-digested evidence accepted as model provenance.
+
+Evidence that fails verification is deleted on the runner and exits `22`. Only accepted
+evidence is uploaded; a failed run uploads the authority document and the pre-access
+validation report alone, never anything returned by the model host.
 
 The exact-main checkout, authority self-digest, focused Ruff/mypy/pytest checks, and shell syntax checks complete before SSH begins. No password secret, production web host credential, S3 credential, model bytes, prompt, or response is uploaded to GitHub.
 

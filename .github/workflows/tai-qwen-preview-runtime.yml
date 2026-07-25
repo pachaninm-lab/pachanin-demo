@@ -91,10 +91,14 @@ jobs:
           TAI_MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
           TAI_MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
           TAI_MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+          TAI_MODEL_SSH_HOST_KEY: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
         run: bash apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh
 
+      # Accepted evidence only. Uploading on the failure path would publish a document
+      # the verifier rejected — possibly carrying a raw prompt, response or model log —
+      # for 90 days, defeating the boundary on exactly the path meant to contain it.
       - name: Upload bounded preview evidence
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: tai-qwen-preview-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -102,6 +106,22 @@ jobs:
             qwen-preview-authority-validation.json
             qwen-preview-evidence/qwen-preview-runtime-evidence.json
             qwen-preview-evidence/verified-report.json
+            apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      # On failure keep only locally produced, bounded metadata: the authority document
+      # and the pre-access validation report. Nothing that came off the model host.
+      - name: Upload bounded failure metadata
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-qwen-preview-failed-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            qwen-preview-authority-validation.json
             apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json
           if-no-files-found: warn
           retention-days: 90

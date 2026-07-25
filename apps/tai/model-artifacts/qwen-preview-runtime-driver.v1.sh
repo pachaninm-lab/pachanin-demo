@@ -9,6 +9,7 @@ MODEL_HOST="${TAI_MODEL_HOST:?TAI_MODEL_HOST required}"
 MODEL_SSH_USER="${TAI_MODEL_SSH_USER:-tai-model}"
 MODEL_SSH_PORT="${TAI_MODEL_SSH_PORT:-22}"
 MODEL_SSH_KEY="${TAI_MODEL_SSH_KEY:?TAI_MODEL_SSH_KEY required}"
+MODEL_HOST_KEY="${TAI_MODEL_SSH_HOST_KEY:?TAI_MODEL_SSH_HOST_KEY required}"
 LOCAL_ROOT="qwen-preview-evidence"
 CONTROL_ROOT="$LOCAL_ROOT/control"
 REMOTE_ROOT="/srv/tai-models/preview-runs/$EXACT_MAIN/$WORKFLOW_RUN_ID-$WORKFLOW_RUN_ATTEMPT"
@@ -42,8 +43,33 @@ cp apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh "$CONTROL_ROOT/"
 tar -czf "$LOCAL_ROOT/control-package.tar.gz" -C "$CONTROL_ROOT" .
 sha256sum "$LOCAL_ROOT/control-package.tar.gz" > "$LOCAL_ROOT/control-package.tar.gz.sha256"
 
-ssh-keyscan -T 30 -p "$MODEL_SSH_PORT" -H "$MODEL_HOST" > "$HOME/.ssh/known_hosts"
+# The host key comes from protected configuration, never from the network. Learning it
+# with ssh-keyscan moments before connecting is trust-on-first-use with no anchor: a
+# hijacked DNS entry or route could present its own key, satisfy StrictHostKeyChecking,
+# emulate the remote script and return self-digested evidence this workflow would accept
+# as model provenance.
+read -r PINNED_KEY_TYPE PINNED_KEY_MATERIAL _ <<<"$MODEL_HOST_KEY"
+[[ "$PINNED_KEY_TYPE" =~ ^(ssh-ed25519|ecdsa-sha2-nistp(256|384|521)|ssh-rsa)$ ]]
+[[ "$PINNED_KEY_MATERIAL" =~ ^[A-Za-z0-9+/]{32,}={0,2}$ ]]
+
+if (( MODEL_SSH_PORT == 22 )); then
+  KNOWN_HOST_PATTERN="$MODEL_HOST"
+else
+  KNOWN_HOST_PATTERN="[$MODEL_HOST]:$MODEL_SSH_PORT"
+fi
+printf '%s %s %s\n' \
+  "$KNOWN_HOST_PATTERN" "$PINNED_KEY_TYPE" "$PINNED_KEY_MATERIAL" > "$HOME/.ssh/known_hosts"
 chmod 600 "$HOME/.ssh/known_hosts"
+
+# Verify what the host actually presents against the pin before the credential exists on
+# disk, so a substituted host fails with an attributable error and never sees the key.
+SCANNED_KEYS="$(ssh-keyscan -T 30 -p "$MODEL_SSH_PORT" -t "$PINNED_KEY_TYPE" "$MODEL_HOST" 2>/dev/null || true)"
+if ! printf '%s\n' "$SCANNED_KEYS" \
+  | awk -v pinned="$PINNED_KEY_MATERIAL" '$3 == pinned { matched = 1 } END { exit matched ? 0 : 1 }'; then
+  echo "model host key does not match the pinned TAI_MODEL_SSH_HOST_KEY" >&2
+  exit 21
+fi
+
 printf '%s\n' "$MODEL_SSH_KEY" > "$KEY_PATH"
 chmod 600 "$KEY_PATH"
 
@@ -90,12 +116,20 @@ scp_from_host \
   "$LOCAL_ROOT/qwen-preview-runtime-evidence.json"
 
 test -s "$LOCAL_ROOT/qwen-preview-runtime-evidence.json"
-python -m tai.qwen_preview_runtime_cli verify-evidence \
+
+# A rejected document is exactly the case the raw-material boundary exists for: it may
+# carry a raw prompt, response or model log. Delete it on rejection so no later step can
+# retain or publish material the verifier refused.
+if ! python -m tai.qwen_preview_runtime_cli verify-evidence \
   apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json \
   "$LOCAL_ROOT/qwen-preview-runtime-evidence.json" \
   --exact-main "$EXACT_MAIN" \
   --evaluated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --output "$LOCAL_ROOT/verified-report.json"
+  --output "$LOCAL_ROOT/verified-report.json"; then
+  rm -f "$LOCAL_ROOT/qwen-preview-runtime-evidence.json" "$LOCAL_ROOT/verified-report.json"
+  echo "remote preview evidence was rejected and has been removed" >&2
+  exit 22
+fi
 
 cat > qwen-preview-summary.md <<EOF
 ## TAI Qwen read-only operational preview
