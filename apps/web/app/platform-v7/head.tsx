@@ -154,7 +154,6 @@ export default function Head() {
       <link rel="alternate" hrefLang="en" href={`${platformUrl}?lang=en`} />
       <link rel="alternate" hrefLang="zh" href={`${platformUrl}?lang=zh`} />
       <link rel="alternate" hrefLang="x-default" href={platformUrl} />
-      <link rel="stylesheet" href="/platform-v7-density-fix.css" />
       <meta property="og:type" content="website" />
       <meta property="og:title" content={pageTitle} />
       <meta property="og:description" content={pageDescription} />
