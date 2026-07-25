@@ -10,6 +10,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const homeCopy = read('i18n/platform-v7-home-v3.ts');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
+  const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
   const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
@@ -17,10 +18,12 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
 
   it('keeps one Deal as the root product model and exposes the required strategic sections', () => {
-    expect(page).toContain('<PlatformV7StrategicHome />');
+    expect(page).toContain('const home = await PlatformV7StrategicHome();');
+    expect(page).toContain('{home}');
     expect(home).toContain("className='pc-v6-control-tower'");
     expect(home).toContain("id='deal-path'");
-    expect(home).toContain("className='pc-v6-scenario-grid'");
+    expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
+    expect(home).toContain("className='pc-v6-scenario-footer'");
     expect(home).toContain("id='participants'");
     expect(home).toContain("id='tai'");
     expect(home).toContain("id='money'");
@@ -87,6 +90,7 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(home).toContain('copy.tai.freshness');
     expect(home).toContain('copy.tai.confidence');
     expect(home).toContain('copy.tai.action');
+    expect(home).toContain('остаётся под контролем человека');
     expect(homeCopy).toContain('ждёт подтверждения пользователя');
     expect(homeCopy).toContain('TAI не меняет права');
   });
@@ -102,6 +106,8 @@ describe('platform-v7 strategic transaction-centric public entry', () => {
     expect(homeCss).toContain('@media (max-width: 767px)');
     expect(homeCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(homeCss).toContain('scroll-snap-type: x mandatory');
+    expect(finalCss).toContain('min-height: 44px !important');
+    expect(finalCss).toContain('overflow-x: clip');
   });
 
   it('implements support as a real accessible dialog mounted at the public layout boundary', () => {

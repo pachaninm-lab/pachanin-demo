@@ -20,10 +20,32 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function scrollAndFlush(page: Page, top: number) {
+  await page.evaluate(async (targetTop) => {
+    window.scrollTo({ top: targetTop, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
+  }, top);
+}
+
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
+
+  if (!mobile) {
+    await scrollAndFlush(page, 0);
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+    return;
+  }
+
+  await scrollAndFlush(page, 0);
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+  await scrollAndFlush(page, 1400);
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
+  await scrollAndFlush(page, 800);
   await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
 }
 
@@ -38,13 +60,24 @@ async function expectNoSeriousAxeViolations(page: Page) {
 
 async function expectMinimumTargets(page: Page, locator: string) {
   const elements = page.locator(locator);
-  await expect(elements.first()).toBeVisible();
-  const targets = await elements.evaluateAll((nodes) => nodes.map((element) => {
-    const box = element.getBoundingClientRect();
-    return { width: box.width, height: box.height };
-  }));
-  expect(targets.length).toBeGreaterThan(0);
-  expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
+  await expect.poll(async () => {
+    if (!(await elements.first().isVisible())) await settleContactDock(page);
+    const targets = await elements.evaluateAll((nodes) => nodes
+      .filter((element) => {
+        const style = window.getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        return style.visibility !== 'hidden' && style.display !== 'none' && box.width > 0 && box.height > 0;
+      })
+      .map((element) => {
+        const box = element.getBoundingClientRect();
+        return { width: box.width, height: box.height };
+      }));
+    return targets.length > 0 && targets.every((target) => target.width >= 44 && target.height >= 44);
+  }, {
+    timeout: 15_000,
+    intervals: [100, 250, 500],
+    message: `${locator} must remain visible with minimum 44×44 CSS px targets after route hydration`,
+  }).toBe(true);
 }
 
 test.describe('P0 public TAI intelligence layer browser acceptance', () => {
@@ -76,7 +109,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     await expect(perspectives.getByRole('tab')).toHaveCount(6);
     await perspectives.getByRole('tab', { name: 'Банк' }).click();
     await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Интерактивный сценарий показывает ролевой контекст. Переключение не открывает данные и не меняет права.')).toBeVisible();
+    await expect(page.getByText('Ролевое представление одного сценария. Переключение не открывает данные и не меняет права.')).toBeVisible();
 
     const integrations = page.locator('#integrations');
     await expect(integrations).toBeVisible();

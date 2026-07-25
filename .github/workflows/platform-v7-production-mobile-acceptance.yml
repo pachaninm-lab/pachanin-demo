@@ -1,0 +1,161 @@
+name: Platform V7 Production Mobile Acceptance
+
+on:
+  workflow_run:
+    workflows: ['Production Web Exact-SHA Release']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: 'Full deployed main SHA; blank uses the selected ref SHA'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: platform-v7-production-mobile-acceptance
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3048
+
+jobs:
+  mobile-acceptance:
+    name: 390x844 and 430x932 production acceptance
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Resolve exact deployed SHA
+        id: target
+        env:
+          INPUT_TARGET_SHA: ${{ inputs.target_sha }}
+          RELEASE_TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
+            target_sha="$RELEASE_TARGET_SHA"
+          elif [[ -n "${INPUT_TARGET_SHA:-}" ]]; then
+            target_sha="$INPUT_TARGET_SHA"
+          else
+            target_sha="$GITHUB_SHA"
+          fi
+
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'A full lowercase 40-character deployed SHA is required.' >&2
+            exit 2
+          }
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.target_sha }}
+          fetch-depth: 1
+
+      - name: Verify exact public revision before browser acceptance
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$(curl -fsSL --compressed --max-time 20 "$LIVE_BASE/manifest-pc-deploy.json?mobile-acceptance=$GITHUB_RUN_ID")"
+          grep -Fq "$TARGET_SHA" <<< "$manifest" || {
+            echo "Production manifest does not expose target SHA $TARGET_SHA" >&2
+            exit 3
+          }
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install exact repository dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium runtime
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium
+
+      - name: Run exact mobile viewport acceptance
+        id: acceptance
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
+        run: pnpm --filter @pc/web exec playwright test --config=playwright.production-mobile.config.ts
+
+      - name: Build visual evidence checksums
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/platform-v7-production-mobile
+          find apps/web/test-results/production-mobile apps/web/playwright-report-production-mobile \
+            -type f -print0 2>/dev/null |
+            sort -z |
+            xargs -0 -r sha256sum > artifacts/platform-v7-production-mobile/sha256.txt
+          printf '%s\n' '${{ steps.target.outputs.target_sha }}' > artifacts/platform-v7-production-mobile/target-sha.txt
+          printf '%s\n' '${{ steps.acceptance.outcome }}' > artifacts/platform-v7-production-mobile/outcome.txt
+
+      - name: Publish mobile acceptance record
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$ACCEPTANCE_OUTCOME" == success ]]; then
+            result=PASS
+          else
+            result=FAIL
+          fi
+
+          record=artifacts/platform-v7-production-mobile/issue-comment.md
+          {
+            echo "## Platform V7 production mobile acceptance \`$GITHUB_RUN_ID\`"
+            echo
+            echo "- target SHA: \`$TARGET_SHA\`"
+            echo "- viewport 390×844: \`$result\`"
+            echo "- viewport 430×932: \`$result\`"
+            echo "- sticky header and anchors: \`$result\`"
+            echo "- horizontal overflow: \`$result\`"
+            echo "- 44 px header controls: \`$result\`"
+            echo "- 52–56 px form controls: \`$result\`"
+            echo "- product Deal workspace: \`$result\`"
+            echo "- screenshots and traces: workflow artifact"
+            echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
+          } > "$record"
+
+          gh issue comment "$RELEASE_ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file "$record"
+
+      - name: Upload production mobile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-production-mobile-${{ github.run_id }}
+          path: |
+            apps/web/test-results/production-mobile
+            apps/web/playwright-report-production-mobile
+            artifacts/platform-v7-production-mobile
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Enforce mobile acceptance result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ steps.acceptance.outcome }}' == success ]] || exit 40

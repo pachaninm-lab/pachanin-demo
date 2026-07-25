@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/platform-v7-mobile-density-final",
+  "status": "active",
+  "operationalStatus": "PUBLIC_UI_REFINEMENT",
+  "validationRevision": 13,
+  "allowedPaths": [
+    ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
+    "apps/web/components/platform-v7/PlatformV7HomeMobileDensity.css",
+    "apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts",
+    "apps/web/tests/unit/platformV7MobileDensityFinal.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-tai-role-entry-v2.json"
+  ],
+  "boundaries": {
+    "dealArchitectureRewrite": false,
+    "apiOrDatabaseChange": false,
+    "authOrRbacChange": false,
+    "bankingAuthorityChange": false,
+    "externalConnectivityClaim": false,
+    "fakeLiveData": false,
+    "unverifiedProofBlock": false,
+    "productionTopologyChange": false,
+    "netlifyOrVercelProductionDependency": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

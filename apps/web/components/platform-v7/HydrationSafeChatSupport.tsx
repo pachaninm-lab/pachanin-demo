@@ -1,18 +1,31 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import './PublicMobileExperiencePolish.css';
+import { usePathname } from 'next/navigation';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export type HydrationSafeChatSupportProps = {
   verifiedRole?: PlatformRole;
   renderDock?: boolean;
+  legacyPublicPolish?: boolean;
 };
 
-const ContextualSupportOrAssistant = dynamic<HydrationSafeChatSupportProps>(
+type ContextualSupportProps = Omit<HydrationSafeChatSupportProps, 'legacyPublicPolish'>;
+
+const ContextualSupportOrAssistant = dynamic<ContextualSupportProps>(
   () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
   { ssr: false, loading: () => null },
 );
+
+const LegacyPublicMobileExperiencePolish = dynamic(
+  () => import('@/components/platform-v7/LegacyPublicMobileExperiencePolish').then((module) => module.LegacyPublicMobileExperiencePolish),
+  { ssr: false, loading: () => null },
+);
+
+function isStrategicHomepage(pathname: string): boolean {
+  const clean = pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
+  return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';
+}
 
 /**
  * Public pages keep the contact-support form. Authenticated platform-v7 workspaces
@@ -21,11 +34,18 @@ const ContextualSupportOrAssistant = dynamic<HydrationSafeChatSupportProps>(
  * The surface remains browser-only so time-aware greetings, focus management and
  * route context never destabilize streamed HTML or hydration.
  */
-export function HydrationSafeChatSupport(props: HydrationSafeChatSupportProps) {
+export function HydrationSafeChatSupport({
+  legacyPublicPolish,
+  ...supportProps
+}: HydrationSafeChatSupportProps) {
+  const pathname = usePathname() || '/platform-v7';
+  const loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname);
+
   return (
     <>
-      <ContextualSupportOrAssistant {...props} />
-      <style>{terminalPublicSpacingCss}</style>
+      {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
+      <ContextualSupportOrAssistant {...supportProps} />
+      {loadLegacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
     </>
   );
 }

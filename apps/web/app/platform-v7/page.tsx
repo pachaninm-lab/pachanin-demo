@@ -37,76 +37,58 @@ const CRITICAL_HOME_CSS = `
 }
 .pc-v6-hero {
   display: grid;
-  gap: 28px;
-  padding-top: 42px;
-  padding-bottom: 54px;
+  align-items: center;
+  gap: 42px;
+  padding-top: 58px;
+  padding-bottom: 42px;
 }
 .pc-v6-hero-copy {
   min-width: 0;
+  max-width: 650px;
   text-rendering: auto;
 }
 .pc-v6-hero .pc-v6-kicker {
-  max-width: 48ch;
+  max-width: 42ch;
   margin-bottom: 12px;
   color: var(--pc-v6-green);
   font-size: 14px;
-  font-weight: 680;
-  line-height: 1.38;
+  font-weight: 700;
+  line-height: 1.35;
   letter-spacing: 0;
   text-transform: none;
 }
 .pc-v6-hero h1.pc-v6-hero-title {
-  max-width: 15ch;
+  max-width: 13ch;
   margin: 0;
   color: var(--pc-v6-ink);
   font-family: var(--pc-v6-font-display);
-  font-size: clamp(38px, 9.4vw, 42px);
-  font-weight: 710;
-  line-height: 1.035;
-  letter-spacing: -0.041em;
+  font-size: clamp(48px, 5vw, 64px);
+  font-weight: 730;
+  line-height: .98;
+  letter-spacing: -.048em;
   text-wrap: balance;
 }
 .pc-v6-hero-brand {
-  display: inline;
-  color: var(--pc-v6-green);
-  font-size: 0.62em;
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.026em;
-}
-.pc-v6-hero-brand::after {
-  content: '';
   display: block;
-  height: 8px;
+  margin-bottom: 8px;
+  color: var(--pc-v6-green);
+  font-size: .58em;
+  font-weight: 730;
+  line-height: 1.05;
+  letter-spacing: -.026em;
 }
-.pc-v6-hero-title-line { display: inline; }
+.pc-v6-hero-brand::after { display: none; }
+.pc-v6-hero-title-line { display: block; }
 .pc-v6-hero-copy > p.pc-v6-hero-lead {
-  max-width: 60ch;
+  max-width: 54ch;
   margin: 18px 0 0;
   color: var(--pc-v6-muted);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 400;
-  line-height: 1.54;
-  letter-spacing: -0.006em;
-  text-wrap: wrap;
+  line-height: 1.5;
+  letter-spacing: -.006em;
 }
-.pc-v6-hero-proofs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-top: 18px;
-}
-.pc-v6-hero-proofs span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #3f5148;
-  font-size: 13px;
-  font-weight: 560;
-  line-height: 1.35;
-}
-.pc-v6-hero-proofs svg { flex: 0 0 auto; color: var(--pc-v6-green); }
 html[data-p7-language='zh'] * {
   letter-spacing: 0 !important;
   word-break: keep-all;
@@ -116,60 +98,69 @@ html[data-p7-language='zh'] h1,
 html[data-p7-language='zh'] h2,
 html[data-p7-language='zh'] h3 { line-height: 1.14; }
 @supports (content-visibility: auto) {
-  .pc-v6-category,
-  .pc-v6-crops,
-  .pc-v6-integrations,
-  .pc-v6-assurance,
-  .pc-v6-faq,
-  .pc-v6-final {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 680px;
+  .pc-v7-public-entry #participants,
+  .pc-v7-public-entry #role-entry,
+  .pc-v7-public-entry .pc-v6-category,
+  .pc-v7-public-entry #deal-path,
+  .pc-v7-public-entry #tai,
+  .pc-v7-public-entry #money,
+  .pc-v7-public-entry #integrations,
+  .pc-v7-public-entry .pc-v6-crops,
+  .pc-v7-public-entry #maturity,
+  .pc-v7-public-entry #connect-organization,
+  .pc-v7-public-entry .pc-v6-faq,
+  .pc-v7-public-entry .pc-v6-final {
+    content-visibility: visible !important;
+    contain: none !important;
+    contain-intrinsic-size: none !important;
   }
 }
-@media (max-width: 374px) {
-  .pc-v6-hero { gap: 24px; padding-top: 34px; padding-bottom: 46px; }
-  .pc-v6-hero .pc-v6-kicker { margin-bottom: 11px; font-size: 13px; }
-  .pc-v6-hero h1.pc-v6-hero-title { max-width: none; font-size: 36px; line-height: 1.045; letter-spacing: -0.038em; }
-  .pc-v6-hero-brand::after { height: 7px; }
-  .pc-v6-hero-copy > p.pc-v6-hero-lead { margin-top: 16px; font-size: 16px; line-height: 1.5; }
-  .pc-v6-hero-proofs { display: grid; gap: 7px; margin-top: 16px; }
-}
-@media (min-width: 375px) and (max-width: 767px) {
-  .pc-v6-hero { gap: 26px; padding-top: 38px; padding-bottom: 50px; }
-  .pc-v6-hero h1.pc-v6-hero-title { max-width: 15ch; font-size: clamp(38px, 9.8vw, 41px); }
-  .pc-v6-hero-copy > p.pc-v6-hero-lead { font-size: 16.5px; }
-}
-@media (min-width: 768px) and (max-width: 1023px) {
-  .pc-v6-hero { grid-template-columns: minmax(0, 1fr); gap: 38px; padding-top: 64px; padding-bottom: 74px; }
-  .pc-v6-hero-copy { max-width: 760px; }
-  .pc-v6-hero h1.pc-v6-hero-title { max-width: 16ch; font-size: clamp(46px, 6.3vw, 54px); line-height: 1.025; }
-  .pc-v6-hero-copy > p.pc-v6-hero-lead { margin-top: 21px; font-size: 18px; line-height: 1.54; }
-  .pc-v6-control-tower { max-width: 760px; }
-}
-@media (min-width: 1024px) {
+@media (max-width: 767px) {
+  .pc-v7-public-entry {
+    --entry-public-header-base: 48px;
+    --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
+  }
   .pc-v6-hero {
-    grid-template-columns: minmax(0, 1.03fr) minmax(410px, .97fr);
-    align-items: center;
-    gap: 52px;
-    min-height: min(760px, calc(100dvh - 64px));
-    padding-top: 72px;
-    padding-bottom: 82px;
+    gap: 14px;
+    padding-top: 18px;
+    padding-bottom: 24px;
   }
-  .pc-v6-hero h1.pc-v6-hero-title { max-width: 16ch; font-size: clamp(50px, 4.65vw, 59px); line-height: 1.018; }
-  .pc-v6-hero-copy > p.pc-v6-hero-lead { margin-top: 22px; font-size: 18px; line-height: 1.54; }
+  .pc-v6-hero .pc-v6-kicker {
+    max-width: 34ch;
+    margin-bottom: 9px;
+    font-size: 12.5px;
+    line-height: 1.3;
+  }
+  .pc-v6-hero h1.pc-v6-hero-title {
+    max-width: 100%;
+    font-size: clamp(33px, 8.7vw, 36px);
+    line-height: 1;
+    letter-spacing: -.04em;
+  }
+  .pc-v6-hero-brand {
+    margin-bottom: 6px;
+    font-size: .62em;
+  }
+  .pc-v6-hero-copy > p.pc-v6-hero-lead {
+    max-width: 42ch;
+    margin-top: 12px;
+    font-size: 15px;
+    line-height: 1.42;
+  }
 }
-@media (min-width: 1280px) {
-  .pc-v6-hero { grid-template-columns: minmax(0, 1.07fr) minmax(440px, .93fr); gap: 68px; padding-top: 82px; padding-bottom: 92px; }
-  .pc-v6-hero h1.pc-v6-hero-title { max-width: 16ch; font-size: 61px; }
-  .pc-v6-hero-copy > p.pc-v6-hero-lead { max-width: 58ch; font-size: 19px; }
+@media (max-width: 359px) {
+  .pc-v6-hero h1.pc-v6-hero-title { font-size: 31px; }
 }
-:lang(zh) .pc-v6-hero h1.pc-v6-hero-title { max-width: 11em; letter-spacing: -0.015em; }
+@media (min-width: 768px) {
+  .pc-v6-hero { grid-template-columns: minmax(0, 1.02fr) minmax(380px, .98fr); }
+}
+:lang(zh) .pc-v6-hero h1.pc-v6-hero-title { max-width: 11em; letter-spacing: -.015em; }
 :lang(zh) .pc-v6-hero-brand { letter-spacing: 0; }
 `;
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта',
-  description: 'Единый цифровой контур Сделки: товар, участники, торги, логистика, приёмка, качество, документы, деньги, спор, доказательства и закрытие.',
+  description: 'Товар, логистика, качество, документы, деньги, спор и доказательства связаны в одной Сделке. TAI объясняет блокеры, риски и следующий шаг.',
   alternates: {
     canonical: '/platform-v7',
     languages: {
@@ -180,8 +171,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    title: 'Прозрачная Цена — контроль исполнения Сделки',
-    description: 'Одна Сделка связывает товар, участников, логистику, качество, документы и деньги до расчёта и закрытия.',
+    title: 'Прозрачная Цена — контроль исполнения агросделки',
+    description: 'Торги, логистика, качество, документы и деньги связаны в одной Сделке. TAI показывает основание и следующий шаг.',
     url: '/platform-v7',
     siteName: 'Прозрачная Цена',
     locale: 'ru_RU',
@@ -189,7 +180,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Прозрачная Цена — контроль исполнения Сделки',
-    description: 'Единая цифровая инфраструктура агросделки от цены до расчёта и закрытия.',
+    description: 'Единая цифровая инфраструктура агросделки и отдельный операционный AI-продукт TAI.',
   },
   robots: {
     index: true,
@@ -204,6 +195,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function PlatformV7RootPage() {
-  return <><style>{CRITICAL_HOME_CSS}</style><PlatformV7StrategicHome /></>;
+export default async function PlatformV7RootPage() {
+  const home = await PlatformV7StrategicHome();
+  return <><style>{CRITICAL_HOME_CSS}</style>{home}</>;
 }
