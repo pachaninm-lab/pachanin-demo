@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PRODUCTION-WEB-SINGLE-DISPATCH-AUTHORITY-2026-07-25",
+  "branch": "fix/production-web-single-dispatch-authority-v2",
+  "status": "active",
+  "maturityBoundary": "production-release-orchestration-idempotency-only",
+  "globalProgramStateUnchanged": "This scope does not advance application, banking, integration or TAI production maturity. It only authorizes removal of the duplicate automatic exact-SHA web release path.",
+  "allowedPaths": [
+    ".github/workflows/production-web-exact-sha.yml",
+    ".github/workflows/production-web-exact-sha-image-gate.yml"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/**",
+    "packages/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "Dockerfile.web changes have exactly one automatic release orchestrator",
+    "The image gate waits for the exact canonical OCI revision and dispatches one bounded release",
+    "The production release workflow remains available only through explicit workflow_dispatch",
+    "No application runtime, deployment script, Dockerfile or credential is changed"
+  ]
+}
