@@ -22,5 +22,6 @@ jobs:
           UPDATE_LABELS: automerge
           MERGE_REMOVE_LABELS: automerge
 
-# Production is deployed by the Netlify Git integration on push to main
-# (see netlify.toml). No CI-driven deploy job is required here.
+# Production is deployed to the REG.RU virtual server by an explicit exact-SHA
+# release (see CANONICAL_DEPLOY.md). A merge to main updates source authority
+# only; no CI-driven deploy job is required here.

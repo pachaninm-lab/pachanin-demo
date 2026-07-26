@@ -12,7 +12,7 @@ on:
       - 'apps/web/app/platform-v7/**'
       - 'apps/web/lib/platform-v7/public-seo-routes.json'
       - 'apps/web/public/*.txt'
-      - 'netlify.toml'
+      - 'infra/docker/Dockerfile.web'
       - 'scripts/write-deploy-evidence.mjs'
       - 'scripts/indexnow-submit.mjs'
       - '.github/workflows/indexnow-submit.yml'

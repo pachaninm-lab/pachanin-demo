@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'apps/web/**'
-      - 'netlify.toml'
+      - 'infra/docker/Dockerfile.web'
       - 'scripts/write-deploy-evidence.mjs'
       - '.github/workflows/seo-live-smoke.yml'
   workflow_dispatch:

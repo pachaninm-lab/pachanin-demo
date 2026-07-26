@@ -21,10 +21,11 @@
 - [ ] Mobile 375px без явного переполнения, если экран затронут
 - [ ] web/API/API-ovdc success
 
-## Hosting (Netlify)
+## Hosting (REG.RU)
 - [ ] Изменения идут через main
-- [ ] Netlify — единственный production-host (Vercel выведен из эксплуатации)
-- [ ] Если менялся hosting/config — проверен Netlify-деплой
+- [ ] `процент-агро.рф` на виртуальном сервере REG.RU — единственный production-host (Netlify и Vercel выведены из эксплуатации)
+- [ ] Merge, зелёный CI или опубликованный GHCR-образ не считаются доказательством, что production изменился
+- [ ] Если менялся hosting/config — выполнен exact-SHA релиз и проверен живой домен
 - [ ] Если менялся product/UI — deploy-поведение не менялось скрыто
 
 ## Что нельзя было трогать

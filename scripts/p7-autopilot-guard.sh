@@ -231,7 +231,6 @@ EXACT_MAIN_LIVE_EVIDENCE_SCOPE='.github/workflows/indexnow-submit.yml
 .github/workflows/seo-live-smoke.yml
 apps/web/tests/unit/exactMainLiveEvidenceContract.test.ts
 docs/platform-v7/autopilot/exact-main-live-evidence-2659.md
-netlify.toml
 scripts/indexnow-submit.mjs
 scripts/security/capture-base-security-jobs.mjs
 scripts/write-deploy-evidence.mjs

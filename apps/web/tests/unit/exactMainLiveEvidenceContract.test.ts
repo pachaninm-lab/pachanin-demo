@@ -7,7 +7,7 @@ const currentFile = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(currentFile), '../../../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
-const netlifyConfig = read('netlify.toml');
+const webImage = read('infra/docker/Dockerfile.web');
 const deployEvidence = read('scripts/write-deploy-evidence.mjs');
 const seoWorkflow = read('.github/workflows/seo-live-smoke.yml');
 const indexNowWorkflow = read('.github/workflows/indexnow-submit.yml');
@@ -16,8 +16,9 @@ const securityWorkflow = read('.github/workflows/security-abuse-evidence.yml');
 const securityCapture = read('scripts/security/capture-base-security-jobs.mjs');
 
 describe('exact-main live evidence authority', () => {
-  it('binds Netlify production evidence to the immutable build commit on a public middleware-safe path', () => {
-    expect(netlifyConfig).toContain('node scripts/write-deploy-evidence.mjs');
+  it('binds production evidence to the immutable build commit on a public middleware-safe path', () => {
+    expect(webImage).toContain('node scripts/write-deploy-evidence.mjs');
+    expect(webImage).toContain('COMMIT_REF="$GIT_COMMIT"');
     expect(deployEvidence).toContain('process.env.COMMIT_REF');
     expect(deployEvidence).toContain("'apps/web/public'");
     expect(deployEvidence).toContain("'manifest-pc-deploy.json'");
