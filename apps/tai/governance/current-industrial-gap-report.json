@@ -296,13 +296,6 @@
       "title": "Production feature flag enabled only after model admission and runtime health"
     },
     {
-      "item_id": "I.01",
-      "reason": "apps/api TAI_PLATFORM_TOOL_MODES serves only getDealSummary and getRoleNextActions, so the remaining 8 read tools need platform-side implementations before TAI can register them",
-      "stage": "I",
-      "status": "BLOCKED",
-      "title": "Ten typed read-only Safe Tools"
-    },
-    {
       "item_id": "I.02",
       "reason": "0 of 8 required confirmed write actions are implemented",
       "stage": "I",
@@ -591,7 +584,6 @@
     "H.04",
     "H.05",
     "H.06",
-    "I.01",
     "I.02",
     "I.03",
     "J.01",
@@ -626,15 +618,15 @@
     "tai/ap12b-assign-logistics-confirmed-action"
   ],
   "totals": {
-    "accepted": 8,
-    "blocked": 29,
+    "accepted": 9,
+    "blocked": 28,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 11.27,
+    "completion_percent": 12.68,
     "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
-    "mandatory_accepted": 8,
+    "mandatory_accepted": 9,
     "mandatory_total": 71,
     "regressed": 0,
-    "remaining": 63,
+    "remaining": 62,
     "total": 71
   },
   "ui_status": "NOT_ACTIVATED"
