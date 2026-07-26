@@ -73,7 +73,6 @@ def evaluate_s3_preflight(
         "list_objects_v2",
         "list_object_versions",
         "anonymous_list_probe",
-        "anonymous_object_probe",
     ):
         if commands.get(command_name) is not True:
             reasons.append(f"S3_COMMAND_FAILED:{command_name}")
@@ -119,11 +118,13 @@ def evaluate_s3_preflight(
     denied_statuses = set(_integer_list(controls.get("anonymous_list_denied_http_statuses")))
     if _integer(observed.get("anonymous_list_http_status")) not in denied_statuses:
         reasons.append("ANONYMOUS_BUCKET_LIST_NOT_DENIED")
-    # Denying the listing is not privacy. A bucket that refuses anonymous ListObjects while
-    # serving public GetObject on a known key passed every earlier check, and that bucket
-    # hands model artifacts to anyone who learns or guesses a key.
-    if _integer(observed.get("anonymous_object_http_status")) not in denied_statuses:
-        reasons.append("ANONYMOUS_OBJECT_READ_NOT_DENIED")
+    # Anonymous object reads are deliberately NOT checked here. Denying the listing is not
+    # privacy, and a bucket serving public GetObject on a known key still passes — but the
+    # obvious probe is worse than none: S3 answers 403 for a missing key when the caller
+    # lacks ListBucket, so a fabricated sentinel key returns an accepted 403 on exactly the
+    # bucket the check exists to catch. A correct probe must GET a key known to exist, which
+    # means discovering one from the authenticated listing and handling the empty-bucket
+    # case. That is its own slice; owner package A section 2.4 records it as required work.
 
     policy = _mapping(observed.get("policy"))
     required_delete_actions = set(
@@ -178,9 +179,6 @@ def evaluate_s3_preflight(
             "default_retention_mode": _text(retention.get("Mode")),
             "default_retention_days": retention_days,
             "anonymous_list_http_status": _integer(observed.get("anonymous_list_http_status")),
-            "anonymous_object_http_status": _integer(
-                observed.get("anonymous_object_http_status")
-            ),
             "policy_sha256": policy_sha256,
             "globally_denied_actions": sorted(denied_actions),
             "operator_confirmed_capacity_bytes": capacity_bytes,

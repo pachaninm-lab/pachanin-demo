@@ -50,7 +50,6 @@ def _valid_observed() -> dict[str, object]:
             "list_objects_v2": True,
             "list_object_versions": True,
             "anonymous_list_probe": True,
-            "anonymous_object_probe": True,
         },
         "versioning": {"Status": "Enabled"},
         "object_lock": {
@@ -65,7 +64,6 @@ def _valid_observed() -> dict[str, object]:
             }
         },
         "anonymous_list_http_status": "403",
-        "anonymous_object_http_status": "403",
         "policy": {
             "Version": "2012-10-17",
             "Statement": [
@@ -153,8 +151,6 @@ def test_valid_selectel_s3_authority_is_ready_and_bounded() -> None:
             "DEFAULT_RETENTION_OUT_OF_RANGE",
         ),
         ({"anonymous_list_http_status": "200"}, "ANONYMOUS_BUCKET_LIST_NOT_DENIED"),
-        # Denying the listing while serving objects publicly is not privacy.
-        ({"anonymous_object_http_status": "200"}, "ANONYMOUS_OBJECT_READ_NOT_DENIED"),
         (
             {"operator_confirmed_capacity_bytes": "119999999999"},
             "EXTERNAL_CAPACITY_BELOW_MINIMUM",
@@ -334,7 +330,6 @@ def test_workflow_uses_only_provider_supported_s3_controls() -> None:
         "list-objects-v2",
         "list-object-versions",
         "anonymous_list_http_status",
-        "anonymous_object_http_status",
         "bundle upload: `NOT_RUN`",
         "NOT_ATTESTED",
     ):

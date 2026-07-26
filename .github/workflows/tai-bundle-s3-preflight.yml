@@ -144,25 +144,6 @@ jobs:
           printf '%s\n' "$anonymous_status" > "$REPORT_ROOT/raw/anonymous_list_http_status.txt"
           printf '%s\n' "$anonymous_exit" > "$REPORT_ROOT/raw/anonymous_list_probe.exit"
 
-          # Denying the listing is not privacy. A bucket that refuses anonymous
-          # ListObjects while serving public GetObject on a known key would otherwise
-          # pass every control and still hand model artifacts to anyone with a key.
-          # The key need not exist: a private bucket answers 401/403 either way, while
-          # a public one answers 404 for a missing key and 200 for a present one.
-          anonymous_object_url="${S3_ENDPOINT%/}/$S3_BUCKET/$S3_PREFIX/.preflight-anonymous-probe"
-          set +e
-          anonymous_object_status="$(
-            curl --silent --show-error --output "$REPORT_ROOT/raw/anonymous-object.body" \
-              --write-out '%{http_code}' --connect-timeout 20 --max-time 60 \
-              "$anonymous_object_url"
-          )"
-          anonymous_object_exit=$?
-          set -e
-          printf '%s\n' "$anonymous_object_status" \
-            > "$REPORT_ROOT/raw/anonymous_object_http_status.txt"
-          printf '%s\n' "$anonymous_object_exit" \
-            > "$REPORT_ROOT/raw/anonymous_object_probe.exit"
-
           aws --version > "$REPORT_ROOT/raw/aws-version.txt" 2>&1 || true
 
       - name: Record unavailable protected inputs
@@ -171,15 +152,13 @@ jobs:
         run: |
           set -euo pipefail
           for name in head_bucket get_bucket_versioning get_object_lock_configuration \
-            get_bucket_policy list_objects_v2 list_object_versions anonymous_list_probe \
-            anonymous_object_probe; do
+            get_bucket_policy list_objects_v2 list_object_versions anonymous_list_probe; do
             : > "$REPORT_ROOT/raw/${name}.json"
             printf '%s\n' 'PROTECTED_INPUT_OR_AWS_CLI_UNAVAILABLE' \
               > "$REPORT_ROOT/raw/${name}.stderr"
             printf '%s\n' '2' > "$REPORT_ROOT/raw/${name}.exit"
           done
           printf '%s\n' '0' > "$REPORT_ROOT/raw/anonymous_list_http_status.txt"
-          printf '%s\n' '0' > "$REPORT_ROOT/raw/anonymous_object_http_status.txt"
           : > "$REPORT_ROOT/raw/aws-version.txt"
 
       - name: Build bounded observed evidence
@@ -201,7 +180,6 @@ jobs:
               'list_objects_v2',
               'list_object_versions',
               'anonymous_list_probe',
-              'anonymous_object_probe',
           ]
 
           def exit_ok(name: str) -> bool:
@@ -253,7 +231,6 @@ jobs:
               'versioning': object_json('get_bucket_versioning'),
               'object_lock': object_json('get_object_lock_configuration'),
               'anonymous_list_http_status': http_status('anonymous_list_http_status'),
-              'anonymous_object_http_status': http_status('anonymous_object_http_status'),
               'policy': policy,
               'aws_cli_identity': (root / 'aws-version.txt').read_text(errors='replace')[:500],
               'mutation_mode': 'READ_ONLY',
@@ -333,7 +310,6 @@ jobs:
               f"- retention: `{observed.get('default_retention_mode')}` / "
               f"`{observed.get('default_retention_days')}` days;",
               f"- anonymous list HTTP: `{observed.get('anonymous_list_http_status')}`;",
-              f"- anonymous object HTTP: `{observed.get('anonymous_object_http_status')}`;",
               f"- delete deny: `{observed.get('globally_denied_actions')}`;",
               f"- confirmed capacity bytes: `{observed.get('operator_confirmed_capacity_bytes')}`;",
               f"- report SHA-256: `{report.get('report_sha256')}`;",
