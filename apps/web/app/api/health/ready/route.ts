@@ -16,7 +16,7 @@ export function GET() {
     {
       status: 200,
       headers: {
-        'Cache-Control': 'no-store, max-age=0',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
         'X-Robots-Tag': 'noindex, nofollow, noarchive',
       },
     },

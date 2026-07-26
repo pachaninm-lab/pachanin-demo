@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
 
 const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 
@@ -31,7 +32,13 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: '/',
+      allow: [
+        '/',
+        ...publicSeoRouteRegistry.routes.map(({ path }) => path),
+        '/robots.txt',
+        '/sitemap.xml',
+        '/indexnow.txt',
+      ],
       disallow: privateRoutes,
     },
     sitemap: `${siteUrl}/sitemap.xml`,
