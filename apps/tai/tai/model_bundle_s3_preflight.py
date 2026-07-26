@@ -11,8 +11,24 @@ from urllib.parse import urlsplit
 _REQUIREMENTS_SCHEMA = "tai.model-bundle-s3-preflight-requirements.v1"
 _OBSERVED_SCHEMA = "tai.model-bundle-s3-preflight-observed.v1"
 _REPORT_SCHEMA = "tai.model-bundle-s3-preflight-report.v1"
-_SELECTEL_PROFILE = "SELECTEL_S3_2026"
+# Provider profiles, not one hardcoded provider. The evaluator previously accepted
+# SELECTEL_S3_2026 alone, so a bucket at any other provider failed on the profile string
+# before a single control was examined — the contract was provider-neutral and the path to
+# acceptance was not. A profile records only what that provider cannot serve; every
+# mandatory control is checked identically for all of them.
+_PROVIDER_PROFILES: dict[str, frozenset[str]] = {
+    # Selectel implements neither Bucket Encryption nor Public Access Block. Neither is
+    # load-bearing for immutability or privacy, which A2-A7 deliver without them.
+    "SELECTEL_S3_2026": frozenset({"Bucket Encryption", "Public Access Block"}),
+    # A provider implementing the full surface. Nothing is waived.
+    "GENERIC_S3_COMPLETE": frozenset(),
+}
 _BUCKET_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
+
+
+def supported_provider_profiles() -> tuple[str, ...]:
+    """Profile names the evaluator will accept, sorted."""
+    return tuple(sorted(_PROVIDER_PROFILES))
 
 
 def evaluate_s3_preflight(
@@ -27,9 +43,13 @@ def evaluate_s3_preflight(
     _expect_schema(requirements, _REQUIREMENTS_SCHEMA, "REQUIREMENTS", reasons)
     _expect_schema(observed, _OBSERVED_SCHEMA, "OBSERVED", reasons)
 
-    if requirements.get("provider_profile") != _SELECTEL_PROFILE:
+    required_profile = _text(requirements.get("provider_profile"))
+    if required_profile not in _PROVIDER_PROFILES:
         reasons.append("PROVIDER_PROFILE_INVALID")
-    if observed.get("provider_profile") != _SELECTEL_PROFILE:
+    # The observation must name the same profile the requirements were written against.
+    # Otherwise a bucket could be measured under one provider's waivers and accepted under
+    # another's, which is how an unsupported control silently becomes a waived one.
+    if _text(observed.get("provider_profile")) != required_profile:
         reasons.append("OBSERVED_PROVIDER_PROFILE_INVALID")
 
     endpoint = _text(observed.get("endpoint"))
@@ -53,11 +73,20 @@ def evaluate_s3_preflight(
         "list_objects_v2",
         "list_object_versions",
         "anonymous_list_probe",
+        "anonymous_object_probe",
     ):
         if commands.get(command_name) is not True:
             reasons.append(f"S3_COMMAND_FAILED:{command_name}")
 
     controls = _mapping(requirements.get("required_bucket_controls"))
+
+    # The waiver list is not free text. A requirements file may only declare an API
+    # unsupported if the named profile actually lacks it, otherwise "unsupported" becomes a
+    # way to opt out of any control by writing its name down.
+    declared_waivers = set(_string_list(controls.get("unsupported_s3_apis")))
+    profile_waivers = _PROVIDER_PROFILES.get(required_profile, frozenset())
+    for waived in sorted(declared_waivers - profile_waivers):
+        reasons.append(f"UNSUPPORTED_API_NOT_IN_PROFILE:{waived}")
     versioning = _mapping(observed.get("versioning"))
     required_versioning = _text(controls.get("versioning_status"))
     if _text(versioning.get("Status")) != required_versioning:
@@ -87,10 +116,14 @@ def evaluate_s3_preflight(
     ):
         reasons.append("DEFAULT_RETENTION_OUT_OF_RANGE")
 
-    anonymous_status = _integer(observed.get("anonymous_list_http_status"))
     denied_statuses = set(_integer_list(controls.get("anonymous_list_denied_http_statuses")))
-    if anonymous_status not in denied_statuses:
+    if _integer(observed.get("anonymous_list_http_status")) not in denied_statuses:
         reasons.append("ANONYMOUS_BUCKET_LIST_NOT_DENIED")
+    # Denying the listing is not privacy. A bucket that refuses anonymous ListObjects while
+    # serving public GetObject on a known key passed every earlier check, and that bucket
+    # hands model artifacts to anyone who learns or guesses a key.
+    if _integer(observed.get("anonymous_object_http_status")) not in denied_statuses:
+        reasons.append("ANONYMOUS_OBJECT_READ_NOT_DENIED")
 
     policy = _mapping(observed.get("policy"))
     required_delete_actions = set(
@@ -132,7 +165,7 @@ def evaluate_s3_preflight(
         "issue": requirements.get("issue"),
         "command": requirements.get("command"),
         "target_role": requirements.get("target_role"),
-        "provider_profile": _SELECTEL_PROFILE,
+        "provider_profile": required_profile,
         "mutation_mode": "READ_ONLY",
         "authority_sha256": authority_sha256,
         "observed": {
@@ -144,7 +177,10 @@ def evaluate_s3_preflight(
             "object_lock_status": _text(configuration.get("ObjectLockEnabled")),
             "default_retention_mode": _text(retention.get("Mode")),
             "default_retention_days": retention_days,
-            "anonymous_list_http_status": anonymous_status,
+            "anonymous_list_http_status": _integer(observed.get("anonymous_list_http_status")),
+            "anonymous_object_http_status": _integer(
+                observed.get("anonymous_object_http_status")
+            ),
             "policy_sha256": policy_sha256,
             "globally_denied_actions": sorted(denied_actions),
             "operator_confirmed_capacity_bytes": capacity_bytes,

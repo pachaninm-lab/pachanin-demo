@@ -7,7 +7,10 @@ from typing import Any
 
 import pytest
 
-from tai.model_bundle_s3_preflight import evaluate_s3_preflight
+from tai.model_bundle_s3_preflight import (
+    evaluate_s3_preflight,
+    supported_provider_profiles,
+)
 from tai.model_bundle_s3_preflight_cli import main
 
 ROOT = Path(__file__).parents[3]
@@ -47,6 +50,7 @@ def _valid_observed() -> dict[str, object]:
             "list_objects_v2": True,
             "list_object_versions": True,
             "anonymous_list_probe": True,
+            "anonymous_object_probe": True,
         },
         "versioning": {"Status": "Enabled"},
         "object_lock": {
@@ -61,6 +65,7 @@ def _valid_observed() -> dict[str, object]:
             }
         },
         "anonymous_list_http_status": "403",
+        "anonymous_object_http_status": "403",
         "policy": {
             "Version": "2012-10-17",
             "Statement": [
@@ -148,6 +153,8 @@ def test_valid_selectel_s3_authority_is_ready_and_bounded() -> None:
             "DEFAULT_RETENTION_OUT_OF_RANGE",
         ),
         ({"anonymous_list_http_status": "200"}, "ANONYMOUS_BUCKET_LIST_NOT_DENIED"),
+        # Denying the listing while serving objects publicly is not privacy.
+        ({"anonymous_object_http_status": "200"}, "ANONYMOUS_OBJECT_READ_NOT_DENIED"),
         (
             {"operator_confirmed_capacity_bytes": "119999999999"},
             "EXTERNAL_CAPACITY_BELOW_MINIMUM",
@@ -295,7 +302,7 @@ def test_cli_returns_zero_only_for_ready(tmp_path: Path) -> None:
     )
 
 
-def test_workflow_uses_only_selectel_supported_s3_controls() -> None:
+def test_workflow_uses_only_provider_supported_s3_controls() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "github.event.issue.number == 2954" in workflow
     assert f"github.event.comment.body == '{COMMAND}'" in workflow
@@ -327,16 +334,80 @@ def test_workflow_uses_only_selectel_supported_s3_controls() -> None:
         "list-objects-v2",
         "list-object-versions",
         "anonymous_list_http_status",
-        "SELECTEL_S3_2026",
+        "anonymous_object_http_status",
         "bundle upload: `NOT_RUN`",
         "NOT_ATTESTED",
     ):
         assert required in workflow
 
 
-def test_requirements_record_selectel_compatibility_boundary() -> None:
+def test_workflow_never_hardcodes_a_provider_profile() -> None:
+    """The profile is read from the requirements artifact, not written twice.
+
+    The evaluator once accepted SELECTEL_S3_2026 alone, so a conforming bucket at any
+    other provider failed on the profile string before a single control was examined.
+    A literal here would put half of that back: two copies that drift the moment one
+    changes.
+    """
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    for profile in supported_provider_profiles():
+        assert profile not in workflow, profile
+    assert "requirements.get('provider_profile', '')" in workflow
+
+
+def test_every_supported_profile_is_evaluated_identically() -> None:
+    """A profile waives declared-unsupported APIs. It never waives a control."""
+    for profile in supported_provider_profiles():
+        requirements = _json(REQUIREMENTS_PATH)
+        requirements["provider_profile"] = profile
+        requirements["required_bucket_controls"]["unsupported_s3_apis"] = []
+        observed = _valid_observed()
+        observed["provider_profile"] = profile
+        report = evaluate_s3_preflight(
+            requirements,
+            observed,
+            exact_main_sha=EXACT_MAIN,
+            workflow_run_id=1,
+            workflow_run_attempt=1,
+        )
+        assert report["status"] == "READY_FOR_BUNDLE_UPLOAD", (profile, report["reasons"])
+        assert report["provider_profile"] == profile
+
+
+def test_a_waiver_outside_the_profile_is_refused() -> None:
+    """Otherwise "unsupported" becomes a way to opt out of any control by naming it."""
     requirements = _json(REQUIREMENTS_PATH)
-    assert requirements["provider_profile"] == "SELECTEL_S3_2026"
+    requirements["provider_profile"] = "GENERIC_S3_COMPLETE"
+    observed = _valid_observed()
+    observed["provider_profile"] = "GENERIC_S3_COMPLETE"
+    report = evaluate_s3_preflight(
+        requirements,
+        observed,
+        exact_main_sha=EXACT_MAIN,
+        workflow_run_id=1,
+        workflow_run_attempt=1,
+    )
+    assert "UNSUPPORTED_API_NOT_IN_PROFILE:Bucket Encryption" in report["reasons"]
+
+
+def test_an_unknown_provider_profile_fails_closed() -> None:
+    requirements = _json(REQUIREMENTS_PATH)
+    requirements["provider_profile"] = "SOME_NEW_CLOUD_2027"
+    observed = _valid_observed()
+    observed["provider_profile"] = "SOME_NEW_CLOUD_2027"
+    report = evaluate_s3_preflight(
+        requirements,
+        observed,
+        exact_main_sha=EXACT_MAIN,
+        workflow_run_id=1,
+        workflow_run_attempt=1,
+    )
+    assert "PROVIDER_PROFILE_INVALID" in report["reasons"]
+
+
+def test_requirements_record_the_configured_compatibility_boundary() -> None:
+    requirements = _json(REQUIREMENTS_PATH)
+    assert requirements["provider_profile"] in supported_provider_profiles()
     controls = requirements["required_bucket_controls"]
     assert controls["unsupported_s3_apis"] == [
         "Bucket Encryption",
