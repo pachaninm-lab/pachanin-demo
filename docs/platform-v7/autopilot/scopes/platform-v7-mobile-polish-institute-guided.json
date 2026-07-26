@@ -1,6 +1,6 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "agent/platform-v7-mobile-polish-institute-guided",
+  "branch": "release/platform-v7-mobile-polish-final",
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
   "allowedPaths": [
