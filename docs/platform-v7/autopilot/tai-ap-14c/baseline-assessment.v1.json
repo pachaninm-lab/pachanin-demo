@@ -3,11 +3,11 @@
   "version": "2026.07.19.1",
   "accepted": false,
   "status": "PENDING_REVIEW",
-  "corpus_sha256": "70e61caa98c9abc3bad9948f1db1445bd6e9f939da5df0b6bc60f171e74f694b",
+  "corpus_sha256": "1a2ff9e9681f6aa5f43c7b2b929023ecca3e9bd549ec056e38e611374f7c96e4",
   "component_sha256": {
-    "platform_sha256": "f76e3e9eb7f73e547d453a1d80c9777cecdb6b785d4b0c5e96a8aaf48302e424",
-    "agro_sha256": "9dc43d355afe4383ec62008c36ade9070f950f1d1de6ee81937f380621f7928e",
-    "coverage_sha256": "24f738db27e16ccaf69b7a67cc86e66c30e0f45169a244ecb73d67f2c008cc5d",
+    "platform_sha256": "08f9dfda84b8828153978b62b9e363c2961df8e9cea898ae4830cb9c235b17b6",
+    "agro_sha256": "96ae8f1d2fa79be037e0f0c6b448e52f123c5b5c24f21e51a3a8d30b1b013e67",
+    "coverage_sha256": "06ec9e6ac0f41eb9337e87bb74939b49d49a2eee9dabb699781c27b1a7e093bd",
     "reviews_sha256": "fba990c3c959cb82dcb9a21dba5133c475b2bae3e140232b1a8229c3ac76928e"
   },
   "counts": {
@@ -91,5 +91,5 @@
     "platform.variant.typo-sdiz",
     "platform.variant.unknown-secret"
   ],
-  "assessment_sha256": "548a45ccd452e4891586b31e0b845edd3b2a710d9d8189cb41d70b1841d4398c"
+  "assessment_sha256": "4de6499fc9096d8a3eac65f59a2b0644d3b1d15d040ada7c52859c999c27d203"
 }
