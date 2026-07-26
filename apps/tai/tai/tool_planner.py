@@ -78,16 +78,6 @@ class _IntentContract:
 
 _INTENTS = (
     _IntentContract(
-        tool_name="prepareCommandDraft",
-        mode=ToolMode.DRAFT,
-        patterns=(
-            re.compile(r"\b(?:подготов\w*|созда\w*|сформиру\w*)\s+черновик\w*", re.I),
-            re.compile(r"\b(?:черновик\w*\s+(?:команд\w*|действ\w*))", re.I),
-            re.compile(r"\b(?:prepare|create)\s+(?:a\s+)?(?:command\s+)?draft\b", re.I),
-            re.compile(r"(?:生成|准备)(?:命令|操作)?草稿"),
-        ),
-    ),
-    _IntentContract(
         tool_name="getRoleNextActions",
         mode=ToolMode.READ_ONLY,
         patterns=(
@@ -270,14 +260,6 @@ _DEAL_PATTERNS = (
     ),
     re.compile(r"(?:交易|成交)(?:编号|ID)\s*[:=：]?\s*([A-Za-z0-9._:-]{1,160})", re.I),
 )
-_ACTION_PATTERNS = (
-    re.compile(r"\baction[_ -]?id\s*[:=]\s*([A-Za-z0-9._:-]{1,160})", re.I),
-    re.compile(
-        r"\b(?:действ\w*|action)\s*(?:№|#|id|ид|номер)\s*[:=]?\s*"
-        r"([A-Za-z0-9._:-]{1,160})",
-        re.I,
-    ),
-)
 
 
 class GovernedToolPlanner:
@@ -295,8 +277,8 @@ class GovernedToolPlanner:
             raise ValueError(f"planner received unsupported tools: {sorted(unsupported)}")
         for name in available_tools:
             definition = TOOL_REGISTRY.get(name)
-            if definition is None or definition.mode not in {ToolMode.READ_ONLY, ToolMode.DRAFT}:
-                raise ValueError("planner catalog may contain only registered read or draft tools")
+            if definition is None or definition.mode is not ToolMode.READ_ONLY:
+                raise ValueError("planner catalog may contain only registered READ_ONLY tools")
         self._available_tools = available_tools
         self._decision_sink = decision_sink or NullPlannerDecisionSink()
 
@@ -398,13 +380,11 @@ class GovernedToolPlanner:
         if len(deal_ids) != 1:
             reason = "DEAL_ID_AMBIGUOUS" if deal_ids else "DEAL_ID_REQUIRED"
             return (), PlannerDecisionStatus.NO_MATCH, (reason,)
+        # `dealId` is the only argument any planned call carries. The action-id branch that
+        # used to sit here belonged to `prepareCommandDraft`; with that tool gone, an
+        # action identifier has nothing to travel to, and the planner has no way to name an
+        # action at all.
         arguments: dict[str, Any] = {"dealId": deal_ids[0]}
-        if contract.tool_name == "prepareCommandDraft":
-            action_ids = _extract_unique(_ACTION_PATTERNS, normalized)
-            if len(action_ids) > 1:
-                return (), PlannerDecisionStatus.NO_MATCH, ("ACTION_ID_AMBIGUOUS",)
-            if action_ids:
-                arguments["actionId"] = action_ids[0]
         _validate_arguments(contract.tool_name, arguments)
         call_sha256 = _sha256({"arguments": arguments, "tool_name": contract.tool_name})
         call = PlannedToolCall(

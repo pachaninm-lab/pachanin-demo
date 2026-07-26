@@ -7,6 +7,8 @@ from typing import Any
 
 import pytest
 
+from tai.contracts import ToolMode
+from tai.policy import TOOL_REGISTRY
 from tai.production_platform_tools import production_platform_tool_handlers
 from tai.production_runtime import ProductionConfigurationError, ProductionRuntimeConfig
 
@@ -45,7 +47,7 @@ def test_platform_tools_are_disabled_when_bridge_is_not_configured() -> None:
     assert production_platform_tool_handlers(environment, config) == {}
 
 
-def test_platform_tools_register_only_read_and_draft_handlers() -> None:
+def test_platform_tools_register_only_read_only_handlers() -> None:
     environment = _environment()
     environment.update(
         {
@@ -72,11 +74,15 @@ def test_platform_tools_register_only_read_and_draft_handlers() -> None:
         "getDisputeStatus",
         "getEvidenceTimeline",
         "getIntegrationStatus",
-        "prepareCommandDraft",
     }
-    # Confirmed writes stay unreachable from the bridge whatever the read catalogue does.
-    assert "acknowledgeRisk" not in handlers
-    assert "createSupportCase" not in handlers
+    # Owner decision of 26.07.2026: TAI is INFORMATIONAL_ONLY. The bridge registers a
+    # handler per registry entry, so this asserts the shape of the whole surface rather
+    # than naming a few tools that must be absent: every registered handler is READ_ONLY,
+    # and the count of anything else is zero.
+    assert all(TOOL_REGISTRY[name].mode is ToolMode.READ_ONLY for name in handlers)
+    assert [name for name in handlers if TOOL_REGISTRY[name].mode is not ToolMode.READ_ONLY] == []
+    for removed in ("prepareCommandDraft", "acknowledgeRisk", "createSupportCase"):
+        assert removed not in handlers
 
 
 def test_platform_tool_configuration_fails_closed() -> None:

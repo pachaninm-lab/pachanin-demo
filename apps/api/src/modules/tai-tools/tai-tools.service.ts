@@ -158,8 +158,6 @@ export class TaiToolsService {
         return this.getEvidenceTimeline(args, user);
       case 'getIntegrationStatus':
         return this.getIntegrationStatus(args, user);
-      case 'prepareCommandDraft':
-        return this.prepareCommandDraft(args, user, identity);
       default:
         return unreachable(toolName);
     }
@@ -333,49 +331,4 @@ export class TaiToolsService {
     };
   }
 
-  private async prepareCommandDraft(
-    args: JsonRecord,
-    user: RequestUser,
-    identity: TaiDelegatedIdentity,
-  ): Promise<JsonRecord> {
-    exactKeys(args, ['dealId', 'actionId', 'payload']);
-    const dealId = requiredPortable(args, 'dealId');
-    const requestedAction = optionalPortable(args, 'actionId');
-    const payload =
-      args.payload === undefined ? {} : boundedRecord(args.payload, 'payload');
-    const workspace = workspaceRecord(await this.deals.workspace(dealId, user));
-    const roleProjection = record(workspace.roleProjection, 'roleProjection');
-    const primaryAction = record(roleProjection.primaryAction, 'primaryAction');
-    const actionId = requiredPortable(primaryAction, 'id');
-    if (requestedAction && requestedAction !== actionId) {
-      throw new BadRequestException({ code: 'TAI_TOOL_ACTION_NOT_CURRENT' });
-    }
-    if (primaryAction.enabled !== true || primaryAction.source !== 'USER') {
-      throw new ForbiddenException({ code: 'TAI_TOOL_ACTION_NOT_EXECUTABLE' });
-    }
-    const deal = record(workspace.deal, 'deal');
-    const updatedAt = deal.updatedAt;
-    const version = deal.version;
-    if (typeof updatedAt !== 'string' || !updatedAt.trim()) {
-      throw new BadRequestException({ code: 'TAI_TOOL_DEAL_VERSION_MISSING' });
-    }
-    if (typeof version !== 'string' && typeof version !== 'number') {
-      throw new BadRequestException({ code: 'TAI_TOOL_DEAL_VERSION_MISSING' });
-    }
-    return {
-      schemaVersion: 'platform.deal-command-draft.v1',
-      dealId,
-      actionId,
-      method: 'POST',
-      endpoint: `/deals/${dealId}/commands/${actionId}`,
-      commandId: `tai:${identity.traceId}:${identity.callId}`,
-      idempotencyKey: identity.idempotencyKey,
-      expectedUpdatedAt: updatedAt,
-      expectedVersion: String(version),
-      payload,
-      requiresExplicitUserConfirmation: true,
-      generatedFromStatus: deal.status ?? null,
-      role: roleProjection.role ?? null,
-    };
-  }
 }

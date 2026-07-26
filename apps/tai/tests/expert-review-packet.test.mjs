@@ -22,6 +22,11 @@ const SCOPE = resolve(
   HERE,
   '../governance/scopes/ap-14c2-review-packet-2973.json',
 );
+/** The same file the packet builder reads its existing reviews from. */
+const REVIEWS = resolve(
+  ROOT,
+  'docs/platform-v7/autopilot/tai-ap-14c/expert-reviews.v1.json',
+);
 const COMMAND = '/tai prepare expert-review-packet exact-main';
 const EXACT_MAIN = 'a'.repeat(40);
 const GENERATED_AT = '2026-07-21T15:00:00Z';
@@ -37,6 +42,24 @@ function packet() {
   });
 }
 
+/**
+ * Every `decision` field in a structure, excluding nulls.
+ *
+ * A string search would false-positive: `record_contract.allowed_decisions` legitimately
+ * names APPROVED, REJECTED and NEEDS_CHANGES. What must never appear is a decision field
+ * that carries one.
+ */
+function nonNullDecisions(node, found = []) {
+  if (Array.isArray(node)) {
+    for (const item of node) nonNullDecisions(item, found);
+    return found;
+  }
+  if (node === null || typeof node !== 'object') return found;
+  if ('decision' in node && node.decision !== null) found.push(node.decision);
+  for (const value of Object.values(node)) nonNullDecisions(value, found);
+  return found;
+}
+
 function testPacketIsExactAndDecisionFree() {
   const value = packet();
   assert.equal(value.schema_version, 'tai.expert-review-packet.v1');
@@ -45,7 +68,17 @@ function testPacketIsExactAndDecisionFree() {
   assert.equal(value.counts.platform_cases, 42);
   assert.equal(value.counts.agro_cases, 16);
   assert.equal(value.counts.critical_cases, 23);
-  assert.equal(value.counts.existing_reviews, 0);
+  // `existing_reviews` counts what is already recorded in the repository. It was asserted
+  // as 0 when nothing had been reviewed yet, which turned a fact about the world into a
+  // test expectation: the first genuine human review broke it while nothing was wrong.
+  //
+  // The count is derived from the same file the packet reads, so it stays true as reviews
+  // accumulate. What the packet must actually guarantee — that it carries no decisions —
+  // is asserted below, on the templates and the contract, where it belongs.
+  assert.equal(
+    value.counts.existing_reviews,
+    json(REVIEWS).reviews.length,
+  );
   assert.equal(
     value.automation_boundary,
     'AUTOMATION_MUST_NOT_CREATE_REVIEW_DECISIONS',
@@ -63,6 +96,12 @@ function testPacketIsExactAndDecisionFree() {
     value.maturity_boundary.production_operational_status,
     'NOT_ATTESTED',
   );
+  // The in-memory packet carries no templates today, so this is a guard rather than a
+  // check with teeth: if a future change embeds templates here, a non-null decision fails
+  // immediately. The version with teeth runs over the materialized files below, where the
+  // templates actually are.
+  assert.deepEqual(nonNullDecisions(value), []);
+
   const payload = { ...value };
   delete payload.packet_sha256;
   assert.equal(value.packet_sha256, sha256(payload));
@@ -154,6 +193,18 @@ function testMaterializationIsBoundedAndTemplatesAreBlank() {
     assert.equal(intake.submitter_id, null);
     assert.equal(intake.submitted_at, null);
     assert.deepEqual(intake.reviews, []);
+
+    // Decision-freeness over every file the packet writes, not just the one track the
+    // assertions above happen to open. The packet is what reviewers receive; a decision
+    // reaching it from any path would be automation making a human's call for them.
+    for (const file of manifest.files) {
+      const written = json(resolve(directory, file.name));
+      assert.deepEqual(
+        nonNullDecisions(written),
+        [],
+        `${file.name} must carry no review decision`,
+      );
+    }
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

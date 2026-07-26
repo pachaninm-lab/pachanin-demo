@@ -19,7 +19,7 @@
 
 ## Архитектурное решение
 
-TAI остаётся в monorepo в `apps/tai`, но имеет отдельные ownership и release boundaries. Это разрешённая целевая архитектура до отдельного решения владельца о физическом выносе. Контракты с основной платформой должны быть версионированы; AI не получает authority Сделки, денег, ролей, ставок, подписей или споров.
+TAI остаётся в monorepo в `apps/tai`, но имеет отдельные ownership и release boundaries. Это разрешённая целевая архитектура до отдельного решения владельца о физическом выносе. Контракты с основной платформой должны быть версионированы; AI не получает authority Сделки, денег, ролей, ставок, подписей или споров и не выполняет действий в платформе — их выполняет человек.
 
 Причина решения: сейчас ценность и риск сосредоточены в корректной интеграции TAI с server-authoritative контекстом платформы. Физический перенос репозитория добавит операционную стоимость, но не закроет ни один пользовательский или safety-инвариант.
 
@@ -38,16 +38,30 @@ TAI остаётся в monorepo в `apps/tai`, но имеет отдельны
    - PDF, scans, tables, certificates, page-level provenance, quarantine, document injection defense.
 5. **AP-17 — product intelligence**
    - Platform Expert, Deal Copilot, proactive deal-event guidance, user AI UI and admin panel.
-6. **AP-18 — Safe Tools and confirmed actions**
-   - domain adapters for documents, logistics, laboratory, disputes, support and money; every write requires server authorization, idempotency, audit and explicit user confirmation.
+6. **AP-18 — Safe Tools and confirmed actions — `DEFERRED_BY_OWNER_DECISION`**
+   - Отложено решением владельца от 26.07.2026. Не входит в текущую промышленную готовность и не может быть заявлено как её часть.
+   - Содержание при возврате: domain adapters for documents, logistics, laboratory, disputes, support and money; every write requires server authorization, idempotency, audit and explicit user confirmation.
+   - Это описание будущего этапа, а не исполняемый контур. В текущем релизе write-инструментов ноль, `confirm_action` и подготовка действий отказывают fail-closed. Возврат confirmed actions возможен только отдельным будущим решением владельца и новой промышленной приёмкой.
 7. **AP-19 — operational acceptance**
    - distributed admission/backpressure, rate limits, queues, model draining, HA/DR, observability, load/fault/restore/backlog/soak, 12-role E2E and one exact-main operational manifest.
+
+## Граница AI в текущем релизе
+
+Решение владельца от 26.07.2026. Текущий промышленный релиз — `INFORMATIONAL_ONLY`:
+
+1. TAI анализирует, объясняет, показывает риски, статусы, доказательства и рекомендуемые следующие шаги.
+2. Все действия в платформе пользователь выполняет вручную.
+3. TAI не создаёт и не исполняет platform commands.
+4. TAI не выполняет `CONFIRMED_WRITE` даже после подтверждения пользователя.
+5. TAI не сохраняет durable draft как действие платформы.
+6. «Следующее действие» — только информационная рекомендация, а не команда.
+7. Confirmed actions возвращаются только отдельным будущим решением владельца и новой промышленной приёмкой.
 
 Каждый срез обязан сохранять:
 
 - server-authoritative identity, tenant и roles;
 - 0 autonomous privileged write;
-- confirmation перед разрешённым write;
+- 0 write-инструментов в реестре: рекомендация не является командой, и подтверждение пользователя не превращает её в команду;
 - provenance и version для проверяемых утверждений;
 - abstention при недостатке evidence;
 - exact-head tests и machine-readable evidence.

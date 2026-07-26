@@ -11,7 +11,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from tai.agent_runtime import (
     AgentExecutionResult,
@@ -171,6 +171,14 @@ class OrchestrationTrace:
     reason: str | None
     completed_at: datetime
     trace_sha256: str
+    # Typed denial fields. Defaulted so every existing answer trace is unchanged; set only
+    # on a refusal, where `reason` alone would be a free-text string nobody can query on.
+    outcome: str | None = None
+    denial_reason_code: str | None = None
+    boundary: str | None = None
+    route_category: str | None = None
+    organization_id: UUID | None = None
+    release_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -539,56 +547,41 @@ class TAIOrchestrationRuntime:
         identity: IdentityContext,
         now: datetime,
     ) -> AgentExecutionResult:
+        """Refuse to execute a confirmed action, and audit the refusal.
+
+        Owner decision of 26.07.2026. This used to be the executor for confirmed writes:
+        look up the prepared action, check its identity and confirmation binding, claim it
+        atomically against replay and concurrency, run the tool and record the result. All
+        of that only matters if a confirmed write is something TAI performs, and item 4 of
+        the decision says it is not — even after the user confirms.
+
+        The refusal is here because this is the single point where a confirmed write became
+        a real one. Nothing upstream can produce a prepared action any more, so the only
+        callers left are a client replaying a confirmation minted before this change, or a
+        probe of the retained route. Both are refused — and both are recorded, because a
+        silent refusal leaves no evidence that anyone tried.
+
+        Exactly one denial event is written, before the error is raised, and it is the only
+        side effect: no tool runs, no platform command is formed, no deal changes, no
+        prepared action is stored, and nothing financial is touched. The refusal therefore
+        stays idempotent in the sense that matters — repeating it mutates no platform state
+        — while still auditing each attempt separately, since repeated probing is exactly
+        what an operator needs to be able to see.
+        """
         _aware(now, "now")
-        stored = self._prepared_actions.get(confirmation.confirmation_id)
-        if stored is None:
-            raise OrchestrationError(
-                OrchestrationErrorCode.TOOL_PLAN_REJECTED,
-                "prepared action was not found",
-                retryable=False,
-            )
-        if stored.identity != identity or stored.action.confirmation != confirmation:
-            raise OrchestrationError(
-                OrchestrationErrorCode.TOOL_PLAN_REJECTED,
-                "prepared action identity or confirmation binding failed",
-                retryable=False,
-            )
-        claim = self._prepared_actions.claim(confirmation.confirmation_id)
-        if claim.status is PreparedActionClaimStatus.REPLAY:
-            if claim.prepared.result is None:
-                raise RuntimeError("prepared action replay is missing its result")
-            return claim.prepared.result
-        if claim.status is PreparedActionClaimStatus.IN_PROGRESS:
-            raise OrchestrationError(
-                OrchestrationErrorCode.REQUEST_IN_PROGRESS,
-                "prepared action is already executing",
-                retryable=True,
-                retry_after_seconds=1,
-            )
-        if self._tool_runtime is None:
-            self._prepared_actions.abandon(confirmation.confirmation_id)
-            raise RuntimeError("tool runtime is not configured")
-        action = claim.prepared.action
-        plan = AgentToolPlan(
-            trace_id=action.trace_id,
-            plan_id=action.plan_id,
-            calls=(action.call,),
-            generated_at=action.confirmation.issued_at,
-        )
-        try:
-            result = self._tool_runtime.execute(
-                plan,
+        self._audit_sink.record(
+            _confirmation_denial_trace(
+                confirmation=confirmation,
                 identity=identity,
-                confirmations=(confirmation,),
                 now=now,
             )
-            return self._prepared_actions.complete(
-                confirmation.confirmation_id,
-                result,
-            ).result or result
-        except Exception:
-            self._prepared_actions.abandon(confirmation.confirmation_id)
-            raise
+        )
+        raise OrchestrationError(
+            OrchestrationErrorCode.TOOL_PLAN_REJECTED,
+            "TAI is INFORMATIONAL_ONLY: confirmed actions are deferred by owner decision "
+            "and no confirmation can be executed",
+            retryable=False,
+        )
 
     def _execute(
         self,
@@ -684,28 +677,19 @@ class TAIOrchestrationRuntime:
         identity: IdentityContext,
         now: datetime,
     ) -> tuple[PreparedAction, ...]:
-        if self._confirmation_authority is None:
-            raise RuntimeError("confirmed tool plan requires confirmation authority")
-        prepared: list[PreparedAction] = []
-        for call in calls:
-            confirmation = self._confirmation_authority.issue(
-                call=call,
-                trace_id=plan.trace_id,
-                identity=identity,
-                issued_at=now,
-                expires_at=now + self._policy.confirmation_ttl,
-            )
-            action = PreparedAction(
-                trace_id=plan.trace_id,
-                plan_id=plan.plan_id,
-                call=call,
-                confirmation=confirmation,
-            )
-            self._prepared_actions.save(
-                StoredPreparedAction(action=action, identity=identity)
-            )
-            prepared.append(action)
-        return tuple(prepared)
+        """Refuse to prepare an action. Owner decision of 26.07.2026.
+
+        `_partition_calls` rejects every non-READ_ONLY plan, so this is already
+        unreachable. It fails closed anyway rather than being left as a working minting
+        path one refactor away from being called again: preparing an action is what
+        produced the confirmation a user could then return with.
+        """
+        del plan, calls, identity, now
+        raise OrchestrationError(
+            OrchestrationErrorCode.TOOL_PLAN_REJECTED,
+            "TAI is INFORMATIONAL_ONLY: no action is prepared for confirmation",
+            retryable=False,
+        )
 
     def _validate_request(self, request: OrchestrationRequest, now: datetime) -> None:
         _aware(now, "now")
@@ -783,16 +767,23 @@ class TAIOrchestrationRuntime:
 def _partition_calls(
     calls: tuple[PlannedToolCall, ...],
 ) -> tuple[tuple[PlannedToolCall, ...], tuple[PlannedToolCall, ...]]:
-    safe = tuple(
-        call for call in calls if call.requested_mode in {ToolMode.READ_ONLY, ToolMode.DRAFT}
-    )
-    confirmed = tuple(
-        call for call in calls if call.requested_mode is ToolMode.CONFIRMED_WRITE
-    )
-    if len(safe) + len(confirmed) != len(calls):
+    # Owner decision of 26.07.2026: TAI is INFORMATIONAL_ONLY. READ_ONLY is the only mode
+    # that can be carried out, so every other mode rejects the whole plan here rather than
+    # being routed onward.
+    #
+    # This is the chokepoint that makes item 4 of the boundary true — TAI performs no
+    # CONFIRMED_WRITE even after the user confirms. A confirmed write used to be split off
+    # and handed to `_prepare_actions`, which minted a signed confirmation the user could
+    # come back with. Now the plan never reaches that branch: there is nothing to confirm,
+    # so confirming changes nothing. The confirmation authority below is left intact and
+    # unreachable, so restoring confirmed actions is a deliberate future change under a new
+    # owner decision rather than a flag someone flips.
+    safe = tuple(call for call in calls if call.requested_mode is ToolMode.READ_ONLY)
+    confirmed: tuple[PlannedToolCall, ...] = ()
+    if len(safe) != len(calls):
         raise OrchestrationError(
             OrchestrationErrorCode.TOOL_PLAN_REJECTED,
-            "tool plan contains a non-executable mode",
+            "TAI is INFORMATIONAL_ONLY: tool plan contains a mode that is not READ_ONLY",
             retryable=False,
         )
     return safe, confirmed
@@ -904,6 +895,87 @@ def _trace(
         reason=response.reason,
         completed_at=response.completed_at,
         trace_sha256=_sha256(payload),
+    )
+
+
+#: Stable machine-readable code for the refusal. Queried on, so it must not drift with the
+#: wording of the message.
+CONFIRMATION_DENIAL_REASON_CODE = "CONFIRMATION_DISABLED_BY_OWNER_DECISION"
+CONFIRMATION_DENIAL_OUTCOME = "DENIED"
+INFORMATIONAL_ONLY_BOUNDARY = "INFORMATIONAL_ONLY"
+CONFIRMATION_ROUTE_CATEGORY = "PLATFORM_ACTION_CONFIRMATION"
+#: No model is invoked on this path. The column is NOT NULL, so it says so rather than
+#: naming a model that never ran.
+CONFIRMATION_DENIAL_MODEL_ID = "NOT_INVOKED"
+
+
+def _confirmation_denial_trace(
+    *,
+    confirmation: ToolConfirmation,
+    identity: IdentityContext,
+    now: datetime,
+) -> OrchestrationTrace:
+    """Build the audit event for a refused confirmation.
+
+    What is deliberately absent, because an audit row is read by more people than the
+    request was: the confirmation's HMAC signature, the confirmation id itself, the call
+    arguments, the prompt, any payload, any document, and anything financial. The
+    confirmation is identified by a digest of its id, which lets an operator correlate
+    repeated probes of the same confirmation without the audit becoming a place to recover
+    a token from.
+
+    Identifiers come from the server-derived `IdentityContext` only. No role is recorded at
+    all: the refusal does not depend on one, and a role in an audit row invites being read
+    as the authority that produced the decision.
+
+    `organization_id` and `release_version` stay `None` rather than being guessed.
+    `IdentityContext` carries no organization, and the package exposes no release constant;
+    inventing either would put a value in the audit that nothing established.
+    """
+    correlation = hashlib.sha256(
+        str(confirmation.confirmation_id).encode("utf-8")
+    ).hexdigest()
+    trace_id = uuid4()
+    completed_at = now.astimezone(UTC)
+    payload: dict[str, Any] = {
+        "boundary": INFORMATIONAL_ONLY_BOUNDARY,
+        "confirmation_correlation_sha256": correlation,
+        "denial_reason_code": CONFIRMATION_DENIAL_REASON_CODE,
+        "outcome": CONFIRMATION_DENIAL_OUTCOME,
+        "route_category": CONFIRMATION_ROUTE_CATEGORY,
+        "session_id": str(identity.session_id),
+        "tenant_id": None if identity.tenant_id is None else str(identity.tenant_id),
+        "trace_id": str(trace_id),
+        "user_id": str(identity.user_id),
+        "completed_at": completed_at.isoformat(),
+    }
+    return OrchestrationTrace(
+        request_id=f"confirmation-denial:{correlation}",
+        trace_id=trace_id,
+        tenant_id=identity.tenant_id,
+        user_id=identity.user_id,
+        session_id=identity.session_id,
+        request_sha256=correlation,
+        status=OrchestrationStatus.REJECTED,
+        rag_status=GroundedAnswerStatus.REJECTED,
+        model_id=CONFIRMATION_DENIAL_MODEL_ID,
+        model_revision=None,
+        model_route_id=None,
+        generation=None,
+        source_ids=(),
+        citations=(),
+        tool_plan_sha256=None,
+        tool_status=AgentExecutionStatus.DENIED,
+        prepared_action_count=0,
+        reason=CONFIRMATION_DENIAL_REASON_CODE,
+        completed_at=completed_at,
+        trace_sha256=_sha256(payload),
+        outcome=CONFIRMATION_DENIAL_OUTCOME,
+        denial_reason_code=CONFIRMATION_DENIAL_REASON_CODE,
+        boundary=INFORMATIONAL_ONLY_BOUNDARY,
+        route_category=CONFIRMATION_ROUTE_CATEGORY,
+        organization_id=None,
+        release_version=None,
     )
 
 

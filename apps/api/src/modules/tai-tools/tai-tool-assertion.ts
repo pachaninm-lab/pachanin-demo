@@ -1,7 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
-export type TaiToolMode = 'READ_ONLY' | 'DRAFT';
+// Owner decision of 26.07.2026: TAI is INFORMATIONAL_ONLY / READ_ONLY for every role in
+// this industrial release. `TaiToolMode` is deliberately a one-member union rather than a
+// wider union with the write members unused: a `'DRAFT'` that no tool claims is still a
+// mode the type system would accept on a signed assertion, and the assertion is what the
+// platform trusts. Reintroducing a write mode has to be a type change, visible in review.
+export type TaiToolMode = 'READ_ONLY';
 
 export const TAI_PLATFORM_TOOL_MODES = {
   getDealSummary: 'READ_ONLY',
@@ -14,7 +19,6 @@ export const TAI_PLATFORM_TOOL_MODES = {
   getDisputeStatus: 'READ_ONLY',
   getEvidenceTimeline: 'READ_ONLY',
   getIntegrationStatus: 'READ_ONLY',
-  prepareCommandDraft: 'DRAFT',
 } as const satisfies Record<string, TaiToolMode>;
 
 export type TaiPlatformToolName = keyof typeof TAI_PLATFORM_TOOL_MODES;

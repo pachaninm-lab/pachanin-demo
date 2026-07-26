@@ -164,15 +164,21 @@ PLATFORM_TOOL_SPECS: Final[tuple[PlatformToolSpec, ...]] = (
     PlatformToolSpec(
         "getIntegrationStatus", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
     ),
-    # The platform would also accept a free-form `payload` here, but the deterministic
-    # planner has never produced one, and declaring it would put an arbitrary object
-    # back on the path to a prepared write. It stays undeclared on purpose.
-    PlatformToolSpec(
-        "prepareCommandDraft",
-        ToolMode.DRAFT,
-        (ArgumentSpec("dealId", required=True), ArgumentSpec("actionId")),
-    ),
 )
+
+# Owner decision of 26.07.2026: TAI is INFORMATIONAL_ONLY. Every argument contract the
+# adapter can normalize must therefore be READ_ONLY. Checked at import so a write spec
+# added later cannot reach a signed platform call.
+_non_read_specs = tuple(
+    spec.tool_name for spec in PLATFORM_TOOL_SPECS if spec.mode is not ToolMode.READ_ONLY
+)
+if _non_read_specs:  # pragma: no cover - import-time invariant
+    raise RuntimeError(
+        "TAI is INFORMATIONAL_ONLY: platform tool specs must all be READ_ONLY, found "
+        f"{sorted(_non_read_specs)}"
+    )
+del _non_read_specs
+
 
 PLATFORM_TOOL_NAMES: Final[tuple[str, ...]] = tuple(
     spec.tool_name for spec in PLATFORM_TOOL_SPECS

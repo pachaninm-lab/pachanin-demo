@@ -63,6 +63,9 @@ TOOL_REGISTRY: dict[str, ToolDefinition] = {
     # platform resolves the caller's deal membership before reading, and what comes back is
     # delivery metadata about the caller's own deal, never an event payload.
     "getIntegrationStatus": _workspace_read_tool("getIntegrationStatus"),
+    # The name says "next actions" and it stays, but under the owner decision it answers
+    # what the caller may do — it never prepares, reserves or performs any of it. The
+    # answer is a recommendation the person carries out by hand in the platform UI.
     "getRoleNextActions": ToolDefinition(
         name="getRoleNextActions",
         mode=ToolMode.READ_ONLY,
@@ -78,55 +81,30 @@ TOOL_REGISTRY: dict[str, ToolDefinition] = {
             }
         ),
     ),
-    "prepareCommandDraft": ToolDefinition(
-        name="prepareCommandDraft",
-        mode=ToolMode.DRAFT,
-        allowed_roles=frozenset(
-            {
-                "buyer",
-                "seller",
-                "logistics",
-                "elevator",
-                "laboratory",
-                "bank",
-                "operator",
-            }
-        ),
-    ),
-    "acknowledgeRisk": ToolDefinition(
-        name="acknowledgeRisk",
-        mode=ToolMode.CONFIRMED_WRITE,
-        allowed_roles=frozenset(
-            {
-                "buyer",
-                "seller",
-                "logistics",
-                "elevator",
-                "laboratory",
-                "bank",
-                "operator",
-                "compliance",
-            }
-        ),
-    ),
-    "createSupportCase": ToolDefinition(
-        name="createSupportCase",
-        mode=ToolMode.CONFIRMED_WRITE,
-        allowed_roles=frozenset(
-            {
-                "buyer",
-                "seller",
-                "logistics",
-                "driver",
-                "elevator",
-                "laboratory",
-                "surveyor",
-                "bank",
-                "operator",
-            }
-        ),
-    ),
 }
+
+# Owner decision of 26.07.2026: TAI is INFORMATIONAL_ONLY / READ_ONLY for every role in
+# this industrial release. The registry is checked at import rather than per request, so a
+# write tool added later fails the process at composition time instead of being caught —
+# or not — by whichever request happens to reach it first.
+#
+# `prepareCommandDraft` (DRAFT), `acknowledgeRisk` and `createSupportCase`
+# (CONFIRMED_WRITE) were removed here rather than disabled behind a flag: a disabled entry
+# is a switch, and a switch is a runtime path back to a write.
+INFORMATIONAL_ONLY_MODE = ToolMode.READ_ONLY
+
+_non_read_tools = sorted(
+    name
+    for name, definition in TOOL_REGISTRY.items()
+    if definition.mode is not INFORMATIONAL_ONLY_MODE
+)
+if _non_read_tools:  # pragma: no cover - import-time invariant
+    raise RuntimeError(
+        "TAI is INFORMATIONAL_ONLY: registry may contain only READ_ONLY tools, found "
+        f"{_non_read_tools}"
+    )
+del _non_read_tools
+
 
 PROHIBITED_TOOL_NAMES = frozenset(
     {
@@ -160,6 +138,23 @@ def authorize_tool(identity: IdentityContext, request: ToolRequest) -> ToolDefin
     if not identity.authenticated:
         raise PolicyDenied("authenticated server session required")
 
+    # Both sides of the mode are refused before anything else about the request is
+    # considered. The registry side cannot currently be anything but READ_ONLY — the
+    # import-time invariant sees to that — but this does not lean on it: if a write
+    # definition ever reaches here, it is denied rather than executed.
+    #
+    # The requested side matters more. A caller asking for DRAFT, CONFIRMED_WRITE or
+    # PRIVILEGED_WRITE is refused on the mode itself, so no combination of arguments,
+    # roles, MFA or confirmation reaches an authorization. In particular
+    # `explicit_user_confirmation` is never consulted: under the owner decision a user
+    # confirming an action does not make it an action TAI may take. The person performs it
+    # by hand in the platform.
+    if definition.mode is not INFORMATIONAL_ONLY_MODE:
+        raise PolicyDenied("TAI is INFORMATIONAL_ONLY: registered tool is not READ_ONLY")
+
+    if request.requested_mode is not INFORMATIONAL_ONLY_MODE:
+        raise PolicyDenied("TAI is INFORMATIONAL_ONLY: only READ_ONLY may be requested")
+
     if not identity.roles.intersection(definition.allowed_roles):
         raise PolicyDenied("role is not authorized for tool")
 
@@ -168,12 +163,5 @@ def authorize_tool(identity: IdentityContext, request: ToolRequest) -> ToolDefin
 
     if definition.requires_mfa and not identity.mfa_verified:
         raise PolicyDenied("MFA is required")
-
-    write_modes = {ToolMode.CONFIRMED_WRITE, ToolMode.PRIVILEGED_WRITE}
-    if definition.mode in write_modes and not request.explicit_user_confirmation:
-        raise PolicyDenied("explicit user confirmation required")
-
-    if definition.mode is ToolMode.PRIVILEGED_WRITE and not request.justification:
-        raise PolicyDenied("privileged action justification required")
 
     return definition
