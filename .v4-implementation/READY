@@ -1,5 +1,0 @@
-payload=platform-v7-home-v4-final
-encoding=base64+gzip+tar
-chunks=5
-base64_bytes=48252
-gzip_sha256=d7d6c0c928c5a67459f49ffd97497c54f606bf20b47801b3f9498eda50740ec3
