@@ -156,6 +156,14 @@ PLATFORM_TOOL_SPECS: Final[tuple[PlatformToolSpec, ...]] = (
     PlatformToolSpec(
         "getEvidenceTimeline", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
     ),
+    # The one read tool that is not a workspace projection: outbox delivery state is not in
+    # the deal workspace, so the platform serves it from its own bounded read on the same
+    # membership and RLS authority. It returns delivery metadata only — no event payload,
+    # no failure text, no lease identifiers — and bounds the response itself, so like
+    # getEvidenceTimeline it offers no paging argument.
+    PlatformToolSpec(
+        "getIntegrationStatus", ToolMode.READ_ONLY, (ArgumentSpec("dealId", required=True),)
+    ),
     # The platform would also accept a free-form `payload` here, but the deterministic
     # planner has never produced one, and declaring it would put an arbitrary object
     # back on the path to a prepared write. It stays undeclared on purpose.

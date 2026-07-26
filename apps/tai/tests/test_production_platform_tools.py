@@ -71,10 +71,10 @@ def test_platform_tools_register_only_read_and_draft_handlers() -> None:
         "getMoneyReadiness",
         "getDisputeStatus",
         "getEvidenceTimeline",
+        "getIntegrationStatus",
         "prepareCommandDraft",
     }
-    # Not yet served by the platform, so not reachable here either.
-    assert "getIntegrationStatus" not in handlers
+    # Confirmed writes stay unreachable from the bridge whatever the read catalogue does.
     assert "acknowledgeRisk" not in handlers
     assert "createSupportCase" not in handlers
 

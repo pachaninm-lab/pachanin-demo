@@ -23,12 +23,15 @@ Registered tools:
 - `getMoneyReadiness` — read-only;
 - `getDisputeStatus` — read-only, optional `disputeId`;
 - `getEvidenceTimeline` — read-only;
+- `getIntegrationStatus` — read-only;
 - `prepareCommandDraft` — draft only.
 
-Every read tool is a projection of the same `workspace(dealId, user)` call, so they all pass through one membership and RLS check and none of them widens what the caller could already read. The optional identifier narrows the returned collection; an identifier belonging to another deal simply yields an empty projection, because the workspace never contained it.
+Nine of the ten read tools are projections of the same `workspace(dealId, user)` call, so they all pass through one membership and RLS check and none of them widens what the caller could already read. The optional identifier narrows the returned collection; an identifier belonging to another deal simply yields an empty projection, because the workspace never contained it.
 
 `getEvidenceTimeline` returns at most the 100 most recent events with `eventCount`, `returnedCount` and `truncated`, so a long-running deal stays within the adapter's response budget instead of being refused wholesale.
 
-`getIntegrationStatus` from the TAI tool catalogue is deliberately **not** registered here: outbox delivery state is not part of this workspace projection, and widening the shared projection would change what every existing deal endpoint returns. It needs its own read path.
+`getIntegrationStatus` is the exception: outbox delivery state is not in the workspace projection, and widening that projection would change what every existing deal endpoint returns, so it has its own read on the same authority. `IndustrialDealCommandGateway.integrationStatus` resolves membership first and then queries inside the trusted RLS context, exactly like the workspace path.
+
+What it returns is delivery metadata only. The select list is a whitelist: `payload`, `lastError`, the lease columns, `idempotencyKey` and `triggeredByUserId` are never read, because none of them is delivery state and all of them would end up in an answer a model relays. The entry list is capped at the 100 most recent rows with `returnedCount` and `truncated`, while `countsByStatus` and `deadLetterCount` are aggregated across the whole deal — a deal whose dead letters are older than its hundred most recent rows must not report zero of them.
 
 The gateway re-resolves the caller's current PostgreSQL membership and active `DealParticipant` before returning any deal data. It never accepts role or organization authority from the model. `prepareCommandDraft` does not execute a command and cannot mutate the deal.

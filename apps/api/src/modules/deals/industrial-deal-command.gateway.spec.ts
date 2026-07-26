@@ -32,6 +32,23 @@ const SUCCESS_CALLBACK = {
   partnerId: 'safe-deals-test',
 };
 
+/** Rows shaped like the gateway's select list — nothing the whitelist excludes. */
+function outboxRows(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `obx-${index}`,
+    type: 'DEAL_CONFIRMED',
+    status: 'SENT',
+    retryCount: 0,
+    maxRetries: 5,
+    createdAt: new Date('2026-07-19T02:00:00.000Z'),
+    sentAt: new Date('2026-07-19T02:00:01.000Z'),
+    confirmedAt: null,
+    failedAt: null,
+    deadLetterAt: null,
+    nextRetryAt: new Date('2026-07-19T02:00:00.000Z'),
+  }));
+}
+
 function fixture() {
   const tx = {
     dealParticipant: {
@@ -50,6 +67,11 @@ function fixture() {
     },
     deal: {
       findUnique: jest.fn().mockResolvedValue(DEAL),
+    },
+    outboxEntry: {
+      findMany: jest.fn().mockResolvedValue(outboxRows(3)),
+      groupBy: jest.fn().mockResolvedValue([{ status: 'SENT', _count: { _all: 3 } }]),
+      count: jest.fn().mockResolvedValue(0),
     },
   };
   const prisma = {
@@ -268,6 +290,115 @@ describe('IndustrialDealCommandGateway', () => {
       }),
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'BANK_EVENT_REPLAY_MISMATCH' }),
+    });
+  });
+
+  describe('integrationStatus', () => {
+    it('proves membership before reading and reads inside the trusted RLS context', async () => {
+      const test = fixture();
+
+      await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
+
+      expect(test.tx.dealParticipant.findFirst).toHaveBeenCalled();
+      expect(test.rls.withTrustedContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: BUYER.id,
+          role: Role.BUYER,
+          orgId: DEAL.buyerOrgId,
+          tenantId: DEAL.tenantId,
+        }),
+        expect.any(Function),
+      );
+      expect(test.tx.outboxEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
+      );
+    });
+
+    it('reads all three queries from one snapshot', async () => {
+      // At READ COMMITTED each statement takes its own snapshot, so a worker committing
+      // between them can produce a response that lists a PENDING entry while the counts
+      // report none. The answer has to be internally consistent to be worth relaying.
+      const test = fixture();
+
+      await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
+
+      const call = test.rls.withTrustedContext.mock.calls.at(-1);
+      expect(call?.[2]).toMatchObject({ isolationLevel: 'RepeatableRead' });
+    });
+
+    it('never reads the payload, the failure text, the lease or the triggering user', async () => {
+      const test = fixture();
+
+      await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
+
+      const [{ select }] = test.tx.outboxEntry.findMany.mock.calls[0];
+      for (const column of [
+        'payload',
+        'lastError',
+        'leaseOwner',
+        'leaseToken',
+        'leaseExpiresAt',
+        'idempotencyKey',
+        'triggeredByUserId',
+        'correlationId',
+        'runtimeSnapshotId',
+      ]) {
+        expect(select).not.toHaveProperty(column);
+      }
+    });
+
+    it('fails closed without an active DealParticipant, before any outbox read', async () => {
+      const test = fixture();
+      test.tx.dealParticipant.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(test.tx.outboxEntry.findMany).not.toHaveBeenCalled();
+      expect(test.tx.outboxEntry.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('bounds the entry list and says so', async () => {
+      const test = fixture();
+      test.tx.outboxEntry.findMany.mockResolvedValueOnce(outboxRows(101));
+
+      const result = await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
+
+      expect(result.entries).toHaveLength(100);
+      expect(result.returnedCount).toBe(100);
+      expect(result.truncated).toBe(true);
+    });
+
+    it('counts across the whole deal, not the page it returned', async () => {
+      // The first version derived both counts from the returned slice. A deal whose dead
+      // letters are older than its hundred most recent rows would then report zero of
+      // them — a clean answer to the one question worth asking here, and a wrong one.
+      const test = fixture();
+      test.tx.outboxEntry.findMany.mockResolvedValueOnce(outboxRows(101));
+      test.tx.outboxEntry.groupBy.mockResolvedValueOnce([
+        { status: 'SENT', _count: { _all: 240 } },
+        { status: 'DEAD_LETTER', _count: { _all: 10 } },
+      ]);
+      test.tx.outboxEntry.count.mockResolvedValueOnce(10);
+
+      const result = await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
+
+      expect(result.countsByStatus).toEqual({ SENT: 240, DEAD_LETTER: 10 });
+      expect(result.deadLetterCount).toBe(10);
+      expect(result.entries.every((entry) => entry.deadLetterAt === null)).toBe(true);
+    });
+
+    it('renders timestamps as ISO strings or null, not Date objects', async () => {
+      const test = fixture();
+
+      const result = await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
+
+      expect(result.entries[0]).toMatchObject({
+        createdAt: '2026-07-19T02:00:00.000Z',
+        sentAt: '2026-07-19T02:00:01.000Z',
+        confirmedAt: null,
+        deadLetterAt: null,
+      });
     });
   });
 });

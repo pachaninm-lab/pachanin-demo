@@ -68,19 +68,21 @@ class TestRegistryMatchesTheServer:
             "getMoneyReadiness",
             "getDisputeStatus",
             "getEvidenceTimeline",
+            "getIntegrationStatus",
         )
 
-    def test_integration_status_stays_unregistered_until_it_has_a_read_path(self) -> None:
-        """The catalogue asks for ten; nine are served.
+    def test_integration_status_is_registered_only_because_a_read_path_exists(self) -> None:
+        """The catalogue asks for ten; ten are served.
 
-        getIntegrationStatus needs outbox delivery state, which is not part of the
-        deal workspace projection the other nine read. Registering it before the
-        platform can answer it would sign requests that come back 401 — a capability
-        that only looks real.
+        getIntegrationStatus needs outbox delivery state, which is not part of the deal
+        workspace projection the other nine read, so it stayed unregistered until the
+        platform grew its own bounded read for it. This asserts the order of those two
+        facts: the tool is registered here only while the server also serves it, because
+        signing a request that comes back 401 is a capability that only looks real.
         """
-        assert "getIntegrationStatus" not in PLATFORM_TOOL_NAMES
-        assert "getIntegrationStatus" not in _server_tool_modes()
-        assert len(read_tool_names()) == 9
+        assert "getIntegrationStatus" in _server_tool_modes()
+        assert "getIntegrationStatus" in PLATFORM_TOOL_NAMES
+        assert len(read_tool_names()) == 10
 
     def test_registry_names_are_unique(self) -> None:
         assert len(set(PLATFORM_TOOL_NAMES)) == len(PLATFORM_TOOL_NAMES)

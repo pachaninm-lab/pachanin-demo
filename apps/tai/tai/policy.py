@@ -59,6 +59,10 @@ TOOL_REGISTRY: dict[str, ToolDefinition] = {
     "getMoneyReadiness": _workspace_read_tool("getMoneyReadiness"),
     "getDisputeStatus": _workspace_read_tool("getDisputeStatus"),
     "getEvidenceTimeline": _workspace_read_tool("getEvidenceTimeline"),
+    # Not a workspace projection, but gated the same way and for the same reason: the
+    # platform resolves the caller's deal membership before reading, and what comes back is
+    # delivery metadata about the caller's own deal, never an event payload.
+    "getIntegrationStatus": _workspace_read_tool("getIntegrationStatus"),
     "getRoleNextActions": ToolDefinition(
         name="getRoleNextActions",
         mode=ToolMode.READ_ONLY,
