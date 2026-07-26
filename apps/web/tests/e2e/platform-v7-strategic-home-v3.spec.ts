@@ -80,7 +80,15 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       expect(response?.ok(), `${locale} homepage response`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expect(page.locator('#pc-v6-title')).toBeVisible();
-      await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
+      const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
+      const controlTower = page.locator('.pc-v6-control-tower');
+      const aiAnalysis = page.locator('[data-testid="platform-v7-ai-analysis"]');
+      await expect(aiAnalysis).toBeVisible();
+      if (mobile) {
+        await expect(controlTower).toBeHidden();
+      } else {
+        await expect(controlTower).toBeVisible();
+      }
       await expect(page.locator('#deal-path')).toBeVisible();
       await expect(page.locator('#participants')).toBeVisible();
       await expect(page.locator('#money')).toBeVisible();
