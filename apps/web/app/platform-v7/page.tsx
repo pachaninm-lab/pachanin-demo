@@ -196,7 +196,7 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   .pc-v6-tower-intelligence span {
     display: -webkit-box;
     overflow: hidden;
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.35;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -225,9 +225,53 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     border-radius: 14px;
     background: #fff;
   }
+
+  /* The Deal cockpit proves that TAI works inside execution. Keep it compact, then show the separate AI analysis once. */
+  #tai .pc-v6-control-tower {
+    display: block !important;
+    border-radius: 14px;
+    box-shadow: 0 10px 26px rgba(13, 66, 40, .06);
+  }
+  #tai .pc-v6-control-tower .pc-v6-ct-top {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 13px 10px;
+  }
+  #tai .pc-v6-control-tower .pc-v6-ct-top small,
+  #tai .pc-v6-control-tower .pc-v6-ct-top b { font-size: 12px; }
+  #tai .pc-v6-control-tower .pc-v6-ct-top span { font-size: 14px; }
+  #tai .pc-v6-control-tower .pc-v6-ct-progress { padding: 9px 13px 0; }
+  #tai .pc-v6-control-tower .pc-v6-ct-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  #tai .pc-v6-control-tower .pc-v6-ct-grid article {
+    min-height: 96px;
+    padding: 10px 11px;
+  }
+  #tai .pc-v6-control-tower .pc-v6-ct-grid small,
+  #tai .pc-v6-control-tower .pc-v6-ct-grid article > span:not(.pc-v6-status),
+  #deal-path > div:nth-of-type(2) p,
+  #deal-path > div:nth-of-type(3) span,
+  #tai [data-testid='platform-v7-ai-analysis'] article strong,
+  #tai [data-testid='platform-v7-ai-analysis'] > div span,
+  #maturity > div:nth-of-type(2) article span,
+  #maturity > div:nth-of-type(3) article span,
+  #participants [role='tabpanel'] span,
+  #participants [role='tabpanel'] strong { font-size: 12px !important; }
+  #tai .pc-v6-control-tower .pc-v6-ct-grid strong {
+    font-size: 13.5px;
+    line-height: 1.28;
+  }
+  #tai .pc-v6-control-tower .pc-v6-status {
+    gap: 5px;
+    padding: 5px 7px;
+    font-size: 12px;
+  }
+  #tai .pc-v6-control-tower .pc-v6-tai-strip { display: none !important; }
 }
 @media (max-width: 359px) {
   .pc-v6-hero h1.pc-v6-hero-title { font-size: 31px; }
+  #tai .pc-v6-control-tower .pc-v6-ct-grid { grid-template-columns: 1fr !important; }
 }
 @media (min-width: 768px) {
   .pc-v6-hero { grid-template-columns: minmax(0, 1.02fr) minmax(380px, .98fr); }
