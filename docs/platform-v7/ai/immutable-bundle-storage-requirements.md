@@ -28,9 +28,10 @@ own contours and are out of scope here.
 
 ## 2. Provider-neutral contract
 
-The platform speaks S3. Any provider that satisfies every mandatory control below is acceptable; the
-verifier in `apps/tai/tai/model_bundle_s3_preflight.py` already checks these against a live endpoint
-and fails closed on each.
+The platform speaks S3. Any provider that satisfies every mandatory control below is acceptable, and
+since #3241 the verifier in `apps/tai/tai/model_bundle_s3_preflight.py` accepts any registered
+provider profile rather than one. It checks these controls against a live endpoint and fails closed
+on each, with one exception recorded in §2.4.
 
 ### 2.1 Mandatory controls
 
@@ -41,7 +42,7 @@ and fails closed on each.
 | A3 | Object Lock | `Enabled` at bucket creation | Cannot be enabled on an existing bucket on most S3 implementations. Getting this wrong means recreating the bucket. |
 | A4 | Default retention mode | `COMPLIANCE` | `GOVERNANCE` mode can be bypassed by a principal holding `s3:BypassGovernanceRetention`. That is a deletable bucket with extra steps, not an immutable one. |
 | A5 | Default retention period | ≥ **90 days**, ≤ 365 days | Long enough to outlive a benchmark-to-admission cycle; bounded so storage cost stays predictable. |
-| A6 | Public access | Private by default; anonymous `ListObjects` returns 401 or 403 | Model artifacts are not public. This is verified by an unauthenticated request, not by reading a setting. **The current preflight checks the bucket listing only** — see §2.4. |
+| A6 | Public access | Private by default; anonymous `ListObjects` returns 401 or 403 | Model artifacts are not public. This is verified by an unauthenticated request, not by reading a setting. **The preflight checks the bucket listing only** — see §2.4. |
 | A7 | Delete denial | Bucket policy denies `s3:DeleteObject` and `s3:DeleteObjectVersion` on the governed prefix, **for every principal including the bucket owner** | Object Lock protects a locked version. The policy closes the gap for anything not yet locked, and stops delete markers from hiding current objects. |
 | A8 | Dedicated principal | A separate access key holding exactly the action set in §2.5 and nothing beyond it | The platform's own credentials must not be able to reach this bucket, and this bucket's credentials must not reach anything else. |
 | A9 | Capacity | ≥ **120 GB** usable, provider-confirmed | See §3. |
@@ -77,32 +78,49 @@ issue, and do not send them in a chat message — including to me.
 
 ---
 
-### 2.4 Two gaps between this contract and the verifier that enforces it
+### 2.4 One gap closed, one still open
 
-Review of this package found both, and they matter because an owner following §5 would
-otherwise hit them at step 9 with a correctly built bucket.
+Review of this package found both. One is now fixed in the verifier; the other turned out
+to be harder than it looked and is still outstanding.
 
-**The preflight is pinned to one provider profile.** `apps/tai/tai/model_bundle_s3_preflight.py`
-holds `_SELECTEL_PROFILE = "SELECTEL_S3_2026"` and appends `PROVIDER_PROFILE_INVALID`
-whenever the requirements or the observation name anything else;
-`.github/workflows/tai-bundle-s3-preflight.yml` records that literal. So while the *contract*
-above is provider-neutral, the *verifier* today is not. A conforming non-Selectel bucket
-would fail step 9 on the profile string alone, never reaching the controls.
+**Closed — the verifier is provider-neutral.** `apps/tai/tai/model_bundle_s3_preflight.py`
+used to hold `_SELECTEL_PROFILE = "SELECTEL_S3_2026"` as a single constant and reject any
+other value before examining a single control, so a conforming non-Selectel bucket failed
+step 9 on the profile string alone. PR #3241 replaced that with a profile registry:
+`SELECTEL_S3_2026` keeps its two waivers, `GENERIC_S3_COMPLETE` waives nothing, and every
+mandatory control is checked identically for both. The workflow now reads the profile from
+the requirements artifact rather than repeating it, and a test asserts no profile name
+appears in the workflow at all. A declared entry in `unsupported_s3_apis` must now also
+appear in the named profile, so "unsupported" can no longer be used to opt out of a control
+by writing its name down.
 
-Making the verifier provider-neutral is a small, separate implementation slice — a profile
-registry keyed by provider with its own unsupported-API list, replacing the single constant
-in three places: the evaluator, the requirements artifact and the workflow. It is not done,
-and it must be done before any non-Selectel provider can reach B.06. Flagged here rather
-than left for the owner to discover from a red workflow.
+To add a provider, add its name to `_PROVIDER_PROFILES` with the set of S3 APIs it genuinely
+does not implement, and set `provider_profile` in the requirements artifact. Nothing else
+changes.
 
-**Anonymous object reads are not checked.** A6 asks for private-by-default; the preflight
-verifies `anonymous_list_probe` only. A bucket that denies anonymous `ListObjects` while
-permitting public `GetObject` on a known key passes today — and that bucket exposes model
-artifacts to anyone who guesses or learns a key. The same implementation slice must add an
-unauthenticated `GET` against a known smoke object and fail unless it returns 401 or 403.
+**Still open — anonymous object reads are not verified.** A6 asks for private-by-default;
+the preflight verifies `anonymous_list_probe` only. A bucket that denies anonymous
+`ListObjects` while permitting public `GetObject` on a known key passes today, and that
+bucket exposes model artifacts to anyone who learns or guesses a key.
 
-Neither gap changes what the owner should provision. Both change what the platform can
-honestly claim to have verified, so they are stated rather than papered over.
+The obvious fix does not work, which is why this is still open. An unauthenticated `GET`
+against a fabricated key returns **403, not 404**, when the caller lacks `ListBucket` — S3
+does that deliberately so contents cannot be enumerated by probing. A sentinel-key probe
+therefore returns an accepted 403 on precisely the misconfigured bucket it was meant to
+catch, which is worse than no check. It was written, found wrong in review, and removed
+rather than shipped.
+
+A correct probe must `GET` a key **known to exist**: discover one from the authenticated
+`list-objects-v2` already run, then request it with no credentials and require 401 or 403.
+It also has to decide what an empty bucket means — most usefully, that the check is not
+applicable until the bundle is uploaded, which is exactly when the exposure starts to
+matter. And it must land in all three producers of the shared observed schema at once —
+`tai-bundle-s3-preflight.yml`, `tai-selectel-s3-provision.yml` and
+`model-bundle-finalization-driver.v1.sh` — since requiring a command only one of them emits
+fails the other two on otherwise valid runs.
+
+Until that exists, treat A6 as verified for bucket listing and **unverified for object
+reads**. Set the bucket private and confirm it by hand.
 
 ### 2.5 Complete least-privilege action set for the dedicated principal
 
@@ -272,7 +290,7 @@ resolve, and there are exactly three honest options.
 
 | Option | What it costs | What it preserves |
 |---|---|---|
-| **1. A different Russian S3 provider for this one bucket** | A second vendor relationship, scoped to model bundles only, plus the verifier slice in §2.4 if that provider is not Selectel. Everything else stays at REG.RU. | Both rules — Russian contour and real immutability. The contour requirement is about jurisdiction, and it is satisfied. |
+| **1. A different Russian S3 provider for this one bucket** | A second vendor relationship, scoped to model bundles only. The verifier accepts any registered profile since #3241, so this costs one registry entry. Everything else stays at REG.RU. | Both rules — Russian contour and real immutability. The contour requirement is about jurisdiction, and it is satisfied. |
 | **2. Stay entirely on REG.RU without Object Lock** | B.06 and B.07 can never be accepted as written. C.01–C.05 stay blocked, so **no model can be admitted**, and L.10 production attestation is unreachable. | Single-vendor simplicity, at the cost of the program's stated goal. |
 | **3. Self-hosted WORM on REG.RU compute** | Build and operate an immutability layer — MinIO with Object Lock on dedicated storage, or equivalent — including its own backup, key management and audit. Weeks of work, and the platform then owns the correctness of its own WORM implementation. | Single vendor and real immutability, paid for in operational surface. |
 
@@ -300,5 +318,5 @@ options above to take.
   operational status remains `NOT_ATTESTED`.
 - The 120 GB figure is a provisioning requirement derived from measured artifact sizes, not a
   measurement of consumed storage.
-- The preflight does not yet accept a non-Selectel provider profile, and does not yet check
-  anonymous object reads. Both are stated in §2.4 rather than implied to work.
+- The preflight does not verify anonymous object reads. Stated in §2.4 with why the
+  obvious probe is wrong, rather than implied to work.
