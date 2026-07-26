@@ -41,9 +41,9 @@ and fails closed on each.
 | A3 | Object Lock | `Enabled` at bucket creation | Cannot be enabled on an existing bucket on most S3 implementations. Getting this wrong means recreating the bucket. |
 | A4 | Default retention mode | `COMPLIANCE` | `GOVERNANCE` mode can be bypassed by a principal holding `s3:BypassGovernanceRetention`. That is a deletable bucket with extra steps, not an immutable one. |
 | A5 | Default retention period | ≥ **90 days**, ≤ 365 days | Long enough to outlive a benchmark-to-admission cycle; bounded so storage cost stays predictable. |
-| A6 | Public access | Private by default; anonymous `ListObjects` and `GetObject` return 401 or 403 | Model artifacts are not public. This is verified by an unauthenticated request, not by reading a setting. |
+| A6 | Public access | Private by default; anonymous `ListObjects` returns 401 or 403 | Model artifacts are not public. This is verified by an unauthenticated request, not by reading a setting. **The current preflight checks the bucket listing only** — see §2.4. |
 | A7 | Delete denial | Bucket policy denies `s3:DeleteObject` and `s3:DeleteObjectVersion` on the governed prefix, **for every principal including the bucket owner** | Object Lock protects a locked version. The policy closes the gap for anything not yet locked, and stops delete markers from hiding current objects. |
-| A8 | Dedicated principal | A separate access key that can `PutObject`, `GetObject`, `ListBucket` and `GetObjectRetention` on the governed prefix and **nothing else** | The platform's own credentials must not be able to reach this bucket, and this bucket's credentials must not reach anything else. |
+| A8 | Dedicated principal | A separate access key holding exactly the action set in §2.5 and nothing beyond it | The platform's own credentials must not be able to reach this bucket, and this bucket's credentials must not reach anything else. |
 | A9 | Capacity | ≥ **120 GB** usable, provider-confirmed | See §3. |
 | A10 | Region | Russian contour | Infrastructure policy. Non-negotiable. |
 
@@ -66,7 +66,7 @@ These names are fixed. The workflows read them and fail closed if any is absent.
 | `TAI_BUNDLE_S3_ENDPOINT` | HTTPS endpoint URL | `https://s3.<provider>.ru` |
 | `TAI_BUNDLE_S3_REGION` | Region identifier | `ru-1` |
 | `TAI_BUNDLE_S3_BUCKET` | Bucket name | `tai-model-bundles` |
-| `TAI_BUNDLE_S3_PREFIX` | Governed key prefix | `bundles/` |
+| `TAI_BUNDLE_S3_PREFIX` | Governed key prefix, **no trailing slash** | `bundles` |
 | `TAI_BUNDLE_S3_ACCESS_KEY_ID` | Dedicated principal's key id | — |
 | `TAI_BUNDLE_S3_SECRET_ACCESS_KEY` | Dedicated principal's secret | — |
 | `TAI_BUNDLE_S3_PRINCIPAL_ID` | Principal identifier the policy names | — |
@@ -76,6 +76,60 @@ Store them as GitHub Actions repository secrets. Do not commit them, do not past
 issue, and do not send them in a chat message — including to me.
 
 ---
+
+### 2.4 Two gaps between this contract and the verifier that enforces it
+
+Review of this package found both, and they matter because an owner following §5 would
+otherwise hit them at step 9 with a correctly built bucket.
+
+**The preflight is pinned to one provider profile.** `apps/tai/tai/model_bundle_s3_preflight.py`
+holds `_SELECTEL_PROFILE = "SELECTEL_S3_2026"` and appends `PROVIDER_PROFILE_INVALID`
+whenever the requirements or the observation name anything else;
+`.github/workflows/tai-bundle-s3-preflight.yml` records that literal. So while the *contract*
+above is provider-neutral, the *verifier* today is not. A conforming non-Selectel bucket
+would fail step 9 on the profile string alone, never reaching the controls.
+
+Making the verifier provider-neutral is a small, separate implementation slice — a profile
+registry keyed by provider with its own unsupported-API list, replacing the single constant
+in three places: the evaluator, the requirements artifact and the workflow. It is not done,
+and it must be done before any non-Selectel provider can reach B.06. Flagged here rather
+than left for the owner to discover from a red workflow.
+
+**Anonymous object reads are not checked.** A6 asks for private-by-default; the preflight
+verifies `anonymous_list_probe` only. A bucket that denies anonymous `ListObjects` while
+permitting public `GetObject` on a known key passes today — and that bucket exposes model
+artifacts to anyone who guesses or learns a key. The same implementation slice must add an
+unauthenticated `GET` against a known smoke object and fail unless it returns 401 or 403.
+
+Neither gap changes what the owner should provision. Both change what the platform can
+honestly claim to have verified, so they are stated rather than papered over.
+
+### 2.5 Complete least-privilege action set for the dedicated principal
+
+"`PutObject`, `GetObject`, `ListBucket` and nothing else" is too narrow: the governed
+preflight also reads bucket versioning, the Object Lock configuration, the bucket policy
+and object versions. A principal without those returns 403 and the bucket fails preflight
+despite being correctly built.
+
+Object-level, on `arn:aws:s3:::<bucket>/<prefix>/*`:
+
+- `s3:PutObject`
+- `s3:GetObject`
+- `s3:GetObjectVersion`
+- `s3:GetObjectRetention`
+
+Bucket-level, on `arn:aws:s3:::<bucket>`:
+
+- `s3:ListBucket`
+- `s3:ListBucketVersions`
+- `s3:GetBucketVersioning`
+- `s3:GetBucketObjectLockConfiguration`
+- `s3:GetBucketPolicy`
+
+Nothing beyond these nine. In particular **no** `s3:DeleteObject`, `s3:DeleteObjectVersion`,
+`s3:PutObjectRetention`, `s3:PutBucketPolicy`, `s3:PutBucketVersioning` or
+`s3:BypassGovernanceRetention`. The principal must be able to write artifacts and read back
+enough to prove the controls hold — and must not be able to weaken any of them.
 
 ## 3. Capacity
 
@@ -180,7 +234,8 @@ Order matters. Steps 1 and 2 cannot be reordered or repeated on an existing buck
 3. **Set the default retention** to `COMPLIANCE` for 90 days, and read the configuration back.
 4. **Create a dedicated principal** — a new access key, not the account's root key — with a policy
    granting exactly `s3:PutObject`, `s3:GetObject`, `s3:GetObjectVersion`, `s3:ListBucket` and
-   `s3:GetObjectRetention`, scoped to `arn:aws:s3:::<bucket>/<prefix>*`.
+   the full action set from §2.5, scoped to `arn:aws:s3:::<bucket>/<prefix>/*` plus the
+   bucket-level actions on `arn:aws:s3:::<bucket>`.
 5. **Attach a bucket policy denying deletion** to every principal:
 
    ```json
@@ -192,7 +247,7 @@ Order matters. Steps 1 and 2 cannot be reordered or repeated on an existing buck
          "Effect": "Deny",
          "Principal": "*",
          "Action": ["s3:DeleteObject", "s3:DeleteObjectVersion"],
-         "Resource": "arn:aws:s3:::<bucket>/<prefix>*"
+         "Resource": "arn:aws:s3:::<bucket>/<prefix>/*"
        }
      ]
    }
@@ -217,7 +272,7 @@ resolve, and there are exactly three honest options.
 
 | Option | What it costs | What it preserves |
 |---|---|---|
-| **1. A different Russian S3 provider for this one bucket** | A second vendor relationship, scoped to model bundles only. Everything else stays at REG.RU. | Both rules — Russian contour and real immutability. The contour requirement is about jurisdiction, and it is satisfied. |
+| **1. A different Russian S3 provider for this one bucket** | A second vendor relationship, scoped to model bundles only, plus the verifier slice in §2.4 if that provider is not Selectel. Everything else stays at REG.RU. | Both rules — Russian contour and real immutability. The contour requirement is about jurisdiction, and it is satisfied. |
 | **2. Stay entirely on REG.RU without Object Lock** | B.06 and B.07 can never be accepted as written. C.01–C.05 stay blocked, so **no model can be admitted**, and L.10 production attestation is unreachable. | Single-vendor simplicity, at the cost of the program's stated goal. |
 | **3. Self-hosted WORM on REG.RU compute** | Build and operate an immutability layer — MinIO with Object Lock on dedicated storage, or equivalent — including its own backup, key management and audit. Weeks of work, and the platform then owns the correctness of its own WORM implementation. | Single vendor and real immutability, paid for in operational surface. |
 
@@ -245,3 +300,5 @@ options above to take.
   operational status remains `NOT_ATTESTED`.
 - The 120 GB figure is a provisioning requirement derived from measured artifact sizes, not a
   measurement of consumed storage.
+- The preflight does not yet accept a non-Selectel provider profile, and does not yet check
+  anonymous object reads. Both are stated in §2.4 rather than implied to work.
