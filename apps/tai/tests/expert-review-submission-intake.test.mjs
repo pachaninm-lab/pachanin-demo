@@ -86,7 +86,14 @@ function envelope(packet, trackId, reviews) {
 function fixture(existing = null, generatedAt = GENERATED_AT) {
   const root = mkdtempSync(resolve(tmpdir(), 'tai-review-intake-'));
   const existingReviewsPath = resolve(root, 'existing-reviews.json');
-  writeJson(existingReviewsPath, existing ?? json(REPO_REVIEWS));
+  // Seed an empty corpus of reviews, keeping the repository's governed policy so
+  // validateReviews still has the exact policy it compares against.
+  //
+  // This used to seed from the repository file itself, which made every assertion below
+  // depend on how many reviews happened to be recorded in the tree: the moment a human
+  // recorded one, "reviews_added: 1" became "1 of 43" and the test failed while nothing
+  // was wrong. A test of the intake path must fix its own starting state.
+  writeJson(existingReviewsPath, existing ?? { ...json(REPO_REVIEWS), reviews: [] });
   const packetDirectory = resolve(root, 'packet');
   const packet = buildExpertReviewPacket({
     exactMainSha: EXACT_MAIN,
