@@ -11,6 +11,11 @@ import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
+import {
+  buildPublicBrandRuntimeScript,
+  normalizePublicBrandText,
+  PUBLIC_BRAND_ORIGIN,
+} from '@/lib/platform-v7/public-brand-domain';
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
@@ -33,7 +38,7 @@ const jetbrainsMono = JetBrains_Mono({
   preload: false,
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+const SITE_URL = normalizePublicBrandText(process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_BRAND_ORIGIN);
 const SITE_TITLE = 'Процент-Агро | Прозрачная Цена — цифровой контур зерновой сделки';
 const SITE_DESCRIPTION = 'Процент-Агро — публичный контур проекта «Прозрачная Цена»: зерновая сделка после согласования цены, логистика, приёмка, качество, документы, расчёты, спор и доказательства.';
 const PLATFORM_V7_DESCRIPTION = 'Единый цифровой контур исполнения Сделки в растениеводстве: условия, допуск, торги, логистика, качество, документы, финансирование, деньги, споры, доказательства и закрытие.';
@@ -95,7 +100,8 @@ const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/pc-public-entry/platform-v7/login',
   '/pc-public-entry/platform-v7/forgot-password',
 ]);
-const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
+const brandUrlAuthorityScript = buildPublicBrandRuntimeScript();
+const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 function normalizePath(value: string | null) {
@@ -126,6 +132,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} />
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <meta name='description' content={pageDescription} />
