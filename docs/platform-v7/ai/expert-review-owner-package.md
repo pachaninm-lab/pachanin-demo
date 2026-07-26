@@ -242,12 +242,21 @@ Highest attention per case. These are where a wrong gold standard would bless a 
    `--disagreement-with <review_id>` when you are deliberately contradicting an existing
    review — the disagreement is recorded, not hidden.
 
-   The tool computes the case digest binding and `review_sha256`. It refuses to run if the
-   evidence file is missing or empty, if the case is unknown, if the role is not in the
-   allowed list, or if you have already reviewed that case.
+   The tool computes the case digest binding and `review_sha256`, and regenerates
+   `baseline-assessment.v1.json` in the same operation. That second part matters: the
+   authority compares the computed assessment against the committed baseline *before* it
+   reaches `--require-accepted`, so a review recorded without refreshing the baseline would
+   make every later run fail with `baseline assessment does not match corpus/reviews`. Both
+   files go into your commit.
 
-6. **Commit and open a PR** with the updated `expert-reviews.v1.json`. Review records are
-   the artefact; they belong in the repository history.
+   It refuses to run if the evidence file is missing or empty, if the case is unknown, if
+   the role is not in the allowed list, if you have already reviewed that case, or if your
+   `reviewer-id` is long enough to push the constructed `review_id` past 200 characters —
+   it tells you the exact budget rather than writing a record the authority would reject.
+
+6. **Commit and open a PR** with the updated `expert-reviews.v1.json` **and**
+   `baseline-assessment.v1.json`. Review records are the artefact; they belong in the
+   repository history, and the baseline must travel with them.
 
 ### If you reject a case
 

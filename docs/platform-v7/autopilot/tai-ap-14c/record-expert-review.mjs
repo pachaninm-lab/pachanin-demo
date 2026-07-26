@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REVIEWS_PATH = resolve(HERE, 'expert-reviews.v1.json');
+const BASELINE_PATH = resolve(HERE, 'baseline-assessment.v1.json');
 const ID = /^[A-Za-z0-9._:-]{1,200}$/;
 const DECISIONS = new Set(['APPROVED', 'REJECTED', 'NEEDS_CHANGES']);
 
@@ -108,7 +109,7 @@ if (!reviews.policy.allowed_reviewer_roles.includes(reviewerRole)) {
 // Bind to the case digest as it stands right now. If the case is later edited its
 // digest changes and gold-set-authority.mjs rejects this record as stale — which is
 // the intended behaviour, not a bug to work around.
-const { buildCorpus } = await import('./gold-set-authority.mjs');
+const { buildCorpus, computeAssessment } = await import('./gold-set-authority.mjs');
 const corpus = buildCorpus();
 const target = [...corpus.platform.cases, ...corpus.agro.cases].find(
   (entry) => entry.case_id === caseId,
@@ -119,8 +120,20 @@ if (reviews.reviews.some((review) => review.case_id === caseId && review.reviewe
   fail(`${reviewerId} has already reviewed ${caseId}; one reviewer counts once per case`);
 }
 
+const reviewId = `review.${caseId}.${reviewerId}`;
+// The authority validates this id against the same 200-character rule, and it validates
+// after the file is written. A record accepted here but rejected there leaves the review
+// file unusable, so the length is checked before anything is persisted.
+if (!ID.test(reviewId)) {
+  const budget = 200 - `review.${caseId}.`.length;
+  fail(
+    `constructed review id is ${reviewId.length} characters; ` +
+      `reviewer-id must be at most ${budget} characters for case ${caseId}`,
+  );
+}
+
 const record = {
-  review_id: `review.${caseId}.${reviewerId}`,
+  review_id: reviewId,
   case_id: caseId,
   case_sha256: target.case_sha256,
   reviewer_id: reviewerId,
@@ -140,7 +153,16 @@ if (args.dryRun) {
 
 reviews.reviews.push(record);
 reviews.reviews.sort((left, right) => left.review_id.localeCompare(right.review_id));
+
+// The baseline assessment must move with the reviews. `validateAuthority` compares the
+// computed assessment against the committed baseline *before* it reaches
+// `--require-accepted`, so a review written without regenerating the baseline makes every
+// later run fail with "baseline assessment does not match corpus/reviews" — the first real
+// review would break all validation instead of advancing it.
+const baseline = computeAssessment(corpus, reviews);
+
 writeFileSync(REVIEWS_PATH, `${JSON.stringify(reviews, null, 2)}\n`, 'utf8');
+writeFileSync(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`, 'utf8');
 process.stdout.write(`${record.review_id} recorded (${decision})\n`);
 process.stdout.write(
   `${reviews.reviews.length} review record(s) on file. Re-run gold-set-authority.mjs --require-accepted to see remaining coverage.\n`,
