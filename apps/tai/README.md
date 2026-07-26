@@ -67,15 +67,29 @@ uvicorn tai.production_entrypoint:app --host 0.0.0.0 --port 8080
 - `TAI_ALLOWED_PLATFORM_TOOL_HOSTS_JSON`;
 - `TAI_PLATFORM_TOOL_TIMEOUT_SECONDS`.
 
-Разрешены только три инструмента:
+Решением владельца от 26.07.2026 TAI в текущем промышленном релизе —
+`INFORMATIONAL_ONLY` / `READ_ONLY` для всех ролей. Разрешены десять инструментов, и все
+десять `READ_ONLY`:
 
-- `getDealSummary` — `READ_ONLY`;
-- `getRoleNextActions` — `READ_ONLY`;
-- `prepareCommandDraft` — `DRAFT`.
+- `getDealSummary`, `getRoleNextActions`, `getDealRisks`, `getDocumentStatus`,
+  `getLogisticsStatus`, `getLaboratoryStatus`, `getMoneyReadiness`, `getDisputeStatus`,
+  `getEvidenceTimeline`, `getIntegrationStatus`.
 
-Каждый вызов связан HMAC с точным методом, маршрутом, телом, tool name/mode, tenant/user/session, trace/call и idempotency key. API платформы повторно разрешает реальное membership и активного участника Сделки из PostgreSQL. `prepareCommandDraft` не выполняет команду: он возвращает текущий серверный action, optimistic-concurrency версию и контракт для отдельного подтверждения пользователем.
+Каждый вызов связан HMAC с точным методом, маршрутом, телом, tool name/mode,
+tenant/user/session, trace/call и idempotency key. API платформы повторно разрешает
+реальное membership и активного участника Сделки из PostgreSQL.
 
-Confirmed-write handlers намеренно отсутствуют. `acknowledgeRisk`, `createSupportCase`, деньги, документы, подписи, лаборатория, спор и изменение состояния Сделки остаются fail-closed. Governed planner не может выбирать отсутствующие или write-инструменты.
+Write-инструментов не осталось ни одного. `prepareCommandDraft` (`DRAFT`),
+`acknowledgeRisk` и `createSupportCase` (`CONFIRMED_WRITE`) удалены, а не отключены
+флагом: отключённая запись — это переключатель, а переключатель есть runtime-путь обратно
+к записи. `TOOL_REGISTRY` и `PLATFORM_TOOL_SPECS` проверяются на импорте — write-инструмент,
+добавленный позже, роняет композицию, а не ждёт первого запроса.
+
+`authorize_tool` отказывает по режиму раньше всех остальных проверок и вообще не читает
+`explicit_user_confirmation`: подтверждение пользователя не превращает действие в
+действие, которое выполняет TAI. Действие выполняет человек руками в платформе.
+Возврат confirmed actions возможен только отдельным будущим решением владельца и новой
+промышленной приёмкой.
 
 ## Оставшаяся работа
 

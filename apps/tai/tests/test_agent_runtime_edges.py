@@ -20,6 +20,7 @@ from tai.agent_runtime import (
     ToolInvocationStatus,
 )
 from tai.contracts import IdentityContext, ToolMode
+from tai.policy import TOOL_REGISTRY
 
 NOW = datetime(2026, 7, 18, 16, 0, tzinfo=UTC)
 TRACE_ID = UUID("71000000-0000-0000-0000-000000000001")
@@ -177,53 +178,56 @@ def test_confirmation_at_exact_expiry_is_invalid() -> None:
     )
 
 
-def test_confirmation_is_claimed_only_after_platform_policy_authorizes() -> None:
-    claims = _Claims()
-    handler = _Handler()
-    runtime = _runtime({"acknowledgeRisk": handler}, claims=claims)
-    call = _call(
-        tool_name="acknowledgeRisk",
-        mode=ToolMode.CONFIRMED_WRITE,
-        arguments={"riskId": "risk-1"},
-    )
-    confirmation = _confirmation(call)
+def test_confirmation_is_never_claimed_for_a_removed_write_tool() -> None:
+    """The claim store is not reached on the way to denying a write.
 
-    result = runtime.execute(
-        _plan(call),
-        identity=_identity(roles=frozenset({"driver"})),
-        confirmations=(confirmation,),
-        now=NOW + timedelta(seconds=1),
-    )
+    This previously asserted claim-after-authorization ordering using an unauthorized
+    role. Under the owner decision the tool is not in the registry at all, so the denial
+    comes earlier and the ordering property holds more strongly: nothing is claimed,
+    nothing is handled, whatever role the caller holds.
+    """
+    for roles in (frozenset({"driver"}), frozenset({"operator"})):
+        claims = _Claims()
+        handler = _Handler()
+        runtime = _runtime({"acknowledgeRisk": handler}, claims=claims)
+        call = _call(
+            tool_name="acknowledgeRisk",
+            mode=ToolMode.CONFIRMED_WRITE,
+            arguments={"riskId": "risk-1"},
+        )
 
-    assert result.status is AgentExecutionStatus.DENIED
-    assert "role is not authorized" in (result.calls[0].reason or "")
-    assert claims.calls == []
-    assert handler.calls == []
+        result = runtime.execute(
+            _plan(call),
+            identity=_identity(roles=roles),
+            confirmations=(_confirmation(call),),
+            now=NOW + timedelta(seconds=1),
+        )
+
+        assert result.status is AgentExecutionStatus.DENIED
+        assert claims.calls == []
+        assert handler.calls == []
 
 
-def test_conflicting_confirmation_claim_denies_before_handler() -> None:
-    claims = _Claims(accepted=False)
-    handler = _Handler()
-    runtime = _runtime({"acknowledgeRisk": handler}, claims=claims)
-    call = _call(
-        tool_name="acknowledgeRisk",
-        mode=ToolMode.CONFIRMED_WRITE,
-        arguments={"riskId": "risk-1"},
-    )
+def test_a_confirmation_claim_store_is_unreachable_for_every_registered_tool() -> None:
+    """No registered tool can reach the claim store, so no claim can conflict.
 
-    result = runtime.execute(
-        _plan(call),
-        identity=_identity(),
-        confirmations=(_confirmation(call),),
-        now=NOW + timedelta(seconds=1),
-    )
+    The conflicting-claim denial this replaces guarded a real race while confirmed writes
+    existed: two invocations racing for one confirmation. That race is now unreachable
+    rather than handled — every registered tool is READ_ONLY, and a read takes no
+    confirmation — so the honest assertion is that the store stays untouched across the
+    whole registry, not a re-enactment of a conflict that can no longer occur.
+    """
+    for tool_name, definition in TOOL_REGISTRY.items():
+        assert definition.mode is ToolMode.READ_ONLY
+        claims = _Claims(accepted=False)
+        handler = _Handler()
+        runtime = _runtime({tool_name: handler}, claims=claims)
+        call = _call(tool_name=tool_name, mode=ToolMode.READ_ONLY, arguments={"dealId": "d-1"})
 
-    assert result.status is AgentExecutionStatus.DENIED
-    assert result.calls[0].reason == (
-        "tool confirmation is already bound to a different invocation"
-    )
-    assert len(claims.calls) == 1
-    assert handler.calls == []
+        result = runtime.execute(_plan(call), identity=_identity(), now=NOW)
+
+        assert result.status is AgentExecutionStatus.COMPLETED
+        assert claims.calls == []
 
 
 def test_stop_on_failure_false_allows_later_safe_calls() -> None:

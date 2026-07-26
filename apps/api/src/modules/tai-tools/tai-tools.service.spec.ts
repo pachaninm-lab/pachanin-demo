@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { TaiDelegatedIdentity } from './tai-tool-assertion';
+import { TAI_PLATFORM_TOOL_MODES, TaiDelegatedIdentity } from './tai-tool-assertion';
 import { TaiToolsService } from './tai-tools.service';
 
 const IDENTITY: TaiDelegatedIdentity = {
@@ -125,39 +125,47 @@ describe('TaiToolsService', () => {
     );
   });
 
-  it('creates a non-executing command draft bound to current workspace authority', async () => {
+  it('publishes no tool that is not READ_ONLY', () => {
+    const entries = Object.entries(TAI_PLATFORM_TOOL_MODES);
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.filter(([, mode]) => mode !== 'READ_ONLY')).toEqual([]);
+    for (const removed of ['prepareCommandDraft', 'acknowledgeRisk', 'createSupportCase']) {
+      expect(Object.keys(TAI_PLATFORM_TOOL_MODES)).not.toContain(removed);
+    }
+  });
+
+  it('refuses a removed write tool even when the caller asserts a draft mode', async () => {
     const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
-    const identity: TaiDelegatedIdentity = {
-      ...IDENTITY,
-      toolName: 'prepareCommandDraft',
-      mode: 'DRAFT',
-    };
 
-    const result = await service.execute(
-      'prepareCommandDraft',
-      {
-        arguments: {
-          dealId: 'deal-2408',
-          actionId: 'sign_contract',
-          payload: { documentId: 'doc-1' },
-        },
-      },
-      identity,
-    );
+    // The types already refuse this call; the casts stand in for a caller that reaches the
+    // service without them — a forged assertion, or a future refactor that loosens a type.
+    // What is asserted is the runtime behaviour underneath the types.
+    await expect(
+      service.execute(
+        'prepareCommandDraft' as never,
+        { arguments: { dealId: 'deal-2408', actionId: 'sign_contract' } },
+        { ...IDENTITY, toolName: 'prepareCommandDraft', mode: 'DRAFT' } as never,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(gateway.workspace).not.toHaveBeenCalled();
+  });
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        schemaVersion: 'platform.deal-command-draft.v1',
-        dealId: 'deal-2408',
-        actionId: 'sign_contract',
-        method: 'POST',
-        endpoint: '/deals/deal-2408/commands/sign_contract',
-        expectedUpdatedAt: '2026-07-19T02:00:00.000Z',
-        expectedVersion: '7',
-        requiresExplicitUserConfirmation: true,
-      }),
-    );
+  it('does not execute a removed write tool when the user has confirmed it', async () => {
+    const gateway = makeGateway();
+    const service = new TaiToolsService(gateway as any);
+
+    // Confirmation is the whole point of the owner decision: a user saying yes does not
+    // make this an action TAI performs. There is no confirmation field on the path at all,
+    // so the closest a caller can come is asserting the mode, which is refused.
+    await expect(
+      service.execute(
+        'acknowledgeRisk' as never,
+        { arguments: { dealId: 'deal-2408', explicitUserConfirmation: true } },
+        { ...IDENTITY, toolName: 'acknowledgeRisk', mode: 'CONFIRMED_WRITE' } as never,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(gateway.workspace).not.toHaveBeenCalled();
   });
 
   describe.each(READ_ONLY_TOOLS)('%s', (toolName) => {
@@ -385,16 +393,20 @@ describe('TaiToolsService', () => {
     expect(result.shipmentCount).toBe(0);
   });
 
-  it('rejects a model-selected action that is not the current server action', async () => {
+  it('cannot be asked for an action at all, current or otherwise', async () => {
     const gateway = makeGateway();
     const service = new TaiToolsService(gateway as any);
 
+    // This used to assert that a model-selected action was rejected unless it matched the
+    // current server action. There is no longer an action argument anywhere on the path:
+    // the only tool that accepted one is gone, so the narrower check has nothing to guard.
     await expect(
       service.execute(
-        'prepareCommandDraft',
+        'prepareCommandDraft' as never,
         { arguments: { dealId: 'deal-2408', actionId: 'request_release' } },
-        { ...IDENTITY, toolName: 'prepareCommandDraft', mode: 'DRAFT' },
+        { ...IDENTITY, toolName: 'prepareCommandDraft', mode: 'DRAFT' } as never,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(gateway.workspace).not.toHaveBeenCalled();
   });
 });

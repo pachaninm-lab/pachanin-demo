@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
-from threading import Event
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -292,101 +290,84 @@ def test_read_tool_executes_with_server_identity_and_is_audited() -> None:
     assert handler.calls[0].session_id == SESSION_ID
 
 
-def test_confirmed_write_is_prepared_then_executes_once_after_confirmation() -> None:
+@pytest.mark.parametrize(
+    ("tool_name", "mode", "expected"),
+    [
+        # A removed tool is unknown whatever mode is claimed for it.
+        ("acknowledgeRisk", ToolMode.CONFIRMED_WRITE, "tool is not registered"),
+        ("createSupportCase", ToolMode.CONFIRMED_WRITE, "tool is not registered"),
+        ("prepareCommandDraft", ToolMode.DRAFT, "tool is not registered"),
+        # A tool that does exist cannot be borrowed as a write by asking for one: the mode
+        # is refused on its own, before the registry entry is even compared.
+        ("getDealSummary", ToolMode.DRAFT, "only READ_ONLY may be requested"),
+        ("getDealSummary", ToolMode.CONFIRMED_WRITE, "only READ_ONLY may be requested"),
+    ],
+)
+def test_no_write_plan_is_ever_prepared_or_executed(
+    tool_name: str,
+    mode: ToolMode,
+    expected: str,
+) -> None:
+    """Owner decision: a write is not prepared, so there is nothing left to confirm.
+
+    This replaces a test that walked the whole confirmed-write lifecycle — prepare,
+    confirm once, replay the confirmation idempotently, then fail a rebinding under a
+    different role. None of it is reachable: the plan is rejected, no `PreparedAction` is
+    produced, and the handler is never entered.
+
+    Both refusal paths are covered on purpose. Removing the tools closes one door, and a
+    caller who names a tool that still exists but asks for a write mode meets the other.
+    """
     call = PlannedToolCall(
-        call_id="ack-risk",
-        tool_name="acknowledgeRisk",
-        arguments={"riskId": "risk-1"},
-        requested_mode=ToolMode.CONFIRMED_WRITE,
+        call_id="write-attempt",
+        tool_name=tool_name,
+        arguments={"dealId": "deal-1"},
+        requested_mode=mode,
     )
     handler = _Handler({"acknowledged": True})
     runtime, _, _, _ = _runtime(
         planner=_Planner((call,)),
-        handlers={"acknowledgeRisk": handler},
+        handlers={tool_name: handler},
     )
 
-    response = runtime.answer(_request(), now=NOW)
+    with pytest.raises(OrchestrationError, match=expected) as raised:
+        runtime.answer(_request(), now=NOW)
 
-    assert response.status is OrchestrationStatus.ANSWERED
-    assert response.tool_execution is None
-    assert len(response.prepared_actions) == 1
+    assert raised.value.code is OrchestrationErrorCode.TOOL_PLAN_REJECTED
     assert handler.calls == []
-    confirmation = response.prepared_actions[0].confirmation
-    first = runtime.confirm_action(
-        confirmation,
-        identity=_identity(),
-        now=NOW + timedelta(seconds=1),
-    )
-    second = runtime.confirm_action(
-        confirmation,
-        identity=_identity(),
-        now=NOW + timedelta(seconds=2),
-    )
-
-    assert first.status.value == "COMPLETED"
-    assert second == first
-    assert len(handler.calls) == 1
-
-    with pytest.raises(OrchestrationError, match="binding failed"):
-        runtime.confirm_action(
-            confirmation,
-            identity=_identity(roles=frozenset({"seller"})),
-            now=NOW + timedelta(seconds=3),
-        )
 
 
-def test_concurrent_confirmation_has_one_atomic_executor() -> None:
-    started = Event()
-    release = Event()
+def test_an_answered_read_plan_prepares_no_action_to_confirm() -> None:
+    """No answer produces a prepared action, so there is no confirmation race to run.
 
-    class _BlockingHandler(_Handler):
-        def execute(self, invocation: AuthorizedToolInvocation) -> dict[str, Any]:
-            self.calls.append(invocation)
-            started.set()
-            if not release.wait(timeout=2):
-                raise TimeoutError("test did not release tool execution")
-            return self.result
-
+    The test this replaces drove two threads at one confirmation and asserted that exactly
+    one executor won. That race guarded confirmed writes, and it is unreachable now: a
+    read plan completes inline and prepares nothing, while a write plan is rejected before
+    preparation. What is left to assert is the absence itself — a successful, fully
+    executed answer still hands the caller nothing to confirm.
+    """
     call = PlannedToolCall(
-        call_id="ack-risk-race",
-        tool_name="acknowledgeRisk",
-        arguments={"riskId": "risk-race"},
-        requested_mode=ToolMode.CONFIRMED_WRITE,
+        call_id="summary-1",
+        tool_name="getDealSummary",
+        arguments={"dealId": "deal-1"},
+        requested_mode=ToolMode.READ_ONLY,
     )
-    handler = _BlockingHandler({"acknowledged": True})
+    handler = _Handler({"deal": {"id": "deal-1"}})
     runtime, _, _, _ = _runtime(
         planner=_Planner((call,)),
-        handlers={"acknowledgeRisk": handler},
+        handlers={"getDealSummary": handler},
     )
-    prepared = runtime.answer(
+
+    response = runtime.answer(
         _request(
             request_id="orchestration-request-race",
             idempotency_key=REQUEST_TOKEN_RACE,
         ),
         now=NOW,
-    ).prepared_actions[0]
+    )
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        first = executor.submit(
-            runtime.confirm_action,
-            prepared.confirmation,
-            identity=_identity(),
-            now=NOW + timedelta(seconds=1),
-        )
-        assert started.wait(timeout=1)
-        try:
-            with pytest.raises(OrchestrationError, match="already executing") as raised:
-                runtime.confirm_action(
-                    prepared.confirmation,
-                    identity=_identity(),
-                    now=NOW + timedelta(seconds=1),
-                )
-            assert raised.value.code is OrchestrationErrorCode.REQUEST_IN_PROGRESS
-        finally:
-            release.set()
-        result = first.result(timeout=1)
-
-    assert result.status.value == "COMPLETED"
+    assert response.status is OrchestrationStatus.ANSWERED
+    assert response.prepared_actions == ()
     assert len(handler.calls) == 1
 
 

@@ -139,14 +139,14 @@ class TestUnknownAndMissingArguments:
             normalize_platform_tool_arguments("getDealSummary", {})
 
     def test_optional_argument_may_be_omitted(self) -> None:
-        assert normalize_platform_tool_arguments("prepareCommandDraft", {"dealId": DEAL}) == {
+        assert normalize_platform_tool_arguments("getDocumentStatus", {"dealId": DEAL}) == {
             "dealId": DEAL
         }
 
     def test_optional_argument_is_kept_when_supplied(self) -> None:
         assert normalize_platform_tool_arguments(
-            "prepareCommandDraft", {"dealId": DEAL, "actionId": "action-7"}
-        ) == {"dealId": DEAL, "actionId": "action-7"}
+            "getDocumentStatus", {"dealId": DEAL, "documentId": "doc-7"}
+        ) == {"dealId": DEAL, "documentId": "doc-7"}
 
     def test_non_string_argument_name_is_refused(self) -> None:
         arguments: dict[Any, Any] = {"dealId": DEAL, 7: "x"}
@@ -180,16 +180,21 @@ class TestPlannerAndAdapterShareOneContract:
         with pytest.raises(ValueError, match="invalid argument schema"):
             _validate_arguments("getDealSummary", {"dealId": "deal 1"})
 
-    def test_command_draft_payload_stays_undeclared(self) -> None:
-        """The platform accepts a payload here; TAI deliberately does not offer one.
+    @pytest.mark.parametrize(
+        "removed", ["prepareCommandDraft", "acknowledgeRisk", "createSupportCase"]
+    )
+    def test_a_removed_write_tool_has_no_contract_at_all(self, removed: str) -> None:
+        """Owner decision: TAI is INFORMATIONAL_ONLY, so these tools have no contract.
 
-        Declaring it would put an arbitrary object back on the path to a prepared
-        write, and the deterministic planner has never produced one.
+        The narrower check this replaces asserted that `prepareCommandDraft` refused a
+        free-form `payload`. That mattered while the tool existed and could carry an
+        arbitrary object toward a prepared write. Now there is no contract to normalize
+        against, so the failure comes earlier and is total: the name is unknown, with or
+        without a payload.
         """
-        with pytest.raises(ReadToolArgumentError, match="payload is not a declared argument"):
-            normalize_platform_tool_arguments(
-                "prepareCommandDraft", {"dealId": DEAL, "payload": {"documentId": "doc-1"}}
-            )
+        for arguments in ({"dealId": DEAL}, {"dealId": DEAL, "payload": {"documentId": "d"}}):
+            with pytest.raises(ReadToolArgumentError):
+                normalize_platform_tool_arguments(removed, arguments)
 
 
 class TestIdentifierNormalization:

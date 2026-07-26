@@ -23,8 +23,9 @@ Registered tools:
 - `getMoneyReadiness` — read-only;
 - `getDisputeStatus` — read-only, optional `disputeId`;
 - `getEvidenceTimeline` — read-only;
-- `getIntegrationStatus` — read-only;
-- `prepareCommandDraft` — draft only.
+- `getIntegrationStatus` — read-only.
+
+Every tool the service exposes is `READ_ONLY`, and `TaiToolMode` has no other member. Owner decision of 26.07.2026 makes TAI informational for this industrial release: it explains, shows evidence and recommends, and the person carries out every platform action by hand. `prepareCommandDraft` was removed rather than left in place unused — it returned a ready-to-POST command envelope with an endpoint, a command id and an idempotency key, which is a prepared platform command whether or not anything sent it.
 
 Nine of the ten read tools are projections of the same `workspace(dealId, user)` call, so they all pass through one membership and RLS check and none of them widens what the caller could already read. The optional identifier narrows the returned collection; an identifier belonging to another deal simply yields an empty projection, because the workspace never contained it.
 
@@ -34,4 +35,4 @@ Nine of the ten read tools are projections of the same `workspace(dealId, user)`
 
 What it returns is delivery metadata only. The select list is a whitelist: `payload`, `lastError`, the lease columns, `idempotencyKey` and `triggeredByUserId` are never read, because none of them is delivery state and all of them would end up in an answer a model relays. The entry list is capped at the 100 most recent rows with `returnedCount` and `truncated`, while `countsByStatus` and `deadLetterCount` are aggregated across the whole deal — a deal whose dead letters are older than its hundred most recent rows must not report zero of them.
 
-The gateway re-resolves the caller's current PostgreSQL membership and active `DealParticipant` before returning any deal data. It never accepts role or organization authority from the model. `prepareCommandDraft` does not execute a command and cannot mutate the deal.
+The gateway re-resolves the caller's current PostgreSQL membership and active `DealParticipant` before returning any deal data. It never accepts role or organization authority from the model. No route through this service can create, prepare or execute a platform command, and no user confirmation changes that: confirmation is not consulted anywhere on the path, because under the owner decision a confirmed action is still an action the person performs, not one TAI performs.

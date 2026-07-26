@@ -287,7 +287,19 @@ def test_api_rejects_missing_or_payload_rebound_identity() -> None:
     assert idempotency_rebound.json()["code"] == "IDENTITY_ASSERTION_INVALID"
 
 
-def test_api_confirmation_executes_prepared_write_once() -> None:
+def test_api_answer_never_hands_back_a_prepared_write_to_confirm() -> None:
+    """Owner decision, at the HTTP boundary: the API offers nothing to confirm.
+
+    This previously posted an answer, took the `prepared_actions[0]` the API returned,
+    confirmed it over `/v1/platform/actions/confirm`, and asserted the write executed
+    exactly once across a replay. The first step is what no longer happens: a plan
+    carrying a write is rejected, so no prepared action reaches the client and the
+    confirm route has nothing to be pointed at.
+
+    The confirm route itself is deliberately left mounted and asserted to reject, rather
+    than removed. Restoring confirmed actions must be a decision, not the discovery that a
+    route quietly still works.
+    """
     authority = HMACPlatformIdentityAuthority(IDENTITY_SECRET)
     call = PlannedToolCall(
         call_id="api-ack-risk",
@@ -307,32 +319,52 @@ def test_api_confirmation_executes_prepared_write_once() -> None:
         )
     )
     answer_payload = _payload()
-    prepared = client.post(
+
+    answered = client.post(
         "/v1/platform/answer",
         json=answer_payload,
         headers=_headers(authority, answer_payload),
-    ).json()["prepared_actions"][0]
-    confirmation_payload: dict[str, object] = {
-        "request_id": "api-confirm-1",
-        "explicit_user_confirmation": True,
-        "confirmation": prepared["confirmation"],
-    }
-    headers = _confirmation_headers(authority, confirmation_payload)
-
-    first = client.post(
-        "/v1/platform/actions/confirm",
-        json=confirmation_payload,
-        headers=headers,
-    )
-    replay = client.post(
-        "/v1/platform/actions/confirm",
-        json=confirmation_payload,
-        headers=headers,
     )
 
-    assert first.status_code == 200
-    assert first.json()["status"] == "COMPLETED"
-    assert replay.json() == first.json()
+    assert answered.status_code != 200
+    assert "prepared_actions" not in answered.json()
+    assert handler.calls == []
+
+
+def test_api_answer_with_a_read_plan_returns_no_prepared_actions() -> None:
+    """A successful answer carries an empty `prepared_actions`, not a missing one.
+
+    The field stays in the contract and stays empty, so a client reading it sees an
+    explicit "nothing to confirm" rather than having to infer it from an absent key.
+    """
+    authority = HMACPlatformIdentityAuthority(IDENTITY_SECRET)
+    call = PlannedToolCall(
+        call_id="api-summary",
+        tool_name="getDealSummary",
+        arguments={"dealId": "deal-api-1"},
+        requested_mode=ToolMode.READ_ONLY,
+    )
+    handler = _Handler()
+    client = TestClient(
+        create_app(
+            runtime=_runtime(
+                planner=_Planner(call),
+                handlers={"getDealSummary": handler},
+            ),
+            identity_authority=authority,
+            now_provider=lambda: NOW,
+        )
+    )
+    answer_payload = _payload()
+
+    answered = client.post(
+        "/v1/platform/answer",
+        json=answer_payload,
+        headers=_headers(authority, answer_payload),
+    )
+
+    assert answered.status_code == 200
+    assert answered.json()["prepared_actions"] == []
     assert len(handler.calls) == 1
 
 

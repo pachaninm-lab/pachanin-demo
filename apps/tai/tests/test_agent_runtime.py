@@ -147,7 +147,14 @@ def test_read_only_execution_uses_server_identity_and_stable_idempotency() -> No
     assert first.plan_sha256 == agent_plan_sha256(plan)
 
 
-def test_draft_execution_is_allowed_without_confirmation() -> None:
+def test_draft_execution_is_denied_and_never_reaches_a_handler() -> None:
+    """Owner decision: TAI does not persist a durable draft as a platform action.
+
+    A draft used to execute without confirmation, on the reasoning that it changed
+    nothing. The registry no longer holds the tool, so the call is denied before the
+    handler is entered — and the handler is asserted untouched, because "denied" would be
+    worth little if the side effect had already happened.
+    """
     handler = _Handler({"draftId": "draft-1"})
     runtime = _runtime({"prepareCommandDraft": handler})
     call = _call(
@@ -158,11 +165,19 @@ def test_draft_execution_is_allowed_without_confirmation() -> None:
 
     result = runtime.execute(_plan(call), identity=_identity(), now=NOW)
 
-    assert result.status is AgentExecutionStatus.COMPLETED
-    assert handler.calls[0].mode is ToolMode.DRAFT
+    assert result.status is AgentExecutionStatus.DENIED
+    assert handler.calls == []
 
 
-def test_confirmed_write_requires_server_issued_confirmation() -> None:
+def test_confirmed_write_is_denied_even_with_a_valid_server_issued_confirmation() -> None:
+    """Item 4 of the owner decision, stated as a test.
+
+    The confirmation here is genuine: minted by the server authority, bound to this exact
+    call, identity and trace, and still inside its TTL. It is the strongest confirmation
+    the system can produce, and it changes nothing — the tool is not in the registry, so
+    the call is denied and the handler is never reached. A user saying yes does not make
+    this an action TAI performs.
+    """
     handler = _Handler({"acknowledged": True})
     audit = _Audit()
     authority = HMACToolConfirmationAuthority(SECRET)
@@ -186,7 +201,7 @@ def test_confirmed_write_requires_server_issued_confirmation() -> None:
         issued_at=NOW,
         expires_at=NOW + timedelta(minutes=2),
     )
-    accepted = runtime.execute(
+    still_denied = runtime.execute(
         plan,
         identity=_identity(),
         confirmations=(confirmation,),
@@ -194,12 +209,15 @@ def test_confirmed_write_requires_server_issued_confirmation() -> None:
     )
 
     assert denied.status is AgentExecutionStatus.DENIED
-    assert denied.calls[0].reason == "server-issued user confirmation required"
-    assert accepted.status is AgentExecutionStatus.COMPLETED
-    assert accepted.calls[0].status is ToolInvocationStatus.SUCCEEDED
-    assert len(handler.calls) == 1
-    assert audit.events[0].status is ToolInvocationStatus.DENIED
-    assert audit.events[1].status is ToolInvocationStatus.SUCCEEDED
+    assert still_denied.status is AgentExecutionStatus.DENIED
+    assert still_denied.calls[0].status is not ToolInvocationStatus.SUCCEEDED
+    assert handler.calls == []
+    # Both attempts are audited as denials. The second one matters: an audit trail that
+    # recorded a success here would be describing something that did not happen.
+    assert [event.status for event in audit.events] == [
+        ToolInvocationStatus.DENIED,
+        ToolInvocationStatus.DENIED,
+    ]
 
 
 def test_confirmation_is_bound_to_call_identity_session_and_expiry() -> None:
@@ -339,7 +357,10 @@ def test_agent_cannot_override_identity_or_control_fields() -> None:
             _identity(roles=frozenset({"driver"})),
             "role is not authorized",
         ),
-        (_call(mode=ToolMode.DRAFT), _identity(), "mode does not match"),
+        # Previously "mode does not match": a DRAFT request against a READ_ONLY entry was
+        # caught by the registry comparison. Under the owner decision the mode itself is
+        # refused first, so the denial names the boundary rather than the mismatch.
+        (_call(mode=ToolMode.DRAFT), _identity(), "only READ_ONLY may be requested"),
         (
             _call(mode=ToolMode.PRIVILEGED_WRITE),
             _identity(),

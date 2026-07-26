@@ -539,56 +539,28 @@ class TAIOrchestrationRuntime:
         identity: IdentityContext,
         now: datetime,
     ) -> AgentExecutionResult:
+        """Refuse to execute a confirmed action. Owner decision of 26.07.2026.
+
+        This used to be the executor for confirmed writes: look up the prepared action,
+        check its identity and confirmation binding, claim it atomically against replay and
+        concurrency, run the tool and record the result. All of that only matters if a
+        confirmed write is something TAI performs, and item 4 of the owner decision says it
+        is not — even after the user confirms.
+
+        The refusal is here rather than at the call sites because this is the single point
+        where a confirmed write became a real one. Nothing upstream can produce a prepared
+        action any more, so no legitimate caller reaches this; a caller that does is either
+        replaying a confirmation minted before this change or probing, and both must be
+        refused rather than served.
+        """
+        del confirmation, identity
         _aware(now, "now")
-        stored = self._prepared_actions.get(confirmation.confirmation_id)
-        if stored is None:
-            raise OrchestrationError(
-                OrchestrationErrorCode.TOOL_PLAN_REJECTED,
-                "prepared action was not found",
-                retryable=False,
-            )
-        if stored.identity != identity or stored.action.confirmation != confirmation:
-            raise OrchestrationError(
-                OrchestrationErrorCode.TOOL_PLAN_REJECTED,
-                "prepared action identity or confirmation binding failed",
-                retryable=False,
-            )
-        claim = self._prepared_actions.claim(confirmation.confirmation_id)
-        if claim.status is PreparedActionClaimStatus.REPLAY:
-            if claim.prepared.result is None:
-                raise RuntimeError("prepared action replay is missing its result")
-            return claim.prepared.result
-        if claim.status is PreparedActionClaimStatus.IN_PROGRESS:
-            raise OrchestrationError(
-                OrchestrationErrorCode.REQUEST_IN_PROGRESS,
-                "prepared action is already executing",
-                retryable=True,
-                retry_after_seconds=1,
-            )
-        if self._tool_runtime is None:
-            self._prepared_actions.abandon(confirmation.confirmation_id)
-            raise RuntimeError("tool runtime is not configured")
-        action = claim.prepared.action
-        plan = AgentToolPlan(
-            trace_id=action.trace_id,
-            plan_id=action.plan_id,
-            calls=(action.call,),
-            generated_at=action.confirmation.issued_at,
+        raise OrchestrationError(
+            OrchestrationErrorCode.TOOL_PLAN_REJECTED,
+            "TAI is INFORMATIONAL_ONLY: confirmed actions are deferred by owner decision "
+            "and no confirmation can be executed",
+            retryable=False,
         )
-        try:
-            result = self._tool_runtime.execute(
-                plan,
-                identity=identity,
-                confirmations=(confirmation,),
-                now=now,
-            )
-            return self._prepared_actions.complete(
-                confirmation.confirmation_id,
-                result,
-            ).result or result
-        except Exception:
-            self._prepared_actions.abandon(confirmation.confirmation_id)
-            raise
 
     def _execute(
         self,
@@ -684,28 +656,19 @@ class TAIOrchestrationRuntime:
         identity: IdentityContext,
         now: datetime,
     ) -> tuple[PreparedAction, ...]:
-        if self._confirmation_authority is None:
-            raise RuntimeError("confirmed tool plan requires confirmation authority")
-        prepared: list[PreparedAction] = []
-        for call in calls:
-            confirmation = self._confirmation_authority.issue(
-                call=call,
-                trace_id=plan.trace_id,
-                identity=identity,
-                issued_at=now,
-                expires_at=now + self._policy.confirmation_ttl,
-            )
-            action = PreparedAction(
-                trace_id=plan.trace_id,
-                plan_id=plan.plan_id,
-                call=call,
-                confirmation=confirmation,
-            )
-            self._prepared_actions.save(
-                StoredPreparedAction(action=action, identity=identity)
-            )
-            prepared.append(action)
-        return tuple(prepared)
+        """Refuse to prepare an action. Owner decision of 26.07.2026.
+
+        `_partition_calls` rejects every non-READ_ONLY plan, so this is already
+        unreachable. It fails closed anyway rather than being left as a working minting
+        path one refactor away from being called again: preparing an action is what
+        produced the confirmation a user could then return with.
+        """
+        del plan, calls, identity, now
+        raise OrchestrationError(
+            OrchestrationErrorCode.TOOL_PLAN_REJECTED,
+            "TAI is INFORMATIONAL_ONLY: no action is prepared for confirmation",
+            retryable=False,
+        )
 
     def _validate_request(self, request: OrchestrationRequest, now: datetime) -> None:
         _aware(now, "now")
@@ -783,16 +746,23 @@ class TAIOrchestrationRuntime:
 def _partition_calls(
     calls: tuple[PlannedToolCall, ...],
 ) -> tuple[tuple[PlannedToolCall, ...], tuple[PlannedToolCall, ...]]:
-    safe = tuple(
-        call for call in calls if call.requested_mode in {ToolMode.READ_ONLY, ToolMode.DRAFT}
-    )
-    confirmed = tuple(
-        call for call in calls if call.requested_mode is ToolMode.CONFIRMED_WRITE
-    )
-    if len(safe) + len(confirmed) != len(calls):
+    # Owner decision of 26.07.2026: TAI is INFORMATIONAL_ONLY. READ_ONLY is the only mode
+    # that can be carried out, so every other mode rejects the whole plan here rather than
+    # being routed onward.
+    #
+    # This is the chokepoint that makes item 4 of the boundary true — TAI performs no
+    # CONFIRMED_WRITE even after the user confirms. A confirmed write used to be split off
+    # and handed to `_prepare_actions`, which minted a signed confirmation the user could
+    # come back with. Now the plan never reaches that branch: there is nothing to confirm,
+    # so confirming changes nothing. The confirmation authority below is left intact and
+    # unreachable, so restoring confirmed actions is a deliberate future change under a new
+    # owner decision rather than a flag someone flips.
+    safe = tuple(call for call in calls if call.requested_mode is ToolMode.READ_ONLY)
+    confirmed: tuple[PlannedToolCall, ...] = ()
+    if len(safe) != len(calls):
         raise OrchestrationError(
             OrchestrationErrorCode.TOOL_PLAN_REJECTED,
-            "tool plan contains a non-executable mode",
+            "TAI is INFORMATIONAL_ONLY: tool plan contains a mode that is not READ_ONLY",
             retryable=False,
         )
     return safe, confirmed

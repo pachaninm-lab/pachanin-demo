@@ -67,9 +67,7 @@ def _plan(
 def test_planner_selects_one_explicit_safe_tool_deterministically() -> None:
     sink = _Sink()
     planner = GovernedToolPlanner(
-        available_tools=frozenset(
-            {"getDealSummary", "getRoleNextActions", "prepareCommandDraft"}
-        ),
+        available_tools=frozenset({"getDealSummary", "getRoleNextActions"}),
         decision_sink=sink,
     )
 
@@ -86,10 +84,28 @@ def test_planner_selects_one_explicit_safe_tool_deterministically() -> None:
     assert sink.decisions[0].decision_sha256 == sink.decisions[1].decision_sha256
 
 
-def test_planner_prepares_only_a_draft_and_never_infers_payload() -> None:
+def test_planner_cannot_be_configured_with_a_removed_write_tool() -> None:
+    """Owner decision: TAI is INFORMATIONAL_ONLY, so the catalog has no write tool to hold.
+
+    The planner used to accept `prepareCommandDraft` and turn an explicit request into a
+    DRAFT call carrying an `actionId`. The tool is gone from the registry, so configuring
+    the planner with it fails at construction rather than at some later request.
+    """
+    for removed in ("prepareCommandDraft", "acknowledgeRisk", "createSupportCase"):
+        with pytest.raises(ValueError):
+            GovernedToolPlanner(available_tools=frozenset({removed}))
+
+
+def test_planner_will_not_name_an_action_however_the_user_asks() -> None:
+    """An explicit, well-formed draft request must produce no call at all.
+
+    This is the phrasing that previously selected a draft, deal id and action id. With the
+    intent removed there is nothing for it to match, so the planner reports NO_MATCH — it
+    does not fall back to a read tool and quietly answer a different question.
+    """
     sink = _Sink()
     planner = GovernedToolPlanner(
-        available_tools=frozenset({"prepareCommandDraft"}),
+        available_tools=frozenset({"getDealSummary", "getRoleNextActions"}),
         decision_sink=sink,
     )
 
@@ -98,13 +114,28 @@ def test_planner_prepares_only_a_draft_and_never_infers_payload() -> None:
         "Подготовь черновик команды для сделки №deal-77, действие №accept-quality",
     )
 
-    assert plan.calls[0].tool_name == "prepareCommandDraft"
-    assert plan.calls[0].requested_mode is ToolMode.DRAFT
-    assert plan.calls[0].arguments == {
-        "dealId": "deal-77",
-        "actionId": "accept-quality",
-    }
-    assert "payload" not in plan.calls[0].arguments
+    assert plan.calls == ()
+    assert sink.decisions[-1].status is PlannerDecisionStatus.NO_MATCH
+    assert sink.decisions[-1].reason_codes == ("NO_SUPPORTED_INTENT",)
+
+
+def test_no_planned_call_carries_an_action_argument() -> None:
+    """`dealId` is the only argument any planned call can carry."""
+    sink = _Sink()
+    planner = GovernedToolPlanner(
+        available_tools=frozenset(TOOL_REGISTRY),
+        decision_sink=sink,
+    )
+
+    for question, expected in (
+        ("Покажи сводку по сделке №deal-42", "getDealSummary"),
+        ("Какие риски по сделке №deal-42", "getDealRisks"),
+    ):
+        plan = _plan(planner, question)
+        assert [call.tool_name for call in plan.calls] == [expected]
+        for call in plan.calls:
+            assert set(call.arguments) == {"dealId"}
+            assert call.requested_mode is ToolMode.READ_ONLY
 
 
 def test_planner_rejects_prompt_injection_before_intent_selection() -> None:
