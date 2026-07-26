@@ -22,6 +22,7 @@ import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
+import mobileProof from './PlatformV7StrategicHomeMobileProof.module.css';
 import styles from './PlatformV7StrategicHomeStory.module.css';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
@@ -144,7 +145,7 @@ export async function PlatformV7StrategicHome() {
         <section id='tai' className={`pc-v6-section ${styles.aiSection}`} aria-labelledby='pc-v6-ai-title'>
           <div id='pc-v6-ai-title'><SectionHeader eyebrow={story.ai.eyebrow} title={story.ai.title} lead={story.ai.lead} /></div>
           <div className={styles.aiDemo}>
-            <div className={`${styles.aiCockpit} pc-v6-control-tower pc-v6-control-tower-unified`} aria-label={copy.a11y.controlTower}>
+            <div className={`${styles.aiCockpit} ${mobileProof.cockpit} pc-v6-control-tower pc-v6-control-tower-unified`} aria-label={copy.a11y.controlTower}>
               <div className='pc-v6-ct-top'>
                 <div><small>{copy.tower.sampleLabel}</small><span>{copy.tower.deal}</span></div>
                 <b>{copy.tower.stage}</b>
