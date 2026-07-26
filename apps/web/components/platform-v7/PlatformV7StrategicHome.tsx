@@ -224,27 +224,27 @@ export async function PlatformV7StrategicHome() {
 
         <section id='difference' className={`pc-v6-section ${styles.section}`} aria-labelledby='difference-title'>
           <SectionHeader id='difference-title' eyebrow={story.difference.eyebrow} title={story.difference.title} lead={story.difference.lead} />
-          <div className={styles.comparisonTable} role='table' aria-label={story.difference.title}>
-            <div className={styles.comparisonHeader} role='row'>
-              {story.difference.headers.map((header) => <strong key={header} role='columnheader'>{header}</strong>)}
+          <div className={styles.comparisonTable} aria-label={story.difference.title}>
+            <div className={styles.comparisonHeader}>
+              {story.difference.headers.map((header) => <strong key={header}>{header}</strong>)}
             </div>
-            <div role='rowgroup' className={styles.comparisonRows}>
+            <div className={styles.comparisonRows}>
               {story.difference.rows.slice(0, 2).map((row) => (
-                <article key={row.criterion} className={styles.comparisonRow} role='row'>
-                  <strong role='cell'>{row.criterion}</strong>
-                  <span role='cell'>{row.typical}</span>
-                  <span role='cell'><CheckCircle2 aria-hidden='true' />{row.platform}</span>
+                <article key={row.criterion} className={styles.comparisonRow} data-comparison-row='true'>
+                  <strong>{row.criterion}</strong>
+                  <span>{row.typical}</span>
+                  <span><CheckCircle2 aria-hidden='true' />{row.platform}</span>
                 </article>
               ))}
             </div>
             <details className={styles.moreRows}>
               <summary>{story.difference.moreLabel}<ArrowRight aria-hidden='true' size={16} /></summary>
-              <div role='rowgroup' className={styles.comparisonRows}>
+              <div className={styles.comparisonRows}>
                 {story.difference.rows.slice(2).map((row) => (
-                  <article key={row.criterion} className={styles.comparisonRow} role='row'>
-                    <strong role='cell'>{row.criterion}</strong>
-                    <span role='cell'>{row.typical}</span>
-                    <span role='cell'><CheckCircle2 aria-hidden='true' />{row.platform}</span>
+                  <article key={row.criterion} className={styles.comparisonRow} data-comparison-row='true'>
+                    <strong>{row.criterion}</strong>
+                    <span>{row.typical}</span>
+                    <span><CheckCircle2 aria-hidden='true' />{row.platform}</span>
                   </article>
                 ))}
               </div>
@@ -518,17 +518,17 @@ export async function PlatformV7StrategicHome() {
               <h3 id='integrations-title'>{story.trust.integrationTitle}</h3>
               <span>{story.trust.statusBadge}</span>
             </div>
-            <div className={styles.integrationTable} role='table' aria-label={story.trust.integrationTitle}>
-              <div className={styles.integrationHeader} role='row'>
-                {story.trust.headers.map((header) => <strong key={header} role='columnheader'>{header}</strong>)}
+            <div className={styles.integrationTable} aria-label={story.trust.integrationTitle}>
+              <div className={styles.integrationHeader}>
+                {story.trust.headers.map((header) => <strong key={header}>{header}</strong>)}
               </div>
-              <div role='rowgroup'>
+              <div className={styles.integrationRows}>
                 {story.trust.integrations.map((integration) => (
-                  <article key={integration.system} className={styles.integrationRow} role='row'>
-                    <strong role='cell'>{integration.system}</strong>
-                    <span role='cell'>{integration.scenario}</span>
-                    <span role='cell'>{integration.boundary}</span>
-                    <b role='cell'>{integration.status}</b>
+                  <article key={integration.system} className={styles.integrationRow} data-integration-row='true'>
+                    <strong>{integration.system}</strong>
+                    <span>{integration.scenario}</span>
+                    <span>{integration.boundary}</span>
+                    <b>{integration.status}</b>
                   </article>
                 ))}
               </div>
