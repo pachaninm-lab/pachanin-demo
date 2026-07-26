@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def replace_once(path: str, old: str, new: str, label: str) -> None:
     target = Path(path)
     source = target.read_text(encoding='utf-8')
@@ -8,118 +9,93 @@ def replace_once(path: str, old: str, new: str, label: str) -> None:
         raise SystemExit(f'{label}: expected one marker, found {count}')
     target.write_text(source.replace(old, new), encoding='utf-8')
 
-repository = 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts'
-replace_once(
-    repository,
-    '''            AND "sdizId" IN (${Prisma.join(command.records.map((record) => record.sdizId))})
-ORDER BY "sdizId"
-''',
-    '''            AND (
-    "sdizId" IN (${Prisma.join(command.records.map((record) => record.sdizId))})
-    OR "sdizNumber" IN (${Prisma.join(command.records.map((record) => record.sdizNumber))})
-  )
-ORDER BY "sdizId", "sdizNumber"
-''',
-    'projection collision lock query',
-)
-replace_once(
-    repository,
-    '''  const records = new Map(command.records.map((record) => [record.sdizId, record]));
-  const occurredAt = new Date(command.providerOccurredAt).getTime();
-  for (const row of existing) {
-    const record = records.get(row.sdizId);
-    if (!record) continue;
-''',
-    '''  const recordsById = new Map(command.records.map((record) => [record.sdizId, record]));
-  const recordsByNumber = new Map(command.records.map((record) => [record.sdizNumber, record]));
-  const occurredAt = new Date(command.providerOccurredAt).getTime();
-  for (const row of existing) {
-    const numberOwner = recordsByNumber.get(row.sdizNumber);
-    if (numberOwner && numberOwner.sdizId !== row.sdizId) {
-      return {
-        code: 'FGIS_SDIZ_NUMBER_OWNERSHIP_CONFLICT',
-        sdizId: numberOwner.sdizId,
-      };
-    }
-    const record = recordsById.get(row.sdizId);
-    if (!record) continue;
-''',
-    'number ownership conflict detection',
-)
 
-contract_spec = 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts'
-replace_once(
-    contract_spec,
-    "const occurredAt = '2026-07-24T12:00:00.000Z';\n",
-    "const occurredAt = '2026-07-24T12:00:00.000Z';\nconst FIXTURE_COMMAND_KEY = ['fixture', 'command', 'one'].join(':');\n",
-    'fixture command key declaration',
-)
-replace_once(
-    contract_spec,
-    "    idempotencyKey: 'idempotency-1',\n",
-    "    idempotencyKey: FIXTURE_COMMAND_KEY,\n",
-    'fixture command key use',
-)
+repository = 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts'
+repository_source = Path(repository).read_text(encoding='utf-8')
+
+if 'const MUTATION_ROLES = new Set<string>' not in repository_source:
+    replace_once(
+        repository,
+        "const READ_ROLES = new Set<string>([Role.ADMIN, Role.COMPLIANCE_OFFICER, Role.EXECUTIVE]);\n",
+        "const MUTATION_ROLES = new Set<string>([Role.ADMIN, Role.COMPLIANCE_OFFICER]);\n"
+        "const READ_ROLES = new Set<string>([Role.ADMIN, Role.COMPLIANCE_OFFICER, Role.EXECUTIVE]);\n",
+        'projection mutation role authority',
+    )
+
+if "| 'MUTATION_FORBIDDEN'" not in Path(repository).read_text(encoding='utf-8'):
+    replace_once(
+        repository,
+        "  | 'REPLAY_EVIDENCE_INVALID'\n  | 'READ_FORBIDDEN';\n",
+        "  | 'REPLAY_EVIDENCE_INVALID'\n  | 'MUTATION_FORBIDDEN'\n  | 'READ_FORBIDDEN';\n",
+        'projection mutation error code',
+    )
+
+if 'assertMutationAuthority(user);' not in Path(repository).read_text(encoding='utf-8'):
+    replace_once(
+        repository,
+        "  ): Promise<FgisGrainSdizProjectionMutation> {\n    const command = normalizeFgisGrainSdizProjectionCommand(input);\n",
+        "  ): Promise<FgisGrainSdizProjectionMutation> {\n    assertMutationAuthority(user);\n"
+        "    const command = normalizeFgisGrainSdizProjectionCommand(input);\n",
+        'projection mutation authority call',
+    )
+
+if 'function assertMutationAuthority(' not in Path(repository).read_text(encoding='utf-8'):
+    replace_once(
+        repository,
+        "function assertReadAuthority(user: RequestUser | undefined): void {\n",
+        "function assertMutationAuthority(user: RequestUser | undefined): void {\n"
+        "  if (!user || !MUTATION_ROLES.has(user.role)) {\n"
+        "    throw new FgisGrainSdizProjectionRepositoryError(\n"
+        "      'MUTATION_FORBIDDEN',\n"
+        "      'SDIZ projection mutation requires operator or compliance authority',\n"
+        "    );\n"
+        "  }\n"
+        "}\n\n"
+        "function assertReadAuthority(user: RequestUser | undefined): void {\n",
+        'projection mutation authority implementation',
+    )
 
 e2e = 'apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts'
-anchor = "  it('rejects missing live lease and unverified input', async () => {"
-test = r'''  it('locks and quarantines SDIZ number ownership collisions', async () => {
-    const sdizNumber = `${RUN_ID}.number.ownership`;
-    const ownerSdizId = `${RUN_ID}.sdiz.owner`;
-    const conflictingSdizId = `${RUN_ID}.sdiz.conflicting`;
-    const ownerTime = new Date('2026-07-24T14:30:00.000Z');
-    const conflictTime = new Date('2026-07-24T14:45:00.000Z');
-    const ownerInbox = `${RUN_ID}.inbox.number-owner`;
-    const ownerWorker = `${RUN_ID}.worker.number-owner`;
+e2e_source = Path(e2e).read_text(encoding='utf-8')
+if "it('denies projection mutation to unauthorized business roles without side effects'" not in e2e_source:
+    anchor = "  it('rejects missing live lease and unverified input', async () => {"
+    test = r'''  it('denies projection mutation to unauthorized business roles without side effects', async () => {
+    const inboxId = `${RUN_ID}.inbox.forbidden-role`;
+    const workerId = `${RUN_ID}.worker.forbidden-role`;
+    const occurredAt = new Date('2026-07-24T14:50:00.000Z');
+    const providerMessageId = `${RUN_ID}.message.forbidden-role`;
+    const sdizId = `${RUN_ID}.sdiz.forbidden-role`;
 
     await seedInbox({
-      id: ownerInbox, tenantId: TENANT_A, organizationId: ORG_A,
-      providerMessageId: `${RUN_ID}.message.number-owner`, providerReferenceMessageId: null,
-      rawBodySha256: '3'.repeat(64), occurredAt: ownerTime, workerId: ownerWorker,
+      id: inboxId, tenantId: TENANT_A, organizationId: ORG_A,
+      providerMessageId, providerReferenceMessageId: null,
+      rawBodySha256: '7'.repeat(64), occurredAt, workerId,
     });
-    const owner = await repository.applyVerifiedInbox(USER_A, command({
-      inboxEntryId: ownerInbox, workerId: ownerWorker,
-      providerMessageId: `${RUN_ID}.message.number-owner`,
-      rawBodySha256: '3'.repeat(64), providerOccurredAt: ownerTime,
-      records: [record({ sdizID: ownerSdizId, sdizNumber })],
-      idempotencySuffix: 'number-owner',
-    }));
-    expect(owner.kind).toBe('APPLIED');
 
-    const conflictInbox = `${RUN_ID}.inbox.number-conflict`;
-    const conflictWorker = `${RUN_ID}.worker.number-conflict`;
-    await seedInbox({
-      id: conflictInbox, tenantId: TENANT_A, organizationId: ORG_A,
-      providerMessageId: `${RUN_ID}.message.number-conflict`, providerReferenceMessageId: null,
-      rawBodySha256: '4'.repeat(64), occurredAt: conflictTime, workerId: conflictWorker,
-    });
-    const conflict = await repository.applyVerifiedInbox(USER_A, command({
-      inboxEntryId: conflictInbox, workerId: conflictWorker,
-      providerMessageId: `${RUN_ID}.message.number-conflict`,
-      rawBodySha256: '4'.repeat(64), providerOccurredAt: conflictTime,
-      records: [record({ sdizID: conflictingSdizId, sdizNumber })],
-      idempotencySuffix: 'number-conflict',
-    }));
-    expect(conflict).toMatchObject({
-      kind: 'QUARANTINED',
-      conflictCode: 'FGIS_SDIZ_NUMBER_OWNERSHIP_CONFLICT',
-    });
-    expect(await repository.list(USER_A, { sdizNumber })).toMatchObject([
-      { sdizId: ownerSdizId, sdizNumber },
-    ]);
+    await expect(repository.applyVerifiedInbox(
+      { ...USER_A, role: Role.BUYER },
+      command({
+        inboxEntryId: inboxId, workerId, providerMessageId,
+        rawBodySha256: '7'.repeat(64), providerOccurredAt: occurredAt,
+        records: [record({ sdizID: sdizId, sdizNumber: `${RUN_ID}.number.forbidden-role` })],
+        idempotencySuffix: 'forbidden-role',
+      }),
+    )).rejects.toMatchObject({ code: 'MUTATION_FORBIDDEN' });
+
     const inboxState = await prisma.$queryRaw<Array<{
-      state: string; lastErrorCode: string | null; linkedDomainOperationId: string | null;
+      state: string; linkedDomainOperationId: string | null; outboxEntryId: string | null;
     }>>(Prisma.sql`
-      SELECT "state", "lastErrorCode", "linkedDomainOperationId"
+      SELECT "state", "linkedDomainOperationId", "outboxEntryId"
       FROM public."regulatory_integration_inbox_entries"
-      WHERE "id" = ${conflictInbox}
+      WHERE "id" = ${inboxId}
     `);
     expect(inboxState).toEqual([{
-      state: 'QUARANTINED',
-      lastErrorCode: 'FGIS_SDIZ_NUMBER_OWNERSHIP_CONFLICT',
+      state: 'PROCESSING',
       linkedDomainOperationId: null,
+      outboxEntryId: null,
     }]);
+    expect(await repository.list(USER_A, { sourceInboxEntryId: inboxId })).toEqual([]);
   });
 
 '''
-replace_once(e2e, anchor, test + anchor, 'number ownership PostgreSQL acceptance')
+    replace_once(e2e, anchor, test + anchor, 'projection mutation RBAC PostgreSQL acceptance')
