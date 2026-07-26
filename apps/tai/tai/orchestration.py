@@ -11,7 +11,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from tai.agent_runtime import (
     AgentExecutionResult,
@@ -171,6 +171,14 @@ class OrchestrationTrace:
     reason: str | None
     completed_at: datetime
     trace_sha256: str
+    # Typed denial fields. Defaulted so every existing answer trace is unchanged; set only
+    # on a refusal, where `reason` alone would be a free-text string nobody can query on.
+    outcome: str | None = None
+    denial_reason_code: str | None = None
+    boundary: str | None = None
+    route_category: str | None = None
+    organization_id: UUID | None = None
+    release_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -539,22 +547,35 @@ class TAIOrchestrationRuntime:
         identity: IdentityContext,
         now: datetime,
     ) -> AgentExecutionResult:
-        """Refuse to execute a confirmed action. Owner decision of 26.07.2026.
+        """Refuse to execute a confirmed action, and audit the refusal.
 
-        This used to be the executor for confirmed writes: look up the prepared action,
-        check its identity and confirmation binding, claim it atomically against replay and
-        concurrency, run the tool and record the result. All of that only matters if a
-        confirmed write is something TAI performs, and item 4 of the owner decision says it
-        is not — even after the user confirms.
+        Owner decision of 26.07.2026. This used to be the executor for confirmed writes:
+        look up the prepared action, check its identity and confirmation binding, claim it
+        atomically against replay and concurrency, run the tool and record the result. All
+        of that only matters if a confirmed write is something TAI performs, and item 4 of
+        the decision says it is not — even after the user confirms.
 
-        The refusal is here rather than at the call sites because this is the single point
-        where a confirmed write became a real one. Nothing upstream can produce a prepared
-        action any more, so no legitimate caller reaches this; a caller that does is either
-        replaying a confirmation minted before this change or probing, and both must be
-        refused rather than served.
+        The refusal is here because this is the single point where a confirmed write became
+        a real one. Nothing upstream can produce a prepared action any more, so the only
+        callers left are a client replaying a confirmation minted before this change, or a
+        probe of the retained route. Both are refused — and both are recorded, because a
+        silent refusal leaves no evidence that anyone tried.
+
+        Exactly one denial event is written, before the error is raised, and it is the only
+        side effect: no tool runs, no platform command is formed, no deal changes, no
+        prepared action is stored, and nothing financial is touched. The refusal therefore
+        stays idempotent in the sense that matters — repeating it mutates no platform state
+        — while still auditing each attempt separately, since repeated probing is exactly
+        what an operator needs to be able to see.
         """
-        del confirmation, identity
         _aware(now, "now")
+        self._audit_sink.record(
+            _confirmation_denial_trace(
+                confirmation=confirmation,
+                identity=identity,
+                now=now,
+            )
+        )
         raise OrchestrationError(
             OrchestrationErrorCode.TOOL_PLAN_REJECTED,
             "TAI is INFORMATIONAL_ONLY: confirmed actions are deferred by owner decision "
@@ -874,6 +895,87 @@ def _trace(
         reason=response.reason,
         completed_at=response.completed_at,
         trace_sha256=_sha256(payload),
+    )
+
+
+#: Stable machine-readable code for the refusal. Queried on, so it must not drift with the
+#: wording of the message.
+CONFIRMATION_DENIAL_REASON_CODE = "CONFIRMATION_DISABLED_BY_OWNER_DECISION"
+CONFIRMATION_DENIAL_OUTCOME = "DENIED"
+INFORMATIONAL_ONLY_BOUNDARY = "INFORMATIONAL_ONLY"
+CONFIRMATION_ROUTE_CATEGORY = "PLATFORM_ACTION_CONFIRMATION"
+#: No model is invoked on this path. The column is NOT NULL, so it says so rather than
+#: naming a model that never ran.
+CONFIRMATION_DENIAL_MODEL_ID = "NOT_INVOKED"
+
+
+def _confirmation_denial_trace(
+    *,
+    confirmation: ToolConfirmation,
+    identity: IdentityContext,
+    now: datetime,
+) -> OrchestrationTrace:
+    """Build the audit event for a refused confirmation.
+
+    What is deliberately absent, because an audit row is read by more people than the
+    request was: the confirmation's HMAC signature, the confirmation id itself, the call
+    arguments, the prompt, any payload, any document, and anything financial. The
+    confirmation is identified by a digest of its id, which lets an operator correlate
+    repeated probes of the same confirmation without the audit becoming a place to recover
+    a token from.
+
+    Identifiers come from the server-derived `IdentityContext` only. No role is recorded at
+    all: the refusal does not depend on one, and a role in an audit row invites being read
+    as the authority that produced the decision.
+
+    `organization_id` and `release_version` stay `None` rather than being guessed.
+    `IdentityContext` carries no organization, and the package exposes no release constant;
+    inventing either would put a value in the audit that nothing established.
+    """
+    correlation = hashlib.sha256(
+        str(confirmation.confirmation_id).encode("utf-8")
+    ).hexdigest()
+    trace_id = uuid4()
+    completed_at = now.astimezone(UTC)
+    payload: dict[str, Any] = {
+        "boundary": INFORMATIONAL_ONLY_BOUNDARY,
+        "confirmation_correlation_sha256": correlation,
+        "denial_reason_code": CONFIRMATION_DENIAL_REASON_CODE,
+        "outcome": CONFIRMATION_DENIAL_OUTCOME,
+        "route_category": CONFIRMATION_ROUTE_CATEGORY,
+        "session_id": str(identity.session_id),
+        "tenant_id": None if identity.tenant_id is None else str(identity.tenant_id),
+        "trace_id": str(trace_id),
+        "user_id": str(identity.user_id),
+        "completed_at": completed_at.isoformat(),
+    }
+    return OrchestrationTrace(
+        request_id=f"confirmation-denial:{correlation}",
+        trace_id=trace_id,
+        tenant_id=identity.tenant_id,
+        user_id=identity.user_id,
+        session_id=identity.session_id,
+        request_sha256=correlation,
+        status=OrchestrationStatus.REJECTED,
+        rag_status=GroundedAnswerStatus.REJECTED,
+        model_id=CONFIRMATION_DENIAL_MODEL_ID,
+        model_revision=None,
+        model_route_id=None,
+        generation=None,
+        source_ids=(),
+        citations=(),
+        tool_plan_sha256=None,
+        tool_status=AgentExecutionStatus.DENIED,
+        prepared_action_count=0,
+        reason=CONFIRMATION_DENIAL_REASON_CODE,
+        completed_at=completed_at,
+        trace_sha256=_sha256(payload),
+        outcome=CONFIRMATION_DENIAL_OUTCOME,
+        denial_reason_code=CONFIRMATION_DENIAL_REASON_CODE,
+        boundary=INFORMATIONAL_ONLY_BOUNDARY,
+        route_category=CONFIRMATION_ROUTE_CATEGORY,
+        organization_id=None,
+        release_version=None,
     )
 
 

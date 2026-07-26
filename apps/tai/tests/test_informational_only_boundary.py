@@ -13,20 +13,22 @@ write reintroduced anywhere fails here even if it is never called.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
 import pytest
 
-from tai.agent_runtime import (
-    AgentToolPlan,
-    HMACToolConfirmationAuthority,
-    PlannedToolCall,
-    ToolConfirmation,
-)
+from tai.agent_runtime import AgentExecutionStatus, PlannedToolCall
 from tai.contracts import IdentityContext, ToolMode, ToolRequest
-from tai.orchestration import OrchestrationError, OrchestrationErrorCode, OrchestrationRequest
+from tai.orchestration import (
+    CONFIRMATION_DENIAL_REASON_CODE,
+    OrchestrationError,
+    OrchestrationErrorCode,
+    OrchestrationRequest,
+    OrchestrationStatus,
+)
 from tai.policy import (
     INFORMATIONAL_ONLY_MODE,
     PROHIBITED_TOOL_NAMES,
@@ -41,8 +43,6 @@ from tai.read_tool_contracts import (
     read_tool_names,
 )
 from tai.tool_planner import _INTENTS, GovernedToolPlanner
-from tests.test_orchestration import _identity as _orchestration_identity
-from tests.test_orchestration import _runtime as _orchestration_runtime
 
 NOW = datetime(2026, 7, 26, 12, 0, tzinfo=UTC)
 TRACE_ID = UUID("10000000-0000-0000-0000-000000000001")
@@ -251,43 +251,43 @@ def test_the_planner_refuses_a_catalog_containing_anything_but_read_tools() -> N
             GovernedToolPlanner(available_tools=frozenset({removed}))
 
 
-# --- the confirmation path refuses rather than executing --------------------------------
+# --- the confirmation path refuses, and the refusal is audited --------------------------
+#
+# The runtime arrives through fixtures declared in conftest.py. Nothing is imported from
+# another test module and nothing is imported from `tests` at all: that is what broke on a
+# clean runner, where `tests` is not a package and the `pytest` console script does not put
+# the working directory on `sys.path`.
 
-CONFIRMATION_SECRET = b"orchestration-confirmation-secret-32-bytes"
 
+def _legacy_confirmation(harness: Any, make_identity: Any, *, call_id: str = "legacy") -> Any:
+    """A confirmation of exactly the kind the runtime minted before the owner decision.
 
-def _stale_confirmation() -> ToolConfirmation:
-    """A genuine confirmation of the kind the runtime used to mint before this change."""
-    authority = HMACToolConfirmationAuthority(CONFIRMATION_SECRET)
+    Genuine, not forged: signed by the server authority, bound to this identity and trace,
+    inside its TTL. If anything still executed on a valid confirmation, this would find it.
+    """
     call = PlannedToolCall(
-        call_id="stale-confirmation",
+        call_id=call_id,
         tool_name="acknowledgeRisk",
         arguments={"riskId": "risk-1"},
         requested_mode=ToolMode.CONFIRMED_WRITE,
     )
-    return authority.issue(
+    return harness.authority.issue(
         call=call,
         trace_id=TRACE_ID,
-        identity=_orchestration_identity(),
+        identity=make_identity(),
         issued_at=NOW,
         expires_at=NOW + timedelta(minutes=2),
     )
 
 
-def test_confirm_action_refuses_a_previously_valid_confirmation() -> None:
-    """A confirmation minted before this change must not still execute.
-
-    Nothing can produce a prepared action now, so the only callers left are a client
-    replaying an older confirmation or a probe. Both are refused, and the refusal names
-    the boundary rather than reporting the action as missing — "not found" would invite a
-    retry against a path that will never serve anyone.
-    """
-    runtime, _, _, _ = _orchestration_runtime()
-
+def test_a_legacy_confirmation_is_denied(
+    confirmation_harness: Any,
+    make_identity: Any,
+) -> None:
     with pytest.raises(OrchestrationError, match="INFORMATIONAL_ONLY") as raised:
-        runtime.confirm_action(
-            _stale_confirmation(),
-            identity=_orchestration_identity(),
+        confirmation_harness.runtime.confirm_action(
+            _legacy_confirmation(confirmation_harness, make_identity),
+            identity=make_identity(),
             now=NOW,
         )
 
@@ -295,51 +295,169 @@ def test_confirm_action_refuses_a_previously_valid_confirmation() -> None:
     assert raised.value.retryable is False
 
 
-def test_confirm_action_refuses_before_looking_the_action_up() -> None:
-    """The refusal does not depend on the store being empty.
+def test_a_direct_probe_of_the_retained_route_is_denied(
+    make_confirmation_harness: Any,
+    make_identity: Any,
+) -> None:
+    """A confirmation the server never issued is refused the same way.
 
-    If the check ran after the lookup, a surviving stored action would change the outcome.
-    Asserting that a repository which raises on any access is never touched pins the order.
+    The route is retained deliberately, so it must refuse rather than disappear — and it
+    must not tell a prober whether the confirmation was real. It cannot, because the
+    refusal happens before anything is looked up.
     """
-
-    class _ExplodingStore:
-        def get(self, confirmation_id: object) -> object:
-            raise AssertionError("prepared action store must not be consulted")
-
-        def claim(self, confirmation_id: object) -> object:
-            raise AssertionError("prepared action store must not be consulted")
-
-    runtime, _, _, _ = _orchestration_runtime()
-    runtime._prepared_actions = cast(Any, _ExplodingStore())
+    harness = make_confirmation_harness()
+    forged = _legacy_confirmation(harness, make_identity, call_id="never-issued")
+    object.__setattr__(forged, "signature_sha256", "0" * 64)
 
     with pytest.raises(OrchestrationError, match="INFORMATIONAL_ONLY"):
-        runtime.confirm_action(
-            _stale_confirmation(),
-            identity=_orchestration_identity(),
+        harness.runtime.confirm_action(forged, identity=make_identity(), now=NOW)
+
+    assert len(harness.audit.traces) == 1
+
+
+def test_exactly_one_denial_event_is_recorded(
+    confirmation_harness: Any,
+    make_identity: Any,
+) -> None:
+    with pytest.raises(OrchestrationError):
+        confirmation_harness.runtime.confirm_action(
+            _legacy_confirmation(confirmation_harness, make_identity),
+            identity=make_identity(),
             now=NOW,
         )
 
+    assert len(confirmation_harness.audit.traces) == 1
 
-def test_preparing_an_action_refuses_even_when_called_directly() -> None:
-    """`_partition_calls` already makes this unreachable; it fails closed regardless."""
-    runtime, _, _, _ = _orchestration_runtime()
-    call = PlannedToolCall(
-        call_id="direct-prepare",
-        tool_name="acknowledgeRisk",
-        arguments={"riskId": "risk-1"},
-        requested_mode=ToolMode.CONFIRMED_WRITE,
-    )
-    plan = AgentToolPlan(
-        trace_id=TRACE_ID,
-        plan_id=TRACE_ID,
-        calls=(call,),
-        generated_at=NOW,
-    )
 
-    with pytest.raises(OrchestrationError, match="INFORMATIONAL_ONLY"):
-        runtime._prepare_actions(
-            plan=plan,
-            calls=(call,),
-            identity=_orchestration_identity(),
+def test_the_denial_reason_code_and_boundary_are_stable(
+    confirmation_harness: Any,
+    make_identity: Any,
+) -> None:
+    """These are queried on, so they must not drift with the wording of the message."""
+    with pytest.raises(OrchestrationError):
+        confirmation_harness.runtime.confirm_action(
+            _legacy_confirmation(confirmation_harness, make_identity),
+            identity=make_identity(),
             now=NOW,
         )
+
+    trace = confirmation_harness.audit.traces[0]
+    identity = make_identity()
+    assert trace.outcome == "DENIED"
+    assert trace.denial_reason_code == "CONFIRMATION_DISABLED_BY_OWNER_DECISION"
+    assert trace.boundary == "INFORMATIONAL_ONLY"
+    assert trace.route_category == "PLATFORM_ACTION_CONFIRMATION"
+    assert trace.reason == CONFIRMATION_DENIAL_REASON_CODE
+    assert trace.status is OrchestrationStatus.REJECTED
+    assert trace.tool_status is AgentExecutionStatus.DENIED
+    # Server-derived identifiers only, in identifier form.
+    assert trace.user_id == identity.user_id
+    assert trace.tenant_id == identity.tenant_id
+    assert trace.session_id == identity.session_id
+    assert trace.completed_at == NOW
+    # Not established anywhere, so recorded as absent rather than guessed.
+    assert trace.organization_id is None
+    assert trace.release_version is None
+
+
+def test_the_tool_runtime_is_never_entered(
+    make_confirmation_harness: Any,
+    make_tool_handler: Any,
+    make_identity: Any,
+) -> None:
+    handler = make_tool_handler()
+    harness = make_confirmation_harness(handlers={"acknowledgeRisk": handler})
+
+    with pytest.raises(OrchestrationError):
+        harness.runtime.confirm_action(
+            _legacy_confirmation(harness, make_identity),
+            identity=make_identity(),
+            now=NOW,
+        )
+
+    assert handler.calls == []
+    assert harness.tool_calls() == 0
+
+
+def test_the_denial_mutates_no_platform_state(
+    confirmation_harness: Any,
+    make_identity: Any,
+) -> None:
+    """No prepared action is stored, so nothing is left behind to be confirmed later."""
+    confirmation = _legacy_confirmation(confirmation_harness, make_identity)
+
+    with pytest.raises(OrchestrationError):
+        confirmation_harness.runtime.confirm_action(
+            confirmation,
+            identity=make_identity(),
+            now=NOW,
+        )
+
+    assert confirmation_harness.prepared_actions.get(confirmation.confirmation_id) is None
+    assert confirmation_harness.audit.traces[0].prepared_action_count == 0
+
+
+def test_no_confirmation_token_or_payload_reaches_the_audit(
+    confirmation_harness: Any,
+    make_identity: Any,
+) -> None:
+    """An audit row is read by more people than the request was.
+
+    The whole trace is flattened to text and searched, so a secret added to a new field
+    later is caught too — not only the fields this test happens to name.
+    """
+    confirmation = _legacy_confirmation(confirmation_harness, make_identity)
+
+    with pytest.raises(OrchestrationError):
+        confirmation_harness.runtime.confirm_action(
+            confirmation,
+            identity=make_identity(),
+            now=NOW,
+        )
+
+    trace = confirmation_harness.audit.traces[0]
+    rendered = repr(trace)
+    for secret in (
+        confirmation.signature_sha256,
+        str(confirmation.confirmation_id),
+        confirmation.call_id,
+        confirmation.request_sha256,
+        "risk-1",
+        "acknowledgeRisk",
+    ):
+        assert secret not in rendered, secret
+    # The confirmation is still correlatable, by digest rather than by token.
+    expected = sha256(str(confirmation.confirmation_id).encode("utf-8")).hexdigest()
+    assert trace.request_sha256 == expected
+
+
+def test_a_repeated_attempt_creates_no_action_and_stays_auditable(
+    make_confirmation_harness: Any,
+    make_tool_handler: Any,
+    make_identity: Any,
+) -> None:
+    """Repeating the refusal mutates nothing, and each attempt is still visible.
+
+    Idempotence here means no platform mutation, not a suppressed audit: repeated probing
+    of a disabled route is precisely what an operator needs to be able to count.
+    """
+    handler = make_tool_handler()
+    harness = make_confirmation_harness(handlers={"acknowledgeRisk": handler})
+    confirmation = _legacy_confirmation(harness, make_identity)
+
+    for _ in range(3):
+        with pytest.raises(OrchestrationError, match="INFORMATIONAL_ONLY"):
+            harness.runtime.confirm_action(
+                confirmation,
+                identity=make_identity(),
+                now=NOW,
+            )
+
+    assert handler.calls == []
+    assert harness.prepared_actions.get(confirmation.confirmation_id) is None
+    assert len(harness.audit.traces) == 3
+    assert {trace.denial_reason_code for trace in harness.audit.traces} == {
+        CONFIRMATION_DENIAL_REASON_CODE
+    }
+    # Distinct events, not one row overwritten.
+    assert len({trace.trace_id for trace in harness.audit.traces}) == 3

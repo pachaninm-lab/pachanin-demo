@@ -71,6 +71,10 @@
     {
       "path": "0017_official_source_run_evidence.sql",
       "version": 18
+    },
+    {
+      "path": "0018_confirmation_denial_audit.sql",
+      "version": 19
     }
   ],
   "schema_version": "tai.migration.manifest.v1"

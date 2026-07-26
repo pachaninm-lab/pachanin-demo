@@ -37,11 +37,18 @@ class PostgreSQLOrchestrationAuditSink:
                 prepared_action_count,
                 reason,
                 completed_at,
-                trace_sha256
+                trace_sha256,
+                outcome,
+                denial_reason_code,
+                boundary,
+                route_category,
+                organization_id,
+                release_version
             )
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
             )
             ON CONFLICT (trace_id) DO UPDATE
             SET trace_id = EXCLUDED.trace_id
@@ -71,6 +78,12 @@ class PostgreSQLOrchestrationAuditSink:
                 trace.reason,
                 trace.completed_at,
                 trace.trace_sha256,
+                trace.outcome,
+                trace.denial_reason_code,
+                trace.boundary,
+                trace.route_category,
+                trace.organization_id,
+                trace.release_version,
             ),
         )
         if row is None:
