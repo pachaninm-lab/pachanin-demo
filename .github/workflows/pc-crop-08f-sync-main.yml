@@ -1,5 +1,4 @@
 name: PC-CROP-08F exact-main synchronization
-# Final bounded run: restore canonical acceptance, remediate P2, validate and resquash.
 
 on:
   push:
@@ -56,7 +55,7 @@ jobs:
           ref: ${{ env.BRANCH }}
           fetch-depth: 0
 
-      - name: Merge runtime-exact main and restore canonical acceptance workflow
+      - name: Merge runtime-exact main
         shell: bash
         run: |
           set -euo pipefail
@@ -69,19 +68,6 @@ jobs:
           printf 'EXPECTED_BRANCH_HEAD=%s\nBASE_MAIN_SHA=%s\n' \
             "$expected_branch_head" "$base_main_sha" >> "$GITHUB_ENV"
           git merge --no-ff --no-commit "$base_main_sha"
-          git show "${expected_branch_head}^:.github/workflows/pc-crop-08f.yml" \
-            > .github/workflows/pc-crop-08f.yml
-          git add .github/workflows/pc-crop-08f.yml
-
-      - name: Remediate SDIZ-number collision and fixture leak signal
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 .github/scripts/pc-crop-08f-sdiz-remediation.py
-          git add \
-            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts \
-            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts \
-            apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts
 
       - uses: pnpm/action-setup@v4
         with:
@@ -126,7 +112,7 @@ jobs:
             exit 30
           }
           git add -A
-          git commit -m 'chore(pc-crop-08f): materialize hardened synchronized tree'
+          git commit -m 'chore(pc-crop-08f): materialize synchronized tree'
           git reset --soft "$BASE_MAIN_SHA"
           git add -A
           git diff --cached --name-only | sort > /tmp/changed-files.txt
