@@ -325,6 +325,12 @@ jobs:
           pnpm -r list --prod --json --depth Infinity \
             > "$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json"
 
+      - name: Verify npm Bulk Advisory transport decoding
+        # Runs before the live call. The collector once read a gzip body as text and the
+        # gate reported a transport bug as a failed dependency audit; these tests pin the
+        # bounded reader and the decoding so that cannot recur silently.
+        run: node docs/platform-v7/autopilot/collect-npm-bulk-audit.test.mjs
+
       - name: Collect npm Bulk Advisory audit JSON
         run: |
           set +e
