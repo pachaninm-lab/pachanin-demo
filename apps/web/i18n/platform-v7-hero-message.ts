@@ -7,22 +7,22 @@ export type PlatformV7HeroMessage = {
 
 const messages: Record<'ru' | 'en' | 'zh', PlatformV7HeroMessage> = {
   ru: {
-    kicker: 'Для продавца, покупателя и партнёров исполнения',
-    title: 'Цена согласована. Теперь нужно исполнить Сделку.',
-    accent: '«Прозрачная Цена» доводит её до расчёта.',
-    lead: 'Поставка, качество, документы и деньги — в одном контуре. Собственный AI TAI показывает блокер, ответственного, доказательства и следующий шаг.',
+    kicker: 'Платформа управления агросделками в растениеводстве',
+    title: 'Управляйте агросделкой',
+    accent: 'от цены до расчёта',
+    lead: 'Одна платформа связывает торги, договор, поставку, приёмку, лабораторию, документы, готовность расчёта и спор. TAI находит отклонения и объясняет следующий шаг, но решение остаётся за участником.',
   },
   en: {
-    kicker: 'For sellers, buyers and execution partners',
-    title: 'The price is agreed. Now the Deal must be executed.',
-    accent: 'Transparent Price carries it through settlement.',
-    lead: 'Delivery, quality, documents and money stay in one execution framework. Its own AI, TAI, shows the blocker, owner, evidence and next action.',
+    kicker: 'Crop Deal execution platform',
+    title: 'Manage an agricultural Deal',
+    accent: 'from price to settlement',
+    lead: 'One platform connects trading, contract, delivery, acceptance, laboratory, documents, settlement readiness and disputes. TAI detects deviations and explains the next step, while the participant retains authority.',
   },
   zh: {
-    kicker: '面向卖方、买方及履约合作方',
-    title: '价格已经确定。现在需要完成交易履约。',
-    accent: '“透明价格”将交易推进至结算。',
-    lead: '交付、质量、文件与资金处于同一履约闭环。自有 AI TAI 显示阻塞点、责任方、证据和下一步行动。',
+    kicker: '种植业农业交易管理平台',
+    title: '管理农业交易',
+    accent: '从价格到结算',
+    lead: '一个平台连接竞价、合同、交付、验收、实验室、文件、结算准备度和争议。TAI 发现偏差并解释下一步，但决定权仍由参与方掌握。',
   },
 };
 
