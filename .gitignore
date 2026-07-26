@@ -15,3 +15,12 @@ package-lock.json
 *.db
 *.db-journal
 # migrations tracked in git for Railway prisma migrate deploy
+
+# Python bytecode and local tool caches. Generated on every run; never committed.
+__pycache__/
+*.py[cod]
+.coverage
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+*.egg-info/

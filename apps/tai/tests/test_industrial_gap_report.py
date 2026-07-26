@@ -37,7 +37,10 @@ REPOSITORY_MANIFEST = (
 )
 REPOSITORY_RELEASE_ID = "tai-industrial-discovery-2026-07-25"
 
-MAIN_SHA = "ca2e1ecec47b4dec1868d681f2d25c0aaaac8444"
+#: The exact main the committed backlog records its discovery against. It moves whenever
+#: the snapshot is re-derived, which is the point: the snapshot must name the commit the
+#: evidence was actually audited on, not an older one that happens to still parse.
+MAIN_SHA = "10b7263d884808b9e7f264c17a779ff2bd630437"
 QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
 MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
 
@@ -512,3 +515,94 @@ class TestCli:
 
     def test_validate_accepts_the_committed_backlog(self) -> None:
         assert main(["validate", str(REPOSITORY_BACKLOG)]) == 0
+
+
+def _deferred(item_id: str, stage: str = "A", *, mandatory: bool = True) -> AcceptanceItem:
+    return AcceptanceItem(
+        item_id=item_id,
+        stage=stage,
+        title=f"deferred item {item_id}",
+        mandatory=mandatory,
+        status=AcceptanceStatus.DEFERRED_BY_OWNER_DECISION,
+        blocking_reason="owner decision 26.07.2026: out of scope for this release",
+    )
+
+
+class TestOwnerDeferral:
+    """Owner decision of 26.07.2026 put confirmed actions outside this release.
+
+    BLOCKED was the wrong shape for those items. It says "waiting on something", keeps
+    counting against readiness, and puts the work on the recommended execution order —
+    inviting someone to build exactly what the owner forbade. It also made PASS
+    unreachable by construction, so the manifest would have reported NOT_ATTESTED forever
+    for a reason unrelated to readiness.
+    """
+
+    def test_a_deferred_item_must_state_the_decision(self) -> None:
+        with pytest.raises(ValueError, match="requires a blocking reason"):
+            AcceptanceItem(
+                item_id="Z.01",
+                stage="A",
+                title="deferred without a reason",
+                mandatory=True,
+                status=AcceptanceStatus.DEFERRED_BY_OWNER_DECISION,
+            )
+
+    def test_deferral_applies_only_to_mandatory_items(self) -> None:
+        """Deferring an optional item changes nothing, so it reads as a decision nobody made."""
+        with pytest.raises(ValueError, match="only to mandatory items"):
+            _deferred("Z.02", mandatory=False)
+
+    def test_a_deferred_item_leaves_the_mandatory_denominator(self) -> None:
+        backlog = _backlog(_accepted("A.01"), _blocked("A.02"), _deferred("A.03"))
+        totals = backlog.totals()
+
+        assert totals.mandatory_total == 2
+        assert totals.mandatory_accepted == 1
+        assert totals.mandatory_deferred == 1
+        assert totals.completion_percent == 50.0
+
+    def test_the_deferred_count_travels_with_the_percentage(self) -> None:
+        """A denominator that shrank silently would read as progress."""
+        rendered = _backlog(_accepted("A.01"), _deferred("A.02")).totals().to_json_object()
+
+        assert rendered["mandatory_total"] == 1
+        assert rendered["mandatory_deferred_by_owner_decision"] == 1
+
+    def test_a_deferred_item_is_not_a_blocker(self) -> None:
+        backlog = _backlog(_accepted("A.01"), _blocked("A.02"), _deferred("A.03"))
+
+        blocking = [item.item_id for item in backlog.blocking_items()]
+        assert blocking == ["A.02"]
+
+    def test_a_deferred_item_is_never_counted_as_accepted(self) -> None:
+        """Deferral removes an obligation; it proves nothing."""
+        totals = _backlog(_deferred("A.01"), _deferred("A.02")).totals()
+
+        assert totals.accepted == 0
+        assert totals.mandatory_accepted == 0
+
+    def test_deferral_does_not_manufacture_a_pass(self) -> None:
+        """A release with real work outstanding stays NOT_ATTESTED."""
+        backlog = _backlog(_accepted("A.01"), _blocked("A.02"), _deferred("A.03"))
+
+        assert derive_final_status(backlog) is FinalStatus.NOT_ATTESTED
+
+    def test_a_release_whose_only_gap_was_deferred_can_pass(self) -> None:
+        """This is the point: an item the owner ruled out must not block attestation forever."""
+        backlog = _backlog(_accepted("A.01"), _deferred("A.02"))
+
+        assert derive_final_status(backlog) is FinalStatus.PASS
+
+    def test_a_regression_still_fails_alongside_a_deferral(self) -> None:
+        regressed = AcceptanceItem(
+            item_id="A.02",
+            stage="A",
+            title="regressed item",
+            mandatory=True,
+            status=AcceptanceStatus.REGRESSED,
+            blocking_reason="a previously accepted gate broke",
+        )
+        backlog = _backlog(_accepted("A.01"), regressed, _deferred("A.03"))
+
+        assert derive_final_status(backlog) is FinalStatus.FAIL
