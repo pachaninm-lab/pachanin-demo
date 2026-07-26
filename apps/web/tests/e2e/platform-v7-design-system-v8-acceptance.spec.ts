@@ -175,6 +175,7 @@ test.describe('Design System v8 final browser acceptance', () => {
       ? { forcedColors: 'active', reducedMotion: 'reduce' }
       : { reducedMotion: 'reduce' });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
     const media = await page.evaluate(() => ({
       forced: matchMedia('(forced-colors: active)').matches,
       reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
