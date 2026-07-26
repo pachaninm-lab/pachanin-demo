@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/fix-public-indexation",
+  "status": "active",
+  "purpose": "Restore crawlability of the public platform entry and SEO infrastructure while preserving noindex boundaries for authenticated role routes, and harden exact-SHA release acceptance against future indexation regressions.",
+  "allowedPaths": [
+    "apps/web/app/page.tsx",
+    "apps/web/app/robots.ts",
+    "apps/web/middleware.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-indexation.json",
+    "scripts/production-web-live-acceptance.sh"
+  ],
+  "acceptanceEvidence": {
+    "publicHeaders": "apps/web/middleware.ts",
+    "robotsPolicy": "apps/web/app/robots.ts",
+    "canonicalEntry": "apps/web/app/page.tsx",
+    "liveReleaseGate": "scripts/production-web-live-acceptance.sh"
+  },
+  "constraints": [
+    "Private cabinets and APIs remain noindex and disallowed where applicable",
+    "No production deployment topology change",
+    "No Netlify or Vercel production dependency",
+    "No external integration maturity claim",
+    "Release acceptance fails closed on blocked robots, missing sitemap entry or public noindex headers"
+  ]
+}

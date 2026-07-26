@@ -32,26 +32,43 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   en_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 15 "$LIVE_BASE/platform-v7?lang=en&release=$cache_bust" || true)"
   zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --max-time 15 "$LIVE_BASE/platform-v7?lang=zh&release=$cache_bust" || true)"
 
+  robots_body="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/robots.txt?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
+  robots_headers="$(curl -fsS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/robots.txt?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
+  sitemap_body="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/sitemap.xml?release=$cache_bust" 2>/dev/null || true)"
+  root_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
+  public_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/platform-v7?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
+
   manifest_ok=0
   if grep -Fq "$TARGET_SHA" <<< "$manifest"; then
     manifest_ok=1
   fi
 
-  if (( manifest_ok == 1 )) &&
-    [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]]; then
-    curl -fsSL --compressed --max-time 15 "$LIVE_BASE/robots.txt" >/dev/null
-    curl -fsSL --compressed --max-time 15 "$LIVE_BASE/sitemap.xml" >/dev/null
+  indexation_ok=0
+  if grep -Eiq '^user-agent:[[:space:]]*\*' <<< "$robots_body" \
+    && ! grep -Eiq '^disallow:[[:space:]]*/[[:space:]]*$' <<< "$robots_body" \
+    && grep -Fq "Sitemap: $LIVE_BASE/sitemap.xml" <<< "$robots_body" \
+    && grep -Fq "$LIVE_BASE/platform-v7" <<< "$sitemap_body" \
+    && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$robots_headers" \
+    && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$root_headers" \
+    && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$public_headers"; then
+    indexation_ok=1
+  fi
+
+  if (( manifest_ok == 1 && indexation_ok == 1 )) \
+    && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]]; then
     printf 'LIVE_ACCEPTANCE=PASS\n'
     printf 'LIVE_ACTION=%s\n' "$ACTION"
     printf 'LIVE_REVISION=%s\n' "$TARGET_SHA"
     printf 'LIVE_HEALTH_ROUTE_CODE=%s\n' "${health_code:-missing}"
     printf 'LIVE_LANG_CODES=ru:%s,en:%s,zh:%s\n' "$ru_code" "$en_code" "$zh_code"
+    printf 'LIVE_INDEXATION=robots:allow,sitemap:present,public:noindex-absent\n'
     exit 0
   fi
 
-  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s codes=ru:%s,en:%s,zh:%s\n' \
+  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s codes=ru:%s,en:%s,zh:%s\n' \
     "$attempt" "$ATTEMPTS" "$ACTION" "${health_code:-missing}" \
     "$([[ "$manifest_ok" == 1 ]] && echo match || echo mismatch)" \
+    "$([[ "$indexation_ok" == 1 ]] && echo pass || echo fail)" \
     "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}"
   sleep "$DELAY_SECONDS"
 done

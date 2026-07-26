@@ -22,6 +22,7 @@ const PUBLIC_PREFIX = [
   '/sw.js',
   '/mockServiceWorker.js',
 ];
+const SEO_INFRASTRUCTURE_EXACT = new Set(['/robots.txt', '/sitemap.xml', '/indexnow.txt']);
 
 const CANON_REDIRECTS: Record<string, string> = {
   '/canon/roles': '/platform-v7/roles',
@@ -310,6 +311,12 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(u, 308), true);
   }
 
+  if (SEO_INFRASTRUCTURE_EXACT.has(p)) {
+    const response = applySecurityHeaders(NextResponse.next());
+    response.headers.delete('x-robots-tag');
+    return response;
+  }
+
   const protectedPath = isProtectedPath(p);
   const privateModeEnabled = isPrivateMode();
   if (privateModeEnabled && protectedPath) {
@@ -351,7 +358,8 @@ export async function middleware(req: NextRequest) {
     || p.startsWith('/api/runtime-')
     || isTokenAuthenticatedInternalPath(p)
   ) {
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    const isIndexable = p === '/' && !privateModeEnabled;
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, isIndexable);
     persistRoleCookie(req, response, resolvedRole);
     return response;
   }
