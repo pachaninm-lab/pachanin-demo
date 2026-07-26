@@ -69,6 +69,15 @@ jobs:
             "$expected_branch_head" "$base_main_sha" >> "$GITHUB_ENV"
           git merge --no-ff --no-commit "$base_main_sha"
 
+      - name: Enforce projection mutation RBAC
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/pc-crop-08f-sdiz-remediation.py
+          git add \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts \
+            apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts
+
       - uses: pnpm/action-setup@v4
         with:
           version: '10.2.1'
