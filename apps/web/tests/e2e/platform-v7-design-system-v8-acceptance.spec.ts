@@ -105,16 +105,23 @@ async function expectKeyboardEntry(page: Page) {
   await page.locator('body').click({ position: { x: 1, y: 1 } });
   const allowed = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'];
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.keyboard.press('Tab');
-    const active = await page.evaluate(() => {
-      const element = document.activeElement as HTMLElement | null;
-      return {
-        tag: element?.tagName || '',
-        name: element?.getAttribute('aria-label') || element?.getAttribute('title') || element?.textContent?.trim() || '',
-      };
-    });
-    if (allowed.includes(active.tag) && active.name.length > 0) return;
+  const activeElement = () => page.evaluate(() => {
+    const element = document.activeElement as HTMLElement | null;
+    return {
+      tag: element?.tagName || '',
+      name: element?.getAttribute('aria-label') || element?.getAttribute('title') || element?.textContent?.trim() || '',
+    };
+  });
+
+  // Chromium can retain BODY as the sequential-navigation start point while
+  // forced-colors emulation is active. Validate real keyboard entry in both
+  // directions instead of replacing keyboard navigation with programmatic focus.
+  for (const key of ['Tab', 'Shift+Tab'] as const) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await page.keyboard.press(key);
+      const active = await activeElement();
+      if (allowed.includes(active.tag) && active.name.length > 0) return;
+    }
   }
 
   const finalTag = await page.evaluate(() => document.activeElement?.tagName || '');
@@ -168,6 +175,7 @@ test.describe('Design System v8 final browser acceptance', () => {
       ? { forcedColors: 'active', reducedMotion: 'reduce' }
       : { reducedMotion: 'reduce' });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
     const media = await page.evaluate(() => ({
       forced: matchMedia('(forced-colors: active)').matches,
       reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,

@@ -13,6 +13,7 @@ describe('platform-v7 strategic five-block public entry', () => {
   const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
   const storyCss = read('components/platform-v7/PlatformV7StrategicHomeStory.module.css');
+  const dockCss = read('app/pc-public-entry/platform-v7/home-approved-contact-dock.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
@@ -62,6 +63,7 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(storyCopy).toContain('Private cloud и on-premise');
     expect(storyCopy).toContain('Роль, организация, права и контекст определяются сервером');
     expect(storyCopy).toContain('Доказательства и аудит');
+    expect(storyCopy).toContain('Зрелость эксплуатации и статусы интеграций подтверждаются только фактическими результатами');
   });
 
   it('ships explicit RU EN ZH story copy and problem-first hero', () => {
@@ -69,8 +71,8 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(storyCopy).toContain('const en: PlatformV7HomeStoryCopy');
     expect(storyCopy).toContain('const zh: PlatformV7HomeStoryCopy');
     expect(storyCopy).not.toContain('...ru');
-    expect(heroCopy).toContain("title: 'The price is agreed. The Deal can still fail.'");
-    expect(heroCopy).toContain("title: '价格已经确定，但交易仍可能失败。'");
+    expect(heroCopy).toContain("title: 'The price is agreed. Now the Deal must be executed.'");
+    expect(heroCopy).toContain("title: '价格已经确定。现在需要完成交易履约。'");
   });
 
   it('preserves mobile, touch-target, reduced-motion and support gates', () => {
@@ -78,8 +80,9 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(homeCss).toContain('overflow-x: auto');
     expect(homeCss).toContain('@media (max-width: 767px)');
     expect(homeCss).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(storyCss).toContain('@media (max-width:767px)');
-    expect(storyCss).toContain('@media (forced-colors:active)');
+    expect(storyCss).toMatch(/@media\s*\(max-width:\s*767px\)/);
+    expect(storyCss).toMatch(/@media\s*\(forced-colors:\s*active\)/);
+    expect(dockCss).toContain('min-height: 46px');
     expect(finalCss).toContain('min-height: 44px !important');
     expect(support).toContain("role='dialog'");
     expect(support).toContain("aria-modal='true'");

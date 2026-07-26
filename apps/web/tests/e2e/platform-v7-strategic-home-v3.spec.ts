@@ -81,6 +81,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expect(page.locator('#pc-v6-title')).toBeVisible();
       await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
+      await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toBeVisible();
       await expect(page.locator('#deal-path')).toBeVisible();
       await expect(page.locator('#participants')).toBeVisible();
       await expect(page.locator('#money')).toBeVisible();

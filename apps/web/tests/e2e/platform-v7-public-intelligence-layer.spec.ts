@@ -82,8 +82,8 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-    await expect(page.locator('#pc-v6-title')).toContainText('Цена согласована. Но сделка всё ещё может сорваться.');
-    await expect(page.locator('#pc-v6-title')).toContainText('доводит её до исполнения и расчёта');
+    await expect(page.locator('#pc-v6-title')).toContainText('Цена согласована. Теперь нужно исполнить Сделку.');
+    await expect(page.locator('#pc-v6-title')).toContainText('доводит её до расчёта');
     await expect(page.locator('[data-testid="platform-v7-problem-map"]')).toContainText('Цена уже согласована');
 
     await expect(page.locator('#deal-path')).toContainText('Одна Сделка связывает участников');
@@ -121,7 +121,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     expect(response?.ok()).toBe(true);
     await expect(page.locator('#pc-v6-title')).toBeVisible();
     await expect(page.locator('#pc-v6-title')).toContainText('Цена согласована');
-    await expect(page.locator('#pc-v6-title')).toContainText('исполнения и расчёта');
+    await expect(page.locator('#pc-v6-title')).toContainText('доводит её до расчёта');
     await expect(page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first()).toBeVisible();
     await expect(page.locator('[data-testid="platform-v7-problem-map"]')).toBeVisible();
     await expect(page.locator('.pc-public-contact-dock')).toHaveAttribute('data-scroll-hidden', 'true');

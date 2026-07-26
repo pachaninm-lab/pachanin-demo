@@ -22,6 +22,7 @@ import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
+import mobileProof from './PlatformV7StrategicHomeMobileProof.module.css';
 import styles from './PlatformV7StrategicHomeStory.module.css';
 
 function SectionHeader({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
@@ -121,7 +122,7 @@ export async function PlatformV7StrategicHome() {
           </aside>
         </section>
 
-        <section id='deal-path' className={`pc-v6-section ${styles.processSection}`} aria-labelledby='pc-v6-process-title'>
+        <section id='deal-path' className={`pc-v6-section ${styles.processSection} ${mobileProof.processCopy}`} aria-labelledby='pc-v6-process-title'>
           <div id='pc-v6-process-title'><SectionHeader eyebrow={story.process.eyebrow} title={story.process.title} lead={story.process.lead} /></div>
           <div className={styles.processGrid}>
             {story.process.steps.map((step) => (
@@ -131,7 +132,7 @@ export async function PlatformV7StrategicHome() {
               </article>
             ))}
           </div>
-          <div className={styles.lifecycleSummary}>
+          <div className={`${styles.lifecycleSummary} ${mobileProof.summaryCopy}`}>
             <Waypoints aria-hidden='true' />
             <div><strong>{story.process.lifecycleLabel}</strong><span>{story.process.lifecycleText}</span></div>
           </div>
@@ -144,7 +145,7 @@ export async function PlatformV7StrategicHome() {
         <section id='tai' className={`pc-v6-section ${styles.aiSection}`} aria-labelledby='pc-v6-ai-title'>
           <div id='pc-v6-ai-title'><SectionHeader eyebrow={story.ai.eyebrow} title={story.ai.title} lead={story.ai.lead} /></div>
           <div className={styles.aiDemo}>
-            <div className={`${styles.aiCockpit} pc-v6-control-tower pc-v6-control-tower-unified`} aria-label={copy.a11y.controlTower}>
+            <div className={`${styles.aiCockpit} ${mobileProof.cockpit} pc-v6-control-tower pc-v6-control-tower-unified`} aria-label={copy.a11y.controlTower}>
               <div className='pc-v6-ct-top'>
                 <div><small>{copy.tower.sampleLabel}</small><span>{copy.tower.deal}</span></div>
                 <b>{copy.tower.stage}</b>
@@ -167,7 +168,7 @@ export async function PlatformV7StrategicHome() {
               </div>
             </div>
 
-            <div id={'money'} className={styles.aiAnalysis} aria-label={story.ai.title} data-testid='platform-v7-ai-analysis'>
+            <div id={'money'} className={`${styles.aiAnalysis} ${mobileProof.analysisCopy}`} aria-label={story.ai.title} data-testid='platform-v7-ai-analysis'>
               <div className={styles.aiAnalysisHeader}><ScanSearch aria-hidden='true' /><strong>TAI · Transparent Agro Intelligence</strong></div>
               <div className={styles.analysisGrid}>
                 <article><span>{story.ai.detectedLabel}</span><strong>{story.ai.detected}</strong></article>
@@ -197,7 +198,7 @@ export async function PlatformV7StrategicHome() {
           </div>
         </section>
 
-        <section id='maturity' className={`pc-v6-section pc-v6-assurance ${styles.maturitySection}`} aria-labelledby='pc-v6-maturity-title'>
+        <section id='maturity' className={`pc-v6-section pc-v6-assurance ${styles.maturitySection} ${mobileProof.maturityCopy}`} aria-labelledby='pc-v6-maturity-title'>
           <div id='pc-v6-maturity-title'><SectionHeader eyebrow={story.maturity.eyebrow} title={story.maturity.title} lead={story.maturity.lead} /></div>
           <div className={styles.metrics}>
             {story.maturity.metrics.map(([value, label]) => <article key={label}><strong>{value}</strong><span>{label}</span></article>)}

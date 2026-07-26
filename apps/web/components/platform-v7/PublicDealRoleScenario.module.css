@@ -1,46 +1,46 @@
 .root {
   display: grid;
-  gap: 14px;
-  margin-top: 24px;
-  padding-top: 22px;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 18px;
   border-top: 1px solid rgba(29, 78, 56, 0.13);
 }
 
 .heading {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   max-width: 720px;
 }
 
 .heading strong {
   color: #162b21;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.24;
   letter-spacing: -0.02em;
 }
 
 .heading span {
   color: var(--pc-v6-muted, #52615b);
-  font-size: 13px;
-  line-height: 1.42;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .workspace {
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(29, 78, 56, 0.16);
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 16px 42px rgba(17, 52, 36, 0.07);
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 14px 36px rgba(17, 52, 36, 0.06);
 }
 
 .workspaceHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
+  gap: 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid rgba(29, 78, 56, 0.12);
   background: #fbfcfb;
 }
@@ -48,21 +48,21 @@
 .workspaceHeader > div {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .workspaceHeader small {
   color: #66766e;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   line-height: 1.3;
 }
 
 .workspaceHeader strong {
   color: #14291f;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 720;
-  line-height: 1.28;
+  line-height: 1.26;
   letter-spacing: -0.015em;
   overflow-wrap: anywhere;
 }
@@ -73,7 +73,7 @@
   border-radius: 999px;
   background: #fff0eb;
   color: #984321;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -83,17 +83,17 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  padding: 15px 18px 13px;
+  padding: 13px 16px 11px;
   border-bottom: 1px solid rgba(29, 78, 56, 0.1);
-  background: #ffffff;
+  background: #fff;
 }
 
 .stageRail::before {
   content: '';
   position: absolute;
-  top: 21px;
-  left: calc(10% + 18px);
-  right: calc(10% + 18px);
+  top: 19px;
+  left: calc(10% + 16px);
+  right: calc(10% + 16px);
   height: 2px;
   background: #dce6e0;
 }
@@ -104,18 +104,18 @@
   min-width: 0;
   display: grid;
   justify-items: center;
-  gap: 6px;
+  gap: 5px;
   color: #6a7871;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 620;
   line-height: 1.2;
   text-align: center;
 }
 
 .stageRail i {
-  width: 14px;
-  height: 14px;
-  border: 3px solid #ffffff;
+  width: 13px;
+  height: 13px;
+  border: 3px solid #fff;
   border-radius: 50%;
   background: #cbd8d1;
   box-shadow: 0 0 0 1px #cbd8d1;
@@ -147,10 +147,10 @@
   min-width: 0;
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  padding: 15px;
+  gap: 8px;
+  padding: 13px;
   border-right: 1px solid rgba(29, 78, 56, 0.1);
-  background: #ffffff;
+  background: #fff;
 }
 
 .metrics article:last-child {
@@ -161,8 +161,8 @@
 .rolePanel svg,
 .contextRow svg {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   margin-top: 1px;
   color: #087a3b;
 }
@@ -175,47 +175,49 @@
 .rolePanel article > div {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .metrics span,
 .rolePanel span {
   color: #65736c;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 620;
-  line-height: 1.3;
+  line-height: 1.28;
 }
 
 .metrics strong {
   color: #172b22;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 670;
-  line-height: 1.35;
+  line-height: 1.32;
   overflow-wrap: anywhere;
 }
 
 .tabs {
+  position: relative;
   display: flex;
-  gap: 7px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 12px 14px 10px;
+  padding: 10px 12px 9px;
   border-bottom: 1px solid rgba(29, 78, 56, 0.1);
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: 12px;
   scrollbar-width: thin;
   overscroll-behavior-inline: contain;
 }
 
 .tabs button {
-  min-height: 40px;
+  min-height: 44px;
   flex: 0 0 auto;
   scroll-snap-align: start;
   border: 1px solid rgba(22, 83, 57, 0.18);
   border-radius: 999px;
   background: #fff;
   color: #20342b;
-  padding: 8px 13px;
+  padding: 8px 12px;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 670;
   cursor: pointer;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
@@ -239,13 +241,13 @@
   border-color: #087a3b;
   background: #087a3b;
   color: #fff;
-  box-shadow: 0 6px 16px rgba(8, 122, 59, 0.14);
+  box-shadow: 0 5px 14px rgba(8, 122, 59, 0.13);
 }
 
 .rolePanel {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 11px;
   background: #f7faf8;
 }
 
@@ -253,18 +255,18 @@
   min-width: 0;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 13px;
+  gap: 9px;
+  padding: 11px;
   border: 1px solid rgba(29, 78, 56, 0.11);
-  border-radius: 11px;
-  background: #ffffff;
+  border-radius: 10px;
+  background: #fff;
 }
 
 .rolePanel strong {
   color: #172b22;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 660;
-  line-height: 1.4;
+  line-height: 1.36;
   overflow-wrap: anywhere;
 }
 
@@ -280,26 +282,26 @@
 .actionGrid {
   display: grid;
   grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .contextRow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 .contextRow > span {
   min-width: 0;
   display: flex;
   align-items: flex-start;
-  gap: 7px;
-  padding: 10px 11px;
-  border-radius: 10px;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 9px;
   background: #edf5f0;
   color: #40534a;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.36;
   overflow-wrap: anywhere;
 }
 
@@ -310,37 +312,47 @@
 
 @media (max-width: 720px) {
   .root {
-    margin-top: 20px;
-    padding-top: 18px;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 15px;
   }
 
   .heading strong {
-    font-size: 18px;
+    font-size: 16px;
+  }
+
+  .heading span {
+    font-size: 11px;
   }
 
   .workspaceHeader {
     align-items: flex-start;
-    padding: 14px;
+    padding: 12px;
+  }
+
+  .workspaceHeader strong {
+    font-size: 14px;
   }
 
   .workspaceHeader > span {
     max-width: 42%;
+    font-size: 10.5px;
     text-align: center;
   }
 
   .stageRail {
-    padding: 13px 10px 11px;
+    padding: 11px 8px 9px;
   }
 
   .stageRail::before {
-    top: 19px;
-    left: calc(10% + 10px);
-    right: calc(10% + 10px);
+    top: 17px;
+    left: calc(10% + 8px);
+    right: calc(10% + 8px);
   }
 
   .stageRail > div {
-    gap: 5px;
-    font-size: 10px;
+    gap: 4px;
+    font-size: 9px;
   }
 
   .metrics {
@@ -348,8 +360,8 @@
   }
 
   .metrics article {
-    min-height: 86px;
-    padding: 12px;
+    min-height: 72px;
+    padding: 10px;
     border-bottom: 1px solid rgba(29, 78, 56, 0.1);
   }
 
@@ -362,25 +374,40 @@
     border-bottom: 0;
   }
 
+  .metrics strong {
+    font-size: 11.5px;
+  }
+
   .tabs {
-    padding-inline: 12px;
+    padding: 9px 10px 8px;
+    scroll-padding-inline: 10px;
   }
 
   .tabs button {
     min-height: 44px;
+    padding-inline: 11px;
+    font-size: 11.5px;
   }
 
   .rolePanel {
-    padding: 12px;
+    padding: 9px;
+  }
+
+  .rolePanel article {
+    padding: 10px;
   }
 
   .actionGrid,
   .contextRow {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .rolePanel article {
-    padding: 12px;
+  .rolePanel strong {
+    font-size: 12px;
+  }
+
+  .contextRow > span {
+    font-size: 10.5px;
   }
 }
 
@@ -394,7 +421,9 @@
     width: fit-content;
   }
 
-  .metrics {
+  .metrics,
+  .actionGrid,
+  .contextRow {
     grid-template-columns: 1fr;
   }
 
@@ -419,8 +448,13 @@
   .tabs button {
     transition: none;
   }
+}
 
-  .tabs button:hover {
-    transform: none;
+@media (forced-colors: active) {
+  .workspace,
+  .rolePanel article,
+  .contextRow > span,
+  .tabs button {
+    border: 1px solid CanvasText;
   }
 }

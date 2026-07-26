@@ -11,9 +11,9 @@ describe('platform-v7 problem-first five-block homepage', () => {
   const page = read('app/platform-v7/page.tsx');
 
   it('opens with a concrete execution problem and a clear resolution', () => {
-    expect(heroCopy).toContain("title: 'Цена согласована. Но сделка всё ещё может сорваться.'");
-    expect(heroCopy).toContain("accent: '«Прозрачная Цена» доводит её до исполнения и расчёта.'");
-    expect(heroCopy).toContain('где процесс остановился, кто отвечает и что делать дальше');
+    expect(heroCopy).toContain("title: 'Цена согласована. Теперь нужно исполнить Сделку.'");
+    expect(heroCopy).toContain("accent: '«Прозрачная Цена» доводит её до расчёта.'");
+    expect(heroCopy).toContain('показывает блокер, ответственного, доказательства и следующий шаг');
     expect(component).toContain('story.heroMap.items.map');
     expect(component).toContain('styles.problemMap');
     expect(component).toContain('styles.solutionBar');
@@ -21,8 +21,8 @@ describe('platform-v7 problem-first five-block homepage', () => {
 
   it('ships explicit RU EN ZH problem-first copy', () => {
     expect(heroCopy).toContain("const messages: Record<'ru' | 'en' | 'zh'");
-    expect(heroCopy).toContain("title: 'The price is agreed. The Deal can still fail.'");
-    expect(heroCopy).toContain("title: '价格已经确定，但交易仍可能失败。'");
+    expect(heroCopy).toContain("title: 'The price is agreed. Now the Deal must be executed.'");
+    expect(heroCopy).toContain("title: '价格已经确定。现在需要完成交易履约。'");
     expect(storyCopy).toContain('const ru: PlatformV7HomeStoryCopy');
     expect(storyCopy).toContain('const en: PlatformV7HomeStoryCopy');
     expect(storyCopy).toContain('const zh: PlatformV7HomeStoryCopy');
