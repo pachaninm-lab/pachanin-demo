@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './home-approved-contact-dock.css';
+import './home-mobile-execution-proof.css';
 import PlatformV7RootPage from '@/app/platform-v7/page';
 
 export const metadata: Metadata = {
