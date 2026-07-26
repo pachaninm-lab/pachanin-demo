@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('platform-v7 strategic five-block public entry', () => {
+describe('platform-v7 final master public entry', () => {
   const layout = read('app/platform-v7/layout.tsx');
   const page = read('app/platform-v7/page.tsx');
   const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
@@ -21,30 +21,40 @@ describe('platform-v7 strategic five-block public entry', () => {
   const explorerAdapter = read('components/platform-v7/PublicDealExplorerV4.tsx');
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
 
-  it('renders exactly one narrative route through the five strategic blocks', () => {
+  it('renders the complete final v4 narrative and the durable connection form', () => {
     expect(page).toContain('const home = await PlatformV7StrategicHome();');
-    expect(home).toContain('styles.problemMap');
-    expect(home).toContain("id='deal-path'");
-    expect(home).toContain("id='tai'");
-    expect(home).toContain("id='participants'");
-    expect(home).toContain("id='maturity'");
+    for (const anchor of [
+      "id='difference'",
+      "id='functions'",
+      "id='deal-path'",
+      "id='live'",
+      "id='participants'",
+      "id='tai'",
+      "id='maturity'",
+      "id='integrations'",
+      "id='faq'",
+    ]) expect(home).toContain(anchor);
     expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
-    expect(home).not.toContain("id='money'");
-    expect(home).not.toContain("id='integrations'");
-    expect(home).not.toContain('pc-v6-faq');
+    expect(home).toContain("id={index === 2 ? 'money' : undefined}");
   });
 
-  it('retains the complete 19-stage Deal model and public walkthrough', () => {
-    expect(home).toContain("className='pc-v6-lifecycle' role='list' tabIndex={0}");
+  it('publishes the approved functional and execution coverage', () => {
+    for (const index of ['01', '02', '03', '04', '05', '06', '07', '08']) {
+      expect(storyCopy).toContain(`index: '${index}'`);
+    }
+    expect(storyCopy).toContain("title: 'Цена'");
+    expect(storyCopy).toContain("title: 'Контроль'");
+    expect(storyCopy).toContain("title: 'Расчёт и закрытие'");
+    expect(storyCopy).toContain("fullPathText: '19 этапов");
     expect(homeCopy).toContain("phases: ['Условия', 'Допуск', 'Торги', 'Победитель'");
-    expect(storyCopy).toContain("lifecycleLabel: '19 этапов без разрыва между системами'");
+    expect(home).toContain("className='pc-v6-lifecycle'");
+  });
+
+  it('preserves the public walkthrough and informational role routing', () => {
     expect(explorerPage).toContain("stage: 'terms'");
     expect(explorerPage).toContain("perspective: 'buyer'");
     expect(home).toContain('stage=terms&lens=execution&perspective=buyer');
-  });
-
-  it('preserves browser history, lenses and informational role routing', () => {
     expect(explorerAdapter).toContain('normalizeTourStateFromSearchParams');
     expect(explorerAdapter).toContain("window.addEventListener('popstate', restorePublicHistoryState)");
     expect(explorer).toContain('TOUR_LENSES.map');
@@ -54,34 +64,43 @@ describe('platform-v7 strategic five-block public entry', () => {
     expect(home).not.toContain('/platform-v7/login?role=');
   });
 
-  it('shows industrial capability without false maturity language', () => {
+  it('states architecture and integration maturity without false-live language', () => {
     const combined = `${page}\n${home}\n${homeCopy}\n${storyCopy}`.toLowerCase();
     for (const token of [
-      'production-ready', 'fully live', 'банк подключён', 'фгис подключён',
-      'эдо подключён', 'техническая готовность', 'в реализации', 'websocket',
+      'production-ready',
+      'fully live',
+      'банк подключён',
+      'фгис подключён',
+      'эдо подключён',
+      'confirmed_live',
+      'integration connected',
+      'websocket',
     ]) expect(combined).not.toContain(token);
-    expect(storyCopy).toContain('Private cloud и on-premise');
-    expect(storyCopy).toContain('Роль, организация, права и контекст определяются сервером');
-    expect(storyCopy).toContain('Доказательства и аудит');
-    expect(storyCopy).toContain('Зрелость эксплуатации и статусы интеграций подтверждаются только фактическими результатами');
+    expect(storyCopy).toContain('private cloud и on-premise');
+    expect(storyCopy).toContain('Ролевой доступ');
+    expect(storyCopy).toContain('Проверяемая история');
+    expect(storyCopy).toContain('Без fake-live');
+    expect(storyCopy).toContain('Эксплуатационная зрелость и интеграции подтверждаются только фактическими результатами');
   });
 
-  it('ships explicit RU EN ZH story copy and problem-first hero', () => {
-    expect(storyCopy).toContain('const ru: PlatformV7HomeStoryCopy');
-    expect(storyCopy).toContain('const en: PlatformV7HomeStoryCopy');
-    expect(storyCopy).toContain('const zh: PlatformV7HomeStoryCopy');
+  it('ships explicit RU EN ZH copy and the final approved hero', () => {
+    expect(storyCopy).toContain('ru: {');
+    expect(storyCopy).toContain('en: {');
+    expect(storyCopy).toContain('zh: {');
     expect(storyCopy).not.toContain('...ru');
-    expect(heroCopy).toContain("title: 'The price is agreed. Now the Deal must be executed.'");
-    expect(heroCopy).toContain("title: '价格已经确定。现在需要完成交易履约。'");
+    expect(heroCopy).toContain("title: 'Manage an agricultural Deal'");
+    expect(heroCopy).toContain("title: '管理农业交易'");
+    expect(heroCopy).toContain("title: 'Управляйте агросделкой'");
   });
 
-  it('preserves mobile, touch-target, reduced-motion and support gates', () => {
+  it('preserves mobile, touch-target, reduced-motion and help gates', () => {
     expect(layout).toContain('.pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}');
-    expect(homeCss).toContain('overflow-x: auto');
     expect(homeCss).toContain('@media (max-width: 767px)');
     expect(homeCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(storyCss).toMatch(/@media\s*\(max-width:\s*767px\)/);
+    expect(storyCss).toMatch(/@media\s*\(max-width:\s*359px\)/);
     expect(storyCss).toMatch(/@media\s*\(forced-colors:\s*active\)/);
+    expect(storyCss).toContain('grid-template-columns: minmax(0, 1fr)');
     expect(dockCss).toContain('min-height: 46px');
     expect(finalCss).toContain('min-height: 44px !important');
     expect(support).toContain("role='dialog'");
