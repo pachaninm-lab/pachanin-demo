@@ -20,5 +20,18 @@
     ],
     "reject_on_any_open_rejection": true
   },
-  "reviews": []
+  "reviews": [
+    {
+      "review_id": "review.platform.role.operator.reviewer.pachaninm",
+      "case_id": "platform.role.operator",
+      "case_sha256": "a856f74a5e81b74c4c380bd9470b499df0958d6f15d762cd22ac92f6b613c314",
+      "reviewer_id": "reviewer.pachaninm",
+      "reviewer_role": "PLATFORM_OWNER",
+      "decision": "APPROVED",
+      "reviewed_at": "2026-07-26T14:49:37.381Z",
+      "evidence_sha256": "45ffe6e3b93821565dc9cd133fca59eee31358a4719b986f06f221fda28de5ad",
+      "disagreement_with_review_id": null,
+      "review_sha256": "2e75c92950b0f185c4ee666ecade4a09a73c0e6c6c0b73584d9c56a3b8919bb6"
+    }
+  ]
 }

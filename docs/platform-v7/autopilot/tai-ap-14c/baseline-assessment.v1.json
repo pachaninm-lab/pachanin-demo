@@ -3,20 +3,20 @@
   "version": "2026.07.19.1",
   "accepted": false,
   "status": "PENDING_REVIEW",
-  "corpus_sha256": "70e61caa98c9abc3bad9948f1db1445bd6e9f939da5df0b6bc60f171e74f694b",
+  "corpus_sha256": "283d899509492c180b7973b263b4d537fbb0e40a7dda3abc1c53e1831ddbd334",
   "component_sha256": {
     "platform_sha256": "f76e3e9eb7f73e547d453a1d80c9777cecdb6b785d4b0c5e96a8aaf48302e424",
     "agro_sha256": "9dc43d355afe4383ec62008c36ade9070f950f1d1de6ee81937f380621f7928e",
     "coverage_sha256": "24f738db27e16ccaf69b7a67cc86e66c30e0f45169a244ecb73d67f2c008cc5d",
-    "reviews_sha256": "fba990c3c959cb82dcb9a21dba5133c475b2bae3e140232b1a8229c3ac76928e"
+    "reviews_sha256": "95318f6bcdd42992c519fdfd99ef22db95c1d68349767e4b4a00c59cccb6fc78"
   },
   "counts": {
     "platform_cases": 42,
     "agro_cases": 16,
     "total_cases": 58,
     "critical_cases": 23,
-    "reviewed_cases": 0,
-    "unreviewed_cases": 58,
+    "reviewed_cases": 1,
+    "unreviewed_cases": 57,
     "platform_roles": 12,
     "deal_states": 23,
     "agro_topics": 8,
@@ -57,7 +57,6 @@
     "platform.role.executive",
     "platform.role.laboratory",
     "platform.role.logistics",
-    "platform.role.operator",
     "platform.role.seller",
     "platform.role.surveyor",
     "platform.state.arrived",
@@ -91,5 +90,5 @@
     "platform.variant.typo-sdiz",
     "platform.variant.unknown-secret"
   ],
-  "assessment_sha256": "548a45ccd452e4891586b31e0b845edd3b2a710d9d8189cb41d70b1841d4398c"
+  "assessment_sha256": "273100b61a2c091ff0c7f602789dbc17bc7dfcb9a9aaba7156dcc339921c0cbd"
 }
