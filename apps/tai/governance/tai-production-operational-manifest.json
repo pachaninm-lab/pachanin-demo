@@ -7,6 +7,7 @@
       "K.03",
       "K.04"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "K",
     "status": "NOT_ATTESTED",
     "total": 4
@@ -20,6 +21,7 @@
       "G.04",
       "G.05"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "G",
     "status": "NOT_ATTESTED",
     "total": 5
@@ -38,9 +40,10 @@
       "L.08",
       "L.10"
     ],
+    "deferred_by_owner_decision": 1,
     "stage": "L",
     "status": "NOT_ATTESTED",
-    "total": 10
+    "total": 9
   },
   "final_status": "NOT_ATTESTED",
   "gateway_acceptance": {
@@ -53,6 +56,7 @@
       "H.05",
       "H.06"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "H",
     "status": "NOT_ATTESTED",
     "total": 6
@@ -64,6 +68,7 @@
       "A.04",
       "A.06"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "A",
     "status": "NOT_ATTESTED",
     "total": 7
@@ -83,6 +88,7 @@
       "D.05",
       "D.06"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "D",
     "status": "NOT_ATTESTED",
     "total": 6
@@ -96,6 +102,7 @@
       "C.04",
       "C.05"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "C",
     "status": "NOT_ATTESTED",
     "total": 5
@@ -122,6 +129,7 @@
       "J.03",
       "J.04"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "J",
     "status": "NOT_ATTESTED",
     "total": 4
@@ -198,6 +206,7 @@
       "E.05",
       "E.06"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "E",
     "status": "NOT_ATTESTED",
     "total": 6
@@ -212,6 +221,7 @@
       "F.04",
       "F.05"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "F",
     "status": "NOT_ATTESTED",
     "total": 5
@@ -227,6 +237,7 @@
       "B.06",
       "B.07"
     ],
+    "deferred_by_owner_decision": 0,
     "stage": "B",
     "status": "NOT_ATTESTED",
     "total": 9
@@ -236,9 +247,10 @@
     "blocking_items": [
       "I.03"
     ],
+    "deferred_by_owner_decision": 1,
     "stage": "I",
     "status": "NOT_ATTESTED",
-    "total": 4
+    "total": 3
   },
   "schema": "tai.production-operational-manifest.v1",
   "totals": {

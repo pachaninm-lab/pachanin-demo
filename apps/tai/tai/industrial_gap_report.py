@@ -468,22 +468,37 @@ class IndustrialGapReport:
 
 
 def _stage_acceptance(backlog: AcceptanceBacklog, stage: str) -> dict[str, Any]:
+    """Per-stage acceptance, on the same denominator rule as the overall totals.
+
+    Deferred items leave the stage total for the same reason they leave the mandatory
+    one. Counting them here while excluding them there would let the manifest contradict
+    itself: once every item this release can attempt is accepted, `derive_final_status`
+    reports PASS while stages I and L still read NOT_ATTESTED, because each holds one
+    item nobody is allowed to work on. A reader would have no way to tell which number
+    was wrong.
+
+    A stage that is *only* deferred items is not a passing stage — nothing was proven —
+    so it reports NOT_ATTESTED rather than a vacuous PASS on an empty denominator.
+    """
     items = backlog.stage_items(stage)
-    accepted = sum(item.status is AcceptanceStatus.ACCEPTED for item in items)
-    if not items:
+    deferred = tuple(item for item in items if item.is_deferred)
+    in_scope = tuple(item for item in items if not item.is_deferred)
+    accepted = sum(item.status is AcceptanceStatus.ACCEPTED for item in in_scope)
+    if not in_scope:
         status = FinalStatus.NOT_ATTESTED
-    elif accepted == len(items):
-        status = FinalStatus.PASS
-    elif any(item.status is AcceptanceStatus.REGRESSED for item in items):
+    elif any(item.status is AcceptanceStatus.REGRESSED for item in in_scope):
         status = FinalStatus.FAIL
+    elif accepted == len(in_scope):
+        status = FinalStatus.PASS
     else:
         status = FinalStatus.NOT_ATTESTED
     return {
         "accepted": accepted,
         "blocking_items": [item.item_id for item in items if item.is_blocking],
+        "deferred_by_owner_decision": len(deferred),
         "stage": stage,
         "status": status.value,
-        "total": len(items),
+        "total": len(in_scope),
     }
 
 

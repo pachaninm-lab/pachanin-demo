@@ -15,6 +15,7 @@ from tai.industrial_gap_report import (
     ModelDescriptor,
     ProductionOperationalManifest,
     SubsystemStatus,
+    _stage_acceptance,
     backlog_canonical_json,
     canonical_json,
     derive_final_status,
@@ -367,6 +368,7 @@ class TestManifest:
         assert runtime == {
             "accepted": 1,
             "blocking_items": ["B.02"],
+            "deferred_by_owner_decision": 0,
             "stage": "B",
             "status": "NOT_ATTESTED",
             "total": 2,
@@ -606,3 +608,52 @@ class TestOwnerDeferral:
         backlog = _backlog(_accepted("A.01"), regressed, _deferred("A.03"))
 
         assert derive_final_status(backlog) is FinalStatus.FAIL
+
+    def test_stage_acceptance_uses_the_same_denominator_as_the_totals(self) -> None:
+        """Otherwise the manifest contradicts itself.
+
+        Counting a deferred item in its stage while excluding it from the mandatory
+        totals means that once every attemptable item is accepted, final_status reads
+        PASS while the stage holding the deferred item still reads NOT_ATTESTED. A reader
+        has no way to tell which number is wrong.
+        """
+        backlog = _backlog(_accepted("I.01", stage="I"), _deferred("I.02", stage="I"))
+        stage = _stage_acceptance(backlog, "I")
+
+        assert stage["total"] == 1
+        assert stage["accepted"] == 1
+        assert stage["deferred_by_owner_decision"] == 1
+        assert stage["status"] == FinalStatus.PASS.value
+        assert derive_final_status(backlog) is FinalStatus.PASS
+
+    def test_a_stage_of_only_deferred_items_is_not_a_pass(self) -> None:
+        """An empty denominator must not manufacture a pass out of nothing proven."""
+        backlog = _backlog(_accepted("A.01"), _deferred("L.09", stage="L"))
+        stage = _stage_acceptance(backlog, "L")
+
+        assert stage["total"] == 0
+        assert stage["accepted"] == 0
+        assert stage["deferred_by_owner_decision"] == 1
+        assert stage["status"] == FinalStatus.NOT_ATTESTED.value
+
+    def test_a_deferred_item_is_not_listed_as_a_stage_blocker(self) -> None:
+        backlog = _backlog(
+            _accepted("I.01", stage="I"),
+            _blocked("I.03", stage="I"),
+            _deferred("I.02", stage="I"),
+        )
+
+        assert _stage_acceptance(backlog, "I")["blocking_items"] == ["I.03"]
+
+    def test_a_stage_regression_still_fails_beside_a_deferral(self) -> None:
+        regressed = AcceptanceItem(
+            item_id="L.01",
+            stage="L",
+            title="regressed stage item",
+            mandatory=True,
+            status=AcceptanceStatus.REGRESSED,
+            blocking_reason="a previously accepted gate broke",
+        )
+        backlog = _backlog(regressed, _deferred("L.09", stage="L"))
+
+        assert _stage_acceptance(backlog, "L")["status"] == FinalStatus.FAIL.value
