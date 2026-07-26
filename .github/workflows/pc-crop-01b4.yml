@@ -67,6 +67,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       slice_touched: ${{ steps.decide.outputs.slice_touched }}
+      scope_mode: ${{ steps.decide.outputs.scope_mode }}
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -76,15 +77,43 @@ jobs:
 
       - name: Decide ownership and enforce exact-head bounded remediation scope
         id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git fetch --no-tags origin "${{ github.base_ref }}"
-            base_ref="origin/${{ github.base_ref }}"
+
+          # A manual dispatch has no diff to own: whoever dispatched it asked for
+          # the acceptance suite, not for an ownership decision. Run it, and never
+          # let the latest unrelated commit skip it.
+          if [ "$EVENT_NAME" = 'workflow_dispatch' ]; then
+            printf '%s\n' 'MANUAL_DISPATCH' > "$EVIDENCE_DIR/scope-mode.txt"
+            printf '%s\n' 'workflow_dispatch' > "$EVIDENCE_DIR/base-ref.txt"
+            echo 'slice_touched=true' >> "$GITHUB_OUTPUT"
+            echo 'scope_mode=MANUAL_DISPATCH' >> "$GITHUB_OUTPUT"
+            echo 'Manual dispatch: the acceptance suite runs unconditionally and bounded-scope'
+            echo 'enforcement does not apply.'
+            exit 0
+          fi
+
+          if [ "$EVENT_NAME" = 'pull_request' ]; then
+            git fetch --no-tags origin "$BASE_BRANCH"
+            base_ref="origin/$BASE_BRANCH"
           else
-            base_ref="HEAD^"
+            # A push can carry more than one commit, and the slice files that
+            # triggered this workflow may sit in any of them. HEAD^ would look at
+            # the last commit only and could skip acceptance for slice code that
+            # really did change, so own the whole pushed range.
+            if [ -n "$PUSH_BEFORE" ] \
+              && [ "$PUSH_BEFORE" != '0000000000000000000000000000000000000000' ] \
+              && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+              base_ref="$PUSH_BEFORE"
+            else
+              base_ref="HEAD^"
+            fi
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
@@ -102,6 +131,7 @@ jobs:
           if [ ! -s "$EVIDENCE_DIR/slice-files.txt" ]; then
             printf '%s\n' 'SHARED_INFRASTRUCTURE_ONLY' > "$EVIDENCE_DIR/scope-mode.txt"
             echo 'slice_touched=false' >> "$GITHUB_OUTPUT"
+            echo 'scope_mode=SHARED_INFRASTRUCTURE_ONLY' >> "$GITHUB_OUTPUT"
             echo 'No PC-CROP-01B.4 slice file changed. This run was triggered by shared'
             echo 'infrastructure only, so the slice is byte-identical to its base and its'
             echo 'bounded scope does not apply.'
@@ -110,6 +140,7 @@ jobs:
 
           printf '%s\n' 'SLICE_REMEDIATION' > "$EVIDENCE_DIR/scope-mode.txt"
           echo 'slice_touched=true' >> "$GITHUB_OUTPUT"
+          echo 'scope_mode=SLICE_REMEDIATION' >> "$GITHUB_OUTPUT"
           if grep -Ev '^(\.github/workflows/pc-crop-01a\.yml|\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/.*|apps/api/src/modules/staff-access/staff-access\.types\.ts|apps/web/app/api/platform-v7/commodity-profiles/.*|apps/web/app/api/staff/commodity-profile-registry/.*|apps/web/app/api/staff/commodity-profiles/.*|apps/web/app/platform-v7/commodity-profiles/.*|apps/web/components/crop-platform/(CommodityProfileRegistry(Client|View)(\.module\.css|\.tsx)?|commodity-profile-live-adapter\.ts|css-modules\.d\.ts)|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-01b4-(private-bff-live-registry|postmerge-remediation)\.json|scripts/p7-autopilot-guard\.sh|scripts/verify-pc-crop-01a\.mjs)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.4 contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
@@ -153,11 +184,13 @@ jobs:
           fetch-depth: 0
 
       - name: Record exact head under acceptance
+        env:
+          SCOPE_MODE: ${{ needs.scope.outputs.scope_mode }}
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          printf '%s\n' 'SLICE_REMEDIATION' > "$EVIDENCE_DIR/scope-mode.txt"
+          printf '%s\n' "$SCOPE_MODE" > "$EVIDENCE_DIR/scope-mode.txt"
 
       - uses: pnpm/action-setup@v4
         with:
