@@ -1,50 +1,60 @@
 name: SEO Live Smoke
 
+# Runs only after a production release that was actually accepted by the REG.RU
+# virtual server. A push to main updates source authority; it does not deploy,
+# so it is not evidence that the live domain serves that commit.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/web/**'
-      - 'infra/docker/Dockerfile.web'
-      - 'scripts/write-deploy-evidence.mjs'
-      - '.github/workflows/seo-live-smoke.yml'
+  workflow_run:
+    workflows: ['Production Web Exact-SHA Release']
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      accepted_sha:
+        description: 'Diagnostics only: full main SHA a production release accepted.'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  accepted:
+    name: Resolve accepted production release
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/production-release-accepted-sha.yml
+    with:
+      release_run_id: ${{ github.event.workflow_run.id || '' }}
+      manual_sha: ${{ inputs.accepted_sha || '' }}
+
   live-smoke:
     name: Verify production SEO headers
+    needs: accepted
+    if: needs.accepted.outputs.deployment_accepted == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      ACCEPTED_SHA: ${{ needs.accepted.outputs.accepted_sha }}
+      RELEASE_SOURCE: ${{ needs.accepted.outputs.release_source }}
+      RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
     steps:
-      - name: Wait for exact production deploy
+      - name: Record the accepted release under test
         shell: bash
         run: |
           set -euo pipefail
-          SITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"
-          DEPLOY_EVIDENCE="$SITE/manifest-pc-deploy.json"
           mkdir -p artifacts/seo-live
-
-          for attempt in {1..60}; do
-            body="$(curl --fail --silent --show-error --location \
-              --retry 3 --retry-all-errors \
-              "$DEPLOY_EVIDENCE?expected=$GITHUB_SHA&attempt=$attempt" 2>/dev/null || true)"
-            live_sha="$(jq -r '.commitSha // empty' <<< "$body" 2>/dev/null || true)"
-            printf '%s\n' "$body" > artifacts/seo-live/deploy-evidence-latest.json
-            echo "Deploy attempt $attempt: expected=$GITHUB_SHA live=${live_sha:-missing}"
-            if [[ "$live_sha" == "$GITHUB_SHA" ]]; then
-              echo "Exact production deploy confirmed."
-              break
-            fi
-            if [[ "$attempt" == 60 ]]; then
-              echo "Production did not expose exact commit $GITHUB_SHA within the acceptance window." >&2
-              exit 1
-            fi
-            sleep 20
-          done
+          SITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"
+          body="$(curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors \
+            "$SITE/manifest-pc-deploy.json?accepted=$ACCEPTED_SHA")"
+          printf '%s\n' "$body" > artifacts/seo-live/deploy-evidence-latest.json
+          live_sha="$(jq -r '.commitSha // empty' <<< "$body")"
+          echo "accepted=$ACCEPTED_SHA live=$live_sha source=$RELEASE_SOURCE"
+          test "$live_sha" = "$ACCEPTED_SHA"
 
       - name: Verify live SEO authority
         shell: bash
@@ -72,7 +82,7 @@ jobs:
             headers_file="$EVIDENCE/public-${safe}.headers.txt"
             curl --fail --silent --show-error --head --location \
               --retry 5 --retry-all-errors \
-              "$SITE$path?acceptance_sha=$GITHUB_SHA" | tr -d '\r' | tee "$headers_file"
+              "$SITE$path?acceptance_sha=$ACCEPTED_SHA" | tr -d '\r' | tee "$headers_file"
             status="$(awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }' "$headers_file")"
             robots="$(awk -F': ' 'tolower($1)=="x-robots-tag" { value=$2 } END { print value }' "$headers_file")"
             [[ "$status" =~ ^(2|3)[0-9][0-9]$ ]]
@@ -85,7 +95,7 @@ jobs:
             headers_file="$EVIDENCE/private-${safe}.headers.txt"
             curl --fail --silent --show-error --head --location \
               --retry 5 --retry-all-errors \
-              "$SITE$path?acceptance_sha=$GITHUB_SHA" | tr -d '\r' | tee "$headers_file"
+              "$SITE$path?acceptance_sha=$ACCEPTED_SHA" | tr -d '\r' | tee "$headers_file"
             status="$(awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }' "$headers_file")"
             robots="$(awk -F': ' 'tolower($1)=="x-robots-tag" { value=$2 } END { print value }' "$headers_file")"
             [[ "$status" =~ ^(2|3)[0-9][0-9]$ ]]
@@ -94,9 +104,9 @@ jobs:
           done
 
           curl --fail --silent --show-error --location --retry 5 --retry-all-errors \
-            "$SITE/sitemap.xml?acceptance_sha=$GITHUB_SHA" -o "$EVIDENCE/sitemap.xml"
+            "$SITE/sitemap.xml?acceptance_sha=$ACCEPTED_SHA" -o "$EVIDENCE/sitemap.xml"
           curl --fail --silent --show-error --location --retry 5 --retry-all-errors \
-            "$SITE/robots.txt?acceptance_sha=$GITHUB_SHA" -o "$EVIDENCE/robots.txt"
+            "$SITE/robots.txt?acceptance_sha=$ACCEPTED_SHA" -o "$EVIDENCE/robots.txt"
 
           for required in \
             "/platform-v7" \
@@ -124,25 +134,27 @@ jobs:
           robots_sha="sha256:$(sha256sum "$EVIDENCE/robots.txt" | awk '{print $1}')"
           jq -n \
             --arg repository "$GITHUB_REPOSITORY" \
-            --arg branch "$GITHUB_REF_NAME" \
-            --arg commitSha "$GITHUB_SHA" \
+            --arg branch main \
+            --arg commitSha "$ACCEPTED_SHA" \
+            --arg releaseSource "$RELEASE_SOURCE" \
+            --arg releaseRunId "${RELEASE_RUN_ID:-}" \
             --arg runId "$GITHUB_RUN_ID" \
             --arg checkedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg sitemapSha256 "$sitemap_sha" \
             --arg robotsSha256 "$robots_sha" \
             --argjson public "$public_json" \
             --argjson private "$private_json" \
-            '{schemaVersion:1,repository:$repository,branch:$branch,commitSha:$commitSha,runId:$runId,checkedAt:$checkedAt,public:$public,private:$private,sitemap:{sha256:$sitemapSha256},robots:{sha256:$robotsSha256},violatedThresholds:[],pass:true,result:"PASS"}' \
+            '{schemaVersion:2,repository:$repository,branch:$branch,commitSha:$commitSha,releaseSource:$releaseSource,releaseRunId:$releaseRunId,runId:$runId,checkedAt:$checkedAt,public:$public,private:$private,sitemap:{sha256:$sitemapSha256},robots:{sha256:$robotsSha256},violatedThresholds:[],pass:true,result:"PASS"}' \
             > "$EVIDENCE/seo-live-evidence.json"
 
       - name: Enforce machine-readable SEO evidence
         run: |
-          node -e 'const r=require("./artifacts/seo-live/seo-live-evidence.json"); if(r.commitSha!==process.env.GITHUB_SHA||r.pass!==true||r.result!=="PASS"||r.violatedThresholds.length!==0) process.exit(1)'
+          node -e 'const r=require("./artifacts/seo-live/seo-live-evidence.json"); if(r.commitSha!==process.env.ACCEPTED_SHA||r.pass!==true||r.result!=="PASS"||r.violatedThresholds.length!==0) process.exit(1)'
 
       - name: Upload production SEO evidence
         uses: actions/upload-artifact@v4
         with:
-          name: seo-live-${{ github.sha }}
+          name: seo-live-${{ needs.accepted.outputs.accepted_sha }}
           path: artifacts/seo-live
           if-no-files-found: error
           retention-days: 90
