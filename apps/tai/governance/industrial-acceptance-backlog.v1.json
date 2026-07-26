@@ -1,110 +1,15 @@
 {
   "discovery": {
-    "exact_main_sha": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
-    "failing_main_workflows": [
-      ".github/workflows/pc-crop-08f-sync-main.yml",
-      ".github/workflows/tai-gateway-ui-readonly-binding.yml"
-    ],
-    "generated_at": "2026-07-25T14:10:00Z",
-    "open_issues": [
-      2102,
-      2103,
-      2105,
-      2106,
-      2107,
-      2108,
-      2198,
-      2296,
-      2297,
-      2301,
-      2304,
-      2348,
-      2597,
-      2600,
-      2649,
-      2693,
-      2694,
-      2695,
-      2696,
-      2697,
-      2726,
-      2770,
-      2788,
-      2789,
-      2835,
-      2861,
-      2875,
-      2877,
-      2881,
-      2882,
-      2883,
-      2887,
-      2911,
-      2920,
-      2932,
-      2945,
-      2946,
-      2950,
-      2953,
-      2954,
-      2957,
-      2958,
-      2961,
-      2970,
-      2971,
-      2972,
-      2990,
-      2991,
-      2997,
-      2998,
-      3003,
-      3004,
-      3012,
-      3043,
-      3072,
-      3099,
-      3127,
-      3171,
-      3178,
-      3185
-    ],
-    "open_prs": [
-      2702,
-      2708,
-      2733,
-      2736,
-      2766,
-      2837,
-      2838,
-      2840,
-      2842,
-      2865,
-      2890,
-      2897,
-      2902,
-      2907,
-      2913,
-      2916,
-      2948,
-      3000,
-      3001,
-      3005,
-      3014,
-      3017,
-      3034,
-      3080,
-      3167,
-      3179,
-      3180,
-      3181,
-      3197,
-      3200
-    ],
+    "counts_method": "GitHub search total_count for open pull requests; GraphQL list totalCount for open issues, because the issue search index returned total_count 0 and cannot be trusted",
+    "exact_main_sha": "ca2e1ecec47b4dec1868d681f2d25c0aaaac8444",
+    "failing_main_workflows": [],
+    "generated_at": "2026-07-26T07:50:00Z",
+    "open_issue_count": 209,
+    "open_pull_request_count": 174,
     "stale_branches": [
       "agent/tai-ap-13b3e-immutable-storage-contract",
       "agent/tai-ap-13c1d-remediation-2997",
       "agent/tai-ap-13c1e-cpu-benchmark-finalization",
-      "agent/tai-ap-13c1f-qwen-preview-runtime",
       "agent/tai-gateway-ui-readonly-3004",
       "agent/tai-security-audit-remediation-3006",
       "tai/ap12b-assign-logistics-confirmed-action"
@@ -151,15 +56,14 @@
       "title": "All active TAI branches are synchronized with exact main"
     },
     {
-      "blocking_reason": "tai-gateway-ui-readonly-binding.yml and pc-crop-08f-sync-main.yml are invalid YAML and fail at startup on every push to main",
       "evidence_refs": [
-        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160676433",
-        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30160676609"
+        "scripts/check-workflow-syntax.py",
+        "git-commit:714b848daaa643085784a202c8a690c2d5ce3c82"
       ],
       "item_id": "A.05",
       "mandatory": true,
       "stage": "A",
-      "status": "REGRESSED",
+      "status": "ACCEPTED",
       "title": "Zero failing workflows on exact main"
     },
     {
@@ -173,12 +77,14 @@
     },
     {
       "evidence_refs": [
-        "apps/tai/tai/industrial_gap_report.py"
+        "apps/tai/tai/industrial_gap_report.py",
+        "apps/tai/tai/industrial_gap_report_cli.py",
+        "apps/tai/governance/industrial-acceptance-backlog.v1.json"
       ],
       "item_id": "A.07",
       "mandatory": true,
       "stage": "A",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "Machine-readable acceptance backlog and derived gap report on exact main"
     },
     {
@@ -252,21 +158,25 @@
       "title": "Clean restore from immutable storage with re-verified digests"
     },
     {
-      "blocking_reason": "read-only preview runtime is unmerged and has never executed on the protected host",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30170949129",
+        "git-commit:b78b169a21e10aa890105b14f3712b091b7fe038"
+      ],
       "item_id": "B.08",
       "mandatory": true,
       "stage": "B",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Dedicated model host serves Qwen on loopback with memory and concurrency limits"
     },
     {
-      "blocking_reason": "depends on B.08 model-host execution",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30170949129",
+        "apps/tai/model-artifacts/qwen-preview-runtime-driver.v1.sh"
+      ],
       "item_id": "B.09",
       "mandatory": true,
       "stage": "B",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Raw prompt and response cleanup with proven listener teardown"
     },
     {
@@ -414,8 +324,10 @@
       "title": "RU/EN/ZH, typo, translit, adversarial and leakage evaluation suite"
     },
     {
-      "blocking_reason": "requires owner-appointed authenticated domain reviewers that do not yet exist",
-      "evidence_refs": [],
+      "blocking_reason": "gold-set-authority.mjs --require-accepted exits 2 with EXPERT_REVIEWS_MISSING: 0 of 58 cases reviewed, corpus and protocol present on exact main",
+      "evidence_refs": [
+        "docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs"
+      ],
       "item_id": "E.06",
       "mandatory": true,
       "stage": "E",
@@ -565,15 +477,15 @@
       "title": "Production feature flag enabled only after model admission and runtime health"
     },
     {
-      "blocking_reason": "apps/api TAI_PLATFORM_TOOL_MODES serves only getDealSummary and getRoleNextActions, so the remaining 8 read tools need platform-side implementations before TAI can register them",
       "evidence_refs": [
         "apps/api/src/modules/tai-tools/tai-tool-assertion.ts",
-        "apps/tai/tai/platform_tools.py"
+        "apps/tai/tai/read_tool_contracts.py",
+        "git-commit:7750b591c2a777022bc0a8c9321ffb3f8c9f3de0"
       ],
       "item_id": "I.01",
       "mandatory": true,
       "stage": "I",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Ten typed read-only Safe Tools"
     },
     {
@@ -597,12 +509,13 @@
     {
       "evidence_refs": [
         "apps/tai/tai/read_tool_contracts.py",
-        "apps/tai/tai/tool_planner.py"
+        "apps/tai/tai/tool_planner.py",
+        "apps/tai/tests/test_read_tool_contracts.py"
       ],
       "item_id": "I.04",
       "mandatory": true,
       "stage": "I",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "Model cannot mint action ids, select tenant or role, or self-confirm"
     },
     {

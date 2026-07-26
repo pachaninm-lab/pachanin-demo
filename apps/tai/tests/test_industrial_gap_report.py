@@ -37,7 +37,7 @@ REPOSITORY_MANIFEST = (
 )
 REPOSITORY_RELEASE_ID = "tai-industrial-discovery-2026-07-25"
 
-MAIN_SHA = "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99"
+MAIN_SHA = "ca2e1ecec47b4dec1868d681f2d25c0aaaac8444"
 QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
 MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
 
@@ -60,8 +60,9 @@ def _discovery() -> DiscoveryContext:
     return DiscoveryContext(
         exact_main_sha=MAIN_SHA,
         generated_at=datetime(2026, 7, 25, 14, 10, tzinfo=UTC),
-        open_prs=(3005, 3014),
-        open_issues=(2726, 3004),
+        open_pull_request_count=173,
+        open_issue_count=209,
+        counts_method="search total_count for pull requests; GraphQL totalCount for issues",
         stale_branches=("agent/tai-gateway-ui-readonly-3004",),
         failing_main_workflows=(".github/workflows/tai-gateway-ui-readonly-binding.yml",),
     )
@@ -215,13 +216,28 @@ class TestBacklogInvariants:
                 fallback_model=_model("fallback"),
             )
 
-    def test_open_pull_requests_must_be_sorted_and_unique(self) -> None:
-        with pytest.raises(ValueError, match="open_prs must be sorted ascending"):
+    def test_negative_open_counts_are_rejected(self) -> None:
+        """Counts replaced enumerated lists after the lists silently under-reported."""
+        with pytest.raises(ValueError, match="open_pull_request_count must not be negative"):
             DiscoveryContext(
                 exact_main_sha=MAIN_SHA,
                 generated_at=datetime(2026, 7, 25, tzinfo=UTC),
-                open_prs=(3014, 3005),
-                open_issues=(),
+                open_pull_request_count=-1,
+                open_issue_count=0,
+                counts_method="search total_count",
+                stale_branches=(),
+                failing_main_workflows=(),
+            )
+
+    def test_counts_must_say_how_they_were_obtained(self) -> None:
+        """A bare number cannot be audited; the method is what makes it checkable."""
+        with pytest.raises(ValueError, match="counts_method"):
+            DiscoveryContext(
+                exact_main_sha=MAIN_SHA,
+                generated_at=datetime(2026, 7, 25, tzinfo=UTC),
+                open_pull_request_count=173,
+                open_issue_count=209,
+                counts_method="",
                 stale_branches=(),
                 failing_main_workflows=(),
             )
@@ -231,8 +247,9 @@ class TestBacklogInvariants:
             DiscoveryContext(
                 exact_main_sha=MAIN_SHA,
                 generated_at=datetime(2026, 7, 25),  # noqa: DTZ001
-                open_prs=(),
-                open_issues=(),
+                open_pull_request_count=0,
+                open_issue_count=0,
+                counts_method="search total_count",
                 stale_branches=(),
                 failing_main_workflows=(),
             )
@@ -300,6 +317,19 @@ class TestTotals:
             "100 * mandatory_accepted / mandatory_total"
         )
 
+    def test_percentage_states_what_it_counts(self) -> None:
+        """The number was read as overall product readiness. It never was that.
+
+        It counts readiness evidence gates carrying accepted exact-main evidence. A
+        subsystem can be fully built and still contribute nothing until its gate has
+        evidence, so the figure floors far below what exists — which is exactly the
+        misreading this label exists to prevent.
+        """
+        scope = _backlog(_accepted("A.01")).totals().to_json_object()["completion_scope"]
+        assert scope.startswith("READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE")
+        assert "Not overall TAI implementation progress" in scope
+        assert "not product readiness" in scope
+
 
 class TestManifest:
     def test_forbidden_production_provider_is_rejected(self) -> None:
@@ -353,8 +383,9 @@ class TestGapReport:
         for field in (
             "exact_main_sha",
             "generated_at",
-            "open_prs",
-            "open_issues",
+            "open_pull_request_count",
+            "open_issue_count",
+            "counts_method",
             "stale_branches",
             "model_artifact_status",
             "benchmark_status",
@@ -449,7 +480,12 @@ class TestCli:
             str(manifest),
         ]
         assert main(["render", *arguments]) == 0
-        gap_report.write_text(gap_report.read_text(encoding="utf-8").replace("FAIL", "PASS"))
+        # Forge the number, which is what someone would actually forge. This used to
+        # rewrite the literal "FAIL", so the day the backlog stopped deriving FAIL the
+        # mutation silently became a no-op and the test passed by not testing anything.
+        forged = json.loads(gap_report.read_text(encoding="utf-8"))
+        forged["totals"]["completion_percent"] = 100.0
+        gap_report.write_text(canonical_json(forged), encoding="utf-8")
         assert main(["verify", *arguments]) == 2
 
     def test_verify_guards_the_committed_documents(self) -> None:

@@ -27,6 +27,7 @@ from typing import Any, Final
 from tai.git_oid import validate_git_oid
 
 __all__ = [
+    "COMPLETION_SCOPE",
     "AcceptanceBacklog",
     "AcceptanceItem",
     "AcceptanceStatus",
@@ -48,6 +49,11 @@ __all__ = [
 BACKLOG_SCHEMA: Final = "tai.industrial-acceptance-backlog.v1"
 GAP_REPORT_SCHEMA: Final = "tai.current-industrial-gap-report.v1"
 MANIFEST_SCHEMA: Final = "tai.production-operational-manifest.v1"
+
+COMPLETION_SCOPE: Final = (
+    "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. "
+    "Not overall TAI implementation progress and not product readiness."
+)
 
 PRODUCTION_PROVIDER: Final = "REG.RU"
 PRODUCTION_REGION: Final = "RU"
@@ -195,6 +201,11 @@ class BacklogTotals:
             "blocked": self.blocked,
             "completion_formula": "100 * mandatory_accepted / mandatory_total",
             "completion_percent": self.completion_percent,
+            # Read once as product readiness, which it is not, and never again. This
+            # counts readiness evidence gates that have accepted evidence on exact main.
+            # A subsystem can be fully implemented and contribute nothing here until its
+            # gate has evidence, so the number floors well below what is actually built.
+            "completion_scope": COMPLETION_SCOPE,
             "mandatory_accepted": self.mandatory_accepted,
             "mandatory_total": self.mandatory_total,
             "regressed": self.regressed,
@@ -209,21 +220,28 @@ class DiscoveryContext:
 
     exact_main_sha: str
     generated_at: datetime
-    open_prs: tuple[int, ...]
-    open_issues: tuple[int, ...]
+    # Totals, not enumerations. The first version of this artifact listed every open pull
+    # request and issue by number, and the lists were filled from a single paginated API
+    # page. The committed result claimed 30 open pull requests against 173, and 60 open
+    # issues against 209, and nothing failed — an under-report of more than five times,
+    # rendered as a precise-looking list. A count carries no false precision, and
+    # counts_method records how it was obtained so a wrong number can be traced.
+    open_pull_request_count: int
+    open_issue_count: int
+    counts_method: str
     stale_branches: tuple[str, ...]
     failing_main_workflows: tuple[str, ...]
 
     def __post_init__(self) -> None:
         validate_git_oid(self.exact_main_sha, "exact_main_sha")
         _utc(self.generated_at, "generated_at")
-        for numbers, name in ((self.open_prs, "open_prs"), (self.open_issues, "open_issues")):
-            if any(number < 1 for number in numbers):
-                raise ValueError(f"{name} must contain positive numbers")
-            if len(set(numbers)) != len(numbers):
-                raise ValueError(f"{name} must be unique")
-            if list(numbers) != sorted(numbers):
-                raise ValueError(f"{name} must be sorted ascending")
+        for count, name in (
+            (self.open_pull_request_count, "open_pull_request_count"),
+            (self.open_issue_count, "open_issue_count"),
+        ):
+            if count < 0:
+                raise ValueError(f"{name} must not be negative")
+        _text(self.counts_method, "counts_method")
         for branch in self.stale_branches:
             if _BRANCH.fullmatch(branch) is None:
                 raise ValueError("stale branch must be a bounded ref name")
@@ -376,8 +394,9 @@ class IndustrialGapReport:
             "model_admission_status": subsystems["model_admission"].value,
             "model_artifact_status": subsystems["model_artifact"].value,
             "observability_status": subsystems["observability"].value,
-            "open_issues": list(discovery.open_issues),
-            "open_prs": list(discovery.open_prs),
+            "counts_method": discovery.counts_method,
+            "open_issue_count": discovery.open_issue_count,
+            "open_pull_request_count": discovery.open_pull_request_count,
             "operational_acceptance_status": derive_final_status(self.backlog).value,
             "production_deployment_status": subsystems["production_deployment"].value,
             "recommended_execution_order": _recommended_execution_order(self.backlog),
@@ -479,8 +498,9 @@ def backlog_canonical_json(backlog: AcceptanceBacklog) -> str:
                 "exact_main_sha": discovery.exact_main_sha,
                 "failing_main_workflows": list(discovery.failing_main_workflows),
                 "generated_at": discovery.generated_at.isoformat().replace("+00:00", "Z"),
-                "open_issues": list(discovery.open_issues),
-                "open_prs": list(discovery.open_prs),
+                "counts_method": discovery.counts_method,
+                "open_issue_count": discovery.open_issue_count,
+                "open_pull_request_count": discovery.open_pull_request_count,
                 "stale_branches": list(discovery.stale_branches),
             },
             "items": [item.to_json_object() for item in backlog.items],
@@ -575,14 +595,13 @@ def load_backlog(path: Path) -> AcceptanceBacklog:
         generated_at=_parse_timestamp(
             _require_str(discovery_payload.get("generated_at"), "generated_at"), "generated_at"
         ),
-        open_prs=tuple(
-            _require_int(number, "open pr")
-            for number in _require_sequence(discovery_payload.get("open_prs", []), "open_prs")
+        open_pull_request_count=_require_int(
+            discovery_payload.get("open_pull_request_count"), "open_pull_request_count"
         ),
-        open_issues=tuple(
-            _require_int(number, "open issue")
-            for number in _require_sequence(discovery_payload.get("open_issues", []), "open_issues")
+        open_issue_count=_require_int(
+            discovery_payload.get("open_issue_count"), "open_issue_count"
         ),
+        counts_method=_require_str(discovery_payload.get("counts_method"), "counts_method"),
         stale_branches=tuple(
             _require_str(branch, "stale branch")
             for branch in _require_sequence(
