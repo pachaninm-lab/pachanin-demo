@@ -143,6 +143,7 @@ jobs:
           set -e
           printf '%s\n' "$anonymous_status" > "$REPORT_ROOT/raw/anonymous_list_http_status.txt"
           printf '%s\n' "$anonymous_exit" > "$REPORT_ROOT/raw/anonymous_list_probe.exit"
+
           aws --version > "$REPORT_ROOT/raw/aws-version.txt" 2>&1 || true
 
       - name: Record unavailable protected inputs
@@ -209,11 +210,18 @@ jobs:
           if not isinstance(policy, dict):
               policy = {}
 
-          status_path = root / 'anonymous_list_http_status.txt'
-          anonymous_status = status_path.read_text().strip() if status_path.exists() else ''
+          def http_status(name: str) -> str:
+              path = root / f'{name}.txt'
+              return path.read_text().strip() if path.exists() else ''
+
+          # The profile the bucket is measured under is read from the requirements
+          # artifact, not written as a literal here. A hardcoded profile is how the
+          # evaluator ended up accepting exactly one provider while the contract claimed
+          # to accept any, and a literal in two files drifts the moment one changes.
+          requirements = json.loads(Path(os.environ['REQUIREMENTS']).read_text())
           payload = {
               'schema_version': 'tai.model-bundle-s3-preflight-observed.v1',
-              'provider_profile': 'SELECTEL_S3_2026',
+              'provider_profile': requirements.get('provider_profile', ''),
               'endpoint': os.environ.get('S3_ENDPOINT', ''),
               'region': os.environ.get('S3_REGION', ''),
               'bucket': os.environ.get('S3_BUCKET', ''),
@@ -222,7 +230,7 @@ jobs:
               'commands': {name: exit_ok(name) for name in command_names},
               'versioning': object_json('get_bucket_versioning'),
               'object_lock': object_json('get_object_lock_configuration'),
-              'anonymous_list_http_status': anonymous_status,
+              'anonymous_list_http_status': http_status('anonymous_list_http_status'),
               'policy': policy,
               'aws_cli_identity': (root / 'aws-version.txt').read_text(errors='replace')[:500],
               'mutation_mode': 'READ_ONLY',
