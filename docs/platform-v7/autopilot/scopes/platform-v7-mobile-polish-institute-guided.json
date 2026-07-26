@@ -5,6 +5,8 @@
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
   "allowedPaths": [
     "apps/web/app/pc-public-entry/platform-v7/home-approved-contact-dock.css",
+    "apps/web/app/pc-public-entry/platform-v7/home-mobile-execution-proof.css",
+    "apps/web/app/pc-public-entry/platform-v7/page.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHomeStory.module.css",
     "apps/web/components/platform-v7/PublicDealRoleScenario.module.css",
     "apps/web/i18n/platform-v7-hero-message.ts",
