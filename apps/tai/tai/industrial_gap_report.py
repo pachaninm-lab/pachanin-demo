@@ -79,6 +79,20 @@ class AcceptanceStatus(StrEnum):
     BLOCKED = "BLOCKED"
     REGRESSED = "REGRESSED"
     ACCEPTED = "ACCEPTED"
+    #: Out of scope for this release by an owner decision, not pending work.
+    #:
+    #: BLOCKED says "this cannot proceed until something else does" and keeps counting
+    #: against readiness. That is the wrong shape for an item the owner has ruled out:
+    #: attempting it is not merely blocked, it is forbidden, and no amount of engineering
+    #: moves it. Leaving such an item mandatory also makes PASS unreachable by
+    #: construction, so the manifest would report NOT_ATTESTED forever for a reason that
+    #: has nothing to do with how ready anything is.
+    #:
+    #: A deferred item is excluded from the mandatory denominator, is not a blocker, and
+    #: is never accepted — nothing about it was proven. It must state the decision that
+    #: deferred it, and it returns to the denominator only when a future decision revives
+    #: it under a new industrial acceptance.
+    DEFERRED_BY_OWNER_DECISION = "DEFERRED_BY_OWNER_DECISION"
 
 
 class SubsystemStatus(StrEnum):
@@ -153,11 +167,32 @@ class AcceptanceItem:
             raise ValueError(f"{self.item_id}: {self.status} requires a blocking reason")
         if self.status is AcceptanceStatus.NOT_STARTED and self.evidence_refs:
             raise ValueError(f"{self.item_id}: NOT_STARTED must not carry evidence")
+        if self.status is AcceptanceStatus.DEFERRED_BY_OWNER_DECISION and not self.mandatory:
+            # Deferral exists to take an item out of the mandatory denominator. Applying
+            # it to an optional item changes nothing and reads as a decision that was
+            # never made, so it is refused rather than silently accepted.
+            raise ValueError(
+                f"{self.item_id}: DEFERRED_BY_OWNER_DECISION applies only to mandatory items"
+            )
+
+    @property
+    def is_deferred(self) -> bool:
+        """Whether an owner decision has put this item outside the current release."""
+        return self.status is AcceptanceStatus.DEFERRED_BY_OWNER_DECISION
 
     @property
     def is_blocking(self) -> bool:
-        """Whether this item currently prevents production attestation."""
-        return self.mandatory and self.status is not AcceptanceStatus.ACCEPTED
+        """Whether this item currently prevents production attestation.
+
+        A deferred item is not blocking. It is not work waiting on something; it is work
+        the owner has ruled out of this release, so reporting it as an obstacle would put
+        it on the execution order and invite someone to build exactly what was forbidden.
+        """
+        return (
+            self.mandatory
+            and not self.is_deferred
+            and self.status is not AcceptanceStatus.ACCEPTED
+        )
 
     def to_json_object(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -173,7 +208,15 @@ class AcceptanceItem:
         return payload
 
 
-_NEEDS_REASON: Final = frozenset({AcceptanceStatus.BLOCKED, AcceptanceStatus.REGRESSED})
+#: A deferral without a stated decision is indistinguishable from quietly dropping an
+#: item, so it carries the same reason requirement as a block or a regression.
+_NEEDS_REASON: Final = frozenset(
+    {
+        AcceptanceStatus.BLOCKED,
+        AcceptanceStatus.REGRESSED,
+        AcceptanceStatus.DEFERRED_BY_OWNER_DECISION,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +230,10 @@ class BacklogTotals:
     remaining: int
     mandatory_total: int
     mandatory_accepted: int
+    #: Mandatory items an owner decision put outside this release. Reported alongside the
+    #: percentage rather than folded into it: a denominator that shrank without saying so
+    #: would read as progress.
+    mandatory_deferred: int = 0
 
     @property
     def completion_percent(self) -> float:
@@ -207,6 +254,10 @@ class BacklogTotals:
             # gate has evidence, so the number floors well below what is actually built.
             "completion_scope": COMPLETION_SCOPE,
             "mandatory_accepted": self.mandatory_accepted,
+            # Deferred items are excluded from mandatory_total, so the count travels with
+            # it. Without this the denominator could shrink silently and the percentage
+            # would rise while nothing was delivered.
+            "mandatory_deferred_by_owner_decision": self.mandatory_deferred,
             "mandatory_total": self.mandatory_total,
             "regressed": self.regressed,
             "remaining": self.remaining,
@@ -304,16 +355,23 @@ class AcceptanceBacklog:
 
     def totals(self) -> BacklogTotals:
         mandatory = [item for item in self.items if item.mandatory]
+        deferred = [item for item in mandatory if item.is_deferred]
+        # The denominator is the mandatory work this release can actually attempt. A
+        # deferred item is not attemptable — the owner ruled it out — so counting it as
+        # outstanding would report a gap no engineering can close, and would make PASS
+        # unreachable no matter what is delivered.
+        in_scope = [item for item in mandatory if not item.is_deferred]
         return BacklogTotals(
             total=len(self.items),
             accepted=sum(item.status is AcceptanceStatus.ACCEPTED for item in self.items),
             blocked=sum(item.status is AcceptanceStatus.BLOCKED for item in self.items),
             regressed=sum(item.status is AcceptanceStatus.REGRESSED for item in self.items),
             remaining=sum(item.status is not AcceptanceStatus.ACCEPTED for item in self.items),
-            mandatory_total=len(mandatory),
+            mandatory_total=len(in_scope),
             mandatory_accepted=sum(
-                item.status is AcceptanceStatus.ACCEPTED for item in mandatory
+                item.status is AcceptanceStatus.ACCEPTED for item in in_scope
             ),
+            mandatory_deferred=len(deferred),
         )
 
     def blocking_items(self) -> tuple[AcceptanceItem, ...]:
@@ -410,22 +468,37 @@ class IndustrialGapReport:
 
 
 def _stage_acceptance(backlog: AcceptanceBacklog, stage: str) -> dict[str, Any]:
+    """Per-stage acceptance, on the same denominator rule as the overall totals.
+
+    Deferred items leave the stage total for the same reason they leave the mandatory
+    one. Counting them here while excluding them there would let the manifest contradict
+    itself: once every item this release can attempt is accepted, `derive_final_status`
+    reports PASS while stages I and L still read NOT_ATTESTED, because each holds one
+    item nobody is allowed to work on. A reader would have no way to tell which number
+    was wrong.
+
+    A stage that is *only* deferred items is not a passing stage — nothing was proven —
+    so it reports NOT_ATTESTED rather than a vacuous PASS on an empty denominator.
+    """
     items = backlog.stage_items(stage)
-    accepted = sum(item.status is AcceptanceStatus.ACCEPTED for item in items)
-    if not items:
+    deferred = tuple(item for item in items if item.is_deferred)
+    in_scope = tuple(item for item in items if not item.is_deferred)
+    accepted = sum(item.status is AcceptanceStatus.ACCEPTED for item in in_scope)
+    if not in_scope:
         status = FinalStatus.NOT_ATTESTED
-    elif accepted == len(items):
-        status = FinalStatus.PASS
-    elif any(item.status is AcceptanceStatus.REGRESSED for item in items):
+    elif any(item.status is AcceptanceStatus.REGRESSED for item in in_scope):
         status = FinalStatus.FAIL
+    elif accepted == len(in_scope):
+        status = FinalStatus.PASS
     else:
         status = FinalStatus.NOT_ATTESTED
     return {
         "accepted": accepted,
         "blocking_items": [item.item_id for item in items if item.is_blocking],
+        "deferred_by_owner_decision": len(deferred),
         "stage": stage,
         "status": status.value,
-        "total": len(items),
+        "total": len(in_scope),
     }
 
 
