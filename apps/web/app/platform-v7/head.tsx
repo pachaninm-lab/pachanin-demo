@@ -1,4 +1,6 @@
-const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+import { PUBLIC_BRAND_ORIGIN } from '@/lib/platform-v7/public-brand-domain';
+
+const siteUrl = PUBLIC_BRAND_ORIGIN;
 const platformUrl = `${siteUrl}/platform-v7`;
 const dealFlowUrl = `${siteUrl}/platform-v7/deal-flow`;
 const taiUrl = `${siteUrl}/platform-v7/ai-in-action`;

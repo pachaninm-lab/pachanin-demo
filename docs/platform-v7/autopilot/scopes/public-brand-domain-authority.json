@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/public-brand-domain-authority",
+  "status": "active",
+  "purpose": "Keep the Cyrillic brand domain visible across public metadata, in-page links, clipboard and Web Share surfaces while preserving the technical IDN host only inside DNS, TLS and release infrastructure.",
+  "allowedPaths": [
+    "apps/web/app/layout.tsx",
+    "apps/web/app/platform-v7/head.tsx",
+    "apps/web/components/platform-v7/PlatformV7StructuredData.tsx",
+    "apps/web/lib/platform-v7/public-brand-domain.ts",
+    "apps/web/tests/unit/platformV7PublicBrandDomainAuthority.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-brand-domain-authority.json"
+  ],
+  "acceptanceEvidence": {
+    "domainAuthority": "apps/web/lib/platform-v7/public-brand-domain.ts",
+    "rootMetadataAndRuntime": "apps/web/app/layout.tsx",
+    "publicHead": "apps/web/app/platform-v7/head.tsx",
+    "structuredData": "apps/web/components/platform-v7/PlatformV7StructuredData.tsx",
+    "regressionTests": "apps/web/tests/unit/platformV7PublicBrandDomainAuthority.test.ts"
+  },
+  "constraints": [
+    "No domain migration",
+    "No DNS or TLS topology change",
+    "No changes to authentication, cookies, RBAC or API authority",
+    "Technical Punycode remains permitted only in infrastructure and network configuration",
+    "All platform-controlled public copy and share surfaces normalize to процент-агро.рф"
+  ]
+}
