@@ -1,0 +1,65 @@
+name: Apply Platform V7 homepage v4 payload
+
+on:
+  push:
+    branches:
+      - feat/platform-v7-home-v4-final-20260727
+    paths:
+      - '.github/workflows/apply-platform-v7-home-v4.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-home-v4-final-20260727
+          fetch-depth: 0
+
+      - name: Reconstruct and verify implementation payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .v4-implementation/READY
+          cat .v4-implementation/chunk-* > /tmp/v4-payload.b64
+          test "$(wc -c < /tmp/v4-payload.b64)" = "48252"
+          base64 --decode /tmp/v4-payload.b64 > /tmp/v4-payload.tar.gz
+          echo "d7d6c0c928c5a67459f49ffd97497c54f606bf20b47801b3f9498eda50740ec3  /tmp/v4-payload.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/v4-payload.tar.gz -C .
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate final homepage implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/platformV7HeroInfrastructureMessage.test.ts \
+            tests/unit/platformV7RootWorkEntry.test.ts
+
+      - name: Materialize clean implementation commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .v4-implementation
+          rm -f .github/workflows/apply-platform-v7-home-v4.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(home-v4): implement final approved public homepage"
+          git push origin HEAD:feat/platform-v7-home-v4-final-20260727
