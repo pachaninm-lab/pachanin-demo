@@ -107,10 +107,28 @@ describe('platform-v7 final master public entry', () => {
     expect(support).toContain("aria-modal='true'");
   });
 
+  it('keeps site landmarks and responsive disclosures available to assistive technology', () => {
+    expect(home).toContain("className={`pc-v6-page pc-v7-public-entry ${styles.root}`}");
+    expect(home).toContain("<main id='main-content' tabIndex={-1}>");
+    expect(home).not.toContain("<main id='main-content' className='pc-v6-page");
+    expect(home).not.toContain('<aside');
+    expect(home.match(/pc-v6-control-tower/g)).toHaveLength(1);
+    for (const id of ['difference-more-toggle', 'functions-more-toggle', 'phases-more-toggle']) {
+      expect(home).toContain(`id='${id}'`);
+    }
+    expect(home).not.toContain('<details className={styles.moreRows}>');
+    expect(home).not.toContain('<details className={styles.moreCards}>');
+    expect(storyCss).toContain('.root :global(.pc-site-header)');
+    expect(storyCss).toContain('font-family: var(--pc-entry-font-body) !important');
+    expect(storyCss).toContain('.root :global(.pc-site-brand)');
+    expect(storyCss).toContain('.moreContentToggle:focus-visible ~ .moreContentLabel');
+  });
+
   it('keeps comparison and integration data in valid accessible table structures', () => {
     expect(home).toContain("className={styles.comparisonTable} role='table' aria-labelledby='difference-title'");
-    expect(home).toContain("className={styles.comparisonRows} role='rowgroup'");
-    expect(home).toContain("className={styles.comparisonRow} role='row'");
+    expect(home.match(/className=\{styles\.comparisonTable\} role='table'/g)).toHaveLength(1);
+    expect(home).toContain("id='difference-comparison-rows' className={styles.comparisonRows} role='rowgroup'");
+    expect(home).toContain("data-comparison-row='true'");
     expect(home).toContain("<strong role='rowheader'>{row.criterion}</strong>");
     expect(home).toContain("className={styles.integrationTable} role='table' aria-labelledby='integrations-title'");
     expect(home).toContain("className={styles.integrationRows} role='rowgroup'");

@@ -101,8 +101,8 @@ export async function PlatformV7StrategicHome() {
   }).replace(/</g, '\\u003c');
 
   return (
-    <main id='main-content' className='pc-v6-page pc-v7-public-entry' data-testid='platform-v7-root-execution-cockpit'>
-      <a className='pc-skip-link' href='#pc-v6-title'>{chrome('skipToContent')}</a>
+    <div className={`pc-v6-page pc-v7-public-entry ${styles.root}`} data-testid='platform-v7-root-execution-cockpit'>
+      <a className='pc-skip-link' href='#main-content'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='home_v3_view' />
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: structuredData }} />
 
@@ -125,8 +125,9 @@ export async function PlatformV7StrategicHome() {
         }
       />
 
-      <div className='pc-v6-shell'>
-        <section className={`pc-v6-hero ${styles.hero}`} aria-labelledby='pc-v6-title'>
+      <main id='main-content' tabIndex={-1}>
+        <div className='pc-v6-shell'>
+          <section className={`pc-v6-hero ${styles.hero}`} aria-labelledby='pc-v6-title'>
           <div className={`pc-v6-hero-copy ${styles.heroCopy}`}>
             <span className='pc-v6-kicker'>{heroMessage.kicker}</span>
             <h1 id='pc-v6-title' className='pc-v6-hero-title'>
@@ -156,8 +157,9 @@ export async function PlatformV7StrategicHome() {
             </div>
           </div>
 
-          <aside
+          <div
             className={`${styles.heroDeal} pc-v6-control-tower`}
+            role='group'
             aria-label={copy.a11y.controlTower}
             data-testid='platform-v7-deal-card'
           >
@@ -207,7 +209,7 @@ export async function PlatformV7StrategicHome() {
               <FileCheck2 aria-hidden='true' size={18} />
               <span>{story.heroDeal.proof}</span>
             </div>
-          </aside>
+          </div>
         </section>
 
         <section className={styles.proofStrip} aria-label={copy.hero.proofLabel}>
@@ -225,13 +227,24 @@ export async function PlatformV7StrategicHome() {
         <section id='difference' className={`pc-v6-section ${styles.section}`} aria-labelledby='difference-title'>
           <SectionHeader id='difference-title' eyebrow={story.difference.eyebrow} title={story.difference.title} lead={story.difference.lead} />
           <div className={styles.comparisonSurface}>
+            <input
+              className={styles.moreContentToggle}
+              type='checkbox'
+              id='difference-more-toggle'
+              aria-controls='difference-comparison-rows'
+            />
             <div className={styles.comparisonTable} role='table' aria-labelledby='difference-title'>
               <div className={styles.comparisonHeader} role='row'>
                 {story.difference.headers.map((header) => <strong key={header} role='columnheader'>{header}</strong>)}
               </div>
-              <div className={styles.comparisonRows} role='rowgroup'>
-                {story.difference.rows.slice(0, 2).map((row) => (
-                  <div key={row.criterion} className={styles.comparisonRow} role='row' data-comparison-row='true'>
+              <div id='difference-comparison-rows' className={styles.comparisonRows} role='rowgroup'>
+                {story.difference.rows.map((row, index) => (
+                  <div
+                    key={row.criterion}
+                    className={`${styles.comparisonRow} ${index > 1 ? styles.comparisonExtraRow : ''}`}
+                    role='row'
+                    data-comparison-row='true'
+                  >
                     <strong role='rowheader'>{row.criterion}</strong>
                     <span role='cell'>{row.typical}</span>
                     <span role='cell'><CheckCircle2 aria-hidden='true' />{row.platform}</span>
@@ -239,27 +252,9 @@ export async function PlatformV7StrategicHome() {
                 ))}
               </div>
             </div>
-            <details className={styles.moreRows}>
-              <summary id='difference-more-summary'>{story.difference.moreLabel}<ArrowRight aria-hidden='true' size={16} /></summary>
-              <div
-                className={`${styles.comparisonTable} ${styles.comparisonContinuation}`}
-                role='table'
-                aria-labelledby='difference-title difference-more-summary'
-              >
-                <div className={`${styles.comparisonHeader} ${styles.continuationHeader}`} role='row'>
-                  {story.difference.headers.map((header) => <strong key={header} role='columnheader'>{header}</strong>)}
-                </div>
-                <div className={styles.comparisonRows} role='rowgroup'>
-                  {story.difference.rows.slice(2).map((row) => (
-                    <div key={row.criterion} className={styles.comparisonRow} role='row' data-comparison-row='true'>
-                      <strong role='rowheader'>{row.criterion}</strong>
-                      <span role='cell'>{row.typical}</span>
-                      <span role='cell'><CheckCircle2 aria-hidden='true' />{row.platform}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </details>
+            <label className={styles.moreContentLabel} htmlFor='difference-more-toggle'>
+              {story.difference.moreLabel}<ArrowRight aria-hidden='true' size={16} />
+            </label>
           </div>
           <div className={styles.honestBoundary}>
             <ShieldCheck aria-hidden='true' />
@@ -281,9 +276,16 @@ export async function PlatformV7StrategicHome() {
                 </article>
               );
             })}
-            <details className={styles.moreCards}>
-              <summary>{story.functions.moreLabel}<ArrowRight aria-hidden='true' size={16} /></summary>
-              <div className={styles.moreCardGrid}>
+            <input
+              className={styles.moreContentToggle}
+              type='checkbox'
+              id='functions-more-toggle'
+              aria-controls='functions-more-cards'
+            />
+            <label className={styles.moreContentLabel} htmlFor='functions-more-toggle'>
+              {story.functions.moreLabel}<ArrowRight aria-hidden='true' size={16} />
+            </label>
+            <div id='functions-more-cards' className={styles.moreCardGrid}>
                 {story.functions.items.slice(4).map((item, innerIndex) => {
                   const index = innerIndex + 4;
                   const Icon = functionIcons[index] ?? CheckCircle2;
@@ -296,8 +298,7 @@ export async function PlatformV7StrategicHome() {
                     </article>
                   );
                 })}
-              </div>
-            </details>
+            </div>
           </div>
           <div className={styles.functionSummary}>
             <Waypoints aria-hidden='true' />
@@ -316,9 +317,16 @@ export async function PlatformV7StrategicHome() {
                 <small><b>{story.process.resultLabel}:</b> {phase.result}</small>
               </article>
             ))}
-            <details className={styles.moreCards}>
-              <summary>{story.process.moreLabel}<ArrowRight aria-hidden='true' size={16} /></summary>
-              <div className={styles.morePhaseGrid}>
+            <input
+              className={styles.moreContentToggle}
+              type='checkbox'
+              id='phases-more-toggle'
+              aria-controls='phases-more-cards'
+            />
+            <label className={styles.moreContentLabel} htmlFor='phases-more-toggle'>
+              {story.process.moreLabel}<ArrowRight aria-hidden='true' size={16} />
+            </label>
+            <div id='phases-more-cards' className={styles.morePhaseGrid}>
                 {story.process.phases.slice(3).map((phase) => (
                   <article key={phase.index} className={styles.phaseCard}>
                     <span>{phase.index}</span>
@@ -327,8 +335,7 @@ export async function PlatformV7StrategicHome() {
                     <small><b>{story.process.resultLabel}:</b> {phase.result}</small>
                   </article>
                 ))}
-              </div>
-            </details>
+            </div>
           </div>
           <div className={styles.fullPath}>
             <span>{story.process.fullPathLabel}</span>
@@ -371,7 +378,7 @@ export async function PlatformV7StrategicHome() {
               {story.demo.states.map((state, index) => (
                 <article
                   key={state.key}
-                  className={`${styles.statePanel} ${statePanelClasses[index] ?? ''} pc-v6-control-tower`}
+                  className={`${styles.statePanel} ${statePanelClasses[index] ?? ''}`}
                   data-state={state.key}
                 >
                   <div className={styles.demoHeader}>
@@ -578,6 +585,7 @@ export async function PlatformV7StrategicHome() {
 
         <OrganizationConnectForm locale={locale} />
       </div>
+      </main>
 
       <footer className='pc-v6-footer'>
         <div className='pc-v6-shell'>
@@ -590,6 +598,6 @@ export async function PlatformV7StrategicHome() {
           </nav>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }

@@ -1,3 +1,25 @@
+.root :global(.pc-site-header) {
+  font-family: var(--pc-entry-font-body) !important;
+}
+
+.root :global(.pc-site-brand),
+.root :global(.pc-skip-link),
+.root :global(.pc-site-mobile-menu > summary),
+.root :global(.pc-site-locale-switch),
+.root :global(.entry-login),
+.root :global(.pc-v6-header-cta) {
+  min-height: 44px !important;
+}
+
+.root :global(.pc-site-mobile-menu > summary),
+.root :global(.entry-login) {
+  min-width: 44px !important;
+}
+
+.root :global(.pc-site-mobile-menu > summary) {
+  width: 44px !important;
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
@@ -304,6 +326,13 @@
   scroll-margin-top: 84px;
 }
 
+@supports (content-visibility: auto) {
+  .section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 880px;
+  }
+}
+
 .section :global(.pc-v6-section-head) {
   max-width: 790px;
   margin-bottom: 30px;
@@ -328,11 +357,16 @@
   background: #fff;
 }
 
-.comparisonTable {
-  min-width: 0;
+.moreContentToggle,
+.moreContentLabel {
+  display: none;
 }
 
-.comparisonContinuation {
+.moreContentLabel svg {
+  transition: transform 180ms ease;
+}
+
+.comparisonTable {
   min-width: 0;
 }
 
@@ -361,18 +395,6 @@
 
 .comparisonRows {
   display: block;
-}
-
-.continuationHeader {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  white-space: nowrap;
-  clip-path: inset(50%);
 }
 
 .comparisonRow {
@@ -411,13 +433,6 @@
   color: #087a3b;
 }
 
-.moreRows {
-  display: block;
-  margin: 0;
-}
-
-.moreRows > summary,
-.moreCards > summary,
 .fullStages > summary {
   min-height: 44px;
   display: none;
@@ -434,14 +449,10 @@
   cursor: pointer;
 }
 
-.moreRows > summary::-webkit-details-marker,
-.moreCards > summary::-webkit-details-marker,
 .fullStages > summary::-webkit-details-marker {
   display: none;
 }
 
-.moreRows[open] > summary svg,
-.moreCards[open] > summary svg,
 .fullStages[open] > summary svg {
   transform: rotate(90deg);
 }
@@ -550,10 +561,6 @@
 .functionCard small b,
 .phaseCard small b {
   color: #07572e;
-}
-
-.moreCards {
-  display: contents;
 }
 
 .moreCardGrid {
@@ -791,6 +798,8 @@
 .statePanel {
   min-width: 0;
   display: none;
+  overflow: hidden;
+  border: 1px solid #cbd9d1;
   border-radius: 18px !important;
   background: #fff !important;
   box-shadow: 0 16px 45px rgba(16, 42, 29, .07) !important;
@@ -1759,22 +1768,6 @@
   line-height: 1.56;
 }
 
-@media (min-width: 768px) {
-  .moreRows > summary,
-  .moreCards > summary {
-    display: none;
-  }
-
-  .moreRows:not([open]) > .comparisonTable {
-    display: block;
-  }
-
-  .moreCards:not([open]) > .moreCardGrid,
-  .moreCards:not([open]) > .morePhaseGrid {
-    display: contents;
-  }
-}
-
 @media (max-width: 1023px) {
   .hero {
     grid-template-columns: minmax(0, 1fr) minmax(360px, .92fr) !important;
@@ -1998,26 +1991,46 @@
     color: #fff;
   }
 
-  .moreRows {
-    margin-top: 9px;
+  .moreContentToggle {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    display: block;
     overflow: hidden;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    clip-path: inset(50%);
+  }
+
+  .moreContentLabel {
+    min-height: 44px;
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 9px;
+    padding: 11px 14px;
     border: 1px solid #d5e0da;
     border-radius: 14px;
-    background: #fff;
-  }
-
-  .moreRows > summary {
-    display: flex;
-    border-top: 0;
-  }
-
-  .moreRows > .comparisonTable {
-    padding: 9px;
-    border-top: 1px solid #dce5e0;
     background: #f7faf8;
+    color: #07572e;
+    font-size: 13px;
+    font-weight: 720;
+    cursor: pointer;
   }
 
-  .moreRows:not([open]) > .comparisonTable {
+  .moreContentToggle:focus-visible ~ .moreContentLabel {
+    outline: 3px solid rgba(8, 122, 59, .28);
+    outline-offset: 3px;
+  }
+
+  .moreContentToggle:checked ~ .moreContentLabel svg {
+    transform: rotate(90deg);
+  }
+
+  .moreContentToggle:not(:checked) ~ .comparisonTable .comparisonExtraRow {
     display: none;
   }
 
@@ -2047,32 +2060,20 @@
     padding: 16px;
   }
 
-  .moreCards {
-    display: block;
+  .moreCardGrid,
+  .morePhaseGrid {
+    display: none;
     grid-column: 1 / -1;
-    overflow: hidden;
+    gap: 9px;
+    padding: 9px;
     border: 1px solid #d5e0da;
     border-radius: 14px;
     background: #fff;
   }
 
-  .moreCards > summary {
-    display: flex;
-    border-top: 0;
-  }
-
-  .moreCardGrid,
-  .morePhaseGrid {
+  .moreContentToggle:checked ~ .moreCardGrid,
+  .moreContentToggle:checked ~ .morePhaseGrid {
     display: grid;
-    gap: 9px;
-    padding: 9px;
-    border-top: 1px solid #dce5e0;
-    background: #f7faf8;
-  }
-
-  .moreCards:not([open]) > .moreCardGrid,
-  .moreCards:not([open]) > .morePhaseGrid {
-    display: none;
   }
 
   .fullPath {
@@ -2314,8 +2315,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .stateTab,
-  .moreRows summary svg,
-  .moreCards summary svg,
+  .moreContentLabel svg,
   .fullStages summary svg,
   .faqList summary i,
   .taiLink {
@@ -2329,6 +2329,7 @@
   .comparisonSurface,
   .comparisonTable,
   .comparisonRow,
+  .moreContentLabel,
   .functionCard,
   .phaseCard,
   .statePanel,

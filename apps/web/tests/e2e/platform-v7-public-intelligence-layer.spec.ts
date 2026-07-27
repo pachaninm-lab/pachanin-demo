@@ -87,11 +87,38 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Показатель белка ниже условия договора');
 
     await expect(page.locator('#difference')).toContainText('Маркетплейс помогает договориться');
-    await expect(page.locator('#difference [role="table"]')).toHaveCount(2);
+    await expect(page.locator('#difference [role="table"]')).toHaveCount(1);
     await expect(page.locator('#difference [data-comparison-row="true"]')).toHaveCount(6);
     await expect(page.locator('#functions article')).toHaveCount(8);
     await expect(page.locator('#deal-path article')).toHaveCount(6);
     await expect(page.locator('#deal-path .pc-v6-lifecycle [role="listitem"]')).toHaveCount(19);
+    if ((page.viewportSize()?.width ?? 1440) < 768) {
+      const disclosures = [
+        { id: '#difference-more-toggle', controls: 'difference-comparison-rows' },
+        { id: '#functions-more-toggle', controls: 'functions-more-cards' },
+        { id: '#phases-more-toggle', controls: 'phases-more-cards' },
+      ] as const;
+      await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(2);
+      await expect(page.locator('#functions article').nth(7)).toBeHidden();
+      await expect(page.locator('#deal-path article').nth(5)).toBeHidden();
+      for (const disclosure of disclosures) {
+        const toggle = page.locator(disclosure.id);
+        const label = page.locator(`label[for="${disclosure.id.slice(1)}"]`);
+        await expect(toggle).toHaveAttribute('aria-controls', disclosure.controls);
+        await toggle.focus();
+        await expect(toggle).toBeFocused();
+        await expect(label).toHaveCSS('outline-style', 'solid');
+        await page.keyboard.press('Space');
+        await expect(toggle).toBeChecked();
+      }
+    }
+    await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(6);
+    await expect(page.locator('#functions article').nth(7)).toBeVisible();
+    await expect(page.locator('#deal-path article').nth(5)).toBeVisible();
+    await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
+    await expect(page.getByRole('banner')).toHaveCount(1);
+    await expect(page.getByRole('contentinfo')).toHaveCount(1);
+    await expect(page.locator('.pc-v6-control-tower')).toHaveCount(1);
 
     await expect(page.locator('#live [data-state]')).toHaveCount(3);
     await expect(page.locator('#public-deal-state-deviation')).toBeChecked();
@@ -121,6 +148,10 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
+    await expectMinimumTargets(
+      page,
+      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"], label[for="phases-more-toggle"]',
+    );
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
     expect(forbiddenRequests).toEqual([]);
