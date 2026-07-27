@@ -7,6 +7,7 @@ import {
   FGIS_GRAIN_OUTBOX_EVENT_TYPE,
   type FgisGrainOutboundDispatchPayload,
 } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.contract';
+import { computeFgisGrainDispatchPayloadFingerprint } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange.contract';
 import {
   FgisGrainDispatchRepository,
   type EnqueueFgisGrainDispatchCommand,
@@ -40,6 +41,17 @@ function actor(tenantId: string, orgId: string, suffix: string): RequestUser {
 const USER_A = actor(TENANT_A, ORG_A, 'a');
 const USER_B = actor(TENANT_B, ORG_B, 'b');
 
+async function seedOrganization(id: string, tenantId: string, suffix: string): Promise<void> {
+  await prisma.$executeRaw(Prisma.sql`
+    INSERT INTO public."organizations" (
+      "id", "inn", "name", "status", "tenantId", "createdAt", "updatedAt"
+    ) VALUES (
+      ${id}, ${`77${suffix.padStart(10, '0')}`}, ${`FGIS Dispatch ${suffix}`},
+      'VERIFIED', ${tenantId}, clock_timestamp(), clock_timestamp()
+    ) ON CONFLICT ("id") DO NOTHING
+  `);
+}
+
 function command(overrides: Partial<EnqueueFgisGrainDispatchCommand> = {}): EnqueueFgisGrainDispatchCommand {
   return {
     commandId: `${RUN_ID}.command`,
@@ -71,6 +83,8 @@ describePostgres('PC-CROP-08D PostgreSQL FGIS Grain dispatch authority', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
+    await seedOrganization(ORG_A, TENANT_A, '701');
+    await seedOrganization(ORG_B, TENANT_B, '702');
     repository = new FgisGrainDispatchRepository(
       new RlsTransactionService(prisma),
     );
@@ -80,7 +94,7 @@ describePostgres('PC-CROP-08D PostgreSQL FGIS Grain dispatch authority', () => {
     await prisma.$disconnect();
   });
 
-  it('atomically persists one immutable audit and canonical outbox row, then replays', async () => {
+  it('atomically persists audit, canonical outbox and one durable exchange, then replays', async () => {
     const input = command();
     const applied = await repository.enqueue(USER_A, input);
     expect(applied).toMatchObject({
@@ -96,29 +110,41 @@ describePostgres('PC-CROP-08D PostgreSQL FGIS Grain dispatch authority', () => {
     const evidence = await prisma.$queryRaw<Array<{
       auditCount: bigint;
       outboxCount: bigint;
+      exchangeCount: bigint;
       status: string;
       confirmedAt: Date | null;
       payload: unknown;
       auditHash: string;
       auditPrevHash: string | null;
+      exchangeId: string;
+      exchangeState: string;
+      dispatchPayloadFingerprint: string;
     }>>(Prisma.sql`
       SELECT
         (SELECT count(*) FROM public."audit_events"
           WHERE "runtimeIdempotencyKey" = ${applied.idempotencyKey}) AS "auditCount",
         (SELECT count(*) FROM public."outbox_entries"
           WHERE "idempotencyKey" = ${applied.idempotencyKey}) AS "outboxCount",
+        (SELECT count(*) FROM public."fgis_grain_exchanges"
+          WHERE "outboundOutboxEntryId" = ${applied.outboxId}) AS "exchangeCount",
         o."status", o."confirmedAt", o."payload",
-        a."hash" AS "auditHash", a."prevHash" AS "auditPrevHash"
+        a."hash" AS "auditHash", a."prevHash" AS "auditPrevHash",
+        e."id" AS "exchangeId", e."state" AS "exchangeState",
+        e."dispatchPayloadFingerprint"
       FROM public."outbox_entries" o
       JOIN public."audit_events" a ON a."id" = o."auditId"
+      JOIN public."fgis_grain_exchanges" e
+        ON e."outboundOutboxEntryId" = o."id"
       WHERE o."id" = ${applied.outboxId}
     `);
     expect(evidence).toHaveLength(1);
     expect(evidence[0]).toMatchObject({
       auditCount: 1n,
       outboxCount: 1n,
+      exchangeCount: 1n,
       status: 'PENDING',
       confirmedAt: null,
+      exchangeState: 'DISPATCH_PENDING',
     });
     expect(evidence[0]?.auditHash).toMatch(/^[a-f0-9]{64}$/u);
     const payload = asPayload(evidence[0]?.payload);
@@ -130,6 +156,8 @@ describePostgres('PC-CROP-08D PostgreSQL FGIS Grain dispatch authority', () => {
       providerConfigurationReference: input.providerConfigurationReference,
       unsignedEnvelopeReference: input.unsignedEnvelopeReference,
     });
+    expect(evidence[0]?.dispatchPayloadFingerprint)
+      .toBe(computeFgisGrainDispatchPayloadFingerprint(payload));
     expect(JSON.stringify(payload)).not.toMatch(
       /rawXml|privateKey|certificateBytes|credentialBytes|password|token|signatureBytes/iu,
     );
@@ -137,6 +165,8 @@ describePostgres('PC-CROP-08D PostgreSQL FGIS Grain dispatch authority', () => {
 
   it('rejects a reused idempotency key when any authority field changes', async () => {
     const input = command({
+      commandId: `${RUN_ID}.mismatch-command`,
+      messageId: 'ae6f4ad0-7d36-11e1-b0c4-0800200c9a66',
       idempotencyKey: `${RUN_ID}.mismatch-key`,
       correlationId: `${RUN_ID}.mismatch-correlation`,
     });
@@ -151,8 +181,10 @@ describePostgres('PC-CROP-08D PostgreSQL FGIS Grain dispatch authority', () => {
     })).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('derives tenant and organization from the server context and isolates the same client key', async () => {
+  it('derives tenant and organization from server context and isolates the same client key', async () => {
     const shared = command({
+      commandId: `${RUN_ID}.tenant-command`,
+      messageId: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
       idempotencyKey: `${RUN_ID}.tenant-isolation-key`,
       correlationId: `${RUN_ID}.tenant-isolation-correlation`,
     });
@@ -182,5 +214,14 @@ describePostgres('PC-CROP-08D PostgreSQL FGIS Grain dispatch authority', () => {
       row.type === FGIS_GRAIN_OUTBOX_EVENT_TYPE
       && row.status === 'PENDING'
       && row.confirmedAt === null)).toBe(true);
+    const exchanges = await prisma.$queryRaw<Array<{ tenantId: string; organizationId: string }>>(Prisma.sql`
+      SELECT "tenantId", "organizationId"
+      FROM public."fgis_grain_exchanges"
+      WHERE "outboundOutboxEntryId" IN (${receiptA.outboxId}, ${receiptB.outboxId})
+    `);
+    expect(new Set(exchanges.map((row) => row.tenantId)))
+      .toEqual(new Set([TENANT_A, TENANT_B]));
+    expect(new Set(exchanges.map((row) => row.organizationId)))
+      .toEqual(new Set([ORG_A, ORG_B]));
   });
 });
