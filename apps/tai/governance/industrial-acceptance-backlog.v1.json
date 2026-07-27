@@ -111,13 +111,17 @@
     },
     {
       "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30234620407",
+        "git-commit:f1121555e2780f5b6c327970fb42991c8234178e",
         "apps/tai/model-artifacts/legal-reviews/qwen3-8b.review-record.v1.json",
-        "apps/tai/model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-record.v1.json"
+        "apps/tai/model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-record.v1.json",
+        "apps/tai/model-artifacts/legal-reviews/qwen3-8b.review-attestation.v1.json",
+        "apps/tai/model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-attestation.v1.json"
       ],
       "item_id": "B.03",
       "mandatory": true,
       "stage": "B",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "Human legal review recorded for both exact model revisions"
     },
     {

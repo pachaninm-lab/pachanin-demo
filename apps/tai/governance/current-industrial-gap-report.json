@@ -30,13 +30,6 @@
       "title": "Mistral-7B-Instruct-v0.3 fallback source acquired at the pinned revision"
     },
     {
-      "item_id": "B.03",
-      "reason": "not yet accepted",
-      "stage": "B",
-      "status": "IN_PROGRESS",
-      "title": "Human legal review recorded for both exact model revisions"
-    },
-    {
       "item_id": "B.04",
       "reason": "conversion requires acquired sources on the dedicated model host (B.01, B.02)",
       "stage": "B",
@@ -434,7 +427,6 @@
     "A.06",
     "B.01",
     "B.02",
-    "B.03",
     "B.04",
     "B.05",
     "B.06",
@@ -502,16 +494,16 @@
     "tai/ap12b-assign-logistics-confirmed-action"
   ],
   "totals": {
-    "accepted": 9,
+    "accepted": 10,
     "blocked": 26,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 13.24,
+    "completion_percent": 14.71,
     "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
-    "mandatory_accepted": 9,
+    "mandatory_accepted": 10,
     "mandatory_deferred_by_owner_decision": 3,
     "mandatory_total": 68,
     "regressed": 0,
-    "remaining": 62,
+    "remaining": 61,
     "total": 71
   },
   "ui_status": "NOT_ACTIVATED"
