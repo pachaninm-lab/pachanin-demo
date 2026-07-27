@@ -4,7 +4,9 @@
   "status": "active",
   "operationalStatus": "PUBLIC_UI_REFINEMENT",
   "allowedPaths": [
+    "apps/web/app/loading.tsx",
     "apps/web/app/pc-public-entry/platform-v7/home-approved-contact-dock.css",
+    "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHomeMobileProof.module.css",
     "apps/web/components/platform-v7/PlatformV7StrategicHomeStory.module.css",
