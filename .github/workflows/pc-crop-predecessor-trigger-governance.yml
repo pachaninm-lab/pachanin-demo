@@ -1,9 +1,6 @@
 name: PC-CROP Predecessor Trigger Governance
 
 on:
-  push:
-    branches:
-      - governance/pc-crop-predecessor-trigger-isolation-3170
   pull_request:
     paths:
       - '.github/workflows/pc-crop-07a.yml'
@@ -11,10 +8,30 @@ on:
       - '.github/workflows/pc-crop-08b.yml'
       - '.github/workflows/pc-crop-08c.yml'
       - '.github/workflows/pc-crop-08d.yml'
+      - '.github/workflows/pc-crop-08f.yml'
       - '.github/workflows/pc-crop-predecessor-trigger-governance.yml'
       - 'docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-predecessor-trigger-isolation-3170.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json'
       - 'scripts/pc-crop-predecessor-trigger-governance.mjs'
+      - 'scripts/pc-crop-successor-trigger-governance.mjs'
+  push:
+    branches:
+      - main
+      - governance/pc-crop-predecessor-trigger-isolation-3170
+    paths:
+      - '.github/workflows/pc-crop-07a.yml'
+      - '.github/workflows/pc-crop-07b.yml'
+      - '.github/workflows/pc-crop-08b.yml'
+      - '.github/workflows/pc-crop-08c.yml'
+      - '.github/workflows/pc-crop-08d.yml'
+      - '.github/workflows/pc-crop-08f.yml'
+      - '.github/workflows/pc-crop-predecessor-trigger-governance.yml'
+      - 'docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-predecessor-trigger-isolation-3170.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json'
+      - 'scripts/pc-crop-predecessor-trigger-governance.mjs'
+      - 'scripts/pc-crop-successor-trigger-governance.mjs'
   workflow_dispatch:
 
 permissions:
@@ -27,6 +44,7 @@ jobs:
     timeout-minutes: 10
     env:
       EVIDENCE_DIR: artifacts/pc-crop-predecessor-trigger-governance
+      GOVERNANCE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -38,20 +56,40 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Apply idempotent trigger isolation and verify immutable jobs
+      - name: Verify governance programs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/pc-crop-predecessor-trigger-governance.mjs
+          node --check scripts/pc-crop-successor-trigger-governance.mjs
+
+      - name: Fetch pinned successor workflow authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          scope='docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json'
+          successor_branch="$(node -e "const s=JSON.parse(require('node:fs').readFileSync('$scope','utf8')); process.stdout.write(s.handoffs.successorBranch)")"
+          successor_commit="$(node -e "const s=JSON.parse(require('node:fs').readFileSync('$scope','utf8')); process.stdout.write(s.handoffs.successorCommit)")"
+          test -n "$successor_branch"
+          test -n "$successor_commit"
+          git fetch --no-tags origin "$successor_branch"
+          git cat-file -e "${successor_commit}^{commit}"
+
+      - name: Apply canonical predecessor triggers
         run: node scripts/pc-crop-predecessor-trigger-governance.mjs --apply
 
-      - name: Enforce exact governed diff
+      - name: Prove successor trigger handoff contract
+        run: node scripts/pc-crop-successor-trigger-governance.mjs
+
+      - name: Enforce idempotent clean authority
         shell: bash
         run: |
           set -euo pipefail
           git diff --name-only | sort > "$EVIDENCE_DIR/working-tree-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-(07a|07b|08b|08c|08d)\.yml)$' \
-            "$EVIDENCE_DIR/working-tree-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
-            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
-            exit 1
-          fi
+          test ! -s "$EVIDENCE_DIR/working-tree-files.txt"
           test -f docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json
+          test -f docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json
+          test -s "$EVIDENCE_DIR/successor-trigger-handoff.json"
 
       - name: Upload governance evidence and migration bundle
         if: always()
@@ -65,6 +103,8 @@ jobs:
             .github/workflows/pc-crop-08b.yml
             .github/workflows/pc-crop-08c.yml
             .github/workflows/pc-crop-08d.yml
+            .github/workflows/pc-crop-08f.yml
             docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json
+            docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json
           if-no-files-found: error
           retention-days: 90

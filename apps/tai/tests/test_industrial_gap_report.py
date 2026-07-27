@@ -46,7 +46,7 @@ REPOSITORY_RELEASE_ID = "tai-industrial-discovery-2026-07-25"
 #: The exact main the committed backlog records its discovery against. It moves whenever
 #: the snapshot is re-derived, which is the point: the snapshot must name the commit the
 #: evidence was actually audited on, not an older one that happens to still parse.
-MAIN_SHA = "d79064333ff5653baa43528fd6a956bd9b2fbb87"
+MAIN_SHA = "fe42048019c3951a17af227967be060e8462f77d"
 QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
 MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
 
