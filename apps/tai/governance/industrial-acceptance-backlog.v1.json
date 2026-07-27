@@ -135,12 +135,16 @@
     },
     {
       "evidence_refs": [
-        "apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json"
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30236694062",
+        "git-commit:37d95adb2aa36de667f7c5a64599664ac0c1f60d",
+        "apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json",
+        "apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json",
+        "apps/tai/model-artifacts/llama-cpp-build-artifact-locator.accepted.v1.json"
       ],
       "item_id": "B.05",
       "mandatory": true,
       "stage": "B",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "llama.cpp binaries verified against the pinned b9637 release"
     },
     {
