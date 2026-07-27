@@ -6,13 +6,13 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/pc-crop-3290-materialize.yml'
-      - 'scripts/pc-crop-3290/materialize.mjs'
+      - 'scripts/pc-crop-3290/**'
   push:
     branches:
       - fix/pc-crop-successor-trigger-handoff-3290
     paths:
       - '.github/workflows/pc-crop-3290-materialize.yml'
-      - 'scripts/pc-crop-3290/materialize.mjs'
+      - 'scripts/pc-crop-3290/**'
   workflow_dispatch:
 
 permissions:
@@ -38,6 +38,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check scripts/pc-crop-3290/prepatch.mjs
+          node scripts/pc-crop-3290/prepatch.mjs
           node --check scripts/pc-crop-3290/materialize.mjs
           node scripts/pc-crop-3290/materialize.mjs
           node --check scripts/pc-crop-predecessor-trigger-governance.mjs
