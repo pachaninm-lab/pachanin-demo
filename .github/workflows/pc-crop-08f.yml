@@ -153,7 +153,7 @@ jobs:
               'app_runtime',
               'public."fgis_grain_sdiz_projection_batches"',
               'SELECT'
-            ) OR NOT has_table_privilege(
+            ) OR has_table_privilege(
               'app_runtime',
               'public."fgis_grain_sdiz_projection_batches"',
               'INSERT'
@@ -169,11 +169,11 @@ jobs:
               'app_runtime',
               'public."fgis_grain_sdiz_projections"',
               'SELECT'
-            ) OR NOT has_table_privilege(
+            ) OR has_table_privilege(
               'app_runtime',
               'public."fgis_grain_sdiz_projections"',
               'INSERT'
-            ) OR NOT has_table_privilege(
+            ) OR has_table_privilege(
               'app_runtime',
               'public."fgis_grain_sdiz_projections"',
               'UPDATE'
@@ -189,8 +189,12 @@ jobs:
               'app_runtime',
               'public.lock_fgis_grain_sdiz_audit_head()',
               'EXECUTE'
+            ) OR NOT has_function_privilege(
+              'app_runtime',
+              'public.write_fgis_grain_sdiz_projection_batch(text,text,text,text,text,bigint,text,text,timestamp with time zone,text,text,text,jsonb)',
+              'EXECUTE'
             ) THEN
-              RAISE EXCEPTION 'PC-CROP-08F migration did not materialize least-privilege runtime grants';
+              RAISE EXCEPTION 'PC-CROP-08F migration did not materialize the controlled runtime write boundary';
             END IF;
           END
           $grants$;
@@ -219,6 +223,14 @@ jobs:
           GRANT EXECUTE ON FUNCTION public.app_rls_context_ready() TO app_runtime;
           GRANT EXECUTE ON FUNCTION public.app_rls_privileged() TO app_runtime;
           GRANT EXECUTE ON FUNCTION public.app_rls_deal_visible(text) TO app_runtime;
+          GRANT EXECUTE ON FUNCTION public.write_fgis_grain_sdiz_projection_batch(
+            text, text, text, text, text, bigint, text, text,
+            timestamptz, text, text, text, jsonb
+          ) TO app_runtime;
+          REVOKE INSERT, UPDATE, DELETE ON TABLE
+            public."fgis_grain_sdiz_projection_batches",
+            public."fgis_grain_sdiz_projections"
+          FROM app_runtime;
           REVOKE DELETE ON TABLE
             public."audit_events",
             public."outbox_entries",
