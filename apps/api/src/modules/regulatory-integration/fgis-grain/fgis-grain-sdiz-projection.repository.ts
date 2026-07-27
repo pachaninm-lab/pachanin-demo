@@ -10,7 +10,6 @@ import {
   FGIS_GRAIN_SDIZ_PROJECTION_EVENT_TYPE,
   normalizeFgisGrainSdizProjectionCommand,
   type CanonicalFgisGrainSdizProjectionCommand,
-  type CanonicalFgisGrainSdizRecord,
   type FgisGrainSdizProjectionMutation,
 } from './fgis-grain-sdiz-projection.contract';
 import { FGIS_GRAIN_1_0_23_SIGNING_POLICY } from './fgis-grain-1.0.23.signing-policy.generated';
@@ -297,28 +296,17 @@ export class FgisGrainSdizProjectionRepository {
           command.correlationId,
           auditEventId,
         );
-        await insertBatch(
-          tx,
-          projectionBatchId,
-          context.tenantId,
-          context.orgId,
-          inbox,
-          command,
-          auditEventId,
-          outboxEntryId,
-        );
         try {
-          for (const record of command.records) {
-            await upsertProjection(
-              tx,
-              context.tenantId,
-              context.orgId,
-              projectionBatchId,
-              inbox.id,
-              command,
-              record,
-            );
-          }
+          await writeProjectionBatch(
+            tx,
+            projectionBatchId,
+            context.tenantId,
+            context.orgId,
+            inbox.id,
+            command,
+            auditEventId,
+            outboxEntryId,
+          );
         } catch (error) {
           if (isProjectionIdentityUniquenessRace(error)) {
             const retryable = new Error(
@@ -697,97 +685,39 @@ async function quarantineConflict(
   };
 }
 
-async function insertBatch(
+async function writeProjectionBatch(
   tx: Prisma.TransactionClient,
   id: string,
   tenantId: string,
   organizationId: string,
-  inbox: InboxAuthorityRow,
+  inboxEntryId: string,
   command: CanonicalFgisGrainSdizProjectionCommand,
   auditEventId: string,
   outboxEntryId: string,
 ): Promise<void> {
-  const rows = await tx.$queryRaw<IdRow[]>(Prisma.sql`
-    INSERT INTO public."fgis_grain_sdiz_projection_batches" (
-      "id", "tenantId", "organizationId", "sourceInboxEntryId",
-      "sourceRawBodySha256", "sourceEvidenceReference", "providerMessageId",
-      "providerReferenceMessageId", "providerOccurredAt", "batchFingerprint",
-      "recordCount", "auditEventId", "outboxEntryId"
-    ) VALUES (
-      ${id}, ${tenantId}, ${organizationId}, ${inbox.id}, ${inbox.rawBodySha256},
-      ${inbox.evidenceReference}, ${command.providerMessageId},
-      ${command.providerReferenceMessageId}, ${new Date(command.providerOccurredAt)},
-      ${command.batchFingerprint}, ${command.records.length}, ${auditEventId},
-      ${outboxEntryId}
-    ) RETURNING "id"
+  const rows = await tx.$queryRaw<Array<{ recordCount: number }>>(Prisma.sql`
+    SELECT public.write_fgis_grain_sdiz_projection_batch(
+      ${id},
+      ${tenantId},
+      ${organizationId},
+      ${inboxEntryId},
+      ${command.workerId},
+      CAST(${command.expectedInboxVersion} AS bigint),
+      ${command.providerMessageId},
+      ${command.providerReferenceMessageId},
+      ${new Date(command.providerOccurredAt)},
+      ${command.batchFingerprint},
+      ${auditEventId},
+      ${outboxEntryId},
+      CAST(${JSON.stringify(command.records)} AS jsonb)
+    ) AS "recordCount"
   `);
-  if (rows[0]?.id !== id) {
+  if (rows[0]?.recordCount !== command.records.length) {
     throw new FgisGrainSdizProjectionRepositoryError(
       'REPLAY_EVIDENCE_INVALID',
-      'SDIZ projection batch was not persisted',
+      'controlled SDIZ projection batch write was incomplete',
     );
   }
-}
-
-async function upsertProjection(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  organizationId: string,
-  batchId: string,
-  inboxEntryId: string,
-  command: CanonicalFgisGrainSdizProjectionCommand,
-  record: CanonicalFgisGrainSdizRecord,
-): Promise<void> {
-  await tx.$executeRaw(Prisma.sql`
-    INSERT INTO public."fgis_grain_sdiz_projections" (
-      "id", "tenantId", "organizationId", "sdizId", "sdizNumber", "lotNumber",
-      "createLotNumber", "correctedBySdizNumber", "correctedSdizNumber",
-      "extinctionId", "extinctionRefusalId", "status", "providerMessageId",
-      "providerReferenceMessageId", "providerOccurredAt", "payloadFingerprint",
-      "sourceInboxEntryId", "projectionBatchId", "version"
-    ) VALUES (
-      ${randomUUID()}, ${tenantId}, ${organizationId}, ${record.sdizId},
-      ${record.sdizNumber}, ${record.lotNumber}, ${record.createLotNumber},
-      ${record.correctedBySdizNumber}, ${record.correctedSdizNumber},
-      ${record.extinctionId}, ${record.extinctionRefusalId}, ${record.status},
-      ${command.providerMessageId}, ${command.providerReferenceMessageId},
-      ${new Date(command.providerOccurredAt)}, ${record.payloadFingerprint},
-      ${inboxEntryId}, ${batchId}, 0
-    )
-    ON CONFLICT ("tenantId", "organizationId", "sdizId") DO UPDATE
-    SET "sdizNumber" = EXCLUDED."sdizNumber",
-        "lotNumber" = EXCLUDED."lotNumber",
-        "createLotNumber" = EXCLUDED."createLotNumber",
-        "correctedBySdizNumber" = EXCLUDED."correctedBySdizNumber",
-        "correctedSdizNumber" = EXCLUDED."correctedSdizNumber",
-        "extinctionId" = EXCLUDED."extinctionId",
-        "extinctionRefusalId" = EXCLUDED."extinctionRefusalId",
-        "status" = EXCLUDED."status",
-        "providerMessageId" = EXCLUDED."providerMessageId",
-        "providerReferenceMessageId" = EXCLUDED."providerReferenceMessageId",
-        "providerOccurredAt" = EXCLUDED."providerOccurredAt",
-        "payloadFingerprint" = EXCLUDED."payloadFingerprint",
-        "sourceInboxEntryId" = EXCLUDED."sourceInboxEntryId",
-        "projectionBatchId" = EXCLUDED."projectionBatchId",
-        "version" = public."fgis_grain_sdiz_projections"."version" + 1,
-        "updatedAt" = clock_timestamp()
-    WHERE public."fgis_grain_sdiz_projections"."providerOccurredAt" < EXCLUDED."providerOccurredAt"
-       OR (
-         public."fgis_grain_sdiz_projections"."providerOccurredAt" = EXCLUDED."providerOccurredAt"
-         AND public."fgis_grain_sdiz_projections"."payloadFingerprint" = EXCLUDED."payloadFingerprint"
-         AND public."fgis_grain_sdiz_projections"."sdizNumber" = EXCLUDED."sdizNumber"
-         AND (
-           public."fgis_grain_sdiz_projections"."providerMessageId"
-             IS DISTINCT FROM EXCLUDED."providerMessageId"
-           OR public."fgis_grain_sdiz_projections"."providerReferenceMessageId"
-             IS DISTINCT FROM EXCLUDED."providerReferenceMessageId"
-           OR public."fgis_grain_sdiz_projections"."sourceInboxEntryId"
-             IS DISTINCT FROM EXCLUDED."sourceInboxEntryId"
-           OR public."fgis_grain_sdiz_projections"."projectionBatchId"
-             IS DISTINCT FROM EXCLUDED."projectionBatchId"
-         )
-       )
-  `);
 }
 
 async function insertAudit(
