@@ -10,6 +10,11 @@ const forbiddenPaths = [
   'apps/web/.netlify',
 ];
 
+const authorityFiles = new Set([
+  'scripts/check-netlify-retirement.mjs',
+  '.github/workflows/netlify-retirement-authority.yml',
+]);
+
 const violations = [];
 for (const path of forbiddenPaths) {
   if (existsSync(path)) violations.push(`${path}: forbidden Netlify configuration/state path exists`);
@@ -25,7 +30,7 @@ const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8' })
     path.startsWith('infra/') ||
     path.startsWith('scripts/')
   )
-  .filter((path) => path !== 'scripts/check-netlify-retirement.mjs');
+  .filter((path) => !authorityFiles.has(path));
 
 if (tracked.length > 0) {
   let output = '';
