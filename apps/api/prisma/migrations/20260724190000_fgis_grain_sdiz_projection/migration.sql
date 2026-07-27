@@ -329,24 +329,362 @@ WITH CHECK (
   AND "organizationId" = current_setting('app.current_org_id', true)
 );
 
+-- Projection writes are available only through this verified-inbox command boundary.
+-- Runtime principals keep SELECT on the tables and cannot issue raw INSERT/UPDATE/DELETE.
+CREATE OR REPLACE FUNCTION public.write_fgis_grain_sdiz_projection_batch(
+  p_batch_id text,
+  p_tenant_id text,
+  p_organization_id text,
+  p_inbox_entry_id text,
+  p_worker_id text,
+  p_expected_inbox_version bigint,
+  p_provider_message_id text,
+  p_provider_reference_message_id text,
+  p_provider_occurred_at timestamptz,
+  p_batch_fingerprint text,
+  p_audit_event_id text,
+  p_outbox_entry_id text,
+  p_records jsonb
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  inbox_row public."regulatory_integration_inbox_entries"%ROWTYPE;
+  record_value jsonb;
+  previous_sdiz_id text;
+  previous_sdiz_number text;
+  seen_sdiz_ids text[] := ARRAY[]::text[];
+  seen_sdiz_numbers text[] := ARRAY[]::text[];
+  affected integer;
+  written_count integer := 0;
+BEGIN
+  IF session_user NOT IN ('app_runtime', 'app_service')
+     AND NOT COALESCE((
+       SELECT role_row.rolsuper
+       FROM pg_catalog.pg_roles AS role_row
+       WHERE role_row.rolname = session_user
+     ), false)
+  THEN
+    RAISE EXCEPTION 'FGIS SDIZ projection writer principal is denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT public.app_rls_context_ready()
+     OR current_setting('app.current_role', true)
+       NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')
+     OR p_tenant_id IS DISTINCT FROM current_setting('app.current_tenant_id', true)
+     OR p_organization_id IS DISTINCT FROM current_setting('app.current_org_id', true)
+  THEN
+    RAISE EXCEPTION 'FGIS SDIZ trusted mutation context is denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_batch_id IS NULL OR char_length(p_batch_id) NOT BETWEEN 1 AND 255
+     OR p_inbox_entry_id IS NULL OR char_length(p_inbox_entry_id) NOT BETWEEN 1 AND 255
+     OR p_worker_id IS NULL OR char_length(p_worker_id) NOT BETWEEN 1 AND 255
+     OR p_provider_message_id IS NULL
+     OR char_length(p_provider_message_id) NOT BETWEEN 1 AND 255
+     OR (
+       p_provider_reference_message_id IS NOT NULL
+       AND char_length(p_provider_reference_message_id) NOT BETWEEN 1 AND 255
+     )
+     OR p_provider_occurred_at IS NULL
+     OR p_expected_inbox_version < 0
+     OR p_batch_fingerprint !~ '^[a-f0-9]{64}$'
+     OR jsonb_typeof(p_records) IS DISTINCT FROM 'array'
+     OR jsonb_array_length(p_records) NOT BETWEEN 1 AND 200
+  THEN
+    RAISE EXCEPTION 'FGIS SDIZ controlled writer input is invalid'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT inbox.*
+  INTO inbox_row
+  FROM public."regulatory_integration_inbox_entries" AS inbox
+  WHERE inbox."id" = p_inbox_entry_id
+    AND inbox."tenantId" = p_tenant_id
+    AND inbox."organizationId" = p_organization_id
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR inbox_row."state" <> 'PROCESSING'
+     OR inbox_row."leaseOwner" IS DISTINCT FROM p_worker_id
+     OR inbox_row."leaseExpiresAt" IS NULL
+     OR inbox_row."leaseExpiresAt" < clock_timestamp()
+     OR inbox_row."version" <> p_expected_inbox_version
+     OR inbox_row."provider" <> 'FGIS_ZERNO'
+     OR inbox_row."adapterCode" <> 'FGIS_ZERNO'
+     OR inbox_row."adapterVersion" <> '1.0.23'
+     OR inbox_row."schemaVersion" <> '1.0.23'
+     OR inbox_row."mappingVersion" <> 'fgis-zerno-1.0.23-catalog.v1'
+     OR inbox_row."signatureStatus" <> 'VERIFIED'
+     OR inbox_row."signatureAlgorithm" <> 'GOST3410_2012_256'
+     OR inbox_row."signatureAlgorithmUri"
+       <> 'urn:ietf:params:xml:ns:cpxmlsec:algorithms:gostr34102012-gostr34112012-256'
+     OR inbox_row."verificationResult"->'verified' <> 'true'::jsonb
+     OR inbox_row."verificationResult"->>'schemaVersion' <> '1.0.23'
+     OR inbox_row."verificationResult"->>'mappingVersion'
+       <> 'fgis-zerno-1.0.23-catalog.v1'
+     OR inbox_row."externalEventId" IS DISTINCT FROM p_provider_message_id
+     OR inbox_row."causationId" IS DISTINCT FROM p_provider_reference_message_id
+     OR inbox_row."occurredAt" IS DISTINCT FROM p_provider_occurred_at
+  THEN
+    RAISE EXCEPTION 'FGIS SDIZ verified inbox authority is invalid'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public."audit_events" AS audit
+    JOIN public."outbox_entries" AS outbox
+      ON outbox."auditId" = audit."id"
+    WHERE audit."id" = p_audit_event_id
+      AND audit."action" = 'FGIS_GRAIN_SDIZ_PROJECTION_APPLIED'
+      AND audit."actorUserId" = current_setting('app.current_user_id', true)
+      AND audit."actorRole"::text = current_setting('app.current_role', true)
+      AND audit."tenantId" = p_tenant_id
+      AND audit."orgId" = p_organization_id
+      AND audit."objectType" = 'FGIS_GRAIN_SDIZ_PROJECTION_BATCH'
+      AND audit."objectId" = p_batch_id
+      AND audit."outcome" = 'SUCCESS'
+      AND outbox."id" = p_outbox_entry_id
+      AND outbox."type" = 'FGIS_GRAIN_SDIZ_PROJECTION_APPLIED'
+      AND outbox."dealId" IS NULL
+      AND outbox."status" = 'PENDING'
+      AND outbox."triggeredByUserId" = current_setting('app.current_user_id', true)
+      AND outbox."idempotencyKey" = audit."runtimeIdempotencyKey"
+      AND outbox."correlationId" = audit."correlationId"
+      AND outbox."payload" = audit."metadata"
+      AND outbox."payload"->>'schemaVersion'
+        = 'pc-crop.fgis-grain-sdiz-projection-batch.v1'
+      AND outbox."payload"->>'kind' = 'APPLIED'
+      AND outbox."payload"->>'projectionBatchId' = p_batch_id
+      AND outbox."payload"->>'inboxEntryId' = p_inbox_entry_id
+      AND outbox."payload"->>'tenantId' = p_tenant_id
+      AND outbox."payload"->>'organizationId' = p_organization_id
+      AND outbox."payload"->>'providerMessageId' = p_provider_message_id
+      AND outbox."payload"->>'providerReferenceMessageId'
+        IS NOT DISTINCT FROM p_provider_reference_message_id
+      AND outbox."payload"->>'rawBodySha256' = inbox_row."rawBodySha256"
+      AND outbox."payload"->>'batchFingerprint' = p_batch_fingerprint
+      AND (outbox."payload"->>'recordCount')::integer = jsonb_array_length(p_records)
+      AND (outbox."payload"->>'providerOccurredAt')::timestamptz
+        = p_provider_occurred_at
+  ) THEN
+    RAISE EXCEPTION 'FGIS SDIZ audit/outbox authority is invalid'
+      USING ERRCODE = '42501';
+  END IF;
+
+  FOR record_value IN
+    SELECT incoming.value
+    FROM jsonb_array_elements(p_records) WITH ORDINALITY AS incoming(value, ordinal)
+    ORDER BY incoming.ordinal
+  LOOP
+    IF jsonb_typeof(record_value) IS DISTINCT FROM 'object'
+       OR (SELECT count(*) FROM jsonb_object_keys(record_value)) <> 10
+       OR EXISTS (
+         SELECT 1
+         FROM jsonb_object_keys(record_value) AS incoming_key(value)
+         WHERE incoming_key.value NOT IN (
+           'correctedBySdizNumber',
+           'correctedSdizNumber',
+           'createLotNumber',
+           'extinctionId',
+           'extinctionRefusalId',
+           'lotNumber',
+           'payloadFingerprint',
+           'sdizId',
+           'sdizNumber',
+           'status'
+         )
+       )
+       OR jsonb_typeof(record_value->'sdizId') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(record_value->'sdizNumber') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(record_value->'status') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(record_value->'payloadFingerprint') IS DISTINCT FROM 'string'
+       OR COALESCE(jsonb_typeof(record_value->'lotNumber'), 'missing')
+         NOT IN ('string', 'null')
+       OR COALESCE(jsonb_typeof(record_value->'createLotNumber'), 'missing')
+         NOT IN ('string', 'null')
+       OR COALESCE(jsonb_typeof(record_value->'correctedBySdizNumber'), 'missing')
+         NOT IN ('string', 'null')
+       OR COALESCE(jsonb_typeof(record_value->'correctedSdizNumber'), 'missing')
+         NOT IN ('string', 'null')
+       OR COALESCE(jsonb_typeof(record_value->'extinctionId'), 'missing')
+         NOT IN ('string', 'null')
+       OR COALESCE(jsonb_typeof(record_value->'extinctionRefusalId'), 'missing')
+         NOT IN ('string', 'null')
+       OR char_length(record_value->>'sdizId') NOT BETWEEN 1 AND 255
+       OR char_length(record_value->>'sdizNumber') NOT BETWEEN 1 AND 255
+       OR record_value->>'status' NOT IN (
+         'CREATED',
+         'SUBSCRIBED',
+         'CANCELED',
+         'EXTINGUISHED',
+         'SUBSCRIBED_CONFIRMED'
+       )
+       OR record_value->>'payloadFingerprint' !~ '^[a-f0-9]{64}$'
+       OR EXISTS (
+         SELECT 1
+         FROM jsonb_each(record_value) AS optional_field(key, value)
+         WHERE optional_field.key IN (
+           'lotNumber',
+           'createLotNumber',
+           'correctedBySdizNumber',
+           'correctedSdizNumber',
+           'extinctionId',
+           'extinctionRefusalId'
+         )
+           AND jsonb_typeof(optional_field.value) = 'string'
+           AND char_length(optional_field.value #>> '{}') NOT BETWEEN 1 AND 255
+       )
+    THEN
+      RAISE EXCEPTION 'FGIS SDIZ canonical record is invalid'
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF (record_value->>'sdizId') = ANY(seen_sdiz_ids)
+       OR (record_value->>'sdizNumber') = ANY(seen_sdiz_numbers)
+    THEN
+      RAISE EXCEPTION 'FGIS SDIZ canonical record identity is duplicated'
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF previous_sdiz_id IS NOT NULL
+       AND (
+         previous_sdiz_id COLLATE "C" > (record_value->>'sdizId') COLLATE "C"
+         OR (
+           previous_sdiz_id = record_value->>'sdizId'
+           AND previous_sdiz_number COLLATE "C"
+             >= (record_value->>'sdizNumber') COLLATE "C"
+         )
+       )
+    THEN
+      RAISE EXCEPTION 'FGIS SDIZ canonical record ordering is invalid'
+        USING ERRCODE = '22023';
+    END IF;
+
+    seen_sdiz_ids := array_append(seen_sdiz_ids, record_value->>'sdizId');
+    seen_sdiz_numbers := array_append(seen_sdiz_numbers, record_value->>'sdizNumber');
+    previous_sdiz_id := record_value->>'sdizId';
+    previous_sdiz_number := record_value->>'sdizNumber';
+  END LOOP;
+
+  INSERT INTO public."fgis_grain_sdiz_projection_batches" (
+    "id", "tenantId", "organizationId", "sourceInboxEntryId",
+    "sourceRawBodySha256", "sourceEvidenceReference", "providerMessageId",
+    "providerReferenceMessageId", "providerOccurredAt", "batchFingerprint",
+    "recordCount", "auditEventId", "outboxEntryId"
+  ) VALUES (
+    p_batch_id, p_tenant_id, p_organization_id, p_inbox_entry_id,
+    inbox_row."rawBodySha256", inbox_row."evidenceReference",
+    p_provider_message_id, p_provider_reference_message_id,
+    p_provider_occurred_at, p_batch_fingerprint, jsonb_array_length(p_records),
+    p_audit_event_id, p_outbox_entry_id
+  );
+
+  FOR record_value IN
+    SELECT incoming.value
+    FROM jsonb_array_elements(p_records) WITH ORDINALITY AS incoming(value, ordinal)
+    ORDER BY incoming.ordinal
+  LOOP
+    INSERT INTO public."fgis_grain_sdiz_projections" (
+      "id", "tenantId", "organizationId", "sdizId", "sdizNumber", "lotNumber",
+      "createLotNumber", "correctedBySdizNumber", "correctedSdizNumber",
+      "extinctionId", "extinctionRefusalId", "status", "providerMessageId",
+      "providerReferenceMessageId", "providerOccurredAt", "payloadFingerprint",
+      "sourceInboxEntryId", "projectionBatchId", "version"
+    ) VALUES (
+      gen_random_uuid()::text, p_tenant_id, p_organization_id,
+      record_value->>'sdizId', record_value->>'sdizNumber',
+      record_value->>'lotNumber', record_value->>'createLotNumber',
+      record_value->>'correctedBySdizNumber', record_value->>'correctedSdizNumber',
+      record_value->>'extinctionId', record_value->>'extinctionRefusalId',
+      record_value->>'status', p_provider_message_id,
+      p_provider_reference_message_id, p_provider_occurred_at,
+      record_value->>'payloadFingerprint', p_inbox_entry_id, p_batch_id, 0
+    )
+    ON CONFLICT ("tenantId", "organizationId", "sdizId") DO UPDATE
+    SET "sdizNumber" = EXCLUDED."sdizNumber",
+        "lotNumber" = EXCLUDED."lotNumber",
+        "createLotNumber" = EXCLUDED."createLotNumber",
+        "correctedBySdizNumber" = EXCLUDED."correctedBySdizNumber",
+        "correctedSdizNumber" = EXCLUDED."correctedSdizNumber",
+        "extinctionId" = EXCLUDED."extinctionId",
+        "extinctionRefusalId" = EXCLUDED."extinctionRefusalId",
+        "status" = EXCLUDED."status",
+        "providerMessageId" = EXCLUDED."providerMessageId",
+        "providerReferenceMessageId" = EXCLUDED."providerReferenceMessageId",
+        "providerOccurredAt" = EXCLUDED."providerOccurredAt",
+        "payloadFingerprint" = EXCLUDED."payloadFingerprint",
+        "sourceInboxEntryId" = EXCLUDED."sourceInboxEntryId",
+        "projectionBatchId" = EXCLUDED."projectionBatchId",
+        "version" = public."fgis_grain_sdiz_projections"."version" + 1,
+        "updatedAt" = clock_timestamp()
+    WHERE public."fgis_grain_sdiz_projections"."providerOccurredAt"
+            < EXCLUDED."providerOccurredAt"
+       OR (
+         public."fgis_grain_sdiz_projections"."providerOccurredAt"
+           = EXCLUDED."providerOccurredAt"
+         AND public."fgis_grain_sdiz_projections"."payloadFingerprint"
+           = EXCLUDED."payloadFingerprint"
+         AND public."fgis_grain_sdiz_projections"."sdizNumber"
+           = EXCLUDED."sdizNumber"
+         AND (
+           public."fgis_grain_sdiz_projections"."providerMessageId"
+             IS DISTINCT FROM EXCLUDED."providerMessageId"
+           OR public."fgis_grain_sdiz_projections"."providerReferenceMessageId"
+             IS DISTINCT FROM EXCLUDED."providerReferenceMessageId"
+           OR public."fgis_grain_sdiz_projections"."sourceInboxEntryId"
+             IS DISTINCT FROM EXCLUDED."sourceInboxEntryId"
+           OR public."fgis_grain_sdiz_projections"."projectionBatchId"
+             IS DISTINCT FROM EXCLUDED."projectionBatchId"
+         )
+       );
+
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    IF affected <> 1 THEN
+      RAISE EXCEPTION 'FGIS SDIZ projection monotonic write was not applied'
+        USING ERRCODE = '40001';
+    END IF;
+    written_count := written_count + affected;
+  END LOOP;
+
+  RETURN written_count;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.write_fgis_grain_sdiz_projection_batch(
+  text, text, text, text, text, bigint, text, text, timestamptz,
+  text, text, text, jsonb
+) FROM PUBLIC;
+REVOKE INSERT, UPDATE, DELETE ON TABLE
+  public."fgis_grain_sdiz_projection_batches",
+  public."fgis_grain_sdiz_projections"
+FROM PUBLIC;
+
 -- New tables do not inherit historical GRANT ON ALL TABLES statements.
--- Materialize the least-privilege production grants when a canonical runtime
--- principal already exists at migration time; no DELETE authority is granted.
+-- Runtime principals receive read access plus the controlled command function.
 DO $fgis_sdiz_table_grants$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime') THEN
     EXECUTE 'GRANT USAGE ON SCHEMA public TO app_runtime';
-    EXECUTE 'GRANT SELECT, INSERT ON TABLE public."fgis_grain_sdiz_projection_batches" TO app_runtime';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON TABLE public."fgis_grain_sdiz_projections" TO app_runtime';
-    EXECUTE 'REVOKE UPDATE, DELETE ON TABLE public."fgis_grain_sdiz_projection_batches" FROM app_runtime';
-    EXECUTE 'REVOKE DELETE ON TABLE public."fgis_grain_sdiz_projections" FROM app_runtime';
+    EXECUTE 'GRANT SELECT ON TABLE public."fgis_grain_sdiz_projection_batches" TO app_runtime';
+    EXECUTE 'GRANT SELECT ON TABLE public."fgis_grain_sdiz_projections" TO app_runtime';
+    EXECUTE 'REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_sdiz_projection_batches" FROM app_runtime';
+    EXECUTE 'REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_sdiz_projections" FROM app_runtime';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.write_fgis_grain_sdiz_projection_batch(text, text, text, text, text, bigint, text, text, timestamptz, text, text, text, jsonb) TO app_runtime';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_service') THEN
     EXECUTE 'GRANT USAGE ON SCHEMA public TO app_service';
-    EXECUTE 'GRANT SELECT, INSERT ON TABLE public."fgis_grain_sdiz_projection_batches" TO app_service';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON TABLE public."fgis_grain_sdiz_projections" TO app_service';
-    EXECUTE 'REVOKE UPDATE, DELETE ON TABLE public."fgis_grain_sdiz_projection_batches" FROM app_service';
-    EXECUTE 'REVOKE DELETE ON TABLE public."fgis_grain_sdiz_projections" FROM app_service';
+    EXECUTE 'GRANT SELECT ON TABLE public."fgis_grain_sdiz_projection_batches" TO app_service';
+    EXECUTE 'GRANT SELECT ON TABLE public."fgis_grain_sdiz_projections" TO app_service';
+    EXECUTE 'REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_sdiz_projection_batches" FROM app_service';
+    EXECUTE 'REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_sdiz_projections" FROM app_service';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.write_fgis_grain_sdiz_projection_batch(text, text, text, text, text, bigint, text, text, timestamptz, text, text, text, jsonb) TO app_service';
   END IF;
 END
 $fgis_sdiz_table_grants$;
