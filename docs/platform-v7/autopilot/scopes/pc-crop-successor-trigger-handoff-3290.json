@@ -7,6 +7,9 @@
   "operationalStatus": "NOT_ATTESTED",
   "handoffs": {
     "successorWorkflow": ".github/workflows/pc-crop-08h.yml",
+    "successorBranch": "agent/pc-crop-08h-exchange-receipt",
+    "successorCommit": "29cb548e59a6759e5665d411af50c48f4dd2ab30",
+    "successorWorkflowBlobSha": "f1419d0f8b72bd33b2bab95e5cc3f5c65e47e4f0",
     "dispatchShared": [
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts",
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
