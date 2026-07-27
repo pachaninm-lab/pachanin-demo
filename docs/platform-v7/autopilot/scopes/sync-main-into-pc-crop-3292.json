@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "sync/main-into-pc-crop-3292",
+  "status": "active",
+  "purpose": "Technical synchronization of current main into the PC-CROP governance branch without independent product scope.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/sync-main-into-pc-crop-3292.json"
+  ],
+  "boundaries": {
+    "runtimeProductMutation": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
