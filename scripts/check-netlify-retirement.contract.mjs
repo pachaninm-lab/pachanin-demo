@@ -101,6 +101,14 @@ withRepository({
   assert.ok(violations.some((violation) => /forbidden Netlify configuration\/state path/u.test(violation)));
 });
 
+assertViolation({
+  'services/legacy/netlify.toml': '[build]\n',
+}, /forbidden Netlify configuration\/state path is tracked/u);
+
+assertViolation({
+  'apps/legacy/.netlify/state.json': '{}\n',
+}, /forbidden Netlify configuration\/state path is tracked/u);
+
 assert.deepEqual(scan({
   'package.json': JSON.stringify({ scripts: { deploy: 'bash scripts/production-web-exact-sha.sh' } }),
   '.github/workflows/release.yml': [
