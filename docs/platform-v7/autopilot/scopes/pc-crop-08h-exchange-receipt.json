@@ -11,11 +11,13 @@
     "apps/api/prisma/migrations/20260727192500_fgis_grain_exchange_principals/**",
     "apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/**",
     "apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/**",
+    "apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/**",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-*.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts",
     "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
     "apps/api/src/outbox-worker.module.ts",
+    "apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts",
     "apps/api/test/industrial/fgis-grain-exchange.e2e-spec.ts",
     "docs/platform-v7/autopilot/scopes/pc-crop-08h-exchange-receipt.json",
     "scripts/pc-crop-08h/**"
