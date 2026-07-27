@@ -94,6 +94,16 @@ function mapDatabaseFailure(error: unknown): FgisGrainExchangeAuthorityError {
       false,
     );
   }
+  if (
+    message.includes('FGIS_EXCHANGE_REPLAY_MISMATCH')
+    || message.includes('FGIS_EXCHANGE_REPLAY_EVIDENCE_INVALID')
+  ) {
+    return new FgisGrainExchangeAuthorityError(
+      'EXCHANGE_AUTHORITY_MISMATCH',
+      'processed response replay does not match immutable audit and outbox evidence',
+      false,
+    );
+  }
   return new FgisGrainExchangeAuthorityError(
     'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
     'unable to persist verified response correlation',

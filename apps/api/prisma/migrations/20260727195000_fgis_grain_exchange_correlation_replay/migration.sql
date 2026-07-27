@@ -32,6 +32,9 @@ DECLARE
   v_conflict_key text;
   v_replay_outbox_id text;
   v_replay_audit_id text;
+  v_replay_correlation_id text;
+  v_replay_idempotency_key text;
+  v_replay_reason text;
 BEGIN
   IF NOT public.app_rls_context_ready()
      OR v_actor_role NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')
@@ -87,11 +90,18 @@ BEGIN
        AND v_inbox."rawBodySha256" = p_raw_body_sha256
        AND v_inbox."occurredAt" = p_provider_occurred_at
     THEN
-      SELECT o."id", o."auditId"
-      INTO v_replay_outbox_id, v_replay_audit_id
+      SELECT o."id", o."auditId", o."correlationId", o."idempotencyKey", a."reason"
+      INTO v_replay_outbox_id, v_replay_audit_id, v_replay_correlation_id,
+           v_replay_idempotency_key, v_replay_reason
       FROM public."outbox_entries" o
+      JOIN public."audit_events" a ON a."id" = o."auditId"
       WHERE o."id" = v_inbox."outboxEntryId";
-      IF v_replay_outbox_id IS NULL OR v_replay_audit_id IS NULL THEN
+      IF v_replay_outbox_id IS NULL
+         OR v_replay_audit_id IS NULL
+         OR v_replay_correlation_id IS DISTINCT FROM p_correlation_id
+         OR v_replay_idempotency_key IS DISTINCT FROM p_idempotency_key
+         OR v_replay_reason IS DISTINCT FROM p_reason
+      THEN
         RAISE EXCEPTION 'FGIS_EXCHANGE_REPLAY_EVIDENCE_INVALID'
           USING ERRCODE = '55000';
       END IF;
@@ -102,7 +112,7 @@ BEGIN
         'inboxEntryId', p_inbox_entry_id,
         'auditEventId', v_replay_audit_id,
         'outboxEntryId', v_replay_outbox_id,
-        'correlationId', p_correlation_id,
+        'correlationId', v_replay_correlation_id,
         'reasonCode', NULL,
         'operationalStatus', 'NOT_ATTESTED'
       );

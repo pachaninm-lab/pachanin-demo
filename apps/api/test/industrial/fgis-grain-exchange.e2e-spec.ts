@@ -330,6 +330,29 @@ describePostgres('PC-CROP-08H durable FGIS exchange authority', () => {
     const replay = await correlations.correlateVerifiedResponse(USER_A, command);
     expect(replay).toEqual({ ...correlated, kind: 'REPLAY' });
 
+    const divergentReplayCommands: FgisGrainResponseCorrelationCommand[] = [
+      {
+        ...command,
+        correlationId: RUN_ID + '.response-correlation.divergent',
+      },
+      {
+        ...command,
+        idempotencyKey: RUN_ID + '.response.divergent',
+      },
+      {
+        ...command,
+        reason: 'Изменённое основание не может переиспользовать ранее принятое доказательство',
+      },
+    ];
+    for (const divergent of divergentReplayCommands) {
+      await expect(correlations.correlateVerifiedResponse(USER_A, divergent))
+        .rejects.toMatchObject({
+          name: 'FgisGrainExchangeAuthorityError',
+          code: 'EXCHANGE_AUTHORITY_MISMATCH',
+          retryable: false,
+        });
+    }
+
     const evidence = await prisma.$queryRaw<Array<{
       exchangeState: string;
       responseInboxEntryId: string | null;
