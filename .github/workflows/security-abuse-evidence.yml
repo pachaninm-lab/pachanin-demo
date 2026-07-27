@@ -105,6 +105,9 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Prove security authority capture contract
+        run: node scripts/security/capture-base-security-jobs.contract.mjs
+
       - name: Capture matching Security Quality Gate authority
         env:
           GITHUB_TOKEN: ${{ github.token }}
