@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 const paths = {
   publish: '.github/workflows/docker-publish.yml',
   workflow: '.github/workflows/production-full-stack-exact-sha.yml',
+  controller: '.github/workflows/platform-v7-safe-merge.yml',
   executor: 'scripts/production-full-stack-exact-sha.sh',
   live: 'scripts/production-full-stack-live-acceptance.sh',
   scope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
@@ -110,6 +111,23 @@ requireAll('workflow', [
   'gh issue close',
   'retention-days: 90',
 ]);
+requireAll('controller', [
+  '/production release current-main',
+  'gh workflow run docker-publish.yml',
+  'gh run watch "$image_run_id"',
+  'Build API image',
+  'Build web image',
+  'Build migration image',
+  'Main advanced during image publication',
+  'gh workflow run production-full-stack-exact-sha.yml',
+]);
+const controllerSource = text.controller ?? '';
+const publishDispatchIndex = controllerSource.indexOf('gh workflow run docker-publish.yml');
+const imageWatchIndex = controllerSource.indexOf('gh run watch "$image_run_id"');
+const releaseDispatchIndex = controllerSource.indexOf('gh workflow run production-full-stack-exact-sha.yml');
+if (!(publishDispatchIndex >= 0 && imageWatchIndex > publishDispatchIndex && releaseDispatchIndex > imageWatchIndex)) {
+  failures.push(`${paths.controller}: exact image publication must complete before release dispatch`);
+}
 requireAll('executor', [
   'COMPOSE_SERVICE_DISCOVERY_FAILED',
   'BACKUP_MODE=LOGICAL_COMPOSE_POSTGRES',
@@ -133,12 +151,22 @@ requireAll('executor', [
 ]);
 requireAll('live', [
   'for locale in ru en zh',
-  '?lang=$locale',
-  '/api/health/ready',
+  '?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID',
+  'Cache-Control: no-cache, no-store, max-age=0',
+  'Платформа управления агросделками в растениеводстве',
+  'Управляйте агросделкой',
+  'от цены до расчёта',
+  'Crop Deal execution platform',
+  'Manage an agricultural Deal',
+  '种植业农业交易管理平台',
+  'Цена согласована. Теперь нужно исполнить Сделку.',
+  'if grep -Fq "$retired_title"',
+  '/api/health/ready?release=$TARGET_SHA&run=$RELEASE_RUN_ID',
   '/api/platform-v7/organization-connect',
   'Idempotency-Key:',
   'PC_RELEASE_RUN_ID',
   'LIVE_CORRELATION_ID=',
+  'LIVE_APPROVED_HERO=PASS',
   'LIVE_EXACT_REPLAY=PASS',
   'LIVE_CONFLICT_REPLAY=PASS',
   'LIVE_ACCEPTANCE=PASS',
@@ -181,4 +209,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('PASS: exact API/web/migration images, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, live intake and PostgreSQL/audit/outbox evidence are enforced.');
+console.log('PASS: exact API/web/migration images, serialized image publication, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, live intake and PostgreSQL/audit/outbox evidence are enforced.');
