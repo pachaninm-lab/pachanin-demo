@@ -4,7 +4,7 @@
 репозитории**. Их выполняет владелец во внешних системах или отдельным
 governance-решением.
 
-Дата составления: 2026-07-26.
+Дата составления: 2026-07-26. Дополнено 2026-07-27 (model supply chain).
 
 ---
 
@@ -21,7 +21,8 @@ previews и check-runs, потому что GitHub App и два проекта 
 
 1. Отключить Git-интеграцию у обоих проектов Netlify:
    - `gleaming-mandazi-bb9856`
-   - `vermillion-kitsune-0e7b97`
+   - `vermillion-kitsune-0e7b97` — с 2026-07-27 отдаёт checks под именем
+     `retired-pc-do-not-use-7e5e0e35`
 
    Netlify → проект → *Site configuration* → *Build & deploy* → *Continuous
    deployment* → *Unlink repository*.
@@ -34,16 +35,24 @@ previews и check-runs, потому что GitHub App и два проекта 
 что в списке checks больше нет:
 
 - `Header rules - gleaming-mandazi-bb9856`
-- `Header rules - vermillion-kitsune-0e7b97`
+- `Header rules - vermillion-kitsune-0e7b97` / `- retired-pc-do-not-use-7e5e0e35`
 - `Redirect rules - gleaming-mandazi-bb9856`
-- `Redirect rules - vermillion-kitsune-0e7b97`
+- `Redirect rules - vermillion-kitsune-0e7b97` / `- retired-pc-do-not-use-7e5e0e35`
 - `Pages changed - gleaming-mandazi-bb9856`
-- `Pages changed - vermillion-kitsune-0e7b97`
+- `Pages changed - vermillion-kitsune-0e7b97` / `- retired-pc-do-not-use-7e5e0e35`
 - `deploy-preview` / `netlify/*` статусов
 
-**Блокирует ли это merge.** Нет, пока эти checks не являются required branch
-checks. Они возвращают `neutral` или `pending` и не входят в repository-owned
-gates. Merge после полного PASS собственных гейтов репозитория задерживать
+**Переименование не заменяет отвязку — оно ухудшило картину.** Проект
+переименован в `retired-pc-do-not-use-7e5e0e35`, но репозиторий к нему
+по-прежнему привязан. Собирать нечего, поэтому сборка теперь не «нейтральна», а
+**падает**: на #3283 статус `netlify/retired-pc-do-not-use-7e5e0e35/deploy-preview`
+вернул `failure`, из-за чего combined status коммита стал красным. Пока
+интеграция жива, это будет повторяться на каждом PR.
+
+**Блокирует ли это merge.** Не блокирует технически, пока эти checks не являются
+required branch checks: `mergeable_state` остаётся `unstable`, а не `blocked`.
+Но красный combined status на каждом PR — это шум, в котором легко пропустить
+настоящее падение, и ровно поэтому §1 стоит закрыть. Merge после полного PASS собственных гейтов репозитория задерживать
 из-за них не нужно. Если же какой-то из них окажется в required-списке —
 убрать его оттуда: он не может стать зелёным, потому что собирать больше
 нечего.
@@ -137,6 +146,87 @@ PR на миграцию этого файла ломает один из дву
 было прочитать как «мигрировано всё».
 Тест пришпиливает список ровно к тем файлам, которые лок действительно
 покрывает, поэтому исключение не может тихо разрастись.
+
+---
+
+## 5. Доступ к весам моделей — открыто, блокирует всю цепочку B → C → H.06
+
+**Установлено фактически, а не предположительно.** Оба бандла на exact main
+находятся в `PENDING_ACQUISITION` с пустой описью источников:
+
+```
+qwen3-8b.bundle.v2.pending.json                 source_files: []  remote_inventory: null
+mistral-7b-instruct-v0.3.bundle.v2.pending.json source_files: []  remote_inventory: null
+```
+
+Скачать их из этого окружения нельзя: `huggingface.co` отвечает
+**403 (CONNECT tunnel failed)** через агентский прокси.
+
+### Чего от владельца требуется
+
+Получить в сети с доступом к Hugging Face и передать во внутреннее
+хранилище **точные** ревизии:
+
+| Роль | Модель | Ревизия |
+|---|---|---|
+| PRIMARY | `Qwen/Qwen3-8B` | `895c8d171bc03c30e113cd7a28c02494b5e068b7` |
+| FALLBACK | `mistralai/Mistral-7B-Instruct-v0.3` | `c170c708c41dac9275d15a8fff4eca08d52bab71` |
+
+Preview-сборки, «эквивалентные» веса и любая другая ревизия **не подойдут** —
+и не потому, что так решено на словах: `reconcile_huggingface_inventory`
+отвергает несовпадение `sha` с authority, несовпадение лицензии и любой дрейф
+описи в обе стороны (`missing` и `ungoverned`).
+
+### Чего от владельца НЕ требуется
+
+Ни писать скрипты, ни собирать команды вручную. Получение весов — **одна
+команда**, выполняемая на машине с доступом к Hugging Face:
+
+```
+./apps/tai/model-artifacts/model-source-acquisition-driver.v1.sh \
+    --model-id Qwen/Qwen3-8B \
+    --output-root /srv/tai/model-sources
+```
+
+Затем то же самое для `mistralai/Mistral-7B-Instruct-v0.3`.
+
+Что драйвер делает сам:
+
+- берёт ревизию из authority, а не из аргумента — ревизию, которую можно
+  набрать руками, можно набрать с ошибкой;
+- сверяет ревизию и лицензию с upstream **до** загрузки, поэтому отказ
+  случается раньше, чем утекут гигабайты;
+- качает только одобренные файлы, сверяя размер каждого;
+- пересчитывает SHA-256 по факту на диске и собирает source manifest;
+- продолжает прерванную загрузку вместо повторной.
+
+Требуется `python3` **3.12 или новее** — драйвер проверяет это и говорит
+прямо, вместо падения внутри импорта.
+
+Если доступ идёт через зеркало или релей, задайте `TAI_HUGGINGFACE_BASE`.
+Зеркало меняет источник байтов, но не то, какие байты принимаются: список
+файлов и ревизия по-прежнему решаются authority.
+
+Дальнейшие шаги (legal packet, проверка восстановления, отчёт) описаны в
+`apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md`.
+
+### Что разблокируется
+
+B.01 и B.02 → B.04 (конвертация и квантизация) → C.01/C.02 (профили) →
+C.04 (допуск основной модели) → **H.06** — единственный незакрытый пункт
+Gateway. Всё остальное в стадии H уже принято на exact main.
+
+---
+
+## 6. Внешние блокеры, унаследованные от стадии B — открыто
+
+Эти пункты не связаны с доступом к весам и требуются отдельно:
+
+- **B.06** — неизменяемое внешнее хранилище бандлов с доказанным retention
+  (issues 2954, 2958, 2961). Пока не выдано, B.07 (чистое восстановление)
+  недостижим.
+- **C.03** — GPU-хост для профиля Qwen Q8_0 (issue 2972). Без него профиль
+  concurrency 1/2/4/8 с VRAM и часовым soak снять не на чем.
 
 ---
 
