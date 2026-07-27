@@ -3,7 +3,7 @@
   "branch": "fix/security-evidence-rollup-pagination-3280",
   "status": "active",
   "issue": 3280,
-  "baseCommit": "fe42048019c3951a17af227967be060e8462f77d",
+  "baseCommit": "476f63e9832184011149ccf4b624767c56d93162",
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
     ".github/workflows/security-abuse-evidence.yml",
