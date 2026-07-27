@@ -39,6 +39,11 @@ function textAt(root, relativePath) {
   return readFileSync(path.join(root, relativePath), 'utf8');
 }
 
+function isForbiddenTrackedPath(relativePath) {
+  const segments = normalizePath(relativePath).split('/');
+  return segments.at(-1) === 'netlify.toml' || segments.includes('.netlify');
+}
+
 function push(violations, file, reason) {
   violations.push(`${file}: ${reason}`);
 }
@@ -272,6 +277,12 @@ export function scanNetlifyRetirement({
       const absolutePath = path.join(root, relativePath);
       return existsSync(absolutePath) && statSync(absolutePath).isFile();
     });
+
+  for (const relativePath of files) {
+    if (isForbiddenTrackedPath(relativePath)) {
+      push(violations, relativePath, 'forbidden Netlify configuration/state path is tracked');
+    }
+  }
 
   for (const relativePath of files) {
     const content = textAt(root, relativePath);
