@@ -13,6 +13,7 @@
     "docs/platform-v7/autopilot/scopes/pc-crop-successor-regression-3291.json",
     "scripts/pc-crop-08d/verify.mjs",
     "scripts/pc-crop-08f/verify.mjs",
+    "scripts/pc-crop-successor-regression-apply.mjs",
     "scripts/pc-crop-successor-regression-mode.mjs",
     "scripts/pc-crop-successor-regression-mode.spec.mjs"
   ],
