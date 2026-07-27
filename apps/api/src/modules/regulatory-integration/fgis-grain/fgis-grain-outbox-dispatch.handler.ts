@@ -25,6 +25,7 @@ import {
 } from './fgis-grain-1.0.23.dispatch.contract';
 import { FGIS_GRAIN_1_0_23_SIGNING_POLICY } from './fgis-grain-1.0.23.signing-policy.generated';
 import { decodeGovernedFgisGrainSoapEnvelope } from './fgis-grain-1.0.23.xml-policy';
+import { FgisGrainExchangeReceiptRepository } from './fgis-grain-exchange-receipt.repository';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const SAFE_REFERENCE_PATTERN =
@@ -204,6 +205,7 @@ function assertTransportAccepted(result: FgisGrainTransportResult): void {
 export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
   constructor(
     private readonly worker: DurableOutboxWorker,
+    private readonly exchangeReceipts: FgisGrainExchangeReceiptRepository,
     private readonly configurationPort: FgisGrainProviderConfigurationPort,
     private readonly payloadStorePort: FgisGrainImmutablePayloadStorePort,
     private readonly canonicalizationPort: FgisGrainCanonicalizationPort,
@@ -221,15 +223,22 @@ export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
 
   async dispatch(entry: ClaimedOutboxEntry): Promise<void> {
     const payload = assertFgisGrainDispatchPayload(entry.payload);
+    const idempotencyKey = entry.idempotencyKey;
     if (
       entry.type !== FGIS_GRAIN_OUTBOX_EVENT_TYPE
       || entry.correlationId !== payload.correlationId
-      || entry.idempotencyKey.trim().length < 3
+      || !idempotencyKey
+      || idempotencyKey.trim().length < 3
     ) {
       permanent(
         'MALFORMED_DISPATCH_PAYLOAD',
         'Outbox row authority does not match payload',
       );
+    }
+
+    const decision = await this.exchangeReceipts.inspectBeforeDispatch(entry, payload);
+    if (decision.kind === 'SKIP_TRANSPORT') {
+      return;
     }
 
     const rawConfiguration = await this.configurationPort.resolve(
@@ -320,8 +329,9 @@ export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
       transportOperation: payload.transportOperation,
       messageId: payload.messageId,
       correlationId: payload.correlationId,
-      idempotencyKey: entry.idempotencyKey,
+      idempotencyKey,
     });
     assertTransportAccepted(transportResult);
+    await this.exchangeReceipts.recordAccepted(entry, payload, transportResult);
   }
 }

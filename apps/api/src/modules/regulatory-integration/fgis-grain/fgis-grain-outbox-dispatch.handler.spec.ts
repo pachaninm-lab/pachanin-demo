@@ -14,6 +14,7 @@ import {
 } from './fgis-grain-1.0.23.dispatch.contract';
 import { FGIS_GRAIN_1_0_23_SIGNING_POLICY } from './fgis-grain-1.0.23.signing-policy.generated';
 import { buildGovernedUnsignedFgisGrainSoapEnvelope } from './fgis-grain-1.0.23.xml-policy';
+import type { FgisGrainExchangeReceiptRepository } from './fgis-grain-exchange-receipt.repository';
 import { FgisGrainOutboxDispatchHandler } from './fgis-grain-outbox-dispatch.handler';
 import type {
   ClaimedOutboxEntry,
@@ -81,6 +82,7 @@ function createAuthority() {
 
 function createHarness(overrides: {
   storedBytes?: Uint8Array;
+  alreadyAccepted?: boolean;
   transportResult?: {
     delivered: boolean;
     responseCode: 'success' | 'accepted' | 'queue-is-empty' | 'ignored' | null;
@@ -99,6 +101,12 @@ function createHarness(overrides: {
       handlers.set(type, handler);
     }),
   } as unknown as DurableOutboxWorker;
+  const exchangeReceipts = {
+    inspectBeforeDispatch: jest.fn(async () => overrides.alreadyAccepted
+      ? { kind: 'SKIP_TRANSPORT', exchangeId: 'exchange-1', state: 'TRANSPORT_ACCEPTED' }
+      : { kind: 'SEND', exchangeId: 'exchange-1', state: 'DISPATCH_PENDING' }),
+    recordAccepted: jest.fn(async () => undefined),
+  } as unknown as FgisGrainExchangeReceiptRepository;
   const configurationPort = {
     resolve: jest.fn(async () => ({
       schemaVersion: FGIS_GRAIN_PROVIDER_CONFIG_SCHEMA_VERSION,
@@ -175,6 +183,7 @@ function createHarness(overrides: {
   } as unknown as FgisGrainSoapTransportPort;
   const handler = new FgisGrainOutboxDispatchHandler(
     worker,
+    exchangeReceipts,
     configurationPort,
     payloadStorePort,
     canonicalizationPort,
@@ -186,6 +195,7 @@ function createHarness(overrides: {
     ...authority,
     handlers,
     handler,
+    exchangeReceipts,
     configurationPort,
     payloadStorePort,
     canonicalizationPort,
@@ -203,10 +213,14 @@ describe('FGIS Grain canonical outbox dispatch handler', () => {
     expect(harness.handlers.has(FGIS_GRAIN_OUTBOX_EVENT_TYPE)).toBe(true);
   });
 
-  it('executes the governed reference/hash pipeline and accepts only transport acceptance', async () => {
+  it('executes the governed reference/hash pipeline and persists receipt before completion', async () => {
     const harness = createHarness();
     await harness.handler.dispatch(harness.entry);
 
+    expect(harness.exchangeReceipts.inspectBeforeDispatch).toHaveBeenCalledWith(
+      harness.entry,
+      harness.payload,
+    );
     expect(harness.configurationPort.resolve).toHaveBeenCalledWith(
       harness.payload.providerConfigurationReference,
     );
@@ -242,6 +256,24 @@ describe('FGIS Grain canonical outbox dispatch handler', () => {
       'certificateBytes',
       'signatureBytes',
     ]));
+    expect(harness.exchangeReceipts.recordAccepted).toHaveBeenCalledWith(
+      harness.entry,
+      harness.payload,
+      expect.objectContaining({ responseCode: 'accepted' }),
+    );
+  });
+
+  it('skips every external side effect after a durable transport receipt', async () => {
+    const harness = createHarness({ alreadyAccepted: true });
+    await harness.handler.dispatch(harness.entry);
+    expect(harness.exchangeReceipts.inspectBeforeDispatch).toHaveBeenCalledTimes(1);
+    expect(harness.configurationPort.resolve).not.toHaveBeenCalled();
+    expect(harness.payloadStorePort.load).not.toHaveBeenCalled();
+    expect(harness.canonicalizationPort.canonicalize).not.toHaveBeenCalled();
+    expect(harness.signingProviderPort.sign).not.toHaveBeenCalled();
+    expect(harness.assemblerPort.assemble).not.toHaveBeenCalled();
+    expect(harness.transportPort.send).not.toHaveBeenCalled();
+    expect(harness.exchangeReceipts.recordAccepted).not.toHaveBeenCalled();
   });
 
   it('rejects byte tampering before canonicalization or signing', async () => {
@@ -257,6 +289,7 @@ describe('FGIS Grain canonical outbox dispatch handler', () => {
     expect(harness.canonicalizationPort.canonicalize).not.toHaveBeenCalled();
     expect(harness.signingProviderPort.sign).not.toHaveBeenCalled();
     expect(harness.transportPort.send).not.toHaveBeenCalled();
+    expect(harness.exchangeReceipts.recordAccepted).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -292,5 +325,6 @@ describe('FGIS Grain canonical outbox dispatch handler', () => {
         retryable: transportResult.retryable,
       });
     }
+    expect(harness.exchangeReceipts.recordAccepted).not.toHaveBeenCalled();
   });
 });

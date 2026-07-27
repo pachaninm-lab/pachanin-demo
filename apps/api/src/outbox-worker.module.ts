@@ -19,6 +19,7 @@ import {
   FailClosedFgisGrainSigningProviderPort,
   FailClosedFgisGrainSoapTransportPort,
 } from './modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.fail-closed';
+import { FgisGrainExchangeReceiptRepository } from './modules/regulatory-integration/fgis-grain/fgis-grain-exchange-receipt.repository';
 import { FgisGrainOutboxDispatchHandler } from './modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler';
 
 /**
@@ -62,6 +63,7 @@ import { FgisGrainOutboxDispatchHandler } from './modules/regulatory-integration
       provide: FgisGrainSoapTransportPort,
       useClass: FailClosedFgisGrainSoapTransportPort,
     },
+    FgisGrainExchangeReceiptRepository,
     FgisGrainOutboxDispatchHandler,
     DurableOutboxRunner,
   ],
