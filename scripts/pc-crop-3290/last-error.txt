@@ -33,33 +33,16 @@ SyntaxError: missing ) after argument list
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:25)
 
 Node.js v22.23.1
-node:internal/modules/cjs/loader:1433
-  throw err;
-  ^
+{"schemaVersion":"pc-crop.predecessor-trigger-governance-acceptance.v1","issue":3170,"exactHead":"99fcd771f1d7a7bc19651c78faac190ffb3f5276","status":"PASS","workflowCount":5,"invariants":{".github/workflows/pc-crop-07a.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-07a.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-07b.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-07b.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-08b.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-08b.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-08c.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-08c.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-08d.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-08d.yml:permissionsAndJobsImmutable":true,"historicalJobsRemainByteIdentical":true,"sharedModuleTriggersRemoved":true,"centralGuardTriggerRemoved":true,"successorFilesDoNotTriggerPredecessors":true,"noContinueOnError":true},"boundaries":{"runtimeBusinessCodeChange":false,"acceptanceWeakening":false,"securityGateDisabled":false,"productionDeployment":false,"productionHosting":"REG_RU_VPS_ONLY"},"failures":[]}
+file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/pc-crop-successor-trigger-governance.mjs:57
+    throw new Error(`${label}: expected ${expected}, actual ${actual}`);
+          ^
 
-Error: Cannot find module '/home/runner/work/pachanin-demo/pachanin-demo/scripts/pc-crop-successor-trigger-governance.mjs'
-    at node:internal/modules/cjs/loader:1430:15
-    at node:internal/main/check_syntax:33:20 {
-  code: 'MODULE_NOT_FOUND',
-  requireStack: []
-}
-
-Node.js v22.23.1
-{"schemaVersion":"pc-crop.predecessor-trigger-governance-acceptance.v1","issue":3170,"exactHead":"a2f0581056ff94a7d9498e3b736aa64c7a7d6428","status":"PASS","workflowCount":5,"invariants":{".github/workflows/pc-crop-07a.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-07a.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-07b.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-07b.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-08b.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-08b.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-08c.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-08c.yml:permissionsAndJobsImmutable":true,".github/workflows/pc-crop-08d.yml:exactOwnershipPaths":true,".github/workflows/pc-crop-08d.yml:permissionsAndJobsImmutable":true,"historicalJobsRemainByteIdentical":true,"sharedModuleTriggersRemoved":true,"centralGuardTriggerRemoved":true,"successorFilesDoNotTriggerPredecessors":true,"noContinueOnError":true},"boundaries":{"runtimeBusinessCodeChange":false,"acceptanceWeakening":false,"securityGateDisabled":false,"productionDeployment":false,"productionHosting":"REG_RU_VPS_ONLY"},"failures":[]}
-node:internal/modules/cjs/loader:1433
-  throw err;
-  ^
-
-Error: Cannot find module '/home/runner/work/pachanin-demo/pachanin-demo/scripts/pc-crop-successor-trigger-governance.mjs'
-    at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
-    at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
-    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
-    at Function._load (node:internal/modules/cjs/loader:1216:25)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
-    at node:internal/main/run_main_module:36:49 {
-  code: 'MODULE_NOT_FOUND',
-  requireStack: []
-}
+Error: 08D shared trigger handoff for apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts: expected 0, actual 2
+    at requireCount (file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/pc-crop-successor-trigger-governance.mjs:57:11)
+    at file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/pc-crop-successor-trigger-governance.mjs:78:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
 
 Node.js v22.23.1
