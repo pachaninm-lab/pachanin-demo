@@ -103,6 +103,26 @@ has actually run and confirmed the digest. It is not set to verified in advance,
 because a manifest that claims verification it has not received is worse than no
 manifest.
 
+All three manifests are now `VERIFIED`, each carrying the run that proved it:
+run [`30247846635`](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30247846635)
+on `ef9fb1634`, which reported `digest_preserved: true` for every image. A
+manifest marked `VERIFIED` without `source_run_id` is refused — a claim with no
+run behind it is the thing this field exists to prevent.
+
+### The mirrored package is public, and that is a dependency worth naming
+
+Consumers pull anonymously today because `ghcr.io/pachaninm-lab/ci-postgres` is a
+public package, so no `credentials:` block and no `packages: read` permission are
+needed on the sixteen consuming workflows.
+
+If the package is ever made private, every consumer breaks at once and loudly —
+the service container will not start. That is a smaller and better-behaved
+dependency than the one it replaces: it is a repository setting under our own
+control rather than a third party's rate limit, and it fails visibly instead of
+intermittently. Restoring it means either making the package public again or
+adding `credentials:` with `github.actor` and `GITHUB_TOKEN` plus
+`permissions: packages: read` to each consuming workflow.
+
 ## Fail-closed rules for consumers
 
 A consumer must refuse to start when:
@@ -122,14 +142,48 @@ mirror had stopped working.
 
 ## Migration order
 
-1. Mirror manifests, mirror workflow and this document land first.
+1. Mirror manifests, mirror workflow and this document land first. — done, #3266
 2. The mirror workflow runs and the digest is verified against the published
-   package.
+   package. — done, run `30247846635`
 3. Only then are consumers switched, together with the regression guard that
-   forbids returning to an anonymous Docker Hub pull.
+   forbids returning to an anonymous Docker Hub pull. — done, #3269
 
 Switching consumers before the mirrored package exists would replace an
 intermittent failure with a certain one.
+
+## The guard
+
+`scripts/check-ci-postgres-image-authority.mjs` runs on every pull request and
+every push to main, via `.github/workflows/ci-postgres-image-authority.yml`.
+
+It is deliberately **not** path-filtered. The regression it guards against is a
+one-line edit in any workflow or script, and a path filter is precisely how the
+`Cache-Control` drift in this repository stayed invisible for a day: a gate that
+only runs when someone happens to touch its own paths is not a gate.
+
+The guard refuses:
+
+| Case | Verdict |
+|---|---|
+| `ghcr.io/pachaninm-lab/ci-postgres@<verified digest>` | pass |
+| the mirror pinned by a mutable tag | fail — named as a pin problem, not a registry one |
+| a digest under the mirror that no manifest verifies | fail |
+| `postgres:16` or any other non-mirror image | fail |
+| `docker.io/library/postgres`, `registry-1.docker.io` | fail |
+| any manifest not `VERIFIED`, or `VERIFIED` with no `source_run_id` | fail, before any consumer is even examined |
+
+That last row is what keeps the guard from passing vacuously: without a
+trustworthy allowlist, consumers would either all pass for no reason or all fail
+for the wrong one, so a broken manifest set stops the check where it stands.
+
+The workflow runs the guard's own test suite **before** running the guard, so a
+green result means the guard was demonstrated to reject regressions on that same
+commit — not merely that it printed `PASS`.
+
+Historical and dated records are out of scope by construction: only
+`.github/workflows`, `infra/kind` and `scripts` are scanned. An incident report
+naming `docker pull postgres:16` describes what was true when it was written and
+must stay readable as written.
 
 ## What this does not claim
 

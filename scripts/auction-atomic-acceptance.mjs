@@ -133,7 +133,7 @@ requireFragments('raceTest', [
 ]);
 requireFragments('workflow', [
   'ref: ${{ env.EXACT_HEAD }}',
-  'postgres:16',
+  'ghcr.io/pachaninm-lab/ci-postgres@sha256:',
   'CREATE ROLE app_deal LOGIN',
   'prisma migrate deploy',
   'auction-atomic-execution.e2e-spec.ts',

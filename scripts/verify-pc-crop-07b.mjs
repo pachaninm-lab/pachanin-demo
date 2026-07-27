@@ -154,7 +154,7 @@ requireText('scope', [
   '"productionDeploymentEvidence": false',
 ]);
 requireText('workflow', [
-  'name: PC-CROP-07B Integration Control Tower Acceptance', 'postgres:16',
+  'name: PC-CROP-07B Integration Control Tower Acceptance', 'ghcr.io/pachaninm-lab/ci-postgres@sha256:',
   'PC_CROP_07B_POSTGRESQL', 'tsconfig.pc-crop.json', 'verify-pc-crop-07b.mjs',
   'pc-crop-07b-acceptance.json', 'retention-days: 90',
 ]);
