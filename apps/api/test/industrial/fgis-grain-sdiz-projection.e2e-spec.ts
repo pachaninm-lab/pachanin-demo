@@ -293,12 +293,47 @@ describePostgres('PC-CROP-08F PostgreSQL SDIZ projection authority', () => {
     }]);
   });
 
-  itRuntime('blocks direct BUYER projection mutation at the RLS boundary', async () => {
+  itRuntime('denies direct ADMIN projection DML while the controlled writer remains usable', async () => {
     if (!runtimePrisma) throw new Error(RUNTIME_URL_REQUIRED);
+    const privileges = await runtimePrisma.$queryRaw<Array<{
+      batchInsert: boolean;
+      projectionInsert: boolean;
+      projectionUpdate: boolean;
+      projectionDelete: boolean;
+    }>>(Prisma.sql`
+      SELECT
+        has_table_privilege(
+          current_user,
+          'public."fgis_grain_sdiz_projection_batches"',
+          'INSERT'
+        ) AS "batchInsert",
+        has_table_privilege(
+          current_user,
+          'public."fgis_grain_sdiz_projections"',
+          'INSERT'
+        ) AS "projectionInsert",
+        has_table_privilege(
+          current_user,
+          'public."fgis_grain_sdiz_projections"',
+          'UPDATE'
+        ) AS "projectionUpdate",
+        has_table_privilege(
+          current_user,
+          'public."fgis_grain_sdiz_projections"',
+          'DELETE'
+        ) AS "projectionDelete"
+    `);
+    expect(privileges).toEqual([{
+      batchInsert: false,
+      projectionInsert: false,
+      projectionUpdate: false,
+      projectionDelete: false,
+    }]);
+
     const runtimeTransactions = new RlsTransactionService(runtimePrisma);
     const sdizId = `${RUN_ID}.sdiz.runtime-principal`;
-    const updated = await runtimeTransactions.withTrustedContext(
-      { ...USER_A, role: Role.BUYER },
+    await expect(runtimeTransactions.withTrustedContext(
+      USER_A,
       async (tx) => tx.$executeRaw(Prisma.sql`
         UPDATE public."fgis_grain_sdiz_projections"
         SET "status" = 'CANCELED', "updatedAt" = clock_timestamp()
@@ -306,8 +341,7 @@ describePostgres('PC-CROP-08F PostgreSQL SDIZ projection authority', () => {
           AND "organizationId" = ${ORG_A}
           AND "sdizId" = ${sdizId}
       `),
-    );
-    expect(updated).toBe(0);
+    )).rejects.toThrow(/permission denied/iu);
 
     const authority = await prisma.$queryRaw<Array<{ status: string }>>(Prisma.sql`
       SELECT "status"
