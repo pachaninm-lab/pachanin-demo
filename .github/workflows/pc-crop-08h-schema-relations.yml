@@ -1,0 +1,109 @@
+name: One-shot PC-CROP-08H schema relation repair
+
+on:
+  push:
+    branches:
+      - automation/pc-crop-08h-schema-relations
+    paths:
+      - '.github/workflows/pc-crop-08h-schema-relations.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PC-CROP-08H branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-08h-exchange-receipt
+          fetch-depth: 0
+
+      - name: Guard immutable repair base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "53c29ef54074caaa12effb0d1a517c6b6288917f"
+
+      - name: Reconcile Prisma relations with committed foreign keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'apps/api/prisma/schema.prisma';
+          let schema = fs.readFileSync(path, 'utf8');
+
+          function replaceOnce(anchor, replacement, label) {
+            const first = schema.indexOf(anchor);
+            const last = schema.lastIndexOf(anchor);
+            if (first < 0 || first !== last) {
+              throw new Error(`${label}: expected exactly one anchor, found ${first < 0 ? 0 : 'multiple'}`);
+            }
+            schema = schema.slice(0, first) + replacement + schema.slice(first + anchor.length);
+          }
+
+          replaceOnce(
+            '  fgisGrainSdizProjections          FgisGrainSdizProjection[]\n',
+            '  fgisGrainSdizProjections          FgisGrainSdizProjection[]\n  fgisGrainExchanges                FgisGrainExchange[]\n',
+            'Organization backrelation',
+          );
+
+          replaceOnce(
+            '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n',
+            '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n  fgisGrainOutboundExchange          FgisGrainExchange?\n',
+            'OutboxEntry backrelation',
+          );
+
+          replaceOnce(
+            '  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n',
+            '  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n  fgisGrainResponseExchange     FgisGrainExchange?\n',
+            'RegulatoryIntegrationInboxEntry backrelation',
+          );
+
+          replaceOnce(
+            '  updatedAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)\n\n  @@unique([tenantId, organizationId, messageId], map: "fgis_grain_exchange_message_key")',
+            '  updatedAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)\n\n  organization        Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_org_fk")\n  outboundOutboxEntry OutboxEntry                      @relation(fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_outbox_fk")\n  responseInboxEntry  RegulatoryIntegrationInboxEntry? @relation(fields: [responseInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_response_inbox_fk")\n\n  @@unique([tenantId, organizationId, messageId], map: "fgis_grain_exchange_message_key")',
+            'FgisGrainExchange relation authority',
+          );
+
+          fs.writeFileSync(path, schema, 'utf8');
+          NODE
+          git diff --check
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format and validate Prisma authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec prisma format
+          pnpm --filter @pc/api exec prisma validate
+          grep -q 'map: "fgis_grain_exchange_org_fk"' apps/api/prisma/schema.prisma
+          grep -q 'map: "fgis_grain_exchange_outbox_fk"' apps/api/prisma/schema.prisma
+          grep -q 'map: "fgis_grain_exchange_response_inbox_fk"' apps/api/prisma/schema.prisma
+          git diff --check
+
+      - name: Commit exact schema repair to PC-CROP-08H branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(git status --porcelain -- apps/api/prisma/schema.prisma)"
+          git config user.name 'pc-crop-governance-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add apps/api/prisma/schema.prisma
+          git commit -m 'PC-CROP-08H: reconcile Prisma relations with exchange foreign keys'
+          git push origin HEAD:agent/pc-crop-08h-exchange-receipt
