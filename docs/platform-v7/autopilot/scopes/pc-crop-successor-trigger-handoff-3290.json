@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-successor-trigger-handoff-3290",
+  "status": "active",
+  "issue": 3290,
+  "baseCommit": "1af525d5ce0cc6663a510f788ab9ee3a36ff9c65",
+  "operationalStatus": "NOT_ATTESTED",
+  "handoffs": {
+    "successorWorkflow": ".github/workflows/pc-crop-08h.yml",
+    "dispatchShared": [
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts",
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
+      "apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts"
+    ],
+    "projectionShared": [
+      "apps/api/prisma/schema.prisma",
+      "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts"
+    ]
+  },
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08d.yml",
+    ".github/workflows/pc-crop-08f.yml",
+    ".github/workflows/pc-crop-predecessor-trigger-governance.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json",
+    "scripts/pc-crop-predecessor-trigger-governance.mjs",
+    "scripts/pc-crop-successor-trigger-governance.mjs"
+  ],
+  "boundaries": {
+    "runtimeProductMutation": false,
+    "acceptanceWeakening": false,
+    "securityException": false,
+    "requiredTestRemoval": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
