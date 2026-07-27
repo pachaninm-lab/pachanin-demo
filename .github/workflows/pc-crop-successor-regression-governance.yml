@@ -1,0 +1,117 @@
+name: PC-CROP Successor Regression Governance
+
+on:
+  push:
+    branches:
+      - governance/pc-crop-successor-regression-3291
+    paths:
+      - '.github/workflows/pc-crop-08d.yml'
+      - '.github/workflows/pc-crop-08f.yml'
+      - '.github/workflows/pc-crop-successor-regression-governance.yml'
+      - 'docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-successor-regression-3291.json'
+      - 'scripts/pc-crop-08d/verify.mjs'
+      - 'scripts/pc-crop-08f/verify.mjs'
+      - 'scripts/pc-crop-successor-regression-*.mjs'
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08d.yml'
+      - '.github/workflows/pc-crop-08f.yml'
+      - '.github/workflows/pc-crop-successor-regression-governance.yml'
+      - 'docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-successor-regression-3291.json'
+      - 'scripts/pc-crop-08d/verify.mjs'
+      - 'scripts/pc-crop-08f/verify.mjs'
+      - 'scripts/pc-crop-successor-regression-*.mjs'
+  workflow_dispatch:
+
+concurrency:
+  group: pc-crop-successor-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  normalize:
+    name: Deterministically normalize governed predecessor workflows
+    if: github.event_name == 'push' && github.ref_name == 'governance/pc-crop-successor-regression-3291'
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: governance/pc-crop-successor-regression-3291
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Apply exact workflow normalization
+        run: node scripts/pc-crop-successor-regression-apply.mjs --apply
+
+      - name: Run mode resolver contract tests
+        run: node --test scripts/pc-crop-successor-regression-mode.spec.mjs
+
+      - name: Re-assert predecessor trigger and immutable jobs lock
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-predecessor-trigger-governance.mjs --apply
+          node scripts/pc-crop-successor-regression-apply.mjs --check
+          node scripts/pc-crop-predecessor-trigger-governance.mjs --check
+
+      - name: Commit normalized governance files once
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Governance files are already normalized.'
+            exit 0
+          fi
+          git config user.name 'pc-crop-governance[bot]'
+          git config user.email 'pc-crop-governance[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/pc-crop-08d.yml \
+            .github/workflows/pc-crop-08f.yml \
+            docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json
+          git commit -m 'CI: normalize successor regression acceptance modes'
+          git push origin HEAD:governance/pc-crop-successor-regression-3291
+
+  verify:
+    name: Fail-closed successor regression contract
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run mode resolver contract tests
+        run: node --test scripts/pc-crop-successor-regression-mode.spec.mjs
+
+      - name: Verify workflows and immutable predecessor lock
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-successor-regression-apply.mjs --check
+          node scripts/pc-crop-predecessor-trigger-governance.mjs --check
+
+      - name: Verify no acceptance step was removed
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in .github/workflows/pc-crop-08d.yml .github/workflows/pc-crop-08f.yml; do
+            grep -q 'SUCCESSOR_REGRESSION' "$workflow"
+            grep -q 'Apply complete migration chain' "$workflow"
+            grep -q 'Typecheck' "$workflow"
+            grep -q 'PostgreSQL' "$workflow"
+            grep -q 'Enforce exact-head acceptance evidence' "$workflow"
+          done
