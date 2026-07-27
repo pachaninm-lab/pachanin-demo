@@ -10,6 +10,8 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const exists = (name) => fs.existsSync(path.join(root, evidenceDir, name));
 for (const name of [
   'scope-guard.ok',
+  'acceptance-mode.json',
+  'acceptance-mode.txt',
   'policy-authority.ok',
   'api-typecheck.ok',
   'unit-contracts.ok',
@@ -18,6 +20,26 @@ for (const name of [
   if (!exists(name)) failures.push(`missing evidence marker: ${name}`);
 }
 if (!/^[a-f0-9]{40}$/u.test(exactHead)) failures.push('invalid exact head');
+
+let acceptanceModeEvidence = null;
+try {
+  acceptanceModeEvidence = JSON.parse(read(path.join(evidenceDir, 'acceptance-mode.json')));
+} catch {
+  failures.push('acceptance mode evidence is absent or invalid JSON');
+}
+const acceptanceMode = exists('acceptance-mode.txt')
+  ? read(path.join(evidenceDir, 'acceptance-mode.txt')).trim()
+  : '';
+const acceptanceModeGoverned = Boolean(
+  acceptanceModeEvidence
+  && acceptanceModeEvidence.schemaVersion === 'pc-crop.successor-regression-mode.v1'
+  && acceptanceModeEvidence.slice === 'PC-CROP-08D'
+  && acceptanceModeEvidence.mode === acceptanceMode
+  && ['EXACT_SCOPE', 'SUCCESSOR_REGRESSION'].includes(acceptanceMode)
+  && acceptanceModeEvidence.operationalStatus === 'NOT_ATTESTED'
+  && acceptanceModeEvidence.productionHosting === 'REG_RU_VPS_ONLY',
+);
+if (!acceptanceModeGoverned) failures.push('acceptance mode is not governed');
 
 const lock = JSON.parse(read('docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json'));
 const manifest = JSON.parse(read('docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.json'));
@@ -120,6 +142,7 @@ const report = {
   issue: 3168,
   status: failures.length === 0 ? 'PASS' : 'FAIL',
   exactHead,
+  acceptanceMode,
   postgresql: '16',
   adapterCode: 'FGIS_ZERNO',
   apiVersion: '1.0.23',
@@ -131,6 +154,7 @@ const report = {
     generatedTypescriptSha256: lock.generatedTypescriptSha256,
   },
   invariants: {
+    acceptanceModeGoverned,
     officialZipAndDocxPinned: lock.status === 'PINNED',
     byteIdenticalPolicyAuthority: exists('policy-authority.ok'),
     referenceOnlyConfiguration: contract.includes('endpointReference')
