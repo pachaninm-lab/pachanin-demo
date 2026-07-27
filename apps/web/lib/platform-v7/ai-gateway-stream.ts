@@ -226,3 +226,37 @@ export function snapshotAgreesWithContract(
   if (snapshot.status === 'answered') return outcome.usable && outcome.text === snapshot.text;
   return !outcome.usable && snapshot.text === '';
 }
+
+export type GatewayLocale = 'ru' | 'en' | 'zh';
+
+/**
+ * What a refusal says to a reader.
+ *
+ * Written as a refusal, not as an apology that trails off into a suggestion:
+ * the reader has to be able to tell that no answer was produced, which is the
+ * whole point of refusing rather than filling the gap.
+ *
+ * Shared by both contours. Two copies of this wording would drift, and the
+ * drift would be in the one sentence that tells a reader not to trust an answer
+ * that is not there.
+ */
+export function refusalCopy(locale: GatewayLocale, refusal: GatewayRefusal | null): string {
+  const copy: Record<GatewayLocale, Record<string, string>> = {
+    ru: {
+      ABSTAINED_NO_DATA: 'У меня нет подтверждённого основания для ответа на этот вопрос, и я не буду его придумывать. Переформулируйте вопрос или выберите тему ниже.',
+      UPSTREAM_ERROR: 'Ответ не был завершён, поэтому я его не показываю: незаконченный ответ выглядел бы как готовый вывод, к которому помощник не пришёл.',
+      DEFAULT: 'Ответ не получен.',
+    },
+    en: {
+      ABSTAINED_NO_DATA: 'I have no verified basis for answering this, and I will not invent one. Rephrase the question or pick a topic below.',
+      UPSTREAM_ERROR: 'The answer did not finish, so I am not showing it: an unfinished answer would read as a conclusion the assistant never reached.',
+      DEFAULT: 'No answer was produced.',
+    },
+    zh: {
+      ABSTAINED_NO_DATA: '我没有可靠依据回答这个问题，也不会编造答案。请改写问题或选择下面的主题。',
+      UPSTREAM_ERROR: '回答没有完成，因此不予显示：未完成的回答会被读作助手并未得出的结论。',
+      DEFAULT: '未生成回答。',
+    },
+  };
+  return copy[locale][refusal ?? 'DEFAULT'] ?? copy[locale].DEFAULT;
+}
