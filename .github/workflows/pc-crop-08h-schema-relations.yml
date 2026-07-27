@@ -45,34 +45,45 @@ jobs:
           const path = 'apps/api/prisma/schema.prisma';
           let schema = fs.readFileSync(path, 'utf8');
 
-          function replaceOnce(anchor, replacement, label) {
-            const first = schema.indexOf(anchor);
-            const last = schema.lastIndexOf(anchor);
+          function replaceInModel(modelName, anchor, replacement, label) {
+            const marker = `model ${modelName} {`;
+            const start = schema.indexOf(marker);
+            if (start < 0) throw new Error(`${label}: model ${modelName} is absent`);
+            const next = schema.indexOf('\nmodel ', start + marker.length);
+            const end = next < 0 ? schema.length : next;
+            const block = schema.slice(start, end);
+            const first = block.indexOf(anchor);
+            const last = block.lastIndexOf(anchor);
             if (first < 0 || first !== last) {
-              throw new Error(`${label}: expected exactly one anchor, found ${first < 0 ? 0 : 'multiple'}`);
+              throw new Error(`${label}: expected exactly one anchor in ${modelName}`);
             }
-            schema = schema.slice(0, first) + replacement + schema.slice(first + anchor.length);
+            const updated = block.slice(0, first) + replacement + block.slice(first + anchor.length);
+            schema = schema.slice(0, start) + updated + schema.slice(end);
           }
 
-          replaceOnce(
+          replaceInModel(
+            'Organization',
             '  fgisGrainSdizProjections          FgisGrainSdizProjection[]\n',
             '  fgisGrainSdizProjections          FgisGrainSdizProjection[]\n  fgisGrainExchanges                FgisGrainExchange[]\n',
             'Organization backrelation',
           );
 
-          replaceOnce(
+          replaceInModel(
+            'OutboxEntry',
             '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n',
             '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n  fgisGrainOutboundExchange          FgisGrainExchange?\n',
             'OutboxEntry backrelation',
           );
 
-          replaceOnce(
+          replaceInModel(
+            'RegulatoryIntegrationInboxEntry',
             '  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n',
             '  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n  fgisGrainResponseExchange     FgisGrainExchange?\n',
             'RegulatoryIntegrationInboxEntry backrelation',
           );
 
-          replaceOnce(
+          replaceInModel(
+            'FgisGrainExchange',
             '  updatedAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)\n\n  @@unique([tenantId, organizationId, messageId], map: "fgis_grain_exchange_message_key")',
             '  updatedAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)\n\n  organization        Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_org_fk")\n  outboundOutboxEntry OutboxEntry                      @relation(fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_outbox_fk")\n  responseInboxEntry  RegulatoryIntegrationInboxEntry? @relation(fields: [responseInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_response_inbox_fk")\n\n  @@unique([tenantId, organizationId, messageId], map: "fgis_grain_exchange_message_key")',
             'FgisGrainExchange relation authority',
