@@ -156,3 +156,9 @@ hr {
   border: 0;
   border-top: 1px solid var(--pc-border);
 }
+
+/* Owner decision 2026-07-27: remove the public trust/integration block. */
+.pc-v7-public-entry #maturity,
+.pc-v7-public-entry .pc-site-header a[href="#maturity"] {
+  display: none !important;
+}

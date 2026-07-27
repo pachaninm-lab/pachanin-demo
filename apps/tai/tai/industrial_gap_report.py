@@ -103,6 +103,22 @@ class SubsystemStatus(StrEnum):
     PENDING_BENCHMARK = "PENDING_BENCHMARK"
     PENDING_ADMISSION = "PENDING_ADMISSION"
     NOT_ACTIVATED = "NOT_ACTIVATED"
+
+    #: Built, proven on exact main, and deliberately switched off because no
+    #: model is admitted.
+    #:
+    #: This exists because NOT_ACTIVATED conflates two situations that a reader
+    #: must be able to tell apart: a subsystem nobody has built yet, and one
+    #: that is finished, verified, and waiting on an admission decision that is
+    #: not an engineering task. Reporting the second as the first understates
+    #: what was proven; reporting it as ACCEPTED would overstate what is
+    #: running. Neither is true, so the honest answer needed its own name.
+    #:
+    #: It is not a readiness claim. Generation does not run, there is no mock or
+    #: static fallback, and the final attestation stays NOT_ATTESTED — the
+    #: subsystem is off on purpose, not off by accident.
+    ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION = "ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION"
+
     PARTIAL = "PARTIAL"
     FAILING = "FAILING"
     ACCEPTED = "ACCEPTED"

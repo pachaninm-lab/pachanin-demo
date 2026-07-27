@@ -1,0 +1,41 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3004,
+  "branch": "claude/tai-gateway-contract-a1-kylgh7",
+  "exact_base": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
+  "accepted_commits": [
+    "64841395c6e4a0097af9a3c4c3e244318d69c17e",
+    "4a679d1d554c82cb8c6165e643939802d598ade4",
+    "f02c7130c03da96998713ef5def64df5a329baa0",
+    "a5752505b01e217239506ad9a60ee63251b99eb7"
+  ],
+  "allowed_paths": [
+    "apps/tai/governance/current-industrial-gap-report.json",
+    "apps/tai/governance/gateway-exact-main-acceptance.v1.json",
+    "apps/tai/governance/industrial-acceptance-backlog.v1.json",
+    "apps/tai/governance/scopes/ap-17-gateway-exact-main-acceptance.json",
+    "apps/tai/governance/tai-production-operational-manifest.json",
+    "apps/tai/tai/gateway_acceptance.py",
+    "apps/tai/tai/gateway_acceptance_cli.py",
+    "apps/tai/tai/industrial_gap_report.py",
+    "apps/tai/tests/test_gateway_acceptance.py",
+    "apps/tai/tests/test_industrial_gap_report.py",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "every H.01-H.05 property is re-derived from the exact-main tree rather than asserted",
+    "each acceptance check is proven able to fail by a test that removes the property it checks",
+    "H.02 names the six read-only events and no write event",
+    "the gateway subsystem reports ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION, never ACCEPTED",
+    "H.06 stays blocked on C.04 model admission and runtime health",
+    "final_status stays NOT_ATTESTED and no production feature flag is enabled"
+  ],
+  "forbidden_capabilities": [
+    "enabling any gateway production feature flag",
+    "fabricating a model admission record",
+    "model bundle, benchmark, admission authority or runtime-host changes",
+    "write-tool activation",
+    "TAI Enterprise, 1C, ERP, EDO, TMS and external client adapter work"
+  ]
+}

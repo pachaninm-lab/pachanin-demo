@@ -2,27 +2,22 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "agent/public-brand-domain-authority",
   "status": "active",
-  "purpose": "Keep the Cyrillic brand domain visible across public metadata, in-page links, clipboard and Web Share surfaces while preserving the technical IDN host only inside DNS, TLS and release infrastructure.",
+  "purpose": "Retire Netlify from every active project surface and make REG.RU the only production, preview and release authority for the public brand domain.",
   "allowedPaths": [
-    "apps/web/app/layout.tsx",
-    "apps/web/app/platform-v7/head.tsx",
-    "apps/web/components/platform-v7/PlatformV7StructuredData.tsx",
-    "apps/web/lib/platform-v7/public-brand-domain.ts",
-    "apps/web/tests/unit/platformV7PublicBrandDomainAuthority.test.ts",
+    ".github/workflows/netlify-retirement-authority.yml",
+    "scripts/check-netlify-retirement.mjs",
+    "docs/ops/netlify-retirement.md",
     "docs/platform-v7/autopilot/scopes/public-brand-domain-authority.json"
   ],
   "acceptanceEvidence": {
-    "domainAuthority": "apps/web/lib/platform-v7/public-brand-domain.ts",
-    "rootMetadataAndRuntime": "apps/web/app/layout.tsx",
-    "publicHead": "apps/web/app/platform-v7/head.tsx",
-    "structuredData": "apps/web/components/platform-v7/PlatformV7StructuredData.tsx",
-    "regressionTests": "apps/web/tests/unit/platformV7PublicBrandDomainAuthority.test.ts"
+    "retirementPolicy": "docs/ops/netlify-retirement.md",
+    "failClosedGuard": "scripts/check-netlify-retirement.mjs",
+    "continuousEnforcement": ".github/workflows/netlify-retirement-authority.yml"
   },
   "constraints": [
-    "No domain migration",
-    "No DNS or TLS topology change",
-    "No changes to authentication, cookies, RBAC or API authority",
-    "Technical Punycode remains permitted only in infrastructure and network configuration",
-    "All platform-controlled public copy and share surfaces normalize to процент-агро.рф"
+    "REG.RU VPS is the only production hosting authority",
+    "No Netlify deployment, preview, domain alias, build hook, CLI or runtime dependency may remain active",
+    "No authentication, RBAC, database, Deal or financial-authority behavior changes",
+    "Historical prose may mention Netlify only to state that it is retired"
   ]
 }

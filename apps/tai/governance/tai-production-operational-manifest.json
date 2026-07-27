@@ -26,7 +26,7 @@
     "status": "NOT_ATTESTED",
     "total": 5
   },
-  "exact_main_sha": "10b7263d884808b9e7f264c17a779ff2bd630437",
+  "exact_main_sha": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
   "fault_acceptance": {
     "accepted": 0,
     "blocking_items": [
@@ -47,13 +47,8 @@
   },
   "final_status": "NOT_ATTESTED",
   "gateway_acceptance": {
-    "accepted": 0,
+    "accepted": 5,
     "blocking_items": [
-      "H.01",
-      "H.02",
-      "H.03",
-      "H.04",
-      "H.05",
       "H.06"
     ],
     "deferred_by_owner_decision": 0,
@@ -61,7 +56,7 @@
     "status": "NOT_ATTESTED",
     "total": 6
   },
-  "generated_at": "2026-07-26T19:37:00Z",
+  "generated_at": "2026-07-27T18:30:00Z",
   "governance_acceptance": {
     "accepted": 5,
     "blocking_items": [
@@ -169,11 +164,6 @@
     "G.03",
     "G.04",
     "G.05",
-    "H.01",
-    "H.02",
-    "H.03",
-    "H.04",
-    "H.05",
     "H.06",
     "J.01",
     "J.02",
@@ -247,16 +237,16 @@
   },
   "schema": "tai.production-operational-manifest.v1",
   "totals": {
-    "accepted": 11,
-    "blocked": 26,
+    "accepted": 16,
+    "blocked": 21,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 16.18,
+    "completion_percent": 23.53,
     "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
-    "mandatory_accepted": 11,
+    "mandatory_accepted": 16,
     "mandatory_deferred_by_owner_decision": 3,
     "mandatory_total": 68,
     "regressed": 0,
-    "remaining": 60,
+    "remaining": 55,
     "total": 71
   }
 }
