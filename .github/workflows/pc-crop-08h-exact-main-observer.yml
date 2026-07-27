@@ -1,0 +1,143 @@
+name: One-shot PC-CROP-08H exact-main observer
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/pc-crop-08h-exact-main-observer.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: pc-crop-08h-exact-main-observer
+  cancel-in-progress: true
+
+env:
+  TARGET_SHA: be4cc002aa2a9581ada123084f96ea73cac3980e
+  TARGET_BRANCH: main
+
+jobs:
+  observe:
+    name: Exact-main workflow matrix · fail closed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Observe exact-main workflow matrix
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/exact-main-observer
+          required_json='["PC-CROP-08H FGIS Exchange Receipt Acceptance","CI PostgreSQL Image Authority","Dependency Review","Workflow Syntax Guard","API Tests","Security Scan","Production-like Kubernetes Acceptance","Immutable Release Authority Acceptance","Qodana platform-v7 report","Disputes PostgreSQL Authority Acceptance","Outbox PostgreSQL Authority Acceptance","Runtime Context Security Gate","Auction Atomic Execution Acceptance","Outbox Worker Topology Acceptance","Node CI","CodeQL platform-v7 report","Security Abuse and Evidence Acceptance","Security Quality Gate","CI","Netlify Retirement Authority"]'
+          printf '%s\n' "$required_json" > artifacts/exact-main-observer/required.json
+
+          final_status=3
+          for attempt in $(seq 1 135); do
+            printf 'Exact-main observation attempt %s at %s\n' "$attempt" "$(date -u +%FT%TZ)"
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&per_page=100" \
+              -o artifacts/exact-main-observer/runs.json
+
+            set +e
+            REQUIRED_JSON="$required_json" TARGET_SHA="$TARGET_SHA" TARGET_BRANCH="$TARGET_BRANCH" node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('artifacts/exact-main-observer/runs.json', 'utf8'));
+          const required = JSON.parse(process.env.REQUIRED_JSON);
+          const matching = (payload.workflow_runs || [])
+            .filter((run) => run.head_sha === process.env.TARGET_SHA && run.head_branch === process.env.TARGET_BRANCH)
+            .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+
+          const latest = new Map();
+          for (const run of matching) {
+            if (!latest.has(run.name)) latest.set(run.name, run);
+          }
+
+          const rows = required.map((name) => {
+            const run = latest.get(name);
+            return {
+              name,
+              id: run?.id ?? null,
+              event: run?.event ?? null,
+              status: run?.status ?? 'missing',
+              conclusion: run?.conclusion ?? null,
+              head_sha: run?.head_sha ?? null,
+              head_branch: run?.head_branch ?? null,
+              html_url: run?.html_url ?? null,
+            };
+          });
+
+          const unexpectedTerminal = matching
+            .filter((run) => run.status === 'completed')
+            .filter((run) => !['success', 'skipped', 'neutral'].includes(run.conclusion));
+          const missing = rows.filter((row) => row.status === 'missing');
+          const active = rows.filter((row) => row.status !== 'missing' && row.status !== 'completed');
+          const failedRequired = rows.filter(
+            (row) => row.status === 'completed' && !['success', 'skipped', 'neutral'].includes(row.conclusion),
+          );
+
+          const summary = {
+            targetSha: process.env.TARGET_SHA,
+            targetBranch: process.env.TARGET_BRANCH,
+            observedAt: new Date().toISOString(),
+            totalMatchingRuns: matching.length,
+            rows,
+            missing: missing.map((row) => row.name),
+            active: active.map((row) => `${row.name}:${row.status}`),
+            failedRequired,
+            unexpectedTerminal: unexpectedTerminal.map((run) => ({
+              name: run.name,
+              id: run.id,
+              conclusion: run.conclusion,
+              html_url: run.html_url,
+            })),
+          };
+          fs.writeFileSync('artifacts/exact-main-observer/summary.json', JSON.stringify(summary, null, 2));
+
+          for (const row of rows) {
+            process.stdout.write(`${row.name}\t${row.status}\t${row.conclusion ?? '-'}\t${row.id ?? '-'}\n`);
+          }
+
+          if (failedRequired.length || unexpectedTerminal.length) process.exit(4);
+          if (missing.length || active.length) process.exit(3);
+          process.exit(0);
+          NODE
+            final_status=$?
+            set -e
+
+            if [[ "$final_status" = "0" ]]; then
+              touch artifacts/exact-main-observer/exact-main.ok
+              break
+            fi
+            if [[ "$final_status" = "4" ]]; then
+              echo 'Exact-main workflow matrix contains a terminal failure.' >&2
+              cat artifacts/exact-main-observer/summary.json >&2
+              exit 1
+            fi
+            sleep 20
+          done
+
+          if [[ "$final_status" != "0" ]]; then
+            echo 'Exact-main workflow matrix did not become complete before observer timeout.' >&2
+            cat artifacts/exact-main-observer/summary.json >&2
+            exit 1
+          fi
+
+          test "$(jq -r '.targetSha' artifacts/exact-main-observer/summary.json)" = "$TARGET_SHA"
+          test "$(jq -r '.targetBranch' artifacts/exact-main-observer/summary.json)" = "$TARGET_BRANCH"
+          test -f artifacts/exact-main-observer/exact-main.ok
+
+      - name: Upload exact-main observer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08h-exact-main-${{ env.TARGET_SHA }}
+          path: artifacts/exact-main-observer
+          if-no-files-found: error
+          retention-days: 14
