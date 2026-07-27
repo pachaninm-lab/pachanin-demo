@@ -33,6 +33,11 @@
     }
   ],
   "generated_at": "2026-07-27T04:40:00Z",
+  "migration_summary": {
+    "blocked_by_predecessor_trigger_lock": 3,
+    "migrated": 17,
+    "total_workflow_services": 18
+  },
   "note": "Consumers are migrated in a follow-up change, after the mirror has run and its digest is verified. Switching before the mirrored package exists would replace an intermittent failure with a certain one.",
   "other_consumers": [
     {
@@ -41,6 +46,7 @@
       "kind": "kubernetes-manifest",
       "line": 130,
       "logical_name": "postgres-16.4-alpine3.20",
+      "migration_status": "MIGRATED",
       "used_by": "Production-like Kubernetes Acceptance"
     },
     {
@@ -49,6 +55,7 @@
       "kind": "shell-script",
       "line": 34,
       "logical_name": "postgres-16.4-alpine3.20",
+      "migration_status": "MIGRATED",
       "used_by": "Production-like Kubernetes Acceptance"
     }
   ],
@@ -59,6 +66,7 @@
       "job": "rls-integration",
       "line": 69,
       "logical_name": "postgres-16-alpine",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
       "workflow": ".github/workflows/api-test.yml"
     },
@@ -67,6 +75,7 @@
       "job": "auction-atomic",
       "line": 25,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/auction-atomic-acceptance.yml"
     },
@@ -75,6 +84,7 @@
       "job": "industrial-core-e2e",
       "line": 64,
       "logical_name": "postgres-16-alpine",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
       "workflow": ".github/workflows/ci.yml"
     },
@@ -83,6 +93,7 @@
       "job": "one-deal-e2e",
       "line": 126,
       "logical_name": "postgres-16-alpine",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
       "workflow": ".github/workflows/ci.yml"
     },
@@ -91,6 +102,7 @@
       "job": "persistent-auth-e2e",
       "line": 215,
       "logical_name": "postgres-16-alpine",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
       "workflow": ".github/workflows/ci.yml"
     },
@@ -99,6 +111,7 @@
       "job": "disputes-postgresql",
       "line": 26,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/disputes-postgresql-acceptance.yml"
     },
@@ -107,6 +120,7 @@
       "job": "build-render-contract",
       "line": 50,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/immutable-release-authority-acceptance.yml"
     },
@@ -115,6 +129,7 @@
       "job": "outbox-postgresql",
       "line": 31,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/outbox-postgresql-acceptance.yml"
     },
@@ -123,6 +138,7 @@
       "job": "process-lifecycle",
       "line": 46,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/outbox-worker-topology-acceptance.yml"
     },
@@ -131,6 +147,7 @@
       "job": "postgresql-authority",
       "line": 45,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-01b1.yml"
     },
@@ -139,6 +156,7 @@
       "job": "postgresql-command-authority",
       "line": 52,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-01b3.yml"
     },
@@ -147,30 +165,37 @@
       "job": "private-bff-contract",
       "line": 169,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-01b4.yml"
     },
     {
+      "blocked_reason": "permissions/jobs body is frozen by docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json against baseline 3133779b1; unfreezing is an owner decision",
       "current_image": "postgres:16",
       "job": "durable-inbox",
       "line": 63,
       "logical_name": "postgres-16",
+      "migration_status": "BLOCKED_BY_PREDECESSOR_TRIGGER_LOCK",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-07a.yml"
     },
     {
+      "blocked_reason": "permissions/jobs body is frozen by docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json against baseline 3133779b1; unfreezing is an owner decision",
       "current_image": "postgres:16",
       "job": "integration-control-tower",
       "line": 83,
       "logical_name": "postgres-16",
+      "migration_status": "BLOCKED_BY_PREDECESSOR_TRIGGER_LOCK",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-07b.yml"
     },
     {
+      "blocked_reason": "permissions/jobs body is frozen by docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json against baseline 3133779b1; unfreezing is an owner decision",
       "current_image": "postgres:16",
       "job": "signing-and-dispatch",
       "line": 55,
       "logical_name": "postgres-16",
+      "migration_status": "BLOCKED_BY_PREDECESSOR_TRIGGER_LOCK",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-08d.yml"
     },
@@ -179,6 +204,7 @@
       "job": "provider-attestation",
       "line": 44,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-08e.yml"
     },
@@ -187,6 +213,7 @@
       "job": "synchronize",
       "line": 42,
       "logical_name": "postgres-16",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
       "workflow": ".github/workflows/pc-crop-08f-sync-main.yml"
     },
@@ -195,6 +222,7 @@
       "job": "security-abuse-evidence",
       "line": 32,
       "logical_name": "postgres-16-alpine",
+      "migration_status": "MIGRATED",
       "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
       "workflow": ".github/workflows/security-abuse-evidence.yml"
     }

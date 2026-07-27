@@ -33,6 +33,23 @@ const EXCLUDED_FILES = new Set([
   'scripts/check-ci-postgres-image-authority.test.mjs',
 ]);
 
+// Three predecessor workflows have their `permissions`/`jobs` body frozen by
+// docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json, which pins a
+// sha256 of that body against baseline commit 3133779b1. Editing the image line
+// inside them breaks the lock, and regenerating the lock to fit the edit would be
+// self-issuing an exemption from an immutability control.
+//
+// So they stay on the upstream image, and that is recorded here rather than hidden.
+// The exception is not a hole: each file is named, the reason is named, and the
+// reference is still pinned — a frozen workflow may keep exactly the image it was
+// frozen with and nothing else. Unfreezing is an owner decision, tracked in
+// docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md.
+export const FROZEN_BY_PREDECESSOR_LOCK = new Map([
+  ['.github/workflows/pc-crop-07a.yml', 'postgres:16'],
+  ['.github/workflows/pc-crop-07b.yml', 'postgres:16'],
+  ['.github/workflows/pc-crop-08d.yml', 'postgres:16'],
+]);
+
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 export function loadManifests(manifestDir = MANIFEST_DIR) {
@@ -99,9 +116,10 @@ export function collectScannedFiles(scanned = SCANNED, excluded = EXCLUDED_FILES
   return files.sort();
 }
 
-export function checkText(file, text, allowedReferences) {
+export function checkText(file, text, allowedReferences, frozen = FROZEN_BY_PREDECESSOR_LOCK) {
   const failures = [];
   const lines = text.split('\n');
+  const frozenImage = frozen.get(file);
 
   lines.forEach((line, index) => {
     const where = `${file}:${index + 1}`;
@@ -113,6 +131,17 @@ export function checkText(file, text, allowedReferences) {
     for (const match of references) {
       const reference = match[2];
       if (allowedReferences.has(reference)) continue;
+
+      // A frozen workflow keeps exactly the image it was frozen with. Any other
+      // value means the body moved anyway, and the exception must not cover that.
+      if (frozenImage !== undefined) {
+        if (reference !== frozenImage) {
+          failures.push(
+            `${where}: ${JSON.stringify(reference)} is not the image this frozen workflow was locked with (${JSON.stringify(frozenImage)})`,
+          );
+        }
+        continue;
+      }
 
       // The repository and the pin are two separate questions, and conflating them
       // misreports the common mistake: `<mirror>:16` *is* the repository mirror, it is

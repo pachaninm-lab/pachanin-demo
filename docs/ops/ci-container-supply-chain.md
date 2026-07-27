@@ -185,6 +185,30 @@ Historical and dated records are out of scope by construction: only
 naming `docker pull postgres:16` describes what was true when it was written and
 must stay readable as written.
 
+### Three workflows could not be migrated, and that is recorded rather than hidden
+
+`pc-crop-07a.yml`, `pc-crop-07b.yml` and `pc-crop-08d.yml` have their
+`permissions`/`jobs` body frozen by
+`docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json`, which pins a
+sha256 of that body against baseline commit `3133779b1`. Editing the image line
+inside them breaks the lock.
+
+The lock could be regenerated to fit the edit. It was not, and must not be:
+regenerating an immutability control so that it accepts your own change is
+self-issuing an exemption from the control, which is the same category of error
+as lowering a coverage gate to make a build pass.
+
+So those three keep pulling `postgres:16` from Docker Hub and remain exposed to
+the outage described at the top of this document. The guard records them by name
+with the image each was locked with, and refuses any *other* value there — a
+frozen workflow may keep exactly what it was frozen with and nothing else. A test
+pins the list to precisely the files the lock actually covers, so the exception
+cannot quietly grow.
+
+Unfreezing them is an owner decision, tracked as an open item in
+`docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md`. Until then the migration is
+17 of 20 consumers, not 20 of 20, and this document says 17.
+
 ## What this does not claim
 
 The mirror proves that pinned upstream images are available under repository
