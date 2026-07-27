@@ -1,0 +1,202 @@
+{
+  "authentication_mode": "GITHUB_TOKEN",
+  "coupled_static_verifiers": [
+    {
+      "asserts": "postgres:16",
+      "line": 136,
+      "verifier": "scripts/auction-atomic-acceptance.mjs"
+    },
+    {
+      "asserts": "postgres:16",
+      "line": 131,
+      "verifier": "scripts/verify-pc-crop-01b1.mjs"
+    },
+    {
+      "asserts": "postgres:16",
+      "line": 185,
+      "verifier": "scripts/verify-pc-crop-07a.mjs"
+    },
+    {
+      "asserts": "postgres:16",
+      "line": 157,
+      "verifier": "scripts/verify-pc-crop-07b.mjs"
+    }
+  ],
+  "excluded_from_migration": [
+    {
+      "path": "docker-compose.yml",
+      "reason": "local development compose, not a CI acceptance path"
+    },
+    {
+      "path": "infra/flagsmith/docker-compose-override.yml",
+      "reason": "local development compose, not a CI acceptance path"
+    }
+  ],
+  "generated_at": "2026-07-27T04:40:00Z",
+  "note": "Consumers are migrated in a follow-up change, after the mirror has run and its digest is verified. Switching before the mirrored package exists would replace an intermittent failure with a certain one.",
+  "other_consumers": [
+    {
+      "consumer": "infra/kind/production-like/dependencies.yaml",
+      "current_image": "postgres:16.4-alpine3.20",
+      "kind": "kubernetes-manifest",
+      "line": 130,
+      "logical_name": "postgres-16.4-alpine3.20",
+      "used_by": "Production-like Kubernetes Acceptance"
+    },
+    {
+      "consumer": "scripts/release/production-like-kubernetes-pgbouncer.sh",
+      "current_image": "postgres:16.4-alpine3.20",
+      "kind": "shell-script",
+      "line": 34,
+      "logical_name": "postgres-16.4-alpine3.20",
+      "used_by": "Production-like Kubernetes Acceptance"
+    }
+  ],
+  "schema": "pc.ci-postgres-inventory.v1",
+  "workflow_services": [
+    {
+      "current_image": "postgres:16-alpine",
+      "job": "rls-integration",
+      "line": 69,
+      "logical_name": "postgres-16-alpine",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "workflow": ".github/workflows/api-test.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "auction-atomic",
+      "line": 25,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/auction-atomic-acceptance.yml"
+    },
+    {
+      "current_image": "postgres:16-alpine",
+      "job": "industrial-core-e2e",
+      "line": 64,
+      "logical_name": "postgres-16-alpine",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "workflow": ".github/workflows/ci.yml"
+    },
+    {
+      "current_image": "postgres:16-alpine",
+      "job": "one-deal-e2e",
+      "line": 126,
+      "logical_name": "postgres-16-alpine",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "workflow": ".github/workflows/ci.yml"
+    },
+    {
+      "current_image": "postgres:16-alpine",
+      "job": "persistent-auth-e2e",
+      "line": 215,
+      "logical_name": "postgres-16-alpine",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "workflow": ".github/workflows/ci.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "disputes-postgresql",
+      "line": 26,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/disputes-postgresql-acceptance.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "build-render-contract",
+      "line": 50,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/immutable-release-authority-acceptance.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "outbox-postgresql",
+      "line": 31,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/outbox-postgresql-acceptance.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "process-lifecycle",
+      "line": 46,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/outbox-worker-topology-acceptance.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "postgresql-authority",
+      "line": 45,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-01b1.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "postgresql-command-authority",
+      "line": 52,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-01b3.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "private-bff-contract",
+      "line": 169,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-01b4.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "durable-inbox",
+      "line": 63,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-07a.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "integration-control-tower",
+      "line": 83,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-07b.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "signing-and-dispatch",
+      "line": 55,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-08d.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "provider-attestation",
+      "line": 44,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-08e.yml"
+    },
+    {
+      "current_image": "postgres:16",
+      "job": "synchronize",
+      "line": 42,
+      "logical_name": "postgres-16",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "workflow": ".github/workflows/pc-crop-08f-sync-main.yml"
+    },
+    {
+      "current_image": "postgres:16-alpine",
+      "job": "security-abuse-evidence",
+      "line": 32,
+      "logical_name": "postgres-16-alpine",
+      "target_image": "ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "workflow": ".github/workflows/security-abuse-evidence.yml"
+    }
+  ]
+}
