@@ -177,7 +177,6 @@
     "H.04",
     "H.05",
     "H.06",
-    "I.03",
     "J.01",
     "J.02",
     "J.03",
@@ -244,24 +243,22 @@
   },
   "safe_tools_acceptance": {
     "accepted": 2,
-    "blocking_items": [
-      "I.03"
-    ],
-    "deferred_by_owner_decision": 1,
+    "blocking_items": [],
+    "deferred_by_owner_decision": 2,
     "stage": "I",
-    "status": "NOT_ATTESTED",
-    "total": 3
+    "status": "PASS",
+    "total": 2
   },
   "schema": "tai.production-operational-manifest.v1",
   "totals": {
     "accepted": 9,
-    "blocked": 27,
+    "blocked": 26,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 13.04,
+    "completion_percent": 13.24,
     "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
     "mandatory_accepted": 9,
-    "mandatory_deferred_by_owner_decision": 2,
-    "mandatory_total": 69,
+    "mandatory_deferred_by_owner_decision": 3,
+    "mandatory_total": 68,
     "regressed": 0,
     "remaining": 62,
     "total": 71

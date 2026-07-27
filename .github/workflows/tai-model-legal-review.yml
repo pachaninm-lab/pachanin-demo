@@ -13,12 +13,25 @@ on:
       - 'apps/tai/tai/model_legal_review*.py'
       - 'apps/tai/tests/test_model_legal_review*.py'
       - 'apps/tai/governance/scopes/ap-13b3c-human-legal-intake-2877.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-model-legal-review.yml'
+      - 'apps/tai/model-artifacts/model-legal-review-authority.v1.json'
+      - 'apps/tai/model-artifacts/model-legal-review-record.schema.v1.json'
+      - 'apps/tai/model-artifacts/model-legal-review-attestation.schema.v1.json'
+      - 'apps/tai/model-artifacts/model-legal-review-runbook.v1.md'
+      - 'apps/tai/model-artifacts/legal-reviews/**'
+      - 'apps/tai/tai/model_legal_review*.py'
+      - 'apps/tai/tests/test_model_legal_review*.py'
+      - 'apps/tai/governance/scopes/ap-13b3c-human-legal-intake-2877.json'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: tai-human-model-legal-review-${{ github.event.pull_request.number }}
+  group: tai-human-model-legal-review-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -29,13 +42,14 @@ jobs:
       AUTHORITY_PATH: apps/tai/model-artifacts/model-legal-review-authority.v1.json
       ACCEPTANCE_PATH: apps/tai/model-artifacts/model-source-acquisition-acceptance.v1.json
       EVIDENCE_ROOT: apps/tai
-      BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      EVENT_NAME: ${{ github.event_name }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout exact pull-request head
+      - name: Checkout exact head
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -44,7 +58,18 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$HEAD_SHA"
-          git cat-file -e "$BASE_SHA^{commit}"
+          # A pull request always has a base to diff against. A push to main
+          # usually does, but the first push to a branch reports forty zeros,
+          # and a manual dispatch has none at all. Those runs still prove the
+          # human decision at exact head; they just cannot run the diff gates.
+          if [ -n "$BASE_SHA" ] \
+            && [ "$BASE_SHA" != '0000000000000000000000000000000000000000' ] \
+            && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "DIFF_BASE=$BASE_SHA" >> "$GITHUB_ENV"
+          else
+            test "$EVENT_NAME" != 'pull_request'
+            echo 'DIFF_BASE=' >> "$GITHUB_ENV"
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -63,7 +88,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p legal-review-evidence
-          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > legal-review-evidence/changed-files.txt
+          if [ -n "${DIFF_BASE:-}" ]; then
+            git diff --name-only "$DIFF_BASE" "$HEAD_SHA" > legal-review-evidence/changed-files.txt
+          else
+            : > legal-review-evidence/changed-files.txt
+          fi
           PYTHONPATH=apps/tai python - <<'PY'
           import json
           import os
@@ -86,6 +115,7 @@ jobs:
           authority = load_model_legal_review_authority(authority_path)
           validate_source_acceptance(authority, acceptance_path)
 
+          diff_base = os.environ.get('DIFF_BASE', '')
           changed = {
               line.strip()
               for line in Path('legal-review-evidence/changed-files.txt').read_text().splitlines()
@@ -137,6 +167,11 @@ jobs:
           if changed_review_paths and completed_pairs == 0:
               raise SystemExit('legal-review paths changed without a completed pair')
 
+          # Without a diff base the two checks above saw an empty change set, so
+          # they proved nothing. Say so in the evidence instead of letting a run
+          # that skipped them look like one that passed them.
+          diff_gates_applied = bool(diff_base)
+
           evaluation = evaluate_all_model_reviews(
               authority=authority,
               acceptance_path=acceptance_path,
@@ -146,8 +181,10 @@ jobs:
               raise SystemExit('aggregate legal-review evaluation is invalid')
           payload = {
               'schema_version': 'tai.model-legal-review-pr-evidence.v1',
-              'base_sha': os.environ['BASE_SHA'],
+              'base_sha': diff_base or None,
               'head_sha': os.environ['HEAD_SHA'],
+              'event_name': os.environ['EVENT_NAME'],
+              'diff_gates_applied': diff_gates_applied,
               'authority_sha256': authority_sha256(authority),
               'intended_use_sha256': intended_use_sha256(authority),
               'changed_review_paths': sorted(changed_review_paths),
@@ -167,7 +204,7 @@ jobs:
       - name: Upload bounded legal review evaluation
         uses: actions/upload-artifact@v4
         with:
-          name: tai-human-model-legal-review-${{ github.event.pull_request.head.sha }}
+          name: tai-human-model-legal-review-${{ github.event.pull_request.head.sha || github.sha }}
           path: legal-review-evidence
           if-no-files-found: error
           retention-days: 30
