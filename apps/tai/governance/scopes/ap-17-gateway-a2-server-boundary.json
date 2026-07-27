@@ -5,15 +5,16 @@
   "branch": "claude/tai-gateway-contract-a1-kylgh7",
   "supersedes": "agent/tai-gateway-ui-readonly-3004",
   "allowed_paths": [
-    "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
     "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.spec.ts",
-    "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
     "apps/api/src/modules/ai-insights/ai-assistant.controller.spec.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
     "apps/tai/governance/scopes/ap-17-gateway-a2-server-boundary.json",
     "apps/web/app/api/public-platform-assistant/route.ts",
     "apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts",
     "apps/web/tsconfig.json",
     "apps/web/vitest.config.ts",
+    "docs/platform-v7/ai/gateway-ui-readonly-runtime-binding.md",
     "docs/platform-v7/autopilot/autopilot-state.json"
   ],
   "acceptance": [
