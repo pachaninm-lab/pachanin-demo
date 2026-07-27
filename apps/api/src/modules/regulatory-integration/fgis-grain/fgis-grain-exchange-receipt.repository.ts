@@ -144,7 +144,7 @@ export class FgisGrainExchangeReceiptRepository {
           ${fingerprint},
           ${receipt.providerMessageId},
           ${receipt.responseCode},
-          ${receipt.httpStatus},
+          CAST(${receipt.httpStatus} AS integer),
           ${receipt.responseBodySha256},
           CAST(${receipt.acceptedAt} AS timestamptz)
         ) AS "result"
