@@ -223,10 +223,12 @@ export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
 
   async dispatch(entry: ClaimedOutboxEntry): Promise<void> {
     const payload = assertFgisGrainDispatchPayload(entry.payload);
+    const idempotencyKey = entry.idempotencyKey;
     if (
       entry.type !== FGIS_GRAIN_OUTBOX_EVENT_TYPE
       || entry.correlationId !== payload.correlationId
-      || entry.idempotencyKey.trim().length < 3
+      || !idempotencyKey
+      || idempotencyKey.trim().length < 3
     ) {
       permanent(
         'MALFORMED_DISPATCH_PAYLOAD',
@@ -327,7 +329,7 @@ export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
       transportOperation: payload.transportOperation,
       messageId: payload.messageId,
       correlationId: payload.correlationId,
-      idempotencyKey: entry.idempotencyKey,
+      idempotencyKey,
     });
     assertTransportAccepted(transportResult);
     await this.exchangeReceipts.recordAccepted(entry, payload, transportResult);
