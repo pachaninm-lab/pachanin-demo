@@ -77,6 +77,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/pc-crop-08f-sdiz-remediation.py
+          python3 .github/scripts/pc-crop-08f-prisma-void-lock-fix.py
           git status --short | tee "$SYNC_LOG_DIR/post-remediation-status.txt"
 
       - uses: pnpm/action-setup@v4
@@ -92,13 +93,13 @@ jobs:
       - name: Install frozen dependencies
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           pnpm install --frozen-lockfile 2>&1 | tee "$SYNC_LOG_DIR/install.log"
 
       - name: Normalize and validate Prisma authority
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           node scripts/pc-crop-08f/normalize-signature-authority.mjs 2>&1 | tee "$SYNC_LOG_DIR/normalize-signature.log"
           pnpm --filter @pc/api exec prisma format 2>&1 | tee "$SYNC_LOG_DIR/prisma-format.log"
           pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$SYNC_LOG_DIR/prisma-validate.log"
@@ -107,20 +108,20 @@ jobs:
       - name: Deploy migrations and generate Prisma client
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$SYNC_LOG_DIR/migrate-deploy.log"
           pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$SYNC_LOG_DIR/prisma-generate.log"
 
       - name: Typecheck synchronized API
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           pnpm --filter @pc/api typecheck 2>&1 | tee "$SYNC_LOG_DIR/typecheck.log"
 
       - name: Run synchronized SDIZ contract tests
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
             src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts \
             2>&1 | tee "$SYNC_LOG_DIR/contract-tests.log"
@@ -128,7 +129,7 @@ jobs:
       - name: Run synchronized PostgreSQL SDIZ acceptance
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           PC_CROP_08F_POSTGRESQL=1 pnpm --filter @pc/api exec jest \
             --config test/industrial/jest.config.json \
             test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts \
