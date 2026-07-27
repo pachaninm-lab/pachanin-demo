@@ -19,6 +19,9 @@ concurrency:
   group: pc-crop-08h-schema-relations
   cancel-in-progress: true
 
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+
 jobs:
   repair:
     runs-on: ubuntu-24.04
