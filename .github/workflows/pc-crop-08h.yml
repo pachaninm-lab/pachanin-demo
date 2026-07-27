@@ -1,47 +1,254 @@
-name: PC-CROP-08H Schema Synchronization
+name: PC-CROP-08H FGIS Exchange Receipt Acceptance
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08h.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260727192500_fgis_grain_exchange_principals/**'
+      - 'apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/**'
+      - 'apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/**'
+      - 'apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-*.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/outbox-worker.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts'
+      - 'apps/api/test/industrial/fgis-grain-exchange.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08h-exchange-receipt.json'
+      - 'scripts/pc-crop-08h/**'
   push:
     branches:
+      - main
       - agent/pc-crop-08h-exchange-receipt
     paths:
       - '.github/workflows/pc-crop-08h.yml'
-      - 'scripts/pc-crop-08h/sync-prisma-schema.mjs'
       - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260727192500_fgis_grain_exchange_principals/**'
+      - 'apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/**'
+      - 'apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/**'
+      - 'apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-*.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/outbox-worker.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-dispatch.e2e-spec.ts'
+      - 'apps/api/test/industrial/fgis-grain-exchange.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08h-exchange-receipt.json'
+      - 'scripts/pc-crop-08h/**'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: pc-crop-08h-schema-sync
+  group: pc-crop-08h-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08h
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+
 jobs:
-  synchronize:
-    name: Append exact additive Prisma model once
+  exchange-receipt:
+    name: PostgreSQL 16 · receipt-first retry suppression · verified correlation
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
     steps:
-      - name: Checkout source branch
+      - name: Checkout exact revision
         uses: actions/checkout@v4
         with:
-          ref: agent/pc-crop-08h-exchange-receipt
+          ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Synchronize schema
-        run: node scripts/pc-crop-08h/sync-prisma-schema.mjs
-
-      - name: Commit synchronized model
+      - name: Enforce exact PC-CROP-08H scope
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- apps/api/prisma/schema.prisma; then
-            echo 'Schema already synchronized.'
-            exit 0
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          elif [[ "$GITHUB_REF_NAME" == 'main' ]]; then
+            base_ref='HEAD^'
+          else
+            base_ref='d79064333ff5653baa43528fd6a956bd9b2fbb87'
           fi
-          git config user.name 'pc-crop-authority[bot]'
-          git config user.email 'pc-crop-authority[bot]@users.noreply.github.com'
-          git add apps/api/prisma/schema.prisma
-          git commit -m 'PC-CROP-08H: synchronize Prisma exchange model'
-          git push origin HEAD:agent/pc-crop-08h-exchange-receipt
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08h\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260727192500_fgis_grain_exchange_principals/.*|apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/.*|apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/.*|apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-.*\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch\.handler(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/src/outbox-worker\.module\.ts|apps/api/test/industrial/fgis-grain-(dispatch|exchange)\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08h-exchange-receipt\.json|scripts/pc-crop-08h/.*)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08H contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+          touch "$EVIDENCE_DIR/scope-guard.ok"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify committed Prisma authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-08h/sync-prisma-schema.mjs
+          pnpm --filter @pc/api exec prisma format
+          pnpm --filter @pc/api exec prisma validate
+          git diff --exit-code -- apps/api/prisma/schema.prisma
+          grep -q '^model FgisGrainExchange {' apps/api/prisma/schema.prisma
+          touch "$EVIDENCE_DIR/schema-authority.ok"
+
+      - name: Apply complete migration chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+          touch "$EVIDENCE_DIR/migration.ok"
+
+      - name: Verify restricted PostgreSQL authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          psql 'postgresql://postgres:postgres@localhost:5432/grainflow' -v ON_ERROR_STOP=1 <<'SQL'
+          DO $authority$
+          BEGIN
+            IF to_regclass('public.fgis_grain_exchanges') IS NULL THEN
+              RAISE EXCEPTION 'FGIS exchange table is absent';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_class
+              WHERE oid = 'public.fgis_grain_exchanges'::regclass
+                AND relrowsecurity AND relforcerowsecurity
+            ) THEN
+              RAISE EXCEPTION 'FGIS exchange table is not forced-RLS';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_trigger
+              WHERE tgrelid = 'public.outbox_entries'::regclass
+                AND tgname = 'outbox_bind_fgis_grain_exchange'
+                AND tgenabled <> 'D'
+            ) THEN
+              RAISE EXCEPTION 'Canonical outbox binding trigger is absent';
+            END IF;
+            IF has_table_privilege('app_runtime', 'public.fgis_grain_exchanges', 'INSERT')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_exchanges', 'UPDATE')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_exchanges', 'DELETE')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_exchanges', 'SELECT')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_exchanges', 'INSERT')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_exchanges', 'UPDATE')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_exchanges', 'DELETE')
+            THEN
+              RAISE EXCEPTION 'Restricted principals have direct exchange mutation authority';
+            END IF;
+            IF NOT has_table_privilege('app_runtime', 'public.fgis_grain_exchanges', 'SELECT')
+               OR NOT has_function_privilege(
+                 'app_runtime',
+                 'public.correlate_fgis_grain_exchange_response(text,text,bigint,text,text,text,text,timestamp with time zone,text,text,text)',
+                 'EXECUTE'
+               )
+               OR NOT has_function_privilege(
+                 'app_outbox',
+                 'public.inspect_fgis_grain_exchange_dispatch(text,text,text)',
+                 'EXECUTE'
+               )
+               OR NOT has_function_privilege(
+                 'app_outbox',
+                 'public.record_fgis_grain_transport_receipt(text,text,text,text,text,integer,text,timestamp with time zone)',
+                 'EXECUTE'
+               )
+            THEN
+              RAISE EXCEPTION 'Controlled exchange functions are not granted correctly';
+            END IF;
+          END
+          $authority$;
+          SQL
+          touch "$EVIDENCE_DIR/database-authority.ok"
+
+      - name: Typecheck API authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+          touch "$EVIDENCE_DIR/typecheck.ok"
+
+      - name: Run receipt-aware dispatch unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+          touch "$EVIDENCE_DIR/unit-tests.ok"
+
+      - name: Run PostgreSQL atomic exchange acceptance
+        env:
+          PC_CROP_08D_POSTGRESQL: '1'
+          PC_CROP_08H_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-dispatch.e2e-spec.ts \
+            test/industrial/fgis-grain-exchange.e2e-spec.ts \
+            --runInBand 2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+          touch "$EVIDENCE_DIR/postgresql-acceptance.ok"
+
+      - name: Build fail-closed machine-readable acceptance
+        if: always()
+        run: node scripts/pc-crop-08h/verify.mjs
+
+      - name: Enforce exact-head acceptance evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-08h-acceptance.json`, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop.fgis-grain-exchange-acceptance.v1') process.exit(1);
+          if (report.slice !== 'PC-CROP-08H' || report.issue !== 3278) process.exit(1);
+          if (report.exactHead !== process.env.EXACT_HEAD || report.status !== 'PASS') process.exit(1);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (report.liveProviderCall || report.secondInboxOrOutbox || report.directDomainMutation) process.exit(1);
+          NODE
+
+      - name: Upload PC-CROP-08H evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08h-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
