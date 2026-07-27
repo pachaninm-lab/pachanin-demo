@@ -10,8 +10,11 @@ function replaceExact(needle, replacement, expected = 1) {
 }
 
 replaceExact("  h: '.github/workflows/pc-crop-08h.yml',\n", '');
-replaceExact("  requireCount(triggers.h, path, 2, \\\`08H successor ownership for \\\${path}\\\`);\n", '');
-replaceExact("  requireCount(triggers.h, path, 2, \\\`08H successor ownership for \\\${path}\\\`);\n", '');
+replaceExact(
+  "  requireCount(triggers.h, path, 2, \\\`08H successor ownership for \\\${path}\\\`);\n",
+  '',
+  2,
+);
 replaceExact("requireCount(tails.h, 'fgis-grain-outbox-dispatch.handler.spec.ts', 1, '08H transferred dispatch unit regression present');\n", '');
 replaceExact("requireCount(tails.h, 'test/industrial/fgis-grain-dispatch.e2e-spec.ts', 1, '08H transferred dispatch PostgreSQL regression present');\n", '');
 replaceExact(
