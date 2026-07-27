@@ -89,7 +89,7 @@ jobs:
         github.event.comment.body == '/production status current-main'
       )
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 60
     steps:
       - name: Dispatch or inspect exact-current-main release
         env:
@@ -104,10 +104,53 @@ jobs:
           [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
 
           if [[ "$COMMAND" == '/production release current-main' ]]; then
+            dispatch_started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
             gh workflow run docker-publish.yml \
               --repo "$REPO" \
               --ref main \
               -f services=all
+
+            image_run_id=''
+            for attempt in $(seq 1 30); do
+              image_run_id=$(gh api \
+                -H 'Accept: application/vnd.github+json' \
+                "repos/$REPO/actions/workflows/docker-publish.yml/runs?event=workflow_dispatch&branch=main&per_page=30" \
+                --jq ".workflow_runs
+                  | map(select(.head_sha == \"$main_sha\" and .created_at >= \"$dispatch_started\"))
+                  | sort_by(.created_at)
+                  | reverse
+                  | .[0].id // empty")
+              [[ "$image_run_id" =~ ^[0-9]+$ ]] && break
+              sleep 2
+            done
+            [[ "$image_run_id" =~ ^[0-9]+$ ]] || {
+              echo 'Unable to resolve the exact image publication run.' >&2
+              exit 20
+            }
+
+            gh run watch "$image_run_id" --repo "$REPO" --exit-status --interval 10
+            image_conclusion=$(gh run view "$image_run_id" --repo "$REPO" --json conclusion --jq '.conclusion // empty')
+            [[ "$image_conclusion" == success ]] || {
+              echo "Exact image publication did not succeed: run=$image_run_id conclusion=${image_conclusion:-missing}" >&2
+              exit 21
+            }
+
+            for required_job in 'Build API image' 'Build web image' 'Build migration image'; do
+              job_conclusion=$(gh api \
+                -H 'Accept: application/vnd.github+json' \
+                "repos/$REPO/actions/runs/$image_run_id/jobs?per_page=100" \
+                --jq ".jobs | map(select(.name == \"$required_job\")) | .[0].conclusion // empty")
+              [[ "$job_conclusion" == success ]] || {
+                echo "Required image job did not succeed: $required_job=${job_conclusion:-missing}" >&2
+                exit 22
+              }
+            done
+
+            current_main=$(gh api "repos/$REPO/commits/main" --jq .sha)
+            [[ "$current_main" == "$main_sha" ]] || {
+              echo "Main advanced during image publication: expected=$main_sha actual=$current_main" >&2
+              exit 23
+            }
 
             gh workflow run production-full-stack-exact-sha.yml \
               --repo "$REPO" \
