@@ -1,0 +1,8 @@
+{
+  "scope": "remove-maturity-jsx-v2",
+  "files": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHomeStory.tsx",
+    "apps/web/tests/unit/platformV7PublicTrustBlockRemoval.test.ts"
+  ],
+  "requirement": "Delete the maturity section and navigation link from JSX source; CSS hiding is forbidden."
+}
