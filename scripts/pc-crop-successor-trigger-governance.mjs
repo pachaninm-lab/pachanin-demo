@@ -1,6 +1,6 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import {
-  existsSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
@@ -13,6 +13,7 @@ const SCOPE_PATH =
 const WORKFLOW_08D = '.github/workflows/pc-crop-08d.yml';
 const WORKFLOW_08F = '.github/workflows/pc-crop-08f.yml';
 const WORKFLOW_08H = '.github/workflows/pc-crop-08h.yml';
+const SHA1 = /^[a-f0-9]{40}$/u;
 
 const dispatchShared = [
   'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts',
@@ -46,6 +47,17 @@ function read(file) {
   return readFileSync(file, 'utf8');
 }
 
+function gitText(...args) {
+  return execFileSync('git', args, {
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
+}
+
+function gitLine(...args) {
+  return gitText(...args).trim();
+}
+
 function count(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
@@ -57,8 +69,7 @@ function requireCount(haystack, needle, expected, label) {
   }
 }
 
-function splitWorkflow(file) {
-  const content = read(file);
+function splitWorkflowContent(content, file) {
   const onStart = content.indexOf('\non:\n');
   const permissionsStart = content.indexOf('\npermissions:\n');
   if (onStart < 0 || permissionsStart <= onStart) {
@@ -70,8 +81,32 @@ function splitWorkflow(file) {
   };
 }
 
+function splitWorkflow(file) {
+  return splitWorkflowContent(read(file), file);
+}
+
+function readWorkflowAt(commit, file) {
+  if (!SHA1.test(commit)) {
+    throw new Error(`${file}: invalid pinned commit ${commit}`);
+  }
+  return splitWorkflowContent(
+    gitText('show', `${commit}:${file}`),
+    `${commit}:${file}`,
+  );
+}
+
 const d = splitWorkflow(WORKFLOW_08D);
 const f = splitWorkflow(WORKFLOW_08F);
+const baseSha = (process.env.GOVERNANCE_BASE_SHA || '').trim()
+  || gitLine('rev-parse', 'HEAD^');
+const baseD = readWorkflowAt(baseSha, WORKFLOW_08D);
+const baseF = readWorkflowAt(baseSha, WORKFLOW_08F);
+if (d.tail !== baseD.tail) {
+  throw new Error('08D permissions/jobs body changed during trigger handoff');
+}
+if (f.tail !== baseF.tail) {
+  throw new Error('08F permissions/jobs body changed during trigger handoff');
+}
 
 for (const path of dispatchShared) {
   requireCount(d.triggers, path, 0, `08D shared trigger handoff for ${path}`);
@@ -131,39 +166,50 @@ if (JSON.stringify(scope.handoffs.dispatchShared) !== JSON.stringify(dispatchSha
 if (JSON.stringify(scope.handoffs.projectionShared) !== JSON.stringify(projectionShared)) {
   throw new Error('projection handoff registry drift');
 }
-
-let successorWorkflowVerified = false;
-if (existsSync(WORKFLOW_08H)) {
-  const h = splitWorkflow(WORKFLOW_08H);
-  for (const path of [...dispatchShared, ...projectionShared]) {
-    requireCount(h.triggers, path, 2, `08H successor trigger ${path}`);
-  }
-  if (!h.tail.includes('fgis-grain-outbox-dispatch.handler.spec.ts')) {
-    throw new Error('08H transferred dispatch unit regression is absent');
-  }
-  if (!h.tail.includes('test/industrial/fgis-grain-dispatch.e2e-spec.ts')) {
-    throw new Error('08H transferred dispatch PostgreSQL regression is absent');
-  }
-  if (/continue-on-error\s*:/u.test(h.tail)) {
-    throw new Error('08H continue-on-error is forbidden');
-  }
-  successorWorkflowVerified = true;
+const successorCommit = scope.handoffs.successorCommit;
+const successorBlob = scope.handoffs.successorWorkflowBlobSha;
+if (!SHA1.test(successorCommit) || !SHA1.test(successorBlob)) {
+  throw new Error('successor commit/blob authority is malformed');
+}
+execFileSync('git', ['merge-base', '--is-ancestor', successorCommit, 'FETCH_HEAD']);
+const actualSuccessorBlob = gitLine('rev-parse', `${successorCommit}:${WORKFLOW_08H}`);
+if (actualSuccessorBlob !== successorBlob) {
+  throw new Error(
+    `08H workflow blob drift: expected ${successorBlob}, actual ${actualSuccessorBlob}`,
+  );
+}
+const h = readWorkflowAt(successorCommit, WORKFLOW_08H);
+for (const path of [...dispatchShared, ...projectionShared]) {
+  requireCount(h.triggers, path, 2, `08H successor trigger ${path}`);
+}
+if (!h.tail.includes('fgis-grain-outbox-dispatch.handler.spec.ts')) {
+  throw new Error('08H transferred dispatch unit regression is absent');
+}
+if (!h.tail.includes('test/industrial/fgis-grain-dispatch.e2e-spec.ts')) {
+  throw new Error('08H transferred dispatch PostgreSQL regression is absent');
+}
+if (/continue-on-error\s*:/u.test(h.tail)) {
+  throw new Error('08H continue-on-error is forbidden');
 }
 
 const report = {
   schemaVersion: 'pc-crop.successor-trigger-handoff-acceptance.v1',
   issue: 3290,
   exactHead: process.env.GITHUB_SHA || 'LOCAL',
+  baseSha,
   status: 'PASS',
   invariants: {
     dispatchSharedPathsRemovedFrom08D: true,
     projectionSharedPathsRemovedFrom08F: true,
     predecessorSpecificTriggersRetained: true,
     predecessorRegressionJobsRetained: true,
+    predecessorJobBodiesMatchBase: true,
     workflowSelfTriggerIsolation: true,
     canonicalApplyMapUpdated: true,
     successorHandoffRegistryPinned: true,
-    successorWorkflowVerified,
+    successorCommitReachableFromAuthorityBranch: true,
+    successorWorkflowBlobPinned: true,
+    successorWorkflowVerified: true,
     noContinueOnError: true,
   },
   boundaries: {
