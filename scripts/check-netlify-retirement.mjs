@@ -135,10 +135,28 @@ function scanWorkflow(relativePath, content, violations) {
   }
 }
 
+function isBareModuleSpecifier(specifier) {
+  return !(
+    specifier.startsWith('.')
+    || specifier.startsWith('/')
+    || specifier.startsWith('file:')
+    || specifier.startsWith('node:')
+    || /^[A-Za-z]:[\\/]/u.test(specifier)
+  );
+}
+
 function scanJavaScript(relativePath, content, violations) {
-  const importPattern = /(?:from\s*|import\s*\(|require\s*\()\s*['"`][^'"`]*netlify[^'"`]*['"`]/giu;
-  if (importPattern.test(content)) {
-    push(violations, relativePath, 'imports an active Netlify package');
+  const importPatterns = [
+    /(?:from\s*|import\s*\()\s*['"`]([^'"`]+)['"`]/giu,
+    /require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/giu,
+  ];
+  for (const pattern of importPatterns) {
+    for (const match of content.matchAll(pattern)) {
+      const specifier = match[1];
+      if (isBareModuleSpecifier(specifier) && NETLIFY_PACKAGE.test(specifier)) {
+        push(violations, relativePath, `imports active Netlify package ${JSON.stringify(specifier)}`);
+      }
+    }
   }
   const envPattern = /process\.env(?:\.NETLIFY_[A-Z0-9_]+|\[['"`]NETLIFY_[A-Z0-9_]+['"`]\])/gu;
   if (envPattern.test(content)) {
