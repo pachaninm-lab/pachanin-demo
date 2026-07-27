@@ -2,7 +2,9 @@ name: Platform V7 Production Mobile Acceptance
 
 on:
   workflow_run:
-    workflows: ['Production Web Exact-SHA Release']
+    workflows:
+      - 'Production Web Exact-SHA Release'
+      - 'Production Full-Stack Exact-SHA Release'
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -59,16 +61,72 @@ jobs:
           fetch-depth: 1
 
       - name: Verify exact public revision before browser acceptance
+        id: revision
         env:
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          manifest="$(curl -fsSL --compressed --max-time 20 "$LIVE_BASE/manifest-pc-deploy.json?mobile-acceptance=$GITHUB_RUN_ID")"
-          grep -Fq "$TARGET_SHA" <<< "$manifest" || {
-            echo "Production manifest does not expose target SHA $TARGET_SHA" >&2
+          evidence_dir='artifacts/platform-v7-production-mobile/live-revision'
+          summary="$evidence_dir/attempts.tsv"
+          mkdir -p "$evidence_dir"
+          printf 'attempt\tmanifest_http\tmanifest_rc\tmanifest_sha\tready_http\tready_rc\tready_sha\n' > "$summary"
+
+          accepted=0
+          last_manifest_sha='missing'
+          last_ready_sha='missing'
+          for attempt in $(seq 1 12); do
+            cache_bust="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${attempt}-$(date +%s)"
+            manifest_file="$evidence_dir/manifest-${attempt}.json"
+            manifest_headers="$evidence_dir/manifest-${attempt}.headers"
+            ready_file="$evidence_dir/ready-${attempt}.json"
+            ready_headers="$evidence_dir/ready-${attempt}.headers"
+
+            set +e
+            manifest_http="$(curl --silent --show-error --location --compressed \
+              --connect-timeout 10 --max-time 30 \
+              -D "$manifest_headers" -o "$manifest_file" -w '%{http_code}' \
+              "$LIVE_BASE/manifest-pc-deploy.json?mobile-acceptance=$cache_bust")"
+            manifest_rc=$?
+            ready_http="$(curl --silent --show-error --location --compressed \
+              --connect-timeout 10 --max-time 30 \
+              -D "$ready_headers" -o "$ready_file" -w '%{http_code}' \
+              "$LIVE_BASE/api/health/ready?mobile-acceptance=$cache_bust")"
+            ready_rc=$?
+            set -e
+
+            manifest_sha="$(jq -r '.commitSha // empty' "$manifest_file" 2>/dev/null || true)"
+            ready_sha="$(jq -r '.revision // empty' "$ready_file" 2>/dev/null || true)"
+            last_manifest_sha="${manifest_sha:-missing}"
+            last_ready_sha="${ready_sha:-missing}"
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$attempt" "${manifest_http:-000}" "$manifest_rc" "$last_manifest_sha" \
+              "${ready_http:-000}" "$ready_rc" "$last_ready_sha" >> "$summary"
+
+            if [[ "$manifest_rc" == 0 && "$ready_rc" == 0 \
+              && "$manifest_http" == 200 && "$ready_http" == 200 \
+              && "$manifest_sha" == "$TARGET_SHA" && "$ready_sha" == "$TARGET_SHA" ]]; then
+              cp "$manifest_file" "$evidence_dir/accepted-manifest.json"
+              cp "$manifest_headers" "$evidence_dir/accepted-manifest.headers"
+              cp "$ready_file" "$evidence_dir/accepted-ready.json"
+              cp "$ready_headers" "$evidence_dir/accepted-ready.headers"
+              printf 'PASS\n' > "$evidence_dir/result.txt"
+              accepted=1
+              break
+            fi
+
+            [[ "$attempt" == 12 ]] || sleep 5
+          done
+
+          echo "manifest_sha=$last_manifest_sha" >> "$GITHUB_OUTPUT"
+          echo "ready_sha=$last_ready_sha" >> "$GITHUB_OUTPUT"
+
+          if (( accepted != 1 )); then
+            printf 'FAIL\n' > "$evidence_dir/result.txt"
+            echo "Exact public revision mismatch: expected=$TARGET_SHA manifest=$last_manifest_sha readiness=$last_ready_sha" >&2
+            cat "$summary" >&2
             exit 3
-          }
+          fi
 
       - uses: pnpm/action-setup@v4
         with:
@@ -92,39 +150,40 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
         run: pnpm --filter @pc/web exec playwright test --config=playwright.production-mobile.config.ts
 
-      - name: Build visual evidence checksums
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/platform-v7-production-mobile
-          find apps/web/test-results/production-mobile apps/web/playwright-report-production-mobile \
-            -type f -print0 2>/dev/null |
-            sort -z |
-            xargs -0 -r sha256sum > artifacts/platform-v7-production-mobile/sha256.txt
-          printf '%s\n' '${{ steps.target.outputs.target_sha }}' > artifacts/platform-v7-production-mobile/target-sha.txt
-          printf '%s\n' '${{ steps.acceptance.outcome }}' > artifacts/platform-v7-production-mobile/outcome.txt
-
       - name: Publish mobile acceptance record
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          REVISION_OUTCOME: ${{ steps.revision.outcome }}
+          MANIFEST_SHA: ${{ steps.revision.outputs.manifest_sha }}
+          READY_SHA: ${{ steps.revision.outputs.ready_sha }}
           ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$ACCEPTANCE_OUTCOME" == success ]]; then
-            result=PASS
+          mkdir -p artifacts/platform-v7-production-mobile
+
+          if [[ "$REVISION_OUTCOME" == success ]]; then
+            revision_result=PASS
           else
-            result=FAIL
+            revision_result=FAIL
           fi
+
+          case "$ACCEPTANCE_OUTCOME" in
+            success) result=PASS ;;
+            failure) result=FAIL ;;
+            *) result=NOT_RUN ;;
+          esac
 
           record=artifacts/platform-v7-production-mobile/issue-comment.md
           {
             echo "## Platform V7 production mobile acceptance \`$GITHUB_RUN_ID\`"
             echo
             echo "- target SHA: \`$TARGET_SHA\`"
+            echo "- exact public revision gate: \`$revision_result\`"
+            echo "- manifest revision: \`${MANIFEST_SHA:-missing}\`"
+            echo "- readiness revision: \`${READY_SHA:-missing}\`"
             echo "- viewport 390×844: \`$result\`"
             echo "- viewport 430×932: \`$result\`"
             echo "- sticky header and anchors: \`$result\`"
@@ -139,6 +198,26 @@ jobs:
           gh issue comment "$RELEASE_ISSUE_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
             --body-file "$record"
+
+      - name: Build visual evidence checksums
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence_dir='artifacts/platform-v7-production-mobile'
+          mkdir -p "$evidence_dir"
+          roots=("$evidence_dir")
+          for candidate in \
+            apps/web/test-results/production-mobile \
+            apps/web/playwright-report-production-mobile; do
+            [[ ! -e "$candidate" ]] || roots+=("$candidate")
+          done
+          find "${roots[@]}" -type f ! -name sha256.txt -print0 \
+            | sort -z \
+            | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
+          printf '%s\n' '${{ steps.target.outputs.target_sha }}' > "$evidence_dir/target-sha.txt"
+          printf '%s\n' '${{ steps.revision.outcome }}' > "$evidence_dir/revision-outcome.txt"
+          printf '%s\n' '${{ steps.acceptance.outcome }}' > "$evidence_dir/outcome.txt"
 
       - name: Upload production mobile evidence
         if: always()
@@ -158,4 +237,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          [[ '${{ steps.revision.outcome }}' == success ]] || exit 41
           [[ '${{ steps.acceptance.outcome }}' == success ]] || exit 40
