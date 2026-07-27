@@ -3,7 +3,7 @@ const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://процент-агро.рф';
 
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
@@ -31,7 +31,6 @@ const securityHeaders = [
 const publicEntryFreshHeaders = [
   { key: 'Cache-Control', value: 'no-store, no-cache, max-age=0, must-revalidate' },
   { key: 'CDN-Cache-Control', value: 'no-store' },
-  { key: 'Netlify-CDN-Cache-Control', value: 'no-store' },
   { key: 'Pragma', value: 'no-cache' },
   { key: 'Expires', value: '0' },
 ];

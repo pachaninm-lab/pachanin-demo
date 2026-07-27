@@ -1,55 +1,68 @@
 name: IndexNow Submit
 
+# Submits public URLs only for a commit the REG.RU virtual server actually
+# accepted. Submitting on every push to main would announce URLs for a build
+# that was never released, because a merge is not a deployment.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/web/app/sitemap.ts'
-      - 'apps/web/app/robots.ts'
-      - 'apps/web/middleware.ts'
-      - 'apps/web/app/layout.tsx'
-      - 'apps/web/app/platform-v7/**'
-      - 'apps/web/lib/platform-v7/public-seo-routes.json'
-      - 'apps/web/public/*.txt'
-      - 'netlify.toml'
-      - 'scripts/write-deploy-evidence.mjs'
-      - 'scripts/indexnow-submit.mjs'
-      - '.github/workflows/indexnow-submit.yml'
+  workflow_run:
+    workflows: ['Production Web Exact-SHA Release']
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      accepted_sha:
+        description: 'Diagnostics only: full main SHA a production release accepted.'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  accepted:
+    name: Resolve accepted production release
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/production-release-accepted-sha.yml
+    with:
+      release_run_id: ${{ github.event.workflow_run.id || '' }}
+      manual_sha: ${{ inputs.accepted_sha || '' }}
+
   submit:
     name: Submit public URLs to IndexNow
+    needs: accepted
+    if: needs.accepted.outputs.deployment_accepted == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      ACCEPTED_SHA: ${{ needs.accepted.outputs.accepted_sha }}
     steps:
-      - name: Checkout exact head
+      - name: Checkout the accepted release commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.accepted.outputs.accepted_sha }}
 
       - name: Submit exact deployed public URLs
         run: node scripts/indexnow-submit.mjs
         env:
           SITE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
-          EXPECTED_DEPLOY_SHA: ${{ github.sha }}
+          EXPECTED_DEPLOY_SHA: ${{ needs.accepted.outputs.accepted_sha }}
           INDEXNOW_EVIDENCE: artifacts/indexnow/indexnow-evidence.json
 
       - name: Enforce machine-readable IndexNow evidence
         if: always()
         run: |
           test -f artifacts/indexnow/indexnow-evidence.json
-          node -e 'const r=require("./artifacts/indexnow/indexnow-evidence.json"); if(r.commitSha!==process.env.GITHUB_SHA||r.pass!==true||r.result!=="PASS"||r.violatedThresholds.length!==0) { console.error(JSON.stringify(r,null,2)); process.exit(1); }'
+          node -e 'const r=require("./artifacts/indexnow/indexnow-evidence.json"); if(r.commitSha!==process.env.ACCEPTED_SHA||r.pass!==true||r.result!=="PASS"||r.violatedThresholds.length!==0) { console.error(JSON.stringify(r,null,2)); process.exit(1); }'
 
       - name: Upload IndexNow evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: indexnow-${{ github.sha }}
+          name: indexnow-${{ needs.accepted.outputs.accepted_sha }}
           path: artifacts/indexnow
           if-no-files-found: error
           retention-days: 90

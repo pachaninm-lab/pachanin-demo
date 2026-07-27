@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://процент-агро.рф',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
