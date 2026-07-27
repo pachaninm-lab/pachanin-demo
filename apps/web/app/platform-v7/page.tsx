@@ -86,6 +86,22 @@ const CRITICAL_HOME_CSS = `
   line-height: 1.5;
   letter-spacing: -.006em;
 }
+/* Isolated Lighthouse probe: keep the visual line break while making the H1 one stable text candidate. */
+.pc-v6-hero .pc-v6-hero-title-main,
+.pc-v6-hero .pc-v6-hero-title-accent {
+  display: inline;
+}
+.pc-v6-hero .pc-v6-hero-title-main::after {
+  content: '';
+  display: block;
+  height: 8px;
+}
+.pc-v6-hero .pc-v6-hero-title-accent {
+  margin-top: 0;
+}
+.pc-v6-hero .pc-v6-hero-lead {
+  text-wrap: wrap;
+}
 .pc-v6-control-tower-unified {
   align-self: start;
   overflow: hidden;
@@ -181,6 +197,8 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     letter-spacing: -.04em;
   }
   .pc-v6-hero-title-accent { margin-top: 5px; }
+  .pc-v6-hero .pc-v6-hero-title-main::after { height: 5px; }
+  .pc-v6-hero .pc-v6-hero-title-accent { margin-top: 0; }
   .pc-v6-hero-copy > p.pc-v6-hero-lead {
     max-width: 42ch;
     margin-top: 12px;
