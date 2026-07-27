@@ -35,7 +35,6 @@ const retained08d = [
   'scripts/pc-crop-08d/**',
 ];
 const retained08f = [
-  '.github/workflows/pc-crop-08f.yml',
   'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**',
   'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts',
   'apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts',
@@ -80,6 +79,7 @@ for (const path of dispatchShared) {
 for (const path of projectionShared) {
   requireCount(f.triggers, path, 0, `08F shared trigger handoff for ${path}`);
 }
+requireCount(f.triggers, WORKFLOW_08F, 0, '08F workflow self-trigger isolation');
 for (const path of retained08d) {
   requireCount(d.triggers, path, 2, `08D retained trigger ${path}`);
 }
@@ -160,6 +160,7 @@ const report = {
     projectionSharedPathsRemovedFrom08F: true,
     predecessorSpecificTriggersRetained: true,
     predecessorRegressionJobsRetained: true,
+    workflowSelfTriggerIsolation: true,
     canonicalApplyMapUpdated: true,
     successorHandoffRegistryPinned: true,
     successorWorkflowVerified,
