@@ -35,8 +35,8 @@ migration = replaceExact(
 );
 migration = replaceExact(
   migration,
-  `        'correlationId', p_correlation_id,\n        'reasonCode', NULL,\n`,
-  `        'correlationId', v_replay_correlation_id,\n        'reasonCode', NULL,\n`,
+  `        'outboxEntryId', v_replay_outbox_id,\n        'correlationId', p_correlation_id,\n        'reasonCode', NULL,\n`,
+  `        'outboxEntryId', v_replay_outbox_id,\n        'correlationId', v_replay_correlation_id,\n        'reasonCode', NULL,\n`,
   1,
   'return stored replay correlation identity',
 );
@@ -59,7 +59,7 @@ let e2e = read(e2ePath);
 e2e = replaceExact(
   e2e,
   `    const replay = await correlations.correlateVerifiedResponse(USER_A, command);\n    expect(replay).toEqual({ ...correlated, kind: 'REPLAY' });\n\n    const evidence = await prisma.$queryRaw<Array<{\n`,
-  `    const replay = await correlations.correlateVerifiedResponse(USER_A, command);\n    expect(replay).toEqual({ ...correlated, kind: 'REPLAY' });\n\n    const divergentReplayCommands: FgisGrainResponseCorrelationCommand[] = [\n      {\n        ...command,\n        correlationId: \\`${RUN_ID}.response-correlation.divergent\\`,\n      },\n      {\n        ...command,\n        idempotencyKey: \\`${RUN_ID}.response.divergent\\`,\n      },\n      {\n        ...command,\n        reason: 'Изменённое основание не может переиспользовать ранее принятое доказательство',\n      },\n    ];\n    for (const divergent of divergentReplayCommands) {\n      await expect(correlations.correlateVerifiedResponse(USER_A, divergent))\n        .rejects.toMatchObject({\n          name: 'FgisGrainExchangeAuthorityError',\n          code: 'EXCHANGE_AUTHORITY_MISMATCH',\n          retryable: false,\n        });\n    }\n\n    const evidence = await prisma.$queryRaw<Array<{\n`,
+  `    const replay = await correlations.correlateVerifiedResponse(USER_A, command);\n    expect(replay).toEqual({ ...correlated, kind: 'REPLAY' });\n\n    const divergentReplayCommands: FgisGrainResponseCorrelationCommand[] = [\n      {\n        ...command,\n        correlationId: RUN_ID + '.response-correlation.divergent',\n      },\n      {\n        ...command,\n        idempotencyKey: RUN_ID + '.response.divergent',\n      },\n      {\n        ...command,\n        reason: 'Изменённое основание не может переиспользовать ранее принятое доказательство',\n      },\n    ];\n    for (const divergent of divergentReplayCommands) {\n      await expect(correlations.correlateVerifiedResponse(USER_A, divergent))\n        .rejects.toMatchObject({\n          name: 'FgisGrainExchangeAuthorityError',\n          code: 'EXCHANGE_AUTHORITY_MISMATCH',\n          retryable: false,\n        });\n    }\n\n    const evidence = await prisma.$queryRaw<Array<{\n`,
   1,
   'add negative replay-provenance acceptance',
 );
