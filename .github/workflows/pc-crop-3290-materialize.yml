@@ -1,7 +1,12 @@
 name: PC-CROP 3290 Materialize
-# Second user-authored push activates the newly introduced workflow.
+# The pull-request event activates this temporary workflow on its governed branch.
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-3290-materialize.yml'
+      - 'scripts/pc-crop-3290/materialize.mjs'
   push:
     branches:
       - fix/pc-crop-successor-trigger-handoff-3290
@@ -14,7 +19,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pc-crop-3290-materialize-${{ github.ref }}
+  group: pc-crop-3290-materialize-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
