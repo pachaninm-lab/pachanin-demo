@@ -23,6 +23,7 @@ concurrency:
 env:
   BRANCH: agent/pc-crop-08f-sdiz-projection
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  SYNC_LOG_DIR: artifacts/pc-crop-08f-sync
 
 jobs:
   synchronize:
@@ -59,6 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$SYNC_LOG_DIR"
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git fetch --no-tags origin main "$BRANCH"
@@ -68,15 +70,14 @@ jobs:
           printf 'EXPECTED_BRANCH_HEAD=%s\nBASE_MAIN_SHA=%s\n' \
             "$expected_branch_head" "$base_main_sha" >> "$GITHUB_ENV"
           git merge --no-ff --no-commit "$base_main_sha"
+          git status --short | tee "$SYNC_LOG_DIR/post-merge-status.txt"
 
-      - name: Enforce projection mutation RBAC
+      - name: Apply final SDIZ remediation
         shell: bash
         run: |
           set -euo pipefail
           python3 .github/scripts/pc-crop-08f-sdiz-remediation.py
-          git add \
-            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts \
-            apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts
+          git status --short | tee "$SYNC_LOG_DIR/post-remediation-status.txt"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -88,24 +89,59 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Validate synchronized authority
+      - name: Install frozen dependencies
         shell: bash
         run: |
-          set -euo pipefail
-          pnpm install --frozen-lockfile
-          node scripts/pc-crop-08f/normalize-signature-authority.mjs
-          pnpm --filter @pc/api exec prisma format
-          pnpm --filter @pc/api exec prisma validate
-          git diff --exit-code -- apps/api/prisma/schema.prisma
-          pnpm --filter @pc/api exec prisma migrate deploy
-          pnpm --filter @pc/api exec prisma generate
-          pnpm --filter @pc/api typecheck
+          set -o pipefail
+          pnpm install --frozen-lockfile 2>&1 | tee "$SYNC_LOG_DIR/install.log"
+
+      - name: Normalize and validate Prisma authority
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/pc-crop-08f/normalize-signature-authority.mjs 2>&1 | tee "$SYNC_LOG_DIR/normalize-signature.log"
+          pnpm --filter @pc/api exec prisma format 2>&1 | tee "$SYNC_LOG_DIR/prisma-format.log"
+          pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$SYNC_LOG_DIR/prisma-validate.log"
+          git diff --exit-code -- apps/api/prisma/schema.prisma 2>&1 | tee "$SYNC_LOG_DIR/schema-diff.log"
+
+      - name: Deploy migrations and generate Prisma client
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$SYNC_LOG_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$SYNC_LOG_DIR/prisma-generate.log"
+
+      - name: Typecheck synchronized API
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$SYNC_LOG_DIR/typecheck.log"
+
+      - name: Run synchronized SDIZ contract tests
+        shell: bash
+        run: |
+          set -o pipefail
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
-            src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.spec.ts \
+            2>&1 | tee "$SYNC_LOG_DIR/contract-tests.log"
+
+      - name: Run synchronized PostgreSQL SDIZ acceptance
+        shell: bash
+        run: |
+          set -o pipefail
           PC_CROP_08F_POSTGRESQL=1 pnpm --filter @pc/api exec jest \
             --config test/industrial/jest.config.json \
             test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts \
-            --runInBand
+            --runInBand 2>&1 | tee "$SYNC_LOG_DIR/postgresql-acceptance.log"
+
+      - name: Upload synchronization diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08f-sync-${{ github.run_id }}
+          path: ${{ env.SYNC_LOG_DIR }}
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Publish one clean exact-main commit
         shell: bash
