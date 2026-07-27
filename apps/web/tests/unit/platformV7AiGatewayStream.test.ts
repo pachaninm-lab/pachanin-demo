@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { GatewayFrame } from '@pc/ai-assistant-stream-contract';
 import { encodeFrame } from '@pc/ai-assistant-stream-contract';
 import {
+  MAX_PENDING_RECORD_CHARS,
   applyFrame,
   readGatewayStream,
   recordPayload,
@@ -158,6 +159,28 @@ describe('reading a whole stream', () => {
     const snapshot = await readGatewayStream(sseResponse(['event: token\ndata: not json\n\n']), { mode: 'public' });
 
     expect(snapshot).toMatchObject({ status: 'refused', refusal: 'UPSTREAM_ERROR' });
+  });
+
+  it('refuses a stream that never completes a record instead of buffering it forever', async () => {
+    // Every field the contract describes is bounded; the transport holding them
+    // was not, so bytes with no record separator would grow the buffer without
+    // limit in the reader's browser.
+    const flood = 'x'.repeat(MAX_PENDING_RECORD_CHARS + 1);
+    const snapshot = await readGatewayStream(sseResponse([flood]), { mode: 'public' });
+
+    expect(snapshot).toMatchObject({ status: 'refused', text: '', refusal: 'UPSTREAM_ERROR' });
+  });
+
+  it('still accepts a legitimate frame that arrives in many small chunks', async () => {
+    const full = wire([meta(), token('ц'.repeat(4_000)), done(true)]);
+    // Sliced rather than matched with a regex: `.` does not match the newlines
+    // that separate SSE fields, so a regex split would silently drop them.
+    const chunks: string[] = [];
+    for (let index = 0; index < full.length; index += 64) chunks.push(full.slice(index, index + 64));
+    const snapshot = await readGatewayStream(sseResponse(chunks), { mode: 'public' });
+
+    expect(snapshot.status).toBe('answered');
+    expect(snapshot.text).toHaveLength(4_000);
   });
 
   it('refuses a transport failure before any frame', async () => {

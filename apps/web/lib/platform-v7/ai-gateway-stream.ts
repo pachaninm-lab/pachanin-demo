@@ -46,6 +46,15 @@ export interface ReadGatewayStreamOptions {
   readonly signal?: AbortSignal;
 }
 
+/**
+ * Largest unfinished SSE record the client will hold.
+ *
+ * Comfortably above one legitimate frame — the contract bounds token text at
+ * 8192 characters and a citation URI at 2048 — and far below anything that
+ * could exhaust a browser tab.
+ */
+export const MAX_PENDING_RECORD_CHARS = 64 * 1024;
+
 const EMPTY: GatewayStreamSnapshot = {
   status: 'streaming',
   text: '',
@@ -161,6 +170,13 @@ export async function readGatewayStream(
       buffer += decoder.decode(value, { stream: true });
       const { records, rest } = splitRecords(buffer);
       buffer = rest;
+
+      // Every field the contract describes is bounded, but the transport around
+      // them was not: bytes that never contain a record separator are held as an
+      // unfinished record forever, and the buffer grows without limit in the
+      // reader's browser. A stream that has sent this much without completing a
+      // single record is not speaking the contract.
+      if (buffer.length > MAX_PENDING_RECORD_CHARS) return finish('UPSTREAM_ERROR');
 
       for (const record of records) {
         const payload = recordPayload(record);
