@@ -72,30 +72,32 @@ governance-authorized PR с этим путём в scope.
 
 ---
 
-## 3. Проверка `health/ready` в `check-production-web-hardening.mjs` — открыто
+## 3. Проверка `health/ready` в `check-production-web-hardening.mjs` — закрыто
 
-`scripts/check-production-web-hardening.mjs` требует в
-`apps/web/app/api/health/ready/route.ts` литеральную подстроку:
+Пункт закрыт кодом и действий владельца не требует.
 
-```
-'Cache-Control': 'no-store, max-age=0'
-```
+`scripts/check-production-web-hardening.mjs` требовал в
+`apps/web/app/api/health/ready/route.ts` литеральную подстроку
+`'Cache-Control': 'no-store, max-age=0'`, тогда как коммит `90e52a9e8`
+**усилил** заголовок до
+`'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'`.
+Проверка осталась привязана к прежнему, более слабому написанию, и
+`Production Hosting Authority` падала на каждом push, затрагивающем её
+trigger paths. Воспроизведено на чистом worktree `origin/main`.
 
-Роут отдаёт заголовок строже:
+Выбран семантический вариант из двух предложенных: проверка требует
+`no-store` **и** `max-age=0` внутри литерала заголовка, а не одно конкретное
+написание. Ужесточение политики кэширования больше не может уронить гейт;
+исчезновение любой из двух директив по-прежнему роняет.
 
-```
-'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
-```
+Литерал в обратную сторону не возвращён намеренно: это «починило» бы гейт и
+взвело ту же ловушку заново. Запрет зафиксирован тестом.
 
-Семантически это надмножество требуемого, но подстроковое сравнение
-разъехалось, и `Production Hosting Authority` падает на любом push в main,
-который затрагивает её trigger paths.
-
-Воспроизведено на чистом worktree `origin/main` — байт в байт тот же вывод.
-Предсуществующий дефект, не связанный ни с удалением Netlify, ни с TAI.
-Требует отдельного узкого PR: либо привести литерал проверки в соответствие
-с роутом, либо сделать проверку семантической (`no-store` **и** `max-age=0`
-присутствуют), а не подстроковой.
+Регрессия закрыта `apps/web/tests/unit/productionWebHardeningContract.test.ts`.
+Тест запускает саму проверку против дерева репозитория, поэтому расхождение
+гейта с деревом теперь видно в web-unit на каждом PR, а не только на тех,
+что попали в path-фильтр `Production Hosting Authority`. Именно эта
+path-фильтрация и позволила расхождению прожить незамеченным.
 
 ---
 
