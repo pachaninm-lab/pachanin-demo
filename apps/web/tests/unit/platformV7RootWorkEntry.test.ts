@@ -22,7 +22,10 @@ describe('platform-v7 final master public entry', () => {
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
 
   it('renders the complete final v4 narrative and the durable connection form', () => {
-    expect(page).toContain('const home = await PlatformV7StrategicHome();');
+    expect(page).toContain('export default function PlatformV7RootPage()');
+    expect(page).toContain('<PlatformV7StrategicHome />');
+    expect(home).toContain('export function PlatformV7StrategicHome()');
+    expect(home).toContain('const locale = publicHomeLocale(useLocale());');
     for (const anchor of [
       "id='difference'",
       "id='functions'",
