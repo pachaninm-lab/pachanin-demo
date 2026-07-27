@@ -221,8 +221,9 @@ export class FgisGrainSdizProjectionRepository {
               "sdizId" IN (${Prisma.join(command.records.map((record) => record.sdizId))})
               OR "sdizNumber" IN (${Prisma.join(command.records.map((record) => record.sdizNumber))})
             )
+          -- Identity advisory locks are already held for every id and number.
+          -- Avoid FOR UPDATE: the runtime role deliberately has no raw UPDATE grant.
           ORDER BY "sdizId", "sdizNumber"
-          FOR UPDATE
         `);
         const conflict = findConflict(existing, command);
         if (conflict) {
