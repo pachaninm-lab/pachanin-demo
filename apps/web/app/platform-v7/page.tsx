@@ -35,12 +35,13 @@ const CRITICAL_HOME_CSS = `
   min-height: var(--entry-public-header-base) !important;
   max-height: var(--entry-public-header-base) !important;
 }
+/* Keep critical hero geometry identical to the final route CSS so its late preload cannot reset LCP. */
 .pc-v6-hero {
   display: grid;
   align-items: center;
-  gap: 42px;
-  padding-top: 58px;
-  padding-bottom: 42px;
+  gap: 52px;
+  padding-top: 68px;
+  padding-bottom: 58px;
 }
 .pc-v6-hero-copy {
   min-width: 0;
@@ -49,23 +50,23 @@ const CRITICAL_HOME_CSS = `
 }
 .pc-v6-hero .pc-v6-kicker {
   max-width: 42ch;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   color: var(--pc-v6-green);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 720;
   line-height: 1.35;
   letter-spacing: 0;
   text-transform: none;
 }
 .pc-v6-hero h1.pc-v6-hero-title {
-  max-width: 13ch;
+  max-width: 12.5ch;
   margin: 0;
   color: var(--pc-v6-ink);
-  font-family: Arial, sans-serif;
-  font-size: clamp(48px, 5vw, 64px);
-  font-weight: 700;
+  font-family: var(--pc-v6-font-display);
+  font-size: clamp(54px, 5.25vw, 68px);
+  font-weight: 730;
   line-height: .98;
-  letter-spacing: -.048em;
+  letter-spacing: -.052em;
   text-wrap: balance;
 }
 .pc-v6-hero-title-main,
@@ -73,18 +74,20 @@ const CRITICAL_HOME_CSS = `
   display: block;
 }
 .pc-v6-hero-title-accent {
+  max-width: 12.5ch;
   margin-top: 8px;
   color: var(--pc-v6-green);
 }
 .pc-v6-hero-copy > p.pc-v6-hero-lead {
-  max-width: 54ch;
-  margin: 18px 0 0;
+  max-width: 61ch;
+  margin: 22px 0 0;
   color: var(--pc-v6-muted);
-  font-family: Arial, sans-serif;
+  font-family: var(--pc-v6-font-body);
   font-size: 18px;
-  font-weight: 400;
-  line-height: 1.5;
-  letter-spacing: -.006em;
+  font-weight: 430;
+  line-height: 1.55;
+  letter-spacing: -.008em;
+  text-wrap: pretty;
 }
 .pc-v6-control-tower-unified {
   align-self: start;
@@ -164,28 +167,41 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
   }
   .pc-v6-hero {
-    gap: 14px;
-    padding-top: 18px;
-    padding-bottom: 24px;
+    gap: 22px;
+    padding-top: 24px;
+    padding-bottom: 32px;
   }
   .pc-v6-hero .pc-v6-kicker {
     max-width: 34ch;
-    margin-bottom: 9px;
+    margin-bottom: 10px;
     font-size: 12.5px;
     line-height: 1.3;
   }
   .pc-v6-hero h1.pc-v6-hero-title {
     max-width: 100%;
-    font-size: clamp(33px, 8.7vw, 36px);
+    font-size: clamp(34px, 9.4vw, 40px);
     line-height: 1;
-    letter-spacing: -.04em;
+    letter-spacing: -.044em;
   }
-  .pc-v6-hero-title-accent { margin-top: 5px; }
+  .pc-v6-hero-title-accent {
+    max-width: 100%;
+    margin-top: 5px;
+  }
   .pc-v6-hero-copy > p.pc-v6-hero-lead {
-    max-width: 42ch;
-    margin-top: 12px;
-    font-size: 14.5px;
-    line-height: 1.38;
+    max-width: 44ch;
+    margin-top: 14px;
+    font-size: 16px;
+    line-height: 1.47;
+  }
+  .pc-v6-hero .pc-v6-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 18px;
+  }
+  .pc-v6-hero .pc-v6-primary,
+  .pc-v6-hero .pc-v6-secondary {
+    width: 100%;
+    min-height: 48px;
   }
   .pc-v6-tower-intelligence {
     grid-template-columns: auto minmax(0, 1fr) 44px;
@@ -227,10 +243,10 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   }
 }
 @media (max-width: 359px) {
-  .pc-v6-hero h1.pc-v6-hero-title { font-size: 31px; }
+  .pc-v6-hero h1.pc-v6-hero-title { font-size: 32px; }
 }
 @media (min-width: 768px) {
-  .pc-v6-hero { grid-template-columns: minmax(0, 1.02fr) minmax(380px, .98fr); }
+  .pc-v6-hero { grid-template-columns: minmax(0, 1.02fr) minmax(420px, .98fr); }
 }
 :lang(zh) .pc-v6-hero h1.pc-v6-hero-title { max-width: 11em; letter-spacing: -.015em; }
 :lang(zh) .pc-v6-hero-title-accent { letter-spacing: 0; }
