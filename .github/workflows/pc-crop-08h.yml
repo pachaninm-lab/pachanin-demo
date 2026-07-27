@@ -1,0 +1,61 @@
+name: PC-CROP-08H Materialize
+
+on:
+  push:
+    branches:
+      - agent/pc-crop-08h-exchange-correlation
+    paths:
+      - '.github/workflows/pc-crop-08h.yml'
+      - 'scripts/pc-crop-08h/materialize.mjs.gz.b64.part*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pc-crop-08h-materialize-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout governed branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-08h-exchange-correlation
+          fetch-depth: 0
+
+      - name: Reconstruct and verify materializer
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat scripts/pc-crop-08h/materialize.mjs.gz.b64.part* > /tmp/materialize.mjs.gz.b64
+          printf '%s  %s\n' \
+            '317fe559e4d1fd377362102ea2ac062892c6aa9e905605e15002a01eff567b2e' \
+            '/tmp/materialize.mjs.gz.b64' | sha256sum --check --strict
+          base64 --decode /tmp/materialize.mjs.gz.b64 | gzip --decompress --stdout > /tmp/materialize.mjs
+          printf '%s  %s\n' \
+            '43d1ab6ef7d6c29da819ef77ff1fc75b67c2a94806240259135d665ec1ef84f6' \
+            '/tmp/materialize.mjs' | sha256sum --check --strict
+          node --check /tmp/materialize.mjs
+
+      - name: Materialize PC-CROP-08H authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          node /tmp/materialize.mjs
+          rm scripts/pc-crop-08h/materialize.mjs.gz.b64.part*
+
+      - name: Commit exact generated implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'PC-CROP-08H: materialize durable exchange authority'
+          git push origin HEAD:agent/pc-crop-08h-exchange-correlation
