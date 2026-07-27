@@ -53,8 +53,53 @@ env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
 
 jobs:
+  normalize-schema:
+    name: One-time committed Prisma normalization
+    if: github.event_name == 'push' && github.ref_name == 'agent/pc-crop-08h-exchange-receipt'
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-08h-exchange-receipt
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Normalize, validate and commit exact schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-08h/sync-prisma-schema.mjs
+          pnpm --filter @pc/api exec prisma format
+          pnpm --filter @pc/api exec prisma validate
+          if git diff --quiet -- apps/api/prisma/schema.prisma; then
+            echo 'Prisma schema is already canonical.'
+            exit 0
+          fi
+          git config user.name 'pc-crop-authority[bot]'
+          git config user.email 'pc-crop-authority[bot]@users.noreply.github.com'
+          git add apps/api/prisma/schema.prisma
+          git commit -m 'PC-CROP-08H: commit canonical Prisma formatting'
+          git push origin HEAD:agent/pc-crop-08h-exchange-receipt
+
   exchange-receipt:
     name: PostgreSQL 16 · receipt-first retry suppression · verified correlation
+    if: github.event_name != 'push' || github.ref_name == 'main'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
