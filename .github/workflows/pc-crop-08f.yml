@@ -5,10 +5,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/pc-crop-08f.yml'
-      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-projection.json'
       - 'scripts/pc-crop-08f/**'
@@ -16,10 +14,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/pc-crop-08f.yml'
-      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08f-sdiz-projection.json'
       - 'scripts/pc-crop-08f/**'
