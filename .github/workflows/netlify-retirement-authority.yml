@@ -20,5 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Prove structural retirement detector contract
+        run: node scripts/check-netlify-retirement.contract.mjs
       - name: Prove Netlify is absent from active project surfaces
         run: node scripts/check-netlify-retirement.mjs
