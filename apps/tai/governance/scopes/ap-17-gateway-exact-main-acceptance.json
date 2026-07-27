@@ -22,7 +22,8 @@
     "apps/tai/tests/test_gateway_acceptance.py",
     "apps/tai/tests/test_industrial_gap_report.py",
     "docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md",
-    "docs/platform-v7/autopilot/autopilot-state.json"
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "scripts/check-netlify-retirement.mjs"
   ],
   "acceptance": [
     "every H.01-H.05 property is re-derived from the exact-main tree rather than asserted",
@@ -31,7 +32,8 @@
     "the gateway subsystem reports ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION, never ACCEPTED",
     "H.06 stays blocked on C.04 model admission and runtime health",
     "final_status stays NOT_ATTESTED and no production feature flag is enabled",
-    "the readiness manifest is re-derived on the merged main, not on the pre-merge head"
+    "the readiness manifest is re-derived on the merged main, not on the pre-merge head",
+    "the netlify retirement control stops reading its own prohibitions as violations, without exempting a live reference"
   ],
   "forbidden_capabilities": [
     "enabling any gateway production feature flag",
