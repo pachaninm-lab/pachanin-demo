@@ -9,11 +9,10 @@ describe('platform-v7 final mobile density contract', () => {
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const densityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
 
-  it('resolves the server homepage before returning the document stream', () => {
-    expect(page).toContain('export default async function PlatformV7RootPage()');
-    expect(page).toContain('const home = await PlatformV7StrategicHome();');
-    expect(page).toContain("return <><style>{CRITICAL_HOME_CSS}</style>{home}</>;");
-    expect(page).not.toContain('<PlatformV7StrategicHome />');
+  it('renders the public homepage without a route-level async boundary', () => {
+    expect(page).toContain('export default function PlatformV7RootPage()');
+    expect(page).toContain("return <><style>{CRITICAL_HOME_CSS}</style><PlatformV7StrategicHome /></>;");
+    expect(page).not.toContain('await PlatformV7StrategicHome()');
   });
 
   it('loads density rules as an early stylesheet instead of a late inline style', () => {
