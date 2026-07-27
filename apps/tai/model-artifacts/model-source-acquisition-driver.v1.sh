@@ -122,10 +122,14 @@ SOURCE_MANIFEST="${EVIDENCE_ROOT}/source-manifest.json"
 
 # Step 1: the upstream description of the exact revision, not of the branch.
 # Asking for the revision by name is what makes "latest" unrepresentable here.
+#
+# `blobs=true` is not optional: without it the API returns file names only, and
+# reconciliation needs the size and blob identity of every file to tell an
+# approved artifact from a same-named replacement.
 printf '%s: reading upstream metadata\n' "${SCRIPT_NAME}"
 curl --fail --silent --show-error --location \
   --max-time 120 \
-  "${HUGGINGFACE_BASE}/api/models/${MODEL_ID}/revision/${REVISION}" \
+  "${HUGGINGFACE_BASE}/api/models/${MODEL_ID}/revision/${REVISION}?blobs=true" \
   --output "${API_RESPONSE}" \
   || die "could not read upstream metadata for ${MODEL_ID}@${REVISION}"
 

@@ -77,8 +77,35 @@ def _build_origin(root: Path, *, revision: str, license_spdx: str = "apache-2.0"
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
+    """Answers like the real API, including what it withholds by default.
+
+    Hugging Face returns file names only unless `blobs=true` is asked for; the
+    sizes and blob identities reconciliation depends on are absent otherwise.
+    Serving the full answer unconditionally would let the driver forget the
+    parameter and still pass here, which is exactly how the first live run
+    failed.
+    """
+
     def log_message(self, *args: object) -> None:  # noqa: D102 - silence the test run
         return
+
+    def do_GET(self) -> None:  # noqa: N802 - http.server naming
+        path, _, query = self.path.partition("?")
+        if "/api/models/" in path and "blobs=true" not in query:
+            document = json.loads((Path(self.directory) / path.lstrip("/")).read_text())
+            for sibling in document["siblings"]:
+                sibling.pop("size", None)
+                sibling.pop("lfs", None)
+                sibling.pop("blobId", None)
+            body = json.dumps(document).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.path = path
+        super().do_GET()
 
 
 @pytest.fixture
@@ -223,3 +250,19 @@ def test_it_refuses_a_model_that_is_not_pinned(origin, tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "could not resolve the pinned revision" in result.stderr
+
+
+def test_it_asks_for_the_blob_metadata_reconciliation_needs(origin, tmp_path: Path) -> None:
+    """The live run failed here, so the fixture now withholds what the API withholds.
+
+    Without `blobs=true` upstream returns names only. Reconciliation cannot tell
+    an approved artifact from a same-named replacement without a size and a blob
+    identity, so the driver has to ask for them explicitly.
+    """
+    base_url, _, _ = origin
+
+    result = _run(base_url, tmp_path / "out")
+
+    # Passing proves the driver requested the blob metadata: the fixture strips
+    # it from any request that does not ask.
+    assert result.returncode == 0, result.stderr
