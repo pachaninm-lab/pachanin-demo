@@ -27,6 +27,9 @@
       "@/components/platform-v7/GrainExecutionPage": [
         "./components/platform-v7/GrainExecutionPageFixed.tsx"
       ],
+      "@pc/ai-assistant-stream-contract": [
+        "../api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
       "@pc/design-system-v8": [
         "../../packages/design-system-v8/src/index.ts"
       ],
@@ -46,6 +49,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "../api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
     "../../packages/design-system-v8/src/**/*.ts",
     "../../packages/design-system-v8/src/**/*.tsx",
     "../../packages/design-tokens/src/**/*.ts",

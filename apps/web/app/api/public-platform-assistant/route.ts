@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  GatewayStreamWriter,
+  absoluteCitationUri,
+  chunkAnswer,
+  resolveAdmission,
+} from '@pc/ai-assistant-stream-contract';
+import {
   answerPublicPlatformQuestion,
   publicAssistantCatalog,
   type PublicAssistantLocale,
@@ -164,6 +170,156 @@ function limitations(locale: PublicAssistantLocale) {
   ];
 }
 
+/**
+ * Whether this deployment may generate a public answer, and with which model.
+ *
+ * Read per request, never cached: admission is withdrawn by unsetting it, and a
+ * cached "admitted" would keep the boundary generating after the withdrawal.
+ *
+ * Not exported: a Next route module may only export route fields, and anything
+ * else fails the build. It is covered through `POST` instead, which is the only
+ * way it is ever reached in production anyway.
+ */
+function readPublicAdmission(env: NodeJS.ProcessEnv = process.env) {
+  const identity = (env.TAI_GATEWAY_PUBLIC_MODEL_IDENTITY || '').trim();
+  return {
+    identity: identity.length > 0 ? identity : null,
+    ...resolveAdmission({
+      featureEnabled: (env.TAI_GATEWAY_PUBLIC_STREAM_ENABLED || '').trim() === 'true',
+      modelIdentity: identity.length > 0 ? identity : null,
+      admissionStatus: (env.TAI_GATEWAY_PUBLIC_MODEL_ADMISSION || '').trim() || null,
+    }),
+  };
+}
+
+function sse(body: ReadableStream<Uint8Array>) {
+  return new NextResponse(body, {
+    // The refusal travels inside the stream, not as an HTTP error: a non-200
+    // would leave the client showing a transport failure instead of the reason
+    // the assistant declined, which is the one thing the reader needs.
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store, no-transform, max-age=0',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
+
+/**
+ * The public read-only stream.
+ *
+ * The boundary validates through the same contract module the API produces
+ * frames with, so the public contour cannot acquire an event, a write verb or a
+ * server identity field that the private one does not have — and cannot lose a
+ * check by drifting away from it. Public mode additionally means every frame is
+ * checked against `'public'`, so a private identity key is refused here even if
+ * something upstream ever put one in.
+ */
+function streamPublicAnswer(request: NextRequest, message: string, requestedLocale: PublicAssistantLocale) {
+  const streamId = randomUUID();
+  const encoder = new TextEncoder();
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      let closed = false;
+      const write = (chunk: string) => {
+        if (closed) return;
+        controller.enqueue(encoder.encode(chunk));
+      };
+      const stream = new GatewayStreamWriter(write, 'public', streamId);
+      const admission = readPublicAdmission();
+
+      // A reader who navigates away mid-answer must not leave tokens that look
+      // like a finished answer to anything reading the stream afterwards.
+      const onAbort = () => {
+        stream.fail('CANCELLED', 'The reader cancelled the answer.');
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
+      };
+
+      const finish = () => {
+        request.signal.removeEventListener('abort', onAbort);
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
+      };
+
+      // An already-aborted signal never fires the event, so the check has to
+      // happen here too; otherwise a cancelled request would still be answered.
+      if (request.signal.aborted) {
+        stream.fail('CANCELLED', 'The reader cancelled the answer.');
+        finish();
+        return;
+      }
+      request.signal.addEventListener('abort', onAbort, { once: true });
+
+      stream.emit({ event: 'meta', mode: 'public', modelIdentity: admission.allowed ? admission.identity : null });
+
+      if (!admission.allowed) {
+        stream.fail(
+          admission.refusal ?? 'UPSTREAM_ERROR',
+          admission.refusal === 'FEATURE_DISABLED'
+            ? 'The public assistant stream is not enabled in this deployment.'
+            : 'No admitted model is bound to this deployment, so nothing is generated.',
+        );
+        finish();
+        return;
+      }
+
+      const understanding = understandAssistantQuestion(message, requestedLocale);
+      const locale = understanding.detectedLocale;
+      const correctedQuestion = understanding.corrected || message;
+
+      if (isForbiddenCommand(correctedQuestion)) {
+        // The public contour holds no user, account or Deal data at all, so the
+        // honest refusal is that there is nothing to answer from — not a denial
+        // that would imply the data exists here and is merely withheld.
+        stream.fail('ABSTAINED_NO_DATA', 'Public mode has no access to accounts, Deals or other users’ data.');
+        finish();
+        return;
+      }
+
+      const prospectAnswer = hasSubstantiveIntent(correctedQuestion) ? answerProspectQuestion(correctedQuestion, locale) : null;
+      const platformAnswer = answerPublicPlatformQuestion(correctedQuestion, locale);
+      const answer = prospectAnswer ?? platformAnswer;
+      const unresolved = understanding.ambiguous
+        || !hasSubstantiveIntent(correctedQuestion)
+        || (!prospectAnswer && platformAnswer.confidence === 'medium' && understanding.corrections.length === 0);
+
+      if (unresolved) {
+        stream.fail('ABSTAINED_NO_DATA', fallbackCopy(locale).answer);
+        finish();
+        return;
+      }
+
+      const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
+      for (const source of localizedSources(answer.sources, locale)) {
+        const uri = absoluteCitationUri(source.href, base);
+        if (!uri) continue;
+        if (!stream.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) break;
+      }
+
+      for (const chunk of chunkAnswer(answer.answer)) {
+        if (!stream.emit({ event: 'token', text: chunk })) break;
+      }
+
+      stream.emit({ event: 'assessment', summary: answer.maturity, operationalStatus: 'NOT_ATTESTED' });
+      stream.complete();
+      finish();
+    },
+  });
+
+  return sse(body);
+}
+
 export async function GET(request: NextRequest) {
   const locale = localeFrom(request.nextUrl.searchParams.get('locale'));
   const catalog = publicAssistantCatalog(locale);
@@ -184,6 +340,13 @@ export async function POST(request: NextRequest) {
   const requestedLocale = localeFrom(body?.locale);
   if (!message) return json({ code: 'PUBLIC_ASSISTANT_MESSAGE_REQUIRED', message: 'Message is required.' }, 400);
   if (message.length > MAX_MESSAGE_LENGTH) return json({ code: 'PUBLIC_ASSISTANT_MESSAGE_TOO_LONG', message: `Maximum length is ${MAX_MESSAGE_LENGTH} characters.` }, 400);
+
+  // Malformed requests are refused before the stream opens: once the response is
+  // an event stream the only channel left is a frame, and a frame is a poor way
+  // to say "your Content-Type was wrong".
+  if (request.nextUrl.searchParams.get('stream') === '1') {
+    return streamPublicAnswer(request, message, requestedLocale);
+  }
 
   const generatedAt = new Date().toISOString();
   const requestId = randomUUID();
