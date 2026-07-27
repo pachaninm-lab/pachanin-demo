@@ -25,8 +25,7 @@
     "apps/tai/tests/test_industrial_gap_report.py",
     "apps/tai/tests/test_model_source_acquisition_driver.py",
     "docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md",
-    "docs/platform-v7/autopilot/autopilot-state.json",
-    "scripts/check-netlify-retirement.mjs"
+    "docs/platform-v7/autopilot/autopilot-state.json"
   ],
   "acceptance": [
     "every H.01-H.05 property is re-derived from the exact-main tree rather than asserted",
@@ -36,7 +35,6 @@
     "H.06 stays blocked on C.04 model admission and runtime health",
     "final_status stays NOT_ATTESTED and no production feature flag is enabled",
     "the readiness manifest is re-derived on the merged main, not on the pre-merge head",
-    "the netlify retirement control stops reading its own prohibitions as violations, without exempting a live reference",
     "the last manual step of model acquisition is automated and proven on a successful path, not only on refusals"
   ],
   "forbidden_capabilities": [
