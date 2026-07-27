@@ -1,4 +1,5 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+import { Suspense } from 'react';
+import { useLocale } from 'next-intl';
 import {
   ArrowRight,
   CheckCircle2,
@@ -35,6 +36,20 @@ type SectionHeaderProps = {
   lead?: string;
 };
 
+type PublicHomeLocale = 'ru' | 'en' | 'zh';
+
+const SKIP_TO_CONTENT: Record<PublicHomeLocale, string> = {
+  ru: 'Перейти к основному содержанию',
+  en: 'Skip to main content',
+  zh: '跳到主要内容',
+};
+
+function publicHomeLocale(value: string): PublicHomeLocale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
 function SectionHeader({ id, eyebrow, title, lead }: SectionHeaderProps) {
   return (
     <div className='pc-v6-section-head'>
@@ -63,12 +78,11 @@ const stateInputClasses = [styles.stateNormal, styles.stateDeviation, styles.sta
 const stateTabClasses = [styles.tabNormal, styles.tabDeviation, styles.tabDispute] as const;
 const statePanelClasses = [styles.panelNormal, styles.panelDeviation, styles.panelDispute] as const;
 
-export async function PlatformV7StrategicHome() {
-  const locale = await getLocale();
+export function PlatformV7StrategicHome() {
+  const locale = publicHomeLocale(useLocale());
   const copy = getPlatformV7HomeCopy(locale);
   const heroMessage = getPlatformV7HeroMessage(locale);
   const story = getPlatformV7HomeStoryCopy(locale);
-  const chrome = await getTranslations('publicEntry.chrome');
 
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
@@ -102,11 +116,11 @@ export async function PlatformV7StrategicHome() {
         inLanguage: ['ru', 'en', 'zh'],
       },
     ],
-  }).replace(/</g, '\\u003c');
+  }).replace(/</g, '\u003c');
 
   return (
     <div className={`pc-v6-page pc-v7-public-entry ${styles.root}`} data-testid='platform-v7-root-execution-cockpit'>
-      <a className='pc-skip-link' href='#main-content'>{chrome('skipToContent')}</a>
+      <a className='pc-skip-link' href='#main-content'>{SKIP_TO_CONTENT[locale]}</a>
       <PublicExperiencePageView locale={locale} name='home_v3_view' />
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: structuredData }} />
 
@@ -117,7 +131,11 @@ export async function PlatformV7StrategicHome() {
         menuLabel={copy.a11y.menu}
         nav={nav}
         showMobileMenu
-        localeControl={<PublicLocaleLink />}
+        localeControl={
+          <Suspense fallback={null}>
+            <PublicLocaleLink />
+          </Suspense>
+        }
         actions={
           <div className='pc-v6-header-actions'>
             <a href='/platform-v7/login' className='entry-login' aria-label={copy.nav.login}>
