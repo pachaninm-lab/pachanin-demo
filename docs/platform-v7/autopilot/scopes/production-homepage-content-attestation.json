@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-homepage-content-attestation",
+  "status": "active",
+  "operationalStatus": "PRODUCTION_STALE_ARTIFACT_REMEDIATION",
+  "purpose": "Prevent exact-SHA production release success when the canonical REG.RU domain still serves the retired homepage, and serialize exact image publication before release dispatch.",
+  "allowedPaths": [
+    ".github/workflows/platform-v7-safe-merge.yml",
+    "scripts/production-full-stack-live-acceptance.sh",
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/platform-v7/autopilot/scopes/production-homepage-content-attestation.json"
+  ],
+  "evidence": {
+    "issue": 3072,
+    "reportedProductionSha": "2f3721997df8af85bf354794644d9464b75c2ce2",
+    "retiredHeroObserved": "Цена согласована. Теперь нужно исполнить Сделку.",
+    "approvedHeroRequired": "Управляйте агросделкой от цены до расчёта",
+    "failureClass": "REVISION_LABEL_AND_GENERIC_ROOT_MARKER_PASSED_WHILE_LIVE_PAGE_CONTENT_WAS_STALE"
+  },
+  "boundaries": {
+    "homepageDesignChange": false,
+    "homepageCopyChange": false,
+    "apiImplementationChange": false,
+    "databaseChange": false,
+    "tenantIsolationChange": false,
+    "protectedAuthOrRbacChange": false,
+    "financialAuthorityChange": false,
+    "dealDomainChange": false,
+    "productionTopologyChange": false,
+    "netlifyOrVercelProductionDependency": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
