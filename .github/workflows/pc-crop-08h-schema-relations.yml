@@ -107,15 +107,36 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Format and validate Prisma authority
+        id: prisma
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            pnpm --filter @pc/api exec prisma format
+            pnpm --filter @pc/api exec prisma validate
+            grep -q 'map: "fgis_grain_exchange_org_fk"' apps/api/prisma/schema.prisma
+            grep -q 'map: "fgis_grain_exchange_outbox_fk"' apps/api/prisma/schema.prisma
+            grep -q 'map: "fgis_grain_exchange_response_inbox_fk"' apps/api/prisma/schema.prisma
+            git diff --check
+          } 2>&1 | tee prisma-relation-validation.log
+
+      - name: Upload schema repair diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08h-schema-repair-${{ github.run_id }}
+          path: |
+            apps/api/prisma/schema.prisma
+            prisma-relation-validation.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Enforce Prisma validation
         shell: bash
         run: |
           set -euo pipefail
-          pnpm --filter @pc/api exec prisma format
-          pnpm --filter @pc/api exec prisma validate
-          grep -q 'map: "fgis_grain_exchange_org_fk"' apps/api/prisma/schema.prisma
-          grep -q 'map: "fgis_grain_exchange_outbox_fk"' apps/api/prisma/schema.prisma
-          grep -q 'map: "fgis_grain_exchange_response_inbox_fk"' apps/api/prisma/schema.prisma
-          git diff --check
+          test '${{ steps.prisma.outcome }}' = 'success'
 
       - name: Commit exact schema repair to PC-CROP-08H branch
         shell: bash
