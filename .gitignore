@@ -24,3 +24,9 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 *.egg-info/
+
+# Written by tests/test_model_benchmark_admission_v2.py, which deliberately
+# keeps its scratch authority outside model-artifacts so the canonical
+# apps/tai/model-artifacts/model-bundle-authority.v2.json is never rewritten.
+# It has already slipped into a commit once; ignoring it keeps that accidental.
+/apps/tai/model-bundle-authority.v2.json

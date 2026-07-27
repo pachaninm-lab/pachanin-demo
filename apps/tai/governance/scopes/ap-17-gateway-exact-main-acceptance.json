@@ -11,6 +11,7 @@
     "a5752505b01e217239506ad9a60ee63251b99eb7"
   ],
   "allowed_paths": [
+    ".gitignore",
     "apps/tai/governance/current-industrial-gap-report.json",
     "apps/tai/governance/gateway-exact-main-acceptance.v1.json",
     "apps/tai/governance/industrial-acceptance-backlog.v1.json",
