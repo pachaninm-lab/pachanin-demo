@@ -12,12 +12,34 @@ function requireFile(path, label) {
 
 for (const [path, label] of [
   [join(root, 'scope-guard.ok'), 'scope'],
+  [join(root, 'acceptance-mode.json'), 'acceptance mode'],
+  [join(root, 'acceptance-mode.txt'), 'acceptance mode marker'],
   [join(root, 'schema-authority.ok'), 'Prisma schema authority'],
   [join(root, 'migration.ok'), 'migration'],
   [join(root, 'typecheck.ok'), 'typecheck'],
   [join(root, 'contract-tests.ok'), 'contract tests'],
   [join(root, 'postgresql-acceptance.ok'), 'PostgreSQL acceptance'],
 ]) requireFile(path, label);
+
+let acceptanceModeEvidence = null;
+try {
+  acceptanceModeEvidence = JSON.parse(readFileSync(join(root, 'acceptance-mode.json'), 'utf8'));
+} catch {
+  failures.push('acceptance mode evidence is absent or invalid JSON');
+}
+const acceptanceMode = existsSync(join(root, 'acceptance-mode.txt'))
+  ? readFileSync(join(root, 'acceptance-mode.txt'), 'utf8').trim()
+  : '';
+const acceptanceModeGoverned = Boolean(
+  acceptanceModeEvidence
+  && acceptanceModeEvidence.schemaVersion === 'pc-crop.successor-regression-mode.v1'
+  && acceptanceModeEvidence.slice === 'PC-CROP-08F'
+  && acceptanceModeEvidence.mode === acceptanceMode
+  && ['EXACT_SCOPE', 'SUCCESSOR_REGRESSION'].includes(acceptanceMode)
+  && acceptanceModeEvidence.operationalStatus === 'NOT_ATTESTED'
+  && acceptanceModeEvidence.productionHosting === 'REG_RU_VPS_ONLY',
+);
+if (!acceptanceModeGoverned) failures.push('acceptance mode is not governed');
 
 const schemaPath = 'apps/api/prisma/schema.prisma';
 const migrationPath = 'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/migration.sql';
@@ -36,6 +58,7 @@ const moduleText = existsSync(modulePath) ? readFileSync(modulePath, 'utf8') : '
 
 const exactSignatureUri = 'urn:ietf:params:xml:ns:cpxmlsec:algorithms:gostr34102012-gostr34112012-256';
 const invariants = {
+  acceptanceModeGoverned,
   officialFiveStatusSet: contract.includes('FGIS_GRAIN_1_0_23_SDIZ_STATUSES'),
   exactIdentifierAliases: [
     'sdizID',
@@ -120,6 +143,7 @@ const report = {
   slice: 'PC-CROP-08F',
   issue: 3178,
   exactHead,
+  acceptanceMode,
   status: failures.length === 0 ? 'PASS' : 'FAIL',
   operationalStatus: 'NOT_ATTESTED',
   postgresql: '16',
