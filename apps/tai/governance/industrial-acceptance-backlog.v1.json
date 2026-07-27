@@ -1,7 +1,7 @@
 {
   "discovery": {
     "counts_method": "Repository-scoped REST pagination over repos/{owner}/{repo}/issues?state=open, counting entries without a pull_request field as issues; the search API is not reachable from this session and its issue index previously returned total_count 0",
-    "exact_main_sha": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
+    "exact_main_sha": "fe42048019c3951a17af227967be060e8462f77d",
     "failing_main_workflows": [],
     "generated_at": "2026-07-27T18:30:00Z",
     "open_issue_count": 209,
