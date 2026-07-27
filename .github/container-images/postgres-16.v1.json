@@ -2,7 +2,7 @@
   "authentication_mode": "GITHUB_TOKEN",
   "digest_preservation": "skopeo copy --all --preserve-digests reproduces the upstream manifest index byte for byte, so the mirrored digest equals the upstream digest. Any difference means the copy was not faithful and is a refusal.",
   "logical_name": "postgres-16",
-  "mirrored_at": null,
+  "mirrored_at": "2026-07-27T07:55:05Z",
   "mirrored_digest": "sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
   "mirrored_registry": "ghcr.io",
   "mirrored_repository": "ghcr.io/pachaninm-lab/ci-postgres",
@@ -20,11 +20,17 @@
     "linux/s390x"
   ],
   "schema": "pc.ci-container-image.v1",
-  "source_run_id": null,
+  "source_run_id": "30247846635",
   "source_workflow": ".github/workflows/ci-postgres-image-mirror.yml",
   "upstream_digest": "sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
   "upstream_registry": "docker.io",
   "upstream_repository": "docker.io/library/postgres",
   "upstream_tag": "16",
-  "verification_status": "PENDING_MIRROR_VERIFICATION"
+  "verification_status": "VERIFIED",
+  "verified_by": {
+    "digest_preserved": true,
+    "exact_head_sha": "ef9fb163474fc963a56f337df6533fbf5727103f",
+    "run_id": "30247846635",
+    "run_url": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30247846635"
+  }
 }

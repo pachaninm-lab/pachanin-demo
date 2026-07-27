@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 70
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
         env:
           POSTGRES_USER: one_deal_admin
           POSTGRES_PASSWORD: ephemeral_one_deal_admin_only
