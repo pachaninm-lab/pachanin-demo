@@ -25,6 +25,7 @@ import {
 } from './fgis-grain-1.0.23.dispatch.contract';
 import { FGIS_GRAIN_1_0_23_SIGNING_POLICY } from './fgis-grain-1.0.23.signing-policy.generated';
 import { decodeGovernedFgisGrainSoapEnvelope } from './fgis-grain-1.0.23.xml-policy';
+import { FgisGrainExchangeReceiptRepository } from './fgis-grain-exchange-receipt.repository';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const SAFE_REFERENCE_PATTERN =
@@ -204,6 +205,7 @@ function assertTransportAccepted(result: FgisGrainTransportResult): void {
 export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
   constructor(
     private readonly worker: DurableOutboxWorker,
+    private readonly exchangeReceipts: FgisGrainExchangeReceiptRepository,
     private readonly configurationPort: FgisGrainProviderConfigurationPort,
     private readonly payloadStorePort: FgisGrainImmutablePayloadStorePort,
     private readonly canonicalizationPort: FgisGrainCanonicalizationPort,
@@ -230,6 +232,11 @@ export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
         'MALFORMED_DISPATCH_PAYLOAD',
         'Outbox row authority does not match payload',
       );
+    }
+
+    const decision = await this.exchangeReceipts.inspectBeforeDispatch(entry, payload);
+    if (decision.kind === 'SKIP_TRANSPORT') {
+      return;
     }
 
     const rawConfiguration = await this.configurationPort.resolve(
@@ -323,5 +330,6 @@ export class FgisGrainOutboxDispatchHandler implements OnModuleInit {
       idempotencyKey: entry.idempotencyKey,
     });
     assertTransportAccepted(transportResult);
+    await this.exchangeReceipts.recordAccepted(entry, payload, transportResult);
   }
 }
