@@ -33,21 +33,30 @@ const EXCLUDED_FILES = new Set([
   'scripts/check-ci-postgres-image-authority.test.mjs',
 ]);
 
-// Three predecessor workflows have their `permissions`/`jobs` body frozen by
-// docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json, which pins a
-// sha256 of that body against baseline commit 3133779b1. Editing the image line
-// inside them breaks the lock, and regenerating the lock to fit the edit would be
-// self-issuing an exemption from an immutability control.
+// Four workflows could not be migrated. Each is named with the image it must keep
+// and the control that blocks it, because an unmigrated consumer that is not written
+// down is indistinguishable from one nobody checked.
 //
-// So they stay on the upstream image, and that is recorded here rather than hidden.
-// The exception is not a hole: each file is named, the reason is named, and the
-// reference is still pinned — a frozen workflow may keep exactly the image it was
-// frozen with and nothing else. Unfreezing is an owner decision, tracked in
-// docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md.
-export const FROZEN_BY_PREDECESSOR_LOCK = new Map([
-  ['.github/workflows/pc-crop-07a.yml', 'postgres:16'],
-  ['.github/workflows/pc-crop-07b.yml', 'postgres:16'],
-  ['.github/workflows/pc-crop-08d.yml', 'postgres:16'],
+// Three are frozen by docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json,
+// which pins a sha256 of their `permissions`/`jobs` body against baseline 3133779b1.
+// Regenerating that lock so it accepts our own edit would be self-issuing an exemption
+// from an immutability control.
+//
+// The fourth is blocked by a deadlock between two governance systems, not by a lock:
+// scripts/p7-autopilot-guard.sh requires every branch to register its scope in
+// docs/platform-v7/autopilot/autopilot-state.json, while scripts/verify-pc-crop-01b1.mjs
+// refuses any diff containing a file outside its seven-path allowlist — which does not
+// include that registry. Any compliant migration PR would therefore have to break one
+// of the two, so none is possible without weakening a control.
+//
+// The exception is bounded, not a hole: a listed workflow may keep exactly the image it
+// is recorded with and nothing else, and a test pins the list. Unblocking is an owner
+// decision, tracked in docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md.
+export const BLOCKED_CONSUMERS = new Map([
+  ['.github/workflows/pc-crop-07a.yml', { image: 'postgres:16', blockedBy: 'PREDECESSOR_TRIGGER_LOCK' }],
+  ['.github/workflows/pc-crop-07b.yml', { image: 'postgres:16', blockedBy: 'PREDECESSOR_TRIGGER_LOCK' }],
+  ['.github/workflows/pc-crop-08d.yml', { image: 'postgres:16', blockedBy: 'PREDECESSOR_TRIGGER_LOCK' }],
+  ['.github/workflows/pc-crop-01b1.yml', { image: 'postgres:16', blockedBy: 'SLICE_ALLOWLIST_EXCLUDES_SCOPE_REGISTRY' }],
 ]);
 
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
@@ -116,10 +125,10 @@ export function collectScannedFiles(scanned = SCANNED, excluded = EXCLUDED_FILES
   return files.sort();
 }
 
-export function checkText(file, text, allowedReferences, frozen = FROZEN_BY_PREDECESSOR_LOCK) {
+export function checkText(file, text, allowedReferences, blocked = BLOCKED_CONSUMERS) {
   const failures = [];
   const lines = text.split('\n');
-  const frozenImage = frozen.get(file);
+  const blockedEntry = blocked.get(file);
 
   lines.forEach((line, index) => {
     const where = `${file}:${index + 1}`;
@@ -132,12 +141,12 @@ export function checkText(file, text, allowedReferences, frozen = FROZEN_BY_PRED
       const reference = match[2];
       if (allowedReferences.has(reference)) continue;
 
-      // A frozen workflow keeps exactly the image it was frozen with. Any other
-      // value means the body moved anyway, and the exception must not cover that.
-      if (frozenImage !== undefined) {
-        if (reference !== frozenImage) {
+      // A blocked workflow keeps exactly the image it is recorded with. Any other
+      // value means it moved anyway, and the exception must not cover that.
+      if (blockedEntry !== undefined) {
+        if (reference !== blockedEntry.image) {
           failures.push(
-            `${where}: ${JSON.stringify(reference)} is not the image this frozen workflow was locked with (${JSON.stringify(frozenImage)})`,
+            `${where}: ${JSON.stringify(reference)} is not the image this blocked workflow is recorded with (${JSON.stringify(blockedEntry.image)}, blocked by ${blockedEntry.blockedBy})`,
           );
         }
         continue;
@@ -198,7 +207,12 @@ if (invokedDirectly) {
     for (const failure of failures) console.error(`- ${failure}`);
     process.exit(1);
   }
+  // Saying "no Docker Hub pull remains" would be false while the blocked list is
+  // non-empty, and a check that overstates its own result is worse than no check.
+  const blocked = BLOCKED_CONSUMERS.size;
   console.log(
-    'PASS: every active PostgreSQL consumer pulls a verified digest from the repository mirror; no Docker Hub pull and no mutable tag remains.',
+    blocked === 0
+      ? 'PASS: every PostgreSQL consumer pulls a verified digest from the repository mirror; no Docker Hub pull and no mutable tag remains.'
+      : `PASS: every migratable PostgreSQL consumer pulls a verified digest from the repository mirror. ${blocked} consumer(s) remain on Docker Hub, each blocked by a named control and recorded in OWNER_ACTIONS_FINAL.md:\n${[...BLOCKED_CONSUMERS].map(([f, e]) => `  - ${f} (${e.image}, blocked by ${e.blockedBy})`).join('\n')}`,
   );
 }

@@ -128,7 +128,7 @@ for (const token of [
 ]) requireToken(doc, token, 'architecture evidence');
 
 for (const token of [
-  'ghcr.io/pachaninm-lab/ci-postgres@sha256:',
+  'postgres:16',
   'prisma migrate deploy',
   'verify-pc-crop-01b1.mjs',
   'pc-crop-01b1-postgresql-acceptance.sh',

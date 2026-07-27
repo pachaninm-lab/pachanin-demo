@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
-  FROZEN_BY_PREDECESSOR_LOCK,
+  BLOCKED_CONSUMERS,
   checkManifests,
   checkText,
   collectScannedFiles,
@@ -116,38 +116,46 @@ test('an empty manifest set is a refusal, not a pass', () => {
 // The frozen-workflow exception is the one place the guard tolerates the upstream
 // image. It must stay a named, bounded, auditable list — never a quiet escape hatch.
 
-test('the frozen exception list is exactly the workflows the predecessor lock covers', () => {
+test('the blocked list is exactly the four consumers, each with a named blocker', () => {
   assert.deepEqual(
-    [...FROZEN_BY_PREDECESSOR_LOCK.keys()].sort(),
+    [...BLOCKED_CONSUMERS.keys()].sort(),
     [
+      '.github/workflows/pc-crop-01b1.yml',
       '.github/workflows/pc-crop-07a.yml',
       '.github/workflows/pc-crop-07b.yml',
       '.github/workflows/pc-crop-08d.yml',
     ],
   );
-  // Every frozen entry must be covered by the lock file itself, or the exception
-  // is claiming a governance reason that does not exist.
+
+  // A claimed blocker that does not exist would turn the exception into a pretext.
   const lock = JSON.parse(
     fs.readFileSync('docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json', 'utf8'),
   );
-  for (const file of FROZEN_BY_PREDECESSOR_LOCK.keys()) {
-    assert.ok(lock.workflows[file], `${file} claims to be frozen but the lock does not cover it`);
+  for (const [file, entry] of BLOCKED_CONSUMERS) {
+    assert.ok(entry.image, `${file} must record the image it stays on`);
+    if (entry.blockedBy === 'PREDECESSOR_TRIGGER_LOCK') {
+      assert.ok(lock.workflows[file], `${file} claims the lock blocks it, but the lock does not cover it`);
+    } else {
+      assert.equal(entry.blockedBy, 'SLICE_ALLOWLIST_EXCLUDES_SCOPE_REGISTRY');
+      assert.ok(!lock.workflows[file], `${file} must not claim a deadlock when the lock already covers it`);
+    }
   }
 });
 
-test('a frozen workflow may keep only the exact image it was locked with', () => {
-  const frozen = new Map([['w.yml', 'postgres:16']]);
+test('a blocked workflow may keep only the exact image it is recorded with', () => {
+  const blocked = new Map([['w.yml', { image: 'postgres:16', blockedBy: 'PREDECESSOR_TRIGGER_LOCK' }]]);
 
-  assert.deepEqual(checkText('w.yml', '        image: postgres:16', ALLOWED, frozen), []);
+  assert.deepEqual(checkText('w.yml', '        image: postgres:16', ALLOWED, blocked), []);
 
-  const drifted = checkText('w.yml', '        image: postgres:17', ALLOWED, frozen);
+  const drifted = checkText('w.yml', '        image: postgres:17', ALLOWED, blocked);
   assert.equal(drifted.length, 1);
-  assert.match(drifted[0], /is not the image this frozen workflow was locked with/);
+  assert.match(drifted[0], /is not the image this blocked workflow is recorded with/);
+  assert.match(drifted[0], /blocked by PREDECESSOR_TRIGGER_LOCK/);
 });
 
 test('the exception does not leak to workflows outside the list', () => {
-  const frozen = new Map([['frozen.yml', 'postgres:16']]);
-  const failures = checkText('other.yml', '        image: postgres:16', ALLOWED, frozen);
+  const blocked = new Map([['blocked.yml', { image: 'postgres:16', blockedBy: 'PREDECESSOR_TRIGGER_LOCK' }]]);
+  const failures = checkText('other.yml', '        image: postgres:16', ALLOWED, blocked);
 
   assert.equal(failures.length, 1);
   assert.match(failures[0], /is not the repository mirror/);

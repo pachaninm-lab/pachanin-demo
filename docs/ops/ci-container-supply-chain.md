@@ -185,7 +185,7 @@ Historical and dated records are out of scope by construction: only
 naming `docker pull postgres:16` describes what was true when it was written and
 must stay readable as written.
 
-### Three workflows could not be migrated, and that is recorded rather than hidden
+### Four workflows could not be migrated, and that is recorded rather than hidden
 
 `pc-crop-07a.yml`, `pc-crop-07b.yml` and `pc-crop-08d.yml` have their
 `permissions`/`jobs` body frozen by
@@ -205,9 +205,19 @@ frozen workflow may keep exactly what it was frozen with and nothing else. A tes
 pins the list to precisely the files the lock actually covers, so the exception
 cannot quietly grow.
 
-Unfreezing them is an owner decision, tracked as an open item in
+A fourth, `pc-crop-01b1.yml`, is blocked by a deadlock between two governance
+systems rather than by a lock. `scripts/p7-autopilot-guard.sh` requires every
+branch to register its scope in `docs/platform-v7/autopilot/autopilot-state.json`;
+`scripts/verify-pc-crop-01b1.mjs` refuses any diff containing a file outside its
+seven-path allowlist, and that registry is not in it. Both were verified by
+running them. So every possible migration PR for that file breaks one of the two
+controls, and none was written.
+
+Unblocking all four is an owner decision, tracked as an open item in
 `docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md`. Until then the migration is
-17 of 20 consumers, not 20 of 20, and this document says 17.
+**16 of 20** consumers, not 20 of 20, and this document says 16. The guard's own
+success message says it too, listing each blocked file and its blocker, because a
+check that overstates its result is worse than no check.
 
 ## What this does not claim
 
