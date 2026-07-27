@@ -21,7 +21,8 @@ previews и check-runs, потому что GitHub App и два проекта 
 
 1. Отключить Git-интеграцию у обоих проектов Netlify:
    - `gleaming-mandazi-bb9856`
-   - `vermillion-kitsune-0e7b97`
+   - `vermillion-kitsune-0e7b97` — с 2026-07-27 отдаёт checks под именем
+     `retired-pc-do-not-use-7e5e0e35`
 
    Netlify → проект → *Site configuration* → *Build & deploy* → *Continuous
    deployment* → *Unlink repository*.
@@ -34,16 +35,24 @@ previews и check-runs, потому что GitHub App и два проекта 
 что в списке checks больше нет:
 
 - `Header rules - gleaming-mandazi-bb9856`
-- `Header rules - vermillion-kitsune-0e7b97`
+- `Header rules - vermillion-kitsune-0e7b97` / `- retired-pc-do-not-use-7e5e0e35`
 - `Redirect rules - gleaming-mandazi-bb9856`
-- `Redirect rules - vermillion-kitsune-0e7b97`
+- `Redirect rules - vermillion-kitsune-0e7b97` / `- retired-pc-do-not-use-7e5e0e35`
 - `Pages changed - gleaming-mandazi-bb9856`
-- `Pages changed - vermillion-kitsune-0e7b97`
+- `Pages changed - vermillion-kitsune-0e7b97` / `- retired-pc-do-not-use-7e5e0e35`
 - `deploy-preview` / `netlify/*` статусов
 
-**Блокирует ли это merge.** Нет, пока эти checks не являются required branch
-checks. Они возвращают `neutral` или `pending` и не входят в repository-owned
-gates. Merge после полного PASS собственных гейтов репозитория задерживать
+**Переименование не заменяет отвязку — оно ухудшило картину.** Проект
+переименован в `retired-pc-do-not-use-7e5e0e35`, но репозиторий к нему
+по-прежнему привязан. Собирать нечего, поэтому сборка теперь не «нейтральна», а
+**падает**: на #3283 статус `netlify/retired-pc-do-not-use-7e5e0e35/deploy-preview`
+вернул `failure`, из-за чего combined status коммита стал красным. Пока
+интеграция жива, это будет повторяться на каждом PR.
+
+**Блокирует ли это merge.** Не блокирует технически, пока эти checks не являются
+required branch checks: `mergeable_state` остаётся `unstable`, а не `blocked`.
+Но красный combined status на каждом PR — это шум, в котором легко пропустить
+настоящее падение, и ровно поэтому §1 стоит закрыть. Merge после полного PASS собственных гейтов репозитория задерживать
 из-за них не нужно. Если же какой-то из них окажется в required-списке —
 убрать его оттуда: он не может стать зелёным, потому что собирать больше
 нечего.
