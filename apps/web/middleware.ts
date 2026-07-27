@@ -76,6 +76,8 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 
 const PUBLIC_API_EXACT = new Set([
+  // No-secret exact-SHA authority required by the production runbook and release gates.
+  '/api/health/ready',
   '/api/platform-v7/inquiries',
   '/api/platform-v7/leads',
 ]);

@@ -9,6 +9,8 @@ const read = (relativePath: string) => fs.readFileSync(path.join(root, relativeP
 
 const webImage = read('infra/docker/Dockerfile.web');
 const deployEvidence = read('scripts/write-deploy-evidence.mjs');
+const middleware = read('apps/web/middleware.ts');
+const webReadiness = read('apps/web/app/api/health/ready/route.ts');
 const seoWorkflow = read('.github/workflows/seo-live-smoke.yml');
 const indexNowWorkflow = read('.github/workflows/indexnow-submit.yml');
 const indexNowScript = read('scripts/indexnow-submit.mjs');
@@ -32,6 +34,21 @@ describe('exact-main live evidence authority', () => {
     expect(deployEvidence).toContain("'manifest-pc-deploy.json'");
     expect(deployEvidence).toContain('commitSha');
     expect(deployEvidence).not.toContain("'.well-known'");
+  });
+
+  it('keeps no-secret exact-SHA web readiness public, no-store and limited to revision evidence', () => {
+    expect(middleware).toContain("'/api/health/ready'");
+    expect(middleware).toContain('|| PUBLIC_API_EXACT.has(p)');
+    expect(middleware).toContain("if (p.startsWith('/api/'))");
+    expect(middleware).toContain("message: 'unauthenticated'");
+
+    expect(webReadiness).toContain("releaseAuthority: 'exact-sha'");
+    expect(webReadiness).toContain("revision: process.env.APP_REVISION ?? 'unknown'");
+    expect(webReadiness).toContain("'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'");
+    expect(webReadiness).toContain("'X-Robots-Tag': 'noindex, nofollow, noarchive'");
+    expect(webReadiness).not.toContain('authorization');
+    expect(webReadiness).not.toContain('cookie');
+    expect(webReadiness).not.toContain('DATABASE_URL');
   });
 
   it.each(liveWorkflows)(
