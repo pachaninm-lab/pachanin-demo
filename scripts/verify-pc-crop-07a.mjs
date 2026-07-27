@@ -182,7 +182,7 @@ requireText('e2e', [
 ]);
 
 requireText('workflow', [
-  'ghcr.io/pachaninm-lab/ci-postgres@sha256:',
+  'postgres:16',
   'prisma migrate deploy',
   'prisma migrate diff',
   'postgresql-regulatory-integration-inbox-policies.sql',
