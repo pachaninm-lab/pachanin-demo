@@ -1,5 +1,4 @@
 name: PC-CROP 3290 Materialize
-# The pull-request event activates this temporary workflow on its governed branch.
 
 on:
   pull_request:
@@ -37,32 +36,13 @@ jobs:
       - name: Apply deterministic source transformation
         shell: bash
         run: |
-          set -uo pipefail
-          set +e
-          {
-            node --check scripts/pc-crop-3290/prepatch.mjs
-            node scripts/pc-crop-3290/prepatch.mjs
-            node --check scripts/pc-crop-3290/materialize.mjs
-            node scripts/pc-crop-3290/materialize.mjs
-            node --check scripts/pc-crop-predecessor-trigger-governance.mjs
-            node --check scripts/pc-crop-successor-trigger-governance.mjs
-            node scripts/pc-crop-predecessor-trigger-governance.mjs --apply
-            node scripts/pc-crop-successor-trigger-governance.mjs
-          } > /tmp/pc-crop-3290-materialize.log 2>&1
-          status=$?
-          set -e
-          cat /tmp/pc-crop-3290-materialize.log
-          if [[ "$status" -ne 0 ]]; then
-            git reset --hard HEAD
-            mkdir -p scripts/pc-crop-3290
-            cp /tmp/pc-crop-3290-materialize.log scripts/pc-crop-3290/last-error.txt
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add scripts/pc-crop-3290/last-error.txt
-            git commit -m 'PC-CROP governance: capture materializer failure'
-            git push origin HEAD:fix/pc-crop-successor-trigger-handoff-3290
-            exit "$status"
-          fi
+          set -euo pipefail
+          node --check scripts/pc-crop-3290/materialize.mjs
+          node scripts/pc-crop-3290/materialize.mjs
+          node --check scripts/pc-crop-predecessor-trigger-governance.mjs
+          node --check scripts/pc-crop-successor-trigger-governance.mjs
+          node scripts/pc-crop-predecessor-trigger-governance.mjs --apply
+          node scripts/pc-crop-successor-trigger-governance.mjs
 
       - name: Commit exact materialized implementation
         shell: bash
