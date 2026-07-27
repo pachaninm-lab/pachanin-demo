@@ -240,43 +240,8 @@
       "title": "Per-field extraction confidence with human review for critical fields"
     },
     {
-      "item_id": "H.01",
-      "reason": "gateway and UI binding is an unmerged draft with 5 open acceptance items",
-      "stage": "H",
-      "status": "BLOCKED",
-      "title": "Single production AI Gateway separating public and private contours"
-    },
-    {
-      "item_id": "H.02",
-      "reason": "depends on H.01 gateway admission",
-      "stage": "H",
-      "status": "BLOCKED",
-      "title": "Unbuffered SSE protocol with meta, token, citations, decision, prepared_action, done and error"
-    },
-    {
-      "item_id": "H.03",
-      "reason": "depends on H.01 gateway admission",
-      "stage": "H",
-      "status": "BLOCKED",
-      "title": "Cancelled or truncated responses are invalidated and never look confirmed"
-    },
-    {
-      "item_id": "H.04",
-      "reason": "depends on H.01 gateway admission",
-      "stage": "H",
-      "status": "BLOCKED",
-      "title": "Public contour proven free of identity, tenant and Deal context"
-    },
-    {
-      "item_id": "H.05",
-      "reason": "depends on H.01 gateway admission",
-      "stage": "H",
-      "status": "BLOCKED",
-      "title": "Private contour uses only server-derived identity, tenant, role and Deal access"
-    },
-    {
       "item_id": "H.06",
-      "reason": "depends on C.04 model admission and H.01 gateway admission",
+      "reason": "depends on C.04 primary model admission and runtime health; H.01-H.05 are accepted and the gateway is deliberately disabled",
       "stage": "H",
       "status": "BLOCKED",
       "title": "Production feature flag enabled only after model admission and runtime health"
@@ -403,10 +368,10 @@
   ],
   "counts_method": "Repository-scoped REST pagination over repos/{owner}/{repo}/issues?state=open, counting entries without a pull_request field as issues; the search API is not reachable from this session and its issue index previously returned total_count 0",
   "document_intelligence_status": "NOT_STARTED",
-  "exact_main_sha": "10b7263d884808b9e7f264c17a779ff2bd630437",
+  "exact_main_sha": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
   "failing_main_workflows": [],
-  "gateway_status": "NOT_ACTIVATED",
-  "generated_at": "2026-07-26T19:37:00Z",
+  "gateway_status": "ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION",
+  "generated_at": "2026-07-27T18:30:00Z",
   "knowledge_status": "PARTIAL",
   "model_admission_status": "PENDING_ADMISSION",
   "model_artifact_status": "PENDING_ACQUISITION",
@@ -450,11 +415,6 @@
     "G.03",
     "G.04",
     "G.05",
-    "H.01",
-    "H.02",
-    "H.03",
-    "H.04",
-    "H.05",
     "H.06",
     "J.01",
     "J.02",
@@ -486,16 +446,16 @@
     "tai/ap12b-assign-logistics-confirmed-action"
   ],
   "totals": {
-    "accepted": 11,
-    "blocked": 26,
+    "accepted": 16,
+    "blocked": 21,
     "completion_formula": "100 * mandatory_accepted / mandatory_total",
-    "completion_percent": 16.18,
+    "completion_percent": 23.53,
     "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
-    "mandatory_accepted": 11,
+    "mandatory_accepted": 16,
     "mandatory_deferred_by_owner_decision": 3,
     "mandatory_total": 68,
     "regressed": 0,
-    "remaining": 60,
+    "remaining": 55,
     "total": 71
   },
   "ui_status": "NOT_ACTIVATED"
