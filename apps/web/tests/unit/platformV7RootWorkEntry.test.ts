@@ -106,4 +106,15 @@ describe('platform-v7 final master public entry', () => {
     expect(support).toContain("role='dialog'");
     expect(support).toContain("aria-modal='true'");
   });
+
+  it('keeps comparison and integration data in valid accessible table structures', () => {
+    expect(home).toContain("className={styles.comparisonTable} role='table' aria-labelledby='difference-title'");
+    expect(home).toContain("className={styles.comparisonRows} role='rowgroup'");
+    expect(home).toContain("className={styles.comparisonRow} role='row'");
+    expect(home).toContain("<strong role='rowheader'>{row.criterion}</strong>");
+    expect(home).toContain("className={styles.integrationTable} role='table' aria-labelledby='integrations-title'");
+    expect(home).toContain("className={styles.integrationRows} role='rowgroup'");
+    expect(home).toContain("className={styles.integrationRow} role='row'");
+    expect(home).not.toMatch(/<article[^>]+role='row'/);
+  });
 });

@@ -321,11 +321,19 @@
   line-height: 1.58;
 }
 
-.comparisonTable {
+.comparisonSurface {
   overflow: hidden;
   border: 1px solid #d5e0da;
   border-radius: 18px;
   background: #fff;
+}
+
+.comparisonTable {
+  min-width: 0;
+}
+
+.comparisonContinuation {
+  min-width: 0;
 }
 
 .comparisonHeader,
@@ -353,6 +361,18 @@
 
 .comparisonRows {
   display: block;
+}
+
+.continuationHeader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .comparisonRow {
@@ -842,7 +862,7 @@
   display: grid;
   justify-items: center;
   gap: 5px;
-  color: #748078;
+  color: #66736b;
   text-align: center;
 }
 
@@ -997,7 +1017,7 @@
 }
 
 .demoEvents span {
-  color: #718078;
+  color: #66736b;
   font-size: 10.5px;
 }
 
@@ -1745,7 +1765,7 @@
     display: none;
   }
 
-  .moreRows:not([open]) > .comparisonRows {
+  .moreRows:not([open]) > .comparisonTable {
     display: block;
   }
 
@@ -1929,11 +1949,20 @@
     line-height: 1.52;
   }
 
-  .comparisonHeader {
-    display: none;
+  .comparisonHeader,
+  .integrationHeader {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
+    clip-path: inset(50%);
   }
 
-  .comparisonTable {
+  .comparisonSurface {
     overflow: visible;
     border: 0;
     border-radius: 0;
@@ -1982,13 +2011,13 @@
     border-top: 0;
   }
 
-  .moreRows > .comparisonRows {
+  .moreRows > .comparisonTable {
     padding: 9px;
     border-top: 1px solid #dce5e0;
     background: #f7faf8;
   }
 
-  .moreRows:not([open]) > .comparisonRows {
+  .moreRows:not([open]) > .comparisonTable {
     display: none;
   }
 
@@ -2179,10 +2208,6 @@
     padding: 14px;
   }
 
-  .integrationHeader {
-    display: none;
-  }
-
   .integrationTable {
     overflow: visible;
     border: 0;
@@ -2301,6 +2326,7 @@
 @media (forced-colors: active) {
   .heroDeal,
   .proofStrip,
+  .comparisonSurface,
   .comparisonTable,
   .comparisonRow,
   .functionCard,

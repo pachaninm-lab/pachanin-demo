@@ -87,7 +87,8 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Показатель белка ниже условия договора');
 
     await expect(page.locator('#difference')).toContainText('Маркетплейс помогает договориться');
-    await expect(page.locator('#difference [role="row"]')).toHaveCount(7);
+    await expect(page.locator('#difference [role="table"]')).toHaveCount(2);
+    await expect(page.locator('#difference [data-comparison-row="true"]')).toHaveCount(6);
     await expect(page.locator('#functions article')).toHaveCount(8);
     await expect(page.locator('#deal-path article')).toHaveCount(6);
     await expect(page.locator('#deal-path .pc-v6-lifecycle [role="listitem"]')).toHaveCount(19);
