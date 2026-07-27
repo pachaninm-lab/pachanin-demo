@@ -51,9 +51,12 @@ function mapDatabaseFailure(error: unknown): FgisGrainExchangeAuthorityError {
       false,
     );
   }
+  const testDiagnostic = process.env.NODE_ENV === 'test'
+    ? `; database failure: ${message}`
+    : '';
   return new FgisGrainExchangeAuthorityError(
     'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
-    'unable to persist the provider transport receipt',
+    `unable to persist the provider transport receipt${testDiagnostic}`,
     true,
   );
 }
