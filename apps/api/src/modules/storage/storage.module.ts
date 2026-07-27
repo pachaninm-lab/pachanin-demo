@@ -1,8 +1,6 @@
 import { Module, type Provider } from '@nestjs/common';
-import {
-  OBJECT_STORAGE_ADAPTER,
-  createObjectStorageAdapterFromEnv,
-} from './object-storage.adapter';
+import { OBJECT_STORAGE_ADAPTER } from './object-storage.adapter';
+import { createProductionObjectStorageAdapterFromEnv } from './production-object-storage.factory';
 import { StoragePrismaService } from '../../common/prisma/storage-prisma.service';
 import { StorageController } from './storage.controller';
 import { StorageFinalizationRepository } from './storage-finalization.repository';
@@ -10,7 +8,7 @@ import { StorageService } from './storage.service';
 
 const objectStorageAdapterProvider: Provider = {
   provide: OBJECT_STORAGE_ADAPTER,
-  useFactory: () => createObjectStorageAdapterFromEnv(),
+  useFactory: () => createProductionObjectStorageAdapterFromEnv(),
 };
 
 @Module({

@@ -500,3 +500,70 @@
     border: 1px solid CanvasText;
   }
 }
+
+/*
+ * Gateway stream states.
+ *
+ * A provisional answer must never be able to pass for a validated one at a
+ * glance, so streaming text is visually unfinished — dashed edge, muted, with a
+ * standing note — and a refusal is styled as a refusal rather than as a quieter
+ * answer. The states are also exposed as data attributes so tests assert what
+ * the reader sees rather than what the component intended.
+ */
+.pc-public-assistant-stream {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+}
+
+.pc-public-assistant-message[data-stream-status='streaming'] .pc-public-assistant-bubble {
+  border: 1px dashed #b6cfc2;
+  background: #f6faf8;
+  color: #43584e;
+}
+
+.pc-public-assistant-message[data-stream-status='refused'] .pc-public-assistant-bubble {
+  border: 1px solid #e6c9c2;
+  background: #fdf6f4;
+  color: #6b3f34;
+}
+
+.pc-public-assistant-stream-provisional {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12.5px;
+  color: #5d7268;
+}
+
+.pc-public-assistant-stream-provisional svg {
+  animation: pc-public-assistant-spin 1.1s linear infinite;
+}
+
+.pc-public-assistant-stream[data-status='answered'] nav {
+  display: grid;
+  gap: 6px;
+}
+
+.pc-public-assistant-stream[data-status='answered'] nav div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pc-public-assistant-stream[data-status='answered'] nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: #1f6f4a;
+}
+
+.pc-public-assistant-model {
+  font-size: 11.5px;
+  color: #6a7d74;
+  overflow-wrap: anywhere;
+}

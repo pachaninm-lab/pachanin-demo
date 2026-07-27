@@ -1,0 +1,175 @@
+name: CI PostgreSQL Image Mirror
+
+# Every blocking PostgreSQL acceptance job starts by pulling `postgres:16` from
+# Docker Hub anonymously. Anonymous pulls are rate limited and intermittently
+# unreachable, and when the pull fails the service container never starts: the
+# job dies before its first assertion, the evidence directory is never created,
+# and the dependent gate fails on `test "failure" = success`. That looks like an
+# acceptance failure and is not one.
+#
+# This workflow copies the pinned upstream images into the repository's own GHCR
+# namespace so consumers can pull a digest they control. It changes nothing about
+# PostgreSQL itself: the copy is byte-for-byte, so the mirrored digest equals the
+# upstream digest. A copy that does not preserve the digest is refused.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/container-images/*.v1.json'
+      - '.github/workflows/ci-postgres-image-mirror.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/container-images/*.v1.json'
+      - '.github/workflows/ci-postgres-image-mirror.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ci-postgres-image-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Mirror pinned PostgreSQL images into GHCR
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      EVIDENCE_DIR: artifacts/ci-postgres-image-mirror
+      HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install skopeo
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo
+          skopeo --version
+
+      - name: Authenticate to GHCR
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # --password-stdin keeps the token out of the process table and the log.
+          printf '%s' "$GHCR_TOKEN" \
+            | skopeo login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Copy each pinned image and verify the digest survived
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          : > "$EVIDENCE_DIR/mirrored.txt"
+
+          for manifest in .github/container-images/postgres-*.v1.json; do
+            logical="$(jq -r '.logical_name' "$manifest")"
+            upstream_repo="$(jq -r '.upstream_repository' "$manifest")"
+            upstream_digest="$(jq -r '.upstream_digest' "$manifest")"
+            mirrored_repo="$(jq -r '.mirrored_repository' "$manifest")"
+            mirrored_tag="$(jq -r '.mirrored_tag' "$manifest")"
+
+            case "$upstream_digest" in
+              sha256:*) ;;
+              *) echo "::error::$manifest: upstream_digest must be a sha256 digest" >&2; exit 1 ;;
+            esac
+
+            echo "::group::$logical"
+            skopeo copy --all --preserve-digests \
+              "docker://${upstream_repo}@${upstream_digest}" \
+              "docker://${mirrored_repo}:${mirrored_tag}"
+
+            # The whole point of the mirror is that consumers can pin a digest.
+            # If the copy did not preserve it, the mirror is not a faithful copy
+            # and must not be published as one.
+            skopeo inspect --raw "docker://${mirrored_repo}:${mirrored_tag}" \
+              > "$EVIDENCE_DIR/${logical}.manifest.json"
+            actual="$(skopeo manifest-digest "$EVIDENCE_DIR/${logical}.manifest.json")"
+            echo "upstream=$upstream_digest mirrored=$actual"
+            if [ "$actual" != "$upstream_digest" ]; then
+              echo "::error::$logical: mirrored digest $actual does not equal upstream $upstream_digest" >&2
+              exit 1
+            fi
+            printf '%s %s %s\n' "$logical" "$mirrored_repo@$actual" "$mirrored_tag" \
+              >> "$EVIDENCE_DIR/mirrored.txt"
+            echo "::endgroup::"
+          done
+
+      - name: Build machine-readable mirror evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence_dir = Path(os.environ['EVIDENCE_DIR'])
+          mirrored = {}
+          for line in (evidence_dir / 'mirrored.txt').read_text(encoding='utf-8').splitlines():
+              if not line.strip():
+                  continue
+              logical, reference, tag = line.split()
+              mirrored[logical] = {'reference': reference, 'tag': tag}
+
+          images = []
+          for manifest_path in sorted(Path('.github/container-images').glob('postgres-*.v1.json')):
+              manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+              logical = manifest['logical_name']
+              if logical not in mirrored:
+                  raise SystemExit(f'{logical} was not mirrored')
+              images.append({
+                  'logical_name': logical,
+                  'manifest': str(manifest_path),
+                  'upstream': f"{manifest['upstream_repository']}@{manifest['upstream_digest']}",
+                  'mirrored': mirrored[logical]['reference'],
+                  'mirrored_tag': mirrored[logical]['tag'],
+                  'platforms': manifest['platforms'],
+                  'digest_preserved': True,
+              })
+
+          payload = {
+              'schema': 'pc.ci-postgres-image-mirror-evidence.v1',
+              'exact_head_sha': os.environ['HEAD_SHA'],
+              'event_name': os.environ.get('GITHUB_EVENT_NAME'),
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'images': images,
+              'authentication_mode': 'GITHUB_TOKEN',
+              'docker_hub_pull_in_consumers': 'NOT_MIGRATED_YET',
+              'proves': 'PINNED_UPSTREAM_IMAGES_ARE_MIRRORED_UNDER_REPOSITORY_CONTROL',
+              'does_not_prove': [
+                  'consumers migrated off Docker Hub',
+                  'PostgreSQL behaviour changed or improved',
+                  'acceptance suites passed',
+                  'production ready',
+                  'operationally attested',
+              ],
+              'operational_status': 'NOT_ATTESTED',
+          }
+          (evidence_dir / 'mirror-evidence.json').write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(payload, sort_keys=True))
+          PY
+
+      - name: Upload mirror evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-postgres-image-mirror-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/ci-postgres-image-mirror
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

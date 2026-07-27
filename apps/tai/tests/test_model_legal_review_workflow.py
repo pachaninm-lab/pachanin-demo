@@ -60,13 +60,22 @@ def test_scope_is_exact_and_preserves_human_decision_boundary() -> None:
     ]
 
 
-def test_workflow_is_pull_request_only_and_read_only() -> None:
+def test_workflow_runs_only_on_reviewed_or_landed_code_and_stays_read_only() -> None:
+    """The trigger set is deliberate, and read-only is the property that matters.
+
+    B.03 cannot be accepted without evidence at exact main, and a workflow that only
+    ever runs on pull requests can never produce that evidence. So `push` to main and a
+    manual diagnostic run are allowed. Neither grants the job anything: permissions stay
+    `contents: read`, no secrets are referenced, and nothing is written back to the
+    repository. `issue_comment` and `schedule` remain refused — a comment must not be
+    able to start a governance evaluation, and an unattended clock must not either.
+    """
     workflow = _workflow()
 
     assert "pull_request:" in workflow
+    assert "  push:\n    branches: [main]" in workflow
+    assert "workflow_dispatch:" in workflow
     assert "issue_comment:" not in workflow
-    assert "workflow_dispatch:" not in workflow
-    assert "push:" not in workflow
     assert "schedule:" not in workflow
     assert "permissions:\n  contents: read" in workflow
     assert "contents: write" not in workflow
@@ -80,14 +89,34 @@ def test_workflow_is_pull_request_only_and_read_only() -> None:
 def test_workflow_checks_exact_head_and_authorized_review_paths() -> None:
     workflow = _workflow()
 
-    assert "ref: ${{ github.event.pull_request.head.sha }}" in workflow
+    assert "ref: ${{ github.event.pull_request.head.sha || github.sha }}" in workflow
     assert 'test "$(git rev-parse HEAD)" = "$HEAD_SHA"' in workflow
-    assert 'git cat-file -e "$BASE_SHA^{commit}"' in workflow
-    assert 'git diff --name-only "$BASE_SHA" "$HEAD_SHA"' in workflow
+    assert 'git diff --name-only "$DIFF_BASE" "$HEAD_SHA"' in workflow
     assert "authorized_review_paths" in workflow
     assert "unauthorized legal-review paths" in workflow
     assert "incomplete legal-review pair" in workflow
     assert "legal-review paths changed without a completed pair" in workflow
+
+
+def test_workflow_resolves_its_diff_base_fail_closed() -> None:
+    """A pull request must have a base. Other events may not, and must say so.
+
+    The two path gates above are diff-shaped: without a base they compare against an
+    empty change set and prove nothing. Skipping them silently would emit evidence
+    indistinguishable from a run that passed them, so the payload records which event
+    produced it and whether those gates actually applied.
+    """
+    workflow = _workflow()
+
+    assert "BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}" in workflow
+    assert "HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}" in workflow
+    assert "'0000000000000000000000000000000000000000'" in workflow
+    assert 'git cat-file -e "$BASE_SHA^{commit}"' in workflow
+    # A pull request with no usable base is a contradiction and must fail the run.
+    assert "test \"$EVENT_NAME\" != 'pull_request'" in workflow
+    assert "'diff_gates_applied': diff_gates_applied" in workflow
+    assert "'event_name': os.environ['EVENT_NAME']" in workflow
+    assert "'base_sha': diff_base or None" in workflow
 
 
 def test_workflow_validates_but_never_authors_human_decisions() -> None:

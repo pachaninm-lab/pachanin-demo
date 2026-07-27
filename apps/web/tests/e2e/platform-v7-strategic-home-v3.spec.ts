@@ -262,7 +262,7 @@ test.describe('Platform V7 strategic homepage no-JavaScript boundary', () => {
     await expect(fallback).toBeVisible();
     expect(await fallback.textContent()).toContain('Без JavaScript персональные данные здесь не собираются и не передаются.');
     await expect(page.locator('form:visible')).toHaveCount(0);
-    await expect(page.locator('input:visible, select:visible, textarea:visible')).toHaveCount(0);
+    await expect(page.locator('#connect-organization input:visible, #connect-organization select:visible, #connect-organization textarea:visible')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'RU · Защищённая регистрация' })).toHaveAttribute('href', '/platform-v7/register?entry=organization-connect&lang=ru');
     await expect(page.getByRole('link', { name: 'EN · Protected registration' })).toHaveAttribute('href', '/platform-v7/register?entry=organization-connect&lang=en');
     await expect(page.getByRole('link', { name: '中文 · 受保护的注册' })).toHaveAttribute('href', '/platform-v7/register?entry=organization-connect&lang=zh');

@@ -1,0 +1,31 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3004,
+  "branch": "claude/tai-gateway-contract-a1-kylgh7",
+  "supersedes": "agent/tai-gateway-ui-readonly-3004",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-17-gateway-b-streaming-ui.json",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+    "apps/web/styles/platform-v7-public-assistant.css",
+    "apps/web/tests/unit/platformV7AiGatewayStream.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
+    "docs/platform-v7/ai/gateway-ui-readonly-runtime-binding.md",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "the client validates every frame through the same contract module the server emits with",
+    "provisional text is visibly provisional and is removed when the stream does not complete",
+    "a refusal is rendered as a refusal and is never replaced by a prepared answer",
+    "the knowledge-base fallback runs only when the gateway is switched off or no model is admitted",
+    "the incremental fold agrees with resolveOutcome on every terminal case"
+  ],
+  "forbidden_capabilities": [
+    "model bundle, benchmark, admission authority, runtime-host or quality-scoring changes",
+    "write-tool activation",
+    "client-selected tenant, organization, membership or role authority",
+    "live-runtime or production-attestation claim without exact endpoint evidence",
+    "TAI Enterprise, 1C and external adapter work"
+  ]
+}

@@ -19,18 +19,56 @@ trap report_failure ERR
 [[ "$RELEASE_RUN_ID" =~ ^[A-Za-z0-9._:-]{1,64}$ ]]
 mkdir -p "$EVIDENCE_DIR"
 
-curl_common=(--fail-with-body --silent --show-error --connect-timeout 10 --max-time 30)
+curl_common=(
+  --fail-with-body
+  --silent
+  --show-error
+  --connect-timeout 10
+  --max-time 30
+  -H 'Cache-Control: no-cache, no-store, max-age=0'
+  -H 'Pragma: no-cache'
+)
+
 for locale in ru en zh; do
+  case "$locale" in
+    ru)
+      expected_kicker='Платформа управления агросделками в растениеводстве'
+      expected_title='Управляйте агросделкой'
+      expected_accent='от цены до расчёта'
+      retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
+      ;;
+    en)
+      expected_kicker='Crop Deal execution platform'
+      expected_title='Manage an agricultural Deal'
+      expected_accent='from price to settlement'
+      retired_title='The price is agreed. Now the Deal must be executed.'
+      ;;
+    zh)
+      expected_kicker='种植业农业交易管理平台'
+      expected_title='管理农业交易'
+      expected_accent='从价格到结算'
+      retired_title='价格已经确定。现在需要完成交易履约。'
+      ;;
+  esac
+
   CURRENT_CHECK="public-route-$locale"
-  curl "${curl_common[@]}" "$LIVE_BASE/platform-v7?lang=$locale" > "$EVIDENCE_DIR/platform-$locale.html"
+  route="$LIVE_BASE/platform-v7?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID"
+  curl "${curl_common[@]}" "$route" > "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq 'connect-organization' "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq 'data-testid="platform-v7-root-execution-cockpit"' "$EVIDENCE_DIR/platform-$locale.html"
+
+  CURRENT_CHECK="approved-homepage-content-$locale"
+  grep -Fq "$expected_kicker" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_title" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_accent" "$EVIDENCE_DIR/platform-$locale.html"
+  if grep -Fq "$retired_title" "$EVIDENCE_DIR/platform-$locale.html"; then
+    printf 'Retired homepage hero is still live for locale %s.\n' "$locale" >&2
+    exit 29
+  fi
 done
 
-# The live gate verifies a stable semantic contract. Editorial wording may change
-# without weakening release safety or forcing a production rollback.
 CURRENT_CHECK="web-readiness"
-curl "${curl_common[@]}" "$LIVE_BASE/api/health/ready" > "$EVIDENCE_DIR/web-ready.json"
+curl "${curl_common[@]}" "$LIVE_BASE/api/health/ready?release=$TARGET_SHA&run=$RELEASE_RUN_ID" > "$EVIDENCE_DIR/web-ready.json"
 python3 - "$EVIDENCE_DIR/web-ready.json" "$TARGET_SHA" <<'PY'
 import json,sys
 payload=json.load(open(sys.argv[1]))
@@ -99,6 +137,7 @@ CURRENT_CHECK="evidence-digest"
 find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 printf 'LIVE_REQUEST_NUMBER=%s\n' "$request_number"
 printf 'LIVE_CORRELATION_ID=%s\n' "$response_correlation"
+printf 'LIVE_APPROVED_HERO=PASS\n'
 printf 'LIVE_RU_EN_ZH=PASS\n'
 printf 'LIVE_EXACT_REPLAY=PASS\n'
 printf 'LIVE_CONFLICT_REPLAY=PASS\n'

@@ -31,7 +31,7 @@ kubectl create secret generic grainflow-outbox-worker-secrets -n "$NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl run pgbouncer-runtime-check -n "$NAMESPACE" --restart=Never \
-  --image=postgres:16.4-alpine3.20 \
+  --image=ghcr.io/pachaninm-lab/ci-postgres@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c \
   --labels=app.kubernetes.io/name=grainflow-api \
   --env="APP_DB_PASSWORD=${APP_DB_PASSWORD}" \
   --env="OUTBOX_DB_PASSWORD=${OUTBOX_DB_PASSWORD}" \
