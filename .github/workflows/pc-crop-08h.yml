@@ -9,7 +9,7 @@ on:
       - 'apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/**'
       - 'apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/**'
       - 'apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/**'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-*.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange*.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
@@ -29,7 +29,7 @@ on:
       - 'apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/**'
       - 'apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/**'
       - 'apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/**'
-      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-*.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange*.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
@@ -92,7 +92,7 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-08h\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260727192500_fgis_grain_exchange_principals/.*|apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/.*|apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/.*|apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-.*\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch\.handler(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/src/outbox-worker\.module\.ts|apps/api/test/industrial/fgis-grain-(dispatch|exchange)\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08h-exchange-receipt\.json|scripts/pc-crop-08h/.*)$' \
+          if grep -Ev '^(\.github/workflows/pc-crop-08h\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260727192500_fgis_grain_exchange_principals/.*|apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/.*|apps/api/prisma/migrations/20260727194000_fgis_grain_exchange_outbox_binding/.*|apps/api/prisma/migrations/20260727195000_fgis_grain_exchange_correlation_replay/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange.*\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch\.handler(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/src/outbox-worker\.module\.ts|apps/api/test/industrial/fgis-grain-(dispatch|exchange)\.e2e-spec\.ts|docs/platform-v7/autopilot/scopes/pc-crop-08h-exchange-receipt\.json|scripts/pc-crop-08h/.*)$' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-08H contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
