@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { BookOpenCheck, ExternalLink, Loader2, Send, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
+import { readGatewayStream, type GatewayStreamStatus } from '@/lib/platform-v7/ai-gateway-stream';
+import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Confidence = 'high' | 'medium';
@@ -33,7 +35,18 @@ type Answer = {
   suggestions: string[];
   limitations: string[];
 };
-type Message = { id: string; role: 'user' | 'assistant'; text: string; answer?: Answer };
+/**
+ * A message produced by the gateway stream rather than by the knowledge-base
+ * lookup. Kept separate from `answer` on purpose: the two are different claims,
+ * and a reader must be able to tell a generated answer from a looked-up one.
+ */
+type StreamedAnswer = {
+  status: GatewayStreamStatus;
+  refusal: GatewayRefusal | null;
+  citations: readonly { sourceId: string; title: string; uri: string }[];
+  modelIdentity: string | null;
+};
+type Message = { id: string; role: 'user' | 'assistant'; text: string; answer?: Answer; stream?: StreamedAnswer };
 type ContextPayload = { context: string; prompts: string[] };
 
 type Copy = {
@@ -93,6 +106,34 @@ function formatTime(value: string, locale: Locale) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale === 'zh' ? 'zh-CN' : 'ru-RU', { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+/**
+ * What a refusal says to a reader.
+ *
+ * Written as a refusal, not as an apology that trails off into a suggestion —
+ * the reader has to be able to tell that no answer was produced, which is the
+ * whole point of refusing rather than filling the gap.
+ */
+function refusalCopy(locale: Locale, refusal: GatewayRefusal | null): string {
+  const copy: Record<Locale, Record<string, string>> = {
+    ru: {
+      ABSTAINED_NO_DATA: 'У меня нет подтверждённого основания для ответа на этот вопрос, и я не буду его придумывать. Переформулируйте вопрос или выберите тему ниже.',
+      UPSTREAM_ERROR: 'Ответ не был завершён, поэтому я его не показываю: незаконченный ответ выглядел бы как готовый вывод, к которому помощник не пришёл.',
+      DEFAULT: 'Ответ не получен.',
+    },
+    en: {
+      ABSTAINED_NO_DATA: 'I have no verified basis for answering this, and I will not invent one. Rephrase the question or pick a topic below.',
+      UPSTREAM_ERROR: 'The answer did not finish, so I am not showing it: an unfinished answer would read as a conclusion the assistant never reached.',
+      DEFAULT: 'No answer was produced.',
+    },
+    zh: {
+      ABSTAINED_NO_DATA: '我没有可靠依据回答这个问题，也不会编造答案。请改写问题或选择下面的主题。',
+      UPSTREAM_ERROR: '回答没有完成，因此不予显示：未完成的回答会被读作助手并未得出的结论。',
+      DEFAULT: '未生成回答。',
+    },
+  };
+  return copy[locale][refusal ?? 'DEFAULT'] ?? copy[locale].DEFAULT;
 }
 
 export function PublicPlatformAssistant() {
@@ -195,6 +236,75 @@ export function PublicPlatformAssistant() {
     setSending(false);
   };
 
+  /**
+   * Try the gateway stream before the knowledge-base lookup.
+   *
+   * Returns false only when the gateway is simply not switched on in this
+   * deployment, which is the one case where falling back to the verified public
+   * knowledge base is honest — that lookup never claims to be a model answer.
+   * Every other refusal is shown as a refusal: replacing it with a prepared
+   * answer is precisely how an assistant comes to look like it concluded
+   * something it did not.
+   */
+  const streamAnswer = async (question: string, controller: AbortController): Promise<boolean> => {
+    const id = messageId('assistant');
+    let opened = false;
+
+    const paint = (snapshot: Parameters<NonNullable<Parameters<typeof readGatewayStream>[1]['onSnapshot']>>[0]) => {
+      const stream: StreamedAnswer = {
+        status: snapshot.status,
+        refusal: snapshot.refusal,
+        citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })),
+        modelIdentity: snapshot.modelIdentity,
+      };
+      setMessages((current) => {
+        const next = opened ? current.slice(0, -1) : current;
+        opened = true;
+        return [...next, { id, role: 'assistant', text: snapshot.text, stream }];
+      });
+    };
+
+    const dropProvisional = () => {
+      if (opened) setMessages((current) => current.filter((message) => message.id !== id));
+      opened = false;
+    };
+
+    let response: Response;
+    try {
+      response = await fetch('/api/public-platform-assistant?stream=1', {
+        method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        signal: controller.signal, body: JSON.stringify({ message: question, locale }),
+      });
+    } catch {
+      // The stream could not even be opened. That is a transport problem, not a
+      // statement about the gateway, so the knowledge base may still answer.
+      return false;
+    }
+
+    const snapshot = await readGatewayStream(response, { mode: 'public', onSnapshot: paint, signal: controller.signal });
+
+    if (snapshot.status === 'answered') {
+      trackEvent('public_platform_assistant_stream_answer', { locale, context: contextName });
+      return true;
+    }
+
+    dropProvisional();
+
+    if (snapshot.refusal === 'FEATURE_DISABLED' || snapshot.refusal === 'MODEL_NOT_ADMITTED' || snapshot.refusal === null) {
+      return false;
+    }
+
+    if (snapshot.refusal === 'CANCELLED') return true;
+
+    setMessages((current) => [...current, {
+      id, role: 'assistant', text: refusalCopy(locale, snapshot.refusal),
+      stream: { status: 'refused', refusal: snapshot.refusal, citations: [], modelIdentity: snapshot.modelIdentity },
+    }]);
+    trackEvent('public_platform_assistant_stream_refusal', { refusal: snapshot.refusal, locale });
+    return true;
+  };
+
   const submit = async (question: string) => {
     const normalized = question.trim().slice(0, 1_200);
     if (!normalized || sending) return;
@@ -207,6 +317,8 @@ export function PublicPlatformAssistant() {
     trackEvent('public_platform_assistant_question', { length: normalized.length, locale, context: contextName });
 
     try {
+      if (await streamAnswer(normalized, controller)) return;
+
       const response = await fetch('/api/public-platform-assistant', {
         method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, signal: controller.signal, body: JSON.stringify({ message: normalized, locale }),
       });
@@ -262,8 +374,25 @@ export function PublicPlatformAssistant() {
 
             <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite'>
               {messages.map((message) => (
-                <article key={message.id} className='pc-public-assistant-message' data-role={message.role}>
+                <article key={message.id} className='pc-public-assistant-message' data-role={message.role} data-stream-status={message.stream?.status} data-stream-refusal={message.stream?.refusal ?? undefined}>
                   <div className='pc-public-assistant-bubble'>{message.answer ? <strong className='pc-public-assistant-answer-title'>{message.answer.title}</strong> : null}<p>{message.text}</p></div>
+                  {message.stream ? (
+                    <div className='pc-public-assistant-stream' data-status={message.stream.status}>
+                      {message.stream.status === 'streaming' ? (
+                        // Marked provisional for as long as it is provisional. If the
+                        // stream never completes this whole message is removed, so an
+                        // unfinished answer is never left on screen looking validated.
+                        <p className='pc-public-assistant-stream-provisional' role='status'>
+                          <Loader2 size={15} aria-hidden='true' />
+                          {locale === 'en' ? 'Answer in progress — not yet complete' : locale === 'zh' ? '回答生成中——尚未完成' : 'Ответ ещё формируется — он пока не завершён'}
+                        </p>
+                      ) : null}
+                      {message.stream.status === 'answered' && message.stream.citations.length ? (
+                        <nav aria-label={ui.sources}><strong>{ui.sources}</strong><div>{message.stream.citations.map((citation) => <a key={citation.uri} href={citation.uri}>{citation.title}<ExternalLink size={14} aria-hidden='true' /></a>)}</div></nav>
+                      ) : null}
+                      {message.stream.modelIdentity ? <small className='pc-public-assistant-model'>{locale === 'en' ? 'Admitted model' : locale === 'zh' ? '已准入模型' : 'Допущенная модель'}: {message.stream.modelIdentity}</small> : null}
+                    </div>
+                  ) : null}
                   {message.answer ? (
                     <div className='pc-public-assistant-answer'>
                       <section><h3>{ui.facts}</h3><ul>{message.answer.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul></section>
