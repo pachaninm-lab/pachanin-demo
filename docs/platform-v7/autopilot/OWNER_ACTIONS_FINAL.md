@@ -179,18 +179,36 @@ Preview-сборки, «эквивалентные» веса и любая др
 
 ### Чего от владельца НЕ требуется
 
-Offline-конвейер уже написан и не нуждается в доработке. После появления
-файлов всё остальное выполняется в репозитории:
+Ни писать скрипты, ни собирать команды вручную. Получение весов — **одна
+команда**, выполняемая на машине с доступом к Hugging Face:
 
 ```
-tai-model-source-acquisition reconcile-inventory   # сверить опись с authority
-tai-model-source-acquisition download-plan          # план загрузки
-tai-model-source-acquisition collect-source         # собрать манифест и SHA-256
-tai-model-source-acquisition verify-restore         # проверить восстановление
-tai-model-source-acquisition assemble-report        # итоговый отчёт
+./apps/tai/model-artifacts/model-source-acquisition-driver.v1.sh \
+    --model-id Qwen/Qwen3-8B \
+    --output-root /srv/tai/model-sources
 ```
 
-Порядок описан в `apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md`.
+Затем то же самое для `mistralai/Mistral-7B-Instruct-v0.3`.
+
+Что драйвер делает сам:
+
+- берёт ревизию из authority, а не из аргумента — ревизию, которую можно
+  набрать руками, можно набрать с ошибкой;
+- сверяет ревизию и лицензию с upstream **до** загрузки, поэтому отказ
+  случается раньше, чем утекут гигабайты;
+- качает только одобренные файлы, сверяя размер каждого;
+- пересчитывает SHA-256 по факту на диске и собирает source manifest;
+- продолжает прерванную загрузку вместо повторной.
+
+Требуется `python3` **3.12 или новее** — драйвер проверяет это и говорит
+прямо, вместо падения внутри импорта.
+
+Если доступ идёт через зеркало или релей, задайте `TAI_HUGGINGFACE_BASE`.
+Зеркало меняет источник байтов, но не то, какие байты принимаются: список
+файлов и ревизия по-прежнему решаются authority.
+
+Дальнейшие шаги (legal packet, проверка восстановления, отчёт) описаны в
+`apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md`.
 
 ### Что разблокируется
 

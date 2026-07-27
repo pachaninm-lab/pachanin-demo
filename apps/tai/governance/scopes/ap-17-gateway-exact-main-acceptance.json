@@ -17,11 +17,13 @@
     "apps/tai/governance/industrial-acceptance-backlog.v1.json",
     "apps/tai/governance/scopes/ap-17-gateway-exact-main-acceptance.json",
     "apps/tai/governance/tai-production-operational-manifest.json",
+    "apps/tai/model-artifacts/model-source-acquisition-driver.v1.sh",
     "apps/tai/tai/gateway_acceptance.py",
     "apps/tai/tai/gateway_acceptance_cli.py",
     "apps/tai/tai/industrial_gap_report.py",
     "apps/tai/tests/test_gateway_acceptance.py",
     "apps/tai/tests/test_industrial_gap_report.py",
+    "apps/tai/tests/test_model_source_acquisition_driver.py",
     "docs/platform-v7/autopilot/OWNER_ACTIONS_FINAL.md",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "scripts/check-netlify-retirement.mjs"
@@ -34,7 +36,8 @@
     "H.06 stays blocked on C.04 model admission and runtime health",
     "final_status stays NOT_ATTESTED and no production feature flag is enabled",
     "the readiness manifest is re-derived on the merged main, not on the pre-merge head",
-    "the netlify retirement control stops reading its own prohibitions as violations, without exempting a live reference"
+    "the netlify retirement control stops reading its own prohibitions as violations, without exempting a live reference",
+    "the last manual step of model acquisition is automated and proven on a successful path, not only on refusals"
   ],
   "forbidden_capabilities": [
     "enabling any gateway production feature flag",
