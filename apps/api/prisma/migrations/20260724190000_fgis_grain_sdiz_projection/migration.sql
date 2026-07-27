@@ -392,12 +392,22 @@ BEGIN
        AND char_length(p_provider_reference_message_id) NOT BETWEEN 1 AND 255
      )
      OR p_provider_occurred_at IS NULL
+     OR p_expected_inbox_version IS NULL
      OR p_expected_inbox_version < 0
+     OR p_batch_fingerprint IS NULL
      OR p_batch_fingerprint !~ '^[a-f0-9]{64}$'
-     OR jsonb_typeof(p_records) IS DISTINCT FROM 'array'
-     OR jsonb_array_length(p_records) NOT BETWEEN 1 AND 200
+     OR p_records IS NULL
   THEN
     RAISE EXCEPTION 'FGIS SDIZ controlled writer input is invalid'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF jsonb_typeof(p_records) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'FGIS SDIZ canonical records must be an array'
+      USING ERRCODE = '22023';
+  END IF;
+  IF jsonb_array_length(p_records) NOT BETWEEN 1 AND 200 THEN
+    RAISE EXCEPTION 'FGIS SDIZ canonical record count is invalid'
       USING ERRCODE = '22023';
   END IF;
 
@@ -410,24 +420,24 @@ BEGIN
   FOR UPDATE;
 
   IF NOT FOUND
-     OR inbox_row."state" <> 'PROCESSING'
+     OR inbox_row."state" IS DISTINCT FROM 'PROCESSING'
      OR inbox_row."leaseOwner" IS DISTINCT FROM p_worker_id
      OR inbox_row."leaseExpiresAt" IS NULL
      OR inbox_row."leaseExpiresAt" < clock_timestamp()
-     OR inbox_row."version" <> p_expected_inbox_version
-     OR inbox_row."provider" <> 'FGIS_ZERNO'
-     OR inbox_row."adapterCode" <> 'FGIS_ZERNO'
-     OR inbox_row."adapterVersion" <> '1.0.23'
-     OR inbox_row."schemaVersion" <> '1.0.23'
-     OR inbox_row."mappingVersion" <> 'fgis-zerno-1.0.23-catalog.v1'
-     OR inbox_row."signatureStatus" <> 'VERIFIED'
-     OR inbox_row."signatureAlgorithm" <> 'GOST3410_2012_256'
+     OR inbox_row."version" IS DISTINCT FROM p_expected_inbox_version
+     OR inbox_row."provider" IS DISTINCT FROM 'FGIS_ZERNO'
+     OR inbox_row."adapterCode" IS DISTINCT FROM 'FGIS_ZERNO'
+     OR inbox_row."adapterVersion" IS DISTINCT FROM '1.0.23'
+     OR inbox_row."schemaVersion" IS DISTINCT FROM '1.0.23'
+     OR inbox_row."mappingVersion" IS DISTINCT FROM 'fgis-zerno-1.0.23-catalog.v1'
+     OR inbox_row."signatureStatus" IS DISTINCT FROM 'VERIFIED'
+     OR inbox_row."signatureAlgorithm" IS DISTINCT FROM 'GOST3410_2012_256'
      OR inbox_row."signatureAlgorithmUri"
-       <> 'urn:ietf:params:xml:ns:cpxmlsec:algorithms:gostr34102012-gostr34112012-256'
-     OR inbox_row."verificationResult"->'verified' <> 'true'::jsonb
-     OR inbox_row."verificationResult"->>'schemaVersion' <> '1.0.23'
+       IS DISTINCT FROM 'urn:ietf:params:xml:ns:cpxmlsec:algorithms:gostr34102012-gostr34112012-256'
+     OR inbox_row."verificationResult"->'verified' IS DISTINCT FROM 'true'::jsonb
+     OR inbox_row."verificationResult"->>'schemaVersion' IS DISTINCT FROM '1.0.23'
      OR inbox_row."verificationResult"->>'mappingVersion'
-       <> 'fgis-zerno-1.0.23-catalog.v1'
+       IS DISTINCT FROM 'fgis-zerno-1.0.23-catalog.v1'
      OR inbox_row."externalEventId" IS DISTINCT FROM p_provider_message_id
      OR inbox_row."causationId" IS DISTINCT FROM p_provider_reference_message_id
      OR inbox_row."occurredAt" IS DISTINCT FROM p_provider_occurred_at
@@ -483,8 +493,12 @@ BEGIN
     FROM jsonb_array_elements(p_records) WITH ORDINALITY AS incoming(value, ordinal)
     ORDER BY incoming.ordinal
   LOOP
-    IF jsonb_typeof(record_value) IS DISTINCT FROM 'object'
-       OR (SELECT count(*) FROM jsonb_object_keys(record_value)) <> 10
+    IF jsonb_typeof(record_value) IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'FGIS SDIZ canonical record is invalid'
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF (SELECT count(*) FROM jsonb_object_keys(record_value)) <> 10
        OR EXISTS (
          SELECT 1
          FROM jsonb_object_keys(record_value) AS incoming_key(value)
