@@ -28,6 +28,11 @@ from tai.industrial_gap_report_cli import main
 REPOSITORY_BACKLOG = (
     Path(__file__).resolve().parents[1] / "governance" / "industrial-acceptance-backlog.v1.json"
 )
+REPOSITORY_GATEWAY_EVIDENCE = (
+    Path(__file__).resolve().parents[1]
+    / "governance"
+    / "gateway-exact-main-acceptance.v1.json"
+)
 REPOSITORY_GAP_REPORT = (
     Path(__file__).resolve().parents[1] / "governance" / "current-industrial-gap-report.json"
 )
@@ -41,7 +46,7 @@ REPOSITORY_RELEASE_ID = "tai-industrial-discovery-2026-07-25"
 #: The exact main the committed backlog records its discovery against. It moves whenever
 #: the snapshot is re-derived, which is the point: the snapshot must name the commit the
 #: evidence was actually audited on, not an older one that happens to still parse.
-MAIN_SHA = "10b7263d884808b9e7f264c17a779ff2bd630437"
+MAIN_SHA = "d79064333ff5653baa43528fd6a956bd9b2fbb87"
 QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
 MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
 
@@ -93,6 +98,19 @@ def _backlog(*items: AcceptanceItem) -> AcceptanceBacklog:
         discovery=_discovery(),
         items=tuple(sorted(items, key=lambda item: item.item_id)),
         subsystems=dict(ALL_SUBSYSTEMS),
+        primary_model=_model("primary"),
+        fallback_model=_model("fallback"),
+    )
+
+
+def _disabled_gateway_backlog(*items: AcceptanceItem) -> AcceptanceBacklog:
+    """A backlog whose gateway is accepted on exact main but deliberately off."""
+    subsystems = dict(ALL_SUBSYSTEMS)
+    subsystems["gateway"] = SubsystemStatus.ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION
+    return AcceptanceBacklog(
+        discovery=_discovery(),
+        items=tuple(sorted(items, key=lambda item: item.item_id)),
+        subsystems=subsystems,
         primary_model=_model("primary"),
         fallback_model=_model("fallback"),
     )
@@ -677,3 +695,91 @@ class TestOwnerDeferral:
         backlog = _backlog(regressed, _deferred("L.09", stage="L"))
 
         assert _stage_acceptance(backlog, "L")["status"] == FinalStatus.FAIL.value
+
+
+class TestAcceptedButDeliberatelyDisabledSubsystem:
+    """A subsystem can be finished, proven and switched off on purpose.
+
+    NOT_ACTIVATED conflated two situations a reader has to tell apart: a
+    subsystem nobody built, and one that is built, verified on exact main, and
+    waiting on an admission decision that is not an engineering task.
+    """
+
+    def test_the_status_is_representable_and_survives_a_render_round_trip(self) -> None:
+        backlog = _disabled_gateway_backlog(_accepted("H.01", stage="H"))
+
+        payload = gap_report_payload(backlog)
+
+        assert payload["gateway_status"] == "ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION"
+
+    def test_it_does_not_make_the_overall_attestation_pass(self) -> None:
+        """Proven is not running.
+
+        The whole point of the status is that it reports what was proven without
+        claiming the subsystem is live, so it must never move the final verdict.
+        """
+        backlog = _disabled_gateway_backlog(
+            _accepted("H.01", stage="H"),
+            _blocked("H.06", stage="H"),
+        )
+
+        assert derive_final_status(backlog) is FinalStatus.NOT_ATTESTED
+        assert _stage_acceptance(backlog, "H")["blocking_items"] == ["H.06"]
+
+
+class TestGatewayStageOnExactMain:
+    """The committed backlog is itself an assertion, so it is checked here."""
+
+    def test_the_gateway_stage_is_accepted_except_for_the_activation_item(self) -> None:
+        backlog = load_backlog(REPOSITORY_BACKLOG)
+        stage = _stage_acceptance(backlog, "H")
+
+        assert stage["accepted"] == 5
+        assert stage["blocking_items"] == ["H.06"]
+        assert stage["status"] == FinalStatus.NOT_ATTESTED.value
+
+    def test_the_gateway_subsystem_reports_accepted_but_disabled(self) -> None:
+        backlog = load_backlog(REPOSITORY_BACKLOG)
+
+        assert (
+            backlog.subsystems["gateway"]
+            is SubsystemStatus.ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION
+        )
+
+    def test_the_protocol_item_no_longer_names_a_write_event(self) -> None:
+        """H.02 used to name prepared_action and decision as protocol events.
+
+        The read-only contract has neither. Accepting the item as written would
+        have attested to a protocol the gateway deliberately does not speak.
+        """
+        backlog = load_backlog(REPOSITORY_BACKLOG)
+        title = next(item.title for item in backlog.items if item.item_id == "H.02")
+
+        assert "prepared_action" not in title
+        assert "decision" not in title
+        for event in ("meta", "token", "citation", "assessment", "done", "error"):
+            assert event in title
+
+    def test_every_accepted_gateway_item_cites_the_re_derivable_evidence(self) -> None:
+        """Evidence has to be something a later reader can re-run.
+
+        A commit link says what changed; it does not say the property still
+        holds. The acceptance record does, because a test re-derives it.
+        """
+        backlog = load_backlog(REPOSITORY_BACKLOG)
+        accepted = [
+            item
+            for item in backlog.items
+            if item.stage == "H" and item.status is AcceptanceStatus.ACCEPTED
+        ]
+
+        assert len(accepted) == 5
+        for item in accepted:
+            assert "apps/tai/governance/gateway-exact-main-acceptance.v1.json" in item.evidence_refs
+            assert "apps/tai/tests/test_gateway_acceptance.py" in item.evidence_refs
+
+    def test_the_backlog_records_the_exact_main_the_evidence_was_derived_from(self) -> None:
+        backlog = load_backlog(REPOSITORY_BACKLOG)
+        evidence = json.loads(REPOSITORY_GATEWAY_EVIDENCE.read_text(encoding="utf-8"))
+
+        assert backlog.discovery.exact_main_sha == evidence["exact_main_sha"]

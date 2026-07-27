@@ -1,0 +1,289 @@
+{
+  "accepted_items": [
+    "H.01",
+    "H.02",
+    "H.03",
+    "H.04",
+    "H.05"
+  ],
+  "checks": [
+    {
+      "check_id": "H01.single-contract-module",
+      "detail": "all three consumers import the shared contract",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+        "apps/web/app/api/public-platform-assistant/route.ts",
+        "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "API, public boundary and browser import the same contract module"
+    },
+    {
+      "check_id": "H01.proxy-relays-without-reimplementing",
+      "detail": "proxy forwards response.body for the stream path",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/web/app/api/proxy/[...path]/route.ts"
+      ],
+      "title": "The private proxy relays the stream instead of re-implementing it"
+    },
+    {
+      "check_id": "H01.single-emission-path",
+      "detail": "both contours emit through the shared writer",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+        "apps/web/app/api/public-platform-assistant/route.ts"
+      ],
+      "title": "Both server contours emit through one GatewayStreamWriter"
+    },
+    {
+      "check_id": "H01.runtime-validation-both-ends",
+      "detail": "frames are validated on both ends",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
+        "apps/web/lib/platform-v7/ai-gateway-stream.ts"
+      ],
+      "title": "Every frame is validated at runtime on the server and in the browser"
+    },
+    {
+      "check_id": "H02.event-set-is-closed",
+      "detail": "declared events: meta, token, citation, assessment, done, error",
+      "item_id": "H.02",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "The contract declares exactly meta, token, citation, assessment, done, error"
+    },
+    {
+      "check_id": "H02.write-verbs-refused",
+      "detail": "refused verbs: command, confirmAction, confirm_action, execute, executeAction, execute_action, mutation, preparedAction, prepared_action, write",
+      "item_id": "H.02",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "Every write verb is refused by the contract"
+    },
+    {
+      "check_id": "H02.write-verbs-refused-at-any-depth",
+      "detail": "the forbidden-key scan recurses into nested objects",
+      "item_id": "H.02",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "Write verbs are refused at any nesting depth, not only at the top level"
+    },
+    {
+      "check_id": "H02.no-prepared-action-outside-the-refusal",
+      "detail": "prepared_action appears only in the contract's refusal list",
+      "item_id": "H.02",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+        "apps/web/app/api/public-platform-assistant/route.ts",
+        "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+        "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+        "apps/web/components/platform-v7/PublicPlatformAssistant.tsx"
+      ],
+      "title": "prepared_action exists only as a refused key, never as a type, emission or UI value"
+    },
+    {
+      "check_id": "H02.assessment-cannot-raise-maturity",
+      "detail": "assessment is pinned to NOT_ATTESTED",
+      "item_id": "H.02",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "An assessment cannot raise operational maturity"
+    },
+    {
+      "check_id": "H03.outcome-requires-completion",
+      "detail": "usable requires done, complete, no refusal and non-empty text",
+      "item_id": "H.03",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "resolveOutcome returns text only for a stream that completed"
+    },
+    {
+      "check_id": "H03.client-drops-partial-text",
+      "detail": "a refused snapshot carries no text",
+      "item_id": "H.03",
+      "passed": true,
+      "sources": [
+        "apps/web/lib/platform-v7/ai-gateway-stream.ts"
+      ],
+      "title": "The browser drops partial text unless done{complete:true} arrived"
+    },
+    {
+      "check_id": "H03.rejected-frame-seals-the-stream",
+      "detail": "a rejected frame ends the stream with a refusal and done{complete:false}",
+      "item_id": "H.03",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "A frame the contract rejects seals the stream instead of being skipped"
+    },
+    {
+      "check_id": "H03.ui-removes-the-provisional-message",
+      "detail": "both panels drop the provisional message",
+      "item_id": "H.03",
+      "passed": true,
+      "sources": [
+        "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+        "apps/web/components/platform-v7/PublicPlatformAssistant.tsx"
+      ],
+      "title": "Both panels remove the provisional message rather than dimming it"
+    },
+    {
+      "check_id": "H04.identity-keys-refused-in-frames",
+      "detail": "refused identity keys: dealId, roleId, subjectId, tenantId",
+      "item_id": "H.04",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "Identity, tenant and Deal keys are refused inside any frame"
+    },
+    {
+      "check_id": "H04.identity-refused-in-both-modes",
+      "detail": "the identity scan runs regardless of mode",
+      "item_id": "H.04",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "Identity is refused in the private mode too, not only the public one"
+    },
+    {
+      "check_id": "H04.public-route-validates-as-public",
+      "detail": "the public writer is constructed in public mode",
+      "item_id": "H.04",
+      "passed": true,
+      "sources": [
+        "apps/web/app/api/public-platform-assistant/route.ts"
+      ],
+      "title": "The public boundary validates every frame in public mode"
+    },
+    {
+      "check_id": "H04.public-route-reaches-no-account-data",
+      "detail": "the public boundary reaches no account data",
+      "item_id": "H.04",
+      "passed": true,
+      "sources": [
+        "apps/web/app/api/public-platform-assistant/route.ts"
+      ],
+      "title": "The public boundary imports no session, Deal or account source"
+    },
+    {
+      "check_id": "H05.identity-comes-from-the-guard",
+      "detail": "the actor is resolved by the guard and passed to the service",
+      "item_id": "H.05",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts"
+      ],
+      "title": "The private stream takes its actor from the server guard, never from the body"
+    },
+    {
+      "check_id": "H05.proxy-does-not-buffer-the-stream",
+      "detail": "the stream path forwards response.body",
+      "item_id": "H.05",
+      "passed": true,
+      "sources": [
+        "apps/web/app/api/proxy/[...path]/route.ts"
+      ],
+      "title": "The proxy forwards the stream body instead of reading it to a string"
+    },
+    {
+      "check_id": "H05.proxy-forwards-cancellation",
+      "detail": "the stream path forwards request.signal upstream",
+      "item_id": "H.05",
+      "passed": true,
+      "sources": [
+        "apps/web/app/api/proxy/[...path]/route.ts"
+      ],
+      "title": "The reader's cancellation reaches upstream instead of a fixed deadline"
+    },
+    {
+      "check_id": "H05.stream-has-no-demo-form",
+      "detail": "a demo session cannot receive a demo gateway stream",
+      "item_id": "H.05",
+      "passed": true,
+      "sources": [
+        "apps/web/app/api/proxy/[...path]/route.ts"
+      ],
+      "title": "The gateway stream is never answered from the demo bank"
+    },
+    {
+      "check_id": "H05.private-panel-streams-as-private",
+      "detail": "the private panel validates frames as private",
+      "item_id": "H.05",
+      "passed": true,
+      "sources": [
+        "apps/web/components/platform-v7/AiAssistantPanel.tsx"
+      ],
+      "title": "The private panel reads the stream in private mode"
+    },
+    {
+      "check_id": "ADM.refusals-are-the-only-outcome",
+      "detail": "both refusals are representable and returned by resolveAdmission",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
+      ],
+      "title": "Without admission the stream refuses with FEATURE_DISABLED or MODEL_NOT_ADMITTED"
+    },
+    {
+      "check_id": "ADM.generation-service-not-called",
+      "detail": "the admission refusal returns before chat() is reached",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts"
+      ],
+      "title": "The generation service is not called at all without admission"
+    },
+    {
+      "check_id": "ADM.flags-default-to-off",
+      "detail": "an unset or malformed flag reads as disabled",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+        "apps/web/app/api/public-platform-assistant/route.ts"
+      ],
+      "title": "Production feature flags are off unless explicitly set to true"
+    },
+    {
+      "check_id": "ADM.no-mock-or-static-fallback",
+      "detail": "no substitute answer is constructed on any streaming path",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+        "apps/web/app/api/public-platform-assistant/route.ts",
+        "apps/web/lib/platform-v7/ai-gateway-stream.ts"
+      ],
+      "title": "No streaming path constructs a mock, stub or canned answer"
+    }
+  ],
+  "exact_main_sha": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
+  "failed_checks": [],
+  "passed": true,
+  "schema": "tai.gateway-exact-main-acceptance.v1"
+}

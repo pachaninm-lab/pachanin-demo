@@ -1,9 +1,9 @@
 {
   "discovery": {
     "counts_method": "Repository-scoped REST pagination over repos/{owner}/{repo}/issues?state=open, counting entries without a pull_request field as issues; the search API is not reachable from this session and its issue index previously returned total_count 0",
-    "exact_main_sha": "10b7263d884808b9e7f264c17a779ff2bd630437",
+    "exact_main_sha": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
     "failing_main_workflows": [],
-    "generated_at": "2026-07-26T19:37:00Z",
+    "generated_at": "2026-07-27T18:30:00Z",
     "open_issue_count": 209,
     "open_pull_request_count": 172,
     "stale_branches": [
@@ -431,52 +431,86 @@
       "title": "Per-field extraction confidence with human review for critical fields"
     },
     {
-      "blocking_reason": "gateway and UI binding is an unmerged draft with 5 open acceptance items",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "apps/tai/governance/gateway-exact-main-acceptance.v1.json",
+        "apps/tai/tests/test_gateway_acceptance.py",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/6484139",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/4a679d1",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/f02c713",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/a575250",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3273",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3275",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3276",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3277"
+      ],
       "item_id": "H.01",
       "mandatory": true,
       "stage": "H",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Single production AI Gateway separating public and private contours"
     },
     {
-      "blocking_reason": "depends on H.01 gateway admission",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "apps/tai/governance/gateway-exact-main-acceptance.v1.json",
+        "apps/tai/tests/test_gateway_acceptance.py",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/6484139",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/4a679d1",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3273",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3275"
+      ],
       "item_id": "H.02",
       "mandatory": true,
       "stage": "H",
-      "status": "BLOCKED",
-      "title": "Unbuffered SSE protocol with meta, token, citations, decision, prepared_action, done and error"
+      "status": "ACCEPTED",
+      "title": "Unbuffered SSE protocol with meta, token, citation, assessment, done and error"
     },
     {
-      "blocking_reason": "depends on H.01 gateway admission",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "apps/tai/governance/gateway-exact-main-acceptance.v1.json",
+        "apps/tai/tests/test_gateway_acceptance.py",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/6484139",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/f02c713",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3273",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3276"
+      ],
       "item_id": "H.03",
       "mandatory": true,
       "stage": "H",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Cancelled or truncated responses are invalidated and never look confirmed"
     },
     {
-      "blocking_reason": "depends on H.01 gateway admission",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "apps/tai/governance/gateway-exact-main-acceptance.v1.json",
+        "apps/tai/tests/test_gateway_acceptance.py",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/4a679d1",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/f02c713",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3275",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3276"
+      ],
       "item_id": "H.04",
       "mandatory": true,
       "stage": "H",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Public contour proven free of identity, tenant and Deal context"
     },
     {
-      "blocking_reason": "depends on H.01 gateway admission",
-      "evidence_refs": [],
+      "evidence_refs": [
+        "apps/tai/governance/gateway-exact-main-acceptance.v1.json",
+        "apps/tai/tests/test_gateway_acceptance.py",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/4a679d1",
+        "https://github.com/pachaninm-lab/pachanin-demo/commit/a575250",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3275",
+        "https://github.com/pachaninm-lab/pachanin-demo/pull/3277"
+      ],
       "item_id": "H.05",
       "mandatory": true,
       "stage": "H",
-      "status": "BLOCKED",
+      "status": "ACCEPTED",
       "title": "Private contour uses only server-derived identity, tenant, role and Deal access"
     },
     {
-      "blocking_reason": "depends on C.04 model admission and H.01 gateway admission",
+      "blocking_reason": "depends on C.04 primary model admission and runtime health; H.01-H.05 are accepted and the gateway is deliberately disabled",
       "evidence_refs": [],
       "item_id": "H.06",
       "mandatory": true,
@@ -662,13 +696,13 @@
       "title": "24-hour read-only production soak"
     },
     {
+      "blocking_reason": "Owner decision 26.07.2026 (merge 10b7263d): TAI is INFORMATIONAL_ONLY, confirmed actions are not implemented and must not be. Returns only under a new owner decision and a new industrial acceptance.",
       "evidence_refs": [],
       "item_id": "L.09",
       "mandatory": true,
       "stage": "L",
       "status": "DEFERRED_BY_OWNER_DECISION",
-      "title": "72-hour confirmed-actions soak",
-      "blocking_reason": "Owner decision 26.07.2026 (merge 10b7263d): TAI is INFORMATIONAL_ONLY, confirmed actions are not implemented and must not be. Returns only under a new owner decision and a new industrial acceptance."
+      "title": "72-hour confirmed-actions soak"
     },
     {
       "blocking_reason": "attestation requires every preceding mandatory acceptance item",
@@ -698,7 +732,7 @@
   "subsystems": {
     "benchmark": "PENDING_BENCHMARK",
     "document_intelligence": "NOT_STARTED",
-    "gateway": "NOT_ACTIVATED",
+    "gateway": "ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION",
     "knowledge": "PARTIAL",
     "model_admission": "PENDING_ADMISSION",
     "model_artifact": "PENDING_ACQUISITION",
