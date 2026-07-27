@@ -1,0 +1,34 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3004,
+  "branch": "claude/tai-gateway-contract-a1-kylgh7",
+  "supersedes": "agent/tai-gateway-ui-readonly-3004",
+  "allowed_paths": [
+    "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant-stream.contract.spec.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.controller.spec.ts",
+    "apps/tai/governance/scopes/ap-17-gateway-a2-server-boundary.json",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts",
+    "apps/web/tsconfig.json",
+    "apps/web/vitest.config.ts",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "both the private controller and the public boundary emit only frames the shared contract module accepts",
+    "no frame carries a write verb or a server-authorized identity field, in either mode",
+    "generation is bound to an admitted model identity; without admission the stream refuses and never falls back to a canned answer",
+    "a cancelled, rejected or failed stream ends with done{complete:false} and is never visually equivalent to a validated answer",
+    "unsupported or ambiguous public questions abstain instead of guessing",
+    "production feature flags remain disabled by default"
+  ],
+  "forbidden_capabilities": [
+    "model bundle, benchmark, admission authority, runtime-host or quality-scoring changes",
+    "write-tool activation",
+    "client-selected tenant, organization, membership or role authority",
+    "live-runtime or production-attestation claim without exact endpoint evidence",
+    "TAI Enterprise, 1C and external adapter work"
+  ]
+}
