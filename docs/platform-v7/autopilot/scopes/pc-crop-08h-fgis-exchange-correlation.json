@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08h-exchange-correlation",
+  "status": "active",
+  "issue": 3278,
+  "baseCommit": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08h.yml",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260727223000_fgis_grain_exchange_receipt/**",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-*.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-dispatch.repository.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "apps/api/src/outbox-worker.module.ts",
+    "apps/api/test/industrial/fgis-grain-exchange.e2e-spec.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08h-fgis-exchange-correlation.json",
+    "scripts/pc-crop-08h/**"
+  ],
+  "boundaries": {
+    "existingCanonicalOutboxOnly": true,
+    "existingRegulatoryInboxOnly": true,
+    "verifiedSignedInputOnly": true,
+    "leaseLossSafeReceipt": true,
+    "tenantOrganizationIsolation": true,
+    "rawXmlPersistence": false,
+    "directDealLotShipmentPaymentMutation": false,
+    "automaticBusinessAcceptance": false,
+    "realCredentialOrPrivateKeyMaterial": false,
+    "newNetworkClient": false,
+    "liveProviderActivation": false,
+    "confirmedLiveClaim": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
