@@ -51,6 +51,18 @@ function isAssistantPath(path: string): boolean {
   return path === 'ai-assistant/catalog' || path === 'ai-assistant/chat';
 }
 
+/**
+ * The private read-only gateway stream.
+ *
+ * Held apart from the other assistant paths because it must never be answered
+ * from the demo bank: a prepared reply dressed as a model stream is exactly the
+ * false readiness the gateway contract exists to prevent. It always requires the
+ * real backend, even for a demo session, and refuses when there is none.
+ */
+function isAssistantStreamPath(path: string): boolean {
+  return path === 'ai-assistant/stream';
+}
+
 function requiresRealBackend(path: string): boolean {
   return path === 'deals/accessible'
     || /^deals\/[^/]+\/(execution-workspace|correlation-timeline)$/.test(path)
@@ -350,8 +362,11 @@ async function proxy(request: Request, params: { path: string[] }) {
   const jar = await cookies();
   const token = jar.get(ACCESS_COOKIE)?.value || '';
   const demoToken = token.startsWith('demo.');
-  const strictRealPath = requiresRealBackend(path) || (isAssistantPath(path) && !demoToken);
-  const isDemo = !API_URL || demoToken;
+  const streamPath = isAssistantStreamPath(path);
+  const strictRealPath = requiresRealBackend(path) || streamPath || (isAssistantPath(path) && !demoToken);
+  // A demo token buys a demo answer everywhere except the gateway stream, which
+  // has no demo form: without the real backend it refuses rather than pretends.
+  const isDemo = !streamPath && (!API_URL || demoToken);
 
   if (strictRealPath && !API_URL) return realBackendUnavailable('api_url_missing');
   if (strictRealPath && !token) return realBackendUnavailable('verified_session_missing');
@@ -368,8 +383,28 @@ async function proxy(request: Request, params: { path: string[] }) {
         headers,
         body: requestBody,
         cache: 'no-store',
-        signal: AbortSignal.timeout(8_000),
+        // A stream is aborted by the reader going away, not by a fixed deadline:
+        // an 8-second timeout would cut every answer that takes longer to
+        // generate, and the reader would see a truncation the gateway never
+        // decided on. Every other path keeps the deadline it always had.
+        signal: streamPath ? request.signal : AbortSignal.timeout(8_000),
       });
+
+      if (streamPath) {
+        // Passed through as a body, never read to a string. `await
+        // response.text()` waits for the last byte, which turns a stream into a
+        // single late blob and defeats the whole point of streaming.
+        return new NextResponse(response.body, {
+          status: response.status,
+          headers: {
+            'content-type': response.headers.get('content-type') || 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-store, no-transform',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+          },
+        });
+      }
+
       const text = await response.text();
       return new NextResponse(text, {
         status: response.status,

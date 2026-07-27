@@ -19,6 +19,8 @@ import {
   X,
 } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
+import { readGatewayStream, refusalCopy, type GatewayStreamStatus } from '@/lib/platform-v7/ai-gateway-stream';
+import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';
 
 type Locale = 'ru' | 'en' | 'zh';
 type ChatRole = 'user' | 'assistant';
@@ -77,6 +79,19 @@ type Catalog = {
   starterPrompts?: string[];
 };
 
+/**
+ * A message produced by the gateway stream rather than by the `chat` endpoint.
+ * Kept separate from the rest of the message on purpose: a generated answer and
+ * a server-composed one are different claims, and the reader must be able to
+ * tell them apart.
+ */
+type StreamedAnswer = {
+  status: GatewayStreamStatus;
+  refusal: GatewayRefusal | null;
+  citations: readonly { sourceId: string; title: string; uri: string }[];
+  modelIdentity: string | null;
+};
+
 type Message = {
   id: string;
   role: ChatRole;
@@ -86,6 +101,7 @@ type Message = {
   generatedAt?: string;
   dataMode?: DataMode;
   decision?: Decision;
+  stream?: StreamedAnswer;
 };
 
 type Copy = {
@@ -532,6 +548,74 @@ export function AiAssistantPanel({ variant = 'floating' }: { variant?: Variant }
     setSending(false);
   };
 
+  /**
+   * Try the private gateway stream before the composed `chat` answer.
+   *
+   * Returns false only when the gateway is not switched on in this deployment
+   * or no model is admitted — neither is a statement about the question, so the
+   * existing server-composed answer still stands. Every other refusal is shown
+   * as a refusal: replacing it with a composed answer would let an unadmitted
+   * model be indistinguishable from an admitted one to the reader.
+   */
+  const streamAnswer = async (question: string, controller: AbortController): Promise<boolean> => {
+    const id = randomId('assistant');
+    let opened = false;
+
+    const paint = (snapshot: Parameters<NonNullable<Parameters<typeof readGatewayStream>[1]['onSnapshot']>>[0]) => {
+      const stream: StreamedAnswer = {
+        status: snapshot.status,
+        refusal: snapshot.refusal,
+        citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })),
+        modelIdentity: snapshot.modelIdentity,
+      };
+      setMessages((current) => {
+        const next = opened ? current.slice(0, -1) : current;
+        opened = true;
+        return [...next, { id, role: 'assistant' as ChatRole, content: snapshot.text, stream }];
+      });
+    };
+
+    const dropProvisional = () => {
+      if (opened) setMessages((current) => current.filter((message) => message.id !== id));
+      opened = false;
+    };
+
+    let response: Response;
+    try {
+      response = await fetch('/api/proxy/ai-assistant/stream', {
+        method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        signal: controller.signal,
+        body: JSON.stringify({ message: question, locale, dealId, pagePath: pathname }),
+      });
+    } catch {
+      // The stream could not be opened at all: a transport problem, not a
+      // statement about the gateway, so the composed answer may still stand.
+      return false;
+    }
+
+    const snapshot = await readGatewayStream(response, { mode: 'private', onSnapshot: paint, signal: controller.signal });
+
+    if (snapshot.status === 'answered') {
+      setDataMode('authoritative');
+      return true;
+    }
+
+    dropProvisional();
+
+    if (snapshot.refusal === 'FEATURE_DISABLED' || snapshot.refusal === 'MODEL_NOT_ADMITTED' || snapshot.refusal === null) {
+      return false;
+    }
+
+    if (snapshot.refusal === 'CANCELLED') return true;
+
+    setMessages((current) => [...current, {
+      id, role: 'assistant' as ChatRole, content: refusalCopy(locale, snapshot.refusal),
+      stream: { status: 'refused', refusal: snapshot.refusal, citations: [], modelIdentity: snapshot.modelIdentity },
+    }]);
+    return true;
+  };
+
   const submit = async (question: string) => {
     const normalized = question.trim().slice(0, 4_000);
     if (!normalized || sending) return;
@@ -547,6 +631,8 @@ export function AiAssistantPanel({ variant = 'floating' }: { variant?: Variant }
     abortRef.current = controller;
 
     try {
+      if (await streamAnswer(normalized, controller)) return;
+
       const response = await fetch('/api/proxy/ai-assistant/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -638,12 +724,43 @@ export function AiAssistantPanel({ variant = 'floating' }: { variant?: Variant }
 
       <div ref={messagesRef} className='p7-ai-messages' aria-live='polite'>
         {messages.map((message) => (
-          <article key={message.id} className={`p7-ai-message p7-ai-message-${message.role}`}>
+          <article
+            key={message.id}
+            className={`p7-ai-message p7-ai-message-${message.role}`}
+            data-stream-status={message.stream?.status}
+            data-stream-refusal={message.stream?.refusal ?? undefined}
+          >
             <span className='p7-ai-avatar' aria-hidden='true'>
               {message.role === 'assistant' ? <><Bot size={17} /><i /></> : <span>Я</span>}
             </span>
             <div className='p7-ai-bubble'>
               <div className='p7-ai-content'>{message.content}</div>
+              {message.stream?.status === 'streaming' ? (
+                // Marked provisional for exactly as long as it is provisional. If
+                // the stream never completes, the whole message is removed, so an
+                // unfinished answer is never left on screen looking validated.
+                <p className='p7-ai-stream-provisional' role='status'>
+                  <Loader2 size={14} aria-hidden='true' />
+                  {locale === 'en' ? 'Answer in progress — not yet complete' : locale === 'zh' ? '回答生成中——尚未完成' : 'Ответ ещё формируется — он пока не завершён'}
+                </p>
+              ) : null}
+              {message.stream?.status === 'answered' && message.stream.citations.length ? (
+                <details className='p7-ai-citations'>
+                  <summary>{ui.sources}</summary>
+                  <div>
+                    {message.stream.citations.map((citation) => (
+                      <a key={citation.uri} href={citation.uri}>
+                        {citation.title}<ExternalLink size={13} aria-hidden='true' />
+                      </a>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+              {message.stream?.modelIdentity ? (
+                <small className='p7-ai-model'>
+                  {locale === 'en' ? 'Admitted model' : locale === 'zh' ? '已准入模型' : 'Допущенная модель'}: {message.stream.modelIdentity}
+                </small>
+              ) : null}
               {message.role === 'assistant' && message.decision ? <DecisionCard decision={message.decision} locale={locale} /> : null}
               {message.role === 'assistant' && message.provider ? (
                 <small className='p7-ai-provider'>
@@ -746,6 +863,14 @@ const css = `
 .p7-ai-head{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:15px;border-bottom:1px solid #dfe8e2;background:linear-gradient(135deg,#f7faf8,#eef8f2)}.p7-ai-brand{display:inline-flex;width:44px;height:44px}.p7-ai-heading strong{font-size:17px;line-height:1.2;font-weight:850;letter-spacing:-.02em}.p7-ai-heading p{margin:4px 0 0;color:#52615b;font-size:12px;line-height:1.35;font-weight:600}.p7-ai-title-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.p7-ai-title-row>span{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.03em}.p7-ai-presence{border:1px solid #b9d7c4;background:#edf8f1;color:#075b31}.p7-ai-presence>i{width:7px;height:7px;border-radius:50%;background:#19a35b;box-shadow:0 0 0 3px rgba(25,163,91,.12);animation:p7-ai-pulse 2s ease-in-out infinite}.p7-ai-readonly{border:1px solid #d4dfd8;background:#fff;color:#405249}.p7-ai-head-actions{display:flex;gap:5px}.p7-ai-head-actions button,.p7-ai-head-actions a{width:40px;height:40px;border:1px solid #cfdcd4;border-radius:12px;background:#fff;color:#071611;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
 .p7-ai-mode-strip{display:grid;gap:3px;padding:9px 15px;border-bottom:1px solid #e4ece7;background:#fbfdfb;color:#405249;font-size:11px;line-height:1.35}.p7-ai-mode-strip strong{color:#087a3b;font-size:10px;text-transform:uppercase;letter-spacing:.05em}.p7-ai-mode-strip span{font-weight:700}.p7-ai-mode-strip small{color:#69766f}.p7-ai-mode-strip.is-synthetic{border-color:#f1cf9f;background:#fff8eb}.p7-ai-mode-strip.is-synthetic strong{color:#9a4d00}
 .p7-ai-messages{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:16px;display:flex;flex-direction:column;gap:15px;background:linear-gradient(#fff,#fbfdfb)}.p7-ai-message{display:grid;grid-template-columns:32px minmax(0,1fr);gap:9px;align-items:start;max-width:96%}.p7-ai-message-user{align-self:flex-end;grid-template-columns:minmax(0,1fr) 32px}.p7-ai-message-user .p7-ai-avatar{grid-column:2}.p7-ai-message-user .p7-ai-bubble{grid-column:1;grid-row:1;background:#087a3b;color:#fff;border-color:#087a3b}.p7-ai-avatar{position:relative;width:32px;height:32px;border-radius:11px;background:#edf8f1;color:#087a3b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:850}.p7-ai-avatar>i{position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border:2px solid #fff;border-radius:50%;background:#19a35b}.p7-ai-message-user .p7-ai-avatar{background:#e9eef7;color:#344b70}.p7-ai-bubble{padding:12px 14px;border:1px solid #dbe6df;border-radius:5px 16px 16px 16px;background:#f7faf8}.p7-ai-message-user .p7-ai-bubble{border-radius:16px 5px 16px 16px}.p7-ai-content{white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.58;font-weight:570}.p7-ai-provider{display:block;margin-top:9px;color:#6a776f;font-size:10px;font-weight:700}.p7-ai-message-user .p7-ai-provider{color:rgba(255,255,255,.75)}
+/* Gateway stream states. A provisional answer must not be able to pass for a
+   validated one at a glance, so streaming text is visibly unfinished and a
+   refusal is styled as a refusal rather than as a quieter answer. */
+.p7-ai-message[data-stream-status='streaming'] .p7-ai-bubble{border:1px dashed #b6cfc2;background:#f6faf8;color:#43584e}
+.p7-ai-message[data-stream-status='refused'] .p7-ai-bubble{border:1px solid #e6c9c2;background:#fdf6f4;color:#6b3f34}
+.p7-ai-stream-provisional{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:11.5px;font-weight:650;color:#5d7268}
+.p7-ai-stream-provisional svg{animation:p7-ai-spin .9s linear infinite}
+.p7-ai-model{display:block;margin-top:8px;color:#6a776f;font-size:10px;font-weight:700;overflow-wrap:anywhere}
 .p7-ai-decision{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px solid #cfe0d5;border-radius:13px;background:#fff;color:#071611}.p7-ai-decision-head{display:grid;gap:3px}.p7-ai-decision-head>span{color:#087a3b;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.05em}.p7-ai-decision-head>strong{font-size:14px;line-height:1.4}.p7-ai-decision-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.p7-ai-decision-grid>div{display:grid;gap:4px;padding:9px;border:1px solid #e1e9e4;border-radius:10px;background:#fbfdfb}.p7-ai-decision-grid span{display:flex;align-items:center;gap:5px;color:#607068;font-size:10px;font-weight:800}.p7-ai-decision-grid svg{color:#087a3b}.p7-ai-decision-grid strong{font-size:12px;line-height:1.38}.p7-ai-confidence{display:flex;align-items:center;gap:7px;color:#66736c;font-size:10px;font-weight:750}.p7-ai-confidence strong{padding:3px 6px;border-radius:999px;background:#edf8f1;color:#075b31}.p7-ai-confidence strong[data-confidence='low']{background:#fff3e7;color:#8c4200}.p7-ai-confidence small{margin-left:auto}.p7-ai-evidence{border-top:1px solid #e2ebe5;padding-top:8px}.p7-ai-evidence summary{cursor:pointer;color:#087a3b;font-size:11px;font-weight:800}.p7-ai-evidence>div{display:grid;gap:7px;margin-top:8px}.p7-ai-evidence p{display:grid;gap:2px;margin:0;font-size:11px;line-height:1.35}.p7-ai-evidence p strong{color:#405249}.p7-ai-evidence p span{color:#68766f}
 .p7-ai-thinking{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;color:#52615b}.p7-ai-thinking strong{font-size:12px}.p7-ai-thinking button{border:0;background:transparent;color:#8a3b14;font-size:10px;font-weight:800;cursor:pointer}.p7-ai-typing{display:flex;gap:3px}.p7-ai-typing i{width:5px;height:5px;border-radius:50%;background:#087a3b;animation:p7-ai-bounce 1s infinite ease-in-out}.p7-ai-typing i:nth-child(2){animation-delay:.15s}.p7-ai-typing i:nth-child(3){animation-delay:.3s}.p7-ai-spin{animation:p7-ai-spin 1s linear infinite}@keyframes p7-ai-spin{to{transform:rotate(360deg)}}@keyframes p7-ai-bounce{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-4px);opacity:1}}@keyframes p7-ai-pulse{0%,100%{box-shadow:0 0 0 3px rgba(25,163,91,.12)}50%{box-shadow:0 0 0 6px rgba(25,163,91,.04)}}
 .p7-ai-citations{margin-top:9px;padding-top:8px;border-top:1px solid #dbe6df}.p7-ai-citations summary{cursor:pointer;color:#087a3b;font-size:11px;font-weight:800}.p7-ai-citations>div{display:grid;gap:6px;margin-top:7px}.p7-ai-citations a,.p7-ai-citations span{display:flex;align-items:center;gap:5px;color:#405249;font-size:11px;line-height:1.35;font-weight:680;text-decoration:none}.p7-ai-citations a:hover{text-decoration:underline}
