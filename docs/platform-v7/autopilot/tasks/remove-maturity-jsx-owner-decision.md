@@ -1,0 +1,1 @@
+Owner decision confirmed: remove the homepage maturity/trust/integration/evidence block from JSX source and remove the matching header navigation anchor. No CSS-only hiding is acceptable.
