@@ -44,6 +44,7 @@ jobs:
     timeout-minutes: 10
     env:
       EVIDENCE_DIR: artifacts/pc-crop-predecessor-trigger-governance
+      GOVERNANCE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -61,6 +62,18 @@ jobs:
           set -euo pipefail
           node --check scripts/pc-crop-predecessor-trigger-governance.mjs
           node --check scripts/pc-crop-successor-trigger-governance.mjs
+
+      - name: Fetch pinned successor workflow authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          scope='docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json'
+          successor_branch="$(node -e "const s=JSON.parse(require('node:fs').readFileSync('$scope','utf8')); process.stdout.write(s.handoffs.successorBranch)")"
+          successor_commit="$(node -e "const s=JSON.parse(require('node:fs').readFileSync('$scope','utf8')); process.stdout.write(s.handoffs.successorCommit)")"
+          test -n "$successor_branch"
+          test -n "$successor_commit"
+          git fetch --no-tags origin "$successor_branch"
+          git cat-file -e "${successor_commit}^{commit}"
 
       - name: Apply canonical predecessor triggers
         run: node scripts/pc-crop-predecessor-trigger-governance.mjs --apply
