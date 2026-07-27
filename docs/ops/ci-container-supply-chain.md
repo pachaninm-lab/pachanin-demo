@@ -24,17 +24,29 @@ The service container never starts, so the acceptance step never runs, so the
 evidence directory is never created, so the dependent gate fails on
 `test "failure" = success`. Nothing was proven and nothing was disproven.
 
-Three such incidents occurred within ninety minutes on 2026-07-27, each on a
-different job:
+Four such incidents occurred within two hours on 2026-07-27:
 
-| Run | Job | Head |
-|---|---|---|
-| 30229586150 | `12 roles · 19 commands · PostgreSQL RLS · DR restore` | `dc9f79a7b` |
-| 30235729808 | `RLS, race, restart, appeal and settlement acceptance` | `011bf977a` |
-| 30236931255 | `PostgreSQL leases, recovery and redrive acceptance` | `148ca09cf` |
+| Run | Job | Image | Head |
+|---|---|---|---|
+| 30229586150 | `12 roles · 19 commands · PostgreSQL RLS · DR restore` | `postgres:16` | `dc9f79a7b` |
+| 30235729808 | `RLS, race, restart, appeal and settlement acceptance` | `postgres:16` | `011bf977a` |
+| 30236931255 | `PostgreSQL leases, recovery and redrive acceptance` | `postgres:16` | `148ca09cf` |
+| 30242646007 | `12 roles · 19 commands · PostgreSQL RLS · DR restore` | `postgres:16-alpine` | `3486f9c41` |
 
-Re-running is not a fix. It restores the signal for one run and leaves the
-dependency in place.
+The fourth incident is the informative one. It landed on a pull request whose
+only subject was a CI gate — nothing to do with PostgreSQL — and it failed on
+`postgres:16-alpine`, not `postgres:16`. The exposure is therefore not confined
+to one job or one logical image: it is every job that pulls anything from Docker
+Hub anonymously.
+
+It also shows what the failure costs even when nothing is wrong. The same job
+passed on the very next run of the very same tree, so the red was pure transport
+noise — but no one can tell that from the check list without opening the log.
+
+Re-running is not a fix, and here it was not even available: the repository's
+GitHub App is refused with `403 Resource not accessible by integration` on
+`rerun-failed-jobs`. The only lever left was to push a new head and hope the
+registry cooperated. That is not a control.
 
 ## The contract
 

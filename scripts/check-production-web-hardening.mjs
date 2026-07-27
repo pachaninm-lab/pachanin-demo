@@ -34,6 +34,13 @@ function requireText(name, needles) {
   }
 }
 
+function requirePattern(name, requirements) {
+  const text = contents.get(name) ?? '';
+  for (const { pattern, describe } of requirements) {
+    if (!pattern.test(text)) failures.push(`${files[name]}: missing ${describe}`);
+  }
+}
+
 function forbid(name, patterns) {
   const text = contents.get(name) ?? '';
   for (const pattern of patterns) {
@@ -45,7 +52,19 @@ requireText('route', [
   'status: \'ok\'',
   "releaseAuthority: 'exact-sha'",
   'process.env.APP_REVISION',
-  "'Cache-Control': 'no-store, max-age=0'",
+]);
+
+// The property is that the readiness probe is never cached, anywhere. Pinning the
+// exact header spelling made a *stronger* policy fail the gate: 90e52a9e8 added
+// `no-cache, must-revalidate` and this check kept demanding the older, weaker
+// string, so Production Hosting Authority went red on every push touching its
+// trigger paths. Both binding directives are still mandatory; extra directives
+// only tighten the policy and must never be a failure.
+requirePattern('route', [
+  {
+    pattern: /'Cache-Control':\s*'(?=[^']*\bno-store\b)(?=[^']*\bmax-age=0(?![\d.]))[^']*'/,
+    describe: "a Cache-Control header carrying both 'no-store' and 'max-age=0'",
+  },
 ]);
 requireText('dockerfile', [
   'ARG GIT_COMMIT=unknown',

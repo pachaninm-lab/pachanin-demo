@@ -70,8 +70,8 @@ async function expectMinimumTargets(page: Page, locator: string) {
   }, { timeout: 15_000, intervals: [100, 250, 500], message: `${locator} must remain at least 44×44 CSS px` }).toBe(true);
 }
 
-test.describe('P0 public TAI intelligence layer browser acceptance', () => {
-  test('home follows the problem → process → TAI → role → maturity story and fails closed', async ({ page }) => {
+test.describe('Final v4 public Deal and TAI intelligence layer', () => {
+  test('home presents the approved Deal-first argument and fails closed', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
@@ -82,48 +82,97 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-    await expect(page.locator('#pc-v6-title')).toContainText('Цена согласована. Теперь нужно исполнить Сделку.');
-    await expect(page.locator('#pc-v6-title')).toContainText('доводит её до расчёта');
-    await expect(page.locator('[data-testid="platform-v7-problem-map"]')).toContainText('Цена уже согласована');
+    await expect(page.locator('#pc-v6-title')).toContainText('Управляйте агросделкой');
+    await expect(page.locator('#pc-v6-title')).toContainText('от цены до расчёта');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Показатель белка ниже условия договора');
 
-    await expect(page.locator('#deal-path')).toContainText('Одна Сделка связывает участников');
-    await expect(page.locator('#tai .pc-v6-control-tower')).toContainText('Расчёт остановлен');
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Окончательный расчёт нельзя продолжить');
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории L-204');
+    await expect(page.locator('#difference')).toContainText('Маркетплейс помогает договориться');
+    await expect(page.locator('#difference [role="table"]')).toHaveCount(1);
+    await expect(page.locator('#difference [data-comparison-row="true"]')).toHaveCount(6);
+    await expect(page.locator('#functions article')).toHaveCount(8);
+    await expect(page.locator('#deal-path article')).toHaveCount(6);
+    await expect(page.locator('#deal-path .pc-v6-lifecycle [role="listitem"]')).toHaveCount(19);
+    if ((page.viewportSize()?.width ?? 1440) < 768) {
+      const disclosures = [
+        { id: '#difference-more-toggle', controls: 'difference-comparison-rows' },
+        { id: '#functions-more-toggle', controls: 'functions-more-cards' },
+        { id: '#phases-more-toggle', controls: 'phases-more-cards' },
+      ] as const;
+      await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(2);
+      await expect(page.locator('#functions article').nth(7)).toBeHidden();
+      await expect(page.locator('#deal-path article').nth(5)).toBeHidden();
+      for (const disclosure of disclosures) {
+        const toggle = page.locator(disclosure.id);
+        const label = page.locator(`label[for="${disclosure.id.slice(1)}"]`);
+        await expect(toggle).toHaveAttribute('aria-controls', disclosure.controls);
+        await toggle.focus();
+        await expect(toggle).toBeFocused();
+        await expect(label).toHaveCSS('outline-style', 'solid');
+        await page.keyboard.press('Space');
+        await expect(toggle).toBeChecked();
+      }
+    }
+    await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(6);
+    await expect(page.locator('#functions article').nth(7)).toBeVisible();
+    await expect(page.locator('#deal-path article').nth(5)).toBeVisible();
+    await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
+    await expect(page.getByRole('banner')).toHaveCount(1);
+    await expect(page.getByRole('contentinfo')).toHaveCount(1);
+    await expect(page.locator('.pc-v6-control-tower')).toHaveCount(1);
 
-    const taiProductLink = page.getByRole('link', { name: 'Посмотреть TAI подробнее' }).first();
-    await expect(taiProductLink).toBeVisible();
-    await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
+    await expect(page.locator('#live [data-state]')).toHaveCount(3);
+    await expect(page.locator('#public-deal-state-deviation')).toBeChecked();
+    await expect(page.locator('#live [data-state="deviation"]')).toBeVisible();
+    await page.locator('label[for="public-deal-state-normal"]').click();
+    await expect(page.locator('#public-deal-state-normal')).toBeChecked();
+    await expect(page.locator('#live [data-state="normal"]')).toContainText('Поставка подтверждена');
+    await page.locator('label[for="public-deal-state-dispute"]').click();
+    await expect(page.locator('#live [data-state="dispute"]')).toContainText('TAI воздержался от вывода');
 
     const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(perspectives).toBeVisible();
     await expect(perspectives.getByRole('tab')).toHaveCount(12);
     await perspectives.getByRole('tab', { name: 'Арбитр' }).click();
     await expect(page.getByRole('tabpanel')).toContainText('спорную сумму');
-    await expect(page.getByText('Ролевое представление одного сценария. Переключение не открывает данные и не меняет права.')).toBeVisible();
 
-    await expect(page.locator('#maturity')).toContainText('12');
-    await expect(page.locator('#maturity')).toContainText('19');
-    await expect(page.locator('#maturity')).toContainText('Private cloud и on-premise');
+    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории');
+    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('не разрешает платёж');
+    const taiProductLink = page.getByRole('link', { name: 'Посмотреть TAI подробнее' }).first();
+    await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
+
+    await expect(page.locator('#maturity')).toContainText(/private cloud и on-premise/i);
+    await expect(page.locator('#integrations [role="row"]')).toHaveCount(5);
+    await expect(page.locator('#integrations')).not.toContainText('CONFIRMED_LIVE');
+    await expect(page.locator('#faq details')).toHaveCount(4);
 
     await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
+    await expectMinimumTargets(
+      page,
+      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"], label[for="phases-more-toggle"]',
+    );
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
     expect(forbiddenRequests).toEqual([]);
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('390×844 first viewport exposes the problem, resolution and primary action', async ({ page }) => {
+  test('390×844 first viewport contains the category, result and primary action', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
-    await expect(page.locator('#pc-v6-title')).toBeVisible();
-    await expect(page.locator('#pc-v6-title')).toContainText('Цена согласована');
-    await expect(page.locator('#pc-v6-title')).toContainText('доводит её до расчёта');
-    await expect(page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first()).toBeVisible();
-    await expect(page.locator('[data-testid="platform-v7-problem-map"]')).toBeVisible();
+
+    await expect(page.locator('#pc-v6-title')).toContainText('Управляйте агросделкой');
+    await expect(page.locator('#pc-v6-title')).toContainText('от цены до расчёта');
+    const primary = page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first();
+    await expect(primary).toBeVisible();
+    const primaryBox = await primary.boundingBox();
+    expect(primaryBox).not.toBeNull();
+    expect((primaryBox?.y ?? 9999) + (primaryBox?.height ?? 9999)).toBeLessThanOrEqual(844);
+    const dealCardBox = await page.locator('[data-testid="platform-v7-deal-card"]').boundingBox();
+    expect(dealCardBox).not.toBeNull();
+    expect(dealCardBox?.y ?? 9999).toBeLessThan(844);
     await expect(page.locator('.pc-public-contact-dock')).toHaveAttribute('data-scroll-hidden', 'true');
     await expectNoHorizontalOverflow(page);
   });
@@ -166,6 +215,10 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
       const home = await page.goto(`/platform-v7?lang=${item.locale}`, { waitUntil: 'load' });
       expect(home?.ok(), `home ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
+      await expect(page.locator('#difference')).toBeVisible();
+      await expect(page.locator('#functions')).toBeVisible();
+      await expect(page.locator('#live')).toBeVisible();
+      await expect(page.locator('#integrations')).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');

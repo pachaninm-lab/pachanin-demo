@@ -90,6 +90,9 @@ const CRITICAL_HOME_CSS = `
   align-self: start;
   overflow: hidden;
 }
+.pc-v6-control-tower {
+  align-self: start !important;
+}
 .pc-v6-tower-intelligence {
   display: grid !important;
   grid-template-columns: auto minmax(0, 1fr) 44px;
