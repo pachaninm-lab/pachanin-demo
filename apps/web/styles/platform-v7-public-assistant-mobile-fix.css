@@ -240,3 +240,9 @@
     padding-top: 8px !important;
   }
 }
+
+/* Approved homepage simplification: remove the trust, integration-status and evidence-ladder block. */
+.pc-v7-public-entry #maturity,
+.pc-v7-public-entry .pc-site-header a[href='#maturity'] {
+  display: none !important;
+}
