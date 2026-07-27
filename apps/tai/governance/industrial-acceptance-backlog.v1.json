@@ -498,12 +498,12 @@
       "title": "Eight confirmed write actions with prepared action, TTL, HMAC, idempotency and optimistic concurrency"
     },
     {
-      "blocking_reason": "depends on I.02",
+      "blocking_reason": "Owner decision 26.07.2026 (merge 10b7263d): TAI is INFORMATIONAL_ONLY. No sensitive write class exists, so there is no write authority to separate. Returns only under a new owner decision and a new industrial acceptance.",
       "evidence_refs": [],
       "item_id": "I.03",
       "mandatory": true,
       "stage": "I",
-      "status": "BLOCKED",
+      "status": "DEFERRED_BY_OWNER_DECISION",
       "title": "Separate acceptance authority per sensitive write class"
     },
     {
