@@ -22,6 +22,10 @@ import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
+import '@/styles/platform-v7-public-assistant.css';
+import '@/styles/platform-v7-public-assistant-shortcut.css';
+import '@/styles/platform-v7-public-assistant-mobile-fix.css';
+import '@/styles/platform-v7-unified-modal-fullscreen.css';
 import styles from './PlatformV7StrategicHomeStory.module.css';
 
 type SectionHeaderProps = {

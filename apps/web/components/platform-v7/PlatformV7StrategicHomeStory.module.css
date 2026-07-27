@@ -326,13 +326,6 @@
   scroll-margin-top: 84px;
 }
 
-@supports (content-visibility: auto) {
-  .section {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 880px;
-  }
-}
-
 .section :global(.pc-v6-section-head) {
   max-width: 790px;
   margin-bottom: 30px;
