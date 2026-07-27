@@ -645,6 +645,26 @@ class TestOwnerDeferral:
 
         assert _stage_acceptance(backlog, "I")["blocking_items"] == ["I.03"]
 
+    def test_a_deferral_does_not_lift_a_stage_whose_own_work_is_unfinished(self) -> None:
+        """Deferring one item must not carry the rest of the stage over the line.
+
+        Removing an item from the denominator raises the ratio for everything left. If
+        the stage could reach PASS while an in-scope item is still unproven, an owner
+        decision about work that will never be built would read as acceptance of work
+        that simply has not been done.
+        """
+        backlog = _backlog(
+            _accepted("I.01", stage="I"),
+            _blocked("I.03", stage="I"),
+            _deferred("I.02", stage="I"),
+        )
+        stage = _stage_acceptance(backlog, "I")
+
+        assert stage["total"] == 2
+        assert stage["accepted"] == 1
+        assert stage["deferred_by_owner_decision"] == 1
+        assert stage["status"] == FinalStatus.NOT_ATTESTED.value
+
     def test_a_stage_regression_still_fails_beside_a_deferral(self) -> None:
         regressed = AcceptanceItem(
             item_id="L.01",

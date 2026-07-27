@@ -11,7 +11,7 @@ on:
       web_url:
         description: 'Web base URL to check'
         required: true
-        default: 'https://vermillion-kitsune-0e7b97.netlify.app'
+        default: 'https://процент-агро.рф'
   schedule:
     - cron: '45 6,10,14,18 * * *'
 
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      WEB_URL: ${{ inputs.web_url || 'https://vermillion-kitsune-0e7b97.netlify.app' }}
+      WEB_URL: ${{ inputs.web_url || 'https://процент-агро.рф' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -1,0 +1,124 @@
+name: TAI llama.cpp Toolchain Continuity
+
+# The build acceptance record was written at one commit and never re-checked since.
+# Its own `authority_continuity` block is a snapshot from that moment, so it cannot
+# notice a later edit to the toolchain authority. This job asks the one question that
+# snapshot cannot answer at exact head: is the pin the record was built against still
+# the pin this repository declares?
+#
+# It proves continuity of the pin only. It does not rebuild, does not touch binaries,
+# and never raises maturity: the evidence it writes carries NOT_ATTESTED.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-llama-toolchain-continuity.yml'
+      - 'apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json'
+      - 'apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json'
+      - 'apps/tai/tai/llama_toolchain_continuity*.py'
+      - 'apps/tai/tests/test_llama_toolchain_continuity.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-llama-toolchain-continuity.yml'
+      - 'apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json'
+      - 'apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json'
+      - 'apps/tai/tai/llama_toolchain_continuity*.py'
+      - 'apps/tai/tests/test_llama_toolchain_continuity.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-llama-toolchain-continuity-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  continuity:
+    name: Recorded pin still equals the declared pin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      AUTHORITY_PATH: apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json
+      ACCEPTANCE_PATH: apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json
+      EVIDENCE_PATH: llama-continuity-evidence/continuity.json
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checked-out head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install TAI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e 'apps/tai[dev]'
+
+      - name: Verify toolchain continuity at exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=apps/tai python -m tai.llama_toolchain_continuity_cli \
+            "$AUTHORITY_PATH" "$ACCEPTANCE_PATH" --output "$EVIDENCE_PATH"
+
+      - name: Bind the evidence to this head and refuse raised maturity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['EVIDENCE_PATH'])
+          report = json.loads(path.read_text(encoding='utf-8'))
+          if report['status'] != 'CONTINUOUS':
+              raise SystemExit(f"toolchain pin moved: {report['reasons']}")
+          if report['operational_status'] != 'NOT_ATTESTED':
+              raise SystemExit('continuity evidence must not raise operational maturity')
+
+          # The CLI proves the pin. It says nothing about weights, conversion,
+          # benchmarks or admission, so the evidence must not be readable as if it did.
+          report['exact_head_sha'] = os.environ['HEAD_SHA']
+          report['proves'] = 'RECORDED_PIN_EQUALS_DECLARED_PIN'
+          report['does_not_prove'] = [
+              'model weights acquired',
+              'GGUF conversion or quantization performed',
+              'benchmarks executed',
+              'model admitted',
+              'production ready',
+              'operationally attested',
+          ]
+          path.write_text(
+              json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(report, sort_keys=True))
+          PY
+
+      - name: Upload bounded continuity evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-llama-toolchain-continuity-${{ github.event.pull_request.head.sha || github.sha }}
+          path: llama-continuity-evidence
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false

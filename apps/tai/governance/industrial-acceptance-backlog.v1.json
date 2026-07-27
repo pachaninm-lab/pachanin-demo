@@ -111,13 +111,17 @@
     },
     {
       "evidence_refs": [
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30234620407",
+        "git-commit:f1121555e2780f5b6c327970fb42991c8234178e",
         "apps/tai/model-artifacts/legal-reviews/qwen3-8b.review-record.v1.json",
-        "apps/tai/model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-record.v1.json"
+        "apps/tai/model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-record.v1.json",
+        "apps/tai/model-artifacts/legal-reviews/qwen3-8b.review-attestation.v1.json",
+        "apps/tai/model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-attestation.v1.json"
       ],
       "item_id": "B.03",
       "mandatory": true,
       "stage": "B",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "Human legal review recorded for both exact model revisions"
     },
     {
@@ -131,12 +135,16 @@
     },
     {
       "evidence_refs": [
-        "apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json"
+        "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30236694062",
+        "git-commit:37d95adb2aa36de667f7c5a64599664ac0c1f60d",
+        "apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json",
+        "apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json",
+        "apps/tai/model-artifacts/llama-cpp-build-artifact-locator.accepted.v1.json"
       ],
       "item_id": "B.05",
       "mandatory": true,
       "stage": "B",
-      "status": "IN_PROGRESS",
+      "status": "ACCEPTED",
       "title": "llama.cpp binaries verified against the pinned b9637 release"
     },
     {
@@ -498,12 +506,12 @@
       "title": "Eight confirmed write actions with prepared action, TTL, HMAC, idempotency and optimistic concurrency"
     },
     {
-      "blocking_reason": "depends on I.02",
+      "blocking_reason": "Owner decision 26.07.2026 (merge 10b7263d): TAI is INFORMATIONAL_ONLY. No sensitive write class exists, so there is no write authority to separate. Returns only under a new owner decision and a new industrial acceptance.",
       "evidence_refs": [],
       "item_id": "I.03",
       "mandatory": true,
       "stage": "I",
-      "status": "BLOCKED",
+      "status": "DEFERRED_BY_OWNER_DECISION",
       "title": "Separate acceptance authority per sensitive write class"
     },
     {
