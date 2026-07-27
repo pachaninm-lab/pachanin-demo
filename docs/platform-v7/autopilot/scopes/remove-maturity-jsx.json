@@ -1,0 +1,9 @@
+{
+  "scope": "remove-maturity-jsx",
+  "ownerDecision": "Remove the public maturity/trust/integration/evidence section from the homepage source tree, not merely via CSS.",
+  "allowedFiles": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHomeStory.tsx",
+    "apps/web/tests/unit/platformV7PublicTrustBlockRemoval.test.ts"
+  ],
+  "forbidden": ["backend", "database", "auth", "rbac", "financial authority", "production topology"]
+}
