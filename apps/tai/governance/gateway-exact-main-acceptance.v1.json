@@ -282,7 +282,7 @@
       "title": "No streaming path constructs a mock, stub or canned answer"
     }
   ],
-  "exact_main_sha": "fe42048019c3951a17af227967be060e8462f77d",
+  "exact_main_sha": "ecce12f9a6e3938a0820301501fcbd3d5edae262",
   "failed_checks": [],
   "passed": true,
   "schema": "tai.gateway-exact-main-acceptance.v1"
