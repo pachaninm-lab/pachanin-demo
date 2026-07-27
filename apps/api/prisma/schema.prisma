@@ -35,6 +35,7 @@ model Organization {
   fgisGrainProviderAttestations     FgisGrainProviderAttestation[]
   fgisGrainSdizProjectionBatches    FgisGrainSdizProjectionBatch[]
   fgisGrainSdizProjections          FgisGrainSdizProjection[]
+  fgisGrainExchanges                FgisGrainExchange[]
 
   @@index([tenantId])
   @@index([inn])
@@ -502,6 +503,7 @@ model OutboxEntry {
   publicOrganizationConnectionRequest PublicOrganizationConnectionRequest?
   regulatoryIntegrationInboxEntries   RegulatoryIntegrationInboxEntry[]
   fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?
+  fgisGrainOutboundExchange           FgisGrainExchange?
 
   @@index([status, nextRetryAt])
   @@index([status, nextRetryAt, createdAt, id], map: "outbox_entries_claim_idx")
@@ -1143,6 +1145,7 @@ model RegulatoryIntegrationInboxEntry {
   conflicts                    RegulatoryIntegrationInboxConflict[]
   fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?
   fgisGrainSdizProjections     FgisGrainSdizProjection[]
+  fgisGrainResponseExchange    FgisGrainExchange?
 
   @@unique([tenantId, organizationId, provider, externalEventId], map: "regulatory_integration_inbox_identity_key")
   @@index([state, nextAttemptAt, leaseExpiresAt, receivedAt, id], map: "regulatory_integration_inbox_claim_idx")
@@ -1327,6 +1330,10 @@ model FgisGrainExchange {
   version                     BigInt    @default(0)
   createdAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
   updatedAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+
+  organization        Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_org_fk")
+  outboundOutboxEntry OutboxEntry                      @relation(fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_outbox_fk")
+  responseInboxEntry  RegulatoryIntegrationInboxEntry? @relation(fields: [responseInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_response_inbox_fk")
 
   @@unique([tenantId, organizationId, messageId], map: "fgis_grain_exchange_message_key")
   @@unique([tenantId, organizationId, commandId], map: "fgis_grain_exchange_command_key")
