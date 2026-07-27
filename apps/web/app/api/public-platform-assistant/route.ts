@@ -175,8 +175,12 @@ function limitations(locale: PublicAssistantLocale) {
  *
  * Read per request, never cached: admission is withdrawn by unsetting it, and a
  * cached "admitted" would keep the boundary generating after the withdrawal.
+ *
+ * Not exported: a Next route module may only export route fields, and anything
+ * else fails the build. It is covered through `POST` instead, which is the only
+ * way it is ever reached in production anyway.
  */
-export function readPublicAdmission(env: NodeJS.ProcessEnv = process.env) {
+function readPublicAdmission(env: NodeJS.ProcessEnv = process.env) {
   const identity = (env.TAI_GATEWAY_PUBLIC_MODEL_IDENTITY || '').trim();
   return {
     identity: identity.length > 0 ? identity : null,

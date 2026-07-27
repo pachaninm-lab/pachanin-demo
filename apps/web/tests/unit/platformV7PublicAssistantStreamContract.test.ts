@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NextRequest } from 'next/server';
 import { validateFrame } from '@pc/ai-assistant-stream-contract';
+import * as route from '@/app/api/public-platform-assistant/route';
 import { POST } from '@/app/api/public-platform-assistant/route';
 
 type Frame = Record<string, unknown>;
@@ -56,6 +57,14 @@ describe('the public boundary validates through the API contract module', () => 
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
+  });
+
+  it('exports only what a Next route module may export', () => {
+    // `next build` rejects any other export, and that failure surfaces only in a
+    // full production build — long after unit tests and `tsc` have gone green.
+    const ALLOWED = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'dynamic', 'runtime', 'revalidate', 'dynamicParams', 'fetchCache', 'preferredRegion', 'maxDuration']);
+
+    expect(Object.keys(route).filter((name) => !ALLOWED.has(name))).toEqual([]);
   });
 
   it('leaves the non-streaming answer untouched, so the shipped homepage keeps working', async () => {
