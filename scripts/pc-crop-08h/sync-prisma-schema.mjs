@@ -4,15 +4,33 @@ import process from 'node:process';
 
 const root = process.cwd();
 const schemaPath = path.join(root, 'apps/api/prisma/schema.prisma');
-const marker = 'model FgisGrainExchange {';
-const schema = fs.readFileSync(schemaPath, 'utf8');
+let schema = fs.readFileSync(schemaPath, 'utf8');
+let changed = false;
 
-if (schema.includes(marker)) {
-  process.stdout.write('FgisGrainExchange Prisma model already synchronized.\n');
-  process.exit(0);
+function ensureInModel(modelName, anchor, insertion, evidence) {
+  const marker = `model ${modelName} {`;
+  const start = schema.indexOf(marker);
+  if (start < 0) {
+    throw new Error(`Prisma model ${modelName} is absent`);
+  }
+  const next = schema.indexOf('\nmodel ', start + marker.length);
+  const end = next < 0 ? schema.length : next;
+  const block = schema.slice(start, end);
+  if (block.includes(evidence)) return;
+
+  const first = block.indexOf(anchor);
+  const last = block.lastIndexOf(anchor);
+  if (first < 0 || first !== last) {
+    throw new Error(`Unable to synchronize ${modelName}: anchor is missing or ambiguous`);
+  }
+
+  const updated = block.slice(0, first) + insertion + block.slice(first + anchor.length);
+  schema = schema.slice(0, start) + updated + schema.slice(end);
+  changed = true;
 }
 
-const model = String.raw`
+if (!schema.includes('model FgisGrainExchange {')) {
+  const model = String.raw`
 
 model FgisGrainExchange {
   id                          String    @id
@@ -42,6 +60,10 @@ model FgisGrainExchange {
   createdAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
   updatedAt                   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
+  organization        Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_org_fk")
+  outboundOutboxEntry OutboxEntry                      @relation(fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_outbox_fk")
+  responseInboxEntry  RegulatoryIntegrationInboxEntry? @relation(fields: [responseInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_response_inbox_fk")
+
   @@unique([tenantId, organizationId, messageId], map: "fgis_grain_exchange_message_key")
   @@unique([tenantId, organizationId, commandId], map: "fgis_grain_exchange_command_key")
   @@index([tenantId, organizationId, state, updatedAt(sort: Desc), id], map: "fgis_grain_exchange_state_idx")
@@ -50,6 +72,34 @@ model FgisGrainExchange {
   @@map("fgis_grain_exchanges")
 }
 `;
+  schema = `${schema.trimEnd()}${model}`;
+  changed = true;
+}
 
-fs.writeFileSync(schemaPath, `${schema.trimEnd()}${model}`, 'utf8');
-process.stdout.write('Appended FgisGrainExchange Prisma model.\n');
+ensureInModel(
+  'Organization',
+  '  fgisGrainSdizProjections          FgisGrainSdizProjection[]\n',
+  '  fgisGrainSdizProjections          FgisGrainSdizProjection[]\n  fgisGrainExchanges                FgisGrainExchange[]\n',
+  'fgisGrainExchanges                FgisGrainExchange[]',
+);
+
+ensureInModel(
+  'OutboxEntry',
+  '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n',
+  '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n  fgisGrainOutboundExchange           FgisGrainExchange?\n',
+  'fgisGrainOutboundExchange           FgisGrainExchange?',
+);
+
+ensureInModel(
+  'RegulatoryIntegrationInboxEntry',
+  '  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n',
+  '  fgisGrainSdizProjections     FgisGrainSdizProjection[]\n  fgisGrainResponseExchange    FgisGrainExchange?\n',
+  'fgisGrainResponseExchange    FgisGrainExchange?',
+);
+
+if (changed) {
+  fs.writeFileSync(schemaPath, schema, 'utf8');
+  process.stdout.write('Synchronized FgisGrainExchange Prisma model and relation authority.\n');
+} else {
+  process.stdout.write('FgisGrainExchange Prisma model and relation authority already synchronized.\n');
+}
