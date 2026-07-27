@@ -6,9 +6,18 @@ on:
       - automation/pc-crop-08h-schema-relations
     paths:
       - '.github/workflows/pc-crop-08h-schema-relations.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/pc-crop-08h-schema-relations.yml'
 
 permissions:
   contents: write
+
+concurrency:
+  group: pc-crop-08h-schema-relations
+  cancel-in-progress: true
 
 jobs:
   repair:
