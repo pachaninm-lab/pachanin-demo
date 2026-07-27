@@ -117,11 +117,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/pc-crop-08h/sync-prisma-schema.mjs
-          pnpm --filter @pc/api exec prisma format
-          pnpm --filter @pc/api exec prisma validate
-          git diff --exit-code -- apps/api/prisma/schema.prisma
-          grep -q '^model FgisGrainExchange {' apps/api/prisma/schema.prisma
+          {
+            node scripts/pc-crop-08h/sync-prisma-schema.mjs
+            pnpm --filter @pc/api exec prisma format
+            pnpm --filter @pc/api exec prisma validate
+            git diff --exit-code -- apps/api/prisma/schema.prisma
+            grep -q '^model FgisGrainExchange {' apps/api/prisma/schema.prisma
+          } 2>&1 | tee "$EVIDENCE_DIR/schema-authority.log"
           touch "$EVIDENCE_DIR/schema-authority.ok"
 
       - name: Apply complete migration chain
