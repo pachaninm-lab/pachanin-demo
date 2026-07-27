@@ -12,6 +12,7 @@ import {
   resolveAdmission,
   type GatewayMode,
 } from './ai-assistant-stream.contract';
+import { readAdmissionManifest } from './ai-assistant-admission.manifest';
 import {
   AiAssistantService,
   type AssistantChatRequest,
@@ -37,17 +38,27 @@ export interface StreamRequest {
 /**
  * Which model, if any, this deployment is allowed to generate with.
  *
- * Read from the environment on every request rather than cached: admission is
- * withdrawn by unsetting it, and a cached "admitted" would keep generating
- * after the withdrawal.
+ * Admission is not a word in the environment: it is the C.04 decision document,
+ * verified by recomputing the digest the admission authority took over the whole
+ * decision. The environment only says which document to read and which model this
+ * process intends to serve; it cannot say "admitted".
+ *
+ * Read on every request rather than cached: admission is withdrawn by replacing
+ * the document, and a cached "admitted" would keep generating after withdrawal.
  */
 export function readAdmission(env: NodeJS.ProcessEnv = process.env) {
-  const identity = (env.TAI_GATEWAY_MODEL_IDENTITY || '').trim();
-  return resolveAdmission({
-    featureEnabled: (env.TAI_GATEWAY_STREAM_ENABLED || '').trim() === 'true',
-    modelIdentity: identity.length > 0 ? identity : null,
-    admissionStatus: (env.TAI_GATEWAY_MODEL_ADMISSION || '').trim() || null,
-  });
+  const verdict = readAdmissionManifest(env);
+  return {
+    ...resolveAdmission({
+      featureEnabled: (env.TAI_GATEWAY_STREAM_ENABLED || '').trim() === 'true',
+      modelIdentity: verdict.modelIdentity,
+      admissionStatus: verdict.admitted ? 'ADMITTED' : null,
+    }),
+    // The identity travels with the verdict rather than being read from the
+    // environment again: what `meta` announces must be the model the decision
+    // admitted, not whatever a variable happens to say alongside it.
+    modelIdentity: verdict.modelIdentity,
+  };
 }
 
 @UseGuards(RolesGuard)
@@ -123,7 +134,7 @@ export class AiAssistantController {
     stream.emit({
       event: 'meta',
       mode: 'private',
-      modelIdentity: admission.allowed ? (process.env.TAI_GATEWAY_MODEL_IDENTITY || '').trim() : null,
+      modelIdentity: admission.allowed ? admission.modelIdentity : null,
     });
 
     if (!admission.allowed) {
