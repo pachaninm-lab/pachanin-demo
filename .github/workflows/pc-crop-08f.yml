@@ -4,7 +4,6 @@ name: PC-CROP-08F FGIS SDIZ Projection Acceptance
 on:
   pull_request:
     paths:
-      - '.github/workflows/pc-crop-08f.yml'
       - 'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts'
       - 'apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts'
@@ -13,7 +12,6 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/workflows/pc-crop-08f.yml'
       - 'apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-*.ts'
       - 'apps/api/test/industrial/fgis-grain-sdiz-projection.e2e-spec.ts'
