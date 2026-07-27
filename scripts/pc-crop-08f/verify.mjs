@@ -79,8 +79,17 @@ const invariants = {
     && repository.includes('FGIS_SDIZ_SAME_TIME_FINGERPRINT_CONFLICT'),
   atomicInboxAuditOutboxProjection: repository.includes('insertAudit(')
     && repository.includes('insertOutbox(')
-    && repository.includes('insertBatch(')
-    && repository.includes('upsertProjection('),
+    && repository.includes('writeProjectionBatch(')
+    && migration.includes('write_fgis_grain_sdiz_projection_batch'),
+  controlledProjectionWriteBoundary:
+    migration.includes('SECURITY DEFINER')
+    && migration.includes('session_user NOT IN')
+    && migration.includes('FGIS SDIZ audit/outbox authority is invalid')
+    && migration.includes('REVOKE INSERT, UPDATE, DELETE ON TABLE')
+    && migration.includes('GRANT EXECUTE ON FUNCTION public.write_fgis_grain_sdiz_projection_batch')
+    && repository.includes('public.write_fgis_grain_sdiz_projection_batch(')
+    && !repository.includes('INSERT INTO public."fgis_grain_sdiz_projections"')
+    && !repository.includes('UPDATE public."fgis_grain_sdiz_projections"'),
   deterministicReplay: repository.includes('readReplayMutation')
     && repository.includes('replayAlreadyBound'),
   noBusinessAcceptanceMutation: !repository.includes('"businessAcceptedAt" ='),
