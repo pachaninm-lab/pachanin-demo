@@ -1,7 +1,11 @@
 import {
   FORBIDDEN_ACTION_KEYS,
   GATEWAY_EVENTS,
+  GatewayStreamWriter,
   PRIVATE_IDENTITY_KEYS,
+  absoluteCitationUri,
+  chunkAnswer,
+  encodeFrame,
   isAcceptance,
   isRejection,
   resolveAdmission,
@@ -219,5 +223,149 @@ describe('admission decides whether generation may run at all', () => {
       { event: 'done', streamId: STREAM, complete: false },
     ]);
     expect(outcome.usable).toBe(false);
+  });
+});
+
+describe('the wire encoding is part of the contract, not of each caller', () => {
+  it('emits a single-line SSE record whose event name matches the frame', () => {
+    const encoded = encodeFrame({ event: 'token', streamId: STREAM, text: 'привет' });
+
+    expect(encoded).toBe(`event: token\ndata: {"event":"token","streamId":"${STREAM}","text":"привет"}\n\n`);
+  });
+
+  it('cannot be broken out of by text containing newlines', () => {
+    // A raw newline in the payload would end the SSE record early and let the
+    // rest of the token be read as a new event.
+    const encoded = encodeFrame({ event: 'token', streamId: STREAM, text: 'a\n\nevent: done\ndata: {}' });
+
+    expect(encoded.split('\n\n')).toHaveLength(2);
+    expect(encoded.split('\n').filter((line) => line.startsWith('data: '))).toHaveLength(1);
+  });
+});
+
+describe('one emission path serves both contours', () => {
+  const collect = (mode: 'public' | 'private' = 'private') => {
+    const chunks: string[] = [];
+    const writer = new GatewayStreamWriter((chunk) => chunks.push(chunk), mode, STREAM);
+    return {
+      writer,
+      frames: () => chunks
+        .join('')
+        .split('\n\n')
+        .filter((block) => block.trim().length > 0)
+        .map((block) => JSON.parse(block.split('\n')[1].slice('data: '.length)) as Record<string, unknown>),
+    };
+  };
+
+  it('refuses to construct on a streamId the contract would reject', () => {
+    expect(() => new GatewayStreamWriter(() => undefined, 'public', 'short')).toThrow(/streamId/);
+  });
+
+  it('stamps the streamId so a caller cannot address someone else’s stream', () => {
+    const { writer, frames } = collect();
+    writer.emit({ event: 'token', text: 'a', streamId: 'stream-someoneelse' });
+
+    expect(frames()[0].streamId).toBe(STREAM);
+  });
+
+  it('seals the stream when a frame is rejected instead of skipping it', () => {
+    // Skipping would leave the tokens already sent looking like a finished
+    // answer once `done{complete:true}` arrived.
+    const { writer, frames } = collect();
+    writer.emit({ event: 'token', text: 'частичный ответ' });
+    const accepted = writer.emit({ event: 'token', text: '', prepared_action: 'CONFIRM' });
+
+    expect(accepted).toBe(false);
+    const emitted = frames();
+    expect(emitted.map((frame) => frame.event)).toEqual(['token', 'error', 'done']);
+    expect(emitted[1].refusal).toBe('UPSTREAM_ERROR');
+    expect(emitted[2].complete).toBe(false);
+    expect(resolveOutcome(emitted as unknown as GatewayFrame[]).usable).toBe(false);
+  });
+
+  it('writes nothing more once sealed', () => {
+    const { writer, frames } = collect();
+    writer.fail('CANCELLED', 'reader left');
+    writer.emit({ event: 'token', text: 'late' });
+    writer.complete();
+
+    expect(frames().map((frame) => frame.event)).toEqual(['error', 'done']);
+  });
+
+  it('is safe to abandon twice, so a socket handler cannot contradict the normal path', () => {
+    const { writer, frames } = collect();
+    writer.abandon();
+    writer.abandon();
+
+    expect(frames()).toHaveLength(1);
+    expect(frames()[0]).toMatchObject({ event: 'done', complete: false });
+  });
+
+  it('reports a completed answer only when done said so', () => {
+    const { writer } = collect();
+    expect(writer.state).toEqual({ sealed: false, complete: false });
+    writer.emit({ event: 'token', text: 'ответ' });
+    writer.complete();
+
+    expect(writer.state).toEqual({ sealed: true, complete: true });
+  });
+
+  it('bounds a refusal message the contract would otherwise reject', () => {
+    const { writer, frames } = collect();
+    writer.fail('UPSTREAM_ERROR', 'x'.repeat(5_000));
+
+    const message = frames()[0].message as string;
+    expect(message.length).toBeLessThanOrEqual(512);
+    expect(validateFrame(frames()[0], 'private').ok).toBe(true);
+  });
+
+  it('refuses a private identity key in public mode at the moment of emission', () => {
+    const { writer, frames } = collect('public');
+    writer.emit({ event: 'meta', mode: 'public', modelIdentity: null, tenantId: 'tenant-1' });
+
+    const emitted = frames();
+    expect(emitted.map((frame) => frame.event)).toEqual(['error', 'done']);
+    expect(JSON.stringify(emitted)).not.toContain('tenant-1');
+  });
+
+  it('refuses a meta frame whose mode does not match the stream it is on', () => {
+    const { writer, frames } = collect('public');
+    writer.emit({ event: 'meta', mode: 'private', modelIdentity: null });
+
+    expect(frames()[0].event).toBe('error');
+  });
+});
+
+describe('citations must be openable and answers must be bounded', () => {
+  it('resolves a platform path against the public base address', () => {
+    expect(absoluteCitationUri('/platform-v7/deals', 'https://example.test')).toBe('https://example.test/platform-v7/deals');
+  });
+
+  it('keeps an already absolute address untouched', () => {
+    expect(absoluteCitationUri('https://gov.example/fgis', null)).toBe('https://gov.example/fgis');
+  });
+
+  it.each([
+    ['a path with no base to resolve against', '/platform-v7/deals', null],
+    ['a missing href', null, 'https://example.test'],
+    ['an empty href', '', 'https://example.test'],
+    ['a scheme that is not http(s)', 'javascript:alert(1)', 'https://example.test'],
+    ['a mailto link', 'mailto:owner@example.test', 'https://example.test'],
+  ])('drops %s', (_case, href, base) => {
+    expect(absoluteCitationUri(href, base)).toBeNull();
+  });
+
+  it('splits an answer into chunks that reassemble exactly', () => {
+    const text = 'я'.repeat(1_000);
+    const chunks = chunkAnswer(text, 400);
+
+    expect(chunks).toHaveLength(3);
+    expect(chunks.join('')).toBe(text);
+    expect(chunks.every((chunk) => chunk.length > 0 && chunk.length <= 400)).toBe(true);
+  });
+
+  it('never produces the empty token the contract refuses', () => {
+    expect(chunkAnswer('')).toEqual([]);
+    expect(chunkAnswer('короткий', 0).join('')).toBe('короткий');
   });
 });

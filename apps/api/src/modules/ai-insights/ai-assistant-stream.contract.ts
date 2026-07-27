@@ -317,3 +317,148 @@ export function resolveAdmission(input: {
   }
   return { allowed: true, refusal: null };
 }
+
+/**
+ * Absolute, openable citation URI, or null.
+ *
+ * Both contours cite platform pages by path. A path is not something a reader
+ * can open out of a citation list, and `validateFrame` refuses a non-http(s)
+ * URI for that reason, so a citation that cannot be resolved to an absolute
+ * address is dropped rather than reshaped into something that looks openable.
+ */
+export function absoluteCitationUri(href: string | null | undefined, base: string | null): string | null {
+  if (!href) return null;
+  if (/^https?:\/\//.test(href)) return href;
+  if (!base) return null;
+  try {
+    const resolved = new URL(href, base.endsWith('/') ? base : `${base}/`).toString();
+    return /^https?:\/\//.test(resolved) ? resolved : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Default token size. Bounded so one frame never carries a whole answer. */
+export const TOKEN_CHUNK_CHARS = 400;
+
+/** Split an answer into token frames the client can render progressively. */
+export function chunkAnswer(text: string, size: number = TOKEN_CHUNK_CHARS): string[] {
+  // A non-positive size would either loop forever or produce the empty token
+  // text the contract refuses, so it falls back to the bounded default.
+  const step = size > 0 ? size : TOKEN_CHUNK_CHARS;
+  const chunks: string[] = [];
+  for (let index = 0; index < text.length; index += step) {
+    chunks.push(text.slice(index, index + step));
+  }
+  return chunks;
+}
+
+/**
+ * SSE wire form of a validated frame.
+ *
+ * The encoder lives with the validator on purpose. If each contour serialized
+ * frames itself, the two would drift — a stray newline or a differently named
+ * event field is enough for one side to accept what the other emits and vice
+ * versa, and the contract would describe a wire nobody actually speaks.
+ *
+ * `JSON.stringify` cannot produce a raw newline inside the payload, so the
+ * single-line `data:` form is safe by construction rather than by convention.
+ */
+export function encodeFrame(frame: GatewayFrame): string {
+  return `event: ${frame.event}\ndata: ${JSON.stringify(frame)}\n\n`;
+}
+
+/** A stream that has ended, and whether it ended with a complete answer. */
+export interface GatewayStreamState {
+  readonly sealed: boolean;
+  readonly complete: boolean;
+}
+
+/**
+ * The single emission path both contours use.
+ *
+ * Every frame is validated before it is written, so an invalid frame is never
+ * on the wire — not even briefly. A rejected frame does not merely get skipped:
+ * skipping would leave the tokens already sent looking like a finished answer,
+ * which is the exact failure `resolveOutcome` exists to prevent. It seals the
+ * stream with a refusal and `done{complete:false}` instead, so a stream that
+ * went wrong is invalidated end to end.
+ *
+ * Nothing here knows about Nest, Next, Node streams or sockets: the sink is a
+ * plain `write` callback. That is what lets the private API and the public
+ * boundary share one implementation rather than two that resemble each other.
+ */
+export class GatewayStreamWriter {
+  private sealedState = false;
+  private completeState = false;
+
+  constructor(
+    private readonly write: (chunk: string) => void,
+    private readonly mode: GatewayMode,
+    private readonly streamId: string,
+  ) {
+    // Checked once, up front: the refusal path writes frames directly, and it
+    // must not be the thing that produces an invalid frame. A bad streamId is a
+    // server bug, so it fails before any byte is sent rather than mid-stream.
+    if (!STREAM_ID.test(streamId)) {
+      throw new Error('streamId must be 8..64 url-safe characters');
+    }
+  }
+
+  get state(): GatewayStreamState {
+    return { sealed: this.sealedState, complete: this.completeState };
+  }
+
+  /**
+   * Emit a frame body. Returns whether it reached the wire, so a caller that
+   * loops over model output stops instead of pushing into a sealed stream.
+   */
+  emit(body: Record<string, unknown>): boolean {
+    if (this.sealedState) return false;
+
+    const candidate = { ...body, streamId: this.streamId };
+    const verdict = validateFrame(candidate, this.mode);
+    if (isRejection(verdict)) {
+      this.sealWithRefusal('UPSTREAM_ERROR', `frame rejected by the contract: ${verdict.reason}`);
+      return false;
+    }
+
+    this.write(encodeFrame(verdict.frame));
+    if (verdict.frame.event === 'done') {
+      this.sealedState = true;
+      this.completeState = verdict.frame.complete;
+    }
+    return true;
+  }
+
+  /** End the stream with a refusal. Never marks the answer complete. */
+  fail(refusal: GatewayRefusal, message: string): void {
+    if (this.sealedState) return;
+    this.sealWithRefusal(refusal, message);
+  }
+
+  /** End the stream with a finished answer. */
+  complete(): boolean {
+    return this.emit({ event: 'done', complete: true });
+  }
+
+  /**
+   * End the stream without an answer: cancellation, a dead upstream, or a frame
+   * the contract refused. Safe to call twice, so a socket-close handler and the
+   * normal path cannot contradict each other.
+   */
+  abandon(): void {
+    if (this.sealedState) return;
+    this.emit({ event: 'done', complete: false });
+  }
+
+  private sealWithRefusal(refusal: GatewayRefusal, message: string): void {
+    // Emitted directly rather than through `emit`, which would recurse if the
+    // refusal itself failed validation. Both frames are contract-shaped here.
+    const bounded = message.length > 512 ? `${message.slice(0, 509)}...` : message;
+    this.write(encodeFrame({ event: 'error', streamId: this.streamId, refusal, message: bounded }));
+    this.write(encodeFrame({ event: 'done', streamId: this.streamId, complete: false }));
+    this.sealedState = true;
+    this.completeState = false;
+  }
+}
