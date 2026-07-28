@@ -36,7 +36,8 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                 withdrawal_reason = NULL
             WHERE tai_public_corpus_source_admissions.data_plane = 'PUBLIC_OFFICIAL'
               AND tai_public_corpus_source_admissions.source_class = EXCLUDED.source_class
-              AND tai_public_corpus_source_admissions.rights_decision_id = EXCLUDED.rights_decision_id
+              AND tai_public_corpus_source_admissions.rights_decision_id =
+                  EXCLUDED.rights_decision_id
               AND tai_public_corpus_source_admissions.official_uri = EXCLUDED.official_uri
               AND tai_public_corpus_source_admissions.host_pin = EXCLUDED.host_pin
             RETURNING source_id
@@ -142,9 +143,7 @@ class PostgreSQLPublicOfficialCorpusAuthority:
               AND tai_public_corpus_chunks.ordinal = EXCLUDED.ordinal
             RETURNING chunk_id
         """
-        document_by_chunk = {
-            item.chunk.chunk_id: item for item in snapshot.retrieval_documents
-        }
+        document_by_chunk = {item.chunk.chunk_id: item for item in snapshot.retrieval_documents}
         with self._connection_factory() as connection:
             try:
                 with connection.cursor() as cursor:
@@ -159,9 +158,7 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                     )
                     row = cursor.fetchone()
                     if row is None:
-                        raise RuntimeError(
-                            "snapshot digest conflicts with non-building state"
-                        )
+                        raise RuntimeError("snapshot digest conflicts with non-building state")
                     snapshot_id = int(row["snapshot_id"])
                     cursor.execute(lock_snapshot, (snapshot_id,))
                     status = cursor.fetchone()
