@@ -12,23 +12,20 @@ REMOTE = TAI_ROOT / "model-artifacts" / "model-bundle-finalization-remote.v1.sh"
 REMOTE_PYTHON = TAI_ROOT / "model-artifacts" / "model_bundle_finalization_remote.py"
 AUTHORITY = TAI_ROOT / "model-artifacts" / "model-bundle-finalization-authority.v1.json"
 RUNBOOK = TAI_ROOT / "model-artifacts" / "model-bundle-finalization-runbook.v1.md"
-SCOPE = TAI_ROOT / "governance" / "scopes" / "ap-13b3h-bundle-finalization-2961.json"
+SCOPE = TAI_ROOT / "governance" / "scopes" / "ap-13b3h2-finalization-retarget-2961.json"
 COMMAND = "/tai finalize model-bundles exact-main"
-CONVERSION_SHA = "8bd494dc4954baaf699cffa243951392ff451ebb"
-CONVERSION_RUN = 29810648430
+CONVERSION_SHA = "846963821cf990c226eaead8b32f4bc9148311a0"
+CONVERSION_RUN = 30333755510
+CONVERSION_REPORT_SHA256 = "f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d"
+OLD_CONVERSION_SHA = "8bd494dc4954baaf699cffa243951392ff451ebb"
+OLD_CONVERSION_RUN = 29810648430
+OLD_CONVERSION_ROOT = f"/srv/tai-models/conversion-runs/{OLD_CONVERSION_SHA}/{OLD_CONVERSION_RUN}-1"
 EXPECTED_PATHS = {
-    ".gitleaksignore",
-    ".github/workflows/tai-model-bundle-finalization.yml",
-    "apps/tai/governance/scopes/ap-13b3h-bundle-finalization-2961.json",
+    "apps/tai/governance/scopes/ap-13b3h2-finalization-retarget-2961.json",
     "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
     "apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh",
     "apps/tai/model-artifacts/model-bundle-finalization-remote.v1.sh",
     "apps/tai/model-artifacts/model-bundle-finalization-runbook.v1.md",
-    "apps/tai/tai/model_bundle_external_storage.py",
-    "apps/tai/tai/model_bundle_external_storage_cli.py",
-    "apps/tai/model-artifacts/model_bundle_finalization_remote.py",
-    "apps/tai/tests/test_gitleaks_release_authority.py",
-    "apps/tai/tests/test_model_bundle_external_storage.py",
     "apps/tai/tests/test_model_bundle_finalization_workflow.py",
 }
 
@@ -42,7 +39,7 @@ def _json(path: Path) -> dict[str, Any]:
 def test_scope_is_exact_and_preserves_maturity_boundary() -> None:
     scope = _json(SCOPE)
     assert scope["schema_version"] == "tai.concurrent-scope.v1"
-    assert scope["branch"] == "agent/tai-ap-13b3h-bundle-finalization"
+    assert scope["branch"] == "agent/tai-ap-13b3h2-finalization-retarget-2961"
     assert (scope["program_issue"], scope["parent_issue"], scope["issue"]) == (
         2726,
         2954,
@@ -64,6 +61,7 @@ def test_authority_binds_completed_conversion_and_external_storage() -> None:
         "root": f"/srv/tai-models/conversion-runs/{CONVERSION_SHA}/{CONVERSION_RUN}-1",
         "required_state": "COMPLETE",
         "required_result": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
+        "report_sha256": CONVERSION_REPORT_SHA256,
         "rerun_allowed": False,
     }
     storage = authority["storage"]
@@ -90,6 +88,18 @@ def test_authority_binds_completed_conversion_and_external_storage() -> None:
     assert result["benchmark_status"] == "NOT_RUN"
     assert result["model_admission_status"] == "NOT_DONE"
     assert result["production_operational_status"] == "NOT_ATTESTED"
+
+
+def test_retarget_is_exact_across_all_handoff_files() -> None:
+    expected_root = f"/srv/tai-models/conversion-runs/{CONVERSION_SHA}/{CONVERSION_RUN}-1"
+    required = (CONVERSION_SHA, str(CONVERSION_RUN), expected_root, CONVERSION_REPORT_SHA256)
+    forbidden = (OLD_CONVERSION_SHA, str(OLD_CONVERSION_RUN), OLD_CONVERSION_ROOT)
+    for path in (AUTHORITY, DRIVER, REMOTE, RUNBOOK):
+        content = path.read_text(encoding="utf-8")
+        for value in required:
+            assert value in content
+        for value in forbidden:
+            assert value not in content
 
 
 def test_workflow_is_owner_only_exact_main_and_issue_bound() -> None:
