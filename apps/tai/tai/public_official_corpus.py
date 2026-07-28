@@ -269,10 +269,10 @@ class PublicOfficialCorpusBuilder:
         if not artifacts:
             raise ValueError("at least one admitted artifact is required")
         by_source: dict[str, PublicSourceAdmission] = {}
-        for admission in admissions:
-            if admission.source_id in by_source:
+        for source_admission in admissions:
+            if source_admission.source_id in by_source:
                 raise ValueError("source admission ids must be unique")
-            by_source[admission.source_id] = admission
+            by_source[source_admission.source_id] = source_admission
 
         chunks: list[KnowledgeChunk] = []
         documents: list[RetrievalDocument] = []
