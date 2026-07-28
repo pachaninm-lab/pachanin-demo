@@ -18,7 +18,7 @@ cleanup_credentials() {
 trap cleanup_credentials EXIT
 
 case "$RUN_ROOT" in /srv/tai-models/bundle-finalization-runs/*) ;; *) exit 64;; esac
-test "$CONVERSION_ROOT" = "/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1"
+test "$CONVERSION_ROOT" = "/srv/tai-models/conversion-runs/846963821cf990c226eaead8b32f4bc9148311a0/30333755510-1"
 test "$(id -un)" = "tai-model"
 test -f "$CREDENTIALS_FILE"
 test ! -L "$CREDENTIALS_FILE"
@@ -38,6 +38,7 @@ test -f "$BUNDLE_AUTHORITY"
 test -f "$CONVERSION_AUTHORITY"
 test -f "$CONVERSION_ROOT/status.json"
 test -f "$CONVERSION_ROOT/evidence/conversion-report.json"
+test "$(sha256sum "$CONVERSION_ROOT/evidence/conversion-report.json" | awk '{print $1}')" = "f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d"
 test "$(findmnt -rn -o SOURCE -T "$RUN_ROOT")" = "$(findmnt -rn -o SOURCE -T "$CONVERSION_ROOT")"
 
 export AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID"
