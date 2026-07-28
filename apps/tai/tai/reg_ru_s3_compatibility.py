@@ -5,8 +5,9 @@ import json
 import os
 import re
 import stat
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urlsplit
 
 AUTHORITY_SCHEMA = "tai.reg-ru-s3-panel-compatibility-authority.v1"
