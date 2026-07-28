@@ -1,0 +1,61 @@
+name: One-shot PC-CROP-08I Prisma schema sync
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08i-schema-sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PC-CROP-08I branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-08i-fgis-outbound-ack
+          fetch-depth: 0
+
+      - name: Guard immutable sync base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "68e993976feef843b8709f5f4eac1dcef3f4b3a0"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Synchronize and validate Prisma authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-08i/sync-prisma-schema.mjs
+          pnpm --filter @pc/api exec prisma format
+          pnpm --filter @pc/api exec prisma validate
+          grep -q '^model FgisGrainAcknowledgement {' apps/api/prisma/schema.prisma
+          grep -q 'map: "fgis_grain_ack_exchange_fk"' apps/api/prisma/schema.prisma
+          git diff --check
+
+      - name: Commit exact schema authority to PC-CROP-08I
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(git status --porcelain -- apps/api/prisma/schema.prisma)"
+          git config user.name 'pc-crop-governance-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add apps/api/prisma/schema.prisma
+          git commit -m 'PC-CROP-08I: synchronize Prisma ACK authority'
+          git push origin HEAD:agent/pc-crop-08i-fgis-outbound-ack
