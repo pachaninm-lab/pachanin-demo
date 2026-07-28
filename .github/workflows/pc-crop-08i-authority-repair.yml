@@ -153,6 +153,12 @@ jobs:
               expected: 1,
               label: 'role parameter authority',
             },
+            {
+              before: "      'fgis-zerno-1.0.23-catalog.v1', 'PRE_PRODUCTION',\n      CAST('[\"INBOUND_EVENTS\",\"SIGNATURE_VERIFICATION\",\"SCHEMA_MAPPING\"]' AS jsonb),\n",
+              after: "      'fgis-zerno-1.0.23-catalog.v1', 'PREPROD',\n      CAST('[\"INBOUND_EVENTS\",\"SIGNATURE_VERIFICATION\",\"SCHEMA_MAPPING\"]' AS jsonb),\n",
+              expected: 1,
+              label: 'inbox environment authority',
+            },
           ]);
           NODE
 
