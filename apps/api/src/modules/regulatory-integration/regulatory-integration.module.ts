@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FgisGrainAckRepository } from './fgis-grain/fgis-grain-ack.repository';
 import { FgisGrainContractCatalogService } from './fgis-grain/fgis-grain-contract-catalog.service';
 import { FgisGrainDispatchRepository } from './fgis-grain/fgis-grain-dispatch.repository';
 import { FgisGrainExchangeCorrelationRepository } from './fgis-grain/fgis-grain-exchange-correlation.repository';
@@ -26,6 +27,7 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
     FgisGrainXmlCodecService,
     FgisGrainDispatchRepository,
     FgisGrainExchangeCorrelationRepository,
+    FgisGrainAckRepository,
     FgisGrainProviderAttestationRepository,
     FgisGrainSdizProjectionRepository,
   ],
@@ -40,6 +42,7 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
     FgisGrainXmlCodecService,
     FgisGrainDispatchRepository,
     FgisGrainExchangeCorrelationRepository,
+    FgisGrainAckRepository,
     FgisGrainProviderAttestationRepository,
     FgisGrainSdizProjectionRepository,
   ],
