@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-10a-government-systems-registry-3320",
+  "status": "active",
+  "issue": 3320,
+  "baseCommit": "2197480c2e71c6ec6c5c96c95d1c2d6af0eba9f7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-10a.yml",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-10a-government-systems-registry.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.registry.schema.v1.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json",
+    "scripts/pc-crop-10a/verify.mjs"
+  ],
+  "boundaries": {
+    "inventoryOnly": true,
+    "noRuntimeActivation": true,
+    "noCredentials": true,
+    "noAppsPackagesOrLockfiles": true,
+    "publicRegistryRequiresOfficialLocator": true,
+    "unknownRemainsNotAssessed": true,
+    "writesRemainDisabled": true,
+    "confirmedLiveClaim": false,
+    "productionDeployment": false
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "ministryCurrentEntries": 9,
+    "vetisCurrentComponents": 17,
+    "publicUiProviderCodes": 8,
+    "integrationSdkAdapterCodes": 15
+  }
+}
