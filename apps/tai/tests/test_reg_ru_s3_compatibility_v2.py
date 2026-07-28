@@ -14,8 +14,8 @@ from tai.reg_ru_s3_compatibility_v2 import (
     STREAM_OBJECT_BYTES,
     TARGET,
     VERIFIED_STATUS,
-    CredentialSet,
     Credentials,
+    CredentialSet,
     ProbeFailure,
     Sdk,
     authority_sha256,
@@ -200,7 +200,7 @@ def test_private_output_reservation_and_write(tmp_path: Path) -> None:
 
 
 def test_private_output_rejects_non_private_parent(tmp_path: Path) -> None:
-    os.chmod(tmp_path, 0o755)
+    os.chmod(tmp_path, 0o755)  # noqa: S103 - intentional rejection fixture
     with pytest.raises(ProbeFailure, match="OUTPUT_PARENT_NOT_PRIVATE"):
         reserve_private_output(tmp_path / "report.json")
 
