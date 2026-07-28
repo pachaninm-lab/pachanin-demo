@@ -23,6 +23,10 @@ export default defineConfig({
         __dirname,
         '../api/src/modules/ai-insights/ai-assistant-stream.contract.ts',
       ),
+      '@pc/ai-assistant-admission-manifest': path.resolve(
+        __dirname,
+        '../api/src/modules/ai-insights/ai-assistant-admission.manifest.ts',
+      ),
       '@': path.resolve(__dirname, '.'),
     },
   },

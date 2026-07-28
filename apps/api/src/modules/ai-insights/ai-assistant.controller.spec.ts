@@ -1,4 +1,9 @@
+import { createHash } from 'crypto';
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { AiAssistantController, readAdmission, type StreamRequest, type StreamResponse } from './ai-assistant.controller';
+import { canonicalJson } from './ai-assistant-admission.manifest';
 import type { AiAssistantService, AssistantChatResponse } from './ai-assistant.service';
 import type { RequestUser } from '../../common/types/request-user';
 
@@ -103,10 +108,44 @@ function controllerWith(chat: jest.Mock) {
   return new AiAssistantController({ chat, catalog: jest.fn() } as unknown as AiAssistantService);
 }
 
+const ADMITTED_MODEL = 'Qwen/Qwen3-8B';
+
+/**
+ * A real admission decision written where the deployment will read it.
+ *
+ * The digest is taken the way the admission authority takes it, so this is not
+ * a stand-in for a decision: it is one. Editing any field of the file on disk
+ * makes the gateway refuse, which is the property these tests exist to hold.
+ */
+function admittedDecision(modelId: string = ADMITTED_MODEL): string {
+  const payload: Record<string, unknown> = {
+    schema_version: 'tai.model-admission-decision.v2',
+    status: 'ADMITTED',
+    reasons: [],
+    authority_sha256: 'a'.repeat(64),
+    primary: {
+      model: { role: 'PRIMARY', model_id: modelId, revision: '895c8d17' },
+      benchmark_report_sha256: 'b'.repeat(64),
+      benchmark_manifest_sha256: 'c'.repeat(64),
+      bundle_manifest_sha256: 'd'.repeat(64),
+    },
+    fallback: null,
+    evaluated_at: '2026-07-27T22:00:00+00:00',
+    production_operational_status: 'NOT_ATTESTED',
+  };
+  const document = {
+    ...payload,
+    decision_sha256: createHash('sha256').update(canonicalJson(payload), 'utf8').digest('hex'),
+  };
+  const file = join(mkdtempSync(join(tmpdir(), 'tai-admission-')), 'decision.json');
+  writeFileSync(file, JSON.stringify(document), 'utf8');
+  return file;
+}
+
 const ADMITTED_ENV = {
   TAI_GATEWAY_STREAM_ENABLED: 'true',
-  TAI_GATEWAY_MODEL_IDENTITY: 'qwen-preview@sha256:abc',
-  TAI_GATEWAY_MODEL_ADMISSION: 'ADMITTED',
+  TAI_GATEWAY_MODEL_IDENTITY: ADMITTED_MODEL,
+  TAI_GATEWAY_ADMISSION_MANIFEST: admittedDecision(),
   PUBLIC_APP_BASE_URL: 'https://example.test',
 };
 
@@ -117,7 +156,7 @@ describe('AiAssistantController stream', () => {
     process.env = { ...originalEnv };
     delete process.env.TAI_GATEWAY_STREAM_ENABLED;
     delete process.env.TAI_GATEWAY_MODEL_IDENTITY;
-    delete process.env.TAI_GATEWAY_MODEL_ADMISSION;
+    delete process.env.TAI_GATEWAY_ADMISSION_MANIFEST;
     delete process.env.PUBLIC_APP_BASE_URL;
   });
 
@@ -125,30 +164,49 @@ describe('AiAssistantController stream', () => {
     process.env = originalEnv;
   });
 
-  describe('admission is read from the environment on every request', () => {
-    it('refuses with FEATURE_DISABLED before it looks at the model', () => {
-      expect(readAdmission({ TAI_GATEWAY_MODEL_IDENTITY: 'm', TAI_GATEWAY_MODEL_ADMISSION: 'ADMITTED' } as NodeJS.ProcessEnv))
-        .toEqual({ allowed: false, refusal: 'FEATURE_DISABLED' });
+  describe('admission is re-read from the decision document on every request', () => {
+    it('refuses with FEATURE_DISABLED before it looks at the decision', () => {
+      expect(
+        readAdmission({
+          TAI_GATEWAY_MODEL_IDENTITY: ADMITTED_MODEL,
+          TAI_GATEWAY_ADMISSION_MANIFEST: admittedDecision(),
+        } as NodeJS.ProcessEnv),
+      ).toEqual({ allowed: false, refusal: 'FEATURE_DISABLED', modelIdentity: ADMITTED_MODEL });
     });
 
-    it('refuses a model that is only a candidate', () => {
-      expect(readAdmission({
-        TAI_GATEWAY_STREAM_ENABLED: 'true',
-        TAI_GATEWAY_MODEL_IDENTITY: 'm',
-        TAI_GATEWAY_MODEL_ADMISSION: 'CANDIDATE',
-      } as NodeJS.ProcessEnv)).toEqual({ allowed: false, refusal: 'MODEL_NOT_ADMITTED' });
+    it('refuses when the deployment names no decision document at all', () => {
+      expect(
+        readAdmission({ TAI_GATEWAY_STREAM_ENABLED: 'true' } as NodeJS.ProcessEnv),
+      ).toEqual({ allowed: false, refusal: 'MODEL_NOT_ADMITTED', modelIdentity: null });
     });
 
-    it('refuses a blank identity that a config file left behind', () => {
-      expect(readAdmission({
-        TAI_GATEWAY_STREAM_ENABLED: 'true',
-        TAI_GATEWAY_MODEL_IDENTITY: '   ',
-        TAI_GATEWAY_MODEL_ADMISSION: 'ADMITTED',
-      } as NodeJS.ProcessEnv)).toEqual({ allowed: false, refusal: 'MODEL_NOT_ADMITTED' });
+    it('cannot be admitted by an environment variable saying so', () => {
+      // The old switch. It now says nothing at all, which is the point.
+      expect(
+        readAdmission({
+          TAI_GATEWAY_STREAM_ENABLED: 'true',
+          TAI_GATEWAY_MODEL_IDENTITY: ADMITTED_MODEL,
+          TAI_GATEWAY_MODEL_ADMISSION: 'ADMITTED',
+        } as NodeJS.ProcessEnv),
+      ).toEqual({ allowed: false, refusal: 'MODEL_NOT_ADMITTED', modelIdentity: null });
     });
 
-    it('allows only an enabled feature with an admitted identity', () => {
-      expect(readAdmission(ADMITTED_ENV as NodeJS.ProcessEnv)).toEqual({ allowed: true, refusal: null });
+    it('refuses a decision that admits a different model than this deployment serves', () => {
+      expect(
+        readAdmission({
+          TAI_GATEWAY_STREAM_ENABLED: 'true',
+          TAI_GATEWAY_MODEL_IDENTITY: 'Someone/Unapproved-7B',
+          TAI_GATEWAY_ADMISSION_MANIFEST: admittedDecision(),
+        } as NodeJS.ProcessEnv),
+      ).toEqual({ allowed: false, refusal: 'MODEL_NOT_ADMITTED', modelIdentity: null });
+    });
+
+    it('allows only an enabled feature with a verified admitted decision', () => {
+      expect(readAdmission(ADMITTED_ENV as NodeJS.ProcessEnv)).toEqual({
+        allowed: true,
+        refusal: null,
+        modelIdentity: ADMITTED_MODEL,
+      });
     });
   });
 
@@ -191,7 +249,9 @@ describe('AiAssistantController stream', () => {
 
       const frames = io.frames();
       expect(frames.map((frame) => frame.event)).toEqual(['meta', 'citation', 'token', 'assessment', 'done']);
-      expect(frames[0]).toMatchObject({ mode: 'private', modelIdentity: 'qwen-preview@sha256:abc' });
+      // What `meta` announces is the model the decision admitted, read back out
+      // of the verified document rather than out of a variable beside it.
+      expect(frames[0]).toMatchObject({ mode: 'private', modelIdentity: ADMITTED_MODEL });
       expect(frames[1]).toMatchObject({ uri: 'https://example.test/platform-v7/deals' });
       expect(frames[3]).toMatchObject({ operationalStatus: 'NOT_ATTESTED' });
       expect(frames[4]).toMatchObject({ complete: true });
