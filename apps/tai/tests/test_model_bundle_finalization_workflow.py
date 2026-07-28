@@ -144,7 +144,7 @@ def test_remote_executes_canonical_conversion_report_validation(tmp_path: Path) 
         }
     )
     validator = _remote_conversion_report_validator_source()
-    accepted = subprocess.run(
+    accepted = subprocess.run(  # noqa: S603 -- trusted repository validator
         [sys.executable, "-c", validator],
         check=False,
         capture_output=True,
@@ -159,7 +159,7 @@ def test_remote_executes_canonical_conversion_report_validation(tmp_path: Path) 
         json.dumps(tampered, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    rejected = subprocess.run(
+    rejected = subprocess.run(  # noqa: S603 -- trusted repository validator
         [sys.executable, "-c", validator],
         check=False,
         capture_output=True,
