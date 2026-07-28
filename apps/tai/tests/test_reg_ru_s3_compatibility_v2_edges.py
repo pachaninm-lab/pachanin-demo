@@ -208,7 +208,9 @@ class BareClientError(Exception):
     pass
 
 
-def test_client_error_classifier_import_and_malformed_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_client_error_classifier_import_and_malformed_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake_exceptions = SimpleNamespace(ClientError=FakeClientError)
     monkeypatch.setattr(
         probe.importlib,
