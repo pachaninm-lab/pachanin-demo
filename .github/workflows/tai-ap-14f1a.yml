@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/tai-ap-14f1a.yml'
       - 'apps/tai/tai/migrations/0019_public_official_corpus.sql'
+      - 'apps/tai/tai/migrations/0020_public_official_corpus_audit_authority.sql'
       - 'apps/tai/tai/migrations/manifest.json'
       - 'apps/tai/tai/postgres_public_official_corpus.py'
       - 'apps/tai/tai/public_official_corpus.py'
@@ -20,6 +21,7 @@ on:
     paths:
       - '.github/workflows/tai-ap-14f1a.yml'
       - 'apps/tai/tai/migrations/0019_public_official_corpus.sql'
+      - 'apps/tai/tai/migrations/0020_public_official_corpus_audit_authority.sql'
       - 'apps/tai/tai/migrations/manifest.json'
       - 'apps/tai/tai/postgres_public_official_corpus.py'
       - 'apps/tai/tai/public_official_corpus.py'
@@ -142,9 +144,14 @@ jobs:
           from pathlib import Path
           import psycopg
 
-          sql = Path('apps/tai/tai/migrations/0019_public_official_corpus.sql').read_text(encoding='utf-8')
+          migration_root = Path('apps/tai/tai/migrations')
+          migrations = [
+              migration_root / '0019_public_official_corpus.sql',
+              migration_root / '0020_public_official_corpus_audit_authority.sql',
+          ]
           with psycopg.connect(os.environ['TEST_DATABASE_URL'], autocommit=True) as connection:
-              connection.execute(sql)
+              for migration in migrations:
+                  connection.execute(migration.read_text(encoding='utf-8'))
               required = {
                   'tai_public_corpus_source_admissions',
                   'tai_public_corpus_artifacts',
@@ -160,11 +167,12 @@ jobs:
               if not required.issubset(actual):
                   raise SystemExit(f'missing tables: {sorted(required - actual)}')
               functions = connection.execute(
-                  "SELECT proname FROM pg_proc WHERE proname IN ('tai_activate_public_corpus_snapshot','tai_withdraw_public_corpus_source')"
+                  "SELECT proname FROM pg_proc WHERE proname IN ('tai_activate_public_corpus_snapshot','tai_withdraw_public_corpus_source','tai_public_corpus_audit_immutable_guard')"
               ).fetchall()
               if {row[0] for row in functions} != {
                   'tai_activate_public_corpus_snapshot',
                   'tai_withdraw_public_corpus_source',
+                  'tai_public_corpus_audit_immutable_guard',
               }:
                   raise SystemExit('governed functions missing')
               views = connection.execute(
@@ -172,6 +180,11 @@ jobs:
               ).fetchall()
               if views != [('tai_active_public_corpus_chunks_v1',)]:
                   raise SystemExit('active corpus view missing')
+              triggers = connection.execute(
+                  "SELECT tgname FROM pg_trigger WHERE tgrelid = 'tai_public_corpus_audit'::regclass AND NOT tgisinternal"
+              ).fetchall()
+              if triggers != [('tai_public_corpus_audit_immutable',)]:
+                  raise SystemExit('immutable audit trigger missing')
           PY
 
       - name: Verify fail-closed slice contract
@@ -189,7 +202,8 @@ jobs:
           if (report.status !== 'PASS') process.exit(1);
           if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
           if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
-          if (report.counts.changedPaths !== 10) process.exit(1);
+          if (report.counts.changedPaths !== 11) process.exit(1);
+          if (report.counts.migrationVersion !== 21) process.exit(1);
           if (Object.values(report.boundaries).some(Boolean)) process.exit(1);
           NODE
 
