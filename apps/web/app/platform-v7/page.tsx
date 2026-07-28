@@ -57,6 +57,18 @@ const CRITICAL_HOME_CSS = `
   letter-spacing: 0;
   text-transform: none;
 }
+html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
+  max-width: none;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.24;
+  letter-spacing: -.005em;
+  white-space: pre;
+}
+html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::first-line {
+  font-size: 14px;
+  font-weight: 600;
+}
 .pc-v6-hero h1.pc-v6-hero-title {
   max-width: 13ch;
   margin: 0;
@@ -178,6 +190,17 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     font-size: 12.5px;
     line-height: 1.3;
     text-wrap: balance;
+  }
+  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
+    font-size: clamp(11px, 3.45vw, 13.5px);
+    font-weight: 800;
+    line-height: 1.22;
+    letter-spacing: -.006em;
+    white-space: pre;
+  }
+  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::first-line {
+    font-size: clamp(9.75px, 3.15vw, 12.5px);
+    font-weight: 600;
   }
   .pc-v6-hero h1.pc-v6-hero-title {
     max-width: 100%;
