@@ -49,11 +49,11 @@ jobs:
           printf '%s\n' "$required_json" > required-workflows.json
 
           for attempt in $(seq 1 90); do
-            gh api \
+            gh api --paginate --slurp \
               -H 'Accept: application/vnd.github+json' \
               -H 'X-GitHub-Api-Version: 2022-11-28' \
               "/repos/${REPOSITORY}/actions/runs?head_sha=${EXACT_HEAD}&per_page=100" \
-              > workflow-runs-raw.json
+              > workflow-runs-pages.json
 
             set +e
             python - <<'PY'
@@ -62,9 +62,15 @@ jobs:
           from pathlib import Path
 
           required = set(json.loads(Path("required-workflows.json").read_text()))
-          raw = json.loads(Path("workflow-runs-raw.json").read_text())
+          pages = json.loads(Path("workflow-runs-pages.json").read_text())
+          if not isinstance(pages, list):
+              raise SystemExit("workflow-runs pages must be a list")
+          runs = []
+          for page in pages:
+              if not isinstance(page, dict) or not isinstance(page.get("workflow_runs"), list):
+                  raise SystemExit("workflow-runs page is malformed")
+              runs.extend(page["workflow_runs"])
           exact_head = os.environ["EXACT_HEAD"]
-          runs = raw.get("workflow_runs", [])
           latest = {}
           for run in runs:
               name = run.get("name")
