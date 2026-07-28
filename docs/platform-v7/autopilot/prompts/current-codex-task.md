@@ -63,6 +63,22 @@ The user explicitly authorized branch `agent/platform-v7-home-10of10-v1` to comp
 
 Allowed outcomes are limited to public UX/UI hierarchy, responsive CSS, RU/EN/ZH copy, public role simulation, progressive organization-intake presentation, contact-dock behavior, SEO metadata and their bound unit/E2E tests. Preserve the existing durable intake endpoint and idempotency/replay/rate-limit/no-JavaScript boundaries. Do not change API code, database schema or migrations, RBAC, protected routes, bank or TAI authority, external adapters, packages, lockfiles, production workflows or REG.RU deployment topology. No fake-live or unverified external-connectivity claim is permitted.
 
+## Approved concurrent TAI model-capacity scope — issue #3317
+
+The user explicitly authorized a narrow current-hardware protection slice on branch
+`agent/tai-ap-19a-model-capacity-gate-3317`. The implementation is bound to the exact
+allow-list in `autopilot-state.json`.
+
+The slice may add a fail-closed local-model invocation capacity gate, parse and validate
+`TAI_MODEL_MAX_INFLIGHT`, preserve one capacity claim across primary/fallback attempts,
+surface immediate retryable overload as HTTP 429 with `Retry-After`, and add focused
+tests. The default must remain `1`; values above `1` do not constitute measured
+admission and may be used only after separate benchmark evidence.
+
+It must not activate a model, weaken admission or local-only transport, add an internal
+request queue, change retrieval authority, enable write tools, change production
+topology, or claim benchmark/deployment/operational acceptance.
+
 ## Forbidden zones
 
 - apps/landing
