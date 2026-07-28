@@ -1,15 +1,14 @@
 {
-  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "schema_version": "tai.concurrent-scope.v1",
   "branch": "agent/tai-ap-19a-model-capacity-gate-3317",
   "status": "active",
-  "programIssue": 2726,
-  "parentIssue": 2726,
+  "program_issue": 2726,
+  "parent_issue": 2726,
   "issue": 3317,
-  "baseCommit": "8251c00013b2e7644f74903583915635a43c48e9",
-  "operationalStatus": "NOT_ATTESTED",
-  "maturityBoundary": "process-local-model-invocation-capacity-protection-only",
-  "allowedPaths": [
-    "docs/platform-v7/autopilot/scopes/tai-ap-19a-model-capacity-gate-3317.json",
+  "exact_base": "8251c00013b2e7644f74903583915635a43c48e9",
+  "maturity_boundary": "process-local-model-invocation-capacity-protection-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-19a-model-capacity-gate-3317.json",
     "apps/tai/tai/model_runtime.py",
     "apps/tai/tai/production_runtime.py",
     "apps/tai/tai/rag_pipeline.py",
@@ -19,17 +18,14 @@
     "apps/tai/tests/test_rag_pipeline.py",
     "apps/tai/tests/test_api_orchestration.py"
   ],
-  "boundaries": {
-    "internalQueueOrBlockingWait": false,
-    "hostWideOrDistributedCapacityClaim": false,
-    "defaultModelInflightAboveOne": false,
-    "modelActivationOrAdmission": false,
-    "benchmarkOrOperationalAcceptance": false,
-    "retrievalAuthorityChange": false,
-    "writeToolChange": false,
-    "productionTopologyChange": false,
-    "secondCapacityClaimForFallback": false
-  },
+  "forbidden_capabilities": [
+    "internal request queue or blocking capacity wait",
+    "host-wide or distributed capacity claim",
+    "default model inflight limit above one",
+    "model activation, admission, benchmark or operational acceptance",
+    "retrieval authority, write-tool or production-topology change",
+    "second capacity claim for fallback model attempts"
+  ],
   "acceptance": [
     "production configuration defaults TAI_MODEL_MAX_INFLIGHT to one and accepts only integers from one through four",
     "one process-local non-blocking capacity claim wraps routing plus every primary and fallback model attempt for one request",
@@ -38,6 +34,5 @@
     "RAG re-raises capacity overload while preserving abstention for other model errors",
     "orchestration returns retryable OVERLOADED as HTTP 429 with Retry-After",
     "focused Ruff, strict mypy and pytest checks pass"
-  ],
-  "productionHosting": "REG_RU_VPS_ONLY"
+  ]
 }
