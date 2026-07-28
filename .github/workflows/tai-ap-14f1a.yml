@@ -116,10 +116,10 @@ jobs:
           pg_isready -h 127.0.0.1 -p 5432 -U postgres -d tai_ap14f1a
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
             -f apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql \
-            | tee "$EVIDENCE_DIR/primary-migration.log"
+            2>&1 | tee "$EVIDENCE_DIR/primary-migration.log"
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
             -f apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql \
-            | tee "$EVIDENCE_DIR/correction-migration.log"
+            2>&1 | tee "$EVIDENCE_DIR/correction-migration.log"
           sha256sum \
             apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql \
             apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql \
@@ -132,9 +132,9 @@ jobs:
         run: |
           set -euo pipefail
           race_sql="SET ROLE tai_knowledge_ingestor; SELECT tai_knowledge.register_source('src_rrrrrrrrrrrr','synthetic.race.source','OFFICIAL_MANUAL','https://race.example.test/source','race.example.test','AP14F0-SYNTHETIC_RACE','ALLOWED_SHARED_RAG',DATE '2026-07-28',DATE '2099-12-31','audit_race00000001');"
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$race_sql" > "$EVIDENCE_DIR/race-1.txt" &
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$race_sql" > "$EVIDENCE_DIR/race-1.txt" 2>&1 &
           pid1=$!
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$race_sql" > "$EVIDENCE_DIR/race-2.txt" &
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$race_sql" > "$EVIDENCE_DIR/race-2.txt" 2>&1 &
           pid2=$!
           wait "$pid1"
           wait "$pid2"
@@ -150,7 +150,7 @@ jobs:
           set -euo pipefail
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -At \
             -f scripts/tai-ap-14f1a/postgresql-acceptance.sql \
-            | tee "$EVIDENCE_DIR/postgresql-acceptance.txt"
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.txt"
           tail -n 1 "$EVIDENCE_DIR/postgresql-acceptance.txt" > "$EVIDENCE_DIR/postgresql-acceptance.json"
           node <<'NODE'
           const fs = require('node:fs');
