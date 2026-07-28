@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f1a-public-corpus-authority-3345",
+  "status": "active",
+  "issue": 3345,
+  "baseCommit": "914b2be00cebfe9b3c24e75dc9a6aa4df5b21dbf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f1a.yml",
+    "apps/tai/tai/migrations/0019_public_official_corpus.sql",
+    "apps/tai/tai/migrations/0020_public_official_corpus_audit_authority.sql",
+    "apps/tai/tai/migrations/manifest.json",
+    "apps/tai/tai/postgres_public_official_corpus.py",
+    "apps/tai/tai/public_official_corpus.py",
+    "apps/tai/tests/test_migration_manifest.py",
+    "apps/tai/tests/test_postgres_public_official_corpus.py",
+    "apps/tai/tests/test_public_official_corpus.py",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3345.json",
+    "scripts/tai-ap-14f1a/verify.mjs"
+  ],
+  "boundaries": {
+    "authorityOnly": true,
+    "noNetworkFetch": true,
+    "noRealCorpusBytes": true,
+    "noTenantLiveOrContractedData": true,
+    "noCredentials": true,
+    "noEmbeddingsOrModelWeights": true,
+    "noRuntimeActivation": true,
+    "noProductionDeployment": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 11,
+    "migrationVersion": 21,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
