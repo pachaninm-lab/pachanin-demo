@@ -1,53 +1,194 @@
-name: TAI AP-14F1A Authority Schema Patch
+name: TAI AP-14F1A PostgreSQL Corpus Authority
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap-14f1a.yml'
+      - 'apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql'
+      - 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'
+      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.v1.json'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3346.json'
+      - 'scripts/tai-ap-14f1a/postgresql-acceptance.sql'
+      - 'scripts/tai-ap-14f1a/verify.mjs'
   push:
     branches:
+      - main
       - agent/tai-ap-14f1a-public-corpus-authority-3346
     paths:
       - '.github/workflows/tai-ap-14f1a.yml'
+      - 'apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql'
+      - 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'
+      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.v1.json'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3346.json'
+      - 'scripts/tai-ap-14f1a/postgresql-acceptance.sql'
+      - 'scripts/tai-ap-14f1a/verify.mjs'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  statuses: write
 
 concurrency:
-  group: tai-ap-14f1a-authority-schema-patch
-  cancel-in-progress: false
+  group: tai-ap-14f1a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/tai-ap-14f1a
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tai_ap14f1a
 
 jobs:
-  patch-postgresql-acceptance:
+  postgresql-authority:
+    name: PostgreSQL 16 · roles · admission · quarantine · withdrawal
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tai_ap14f1a
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tai_ap14f1a"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Point table-shape assertion at database-managed schema
+      - name: Resolve governed comparison base
+        id: base
         shell: bash
         run: |
           set -euo pipefail
-          python <<'PY'
-          from pathlib import Path
-
-          path = Path('scripts/tai-ap-14f1a/postgresql-acceptance.sql')
-          text = path.read_text(encoding='utf-8')
-          old = "  WHERE n.nspname = 'public'\n    AND c.relkind = 'r'\n"
-          new = "  WHERE n.nspname = 'tai_knowledge'\n    AND c.relkind = 'r'\n"
-          matches = text.count(old)
-          if matches == 1:
-              path.write_text(text.replace(old, new), encoding='utf-8')
-          elif matches != 0:
-              raise SystemExit(f'expected zero or one schema target, found {matches}')
-          PY
-
-          git diff --check
-          if git diff --quiet; then
-            exit 0
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            base_ref="HEAD^"
+          else
+            base_ref="b82c07cf28c13f9652f87cd14fdc2a75164b8e1b"
           fi
-          git config user.name 'p7-authority-bot'
-          git config user.email 'p7-authority-bot@users.noreply.github.com'
-          git add scripts/tai-ap-14f1a/postgresql-acceptance.sql
-          git commit -m 'TAI AP-14F1A: validate database-managed authority schema'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          printf 'base_ref=%s\n' "$base_ref" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify source-controlled scope and static authority
+        shell: bash
+        env:
+          BASE_REF: ${{ steps.base.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          printf '%s\n' "$BASE_REF" > "$EVIDENCE_DIR/base-ref.txt"
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+            bash scripts/p7-autopilot-guard.sh
+          fi
+          node scripts/tai-ap-14f1a/verify.mjs --scope-guard "$BASE_REF" \
+            | tee "$EVIDENCE_DIR/static-acceptance.json"
+
+      - name: Apply migrations on PostgreSQL 16
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          pg_isready -h 127.0.0.1 -p 5432 -U postgres -d tai_ap14f1a
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+            -f apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql \
+            2>&1 | tee "$EVIDENCE_DIR/primary-migration.log"
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+            -f apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql \
+            2>&1 | tee "$EVIDENCE_DIR/correction-migration.log"
+          sha256sum \
+            apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql \
+            apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql \
+            > "$EVIDENCE_DIR/migration-sha256.txt"
+
+      - name: Prove concurrent first-source idempotency
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          race_sql="SET ROLE tai_knowledge_ingestor; SELECT tai_knowledge.register_source('src_rrrrrrrrrrrr','synthetic.race.source','OFFICIAL_MANUAL','https://race.example.test/source','race.example.test','AP14F0-SYNTHETIC_RACE','ALLOWED_SHARED_RAG',DATE '2026-07-28',DATE '2099-12-31','audit_race00000001');"
+          psql "$DATABASE_URL" -X -qAtc "$race_sql" > "$EVIDENCE_DIR/race-1.txt" 2>&1 & pid1=$!
+          psql "$DATABASE_URL" -X -qAtc "$race_sql" > "$EVIDENCE_DIR/race-2.txt" 2>&1 & pid2=$!
+          wait "$pid1"
+          wait "$pid2"
+          test "$(cat "$EVIDENCE_DIR/race-1.txt")" = "src_rrrrrrrrrrrr"
+          test "$(cat "$EVIDENCE_DIR/race-2.txt")" = "src_rrrrrrrrrrrr"
+          test "$(psql "$DATABASE_URL" -X -qAtc "SELECT count(*) FROM tai_public_source_admissions WHERE source_code='synthetic.race.source'")" = "1"
+
+      - name: Run PostgreSQL positive and negative acceptance
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -At \
+            -f scripts/tai-ap-14f1a/postgresql-acceptance.sql \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.txt"
+          tail -n 1 "$EVIDENCE_DIR/postgresql-acceptance.txt" > "$EVIDENCE_DIR/postgresql-acceptance.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const staticReport = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/static-acceptance.json`, 'utf8'));
+          const databaseReport = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/postgresql-acceptance.json`, 'utf8'));
+          if (staticReport.status !== 'PASS') process.exit(1);
+          if (staticReport.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (staticReport.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (staticReport.counts.authorityTables !== 7) process.exit(1);
+          if (staticReport.counts.controlledFunctions !== 9) process.exit(1);
+          if (staticReport.counts.negativeMutationProbes !== 6) process.exit(1);
+          if (Object.values(staticReport.boundaries).some(Boolean)) process.exit(1);
+          if (databaseReport.status !== 'PASS') process.exit(1);
+          if (databaseReport.slice !== 'TAI-AP-14F1A') process.exit(1);
+          if (databaseReport.postgresqlMajor !== 16) process.exit(1);
+          if (databaseReport.authorityTables !== 7) process.exit(1);
+          if (databaseReport.retrievalEntriesAfterWithdrawal !== 0) process.exit(1);
+          if (databaseReport.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (databaseReport.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          NODE
+
+      - name: Upload AP-14F1A exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap-14f1a-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish observable exact-main status
+        if: always() && github.ref_name == 'main'
+        uses: actions/github-script@v7
+        env:
+          ACCEPTANCE_JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = process.env.ACCEPTANCE_JOB_STATUS === 'success' ? 'success' : 'failure';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.EXACT_HEAD,
+              state,
+              context: 'TAI AP-14F1A exact-main',
+              description: state === 'success'
+                ? 'PostgreSQL public corpus authority accepted on exact main'
+                : 'AP-14F1A exact-main acceptance failed',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
