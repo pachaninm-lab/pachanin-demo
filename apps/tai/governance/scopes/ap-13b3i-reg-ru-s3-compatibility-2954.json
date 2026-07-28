@@ -5,8 +5,8 @@
   "program_issue": 2726,
   "parent_issue": 2835,
   "issue": 2954,
-  "exact_base": "8655c70900bc087875ce64e7b7f65775ee838b93",
-  "maturity_boundary": "dormant-local-reg-ru-s3-compatibility-evidence-only",
+  "exact_base": "ca3060459976ee64963f4cd3dfc27b34c62527ab",
+  "maturity_boundary": "dormant-local-reg-ru-s3-panel-compatibility-evidence-only",
   "allowed_paths": [
     "apps/tai/governance/scopes/ap-13b3i-reg-ru-s3-compatibility-2954.json",
     "apps/tai/model-artifacts/reg-ru-s3-compatibility-authority.v1.json",
@@ -20,21 +20,23 @@
   "forbidden_capabilities": [
     "GitHub Actions workflow, repository secret registration or unattended execution",
     "active provider-profile registration or active preflight-requirements switch",
-    "model-bundle finalization, model upload, benchmark, admission, activation or deployment",
-    "bucket creation, bucket deletion, versioning change or Object Lock configuration change",
-    "principal inference from owner, key-set display name, Access Key ID or bucket-owner ID",
-    "credential values in command arguments, logs, evidence, Git, issues, pull requests or chat",
-    "network or S3 mutation without a provider-issued local principal attestation and exact interactive confirmation",
+    "model-bundle finalization, accepted model-bundle upload, benchmark, admission, activation or deployment",
+    "bucket creation, bucket deletion, versioning change, Object Lock configuration change or bucket-policy mutation",
+    "principal inference from owner, key-set display name, Access Key ID, key-set UUID or bucket-owner ID",
+    "credential values in command arguments, logs, evidence, Git, issues, pull requests, screenshots or chat",
+    "successful data-plane mutation without exact interactive confirmation",
+    "more than one 9437184-byte retained governed object or any retained multipart payload",
     "TLS verification bypass, including --no-verify-ssl"
   ],
   "acceptance": [
     "REG_RU_S3_2026 remains CANDIDATE_NOT_ACTIVE and is not added to the active provider registry",
-    "principal status remains UNRESOLVED in committed authority",
-    "the local probe exits before credential input and before mutation when principal evidence is absent, malformed or target-drifted",
-    "all mutations are bounded to one 4096-byte WORM canary, one 9437184-byte governed stream object and one aborted multipart upload",
-    "the probe proves exact principal selection, global delete denial, TLS denial, COMPLIANCE enforcement, known-object privacy, multipart compatibility and exact-version restore",
-    "the previous bucket policy is restored after a failed probe and unrelated statements are preserved on success",
-    "only a bounded sanitized report is retained; credentials and raw provider evidence are excluded",
+    "the committed authority contains the exact five REG.RU panel rules and the three non-secret key-set names",
+    "the local probe exits before credential input when authority validation fails and before successful write when policy or principal discrimination fails",
+    "the raw bucket policy is admin-read-only, validated locally, hashed and not retained",
+    "the matching finalizer is allowed, the nonmatching control key is denied, and the control key has no panel rules",
+    "all successful mutations are bounded to one 9437184-byte governed stream object and one fully aborted multipart upload",
+    "the probe proves exact panel policy, finalizer delete denial, finalizer control-plane denial, TLS privacy, COMPLIANCE enforcement, multipart compatibility and exact-version restore",
+    "only a bounded sanitized report is retained; credentials, Access Key IDs, key-set UUIDs and raw policy are excluded",
     "finalization_allowed, github_secret_registration_allowed and production_operational_status remain false, false and NOT_ATTESTED"
   ]
 }
