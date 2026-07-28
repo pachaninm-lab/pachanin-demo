@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+// Exact-SHA production release trigger for the approved Hero positioning update.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
