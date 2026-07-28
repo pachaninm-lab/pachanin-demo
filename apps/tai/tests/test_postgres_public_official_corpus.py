@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from collections import deque
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -14,6 +15,7 @@ from tai.public_official_corpus import (
     PublicCorpusArtifact,
     PublicOfficialCorpusBuilder,
     PublicSourceAdmission,
+    SourceAdmissionStatus,
     SourceClass,
     SourceLocatorKind,
 )
@@ -134,14 +136,35 @@ def test_admit_source_and_artifact_use_fail_closed_conflict_predicates() -> None
     admission_query, admission_parameters = connection.cursor_value.calls[0]
     artifact_query, artifact_parameters = connection.cursor_value.calls[1]
     normalized_admission_query = " ".join(admission_query.split())
-    assert "data_plane = 'PUBLIC_OFFICIAL'" in normalized_admission_query
+    normalized_artifact_query = " ".join(artifact_query.split())
+    assert "VALUES (%s, 'PUBLIC_OFFICIAL'" in normalized_admission_query
+    assert "data_plane = EXCLUDED.data_plane" in normalized_admission_query
     assert (
         "rights_decision_id = EXCLUDED.rights_decision_id"
         in normalized_admission_query
     )
+    assert "status = 'ADMITTED'" in normalized_admission_query
     assert _admission().rights_decision_id in _parameters(admission_parameters)
-    assert "official_uri = EXCLUDED.official_uri" in artifact_query
+    assert "SET artifact_sha256 = EXCLUDED.artifact_sha256" in normalized_artifact_query
+    assert "observed_at = EXCLUDED.observed_at" in normalized_artifact_query
+    assert "official_uri = EXCLUDED.official_uri" in normalized_artifact_query
     assert DIGEST in _parameters(artifact_parameters)
+
+
+def test_withdrawn_source_cannot_be_re_admitted_by_replay() -> None:
+    connection = _Connection([])
+    authority = PostgreSQLPublicOfficialCorpusAuthority(_Factory(connection))
+    withdrawn = replace(
+        _admission(),
+        status=SourceAdmissionStatus.WITHDRAWN,
+    )
+
+    with pytest.raises(ValueError, match="only an ADMITTED source"):
+        authority.admit_source(withdrawn)
+
+    assert connection.cursor_value.calls == []
+    assert connection.commits == 0
+    assert connection.rollbacks == 0
 
 
 def test_conflicting_source_or_artifact_identity_rolls_back() -> None:
