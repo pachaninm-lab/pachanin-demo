@@ -1,0 +1,249 @@
+name: PC-CROP-08I FGIS Outbound ACK Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08h.yml'
+      - '.github/workflows/pc-crop-08i.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack*.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.ack-policy.lock.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack.json'
+      - 'scripts/pc-crop-08i/**'
+  push:
+    branches:
+      - main
+      - agent/pc-crop-08i-fgis-outbound-ack
+    paths:
+      - '.github/workflows/pc-crop-08h.yml'
+      - '.github/workflows/pc-crop-08i.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/**'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack*.ts'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts'
+      - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.ack-policy.lock.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack.json'
+      - 'scripts/pc-crop-08i/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-08i-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-08i
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+
+jobs:
+  outbound-ack:
+    name: PostgreSQL 16 · deterministic ACK · no ACK-of-ACK · receipt safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact PC-CROP-08I scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          elif [[ "$GITHUB_REF_NAME" == 'main' ]]; then
+            base_ref='HEAD^'
+          else
+            base_ref='9854fcad36cf382395f5f5bcb654ce663d2be5ee'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08h\.yml|\.github/workflows/pc-crop-08i\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-ack\.e2e-spec\.ts|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.ack-policy\.lock\.json|docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack\.json|scripts/pc-crop-08i/.*)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-08I contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+          touch "$EVIDENCE_DIR/scope-guard.ok"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify committed Prisma ACK authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            node scripts/pc-crop-08i/sync-prisma-schema.mjs
+            pnpm --filter @pc/api exec prisma format
+            pnpm --filter @pc/api exec prisma validate
+            git diff --exit-code -- apps/api/prisma/schema.prisma
+            grep -q '^model FgisGrainAcknowledgement {' apps/api/prisma/schema.prisma
+          } 2>&1 | tee "$EVIDENCE_DIR/schema-authority.log"
+          touch "$EVIDENCE_DIR/schema-authority.ok"
+
+      - name: Apply complete migration chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+          touch "$EVIDENCE_DIR/migration.ok"
+
+      - name: Verify restricted PostgreSQL ACK authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          psql 'postgresql://postgres:postgres@localhost:5432/grainflow' -v ON_ERROR_STOP=1 <<'SQL'
+          DO $authority$
+          BEGIN
+            IF to_regclass('public.fgis_grain_acknowledgements') IS NULL THEN
+              RAISE EXCEPTION 'FGIS ACK table is absent';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_class
+              WHERE oid = 'public.fgis_grain_acknowledgements'::regclass
+                AND relrowsecurity AND relforcerowsecurity
+            ) THEN
+              RAISE EXCEPTION 'FGIS ACK table is not forced-RLS';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_trigger
+              WHERE tgrelid = 'public.fgis_grain_exchanges'::regclass
+                AND tgname = 'fgis_grain_exchange_sync_ack_acceptance'
+                AND tgenabled <> 'D'
+            ) THEN
+              RAISE EXCEPTION 'ACK transport synchronization trigger is absent';
+            END IF;
+            IF has_table_privilege('app_runtime', 'public.fgis_grain_acknowledgements', 'INSERT')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_acknowledgements', 'UPDATE')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_acknowledgements', 'DELETE')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_acknowledgements', 'SELECT')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_acknowledgements', 'INSERT')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_acknowledgements', 'UPDATE')
+               OR has_table_privilege('app_outbox', 'public.fgis_grain_acknowledgements', 'DELETE')
+            THEN
+              RAISE EXCEPTION 'Restricted principals have direct ACK mutation authority';
+            END IF;
+            IF NOT has_table_privilege('app_runtime', 'public.fgis_grain_acknowledgements', 'SELECT')
+               OR NOT has_function_privilege(
+                 'app_runtime',
+                 'public.create_fgis_grain_acknowledgement(text,bigint,text,text,text,text,text,text,text,integer,text,text,text,text,text,text)',
+                 'EXECUTE'
+               )
+            THEN
+              RAISE EXCEPTION 'Controlled ACK function is not granted correctly';
+            END IF;
+            IF has_function_privilege(
+              'public',
+              'public.create_fgis_grain_acknowledgement(text,bigint,text,text,text,text,text,text,text,integer,text,text,text,text,text,text)',
+              'EXECUTE'
+            ) THEN
+              RAISE EXCEPTION 'PUBLIC can execute ACK mutation function';
+            END IF;
+          END
+          $authority$;
+          SQL
+          touch "$EVIDENCE_DIR/database-authority.ok"
+
+      - name: Typecheck API authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+          touch "$EVIDENCE_DIR/typecheck.ok"
+
+      - name: Run ACK contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+          touch "$EVIDENCE_DIR/unit-tests.ok"
+
+      - name: Run PostgreSQL ACK acceptance
+        env:
+          PC_CROP_08I_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-ack.e2e-spec.ts \
+            --runInBand 2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+          touch "$EVIDENCE_DIR/postgresql-acceptance.ok"
+
+      - name: Build fail-closed machine-readable acceptance
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-08i/verify.mjs | tee "$EVIDENCE_DIR/pc-crop-08i-acceptance.json"
+
+      - name: Enforce exact-head ACK evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$EVIDENCE_DIR/scope-guard.ok"
+          test -f "$EVIDENCE_DIR/schema-authority.ok"
+          test -f "$EVIDENCE_DIR/migration.ok"
+          test -f "$EVIDENCE_DIR/database-authority.ok"
+          test -f "$EVIDENCE_DIR/typecheck.ok"
+          test -f "$EVIDENCE_DIR/unit-tests.ok"
+          test -f "$EVIDENCE_DIR/postgresql-acceptance.ok"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-08i-acceptance.json`, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop.fgis-grain-ack-acceptance.v1') process.exit(1);
+          if (report.result !== 'PASS' || report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (report.policyHash !== '113c1937f42f7746fc0bbedd58378586ca6e7678393dd1db471768c4f2e3f05c') process.exit(1);
+          NODE
+
+      - name: Upload PC-CROP-08I evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08i-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
