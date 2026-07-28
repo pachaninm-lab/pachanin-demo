@@ -8,6 +8,7 @@ const root = resolve(import.meta.dirname, '../..');
 const allowedPaths = [
   '.github/workflows/tai-ap-14f1a.yml',
   'apps/tai/tai/migrations/0019_public_official_corpus.sql',
+  'apps/tai/tai/migrations/0020_public_official_corpus_audit_authority.sql',
   'apps/tai/tai/migrations/manifest.json',
   'apps/tai/tai/postgres_public_official_corpus.py',
   'apps/tai/tai/public_official_corpus.py',
@@ -43,16 +44,17 @@ assert(Array.isArray(manifest.migrations), 'migration manifest must contain migr
 const versions = manifest.migrations.map((item) => item.version);
 assert(
   JSON.stringify(versions)
-    === JSON.stringify(Array.from({ length: 20 }, (_, index) => index + 1)),
-  'migration versions must be exactly 1..20',
+    === JSON.stringify(Array.from({ length: 21 }, (_, index) => index + 1)),
+  'migration versions must be exactly 1..21',
 );
 const latest = manifest.migrations.at(-1);
 assert(
-  latest?.path === '0019_public_official_corpus.sql' && latest.version === 20,
-  'AP-14F1A migration must be version 20',
+  latest?.path === '0020_public_official_corpus_audit_authority.sql'
+    && latest.version === 21,
+  'AP-14F1A immutable audit migration must be version 21',
 );
 
-const sql = text('apps/tai/tai/migrations/0019_public_official_corpus.sql');
+const corpusSql = text('apps/tai/tai/migrations/0019_public_official_corpus.sql');
 for (const token of [
   'tai_public_corpus_source_admissions',
   "data_plane = 'PUBLIC_OFFICIAL'",
@@ -60,6 +62,7 @@ for (const token of [
   'tai_public_corpus_quarantine',
   'tai_public_corpus_snapshots',
   'tai_public_corpus_chunks',
+  'tai_public_corpus_audit',
   'tai_activate_public_corpus_snapshot',
   'tai_withdraw_public_corpus_source',
   'tai_active_public_corpus_chunks_v1',
@@ -69,17 +72,33 @@ for (const token of [
   'chunk.valid_until > clock_timestamp()',
   'artifact.freshness_due_at > clock_timestamp()',
   'admission.rights_review_due_at > clock_timestamp()',
-]) assert(sql.includes(token), `migration missing ${token}`);
-assert(
-  !/DROP\s+(TABLE|SCHEMA)|TRUNCATE|CASCADE\s*;/iu.test(sql),
-  'destructive SQL is forbidden',
+]) assert(corpusSql.includes(token), `corpus migration missing ${token}`);
+
+const auditSql = text(
+  'apps/tai/tai/migrations/0020_public_official_corpus_audit_authority.sql',
 );
+for (const token of [
+  'SNAPSHOT_CREATED',
+  'ARTIFACT_QUARANTINED',
+  'tai_public_corpus_audit_immutable_guard',
+  'tai_public_corpus_audit_immutable',
+  'BEFORE UPDATE OR DELETE',
+  "RAISE EXCEPTION 'tai_public_corpus_audit is immutable'",
+]) assert(auditSql.includes(token), `audit migration missing ${token}`);
+for (const sql of [corpusSql, auditSql]) {
+  assert(
+    !/DROP\s+(TABLE|SCHEMA)|TRUNCATE|CASCADE\s*;/iu.test(sql),
+    'destructive SQL is forbidden',
+  );
+}
 
 const domain = text('apps/tai/tai/public_official_corpus.py');
 for (const token of [
+  'class AuthorityAuditContext',
   'class PublicSourceAdmission',
   'class PublicArtifactProvenance',
   'class PublicOfficialCorpusBuilder',
+  'audit reason_code must satisfy the governed code contract',
   'tenant_id=None',
   'artifact source admission is withdrawn or rights-expired',
   'artifact rights decision does not match admission',
@@ -88,17 +107,26 @@ for (const token of [
 const repository = text('apps/tai/tai/postgres_public_official_corpus.py');
 for (const token of [
   'class PostgreSQLPublicOfficialCorpusAuthority',
+  'AuthorityAuditContext',
   'from psycopg.types.json import Jsonb',
   'only an ADMITTED source may enter the corpus authority',
   'SET source_id = EXCLUDED.source_id',
-  'rights_review_due_at =',
   'SET artifact_sha256 = EXCLUDED.artifact_sha256',
-  'freshness_due_at = EXCLUDED.freshness_due_at',
   'Jsonb(list(snapshot.source_ids))',
   'Jsonb(list(snapshot.artifact_sha256s))',
-  'tai_activate_public_corpus_snapshot',
-  'tai_withdraw_public_corpus_source',
-  'tai_active_public_corpus_chunks_v1',
+  'def quarantine(',
+  'def release_quarantine(',
+  'release_audit_sha256 = %s',
+  'def _insert_audit(',
+  'INSERT INTO tai_public_corpus_audit',
+  'audit event conflicts with immutable authority',
+  'SOURCE_ADMITTED',
+  'ARTIFACT_ADMITTED',
+  'SNAPSHOT_CREATED',
+  'SNAPSHOT_ACTIVATED',
+  'ARTIFACT_QUARANTINED',
+  'QUARANTINE_RELEASED',
+  'SOURCE_WITHDRAWN',
 ]) assert(repository.includes(token), `PostgreSQL authority missing ${token}`);
 assert(
   !repository.includes('SET status = EXCLUDED.status'),
@@ -130,15 +158,19 @@ for (const path of [
 
 const tests = `${text('apps/tai/tests/test_public_official_corpus.py')}\n${text('apps/tai/tests/test_postgres_public_official_corpus.py')}`;
 for (const token of [
-  'withdrawn or rights-expired',
-  'stale or not yet effective',
-  'rights decision',
-  'chunk identity conflicts',
-  'tenant_id is None',
-  'test_real_postgresql_blocks_silent_extension_and_withdrawal_revival',
-  'manifest does not match persisted chunks',
+  'test_audit_context_is_normalized_and_fail_closed',
+  'test_audit_failure_rolls_back_source_mutation',
+  'test_snapshot_chunk_conflict_rolls_back_without_audit',
+  'test_real_postgresql_mutations_are_fail_closed_audited_and_immutable',
+  'SOURCE_RIGHTS_EXTENDED',
+  'ARTIFACT_FRESHNESS_EXTENDED',
+  'ARTIFACT_QUARANTINED',
+  'QUARANTINE_RELEASED',
+  'SOURCE_WITHDRAWN',
   'PROMPT_INJECTION',
-]) assert(tests.includes(token), `negative regression missing ${token}`);
+  'UPDATE tai_public_corpus_audit',
+  'DELETE FROM tai_public_corpus_audit',
+]) assert(tests.includes(token), `audit or negative regression missing ${token}`);
 
 const workflow = text('.github/workflows/tai-ap-14f1a.yml');
 assert(
@@ -148,6 +180,13 @@ assert(
   ),
   'profile workflow must use the canonical mirrored PostgreSQL digest',
 );
+for (const token of [
+  '0020_public_official_corpus_audit_authority.sql',
+  'tai_public_corpus_audit_immutable_guard',
+  'tai_public_corpus_audit_immutable',
+  'report.counts.changedPaths !== 11',
+  'report.counts.migrationVersion !== 21',
+]) assert(workflow.includes(token), `workflow missing ${token}`);
 
 let changedPaths = [];
 const scopeIndex = process.argv.indexOf('--scope-guard');
@@ -176,7 +215,8 @@ process.stdout.write(`${JSON.stringify({
     migrationVersion: latest.version,
     dataPlanesAdmitted: 1,
     quarantineReasons: 12,
-    realPostgresqlExploitCases: 6,
+    auditEventTypes: 7,
+    realPostgresqlExploitCases: 10,
   },
   boundaries: {
     networkFetch: false,
