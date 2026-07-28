@@ -112,7 +112,7 @@ def test_v3_install_restore_and_location_semantics() -> None:
         )
     finally:
         v3.restore_v2_semantics()
-    assert verifier.AUTHORITY_SCHEMA == original_schema
+    assert original_schema == verifier.AUTHORITY_SCHEMA
     assert verifier.EXPECTED_RULES is original_rules
     assert verifier._validate_bucket_configuration is original_validator
 
