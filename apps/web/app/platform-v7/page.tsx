@@ -57,6 +57,8 @@ const CRITICAL_HOME_CSS = `
   letter-spacing: 0;
   text-transform: none;
 }
+html:lang(ru) .pc-v6-hero .pc-v6-kicker,
+html[lang^='ru'] .pc-v6-hero .pc-v6-kicker,
 html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
   display: block;
   max-width: none;
@@ -65,24 +67,32 @@ html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
   letter-spacing: 0;
   white-space: normal;
 }
+html:lang(ru) .pc-v6-hero .pc-v6-kicker::before,
+html:lang(ru) .pc-v6-hero .pc-v6-kicker::after,
+html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::before,
+html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::after,
 html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before,
 html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
   display: block;
   color: var(--pc-v6-green);
 }
+html:lang(ru) .pc-v6-hero .pc-v6-kicker::before,
+html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::before,
 html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before {
   content: 'Платформа управления агросделками в растениеводстве';
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.25;
 }
+html:lang(ru) .pc-v6-hero .pc-v6-kicker::after,
+html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::after,
 html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
   content: 'с собственным искусственным интеллектом';
-  margin-top: 2px;
-  font-size: 16px;
+  margin-top: 3px;
+  font-size: 17px;
   font-weight: 900;
-  line-height: 1.18;
-  letter-spacing: -.012em;
+  line-height: 1.16;
+  letter-spacing: -.014em;
 }
 .pc-v6-hero h1.pc-v6-hero-title {
   max-width: 13ch;
@@ -206,24 +216,30 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     line-height: 1.3;
     text-wrap: balance;
   }
+  html:lang(ru) .pc-v6-hero .pc-v6-kicker,
+  html[lang^='ru'] .pc-v6-hero .pc-v6-kicker,
   html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
     font-size: 0;
     line-height: 1;
     white-space: normal;
   }
+  html:lang(ru) .pc-v6-hero .pc-v6-kicker::before,
+  html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::before,
   html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before {
-    font-size: clamp(9.5px, 3.02vw, 12.5px);
-    font-weight: 650;
-    line-height: 1.22;
-    letter-spacing: -.006em;
+    font-size: clamp(10px, 2.95vw, 12px);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -.007em;
     white-space: nowrap;
   }
+  html:lang(ru) .pc-v6-hero .pc-v6-kicker::after,
+  html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::after,
   html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
-    margin-top: 3px;
-    font-size: clamp(12.5px, 3.65vw, 15px);
+    margin-top: 4px;
+    font-size: clamp(14.5px, 4vw, 17px);
     font-weight: 900;
-    line-height: 1.16;
-    letter-spacing: -.018em;
+    line-height: 1.12;
+    letter-spacing: -.02em;
     white-space: nowrap;
   }
   .pc-v6-hero h1.pc-v6-hero-title {
