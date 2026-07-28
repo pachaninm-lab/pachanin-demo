@@ -11,7 +11,7 @@ def validate_reg_ru_bucket_configuration(
     location_response: object,
     versioning_response: object,
     object_lock_response: object,
-    signing_region: str,
+    region: str,
 ) -> dict[str, object]:
     """Validate REG.RU controls without conflating location and signing region."""
 
@@ -42,7 +42,7 @@ def validate_reg_ru_bucket_configuration(
         "location_constraint": location_value,
         "location_observation_status": location_status,
         "location_semantics": "OBSERVED_NOT_PINNED_TO_SIGNING_REGION",
-        "signing_region": signing_region,
+        "signing_region": region,
         "versioning_status": "Enabled",
         "object_lock_status": "Enabled",
         "retention_mode": "COMPLIANCE",
