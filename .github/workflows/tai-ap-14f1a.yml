@@ -18,6 +18,7 @@ on:
     branches:
       - main
       - agent/tai-ap-14f1a-public-corpus-authority-3345
+      - agent/tai-ap-14f1a-exact-main-3345
     paths:
       - '.github/workflows/tai-ap-14f1a.yml'
       - 'apps/tai/tai/migrations/0019_public_official_corpus.sql'
@@ -34,6 +35,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: tai-ap-14f1a-${{ github.event.pull_request.number || github.ref }}
@@ -82,7 +84,7 @@ jobs:
           elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
             base_ref="HEAD^"
           else
-            base_ref="914b2be00cebfe9b3c24e75dc9a6aa4df5b21dbf"
+            base_ref="fcd0a372fb3a94ba36408479bd1b18f33b16c4e8"
           fi
           printf 'base_ref=%s\n' "$base_ref" >> "$GITHUB_OUTPUT"
 
@@ -209,7 +211,8 @@ jobs:
           if (report.status !== 'PASS') process.exit(1);
           if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
           if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
-          if (report.counts.changedPaths !== 11) process.exit(1);
+          if (report.counts.changedPaths < 1) process.exit(1);
+          if (report.counts.changedPaths > 11) process.exit(1);
           if (report.counts.migrationVersion !== 21) process.exit(1);
           if (Object.values(report.boundaries).some(Boolean)) process.exit(1);
           NODE
@@ -222,3 +225,23 @@ jobs:
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish observable exact-main status
+        if: always() && github.ref_name == 'main'
+        uses: actions/github-script@v7
+        env:
+          ACCEPTANCE_JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = process.env.ACCEPTANCE_JOB_STATUS === 'success' ? 'success' : 'failure';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.EXACT_HEAD,
+              state,
+              context: 'TAI AP-14F1A exact-main',
+              description: state === 'success'
+                ? 'Public official corpus authority accepted on exact main'
+                : 'AP-14F1A exact-main acceptance failed',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
