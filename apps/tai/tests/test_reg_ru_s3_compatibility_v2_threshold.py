@@ -57,7 +57,8 @@ def test_empty_credential_and_private_parent_guards(
         probe.reserve_private_output(alias / "report.json")
 
     os.chmod(real_parent, 0o700)
-    monkeypatch.setattr(probe.os, "geteuid", lambda: os.geteuid() + 1)
+    actual_uid = os.geteuid()
+    monkeypatch.setattr(probe.os, "geteuid", lambda: actual_uid + 1)
     with pytest.raises(probe.ProbeFailure, match="OUTPUT_PARENT_NOT_OWNED"):
         probe.reserve_private_output(real_parent / "report.json")
 
@@ -99,7 +100,11 @@ def test_main_retains_original_failure_when_report_write_fails(
     os.chmod(tmp_path, 0o700)
     monkeypatch.setattr(probe.sys, "stdin", TTY())
     monkeypatch.setattr(probe.sys, "stdout", TTY())
-    monkeypatch.setattr(probe, "load_sdk", lambda: SimpleNamespace())
+    sdk = SimpleNamespace(
+        boto3=SimpleNamespace(__version__="test"),
+        botocore=SimpleNamespace(__version__="test"),
+    )
+    monkeypatch.setattr(probe, "load_sdk", lambda: sdk)
     monkeypatch.setattr(probe, "read_credentials_once", credentials)
     monkeypatch.setattr(
         probe,
@@ -108,7 +113,6 @@ def test_main_retains_original_failure_when_report_write_fails(
             probe.ProbeFailure("ORIGINAL_FAILURE")
         ),
     )
-    original_write = probe.write_reserved_report
 
     def fail_write(_path: Path, _report: object) -> None:
         raise probe.ProbeFailure("REPORT_WRITE_FAILED")
@@ -121,7 +125,6 @@ def test_main_retains_original_failure_when_report_write_fails(
         )
         == 2
     )
-    monkeypatch.setattr(probe, "write_reserved_report", original_write)
 
 
 def test_new_stream_fallback_and_single_version_bound(
