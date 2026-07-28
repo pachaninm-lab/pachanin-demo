@@ -97,6 +97,12 @@ jobs:
               label: 'SECURITY DEFINER invoker authority',
             },
             {
+              before: "    IF p_ack_envelope_reference !~ '^object-store://[A-Za-z0-9][A-Za-z0-9:_.@/-]{2,500}$'\n       OR p_ack_envelope_sha256 !~ '^[a-f0-9]{64}$'\n       OR p_ack_envelope_size_bytes IS NULL OR p_ack_envelope_size_bytes <= 0\n       OR p_ack_message_data_id !~ '^[A-Za-z_][A-Za-z0-9._-]{0,127}$'\n       OR p_provider_configuration_reference !~ '^config://[A-Za-z0-9][A-Za-z0-9:_.@/-]{2,500}$'\n",
+              after: "    IF char_length(p_ack_envelope_reference) NOT BETWEEN 18 AND 512\n       OR p_ack_envelope_reference !~ '^object-store://[A-Za-z0-9][A-Za-z0-9:_.@/-]+$'\n       OR p_ack_envelope_sha256 !~ '^[a-f0-9]{64}$'\n       OR p_ack_envelope_size_bytes IS NULL OR p_ack_envelope_size_bytes <= 0\n       OR p_ack_message_data_id !~ '^[A-Za-z_][A-Za-z0-9._-]{0,127}$'\n       OR char_length(p_provider_configuration_reference) NOT BETWEEN 12 AND 512\n       OR p_provider_configuration_reference !~ '^config://[A-Za-z0-9][A-Za-z0-9:_.@/-]+$'\n",
+              expected: 1,
+              label: 'bounded PostgreSQL reference validation',
+            },
+            {
               before: '       AND v_existing."decision" = CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END\n',
               after: '       AND v_existing."decision" = (CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END)\n',
               expected: 1,
