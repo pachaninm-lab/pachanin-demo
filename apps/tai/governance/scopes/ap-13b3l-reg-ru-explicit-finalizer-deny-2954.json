@@ -1,0 +1,40 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3l-reg-ru-explicit-finalizer-deny-2954",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2954,
+  "exact_base": "0b9551623176f6060e1e5d758f8891f8fa61afcb",
+  "maturity_boundary": "dormant-local-reg-ru-s3-nine-rule-explicit-deny-evidence-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3l-reg-ru-explicit-finalizer-deny-2954.json",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-authority.v3.json",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-probe.v3.sh",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-runbook.v3.md",
+    "apps/tai/tai/reg_ru_s3_compatibility_v3.py",
+    "apps/tai/tests/test_reg_ru_s3_compatibility_v3.py"
+  ],
+  "forbidden_capabilities": [
+    "GitHub Actions workflow, repository secret registration or unattended execution",
+    "active provider-profile registration or active preflight-requirements switch",
+    "model-bundle finalization, accepted model-bundle upload, benchmark, admission, activation or deployment",
+    "automatic REG.RU policy mutation or any provider mutation from CI",
+    "credential values in command arguments, logs, evidence, Git, issues, pull requests, screenshots or chat",
+    "successful data-plane mutation without exact interactive confirmation",
+    "more than one 9437184-byte retained governed v3 compatibility object or any retained multipart payload",
+    "weakening GetBucketPolicy, control-plane or retention denial expectations",
+    "TLS verification bypass, including --no-verify-ssl"
+  ],
+  "acceptance": [
+    "REG_RU_S3_2026 remains CANDIDATE_NOT_ACTIVE",
+    "the original seven panel rules remain unchanged",
+    "TAI-08 explicitly denies finalizer bucket-policy and bucket-control reads or mutations",
+    "TAI-09 explicitly denies finalizer retention reads, mutations and governance bypass",
+    "the live policy readback must contain exactly nine target statements",
+    "the verifier stops before mutation unless finalizer GetBucketPolicy is denied",
+    "all v2 location, authorization, Object Lock, multipart, restore, WORM and sanitation proofs remain enforced",
+    "credentials are requested once per execution only after local checks",
+    "finalization_allowed remains false"
+  ]
+}
