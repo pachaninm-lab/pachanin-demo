@@ -171,6 +171,129 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION tai_knowledge.record_withdrawal(
+  p_id text,
+  p_source_version_id text,
+  p_action text,
+  p_reason text,
+  p_mfa_verified boolean,
+  p_decided_by_subject_hash text,
+  p_audit_event_reference text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+  v_source_version tai_public_source_versions%ROWTYPE;
+  v_source tai_public_source_admissions%ROWTYPE;
+  v_existing tai_public_source_withdrawals%ROWTYPE;
+BEGIN
+  IF p_mfa_verified IS DISTINCT FROM true THEN
+    RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'MFA is required for withdrawal decisions';
+  END IF;
+
+  SELECT * INTO v_existing
+  FROM public.tai_public_source_withdrawals
+  WHERE id = p_id;
+
+  IF FOUND THEN
+    IF v_existing.source_version_id = p_source_version_id
+      AND v_existing.action = p_action
+      AND v_existing.audit_event_reference = p_audit_event_reference
+    THEN
+      RETURN v_existing.id;
+    END IF;
+    RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'conflicting withdrawal event';
+  END IF;
+
+  SELECT * INTO v_source_version
+  FROM public.tai_public_source_versions
+  WHERE id = p_source_version_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'source version does not exist';
+  END IF;
+
+  SELECT * INTO v_source
+  FROM public.tai_public_source_admissions
+  WHERE id = v_source_version.source_admission_id
+  FOR UPDATE;
+
+  IF p_action = 'WITHDRAW' THEN
+    UPDATE public.tai_public_source_versions
+    SET status = 'WITHDRAWN', shared_index_allowed = false, version = version + 1,
+        audit_event_reference = p_audit_event_reference
+    WHERE id = p_source_version_id;
+
+    UPDATE public.tai_public_source_artifacts
+    SET state = 'WITHDRAWN', shared_index_eligible = false, version = version + 1,
+        audit_event_reference = p_audit_event_reference
+    WHERE source_version_id = p_source_version_id;
+  ELSIF p_action = 'RESTORE' THEN
+    IF v_source.status <> 'ADMITTED'
+      OR v_source.rights_status <> 'ALLOWED_SHARED_RAG'
+      OR v_source.rights_review_due_at < current_date
+    THEN
+      RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'current source rights are required for restoration';
+    END IF;
+
+    UPDATE public.tai_public_source_versions
+    SET status = 'ADMITTED', shared_index_allowed = true, version = version + 1,
+        audit_event_reference = p_audit_event_reference
+    WHERE id = p_source_version_id;
+
+    UPDATE public.tai_public_source_artifacts AS artifact
+    SET state = CASE
+          WHEN artifact.provenance_complete
+            AND artifact.malware_checked
+            AND artifact.content_type_checked
+            AND artifact.prompt_injection_checked
+            AND COALESCE((
+              SELECT quarantine_event.action
+              FROM public.tai_public_corpus_quarantine_events AS quarantine_event
+              WHERE quarantine_event.artifact_id = artifact.id
+              ORDER BY quarantine_event.created_at DESC, quarantine_event.id DESC
+              LIMIT 1
+            ), 'QUARANTINE') = 'HUMAN_RELEASED'
+          THEN 'ADMITTED'
+          ELSE 'QUARANTINED'
+        END,
+        shared_index_eligible = (
+          artifact.provenance_complete
+          AND artifact.malware_checked
+          AND artifact.content_type_checked
+          AND artifact.prompt_injection_checked
+          AND COALESCE((
+            SELECT quarantine_event.action
+            FROM public.tai_public_corpus_quarantine_events AS quarantine_event
+            WHERE quarantine_event.artifact_id = artifact.id
+            ORDER BY quarantine_event.created_at DESC, quarantine_event.id DESC
+            LIMIT 1
+          ), 'QUARANTINE') = 'HUMAN_RELEASED'
+        ),
+        version = version + 1,
+        audit_event_reference = p_audit_event_reference
+    WHERE artifact.source_version_id = p_source_version_id
+      AND artifact.state = 'WITHDRAWN';
+  ELSE
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'unsupported withdrawal action';
+  END IF;
+
+  INSERT INTO public.tai_public_source_withdrawals (
+    id, source_version_id, action, reason, mfa_verified,
+    decided_by_subject_hash, audit_event_reference
+  ) VALUES (
+    p_id, p_source_version_id, p_action, p_reason, true,
+    p_decided_by_subject_hash, p_audit_event_reference
+  );
+
+  RETURN p_id;
+END
+$function$;
+
 REVOKE ALL ON FUNCTION tai_knowledge.register_source(text, text, text, text, text, text, text, date, date, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION tai_knowledge.record_artifact(text, text, text, text, bigint, text, text, text, date, date, timestamptz, text, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION tai_knowledge.register_source(text, text, text, text, text, text, text, date, date, text) TO tai_knowledge_ingestor;
