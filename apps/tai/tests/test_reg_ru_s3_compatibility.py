@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 
 from tai.reg_ru_s3_compatibility import (
-    ContractError,
     EXPECTED_RULES,
     OBSERVED_SCHEMA,
     TARGET,
+    ContractError,
     authority_sha256,
     ensure_private_output,
     evaluate_compatibility,
@@ -230,6 +230,6 @@ def test_private_output_reservation(tmp_path: Path) -> None:
 
 
 def test_private_output_rejects_non_private_parent(tmp_path: Path) -> None:
-    os.chmod(tmp_path, 0o755)
+    os.chmod(tmp_path, 0o755)  # noqa: S103 - intentional rejection fixture
     with pytest.raises(ContractError, match="OUTPUT_PARENT_NOT_PRIVATE"):
         ensure_private_output(tmp_path / "report.json")
