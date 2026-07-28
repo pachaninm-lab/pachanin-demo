@@ -14,15 +14,15 @@ VERIFIED_STATUS = "VERIFIED_REG_RU_S3_PANEL_COMPATIBILITY_V3"
 
 FINALIZER_BUCKET_CONTROL_DENY_ACTIONS = [
     "s3:DeleteBucketPolicy",
-    "s3:GetBucketObjectLockConfiguration",
     "s3:GetBucketPolicy",
     "s3:GetLifecycleConfiguration",
-    "s3:PutBucketObjectLockConfiguration",
     "s3:PutBucketPolicy",
     "s3:PutBucketVersioning",
     "s3:PutLifecycleConfiguration",
 ]
-FINALIZER_RETENTION_DENY_ACTIONS = [
+PANEL_UNAVAILABLE_BEHAVIORAL_ACTIONS = [
+    "s3:GetBucketObjectLockConfiguration",
+    "s3:PutBucketObjectLockConfiguration",
     "s3:BypassGovernanceRetention",
     "s3:GetObjectRetention",
     "s3:PutObjectRetention",
@@ -37,16 +37,6 @@ EXPECTED_RULES: tuple[dict[str, object], ...] = verifier.EXPECTED_RULES + (
         "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
         "condition": {},
     },
-    {
-        "name": "TAI-09-finalizer-retention-deny",
-        "effect": "Deny",
-        "key_set": "tai-bundle-finalizer-prod-01",
-        "actions": FINALIZER_RETENTION_DENY_ACTIONS,
-        "resources": [
-            "arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"
-        ],
-        "condition": {},
-    },
 )
 
 KEY_SETS: dict[str, object] = {
@@ -54,7 +44,6 @@ KEY_SETS: dict[str, object] = {
     "finalizer_explicit_deny_rules": [
         "TAI-05-delete-deny",
         "TAI-08-finalizer-bucket-control-deny",
-        "TAI-09-finalizer-retention-deny",
     ],
 }
 ADMIN_ONLY_ACTIONS = [
@@ -66,15 +55,18 @@ ADMIN_ONLY_ACTIONS = [
 FINALIZER_FORBIDDEN_ACTIONS = sorted(
     set(verifier.FINALIZER_FORBIDDEN_ACTIONS)
     | set(FINALIZER_BUCKET_CONTROL_DENY_ACTIONS)
-    | set(FINALIZER_RETENTION_DENY_ACTIONS)
+    | set(PANEL_UNAVAILABLE_BEHAVIORAL_ACTIONS)
 )
 REQUIRED_PROOFS = [
     proof
     for proof in verifier.REQUIRED_PROOFS
     if proof != "EXACT_SEVEN_PANEL_RULES_READBACK"
 ]
-REQUIRED_PROOFS.insert(1, "EXACT_NINE_PANEL_RULES_READBACK")
-REQUIRED_PROOFS.insert(3, "FINALIZER_EXPLICIT_CONTROL_AND_RETENTION_DENY")
+REQUIRED_PROOFS.insert(1, "EXACT_EIGHT_PANEL_RULES_READBACK")
+REQUIRED_PROOFS.insert(
+    3,
+    "FINALIZER_PANEL_CONTROL_DENY_AND_BEHAVIORAL_OBJECT_LOCK_RETENTION_DENY",
+)
 
 _ORIGINALS = {
     "AUTHORITY_SCHEMA": verifier.AUTHORITY_SCHEMA,
@@ -144,7 +136,7 @@ def validate_panel_policy_v3(
         )
 
     if len(target_statements) != len(EXPECTED_RULES):
-        errors.append("TARGET_RULE_COUNT_NOT_NINE")
+        errors.append("TARGET_RULE_COUNT_NOT_EIGHT")
     matched_indexes: set[int] = set()
     for expected in EXPECTED_RULES:
         signature = {
