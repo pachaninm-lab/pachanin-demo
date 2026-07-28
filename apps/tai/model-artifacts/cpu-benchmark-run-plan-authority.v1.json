@@ -25,7 +25,7 @@
     "path": "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
     "schema_version": "tai.model-bundle-finalization-authority.v1",
     "issue": 2961,
-    "git_blob_sha1": "c1d37d82697c4cb9fa2d02a2977dd436eeb4853f"
+    "git_blob_sha1": "7e0ebaa54d1ef44fbddb8af8fd7847df0412651d"
   },
   "readiness": {
     "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
