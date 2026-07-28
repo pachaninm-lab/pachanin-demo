@@ -41,7 +41,7 @@
     "postgresqlMajor": 16,
     "authorityTableCount": 7,
     "prismaAuthorityModelCount": 7,
-    "prismaMigrationDriftRequired": false,
+    "prismaMigrationDriftMustBeZero": true,
     "restrictedRoleNegativeTestsRequired": true,
     "raceAndIdempotencyTestsRequired": true,
     "hardDeleteDeniedRequired": true,
