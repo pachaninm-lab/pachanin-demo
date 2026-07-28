@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08i-ack-authority",
+  "status": "active",
+  "issue": 3309,
+  "baseCommit": "be4cc002aa2a9581ada123084f96ea73cac3980e",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08i.yml",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260728003000_fgis_grain_ack_principals/**",
+    "apps/api/prisma/migrations/20260728004000_fgis_grain_ack_authority/**",
+    "apps/api/prisma/migrations/20260728005000_fgis_grain_ack_outbox_binding/**",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack*.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.spec.ts",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "apps/api/src/outbox-worker.module.ts",
+    "apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08i-ack-authority.json",
+    "scripts/pc-crop-08i/**"
+  ],
+  "boundaries": {
+    "existingInboxOnly": true,
+    "existingOutboxOnly": true,
+    "verifiedCorrelatedResponseOnly": true,
+    "officialAckTransportContractOnly": true,
+    "receiptBeforeOutboxSent": true,
+    "retrySuppressesDuplicateTransport": true,
+    "exactReplayReturnsStoredAuthority": true,
+    "divergentReplayRequiresReconciliation": true,
+    "rawXmlPersistence": false,
+    "directDealLotShipmentPaymentMutation": false,
+    "businessAcceptanceMutation": false,
+    "providerConfirmationMutation": false,
+    "liveProviderCall": false,
+    "newNetworkClient": false,
+    "secondInboxOutboxOrRelay": false,
+    "confirmedLiveClaim": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
