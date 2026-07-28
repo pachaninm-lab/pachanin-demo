@@ -630,7 +630,11 @@ BEGIN
 
   IF FOUND THEN
     IF v_existing.artifact_id = p_artifact_id
-      AND v_existing.action = CASE WHEN p_decision = 'ADMIT' THEN 'HUMAN_RELEASED' WHEN p_decision = 'REJECT' THEN 'HUMAN_REJECTED' ELSE 'QUARANTINE' END
+      AND (
+      (p_decision = 'ADMIT' AND v_existing.action = 'HUMAN_RELEASED')
+      OR (p_decision = 'REJECT' AND v_existing.action = 'HUMAN_REJECTED')
+      OR (p_decision = 'QUARANTINE' AND v_existing.action = 'QUARANTINE')
+    )
       AND v_existing.audit_event_reference = p_audit_event_reference
     THEN
       RETURN v_existing.id;
