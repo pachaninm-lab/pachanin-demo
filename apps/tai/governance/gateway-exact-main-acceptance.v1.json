@@ -314,7 +314,7 @@
       "title": "A decision admitting another model does not admit this deployment"
     }
   ],
-  "exact_main_sha": "ecce12f9a6e3938a0820301501fcbd3d5edae262",
+  "exact_main_sha": "9854fcad36cf382395f5f5bcb654ce663d2be5ee",
   "failed_checks": [],
   "passed": true,
   "schema": "tai.gateway-exact-main-acceptance.v1"
