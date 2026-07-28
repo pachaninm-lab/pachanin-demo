@@ -6,11 +6,12 @@ This authority finalizes the already completed governed conversion run into two 
 
 ## Exact input
 
-- conversion exact-main: `8bd494dc4954baaf699cffa243951392ff451ebb`;
-- conversion workflow run: `29810648430`, attempt `1`;
-- conversion root: `/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1`;
+- conversion exact-main: `846963821cf990c226eaead8b32f4bc9148311a0`;
+- conversion workflow run: `30333755510`, attempt `1`;
+- conversion root: `/srv/tai-models/conversion-runs/846963821cf990c226eaead8b32f4bc9148311a0/30333755510-1`;
 - required conversion state: `COMPLETE`;
 - required conversion result: `CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE`;
+- canonical conversion report SHA-256: `f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d`;
 - models: exact Qwen3-8B and Mistral-7B-Instruct-v0.3 revisions already accepted by human legal review.
 
 The finalization workflow must not download sources, rerun conversion or rerun quantization.
