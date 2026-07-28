@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -12,23 +16,22 @@ REMOTE = TAI_ROOT / "model-artifacts" / "model-bundle-finalization-remote.v1.sh"
 REMOTE_PYTHON = TAI_ROOT / "model-artifacts" / "model_bundle_finalization_remote.py"
 AUTHORITY = TAI_ROOT / "model-artifacts" / "model-bundle-finalization-authority.v1.json"
 RUNBOOK = TAI_ROOT / "model-artifacts" / "model-bundle-finalization-runbook.v1.md"
-SCOPE = TAI_ROOT / "governance" / "scopes" / "ap-13b3h-bundle-finalization-2961.json"
+SCOPE = TAI_ROOT / "governance" / "scopes" / "ap-13b3h2-finalization-retarget-2961.json"
 COMMAND = "/tai finalize model-bundles exact-main"
-CONVERSION_SHA = "8bd494dc4954baaf699cffa243951392ff451ebb"
-CONVERSION_RUN = 29810648430
+CONVERSION_SHA = "846963821cf990c226eaead8b32f4bc9148311a0"
+CONVERSION_RUN = 30333755510
+CONVERSION_REPORT_SHA256 = "f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d"
+OLD_CONVERSION_SHA = "8bd494dc4954baaf699cffa243951392ff451ebb"
+OLD_CONVERSION_RUN = 29810648430
+OLD_CONVERSION_ROOT = f"/srv/tai-models/conversion-runs/{OLD_CONVERSION_SHA}/{OLD_CONVERSION_RUN}-1"
 EXPECTED_PATHS = {
-    ".gitleaksignore",
-    ".github/workflows/tai-model-bundle-finalization.yml",
-    "apps/tai/governance/scopes/ap-13b3h-bundle-finalization-2961.json",
+    "apps/tai/governance/scopes/ap-13b3h2-finalization-retarget-2961.json",
     "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
     "apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh",
     "apps/tai/model-artifacts/model-bundle-finalization-remote.v1.sh",
     "apps/tai/model-artifacts/model-bundle-finalization-runbook.v1.md",
-    "apps/tai/tai/model_bundle_external_storage.py",
-    "apps/tai/tai/model_bundle_external_storage_cli.py",
-    "apps/tai/model-artifacts/model_bundle_finalization_remote.py",
-    "apps/tai/tests/test_gitleaks_release_authority.py",
-    "apps/tai/tests/test_model_bundle_external_storage.py",
+    "apps/tai/model-artifacts/cpu-benchmark-run-plan-authority.v1.json",
+    "apps/tai/tai/cpu_benchmark_run_plan.py",
     "apps/tai/tests/test_model_bundle_finalization_workflow.py",
 }
 
@@ -39,10 +42,30 @@ def _json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _remote_conversion_report_validator_source() -> str:
+    remote = REMOTE.read_text(encoding="utf-8")
+    start_marker = "# BEGIN CONVERSION_REPORT_CANONICAL_VALIDATION\n"
+    end_marker = "# END CONVERSION_REPORT_CANONICAL_VALIDATION"
+    block = remote.split(start_marker, 1)[1].split(end_marker, 1)[0]
+    return block.split("python3 - <<'PY'\n", 1)[1].rsplit("\nPY\n", 1)[0]
+
+
+def _write_conversion_report(path: Path, payload: dict[str, Any]) -> str:
+    canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    digest = hashlib.sha256(canonical.encode()).hexdigest()
+    document = dict(payload)
+    document["report_sha256"] = digest
+    path.write_text(
+        json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return digest
+
+
 def test_scope_is_exact_and_preserves_maturity_boundary() -> None:
     scope = _json(SCOPE)
     assert scope["schema_version"] == "tai.concurrent-scope.v1"
-    assert scope["branch"] == "agent/tai-ap-13b3h-bundle-finalization"
+    assert scope["branch"] == "agent/tai-ap-13b3h2-finalization-retarget-2961-v2"
     assert (scope["program_issue"], scope["parent_issue"], scope["issue"]) == (
         2726,
         2954,
@@ -64,6 +87,7 @@ def test_authority_binds_completed_conversion_and_external_storage() -> None:
         "root": f"/srv/tai-models/conversion-runs/{CONVERSION_SHA}/{CONVERSION_RUN}-1",
         "required_state": "COMPLETE",
         "required_result": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
+        "report_sha256": CONVERSION_REPORT_SHA256,
         "rerun_allowed": False,
     }
     storage = authority["storage"]
@@ -90,6 +114,60 @@ def test_authority_binds_completed_conversion_and_external_storage() -> None:
     assert result["benchmark_status"] == "NOT_RUN"
     assert result["model_admission_status"] == "NOT_DONE"
     assert result["production_operational_status"] == "NOT_ATTESTED"
+
+
+def test_retarget_is_exact_across_all_handoff_files() -> None:
+    expected_root = f"/srv/tai-models/conversion-runs/{CONVERSION_SHA}/{CONVERSION_RUN}-1"
+    required = (CONVERSION_SHA, str(CONVERSION_RUN), expected_root, CONVERSION_REPORT_SHA256)
+    forbidden = (OLD_CONVERSION_SHA, str(OLD_CONVERSION_RUN), OLD_CONVERSION_ROOT)
+    for path in (AUTHORITY, DRIVER, REMOTE, RUNBOOK):
+        content = path.read_text(encoding="utf-8")
+        for value in required:
+            assert value in content
+        for value in forbidden:
+            assert value not in content
+
+
+def test_remote_executes_canonical_conversion_report_validation(tmp_path: Path) -> None:
+    report_path = tmp_path / "conversion-report.json"
+    payload: dict[str, Any] = {
+        "schema_version": "tai.model-conversion-report.v1",
+        "status": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
+        "outputs": [{"path": "artifacts/qwen3-8b-q4-k-m.gguf", "size_bytes": 5_027_784_032}],
+    }
+    digest = _write_conversion_report(report_path, payload)
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "CONVERSION_REPORT_PATH": str(report_path),
+            "EXPECTED_CONVERSION_REPORT_SHA256": digest,
+        }
+    )
+    validator = _remote_conversion_report_validator_source()
+    accepted = subprocess.run(
+        [sys.executable, "-c", validator],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert accepted.returncode == 0, accepted.stderr
+
+    tampered = _json(report_path)
+    tampered["status"] = "TAMPERED"
+    report_path.write_text(
+        json.dumps(tampered, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    rejected = subprocess.run(
+        [sys.executable, "-c", validator],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert rejected.returncode != 0
+    assert "CONVERSION_REPORT_SHA256_MISMATCH" in (rejected.stdout + rejected.stderr)
 
 
 def test_workflow_is_owner_only_exact_main_and_issue_bound() -> None:
