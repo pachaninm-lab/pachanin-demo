@@ -1,0 +1,151 @@
+name: One-shot PC-CROP-08I authority repair
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08i-authority-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+      DIAGNOSTICS: artifacts/pc-crop-08i-repair
+
+    steps:
+      - name: Checkout exact PC-CROP-08I branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-08i-fgis-outbound-ack
+          fetch-depth: 0
+
+      - name: Guard immutable repair base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "3af027d4993e9387836c74209046323e65c10537"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Repair exact migration and synchronize Prisma authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$DIAGNOSTICS"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const migrationPath = 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql';
+          let sql = fs.readFileSync(migrationPath, 'utf8');
+
+          function replaceExact(before, after, expected, label) {
+            const actual = sql.split(before).length - 1;
+            if (actual !== expected) throw new Error(`${label}: expected ${expected}, found ${actual}`);
+            sql = sql.split(before).join(after);
+          }
+
+          replaceExact('  "auditEventId" text,\n', '  "auditEventId" text UNIQUE,\n', 1, 'audit evidence uniqueness');
+          replaceExact('  "eventOutboxEntryId" text,\n', '  "eventOutboxEntryId" text UNIQUE,\n', 1, 'event outbox uniqueness');
+          replaceExact(
+            '     OR COALESCE((v_inbox."verificationResult" ->> \'verified\')::boolean, false) IS NOT TRUE\n',
+            '     OR v_inbox."verificationResult" ->> \'verified\' IS DISTINCT FROM \'true\'\n',
+            1,
+            'fail-closed verified flag',
+          );
+          replaceExact(
+            'UPDATE public."fgis_grain_acknowledgements"\n',
+            'UPDATE public."fgis_grain_acknowledgements" AS target\n',
+            3,
+            'ACK mutation aliases',
+          );
+          replaceExact(
+            'RETURNING to_jsonb(public."fgis_grain_acknowledgements".*) INTO v_after;',
+            'RETURNING to_jsonb(target.*) INTO v_after;',
+            3,
+            'ACK returning aliases',
+          );
+          fs.writeFileSync(migrationPath, sql, 'utf8');
+          NODE
+          node scripts/pc-crop-08i/sync-prisma-schema.mjs 2>&1 | tee "$DIAGNOSTICS/schema-sync.log"
+          pnpm --filter @pc/api exec prisma format 2>&1 | tee "$DIAGNOSTICS/prisma-format.log"
+          pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$DIAGNOSTICS/prisma-validate.log"
+          git diff --check
+          cp apps/api/prisma/schema.prisma "$DIAGNOSTICS/schema.prisma"
+          cp apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql "$DIAGNOSTICS/migration.sql"
+
+      - name: Apply migration chain and generate client
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$DIAGNOSTICS/migrate-deploy.log"
+          status=${PIPESTATUS[0]}
+          if [[ "$status" != "0" ]]; then exit "$status"; fi
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$DIAGNOSTICS/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$DIAGNOSTICS/prisma-generate.log"
+
+      - name: Run typecheck and ACK tests
+        shell: bash
+        env:
+          PC_CROP_08I_POSTGRESQL: '1'
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$DIAGNOSTICS/typecheck.log"
+          status=${PIPESTATUS[0]}
+          if [[ "$status" != "0" ]]; then exit "$status"; fi
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts \
+            2>&1 | tee "$DIAGNOSTICS/unit.log"
+          status=${PIPESTATUS[0]}
+          if [[ "$status" != "0" ]]; then exit "$status"; fi
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-ack.e2e-spec.ts \
+            --runInBand 2>&1 | tee "$DIAGNOSTICS/e2e.log"
+          status=${PIPESTATUS[0]}
+          if [[ "$status" != "0" ]]; then exit "$status"; fi
+          node scripts/pc-crop-08i/verify.mjs 2>&1 | tee "$DIAGNOSTICS/verify.json"
+
+      - name: Upload repair diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08i-repair-${{ github.run_id }}
+          path: ${{ env.DIAGNOSTICS }}
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Commit proven authority repair to PC-CROP-08I
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(git status --porcelain -- apps/api/prisma/schema.prisma apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql)"
+          git config user.name 'pc-crop-governance-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add apps/api/prisma/schema.prisma apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql
+          git commit -m 'PC-CROP-08I: repair ACK database and Prisma authority'
+          git push origin HEAD:agent/pc-crop-08i-fgis-outbound-ack
