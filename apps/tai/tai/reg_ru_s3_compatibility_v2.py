@@ -1432,10 +1432,10 @@ def _upload_or_resume_stream(
         )
         if _integer(_mapping(head).get("ContentLength")) != STREAM_OBJECT_BYTES:
             raise ProbeFailure("EXISTING_STREAM_SIZE_INVALID")
-        digest = _restore_exact_version_sha256(
+        existing_digest = _restore_exact_version_sha256(
             finalizer, bucket, STREAM_KEY, version_id, client_error_type
         )
-        if digest != source_digest:
+        if existing_digest != source_digest:
             raise ProbeFailure("EXISTING_STREAM_SHA256_INVALID")
         return {
             "mode": "RESUMED_EXISTING_SINGLE_OBJECT",
@@ -1445,14 +1445,14 @@ def _upload_or_resume_stream(
 
     with tempfile.TemporaryFile() as source:
         remaining = STREAM_OBJECT_BYTES
-        digest = hashlib.sha256()
+        source_hasher = hashlib.sha256()
         chunk = b"T" * (1024 * 1024)
         while remaining:
             current = chunk[: min(remaining, len(chunk))]
             source.write(current)
-            digest.update(current)
+            source_hasher.update(current)
             remaining -= len(current)
-        if digest.hexdigest() != source_digest:
+        if source_hasher.hexdigest() != source_digest:
             raise ProbeFailure("LOCAL_STREAM_DIGEST_MISMATCH")
         source.seek(0)
         put_response = _call(
@@ -1499,9 +1499,7 @@ def _restore_exact_version_sha256(
 ) -> str:
     response = _call(
         "GET_EXACT_STREAM_VERSION",
-        lambda: client.get_object(
-            Bucket=bucket, Key=key, VersionId=version_id
-        ),
+        lambda: client.get_object(Bucket=bucket, Key=key, VersionId=version_id),
         client_error_type,
     )
     body = _mapping(response).get("Body")
