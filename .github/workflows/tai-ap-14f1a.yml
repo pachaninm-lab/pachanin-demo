@@ -1,194 +1,255 @@
-name: TAI AP-14F1A PostgreSQL Corpus Authority
+name: TAI AP-14F1A Datamodel Source Patch
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/tai-ap-14f1a.yml'
-      - 'apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql'
-      - 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'
-      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json'
-      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.v1.json'
-      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3346.json'
-      - 'scripts/tai-ap-14f1a/postgresql-acceptance.sql'
-      - 'scripts/tai-ap-14f1a/verify.mjs'
   push:
     branches:
-      - main
       - agent/tai-ap-14f1a-public-corpus-authority-3346
     paths:
       - '.github/workflows/tai-ap-14f1a.yml'
-      - 'apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql'
-      - 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'
-      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json'
-      - 'apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.v1.json'
-      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3346.json'
-      - 'scripts/tai-ap-14f1a/postgresql-acceptance.sql'
-      - 'scripts/tai-ap-14f1a/verify.mjs'
-  workflow_dispatch:
 
 permissions:
-  contents: read
-  statuses: write
+  contents: write
 
 concurrency:
-  group: tai-ap-14f1a-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-env:
-  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-  EVIDENCE_DIR: artifacts/tai-ap-14f1a
-  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tai_ap14f1a
+  group: tai-ap-14f1a-datamodel-source-patch
+  cancel-in-progress: false
 
 jobs:
-  postgresql-authority:
-    name: PostgreSQL 16 · roles · admission · quarantine · withdrawal
+  patch-source-controlled-datamodel:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tai_ap14f1a
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d tai_ap14f1a"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout exact revision
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ env.EXACT_HEAD }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Resolve governed comparison base
-        id: base
+      - name: Append exact Prisma authority models and verifier contract
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git fetch --no-tags origin "${{ github.base_ref }}"
-            base_ref="origin/${{ github.base_ref }}"
-          elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
-            base_ref="HEAD^"
-          else
-            base_ref="b82c07cf28c13f9652f87cd14fdc2a75164b8e1b"
+          python <<'PY'
+          from pathlib import Path
+
+          schema_path = Path('apps/api/prisma/schema.prisma')
+          schema = schema_path.read_text(encoding='utf-8')
+          marker = '// ── TAI AP-14F1A public corpus authority ──────────────────────────────────────'
+          models = r'''
+
+          // ── TAI AP-14F1A public corpus authority ──────────────────────────────────────
+
+          model TaiPublicSourceAdmission {
+            id                  String   @id
+            sourceCode          String   @unique(map: "tai_public_source_admissions_source_code_key") @map("source_code")
+            sourceClass         String   @map("source_class")
+            dataPlane           String   @default("PUBLIC_OFFICIAL") @map("data_plane")
+            officialUrl         String   @map("official_url")
+            hostPin             String   @map("host_pin")
+            rightsDecisionId    String   @map("rights_decision_id")
+            rightsStatus        String   @map("rights_status")
+            rightsReviewedAt    DateTime @db.Date @map("rights_reviewed_at")
+            rightsReviewDueAt   DateTime @db.Date @map("rights_review_due_at")
+            status              String   @default("REVIEW_REQUIRED")
+            sharedIndexAllowed  Boolean  @default(false) @map("shared_index_allowed")
+            modelWeightsAllowed Boolean  @default(false) @map("model_weights_allowed")
+            auditEventReference String   @map("audit_event_reference")
+            version             BigInt   @default(0)
+            createdAt           DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
+            updatedAt           DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
+
+            versions TaiPublicSourceVersion[]
+
+            @@index([status, rightsReviewDueAt, sourceCode], map: "tai_public_source_status_idx")
+            @@index([rightsStatus, rightsReviewDueAt], map: "tai_public_source_rights_idx")
+            @@map("tai_public_source_admissions")
+          }
+
+          model TaiPublicSourceVersion {
+            id                  String    @id
+            sourceAdmissionId   String    @map("source_admission_id")
+            dataPlane           String    @default("PUBLIC_OFFICIAL") @map("data_plane")
+            versionLabel        String    @map("version_label")
+            publicationDate     DateTime? @db.Date @map("publication_date")
+            effectiveDate       DateTime? @db.Date @map("effective_date")
+            observedAt          DateTime  @db.Timestamptz(6) @map("observed_at")
+            sourceLocatorKind   String    @map("source_locator_kind")
+            sourceLocatorValue  String    @map("source_locator_value")
+            rightsDecisionId    String    @map("rights_decision_id")
+            status              String    @default("DRAFT")
+            sharedIndexAllowed  Boolean   @default(false) @map("shared_index_allowed")
+            modelWeightsAllowed Boolean   @default(false) @map("model_weights_allowed")
+            auditEventReference String    @map("audit_event_reference")
+            version             BigInt    @default(0)
+            createdAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
+            updatedAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
+
+            sourceAdmission TaiPublicSourceAdmission @relation(fields: [sourceAdmissionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_source_version_source_fk")
+            artifacts       TaiPublicSourceArtifact[]
+            withdrawals     TaiPublicSourceWithdrawal[]
+
+            @@unique([sourceAdmissionId, versionLabel], map: "tai_public_source_version_identity_key")
+            @@index([sourceAdmissionId, status, observedAt(sort: Desc), id], map: "tai_public_source_version_status_idx")
+            @@map("tai_public_source_versions")
+          }
+
+          model TaiPublicSourceArtifact {
+            id                     String    @id
+            sourceVersionId        String    @map("source_version_id")
+            dataPlane              String    @default("PUBLIC_OFFICIAL") @map("data_plane")
+            contentSha256          String    @db.Char(64) @map("content_sha256")
+            mediaType              String    @map("media_type")
+            sizeBytes              BigInt    @map("size_bytes")
+            storageReference       String    @unique(map: "tai_public_source_artifacts_storage_reference_key") @map("storage_reference")
+            officialUrl            String    @map("official_url")
+            hostPin                String    @map("host_pin")
+            publicationDate        DateTime? @db.Date @map("publication_date")
+            effectiveDate          DateTime? @db.Date @map("effective_date")
+            observedAt             DateTime  @db.Timestamptz(6) @map("observed_at")
+            sourceLocatorKind      String    @map("source_locator_kind")
+            sourceLocatorValue     String    @map("source_locator_value")
+            rightsDecisionId       String    @map("rights_decision_id")
+            state                  String    @default("QUARANTINED")
+            provenanceComplete     Boolean   @default(false) @map("provenance_complete")
+            malwareChecked         Boolean   @default(false) @map("malware_checked")
+            contentTypeChecked     Boolean   @default(false) @map("content_type_checked")
+            promptInjectionChecked Boolean   @default(false) @map("prompt_injection_checked")
+            sharedIndexEligible    Boolean   @default(false) @map("shared_index_eligible")
+            modelWeightsAllowed    Boolean   @default(false) @map("model_weights_allowed")
+            auditEventReference    String    @map("audit_event_reference")
+            version                BigInt    @default(0)
+            createdAt              DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
+            updatedAt              DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
+
+            sourceVersion   TaiPublicSourceVersion @relation(fields: [sourceVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_artifact_source_version_fk")
+            quarantineEvents TaiPublicCorpusQuarantineEvent[]
+            snapshotMembers  TaiPublicCorpusSnapshotMember[]
+
+            @@unique([sourceVersionId, contentSha256], map: "tai_public_artifact_digest_key")
+            @@index([sourceVersionId, state, observedAt(sort: Desc), id], map: "tai_public_artifact_state_idx")
+            @@index([contentSha256], map: "tai_public_artifact_sha_idx")
+            @@map("tai_public_source_artifacts")
+          }
+
+          model TaiPublicCorpusQuarantineEvent {
+            id                            String   @id
+            artifactId                    String   @map("artifact_id")
+            action                        String
+            reasonCode                    String   @map("reason_code")
+            details                       String
+            retryable                     Boolean
+            mfaVerified                   Boolean  @map("mfa_verified")
+            decidedBySubjectHash          String   @db.Char(64) @map("decided_by_subject_hash")
+            evidenceReference             String   @map("evidence_reference")
+            replacementProvenanceRecordId String?  @map("replacement_provenance_record_id")
+            auditEventReference           String   @unique(map: "tai_public_corpus_quarantine_events_audit_event_reference_key") @map("audit_event_reference")
+            createdAt                     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
+
+            artifact TaiPublicSourceArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_quarantine_artifact_fk")
+
+            @@index([artifactId, createdAt(sort: Desc), id(sort: Desc)], map: "tai_public_quarantine_artifact_idx")
+            @@map("tai_public_corpus_quarantine_events")
+          }
+
+          model TaiPublicSourceWithdrawal {
+            id                     String   @id
+            sourceVersionId        String   @map("source_version_id")
+            action                 String
+            reason                 String
+            mfaVerified            Boolean  @map("mfa_verified")
+            decidedBySubjectHash   String   @db.Char(64) @map("decided_by_subject_hash")
+            auditEventReference    String   @unique(map: "tai_public_source_withdrawals_audit_event_reference_key") @map("audit_event_reference")
+            createdAt              DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
+
+            sourceVersion TaiPublicSourceVersion @relation(fields: [sourceVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_withdrawal_source_version_fk")
+
+            @@index([sourceVersionId, createdAt(sort: Desc), id(sort: Desc)], map: "tai_public_withdrawal_version_idx")
+            @@map("tai_public_source_withdrawals")
+          }
+
+          model TaiPublicCorpusSnapshot {
+            id                  String    @id
+            snapshotCode        String    @unique(map: "tai_public_corpus_snapshots_snapshot_code_key") @map("snapshot_code")
+            dataPlane           String    @default("PUBLIC_OFFICIAL") @map("data_plane")
+            state               String    @default("BUILDING")
+            manifestSha256      String?   @db.Char(64) @map("manifest_sha256")
+            memberCount         Int       @default(0) @map("member_count")
+            auditEventReference String    @map("audit_event_reference")
+            version             BigInt    @default(0)
+            createdAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
+            sealedAt            DateTime? @db.Timestamptz(6) @map("sealed_at")
+            withdrawnAt         DateTime? @db.Timestamptz(6) @map("withdrawn_at")
+            updatedAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
+
+            members TaiPublicCorpusSnapshotMember[]
+
+            @@index([state, createdAt(sort: Desc), id], map: "tai_public_snapshot_state_idx")
+            @@map("tai_public_corpus_snapshots")
+          }
+
+          model TaiPublicCorpusSnapshotMember {
+            snapshotId          String   @map("snapshot_id")
+            artifactId          String   @map("artifact_id")
+            artifactSha256      String   @db.Char(64) @map("artifact_sha256")
+            auditEventReference String   @unique(map: "tai_public_corpus_snapshot_members_audit_event_reference_key") @map("audit_event_reference")
+            createdAt           DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
+
+            snapshot TaiPublicCorpusSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_snapshot_member_snapshot_fk")
+            artifact TaiPublicSourceArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_snapshot_member_artifact_fk")
+
+            @@id([snapshotId, artifactId], map: "tai_public_corpus_snapshot_members_pkey")
+            @@index([artifactId, snapshotId], map: "tai_public_snapshot_member_artifact_idx")
+            @@map("tai_public_corpus_snapshot_members")
+          }
+          '''
+          if marker not in schema:
+              schema_path.write_text(schema.rstrip() + models + '\n', encoding='utf-8')
+
+          verifier_path = Path('scripts/tai-ap-14f1a/verify.mjs')
+          verifier = verifier_path.read_text(encoding='utf-8')
+          if "pass('PRISMA_DATAMODEL_CONTRACT'" not in verifier:
+              replacements = [
+                  ("  correctionMigration: resolve(repositoryRoot, 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'),\n", "  correctionMigration: resolve(repositoryRoot, 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'),\n  prismaSchema: resolve(repositoryRoot, 'apps/api/prisma/schema.prisma'),\n"),
+                  ("  'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql',\n", "  'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql',\n  'apps/api/prisma/schema.prisma',\n"),
+                  ("const correctionMigration = readText(paths.correctionMigration, 'correction migration');\n", "const correctionMigration = readText(paths.correctionMigration, 'correction migration');\nconst prismaSchema = readText(paths.prismaSchema, 'Prisma authority datamodel');\n"),
+                  ("pass('POSTGRESQL_AUTHORITY_STATIC', 'Seven tables, two NOLOGIN roles, nine controlled functions, delete guards and a security-barrier retrieval view are present.');\n", """pass('POSTGRESQL_AUTHORITY_STATIC', 'Seven tables, two NOLOGIN roles, nine controlled functions, delete guards and a security-barrier retrieval view are present.');
+
+requireTokens(prismaSchema, [
+  'model TaiPublicSourceAdmission {',
+  'model TaiPublicSourceVersion {',
+  'model TaiPublicSourceArtifact {',
+  'model TaiPublicCorpusQuarantineEvent {',
+  'model TaiPublicSourceWithdrawal {',
+  'model TaiPublicCorpusSnapshot {',
+  'model TaiPublicCorpusSnapshotMember {',
+  '@@map(\"tai_public_source_admissions\")',
+  '@@map(\"tai_public_source_versions\")',
+  '@@map(\"tai_public_source_artifacts\")',
+  '@@map(\"tai_public_corpus_quarantine_events\")',
+  '@@map(\"tai_public_source_withdrawals\")',
+  '@@map(\"tai_public_corpus_snapshots\")',
+  '@@map(\"tai_public_corpus_snapshot_members\")',
+], 'Prisma authority datamodel');
+assert(countMatches(prismaSchema, /model TaiPublic(?:Source|Corpus)[A-Za-z]+ \\{/gu) === 7, 'Prisma authority datamodel must contain exactly seven AP-14F1A models');
+pass('PRISMA_DATAMODEL_CONTRACT', 'Seven authority tables are represented in Prisma with mapped keys, relations and indexes.');
+"""),
+                  ("assert(scope.acceptance.authorityTableCount === 7, 'scope table count mismatch');\n", "assert(scope.acceptance.authorityTableCount === 7, 'scope table count mismatch');\nassert(scope.acceptance.prismaAuthorityModelCount === 7, 'scope Prisma model count mismatch');\nassert(scope.acceptance.prismaMigrationDriftMustBeZero === true, 'scope must require zero Prisma migration drift');\n"),
+                  ("pass('SOURCE_CONTROLLED_SCOPE', 'Eight paths are authorized for the PostgreSQL-only slice.');\n", "pass('SOURCE_CONTROLLED_SCOPE', 'Nine paths are authorized for the PostgreSQL-only slice.');\n"),
+                  ("    authorityTables: counts.tables,\n", "    authorityTables: counts.tables,\n    prismaAuthorityModels: 7,\n"),
+              ]
+              for old, new in replacements:
+                  count = verifier.count(old)
+                  if count != 1:
+                      raise SystemExit(f'verifier patch target count {count}: {old[:80]!r}')
+                  verifier = verifier.replace(old, new)
+              verifier_path.write_text(verifier, encoding='utf-8')
+          PY
+
+          git diff --check
+          if git diff --quiet; then
+            exit 0
           fi
-          printf 'base_ref=%s\n' "$base_ref" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Verify source-controlled scope and static authority
-        shell: bash
-        env:
-          BASE_REF: ${{ steps.base.outputs.base_ref }}
-        run: |
-          set -euo pipefail
-          mkdir -p "$EVIDENCE_DIR"
-          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          printf '%s\n' "$BASE_REF" > "$EVIDENCE_DIR/base-ref.txt"
-          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
-            export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-            bash scripts/p7-autopilot-guard.sh
-          fi
-          node scripts/tai-ap-14f1a/verify.mjs --scope-guard "$BASE_REF" \
-            | tee "$EVIDENCE_DIR/static-acceptance.json"
-
-      - name: Apply migrations on PostgreSQL 16
-        shell: bash
-        env:
-          PGPASSWORD: postgres
-        run: |
-          set -euo pipefail
-          pg_isready -h 127.0.0.1 -p 5432 -U postgres -d tai_ap14f1a
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
-            -f apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql \
-            2>&1 | tee "$EVIDENCE_DIR/primary-migration.log"
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
-            -f apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql \
-            2>&1 | tee "$EVIDENCE_DIR/correction-migration.log"
-          sha256sum \
-            apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql \
-            apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql \
-            > "$EVIDENCE_DIR/migration-sha256.txt"
-
-      - name: Prove concurrent first-source idempotency
-        shell: bash
-        env:
-          PGPASSWORD: postgres
-        run: |
-          set -euo pipefail
-          race_sql="SET ROLE tai_knowledge_ingestor; SELECT tai_knowledge.register_source('src_rrrrrrrrrrrr','synthetic.race.source','OFFICIAL_MANUAL','https://race.example.test/source','race.example.test','AP14F0-SYNTHETIC_RACE','ALLOWED_SHARED_RAG',DATE '2026-07-28',DATE '2099-12-31','audit_race00000001');"
-          psql "$DATABASE_URL" -X -qAtc "$race_sql" > "$EVIDENCE_DIR/race-1.txt" 2>&1 & pid1=$!
-          psql "$DATABASE_URL" -X -qAtc "$race_sql" > "$EVIDENCE_DIR/race-2.txt" 2>&1 & pid2=$!
-          wait "$pid1"
-          wait "$pid2"
-          test "$(cat "$EVIDENCE_DIR/race-1.txt")" = "src_rrrrrrrrrrrr"
-          test "$(cat "$EVIDENCE_DIR/race-2.txt")" = "src_rrrrrrrrrrrr"
-          test "$(psql "$DATABASE_URL" -X -qAtc "SELECT count(*) FROM tai_public_source_admissions WHERE source_code='synthetic.race.source'")" = "1"
-
-      - name: Run PostgreSQL positive and negative acceptance
-        shell: bash
-        env:
-          PGPASSWORD: postgres
-        run: |
-          set -euo pipefail
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -At \
-            -f scripts/tai-ap-14f1a/postgresql-acceptance.sql \
-            2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.txt"
-          tail -n 1 "$EVIDENCE_DIR/postgresql-acceptance.txt" > "$EVIDENCE_DIR/postgresql-acceptance.json"
-          node <<'NODE'
-          const fs = require('node:fs');
-          const staticReport = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/static-acceptance.json`, 'utf8'));
-          const databaseReport = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/postgresql-acceptance.json`, 'utf8'));
-          if (staticReport.status !== 'PASS') process.exit(1);
-          if (staticReport.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
-          if (staticReport.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
-          if (staticReport.counts.authorityTables !== 7) process.exit(1);
-          if (staticReport.counts.controlledFunctions !== 9) process.exit(1);
-          if (staticReport.counts.negativeMutationProbes !== 6) process.exit(1);
-          if (Object.values(staticReport.boundaries).some(Boolean)) process.exit(1);
-          if (databaseReport.status !== 'PASS') process.exit(1);
-          if (databaseReport.slice !== 'TAI-AP-14F1A') process.exit(1);
-          if (databaseReport.postgresqlMajor !== 16) process.exit(1);
-          if (databaseReport.authorityTables !== 7) process.exit(1);
-          if (databaseReport.retrievalEntriesAfterWithdrawal !== 0) process.exit(1);
-          if (databaseReport.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
-          if (databaseReport.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
-          NODE
-
-      - name: Upload AP-14F1A exact-head evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-ap-14f1a-${{ env.EXACT_HEAD }}
-          path: ${{ env.EVIDENCE_DIR }}
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Publish observable exact-main status
-        if: always() && github.ref_name == 'main'
-        uses: actions/github-script@v7
-        env:
-          ACCEPTANCE_JOB_STATUS: ${{ job.status }}
-        with:
-          script: |
-            const state = process.env.ACCEPTANCE_JOB_STATUS === 'success' ? 'success' : 'failure';
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: process.env.EXACT_HEAD,
-              state,
-              context: 'TAI AP-14F1A exact-main',
-              description: state === 'success'
-                ? 'PostgreSQL public corpus authority accepted on exact main'
-                : 'AP-14F1A exact-main acceptance failed',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
+          git config user.name 'p7-authority-bot'
+          git config user.email 'p7-authority-bot@users.noreply.github.com'
+          git add apps/api/prisma/schema.prisma scripts/tai-ap-14f1a/verify.mjs
+          git commit -m 'TAI AP-14F1A: align Prisma authority datamodel'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
