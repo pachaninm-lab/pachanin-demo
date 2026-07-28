@@ -1,0 +1,340 @@
+{
+  "$schema": "./AP-14F0-KNOWLEDGE-AUTHORITY.schema.v1.json",
+  "schemaVersion": "tai.ap14f0-knowledge-authority.v1",
+  "authorityVersion": "1.0.0",
+  "generatedAt": "2026-07-28T17:55:00+00:00",
+  "evidenceCutoff": "2026-07-28",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "defaultDisposition": "QUARANTINE",
+  "dataPlanes": [
+    {
+      "code": "PUBLIC_OFFICIAL",
+      "enabled": false,
+      "sharedPersistenceAllowed": false,
+      "crossTenantCacheAllowed": false,
+      "modelWeightsAllowed": false,
+      "identityBoundRequired": false,
+      "auditRequired": true,
+      "expiryRequired": false,
+      "credentialMaterialAllowed": false,
+      "admissionRule": "Only an exact official source with a current source-specific rights decision, complete provenance and successful quarantine review may be admitted by a later slice."
+    },
+    {
+      "code": "TENANT_LIVE",
+      "enabled": false,
+      "sharedPersistenceAllowed": false,
+      "crossTenantCacheAllowed": false,
+      "modelWeightsAllowed": false,
+      "identityBoundRequired": true,
+      "auditRequired": true,
+      "expiryRequired": true,
+      "credentialMaterialAllowed": false,
+      "admissionRule": "Results must remain identity-bound, audited and expiring; shared persistence, cross-tenant cache and model-weight use are forbidden."
+    },
+    {
+      "code": "CONTRACTED",
+      "enabled": false,
+      "sharedPersistenceAllowed": false,
+      "crossTenantCacheAllowed": false,
+      "modelWeightsAllowed": false,
+      "identityBoundRequired": true,
+      "auditRequired": true,
+      "expiryRequired": true,
+      "credentialMaterialAllowed": false,
+      "admissionRule": "A separate agreement, role, credential reference, tenant boundary, rights decision and exact admission evidence are required before any access."
+    }
+  ],
+  "sourceClasses": [
+    {
+      "code": "OFFICIAL_MANUAL",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "defaultDecision": "REVIEW_REQUIRED",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "OFFICIAL_LOCATOR",
+        "HOST_PIN",
+        "PUBLICATION_OR_EFFECTIVE_DATE",
+        "OBSERVED_AT",
+        "CONTENT_SHA256",
+        "SOURCE_ROW_PAGE_SECTION",
+        "RIGHTS_DECISION"
+      ]
+    },
+    {
+      "code": "OFFICIAL_REGULATION",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "defaultDecision": "METADATA_ONLY",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "OFFICIAL_LOCATOR",
+        "HOST_PIN",
+        "PUBLICATION_OR_EFFECTIVE_DATE",
+        "OBSERVED_AT",
+        "CONTENT_SHA256",
+        "SOURCE_ROW_PAGE_SECTION",
+        "RIGHTS_DECISION"
+      ]
+    },
+    {
+      "code": "OPEN_DATASET",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "defaultDecision": "REVIEW_REQUIRED",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "OFFICIAL_LOCATOR",
+        "HOST_PIN",
+        "PUBLICATION_OR_EFFECTIVE_DATE",
+        "OBSERVED_AT",
+        "CONTENT_SHA256",
+        "SOURCE_ROW_PAGE_SECTION",
+        "RIGHTS_DECISION"
+      ]
+    },
+    {
+      "code": "PUBLIC_REGISTRY",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "defaultDecision": "REVIEW_REQUIRED",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "OFFICIAL_LOCATOR",
+        "HOST_PIN",
+        "PUBLICATION_OR_EFFECTIVE_DATE",
+        "OBSERVED_AT",
+        "CONTENT_SHA256",
+        "SOURCE_ROW_PAGE_SECTION",
+        "RIGHTS_DECISION"
+      ]
+    },
+    {
+      "code": "TENANT_API_RESPONSE",
+      "dataPlane": "TENANT_LIVE",
+      "defaultDecision": "TENANT_EPHEMERAL_ONLY",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "TENANT_BINDING",
+        "AUDIT_REFERENCE",
+        "EXPIRY",
+        "OBSERVED_AT",
+        "CONTENT_SHA256",
+        "SOURCE_ROW_PAGE_SECTION"
+      ]
+    },
+    {
+      "code": "TENANT_EXPORT",
+      "dataPlane": "TENANT_LIVE",
+      "defaultDecision": "TENANT_EPHEMERAL_ONLY",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "TENANT_BINDING",
+        "AUDIT_REFERENCE",
+        "EXPIRY",
+        "OBSERVED_AT",
+        "CONTENT_SHA256",
+        "SOURCE_ROW_PAGE_SECTION"
+      ]
+    },
+    {
+      "code": "CONTRACTED_API",
+      "dataPlane": "CONTRACTED",
+      "defaultDecision": "CONTRACT_REQUIRED",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "AGREEMENT_REFERENCE",
+        "CREDENTIAL_REFERENCE_ONLY",
+        "TENANT_BINDING",
+        "AUDIT_REFERENCE",
+        "EXPIRY",
+        "OBSERVED_AT",
+        "CONTENT_SHA256"
+      ]
+    },
+    {
+      "code": "CONTRACTED_DATASET",
+      "dataPlane": "CONTRACTED",
+      "defaultDecision": "CONTRACT_REQUIRED",
+      "sharedIndexEligible": false,
+      "modelWeightsEligible": false,
+      "credentialMaterialAllowed": false,
+      "cabinetMaterialAllowed": false,
+      "requiredEvidence": [
+        "AGREEMENT_REFERENCE",
+        "CREDENTIAL_REFERENCE_ONLY",
+        "TENANT_BINDING",
+        "AUDIT_REFERENCE",
+        "EXPIRY",
+        "OBSERVED_AT",
+        "CONTENT_SHA256"
+      ]
+    }
+  ],
+  "reuseDecisions": [
+    {
+      "decisionId": "AP14F0-OFFICIAL_MANUAL-DEFAULT",
+      "sourceClassCode": "OFFICIAL_MANUAL",
+      "status": "REVIEW_REQUIRED",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "An official locator does not itself establish permission to copy complete manual content into a shared corpus.",
+        "A source-specific rights and reuse review is required before text ingestion; metadata and citation records remain separate from corpus admission."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    },
+    {
+      "decisionId": "AP14F0-OFFICIAL_REGULATION-DEFAULT",
+      "sourceClassCode": "OFFICIAL_REGULATION",
+      "status": "METADATA_ONLY",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "The authority layer records official locator, dates, digest and exact section references without presuming unrestricted bulk reuse.",
+        "Full-text indexing or model-weight use requires a separate source-specific legal and technical admission decision."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    },
+    {
+      "decisionId": "AP14F0-OPEN_DATASET-DEFAULT",
+      "sourceClassCode": "OPEN_DATASET",
+      "status": "REVIEW_REQUIRED",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "The dataset must be explicitly published as open and its reuse terms, scope, update policy and attribution obligations must be recorded.",
+        "The word open in a page title or URL is insufficient without exact source-specific evidence."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    },
+    {
+      "decisionId": "AP14F0-PUBLIC_REGISTRY-DEFAULT",
+      "sourceClassCode": "PUBLIC_REGISTRY",
+      "status": "REVIEW_REQUIRED",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "Public query availability does not establish permission for bulk collection, redistribution or model training.",
+        "A later source-specific decision must define query limits, permitted fields, retention, attribution and anti-enumeration controls."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    },
+    {
+      "decisionId": "AP14F0-TENANT_API_RESPONSE-DEFAULT",
+      "sourceClassCode": "TENANT_API_RESPONSE",
+      "status": "TENANT_EPHEMERAL_ONLY",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "The response exists only under the requesting organization identity, role and lawful purpose.",
+        "It must be audited, expire and remain outside shared indexes, cross-tenant caches and model weights."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    },
+    {
+      "decisionId": "AP14F0-TENANT_EXPORT-DEFAULT",
+      "sourceClassCode": "TENANT_EXPORT",
+      "status": "TENANT_EPHEMERAL_ONLY",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "Cabinet or organization export access does not grant permission to place the exported material into a shared corpus.",
+        "The export must remain tenant-bound, audited, expiring and excluded from model training."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    },
+    {
+      "decisionId": "AP14F0-CONTRACTED_API-DEFAULT",
+      "sourceClassCode": "CONTRACTED_API",
+      "status": "CONTRACT_REQUIRED",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "Access is disabled until a separate agreement, permitted-purpose matrix, roles, credential reference and tenant boundary are accepted.",
+        "Credential values, private keys and ESIA passwords may never be stored in the corpus or repository."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    },
+    {
+      "decisionId": "AP14F0-CONTRACTED_DATASET-DEFAULT",
+      "sourceClassCode": "CONTRACTED_DATASET",
+      "status": "CONTRACT_REQUIRED",
+      "sharedIndexAllowed": false,
+      "modelWeightsAllowed": false,
+      "decisionBasis": [
+        "A contract must explicitly define permitted fields, users, purposes, retention, redistribution and model-training rights.",
+        "Until exact evidence and separate admission exist, the dataset remains disabled and quarantined by default."
+      ],
+      "reviewedAt": "2026-07-28",
+      "reviewDueAt": "2026-10-28",
+      "separateAdmissionRequired": true
+    }
+  ],
+  "globalControls": {
+    "hostPinningRequired": true,
+    "sha256Required": true,
+    "exactLocatorRequired": true,
+    "publicationEffectiveObservedDatesRequired": true,
+    "unitAndPeriodRequiredForNumericFacts": true,
+    "unsupportedOrStaleMustAbstain": true,
+    "protectedCabinetScrapingForbidden": true,
+    "esiaPasswordsForbidden": true,
+    "credentialsReferencesOnly": true,
+    "humanRightsReviewRequired": true,
+    "authorityFreshnessAlarmRequired": true,
+    "availabilityAlarmRequired": true,
+    "rightsReviewAlarmRequired": true
+  },
+  "forbiddenContentClasses": [
+    "AUTH_CREDENTIAL",
+    "CABINET_DOCUMENT",
+    "CROSS_TENANT_DATA",
+    "ORGANIZATION_TRANSACTION",
+    "PERSONAL_DATA",
+    "SIGNATURE_OR_PRIVATE_KEY_MATERIAL",
+    "TRADE_SECRET"
+  ],
+  "forbiddenClaims": [
+    "CONNECTED",
+    "LIVE",
+    "TRAINED_ON",
+    "PRODUCTION_READY",
+    "LICENSED_FOR_REUSE",
+    "COMPLETE_COVERAGE"
+  ],
+  "provenanceSchema": "./AP-14F0-PROVENANCE.schema.v1.json",
+  "quarantineSchema": "./AP-14F0-QUARANTINE.schema.v1.json"
+}
