@@ -97,6 +97,22 @@ The user explicitly authorized a narrow REG.RU web-only operational slice on bra
 
 This slice may add exact-SHA web deployment, readiness healthcheck, immutable rollback, Compose metadata recovery, Watchtower retirement and a one-shot fail-closed SSH private-key normalization retry against the already published immutable target. It must not change API, PostgreSQL, migrations, Caddy, production environment values, volumes, networks, domain logic, money logic, external integrations, packages or lockfiles. Production claims require running OCI revision and live-domain evidence.
 
+## Approved concurrent TAI model-capacity scope — issue #3317
+
+Review branch `agent/tai-ap-19a-model-capacity-gate-3317` only against the exact
+allow-list in `autopilot-state.json`.
+
+The branch may introduce a bounded non-blocking local-model capacity gate, production
+configuration `TAI_MODEL_MAX_INFLIGHT` with default `1` and allowed range `1..4`,
+overload propagation to HTTP 429 plus `Retry-After`, and focused tests. Primary and
+fallback attempts for one request must share one admitted slot, and the slot must be
+released after success, empty output, and every exception.
+
+Return BLOCKED if the diff adds a queue, raises the default above `1`, treats overload as
+an ordinary RAG abstention, acquires another slot for fallback, bypasses model admission
+or local-only transport, changes production topology, enables a write tool, or claims
+measured performance, model admission, deployment, or operational acceptance.
+
 ## Automatic hard blockers
 
 Return BLOCKED immediately for any of the following:
