@@ -324,3 +324,41 @@ def test_workflow_never_manufactures_legal_or_operational_acceptance() -> None:
         assert check in workflow
     assert "APPROVED" not in workflow
     assert "ADMITTED" not in workflow
+
+
+def test_ninja_is_observed_but_never_required_for_conversion() -> None:
+    """The probe names ninja; nothing requires it. Recording that as a check.
+
+    The capacity probe reports `missing required tools: NINJA`, which reads like
+    a blocker and invites installing a build tool on a host that has no reason
+    to build anything. It is an observation: the probe walks a wider list than
+    the requirements declare, and the conversion consumes llama.cpp binaries
+    that were already built and pinned by digest.
+
+    Written as a test rather than a sentence in a document so that a future
+    change which genuinely starts needing ninja has to say so here first.
+    """
+    requirements = _load(REQUIREMENTS_PATH)
+    assert "ninja" not in requirements["required_tools"]
+
+    # The probe observes it, which is where the misleading line comes from.
+    probe_workflow = (
+        ROOT / ".github" / "workflows" / "tai-model-host-capacity-probe.yml"
+    ).read_text(encoding="utf-8")
+    assert "ninja" in probe_workflow
+
+    # Nothing in the conversion chain reaches for it: the toolchain arrives
+    # prebuilt and is admitted by digest, not compiled on the host.
+    conversion_sources = [
+        TAI_ROOT / "model-artifacts" / "model-conversion-driver.v1.sh",
+        TAI_ROOT / "model-artifacts" / "model-conversion-prerequisites.v1.sh",
+        TAI_ROOT / "model-artifacts" / "model-conversion-artifacts.v1.sh",
+        TAI_ROOT / "model-artifacts" / "model-conversion-transport.v1.sh",
+        TAI_ROOT / "model-artifacts" / "model-conversion-authority.v1.json",
+    ]
+    for source in conversion_sources:
+        assert "ninja" not in source.read_text(encoding="utf-8").lower(), source.name
+
+    authority = _load(TAI_ROOT / "model-artifacts" / "model-conversion-authority.v1.json")
+    binaries = authority["toolchain_acceptance"]
+    assert binaries, "the conversion must admit its toolchain by digest, not build it"
