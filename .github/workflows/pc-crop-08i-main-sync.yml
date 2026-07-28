@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$DIAGNOSTICS"
-          test "$(git rev-parse HEAD)" = "01b35ae52f0c54345f4e5569c55e141cd80a9bd7"
+          test "$(git rev-parse HEAD)" = "bad6706faa77216b8559ce3cc611a3ae65a4031a"
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "9854fcad36cf382395f5f5bcb654ce663d2be5ee"
           git config user.name 'pc-crop-governance-bot'
