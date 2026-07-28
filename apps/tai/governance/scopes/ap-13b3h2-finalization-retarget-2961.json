@@ -1,0 +1,34 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3h2-finalization-retarget-2961",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2954,
+  "issue": 2961,
+  "exact_base": "7e1b554fa1ec1a0b63c9686822c36ef7c280ed68",
+  "maturity_boundary": "completed-conversion-handoff-retarget-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3h2-finalization-retarget-2961.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-remote.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-runbook.v1.md",
+    "apps/tai/tests/test_model_bundle_finalization_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "model conversion or quantization rerun",
+    "accepted model output path, size or SHA-256 identity change",
+    "S3, secret, credential, REG.RU or external-service mutation",
+    "Gateway, runtime activation or production-topology change",
+    "benchmark, admission, activation or production-status advancement",
+    "maturity-state advancement"
+  ],
+  "acceptance": [
+    "finalization authority is bound to conversion 846963821cf990c226eaead8b32f4bc9148311a0 run 30333755510 attempt 1 and its exact remote root",
+    "canonical conversion report SHA-256 remains f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d",
+    "authority, driver, remote executor and runbook require the new handoff and reject the former handoff",
+    "five accepted model output identities remain transitively bound by the unchanged canonical report",
+    "focused workflow tests, shell syntax, scope guard, strict mypy and full TAI tests pass",
+    "benchmark_status remains NOT_RUN, model_admission_status remains NOT_DONE and production_operational_status remains NOT_ATTESTED"
+  ]
+}
