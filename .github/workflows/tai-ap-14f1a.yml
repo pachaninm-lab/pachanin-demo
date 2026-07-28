@@ -193,9 +193,16 @@ jobs:
           set -euo pipefail
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
           printf '%s\n' "${{ steps.base.outputs.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
+          set +e
           node scripts/tai-ap-14f1a/verify.mjs \
             --scope-guard "${{ steps.base.outputs.base_ref }}" \
-            | tee "$EVIDENCE_DIR/acceptance.json"
+            > "$EVIDENCE_DIR/acceptance.json" \
+            2> "$EVIDENCE_DIR/verifier-error.txt"
+          verifier_status=$?
+          set -e
+          cat "$EVIDENCE_DIR/acceptance.json"
+          cat "$EVIDENCE_DIR/verifier-error.txt" >&2
+          test "$verifier_status" -eq 0
           node <<'NODE'
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/acceptance.json`, 'utf8'));
