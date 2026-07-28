@@ -1,0 +1,128 @@
+{
+  "schema_version": "tai.reg-ru-s3-compatibility-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2954,
+  "exact_base": "8655c70900bc087875ce64e7b7f65775ee838b93",
+  "provider_profile": "REG_RU_S3_2026",
+  "profile_state": "CANDIDATE_NOT_ACTIVE",
+  "execution_mode": "LOCAL_INTERACTIVE_ONLY",
+  "workflow_allowed": false,
+  "github_secret_registration_allowed": false,
+  "finalization_allowed": false,
+  "target": {
+    "endpoint": "https://s3.regru.cloud",
+    "region": "us-east-1",
+    "bucket": "tai-model-bundles-prod-01",
+    "prefix": "tai/model-bundles/v1",
+    "operator_confirmed_capacity_bytes": 200000000000
+  },
+  "required_bucket_controls": {
+    "versioning_status": "Enabled",
+    "object_lock_status": "Enabled",
+    "default_retention": {
+      "mode": "COMPLIANCE",
+      "days": 90
+    },
+    "anonymous_denied_http_statuses": [
+      401,
+      403
+    ],
+    "unsupported_s3_apis": []
+  },
+  "principal": {
+    "status": "UNRESOLVED",
+    "key_set_name": "tai-bundle-finalizer-prod-01",
+    "provider_issued_attestation_required": true,
+    "allowed_selector_keys": [
+      "AWS",
+      "CanonicalUser"
+    ],
+    "forbidden_inferences": [
+      "owner",
+      "key_set_name",
+      "access_key_id",
+      "bucket_owner_canonical_id"
+    ],
+    "allow_bucket_actions": [
+      "s3:GetBucketLocation",
+      "s3:GetBucketObjectLockConfiguration",
+      "s3:GetBucketPolicy",
+      "s3:GetBucketVersioning",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads",
+      "s3:ListBucketVersions"
+    ],
+    "allow_object_actions": [
+      "s3:AbortMultipartUpload",
+      "s3:GetObject",
+      "s3:GetObjectRetention",
+      "s3:GetObjectVersion",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject"
+    ],
+    "forbidden_actions": [
+      "s3:BypassGovernanceRetention",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:PutLifecycleConfiguration",
+      "s3:PutBucketObjectLockConfiguration",
+      "s3:PutBucketPolicy",
+      "s3:PutBucketVersioning",
+      "s3:PutObjectRetention"
+    ]
+  },
+  "policy": {
+    "governed_resource": "arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*",
+    "bucket_resource": "arn:aws:s3:::tai-model-bundles-prod-01",
+    "global_delete_deny_actions": [
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion"
+    ],
+    "secure_transport_required": true,
+    "preserve_unrelated_statements": true
+  },
+  "probe": {
+    "interactive_confirmation": "I AUTHORIZE REG.RU S3 COMPATIBILITY PROBE tai-model-bundles-prod-01/tai/model-bundles/v1 MAX_LOCKED_BYTES=9441280",
+    "worm_canary_bytes": 4096,
+    "stream_object_bytes": 9437184,
+    "multipart_part_bytes": 5242880,
+    "maximum_retained_locked_bytes": 9441280,
+    "maximum_sanitized_report_bytes": 1048576,
+    "restore_previous_policy_on_failure": true,
+    "delete_locked_versions": false,
+    "tls_ca_bundle": "/etc/ssl/certs/ca-certificates.crt",
+    "request_checksum_calculation": "when_required",
+    "response_checksum_validation": "when_required"
+  },
+  "required_proofs": [
+    "EXACT_TARGET",
+    "PROVIDER_ISSUED_PRINCIPAL",
+    "PRINCIPAL_SELECTOR_DISCRIMINATES",
+    "VERSIONING_ENABLED",
+    "OBJECT_LOCK_ENABLED",
+    "COMPLIANCE_90D",
+    "GLOBAL_DELETE_DENY",
+    "SECURE_TRANSPORT_DENY",
+    "FINALIZER_POLICY_MUTATION_DENIED",
+    "FINALIZER_VERSIONING_MUTATION_DENIED",
+    "FINALIZER_OBJECT_LOCK_MUTATION_DENIED",
+    "FINALIZER_OBJECT_RETENTION_MUTATION_DENIED",
+    "FINALIZER_LIFECYCLE_MUTATION_PROVIDER_ATTESTED",
+    "WORM_EXACT_VERSION_DELETE_REJECTED",
+    "GOVERNED_VERSIONLESS_DELETE_REJECTED",
+    "ANONYMOUS_LIST_REJECTED",
+    "ANONYMOUS_KNOWN_OBJECT_GET_REJECTED",
+    "MULTIPART_CREATE_LIST_PARTS_ABORT",
+    "STREAM_UPLOAD_VERSION_RETENTION_RESTORE_SHA256"
+  ],
+  "result": {
+    "verified_status": "VERIFIED_REG_RU_S3_COMPATIBILITY",
+    "failed_status": "FAILED_CLOSED",
+    "bundle_upload_status": "NOT_RUN",
+    "bundle_restore_status": "NOT_RUN",
+    "benchmark_status": "NOT_RUN",
+    "model_admission_status": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
