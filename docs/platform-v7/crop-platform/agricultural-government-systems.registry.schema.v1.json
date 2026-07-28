@@ -306,6 +306,24 @@
         }
       ]
     },
+    "tenantIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessment",
+        "requiredControl"
+      ],
+      "properties": {
+        "assessment": {
+          "type": "string",
+          "const": "NOT_ASSESSED"
+        },
+        "requiredControl": {
+          "type": "string",
+          "const": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+        }
+      }
+    },
     "system": {
       "type": "object",
       "additionalProperties": false,
@@ -331,6 +349,9 @@
         "platformWriteEnabled",
         "credentialRequirement",
         "signatureRequirement",
+        "tenantIsolation",
+        "credentialReference",
+        "signatureReference",
         "blockers"
       ],
       "properties": {
@@ -486,6 +507,23 @@
             "NOT_REQUIRED",
             "NOT_ASSESSED"
           ]
+        },
+        "tenantIsolation": {
+          "$ref": "#/$defs/tenantIsolation"
+        },
+        "credentialReference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z][A-Z0-9_]{2,119}$"
+        },
+        "signatureReference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z][A-Z0-9_]{2,119}$"
         },
         "blockers": {
           "type": "array",
