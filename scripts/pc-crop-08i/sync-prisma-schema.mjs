@@ -83,8 +83,8 @@ model FgisGrainAcknowledgement {
   providerConfigurationReference String?
   outboundOutboxEntryId          String?   @unique
   exchangeId                     String?   @unique
-  auditEventId                   String?
-  eventOutboxEntryId             String?
+  auditEventId                   String?   @unique
+  eventOutboxEntryId             String?   @unique
   state                          String
   reconciliationReason           String?
   reconciliationDetectedAt       DateTime? @db.Timestamptz(6)
