@@ -25,6 +25,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+      DIAGNOSTICS: artifacts/pc-crop-08i-main-sync
 
     steps:
       - name: Checkout exact PC-CROP-08I head
@@ -37,18 +38,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$DIAGNOSTICS"
           test "$(git rev-parse HEAD)" = "01b35ae52f0c54345f4e5569c55e141cd80a9bd7"
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "9854fcad36cf382395f5f5bcb654ce663d2be5ee"
           git config user.name 'pc-crop-governance-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git merge --no-ff --no-edit origin/main
-          git diff --check
-          git diff --name-only origin/main...HEAD | sort > /tmp/pc-crop-08i-files.txt
-          if grep -Ev '^(\.github/workflows/pc-crop-08i\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-ack\.e2e-spec\.ts|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.ack-policy\.lock\.json|docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack\.json|scripts/pc-crop-08i/.*)$' /tmp/pc-crop-08i-files.txt; then
+          git merge --no-ff --no-edit origin/main 2>&1 | tee "$DIAGNOSTICS/merge.log"
+          git diff --check 2>&1 | tee "$DIAGNOSTICS/diff-check.log"
+          git diff --name-only origin/main...HEAD | sort | tee "$DIAGNOSTICS/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-08i\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-ack\.e2e-spec\.ts|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.ack-policy\.lock\.json|docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack\.json|scripts/pc-crop-08i/.*)$' "$DIAGNOSTICS/changed-files.txt" | tee "$DIAGNOSTICS/out-of-scope.txt"; then
             echo 'PC-CROP-08I exact-main merge produced out-of-scope diff' >&2
             exit 1
           fi
+          git rev-parse HEAD > "$DIAGNOSTICS/merged-head.txt"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -69,21 +72,31 @@ jobs:
           PC_CROP_08I_POSTGRESQL: '1'
         run: |
           set -euo pipefail
-          node scripts/pc-crop-08i/sync-prisma-schema.mjs
-          pnpm --filter @pc/api exec prisma format
-          pnpm --filter @pc/api exec prisma validate
-          git diff --exit-code -- apps/api/prisma/schema.prisma
-          pnpm --filter @pc/api exec prisma migrate deploy
-          pnpm --filter @pc/api exec prisma migrate status
-          pnpm --filter @pc/api exec prisma generate
-          pnpm --filter @pc/api typecheck
+          node scripts/pc-crop-08i/sync-prisma-schema.mjs 2>&1 | tee "$DIAGNOSTICS/schema-sync.log"
+          pnpm --filter @pc/api exec prisma format 2>&1 | tee "$DIAGNOSTICS/prisma-format.log"
+          pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$DIAGNOSTICS/prisma-validate.log"
+          git diff --exit-code -- apps/api/prisma/schema.prisma 2>&1 | tee "$DIAGNOSTICS/schema-diff.log"
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$DIAGNOSTICS/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$DIAGNOSTICS/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$DIAGNOSTICS/prisma-generate.log"
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$DIAGNOSTICS/typecheck.log"
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
-            src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts \
+            2>&1 | tee "$DIAGNOSTICS/unit.log"
           pnpm --filter @pc/api exec jest \
             --config test/industrial/jest.config.json \
             test/industrial/fgis-grain-ack.e2e-spec.ts \
-            --runInBand
-          node scripts/pc-crop-08i/verify.mjs
+            --runInBand 2>&1 | tee "$DIAGNOSTICS/e2e.log"
+          node scripts/pc-crop-08i/verify.mjs 2>&1 | tee "$DIAGNOSTICS/verify.json"
+
+      - name: Upload exact-main sync diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08i-main-sync-${{ github.run_id }}
+          path: ${{ env.DIAGNOSTICS }}
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Push proven exact-main merge
         shell: bash
