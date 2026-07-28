@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin.example/schemas/tai-ap-14f1a-public-corpus-authority.schema.v1.json",
+  "title": "TAI AP-14F1A public corpus PostgreSQL authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "authorityVersion",
+    "generatedAt",
+    "operationalStatus",
+    "productionHosting",
+    "dataPlane",
+    "postgresqlMajor",
+    "migration",
+    "roles",
+    "tables",
+    "controlledFunctions",
+    "retrievalView",
+    "stateMachines",
+    "invariants",
+    "forbiddenCapabilities"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "./AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "tai.ap14f1a-public-corpus-authority.v1"
+    },
+    "authorityVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operationalStatus": {
+      "type": "string",
+      "const": "NOT_ATTESTED"
+    },
+    "productionHosting": {
+      "type": "string",
+      "const": "REG_RU_VPS_ONLY"
+    },
+    "dataPlane": {
+      "type": "string",
+      "const": "PUBLIC_OFFICIAL"
+    },
+    "postgresqlMajor": {
+      "type": "integer",
+      "const": 16
+    },
+    "migration": {
+      "type": "string",
+      "const": "apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql"
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "tables": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/table"
+      }
+    },
+    "controlledFunctions": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "$ref": "#/$defs/function"
+      }
+    },
+    "retrievalView": {
+      "$ref": "#/$defs/retrievalView"
+    },
+    "stateMachines": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/stateMachine"
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_]{5,120}$"
+      }
+    },
+    "forbiddenCapabilities": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "SOURCE_FETCH",
+          "REAL_SOURCE_ADMISSION",
+          "CORPUS_PARSE",
+          "CHUNKING",
+          "EMBEDDING",
+          "VECTOR_INDEX",
+          "CABINET_ACCESS",
+          "CREDENTIAL_STORAGE",
+          "TENANT_LIVE_DATA",
+          "CONTRACTED_DATA",
+          "MODEL_TRAINING",
+          "EXTERNAL_WRITE",
+          "PRODUCTION_DEPLOYMENT",
+          "CONNECTED_LIVE_TRAINED_CLAIM"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "loginAllowed", "directDmlAllowed", "controlledExecuteAllowed", "retrievalReadAllowed"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["tai_knowledge_ingestor", "tai_knowledge_reader"]
+        },
+        "loginAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "directDmlAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "controlledExecuteAllowed": {
+          "type": "boolean"
+        },
+        "retrievalReadAllowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "purpose", "appendOnly", "hardDeleteDenied", "dataPlaneColumn"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^tai_public_[a-z0-9_]{5,100}$"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 500
+        },
+        "appendOnly": {
+          "type": "boolean"
+        },
+        "hardDeleteDenied": {
+          "type": "boolean",
+          "const": true
+        },
+        "dataPlaneColumn": {
+          "type": "boolean"
+        }
+      }
+    },
+    "function": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "securityDefiner", "ingestorExecute", "readerExecute", "failClosed"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^tai_knowledge\\.[a-z0-9_]{5,100}$"
+        },
+        "securityDefiner": {
+          "type": "boolean",
+          "const": true
+        },
+        "ingestorExecute": {
+          "type": "boolean"
+        },
+        "readerExecute": {
+          "type": "boolean"
+        },
+        "failClosed": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "retrievalView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "securityBarrier", "requiresCurrentRights", "excludesQuarantine", "excludesWithdrawal", "excludesUnsealedSnapshots"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "tai_public_corpus_retrieval_entries"
+        },
+        "securityBarrier": {
+          "type": "boolean",
+          "const": true
+        },
+        "requiresCurrentRights": {
+          "type": "boolean",
+          "const": true
+        },
+        "excludesQuarantine": {
+          "type": "boolean",
+          "const": true
+        },
+        "excludesWithdrawal": {
+          "type": "boolean",
+          "const": true
+        },
+        "excludesUnsealedSnapshots": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "stateMachine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity", "states", "initialState", "terminalStates"],
+      "properties": {
+        "entity": {
+          "type": "string",
+          "enum": ["SOURCE", "SOURCE_VERSION", "ARTIFACT", "SNAPSHOT"]
+        },
+        "states": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z_]{3,60}$"
+          }
+        },
+        "initialState": {
+          "type": "string",
+          "pattern": "^[A-Z_]{3,60}$"
+        },
+        "terminalStates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z_]{3,60}$"
+          }
+        }
+      }
+    }
+  }
+}
