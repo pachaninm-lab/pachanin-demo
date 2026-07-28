@@ -1,0 +1,111 @@
+name: TAI AP-14F0 Knowledge Authority
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap-14f0.yml'
+      - 'apps/tai/knowledge-sources/AP-14F0-KNOWLEDGE-AUTHORITY.schema.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F0-KNOWLEDGE-AUTHORITY.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F0-PROVENANCE.schema.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F0-QUARANTINE.schema.v1.json'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f0-3339.json'
+      - 'scripts/tai-ap-14f0/verify.mjs'
+  push:
+    branches:
+      - main
+      - agent/tai-ap-14f0-knowledge-authority-3339
+    paths:
+      - '.github/workflows/tai-ap-14f0.yml'
+      - 'apps/tai/knowledge-sources/AP-14F0-KNOWLEDGE-AUTHORITY.schema.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F0-KNOWLEDGE-AUTHORITY.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F0-PROVENANCE.schema.v1.json'
+      - 'apps/tai/knowledge-sources/AP-14F0-QUARANTINE.schema.v1.json'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f0-3339.json'
+      - 'scripts/tai-ap-14f0/verify.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-ap-14f0-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/tai-ap-14f0
+
+jobs:
+  knowledge-authority:
+    name: Rights boundary · provenance · quarantine
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Resolve governed comparison base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            base_ref="HEAD^"
+          else
+            base_ref="8dff44ace01a1448f8f96b0fbf19f2532ee319e2"
+          fi
+          printf 'base_ref=%s\n' "$base_ref" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify source-controlled branch scope
+        if: github.ref_name != 'main'
+        shell: bash
+        env:
+          BASE_REF: ${{ steps.base.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          bash scripts/p7-autopilot-guard.sh
+
+      - name: Verify fail-closed knowledge authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          printf '%s\n' "${{ steps.base.outputs.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
+          node scripts/tai-ap-14f0/verify.mjs \
+            --scope-guard "${{ steps.base.outputs.base_ref }}" \
+            | tee "$EVIDENCE_DIR/acceptance.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/acceptance.json`, 'utf8'));
+          if (report.status !== 'PASS') process.exit(1);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (report.counts.dataPlanes !== 3) process.exit(1);
+          if (report.counts.sourceClasses !== 8) process.exit(1);
+          if (report.counts.reuseDecisions !== 8) process.exit(1);
+          if (report.counts.quarantineReasons !== 12) process.exit(1);
+          if (report.counts.negativeMutationProbes !== 6) process.exit(1);
+          if (Object.values(report.boundaries).some(Boolean)) process.exit(1);
+          NODE
+
+      - name: Upload AP-14F0 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap-14f0-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14

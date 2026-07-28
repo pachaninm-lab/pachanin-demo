@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f0-knowledge-authority-3339",
+  "status": "active",
+  "issue": 3339,
+  "baseCommit": "8dff44ace01a1448f8f96b0fbf19f2532ee319e2",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f0.yml",
+    "apps/tai/knowledge-sources/AP-14F0-KNOWLEDGE-AUTHORITY.schema.v1.json",
+    "apps/tai/knowledge-sources/AP-14F0-KNOWLEDGE-AUTHORITY.v1.json",
+    "apps/tai/knowledge-sources/AP-14F0-PROVENANCE.schema.v1.json",
+    "apps/tai/knowledge-sources/AP-14F0-QUARANTINE.schema.v1.json",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f0-3339.json",
+    "scripts/tai-ap-14f0/verify.mjs"
+  ],
+  "boundaries": {
+    "authorityOnly": true,
+    "noSourceFetch": true,
+    "noCorpusIngestion": true,
+    "noEmbeddingsOrVectorIndex": true,
+    "noCabinetAccess": true,
+    "noCredentials": true,
+    "noFineTuning": true,
+    "noRuntimeReadOrWrite": true,
+    "noProductionDeployment": true,
+    "noConnectedLiveOrTrainedClaim": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "dataPlaneCount": 3,
+    "sourceClassCount": 8,
+    "mandatoryQuarantineReasonCount": 12,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
