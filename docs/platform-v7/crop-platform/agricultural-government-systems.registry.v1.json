@@ -2190,7 +2190,7 @@
         "targetSystemCodes": [
           "FGIS_GRAIN"
         ],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "USE_PINNED_1_0_23_CONTRACT_WITH_REAL_ACCESS_AND_EXTERNAL_E2E"
       },
@@ -2200,7 +2200,7 @@
         "targetSystemCodes": [
           "FNS_EGRUL_EGRIP"
         ],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "PIN_EXACT_FNS_ACCESS_MODEL_FORMATS_AND_FRESHNESS"
       },
@@ -2208,7 +2208,7 @@
         "code": "DIADOK",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SIGNED_VENDOR_CONTRACT_AND_LEGALLY_SIGNIFICANT_EDO_E2E"
       },
@@ -2216,7 +2216,7 @@
         "code": "CRYPTOPRO_DSS",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "CERTIFIED_CRYPTOGRAPHY_PROFILE_KEY_CEREMONY_AND_SIGNATURE_E2E"
       },
@@ -2224,7 +2224,7 @@
         "code": "BANK",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SELECT_BANK_SIGN_CONTRACT_AND_ACCEPT_RECONCILIATION_CALLBACK_E2E"
       },
@@ -2232,7 +2232,7 @@
         "code": "GPS",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SELECT_PROVIDER_SIGN_CONTRACT_AND_ACCEPT_ROUTE_EVENT_E2E"
       },
@@ -2242,7 +2242,7 @@
         "targetSystemCodes": [
           "FTS_PARTICIPANT_SERVICES"
         ],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SELECT_EXACT_FTS_SERVICE_AND_PIN_OFFICIAL_ACCESS_CONTRACT"
       },
@@ -2254,7 +2254,7 @@
           "FGIS_ARGUS_FITO",
           "FGIS_VETIS"
         ],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "REPLACE_UMBRELLA_CODE_WITH_EXACT_SYSTEM_AND_CONTRACT"
       },
@@ -2264,7 +2264,7 @@
         "targetSystemCodes": [
           "ROSFINMONITORING_AML"
         ],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "LEGAL_APPLICABILITY_EXACT_CHANNEL_AND_ACCESS_CONTRACT"
       },
@@ -2272,7 +2272,7 @@
         "code": "RZD_ETRAN",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SIGNED_RZD_CONTRACT_EXACT_ETRAN_PROFILE_AND_EXTERNAL_E2E"
       },
@@ -2283,7 +2283,7 @@
           "GIS_EPD",
           "GIS_EPD_OPERATOR_REGISTRY"
         ],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SELECT_AND_VERIFY_ACCREDITED_IS_EPD_OPERATOR_THEN_PIN_CONTRACT"
       },
@@ -2291,7 +2291,7 @@
         "code": "BKI_NBKI",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "LEGAL_BASIS_CONSENT_SIGNED_BUREAU_CONTRACT_AND_EXTERNAL_E2E"
       },
@@ -2299,7 +2299,7 @@
         "code": "TAKSKOM",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SELECT_PRODUCT_SIGN_VENDOR_CONTRACT_AND_EXTERNAL_E2E"
       },
@@ -2307,7 +2307,7 @@
         "code": "MARINE_TRAFFIC",
         "classification": "VENDOR_DECLARATION",
         "targetSystemCodes": [],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SIGNED_DATA_LICENSE_EXACT_API_CONTRACT_AND_EXTERNAL_E2E"
       },
@@ -2317,7 +2317,7 @@
         "targetSystemCodes": [
           "SMEV3"
         ],
-        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedPath": "packages/integration-sdk/src/registry.ts",
         "observedState": "MOCK_ADAPTER",
         "nextEvidence": "SELECT_DOMAIN_SERVICE_PIN_CONTRACT_AND_COMPLETE_CRYPTOGRAPHIC_EXTERNAL_E2E"
       }
