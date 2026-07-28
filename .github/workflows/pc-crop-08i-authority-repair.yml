@@ -91,6 +91,12 @@ jobs:
               label: 'fail-closed verified flag',
             },
             {
+              before: "  IF current_user NOT IN ('app_runtime', 'app_service')\n     OR NOT public.app_rls_context_ready()\n     OR v_actor_role NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')\n",
+              after: "  IF NOT public.app_rls_context_ready()\n     OR v_actor_role NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')\n",
+              expected: 1,
+              label: 'SECURITY DEFINER invoker authority',
+            },
+            {
               before: '       AND v_existing."decision" = CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END\n',
               after: '       AND v_existing."decision" = (CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END)\n',
               expected: 1,
