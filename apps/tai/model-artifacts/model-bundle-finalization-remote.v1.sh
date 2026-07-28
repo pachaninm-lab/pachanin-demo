@@ -18,7 +18,7 @@ cleanup_credentials() {
 trap cleanup_credentials EXIT
 
 case "$RUN_ROOT" in /srv/tai-models/bundle-finalization-runs/*) ;; *) exit 64;; esac
-test "$CONVERSION_ROOT" = "/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1"
+test "$CONVERSION_ROOT" = "/srv/tai-models/conversion-runs/846963821cf990c226eaead8b32f4bc9148311a0/30333755510-1"
 test "$(id -un)" = "tai-model"
 test -f "$CREDENTIALS_FILE"
 test ! -L "$CREDENTIALS_FILE"
@@ -38,6 +38,39 @@ test -f "$BUNDLE_AUTHORITY"
 test -f "$CONVERSION_AUTHORITY"
 test -f "$CONVERSION_ROOT/status.json"
 test -f "$CONVERSION_ROOT/evidence/conversion-report.json"
+# BEGIN CONVERSION_REPORT_CANONICAL_VALIDATION
+CONVERSION_REPORT_PATH="$CONVERSION_ROOT/evidence/conversion-report.json" \
+EXPECTED_CONVERSION_REPORT_SHA256="f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d" \
+python3 - <<'PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise SystemExit(f"CONVERSION_REPORT_DUPLICATE_KEY:{key}")
+        result[key] = value
+    return result
+
+
+path = Path(os.environ["CONVERSION_REPORT_PATH"])
+expected = os.environ["EXPECTED_CONVERSION_REPORT_SHA256"]
+payload = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_keys)
+if not isinstance(payload, dict):
+    raise SystemExit("CONVERSION_REPORT_NOT_OBJECT")
+embedded = payload.pop("report_sha256", None)
+canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+computed = hashlib.sha256(canonical.encode()).hexdigest()
+if embedded != expected or computed != expected:
+    raise SystemExit(
+        f"CONVERSION_REPORT_SHA256_MISMATCH:embedded={embedded}:computed={computed}:expected={expected}"
+    )
+PY
+# END CONVERSION_REPORT_CANONICAL_VALIDATION
 test "$(findmnt -rn -o SOURCE -T "$RUN_ROOT")" = "$(findmnt -rn -o SOURCE -T "$CONVERSION_ROOT")"
 
 export AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID"
