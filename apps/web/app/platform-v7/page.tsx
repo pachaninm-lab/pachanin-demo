@@ -58,16 +58,31 @@ const CRITICAL_HOME_CSS = `
   text-transform: none;
 }
 html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
+  display: block;
   max-width: none;
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.24;
-  letter-spacing: -.005em;
-  white-space: pre;
+  font-size: 0;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: normal;
 }
-html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::first-line {
+html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before,
+html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
+  display: block;
+  color: var(--pc-v6-green);
+}
+html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before {
+  content: 'Платформа управления агросделками в растениеводстве';
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 650;
+  line-height: 1.25;
+}
+html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
+  content: 'с собственным искусственным интеллектом';
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.18;
+  letter-spacing: -.012em;
 }
 .pc-v6-hero h1.pc-v6-hero-title {
   max-width: 13ch;
@@ -192,15 +207,24 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     text-wrap: balance;
   }
   html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
-    font-size: clamp(11px, 3.45vw, 13.5px);
-    font-weight: 800;
+    font-size: 0;
+    line-height: 1;
+    white-space: normal;
+  }
+  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before {
+    font-size: clamp(9.5px, 3.02vw, 12.5px);
+    font-weight: 650;
     line-height: 1.22;
     letter-spacing: -.006em;
-    white-space: pre;
+    white-space: nowrap;
   }
-  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::first-line {
-    font-size: clamp(9.75px, 3.15vw, 12.5px);
-    font-weight: 600;
+  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
+    margin-top: 3px;
+    font-size: clamp(12.5px, 3.65vw, 15px);
+    font-weight: 900;
+    line-height: 1.16;
+    letter-spacing: -.018em;
+    white-space: nowrap;
   }
   .pc-v6-hero h1.pc-v6-hero-title {
     max-width: 100%;
