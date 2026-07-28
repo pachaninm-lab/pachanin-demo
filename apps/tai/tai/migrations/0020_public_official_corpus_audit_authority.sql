@@ -22,6 +22,9 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN
+        RETURN OLD;
+    END IF;
     RAISE EXCEPTION 'tai_public_corpus_audit is immutable';
 END;
 $$;
