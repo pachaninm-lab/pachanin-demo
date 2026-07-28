@@ -71,6 +71,7 @@ assert(schema.$schema === 'https://json-schema.org/draft/2020-12/schema', 'schem
 assert(schema.type === 'object', 'schema root must be an object');
 assert(schema.additionalProperties === false, 'schema root must reject additional properties');
 assert(schema.$defs?.system?.additionalProperties === false, 'system schema must reject additional properties');
+assert(schema.$defs?.tenantIsolation?.additionalProperties === false, 'tenant isolation schema must reject additional properties');
 assert(schema.$defs?.coverageEntry?.additionalProperties === false, 'coverage schema must reject additional properties');
 pass('SCHEMA_STRICTNESS', 'Draft 2020-12 and closed object shapes are declared.');
 
@@ -165,6 +166,9 @@ const systemKeys = [
   'platformWriteEnabled',
   'credentialRequirement',
   'signatureRequirement',
+  'tenantIsolation',
+  'credentialReference',
+  'signatureReference',
   'blockers',
 ];
 const locatorKeys = ['url', 'role', 'verifiedAt', 'retrievalStatus'];
@@ -180,6 +184,7 @@ const platformStates = ['DISABLED', 'SANDBOX_ONLY'];
 const readEvidence = ['PUBLIC_QUERY_DOCUMENTED', 'OFFICIAL_API_DOCUMENTED', 'PORTAL_ONLY', 'NOT_ASSESSED', 'NOT_APPLICABLE'];
 const writeEvidence = ['OFFICIAL_API_DOCUMENTED', 'PORTAL_ONLY', 'NOT_ASSESSED', 'NOT_APPLICABLE'];
 const requirementValues = ['REQUIRED', 'NOT_REQUIRED', 'NOT_ASSESSED'];
+const tenantIsolationKeys = ['assessment', 'requiredControl'];
 const officialHosts = [
   'mcx.gov.ru',
   'specagro.ru',
@@ -215,6 +220,14 @@ for (const system of registry.systems) {
   assertEnum(system.writeEvidence, writeEvidence, `${system.systemCode} write evidence`);
   assertEnum(system.credentialRequirement, requirementValues, `${system.systemCode} credential requirement`);
   assertEnum(system.signatureRequirement, requirementValues, `${system.systemCode} signature requirement`);
+  assertExactKeys(system.tenantIsolation, tenantIsolationKeys, `${system.systemCode} tenant isolation`);
+  assert(system.tenantIsolation.assessment === 'NOT_ASSESSED', `${system.systemCode} tenant isolation may not be attested`);
+  assert(
+    system.tenantIsolation.requiredControl === 'SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT',
+    `${system.systemCode} tenant RBAC/RLS requirement changed`,
+  );
+  assert(system.credentialReference === null, `${system.systemCode} may not bind a credential in this slice`);
+  assert(system.signatureReference === null, `${system.systemCode} may not bind a signature authority in this slice`);
   assert(system.platformReadEnabled === false, `${system.systemCode} platform read must be disabled`);
   assert(system.platformWriteEnabled === false, `${system.systemCode} platform write must be disabled`);
   assert(Array.isArray(system.inventoryCodes) && system.inventoryCodes.length > 0, `${system.systemCode} lacks inventory`);
@@ -263,6 +276,10 @@ for (const system of registry.systems) {
   }
 }
 pass('SYSTEM_SHAPE_AND_MATURITY', `${systemsByCode.size} systems/components are structurally valid and disabled.`);
+pass(
+  'TENANT_AND_REFERENCE_BOUNDARY',
+  'Every system carries an unassessed tenant/RBAC/RLS class and null credential/signature references.',
+);
 
 for (const inventory of registry.inventoryAuthorities) {
   for (const systemCode of inventory.coverageCodes) {
