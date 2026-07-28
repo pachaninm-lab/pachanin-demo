@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "observer/tai-ap-14f1a-exact-main-fcd0a372-v2",
+  "status": "active",
+  "issue": 3345,
+  "baseCommit": "fcd0a372fb3a94ba36408479bd1b18f33b16c4e8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f1a-exact-main-observer.yml",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f1a-exact-main-observer-3345.json"
+  ],
+  "boundaries": {
+    "readOnlyObserver": true,
+    "closeWithoutMerge": true,
+    "noSourceFetch": true,
+    "noRealCorpusBytes": true,
+    "noRuntimeMutation": true,
+    "noCredentials": true,
+    "noDeployment": true
+  },
+  "acceptance": {
+    "targetExactMainSha": "fcd0a372fb3a94ba36408479bd1b18f33b16c4e8",
+    "targetMustRemainMainAncestor": true,
+    "profileRerunRequired": true,
+    "postgresql16Required": true,
+    "artifactRequired": true,
+    "closeWithoutMerge": true
+  }
+}
