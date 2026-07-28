@@ -21,7 +21,7 @@ describe('platform-v7 final master public entry', () => {
   const explorerAdapter = read('components/platform-v7/PublicDealExplorerV4.tsx');
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
 
-  it('renders the complete final v4 narrative and the durable connection form', () => {
+  it('renders the complete approved public narrative and the durable connection form', () => {
     expect(page).toContain('const home = await PlatformV7StrategicHome();');
     for (const anchor of [
       "id='difference'",
@@ -30,10 +30,11 @@ describe('platform-v7 final master public entry', () => {
       "id='live'",
       "id='participants'",
       "id='tai'",
-      "id='maturity'",
-      "id='integrations'",
       "id='faq'",
     ]) expect(home).toContain(anchor);
+    expect(home).not.toContain("id='maturity'");
+    expect(home).not.toContain("id='integrations'");
+    expect(home).not.toContain("href='#maturity'");
     expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
     expect(home).toContain("id={index === 2 ? 'money' : undefined}");
@@ -124,15 +125,12 @@ describe('platform-v7 final master public entry', () => {
     expect(storyCss).toContain('.moreContentToggle:focus-visible ~ .moreContentLabel');
   });
 
-  it('keeps comparison and integration data in valid accessible table structures', () => {
+  it('keeps comparison data in a valid accessible table structure', () => {
     expect(home).toContain("className={styles.comparisonTable} role='table' aria-labelledby='difference-title'");
     expect(home.match(/className=\{styles\.comparisonTable\} role='table'/g)).toHaveLength(1);
     expect(home).toContain("id='difference-comparison-rows' className={styles.comparisonRows} role='rowgroup'");
     expect(home).toContain("data-comparison-row='true'");
     expect(home).toContain("<strong role='rowheader'>{row.criterion}</strong>");
-    expect(home).toContain("className={styles.integrationTable} role='table' aria-labelledby='integrations-title'");
-    expect(home).toContain("className={styles.integrationRows} role='rowgroup'");
-    expect(home).toContain("className={styles.integrationRow} role='row'");
     expect(home).not.toMatch(/<article[^>]+role='row'/);
   });
 });

@@ -57,7 +57,6 @@ const functionIcons = [
 ] as const;
 
 const proofIcons = [Link2, ShieldCheck, FileCheck2, Sparkles] as const;
-const trustIcons = [ShieldCheck, FileCheck2, TriangleAlert, CheckCircle2] as const;
 
 const stateInputClasses = [styles.stateNormal, styles.stateDeviation, styles.stateDispute] as const;
 const stateTabClasses = [styles.tabNormal, styles.tabDeviation, styles.tabDispute] as const;
@@ -80,7 +79,6 @@ export async function PlatformV7StrategicHome() {
       <a href='#live'>{story.nav.deal}</a>
       <a href='#participants'>{story.nav.roles}</a>
       <a href='#tai'>{story.nav.tai}</a>
-      <a href='#maturity'>{story.nav.trust}</a>
     </>
   );
 
@@ -514,64 +512,6 @@ export async function PlatformV7StrategicHome() {
                 {story.tai.cta}<ArrowRight aria-hidden='true' size={17} />
               </PublicExperienceLink>
             </div>
-          </div>
-        </section>
-
-        <section id='maturity' className={`pc-v6-section ${styles.section}`} aria-labelledby='maturity-title'>
-          <SectionHeader id='maturity-title' eyebrow={story.trust.eyebrow} title={story.trust.title} lead={story.trust.lead} />
-          <div className={styles.trustGrid}>
-            {story.trust.items.map((item, index) => {
-              const Icon = trustIcons[index] ?? ShieldCheck;
-              return (
-                <article key={item.title}><Icon aria-hidden='true' /><div><strong>{item.title}</strong><span>{item.text}</span></div></article>
-              );
-            })}
-          </div>
-          <div className={styles.metrics}>
-            {story.trust.metrics.map((metric) => <article key={metric.label}><strong>{metric.value}</strong><span>{metric.label}</span></article>)}
-          </div>
-          <div className={styles.architectureNote}>
-            <ShieldCheck aria-hidden='true' />
-            <p>{story.trust.architectureNote}</p>
-          </div>
-
-          <div id='integrations' className={styles.integrations} aria-labelledby='integrations-title'>
-            <div className={styles.subsectionHeader}>
-              <h3 id='integrations-title'>{story.trust.integrationTitle}</h3>
-              <span>{story.trust.statusBadge}</span>
-            </div>
-            <div className={styles.integrationTable} role='table' aria-labelledby='integrations-title'>
-              <div className={styles.integrationHeader} role='row'>
-                {story.trust.headers.map((header) => <strong key={header} role='columnheader'>{header}</strong>)}
-              </div>
-              <div className={styles.integrationRows} role='rowgroup'>
-                {story.trust.integrations.map((integration) => (
-                  <div key={integration.system} className={styles.integrationRow} role='row' data-integration-row='true'>
-                    <strong role='rowheader'>{integration.system}</strong>
-                    <span role='cell'>{integration.scenario}</span>
-                    <span role='cell'>{integration.boundary}</span>
-                    <b role='cell'>{integration.status}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.evidenceLadder}>
-            <h3>{story.trust.ladderTitle}</h3>
-            <ol>{story.trust.ladder.map((level, index) => <li key={level}><span>{index + 1}</span><strong>{level}</strong></li>)}</ol>
-            <p>{story.trust.publicationRule}</p>
-          </div>
-          <div className={styles.trustActions}>
-            <PublicExperienceLink
-              href='#connect-organization'
-              className='pc-v6-primary'
-              eventName='connection_start'
-              locale={locale}
-              params={{ source: 'home_v4_trust' }}
-            >
-              {story.trust.cta}<ArrowRight aria-hidden='true' size={18} />
-            </PublicExperienceLink>
           </div>
         </section>
 
