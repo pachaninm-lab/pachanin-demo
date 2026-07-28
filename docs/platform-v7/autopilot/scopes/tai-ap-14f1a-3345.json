@@ -9,6 +9,7 @@
   "allowedPaths": [
     ".github/workflows/tai-ap-14f1a.yml",
     "apps/tai/tai/migrations/0019_public_official_corpus.sql",
+    "apps/tai/tai/migrations/0020_public_official_corpus_audit_authority.sql",
     "apps/tai/tai/migrations/manifest.json",
     "apps/tai/tai/postgres_public_official_corpus.py",
     "apps/tai/tai/public_official_corpus.py",
@@ -33,8 +34,8 @@
     "exactMainRequired": true,
     "mergeExpectedHeadRequired": true,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 10,
-    "migrationVersion": 20,
+    "changedPathCount": 11,
+    "migrationVersion": 21,
     "operationalStatus": "NOT_ATTESTED"
   }
 }
