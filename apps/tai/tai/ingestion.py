@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-from tai.knowledge import KnowledgeRecord, KnowledgeScope
+from tai.knowledge import FactAuthority, KnowledgeRecord, KnowledgeScope
 from tai.source_governance import SourceDocument, SourceRegistry
 
 
@@ -111,6 +111,14 @@ class IngestionLedger:
                 supersedes_manifest_id=prior.supersedes_manifest_id,
             )
 
+        # The expiry is not invented here: the source policy already refuses a
+        # document older than `maximum_age` at admission, so a fact taken from
+        # that document stops being usable at the same horizon. Deriving it keeps
+        # one decision in one place instead of two that can drift apart.
+        policy = registry.policy_for(document.source_id)
+        if policy is None:  # pragma: no cover - admission already refused this
+            raise ValueError("accepted_document_from_unregistered_source")
+
         record = KnowledgeRecord(
             record_id=f"agro.{document.source_id}.{document.checksum_sha256[:12]}",
             title=document.title,
@@ -119,6 +127,10 @@ class IngestionLedger:
             source_uri=document.source_uri,
             effective_at=effective_at,
             trust_score=document.trust_score,
+            authority=FactAuthority.OFFICIAL_SOURCE,
+            source_id=document.source_id,
+            observed_at=document.fetched_at,
+            expires_at=document.fetched_at + policy.maximum_age,
             scope=KnowledgeScope.PUBLIC,
             tags=frozenset({document.domain.value.casefold(), document.source_id}),
         )

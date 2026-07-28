@@ -1,10 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from tai.ingestion import IngestionManifest, IngestionState
-from tai.knowledge import KnowledgeRecord, KnowledgeScope
+from tai.knowledge import FactAuthority, KnowledgeRecord, KnowledgeScope
 from tai.materialized_knowledge import (
     MATERIALIZED_SCHEMA_VERSION,
     JsonMaterializedKnowledgeRepository,
@@ -40,6 +40,10 @@ def entry(manifest_id: str, record_id: str) -> MaterializedEntry:
             source_uri="https://mcx.gov.ru/analytics/grain-market",
             effective_at=NOW,
             trust_score=0.99,
+            authority=FactAuthority.OFFICIAL_SOURCE,
+            source_id="official.minselhoz",
+            observed_at=NOW,
+            expires_at=NOW + timedelta(days=30),
             scope=KnowledgeScope.PUBLIC,
             tags=frozenset({"рынок", "зерно"}),
         ),

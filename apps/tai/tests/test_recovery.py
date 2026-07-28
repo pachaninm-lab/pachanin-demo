@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from tai.ingestion import IngestionManifest, IngestionState
-from tai.knowledge import KnowledgeRecord
+from tai.knowledge import FactAuthority, KnowledgeRecord
 from tai.materialized_knowledge import (
     MATERIALIZED_SCHEMA_VERSION,
     JsonMaterializedKnowledgeRepository,
@@ -43,6 +43,9 @@ def _entry(manifest_id: str) -> MaterializedEntry:
             source_uri=f"repo://{manifest_id}",
             effective_at=NOW,
             trust_score=1.0,
+            authority=FactAuthority.PLATFORM_CODE,
+            observed_at=NOW,
+            expires_at=NOW + timedelta(days=180),
         ),
     )
 

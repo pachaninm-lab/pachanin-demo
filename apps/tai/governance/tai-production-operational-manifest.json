@@ -26,7 +26,7 @@
     "status": "NOT_ATTESTED",
     "total": 5
   },
-  "exact_main_sha": "ecce12f9a6e3938a0820301501fcbd3d5edae262",
+  "exact_main_sha": "9854fcad36cf382395f5f5bcb654ce663d2be5ee",
   "fault_acceptance": {
     "accepted": 0,
     "blocking_items": [
@@ -56,7 +56,7 @@
     "status": "NOT_ATTESTED",
     "total": 6
   },
-  "generated_at": "2026-07-27T22:50:00Z",
+  "generated_at": "2026-07-28T04:20:00Z",
   "governance_acceptance": {
     "accepted": 5,
     "blocking_items": [

@@ -9,7 +9,7 @@ from tempfile import NamedTemporaryFile
 from typing import Final
 
 from tai.ingestion import IngestionManifest
-from tai.knowledge import KnowledgeRecord, KnowledgeScope, KnowledgeStore
+from tai.knowledge import FactAuthority, KnowledgeRecord, KnowledgeScope, KnowledgeStore
 
 MATERIALIZED_SCHEMA_VERSION: Final[str] = "tai.materialized-knowledge.v1"
 
@@ -46,6 +46,12 @@ class JsonMaterializedKnowledgeRepository:
                     "record": {
                         **asdict(entry.record),
                         "effective_at": entry.record.effective_at.isoformat(),
+                        # Provenance, freshness and expiry travel with the fact:
+                        # a snapshot that dropped them would restore records that
+                        # can no longer say when they were last confirmed.
+                        "observed_at": entry.record.observed_at.isoformat(),
+                        "expires_at": entry.record.expires_at.isoformat(),
+                        "authority": entry.record.authority.value,
                         "scope": entry.record.scope.value,
                         "tenant_id": (
                             str(entry.record.tenant_id) if entry.record.tenant_id else None
@@ -99,6 +105,10 @@ class JsonMaterializedKnowledgeRepository:
                         source_uri=item["record"]["source_uri"],
                         effective_at=datetime.fromisoformat(item["record"]["effective_at"]),
                         trust_score=float(item["record"]["trust_score"]),
+                        authority=FactAuthority(item["record"]["authority"]),
+                        source_id=item["record"].get("source_id"),
+                        observed_at=datetime.fromisoformat(item["record"]["observed_at"]),
+                        expires_at=datetime.fromisoformat(item["record"]["expires_at"]),
                         scope=KnowledgeScope(item["record"]["scope"]),
                         tenant_id=None,
                         tags=frozenset(item["record"].get("tags", ())),
