@@ -30,6 +30,7 @@
   "acceptance": {
     "exactHeadRequired": true,
     "exactMainRequired": true,
+    "exactMainCommitStatusRequired": true,
     "mergeExpectedHeadRequired": true,
     "reviewThreadsRequired": 0,
     "dataPlaneCount": 3,
