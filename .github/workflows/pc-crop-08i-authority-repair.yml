@@ -78,6 +78,12 @@ jobs:
             'fail-closed verified flag',
           );
           replaceExact(
+            '       AND v_existing."decision" = CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END\n',
+            '       AND v_existing."decision" = (CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END)\n',
+            1,
+            'ACK replay decision expression',
+          );
+          replaceExact(
             'UPDATE public."fgis_grain_acknowledgements"\n',
             'UPDATE public."fgis_grain_acknowledgements" AS target\n',
             3,
