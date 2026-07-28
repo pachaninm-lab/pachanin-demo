@@ -172,10 +172,12 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     padding-bottom: 24px;
   }
   .pc-v6-hero .pc-v6-kicker {
-    max-width: 34ch;
+    width: 100%;
+    max-width: none;
     margin-bottom: 9px;
     font-size: 12.5px;
     line-height: 1.3;
+    text-wrap: balance;
   }
   .pc-v6-hero h1.pc-v6-hero-title {
     max-width: 100%;
