@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin.example/schemas/tai-ap-14f0-knowledge-authority.schema.v1.json",
+  "title": "TAI AP-14F0 knowledge authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "authorityVersion",
+    "generatedAt",
+    "evidenceCutoff",
+    "operationalStatus",
+    "productionHosting",
+    "defaultDisposition",
+    "dataPlanes",
+    "sourceClasses",
+    "reuseDecisions",
+    "globalControls",
+    "forbiddenContentClasses",
+    "forbiddenClaims",
+    "provenanceSchema",
+    "quarantineSchema"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "./AP-14F0-KNOWLEDGE-AUTHORITY.schema.v1.json"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "tai.ap14f0-knowledge-authority.v1"
+    },
+    "authorityVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidenceCutoff": {
+      "type": "string",
+      "format": "date"
+    },
+    "operationalStatus": {
+      "type": "string",
+      "const": "NOT_ATTESTED"
+    },
+    "productionHosting": {
+      "type": "string",
+      "const": "REG_RU_VPS_ONLY"
+    },
+    "defaultDisposition": {
+      "type": "string",
+      "const": "QUARANTINE"
+    },
+    "dataPlanes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/dataPlane"
+      }
+    },
+    "sourceClasses": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/sourceClass"
+      }
+    },
+    "reuseDecisions": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/reuseDecision"
+      }
+    },
+    "globalControls": {
+      "$ref": "#/$defs/globalControls"
+    },
+    "forbiddenContentClasses": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "AUTH_CREDENTIAL",
+          "CABINET_DOCUMENT",
+          "CROSS_TENANT_DATA",
+          "ORGANIZATION_TRANSACTION",
+          "PERSONAL_DATA",
+          "SIGNATURE_OR_PRIVATE_KEY_MATERIAL",
+          "TRADE_SECRET"
+        ]
+      }
+    },
+    "forbiddenClaims": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "CONNECTED",
+          "LIVE",
+          "TRAINED_ON",
+          "PRODUCTION_READY",
+          "LICENSED_FOR_REUSE",
+          "COMPLETE_COVERAGE"
+        ]
+      }
+    },
+    "provenanceSchema": {
+      "type": "string",
+      "const": "./AP-14F0-PROVENANCE.schema.v1.json"
+    },
+    "quarantineSchema": {
+      "type": "string",
+      "const": "./AP-14F0-QUARANTINE.schema.v1.json"
+    }
+  },
+  "$defs": {
+    "dataPlane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "enabled",
+        "sharedPersistenceAllowed",
+        "crossTenantCacheAllowed",
+        "modelWeightsAllowed",
+        "identityBoundRequired",
+        "auditRequired",
+        "expiryRequired",
+        "credentialMaterialAllowed",
+        "admissionRule"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["PUBLIC_OFFICIAL", "TENANT_LIVE", "CONTRACTED"]
+        },
+        "enabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "sharedPersistenceAllowed": {
+          "type": "boolean"
+        },
+        "crossTenantCacheAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "modelWeightsAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "identityBoundRequired": {
+          "type": "boolean"
+        },
+        "auditRequired": {
+          "type": "boolean"
+        },
+        "expiryRequired": {
+          "type": "boolean"
+        },
+        "credentialMaterialAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "admissionRule": {
+          "type": "string",
+          "minLength": 16
+        }
+      }
+    },
+    "sourceClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "dataPlane",
+        "defaultDecision",
+        "sharedIndexEligible",
+        "modelWeightsEligible",
+        "credentialMaterialAllowed",
+        "cabinetMaterialAllowed",
+        "requiredEvidence"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]{5,80}$"
+        },
+        "dataPlane": {
+          "type": "string",
+          "enum": ["PUBLIC_OFFICIAL", "TENANT_LIVE", "CONTRACTED"]
+        },
+        "defaultDecision": {
+          "type": "string",
+          "enum": [
+            "REVIEW_REQUIRED",
+            "METADATA_ONLY",
+            "TENANT_EPHEMERAL_ONLY",
+            "CONTRACT_REQUIRED",
+            "FORBIDDEN",
+            "ALLOWED_SHARED_RAG"
+          ]
+        },
+        "sharedIndexEligible": {
+          "type": "boolean"
+        },
+        "modelWeightsEligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "credentialMaterialAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "cabinetMaterialAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "requiredEvidence": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "OFFICIAL_LOCATOR",
+              "HOST_PIN",
+              "PUBLICATION_OR_EFFECTIVE_DATE",
+              "OBSERVED_AT",
+              "CONTENT_SHA256",
+              "SOURCE_ROW_PAGE_SECTION",
+              "RIGHTS_DECISION",
+              "TENANT_BINDING",
+              "AUDIT_REFERENCE",
+              "EXPIRY",
+              "AGREEMENT_REFERENCE",
+              "CREDENTIAL_REFERENCE_ONLY"
+            ]
+          }
+        }
+      }
+    },
+    "reuseDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisionId",
+        "sourceClassCode",
+        "status",
+        "sharedIndexAllowed",
+        "modelWeightsAllowed",
+        "decisionBasis",
+        "reviewedAt",
+        "reviewDueAt",
+        "separateAdmissionRequired"
+      ],
+      "properties": {
+        "decisionId": {
+          "type": "string",
+          "pattern": "^AP14F0-[A-Z0-9_-]{5,100}$"
+        },
+        "sourceClassCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]{5,80}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "REVIEW_REQUIRED",
+            "METADATA_ONLY",
+            "TENANT_EPHEMERAL_ONLY",
+            "CONTRACT_REQUIRED",
+            "FORBIDDEN",
+            "ALLOWED_SHARED_RAG"
+          ]
+        },
+        "sharedIndexAllowed": {
+          "type": "boolean"
+        },
+        "modelWeightsAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "decisionBasis": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        },
+        "reviewedAt": {
+          "type": "string",
+          "format": "date"
+        },
+        "reviewDueAt": {
+          "type": "string",
+          "format": "date"
+        },
+        "separateAdmissionRequired": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "globalControls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hostPinningRequired",
+        "sha256Required",
+        "exactLocatorRequired",
+        "publicationEffectiveObservedDatesRequired",
+        "unitAndPeriodRequiredForNumericFacts",
+        "unsupportedOrStaleMustAbstain",
+        "protectedCabinetScrapingForbidden",
+        "esiaPasswordsForbidden",
+        "credentialsReferencesOnly",
+        "humanRightsReviewRequired",
+        "authorityFreshnessAlarmRequired",
+        "availabilityAlarmRequired",
+        "rightsReviewAlarmRequired"
+      ],
+      "properties": {
+        "hostPinningRequired": {"type": "boolean", "const": true},
+        "sha256Required": {"type": "boolean", "const": true},
+        "exactLocatorRequired": {"type": "boolean", "const": true},
+        "publicationEffectiveObservedDatesRequired": {"type": "boolean", "const": true},
+        "unitAndPeriodRequiredForNumericFacts": {"type": "boolean", "const": true},
+        "unsupportedOrStaleMustAbstain": {"type": "boolean", "const": true},
+        "protectedCabinetScrapingForbidden": {"type": "boolean", "const": true},
+        "esiaPasswordsForbidden": {"type": "boolean", "const": true},
+        "credentialsReferencesOnly": {"type": "boolean", "const": true},
+        "humanRightsReviewRequired": {"type": "boolean", "const": true},
+        "authorityFreshnessAlarmRequired": {"type": "boolean", "const": true},
+        "availabilityAlarmRequired": {"type": "boolean", "const": true},
+        "rightsReviewAlarmRequired": {"type": "boolean", "const": true}
+      }
+    }
+  }
+}
