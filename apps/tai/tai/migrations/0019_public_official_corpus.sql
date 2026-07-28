@@ -131,15 +131,20 @@ CREATE TABLE IF NOT EXISTS tai_public_corpus_audit (
     event_sha256 TEXT PRIMARY KEY CHECK (event_sha256 ~ '^[0-9a-f]{64}$'),
     event_type TEXT NOT NULL CHECK (
         event_type IN (
-            'SOURCE_ADMITTED', 'ARTIFACT_ADMITTED', 'SNAPSHOT_ACTIVATED',
-            'SOURCE_WITHDRAWN', 'QUARANTINE_RELEASED'
+            'SOURCE_ADMITTED',
+            'ARTIFACT_ADMITTED',
+            'SNAPSHOT_CREATED',
+            'SNAPSHOT_ACTIVATED',
+            'ARTIFACT_QUARANTINED',
+            'QUARANTINE_RELEASED',
+            'SOURCE_WITHDRAWN'
         )
     ),
     source_id TEXT,
     artifact_sha256 TEXT,
     snapshot_id BIGINT,
     actor_id TEXT NOT NULL CHECK (length(btrim(actor_id)) > 0),
-    reason_code TEXT NOT NULL CHECK (length(btrim(reason_code)) > 0),
+    reason_code TEXT NOT NULL CHECK (reason_code ~ '^[A-Z0-9_]{3,96}$'),
     payload_sha256 TEXT NOT NULL CHECK (payload_sha256 ~ '^[0-9a-f]{64}$'),
     created_at TIMESTAMPTZ NOT NULL
 );
@@ -333,6 +338,8 @@ COMMENT ON TABLE tai_public_corpus_artifacts IS
     'Immutable public official artifact provenance; raw corpus bytes are not stored in Git';
 COMMENT ON TABLE tai_public_corpus_chunks IS
     'Deterministic AP-05 chunks bound to one immutable AP-14F1A corpus snapshot';
+COMMENT ON TABLE tai_public_corpus_audit IS
+    'Immutable AP-14F1A audit bound atomically to every governed corpus mutation';
 COMMENT ON VIEW tai_active_public_corpus_chunks_v1 IS
     'Fail-closed shared retrieval view exposing only one current admitted public corpus snapshot';
 
