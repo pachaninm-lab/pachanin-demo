@@ -30,6 +30,9 @@
       "@pc/ai-assistant-stream-contract": [
         "../api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
       ],
+      "@pc/ai-assistant-admission-manifest": [
+        "../api/src/modules/ai-insights/ai-assistant-admission.manifest.ts"
+      ],
       "@pc/design-system-v8": [
         "../../packages/design-system-v8/src/index.ts"
       ],

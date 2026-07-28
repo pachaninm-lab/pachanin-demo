@@ -60,9 +60,13 @@ PROXY_ROUTE: Final = "apps/web/app/api/proxy/[...path]/route.ts"
 BROWSER_CLIENT: Final = "apps/web/lib/platform-v7/ai-gateway-stream.ts"
 PRIVATE_PANEL: Final = "apps/web/components/platform-v7/AiAssistantPanel.tsx"
 PUBLIC_PANEL: Final = "apps/web/components/platform-v7/PublicPlatformAssistant.tsx"
+ADMISSION_MANIFEST: Final = (
+    "apps/api/src/modules/ai-insights/ai-assistant-admission.manifest.ts"
+)
 
 GATEWAY_SOURCES: Final[tuple[str, ...]] = (
     CONTRACT,
+    ADMISSION_MANIFEST,
     API_CONTROLLER,
     PUBLIC_ROUTE,
     PROXY_ROUTE,
@@ -613,6 +617,65 @@ def _admission_checks(root: Path) -> list[AcceptanceCheck]:
             "no substitute answer is constructed on any streaming path"
             if not contaminated
             else f"substitute answer constructed in: {', '.join(contaminated)}",
+        )
+    )
+
+    # Admission used to be a word an operator could type. A deployment that can
+    # write ADMITTED into its environment can claim a model was benchmarked and
+    # licence-reviewed without any of it having happened, and nothing downstream
+    # could tell the difference. Both contours now read the C.04 decision
+    # document instead, so the environment can only say where to look.
+    manifest = _read(root, ADMISSION_MANIFEST)
+    admission_by_document = [
+        relative
+        for relative, source in ((API_CONTROLLER, controller), (PUBLIC_ROUTE, route))
+        if "readAdmissionManifest(" not in source
+        or "TAI_GATEWAY_MODEL_ADMISSION" in source
+        or "TAI_GATEWAY_PUBLIC_MODEL_ADMISSION" in source
+    ]
+    checks.append(
+        _check(
+            "ADM.admission-comes-from-a-verified-decision",
+            "H.01",
+            "Both contours read the admission decision document, not an environment word",
+            (API_CONTROLLER, PUBLIC_ROUTE, ADMISSION_MANIFEST),
+            not admission_by_document,
+            "admission is read from the C.04 decision document on both contours"
+            if not admission_by_document
+            else "admission still taken from the environment in: "
+            + ", ".join(admission_by_document),
+        )
+    )
+
+    # A document is only evidence if its digest is recomputed. Reading the field
+    # and trusting it would accept a decision whose status was edited to ADMITTED
+    # after the fact, which is precisely the forgery this replaces.
+    recomputes = (
+        "createHash('sha256')" in manifest
+        and "canonicalJson(hashed)" in manifest
+        and "recomputed !== declared" in manifest
+    )
+    checks.append(
+        _check(
+            "ADM.decision-digest-is-recomputed",
+            "H.01",
+            "The decision digest is recomputed over the decision, not read and trusted",
+            (ADMISSION_MANIFEST,),
+            recomputes,
+            "the digest is re-derived and compared before admission is granted",
+        )
+    )
+
+    # The decision names the model it admits. Serving a different one would be
+    # generation by an unadmitted model under an admitted model's decision.
+    checks.append(
+        _check(
+            "ADM.decision-must-name-this-model",
+            "H.01",
+            "A decision admitting another model does not admit this deployment",
+            (ADMISSION_MANIFEST,),
+            "expectedModelIdentity !== modelId" in manifest,
+            "the admitted identity is compared against the model this deployment serves",
         )
     )
     return checks

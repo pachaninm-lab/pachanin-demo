@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NextRequest } from 'next/server';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { validateFrame } from '@pc/ai-assistant-stream-contract';
+import { canonicalJson } from '@pc/ai-assistant-admission-manifest';
 import * as route from '@/app/api/public-platform-assistant/route';
 import { POST } from '@/app/api/public-platform-assistant/route';
 
@@ -29,15 +34,48 @@ async function readFrames(response: Response): Promise<Frame[]> {
     });
 }
 
+const ADMITTED_MODEL = 'Qwen/Qwen3-8B';
+
+/**
+ * A genuine admission decision on disk, digested the way the authority digests
+ * it. The public boundary is admitted by this document or not at all — there is
+ * no variable that can say "admitted" on its behalf.
+ */
+function admittedDecision(): string {
+  const payload: Record<string, unknown> = {
+    schema_version: 'tai.model-admission-decision.v2',
+    status: 'ADMITTED',
+    reasons: [],
+    authority_sha256: 'a'.repeat(64),
+    primary: {
+      model: { role: 'PRIMARY', model_id: ADMITTED_MODEL, revision: '895c8d17' },
+      benchmark_report_sha256: 'b'.repeat(64),
+      benchmark_manifest_sha256: 'c'.repeat(64),
+      bundle_manifest_sha256: 'd'.repeat(64),
+    },
+    fallback: null,
+    evaluated_at: '2026-07-27T22:00:00+00:00',
+    production_operational_status: 'NOT_ATTESTED',
+  };
+  const document = {
+    ...payload,
+    decision_sha256: createHash('sha256').update(canonicalJson(payload), 'utf8').digest('hex'),
+  };
+  const file = join(mkdtempSync(join(tmpdir(), 'tai-public-admission-')), 'decision.json');
+  writeFileSync(file, JSON.stringify(document), 'utf8');
+  return file;
+}
+
 const ADMITTED = {
   TAI_GATEWAY_PUBLIC_STREAM_ENABLED: 'true',
-  TAI_GATEWAY_PUBLIC_MODEL_IDENTITY: 'qwen-preview@sha256:abc',
-  TAI_GATEWAY_PUBLIC_MODEL_ADMISSION: 'ADMITTED',
+  TAI_GATEWAY_PUBLIC_MODEL_IDENTITY: ADMITTED_MODEL,
+  TAI_GATEWAY_PUBLIC_ADMISSION_MANIFEST: admittedDecision(),
 };
 
 const GATEWAY_ENV_KEYS = [
   'TAI_GATEWAY_PUBLIC_STREAM_ENABLED',
   'TAI_GATEWAY_PUBLIC_MODEL_IDENTITY',
+  'TAI_GATEWAY_PUBLIC_ADMISSION_MANIFEST',
   'TAI_GATEWAY_PUBLIC_MODEL_ADMISSION',
 ] as const;
 
@@ -120,8 +158,20 @@ describe('the public boundary validates through the API contract module', () => 
       expect(frames[1]).toMatchObject({ refusal: 'MODEL_NOT_ADMITTED' });
     });
 
-    it('refuses a model that is admitted but blank, rather than treating blank as a name', async () => {
-      Object.assign(process.env, ADMITTED, { TAI_GATEWAY_PUBLIC_MODEL_IDENTITY: '   ' });
+    it('refuses a decision that admits a different model than this boundary serves', async () => {
+      Object.assign(process.env, ADMITTED, {
+        TAI_GATEWAY_PUBLIC_MODEL_IDENTITY: 'Someone/Unapproved-7B',
+      });
+      const frames = await readFrames(await POST(streamRequest('Как работает сделка?')));
+
+      expect(frames[1]).toMatchObject({ refusal: 'MODEL_NOT_ADMITTED' });
+    });
+
+    it('cannot be admitted by an environment variable claiming admission', async () => {
+      // The variable that used to grant admission now grants nothing.
+      process.env.TAI_GATEWAY_PUBLIC_STREAM_ENABLED = 'true';
+      process.env.TAI_GATEWAY_PUBLIC_MODEL_IDENTITY = ADMITTED_MODEL;
+      process.env.TAI_GATEWAY_PUBLIC_MODEL_ADMISSION = 'ADMITTED';
       const frames = await readFrames(await POST(streamRequest('Как работает сделка?')));
 
       expect(frames[1]).toMatchObject({ refusal: 'MODEL_NOT_ADMITTED' });
@@ -136,7 +186,8 @@ describe('the public boundary validates through the API contract module', () => 
     it('streams meta, citations, tokens, an assessment and a completed done', async () => {
       const frames = await readFrames(await POST(streamRequest('Как работает сделка?')));
 
-      expect(frames[0]).toMatchObject({ mode: 'public', modelIdentity: 'qwen-preview@sha256:abc' });
+      // The announced identity comes back out of the verified decision.
+      expect(frames[0]).toMatchObject({ mode: 'public', modelIdentity: ADMITTED_MODEL });
       expect(frames.map((frame) => frame.event)).toContain('token');
       expect(frames[frames.length - 1]).toMatchObject({ event: 'done', complete: true });
     });

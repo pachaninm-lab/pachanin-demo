@@ -7,6 +7,10 @@ import {
   resolveAdmission,
 } from '@pc/ai-assistant-stream-contract';
 import {
+  PUBLIC_ADMISSION_SOURCE,
+  readAdmissionManifest,
+} from '@pc/ai-assistant-admission-manifest';
+import {
   answerPublicPlatformQuestion,
   publicAssistantCatalog,
   type PublicAssistantLocale,
@@ -181,13 +185,17 @@ function limitations(locale: PublicAssistantLocale) {
  * way it is ever reached in production anyway.
  */
 function readPublicAdmission(env: NodeJS.ProcessEnv = process.env) {
-  const identity = (env.TAI_GATEWAY_PUBLIC_MODEL_IDENTITY || '').trim();
+  // Admission is the verified C.04 decision document, not a word in the
+  // environment: the digest it carries covers the benchmarks, the bundle
+  // manifests and the authority the decision was made against, so a fabricated
+  // admission has to fabricate those too.
+  const verdict = readAdmissionManifest(env, PUBLIC_ADMISSION_SOURCE);
   return {
-    identity: identity.length > 0 ? identity : null,
+    identity: verdict.modelIdentity,
     ...resolveAdmission({
       featureEnabled: (env.TAI_GATEWAY_PUBLIC_STREAM_ENABLED || '').trim() === 'true',
-      modelIdentity: identity.length > 0 ? identity : null,
-      admissionStatus: (env.TAI_GATEWAY_PUBLIC_MODEL_ADMISSION || '').trim() || null,
+      modelIdentity: verdict.modelIdentity,
+      admissionStatus: verdict.admitted ? 'ADMITTED' : null,
     }),
   };
 }

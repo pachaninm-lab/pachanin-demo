@@ -280,9 +280,41 @@
         "apps/web/lib/platform-v7/ai-gateway-stream.ts"
       ],
       "title": "No streaming path constructs a mock, stub or canned answer"
+    },
+    {
+      "check_id": "ADM.admission-comes-from-a-verified-decision",
+      "detail": "admission is read from the C.04 decision document on both contours",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+        "apps/web/app/api/public-platform-assistant/route.ts",
+        "apps/api/src/modules/ai-insights/ai-assistant-admission.manifest.ts"
+      ],
+      "title": "Both contours read the admission decision document, not an environment word"
+    },
+    {
+      "check_id": "ADM.decision-digest-is-recomputed",
+      "detail": "the digest is re-derived and compared before admission is granted",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-admission.manifest.ts"
+      ],
+      "title": "The decision digest is recomputed over the decision, not read and trusted"
+    },
+    {
+      "check_id": "ADM.decision-must-name-this-model",
+      "detail": "the admitted identity is compared against the model this deployment serves",
+      "item_id": "H.01",
+      "passed": true,
+      "sources": [
+        "apps/api/src/modules/ai-insights/ai-assistant-admission.manifest.ts"
+      ],
+      "title": "A decision admitting another model does not admit this deployment"
     }
   ],
-  "exact_main_sha": "fe42048019c3951a17af227967be060e8462f77d",
+  "exact_main_sha": "ecce12f9a6e3938a0820301501fcbd3d5edae262",
   "failed_checks": [],
   "passed": true,
   "schema": "tai.gateway-exact-main-acceptance.v1"

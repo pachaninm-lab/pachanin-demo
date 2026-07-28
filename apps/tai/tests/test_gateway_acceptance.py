@@ -92,6 +92,7 @@ CONTROLLER = "apps/api/src/modules/ai-insights/ai-assistant.controller.ts"
 PUBLIC_ROUTE = "apps/web/app/api/public-platform-assistant/route.ts"
 PROXY = "apps/web/app/api/proxy/[...path]/route.ts"
 CLIENT = "apps/web/lib/platform-v7/ai-gateway-stream.ts"
+ADMISSION = "apps/api/src/modules/ai-insights/ai-assistant-admission.manifest.ts"
 
 
 def test_the_baseline_copy_still_passes(tree: Path) -> None:
@@ -244,6 +245,51 @@ def test_it_catches_generation_running_before_the_admission_gate(tree: Path) -> 
     assert _fails_with(tree, "ADM.generation-service-not-called")
 
 
+def test_it_catches_admission_going_back_to_an_environment_word(tree: Path) -> None:
+    # The switch this change exists to remove: a deployment that can type
+    # ADMITTED can claim benchmarks and a licence review that never happened.
+    _rewrite(
+        tree,
+        CONTROLLER,
+        "const verdict = readAdmissionManifest(env);",
+        "const verdict = { modelIdentity: env.TAI_GATEWAY_MODEL_ADMISSION ?? null,"
+        " admitted: true };",
+    )
+
+    assert _fails_with(tree, "ADM.admission-comes-from-a-verified-decision")
+
+
+def test_it_catches_the_public_contour_keeping_its_own_admission_variable(tree: Path) -> None:
+    _rewrite(
+        tree,
+        PUBLIC_ROUTE,
+        "const verdict = readAdmissionManifest(env, PUBLIC_ADMISSION_SOURCE);",
+        "const verdict = { modelIdentity: env.TAI_GATEWAY_PUBLIC_MODEL_ADMISSION ?? null,"
+        " admitted: true };",
+    )
+
+    assert _fails_with(tree, "ADM.admission-comes-from-a-verified-decision")
+
+
+def test_it_catches_a_digest_that_is_read_instead_of_recomputed(tree: Path) -> None:
+    # Trusting the field would accept a decision whose status was edited to
+    # ADMITTED after the authority signed it.
+    _rewrite(tree, ADMISSION, "if (recomputed !== declared) return REFUSED('DIGEST_MISMATCH');", "")
+
+    assert _fails_with(tree, "ADM.decision-digest-is-recomputed")
+
+
+def test_it_catches_a_decision_for_another_model_being_accepted(tree: Path) -> None:
+    _rewrite(
+        tree,
+        ADMISSION,
+        "if (expectedModelIdentity !== null && expectedModelIdentity !== modelId) {",
+        "if (false) {",
+    )
+
+    assert _fails_with(tree, "ADM.decision-must-name-this-model")
+
+
 def test_the_cli_reports_a_clean_derivation(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = cli_main(
         [
@@ -258,7 +304,7 @@ def test_the_cli_reports_a_clean_derivation(capsys: pytest.CaptureFixture[str]) 
     )
 
     assert exit_code == 0
-    assert "26 checks, all passed" in capsys.readouterr().out
+    assert "29 checks, all passed" in capsys.readouterr().out
 
 
 def test_the_cli_refuses_evidence_that_does_not_match_the_tree(

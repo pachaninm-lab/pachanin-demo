@@ -157,8 +157,15 @@ hr {
   border-top: 1px solid var(--pc-border);
 }
 
-/* Owner decision 2026-07-27: remove the public trust/integration block. */
+/* Owner decision 2026-07-27: remove the public trust/integration block.
+   The rule lives here, in the global sheet the public entry already loads, so
+   the governed route template stays free of rendering of its own: a template
+   that injects a style element is exactly the mutation the runtime-isolation
+   contract forbids, and it would also carry a forced-importance declaration
+   into a governed file. The nav selector covers menu links to the removed
+   anchor, which are not inside the site header. */
 .pc-v7-public-entry #maturity,
-.pc-v7-public-entry .pc-site-header a[href="#maturity"] {
+.pc-v7-public-entry .pc-site-header a[href="#maturity"],
+.pc-v7-public-entry nav a[href="#maturity"] {
   display: none !important;
 }
