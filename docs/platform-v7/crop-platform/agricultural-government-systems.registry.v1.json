@@ -1,0 +1,2334 @@
+{
+  "$schema": "./agricultural-government-systems.registry.schema.v1.json",
+  "schemaVersion": "pc-crop.agricultural-government-systems.registry.v1",
+  "registryVersion": "1.0.0",
+  "generatedAt": "2026-07-28T05:30:00Z",
+  "evidenceCutoff": "2026-07-28",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "policies": {
+    "defaultIntegrationStatus": "NOT_ASSESSED",
+    "defaultPlatformState": "DISABLED",
+    "credentialMaterialStored": false,
+    "credentialReferencesOnly": true,
+    "tenantIsolationAssessment": "NOT_ASSESSED",
+    "tenantIsolationRequirement": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT",
+    "publicRegistryRule": "OFFICIAL_LOCATOR_AND_FRESH_VERIFICATION_REQUIRED",
+    "writeEnablementRule": "OFFICIAL_CONTRACT_CREDENTIAL_SIGNATURE_TENANT_AND_EXTERNAL_E2E_REQUIRED"
+  },
+  "inventoryAuthorities": [
+    {
+      "inventoryCode": "MCX_CURRENT_GIS_LIST",
+      "title": "Перечень государственных информационных систем Минсельхоза России",
+      "officialLocator": "https://mcx.gov.ru/analytics/infosystems/",
+      "verificationStatus": "VERIFIED_INDEXED",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "MCX_ECP_APK",
+        "EFGIS_ZSN",
+        "MCX_IAS_NTOR_SH",
+        "FGIS_USMT",
+        "MCX_KIS_REPORTING",
+        "FGIS_GRAIN",
+        "FGIS_SEED",
+        "FGIAS_PR",
+        "MCX_OFFICIAL_WEBSITE"
+      ]
+    },
+    {
+      "inventoryCode": "MCX_SUBORDINATE_DIGITAL_APK",
+      "title": "Цифровизация АПК — официальный перечень ФГБУ «Центр Агроаналитики»",
+      "officialLocator": "https://specagro.ru/fgis/digital_apk",
+      "verificationStatus": "VERIFIED_PUBLIC",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "FGIS_GRAIN",
+        "EFGIS_ZSN",
+        "FGIS_SEED",
+        "MCX_E_GOV_SERVICES",
+        "FGIS_USMT",
+        "MCX_AIS_NSI",
+        "MCX_IAS_NTOR_SH",
+        "FGIAS_PR",
+        "MCX_AUTHORIZED_SYSTEMS_PORTAL"
+      ]
+    },
+    {
+      "inventoryCode": "RSHN_OFFICIAL_SYSTEMS",
+      "title": "Информационные системы Россельхознадзора",
+      "officialLocator": "https://fsvps.gov.ru/informacionnye-sistemy/",
+      "verificationStatus": "VERIFIED_INDEXED",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "FGIS_SATURN",
+        "FGIS_ARGUS_FITO",
+        "FGIS_VETIS"
+      ]
+    },
+    {
+      "inventoryCode": "VETIS_CURRENT_COMPONENT_NAVIGATION",
+      "title": "Текущая навигация компонентов справочной системы ВетИС",
+      "officialLocator": "https://help.vetrf.ru/wiki/Справочная_система",
+      "verificationStatus": "VERIFIED_PUBLIC",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "VETIS_ARGUS",
+        "VETIS_ASSOL",
+        "VETIS_ATLAS",
+        "VETIS_VESTA",
+        "VETIS_API",
+        "VETIS_GALEN",
+        "VETIS_HERMES",
+        "VETIS_DUMA",
+        "VETIS_IKAR",
+        "VETIS_IRENA",
+        "VETIS_MERCURY",
+        "VETIS_PASSPORT",
+        "VETIS_SIRANO",
+        "VETIS_TOR",
+        "VETIS_HORRIOT",
+        "VETIS_CERBERUS",
+        "VETIS_ECERT"
+      ]
+    },
+    {
+      "inventoryCode": "FSA_ELECTRONIC_REGISTRIES",
+      "title": "Электронные реестры Росаккредитации",
+      "officialLocator": "https://fsa.gov.ru/use-of-technology/elektronnye-reestry/",
+      "verificationStatus": "VERIFIED_INDEXED",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "FGIS_ROSACCREDITATION",
+        "FSA_CERTIFICATE_REGISTRY",
+        "FSA_DECLARATION_REGISTRY",
+        "FSA_ACCREDITED_PERSONS_REGISTRY"
+      ]
+    },
+    {
+      "inventoryCode": "MINTRANS_GIS_EPD",
+      "title": "ГИС ЭПД и реестр операторов ИС ЭПД Минтранса России",
+      "officialLocator": "https://mintrans.gov.ru/activities/214/376",
+      "verificationStatus": "VERIFIED_PUBLIC",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "GIS_EPD",
+        "GIS_EPD_OPERATOR_REGISTRY"
+      ]
+    },
+    {
+      "inventoryCode": "FNS_EGRUL_EGRIP_ACCESS",
+      "title": "Официальный доступ ФНС к сведениям ЕГРЮЛ и ЕГРИП",
+      "officialLocator": "https://www.nalog.gov.ru/rn77/related_activities/registries/egrul_egrip/",
+      "verificationStatus": "VERIFIED_PUBLIC",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "FNS_EGRUL_EGRIP"
+      ]
+    },
+    {
+      "inventoryCode": "SMEV_TECH_PORTAL",
+      "title": "Технологический портал СМЭВ 3",
+      "officialLocator": "https://smev3.gosuslugi.ru/portal/",
+      "verificationStatus": "VERIFIED_INDEXED",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "SMEV3"
+      ]
+    },
+    {
+      "inventoryCode": "FTS_OFFICIAL_SERVICES",
+      "title": "Официальные сервисы для участников ВЭД ФТС России",
+      "officialLocator": "https://customs.gov.ru/uchastnikam-ved",
+      "verificationStatus": "VERIFIED_PUBLIC",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "FTS_PARTICIPANT_SERVICES"
+      ]
+    },
+    {
+      "inventoryCode": "ROSFIN_OFFICIAL_ACCESS",
+      "title": "Официальный информационный ресурс Росфинмониторинга",
+      "officialLocator": "https://www.fedsfm.ru/",
+      "verificationStatus": "VERIFIED_INDEXED",
+      "verifiedAt": "2026-07-28",
+      "coverageCodes": [
+        "ROSFINMONITORING_AML"
+      ]
+    }
+  ],
+  "systems": [
+    {
+      "systemCode": "MCX_ECP_APK",
+      "officialName": "Единая цифровая платформа агропромышленного и рыбохозяйственного комплексов",
+      "shortName": "ЕЦП АПК",
+      "kind": "PLATFORM",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_CONTRACT_AND_ACCESS_ASSESSMENT_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "EFGIS_ZSN",
+      "officialName": "Единая федеральная государственная информационная система о землях сельскохозяйственного назначения",
+      "shortName": "ЕФГИС ЗСН",
+      "kind": "SYSTEM",
+      "domain": "PLANT_PRODUCTION",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST",
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "ФГБУ «Россельхозземмониторинг»",
+      "applicability": "CORE_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        },
+        {
+          "url": "https://specagro.ru/fgis/digital_apk",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_API_ACCESS_AND_EXTERNAL_E2E_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "MCX_IAS_NTOR_SH",
+      "officialName": "Государственная информационная система «Информационно-аналитическая система оперативного мониторинга и оценки рисков состояния и рисков научно-технического обеспечения развития сельского хозяйства»",
+      "shortName": "ИАС НТОР-СХ",
+      "kind": "SYSTEM",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST",
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        },
+        {
+          "url": "https://pop-ntor.mcx.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_API_CONTRACT_NOT_PINNED"
+      ]
+    },
+    {
+      "systemCode": "FGIS_USMT",
+      "officialName": "Федеральная государственная информационная система учета и регистрации тракторов, самоходных машин и прицепов к ним",
+      "shortName": "ФГИС УСМТ",
+      "kind": "SYSTEM",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST",
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        },
+        {
+          "url": "https://usmt-nr.mcx.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_API_CONTRACT_NOT_PINNED"
+      ]
+    },
+    {
+      "systemCode": "MCX_KIS_REPORTING",
+      "officialName": "Комплексная информационная система сбора и обработки бухгалтерской и специализированной отчетности сельскохозяйственных товаропроизводителей",
+      "shortName": "КИС отчетности АПК",
+      "kind": "SYSTEM",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_ACCESS_AND_DATA_CONTRACT_ASSESSMENT_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "FGIS_GRAIN",
+      "officialName": "Федеральная государственная информационная система прослеживаемости зерна и продуктов переработки зерна",
+      "shortName": "ФГИС «Зерно»",
+      "kind": "SYSTEM",
+      "domain": "PLANT_PRODUCTION",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST",
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "ФГБУ «Центр Агроаналитики»",
+      "applicability": "CORE_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "CONTRACT_PINNED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "SANDBOX_ONLY",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        },
+        {
+          "url": "https://specagro.ru/fgis/digital_apk",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "PINNED",
+        "version": "1.0.23",
+        "artifacts": [
+          {
+            "label": "official source bundle",
+            "sha256": "085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7"
+          },
+          {
+            "label": "operation catalog",
+            "sha256": "4fc7cc075b956f0adca26331a99627d07cde77d63ec2fc017d0cbbc5f701c87a"
+          }
+        ]
+      },
+      "readEvidence": "OFFICIAL_API_DOCUMENTED",
+      "writeEvidence": "OFFICIAL_API_DOCUMENTED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "REAL_CREDENTIALS_GOVERNED_EXTERNAL_E2E_AND_PRODUCTION_ATTESTATION_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "FGIS_SEED",
+      "officialName": "Федеральная государственная информационная система «Семеноводство»",
+      "shortName": "ФГИС «Семеноводство»",
+      "kind": "SYSTEM",
+      "domain": "PLANT_PRODUCTION",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST",
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "ФГБУ «Центр цифровой трансформации в сфере АПК»",
+      "applicability": "CORE_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        },
+        {
+          "url": "https://specagro.ru/fgis/digital_apk",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_API_ACCESS_AND_EXTERNAL_E2E_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "FGIAS_PR",
+      "officialName": "Федеральная государственная информационно-аналитическая система племенных ресурсов",
+      "shortName": "ФГИАС ПР",
+      "kind": "SYSTEM",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST",
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/analytics/infosystems/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        },
+        {
+          "url": "https://specagro.ru/fgis/digital_apk",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "MCX_OFFICIAL_WEBSITE",
+      "officialName": "Официальный сайт Министерства сельского хозяйства Российской Федерации",
+      "shortName": "Сайт Минсельхоза России",
+      "kind": "PUBLIC_INFORMATION_RESOURCE",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_CURRENT_GIS_LIST"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "PUBLIC_INFORMATION_ONLY",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mcx.gov.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_APPLICABLE",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PUBLIC_QUERY_DOCUMENTED",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_REQUIRED",
+      "signatureRequirement": "NOT_REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_A_TRANSACTIONAL_INTEGRATION_SYSTEM"
+      ]
+    },
+    {
+      "systemCode": "MCX_E_GOV_SERVICES",
+      "officialName": "Система предоставления государственных услуг в электронном виде Министерства сельского хозяйства Российской Федерации",
+      "shortName": "ПК «Электронные госуслуги»",
+      "kind": "SYSTEM",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_SUBORDINATE",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://specagro.ru/fgis/digital_apk",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_ACCESS_AND_DATA_CONTRACT_ASSESSMENT_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "MCX_AIS_NSI",
+      "officialName": "Автоматизированная информационная система реестров, регистров и нормативно-справочной информации",
+      "shortName": "АИС НСИ",
+      "kind": "SYSTEM",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_SUBORDINATE",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://nsi.mcx.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_API_CONTRACT_NOT_PINNED"
+      ]
+    },
+    {
+      "systemCode": "MCX_AUTHORIZED_SYSTEMS_PORTAL",
+      "officialName": "Информационные системы для использования уполномоченными лицами Минсельхоза России, федеральных ведомств и органов власти субъектов Российской Федерации",
+      "shortName": "Портал уполномоченных лиц",
+      "kind": "PLATFORM",
+      "domain": "MCX",
+      "inventoryCodes": [
+        "MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минсельхоз России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_SUBORDINATE",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://sp-form.mcx.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_ACCESS_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "FGIS_SATURN",
+      "officialName": "Федеральная государственная информационная система прослеживаемости пестицидов и агрохимикатов",
+      "shortName": "ФГИС «Сатурн»",
+      "kind": "SYSTEM",
+      "domain": "CHEMICAL_TRACEABILITY",
+      "inventoryCodes": [
+        "RSHN_OFFICIAL_SYSTEMS"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Россельхознадзор",
+      "applicability": "CORE_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://fgis-saturn.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        },
+        {
+          "url": "https://fsvps.gov.ru/informacionnye-sistemy/",
+          "role": "OFFICIAL_INVENTORY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_API_ACCESS_AND_EXTERNAL_E2E_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "FGIS_ARGUS_FITO",
+      "officialName": "Федеральная государственная информационная система в области карантина растений «Аргус-Фито»",
+      "shortName": "ФГИС «Аргус-Фито»",
+      "kind": "SYSTEM",
+      "domain": "PHYTOSANITARY",
+      "inventoryCodes": [
+        "RSHN_OFFICIAL_SYSTEMS"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Россельхознадзор",
+      "applicability": "CORE_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://fsvps.gov.ru/informacionnye-sistemy/federalnaja-gosudarstvennaja-informa/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_API_ACCESS_AND_EXTERNAL_E2E_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "FGIS_VETIS",
+      "officialName": "Федеральная государственная информационная система в области ветеринарии",
+      "shortName": "ФГИС ВетИС",
+      "kind": "UMBRELLA",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "RSHN_OFFICIAL_SYSTEMS"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Справочная_система",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "COMPONENT_LEVEL_ACCESS_AND_CONTRACT_ASSESSMENT_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "VETIS_ARGUS",
+      "officialName": "Компонент ВетИС «Аргус»",
+      "shortName": "Аргус",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Аргус",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_ACCESS_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "VETIS_ASSOL",
+      "officialName": "Компонент ВетИС «Ассоль»",
+      "shortName": "Ассоль",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Ассоль",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_ATLAS",
+      "officialName": "Компонент ВетИС «Атлас»",
+      "shortName": "Атлас",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Атлас",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_VESTA",
+      "officialName": "Компонент ВетИС «Веста»",
+      "shortName": "Веста",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Веста",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_ACCESS_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "VETIS_API",
+      "officialName": "Интеграционный шлюз ВетИС.API",
+      "shortName": "ВетИС.API",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Ветис.API",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "OFFICIAL_API_DOCUMENTED",
+      "writeEvidence": "OFFICIAL_API_DOCUMENTED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "EXACT_API_PROFILE_HASH_ACCESS_AND_EXTERNAL_E2E_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "VETIS_GALEN",
+      "officialName": "Компонент ВетИС «Гален»",
+      "shortName": "Гален",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Гален",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_HERMES",
+      "officialName": "Компонент ВетИС «Гермес»",
+      "shortName": "Гермес",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Гермес",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_DUMA",
+      "officialName": "Компонент ВетИС «Дюма»",
+      "shortName": "Дюма",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Дюма",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_IKAR",
+      "officialName": "Компонент ВетИС «Икар»",
+      "shortName": "Икар",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Икар",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_IRENA",
+      "officialName": "Компонент ВетИС «Ирена»",
+      "shortName": "Ирена",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Ирена",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_MERCURY",
+      "officialName": "Компонент ВетИС «Меркурий»",
+      "shortName": "Меркурий",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Меркурий",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "VETIS_API_PROFILE_AND_EXTERNAL_E2E_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "VETIS_PASSPORT",
+      "officialName": "Компонент ВетИС «Паспорт»",
+      "shortName": "ВетИС.Паспорт",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_ВетИС.Паспорт",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_APPLICABLE",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_ACCESS_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "VETIS_SIRANO",
+      "officialName": "Компонент ВетИС «Сирано»",
+      "shortName": "Сирано",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Сирано",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_TOR",
+      "officialName": "Компонент ВетИС «Тор»",
+      "shortName": "Тор",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Тор",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_HORRIOT",
+      "officialName": "Компонент ВетИС «Хорриот»",
+      "shortName": "Хорриот",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Хорриот",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "VETIS_CERBERUS",
+      "officialName": "Компонент ВетИС «Цербер»",
+      "shortName": "Цербер",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_Цербер",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "PORTAL_ONLY",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "OFFICIAL_ACCESS_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "VETIS_ECERT",
+      "officialName": "Компонент ВетИС «eCert»",
+      "shortName": "eCert",
+      "kind": "COMPONENT",
+      "domain": "VETERINARY",
+      "inventoryCodes": [
+        "VETIS_CURRENT_COMPONENT_NAVIGATION"
+      ],
+      "parentSystemCode": "FGIS_VETIS",
+      "responsibleAuthority": "ФГБУ «ВНИИЗЖ»",
+      "applicability": "OUT_OF_SCOPE_CURRENT",
+      "evidenceClass": "OFFICIAL_COMPONENT_HELP",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://help.vetrf.ru/wiki/Компонент_eCert",
+          "role": "OFFICIAL_HELP",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NOT_IN_CURRENT_CROP_RUNTIME_SCOPE"
+      ]
+    },
+    {
+      "systemCode": "FGIS_ROSACCREDITATION",
+      "officialName": "Федеральная государственная информационная система Росаккредитации",
+      "shortName": "ФГИС Росаккредитации",
+      "kind": "UMBRELLA",
+      "domain": "ACCREDITATION",
+      "inventoryCodes": [
+        "FSA_ELECTRONIC_REGISTRIES"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Росаккредитация",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "PUBLIC_INFORMATION_ONLY",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://pub.fsa.gov.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PUBLIC_QUERY_DOCUMENTED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "PUBLIC_REGISTRY_PAGES_ARE_NOT_AN_ATTESTED_API_CONTRACT"
+      ]
+    },
+    {
+      "systemCode": "FSA_CERTIFICATE_REGISTRY",
+      "officialName": "Единый реестр сертификатов соответствия",
+      "shortName": "Реестр сертификатов",
+      "kind": "PUBLIC_REGISTRY",
+      "domain": "ACCREDITATION",
+      "inventoryCodes": [
+        "FSA_ELECTRONIC_REGISTRIES"
+      ],
+      "parentSystemCode": "FGIS_ROSACCREDITATION",
+      "responsibleAuthority": "Росаккредитация",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "PUBLIC_REGISTRY",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://pub.fsa.gov.ru/rss/certificate",
+          "role": "OFFICIAL_PUBLIC_REGISTRY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_APPLICABLE",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PUBLIC_QUERY_DOCUMENTED",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_REQUIRED",
+      "signatureRequirement": "NOT_REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NO_ATTESTED_MACHINE_API_OR_FRESHNESS_SLA"
+      ]
+    },
+    {
+      "systemCode": "FSA_DECLARATION_REGISTRY",
+      "officialName": "Единый реестр деклараций о соответствии",
+      "shortName": "Реестр деклараций",
+      "kind": "PUBLIC_REGISTRY",
+      "domain": "ACCREDITATION",
+      "inventoryCodes": [
+        "FSA_ELECTRONIC_REGISTRIES"
+      ],
+      "parentSystemCode": "FGIS_ROSACCREDITATION",
+      "responsibleAuthority": "Росаккредитация",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "PUBLIC_REGISTRY",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://pub.fsa.gov.ru/rss/declaration",
+          "role": "OFFICIAL_PUBLIC_REGISTRY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_APPLICABLE",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PUBLIC_QUERY_DOCUMENTED",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_REQUIRED",
+      "signatureRequirement": "NOT_REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NO_ATTESTED_MACHINE_API_OR_FRESHNESS_SLA"
+      ]
+    },
+    {
+      "systemCode": "FSA_ACCREDITED_PERSONS_REGISTRY",
+      "officialName": "Реестр аккредитованных лиц",
+      "shortName": "Реестр аккредитованных лиц",
+      "kind": "PUBLIC_REGISTRY",
+      "domain": "ACCREDITATION",
+      "inventoryCodes": [
+        "FSA_ELECTRONIC_REGISTRIES"
+      ],
+      "parentSystemCode": "FGIS_ROSACCREDITATION",
+      "responsibleAuthority": "Росаккредитация",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "PUBLIC_REGISTRY",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://pub.fsa.gov.ru/ral",
+          "role": "OFFICIAL_PUBLIC_REGISTRY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_APPLICABLE",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PUBLIC_QUERY_DOCUMENTED",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_REQUIRED",
+      "signatureRequirement": "NOT_REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "NO_ATTESTED_MACHINE_API_OR_FRESHNESS_SLA"
+      ]
+    },
+    {
+      "systemCode": "GIS_EPD",
+      "officialName": "Государственная информационная система электронных перевозочных документов",
+      "shortName": "ГИС ЭПД",
+      "kind": "SYSTEM",
+      "domain": "TRANSPORT",
+      "inventoryCodes": [
+        "MINTRANS_GIS_EPD"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минтранс России",
+      "applicability": "CORE_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mintrans.gov.ru/activities/214/376",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        },
+        {
+          "url": "https://mintrans.gov.ru/activities/214/376/377/379/422",
+          "role": "OFFICIAL_ACCESS_GUIDE",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "DIRECT_PARTICIPANT_CONNECTION_IS_NOT_AVAILABLE_USE_ACCREDITED_IS_EPD_OPERATOR"
+      ]
+    },
+    {
+      "systemCode": "GIS_EPD_OPERATOR_REGISTRY",
+      "officialName": "Реестр операторов информационных систем электронных перевозочных документов",
+      "shortName": "Реестр операторов ИС ЭПД",
+      "kind": "PUBLIC_REGISTRY",
+      "domain": "TRANSPORT",
+      "inventoryCodes": [
+        "MINTRANS_GIS_EPD"
+      ],
+      "parentSystemCode": "GIS_EPD",
+      "responsibleAuthority": "Минтранс России",
+      "applicability": "CORE_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "PUBLIC_REGISTRY",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://mintrans.gov.ru/activities/214/376/377/380",
+          "role": "OFFICIAL_PUBLIC_REGISTRY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_APPLICABLE",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PUBLIC_QUERY_DOCUMENTED",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_REQUIRED",
+      "signatureRequirement": "NOT_REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "VENDOR_MUST_BE_VERIFIED_AGAINST_CURRENT_REGISTRY_BEFORE_ANY_CLAIM"
+      ]
+    },
+    {
+      "systemCode": "FNS_EGRUL_EGRIP",
+      "officialName": "Единый государственный реестр юридических лиц и Единый государственный реестр индивидуальных предпринимателей",
+      "shortName": "ЕГРЮЛ/ЕГРИП",
+      "kind": "PUBLIC_REGISTRY",
+      "domain": "TAX",
+      "inventoryCodes": [
+        "FNS_EGRUL_EGRIP_ACCESS"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "ФНС России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "PUBLIC_REGISTRY",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://egrul.nalog.ru/",
+          "role": "OFFICIAL_PUBLIC_REGISTRY",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PUBLIC_QUERY_DOCUMENTED",
+      "writeEvidence": "NOT_APPLICABLE",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_REQUIRED",
+      "signatureRequirement": "NOT_REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "SDK_ADAPTER_IS_MOCK_AND_INTEGRATION_ACCESS_CONTRACT_IS_NOT_PINNED"
+      ]
+    },
+    {
+      "systemCode": "SMEV3",
+      "officialName": "Единая система межведомственного электронного взаимодействия версии 3",
+      "shortName": "СМЭВ 3",
+      "kind": "TRANSPORT",
+      "domain": "INTERAGENCY",
+      "inventoryCodes": [
+        "SMEV_TECH_PORTAL"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Минцифры России",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://smev3.gosuslugi.ru/portal/",
+          "role": "OFFICIAL_TECHNICAL_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "REQUIRED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "DOMAIN_SERVICE_CONTRACT_ACCESS_CRYPTOGRAPHY_AND_EXTERNAL_E2E_REQUIRED"
+      ]
+    },
+    {
+      "systemCode": "FTS_PARTICIPANT_SERVICES",
+      "officialName": "Информационные сервисы ФТС России для участников внешнеэкономической деятельности",
+      "shortName": "Сервисы ФТС для ВЭД",
+      "kind": "PLATFORM",
+      "domain": "CUSTOMS",
+      "inventoryCodes": [
+        "FTS_OFFICIAL_SERVICES"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "ФТС России",
+      "applicability": "CONDITIONAL_CROP",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://customs.gov.ru/uchastnikam-ved",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_PUBLIC"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "PORTAL_ONLY",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "REQUIRED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "EXACT_CUSTOMS_SERVICE_AND_ACCESS_CONTRACT_NOT_SELECTED"
+      ]
+    },
+    {
+      "systemCode": "ROSFINMONITORING_AML",
+      "officialName": "Информационное взаимодействие с Росфинмониторингом",
+      "shortName": "Росфинмониторинг",
+      "kind": "PLATFORM",
+      "domain": "AML",
+      "inventoryCodes": [
+        "ROSFIN_OFFICIAL_ACCESS"
+      ],
+      "parentSystemCode": null,
+      "responsibleAuthority": "Росфинмониторинг",
+      "applicability": "ADJACENT",
+      "evidenceClass": "OFFICIAL_PRIMARY",
+      "integrationStatus": "NOT_ASSESSED",
+      "accessMode": "OFFICIAL_ACCESS_REQUIRED",
+      "platformState": "DISABLED",
+      "officialLocators": [
+        {
+          "url": "https://www.fedsfm.ru/",
+          "role": "OFFICIAL_SYSTEM_PORTAL",
+          "verifiedAt": "2026-07-28",
+          "retrievalStatus": "VERIFIED_INDEXED"
+        }
+      ],
+      "apiContract": {
+        "status": "NOT_ASSESSED",
+        "version": null,
+        "artifacts": []
+      },
+      "readEvidence": "NOT_ASSESSED",
+      "writeEvidence": "NOT_ASSESSED",
+      "platformReadEnabled": false,
+      "platformWriteEnabled": false,
+      "credentialRequirement": "NOT_ASSESSED",
+      "signatureRequirement": "NOT_ASSESSED",
+      "tenantIsolation": {
+        "assessment": "NOT_ASSESSED",
+        "requiredControl": "SERVER_DERIVED_RBAC_RLS_REQUIRED_BEFORE_ENABLEMENT"
+      },
+      "credentialReference": null,
+      "signatureReference": null,
+      "blockers": [
+        "LEGAL_APPLICABILITY_AND_OFFICIAL_CHANNEL_ASSESSMENT_REQUIRED"
+      ]
+    }
+  ],
+  "coverage": {
+    "publicUiProviders": [
+      {
+        "code": "sber_safe_deals",
+        "classification": "NON_GOVERNMENT_PROVIDER_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "TEST_DECLARATION",
+        "nextEvidence": "SIGNED_PROVIDER_CONTRACT_CREDENTIALS_CALLBACKS_AND_CONFIRMED_OPERATIONS"
+      },
+      {
+        "code": "sber_business_id",
+        "classification": "NON_GOVERNMENT_PROVIDER_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "TEST_DECLARATION",
+        "nextEvidence": "SIGNED_PROVIDER_CONTRACT_AND_AUTHORIZATION_E2E"
+      },
+      {
+        "code": "sber_credit",
+        "classification": "NON_GOVERNMENT_PROVIDER_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "SIMULATION_ONLY",
+        "nextEvidence": "SIGNED_PROVIDER_CONTRACT_AND_WIDGET_E2E"
+      },
+      {
+        "code": "fgis_grain",
+        "classification": "GOVERNMENT_SYSTEM_DECLARATION",
+        "targetSystemCodes": [
+          "FGIS_GRAIN"
+        ],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "MANUAL_ROUTE",
+        "nextEvidence": "REAL_PROVIDER_ACCESS_GOVERNED_EXTERNAL_E2E_AND_PRODUCTION_ATTESTATION"
+      },
+      {
+        "code": "edo_saby",
+        "classification": "NON_GOVERNMENT_PROVIDER_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "SIMULATION_ONLY",
+        "nextEvidence": "SIGNED_EDO_CONTRACT_AND_LEGALLY_SIGNIFICANT_DOCUMENT_E2E"
+      },
+      {
+        "code": "edo_diadoc",
+        "classification": "NON_GOVERNMENT_PROVIDER_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "SIMULATION_ONLY",
+        "nextEvidence": "SIGNED_EDO_CONTRACT_AND_LEGALLY_SIGNIFICANT_DOCUMENT_E2E"
+      },
+      {
+        "code": "gps_wialon",
+        "classification": "NON_GOVERNMENT_PROVIDER_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "SIMULATION_ONLY",
+        "nextEvidence": "SIGNED_TELEMATICS_CONTRACT_AND_ROUTE_EVENT_E2E"
+      },
+      {
+        "code": "logistics_sphere",
+        "classification": "NON_GOVERNMENT_PROVIDER_DECLARATION",
+        "targetSystemCodes": [
+          "GIS_EPD",
+          "GIS_EPD_OPERATOR_REGISTRY"
+        ],
+        "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+        "observedState": "SIMULATION_ONLY",
+        "nextEvidence": "VERIFY_VENDOR_IN_CURRENT_MINTRANS_OPERATOR_REGISTRY_THEN_CONTRACT_AND_EXTERNAL_E2E"
+      }
+    ],
+    "integrationSdkAdapters": [
+      {
+        "code": "FGIS_ZERNO",
+        "classification": "GOVERNMENT_SYSTEM_DECLARATION",
+        "targetSystemCodes": [
+          "FGIS_GRAIN"
+        ],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "USE_PINNED_1_0_23_CONTRACT_WITH_REAL_ACCESS_AND_EXTERNAL_E2E"
+      },
+      {
+        "code": "FNS",
+        "classification": "ADJACENT_SYSTEM_DECLARATION",
+        "targetSystemCodes": [
+          "FNS_EGRUL_EGRIP"
+        ],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "PIN_EXACT_FNS_ACCESS_MODEL_FORMATS_AND_FRESHNESS"
+      },
+      {
+        "code": "DIADOK",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SIGNED_VENDOR_CONTRACT_AND_LEGALLY_SIGNIFICANT_EDO_E2E"
+      },
+      {
+        "code": "CRYPTOPRO_DSS",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "CERTIFIED_CRYPTOGRAPHY_PROFILE_KEY_CEREMONY_AND_SIGNATURE_E2E"
+      },
+      {
+        "code": "BANK",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SELECT_BANK_SIGN_CONTRACT_AND_ACCEPT_RECONCILIATION_CALLBACK_E2E"
+      },
+      {
+        "code": "GPS",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SELECT_PROVIDER_SIGN_CONTRACT_AND_ACCEPT_ROUTE_EVENT_E2E"
+      },
+      {
+        "code": "FTS",
+        "classification": "ADJACENT_SYSTEM_DECLARATION",
+        "targetSystemCodes": [
+          "FTS_PARTICIPANT_SERVICES"
+        ],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SELECT_EXACT_FTS_SERVICE_AND_PIN_OFFICIAL_ACCESS_CONTRACT"
+      },
+      {
+        "code": "RSHN",
+        "classification": "GOVERNMENT_SYSTEM_DECLARATION",
+        "targetSystemCodes": [
+          "FGIS_SATURN",
+          "FGIS_ARGUS_FITO",
+          "FGIS_VETIS"
+        ],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "REPLACE_UMBRELLA_CODE_WITH_EXACT_SYSTEM_AND_CONTRACT"
+      },
+      {
+        "code": "AML_ROSFINMONITORING",
+        "classification": "ADJACENT_SYSTEM_DECLARATION",
+        "targetSystemCodes": [
+          "ROSFINMONITORING_AML"
+        ],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "LEGAL_APPLICABILITY_EXACT_CHANNEL_AND_ACCESS_CONTRACT"
+      },
+      {
+        "code": "RZD_ETRAN",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SIGNED_RZD_CONTRACT_EXACT_ETRAN_PROFILE_AND_EXTERNAL_E2E"
+      },
+      {
+        "code": "GIS_EPD",
+        "classification": "GOVERNMENT_SYSTEM_DECLARATION",
+        "targetSystemCodes": [
+          "GIS_EPD",
+          "GIS_EPD_OPERATOR_REGISTRY"
+        ],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SELECT_AND_VERIFY_ACCREDITED_IS_EPD_OPERATOR_THEN_PIN_CONTRACT"
+      },
+      {
+        "code": "BKI_NBKI",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "LEGAL_BASIS_CONSENT_SIGNED_BUREAU_CONTRACT_AND_EXTERNAL_E2E"
+      },
+      {
+        "code": "TAKSKOM",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SELECT_PRODUCT_SIGN_VENDOR_CONTRACT_AND_EXTERNAL_E2E"
+      },
+      {
+        "code": "MARINE_TRAFFIC",
+        "classification": "VENDOR_DECLARATION",
+        "targetSystemCodes": [],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SIGNED_DATA_LICENSE_EXACT_API_CONTRACT_AND_EXTERNAL_E2E"
+      },
+      {
+        "code": "SMEV",
+        "classification": "TRANSPORT_DECLARATION",
+        "targetSystemCodes": [
+          "SMEV3"
+        ],
+        "observedPath": "packages/integration-sdk/src/types.ts",
+        "observedState": "MOCK_ADAPTER",
+        "nextEvidence": "SELECT_DOMAIN_SERVICE_PIN_CONTRACT_AND_COMPLETE_CRYPTOGRAPHIC_EXTERNAL_E2E"
+      }
+    ]
+  },
+  "forbiddenClaims": [
+    "CONFIRMED_LIVE",
+    "PRODUCTION_INTEGRATION_ENABLED",
+    "OFFICIAL_PROVIDER_ACCEPTED_WITHOUT_EXTERNAL_E2E",
+    "PUBLIC_WEB_PAGE_EQUALS_ATTESTED_API",
+    "VENDOR_IS_AN_ACCREDITED_IS_EPD_OPERATOR_WITHOUT_CURRENT_REGISTRY_EVIDENCE",
+    "CREDENTIALS_OR_PRIVATE_KEY_MATERIAL_STORED_IN_THIS_REGISTRY"
+  ]
+}
