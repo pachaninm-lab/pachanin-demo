@@ -44,7 +44,6 @@ jobs:
     name: PostgreSQL 16 · roles · admission · quarantine · withdrawal
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-
     services:
       postgres:
         image: postgres:16
@@ -86,28 +85,23 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Verify source-controlled branch scope
-        if: github.ref_name != 'main'
+      - name: Verify source-controlled scope and static authority
         shell: bash
         env:
           BASE_REF: ${{ steps.base.outputs.base_ref }}
         run: |
           set -euo pipefail
-          export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-          bash scripts/p7-autopilot-guard.sh
-
-      - name: Verify authority contract and static boundaries
-        shell: bash
-        run: |
-          set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          printf '%s\n' "${{ steps.base.outputs.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
-          node scripts/tai-ap-14f1a/verify.mjs \
-            --scope-guard "${{ steps.base.outputs.base_ref }}" \
+          printf '%s\n' "$BASE_REF" > "$EVIDENCE_DIR/base-ref.txt"
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+            bash scripts/p7-autopilot-guard.sh
+          fi
+          node scripts/tai-ap-14f1a/verify.mjs --scope-guard "$BASE_REF" \
             | tee "$EVIDENCE_DIR/static-acceptance.json"
 
-      - name: Apply AP-14F1A migrations on PostgreSQL 16
+      - name: Apply migrations on PostgreSQL 16
         shell: bash
         env:
           PGPASSWORD: postgres
@@ -132,17 +126,15 @@ jobs:
         run: |
           set -euo pipefail
           race_sql="SET ROLE tai_knowledge_ingestor; SELECT tai_knowledge.register_source('src_rrrrrrrrrrrr','synthetic.race.source','OFFICIAL_MANUAL','https://race.example.test/source','race.example.test','AP14F0-SYNTHETIC_RACE','ALLOWED_SHARED_RAG',DATE '2026-07-28',DATE '2099-12-31','audit_race00000001');"
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$race_sql" > "$EVIDENCE_DIR/race-1.txt" 2>&1 &
-          pid1=$!
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc "$race_sql" > "$EVIDENCE_DIR/race-2.txt" 2>&1 &
-          pid2=$!
+          psql "$DATABASE_URL" -X -qAtc "$race_sql" > "$EVIDENCE_DIR/race-1.txt" 2>&1 & pid1=$!
+          psql "$DATABASE_URL" -X -qAtc "$race_sql" > "$EVIDENCE_DIR/race-2.txt" 2>&1 & pid2=$!
           wait "$pid1"
           wait "$pid2"
           test "$(cat "$EVIDENCE_DIR/race-1.txt")" = "src_rrrrrrrrrrrr"
           test "$(cat "$EVIDENCE_DIR/race-2.txt")" = "src_rrrrrrrrrrrr"
-          test "$(psql "$DATABASE_URL" -X -Atc "SELECT count(*) FROM tai_public_source_admissions WHERE source_code='synthetic.race.source'")" = "1"
+          test "$(psql "$DATABASE_URL" -X -qAtc "SELECT count(*) FROM tai_public_source_admissions WHERE source_code='synthetic.race.source'")" = "1"
 
-      - name: Run positive and negative PostgreSQL acceptance
+      - name: Run PostgreSQL positive and negative acceptance
         shell: bash
         env:
           PGPASSWORD: postgres
