@@ -36,50 +36,54 @@ def exact_policy() -> dict[str, object]:
     return {"Version": "2012-10-17", "Statement": statements}
 
 
-def test_v3_authority_and_exact_nine_rule_policy() -> None:
+def test_v3_authority_and_exact_eight_rule_policy() -> None:
     v3.install_v3_semantics()
     try:
         authority = verifier.load_json(AUTHORITY_PATH)
         verifier.validate_authority(authority)
-        assert len(v3.EXPECTED_RULES) == 9
-        assert [rule["name"] for rule in v3.EXPECTED_RULES[-2:]] == [
-            "TAI-08-finalizer-bucket-control-deny",
-            "TAI-09-finalizer-retention-deny",
-        ]
+        assert len(v3.EXPECTED_RULES) == 8
+        assert v3.EXPECTED_RULES[-1]["name"] == (
+            "TAI-08-finalizer-bucket-control-deny"
+        )
         assert len(v3.validate_panel_policy_v3(authority, exact_policy())) == 64
 
         policy = exact_policy()
         statements = policy["Statement"]
         assert isinstance(statements, list)
         statements.pop()
-        with pytest.raises(verifier.ProbeFailure, match="TARGET_RULE_COUNT_NOT_NINE"):
+        with pytest.raises(verifier.ProbeFailure, match="TARGET_RULE_COUNT_NOT_EIGHT"):
             v3.validate_panel_policy_v3(authority, policy)
     finally:
         v3.restore_v2_semantics()
 
 
-def test_v3_explicit_denies_cover_observed_and_future_finalizer_risks() -> None:
+def test_v3_panel_actions_match_actual_reg_cloud_catalog() -> None:
     bucket_actions = set(v3.FINALIZER_BUCKET_CONTROL_DENY_ACTIONS)
-    retention_actions = set(v3.FINALIZER_RETENTION_DENY_ACTIONS)
-    assert {
+    assert bucket_actions == {
+        "s3:DeleteBucketPolicy",
         "s3:GetBucketPolicy",
+        "s3:GetLifecycleConfiguration",
         "s3:PutBucketPolicy",
         "s3:PutBucketVersioning",
-        "s3:PutBucketObjectLockConfiguration",
         "s3:PutLifecycleConfiguration",
-    } <= bucket_actions
-    assert {
+    }
+    behavioral_actions = set(v3.PANEL_UNAVAILABLE_BEHAVIORAL_ACTIONS)
+    assert behavioral_actions == {
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:PutBucketObjectLockConfiguration",
         "s3:BypassGovernanceRetention",
         "s3:GetObjectRetention",
         "s3:PutObjectRetention",
-    } == retention_actions
+    }
+    assert bucket_actions.isdisjoint(behavioral_actions)
+    assert behavioral_actions <= set(v3.FINALIZER_FORBIDDEN_ACTIONS)
     assert v3.KEY_SETS["finalizer_explicit_deny_rules"] == [
         "TAI-05-delete-deny",
         "TAI-08-finalizer-bucket-control-deny",
-        "TAI-09-finalizer-retention-deny",
     ]
-    assert "EXACT_NINE_PANEL_RULES_READBACK" in v3.REQUIRED_PROOFS
+    assert "EXACT_EIGHT_PANEL_RULES_READBACK" in v3.REQUIRED_PROOFS
     assert "EXACT_SEVEN_PANEL_RULES_READBACK" not in v3.REQUIRED_PROOFS
+    assert "EXACT_NINE_PANEL_RULES_READBACK" not in v3.REQUIRED_PROOFS
 
 
 def test_v3_install_restore_and_location_semantics() -> None:
@@ -204,8 +208,9 @@ def test_v3_artifacts_are_local_interactive_and_do_not_weaken_denials() -> None:
     assert "--no-verify-ssl" not in wrapper
     assert "reg-ru-s3-compatibility-authority.v3.json" in runbook
     assert "TAI-08-finalizer-bucket-control-deny" in runbook
-    assert "TAI-09-finalizer-retention-deny" in runbook
+    assert "Do not create `TAI-09`" in runbook
     assert "Do not run v2 again" in runbook
     assert "VERIFIED_REG_RU_S3_PANEL_COMPATIBILITY_V3" in authority
+    assert '"panel_unavailable_behavioral_actions"' in authority
     assert '"workflow_allowed": false' in authority
     assert '"finalization_allowed": false' in authority

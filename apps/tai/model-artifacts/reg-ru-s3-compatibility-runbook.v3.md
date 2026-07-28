@@ -1,4 +1,4 @@
-# TAI AP-13B.3l — REG.RU S3 compatibility verifier v3
+# TAI AP-13B.3l/3m — REG.RU S3 compatibility verifier v3
 
 ## Why v3 exists
 
@@ -6,11 +6,13 @@ The first accepted v2 run stopped before mutation with:
 
 `FAILED_CLOSED:DENIAL_EXPECTED_BUT_ALLOWED:FINALIZER_GET_BUCKET_POLICY`
 
-This is a real least-privilege defect, not a boto3 parsing problem. The finalizer key can read the bucket policy through an inherited or provider-side permission even though the seven-rule authority did not explicitly allow it.
+This is a real least-privilege defect, not a boto3 parsing problem. The finalizer key could read the bucket policy even though the original seven-rule authority did not explicitly allow it.
 
-REG.RU documents `GetBucketPolicy` as an independently controllable policy action and states that access is denied by default when no applicable policy explicitly allows it. The v3 authority therefore does not weaken the verifier or treat policy visibility as harmless. It adds explicit deny rules for every finalizer control-plane and retention action that the verifier must never accept.
+The REG.Cloud panel exposes `GetBucketPolicy` and the associated bucket-policy, lifecycle and versioning controls, so v3 requires one explicit finalizer deny rule for the exact actions available in the provider action selector.
 
-The failed v2 attempt occurred before the mutation confirmation. No multipart upload, retained object, object version, or Object Lock retention was created by that attempt.
+The panel does not expose Object Lock configuration or object-retention policy actions. Those operations are therefore not replaced with broader categories and are not omitted from security acceptance: the verifier tests their denial behaviorally through boto3/botocore.
+
+The failed v2 attempt occurred before the mutation confirmation. No multipart upload, retained object, object version or Object Lock retention was created.
 
 ## Unchanged target and safety boundary
 
@@ -27,9 +29,9 @@ The failed v2 attempt occurred before the mutation confirmation. No multipart up
 
 AWS CLI is not used. Credentials are requested once, hidden, only after local checks and exact authority validation.
 
-## Exact nine-rule authority
+## Exact eight-rule authority
 
-The original rules remain unchanged:
+Rules 1–7 remain unchanged:
 
 1. `TAI-01-bucket-metadata`;
 2. `TAI-02-prefix-listing`;
@@ -39,7 +41,7 @@ The original rules remain unchanged:
 6. `TAI-06-control-bucket-deny`;
 7. `TAI-07-control-object-deny`.
 
-Add the following two rules exactly. Do not edit, merge, rename, broaden or substitute actions.
+The only additional panel rule is:
 
 ### TAI-08-finalizer-bucket-control-deny
 
@@ -47,40 +49,35 @@ Add the following two rules exactly. Do not edit, merge, rename, broaden or subs
 - key set: `tai-bundle-finalizer-prod-01`;
 - scope/resource: bucket `tai-model-bundles-prod-01`;
 - condition: none;
-- actions:
+- actions, exactly six:
   - `DeleteBucketPolicy`;
-  - `GetBucketObjectLockConfiguration`;
   - `GetBucketPolicy`;
   - `GetLifecycleConfiguration`;
-  - `PutBucketObjectLockConfiguration`;
   - `PutBucketPolicy`;
   - `PutBucketVersioning`;
   - `PutLifecycleConfiguration`.
 
-### TAI-09-finalizer-retention-deny
+Do not add `GetBucketLocation`, `GetBucketVersioning`, any `GetObject*` action or a broad category such as “All actions”.
 
-- type/effect: `Deny`;
-- key set: `tai-bundle-finalizer-prod-01`;
-- scope/resource: prefix `tai-model-bundles-prod-01/tai/model-bundles/v1/*`;
-- condition: none;
-- actions:
-  - `BypassGovernanceRetention`;
-  - `GetObjectRetention`;
-  - `PutObjectRetention`.
+Do not create `TAI-09`. The following operations are absent from the REG.Cloud policy selector and remain behavioral verifier assertions instead of panel-rule requirements:
 
-If the REG.RU action selector does not expose any exact action above, stop. Do not replace it with a category such as “All actions”, do not broaden the scope, and do not run the verifier. Capture only the action-selector screen; never include credentials.
+- `GetBucketObjectLockConfiguration`;
+- `PutBucketObjectLockConfiguration`;
+- `BypassGovernanceRetention`;
+- `GetObjectRetention`;
+- `PutObjectRetention`.
 
 The committed authority is:
 
 `apps/tai/model-artifacts/reg-ru-s3-compatibility-authority.v3.json`
 
-The verifier reads back the live policy and requires exactly nine target statements matching the source-controlled semantics. Any missing, additional or broadened target rule fails closed before mutation.
+The verifier reads back the live policy and requires exactly eight target statements matching the source-controlled semantics. Any missing, additional or broadened target rule fails closed before mutation.
 
 ## Read-only phase
 
 Before the confirmation phrase, v3 verifies:
 
-- the exact target, nine policy rules and policy SHA-256;
+- the exact target, eight policy rules and policy SHA-256;
 - REG.RU bucket-location syntax without conflating it with the signing region;
 - versioning, Object Lock and default `COMPLIANCE` 90-day retention;
 - required finalizer allow operations;
@@ -93,8 +90,9 @@ Before the confirmation phrase, v3 verifies:
 
 Only after all read-only checks pass, the verifier requires the exact confirmation phrase and proves:
 
-- finalizer bucket-policy, versioning, lifecycle and Object Lock control mutations are denied;
-- finalizer object-retention read and mutation are denied;
+- finalizer bucket-policy, versioning and lifecycle mutations are denied by the explicit panel rule;
+- finalizer Object Lock configuration mutation is denied behaviorally;
+- finalizer object-retention read and mutation are denied behaviorally;
 - control multipart creation/list-parts/abort is denied;
 - finalizer multipart create/list/upload-part/list-parts/abort succeeds and retains zero bytes;
 - exactly one deterministic 9,437,184-byte v3 object is uploaded or resumed;
@@ -122,4 +120,4 @@ Even on success:
 - `model_admission_status=NOT_DONE`;
 - `production_operational_status=NOT_ATTESTED`.
 
-Do not run v2 again. Do not run v3 until the AP-13B.3l PR is merged, both new REG.RU rules are saved, and a new exact-main command is published.
+Do not run v2 again. Do not run v3 until the AP-13B.3m correction PR is merged and a new exact-main command is published.

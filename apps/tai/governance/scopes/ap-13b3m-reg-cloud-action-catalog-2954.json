@@ -1,0 +1,36 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3m-reg-cloud-action-catalog-2954",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2954,
+  "exact_base": "6f4d3a0e05d0b84120096f2bcf74cb810a8bce9d",
+  "maturity_boundary": "dormant-local-reg-ru-s3-action-catalog-evidence-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3m-reg-cloud-action-catalog-2954.json",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-authority.v3.json",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-runbook.v3.md",
+    "apps/tai/tai/reg_ru_s3_compatibility_v3.py",
+    "apps/tai/tests/test_reg_ru_s3_compatibility_v3.py"
+  ],
+  "forbidden_capabilities": [
+    "GitHub Actions provider mutation, repository secret registration or unattended verifier execution",
+    "active provider-profile registration or active preflight-requirements switch",
+    "model-bundle finalization, accepted model-bundle upload, benchmark, admission, activation or deployment",
+    "bucket creation, bucket deletion, versioning change, Object Lock configuration change or bucket-policy mutation",
+    "credential values in command arguments, logs, evidence, Git, issues, pull requests, screenshots or chat",
+    "successful data-plane mutation without exact interactive confirmation",
+    "more than one 9437184-byte retained governed compatibility object or any retained multipart payload",
+    "TLS verification bypass, including --no-verify-ssl"
+  ],
+  "acceptance": [
+    "REG_RU_S3_2026 remains CANDIDATE_NOT_ACTIVE",
+    "the exact panel authority contains eight rules, including the six-action TAI-08 deny visible in REG.Cloud",
+    "TAI-09 is not required or created",
+    "Object Lock configuration and object-retention operations absent from the provider selector remain behavioral verifier assertions",
+    "the verifier still fails closed if any forbidden Object Lock or retention operation succeeds",
+    "credentials remain requested once per execution only after local checks",
+    "finalization_allowed remains false"
+  ]
+}
