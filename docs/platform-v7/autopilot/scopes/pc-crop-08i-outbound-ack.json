@@ -3,7 +3,7 @@
   "scopeId": "pc-crop-08i-outbound-ack",
   "branch": "agent/pc-crop-08i-fgis-outbound-ack",
   "issue": 3311,
-  "baseMainSha": "be4cc002aa2a9581ada123084f96ea73cac3980e",
+  "baseMainSha": "9854fcad36cf382395f5f5bcb654ce663d2be5ee",
   "productionHosting": "REG_RU_VPS_ONLY",
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
