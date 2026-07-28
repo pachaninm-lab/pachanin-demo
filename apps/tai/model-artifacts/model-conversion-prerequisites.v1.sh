@@ -63,7 +63,7 @@ mkdir -p prerequisite-evidence/release remote-evidence
 for attempt in $(seq 1 "$RELEASE_WAIT_ATTEMPTS"); do
   gh api -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
-    "repos/$REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" \
+    "repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?head_sha=$GITHUB_SHA&branch=main&per_page=100" \
     > prerequisite-evidence/release/runs.json
   set +e
   python - <<'PY'

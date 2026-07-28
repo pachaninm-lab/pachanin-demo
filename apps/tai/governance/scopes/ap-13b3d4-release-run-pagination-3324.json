@@ -1,0 +1,37 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3d4-release-run-pagination-3324",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 3324,
+  "exact_base": "2197480c2e71c6ec6c5c96c95d1c2d6af0eba9f7",
+  "maturity_boundary": "exact-main-workflow-run-lookup-correctness-only",
+  "allowed_paths": [
+    ".github/workflows/tai-model-bundle-storage-preflight.yml",
+    ".github/workflows/tai-model-conversion-diagnostics.yml",
+    ".github/workflows/tai-release-acceptance.yml",
+    ".github/workflows/tai-selectel-s3-provision.yml",
+    "apps/tai/governance/scopes/ap-13b3d4-release-run-pagination-3324.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-prerequisites.v1.sh",
+    "apps/tai/tests/test_release_run_lookup_contract.py"
+  ],
+  "forbidden_capabilities": [
+    "conversion rerun or model-host mutation",
+    "workflow trigger or permission change",
+    "release or artifact validation weakening",
+    "success-only API filtering that can hide a newer failed or pending run",
+    "model activation, admission, benchmark or operational acceptance",
+    "storage, credential, secret or production deployment mutation",
+    "maturity-state advancement"
+  ],
+  "acceptance": [
+    "four release consumers query the workflow-specific exact-SHA main-branch endpoint",
+    "release acceptance and diagnostics paginate and flatten every workflow-runs page",
+    "newer failed or pending runs are never masked by an older success",
+    "workflow path, exact SHA, main branch, allowed event and newest-run checks remain fail closed",
+    "a valid exact-main run beyond one hundred repository-wide noise runs is found deterministically",
+    "focused contract tests, existing workflow tests and the full TAI suite pass"
+  ]
+}

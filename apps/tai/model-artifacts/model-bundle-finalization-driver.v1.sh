@@ -236,7 +236,7 @@ test "$(jq -r '.status' "$EVIDENCE_ROOT/preflight/report.json")" = "READY_FOR_BU
 
 for attempt in $(seq 1 180); do
   gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' \
-    "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" \
+    "repos/$GITHUB_REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?head_sha=$GITHUB_SHA&branch=main&per_page=100" \
     > "$EVIDENCE_ROOT/release/runs.json"
   set +e
   GITHUB_SHA="$GITHUB_SHA" python3 - <<'PY'
