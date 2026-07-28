@@ -243,6 +243,41 @@ SELECT tai_knowledge.decide_artifact(
   'audit_release000001'
 );
 
+SELECT tai_knowledge.record_artifact(
+  'artifact_jjjjjjjjjjjj',
+  'srcver_bbbbbbbbbbbb',
+  repeat('c', 64),
+  'application/json',
+  2048,
+  'artifact-ref:synthetic/ap14f1a/rejected',
+  'https://official.example.test/manual',
+  'official.example.test',
+  DATE '2026-07-01',
+  DATE '2026-07-01',
+  TIMESTAMPTZ '2026-07-28T18:31:30Z',
+  'JSON_POINTER',
+  '/synthetic/records/rejected',
+  'audit_artifact0002'
+);
+
+SELECT tai_knowledge.decide_artifact(
+  'quarantine_kkkkkkkkkkkk',
+  'artifact_jjjjjjjjjjjj',
+  'REJECT',
+  'PROMPT_INJECTION_OR_UNTRUSTED_INSTRUCTIONS',
+  'Synthetic human rejection must survive source withdrawal and restoration.',
+  false,
+  true,
+  true,
+  true,
+  true,
+  true,
+  repeat('3', 64),
+  'evidence-ref:synthetic/ap14f1a/reject-restore',
+  NULL,
+  'audit_rejected0001'
+);
+
 SELECT tai_knowledge.create_snapshot(
   'snapshot_eeeeeeeeeeee',
   'synthetic.snapshot.v1',
@@ -384,6 +419,28 @@ BEGIN
   END IF;
 END
 $assert_restore_returns$;
+
+DO $assert_rejected_artifact_stays_quarantined$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM tai_public_source_artifacts
+    WHERE id = 'artifact_jjjjjjjjjjjj'
+      AND state = 'QUARANTINED'
+      AND shared_index_eligible = false
+  ) THEN
+    RAISE EXCEPTION 'source restoration revived a human-rejected artifact';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM tai_public_corpus_retrieval_entries
+    WHERE artifact_id = 'artifact_jjjjjjjjjjjj'
+  ) THEN
+    RAISE EXCEPTION 'human-rejected artifact became retrievable after source restoration';
+  END IF;
+END
+$assert_rejected_artifact_stays_quarantined$;
 
 DO $negative_evidence_mutation$
 BEGIN
