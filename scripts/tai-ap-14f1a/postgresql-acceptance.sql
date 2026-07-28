@@ -18,7 +18,7 @@ BEGIN
   SELECT count(*)::integer INTO v_table_count
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public'
+  WHERE n.nspname = 'tai_knowledge'
     AND c.relkind = 'r'
     AND c.relname IN (
       'tai_public_source_admissions',
