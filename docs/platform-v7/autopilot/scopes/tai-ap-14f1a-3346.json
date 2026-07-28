@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f1a-public-corpus-authority-3346",
+  "status": "active",
+  "issue": 3346,
+  "baseCommit": "b82c07cf28c13f9652f87cd14fdc2a75164b8e1b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f1a.yml",
+    "apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql",
+    "apps/api/prisma/schema.prisma",
+    "apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json",
+    "apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.v1.json",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3346.json",
+    "scripts/tai-ap-14f1a/postgresql-acceptance.sql",
+    "scripts/tai-ap-14f1a/verify.mjs"
+  ],
+  "boundaries": {
+    "postgresqlAuthorityOnly": true,
+    "noSourceFetch": true,
+    "noRealSourceAdmission": true,
+    "noCorpusParsing": true,
+    "noChunking": true,
+    "noEmbeddingsOrVectorIndex": true,
+    "noCabinetAccess": true,
+    "noCredentials": true,
+    "noTenantLiveOrContractedData": true,
+    "noModelTraining": true,
+    "noRuntimeExternalWrite": true,
+    "noProductionDeployment": true,
+    "noConnectedLiveOrTrainedClaim": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "exactMainCommitStatusRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "postgresqlMajor": 16,
+    "authorityTableCount": 7,
+    "restrictedRoleNegativeTestsRequired": true,
+    "raceAndIdempotencyTestsRequired": true,
+    "hardDeleteDeniedRequired": true,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
