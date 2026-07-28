@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/exact-main-observer
-          required_json='["PC-CROP-08H FGIS Exchange Receipt Acceptance","CI PostgreSQL Image Authority","Dependency Review","Workflow Syntax Guard","API Tests","Security Scan","Production-like Kubernetes Acceptance","Immutable Release Authority Acceptance","Qodana platform-v7 report","Disputes PostgreSQL Authority Acceptance","Outbox PostgreSQL Authority Acceptance","Runtime Context Security Gate","Auction Atomic Execution Acceptance","Outbox Worker Topology Acceptance","Node CI","CodeQL platform-v7 report","Security Abuse and Evidence Acceptance","Security Quality Gate","CI","Netlify Retirement Authority"]'
+          required_json='["PC-CROP-08H FGIS Exchange Receipt Acceptance","CI PostgreSQL Image Authority","Dependency Review","Workflow Syntax Guard","API Tests","Security Scan","Production-like Kubernetes Acceptance","Immutable Release Authority Acceptance","Disputes PostgreSQL Authority Acceptance","Outbox PostgreSQL Authority Acceptance","Runtime Context Security Gate","Auction Atomic Execution Acceptance","Outbox Worker Topology Acceptance","Node CI","Security Abuse and Evidence Acceptance","Security Quality Gate","CI","Netlify Retirement Authority","Build & Publish Canonical Docker Images"]'
           printf '%s\n' "$required_json" > artifacts/exact-main-observer/required.json
 
           final_status=3
@@ -52,7 +52,7 @@ jobs:
           const required = JSON.parse(process.env.REQUIRED_JSON);
           const matching = (payload.workflow_runs || [])
             .filter((run) => run.head_sha === process.env.TARGET_SHA && run.head_branch === process.env.TARGET_BRANCH)
-            .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+            .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
 
           const latest = new Map();
           for (const run of matching) {
@@ -67,9 +67,11 @@ jobs:
               event: run?.event ?? null,
               status: run?.status ?? 'missing',
               conclusion: run?.conclusion ?? null,
+              run_attempt: run?.run_attempt ?? null,
               head_sha: run?.head_sha ?? null,
               head_branch: run?.head_branch ?? null,
               html_url: run?.html_url ?? null,
+              updated_at: run?.updated_at ?? null,
             };
           });
 
@@ -95,13 +97,15 @@ jobs:
               name: run.name,
               id: run.id,
               conclusion: run.conclusion,
+              run_attempt: run.run_attempt,
               html_url: run.html_url,
+              updated_at: run.updated_at,
             })),
           };
           fs.writeFileSync('artifacts/exact-main-observer/summary.json', JSON.stringify(summary, null, 2));
 
           for (const row of rows) {
-            process.stdout.write(`${row.name}\t${row.status}\t${row.conclusion ?? '-'}\t${row.id ?? '-'}\n`);
+            process.stdout.write(`${row.name}\t${row.status}\t${row.conclusion ?? '-'}\t${row.run_attempt ?? '-'}\t${row.id ?? '-'}\n`);
           }
 
           if (failedRequired.length || unexpectedTerminal.length) process.exit(4);
@@ -137,7 +141,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pc-crop-08h-exact-main-${{ env.TARGET_SHA }}
+          name: pc-crop-08h-exact-main-${{ env.TARGET_SHA }}-${{ github.run_id }}
           path: artifacts/exact-main-observer
           if-no-files-found: error
           retention-days: 14
