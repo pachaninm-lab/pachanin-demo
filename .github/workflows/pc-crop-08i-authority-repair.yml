@@ -53,50 +53,109 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Repair exact migration and synchronize Prisma authority
+      - name: Repair exact migration, TypeScript and Prisma authority
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$DIAGNOSTICS"
           node <<'NODE'
           const fs = require('node:fs');
-          const migrationPath = 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql';
-          let sql = fs.readFileSync(migrationPath, 'utf8');
 
-          function replaceExact(before, after, expected, label) {
-            const actual = sql.split(before).length - 1;
-            if (actual !== expected) throw new Error(`${label}: expected ${expected}, found ${actual}`);
-            sql = sql.split(before).join(after);
+          function patchFile(path, replacements) {
+            let value = fs.readFileSync(path, 'utf8');
+            for (const { before, after, expected, label } of replacements) {
+              const actual = value.split(before).length - 1;
+              if (actual !== expected) throw new Error(`${path} ${label}: expected ${expected}, found ${actual}`);
+              value = value.split(before).join(after);
+            }
+            fs.writeFileSync(path, value, 'utf8');
           }
 
-          replaceExact('  "auditEventId" text,\n', '  "auditEventId" text UNIQUE,\n', 1, 'audit evidence uniqueness');
-          replaceExact('  "eventOutboxEntryId" text,\n', '  "eventOutboxEntryId" text UNIQUE,\n', 1, 'event outbox uniqueness');
-          replaceExact(
-            '     OR COALESCE((v_inbox."verificationResult" ->> \'verified\')::boolean, false) IS NOT TRUE\n',
-            '     OR v_inbox."verificationResult" ->> \'verified\' IS DISTINCT FROM \'true\'\n',
-            1,
-            'fail-closed verified flag',
-          );
-          replaceExact(
-            '       AND v_existing."decision" = CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END\n',
-            '       AND v_existing."decision" = (CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END)\n',
-            1,
-            'ACK replay decision expression',
-          );
-          replaceExact(
-            'UPDATE public."fgis_grain_acknowledgements"\n',
-            'UPDATE public."fgis_grain_acknowledgements" AS target\n',
-            3,
-            'ACK mutation aliases',
-          );
-          replaceExact(
-            'RETURNING to_jsonb(public."fgis_grain_acknowledgements".*) INTO v_after;',
-            'RETURNING to_jsonb(target.*) INTO v_after;',
-            3,
-            'ACK returning aliases',
-          );
-          fs.writeFileSync(migrationPath, sql, 'utf8');
+          patchFile('apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql', [
+            {
+              before: '  "auditEventId" text,\n',
+              after: '  "auditEventId" text UNIQUE,\n',
+              expected: 1,
+              label: 'audit evidence uniqueness',
+            },
+            {
+              before: '  "eventOutboxEntryId" text,\n',
+              after: '  "eventOutboxEntryId" text UNIQUE,\n',
+              expected: 1,
+              label: 'event outbox uniqueness',
+            },
+            {
+              before: '     OR COALESCE((v_inbox."verificationResult" ->> \'verified\')::boolean, false) IS NOT TRUE\n',
+              after: '     OR v_inbox."verificationResult" ->> \'verified\' IS DISTINCT FROM \'true\'\n',
+              expected: 1,
+              label: 'fail-closed verified flag',
+            },
+            {
+              before: '       AND v_existing."decision" = CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END\n',
+              after: '       AND v_existing."decision" = (CASE WHEN v_required THEN \'REQUIRED\' ELSE \'NOT_REQUIRED\' END)\n',
+              expected: 1,
+              label: 'ACK replay decision expression',
+            },
+            {
+              before: 'UPDATE public."fgis_grain_acknowledgements"\n',
+              after: 'UPDATE public."fgis_grain_acknowledgements" AS target\n',
+              expected: 3,
+              label: 'ACK mutation aliases',
+            },
+            {
+              before: 'RETURNING to_jsonb(public."fgis_grain_acknowledgements".*) INTO v_after;',
+              after: 'RETURNING to_jsonb(target.*) INTO v_after;',
+              expected: 3,
+              label: 'ACK returning aliases',
+            },
+          ]);
+
+          patchFile('apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.ts', [
+            {
+              before: "  eligibleInboundTransportOperations: ['SendRequest', 'SendResponse'],\n",
+              after: "  eligibleInboundTransportOperations: ['SendRequest', 'SendResponse'] as const,\n",
+              expected: 1,
+              label: 'eligible transport tuple',
+            },
+            {
+              before: "  ineligibleInboundTransportOperations: ['Ack'],\n",
+              after: "  ineligibleInboundTransportOperations: ['Ack'] as const,\n",
+              expected: 1,
+              label: 'ineligible transport tuple',
+            },
+            {
+              before: "  eligibleResponseCodes: ['success', 'accepted'],\n",
+              after: "  eligibleResponseCodes: ['success', 'accepted'] as const,\n",
+              expected: 1,
+              label: 'eligible response tuple',
+            },
+            {
+              before: "  ineligibleResponseCodes: ['queue-is-empty', 'ignored'],\n",
+              after: "  ineligibleResponseCodes: ['queue-is-empty', 'ignored'] as const,\n",
+              expected: 1,
+              label: 'ineligible response tuple',
+            },
+          ]);
+
+          patchFile('apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts', [
+            {
+              before: "      expect(() => normalizeGenerateFgisGrainAckCommand(input)).toThrow(\n        expect.objectContaining<FgisGrainAckAuthorityError>({ code: 'ACK_ENVELOPE_FORBIDDEN' }),\n      );\n",
+              after: "      expect(() => normalizeGenerateFgisGrainAckCommand(input)).toThrow(\n        /ACK_ENVELOPE_FORBIDDEN/u,\n      );\n",
+              expected: 1,
+              label: 'Jest error matcher',
+            },
+          ]);
+
+          patchFile('apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts', [
+            {
+              before: 'function actor(tenantId: string, orgId: string, suffix: string, role = Role.ADMIN): RequestUser {\n',
+              after: "function actor(\n  tenantId: string,\n  orgId: string,\n  suffix: string,\n  role: RequestUser['role'] = Role.ADMIN,\n): RequestUser {\n",
+              expected: 1,
+              label: 'role parameter authority',
+            },
+          ]);
           NODE
+
           node scripts/pc-crop-08i/sync-prisma-schema.mjs 2>&1 | tee "$DIAGNOSTICS/schema-sync.log"
           pnpm --filter @pc/api exec prisma format 2>&1 | tee "$DIAGNOSTICS/prisma-format.log"
           pnpm --filter @pc/api exec prisma validate 2>&1 | tee "$DIAGNOSTICS/prisma-validate.log"
@@ -149,9 +208,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$(git status --porcelain -- apps/api/prisma/schema.prisma apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql)"
+          git status --short
+          test -n "$(git status --porcelain -- \
+            apps/api/prisma/schema.prisma \
+            apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.ts \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts \
+            apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts)"
           git config user.name 'pc-crop-governance-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add apps/api/prisma/schema.prisma apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql
-          git commit -m 'PC-CROP-08I: repair ACK database and Prisma authority'
+          git add \
+            apps/api/prisma/schema.prisma \
+            apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.ts \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts \
+            apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts
+          git commit -m 'PC-CROP-08I: repair ACK database and TypeScript authority'
           git push origin HEAD:agent/pc-crop-08i-fgis-outbound-ack
