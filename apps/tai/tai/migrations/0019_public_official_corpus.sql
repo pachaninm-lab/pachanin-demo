@@ -51,7 +51,11 @@ CREATE TABLE IF NOT EXISTS tai_public_corpus_artifacts (
     status TEXT NOT NULL CHECK (status IN ('ADMITTED', 'QUARANTINED', 'WITHDRAWN')),
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CHECK (freshness_due_at > observed_at),
-    CHECK ((period_start IS NULL AND period_end IS NULL) OR (period_start IS NOT NULL AND period_end >= period_start))
+    CHECK (
+        (period_start IS NULL AND period_end IS NULL)
+        OR
+        (period_start IS NOT NULL AND period_end >= period_start)
+    )
 );
 
 CREATE INDEX IF NOT EXISTS tai_public_corpus_artifact_source_idx
@@ -83,13 +87,19 @@ CREATE TABLE IF NOT EXISTS tai_public_corpus_quarantine (
     )
 );
 
+CREATE INDEX IF NOT EXISTS tai_public_corpus_quarantine_open_idx
+    ON tai_public_corpus_quarantine (source_id, artifact_sha256, created_at)
+    WHERE released_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS tai_public_corpus_snapshots (
     snapshot_id BIGSERIAL PRIMARY KEY,
     snapshot_sha256 TEXT NOT NULL UNIQUE CHECK (snapshot_sha256 ~ '^[0-9a-f]{64}$'),
     status TEXT NOT NULL CHECK (status IN ('BUILDING', 'ACTIVE', 'RETIRED', 'FAILED')),
     created_at TIMESTAMPTZ NOT NULL,
     activated_at TIMESTAMPTZ,
-    source_ids JSONB NOT NULL CHECK (jsonb_typeof(source_ids) = 'array' AND jsonb_array_length(source_ids) > 0),
+    source_ids JSONB NOT NULL CHECK (
+        jsonb_typeof(source_ids) = 'array' AND jsonb_array_length(source_ids) > 0
+    ),
     artifact_sha256s JSONB NOT NULL CHECK (
         jsonb_typeof(artifact_sha256s) = 'array' AND jsonb_array_length(artifact_sha256s) > 0
     ),
@@ -120,7 +130,10 @@ CREATE INDEX IF NOT EXISTS tai_public_corpus_chunk_source_idx
 CREATE TABLE IF NOT EXISTS tai_public_corpus_audit (
     event_sha256 TEXT PRIMARY KEY CHECK (event_sha256 ~ '^[0-9a-f]{64}$'),
     event_type TEXT NOT NULL CHECK (
-        event_type IN ('SOURCE_ADMITTED', 'ARTIFACT_ADMITTED', 'SNAPSHOT_ACTIVATED', 'SOURCE_WITHDRAWN', 'QUARANTINE_RELEASED')
+        event_type IN (
+            'SOURCE_ADMITTED', 'ARTIFACT_ADMITTED', 'SNAPSHOT_ACTIVATED',
+            'SOURCE_WITHDRAWN', 'QUARANTINE_RELEASED'
+        )
     ),
     source_id TEXT,
     artifact_sha256 TEXT,
@@ -137,11 +150,17 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     target_status TEXT;
+    declared_source_ids JSONB;
+    declared_artifact_sha256s JSONB;
+    actual_source_ids JSONB;
+    actual_artifact_sha256s JSONB;
     invalid_count BIGINT;
+    open_quarantine_count BIGINT;
 BEGIN
     PERFORM pg_advisory_xact_lock(hashtextextended('tai.public-corpus.activation.v1', 0));
 
-    SELECT status INTO target_status
+    SELECT status, source_ids, artifact_sha256s
+    INTO target_status, declared_source_ids, declared_artifact_sha256s
     FROM tai_public_corpus_snapshots
     WHERE snapshot_id = target_snapshot
     FOR UPDATE;
@@ -150,10 +169,33 @@ BEGIN
         RAISE EXCEPTION 'public corpus snapshot must be BUILDING';
     END IF;
 
+    SELECT COALESCE(jsonb_agg(source_id ORDER BY source_id), '[]'::jsonb)
+    INTO actual_source_ids
+    FROM (
+        SELECT DISTINCT source_id
+        FROM tai_public_corpus_chunks
+        WHERE snapshot_id = target_snapshot
+    ) AS actual_sources;
+
+    SELECT COALESCE(jsonb_agg(artifact_sha256 ORDER BY artifact_sha256), '[]'::jsonb)
+    INTO actual_artifact_sha256s
+    FROM (
+        SELECT DISTINCT artifact_sha256
+        FROM tai_public_corpus_chunks
+        WHERE snapshot_id = target_snapshot
+    ) AS actual_artifacts;
+
+    IF declared_source_ids <> actual_source_ids
+       OR declared_artifact_sha256s <> actual_artifact_sha256s THEN
+        RAISE EXCEPTION 'public corpus snapshot manifest does not match persisted chunks';
+    END IF;
+
     SELECT count(*) INTO invalid_count
     FROM tai_public_corpus_chunks AS chunk
-    JOIN tai_public_corpus_artifacts AS artifact ON artifact.artifact_sha256 = chunk.artifact_sha256
-    JOIN tai_public_corpus_source_admissions AS admission ON admission.source_id = chunk.source_id
+    JOIN tai_public_corpus_artifacts AS artifact
+      ON artifact.artifact_sha256 = chunk.artifact_sha256
+    JOIN tai_public_corpus_source_admissions AS admission
+      ON admission.source_id = chunk.source_id
     WHERE chunk.snapshot_id = target_snapshot
       AND (
           artifact.status <> 'ADMITTED'
@@ -170,6 +212,26 @@ BEGIN
 
     IF invalid_count > 0 THEN
         RAISE EXCEPTION 'public corpus snapshot contains ineligible material';
+    END IF;
+
+    SELECT count(*) INTO open_quarantine_count
+    FROM tai_public_corpus_quarantine AS quarantine
+    WHERE quarantine.released_at IS NULL
+      AND (
+          quarantine.source_id IN (
+              SELECT source_id
+              FROM tai_public_corpus_chunks
+              WHERE snapshot_id = target_snapshot
+          )
+          OR quarantine.artifact_sha256 IN (
+              SELECT artifact_sha256
+              FROM tai_public_corpus_chunks
+              WHERE snapshot_id = target_snapshot
+          )
+      );
+
+    IF open_quarantine_count > 0 THEN
+        RAISE EXCEPTION 'public corpus snapshot contains quarantined material';
     END IF;
 
     IF NOT EXISTS (
@@ -202,10 +264,13 @@ BEGIN
         RAISE EXCEPTION 'withdrawal actor and reason are required';
     END IF;
 
-    PERFORM pg_advisory_xact_lock(hashtextextended('tai.public-corpus.withdrawal.v1:' || target_source, 0));
+    PERFORM pg_advisory_xact_lock(
+        hashtextextended('tai.public-corpus.withdrawal.v1:' || target_source, 0)
+    );
 
     UPDATE tai_public_corpus_source_admissions
-    SET status = 'WITHDRAWN', withdrawn_at = tai_withdraw_public_corpus_source.withdrawn_at,
+    SET status = 'WITHDRAWN',
+        withdrawn_at = tai_withdraw_public_corpus_source.withdrawn_at,
         withdrawal_reason = reason
     WHERE source_id = target_source AND status = 'ADMITTED';
 
@@ -221,7 +286,8 @@ BEGIN
     SET status = 'RETIRED'
     WHERE snapshot.status = 'ACTIVE'
       AND EXISTS (
-          SELECT 1 FROM tai_public_corpus_chunks AS chunk
+          SELECT 1
+          FROM tai_public_corpus_chunks AS chunk
           WHERE chunk.snapshot_id = snapshot.snapshot_id
             AND chunk.source_id = target_source
       );
@@ -243,9 +309,23 @@ FROM tai_public_corpus_chunks AS chunk
 JOIN tai_public_corpus_snapshots AS snapshot
   ON snapshot.snapshot_id = chunk.snapshot_id AND snapshot.status = 'ACTIVE'
 JOIN tai_public_corpus_artifacts AS artifact
-  ON artifact.artifact_sha256 = chunk.artifact_sha256 AND artifact.status = 'ADMITTED'
+  ON artifact.artifact_sha256 = chunk.artifact_sha256
+ AND artifact.source_id = chunk.source_id
+ AND artifact.status = 'ADMITTED'
 JOIN tai_public_corpus_source_admissions AS admission
-  ON admission.source_id = chunk.source_id AND admission.status = 'ADMITTED';
+  ON admission.source_id = chunk.source_id AND admission.status = 'ADMITTED'
+WHERE chunk.valid_until > clock_timestamp()
+  AND artifact.freshness_due_at > clock_timestamp()
+  AND admission.rights_review_due_at > clock_timestamp()
+  AND NOT EXISTS (
+      SELECT 1
+      FROM tai_public_corpus_quarantine AS quarantine
+      WHERE quarantine.released_at IS NULL
+        AND (
+            quarantine.source_id = chunk.source_id
+            OR quarantine.artifact_sha256 = chunk.artifact_sha256
+        )
+  );
 
 COMMENT ON TABLE tai_public_corpus_source_admissions IS
     'AP-14F1A authority for explicitly admitted PUBLIC_OFFICIAL shared-RAG sources';
@@ -254,6 +334,6 @@ COMMENT ON TABLE tai_public_corpus_artifacts IS
 COMMENT ON TABLE tai_public_corpus_chunks IS
     'Deterministic AP-05 chunks bound to one immutable AP-14F1A corpus snapshot';
 COMMENT ON VIEW tai_active_public_corpus_chunks_v1 IS
-    'Fail-closed shared retrieval view exposing only one active, admitted public corpus snapshot';
+    'Fail-closed shared retrieval view exposing only one current admitted public corpus snapshot';
 
 COMMIT;
