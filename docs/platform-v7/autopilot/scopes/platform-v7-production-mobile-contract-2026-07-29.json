@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-PRODUCTION-MOBILE-CONTRACT-2026-07-29",
+  "branch": "fix/platform-v7-production-mobile-contract-20260729",
+  "status": "active",
+  "maturityBoundary": "production-mobile-acceptance-and-release-trigger-only",
+  "globalProgramStateUnchanged": "This scope changes no public application behavior, API, database, authorization, Deal, TAI, financial authority or production topology. It aligns the fail-closed Playwright production contract with the currently rendered accessible labels and anchors, removes assertions for retired public sections, and permits one comment-only Dockerfile trigger so the corrected test and deployed OCI image share one exact main SHA.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-mobile-contract-2026-07-29.json",
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "infra/docker/Dockerfile.web"
+  ],
+  "forbiddenPaths": [
+    "apps/web/app/**",
+    "apps/web/components/**",
+    "apps/web/styles/**",
+    "apps/web/i18n/**",
+    "apps/api/**",
+    "packages/**",
+    ".github/workflows/**",
+    "infra/compose/**",
+    "infra/helm/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The implementation changes exactly this scope file, the production mobile Playwright test and a comment-only Dockerfile release trigger",
+    "The role tablist is located by the accessible label currently rendered by PublicDealRoleScenario",
+    "The Bank role tab remains required and visible",
+    "Only current homepage anchors are asserted and retired maturity, integrations and role-entry anchors remain absent",
+    "Header, touch targets, H2 hierarchy, form controls, overflow, runtime errors and screenshot evidence remain fail-closed",
+    "The exact merge SHA is published and deployed with matching manifest and OCI revision",
+    "Production mobile acceptance passes at 390x844 and 430x932 against that exact deployed SHA"
+  ]
+}
