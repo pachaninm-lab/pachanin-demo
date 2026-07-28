@@ -1,4 +1,4 @@
-name: TAI AP-14F1A Datamodel Source Patch
+name: TAI AP-14F1A Authority Schema Patch
 
 on:
   push:
@@ -11,11 +11,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: tai-ap-14f1a-datamodel-source-patch
+  group: tai-ap-14f1a-authority-schema-patch
   cancel-in-progress: false
 
 jobs:
-  patch-source-controlled-datamodel:
+  patch-postgresql-acceptance:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -24,224 +24,22 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Append exact Prisma authority models and verifier contract
+      - name: Point table-shape assertion at database-managed schema
         shell: bash
         run: |
           set -euo pipefail
           python <<'PY'
           from pathlib import Path
 
-          schema_path = Path('apps/api/prisma/schema.prisma')
-          schema = schema_path.read_text(encoding='utf-8')
-          marker = '// ── TAI AP-14F1A public corpus authority ──────────────────────────────────────'
-          models = r'''
-
-          // ── TAI AP-14F1A public corpus authority ──────────────────────────────────────
-
-          model TaiPublicSourceAdmission {
-            id                  String   @id
-            sourceCode          String   @unique(map: "tai_public_source_admissions_source_code_key") @map("source_code")
-            sourceClass         String   @map("source_class")
-            dataPlane           String   @default("PUBLIC_OFFICIAL") @map("data_plane")
-            officialUrl         String   @map("official_url")
-            hostPin             String   @map("host_pin")
-            rightsDecisionId    String   @map("rights_decision_id")
-            rightsStatus        String   @map("rights_status")
-            rightsReviewedAt    DateTime @db.Date @map("rights_reviewed_at")
-            rightsReviewDueAt   DateTime @db.Date @map("rights_review_due_at")
-            status              String   @default("REVIEW_REQUIRED")
-            sharedIndexAllowed  Boolean  @default(false) @map("shared_index_allowed")
-            modelWeightsAllowed Boolean  @default(false) @map("model_weights_allowed")
-            auditEventReference String   @map("audit_event_reference")
-            version             BigInt   @default(0)
-            createdAt           DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
-            updatedAt           DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
-
-            versions TaiPublicSourceVersion[]
-
-            @@index([status, rightsReviewDueAt, sourceCode], map: "tai_public_source_status_idx")
-            @@index([rightsStatus, rightsReviewDueAt], map: "tai_public_source_rights_idx")
-            @@map("tai_public_source_admissions")
-          }
-
-          model TaiPublicSourceVersion {
-            id                  String    @id
-            sourceAdmissionId   String    @map("source_admission_id")
-            dataPlane           String    @default("PUBLIC_OFFICIAL") @map("data_plane")
-            versionLabel        String    @map("version_label")
-            publicationDate     DateTime? @db.Date @map("publication_date")
-            effectiveDate       DateTime? @db.Date @map("effective_date")
-            observedAt          DateTime  @db.Timestamptz(6) @map("observed_at")
-            sourceLocatorKind   String    @map("source_locator_kind")
-            sourceLocatorValue  String    @map("source_locator_value")
-            rightsDecisionId    String    @map("rights_decision_id")
-            status              String    @default("DRAFT")
-            sharedIndexAllowed  Boolean   @default(false) @map("shared_index_allowed")
-            modelWeightsAllowed Boolean   @default(false) @map("model_weights_allowed")
-            auditEventReference String    @map("audit_event_reference")
-            version             BigInt    @default(0)
-            createdAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
-            updatedAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
-
-            sourceAdmission TaiPublicSourceAdmission @relation(fields: [sourceAdmissionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_source_version_source_fk")
-            artifacts       TaiPublicSourceArtifact[]
-            withdrawals     TaiPublicSourceWithdrawal[]
-
-            @@unique([sourceAdmissionId, versionLabel], map: "tai_public_source_version_identity_key")
-            @@index([sourceAdmissionId, status, observedAt(sort: Desc), id], map: "tai_public_source_version_status_idx")
-            @@map("tai_public_source_versions")
-          }
-
-          model TaiPublicSourceArtifact {
-            id                     String    @id
-            sourceVersionId        String    @map("source_version_id")
-            dataPlane              String    @default("PUBLIC_OFFICIAL") @map("data_plane")
-            contentSha256          String    @db.Char(64) @map("content_sha256")
-            mediaType              String    @map("media_type")
-            sizeBytes              BigInt    @map("size_bytes")
-            storageReference       String    @unique(map: "tai_public_source_artifacts_storage_reference_key") @map("storage_reference")
-            officialUrl            String    @map("official_url")
-            hostPin                String    @map("host_pin")
-            publicationDate        DateTime? @db.Date @map("publication_date")
-            effectiveDate          DateTime? @db.Date @map("effective_date")
-            observedAt             DateTime  @db.Timestamptz(6) @map("observed_at")
-            sourceLocatorKind      String    @map("source_locator_kind")
-            sourceLocatorValue     String    @map("source_locator_value")
-            rightsDecisionId       String    @map("rights_decision_id")
-            state                  String    @default("QUARANTINED")
-            provenanceComplete     Boolean   @default(false) @map("provenance_complete")
-            malwareChecked         Boolean   @default(false) @map("malware_checked")
-            contentTypeChecked     Boolean   @default(false) @map("content_type_checked")
-            promptInjectionChecked Boolean   @default(false) @map("prompt_injection_checked")
-            sharedIndexEligible    Boolean   @default(false) @map("shared_index_eligible")
-            modelWeightsAllowed    Boolean   @default(false) @map("model_weights_allowed")
-            auditEventReference    String    @map("audit_event_reference")
-            version                BigInt    @default(0)
-            createdAt              DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
-            updatedAt              DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
-
-            sourceVersion   TaiPublicSourceVersion @relation(fields: [sourceVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_artifact_source_version_fk")
-            quarantineEvents TaiPublicCorpusQuarantineEvent[]
-            snapshotMembers  TaiPublicCorpusSnapshotMember[]
-
-            @@unique([sourceVersionId, contentSha256], map: "tai_public_artifact_digest_key")
-            @@index([sourceVersionId, state, observedAt(sort: Desc), id], map: "tai_public_artifact_state_idx")
-            @@index([contentSha256], map: "tai_public_artifact_sha_idx")
-            @@map("tai_public_source_artifacts")
-          }
-
-          model TaiPublicCorpusQuarantineEvent {
-            id                            String   @id
-            artifactId                    String   @map("artifact_id")
-            action                        String
-            reasonCode                    String   @map("reason_code")
-            details                       String
-            retryable                     Boolean
-            mfaVerified                   Boolean  @map("mfa_verified")
-            decidedBySubjectHash          String   @db.Char(64) @map("decided_by_subject_hash")
-            evidenceReference             String   @map("evidence_reference")
-            replacementProvenanceRecordId String?  @map("replacement_provenance_record_id")
-            auditEventReference           String   @unique(map: "tai_public_corpus_quarantine_events_audit_event_reference_key") @map("audit_event_reference")
-            createdAt                     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
-
-            artifact TaiPublicSourceArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_quarantine_artifact_fk")
-
-            @@index([artifactId, createdAt(sort: Desc), id(sort: Desc)], map: "tai_public_quarantine_artifact_idx")
-            @@map("tai_public_corpus_quarantine_events")
-          }
-
-          model TaiPublicSourceWithdrawal {
-            id                     String   @id
-            sourceVersionId        String   @map("source_version_id")
-            action                 String
-            reason                 String
-            mfaVerified            Boolean  @map("mfa_verified")
-            decidedBySubjectHash   String   @db.Char(64) @map("decided_by_subject_hash")
-            auditEventReference    String   @unique(map: "tai_public_source_withdrawals_audit_event_reference_key") @map("audit_event_reference")
-            createdAt              DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
-
-            sourceVersion TaiPublicSourceVersion @relation(fields: [sourceVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_withdrawal_source_version_fk")
-
-            @@index([sourceVersionId, createdAt(sort: Desc), id(sort: Desc)], map: "tai_public_withdrawal_version_idx")
-            @@map("tai_public_source_withdrawals")
-          }
-
-          model TaiPublicCorpusSnapshot {
-            id                  String    @id
-            snapshotCode        String    @unique(map: "tai_public_corpus_snapshots_snapshot_code_key") @map("snapshot_code")
-            dataPlane           String    @default("PUBLIC_OFFICIAL") @map("data_plane")
-            state               String    @default("BUILDING")
-            manifestSha256      String?   @db.Char(64) @map("manifest_sha256")
-            memberCount         Int       @default(0) @map("member_count")
-            auditEventReference String    @map("audit_event_reference")
-            version             BigInt    @default(0)
-            createdAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
-            sealedAt            DateTime? @db.Timestamptz(6) @map("sealed_at")
-            withdrawnAt         DateTime? @db.Timestamptz(6) @map("withdrawn_at")
-            updatedAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("updated_at")
-
-            members TaiPublicCorpusSnapshotMember[]
-
-            @@index([state, createdAt(sort: Desc), id], map: "tai_public_snapshot_state_idx")
-            @@map("tai_public_corpus_snapshots")
-          }
-
-          model TaiPublicCorpusSnapshotMember {
-            snapshotId          String   @map("snapshot_id")
-            artifactId          String   @map("artifact_id")
-            artifactSha256      String   @db.Char(64) @map("artifact_sha256")
-            auditEventReference String   @unique(map: "tai_public_corpus_snapshot_members_audit_event_reference_key") @map("audit_event_reference")
-            createdAt           DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6) @map("created_at")
-
-            snapshot TaiPublicCorpusSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_snapshot_member_snapshot_fk")
-            artifact TaiPublicSourceArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "tai_public_snapshot_member_artifact_fk")
-
-            @@id([snapshotId, artifactId], map: "tai_public_corpus_snapshot_members_pkey")
-            @@index([artifactId, snapshotId], map: "tai_public_snapshot_member_artifact_idx")
-            @@map("tai_public_corpus_snapshot_members")
-          }
-          '''
-          if marker not in schema:
-              schema_path.write_text(schema.rstrip() + models + '\n', encoding='utf-8')
-
-          verifier_path = Path('scripts/tai-ap-14f1a/verify.mjs')
-          verifier = verifier_path.read_text(encoding='utf-8')
-          if "pass('PRISMA_DATAMODEL_CONTRACT'" not in verifier:
-              replacements = [
-                  ("  correctionMigration: resolve(repositoryRoot, 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'),\n", "  correctionMigration: resolve(repositoryRoot, 'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql'),\n  prismaSchema: resolve(repositoryRoot, 'apps/api/prisma/schema.prisma'),\n"),
-                  ("  'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql',\n", "  'apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql',\n  'apps/api/prisma/schema.prisma',\n"),
-                  ("const correctionMigration = readText(paths.correctionMigration, 'correction migration');\n", "const correctionMigration = readText(paths.correctionMigration, 'correction migration');\nconst prismaSchema = readText(paths.prismaSchema, 'Prisma authority datamodel');\n"),
-                  ("pass('POSTGRESQL_AUTHORITY_STATIC', 'Seven tables, two NOLOGIN roles, nine controlled functions, delete guards and a security-barrier retrieval view are present.');\n", """pass('POSTGRESQL_AUTHORITY_STATIC', 'Seven tables, two NOLOGIN roles, nine controlled functions, delete guards and a security-barrier retrieval view are present.');
-
-requireTokens(prismaSchema, [
-  'model TaiPublicSourceAdmission {',
-  'model TaiPublicSourceVersion {',
-  'model TaiPublicSourceArtifact {',
-  'model TaiPublicCorpusQuarantineEvent {',
-  'model TaiPublicSourceWithdrawal {',
-  'model TaiPublicCorpusSnapshot {',
-  'model TaiPublicCorpusSnapshotMember {',
-  '@@map(\"tai_public_source_admissions\")',
-  '@@map(\"tai_public_source_versions\")',
-  '@@map(\"tai_public_source_artifacts\")',
-  '@@map(\"tai_public_corpus_quarantine_events\")',
-  '@@map(\"tai_public_source_withdrawals\")',
-  '@@map(\"tai_public_corpus_snapshots\")',
-  '@@map(\"tai_public_corpus_snapshot_members\")',
-], 'Prisma authority datamodel');
-assert(countMatches(prismaSchema, /model TaiPublic(?:Source|Corpus)[A-Za-z]+ \\{/gu) === 7, 'Prisma authority datamodel must contain exactly seven AP-14F1A models');
-pass('PRISMA_DATAMODEL_CONTRACT', 'Seven authority tables are represented in Prisma with mapped keys, relations and indexes.');
-"""),
-                  ("assert(scope.acceptance.authorityTableCount === 7, 'scope table count mismatch');\n", "assert(scope.acceptance.authorityTableCount === 7, 'scope table count mismatch');\nassert(scope.acceptance.prismaAuthorityModelCount === 7, 'scope Prisma model count mismatch');\nassert(scope.acceptance.prismaMigrationDriftMustBeZero === true, 'scope must require zero Prisma migration drift');\n"),
-                  ("pass('SOURCE_CONTROLLED_SCOPE', 'Eight paths are authorized for the PostgreSQL-only slice.');\n", "pass('SOURCE_CONTROLLED_SCOPE', 'Nine paths are authorized for the PostgreSQL-only slice.');\n"),
-                  ("    authorityTables: counts.tables,\n", "    authorityTables: counts.tables,\n    prismaAuthorityModels: 7,\n"),
-              ]
-              for old, new in replacements:
-                  count = verifier.count(old)
-                  if count != 1:
-                      raise SystemExit(f'verifier patch target count {count}: {old[:80]!r}')
-                  verifier = verifier.replace(old, new)
-              verifier_path.write_text(verifier, encoding='utf-8')
+          path = Path('scripts/tai-ap-14f1a/postgresql-acceptance.sql')
+          text = path.read_text(encoding='utf-8')
+          old = "  WHERE n.nspname = 'public'\n    AND c.relkind = 'r'\n"
+          new = "  WHERE n.nspname = 'tai_knowledge'\n    AND c.relkind = 'r'\n"
+          matches = text.count(old)
+          if matches == 1:
+              path.write_text(text.replace(old, new), encoding='utf-8')
+          elif matches != 0:
+              raise SystemExit(f'expected zero or one schema target, found {matches}')
           PY
 
           git diff --check
@@ -250,6 +48,6 @@ pass('PRISMA_DATAMODEL_CONTRACT', 'Seven authority tables are represented in Pri
           fi
           git config user.name 'p7-authority-bot'
           git config user.email 'p7-authority-bot@users.noreply.github.com'
-          git add apps/api/prisma/schema.prisma scripts/tai-ap-14f1a/verify.mjs
-          git commit -m 'TAI AP-14F1A: align Prisma authority datamodel'
+          git add scripts/tai-ap-14f1a/postgresql-acceptance.sql
+          git commit -m 'TAI AP-14F1A: validate database-managed authority schema'
           git push origin "HEAD:${GITHUB_REF_NAME}"
