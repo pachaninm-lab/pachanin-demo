@@ -1,9 +1,9 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "agent/tai-ap-14f1a-public-corpus-authority-3345",
+  "branch": "agent/tai-ap-14f1a-exact-main-3345",
   "status": "active",
   "issue": 3345,
-  "baseCommit": "914b2be00cebfe9b3c24e75dc9a6aa4df5b21dbf",
+  "baseCommit": "fcd0a372fb3a94ba36408479bd1b18f33b16c4e8",
   "productionHosting": "REG_RU_VPS_ONLY",
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
@@ -32,6 +32,7 @@
   "acceptance": {
     "exactHeadRequired": true,
     "exactMainRequired": true,
+    "exactMainCommitStatusRequired": true,
     "mergeExpectedHeadRequired": true,
     "reviewThreadsRequired": 0,
     "changedPathCount": 11,
