@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "pc-crop.fgis-grain-ack-policy-lock.v1",
+  "policyVersion": "fgis-zerno-1.0.23-ack-policy.v1",
+  "status": "PINNED_CONSERVATIVE",
+  "packageSha256": "085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7",
+  "catalogSha256": "4fc7cc075b956f0adca26331a99627d07cde77d63ec2fc017d0cbbc5f701c87a",
+  "wsdlSha256": "e4502c41e454e3c4b65cbfdafbec5fa4e52533cd6ad03557010b13ba51515f4a",
+  "typesSchemaSha256": "76638c5c7ccedc6c58000d38e7f4001c274596fb19db9692d8aeccc738d9c422",
+  "transport": {
+    "operation": "Ack",
+    "soapAction": "urn:Ack",
+    "inputQName": "{urn://x-artefacts-mcx-gov-ru/fgiz-zerno/api/ws/types/1.0.5}AckRequest",
+    "outputQName": "{urn://x-artefacts-mcx-gov-ru/fgiz-zerno/api/ws/types/1.0.5}AckResponse",
+    "faultQName": "{urn://x-artefacts-mcx-gov-ru/fgiz-zerno/api/ws/faults/1.0.5}ZernoFault"
+  },
+  "eligibility": {
+    "eligibleInboundTransportOperations": ["SendRequest", "SendResponse"],
+    "ineligibleInboundTransportOperations": ["Ack"],
+    "requiredSignatureStatus": "VERIFIED",
+    "requiredInboxStates": ["VERIFIED", "PROCESSING", "PROCESSED"],
+    "requiredAdapterCode": "FGIS_ZERNO",
+    "requiredApiVersion": "1.0.23",
+    "requiredMappingVersion": "fgis-zerno-1.0.23-catalog.v1",
+    "eligibleVerificationResponseCodes": ["success", "accepted"],
+    "ineligibleVerificationResponseCodes": ["queue-is-empty", "ignored"],
+    "ackOfAckForbidden": true,
+    "unknownOrUnverifiedInputForbidden": true,
+    "quarantinedOrDeadInputForbidden": true
+  },
+  "identity": {
+    "referenceMessageIdSource": "verified inbound provider messageId",
+    "messageIdGeneration": "deterministic UUIDv5-compatible SHA-256 namespace derivation",
+    "commandIdGeneration": "deterministic tenant/org/inbox/policy derivation",
+    "businessOperationCode": null
+  },
+  "boundaries": {
+    "secondInboxOutboxOrRelay": false,
+    "directNetworkCallFromInbox": false,
+    "businessAcceptanceImplied": false,
+    "liveConnection": false,
+    "confirmedLive": false,
+    "productionHosting": "REG_RU_VPS_ONLY",
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
