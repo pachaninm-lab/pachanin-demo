@@ -30,8 +30,7 @@
     "credential_input": "TTY_HIDDEN_ONCE_PER_RUN",
     "finalizer_explicit_deny_rules": [
       "TAI-05-delete-deny",
-      "TAI-08-finalizer-bucket-control-deny",
-      "TAI-09-finalizer-retention-deny"
+      "TAI-08-finalizer-bucket-control-deny"
     ]
   },
   "required_bucket_controls": {
@@ -41,7 +40,10 @@
       "mode": "COMPLIANCE",
       "days": 90
     },
-    "anonymous_denied_http_statuses": [401, 403],
+    "anonymous_denied_http_statuses": [
+      401,
+      403
+    ],
     "control_bucket_metadata_may_be_visible": true
   },
   "panel_rules": [
@@ -49,19 +51,32 @@
       "name": "TAI-01-bucket-metadata",
       "effect": "Allow",
       "key_set": "tai-bundle-finalizer-prod-01",
-      "actions": ["s3:GetBucketLocation", "s3:GetBucketVersioning"],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "actions": [
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning"
+      ],
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01"
+      ],
       "condition": {}
     },
     {
       "name": "TAI-02-prefix-listing",
       "effect": "Allow",
       "key_set": "tai-bundle-finalizer-prod-01",
-      "actions": ["s3:ListBucket", "s3:ListBucketVersions"],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "actions": [
+        "s3:ListBucket",
+        "s3:ListBucketVersions"
+      ],
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01"
+      ],
       "condition": {
         "StringLike": {
-          "s3:prefix": ["tai/model-bundles/v1", "tai/model-bundles/v1/*"]
+          "s3:prefix": [
+            "tai/model-bundles/v1",
+            "tai/model-bundles/v1/*"
+          ]
         }
       }
     },
@@ -69,8 +84,12 @@
       "name": "TAI-03-multipart-listing",
       "effect": "Allow",
       "key_set": "tai-bundle-finalizer-prod-01",
-      "actions": ["s3:ListBucketMultipartUploads"],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "actions": [
+        "s3:ListBucketMultipartUploads"
+      ],
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01"
+      ],
       "condition": {}
     },
     {
@@ -84,15 +103,22 @@
         "s3:ListMultipartUploadParts",
         "s3:PutObject"
       ],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"
+      ],
       "condition": {}
     },
     {
       "name": "TAI-05-delete-deny",
       "effect": "Deny",
       "key_set": "tai-bundle-finalizer-prod-01",
-      "actions": ["s3:DeleteObject", "s3:DeleteObjectVersion"],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
+      "actions": [
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion"
+      ],
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"
+      ],
       "condition": {}
     },
     {
@@ -104,7 +130,9 @@
         "s3:ListBucketMultipartUploads",
         "s3:ListBucketVersions"
       ],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01"
+      ],
       "condition": {}
     },
     {
@@ -120,7 +148,9 @@
         "s3:ListMultipartUploadParts",
         "s3:PutObject"
       ],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"
+      ],
       "condition": {}
     },
     {
@@ -129,27 +159,15 @@
       "key_set": "tai-bundle-finalizer-prod-01",
       "actions": [
         "s3:DeleteBucketPolicy",
-        "s3:GetBucketObjectLockConfiguration",
         "s3:GetBucketPolicy",
         "s3:GetLifecycleConfiguration",
-        "s3:PutBucketObjectLockConfiguration",
         "s3:PutBucketPolicy",
         "s3:PutBucketVersioning",
         "s3:PutLifecycleConfiguration"
       ],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
-      "condition": {}
-    },
-    {
-      "name": "TAI-09-finalizer-retention-deny",
-      "effect": "Deny",
-      "key_set": "tai-bundle-finalizer-prod-01",
-      "actions": [
-        "s3:BypassGovernanceRetention",
-        "s3:GetObjectRetention",
-        "s3:PutObjectRetention"
+      "resources": [
+        "arn:aws:s3:::tai-model-bundles-prod-01"
       ],
-      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
       "condition": {}
     }
   ],
@@ -158,6 +176,13 @@
     "s3:GetBucketPolicy",
     "s3:GetLifecycleConfiguration",
     "s3:GetObjectRetention"
+  ],
+  "panel_unavailable_behavioral_actions": [
+    "s3:GetBucketObjectLockConfiguration",
+    "s3:PutBucketObjectLockConfiguration",
+    "s3:BypassGovernanceRetention",
+    "s3:GetObjectRetention",
+    "s3:PutObjectRetention"
   ],
   "finalizer_forbidden_actions": [
     "s3:BypassGovernanceRetention",
@@ -189,9 +214,9 @@
   },
   "required_proofs": [
     "EXACT_TARGET",
-    "EXACT_NINE_PANEL_RULES_READBACK",
+    "EXACT_EIGHT_PANEL_RULES_READBACK",
     "FINALIZER_ALLOWED_CONTROL_DENIED",
-    "FINALIZER_EXPLICIT_CONTROL_AND_RETENTION_DENY",
+    "FINALIZER_PANEL_CONTROL_DENY_AND_BEHAVIORAL_OBJECT_LOCK_RETENTION_DENY",
     "VERSIONING_ENABLED",
     "OBJECT_LOCK_ENABLED",
     "COMPLIANCE_90D",
