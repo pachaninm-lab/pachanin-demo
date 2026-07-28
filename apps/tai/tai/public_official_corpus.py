@@ -58,7 +58,7 @@ class QuarantineReason(StrEnum):
     HOST_MISMATCH = "HOST_MISMATCH"
     DIGEST_MISMATCH = "DIGEST_MISMATCH"
     FRESHNESS_EXPIRED = "FRESHNESS_EXPIRED"
-    PRIVACY_OR_SECRET = "PRIVACY_OR_SECRET"
+    PRIVACY_OR_SECRET = "PRIVACY_OR_SECRET"  # noqa: S105
     TENANT_OR_CONTRACT_DATA = "TENANT_OR_CONTRACT_DATA"
     MIME_OR_SIZE_POLICY = "MIME_OR_SIZE_POLICY"
     CONTENT_SAFETY = "CONTENT_SAFETY"
@@ -132,10 +132,7 @@ class PublicSourceAdmission:
 
     def eligible_at(self, now: datetime) -> bool:
         current = _aware(now, "now")
-        return (
-            self.status is SourceAdmissionStatus.ADMITTED
-            and current < self.rights_review_due_at
-        )
+        return self.status is SourceAdmissionStatus.ADMITTED and current < self.rights_review_due_at
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,11 +165,7 @@ class PublicArtifactProvenance:
         object.__setattr__(self, "official_uri", _official_uri(self.official_uri, normalized_host))
         if _DECISION_ID.fullmatch(self.rights_decision_id.strip()) is None:
             raise ValueError("rights_decision_id must be an AP-14F0 decision id")
-        object.__setattr__(
-            self,
-            "content_sha256",
-            _sha256(self.content_sha256, "content_sha256"),
-        )
+        object.__setattr__(self, "content_sha256", _sha256(self.content_sha256, "content_sha256"))
         normalized_media_type = self.media_type.strip().casefold()
         if normalized_media_type not in {
             "text/html",
@@ -287,10 +280,7 @@ class PublicOfficialCorpusBuilder:
         artifact_ids: set[str] = set()
         seen_chunk_ids: set[str] = set()
 
-        for artifact in sorted(
-            artifacts,
-            key=lambda item: item.provenance.content_sha256,
-        ):
+        for artifact in sorted(artifacts, key=lambda item: item.provenance.content_sha256):
             provenance = artifact.provenance
             admission = by_source.get(provenance.source_id)
             if admission is None:
@@ -315,10 +305,7 @@ class PublicOfficialCorpusBuilder:
             )
             if not artifact_chunks:
                 raise ValueError("admitted artifact produced no retrieval chunks")
-            valid_until = min(
-                admission.rights_review_due_at,
-                provenance.freshness_due_at,
-            )
+            valid_until = min(admission.rights_review_due_at, provenance.freshness_due_at)
             for chunk in artifact_chunks:
                 if chunk.chunk_id in seen_chunk_ids:
                     raise ValueError("duplicate chunk identity across admitted artifacts")
