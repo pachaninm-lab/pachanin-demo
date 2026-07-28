@@ -187,6 +187,15 @@ jobs:
               label: 'inbox environment authority',
             },
           ]);
+
+          patchFile('scripts/pc-crop-08i/verify.mjs', [
+            {
+              before: "if (!contract.includes(policy.policyHash) || !contract.includes(\"'NOT_ATTESTED'\")) {\n  throw new Error('ACK TypeScript policy is not pinned to the canonical lock');\n}\n",
+              after: "if (\n  !contract.includes('policyHash: hash([')\n  || !contract.includes('FGIS_GRAIN_1_0_23_PACKAGE_SHA256')\n  || !contract.includes('FGIS_GRAIN_1_0_23_CATALOG_SHA256')\n  || !contract.includes(\"'NOT_ATTESTED'\")\n) {\n  throw new Error('ACK TypeScript policy is not derived from the canonical pinned authority');\n}\n",
+              expected: 1,
+              label: 'derived policy authority verifier',
+            },
+          ]);
           NODE
 
           node scripts/pc-crop-08i/sync-prisma-schema.mjs 2>&1 | tee "$DIAGNOSTICS/schema-sync.log"
@@ -258,7 +267,8 @@ jobs:
             apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.ts \
             apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts \
             apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.repository.ts \
-            apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts)"
+            apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts \
+            scripts/pc-crop-08i/verify.mjs)"
           git config user.name 'pc-crop-governance-bot'
           git config user.email 'actions@users.noreply.github.com'
           git add \
@@ -267,6 +277,7 @@ jobs:
             apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.ts \
             apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts \
             apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.repository.ts \
-            apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts
+            apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts \
+            scripts/pc-crop-08i/verify.mjs
           git commit -m 'PC-CROP-08I: repair ACK database and TypeScript authority'
           git push origin HEAD:agent/pc-crop-08i-fgis-outbound-ack
