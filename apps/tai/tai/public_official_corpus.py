@@ -14,6 +14,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SOURCE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{4,160}$")
 _DECISION_ID = re.compile(r"^AP14F0-[A-Z0-9_-]{5,96}$")
 _RECORD_ID = re.compile(r"^prov_[a-z0-9]{16,64}$")
+_REASON_CODE = re.compile(r"^[A-Z0-9_]{3,96}$")
 
 
 class SourceClass(StrEnum):
@@ -99,6 +100,24 @@ def _source_id(value: str) -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class AuthorityAuditContext:
+    actor_id: str
+    reason_code: str
+    created_at: datetime
+
+    def __post_init__(self) -> None:
+        actor = self.actor_id.strip()
+        reason = self.reason_code.strip().upper()
+        if not actor or len(actor) > 160:
+            raise ValueError("audit actor_id must be non-blank and bounded")
+        if _REASON_CODE.fullmatch(reason) is None:
+            raise ValueError("audit reason_code must satisfy the governed code contract")
+        object.__setattr__(self, "actor_id", actor)
+        object.__setattr__(self, "reason_code", reason)
+        object.__setattr__(self, "created_at", _aware(self.created_at, "created_at"))
+
+
+@dataclass(frozen=True, slots=True)
 class PublicSourceAdmission:
     source_id: str
     source_class: SourceClass
@@ -116,7 +135,11 @@ class PublicSourceAdmission:
         if not normalized_host or len(normalized_host) > 253:
             raise ValueError("host_pin must be a bounded hostname")
         object.__setattr__(self, "host_pin", normalized_host)
-        object.__setattr__(self, "official_uri", _official_uri(self.official_uri, normalized_host))
+        object.__setattr__(
+            self,
+            "official_uri",
+            _official_uri(self.official_uri, normalized_host),
+        )
         if _DECISION_ID.fullmatch(self.rights_decision_id.strip()) is None:
             raise ValueError("rights_decision_id must be an AP-14F0 decision id")
         object.__setattr__(
@@ -124,7 +147,11 @@ class PublicSourceAdmission:
             "rights_review_due_at",
             _aware(self.rights_review_due_at, "rights_review_due_at"),
         )
-        object.__setattr__(self, "admitted_at", _aware(self.admitted_at, "admitted_at"))
+        object.__setattr__(
+            self,
+            "admitted_at",
+            _aware(self.admitted_at, "admitted_at"),
+        )
         if self.rights_review_due_at <= self.admitted_at:
             raise ValueError("rights review must expire after admission")
         if not 0.5 <= self.trust_score <= 1.0:
@@ -132,7 +159,10 @@ class PublicSourceAdmission:
 
     def eligible_at(self, now: datetime) -> bool:
         current = _aware(now, "now")
-        return self.status is SourceAdmissionStatus.ADMITTED and current < self.rights_review_due_at
+        return (
+            self.status is SourceAdmissionStatus.ADMITTED
+            and current < self.rights_review_due_at
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,10 +192,18 @@ class PublicArtifactProvenance:
         object.__setattr__(self, "source_id", _source_id(self.source_id))
         normalized_host = self.host_pin.strip().casefold()
         object.__setattr__(self, "host_pin", normalized_host)
-        object.__setattr__(self, "official_uri", _official_uri(self.official_uri, normalized_host))
+        object.__setattr__(
+            self,
+            "official_uri",
+            _official_uri(self.official_uri, normalized_host),
+        )
         if _DECISION_ID.fullmatch(self.rights_decision_id.strip()) is None:
             raise ValueError("rights_decision_id must be an AP-14F0 decision id")
-        object.__setattr__(self, "content_sha256", _sha256(self.content_sha256, "content_sha256"))
+        object.__setattr__(
+            self,
+            "content_sha256",
+            _sha256(self.content_sha256, "content_sha256"),
+        )
         normalized_media_type = self.media_type.strip().casefold()
         if normalized_media_type not in {
             "text/html",
@@ -178,7 +216,11 @@ class PublicArtifactProvenance:
         object.__setattr__(self, "media_type", normalized_media_type)
         if self.size_bytes < 1 or self.size_bytes > 20_000_000:
             raise ValueError("size_bytes must be between 1 and 20000000")
-        object.__setattr__(self, "observed_at", _aware(self.observed_at, "observed_at"))
+        object.__setattr__(
+            self,
+            "observed_at",
+            _aware(self.observed_at, "observed_at"),
+        )
         object.__setattr__(
             self,
             "freshness_due_at",
@@ -241,7 +283,11 @@ class PublicCorpusSnapshot:
             "snapshot_sha256",
             _sha256(self.snapshot_sha256, "snapshot_sha256"),
         )
-        object.__setattr__(self, "created_at", _aware(self.created_at, "created_at"))
+        object.__setattr__(
+            self,
+            "created_at",
+            _aware(self.created_at, "created_at"),
+        )
         if not self.chunks:
             raise ValueError("snapshot must contain at least one chunk")
         if len(self.chunks) != len(self.retrieval_documents):
@@ -280,13 +326,18 @@ class PublicOfficialCorpusBuilder:
         artifact_ids: set[str] = set()
         seen_chunk_ids: set[str] = set()
 
-        for artifact in sorted(artifacts, key=lambda item: item.provenance.content_sha256):
+        for artifact in sorted(
+            artifacts,
+            key=lambda item: item.provenance.content_sha256,
+        ):
             provenance = artifact.provenance
             admission = by_source.get(provenance.source_id)
             if admission is None:
                 raise ValueError("artifact source has no public-official admission")
             if not admission.eligible_at(current):
-                raise ValueError("artifact source admission is withdrawn or rights-expired")
+                raise ValueError(
+                    "artifact source admission is withdrawn or rights-expired"
+                )
             if not provenance.eligible_at(current):
                 raise ValueError("artifact provenance is stale or not yet effective")
             if provenance.source_class is not admission.source_class:
@@ -305,7 +356,10 @@ class PublicOfficialCorpusBuilder:
             )
             if not artifact_chunks:
                 raise ValueError("admitted artifact produced no retrieval chunks")
-            valid_until = min(admission.rights_review_due_at, provenance.freshness_due_at)
+            valid_until = min(
+                admission.rights_review_due_at,
+                provenance.freshness_due_at,
+            )
             for chunk in artifact_chunks:
                 if chunk.chunk_id in seen_chunk_ids:
                     raise ValueError("duplicate chunk identity across admitted artifacts")
