@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Exact-SHA production release trigger for the emphasized two-line Hero AI positioning.
+// Exact-SHA production release trigger for the physical homepage maturity-block removal.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
