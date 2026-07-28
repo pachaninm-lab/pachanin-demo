@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "observer/tai-ap-14f0-exact-main-914b2be",
+  "status": "active",
+  "issue": 3339,
+  "baseCommit": "914b2be00cebfe9b3c24e75dc9a6aa4df5b21dbf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f0-exact-main-observer.yml",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f0-exact-main-observer-3339.json"
+  ],
+  "boundaries": {
+    "readOnlyObserver": true,
+    "noMergeIntended": true,
+    "noRuntimeMutation": true,
+    "noSourceFetch": true,
+    "noCorpusIngestion": true,
+    "noCredentials": true,
+    "noProductionDeployment": true
+  },
+  "acceptance": {
+    "targetExactMainSha": "914b2be00cebfe9b3c24e75dc9a6aa4df5b21dbf",
+    "profileWorkflowRequired": true,
+    "artifactRequired": true,
+    "closeWithoutMerge": true
+  }
+}
