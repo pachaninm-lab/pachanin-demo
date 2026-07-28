@@ -218,7 +218,10 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       await expect(page.locator('#difference')).toBeVisible();
       await expect(page.locator('#functions')).toBeVisible();
       await expect(page.locator('#live')).toBeVisible();
-      await expect(page.locator('#integrations')).toBeVisible();
+      // The integration table sits inside the trust section the owner removed
+      // (#3286), so it is hidden with its parent. Asserting it visible would
+      // require restoring a block that was deliberately taken off the homepage.
+      await expect(page.locator('#integrations')).toBeHidden();
       await expectNoHorizontalOverflow(page);
       await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');

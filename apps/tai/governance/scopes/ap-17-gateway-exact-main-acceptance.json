@@ -26,6 +26,7 @@
     "apps/web/app/api/public-platform-assistant/route.ts",
     "apps/web/app/globals.css",
     "apps/web/app/platform-v7/template.tsx",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
     "apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts",
     "apps/web/tsconfig.json",
     "apps/web/vitest.config.ts",
