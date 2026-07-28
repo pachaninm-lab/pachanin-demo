@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/remove-public-maturity-now",
+  "status": "active",
+  "purpose": "Physically remove the owner-rejected public maturity, trust, integration-status, metrics and evidence-ladder section from the Platform V7 homepage.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/tests/unit/platformV7PublicTrustBlockRemoval.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/remove-public-maturity-now.json"
+  ],
+  "constraints": [
+    "No backend, database, authentication, RBAC, Deal, TAI or financial-authority changes",
+    "No replacement claims or fake-live integration statuses",
+    "The section and its navigation entry must not exist in homepage JSX"
+  ]
+}
