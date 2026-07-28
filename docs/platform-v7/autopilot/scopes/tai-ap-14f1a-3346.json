@@ -9,7 +9,7 @@
   "allowedPaths": [
     ".github/workflows/tai-ap-14f1a.yml",
     "apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql",
-    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260728182600_tai_ap14f1a_record_artifact_fix/migration.sql",
     "apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json",
     "apps/tai/knowledge-sources/AP-14F1A-PUBLIC-CORPUS-AUTHORITY.v1.json",
     "docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3346.json",
