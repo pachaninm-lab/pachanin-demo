@@ -27,7 +27,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -40,49 +40,6 @@ env:
   DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tai_ap14f1a
 
 jobs:
-  one-time-source-fix:
-    if: github.event_name == 'push' && github.ref_name == 'agent/tai-ap-14f1a-public-corpus-authority-3346'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Commit exact SQL correction
-        shell: bash
-        run: |
-          set -euo pipefail
-          python <<'PY'
-          from pathlib import Path
-
-          path = Path('apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql')
-          text = path.read_text(encoding='utf-8')
-          old = "      AND v_existing.action = CASE WHEN p_decision = 'ADMIT' THEN 'HUMAN_RELEASED' WHEN p_decision = 'REJECT' THEN 'HUMAN_REJECTED' ELSE 'QUARANTINE' END\n"
-          new = """      AND (
-                (p_decision = 'ADMIT' AND v_existing.action = 'HUMAN_RELEASED')
-                OR (p_decision = 'REJECT' AND v_existing.action = 'HUMAN_REJECTED')
-                OR (p_decision = 'QUARANTINE' AND v_existing.action = 'QUARANTINE')
-              )
-          """
-          matches = text.count(old)
-          if matches == 0:
-              Path('/tmp/no-source-fix-required').write_text('true', encoding='utf-8')
-          elif matches == 1:
-              path.write_text(text.replace(old, new), encoding='utf-8')
-          else:
-              raise SystemExit(f'expected zero or one SQL target, found {matches}')
-          PY
-          if [[ -f /tmp/no-source-fix-required ]]; then
-            exit 0
-          fi
-          git diff --check
-          git config user.name 'p7-authority-bot'
-          git config user.email 'p7-authority-bot@users.noreply.github.com'
-          git add apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql
-          git commit -m 'TAI AP-14F1A: fix artifact decision idempotency syntax'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-
   postgresql-authority:
     name: PostgreSQL 16 · roles · admission · quarantine · withdrawal
     runs-on: ubuntu-24.04
