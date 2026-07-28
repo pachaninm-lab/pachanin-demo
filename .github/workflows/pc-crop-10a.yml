@@ -1,0 +1,99 @@
+name: PC-CROP-10A Government Systems Registry
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-10a.yml'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-10a-government-systems-registry.json'
+      - 'docs/platform-v7/crop-platform/agricultural-government-systems.registry.schema.v1.json'
+      - 'docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json'
+      - 'scripts/pc-crop-10a/**'
+  push:
+    branches:
+      - main
+      - agent/pc-crop-10a-government-systems-registry-3320
+    paths:
+      - '.github/workflows/pc-crop-10a.yml'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-10a-government-systems-registry.json'
+      - 'docs/platform-v7/crop-platform/agricultural-government-systems.registry.schema.v1.json'
+      - 'docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json'
+      - 'scripts/pc-crop-10a/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-10a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-10a
+
+jobs:
+  government-systems-registry:
+    name: Exact inventories · maturity caps · legacy coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Resolve governed comparison base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          elif [[ "$GITHUB_REF_NAME" == 'main' ]]; then
+            base_ref='HEAD^'
+          else
+            base_ref='e6712cc921142c891e2a5520ed289539beb2459d'
+          fi
+          printf 'base_ref=%s\n' "$base_ref" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify fail-closed government systems registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          printf '%s\n' "${{ steps.base.outputs.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
+          node scripts/pc-crop-10a/verify.mjs \
+            --scope-guard "${{ steps.base.outputs.base_ref }}" \
+            | tee "$EVIDENCE_DIR/acceptance.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(
+            fs.readFileSync(`${process.env.EVIDENCE_DIR}/acceptance.json`, 'utf8'),
+          );
+          if (report.status !== 'PASS') process.exit(1);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (report.counts.ministryCurrentEntries !== 9) process.exit(1);
+          if (report.counts.vetisComponents !== 17) process.exit(1);
+          if (report.counts.publicUiProviders !== 8) process.exit(1);
+          if (report.counts.integrationSdkAdapters !== 15) process.exit(1);
+          NODE
+
+      - name: Upload PC-CROP-10A evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-10a-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
