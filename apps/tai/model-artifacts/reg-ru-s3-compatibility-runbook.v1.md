@@ -1,93 +1,86 @@
-# TAI AP-13B.3i — dormant REG.RU S3 compatibility probe
+# TAI AP-13B.3i — REG.RU S3 panel compatibility probe
 
 ## Boundary
 
-This package is a local, interactive compatibility experiment for exact base
-`8655c70900bc087875ce64e7b7f65775ee838b93`. `REG_RU_S3_2026` remains
-`CANDIDATE_NOT_ACTIVE`. It does not add a workflow, register GitHub secrets, switch the active
-preflight profile, finalize model bundles, benchmark, admit, activate or deploy a model.
+This package verifies the exact REG.RU panel policy already configured for:
 
-The committed principal state is `UNRESOLVED`. Do not run the probe until REG.RU support or a
-REG.RU API has supplied both policy-principal selectors and an exact permission statement for:
+- bucket `tai-model-bundles-prod-01`;
+- governed prefix `tai/model-bundles/v1`;
+- matching key set `tai-bundle-finalizer-prod-01`;
+- nonmatching key set `tai-bundle-control-prod-01`;
+- setup/admin key set `owner`.
 
-- the dedicated `tai-bundle-finalizer-prod-01` key set;
-- a distinct nonmatching control principal;
-- the exact bucket `tai-model-bundles-prod-01` and prefix `tai/model-bundles/v1`;
-- the exact allow and forbidden action lists in the authority.
+`REG_RU_S3_2026` remains `CANDIDATE_NOT_ACTIVE`. The probe does not register GitHub secrets, activate a provider profile, finalize or upload model bundles, run a benchmark, admit a model, change Gateway routing, deploy, or attest production readiness.
 
-`owner`, the key-set name, an Access Key ID and the bucket-owner canonical ID are not acceptable
-substitutes. The local attestation and its referenced provider-evidence JSON must be absolute,
-regular `0600` files, contain no credentials, and match the authority byte-for-byte at every
-target and action boundary.
+The previous provider-issued principal-attestation design is superseded. REG.RU binds panel rules directly to a selected key set. Principal discrimination is therefore proved behaviorally with three distinct credential pairs: admin, matching finalizer, and nonmatching control. The raw bucket policy is read only by admin, validated locally for the exact five panel-rule semantics, hashed, and discarded.
+
+## Exact panel rules
+
+Before execution, the bucket must contain exactly these effective target rules:
+
+1. `TAI-01-bucket-metadata`: allow `GetBucketLocation`, `GetBucketVersioning` on the bucket.
+2. `TAI-02-prefix-listing`: allow `ListBucket`, `ListBucketVersions` on the bucket with `s3:prefix StringLike` values `tai/model-bundles/v1` and `tai/model-bundles/v1/*`.
+3. `TAI-03-multipart-listing`: allow `ListBucketMultipartUploads` on the bucket without a prefix condition.
+4. `TAI-04-object-data-plane`: allow `AbortMultipartUpload`, `GetObject`, `GetObjectVersion`, `ListMultipartUploadParts`, `PutObject` on `tai-model-bundles-prod-01/tai/model-bundles/v1/*`.
+5. `TAI-05-delete-deny`: deny `DeleteObject`, `DeleteObjectVersion` on the same governed object scope.
+
+The control key set must not be attached to any bucket rule. `GetBucketObjectLockConfiguration`, `GetBucketPolicy`, and `GetObjectRetention` are admin-only observations because the REG.RU panel does not expose the first and third actions for the finalizer rule set. `TAI-01` must not include `GetBucketPolicy` when the live probe is run.
 
 ## Before execution
 
-Use AWS CLI v2, Python 3.12+, `curl`, trusted system CA certificates and two local credential
-pairs: setup/admin and the dedicated finalizer. Never put either pair in an argument, environment
-file, issue, pull request, GitHub secret or chat. The script reads all four values from a TTY with
-echo disabled.
+Use AWS CLI v2, Python 3.12+, `curl`, `sha256sum`, trusted system CA certificates, and three local credential pairs. Never put credential values in arguments, environment files, issues, pull requests, Git, chat, or screenshots. The script reads all six values from an interactive TTY with echo disabled.
 
-The probe refuses to reach credential input until the provider attestation validates. Immediately
-before its first S3 write it requires this exact phrase:
+Run only from the repository root. Create a private output directory first:
 
-```text
-I AUTHORIZE REG.RU S3 COMPATIBILITY PROBE tai-model-bundles-prod-01/tai/model-bundles/v1 MAX_LOCKED_BYTES=9441280
+```bash
+install -d -m 700 "$HOME/.local/state/tai-reg-ru"
 ```
 
-Run only from the repository root:
+Then run:
 
 ```bash
 bash apps/tai/model-artifacts/reg-ru-s3-compatibility-probe.v1.sh \
   --authority apps/tai/model-artifacts/reg-ru-s3-compatibility-authority.v1.json \
-  --attestation /absolute/private/path/reg-ru-principal-attestation.json \
-  --output /absolute/private/path/reg-ru-compatibility-report.json
+  --output "$HOME/.local/state/tai-reg-ru/reg-ru-panel-compatibility-report.json"
 ```
 
-Never add `--no-verify-ssl`. The script fixes both CA variables to
-`/etc/ssl/certs/ca-certificates.crt` and both AWS checksum modes to `when_required`.
-The report path must be absolute, must not already exist, and must have a canonical, existing
-`0700` parent directory owned by the current user. Before credential input, the CLI atomically
-reserves the exact report inode as an empty `0600` regular file. Final evaluation reopens only
-that single-link reservation with `O_NOFOLLOW`; it never follows an output symlink or changes
-parent-directory permissions.
+The report path must be absolute, must not already exist, and must have an existing canonical `0700` parent directory owned by the current user. The probe reserves the report as a single-link `0600` regular file before credentials are requested.
 
-## Bounded mutations and proofs
+Immediately before the first successful S3 write, the probe requires this exact phrase:
 
-The script preserves unrelated policy statements and rolls the original policy back after any
-failure. A successful run leaves the exact finalizer allow statements, a global delete deny on
-the governed prefix, and a global insecure-transport deny. It proves that the selected principal
-matches the finalizer but not setup/admin, and that a provider-attested nonmatching selector does
-not match it.
+```text
+I AUTHORIZE REG.RU S3 PANEL COMPATIBILITY PROBE tai-model-bundles-prod-01/tai/model-bundles/v1 MAX_LOCKED_BYTES=9437184
+```
 
-Safe same-value calls prove the finalizer cannot mutate bucket policy, versioning, Object Lock or
-object retention. If lifecycle configuration exists, its byte-equivalent put must also be denied;
-if absent, lifecycle denial remains explicitly provider-attested. The provider evidence must deny
-all five mutation classes even when the behavioral lifecycle probe is not applicable.
-Only an S3 authorization-denial response counts as a denial; TLS, DNS, timeout, CLI, or provider
-5xx failures stop the probe and never become permission or WORM evidence.
+Do not use `--no-verify-ssl`. The probe fixes the CA bundle to `/etc/ssl/certs/ca-certificates.crt`, disables EC2 metadata lookup, disables the AWS pager, and fixes both AWS checksum modes to `when_required`.
 
-The data-plane sequence proves HTTPS and insecure-HTTP known-object anonymous GET denial,
-independent COMPLIANCE WORM enforcement, global versionless-delete denial,
-create/list/upload-part/list-parts/abort multipart support and exact-version SHA-256 restore.
-Both retained versions must read back a COMPLIANCE deadline between 89 and 91 days from probe
-time. A failed cleanup abort is a dominant failed-closed result rather than a successful cleanup.
-The probe intentionally retains:
+## What the probe proves
 
-- one 9,437,184-byte governed stream object;
-- one 4,096-byte WORM canary outside the governed prefix.
+Before mutation it validates the committed authority, reads and validates the exact panel policy, proves the finalizer can perform the required bucket/prefix reads, proves the control key is denied, and proves the finalizer cannot read or mutate the bucket policy, versioning, Object Lock, lifecycle, or retention controls.
 
-Maximum retained locked bytes are therefore **9,441,280** for one run and cannot be removed until
-the 90-day COMPLIANCE retention expires. Do not rerun casually. The aborted 5 MiB multipart part
-must retain zero bytes.
+After explicit confirmation it:
+
+- creates, lists, uploads one 5 MiB part, lists parts, aborts, and proves multipart disappearance;
+- streams one 9 MiB object into the governed prefix;
+- verifies a version ID and a COMPLIANCE deadline between 89 and 91 days;
+- proves the finalizer cannot read or write object retention;
+- proves finalizer versionless and exact-version deletion are denied;
+- independently proves admin exact-version deletion is rejected by COMPLIANCE Object Lock;
+- restores the exact object version and verifies SHA-256;
+- proves the nonmatching control key cannot read the known object;
+- proves anonymous list and known-object GET are rejected over HTTPS and insecure HTTP.
+
+A successful run intentionally retains one 9,437,184-byte object under 90-day COMPLIANCE retention. The aborted multipart upload must retain zero bytes. Do not rerun casually.
 
 ## Result
 
-Only the sanitized report path persists. It is at most 1 MiB and contains hashes rather than
-principal values or raw provider output. Success means only
-`VERIFIED_REG_RU_S3_COMPATIBILITY`; `github_secret_registration_allowed=false`,
-`finalization_allowed=false`, bundle upload/restore and benchmark remain `NOT_RUN`, admission
-remains `NOT_DONE`, and production remains `NOT_ATTESTED`.
+Only the sanitized report persists. It contains hashes and bounded observations, not raw policy or credential values. Success is `VERIFIED_REG_RU_S3_PANEL_COMPATIBILITY` and still means:
 
-Activation requires a separate reviewed PR that registers the provider profile, switches active
-requirements, updates the finalizer and its transitive CPU authority pin, and passes exact-main
-gates. Do not run `/tai finalize model-bundles exact-main` from this package.
+- `github_secret_registration_allowed=false`;
+- `finalization_allowed=false`;
+- bundle upload and clean restore remain `NOT_RUN`;
+- benchmark remains `NOT_RUN`;
+- model admission remains `NOT_DONE`;
+- production remains `NOT_ATTESTED`.
+
+Activation requires a separate reviewed PR that registers the verified provider profile, switches the active requirements, updates the finalizer authority and its transitive exact pins, and passes exact-main gates. Do not run `/tai finalize model-bundles exact-main` from this package.
