@@ -487,17 +487,21 @@ def test_real_postgresql_mutations_are_fail_closed_audited_and_immutable() -> No
     assert all(len(row["payload_sha256"]) == 64 for row in events)
 
     event_sha = events[0]["event_sha256"]
-    with pytest.raises(psycopg.Error, match="immutable"):
-        with psycopg.connect(database_url) as connection:
-            connection.execute(
-                "UPDATE tai_public_corpus_audit SET reason_code = 'TAMPER' WHERE event_sha256 = %s",
-                (event_sha,),
-            )
-            connection.commit()
-    with pytest.raises(psycopg.Error, match="immutable"):
-        with psycopg.connect(database_url) as connection:
-            connection.execute(
-                "DELETE FROM tai_public_corpus_audit WHERE event_sha256 = %s",
-                (event_sha,),
-            )
-            connection.commit()
+    with (
+        pytest.raises(psycopg.Error, match="immutable"),
+        psycopg.connect(database_url) as connection,
+    ):
+        connection.execute(
+            "UPDATE tai_public_corpus_audit SET reason_code = 'TAMPER' WHERE event_sha256 = %s",
+            (event_sha,),
+        )
+        connection.commit()
+    with (
+        pytest.raises(psycopg.Error, match="immutable"),
+        psycopg.connect(database_url) as connection,
+    ):
+        connection.execute(
+            "DELETE FROM tai_public_corpus_audit WHERE event_sha256 = %s",
+            (event_sha,),
+        )
+        connection.commit()
