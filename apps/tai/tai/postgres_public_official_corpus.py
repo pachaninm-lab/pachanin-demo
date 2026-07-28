@@ -4,12 +4,15 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from psycopg.types.json import Jsonb
+
 from tai.knowledge_chunking import KnowledgeChunk
 from tai.postgres_loader_state import ConnectionFactory
 from tai.public_official_corpus import (
     PublicArtifactProvenance,
     PublicCorpusSnapshot,
     PublicSourceAdmission,
+    SourceAdmissionStatus,
 )
 from tai.retrieval_index import RetrievalDocument
 
@@ -21,25 +24,29 @@ class PostgreSQLPublicOfficialCorpusAuthority:
         self._connection_factory = connection_factory
 
     def admit_source(self, admission: PublicSourceAdmission) -> None:
+        if admission.status is not SourceAdmissionStatus.ADMITTED:
+            raise ValueError("only an ADMITTED source may enter the corpus authority")
         query = """
             INSERT INTO tai_public_corpus_source_admissions (
                 source_id, data_plane, source_class, rights_decision_id,
                 official_uri, host_pin, rights_review_due_at, admitted_at,
                 trust_score, status
-            ) VALUES (%s, 'PUBLIC_OFFICIAL', %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, 'PUBLIC_OFFICIAL', %s, %s, %s, %s, %s, %s, %s, 'ADMITTED')
             ON CONFLICT (source_id) DO UPDATE
-            SET status = EXCLUDED.status,
-                rights_review_due_at = EXCLUDED.rights_review_due_at,
-                admitted_at = EXCLUDED.admitted_at,
-                trust_score = EXCLUDED.trust_score,
-                withdrawn_at = NULL,
-                withdrawal_reason = NULL
-            WHERE tai_public_corpus_source_admissions.data_plane = 'PUBLIC_OFFICIAL'
+            SET source_id = EXCLUDED.source_id
+            WHERE tai_public_corpus_source_admissions.data_plane = EXCLUDED.data_plane
               AND tai_public_corpus_source_admissions.source_class = EXCLUDED.source_class
               AND tai_public_corpus_source_admissions.rights_decision_id =
                   EXCLUDED.rights_decision_id
               AND tai_public_corpus_source_admissions.official_uri = EXCLUDED.official_uri
               AND tai_public_corpus_source_admissions.host_pin = EXCLUDED.host_pin
+              AND tai_public_corpus_source_admissions.rights_review_due_at =
+                  EXCLUDED.rights_review_due_at
+              AND tai_public_corpus_source_admissions.admitted_at = EXCLUDED.admitted_at
+              AND tai_public_corpus_source_admissions.trust_score = EXCLUDED.trust_score
+              AND tai_public_corpus_source_admissions.status = 'ADMITTED'
+              AND tai_public_corpus_source_admissions.withdrawn_at IS NULL
+              AND tai_public_corpus_source_admissions.withdrawal_reason IS NULL
             RETURNING source_id
         """
         self._execute_required_returning(
@@ -53,7 +60,6 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                 admission.rights_review_due_at,
                 admission.admitted_at,
                 admission.trust_score,
-                admission.status.value,
             ),
             "source admission conflicts with immutable authority",
         )
@@ -71,8 +77,7 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, 'ADMITTED'
             )
             ON CONFLICT (artifact_sha256) DO UPDATE
-            SET observed_at = EXCLUDED.observed_at,
-                freshness_due_at = EXCLUDED.freshness_due_at
+            SET artifact_sha256 = EXCLUDED.artifact_sha256
             WHERE tai_public_corpus_artifacts.record_id = EXCLUDED.record_id
               AND tai_public_corpus_artifacts.source_id = EXCLUDED.source_id
               AND tai_public_corpus_artifacts.source_class = EXCLUDED.source_class
@@ -81,8 +86,19 @@ class PostgreSQLPublicOfficialCorpusAuthority:
               AND tai_public_corpus_artifacts.host_pin = EXCLUDED.host_pin
               AND tai_public_corpus_artifacts.media_type = EXCLUDED.media_type
               AND tai_public_corpus_artifacts.size_bytes = EXCLUDED.size_bytes
+              AND tai_public_corpus_artifacts.publication_date IS NOT DISTINCT FROM
+                  EXCLUDED.publication_date
+              AND tai_public_corpus_artifacts.effective_date IS NOT DISTINCT FROM
+                  EXCLUDED.effective_date
+              AND tai_public_corpus_artifacts.observed_at = EXCLUDED.observed_at
               AND tai_public_corpus_artifacts.locator_kind = EXCLUDED.locator_kind
               AND tai_public_corpus_artifacts.locator_value = EXCLUDED.locator_value
+              AND tai_public_corpus_artifacts.freshness_due_at = EXCLUDED.freshness_due_at
+              AND tai_public_corpus_artifacts.unit IS NOT DISTINCT FROM EXCLUDED.unit
+              AND tai_public_corpus_artifacts.period_start IS NOT DISTINCT FROM
+                  EXCLUDED.period_start
+              AND tai_public_corpus_artifacts.period_end IS NOT DISTINCT FROM EXCLUDED.period_end
+              AND tai_public_corpus_artifacts.status = 'ADMITTED'
             RETURNING artifact_sha256
         """
         self._execute_required_returning(
@@ -118,6 +134,9 @@ class PostgreSQLPublicOfficialCorpusAuthority:
             ON CONFLICT (snapshot_sha256) DO UPDATE
             SET snapshot_sha256 = EXCLUDED.snapshot_sha256
             WHERE tai_public_corpus_snapshots.status = 'BUILDING'
+              AND tai_public_corpus_snapshots.created_at = EXCLUDED.created_at
+              AND tai_public_corpus_snapshots.source_ids = EXCLUDED.source_ids
+              AND tai_public_corpus_snapshots.artifact_sha256s = EXCLUDED.artifact_sha256s
             RETURNING snapshot_id
         """
         lock_snapshot = """
@@ -132,13 +151,14 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                 chunk_text, token_estimate, trust_score, valid_until
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (snapshot_id, chunk_id) DO UPDATE
-            SET chunk_text = EXCLUDED.chunk_text,
-                token_estimate = EXCLUDED.token_estimate,
-                trust_score = EXCLUDED.trust_score,
-                valid_until = EXCLUDED.valid_until
+            SET chunk_id = EXCLUDED.chunk_id
             WHERE tai_public_corpus_chunks.artifact_sha256 = EXCLUDED.artifact_sha256
               AND tai_public_corpus_chunks.source_id = EXCLUDED.source_id
               AND tai_public_corpus_chunks.ordinal = EXCLUDED.ordinal
+              AND tai_public_corpus_chunks.chunk_text = EXCLUDED.chunk_text
+              AND tai_public_corpus_chunks.token_estimate = EXCLUDED.token_estimate
+              AND tai_public_corpus_chunks.trust_score = EXCLUDED.trust_score
+              AND tai_public_corpus_chunks.valid_until = EXCLUDED.valid_until
             RETURNING chunk_id
         """
         document_by_chunk = {item.chunk.chunk_id: item for item in snapshot.retrieval_documents}
@@ -150,13 +170,13 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                         (
                             snapshot.snapshot_sha256,
                             snapshot.created_at,
-                            list(snapshot.source_ids),
-                            list(snapshot.artifact_sha256s),
+                            Jsonb(list(snapshot.source_ids)),
+                            Jsonb(list(snapshot.artifact_sha256s)),
                         ),
                     )
                     row = cursor.fetchone()
                     if row is None:
-                        raise RuntimeError("snapshot digest conflicts with non-building state")
+                        raise RuntimeError("snapshot digest conflicts with immutable manifest")
                     snapshot_id = int(row["snapshot_id"])
                     cursor.execute(lock_snapshot, (snapshot_id,))
                     status = cursor.fetchone()
