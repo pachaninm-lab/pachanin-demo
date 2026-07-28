@@ -152,6 +152,15 @@ jobs:
             },
           ]);
 
+          patchFile('apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.repository.ts', [
+            {
+              before: "    'unable to persist durable FGIS ACK authority',\n",
+              after: "    `unable to persist durable FGIS ACK authority: ${message.slice(0, 1000)}`,\n",
+              expected: 1,
+              label: 'diagnostic database error',
+            },
+          ]);
+
           patchFile('apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts', [
             {
               before: 'function actor(tenantId: string, orgId: string, suffix: string, role = Role.ADMIN): RequestUser {\n',
@@ -205,6 +214,7 @@ jobs:
             --runInBand 2>&1 | tee "$DIAGNOSTICS/e2e.log"
           status=${PIPESTATUS[0]}
           if [[ "$status" != "0" ]]; then exit "$status"; fi
+          git checkout -- apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.repository.ts
           node scripts/pc-crop-08i/verify.mjs 2>&1 | tee "$DIAGNOSTICS/verify.json"
 
       - name: Upload repair diagnostics
