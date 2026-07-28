@@ -72,8 +72,9 @@ allow-list in `autopilot-state.json`.
 The slice may add a fail-closed local-model invocation capacity gate, parse and validate
 `TAI_MODEL_MAX_INFLIGHT`, preserve one capacity claim across primary/fallback attempts,
 surface immediate retryable overload as HTTP 429 with `Retry-After`, and add focused
-tests. The default must remain `1`; values above `1` do not constitute measured
-admission and may be used only after separate benchmark evidence.
+tests. The default must remain `1`; the accepted configuration range is `1..4`.
+Values above `1` do not constitute measured admission and may be used only after
+separate benchmark evidence.
 
 It must not activate a model, weaken admission or local-only transport, add an internal
 request queue, change retrieval authority, enable write tools, change production
