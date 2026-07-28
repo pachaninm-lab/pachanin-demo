@@ -41,13 +41,33 @@ jobs:
       - name: Synchronize and validate Prisma authority
         shell: bash
         run: |
-          set -euo pipefail
-          node scripts/pc-crop-08i/sync-prisma-schema.mjs
-          pnpm --filter @pc/api exec prisma format
-          pnpm --filter @pc/api exec prisma validate
+          set -o pipefail
+          mkdir -p artifacts/pc-crop-08i-schema
+          node scripts/pc-crop-08i/sync-prisma-schema.mjs \
+            2>&1 | tee artifacts/pc-crop-08i-schema/sync.log
+          sync_status=${PIPESTATUS[0]}
+          if [[ "$sync_status" != "0" ]]; then exit "$sync_status"; fi
+          pnpm --filter @pc/api exec prisma format \
+            2>&1 | tee artifacts/pc-crop-08i-schema/format.log
+          format_status=${PIPESTATUS[0]}
+          if [[ "$format_status" != "0" ]]; then exit "$format_status"; fi
+          pnpm --filter @pc/api exec prisma validate \
+            2>&1 | tee artifacts/pc-crop-08i-schema/validate.log
+          validate_status=${PIPESTATUS[0]}
+          if [[ "$validate_status" != "0" ]]; then exit "$validate_status"; fi
           grep -q '^model FgisGrainAcknowledgement {' apps/api/prisma/schema.prisma
           grep -q 'map: "fgis_grain_ack_exchange_fk"' apps/api/prisma/schema.prisma
           git diff --check
+          cp apps/api/prisma/schema.prisma artifacts/pc-crop-08i-schema/schema.prisma
+
+      - name: Upload schema diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-08i-schema-${{ github.run_id }}
+          path: artifacts/pc-crop-08i-schema
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Commit exact schema authority to PC-CROP-08I
         shell: bash
