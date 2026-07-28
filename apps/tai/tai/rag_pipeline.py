@@ -7,7 +7,11 @@ from enum import StrEnum
 from typing import Protocol
 
 from tai.context_assembly import CitationValidator, ContextAssembler, GroundedContext
-from tai.model_runtime import ModelGenerationResult, ModelInvocationAttempt
+from tai.model_runtime import (
+    ModelCapacityExceeded,
+    ModelGenerationResult,
+    ModelInvocationAttempt,
+)
 from tai.retrieval_service import RetrievalResponse, RetrievalService
 
 
@@ -148,6 +152,8 @@ class GroundedRAGPipeline:
                 now=request.requested_at,
                 maximum_output_chars=self._policy.maximum_output_chars,
             )
+        except ModelCapacityExceeded:
+            raise
         except Exception:
             return self._finalize(
                 request=request,

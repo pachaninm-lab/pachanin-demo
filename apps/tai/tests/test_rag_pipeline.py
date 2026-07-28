@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from tai.context_assembly import ContextAssembler
 from tai.knowledge_chunking import KnowledgeChunk
 from tai.model_runtime import (
     ModelAttemptStatus,
+    ModelCapacityExceeded,
     ModelGenerationResult,
     ModelInvocationAttempt,
 )
@@ -73,6 +76,19 @@ class _FailingModel(_Model):
         self.request_ids.append(request_id)
         self.maximum_output_chars.append(maximum_output_chars)
         raise RuntimeError("runtime unavailable")
+
+
+class _CapacityModel(_Model):
+    def generate(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        now: datetime,
+        maximum_output_chars: int,
+    ) -> ModelGenerationResult:
+        del prompt, request_id, now, maximum_output_chars
+        raise ModelCapacityExceeded()
 
 
 class _AuditSink:
@@ -191,6 +207,16 @@ def test_pipeline_gracefully_degrades_when_local_runtime_is_unavailable() -> Non
     assert response.trace.model_id == "unrouted"
     assert response.trace.reason == "local model runtime was unavailable"
     assert sink.records == [response.trace]
+
+
+def test_pipeline_propagates_model_capacity_overload() -> None:
+    pipeline, sink = _pipeline(_CapacityModel())
+
+    with pytest.raises(ModelCapacityExceeded) as raised:
+        pipeline.answer(_request())
+
+    assert raised.value.retry_after_seconds == 1
+    assert sink.records == []
 
 
 def test_pipeline_rejects_empty_and_over_budget_model_outputs() -> None:

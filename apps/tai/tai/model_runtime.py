@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+from collections.abc import Iterator
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -212,8 +215,40 @@ class LocalModelInvoker(Protocol):
     ) -> str: ...
 
 
+class ModelInvocationCapacityGate(Protocol):
+    def admit(self) -> AbstractContextManager[None]: ...
+
+
 class ModelRouteUnavailable(RuntimeError):
     pass
+
+
+class ModelCapacityExceeded(RuntimeError):
+    def __init__(self) -> None:
+        super().__init__("local model invocation capacity is exhausted")
+        self.retry_after_seconds = 1
+
+
+class ProcessLocalModelCapacityGate:
+    """Non-blocking invocation limit within one composed TAI process."""
+
+    def __init__(self, maximum_inflight: int = 1) -> None:
+        if (
+            isinstance(maximum_inflight, bool)
+            or not isinstance(maximum_inflight, int)
+            or not 1 <= maximum_inflight <= 4
+        ):
+            raise ValueError("maximum_inflight must be between 1 and 4")
+        self._semaphore = threading.BoundedSemaphore(maximum_inflight)
+
+    @contextmanager
+    def admit(self) -> Iterator[None]:
+        if not self._semaphore.acquire(blocking=False):
+            raise ModelCapacityExceeded()
+        try:
+            yield
+        finally:
+            self._semaphore.release()
 
 
 class InMemoryModelProfileRepository:
@@ -331,6 +366,7 @@ class RoutedLocalModelGateway:
         *,
         router: DeterministicModelRouter,
         invoker: LocalModelInvoker,
+        capacity_gate: ModelInvocationCapacityGate | None = None,
         required_capabilities: frozenset[ModelCapability] | None = None,
         timeout_seconds: float = 60.0,
     ) -> None:
@@ -338,6 +374,11 @@ class RoutedLocalModelGateway:
             raise ValueError("timeout_seconds must be between 0 and 600")
         self._router = router
         self._invoker = invoker
+        self._capacity_gate = (
+            capacity_gate
+            if capacity_gate is not None
+            else ProcessLocalModelCapacityGate()
+        )
         self._required_capabilities = required_capabilities or frozenset(
             {ModelCapability.TEXT_GENERATION, ModelCapability.RUSSIAN}
         )
@@ -356,6 +397,22 @@ class RoutedLocalModelGateway:
             raise ValueError("prompt must not be blank")
         if maximum_output_chars < 1:
             raise ValueError("maximum_output_chars must be positive")
+        with self._capacity_gate.admit():
+            return self._generate_admitted(
+                normalized_prompt,
+                request_id=request_id,
+                now=now,
+                maximum_output_chars=maximum_output_chars,
+            )
+
+    def _generate_admitted(
+        self,
+        normalized_prompt: str,
+        *,
+        request_id: str,
+        now: datetime,
+        maximum_output_chars: int,
+    ) -> ModelGenerationResult:
         route = self._router.route(
             ModelRouteRequest(
                 request_id=request_id,

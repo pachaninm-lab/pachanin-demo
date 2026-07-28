@@ -23,6 +23,7 @@ from tai.agent_runtime import (
     ToolConfirmation,
 )
 from tai.contracts import IdentityContext, ToolMode
+from tai.model_runtime import ModelCapacityExceeded
 from tai.policy import PolicyDenied
 from tai.rag_pipeline import (
     GroundedAnswerRequest,
@@ -595,16 +596,26 @@ class TAIOrchestrationRuntime:
             NAMESPACE_URL,
             f"tai-trace:{request.request_id}:{request_sha256}",
         )
-        grounded = self._rag_pipeline.answer(
-            GroundedAnswerRequest(
-                request_id=request.request_id,
-                question=request.question,
-                tenant_id=(
-                    None if request.identity.tenant_id is None else str(request.identity.tenant_id)
-                ),
-                requested_at=now,
+        try:
+            grounded = self._rag_pipeline.answer(
+                GroundedAnswerRequest(
+                    request_id=request.request_id,
+                    question=request.question,
+                    tenant_id=(
+                        None
+                        if request.identity.tenant_id is None
+                        else str(request.identity.tenant_id)
+                    ),
+                    requested_at=now,
+                )
             )
-        )
+        except ModelCapacityExceeded as error:
+            raise OrchestrationError(
+                OrchestrationErrorCode.OVERLOADED,
+                "local model invocation capacity is exhausted",
+                retryable=True,
+                retry_after_seconds=error.retry_after_seconds,
+            ) from error
         stage_now = self._check_control(request, cancellation)
         plan: AgentToolPlan | None = None
         tool_execution: AgentExecutionResult | None = None
