@@ -1,0 +1,44 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 3003,
+  "issue": 3365,
+  "branch": "agent/tai-ap-13c1g-public-role-qwen-3365",
+  "exact_base": "3dbeab2132dde930b90b4034eb9e1763c9e02ea7",
+  "status": "active",
+  "maturity_boundary": "RESTRICTED_LIVE_READ_ONLY_QWEN_ACTIVE_PUBLIC_AND_ROLE_SCOPED_PENDING_EXTERNAL_IMMUTABILITY_AND_ADMISSION",
+  "allowed_paths": [
+    ".env.example",
+    "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+    "apps/api/src/modules/ai-insights/ai-assistant.service.spec.ts",
+    "apps/tai/governance/scopes/ap-13c1g-public-role-qwen-3365.json",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
+    "apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts",
+    "docs/platform-v7/ai/restricted-live-qwen-runtime.md",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "the scope-only commit precedes implementation changes",
+    "the existing private model service remains RFC1918-only, Bearer-authenticated and unavailable to browsers",
+    "the public homepage contour sends only approved public knowledge and never account, tenant, membership, Deal or staff data",
+    "every authenticated platform role can use the private assistant only inside server-authorized tenant, organization, membership and Deal scope",
+    "all model output remains read-only and cannot describe a completed mutation as performed by TAI",
+    "public and private model failures are shown as unavailable or deterministic non-model fallback with truthful provider labeling",
+    "normal AP-13D admission and production readiness remain fail-closed and NOT_ATTESTED",
+    "RU, EN and ZH tests cover public and role-scoped model invocation",
+    "the API key is server-only and absent from browser output, logs, commits and test fixtures",
+    "REG.RU production activation is not claimed until exact-image and live endpoint acceptance pass"
+  ],
+  "forbidden_capabilities": [
+    "fabricated permanent model admission, immutable-bundle acceptance or platform-wide production attestation",
+    "public listener, public reverse proxy or browser-direct access to llama-server",
+    "client-selected tenant, organization, membership, role or staff authority",
+    "private Deal, document, money, logistics, laboratory, dispute or integration data in the public contour",
+    "write, draft, acknowledgement, signature, banking, settlement or privileged Safe Tool activation",
+    "staff bypass of time-bound session, MFA, durable assignment or explicit permission checks",
+    "model API key, production secret, SSH credential or protected server path in Git, logs, issues, pull requests or chat",
+    "Netlify or Vercel deployment or evidence"
+  ]
+}
