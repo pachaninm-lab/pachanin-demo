@@ -1,0 +1,77 @@
+name: TAI AP-14F0 Exact Main Observer
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap-14f0-exact-main-observer.yml'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f0-exact-main-observer-3339.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-ap-14f0-exact-main-observer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TARGET_MAIN_SHA: 914b2be00cebfe9b3c24e75dc9a6aa4df5b21dbf
+  EVIDENCE_DIR: artifacts/tai-ap-14f0-exact-main
+
+jobs:
+  exact-main:
+    name: Verify exact accepted main SHA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact accepted main SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_MAIN_SHA }}
+          fetch-depth: 0
+
+      - name: Prove target is current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$TARGET_MAIN_SHA"
+          test "$(git rev-parse origin/main)" = "$TARGET_MAIN_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify AP-14F0 on exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$TARGET_MAIN_SHA" > "$EVIDENCE_DIR/exact-main.txt"
+          printf '%s\n' "${TARGET_MAIN_SHA}^" > "$EVIDENCE_DIR/base-ref.txt"
+          node scripts/tai-ap-14f0/verify.mjs \
+            --scope-guard "${TARGET_MAIN_SHA}^" \
+            | tee "$EVIDENCE_DIR/acceptance.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/acceptance.json`, 'utf8'));
+          if (report.status !== 'PASS') process.exit(1);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (report.counts.dataPlanes !== 3) process.exit(1);
+          if (report.counts.sourceClasses !== 8) process.exit(1);
+          if (report.counts.reuseDecisions !== 8) process.exit(1);
+          if (report.counts.quarantineReasons !== 12) process.exit(1);
+          if (report.counts.negativeMutationProbes !== 6) process.exit(1);
+          if (Object.values(report.boundaries).some(Boolean)) process.exit(1);
+          NODE
+
+      - name: Upload exact-main evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap-14f0-exact-main-${{ env.TARGET_MAIN_SHA }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
