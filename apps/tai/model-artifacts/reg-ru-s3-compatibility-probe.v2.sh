@@ -137,6 +137,6 @@ export AWS_REQUEST_CHECKSUM_CALCULATION="when_required"
 export AWS_RESPONSE_CHECKSUM_VALIDATION="when_required"
 export REQUESTS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
 
-"$PYTHON_BIN" -m tai.reg_ru_s3_compatibility_v2 \
+"$PYTHON_BIN" -m tai.reg_ru_s3_compatibility_v2_reg_ru \
   --authority "$AUTHORITY" \
   --output "$OUTPUT"

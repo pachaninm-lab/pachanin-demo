@@ -1,4 +1,4 @@
-# TAI AP-13B.3j — REG.RU S3 compatibility verifier v2
+# TAI AP-13B.3j/3k — REG.RU S3 compatibility verifier v2
 
 ## Boundary
 
@@ -7,7 +7,7 @@ This verifier is the replacement for the defective AWS CLI 2.36.9 probe. It uses
 The target is fixed:
 
 - endpoint: `https://s3.regru.cloud`;
-- region: `us-east-1`;
+- SigV4 signing region: `us-east-1`;
 - bucket: `tai-model-bundles-prod-01`;
 - governed prefix: `tai/model-bundles/v1`;
 - finalizer key set: `tai-bundle-finalizer-prod-01`;
@@ -15,6 +15,20 @@ The target is fixed:
 - admin key set: `owner`.
 
 `REG_RU_S3_2026` remains `CANDIDATE_NOT_ACTIVE`. A successful verifier report does not authorize finalization, model-bundle upload, clean restore, benchmark, model admission, deployment, production attestation, GitHub secret registration, or an active provider-profile switch.
+
+## REG.RU bucket-location semantics
+
+REG.RU documentation instructs clients to leave the region at its default or empty value, or to determine the bucket region automatically. Therefore the value returned by `GetBucketLocation` is provider metadata and is not required to equal the technical SigV4 signing region `us-east-1`.
+
+The verifier:
+
+- keeps the signing region pinned to `us-east-1`;
+- accepts an absent or empty `LocationConstraint`;
+- accepts a bounded provider region token containing only letters, digits, `.`, `_`, `:`, or `-`;
+- records the provider value as a sanitized observation;
+- fails closed on non-string, control-character, whitespace-bearing, oversized, or otherwise malformed values.
+
+The AP-13B.3k adapter changes only this provider-specific interpretation. All v2 authority, policy, authorization, Object Lock, multipart, restore, WORM, sanitation, credential and mutation boundaries remain unchanged.
 
 ## Exact authority
 
@@ -50,13 +64,9 @@ Do not paste credentials into the command, environment files, Git, GitHub, chat,
 
 ## Single final command
 
-Use only this command after the PR is merged and the checked-out repository is on the accepted exact `main` commit:
+Use only the command published after the AP-13B.3k PR is merged and the checked-out repository contains the accepted exact files. Do not reuse a command containing the pre-3k wrapper hash.
 
-```bash
-install -d -m 700 "$HOME/.local/state/tai-reg-ru" && OUT="$HOME/.local/state/tai-reg-ru/reg-ru-panel-compatibility-v2-$(date -u +%Y%m%dT%H%M%SZ).json" && bash apps/tai/model-artifacts/reg-ru-s3-compatibility-probe.v2.sh --authority apps/tai/model-artifacts/reg-ru-s3-compatibility-authority.v2.json --output "$OUT" && printf '\nSanitized report: %s\n' "$OUT"
-```
-
-The report path is unique, absolute, private, and cannot already exist. The verifier reserves it as a single-link `0600` file before credential input.
+The report path must be unique, absolute, private, and must not already exist. The verifier reserves it as a single-link `0600` file before credential input.
 
 ## Mutation confirmation
 
@@ -74,7 +84,8 @@ Any mismatch stops the run without the governed data-plane mutation phase.
 
 Before mutation it proves:
 
-- the endpoint, region, bucket, prefix, capacity statement, authority, and seven panel rules are exact;
+- the endpoint, signing region, bucket, prefix, capacity statement, authority, and seven panel rules are exact;
+- the REG.RU bucket-location response is syntactically safe and recorded without conflation with the signing region;
 - versioning is enabled;
 - Object Lock is enabled;
 - default retention is `COMPLIANCE` for 90 days;
