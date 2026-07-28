@@ -1,268 +1,220 @@
 # Owner package A — immutable model-bundle storage requirements
 
-Status: **REG.RU bucket configured; compatibility and principal semantics not yet accepted.**
-The bucket exists and its configuration plane has been read back, but bundle finalization remains
-blocked until the dormant compatibility package produces reviewed, bounded evidence.
+Status: **REG.RU bucket and panel rules configured; live compatibility not yet accepted.**
 
-Program: #2726. Blocks backlog items **B.06** (immutable upload with proven retention) and **B.07**
-(clean restore with re-verified digests), which in turn block **C.01–C.05** (benchmark and model
-admission) and **L.05** (restore acceptance).
+Program: #2726. Blocks backlog items **B.06** (immutable upload with proven retention) and **B.07** (clean restore with re-verified digests), which block benchmark, admission and restore acceptance.
 
 ---
 
-## 1. What this storage is for
+## 1. Purpose and boundary
 
-One purpose only: hold the model bundle — converted GGUF artifacts plus their manifests — so that a
-model can be restored bit-for-bit on a rebuilt host, and so that no operator, credential or process
-inside the platform can quietly alter or delete the bytes an admitted model was measured against.
+This storage has one purpose: hold converted GGUF model bundles and their manifests so an accepted model can be restored bit-for-bit and measured against immutable object versions.
 
-That is why immutability is a hard requirement rather than a preference. A benchmark result and an
-admission decision are only meaningful if the artifact they refer to cannot change afterwards. If
-the bytes are mutable, every downstream attestation is an assertion about something that no longer
-provably exists.
-
-This storage is **not** for evidence retention, documents, user uploads or general backups. Those
-have their own contours and are out of scope here.
+It is not the evidence store, document store, user-upload store or general backup contour. No model bundle is accepted merely because the bucket exists. Acceptance requires behavioral WORM, privacy, least-privilege, multipart and exact-version restore evidence.
 
 ---
 
-## 2. Provider-neutral contract
+## 2. Provider-neutral mandatory contract
 
-The platform speaks S3. Any provider that satisfies every mandatory control below is acceptable.
-Since #3241, `apps/tai/tai/model_bundle_s3_preflight.py` has a provider-profile registry rather
-than one hardcoded provider. A profile records only genuine API compatibility differences; it does
-not waive a mandatory privacy, immutability or least-privilege outcome.
+The platform speaks S3. A provider is acceptable only when every mandatory outcome below is proved.
 
-### 2.1 Mandatory controls
-
-| # | Control | Required value | Why it is mandatory |
-|---|---|---|---|
-| A1 | Transport | HTTPS endpoint with trusted CA verification | Credentials and bytes must not cross the network in the clear. |
-| A2 | Bucket versioning | `Enabled` | Object Lock is defined per object version. Without versioning there is nothing to lock. |
-| A3 | Object Lock | `Enabled` | The provider must retain locked object versions. Configuration read-back alone is not behavioral proof. |
-| A4 | Default retention mode | `COMPLIANCE` | `GOVERNANCE` can be bypassed by a privileged principal and is not the required WORM boundary. |
-| A5 | Default retention period | ≥ **90 days**, ≤ 365 days | Long enough to outlive benchmark-to-admission; bounded for predictable cost. |
-| A6 | Public access | Anonymous list and GET of a **known existing object** return 401 or 403 | A missing-key 403 does not prove object privacy. |
-| A7 | Delete denial | Global deny for `s3:DeleteObject` and `s3:DeleteObjectVersion` on the governed prefix | Prevents delete markers and deletion by every principal, including setup/admin. |
-| A8 | Dedicated principal | Provider-issued selector with exactly §2.5 permissions | A display name, Access Key ID or owner identity is not a policy selector. |
-| A9 | Capacity | ≥ **120 GB** usable, provider-confirmed | See §3. |
-| A10 | Region | Russian contour | Infrastructure policy. |
-
-### 2.2 Controls that are optional, and why
-
-`Bucket Encryption` (SSE-S3 / SSE-KMS) and `Public Access Block` are **not** mandatory. Several
-S3-compatible Russian providers do not implement these APIs, and the required guarantees here —
-immutability and privacy — are delivered by A2–A7. A provider that offers them should enable them;
-their absence does not excuse missing Object Lock in COMPLIANCE mode, global delete denial or
-anonymous known-object privacy.
-
-### 2.3 Exact protected-input names
-
-These names are fixed for the existing workflows:
-
-| Protected input | Contents | REG.RU candidate value/status |
+| # | Control | Required outcome |
 |---|---|---|
-| `TAI_BUNDLE_S3_ENDPOINT` | HTTPS endpoint URL | `https://s3.regru.cloud` |
-| `TAI_BUNDLE_S3_REGION` | Region identifier | `us-east-1` |
-| `TAI_BUNDLE_S3_BUCKET` | Bucket name | `tai-model-bundles-prod-01` |
-| `TAI_BUNDLE_S3_PREFIX` | Governed prefix, no trailing slash | `tai/model-bundles/v1` |
-| `TAI_BUNDLE_S3_ACCESS_KEY_ID` | Dedicated principal key ID | local only; never evidence |
-| `TAI_BUNDLE_S3_SECRET_ACCESS_KEY` | Matching secret | local only; never evidence |
-| `TAI_BUNDLE_S3_PRINCIPAL_ID` | Provider-issued policy selector | **UNRESOLVED** |
-| `TAI_BUNDLE_S3_CAPACITY_BYTES` | Provider-confirmed decimal bytes | `200000000000` |
+| A1 | Transport | HTTPS endpoint with trusted CA verification; insecure HTTP does not expose a known object. |
+| A2 | Versioning | `Enabled`. |
+| A3 | Object Lock | `Enabled` and behaviorally enforced per version. |
+| A4 | Retention | Default `COMPLIANCE`, 90–365 days; current target is 90 days. |
+| A5 | Privacy | Anonymous list and GET of a known existing object return 401 or 403. |
+| A6 | Dedicated finalizer | Exact least-privilege data-plane and listing permissions only. |
+| A7 | Delete boundary | The finalizer cannot create delete markers or delete object versions in the governed prefix. COMPLIANCE independently prevents exact locked-version deletion by admin. |
+| A8 | Principal discrimination | The matching finalizer is allowed and a distinct nonmatching control key is denied. |
+| A9 | Multipart | Create, list, upload part, list parts, abort and confirmed disappearance work. |
+| A10 | Restore | Exact version restores with matching SHA-256. |
+| A11 | Capacity | At least 120,000,000,000 usable bytes; current confirmed quota is 200,000,000,000 bytes. |
+| A12 | Region | Russian infrastructure contour. |
 
-Do **not** register the REG.RU values as GitHub repository secrets while the candidate profile is
-dormant. Never commit credentials or paste them into an issue, pull request, log or chat.
-
-### 2.4 Verifier history and the remaining active-path gap
-
-**Closed in #3241 — provider neutrality.** The evaluator formerly rejected anything except
-`SELECTEL_S3_2026` before examining controls. The profile registry now accepts registered profiles
-and checks declared API waivers against the named profile.
-
-**Still open in the active shared preflight — anonymous known-object GET.** The active preflight
-checks anonymous listing only. A fabricated missing key is not a valid privacy sentinel because S3
-may return 403 when the caller lacks `ListBucket`. A correct check must use an authenticated,
-known-existing object and then GET that exact key anonymously.
-
-The dormant REG.RU compatibility probe performs the correct known-object test on its uploaded
-9 MiB stream. That result does not silently change the active shared schema: activation must update
-all active observation producers together.
-
-### 2.5 Complete least-privilege action set
-
-The real finalizer uses multipart upload and exact-version restore. Its complete bucket-level set
-on `arn:aws:s3:::<bucket>` is:
-
-- `s3:GetBucketLocation`
-- `s3:GetBucketObjectLockConfiguration`
-- `s3:GetBucketPolicy`
-- `s3:GetBucketVersioning`
-- `s3:ListBucket`
-- `s3:ListBucketMultipartUploads`
-- `s3:ListBucketVersions`
-
-Its complete object-level set on `arn:aws:s3:::<bucket>/<prefix>/*` is:
-
-- `s3:AbortMultipartUpload`
-- `s3:GetObject`
-- `s3:GetObjectRetention`
-- `s3:GetObjectVersion`
-- `s3:ListMultipartUploadParts`
-- `s3:PutObject`
-
-The dedicated principal must not receive:
-
-- `s3:BypassGovernanceRetention`
-- `s3:DeleteObject`
-- `s3:DeleteObjectVersion`
-- `s3:PutBucketPolicy`
-- `s3:PutBucketVersioning`
-- `s3:PutBucketObjectLockConfiguration`
-- `s3:PutObjectRetention`
-- `s3:PutLifecycleConfiguration`
-
-A bucket policy cannot reveal a broader identity grant. Provider-issued local evidence must bind
-the exact finalizer selector, a distinct nonmatching control selector, the exact target and these
-action sets. The bounded probe then behaviorally tests safe same-policy/configuration calls where
-possible.
-
-## 3. Capacity
-
-Measured and derived, not guessed:
-
-| Item | Bytes | Source |
-|---|---:|---|
-| Qwen3-8B source weights, pinned revision | 30 896 839 600 | recorded in `model-bundle-s3-preflight-requirements.v1.json` |
-| Qwen3-8B Q4_K_M GGUF | 5 027 784 032 | accepted conversion evidence |
-| All planned GGUF artifacts | 48 995 504 288 | same requirements authority |
-| **Minimum provisioned capacity** | **120 000 000 000** | ≈ 2.4× artifact total |
-| **Current operator-confirmed REG.RU quota** | **200 000 000 000** | account control plane |
-
-The headroom is not padding. Versioning plus a 90-day COMPLIANCE lock means a superseded artifact
-cannot be deleted to make room; every re-conversion adds a version that stays for the retention
-period. A bucket sized only to the current artifacts can fill on a later conversion.
+`Bucket Encryption` and AWS `Public Access Block` APIs remain optional compatibility features. Their absence does not waive HTTPS, anonymous privacy, COMPLIANCE Object Lock, finalizer delete denial or exact-version restore.
 
 ---
 
-## 4. Current REG.RU evidence
+## 3. Exact REG.RU target
 
-The earlier version of this document correctly refused to invent a REG.RU capability claim when
-no live account evidence was available. That uncertainty has been narrowed through the actual
-account:
+| Field | Value |
+|---|---|
+| Endpoint | `https://s3.regru.cloud` |
+| Region | `us-east-1` |
+| Bucket | `tai-model-bundles-prod-01` |
+| Governed prefix | `tai/model-bundles/v1` |
+| Quota | `200000000000` bytes |
+| Admin key set | `owner` |
+| Finalizer key set | `tai-bundle-finalizer-prod-01` |
+| Nonmatching control key set | `tai-bundle-control-prod-01` |
 
-- service: active REG.RU object storage;
-- endpoint: `https://s3.regru.cloud`;
-- bucket: private `tai-model-bundles-prod-01`;
-- quota: 200 GB;
-- separate key set: `tai-bundle-finalizer-prod-01`;
-- authenticated bucket access: succeeded;
-- versioning read-back: `Enabled`;
-- Object Lock read-back: `Enabled`;
-- default retention read-back: `COMPLIANCE`, 90 days.
+Credential values and key-set UUIDs are local secrets/evidence-excluded data. They must not enter Git, issues, pull requests, logs, screenshots or chat. The control key set must not be attached to any bucket policy rule.
 
-These facts prove only configuration-plane state. They do **not** yet prove:
+The protected workflow inputs remain:
 
-- exact-version deletion is rejected because of COMPLIANCE rather than missing permission;
-- global policy denial prevents a versionless delete marker;
-- anonymous GET of a known existing object is denied;
-- create/list/upload-part/list-parts/abort multipart compatibility;
-- exact-version restore and SHA-256 equality;
-- the provider's policy-principal selector and identity permission boundary;
-- denial of policy, versioning, Object Lock, retention and lifecycle mutations.
+- `TAI_BUNDLE_S3_ENDPOINT`
+- `TAI_BUNDLE_S3_REGION`
+- `TAI_BUNDLE_S3_BUCKET`
+- `TAI_BUNDLE_S3_PREFIX`
+- `TAI_BUNDLE_S3_ACCESS_KEY_ID`
+- `TAI_BUNDLE_S3_SECRET_ACCESS_KEY`
+- `TAI_BUNDLE_S3_CAPACITY_BYTES`
 
-The key-set display name, its Access Key ID, `owner` and the bucket-owner canonical ID must not be
-guessed as the policy selector. REG.RU support or a REG.RU API must issue the selector semantics and
-exact permission evidence.
+Do not register REG.RU values as repository secrets while the candidate profile is dormant.
 
 ---
 
-## 5. Dormant compatibility appendix
+## 4. Exact REG.RU panel authority
 
-The implementation package is bound to exact base
-`8655c70900bc087875ce64e7b7f65775ee838b93` and
-`REG_RU_S3_2026` remains `CANDIDATE_NOT_ACTIVE`.
+The source-controlled panel contract contains five rules for `tai-bundle-finalizer-prod-01`.
 
-It is deliberately local-only:
+### TAI-01 — bucket metadata
 
-- no GitHub workflow references the script;
-- no protected value is registered;
-- committed principal status is `UNRESOLVED`;
-- invalid/missing provider evidence stops before credential input and before S3 mutation;
-- the exact report path is reserved as a private, non-symlink inode before credential input;
-- credentials are read from a TTY with echo disabled and never enter argv or evidence;
-- TLS uses `/etc/ssl/certs/ca-certificates.crt`; `--no-verify-ssl` is forbidden;
-- the exact target-bearing mutation phrase is required immediately before the first write;
-- the original policy is retained for rollback and unrelated statements are preserved;
-- raw provider responses, payloads and credentials are deleted with the private temp directory.
+Allow on `tai-model-bundles-prod-01`:
 
-One successful run intentionally leaves at most:
+- `GetBucketLocation`
+- `GetBucketVersioning`
 
-| Retained object | Bytes |
+`GetBucketPolicy` is not part of this rule. The live probe must fail until any excess action is removed.
+
+### TAI-02 — governed-prefix listing
+
+Allow on the bucket:
+
+- `ListBucket`
+- `ListBucketVersions`
+
+Condition:
+
+- key: `s3:prefix`
+- operator: `StringLike`
+- values: `tai/model-bundles/v1`, `tai/model-bundles/v1/*`
+
+### TAI-03 — multipart listing
+
+Allow on the bucket without `s3:prefix` condition:
+
+- `ListBucketMultipartUploads`
+
+### TAI-04 — object data plane
+
+Allow on `tai-model-bundles-prod-01/tai/model-bundles/v1/*`:
+
+- `AbortMultipartUpload`
+- `GetObject`
+- `GetObjectVersion`
+- `ListMultipartUploadParts`
+- `PutObject`
+
+### TAI-05 — delete denial
+
+Deny on the same governed object scope:
+
+- `DeleteObject`
+- `DeleteObjectVersion`
+
+### Admin-only observations
+
+The REG.RU panel does not expose `GetBucketObjectLockConfiguration` and `GetObjectRetention` for the finalizer rule set. The compatibility probe therefore performs these reads through `owner` and proves the finalizer is denied. `GetBucketPolicy` is also admin-only and is used only to validate and hash the five panel-rule semantics.
+
+The finalizer must not receive:
+
+- `BypassGovernanceRetention`
+- `GetBucketPolicy`
+- `GetObjectRetention`
+- `PutBucketPolicy`
+- `PutBucketVersioning`
+- `PutBucketObjectLockConfiguration`
+- `PutObjectRetention`
+- `PutLifecycleConfiguration`
+- `DeleteObject`
+- `DeleteObjectVersion`
+
+---
+
+## 5. Capacity basis
+
+| Item | Bytes |
 |---|---:|
-| governed deterministic stream | 9 437 184 |
-| independent WORM canary | 4 096 |
-| **maximum retained locked bytes** | **9 441 280** |
+| Qwen3-8B source weights, pinned revision | 30,896,839,600 |
+| Qwen3-8B Q4_K_M GGUF | 5,027,784,032 |
+| All planned GGUF artifacts | 48,995,504,288 |
+| Minimum provisioned capacity | 120,000,000,000 |
+| Current REG.RU quota | 200,000,000,000 |
 
-The aborted multipart part retains zero payload bytes. COMPLIANCE means the two retained versions
-cannot be cleaned up for 90 days, so the probe is not a harmless command to repeat.
-
-The proof sequence covers:
-
-1. exact target and private provider-issued attestation;
-2. finalizer selector matches the finalizer, not setup/admin, while a provider-attested
-   nonmatching selector does not match;
-3. versioning, Object Lock and COMPLIANCE 90-day read-back;
-4. exact final policy with global delete and insecure-transport denies;
-5. denial of same-policy, versioning, Object Lock and object-retention mutations;
-6. lifecycle same-configuration denial when lifecycle exists, otherwise explicit provider
-   attestation;
-7. multipart create/list/upload-part/list-parts/abort and disappearance;
-8. 9 MiB streamed upload, nonempty `VersionId`, COMPLIANCE retention expiring 89–91 days from
-   probe time and exact-version SHA-256 restore;
-9. anonymous list plus HTTPS and insecure-HTTP GET of that exact known object all return 401 or
-   403;
-10. setup/admin versionless delete under the governed prefix is denied;
-11. outside the prefix, delete-marker create/remove succeeds while locked data-version deletion
-    fails with an authorization-class provider response, proving delete capability independently
-    of WORM. TLS, DNS, timeout, CLI and provider 5xx failures never count as denial evidence.
-
-Any cleanup failure to abort an open multipart upload makes the run failed-closed. The final policy
-validator rejects every preserved `Allow` that can overlap the dedicated bucket or governed
-subprefix, including wildcard, principal-list and `NotAction`/`NotPrincipal`/`NotResource`
-constructs; unrelated statements for other buckets remain preserved.
-
-Only a canonical sanitized report of at most 1 MiB persists. Success is narrowly named
-`VERIFIED_REG_RU_S3_COMPATIBILITY`; it is not bundle storage acceptance.
+Versioning and 90-day COMPLIANCE retention mean superseded versions cannot be immediately removed. Headroom is mandatory, not optional padding.
 
 ---
 
-## 6. Separate activation boundary
+## 6. Current evidence and remaining gap
 
-After the sanitized report is reviewed, a separate exact-scope activation change must:
+Confirmed from the live account:
 
-1. add `REG_RU_S3_2026` to the active provider registry with zero unsupported-API waivers;
-2. switch shared requirements to the exact endpoint, region, bucket, prefix, capacity and
-   provider-issued principal hash;
-3. add the trusted CA/checksum environment on both runner and model host;
-4. remove functional Selectel assumptions and guard Selectel provisioning before its first AWS
-   call;
-5. add known-object privacy and multipart-compatible evidence to every active observation producer;
-6. update finalization authority and the transitive CPU run-plan authority/Python pins;
-7. register protected values only after exact-main review.
+- REG.RU object storage is active;
+- the private bucket exists;
+- versioning reads back `Enabled`;
+- Object Lock reads back `Enabled`;
+- default retention reads back `COMPLIANCE`, 90 days;
+- finalizer and distinct control key sets exist;
+- the five panel rules are configured, subject to removal of the known excess `TAI-01` action before execution.
 
-Until that activation merges, keep the active requirements on their existing profile and do not run
-`/tai finalize model-bundles exact-main`.
+These facts do not yet prove live compatibility. The remaining dormant probe must prove:
+
+1. exact five-rule policy read-back with no excess target `Allow`;
+2. finalizer allowed and control denied;
+3. finalizer control-plane and retention denial;
+4. finalizer versionless and version deletion denial;
+5. COMPLIANCE exact-version deletion rejection by admin;
+6. multipart create/list/upload-part/list-parts/abort/disappearance;
+7. 9 MiB streamed upload, nonempty version ID and 89–91 day retention deadline;
+8. exact-version SHA-256 restore;
+9. anonymous list and known-object GET rejection over HTTPS and HTTP.
+
+No provider-issued low-level principal attestation is required. REG.RU binds panel rules directly to selected key sets; behavioral discrimination between finalizer and control is the principal proof. Raw policy is supplemental evidence only and is never retained.
 
 ---
 
-## 7. What this package does not claim
+## 7. Dormant local compatibility package
 
-- The REG.RU candidate is not an active provider profile.
-- The committed principal remains `UNRESOLVED`.
-- GitHub secret registration and model finalization are not authorized.
-- B.06 and B.07 remain blocked pending reviewed compatibility and clean bundle restore evidence.
-- Bundle upload/restore and benchmark remain `NOT_RUN`; model admission remains `NOT_DONE`;
-  production operational status remains `NOT_ATTESTED`.
-- The configuration screenshots/API read-back do not by themselves prove behavioral WORM,
-  privacy, policy enforcement or least privilege.
+The implementation is bound to exact base `ca3060459976ee64963f4cd3dfc27b34c62527ab`. `REG_RU_S3_2026` remains `CANDIDATE_NOT_ACTIVE`.
+
+Safety properties:
+
+- no GitHub workflow or unattended execution;
+- no repository secret registration;
+- no bucket creation, deletion, policy mutation, versioning change or Object Lock change;
+- credentials are read from a TTY with echo disabled;
+- the report inode is privately reserved before credentials;
+- exact policy is validated before the first successful write;
+- exact owner confirmation is required before mutation;
+- TLS verification cannot be disabled;
+- only one 9,437,184-byte object may remain locked;
+- the multipart part must be aborted and retain zero bytes;
+- raw policy and credentials are deleted with the private temporary directory.
+
+Success is narrowly named `VERIFIED_REG_RU_S3_PANEL_COMPATIBILITY`. It is not bundle-storage acceptance and does not authorize finalization.
+
+---
+
+## 8. Separate activation boundary
+
+After a sanitized report is reviewed, a separate exact-scope change must:
+
+1. register `REG_RU_S3_2026` in the active provider registry;
+2. switch active requirements to the verified endpoint, region, bucket, prefix and capacity;
+3. carry trusted CA and checksum settings into runner and model-host execution;
+4. update active known-object privacy and multipart evidence producers;
+5. update finalization authority and transitive exact pins;
+6. register protected values only after reviewed exact-main acceptance.
+
+Until then:
+
+- `github_secret_registration_allowed=false`;
+- `finalization_allowed=false`;
+- bundle upload and clean restore remain `NOT_RUN`;
+- benchmark remains `NOT_RUN`;
+- model admission remains `NOT_DONE`;
+- production remains `NOT_ATTESTED`;
+- do not run `/tai finalize model-bundles exact-main`.
