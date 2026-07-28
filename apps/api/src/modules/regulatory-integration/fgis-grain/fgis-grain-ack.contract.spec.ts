@@ -75,7 +75,7 @@ describe('PC-CROP-08I ACK contract authority', () => {
       command({ inboundResponseCode: 'queue-is-empty' }),
     ]) {
       expect(() => normalizeGenerateFgisGrainAckCommand(input)).toThrow(
-        expect.objectContaining<FgisGrainAckAuthorityError>({ code: 'ACK_ENVELOPE_FORBIDDEN' }),
+        /ACK_ENVELOPE_FORBIDDEN/u,
       );
     }
   });

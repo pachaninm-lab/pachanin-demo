@@ -110,10 +110,10 @@ export const FGIS_GRAIN_ACK_POLICY: FgisGrainAckPolicyAuthority = Object.freeze(
     'ignored',
     'NOT_ATTESTED',
   ]),
-  eligibleInboundTransportOperations: ['SendRequest', 'SendResponse'],
-  ineligibleInboundTransportOperations: ['Ack'],
-  eligibleResponseCodes: ['success', 'accepted'],
-  ineligibleResponseCodes: ['queue-is-empty', 'ignored'],
+  eligibleInboundTransportOperations: ['SendRequest', 'SendResponse'] as const,
+  ineligibleInboundTransportOperations: ['Ack'] as const,
+  eligibleResponseCodes: ['success', 'accepted'] as const,
+  ineligibleResponseCodes: ['queue-is-empty', 'ignored'] as const,
   operationalStatus: FGIS_GRAIN_ACK_OPERATIONAL_STATUS,
 });
 

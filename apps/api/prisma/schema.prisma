@@ -36,6 +36,7 @@ model Organization {
   fgisGrainSdizProjectionBatches    FgisGrainSdizProjectionBatch[]
   fgisGrainSdizProjections          FgisGrainSdizProjection[]
   fgisGrainExchanges                FgisGrainExchange[]
+  fgisGrainAcknowledgements         FgisGrainAcknowledgement[]
 
   @@index([tenantId])
   @@index([inn])
@@ -504,6 +505,8 @@ model OutboxEntry {
   regulatoryIntegrationInboxEntries   RegulatoryIntegrationInboxEntry[]
   fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?
   fgisGrainOutboundExchange           FgisGrainExchange?
+  fgisGrainAckDispatch                FgisGrainAcknowledgement?            @relation("FgisGrainAckDispatchOutbox")
+  fgisGrainAckEvent                   FgisGrainAcknowledgement?            @relation("FgisGrainAckEventOutbox")
 
   @@index([status, nextRetryAt])
   @@index([status, nextRetryAt, createdAt, id], map: "outbox_entries_claim_idx")
@@ -652,6 +655,7 @@ model AuditEvent {
   runtimeSnapshot                     DealWorkspaceRuntimeSnapshot?        @relation("RuntimeSnapshotAudit")
   publicOrganizationConnectionRequest PublicOrganizationConnectionRequest?
   fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?
+  fgisGrainAcknowledgement            FgisGrainAcknowledgement?
 
   @@index([dealId])
   @@index([actorUserId])
@@ -1146,6 +1150,7 @@ model RegulatoryIntegrationInboxEntry {
   fgisGrainSdizProjectionBatch FgisGrainSdizProjectionBatch?
   fgisGrainSdizProjections     FgisGrainSdizProjection[]
   fgisGrainResponseExchange    FgisGrainExchange?
+  fgisGrainAcknowledgement     FgisGrainAcknowledgement?
 
   @@unique([tenantId, organizationId, provider, externalEventId], map: "regulatory_integration_inbox_identity_key")
   @@index([state, nextAttemptAt, leaseExpiresAt, receivedAt, id], map: "regulatory_integration_inbox_claim_idx")
@@ -1334,6 +1339,7 @@ model FgisGrainExchange {
   organization        Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_org_fk")
   outboundOutboxEntry OutboxEntry                      @relation(fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_outbox_fk")
   responseInboxEntry  RegulatoryIntegrationInboxEntry? @relation(fields: [responseInboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_exchange_response_inbox_fk")
+  acknowledgement     FgisGrainAcknowledgement?
 
   @@unique([tenantId, organizationId, messageId], map: "fgis_grain_exchange_message_key")
   @@unique([tenantId, organizationId, commandId], map: "fgis_grain_exchange_command_key")
@@ -1341,4 +1347,51 @@ model FgisGrainExchange {
   @@index([correlationId], map: "fgis_grain_exchange_correlation_idx")
   @@index([tenantId, organizationId, providerMessageId], map: "fgis_grain_exchange_provider_message_idx")
   @@map("fgis_grain_exchanges")
+}
+
+model FgisGrainAcknowledgement {
+  id                             String    @id
+  tenantId                       String
+  organizationId                 String
+  inboxEntryId                   String    @unique
+  inboundTransportOperation      String
+  inboundMessageId               String
+  inboundReferenceMessageId      String?
+  inboundResponseCode            String
+  verifiedPayloadFingerprint     String    @db.Char(64)
+  ackPolicyVersion               String
+  ackPolicyHash                  String    @db.Char(64)
+  decision                       String
+  reasonCode                     String
+  commandId                      String?
+  messageId                      String?
+  referenceMessageId             String?
+  ackEnvelopeReference           String?
+  ackEnvelopeSha256              String?   @db.Char(64)
+  ackEnvelopeSizeBytes           Int?
+  ackMessageDataId               String?
+  providerConfigurationReference String?
+  outboundOutboxEntryId          String?   @unique
+  exchangeId                     String?   @unique
+  auditEventId                   String?   @unique
+  eventOutboxEntryId             String?   @unique
+  state                          String
+  reconciliationReason           String?
+  reconciliationDetectedAt       DateTime? @db.Timestamptz(6)
+  version                        BigInt    @default(0)
+  createdAt                      DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  updatedAt                      DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+
+  organization        Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_org_fk")
+  inboxEntry          RegulatoryIntegrationInboxEntry @relation(fields: [inboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_inbox_fk")
+  outboundOutboxEntry OutboxEntry?                    @relation("FgisGrainAckDispatchOutbox", fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_dispatch_outbox_fk")
+  exchange            FgisGrainExchange?              @relation(fields: [exchangeId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_exchange_fk")
+  auditEvent          AuditEvent?                     @relation(fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_audit_fk")
+  eventOutboxEntry    OutboxEntry?                    @relation("FgisGrainAckEventOutbox", fields: [eventOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_event_outbox_fk")
+
+  @@unique([tenantId, organizationId, inboxEntryId], map: "fgis_grain_ack_tenant_org_inbox_key")
+  @@index([tenantId, organizationId, state, updatedAt(sort: Desc), id], map: "fgis_grain_ack_state_idx")
+  @@index([tenantId, organizationId, inboundMessageId], map: "fgis_grain_ack_inbound_message_idx")
+  @@index([inboxEntryId, exchangeId], map: "fgis_grain_ack_correlation_idx")
+  @@map("fgis_grain_acknowledgements")
 }

@@ -132,22 +132,22 @@ export class FgisGrainAckRepository {
         async (tx) => {
           const rows = await tx.$queryRaw<FunctionRow[]>(Prisma.sql`
             SELECT public.create_fgis_grain_acknowledgement(
-              ${command.inboxEntryId},
+              CAST(${command.inboxEntryId} AS text),
               CAST(${command.expectedInboxVersion} AS bigint),
-              ${command.inboundTransportOperation},
-              ${command.inboundMessageId},
-              ${command.inboundReferenceMessageId},
-              ${command.inboundResponseCode},
-              ${command.verifiedPayloadFingerprint},
-              ${command.ackEnvelopeReference},
-              ${command.ackEnvelopeSha256},
-              ${command.ackEnvelopeSizeBytes},
-              ${command.ackMessageDataId},
-              ${command.providerConfigurationReference},
-              ${command.correlationId},
-              ${command.causationId},
-              ${command.idempotencyKey},
-              ${command.reason}
+              CAST(${command.inboundTransportOperation} AS text),
+              CAST(${command.inboundMessageId} AS text),
+              CAST(${command.inboundReferenceMessageId} AS text),
+              CAST(${command.inboundResponseCode} AS text),
+              CAST(${command.verifiedPayloadFingerprint} AS text),
+              CAST(${command.ackEnvelopeReference} AS text),
+              CAST(${command.ackEnvelopeSha256} AS text),
+              CAST(${command.ackEnvelopeSizeBytes} AS integer),
+              CAST(${command.ackMessageDataId} AS text),
+              CAST(${command.providerConfigurationReference} AS text),
+              CAST(${command.correlationId} AS text),
+              CAST(${command.causationId} AS text),
+              CAST(${command.idempotencyKey} AS text),
+              CAST(${command.reason} AS text)
             ) AS "result"
           `);
           return parseMutation(rows[0]?.result, command.inboxEntryId);

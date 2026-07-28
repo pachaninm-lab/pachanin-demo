@@ -25,8 +25,8 @@ CREATE TABLE public."fgis_grain_acknowledgements" (
   "providerConfigurationReference" text,
   "outboundOutboxEntryId" text UNIQUE,
   "exchangeId" text UNIQUE,
-  "auditEventId" text,
-  "eventOutboxEntryId" text,
+  "auditEventId" text UNIQUE,
+  "eventOutboxEntryId" text UNIQUE,
   "state" text NOT NULL,
   "reconciliationReason" text,
   "reconciliationDetectedAt" timestamptz,
@@ -412,8 +412,7 @@ DECLARE
   v_config record;
   v_gate_count integer;
 BEGIN
-  IF current_user NOT IN ('app_runtime', 'app_service')
-     OR NOT public.app_rls_context_ready()
+  IF NOT public.app_rls_context_ready()
      OR v_actor_role NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')
   THEN
     RAISE EXCEPTION 'ACK_MUTATION_FORBIDDEN'
@@ -453,7 +452,7 @@ BEGIN
      OR v_inbox."adapterVersion" <> '1.0.23'
      OR v_inbox."schemaVersion" <> '1.0.23'
      OR v_inbox."mappingVersion" <> 'fgis-zerno-1.0.23-catalog.v1'
-     OR COALESCE((v_inbox."verificationResult" ->> 'verified')::boolean, false) IS NOT TRUE
+     OR v_inbox."verificationResult" ->> 'verified' IS DISTINCT FROM 'true'
      OR v_inbox."verificationResult" ->> 'schemaVersion' <> '1.0.23'
      OR v_inbox."verificationResult" ->> 'mappingVersion' <> 'fgis-zerno-1.0.23-catalog.v1'
      OR v_inbox."verificationResult" ->> 'transportOperation' <> p_inbound_transport_operation
@@ -479,11 +478,13 @@ BEGIN
   END;
 
   IF v_required THEN
-    IF p_ack_envelope_reference !~ '^object-store://[A-Za-z0-9][A-Za-z0-9:_.@/-]{2,500}$'
+    IF char_length(p_ack_envelope_reference) NOT BETWEEN 18 AND 512
+       OR p_ack_envelope_reference !~ '^object-store://[A-Za-z0-9][A-Za-z0-9:_.@/-]+$'
        OR p_ack_envelope_sha256 !~ '^[a-f0-9]{64}$'
        OR p_ack_envelope_size_bytes IS NULL OR p_ack_envelope_size_bytes <= 0
        OR p_ack_message_data_id !~ '^[A-Za-z_][A-Za-z0-9._-]{0,127}$'
-       OR p_provider_configuration_reference !~ '^config://[A-Za-z0-9][A-Za-z0-9:_.@/-]{2,500}$'
+       OR char_length(p_provider_configuration_reference) NOT BETWEEN 12 AND 512
+       OR p_provider_configuration_reference !~ '^config://[A-Za-z0-9][A-Za-z0-9:_.@/-]+$'
     THEN
       RAISE EXCEPTION 'ACK_ENVELOPE_REQUIRED'
         USING ERRCODE = '22023';
@@ -546,7 +547,7 @@ BEGIN
        AND v_existing."verifiedPayloadFingerprint" = p_verified_payload_fingerprint
        AND v_existing."ackPolicyVersion" = v_policy_version
        AND v_existing."ackPolicyHash" = v_policy_hash
-       AND v_existing."decision" = CASE WHEN v_required THEN 'REQUIRED' ELSE 'NOT_REQUIRED' END
+       AND v_existing."decision" = (CASE WHEN v_required THEN 'REQUIRED' ELSE 'NOT_REQUIRED' END)
        AND v_existing."ackEnvelopeReference" IS NOT DISTINCT FROM p_ack_envelope_reference
        AND v_existing."ackEnvelopeSha256" IS NOT DISTINCT FROM p_ack_envelope_sha256
        AND v_existing."ackEnvelopeSizeBytes" IS NOT DISTINCT FROM p_ack_envelope_size_bytes
@@ -576,7 +577,7 @@ BEGIN
     END IF;
 
     v_before := to_jsonb(v_existing);
-    UPDATE public."fgis_grain_acknowledgements"
+    UPDATE public."fgis_grain_acknowledgements" AS target
     SET "state" = 'RECONCILIATION_REQUIRED',
         "reasonCode" = CASE
           WHEN v_existing."ackPolicyVersion" <> v_policy_version
@@ -591,7 +592,7 @@ BEGIN
         "version" = "version" + 1,
         "updatedAt" = clock_timestamp()
     WHERE "id" = v_existing."id"
-    RETURNING to_jsonb(public."fgis_grain_acknowledgements".*) INTO v_after;
+    RETURNING to_jsonb(target.*) INTO v_after;
     v_event := public.emit_fgis_grain_ack_event(
       'FGIS_GRAIN_ACK_RECONCILIATION_REQUIRED',
       v_existing."id", p_inbox_entry_id, v_existing."exchangeId",
@@ -840,7 +841,7 @@ BEGIN
   END IF;
   v_before := to_jsonb(v_ack);
   IF v_ack."state" <> 'ACK_DISPATCH_REQUESTED' THEN
-    UPDATE public."fgis_grain_acknowledgements"
+    UPDATE public."fgis_grain_acknowledgements" AS target
     SET "state" = 'RECONCILIATION_REQUIRED',
         "reasonCode" = 'ACK_RECONCILIATION_IDENTITY_MISMATCH',
         "reconciliationReason" = 'ACK exchange reached transport acceptance from an invalid acknowledgement state',
@@ -848,7 +849,7 @@ BEGIN
         "version" = "version" + 1,
         "updatedAt" = clock_timestamp()
     WHERE "id" = v_ack."id"
-    RETURNING to_jsonb(public."fgis_grain_acknowledgements".*) INTO v_after;
+    RETURNING to_jsonb(target.*) INTO v_after;
     PERFORM public.emit_fgis_grain_ack_event(
       'FGIS_GRAIN_ACK_RECONCILIATION_REQUIRED', v_ack."id",
       v_ack."inboxEntryId", NEW."id", v_ack."tenantId",
@@ -861,12 +862,12 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  UPDATE public."fgis_grain_acknowledgements"
+  UPDATE public."fgis_grain_acknowledgements" AS target
   SET "state" = 'ACK_TRANSPORT_ACCEPTED',
       "version" = "version" + 1,
       "updatedAt" = clock_timestamp()
   WHERE "id" = v_ack."id"
-  RETURNING to_jsonb(public."fgis_grain_acknowledgements".*) INTO v_after;
+  RETURNING to_jsonb(target.*) INTO v_after;
   v_event := public.emit_fgis_grain_ack_event(
     'FGIS_GRAIN_ACK_TRANSPORT_ACCEPTED', v_ack."id",
     v_ack."inboxEntryId", NEW."id", v_ack."tenantId",

@@ -32,7 +32,12 @@ let prisma: PrismaService;
 let acknowledgements: FgisGrainAckRepository;
 let receipts: FgisGrainExchangeReceiptRepository;
 
-function actor(tenantId: string, orgId: string, suffix: string, role = Role.ADMIN): RequestUser {
+function actor(
+  tenantId: string,
+  orgId: string,
+  suffix: string,
+  role: RequestUser['role'] = Role.ADMIN,
+): RequestUser {
   return {
     id: `${RUN_ID}.user-${suffix}`,
     email: `${suffix}@ack.invalid`,
@@ -148,7 +153,7 @@ async function seedInbox(input: InboxSeed): Promise<void> {
     ) VALUES (
       ${input.id}, ${tenantId}, ${organizationId}, 'FGIS_ZERNO', '1.0.23',
       'FGIS_ZERNO', ${`${RUN_ID}.external.${input.id}`}, '1.0.23',
-      'fgis-zerno-1.0.23-catalog.v1', 'PRE_PRODUCTION',
+      'fgis-zerno-1.0.23-catalog.v1', 'PREPROD',
       CAST('["INBOUND_EVENTS","SIGNATURE_VERIFICATION","SCHEMA_MAPPING"]' AS jsonb),
       clock_timestamp(), clock_timestamp(), ${input.fingerprint},
       ${`evidence://fgis-ack/${input.id}`}, ${input.signatureStatus ?? 'VERIFIED'},

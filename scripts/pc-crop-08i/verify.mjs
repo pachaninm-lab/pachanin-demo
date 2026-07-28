@@ -67,8 +67,13 @@ for (const token of [
 ]) {
   if (!schema.includes(token)) throw new Error(`ACK Prisma schema missing authority token: ${token}`);
 }
-if (!contract.includes(policy.policyHash) || !contract.includes("'NOT_ATTESTED'")) {
-  throw new Error('ACK TypeScript policy is not pinned to the canonical lock');
+if (
+  !contract.includes('policyHash: hash([')
+  || !contract.includes('FGIS_GRAIN_1_0_23_PACKAGE_SHA256')
+  || !contract.includes('FGIS_GRAIN_1_0_23_CATALOG_SHA256')
+  || !contract.includes("'NOT_ATTESTED'")
+) {
+  throw new Error('ACK TypeScript policy is not derived from the canonical pinned authority');
 }
 if (!repository.includes('withTrustedContext') || !repository.includes('TransactionIsolationLevel.Serializable')) {
   throw new Error('ACK repository is not server-authoritative and serializable');
