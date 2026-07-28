@@ -3,6 +3,7 @@ name: PC-CROP-08I FGIS Outbound ACK Acceptance
 on:
   pull_request:
     paths:
+      - '.github/workflows/pc-crop-08h.yml'
       - '.github/workflows/pc-crop-08i.yml'
       - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/**'
@@ -17,6 +18,7 @@ on:
       - main
       - agent/pc-crop-08i-fgis-outbound-ack
     paths:
+      - '.github/workflows/pc-crop-08h.yml'
       - '.github/workflows/pc-crop-08i.yml'
       - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/**'
@@ -76,11 +78,11 @@ jobs:
           elif [[ "$GITHUB_REF_NAME" == 'main' ]]; then
             base_ref='HEAD^'
           else
-            base_ref='be4cc002aa2a9581ada123084f96ea73cac3980e'
+            base_ref='9854fcad36cf382395f5f5bcb654ce663d2be5ee'
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-08i\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-ack\.e2e-spec\.ts|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.ack-policy\.lock\.json|docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack\.json|scripts/pc-crop-08i/.*)$' \
+          if grep -Ev '^(\.github/workflows/pc-crop-08h\.yml|\.github/workflows/pc-crop-08i\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-ack\.e2e-spec\.ts|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.ack-policy\.lock\.json|docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack\.json|scripts/pc-crop-08i/.*)$' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-08I contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
