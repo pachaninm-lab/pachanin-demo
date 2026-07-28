@@ -1,0 +1,93 @@
+name: One-shot PC-CROP-08I exact-main sync
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08i-main-sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+
+    steps:
+      - name: Checkout exact PC-CROP-08I head
+        uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-08i-fgis-outbound-ack
+          fetch-depth: 0
+
+      - name: Merge exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "01b35ae52f0c54345f4e5569c55e141cd80a9bd7"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "9854fcad36cf382395f5f5bcb654ce663d2be5ee"
+          git config user.name 'pc-crop-governance-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git merge --no-ff --no-edit origin/main
+          git diff --check
+          git diff --name-only origin/main...HEAD | sort > /tmp/pc-crop-08i-files.txt
+          if grep -Ev '^(\.github/workflows/pc-crop-08i\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/.*|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.*\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/test/industrial/fgis-grain-ack\.e2e-spec\.ts|docs/platform-v7/crop-platform/fgis-grain-api-1\.0\.23\.ack-policy\.lock\.json|docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack\.json|scripts/pc-crop-08i/.*)$' /tmp/pc-crop-08i-files.txt; then
+            echo 'PC-CROP-08I exact-main merge produced out-of-scope diff' >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate merged ACK authority
+        shell: bash
+        env:
+          PC_CROP_08I_POSTGRESQL: '1'
+        run: |
+          set -euo pipefail
+          node scripts/pc-crop-08i/sync-prisma-schema.mjs
+          pnpm --filter @pc/api exec prisma format
+          pnpm --filter @pc/api exec prisma validate
+          git diff --exit-code -- apps/api/prisma/schema.prisma
+          pnpm --filter @pc/api exec prisma migrate deploy
+          pnpm --filter @pc/api exec prisma migrate status
+          pnpm --filter @pc/api exec prisma generate
+          pnpm --filter @pc/api typecheck
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.spec.ts
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-ack.e2e-spec.ts \
+            --runInBand
+          node scripts/pc-crop-08i/verify.mjs
+
+      - name: Push proven exact-main merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^2)" = "9854fcad36cf382395f5f5bcb654ce663d2be5ee"
+          git push origin HEAD:agent/pc-crop-08i-fgis-outbound-ack
