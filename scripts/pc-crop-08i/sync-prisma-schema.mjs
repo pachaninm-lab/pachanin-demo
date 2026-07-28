@@ -34,8 +34,8 @@ if (!schema.includes('  fgisGrainAckDispatch                FgisGrainAcknowledge
 
 if (!schema.includes('  fgisGrainAcknowledgement              FgisGrainAcknowledgement?\n')) {
   replaceOnce(
-    '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n',
-    '  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n  fgisGrainAcknowledgement              FgisGrainAcknowledgement?\n',
+    '  publicOrganizationConnectionRequest PublicOrganizationConnectionRequest?\n  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n',
+    '  publicOrganizationConnectionRequest PublicOrganizationConnectionRequest?\n  fgisGrainSdizProjectionBatch        FgisGrainSdizProjectionBatch?\n  fgisGrainAcknowledgement              FgisGrainAcknowledgement?\n',
     'AuditEvent ACK backrelation',
   );
 }
@@ -92,12 +92,12 @@ model FgisGrainAcknowledgement {
   createdAt                      DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
   updatedAt                      DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization        Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_org_fk")
-  inboxEntry          RegulatoryIntegrationInboxEntry  @relation(fields: [inboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_inbox_fk")
-  outboundOutboxEntry OutboxEntry?                      @relation("FgisGrainAckDispatchOutbox", fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_dispatch_outbox_fk")
-  exchange            FgisGrainExchange?                @relation(fields: [exchangeId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_exchange_fk")
-  auditEvent          AuditEvent?                       @relation(fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_audit_fk")
-  eventOutboxEntry    OutboxEntry?                      @relation("FgisGrainAckEventOutbox", fields: [eventOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_event_outbox_fk")
+  organization        Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_org_fk")
+  inboxEntry          RegulatoryIntegrationInboxEntry @relation(fields: [inboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_inbox_fk")
+  outboundOutboxEntry OutboxEntry?                     @relation("FgisGrainAckDispatchOutbox", fields: [outboundOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_dispatch_outbox_fk")
+  exchange            FgisGrainExchange?               @relation(fields: [exchangeId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_exchange_fk")
+  auditEvent          AuditEvent?                      @relation(fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_audit_fk")
+  eventOutboxEntry    OutboxEntry?                     @relation("FgisGrainAckEventOutbox", fields: [eventOutboxEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_ack_event_outbox_fk")
 
   @@unique([tenantId, organizationId, inboxEntryId], map: "fgis_grain_ack_tenant_org_inbox_key")
   @@index([tenantId, organizationId, state, updatedAt(sort: Desc), id], map: "fgis_grain_ack_state_idx")
