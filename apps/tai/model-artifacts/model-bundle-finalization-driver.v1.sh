@@ -15,7 +15,7 @@ PREFLIGHT_REQUIREMENTS="apps/tai/model-artifacts/model-bundle-s3-preflight-requi
 EVIDENCE_ROOT="bundle-finalization-evidence"
 CONTROL_ROOT="bundle-control"
 ACCEPTED_ROOT="accepted-artifacts"
-REMOTE_CONVERSION_ROOT="/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1"
+REMOTE_CONVERSION_ROOT="/srv/tai-models/conversion-runs/846963821cf990c226eaead8b32f4bc9148311a0/30333755510-1"
 REMOTE_RUN_ROOT="/srv/tai-models/bundle-finalization-runs/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 SUMMARY_PATH="bundle-finalization-summary.md"
 FINAL_STATE="FAILED_CLOSED"
@@ -99,12 +99,13 @@ assert authority['schema_version'] == 'tai.model-bundle-finalization-authority.v
 assert (authority['program_issue'], authority['parent_issue'], authority['issue']) == (2726, 2954, 2961)
 assert authority['command'] == '/tai finalize model-bundles exact-main'
 assert authority['conversion_run'] == {
-    'exact_main_sha': '8bd494dc4954baaf699cffa243951392ff451ebb',
-    'workflow_run_id': 29810648430,
+    'exact_main_sha': '846963821cf990c226eaead8b32f4bc9148311a0',
+    'workflow_run_id': 30333755510,
     'workflow_run_attempt': 1,
-    'root': '/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1',
+    'root': '/srv/tai-models/conversion-runs/846963821cf990c226eaead8b32f4bc9148311a0/30333755510-1',
     'required_state': 'COMPLETE',
     'required_result': 'CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE',
+    'report_sha256': 'f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d',
     'rerun_allowed': False,
 }
 assert authority['target']['host_role'] == 'DEDICATED_MODEL_HOST'
