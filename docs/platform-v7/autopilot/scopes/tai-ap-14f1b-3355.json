@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f1b-source-admission-3355",
+  "status": "active",
+  "issue": 3355,
+  "baseCommit": "fcd0a372fb3a94ba36408479bd1b18f33b16c4e8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f1b.yml",
+    "apps/tai/knowledge-sources/AP-14F1B-SOURCE-ADMISSION.schema.v1.json",
+    "apps/tai/knowledge-sources/AP-14F1B-SOURCE-ADMISSION.v1.json",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f1b-3355.json",
+    "scripts/tai-ap-14f1b/verify.mjs"
+  ],
+  "boundaries": {
+    "registryOnly": true,
+    "noNetworkFetch": true,
+    "noCorpusBytes": true,
+    "noParserExecution": true,
+    "noEmbeddingsOrVectorMutation": true,
+    "noTenantLiveOrContractedAccess": true,
+    "noCredentials": true,
+    "noModelWeights": true,
+    "noRuntimeActivation": true,
+    "noProductionDeployment": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 5,
+    "candidateSourceCount": 10,
+    "allowedSharedRagCount": 0,
+    "negativeMutationProbeCount": 10,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
