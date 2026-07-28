@@ -1,0 +1,216 @@
+{
+  "schema_version": "tai.reg-ru-s3-panel-compatibility-authority.v3",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2954,
+  "exact_base": "8dff44ace01a1448f8f96b0fbf19f2532ee319e2",
+  "provider_profile": "REG_RU_S3_2026",
+  "profile_state": "CANDIDATE_NOT_ACTIVE",
+  "execution_mode": "LOCAL_INTERACTIVE_ONLY",
+  "workflow_allowed": false,
+  "github_secret_registration_allowed": false,
+  "finalization_allowed": false,
+  "panel_state": "CONFIGURED_UNVERIFIED",
+  "target": {
+    "endpoint": "https://s3.regru.cloud",
+    "region": "us-east-1",
+    "bucket": "tai-model-bundles-prod-01",
+    "prefix": "tai/model-bundles/v1",
+    "operator_confirmed_capacity_bytes": 200000000000
+  },
+  "key_sets": {
+    "admin": "owner",
+    "finalizer": "tai-bundle-finalizer-prod-01",
+    "control": "tai-bundle-control-prod-01",
+    "control_has_policy_rules": true,
+    "control_explicit_deny_rules": [
+      "TAI-06-control-bucket-deny",
+      "TAI-07-control-object-deny"
+    ],
+    "credential_input": "TTY_HIDDEN_ONCE_PER_RUN",
+    "finalizer_explicit_deny_rules": [
+      "TAI-05-delete-deny",
+      "TAI-08-finalizer-bucket-control-deny",
+      "TAI-09-finalizer-retention-deny"
+    ]
+  },
+  "required_bucket_controls": {
+    "versioning_status": "Enabled",
+    "object_lock_status": "Enabled",
+    "default_retention": {
+      "mode": "COMPLIANCE",
+      "days": 90
+    },
+    "anonymous_denied_http_statuses": [401, 403],
+    "control_bucket_metadata_may_be_visible": true
+  },
+  "panel_rules": [
+    {
+      "name": "TAI-01-bucket-metadata",
+      "effect": "Allow",
+      "key_set": "tai-bundle-finalizer-prod-01",
+      "actions": ["s3:GetBucketLocation", "s3:GetBucketVersioning"],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "condition": {}
+    },
+    {
+      "name": "TAI-02-prefix-listing",
+      "effect": "Allow",
+      "key_set": "tai-bundle-finalizer-prod-01",
+      "actions": ["s3:ListBucket", "s3:ListBucketVersions"],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "condition": {
+        "StringLike": {
+          "s3:prefix": ["tai/model-bundles/v1", "tai/model-bundles/v1/*"]
+        }
+      }
+    },
+    {
+      "name": "TAI-03-multipart-listing",
+      "effect": "Allow",
+      "key_set": "tai-bundle-finalizer-prod-01",
+      "actions": ["s3:ListBucketMultipartUploads"],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "condition": {}
+    },
+    {
+      "name": "TAI-04-object-data-plane",
+      "effect": "Allow",
+      "key_set": "tai-bundle-finalizer-prod-01",
+      "actions": [
+        "s3:AbortMultipartUpload",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:ListMultipartUploadParts",
+        "s3:PutObject"
+      ],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
+      "condition": {}
+    },
+    {
+      "name": "TAI-05-delete-deny",
+      "effect": "Deny",
+      "key_set": "tai-bundle-finalizer-prod-01",
+      "actions": ["s3:DeleteObject", "s3:DeleteObjectVersion"],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
+      "condition": {}
+    },
+    {
+      "name": "TAI-06-control-bucket-deny",
+      "effect": "Deny",
+      "key_set": "tai-bundle-control-prod-01",
+      "actions": [
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads",
+        "s3:ListBucketVersions"
+      ],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "condition": {}
+    },
+    {
+      "name": "TAI-07-control-object-deny",
+      "effect": "Deny",
+      "key_set": "tai-bundle-control-prod-01",
+      "actions": [
+        "s3:AbortMultipartUpload",
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:ListMultipartUploadParts",
+        "s3:PutObject"
+      ],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
+      "condition": {}
+    },
+    {
+      "name": "TAI-08-finalizer-bucket-control-deny",
+      "effect": "Deny",
+      "key_set": "tai-bundle-finalizer-prod-01",
+      "actions": [
+        "s3:DeleteBucketPolicy",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketPolicy",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketVersioning",
+        "s3:PutLifecycleConfiguration"
+      ],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01"],
+      "condition": {}
+    },
+    {
+      "name": "TAI-09-finalizer-retention-deny",
+      "effect": "Deny",
+      "key_set": "tai-bundle-finalizer-prod-01",
+      "actions": [
+        "s3:BypassGovernanceRetention",
+        "s3:GetObjectRetention",
+        "s3:PutObjectRetention"
+      ],
+      "resources": ["arn:aws:s3:::tai-model-bundles-prod-01/tai/model-bundles/v1/*"],
+      "condition": {}
+    }
+  ],
+  "admin_only_observation_actions": [
+    "s3:GetBucketObjectLockConfiguration",
+    "s3:GetBucketPolicy",
+    "s3:GetLifecycleConfiguration",
+    "s3:GetObjectRetention"
+  ],
+  "finalizer_forbidden_actions": [
+    "s3:BypassGovernanceRetention",
+    "s3:DeleteBucketPolicy",
+    "s3:DeleteObject",
+    "s3:DeleteObjectVersion",
+    "s3:GetBucketObjectLockConfiguration",
+    "s3:GetBucketPolicy",
+    "s3:GetLifecycleConfiguration",
+    "s3:GetObjectRetention",
+    "s3:PutBucketObjectLockConfiguration",
+    "s3:PutBucketPolicy",
+    "s3:PutBucketVersioning",
+    "s3:PutLifecycleConfiguration",
+    "s3:PutObjectRetention"
+  ],
+  "probe": {
+    "interactive_confirmation": "I AUTHORIZE REG.RU S3 PANEL COMPATIBILITY PROBE tai-model-bundles-prod-01/tai/model-bundles/v1 MAX_LOCKED_BYTES=9437184",
+    "stream_object_bytes": 9437184,
+    "multipart_part_bytes": 5242880,
+    "maximum_retained_locked_bytes": 9437184,
+    "maximum_sanitized_report_bytes": 1048576,
+    "bucket_policy_semantic_mutation_allowed": false,
+    "delete_locked_versions": false,
+    "resume_single_existing_probe_object": true,
+    "tls_ca_bundle": "/etc/ssl/certs/ca-certificates.crt",
+    "request_checksum_calculation": "when_required",
+    "response_checksum_validation": "when_required"
+  },
+  "required_proofs": [
+    "EXACT_TARGET",
+    "EXACT_NINE_PANEL_RULES_READBACK",
+    "FINALIZER_ALLOWED_CONTROL_DENIED",
+    "FINALIZER_EXPLICIT_CONTROL_AND_RETENTION_DENY",
+    "VERSIONING_ENABLED",
+    "OBJECT_LOCK_ENABLED",
+    "COMPLIANCE_90D",
+    "FINALIZER_DELETE_DENIED",
+    "FINALIZER_CONTROL_PLANE_MUTATION_DENIED",
+    "FINALIZER_OBJECT_RETENTION_READ_DENIED",
+    "ANONYMOUS_LIST_REJECTED",
+    "ANONYMOUS_KNOWN_OBJECT_GET_REJECTED",
+    "MULTIPART_CREATE_LIST_PARTS_ABORT",
+    "STREAM_UPLOAD_OR_RESUME_VERSION_RETENTION_RESTORE_SHA256",
+    "WORM_EXACT_VERSION_DELETE_REJECTED"
+  ],
+  "result": {
+    "verified_status": "VERIFIED_REG_RU_S3_PANEL_COMPATIBILITY_V3",
+    "failed_status": "FAILED_CLOSED",
+    "bundle_upload_status": "NOT_RUN",
+    "bundle_restore_status": "NOT_RUN",
+    "benchmark_status": "NOT_RUN",
+    "model_admission_status": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
