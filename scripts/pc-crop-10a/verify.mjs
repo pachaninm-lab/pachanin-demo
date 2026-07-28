@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -543,6 +543,7 @@ const classifications = [
   'VENDOR_DECLARATION',
 ];
 const observedStates = ['MANUAL_ROUTE', 'SIMULATION_ONLY', 'TEST_DECLARATION', 'MOCK_ADAPTER'];
+const observedSourceCache = new Map();
 for (const [groupName, entries] of Object.entries(registry.coverage)) {
   assert(Array.isArray(entries), `${groupName} must be an array`);
   assertUnique(entries.map((entry) => entry.code), `${groupName} codes`);
@@ -552,6 +553,17 @@ for (const [groupName, entries] of Object.entries(registry.coverage)) {
     assertEnum(entry.observedState, observedStates, `${entry.code} observed state`);
     assert(Array.isArray(entry.targetSystemCodes), `${entry.code} targets must be an array`);
     assertUnique(entry.targetSystemCodes, `${entry.code} targets`);
+    assert(!entry.observedPath.startsWith('/'), `${entry.code} observed path must be repository-relative`);
+    assert(!entry.observedPath.split('/').includes('..'), `${entry.code} observed path may not escape the repository`);
+    const observedAbsolutePath = resolve(repositoryRoot, entry.observedPath);
+    assert(existsSync(observedAbsolutePath), `${entry.code} observed path does not exist: ${entry.observedPath}`);
+    if (!observedSourceCache.has(entry.observedPath)) {
+      observedSourceCache.set(entry.observedPath, readFileSync(observedAbsolutePath, 'utf8'));
+    }
+    assert(
+      observedSourceCache.get(entry.observedPath).includes(entry.code),
+      `${entry.code} is absent from observed source ${entry.observedPath}`,
+    );
     for (const target of entry.targetSystemCodes) {
       assert(systemsByCode.has(target), `${entry.code} references missing target ${target}`);
     }
@@ -599,6 +611,7 @@ assert(
   registry.coverage.integrationSdkAdapters.every((entry) => entry.observedState === 'MOCK_ADAPTER'),
   'integration SDK adapters must remain classified as mocks',
 );
+pass('OBSERVED_PATH_EVIDENCE', 'Every legacy code points to an existing repository source that contains that code.');
 pass('LEGACY_CODE_COVERAGE', 'All 8 public UI provider codes and 15 SDK adapter codes are classified exactly once.');
 
 const dangerousKey = /^(password|secret|secretValue|apiKey|accessToken|refreshToken|privateKey|credentialValue)$/iu;
