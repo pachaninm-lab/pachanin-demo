@@ -77,7 +77,7 @@ Allow on `tai-model-bundles-prod-01`:
 - `GetBucketLocation`
 - `GetBucketVersioning`
 
-`GetBucketPolicy` is not part of this rule. The live probe must fail until any excess action is removed.
+`GetBucketPolicy` is not part of this rule.
 
 ### TAI-02 — governed-prefix listing
 
@@ -158,9 +158,12 @@ Confirmed from the live account:
 - Object Lock reads back `Enabled`;
 - default retention reads back `COMPLIANCE`, 90 days;
 - finalizer and distinct control key sets exist;
-- the five panel rules are configured, subject to removal of the known excess `TAI-01` action before execution.
+- the five panel rules are configured;
+- `TAI-01-bucket-metadata` was corrected on 2026-07-28 to exactly `GetBucketLocation` and `GetBucketVersioning`.
 
-These facts do not yet prove live compatibility. The remaining dormant probe must prove:
+The panel screenshots are operator-visible configuration evidence only. They do not replace exact bucket-policy read-back or behavioral proof.
+
+The remaining dormant probe must prove:
 
 1. exact five-rule policy read-back with no excess target `Allow`;
 2. finalizer allowed and control denied;
