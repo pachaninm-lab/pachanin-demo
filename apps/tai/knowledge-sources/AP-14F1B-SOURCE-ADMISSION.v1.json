@@ -1,0 +1,871 @@
+{
+  "$schema": "./AP-14F1B-SOURCE-ADMISSION.schema.v1.json",
+  "schemaVersion": "tai.ap14f1b-source-admission.v1",
+  "registryVersion": "1.0.0",
+  "generatedAt": "2026-07-28T19:55:00Z",
+  "evidenceCutoff": "2026-07-28",
+  "dependencyCommit": "fcd0a372fb3a94ba36408479bd1b18f33b16c4e8",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "authorityBindings": [
+    {
+      "code": "AP14F0_KNOWLEDGE_AUTHORITY",
+      "path": "apps/tai/knowledge-sources/AP-14F0-KNOWLEDGE-AUTHORITY.v1.json",
+      "gitBlobSha1": "8c0ad9a7c9165d78cfe9a885a01c0f80dc0f0029",
+      "role": "RIGHTS_BOUNDARY"
+    },
+    {
+      "code": "AP14D_OFFICIAL_SOURCE_CATALOG",
+      "path": "apps/tai/knowledge-sources/official-sources.v1.json",
+      "gitBlobSha1": "3d20165c12aefe02cf85c736ff38581d593b914b",
+      "role": "SOURCE_CATALOG"
+    },
+    {
+      "code": "AP14D_SOURCE_AUTHORITY",
+      "path": "apps/tai/knowledge-sources/AP-14D-SOURCE-AUTHORITY.v1.json",
+      "gitBlobSha1": "e732620aefa8120f81033e9faca2dba53e6fe5a6",
+      "role": "SOURCE_SPECIFIC_AUTHORITY"
+    },
+    {
+      "code": "PC_CROP_10A_GOVERNMENT_SYSTEMS",
+      "path": "docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json",
+      "gitBlobSha1": "0b790f54599302edeaa46e9ea4e64fbc4f3a8442",
+      "role": "SYSTEM_AND_LOCATOR_INVENTORY"
+    }
+  ],
+  "globalPolicy": {
+    "defaultDisposition": "QUARANTINE",
+    "networkFetchEnabled": false,
+    "sharedRagEnabled": false,
+    "modelWeightsAllowed": false,
+    "credentialsAllowed": false,
+    "protectedCabinetAccessAllowed": false,
+    "httpsOnly": true,
+    "publicDnsOnly": true,
+    "sameHostRedirectRequired": true,
+    "maximumRedirects": 3,
+    "antiEnumerationRequiredForRegistries": true,
+    "unsupportedOrStaleMustAbstain": true,
+    "rightsReviewAlarmRequired": true,
+    "availabilityAlarmRequired": true,
+    "quarantineReasons": [
+      "RIGHTS_UNRESOLVED",
+      "RIGHTS_EXPIRED",
+      "PROVENANCE_INCOMPLETE",
+      "HOST_MISMATCH",
+      "DIGEST_MISMATCH",
+      "FRESHNESS_EXPIRED",
+      "PRIVACY_OR_SECRET",
+      "TENANT_OR_CONTRACT_DATA",
+      "MIME_OR_SIZE_POLICY",
+      "CONTENT_SAFETY",
+      "PARSER_FAILURE",
+      "WITHDRAWN_SOURCE"
+    ]
+  },
+  "parserProfiles": [
+    {
+      "code": "HTML_METADATA_ONLY_V1",
+      "executionEnabled": false,
+      "mediaTypes": ["text/html"],
+      "extractionMode": "METADATA_ONLY",
+      "activeContentAllowed": false,
+      "externalRelationshipsAllowed": false,
+      "nestedArchivesAllowed": false,
+      "promptInstructionDisposition": "QUARANTINE",
+      "maximumInputBytes": 5000000,
+      "maximumArchiveEntries": 0,
+      "maximumDecompressionRatio": 1
+    },
+    {
+      "code": "TEXT_REVIEW_REQUIRED_V1",
+      "executionEnabled": false,
+      "mediaTypes": ["text/plain"],
+      "extractionMode": "TEXT_REVIEW_REQUIRED",
+      "activeContentAllowed": false,
+      "externalRelationshipsAllowed": false,
+      "nestedArchivesAllowed": false,
+      "promptInstructionDisposition": "QUARANTINE",
+      "maximumInputBytes": 5000000,
+      "maximumArchiveEntries": 0,
+      "maximumDecompressionRatio": 1
+    },
+    {
+      "code": "PDF_METADATA_ONLY_V1",
+      "executionEnabled": false,
+      "mediaTypes": ["application/pdf"],
+      "extractionMode": "METADATA_ONLY",
+      "activeContentAllowed": false,
+      "externalRelationshipsAllowed": false,
+      "nestedArchivesAllowed": false,
+      "promptInstructionDisposition": "QUARANTINE",
+      "maximumInputBytes": 20000000,
+      "maximumArchiveEntries": 0,
+      "maximumDecompressionRatio": 1
+    },
+    {
+      "code": "TABULAR_REVIEW_REQUIRED_V1",
+      "executionEnabled": false,
+      "mediaTypes": [
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ],
+      "extractionMode": "TABULAR_REVIEW_REQUIRED",
+      "activeContentAllowed": false,
+      "externalRelationshipsAllowed": false,
+      "nestedArchivesAllowed": false,
+      "promptInstructionDisposition": "QUARANTINE",
+      "maximumInputBytes": 50000000,
+      "maximumArchiveEntries": 0,
+      "maximumDecompressionRatio": 10
+    },
+    {
+      "code": "ARCHIVE_INVENTORY_ONLY_V1",
+      "executionEnabled": false,
+      "mediaTypes": ["application/zip"],
+      "extractionMode": "ARCHIVE_INVENTORY_ONLY",
+      "activeContentAllowed": false,
+      "externalRelationshipsAllowed": false,
+      "nestedArchivesAllowed": false,
+      "promptInstructionDisposition": "QUARANTINE",
+      "maximumInputBytes": 50000000,
+      "maximumArchiveEntries": 500,
+      "maximumDecompressionRatio": 50
+    }
+  ],
+  "sources": [
+    {
+      "sourceId": "official.specagro.fgis-grain",
+      "familyCode": "FGIS_GRAIN_OPERATOR_PUBLICATION",
+      "title": "Публичная публикация официального оператора ФГИС Зерно",
+      "owner": "ФГБУ Центр Агроаналитики",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "OFFICIAL_MANUAL",
+      "topics": ["GRAIN_TRACEABILITY"],
+      "systemCodes": ["FGIS_GRAIN"],
+      "evidenceRefs": [
+        "AP14D_CATALOG:official.specagro.fgis-grain",
+        "AP14D_AUTHORITY:official.specagro.fgis-grain",
+        "PC_CROP_10A:MCX_SUBORDINATE_DIGITAL_APK"
+      ],
+      "transport": {
+        "officialUri": "https://specagro.ru/fgis/ok",
+        "hostPin": "specagro.ru",
+        "allowedHosts": ["specagro.ru"],
+        "pathPrefixes": ["/fgis/"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 2678400,
+        "maximumPublicationAgeSeconds": 31536000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-OFFICIAL_MANUAL-DEFAULT",
+        "disposition": "RIGHTS_UNRESOLVED",
+        "sourceSpecificEvidence": [
+          "Official operator identity and exact public locator are established; permission for complete manual-content reuse is not established."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Source-specific full-text reuse evidence and acquisition acceptance are absent."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.mcx.gis-inventory",
+      "familyCode": "MCX_AGRICULTURAL_SYSTEM_INVENTORY",
+      "title": "Перечень государственных информационных систем Минсельхоза России",
+      "owner": "Минсельхоз России",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "PUBLIC_REGISTRY",
+      "topics": ["AGRICULTURAL_SYSTEM_INVENTORY"],
+      "systemCodes": ["MCX_ECP_APK", "EFGIS_ZSN", "FGIS_GRAIN", "FGIS_SEED"],
+      "evidenceRefs": ["PC_CROP_10A:MCX_CURRENT_GIS_LIST"],
+      "transport": {
+        "officialUri": "https://mcx.gov.ru/analytics/infosystems/",
+        "hostPin": "mcx.gov.ru",
+        "allowedHosts": ["mcx.gov.ru"],
+        "pathPrefixes": ["/analytics/infosystems/"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 2678400,
+        "maximumPublicationAgeSeconds": 31536000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-PUBLIC_REGISTRY-DEFAULT",
+        "disposition": "METADATA_ONLY",
+        "sourceSpecificEvidence": [
+          "The accepted PC-CROP-10A inventory establishes public system metadata, not bulk registry reuse rights."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Metadata citation is governed; acquisition and shared indexing remain disabled."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.specagro.digital-apk",
+      "familyCode": "SPECAGRO_DIGITAL_APK_INVENTORY",
+      "title": "Официальный перечень цифровых систем АПК Центра Агроаналитики",
+      "owner": "ФГБУ Центр Агроаналитики",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "PUBLIC_REGISTRY",
+      "topics": ["AGRICULTURAL_SYSTEM_INVENTORY"],
+      "systemCodes": ["FGIS_GRAIN", "EFGIS_ZSN", "FGIS_SEED", "FGIS_USMT"],
+      "evidenceRefs": ["PC_CROP_10A:MCX_SUBORDINATE_DIGITAL_APK"],
+      "transport": {
+        "officialUri": "https://specagro.ru/fgis/digital_apk",
+        "hostPin": "specagro.ru",
+        "allowedHosts": ["specagro.ru"],
+        "pathPrefixes": ["/fgis/digital_apk"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 2678400,
+        "maximumPublicationAgeSeconds": 31536000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-PUBLIC_REGISTRY-DEFAULT",
+        "disposition": "METADATA_ONLY",
+        "sourceSpecificEvidence": [
+          "The accepted inventory supports exact system citations only; bulk collection and redistribution remain unapproved."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Metadata citation only; no source acquisition or shared corpus admission."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.rosstat.agriculture",
+      "familyCode": "ROSSTAT_AGRICULTURE_DATA",
+      "title": "Официальные материалы Росстата по сельскому хозяйству",
+      "owner": "Федеральная служба государственной статистики",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "OPEN_DATASET",
+      "topics": ["AGRICULTURE_PRODUCTION", "GRAIN_MARKET_PRICES"],
+      "systemCodes": [],
+      "evidenceRefs": ["AP14D_CATALOG:official.rosstat.agriculture"],
+      "transport": {
+        "officialUri": "https://rosstat.gov.ru/enterprise_economy",
+        "hostPin": "rosstat.gov.ru",
+        "allowedHosts": ["rosstat.gov.ru"],
+        "pathPrefixes": ["/enterprise_economy"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": [
+          "text/html",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/zip"
+        ],
+        "maximumBytes": 50000000,
+        "maximumArchiveEntries": 500,
+        "maximumDecompressionRatio": 50,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": [
+        "HTML_METADATA_ONLY_V1",
+        "TABULAR_REVIEW_REQUIRED_V1",
+        "ARCHIVE_INVENTORY_ONLY_V1"
+      ],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 2678400,
+        "maximumPublicationAgeSeconds": 5356800,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-OPEN_DATASET-DEFAULT",
+        "disposition": "RIGHTS_UNRESOLVED",
+        "sourceSpecificEvidence": [
+          "The official catalog and freshness policy are established; exact dataset reuse terms and attribution obligations are not yet bound."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Dataset-specific reuse and parser admission evidence are required."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.eec.grain-regulation",
+      "familyCode": "EEC_GRAIN_REGULATION_NOTICE",
+      "title": "Официальное сообщение ЕЭК по стандартам техрегламента на зерно",
+      "owner": "Евразийская экономическая комиссия",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "OFFICIAL_REGULATION",
+      "topics": ["GRAIN_QUALITY", "GRAIN_REGULATION"],
+      "systemCodes": [],
+      "evidenceRefs": [
+        "AP14D_CATALOG:official.eec.grain-regulation",
+        "AP14D_AUTHORITY:official.eec.grain-regulation"
+      ],
+      "transport": {
+        "officialUri": "https://eec.eaeunion.org/news/vstupaet-v-silu-obnovlennyy-perechen-standartov-k-tekhreglamentu-na-zerno/",
+        "hostPin": "eec.eaeunion.org",
+        "allowedHosts": ["eec.eaeunion.org"],
+        "pathPrefixes": ["/news/vstupaet-v-silu-obnovlennyy-perechen-standartov-k-tekhreglamentu-na-zerno/"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 1
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 31536000,
+        "maximumPublicationAgeSeconds": 63072000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-OFFICIAL_REGULATION-DEFAULT",
+        "disposition": "METADATA_ONLY",
+        "sourceSpecificEvidence": [
+          "Exact notice, publication context and effective-date authority are established; full-text shared indexing is not approved."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Only exact metadata and section citation are governed in this slice."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.rosselhoscenter.agronomy",
+      "familyCode": "ROSSELHOSCENTER_AGRONOMY_FORECAST",
+      "title": "Официальный фитосанитарный прогноз Россельхозцентра",
+      "owner": "ФГБУ Российский сельскохозяйственный центр",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "OFFICIAL_MANUAL",
+      "topics": ["AGRONOMY_RECOMMENDATIONS"],
+      "systemCodes": [],
+      "evidenceRefs": [
+        "AP14D_CATALOG:official.rosselhoscenter.agronomy",
+        "AP14D_AUTHORITY:official.rosselhoscenter.agronomy"
+      ],
+      "transport": {
+        "officialUri": "https://rosselhoscenter.ru/ob-uchrezhdenii/filialy/tsentralnyy-okrug/moskva/podgotovlen-fitosanitarnyy-prognoz-razvitiya-vrednykh-obektov-v-rf-na-2026-god/",
+        "hostPin": "rosselhoscenter.ru",
+        "allowedHosts": ["rosselhoscenter.ru"],
+        "pathPrefixes": ["/ob-uchrezhdenii/filialy/"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 1
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 31536000,
+        "maximumPublicationAgeSeconds": 34560000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-OFFICIAL_MANUAL-DEFAULT",
+        "disposition": "RIGHTS_UNRESOLVED",
+        "sourceSpecificEvidence": [
+          "Official institution, forecast context and freshness are established; complete forecast reuse and redistribution are not established."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Source-specific content reuse and acquisition acceptance remain required."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.fsvps.system-inventory",
+      "familyCode": "ROSSSELHOZNADZOR_SYSTEM_INVENTORY",
+      "title": "Официальный перечень информационных систем Россельхознадзора",
+      "owner": "Россельхознадзор",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "PUBLIC_REGISTRY",
+      "topics": ["REGULATORY_SYSTEM_INVENTORY"],
+      "systemCodes": ["FGIS_SATURN", "FGIS_ARGUS_FITO", "FGIS_VETIS"],
+      "evidenceRefs": ["PC_CROP_10A:RSHN_OFFICIAL_SYSTEMS"],
+      "transport": {
+        "officialUri": "https://fsvps.gov.ru/informacionnye-sistemy/",
+        "hostPin": "fsvps.gov.ru",
+        "allowedHosts": ["fsvps.gov.ru"],
+        "pathPrefixes": ["/informacionnye-sistemy/"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 2678400,
+        "maximumPublicationAgeSeconds": 31536000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-PUBLIC_REGISTRY-DEFAULT",
+        "disposition": "METADATA_ONLY",
+        "sourceSpecificEvidence": [
+          "The accepted inventory establishes system identity and official links; it does not authorize bulk registry enumeration."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "System metadata only; protected systems and cabinets remain outside the corpus."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.fsa.electronic-registries",
+      "familyCode": "ROSACCREDITATION_REGISTRY_DIRECTORY",
+      "title": "Официальный каталог электронных реестров Росаккредитации",
+      "owner": "Федеральная служба по аккредитации",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "PUBLIC_REGISTRY",
+      "topics": ["LABORATORY_ACCREDITATION", "CONFORMITY_DOCUMENTS"],
+      "systemCodes": [
+        "FGIS_ROSACCREDITATION",
+        "FSA_ACCREDITED_PERSONS_REGISTRY",
+        "FSA_CERTIFICATE_REGISTRY",
+        "FSA_DECLARATION_REGISTRY"
+      ],
+      "evidenceRefs": ["PC_CROP_10A:FSA_ELECTRONIC_REGISTRIES"],
+      "transport": {
+        "officialUri": "https://fsa.gov.ru/use-of-technology/elektronnye-reestry/",
+        "hostPin": "fsa.gov.ru",
+        "allowedHosts": ["fsa.gov.ru"],
+        "pathPrefixes": ["/use-of-technology/elektronnye-reestry/"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 2678400,
+        "maximumPublicationAgeSeconds": 31536000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-PUBLIC_REGISTRY-DEFAULT",
+        "disposition": "METADATA_ONLY",
+        "sourceSpecificEvidence": [
+          "Directory-level citation is supported; record enumeration, retention and redistribution rules require separate approval."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Anti-enumeration and field-level rights controls are not yet admitted."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.mintrans.rail-tariffs",
+      "familyCode": "MINTRANS_RAIL_TARIFF_DOCUMENT_DIRECTORY",
+      "title": "Официальный каталог документов Минтранса по железнодорожным тарифам",
+      "owner": "Министерство транспорта Российской Федерации",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "PUBLIC_REGISTRY",
+      "topics": ["LOGISTICS_TARIFFS"],
+      "systemCodes": [],
+      "evidenceRefs": ["AP14D_CATALOG:official.mintrans.rail-tariffs"],
+      "transport": {
+        "officialUri": "https://mintrans.gov.ru/activities/222/documents",
+        "hostPin": "mintrans.gov.ru",
+        "allowedHosts": ["mintrans.gov.ru"],
+        "pathPrefixes": ["/activities/222/documents", "/file/"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html", "application/pdf"],
+        "maximumBytes": 20000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1", "PDF_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 31536000,
+        "maximumPublicationAgeSeconds": 34560000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-PUBLIC_REGISTRY-DEFAULT",
+        "disposition": "RIGHTS_UNRESOLVED",
+        "sourceSpecificEvidence": [
+          "Official directory and document routes are established; complete document text reuse and redistribution are unapproved."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Document-level rights and PDF parser admission evidence are absent."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    },
+    {
+      "sourceId": "official.mintrans.gis-epd",
+      "familyCode": "MINTRANS_GIS_EPD_INFORMATION",
+      "title": "Официальная информация Минтранса о ГИС ЭПД и операторах ИС ЭПД",
+      "owner": "Министерство транспорта Российской Федерации",
+      "dataPlane": "PUBLIC_OFFICIAL",
+      "sourceClass": "OFFICIAL_MANUAL",
+      "topics": ["ELECTRONIC_TRANSPORT_DOCUMENTS"],
+      "systemCodes": ["GIS_EPD", "GIS_EPD_OPERATOR_REGISTRY"],
+      "evidenceRefs": ["PC_CROP_10A:MINTRANS_GIS_EPD"],
+      "transport": {
+        "officialUri": "https://mintrans.gov.ru/activities/214/376",
+        "hostPin": "mintrans.gov.ru",
+        "allowedHosts": ["mintrans.gov.ru"],
+        "pathPrefixes": ["/activities/214/376"],
+        "httpsOnly": true,
+        "publicDnsOnly": true,
+        "credentialsAllowed": false,
+        "cookiesAllowed": false,
+        "sameHostRedirectRequired": true,
+        "maximumRedirects": 2
+      },
+      "contentPolicy": {
+        "allowedMediaTypes": ["text/html"],
+        "maximumBytes": 5000000,
+        "maximumArchiveEntries": 0,
+        "maximumDecompressionRatio": 1,
+        "nestedArchivesAllowed": false,
+        "personalDataAllowed": false,
+        "credentialMaterialAllowed": false,
+        "cabinetMaterialAllowed": false,
+        "tenantOrContractDataAllowed": false
+      },
+      "parserProfileCodes": ["HTML_METADATA_ONLY_V1"],
+      "freshness": {
+        "expectedUpdateIntervalSeconds": 2678400,
+        "maximumPublicationAgeSeconds": 31536000,
+        "rightsReviewedAt": "2026-07-28",
+        "rightsReviewDueAt": "2026-10-28",
+        "availabilityAlarmAfterFailures": 2
+      },
+      "rights": {
+        "decisionRef": "AP14F0-OFFICIAL_MANUAL-DEFAULT",
+        "disposition": "METADATA_ONLY",
+        "sourceSpecificEvidence": [
+          "Official system and operator-registry information is established; no runtime/provider or full-text corpus permission is inferred."
+        ],
+        "attributionRequired": true,
+        "bulkCollectionAllowed": false,
+        "redistributionAllowed": false,
+        "sharedIndexAllowed": false,
+        "modelWeightsAllowed": false
+      },
+      "admission": {
+        "enabled": false,
+        "sourceFetchEnabled": false,
+        "parserExecutionEnabled": false,
+        "sharedRagAllowed": false,
+        "modelWeightsAllowed": false,
+        "statusReason": "Metadata-only governance; provider access and content acquisition remain disabled."
+      },
+      "quarantine": {
+        "defaultDisposition": "QUARANTINE",
+        "promptInjectionDisposition": "QUARANTINE",
+        "unsupportedMimeDisposition": "QUARANTINE",
+        "oversizeDisposition": "QUARANTINE",
+        "hostDriftDisposition": "QUARANTINE",
+        "rightsExpiryDisposition": "QUARANTINE"
+      }
+    }
+  ],
+  "forbiddenClaims": [
+    "CONNECTED",
+    "LIVE",
+    "TRAINED_ON",
+    "PRODUCTION_READY",
+    "LICENSED_FOR_REUSE",
+    "COMPLETE_COVERAGE"
+  ]
+}
