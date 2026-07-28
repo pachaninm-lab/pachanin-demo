@@ -75,6 +75,10 @@
     {
       "path": "0018_confirmation_denial_audit.sql",
       "version": 19
+    },
+    {
+      "path": "0019_public_official_corpus.sql",
+      "version": 20
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
