@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from threading import Event
 
 import pytest
 
@@ -12,6 +16,7 @@ from tai.model_runtime import (
     LocalModelProfile,
     ModelAttemptStatus,
     ModelCapability,
+    ModelCapacityExceeded,
     ModelProfileStatus,
     ModelRouteRequest,
     ModelRouteUnavailable,
@@ -19,6 +24,7 @@ from tai.model_runtime import (
     ModelRuntimeClass,
     ModelRuntimeHealth,
     ModelRuntimeStatus,
+    ProcessLocalModelCapacityGate,
     RoutedLocalModelGateway,
 )
 
@@ -230,6 +236,20 @@ class _Invoker:
         return outcome
 
 
+class _CountingCapacityGate:
+    def __init__(self) -> None:
+        self.admissions = 0
+        self.releases = 0
+
+    @contextmanager
+    def admit(self) -> Iterator[None]:
+        self.admissions += 1
+        try:
+            yield
+        finally:
+            self.releases += 1
+
+
 def test_gateway_uses_bounded_fallback_and_reports_actual_model() -> None:
     router = _router(
         (_profile("primary", priority=1), _profile("fallback", priority=2)),
@@ -238,7 +258,13 @@ def test_gateway_uses_bounded_fallback_and_reports_actual_model() -> None:
     invoker = _Invoker(
         {"primary": TimeoutError("timeout"), "fallback": " grounded result "}
     )
-    gateway = RoutedLocalModelGateway(router=router, invoker=invoker, timeout_seconds=12.0)
+    capacity_gate = _CountingCapacityGate()
+    gateway = RoutedLocalModelGateway(
+        router=router,
+        invoker=invoker,
+        capacity_gate=capacity_gate,
+        timeout_seconds=12.0,
+    )
 
     result = gateway.generate(
         " grounded prompt ",
@@ -256,6 +282,8 @@ def test_gateway_uses_bounded_fallback_and_reports_actual_model() -> None:
     )
     assert result.attempts[0].reason == "TimeoutError"
     assert invoker.calls == [("primary", 1_000, 12.0), ("fallback", 1_000, 12.0)]
+    assert capacity_gate.admissions == 1
+    assert capacity_gate.releases == 1
 
 
 def test_gateway_treats_empty_output_as_failure_and_fails_closed() -> None:
@@ -275,6 +303,132 @@ def test_gateway_treats_empty_output_as_failure_and_fails_closed() -> None:
             now=NOW,
             maximum_output_chars=1_000,
         )
+
+
+@pytest.mark.parametrize(
+    "first_outcome",
+    ["grounded result", " ", RuntimeError("broken")],
+)
+def test_gateway_releases_capacity_after_every_terminal_outcome(
+    first_outcome: str | Exception,
+) -> None:
+    router = _router((_profile("model"),), (_health("model"),))
+    invoker = _Invoker({"model": first_outcome})
+    gateway = RoutedLocalModelGateway(
+        router=router,
+        invoker=invoker,
+        capacity_gate=ProcessLocalModelCapacityGate(),
+    )
+
+    if first_outcome == "grounded result":
+        assert (
+            gateway.generate(
+                "grounded prompt",
+                request_id="request-1",
+                now=NOW,
+                maximum_output_chars=1_000,
+            ).text
+            == "grounded result"
+        )
+    else:
+        with pytest.raises(ModelRouteUnavailable):
+            gateway.generate(
+                "grounded prompt",
+                request_id="request-1",
+                now=NOW,
+                maximum_output_chars=1_000,
+            )
+
+    invoker.outcomes["model"] = "grounded result"
+    assert (
+        gateway.generate(
+            "grounded prompt",
+            request_id="request-2",
+            now=NOW,
+            maximum_output_chars=1_000,
+        ).text
+        == "grounded result"
+    )
+
+
+class _BlockingInvoker:
+    def __init__(self) -> None:
+        self.entered = Event()
+        self.release = Event()
+        self.calls = 0
+
+    def invoke(
+        self,
+        profile: LocalModelProfile,
+        prompt: str,
+        *,
+        maximum_output_chars: int,
+        timeout_seconds: float,
+    ) -> str:
+        del profile, prompt, maximum_output_chars, timeout_seconds
+        self.calls += 1
+        self.entered.set()
+        if not self.release.wait(timeout=5):
+            raise TimeoutError("test did not release blocking model invocation")
+        return "grounded result"
+
+
+def test_gateway_rejects_second_request_without_invoking_the_model() -> None:
+    router = _router((_profile("model"),), (_health("model"),))
+    invoker = _BlockingInvoker()
+    gateway = RoutedLocalModelGateway(
+        router=router,
+        invoker=invoker,
+        capacity_gate=ProcessLocalModelCapacityGate(maximum_inflight=1),
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        first = executor.submit(
+            gateway.generate,
+            "grounded prompt",
+            request_id="request-1",
+            now=NOW,
+            maximum_output_chars=1_000,
+        )
+        assert invoker.entered.wait(timeout=2)
+        with pytest.raises(ModelCapacityExceeded) as raised:
+            gateway.generate(
+                "grounded prompt",
+                request_id="request-2",
+                now=NOW,
+                maximum_output_chars=1_000,
+            )
+        assert raised.value.retry_after_seconds == 1
+        assert invoker.calls == 1
+        invoker.release.set()
+        assert first.result(timeout=2).text == "grounded result"
+
+
+def test_gateway_releases_capacity_when_routing_raises() -> None:
+    router = _router((_profile("model"),), (_health("model"),))
+    gateway = RoutedLocalModelGateway(
+        router=router,
+        invoker=_Invoker({"model": "grounded result"}),
+        capacity_gate=ProcessLocalModelCapacityGate(),
+    )
+
+    with pytest.raises(ModelRouteUnavailable):
+        gateway.generate(
+            "grounded prompt",
+            request_id="request-1",
+            now=NOW,
+            maximum_output_chars=10_000,
+        )
+
+    assert (
+        gateway.generate(
+            "grounded prompt",
+            request_id="request-2",
+            now=NOW,
+            maximum_output_chars=1_000,
+        ).text
+        == "grounded result"
+    )
 
 
 @pytest.mark.parametrize(
@@ -338,6 +492,12 @@ def test_gateway_validation() -> None:
     invoker = _Invoker({"model": "result"})
     with pytest.raises(ValueError, match="timeout_seconds"):
         RoutedLocalModelGateway(router=router, invoker=invoker, timeout_seconds=0)
+    with pytest.raises(ValueError, match="between 1 and 4"):
+        ProcessLocalModelCapacityGate(maximum_inflight=0)
+    with pytest.raises(ValueError, match="between 1 and 4"):
+        ProcessLocalModelCapacityGate(maximum_inflight=5)
+    with pytest.raises(ValueError, match="between 1 and 4"):
+        ProcessLocalModelCapacityGate(maximum_inflight=True)
     gateway = RoutedLocalModelGateway(router=router, invoker=invoker)
     with pytest.raises(ValueError, match="prompt"):
         gateway.generate(" ", request_id="request", now=NOW, maximum_output_chars=100)

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-19a-model-capacity-gate-3317",
+  "status": "active",
+  "programIssue": 2726,
+  "parentIssue": 2726,
+  "issue": 3317,
+  "baseCommit": "8251c00013b2e7644f74903583915635a43c48e9",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "process-local-model-invocation-capacity-protection-only",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-ap-19a-model-capacity-gate-3317.json",
+    "apps/tai/tai/model_runtime.py",
+    "apps/tai/tai/production_runtime.py",
+    "apps/tai/tai/rag_pipeline.py",
+    "apps/tai/tai/orchestration.py",
+    "apps/tai/tests/test_model_runtime.py",
+    "apps/tai/tests/test_production_runtime.py",
+    "apps/tai/tests/test_rag_pipeline.py",
+    "apps/tai/tests/test_api_orchestration.py"
+  ],
+  "boundaries": {
+    "internalQueueOrBlockingWait": false,
+    "hostWideOrDistributedCapacityClaim": false,
+    "defaultModelInflightAboveOne": false,
+    "modelActivationOrAdmission": false,
+    "benchmarkOrOperationalAcceptance": false,
+    "retrievalAuthorityChange": false,
+    "writeToolChange": false,
+    "productionTopologyChange": false,
+    "secondCapacityClaimForFallback": false
+  },
+  "acceptance": [
+    "production configuration defaults TAI_MODEL_MAX_INFLIGHT to one and accepts only integers from one through four",
+    "one process-local non-blocking capacity claim wraps routing plus every primary and fallback model attempt for one request",
+    "capacity is released after success, empty output and every exception",
+    "overload raises a dedicated capacity exception with retry_after_seconds equal to one",
+    "RAG re-raises capacity overload while preserving abstention for other model errors",
+    "orchestration returns retryable OVERLOADED as HTTP 429 with Retry-After",
+    "focused Ruff, strict mypy and pytest checks pass"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

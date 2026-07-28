@@ -26,6 +26,7 @@ from tai.knowledge_chunking import KnowledgeChunk
 from tai.main import create_app
 from tai.model_runtime import (
     ModelAttemptStatus,
+    ModelCapacityExceeded,
     ModelGenerationResult,
     ModelInvocationAttempt,
 )
@@ -83,6 +84,29 @@ class _Model:
         )
 
 
+class _CapacityOnceModel(_Model):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def generate(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        now: datetime,
+        maximum_output_chars: int,
+    ) -> ModelGenerationResult:
+        self.calls += 1
+        if self.calls == 1:
+            raise ModelCapacityExceeded()
+        return super().generate(
+            prompt,
+            request_id=request_id,
+            now=now,
+            maximum_output_chars=maximum_output_chars,
+        )
+
+
 class _Planner:
     def __init__(self, call: PlannedToolCall) -> None:
         self._call = call
@@ -117,6 +141,7 @@ def _runtime(
     *,
     planner: _Planner | None = None,
     handlers: dict[str, _Handler] | None = None,
+    model: _Model | None = None,
 ) -> TAIOrchestrationRuntime:
     index = InMemoryRetrievalIndexRepository()
     generation = index.begin_generation()
@@ -144,7 +169,7 @@ def _runtime(
         rag_pipeline=GroundedRAGPipeline(
             retrieval_service=RetrievalService(LexicalRetriever(index)),
             context_assembler=ContextAssembler(),
-            model_gateway=_Model(),
+            model_gateway=model if model is not None else _Model(),
         ),
         tool_planner=planner or NoToolPlanner(),
         tool_runtime=AgentToolRuntime(
@@ -248,6 +273,40 @@ def test_api_uses_signed_identity_and_unified_orchestration_runtime() -> None:
     assert body["model_id"] == "local-api-model"
     assert body["citations"][0]["source_id"] == "official-quality"
     assert body["replayed"] is False
+
+
+def test_api_returns_retryable_429_when_model_capacity_is_exhausted() -> None:
+    authority = HMACPlatformIdentityAuthority(IDENTITY_SECRET)
+    model = _CapacityOnceModel()
+    client = TestClient(
+        create_app(
+            runtime=_runtime(model=model),
+            identity_authority=authority,
+            now_provider=lambda: NOW,
+        )
+    )
+    payload = _payload()
+
+    response = client.post(
+        "/v1/platform/answer",
+        json=payload,
+        headers=_headers(authority, payload),
+    )
+
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "1"
+    assert response.json()["code"] == "OVERLOADED"
+    assert response.json()["retryable"] is True
+    assert response.json()["retry_after_seconds"] == 1
+
+    retry = client.post(
+        "/v1/platform/answer",
+        json=payload,
+        headers=_headers(authority, payload),
+    )
+    assert retry.status_code == 200
+    assert retry.json()["status"] == "ANSWERED"
+    assert model.calls == 2
 
 
 def test_api_rejects_missing_or_payload_rebound_identity() -> None:

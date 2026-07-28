@@ -18,6 +18,7 @@ from tai.model_runtime import (
     ModelRuntimeClass,
     ModelRuntimeHealth,
     ModelRuntimeStatus,
+    ProcessLocalModelCapacityGate,
 )
 from tai.production_runtime import (
     ModelEndpointBinding,
@@ -45,6 +46,9 @@ def test_production_config_is_strict_and_local_only() -> None:
         ModelEndpointBinding("agro", "r1", "http://model.svc/v1/chat/completions"),
     )
     assert config.identity_secret != config.confirmation_secret
+    assert config.model_maximum_inflight == 1
+    with pytest.raises(ProductionConfigurationError, match="model maximum inflight"):
+        __import__("dataclasses").replace(config, model_maximum_inflight=True)
 
     missing = _environment()
     del missing["TAI_DATABASE_URL"]
@@ -62,6 +66,28 @@ def test_production_config_is_strict_and_local_only() -> None:
     ]
     with pytest.raises(ProductionConfigurationError, match="must differ"):
         ProductionRuntimeConfig.from_environment(reused)
+
+
+@pytest.mark.parametrize("value", ["1", "4"])
+def test_production_config_accepts_bounded_model_inflight(value: str) -> None:
+    environment = _environment()
+    environment["TAI_MODEL_MAX_INFLIGHT"] = value
+
+    config = ProductionRuntimeConfig.from_environment(environment)
+
+    assert config.model_maximum_inflight == int(value)
+
+
+@pytest.mark.parametrize("value", ["0", "5", "one", "1.5"])
+def test_production_config_rejects_invalid_model_inflight(value: str) -> None:
+    environment = _environment()
+    environment["TAI_MODEL_MAX_INFLIGHT"] = value
+
+    with pytest.raises(
+        ProductionConfigurationError,
+        match="TAI_MODEL_MAX_INFLIGHT|model maximum inflight",
+    ):
+        ProductionRuntimeConfig.from_environment(environment)
 
 
 class _Cursor(AbstractContextManager["_Cursor"]):
@@ -202,13 +228,28 @@ def test_production_readiness_requires_schema_knowledge_and_local_model() -> Non
     assert "LOCAL_MODEL_UNAVAILABLE" in unavailable.reasons
 
 
-def test_production_builder_uses_durable_repositories_without_connecting_eagerly() -> None:
-    config = ProductionRuntimeConfig.from_environment(_environment())
+def test_production_builder_wires_configured_model_capacity_without_connecting_eagerly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    environment = _environment()
+    environment["TAI_MODEL_MAX_INFLIGHT"] = "4"
+    config = ProductionRuntimeConfig.from_environment(environment)
+    configured_limits: list[int] = []
+
+    def capacity_gate(maximum_inflight: int) -> ProcessLocalModelCapacityGate:
+        configured_limits.append(maximum_inflight)
+        return ProcessLocalModelCapacityGate(maximum_inflight)
+
+    monkeypatch.setattr(
+        "tai.production_runtime.ProcessLocalModelCapacityGate",
+        capacity_gate,
+    )
     bundle = build_production_runtime(
         config,
         connection_factory=_Factory([]),
         clock=lambda: NOW,
     )
+    assert configured_limits == [4]
     assert bundle.runtime is not None
     assert bundle.identity_authority is not None
     assert bundle.readiness_probe is not None

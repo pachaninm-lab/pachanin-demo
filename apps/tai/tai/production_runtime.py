@@ -30,6 +30,7 @@ from tai.model_runtime import (
     ModelCapability,
     ModelProfileStatus,
     ModelRouteRequest,
+    ProcessLocalModelCapacityGate,
     RoutedLocalModelGateway,
 )
 from tai.orchestration import (
@@ -104,6 +105,7 @@ class ProductionRuntimeConfig:
     allowed_model_hosts: frozenset[str] = frozenset({"localhost"})
     database_connect_timeout_seconds: int = 5
     model_timeout_seconds: float = 60.0
+    model_maximum_inflight: int = 1
     maximum_active_requests: int = 32
     requests_per_minute_per_scope: int = 120
     execution_lease_seconds: int = 300
@@ -125,6 +127,14 @@ class ProductionRuntimeConfig:
             raise ProductionConfigurationError("database timeout must be between 1 and 30")
         if not 1 <= self.model_timeout_seconds <= 600:
             raise ProductionConfigurationError("model timeout must be between 1 and 600")
+        if (
+            isinstance(self.model_maximum_inflight, bool)
+            or not isinstance(self.model_maximum_inflight, int)
+            or not 1 <= self.model_maximum_inflight <= 4
+        ):
+            raise ProductionConfigurationError(
+                "model maximum inflight must be between 1 and 4"
+            )
         if self.maximum_active_requests < 1:
             raise ProductionConfigurationError("maximum active requests must be positive")
         if self.requests_per_minute_per_scope < 1:
@@ -165,6 +175,7 @@ class ProductionRuntimeConfig:
                 source, "TAI_DATABASE_CONNECT_TIMEOUT_SECONDS", 5
             ),
             model_timeout_seconds=_number(source, "TAI_MODEL_TIMEOUT_SECONDS", 60.0),
+            model_maximum_inflight=_integer(source, "TAI_MODEL_MAX_INFLIGHT", 1),
             maximum_active_requests=_integer(source, "TAI_MAXIMUM_ACTIVE_REQUESTS", 32),
             requests_per_minute_per_scope=_integer(
                 source, "TAI_REQUESTS_PER_MINUTE_PER_SCOPE", 120
@@ -362,6 +373,7 @@ def build_production_runtime(
             endpoint_resolver=endpoint_resolver,
             endpoint_policy=endpoint_policy,
         ),
+        capacity_gate=ProcessLocalModelCapacityGate(config.model_maximum_inflight),
         timeout_seconds=config.model_timeout_seconds,
     )
     retrieval_repository = PostgreSQLRetrievalIndexRepository(database)
