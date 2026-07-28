@@ -358,54 +358,56 @@ def test_real_postgresql_blocks_silent_extension_and_withdrawal_revival() -> Non
     authority.activate_snapshot(snapshot_id)
     assert len(authority.active_documents(now=runtime_now)) == len(snapshot.chunks)
 
-    with pytest.raises(
-        psycopg.Error,
-        match="manifest does not match persisted chunks",
+    with (
+        pytest.raises(
+            psycopg.Error,
+            match="manifest does not match persisted chunks",
+        ),
+        psycopg.connect(database_url, row_factory=dict_row) as connection,
+        connection.transaction(),
     ):
-        with psycopg.connect(database_url, row_factory=dict_row) as connection:
-            with connection.transaction():
-                bad_snapshot = connection.execute(
-                    """
-                    INSERT INTO tai_public_corpus_snapshots (
-                        snapshot_sha256, status, created_at,
-                        source_ids, artifact_sha256s
-                    ) VALUES (%s, 'BUILDING', %s, %s, %s)
-                    RETURNING snapshot_id
-                    """,
-                    (
-                        "c" * 64,
-                        runtime_now,
-                        Jsonb(["official.invalid.source"]),
-                        Jsonb([provenance.content_sha256]),
-                    ),
-                ).fetchone()
-                assert bad_snapshot is not None
-                first_chunk = snapshot.chunks[0]
-                first_document = snapshot.retrieval_documents[0]
-                connection.execute(
-                    """
-                    INSERT INTO tai_public_corpus_chunks (
-                        snapshot_id, chunk_id, artifact_sha256, source_id,
-                        ordinal, chunk_text, token_estimate,
-                        trust_score, valid_until
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        bad_snapshot["snapshot_id"],
-                        first_chunk.chunk_id,
-                        first_chunk.document_checksum_sha256,
-                        first_chunk.source_id,
-                        first_chunk.ordinal,
-                        first_chunk.text,
-                        first_chunk.token_estimate,
-                        first_document.trust_score,
-                        first_document.valid_until,
-                    ),
-                )
-                connection.execute(
-                    "SELECT tai_activate_public_corpus_snapshot(%s)",
-                    (bad_snapshot["snapshot_id"],),
-                )
+        bad_snapshot = connection.execute(
+            """
+            INSERT INTO tai_public_corpus_snapshots (
+                snapshot_sha256, status, created_at,
+                source_ids, artifact_sha256s
+            ) VALUES (%s, 'BUILDING', %s, %s, %s)
+            RETURNING snapshot_id
+            """,
+            (
+                "c" * 64,
+                runtime_now,
+                Jsonb(["official.invalid.source"]),
+                Jsonb([provenance.content_sha256]),
+            ),
+        ).fetchone()
+        assert bad_snapshot is not None
+        first_chunk = snapshot.chunks[0]
+        first_document = snapshot.retrieval_documents[0]
+        connection.execute(
+            """
+            INSERT INTO tai_public_corpus_chunks (
+                snapshot_id, chunk_id, artifact_sha256, source_id,
+                ordinal, chunk_text, token_estimate,
+                trust_score, valid_until
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                bad_snapshot["snapshot_id"],
+                first_chunk.chunk_id,
+                first_chunk.document_checksum_sha256,
+                first_chunk.source_id,
+                first_chunk.ordinal,
+                first_chunk.text,
+                first_chunk.token_estimate,
+                first_document.trust_score,
+                first_document.valid_until,
+            ),
+        )
+        connection.execute(
+            "SELECT tai_activate_public_corpus_snapshot(%s)",
+            (bad_snapshot["snapshot_id"],),
+        )
 
     quarantine_id = uuid.uuid4()
     with psycopg.connect(database_url) as connection:
