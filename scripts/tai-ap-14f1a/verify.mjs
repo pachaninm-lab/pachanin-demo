@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../..');
+const scopePath = 'docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3345.json';
 const allowedPaths = [
   '.github/workflows/tai-ap-14f1a.yml',
   'apps/tai/tai/migrations/0019_public_official_corpus.sql',
@@ -15,7 +16,7 @@ const allowedPaths = [
   'apps/tai/tests/test_migration_manifest.py',
   'apps/tai/tests/test_postgres_public_official_corpus.py',
   'apps/tai/tests/test_public_official_corpus.py',
-  'docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3345.json',
+  scopePath,
   'scripts/tai-ap-14f1a/verify.mjs',
 ].sort();
 
@@ -34,6 +35,35 @@ function text(path) {
 function git(...args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 }
+
+const scope = JSON.parse(text(scopePath));
+assert(scope.schemaVersion === 'platform-v7.concurrent-scope.v1', 'scope schema changed');
+assert(scope.branch === 'agent/tai-ap-14f1a-exact-main-3345', 'scope branch mismatch');
+assert(scope.status === 'active', 'scope must remain active');
+assert(scope.issue === 3345, 'scope issue mismatch');
+assert(
+  scope.baseCommit === 'fcd0a372fb3a94ba36408479bd1b18f33b16c4e8',
+  'scope exact-main base changed',
+);
+assert(scope.productionHosting === 'REG_RU_VPS_ONLY', 'scope hosting boundary changed');
+assert(scope.operationalStatus === 'NOT_ATTESTED', 'scope maturity boundary changed');
+assert(Array.isArray(scope.allowedPaths), 'scope allowedPaths must be an array');
+assert(
+  JSON.stringify([...scope.allowedPaths].sort()) === JSON.stringify(allowedPaths),
+  'scope allowed paths changed',
+);
+assert(Object.values(scope.boundaries).every(Boolean), 'all scope boundaries must remain enabled');
+assert(scope.acceptance.exactHeadRequired === true, 'exact-head acceptance is required');
+assert(scope.acceptance.exactMainRequired === true, 'exact-main acceptance is required');
+assert(
+  scope.acceptance.exactMainCommitStatusRequired === true,
+  'observable exact-main commit status is required',
+);
+assert(scope.acceptance.mergeExpectedHeadRequired === true, 'expected-head merge is required');
+assert(scope.acceptance.reviewThreadsRequired === 0, 'review thread boundary changed');
+assert(scope.acceptance.changedPathCount === 11, 'governed path count changed');
+assert(scope.acceptance.migrationVersion === 21, 'scope migration version changed');
+assert(scope.acceptance.operationalStatus === 'NOT_ATTESTED', 'scope status changed');
 
 const manifest = JSON.parse(text('apps/tai/tai/migrations/manifest.json'));
 assert(
@@ -184,7 +214,10 @@ for (const token of [
   '0020_public_official_corpus_audit_authority.sql',
   'tai_public_corpus_audit_immutable_guard',
   'tai_public_corpus_audit_immutable',
-  'report.counts.changedPaths !== 11',
+  'statuses: write',
+  'TAI AP-14F1A exact-main',
+  'report.counts.changedPaths < 1',
+  'report.counts.changedPaths > 11',
   'report.counts.migrationVersion !== 21',
 ]) assert(workflow.includes(token), `workflow missing ${token}`);
 
@@ -193,15 +226,18 @@ const scopeIndex = process.argv.indexOf('--scope-guard');
 if (scopeIndex !== -1) {
   const base = process.argv[scopeIndex + 1];
   assert(base, '--scope-guard requires a base ref');
+  git('merge-base', '--is-ancestor', scope.baseCommit, 'HEAD');
   git('merge-base', '--is-ancestor', base, 'HEAD');
   changedPaths = git('diff', '--name-only', `${base}...HEAD`)
     .split('\n')
     .filter(Boolean)
     .sort();
-  assert(
-    JSON.stringify(changedPaths) === JSON.stringify(allowedPaths),
-    `scope mismatch: ${changedPaths.join(', ')}`,
-  );
+  assert(changedPaths.length > 0, 'scope diff must not be empty');
+  assert(new Set(changedPaths).size === changedPaths.length, 'scope diff must be unique');
+  for (const path of changedPaths) {
+    assert(allowedPaths.includes(path), `out-of-scope path changed: ${path}`);
+  }
+  assert(changedPaths.includes(scopePath), 'source-controlled scope manifest must be in the diff');
 }
 
 process.stdout.write(`${JSON.stringify({
