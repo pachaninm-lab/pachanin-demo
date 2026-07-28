@@ -133,8 +133,12 @@ def test_admit_source_and_artifact_use_fail_closed_conflict_predicates() -> None
     assert connection.rollbacks == 0
     admission_query, admission_parameters = connection.cursor_value.calls[0]
     artifact_query, artifact_parameters = connection.cursor_value.calls[1]
-    assert "data_plane = 'PUBLIC_OFFICIAL'" in admission_query
-    assert "rights_decision_id = EXCLUDED.rights_decision_id" in admission_query
+    normalized_admission_query = " ".join(admission_query.split())
+    assert "data_plane = 'PUBLIC_OFFICIAL'" in normalized_admission_query
+    assert (
+        "rights_decision_id = EXCLUDED.rights_decision_id"
+        in normalized_admission_query
+    )
     assert _admission().rights_decision_id in _parameters(admission_parameters)
     assert "official_uri = EXCLUDED.official_uri" in artifact_query
     assert DIGEST in _parameters(artifact_parameters)
