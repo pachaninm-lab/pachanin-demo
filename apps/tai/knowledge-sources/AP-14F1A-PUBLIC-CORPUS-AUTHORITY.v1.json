@@ -1,0 +1,215 @@
+{
+  "$schema": "./AP-14F1A-PUBLIC-CORPUS-AUTHORITY.schema.v1.json",
+  "schemaVersion": "tai.ap14f1a-public-corpus-authority.v1",
+  "authorityVersion": "1.0.0",
+  "generatedAt": "2026-07-28T18:25:00+00:00",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "dataPlane": "PUBLIC_OFFICIAL",
+  "postgresqlMajor": 16,
+  "migration": "apps/api/prisma/migrations/20260728182500_tai_ap14f1a_public_corpus_authority/migration.sql",
+  "roles": [
+    {
+      "code": "tai_knowledge_ingestor",
+      "loginAllowed": false,
+      "directDmlAllowed": false,
+      "controlledExecuteAllowed": true,
+      "retrievalReadAllowed": true
+    },
+    {
+      "code": "tai_knowledge_reader",
+      "loginAllowed": false,
+      "directDmlAllowed": false,
+      "controlledExecuteAllowed": false,
+      "retrievalReadAllowed": true
+    }
+  ],
+  "tables": [
+    {
+      "name": "tai_public_source_admissions",
+      "purpose": "Authoritative source identity, rights decision, review deadline and public-only admission state.",
+      "appendOnly": false,
+      "hardDeleteDenied": true,
+      "dataPlaneColumn": true
+    },
+    {
+      "name": "tai_public_source_versions",
+      "purpose": "Versioned publication/effective dates and exact locator bound to an admitted official source.",
+      "appendOnly": false,
+      "hardDeleteDenied": true,
+      "dataPlaneColumn": true
+    },
+    {
+      "name": "tai_public_source_artifacts",
+      "purpose": "Immutable digest-addressed artifact provenance and controlled retrieval eligibility state.",
+      "appendOnly": false,
+      "hardDeleteDenied": true,
+      "dataPlaneColumn": true
+    },
+    {
+      "name": "tai_public_corpus_quarantine_events",
+      "purpose": "Append-only quarantine and human release decisions with MFA and audit evidence.",
+      "appendOnly": true,
+      "hardDeleteDenied": true,
+      "dataPlaneColumn": false
+    },
+    {
+      "name": "tai_public_source_withdrawals",
+      "purpose": "Append-only withdrawal and restoration decisions that preserve all prior evidence.",
+      "appendOnly": true,
+      "hardDeleteDenied": true,
+      "dataPlaneColumn": false
+    },
+    {
+      "name": "tai_public_corpus_snapshots",
+      "purpose": "Versioned corpus snapshot manifest with BUILDING, SEALED and WITHDRAWN lifecycle.",
+      "appendOnly": false,
+      "hardDeleteDenied": true,
+      "dataPlaneColumn": true
+    },
+    {
+      "name": "tai_public_corpus_snapshot_members",
+      "purpose": "Immutable membership binding a sealed snapshot to an eligible artifact digest.",
+      "appendOnly": true,
+      "hardDeleteDenied": true,
+      "dataPlaneColumn": false
+    }
+  ],
+  "controlledFunctions": [
+    {
+      "name": "tai_knowledge.register_source",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.register_source_version",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.record_artifact",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.decide_artifact",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.record_withdrawal",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.create_snapshot",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.add_snapshot_member",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.seal_snapshot",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    },
+    {
+      "name": "tai_knowledge.withdraw_snapshot",
+      "securityDefiner": true,
+      "ingestorExecute": true,
+      "readerExecute": false,
+      "failClosed": true
+    }
+  ],
+  "retrievalView": {
+    "name": "tai_public_corpus_retrieval_entries",
+    "securityBarrier": true,
+    "requiresCurrentRights": true,
+    "excludesQuarantine": true,
+    "excludesWithdrawal": true,
+    "excludesUnsealedSnapshots": true
+  },
+  "stateMachines": [
+    {
+      "entity": "SOURCE",
+      "states": ["REVIEW_REQUIRED", "ADMITTED", "QUARANTINED", "WITHDRAWN"],
+      "initialState": "REVIEW_REQUIRED",
+      "terminalStates": ["WITHDRAWN"]
+    },
+    {
+      "entity": "SOURCE_VERSION",
+      "states": ["DRAFT", "ADMITTED", "QUARANTINED", "WITHDRAWN"],
+      "initialState": "DRAFT",
+      "terminalStates": ["WITHDRAWN"]
+    },
+    {
+      "entity": "ARTIFACT",
+      "states": ["QUARANTINED", "ADMITTED", "WITHDRAWN"],
+      "initialState": "QUARANTINED",
+      "terminalStates": ["WITHDRAWN"]
+    },
+    {
+      "entity": "SNAPSHOT",
+      "states": ["BUILDING", "SEALED", "WITHDRAWN"],
+      "initialState": "BUILDING",
+      "terminalStates": ["WITHDRAWN"]
+    }
+  ],
+  "invariants": [
+    "PUBLIC_OFFICIAL_DATA_PLANE_ONLY",
+    "LOWERCASE_SHA256_REQUIRED",
+    "HTTPS_OFFICIAL_LOCATOR_REQUIRED",
+    "HOST_PIN_REQUIRED",
+    "EXACT_ROW_PAGE_SECTION_LOCATOR_REQUIRED",
+    "CURRENT_RIGHTS_DECISION_REQUIRED",
+    "REVIEW_DUE_AFTER_REVIEWED_AT",
+    "SHARED_INDEX_DEFAULT_FALSE",
+    "MODEL_WEIGHTS_ALWAYS_FALSE",
+    "ARTIFACT_PROVENANCE_COMPLETE_BEFORE_ADMISSION",
+    "MALWARE_MIME_AND_PROMPT_INJECTION_CHECKS_REQUIRED",
+    "QUARANTINE_ATOMICALLY_REVOKES_RETRIEVAL",
+    "WITHDRAWAL_ATOMICALLY_REVOKES_RETRIEVAL",
+    "RESTORE_REQUIRES_CURRENT_RIGHTS",
+    "SEALED_SNAPSHOT_MEMBERS_ELIGIBLE_ONLY",
+    "DIRECT_DML_REVOKED_FROM_RUNTIME_ROLES",
+    "HARD_DELETE_DENIED_FOR_ALL_AUTHORITY_TABLES",
+    "IDEMPOTENT_DUPLICATE_AND_CONFLICT_REJECTION",
+    "IMMUTABLE_AUDIT_AND_EVIDENCE_HISTORY",
+    "UNSUPPORTED_OR_STALE_MATERIAL_ABSTAINS"
+  ],
+  "forbiddenCapabilities": [
+    "SOURCE_FETCH",
+    "REAL_SOURCE_ADMISSION",
+    "CORPUS_PARSE",
+    "CHUNKING",
+    "EMBEDDING",
+    "VECTOR_INDEX",
+    "CABINET_ACCESS",
+    "CREDENTIAL_STORAGE",
+    "TENANT_LIVE_DATA",
+    "CONTRACTED_DATA",
+    "MODEL_TRAINING",
+    "EXTERNAL_WRITE",
+    "PRODUCTION_DEPLOYMENT",
+    "CONNECTED_LIVE_TRAINED_CLAIM"
+  ]
+}
