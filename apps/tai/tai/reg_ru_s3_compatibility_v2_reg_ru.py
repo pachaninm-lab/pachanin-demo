@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
 
 from tai import reg_ru_s3_compatibility_v2 as verifier
 
@@ -54,10 +53,7 @@ def validate_reg_ru_bucket_configuration(
 def install_reg_ru_location_semantics() -> None:
     """Install the narrow provider adapter before the existing v2 main executes."""
 
-    validator: Callable[[object, object, object, str], dict[str, object]] = (
-        validate_reg_ru_bucket_configuration
-    )
-    setattr(verifier, "_validate_bucket_configuration", validator)
+    verifier._validate_bucket_configuration = validate_reg_ru_bucket_configuration
 
 
 def main(argv: list[str] | None = None) -> int:
