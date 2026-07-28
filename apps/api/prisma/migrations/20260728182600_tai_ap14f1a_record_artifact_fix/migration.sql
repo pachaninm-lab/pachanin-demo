@@ -1,5 +1,81 @@
 BEGIN;
 
+CREATE OR REPLACE FUNCTION tai_knowledge.register_source(
+  p_id text,
+  p_source_code text,
+  p_source_class text,
+  p_official_url text,
+  p_host_pin text,
+  p_rights_decision_id text,
+  p_rights_status text,
+  p_rights_reviewed_at date,
+  p_rights_review_due_at date,
+  p_audit_event_reference text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+  v_existing tai_public_source_admissions%ROWTYPE;
+  v_status text;
+  v_shared boolean;
+BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('tai.ap14f1a.source:' || p_source_code, 0)
+  );
+
+  IF p_rights_review_due_at <= p_rights_reviewed_at THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'rights review due date must be later than reviewed date';
+  END IF;
+
+  IF p_rights_status = 'ALLOWED_SHARED_RAG' AND p_rights_review_due_at >= current_date THEN
+    v_status := 'ADMITTED';
+    v_shared := true;
+  ELSIF p_rights_status = 'FORBIDDEN' THEN
+    v_status := 'QUARANTINED';
+    v_shared := false;
+  ELSE
+    v_status := 'REVIEW_REQUIRED';
+    v_shared := false;
+  END IF;
+
+  SELECT * INTO v_existing
+  FROM public.tai_public_source_admissions
+  WHERE source_code = p_source_code
+  FOR UPDATE;
+
+  IF FOUND THEN
+    IF v_existing.id = p_id
+      AND v_existing.source_class = p_source_class
+      AND v_existing.official_url = p_official_url
+      AND v_existing.host_pin = p_host_pin
+      AND v_existing.rights_decision_id = p_rights_decision_id
+      AND v_existing.rights_status = p_rights_status
+      AND v_existing.rights_reviewed_at = p_rights_reviewed_at
+      AND v_existing.rights_review_due_at = p_rights_review_due_at
+      AND v_existing.audit_event_reference = p_audit_event_reference
+    THEN
+      RETURN v_existing.id;
+    END IF;
+    RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'conflicting source registration';
+  END IF;
+
+  INSERT INTO public.tai_public_source_admissions (
+    id, source_code, source_class, data_plane, official_url, host_pin,
+    rights_decision_id, rights_status, rights_reviewed_at, rights_review_due_at,
+    status, shared_index_allowed, model_weights_allowed, audit_event_reference
+  ) VALUES (
+    p_id, p_source_code, p_source_class, 'PUBLIC_OFFICIAL', p_official_url, p_host_pin,
+    p_rights_decision_id, p_rights_status, p_rights_reviewed_at, p_rights_review_due_at,
+    v_status, v_shared, false, p_audit_event_reference
+  );
+
+  RETURN p_id;
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION tai_knowledge.record_artifact(
   p_id text,
   p_source_version_id text,
@@ -95,7 +171,9 @@ BEGIN
 END
 $function$;
 
+REVOKE ALL ON FUNCTION tai_knowledge.register_source(text, text, text, text, text, text, text, date, date, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION tai_knowledge.record_artifact(text, text, text, text, bigint, text, text, text, date, date, timestamptz, text, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION tai_knowledge.register_source(text, text, text, text, text, text, text, date, date, text) TO tai_knowledge_ingestor;
 GRANT EXECUTE ON FUNCTION tai_knowledge.record_artifact(text, text, text, text, bigint, text, text, text, date, date, timestamptz, text, text, text) TO tai_knowledge_ingestor;
 
 COMMIT;
