@@ -1,0 +1,741 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin.example/schemas/tai-ap-14f1b-source-admission.schema.v1.json",
+  "title": "TAI AP-14F1B source-specific public official admission registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "registryVersion",
+    "generatedAt",
+    "evidenceCutoff",
+    "dependencyCommit",
+    "operationalStatus",
+    "productionHosting",
+    "authorityBindings",
+    "globalPolicy",
+    "parserProfiles",
+    "sources",
+    "forbiddenClaims"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "./AP-14F1B-SOURCE-ADMISSION.schema.v1.json"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "tai.ap14f1b-source-admission.v1"
+    },
+    "registryVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidenceCutoff": {
+      "type": "string",
+      "format": "date"
+    },
+    "dependencyCommit": {
+      "type": "string",
+      "const": "fcd0a372fb3a94ba36408479bd1b18f33b16c4e8"
+    },
+    "operationalStatus": {
+      "type": "string",
+      "const": "NOT_ATTESTED"
+    },
+    "productionHosting": {
+      "type": "string",
+      "const": "REG_RU_VPS_ONLY"
+    },
+    "authorityBindings": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/authorityBinding"
+      }
+    },
+    "globalPolicy": {
+      "$ref": "#/$defs/globalPolicy"
+    },
+    "parserProfiles": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/parserProfile"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "forbiddenClaims": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "CONNECTED",
+          "LIVE",
+          "TRAINED_ON",
+          "PRODUCTION_READY",
+          "LICENSED_FOR_REUSE",
+          "COMPLETE_COVERAGE"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "authorityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "path", "gitBlobSha1", "role"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "AP14F0_KNOWLEDGE_AUTHORITY",
+            "AP14D_OFFICIAL_SOURCE_CATALOG",
+            "AP14D_SOURCE_AUTHORITY",
+            "PC_CROP_10A_GOVERNMENT_SYSTEMS"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 240
+        },
+        "gitBlobSha1": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "RIGHTS_BOUNDARY",
+            "SOURCE_CATALOG",
+            "SOURCE_SPECIFIC_AUTHORITY",
+            "SYSTEM_AND_LOCATOR_INVENTORY"
+          ]
+        }
+      }
+    },
+    "globalPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultDisposition",
+        "networkFetchEnabled",
+        "sharedRagEnabled",
+        "modelWeightsAllowed",
+        "credentialsAllowed",
+        "protectedCabinetAccessAllowed",
+        "httpsOnly",
+        "publicDnsOnly",
+        "sameHostRedirectRequired",
+        "maximumRedirects",
+        "antiEnumerationRequiredForRegistries",
+        "unsupportedOrStaleMustAbstain",
+        "rightsReviewAlarmRequired",
+        "availabilityAlarmRequired",
+        "quarantineReasons"
+      ],
+      "properties": {
+        "defaultDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        },
+        "networkFetchEnabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "sharedRagEnabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "modelWeightsAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "credentialsAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "protectedCabinetAccessAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "httpsOnly": {
+          "type": "boolean",
+          "const": true
+        },
+        "publicDnsOnly": {
+          "type": "boolean",
+          "const": true
+        },
+        "sameHostRedirectRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "maximumRedirects": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "antiEnumerationRequiredForRegistries": {
+          "type": "boolean",
+          "const": true
+        },
+        "unsupportedOrStaleMustAbstain": {
+          "type": "boolean",
+          "const": true
+        },
+        "rightsReviewAlarmRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "availabilityAlarmRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "quarantineReasons": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "RIGHTS_UNRESOLVED",
+              "RIGHTS_EXPIRED",
+              "PROVENANCE_INCOMPLETE",
+              "HOST_MISMATCH",
+              "DIGEST_MISMATCH",
+              "FRESHNESS_EXPIRED",
+              "PRIVACY_OR_SECRET",
+              "TENANT_OR_CONTRACT_DATA",
+              "MIME_OR_SIZE_POLICY",
+              "CONTENT_SAFETY",
+              "PARSER_FAILURE",
+              "WITHDRAWN_SOURCE"
+            ]
+          }
+        }
+      }
+    },
+    "parserProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "executionEnabled",
+        "mediaTypes",
+        "extractionMode",
+        "activeContentAllowed",
+        "externalRelationshipsAllowed",
+        "nestedArchivesAllowed",
+        "promptInstructionDisposition",
+        "maximumInputBytes",
+        "maximumArchiveEntries",
+        "maximumDecompressionRatio"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]{8,80}$"
+        },
+        "executionEnabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "mediaTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "text/html",
+              "text/plain",
+              "application/json",
+              "application/xml",
+              "text/xml",
+              "application/pdf",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/zip"
+            ]
+          }
+        },
+        "extractionMode": {
+          "type": "string",
+          "enum": [
+            "METADATA_ONLY",
+            "TEXT_REVIEW_REQUIRED",
+            "TABULAR_REVIEW_REQUIRED",
+            "ARCHIVE_INVENTORY_ONLY"
+          ]
+        },
+        "activeContentAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "externalRelationshipsAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "nestedArchivesAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "promptInstructionDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        },
+        "maximumInputBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 50000000
+        },
+        "maximumArchiveEntries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "maximumDecompressionRatio": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "familyCode",
+        "title",
+        "owner",
+        "dataPlane",
+        "sourceClass",
+        "topics",
+        "systemCodes",
+        "evidenceRefs",
+        "transport",
+        "contentPolicy",
+        "parserProfileCodes",
+        "freshness",
+        "rights",
+        "admission",
+        "quarantine"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{4,160}$"
+        },
+        "familyCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]{5,96}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 300
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 300
+        },
+        "dataPlane": {
+          "type": "string",
+          "const": "PUBLIC_OFFICIAL"
+        },
+        "sourceClass": {
+          "type": "string",
+          "enum": [
+            "OFFICIAL_MANUAL",
+            "OFFICIAL_REGULATION",
+            "OPEN_DATASET",
+            "PUBLIC_REGISTRY"
+          ]
+        },
+        "topics": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{4,96}$"
+          }
+        },
+        "systemCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{3,96}$"
+          }
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(AP14D_CATALOG|AP14D_AUTHORITY|PC_CROP_10A):[A-Za-z0-9._-]{3,160}$"
+          }
+        },
+        "transport": {
+          "$ref": "#/$defs/transport"
+        },
+        "contentPolicy": {
+          "$ref": "#/$defs/contentPolicy"
+        },
+        "parserProfileCodes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{8,80}$"
+          }
+        },
+        "freshness": {
+          "$ref": "#/$defs/freshness"
+        },
+        "rights": {
+          "$ref": "#/$defs/rights"
+        },
+        "admission": {
+          "$ref": "#/$defs/admission"
+        },
+        "quarantine": {
+          "$ref": "#/$defs/quarantine"
+        }
+      }
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "officialUri",
+        "hostPin",
+        "allowedHosts",
+        "pathPrefixes",
+        "httpsOnly",
+        "publicDnsOnly",
+        "credentialsAllowed",
+        "cookiesAllowed",
+        "sameHostRedirectRequired",
+        "maximumRedirects"
+      ],
+      "properties": {
+        "officialUri": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "hostPin": {
+          "type": "string",
+          "pattern": "^[a-z0-9.-]{4,253}$"
+        },
+        "allowedHosts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]{4,253}$"
+          }
+        },
+        "pathPrefixes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^/"
+          }
+        },
+        "httpsOnly": {
+          "type": "boolean",
+          "const": true
+        },
+        "publicDnsOnly": {
+          "type": "boolean",
+          "const": true
+        },
+        "credentialsAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "cookiesAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "sameHostRedirectRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "maximumRedirects": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    },
+    "contentPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowedMediaTypes",
+        "maximumBytes",
+        "maximumArchiveEntries",
+        "maximumDecompressionRatio",
+        "nestedArchivesAllowed",
+        "personalDataAllowed",
+        "credentialMaterialAllowed",
+        "cabinetMaterialAllowed",
+        "tenantOrContractDataAllowed"
+      ],
+      "properties": {
+        "allowedMediaTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "text/html",
+              "text/plain",
+              "application/json",
+              "application/xml",
+              "text/xml",
+              "application/pdf",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/zip"
+            ]
+          }
+        },
+        "maximumBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 50000000
+        },
+        "maximumArchiveEntries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "maximumDecompressionRatio": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "nestedArchivesAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "personalDataAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "credentialMaterialAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "cabinetMaterialAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "tenantOrContractDataAllowed": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectedUpdateIntervalSeconds",
+        "maximumPublicationAgeSeconds",
+        "rightsReviewedAt",
+        "rightsReviewDueAt",
+        "availabilityAlarmAfterFailures"
+      ],
+      "properties": {
+        "expectedUpdateIntervalSeconds": {
+          "type": "integer",
+          "minimum": 3600,
+          "maximum": 63072000
+        },
+        "maximumPublicationAgeSeconds": {
+          "type": "integer",
+          "minimum": 86400,
+          "maximum": 63072000
+        },
+        "rightsReviewedAt": {
+          "type": "string",
+          "format": "date"
+        },
+        "rightsReviewDueAt": {
+          "type": "string",
+          "format": "date"
+        },
+        "availabilityAlarmAfterFailures": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisionRef",
+        "disposition",
+        "sourceSpecificEvidence",
+        "attributionRequired",
+        "bulkCollectionAllowed",
+        "redistributionAllowed",
+        "sharedIndexAllowed",
+        "modelWeightsAllowed"
+      ],
+      "properties": {
+        "decisionRef": {
+          "type": "string",
+          "pattern": "^AP14F0-[A-Z0-9_-]{5,96}$"
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "METADATA_ONLY",
+            "RIGHTS_UNRESOLVED",
+            "ALLOWED_SHARED_RAG",
+            "WITHDRAWN"
+          ]
+        },
+        "sourceSpecificEvidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 300
+          }
+        },
+        "attributionRequired": {
+          "type": "boolean"
+        },
+        "bulkCollectionAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "redistributionAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "sharedIndexAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "modelWeightsAllowed": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "sourceFetchEnabled",
+        "parserExecutionEnabled",
+        "sharedRagAllowed",
+        "modelWeightsAllowed",
+        "statusReason"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "sourceFetchEnabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "parserExecutionEnabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "sharedRagAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "modelWeightsAllowed": {
+          "type": "boolean",
+          "const": false
+        },
+        "statusReason": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 400
+        }
+      }
+    },
+    "quarantine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultDisposition",
+        "promptInjectionDisposition",
+        "unsupportedMimeDisposition",
+        "oversizeDisposition",
+        "hostDriftDisposition",
+        "rightsExpiryDisposition"
+      ],
+      "properties": {
+        "defaultDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        },
+        "promptInjectionDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        },
+        "unsupportedMimeDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        },
+        "oversizeDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        },
+        "hostDriftDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        },
+        "rightsExpiryDisposition": {
+          "type": "string",
+          "const": "QUARANTINE"
+        }
+      }
+    }
+  }
+}
