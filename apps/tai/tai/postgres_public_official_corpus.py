@@ -42,7 +42,7 @@ class PostgreSQLPublicOfficialCorpusAuthority:
               AND tai_public_corpus_source_admissions.host_pin = EXCLUDED.host_pin
             RETURNING source_id
         """
-        row = self._execute_returning(
+        self._execute_required_returning(
             query,
             (
                 admission.source_id,
@@ -55,9 +55,8 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                 admission.trust_score,
                 admission.status.value,
             ),
+            "source admission conflicts with immutable authority",
         )
-        if row is None:
-            raise RuntimeError("source admission conflicts with immutable authority")
 
     def record_artifact(self, provenance: PublicArtifactProvenance) -> None:
         query = """
@@ -86,7 +85,7 @@ class PostgreSQLPublicOfficialCorpusAuthority:
               AND tai_public_corpus_artifacts.locator_value = EXCLUDED.locator_value
             RETURNING artifact_sha256
         """
-        row = self._execute_returning(
+        self._execute_required_returning(
             query,
             (
                 provenance.content_sha256,
@@ -108,9 +107,8 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                 provenance.period_start,
                 provenance.period_end,
             ),
+            "artifact digest conflicts with immutable provenance",
         )
-        if row is None:
-            raise RuntimeError("artifact digest conflicts with immutable provenance")
 
     def persist_snapshot(self, snapshot: PublicCorpusSnapshot) -> int:
         insert_snapshot = """
@@ -252,16 +250,19 @@ class PostgreSQLPublicOfficialCorpusAuthority:
                 connection.rollback()
                 raise
 
-    def _execute_returning(
+    def _execute_required_returning(
         self,
         query: str,
         parameters: Sequence[Any],
-    ) -> Mapping[str, Any] | None:
+        conflict_message: str,
+    ) -> Mapping[str, Any]:
         with self._connection_factory() as connection:
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(query, parameters)
                     row = cursor.fetchone()
+                    if row is None:
+                        raise RuntimeError(conflict_message)
                 connection.commit()
                 return row
             except Exception:
