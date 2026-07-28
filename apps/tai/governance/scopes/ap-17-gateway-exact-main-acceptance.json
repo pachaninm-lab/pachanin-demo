@@ -24,6 +24,7 @@
     "apps/tai/tests/test_industrial_gap_report.py",
     "apps/tai/tests/test_model_source_acquisition_driver.py",
     "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/app/globals.css",
     "apps/web/app/platform-v7/template.tsx",
     "apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts",
     "apps/web/tsconfig.json",
@@ -38,7 +39,7 @@
     "the canonical form agrees byte for byte with the authority that produced the digest",
     "each new acceptance check is proven able to fail by a test that removes the property",
     "no production feature flag is enabled and no admission record is fabricated",
-    "the owner-removal suppression survives ordering without a forced-importance keyword"
+    "the removed public block stays hidden while the governed route template renders nothing of its own"
   ],
   "forbidden_capabilities": [
     "enabling any gateway production feature flag",
