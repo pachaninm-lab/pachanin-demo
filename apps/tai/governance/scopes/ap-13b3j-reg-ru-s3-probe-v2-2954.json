@@ -14,7 +14,8 @@
     "apps/tai/model-artifacts/reg-ru-s3-compatibility-runbook.v2.md",
     "apps/tai/tai/reg_ru_s3_compatibility_v2.py",
     "apps/tai/tests/test_reg_ru_s3_compatibility_v2.py",
-    "apps/tai/tests/test_reg_ru_s3_compatibility_v2_edges.py"
+    "apps/tai/tests/test_reg_ru_s3_compatibility_v2_edges.py",
+    "apps/tai/tests/test_reg_ru_s3_compatibility_v2_threshold.py"
   ],
   "forbidden_capabilities": [
     "GitHub Actions workflow, repository secret registration or unattended execution",
