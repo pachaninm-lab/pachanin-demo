@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 
 from tai.public_official_corpus import (
+    AuthorityAuditContext,
     PublicArtifactProvenance,
     PublicCorpusArtifact,
     PublicOfficialCorpusBuilder,
@@ -60,6 +61,28 @@ def provenance(**changes: object) -> PublicArtifactProvenance:
 def artifact(**changes: object) -> PublicCorpusArtifact:
     value = PublicCorpusArtifact(provenance=provenance(), normalized_text=TEXT)
     return replace(value, **changes)
+
+
+def test_audit_context_is_normalized_and_fail_closed() -> None:
+    audit = AuthorityAuditContext(
+        actor_id=" compliance-1 ",
+        reason_code=" source_rights_approved ",
+        created_at=NOW,
+    )
+    assert audit.actor_id == "compliance-1"
+    assert audit.reason_code == "SOURCE_RIGHTS_APPROVED"
+    assert audit.created_at == NOW
+
+    with pytest.raises(ValueError, match="actor_id"):
+        AuthorityAuditContext(actor_id=" ", reason_code="VALID", created_at=NOW)
+    with pytest.raises(ValueError, match="reason_code"):
+        AuthorityAuditContext(actor_id="actor", reason_code="bad reason", created_at=NOW)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        AuthorityAuditContext(
+            actor_id="actor",
+            reason_code="VALID",
+            created_at=NOW.replace(tzinfo=None),
+        )
 
 
 def test_builds_deterministic_public_snapshot_and_shared_retrieval_documents() -> None:
