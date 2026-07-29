@@ -5,7 +5,7 @@
   "status": "active",
   "issue": 3372,
   "baseCommit": "aa0583eef4a3d70a0810992a2d115811a6a97d0d",
-  "operationalStatus": "ROLLBACK_AND_LIVE_UI_ACCEPTANCE_IMPLEMENTED_PENDING_EXACT_HEAD_GATES",
+  "operationalStatus": "ROLLBACK_AND_LIVE_UI_ACCEPTANCE_EXACT_HEAD_GATES_RUNNING",
   "maturityBoundary": "release-trigger-and-fail-closed-activation-only",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
