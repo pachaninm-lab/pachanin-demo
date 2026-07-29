@@ -8,8 +8,8 @@ import pytest
 import tai.rosstat_vshp2016254 as rosstat
 from tai.rosstat_vshp2016254 import (
     ATTRIBUTION,
-    DATASET_CODE,
     DATA_URI,
+    DATASET_CODE,
     HISTORICAL_LABEL,
     RosstatVshp2016254Materializer,
 )
@@ -34,13 +34,19 @@ def _payloads(*, compact: bool = False) -> tuple[bytes, bytes, bytes]:
     structure = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Structure xmlns="{MESSAGE_NS}" xmlns:structure="{STRUCTURE_NS}" xmlns:common="{COMMON_NS}">
   <Header><ID>7708234640-VSHP2016-254</ID></Header>
-  <Structures><structure:CodeLists><structure:CodeList id="REGION"/></structure:CodeLists></Structures>
+  <Structures>
+    <structure:CodeLists><structure:CodeList id="REGION"/></structure:CodeLists>
+  </Structures>
 </Structure>""".encode()
     if compact:
         data = f"""<?xml version="1.0" encoding="UTF-8"?>
 <CompactData xmlns="{MESSAGE_NS}" xmlns:compact="{COMPACT_NS}">
   <Header><ID>7708234640-VSHP2016-254</ID></Header>
-  <DataSet><compact:Series REGION="RU" CATEGORY="ALL"><compact:Obs TIME_PERIOD="2016" OBS_VALUE="123.45"/></compact:Series></DataSet>
+  <DataSet>
+    <compact:Series REGION="RU" CATEGORY="ALL">
+      <compact:Obs TIME_PERIOD="2016" OBS_VALUE="123.45"/>
+    </compact:Series>
+  </DataSet>
 </CompactData>""".encode()
     else:
         data = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -213,8 +219,9 @@ def test_rejects_non_sdmx_data_actual_xsd_and_accepts_bomless_utf16(
         )
 
     fake_xsd = (
-        '<?xml version="1.0"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>'
-    ).encode()
+        b'<?xml version="1.0"?>'
+        b'<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>'
+    )
     monkeypatch.setattr(rosstat, "STRUCTURE_SHA256", _sha(fake_xsd))
     monkeypatch.setattr(rosstat, "DATA_SHA256", _sha(data))
     with pytest.raises(
