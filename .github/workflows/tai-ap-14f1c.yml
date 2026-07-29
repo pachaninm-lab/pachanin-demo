@@ -33,7 +33,7 @@ env:
 
 jobs:
   exact-resource-evidence:
-    name: Exact URLs · pinned DNS · immutable digests
+    name: Exact routes · pinned DNS · governed integrity
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -85,6 +85,7 @@ jobs:
         env:
           ROOT_CERT_URL: https://gu-st.ru/content/Other/doc/russian_trusted_root_ca.cer
           ROOT_CERT_SHA256_FINGERPRINT: d2:6d:2d:02:31:b7:c3:9f:92:cc:73:85:12:ba:54:10:35:19:e4:40:5d:68:b5:bd:70:3e:97:88:ca:8e:cf:31
+          SUB_CERT_SHA256_FINGERPRINT: 21:55:78:50:36:c9:00:db:b5:f1:bb:2a:15:69:c8:0c:55:59:5b:d6:bf:94:86:7a:29:bb:dd:bc:7d:88:a3:f2
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR" /tmp/rosstat-ca
@@ -99,6 +100,8 @@ jobs:
             fi
           }
 
+          # Bootstrap only: the downloaded object is accepted solely after exact SHA-256
+          # fingerprint verification and self-signature validation below.
           curl --silent --show-error --fail \
             --insecure \
             --proto '=https' \
@@ -144,6 +147,12 @@ jobs:
           done
           test "$sub_downloaded" = true
           convert_certificate /tmp/rosstat-ca/sub.cer /tmp/rosstat-ca/sub.pem
+          sub_fingerprint="$(
+            openssl x509 -in /tmp/rosstat-ca/sub.pem -noout -fingerprint -sha256 \
+              | cut -d= -f2 \
+              | tr 'A-F' 'a-f'
+          )"
+          test "$sub_fingerprint" = "$SUB_CERT_SHA256_FINGERPRINT"
           openssl x509 -in /tmp/rosstat-ca/sub.pem -noout -subject -issuer -nameopt RFC2253 \
             | tee "$EVIDENCE_DIR/rosstat-sub-identity.txt"
           grep -F 'CN=Russian Trusted Sub CA' "$EVIDENCE_DIR/rosstat-sub-identity.txt"
@@ -181,7 +190,7 @@ jobs:
           chmod 0600 /tmp/rosstat-ca/ca-bundle.pem
           printf 'CURL_CA_BUNDLE=%s\n' '/tmp/rosstat-ca/ca-bundle.pem' >> "$GITHUB_ENV"
 
-      - name: Controlled exact-resource acquisition
+      - name: Controlled governed-resource acquisition
         id: acquisition
         continue-on-error: true
         shell: bash
@@ -202,28 +211,36 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Enforce pinned evidence before admission
+      - name: Enforce governed integrity before admission
         shell: bash
         env:
           ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}
         run: |
           set -euo pipefail
           if [[ "$ACQUISITION_OUTCOME" != "success" ]]; then
-            echo "Exact Rosstat bytes were observed and evidence uploaded, but all SHA-256 values are not pinned yet or acquisition failed." >&2
+            echo "Rosstat acquisition failed closed; inspect the uploaded immutable evidence." >&2
             exit 1
           fi
           node - <<'NODE'
           const fs = require('node:fs');
           const evidence = JSON.parse(fs.readFileSync('artifacts/tai-ap-14f1c/rosstat-resource-evidence.json', 'utf8'));
           if (evidence.exactHead !== process.env.EXACT_HEAD) throw new Error('exact-head evidence mismatch');
-          if (!evidence.allDigestsPinned) throw new Error('resource digests are not pinned');
+          if (!evidence.allIntegritySatisfied) throw new Error('resource integrity is not satisfied');
+          if (evidence.failure !== null) throw new Error('resource evidence contains a failure');
           if (evidence.rawBytesPersisted !== false || evidence.sharedRagAllowed !== false) {
             throw new Error('evidence boundary mismatch');
           }
-          if (evidence.resources.length !== 4 || evidence.resources.some((item) => !item.digestMatched)) {
-            throw new Error('resource evidence is incomplete');
+          if (evidence.resources.length !== 5 || evidence.resources.some((item) => !item.integrityMatched)) {
+            throw new Error('resource integrity evidence is incomplete');
           }
-          console.log('TAI AP-14F1C exact resource evidence = success');
+          const modes = evidence.resources.reduce((counts, item) => {
+            counts[item.integrityMode] = (counts[item.integrityMode] || 0) + 1;
+            return counts;
+          }, {});
+          if (modes.EXACT_BYTES !== 3 || modes.SEMANTIC_MARKER_SET !== 2) {
+            throw new Error('resource integrity-mode distribution mismatch');
+          }
+          console.log('TAI AP-14F1C governed resource integrity = success');
           NODE
 
   exact-main-status:
@@ -243,6 +260,6 @@ jobs:
               sha: process.env.EXACT_HEAD,
               state: 'success',
               context: 'TAI AP-14F1C exact-main',
-              description: 'Exact Rosstat dataset evidence accepted',
+              description: 'Exact Rosstat governed integrity accepted',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });
