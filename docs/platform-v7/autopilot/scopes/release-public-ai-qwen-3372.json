@@ -5,14 +5,15 @@
   "status": "active",
   "issue": 3372,
   "baseCommit": "aa0583eef4a3d70a0810992a2d115811a6a97d0d",
-  "operationalStatus": "COMMENT_ONLY_EXACT_MAIN_RELEASE_TRIGGER_PENDING_GATES",
-  "maturityBoundary": "release-trigger-only-no-runtime-behavior-change",
+  "operationalStatus": "ROLLBACK_AND_LIVE_UI_ACCEPTANCE_PATCHING",
+  "maturityBoundary": "release-trigger-and-fail-closed-activation-only",
   "allowedPaths": [
+    ".github/workflows/release-public-ai-qwen-3372-patch.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/next.config.js",
     "docs/platform-v7/autopilot/scopes/release-public-ai-qwen-3372.json"
   ],
   "forbiddenPaths": [
-    ".github/workflows/**",
     "apps/api/**",
     "apps/web/app/**",
     "apps/web/components/**",
@@ -33,14 +34,15 @@
     "productionDeployment": true
   },
   "requiredEvidence": [
-    "The implementation changes exactly this scope file and one comment in the already watched Next.js configuration",
-    "The JavaScript AST and emitted runtime behavior remain unchanged",
+    "The release trigger remains comment-only and changes no emitted application runtime behavior",
+    "Activation snapshots the prior Qwen env and compose override before mutation",
+    "Any failed activation, SSE or live browser acceptance restores the previous exact API/web images and Qwen environment",
+    "Live Chromium opens the public assistant and proves the clean PR #3369 UI, compact empty state, integrated composer and successful submitted answer",
     "All exact-head CI, web, security, runtime and production-like Kubernetes gates pass",
     "The resulting merge SHA is current main before activation",
     "TAI Restricted Qwen REG.RU Activation deploys exact API, web and migration images",
     "Authenticated API-to-private-model inference passes",
     "Live public RU, EN and ZH SSE responses pass",
-    "The clean public AI window from PR #3369 is visible in production",
     "No private model address or secret is exposed",
     "Permanent AP-13D admission remains NOT_ATTESTED"
   ],
