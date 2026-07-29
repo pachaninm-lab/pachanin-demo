@@ -121,6 +121,7 @@ jobs:
           print('PRIVILEGE_PATCH_GENERATED=1')
           PY
 
+          git add -N docs/platform-v7/autopilot/scopes/fix-qwen-privileged-shell-3372-5.json
           git diff --check
           changed="$(git diff --name-only | sort)"
           expected="$(printf '%s\n' \
