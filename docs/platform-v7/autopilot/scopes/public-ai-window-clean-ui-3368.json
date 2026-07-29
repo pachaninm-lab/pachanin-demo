@@ -3,10 +3,9 @@
   "branch": "agent/public-ai-window-clean-ui",
   "status": "active",
   "issue": 3368,
-  "baseCommit": "e1f22f4f4247d3115ab3af167a7d79f937485d27",
-  "operationalStatus": "UI_ONLY_SYNCING_TO_CURRENT_MAIN",
+  "baseCommit": "1136c38f67e0a4a41cef1903dadf334a22b7f4a6",
+  "operationalStatus": "UI_ONLY_SYNCED_TO_CURRENT_MAIN_PENDING_FINAL_GATES",
   "allowedPaths": [
-    ".github/workflows/public-ai-window-current-main-sync.yml",
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/styles/platform-v7-public-assistant.css",
     "apps/web/styles/platform-v7-public-assistant-mobile-fix.css",
