@@ -31,8 +31,8 @@ jobs:
           main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
           find_run(){
             local workflow="$1"
-            gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&per_page=50" \
-              --jq --arg sha "$main_sha" '[.workflow_runs[] | select(.head_sha == $sha)][0] // {}'
+            gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&per_page=50" |
+              jq -c --arg sha "$main_sha" '[.workflow_runs[] | select(.head_sha == $sha)][0] // {}'
           }
           activation="$(find_run tai-restricted-qwen-reg-ru-activation.yml)"
           images="$(find_run docker-publish.yml)"
