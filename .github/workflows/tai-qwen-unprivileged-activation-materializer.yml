@@ -67,6 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 <<'PY'
+          import re
           from pathlib import Path
 
           path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
@@ -174,35 +175,46 @@ jobs:
               raise SystemExit('FINAL_MATERIALIZER_FAIL=REMOTE_USER_ANCHOR')
           text = text.replace(old_remote, new_remote, 1)
 
-          old_trigger = '''              const trigger = page.locator('.pc-public-assistant-shortcut');
-                await trigger.waitFor({ state: 'visible', timeout: 30000 });
-                await trigger.click();
-          '''
-          new_trigger = '''              const trigger = page.locator('.pc-public-contact-dock-assistant');
-                await trigger.waitFor({ state: 'attached', timeout: 30000 });
-                if (!(await trigger.isVisible())) {
-                  await page.evaluate(() => window.scrollTo({ top: 180, behavior: 'instant' }));
-                  await page.waitForTimeout(250);
-                  await page.evaluate(() => window.scrollTo({ top: 150, behavior: 'instant' }));
-                  await page.waitForTimeout(350);
-                }
-                await trigger.waitFor({ state: 'visible', timeout: 30000 });
-                await trigger.click();
-          '''
-          if text.count(old_trigger) != 1:
+          trigger_pattern = re.compile(
+              r"(?m)^(?P<indent>[ \t]*)const trigger = page\.locator\('\.pc-public-assistant-shortcut'\);\n"
+              r"(?P=indent)await trigger\.waitFor\(\{ state: 'visible', timeout: 30000 \}\);\n"
+              r"(?P=indent)await trigger\.click\(\);$"
+          )
+          trigger_match = trigger_pattern.search(text)
+          if not trigger_match:
               raise SystemExit('FINAL_MATERIALIZER_FAIL=UI_TRIGGER_ANCHOR')
-          text = text.replace(old_trigger, new_trigger, 1)
+          indent = trigger_match.group('indent')
+          trigger_replacement = '\n'.join([
+              f"{indent}const trigger = page.locator('.pc-public-contact-dock-assistant');",
+              f"{indent}await trigger.waitFor({{ state: 'attached', timeout: 30000 }});",
+              f"{indent}if (!(await trigger.isVisible())) {{",
+              f"{indent}  await page.evaluate(() => window.scrollTo({{ top: 180, behavior: 'instant' }}));",
+              f"{indent}  await page.waitForTimeout(250);",
+              f"{indent}  await page.evaluate(() => window.scrollTo({{ top: 150, behavior: 'instant' }}));",
+              f"{indent}  await page.waitForTimeout(350);",
+              f"{indent}}}",
+              f"{indent}await trigger.waitFor({{ state: 'visible', timeout: 30000 }});",
+              f"{indent}await trigger.click();",
+          ])
+          text, trigger_count = trigger_pattern.subn(lambda _: trigger_replacement, text, count=1)
+          if trigger_count != 1:
+              raise SystemExit('FINAL_MATERIALIZER_FAIL=UI_TRIGGER_REPLACE')
 
-          old_evidence = """                viewport: '390x844',
-                status: 'PASS',
-          """
-          new_evidence = """                viewport: '390x844',
-                entryPoint: 'public-contact-dock-assistant',
-                status: 'PASS',
-          """
-          if text.count(old_evidence) != 1:
+          evidence_pattern = re.compile(
+              r"(?m)^(?P<indent>[ \t]*)viewport: '390x844',\n(?P=indent)status: 'PASS',$"
+          )
+          evidence_match = evidence_pattern.search(text)
+          if not evidence_match:
               raise SystemExit('FINAL_MATERIALIZER_FAIL=EVIDENCE_ANCHOR')
-          text = text.replace(old_evidence, new_evidence, 1)
+          evidence_indent = evidence_match.group('indent')
+          evidence_replacement = '\n'.join([
+              f"{evidence_indent}viewport: '390x844',",
+              f"{evidence_indent}entryPoint: 'public-contact-dock-assistant',",
+              f"{evidence_indent}status: 'PASS',",
+          ])
+          text, evidence_count = evidence_pattern.subn(lambda _: evidence_replacement, text, count=1)
+          if evidence_count != 1:
+              raise SystemExit('FINAL_MATERIALIZER_FAIL=EVIDENCE_REPLACE')
 
           path.write_text(text, encoding='utf-8')
           PY
