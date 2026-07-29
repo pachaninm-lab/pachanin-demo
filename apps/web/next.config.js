@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Operational release trigger for issue #3372; emitted runtime behavior is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
