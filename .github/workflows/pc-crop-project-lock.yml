@@ -25,7 +25,10 @@ jobs:
       startsWith(github.head_ref, 'agent/pc-crop-') ||
       startsWith(github.head_ref, 'fix/pc-crop-') ||
       startsWith(github.head_ref, 'governance/pc-crop-') ||
-      startsWith(github.head_ref, 'ops/pc-crop-')
+      startsWith(github.head_ref, 'ops/pc-crop-') ||
+      startsWith(github.head_ref, 'agent/qwen-recovery-') ||
+      startsWith(github.head_ref, 'fix/qwen-recovery-') ||
+      startsWith(github.head_ref, 'ops/qwen-recovery-')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
