@@ -75,6 +75,7 @@ const nextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        { source: '/api/public-platform-assistant', destination: '/api/restricted-public-platform-assistant' },
         { source: '/sw.js', destination: '/pc-public-entry/sw-recovery' },
         { source: '/platform-v7', destination: '/pc-public-entry/platform-v7' },
         { source: '/platform-v7/login', destination: '/pc-public-entry/platform-v7/login' },
