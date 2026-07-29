@@ -6,7 +6,7 @@
   "projectLockId": "PC-CROP-REMAINDER",
   "issue": 3389,
   "activeSlice": "PC-CROP-10B",
-  "baseCommit": "043f9273e36c2fa534565582f2e248dafd61b818",
+  "baseCommit": "b48d9baac6f68c20ce96e0551a2a66e568536b40",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "project-governance-only",
   "allowedPaths": [
