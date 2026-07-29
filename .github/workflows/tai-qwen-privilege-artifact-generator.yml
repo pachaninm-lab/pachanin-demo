@@ -1,0 +1,98 @@
+name: TAI Qwen Privilege Patch Artifact Generator
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/tai-qwen-privilege-artifact-generator.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-artifact:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'ops/generate-qwen-privilege-fix-3372-5'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact modified files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          base_sha="$(git rev-parse origin/main)"
+          git checkout --detach "$base_sha"
+          python3 - "$base_sha" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+
+          base_sha = sys.argv[1]
+          nl = chr(10)
+          bsn = chr(92) + 'n'
+          activation_path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          repair_path = Path('.github/workflows/tai-qwen-model-host-repair.yml')
+
+          activation_lines = activation_path.read_text(encoding='utf-8').splitlines()
+          needle = '          api_key="$(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" "$remote")"'
+          hits = [i for i, line in enumerate(activation_lines) if line == needle]
+          if len(hits) != 1:
+              raise SystemExit(f'ACTIVATION_PATCH_ANCHOR_COUNT={len(hits)}')
+          i = hits[0]
+          activation_lines[i:i + 1] = [
+              "          privileged_shell='if [ \"$(id -u)\" -eq 0 ]; then exec bash -s; fi",
+              '          if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then exec sudo -n bash -s; fi',
+              f'          printf "%s{bsn}" "MODEL_PREFLIGHT_FAIL=PRIVILEGED_SHELL_UNAVAILABLE" >&2',
+              "          exit 30'",
+              "          api_key=\"$(printf '%s" + bsn + "' \"$remote\" | ssh -i \"$HOME/.ssh/id_tai_model\" -p \"$MODEL_SSH_PORT\" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=\"$HOME/.ssh/model_known_hosts\" -o StrictHostKeyChecking=yes \"$MODEL_USER@$MODEL_HOST\" \"$privileged_shell\")\"",
+          ]
+          activation_path.write_text(nl.join(activation_lines) + nl, encoding='utf-8')
+
+          repair_lines = repair_path.read_text(encoding='utf-8').splitlines()
+          needle = '            "$MODEL_USER@$MODEL_HOST" \'bash -s\' 2>&1 <<\'REMOTE\' | tee "$repair_log"'
+          hits = [i for i, line in enumerate(repair_lines) if line == needle]
+          if len(hits) != 1:
+              raise SystemExit(f'REPAIR_PATCH_ANCHOR_COUNT={len(hits)}')
+          i = hits[0]
+          repair_lines[i] = '            "$MODEL_USER@$MODEL_HOST" \'if [ "$(id -u)" -eq 0 ]; then exec bash -s; fi; if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then exec sudo -n bash -s; fi; printf "%s' + bsn + '" "MODEL_REPAIR_FAIL=PRIVILEGED_SHELL_UNAVAILABLE" >&2; exit 30\' 2>&1 <<\'REMOTE\' | tee "$repair_log"'
+          repair_path.write_text(nl.join(repair_lines) + nl, encoding='utf-8')
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/fix-qwen-privileged-shell-3372-5.json')
+          scope = {
+              'schemaVersion': 'platform-v7.concurrent-scope.v1',
+              'id': 'PUBLIC-AI-QWEN-PRIVILEGED-SHELL-FIX-3372-5',
+              'branch': 'ops/fix-qwen-privileged-shell-3372-5',
+              'status': 'active',
+              'issue': 3372,
+              'baseCommit': base_sha,
+              'operationalStatus': 'NON_ROOT_MODEL_SSH_PRIVILEGE_FIX_PENDING_EXACT_HEAD_GATES',
+              'maturityBoundary': 'model-host-ssh-privilege-adapter-only',
+              'allowedPaths': [str(repair_path), str(activation_path), str(scope_path)],
+              'forbiddenPaths': ['apps/**', 'packages/**', 'prisma/**', 'infra/**', 'production credentials'],
+              'boundaries': {'runtimeBusinessBehaviorChange': False, 'authorizationChange': False, 'tenantOrDealBoundaryChange': False, 'modelAdmissionChange': False, 'securityGateDisabled': False, 'acceptanceGateWeakened': False, 'productionDeployment': True},
+              'requiredEvidence': ['Configured model SSH user may be root or a passwordless-sudo administrator', 'Remote model commands execute as root only through a bounded fail-closed privilege adapter', 'No SSH secret, model API key or environment content is disclosed', 'Repair still requires exact private listener and authenticated health before activation dispatch', 'Activation retains exact-image deployment, rollback, RU/EN/ZH SSE and Chromium acceptance', 'Production hosting remains REG_RU_VPS_ONLY', 'Permanent AP-13D admission remains NOT_ATTESTED'],
+              'productionHosting': 'REG_RU_VPS_ONLY',
+          }
+          scope_path.parent.mkdir(parents=True, exist_ok=True)
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + nl, encoding='utf-8')
+          PY
+          git diff --check
+
+      - name: Upload modified files
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-privileged-shell-patch-${{ github.event.pull_request.head.sha }}
+          path: |
+            .github/workflows/tai-qwen-model-host-repair.yml
+            .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+            docs/platform-v7/autopilot/scopes/fix-qwen-privileged-shell-3372-5.json
+          if-no-files-found: error
+          retention-days: 7
