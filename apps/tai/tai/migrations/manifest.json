@@ -21,9 +21,7 @@
     {"path": "0018_confirmation_denial_audit.sql", "version": 19},
     {"path": "0019_public_official_corpus.sql", "version": 20},
     {"path": "0020_public_official_corpus_audit_authority.sql", "version": 21},
-    {"path": "0021_public_official_acquisition_authority.sql", "version": 22},
-    {"path": "0022_rosstat_vshp2016254_snapshot.sql", "version": 23},
-    {"path": "0023_rosstat_vshp2016254_source_admission.sql", "version": 24}
+    {"path": "0021_public_official_acquisition_authority.sql", "version": 22}
   ],
   "schema_version": "tai.migration.manifest.v1"
 }
