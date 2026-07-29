@@ -1,0 +1,174 @@
+name: QWEN Recovery Exact Images and Activation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-qwen-unprivileged-activation-materializer.yml'
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter BUILD-AND-ACTIVATE-RESTRICTED-QWEN
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  actions: write
+  issues: write
+
+concurrency:
+  group: qwen-recovery-exact-images-and-activation
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        github.event_name == 'push' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner &&
+          inputs.confirmation == 'BUILD-AND-ACTIVATE-RESTRICTED-QWEN'
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.sha }}'
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure exact API web and migration images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+
+          image_ready() {
+            local component="$1"
+            local image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+            docker pull "$image" >/dev/null 2>&1 || return 1
+            local revision
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+            [[ "$revision" == "$TARGET_SHA" ]]
+          }
+
+          missing=0
+          for component in api web migration; do
+            image_ready "$component" || missing=1
+          done
+
+          if (( missing == 1 )); then
+            payload="$(jq -n --arg ref main '{ref:$ref,inputs:{services:"all"}}')"
+            gh api --method POST \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/docker-publish.yml/dispatches" \
+              --input - <<<"$payload"
+          fi
+
+          for attempt in $(seq 1 240); do
+            git fetch --no-tags origin main
+            [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]] || {
+              echo 'Current main moved during exact-image publication.' >&2
+              exit 20
+            }
+            ready=1
+            for component in api web migration; do
+              image_ready "$component" || ready=0
+            done
+            if (( ready == 1 )); then
+              echo 'Exact API, web and migration images are available.'
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo 'Exact canonical images were not published before timeout.' >&2
+          exit 21
+
+      - name: Dispatch accepted REG.RU activation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          payload="$(jq -n \
+            --arg ref main \
+            --arg target "$TARGET_SHA" \
+            '{ref:$ref,inputs:{target_sha:$target,confirmation:"ACTIVATE-RESTRICTED-QWEN-REG-RU"}}')"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
+            --input - <<<"$payload"
+
+          marker="<!-- qwen-recovery-exact-images-dispatched:${TARGET_SHA} -->"
+          if ! gh api "repos/$GITHUB_REPOSITORY/issues/3372/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+            body="$RUNNER_TEMP/qwen-recovery-dispatch.md"
+            {
+              printf '%s\n' "$marker"
+              printf '%s\n' "Exact canonical API/web/migration images are available for main \`$TARGET_SHA\`."
+              printf '%s\n' 'The accepted REG.RU Qwen activation workflow has been dispatched.'
+              printf '%s\n' 'Completion remains gated on authenticated API-to-model inference, RU/EN/ZH SSE and Chromium UI acceptance.'
+            } > "$body"
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          fi
+
+      - name: Wait for authoritative activation observer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 420); do
+            git fetch --no-tags origin main
+            [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]] || {
+              echo 'Current main moved before activation acceptance completed.' >&2
+              exit 30
+            }
+            state="$(
+              gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA/status" \
+                --jq '[.statuses[] | select(.context == "TAI Restricted Qwen REG.RU Activation exact-main")][0].state // ""'
+            )"
+            case "$state" in
+              success)
+                echo 'Authoritative REG.RU Qwen activation PASS recorded.'
+                exit 0
+                ;;
+              failure|error)
+                echo "Authoritative REG.RU Qwen activation recorded $state." >&2
+                exit 31
+                ;;
+            esac
+            sleep 15
+          done
+          echo 'Activation observer did not publish a terminal status before timeout.' >&2
+          exit 32
