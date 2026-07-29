@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PUBLIC-AI-QWEN-UNPRIVILEGED-PROBE-3372-7",
+  "branch": "ops/qwen-unprivileged-probe-3372-7",
+  "status": "temporary",
+  "issue": 3372,
+  "baseCommit": "b48d9baac6f68c20ce96e0551a2a66e568536b40",
+  "operationalStatus": "READ_ONLY_MODEL_USER_CAPABILITY_PROBE_PENDING",
+  "maturityBoundary": "read-only-diagnostics-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-unprivileged-probe.yml",
+    "docs/platform-v7/autopilot/scopes/qwen-unprivileged-probe-3372-7.json"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": false
+  },
+  "requiredEvidence": [
+    "Probe is read-only and runs only on its temporary exact branch",
+    "No secret value, API key, process environment, private key or username is printed",
+    "Only boolean service, listener, key-source and authenticated-health capabilities are retained",
+    "No production deployment or activation is dispatched",
+    "Temporary branch and PR are closed without merge after evidence extraction"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
