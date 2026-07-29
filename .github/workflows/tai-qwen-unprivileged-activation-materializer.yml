@@ -241,9 +241,11 @@ jobs:
           rm -f .github/workflows/tai-qwen-unprivileged-activation-materializer.yml
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "$BASE_SHA"
-          git reset --soft "$BASE_SHA"
-          git add -A
+          git reset --mixed "$BASE_SHA"
+          git add .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          test ! -e .github/workflows/tai-qwen-unprivileged-activation-materializer.yml
           mapfile -t changed < <(git diff --cached --name-only)
+          printf 'CLEAN_CHANGED=%s\n' "${changed[*]}"
           test "${#changed[@]}" -eq 1
           test "${changed[0]}" = '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
           git diff --cached --check
