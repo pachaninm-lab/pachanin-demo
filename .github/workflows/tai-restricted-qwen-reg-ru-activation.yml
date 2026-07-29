@@ -571,9 +571,13 @@ jobs:
               }, targetSha);
               if (manifest.commitSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifest.commitSha}`);
 
-              const trigger = page.locator('.pc-public-assistant-shortcut');
-              await trigger.waitFor({ state: 'visible', timeout: 30000 });
-              await trigger.click();
+              const dockTrigger = page.locator('.pc-public-contact-dock-assistant');
+              await page.evaluate(() => window.scrollTo(0, 260));
+              await page.waitForTimeout(250);
+              await page.evaluate(() => window.scrollTo(0, 160));
+              await dockTrigger.waitFor({ state: 'visible', timeout: 30000 });
+              if (!(await dockTrigger.isEnabled())) throw new Error('contact_dock_assistant_disabled');
+              await dockTrigger.click();
 
               const dialog = page.locator('#pc-public-assistant-panel');
               await dialog.waitFor({ state: 'visible', timeout: 30000 });
