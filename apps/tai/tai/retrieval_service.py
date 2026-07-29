@@ -69,6 +69,7 @@ class RetrievalService:
         text: str,
         tenant_id: str | None,
         now: datetime,
+        source_ids: frozenset[str] | None = None,
         minimum_trust_score: float = 0.5,
     ) -> RetrievalResponse:
         normalized_request_id = request_id.strip()
@@ -79,6 +80,7 @@ class RetrievalService:
             text=text,
             tenant_id=tenant_id,
             now=now,
+            source_ids=source_ids,
             minimum_trust_score=minimum_trust_score,
             limit=self._budget.max_results,
         )
