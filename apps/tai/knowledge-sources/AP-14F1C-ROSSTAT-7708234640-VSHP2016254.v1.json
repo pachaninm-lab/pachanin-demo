@@ -1,6 +1,6 @@
 {
   "schemaVersion": "tai.ap14f1c-rosstat-dataset.v1",
-  "manifestVersion": "1.2.0",
+  "manifestVersion": "1.2.1",
   "datasetCode": "7708234640-VSHP2016254",
   "sourceId": "official.rosstat.opendata.7708234640-vshp2016254",
   "parentCandidateSourceId": "official.rosstat.agriculture",
@@ -104,13 +104,14 @@
       "evidenceState": "PINNED"
     },
     {
-      "code": "STRUCTURE_XSD",
+      "code": "SDMX_STRUCTURE_XML",
+      "sourceFilename": "structure-20181211T0212.xsd",
       "uri": "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/structure-20181211T0212.xsd",
       "path": "/opendata/7708234640-VSHP2016254/structure-20181211T0212.xsd",
       "allowedMediaTypes": ["application/xml", "text/xml", "application/octet-stream"],
       "maximumBytes": 5000000,
       "integrityMode": "EXACT_BYTES",
-      "actualContentModel": "SDMX_2_0_STRUCTURE_DOCUMENT_NOT_W3C_XML_SCHEMA",
+      "observedContentProfile": "SDMX_2_0_STRUCTURE_XML",
       "expectedSha256": "c969338269a3dcf2b2e4949685e7e75d86e8ef587289df95fedd9a1054ddc2bc",
       "observedSizeBytes": 29287,
       "evidenceState": "PINNED"
