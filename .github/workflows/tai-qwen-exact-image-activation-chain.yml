@@ -1,0 +1,166 @@
+name: TAI Qwen Exact Image Activation Chain
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-qwen-exact-image-activation-chain.yml'
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter BUILD-AND-ACTIVATE-RESTRICTED-QWEN
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+concurrency:
+  group: tai-qwen-exact-image-activation-chain
+  cancel-in-progress: false
+
+jobs:
+  chain:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        github.event_name == 'push' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner &&
+          inputs.confirmation == 'BUILD-AND-ACTIVATE-RESTRICTED-QWEN'
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve immutable target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.sha }}'
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          test "$target" = "$(git rev-parse HEAD)"
+          test "$target" = "$(git rev-parse origin/main)"
+          {
+            echo "sha=$target"
+            echo "short=${target:0:7}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Cancel only superseded Qwen activation runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for status in in_progress queued; do
+            while IFS=$'\t' read -r run_id head_sha; do
+              [[ "$run_id" =~ ^[0-9]+$ ]] || continue
+              [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]] || continue
+              [[ "$head_sha" != "$TARGET_SHA" ]] || continue
+              gh api --method POST \
+                "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/cancel" >/dev/null 2>&1 || true
+            done < <(
+              gh api \
+                "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/runs?branch=main&status=$status&per_page=100" \
+                --jq '.workflow_runs[] | [.id, .head_sha] | @tsv'
+            )
+          done
+
+      - name: Dispatch canonical exact-SHA image publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$TARGET_SHA" = "$(git rev-parse origin/main)"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/docker-publish.yml/dispatches" \
+            -f ref=main \
+            -f 'inputs[services]=all' >/dev/null
+
+      - name: Dispatch accepted REG.RU Qwen activation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$TARGET_SHA" = "$(git rev-parse origin/main)"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
+            -f ref=main \
+            -f "inputs[target_sha]=$TARGET_SHA" \
+            -f 'inputs[confirmation]=ACTIVATE-RESTRICTED-QWEN-REG-RU' >/dev/null
+
+      - name: Verify activation run was created
+        id: activation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=''
+          run_url=''
+          for attempt in $(seq 1 30); do
+            row="$(
+              gh api \
+                "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/runs?branch=main&event=workflow_dispatch&per_page=30" \
+                --jq ".workflow_runs[] | select(.head_sha == \"$TARGET_SHA\") | [.id, .html_url] | @tsv" |
+                head -1
+            )"
+            if [[ -n "$row" ]]; then
+              IFS=$'\t' read -r run_id run_url <<< "$row"
+              break
+            fi
+            sleep 2
+          done
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          [[ "$run_url" == https://github.com/*/actions/runs/"$run_id" ]]
+          {
+            echo "run_id=$run_id"
+            echo "run_url=$run_url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record exact chain dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RUN_ID: ${{ steps.activation.outputs.run_id }}
+          RUN_URL: ${{ steps.activation.outputs.run_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker="<!-- qwen-exact-image-activation-chain:${TARGET_SHA}:${RUN_ID} -->"
+          if ! gh api "repos/$GITHUB_REPOSITORY/issues/3372/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+            body="$RUNNER_TEMP/qwen-chain.md"
+            {
+              printf '%s\n' "$marker"
+              printf '%s\n' "Exact-SHA recovery chain dispatched for \`$TARGET_SHA\`."
+              printf '\n'
+              printf '%s\n' '- Canonical API/web/migration image publication: dispatched from `docker-publish.yml`.'
+              printf '%s\n' "- REG.RU activation and live acceptance: $RUN_URL"
+              printf '%s\n' '- No live-success claim is allowed until the activation observer records SUCCESS.'
+            } > "$body"
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          fi
