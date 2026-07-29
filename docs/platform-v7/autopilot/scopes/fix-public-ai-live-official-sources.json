@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ai-live-official-sources",
+  "status": "active",
+  "purpose": "Connect the anonymous local Qwen assistant to governed read-only official agricultural evidence for changing facts, expose structured citations, and fail closed when current evidence is unavailable.",
+  "approvedBy": "owner-direct-requirement-2026-07-30",
+  "authorityBaseExactHead": "749484e1188858dd555449c2464133a488135b5a",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-live-official-sources.json",
+    "apps/api/src/modules/ai-insights/public-official-evidence.ts",
+    "apps/api/src/modules/ai-insights/public-official-evidence.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts"
+  ],
+  "requiredBehavior": [
+    "changing agricultural facts use only fixed governed HTTPS source adapters",
+    "every live evidence item carries source, publication date, observation period, geography and retrieval time",
+    "source text is treated as untrusted data and never as instructions",
+    "conflicting sources remain separate",
+    "stale or unavailable evidence produces an explicit limitation",
+    "structured citations are emitted by the public streaming route",
+    "RU EN and ZH current-fact questions use the same authority contract"
+  ],
+  "forbiddenCapabilities": [
+    "external public model API",
+    "arbitrary URL fetching",
+    "account tenant Deal document payment or private workspace data",
+    "write actions",
+    "current claims from model memory",
+    "silent merging of conflicting source facts",
+    "Netlify or Vercel deployment"
+  ]
+}
