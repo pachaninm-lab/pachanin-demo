@@ -8,7 +8,7 @@ on:
       - .github/workflows/materialize-qwen-live-ui-acceptance-v3-once.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   materialize:
@@ -20,8 +20,7 @@ jobs:
         with:
           ref: fix/qwen-live-ui-acceptance-v2
           fetch-depth: 0
-          persist-credentials: true
-      - name: Build clean governed repair
+      - name: Build clean governed repair files
         shell: bash
         run: |
           set -euo pipefail
@@ -81,7 +80,6 @@ jobs:
 
           replace_unique("!== 'Что нужно узнать?'", "!== 'Чем помочь?'", 'current empty state')
           empty_error = "throw new Error('compact_empty_state_missing');"
-          empty_pos = text.index(empty_error)
           _, _, assertion_prefix = locate_line(empty_error)
           subtitle = assertion_prefix + "if (!((await dialog.locator('.pc-public-assistant-identity span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');"
           replace_unique(empty_error, "throw new Error('agro_empty_state_missing');" + nl + subtitle, 'agro subtitle assertion')
@@ -149,9 +147,14 @@ jobs:
               ],
           }, ensure_ascii=False, indent=2) + nl, encoding='utf-8')
           PY
-          git rm .github/workflows/materialize-qwen-live-ui-acceptance-v3-once.yml .github/qwen-live-ui-v2.trigger
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add .github/workflows/tai-restricted-qwen-reg-ru-activation.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
-          git commit -m 'QWEN: repair live agro AI Chromium acceptance'
-          git push origin HEAD:fix/qwen-live-ui-acceptance-v2
+          out="$RUNNER_TEMP/qwen-live-ui-final"
+          rm -rf "$out"
+          mkdir -p "$out"
+          cp --parents .github/workflows/tai-restricted-qwen-reg-ru-activation.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json "$out"
+      - name: Upload final governed files
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-live-ui-final-${{ github.run_id }}
+          path: ${{ runner.temp }}/qwen-live-ui-final
+          if-no-files-found: error
+          retention-days: 7
