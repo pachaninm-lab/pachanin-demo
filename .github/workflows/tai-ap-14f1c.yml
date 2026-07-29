@@ -80,6 +80,27 @@ jobs:
           node --check scripts/tai-ap-14f1c/discover.mjs
           node scripts/tai-ap-14f1c/discover.mjs --self-test
 
+      - name: Capture Rosstat TLS identity and served chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          timeout 20 openssl s_client \
+            -connect rosstat.gov.ru:443 \
+            -servername rosstat.gov.ru \
+            -showcerts \
+            -verify_return_error \
+            </dev/null > "$EVIDENCE_DIR/rosstat-tls-chain.txt" 2>&1 || true
+          awk '
+            /-----BEGIN CERTIFICATE-----/ {capture=1}
+            capture {print}
+            /-----END CERTIFICATE-----/ {exit}
+          ' "$EVIDENCE_DIR/rosstat-tls-chain.txt" > /tmp/rosstat-leaf.pem
+          test -s /tmp/rosstat-leaf.pem
+          openssl x509 -in /tmp/rosstat-leaf.pem -noout \
+            -subject -issuer -serial -dates -fingerprint -sha256 \
+            | tee "$EVIDENCE_DIR/rosstat-tls-leaf.txt"
+
       - name: Controlled exact-resource acquisition
         id: acquisition
         continue-on-error: true
