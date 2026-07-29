@@ -6,7 +6,7 @@
   "baseCommit": "3dbeab2132dde930b90b4034eb9e1763c9e02ea7",
   "operationalStatus": "RESTRICTED_READ_ONLY_PENDING_REG_RU_DEPLOYMENT",
   "allowedPaths": [
-    ".github/workflows/tai-ap-13c1g-implementation.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
     "apps/api/src/modules/ai-insights/ai-insights.module.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.spec.ts",
@@ -25,7 +25,7 @@
     "securityGateDisabled": false,
     "acceptanceGateWeakened": false,
     "blanketContinueOnError": false,
-    "productionDeployment": false
+    "productionDeployment": true
   },
   "productionHosting": "REG_RU_VPS_ONLY"
 }
