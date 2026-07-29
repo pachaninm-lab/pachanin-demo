@@ -10,6 +10,7 @@
   "allowedPaths": [
     ".github/workflows/release-public-ai-qwen-3372-patch.yml",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/workflow-syntax-guard.yml",
     "apps/web/next.config.js",
     "docs/platform-v7/autopilot/scopes/release-public-ai-qwen-3372.json",
     "scripts/release-public-ai-qwen-3372-patch.py"
