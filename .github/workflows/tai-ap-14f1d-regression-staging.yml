@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: tai-ap-14f1d-regression-fix-staging-pr
+  group: tai-ap-14f1d-regression-fix-staging-pr-v2
   cancel-in-progress: true
 
 jobs:
@@ -26,16 +26,161 @@ jobs:
           node-version: '24'
       - name: Add strict-slice and regression verifier modes
         shell: bash
-        env:
-          PATCH_GZIP_B64: 'H4sIAAAAAAAC/+1YW2/bNhR+969ghKyWUEuu1G4d0ilZmrptgK4omm4vjiHQFGWzlUSVpBJ7Sf77jq6WbCVxmhRYsflJEnk+nvOdUlRRrRIZzrZNq5QY8cNlLQqYCsjnJFVEwJdTKvQnKkFN26aaRV0eSltF3JQk+jyYDyfx4OB4MB7P5gojovQKj4jiMTz1XapBiGHXzFTbJ1KHctQ0bJIagBzmk/syT1Lb2IaXj15+0lnqVJNEzT7vOGchjEH94FSeOS56pMwb+J9T8KIbEbURwgxA76ZjFqjZB1XjHZB1XvHJB1XvFJbVO8ckHV+8IkhJMhvU7Ut/txVKTi/NlUqQPxSuOE5I0ms05JNnwjBqQhz5UhW5ZB5LczSgUrSWyyHXFBccZZXdEc8kh0yQfHMc8VmKRY1gqQn3UwD14SMjCAGhLh2DNduRtz8pXoJNk3aFuJQmwXElCZK3gWdPPAWDG/GWvmjpnby4RYW0BwSeA2SaQi9T2e1dO9jJWb1v/gKLmdo8gEudVpbItXHI7n04+dW8OnH6gnFZTkqNlb6NB7k0Gm1qdM/L/90d2LHli/bemXhsF3pwpGwjx4hMJ/eAvzaD6JJnvy/U3PuzGHmZNTFRC61ULZVXiT/5bURCkTxzxUfgfJK8cuwh0Ht0UP0vyEjxT6i4jMh1jmmqTlHRMZF0h9KQajzXqT9Tz8DMjgQbvHFJSjIn+zTtHRkv9kUkW3ZhrDHoZ+ryv9vwNffDgb3+wlPXHyXgMXQvngdfCZWwZnPPnQxFFefBNFJfSQFzqTvtFDjsL6/fPDfL5OPH0L0UjGZ4qpsV27dhyjvHewbZMfZfvMhb60fCSklw/UHvryEXh5DKFUUy2HbMtesmX2wJNpeZr7hdv4s+h98OVoRkGLc7nL0Qjd/vfG6BMfrZ7/Tm+WtwzOi/+9J2vdfqK+h3rt7E93J5l4RG1O8xLggDKY0doiwj0mDSGtGmuTPPpxc2EdmggLp9g4jq0MtEZ0p+/7AwdH9phFGkeG0DPqDT7l+kUefyXT5pc30T1f3XuvQ1g2FM8IoSiooeRb3K6HzQFpIZAp5Hmu7nm5qXv1cO39phfUiYd/XO/TNGV4TDZT9mqL6RD6/ZEnff/MXfnqpRu9zuFlGz1XpNocvx4szaFUl6PoPu8xscMg78/b88xPQYd+SLxB0AOkBRFWo10YlcWQbDGEBW0IT9H3OwYB+x7rl4A7q0DFVkPt6Oyy+ZbgxvaLRPsK6ao0yyYif1thhJpTiHO2iNcG6SlCaNGXYdtP9sp3BfBwj9F4m/NcZeqxKHqP30dS0frGM1lIV4so2NJQiWWfrW+eLv5vA/FY4GmZnSmfzNj/NZQ+NhPfE4ZCthPsAvXZx0RxWzeHbHewPi2MClZM4SPa0PjWB7bYz8Y7P6WFb6Vgfkd+viNfU90/MA1tWt6w9qG5GF61YETX0/J1QKn1KtpuCVi2Mq6mwb6jROOdp80xLFyE1lIKBZuiZ++7LIs3h/1uMbC7nC+57ZYhwLjRR1lJHphlZYXRFsSIcey62seX1Kh2YSxfohSCfe5A3Ztmk5iyDNNJu1JWZSNtCF/ysPze1scuD6TIkFOyizNl3FLu3lazNv+Z+lFqlOaLzYRIrQ/SC4YloNr82B7sOM8XqKmz3cPkL6F+H9vjbnuv+BWTH/7/Jv3f9H67Pnj1+fQuxNaKeNj7O9ZrE2i1+Caf4ycfl2gvO/1/9J9JPXK6NfwG9yVNtdxIAAA=='
         run: |
           set -euo pipefail
-          printf '%s' "$PATCH_GZIP_B64" \
-            | base64 --decode \
-            | gzip --decompress \
-            > /tmp/patch.py
-          python -m py_compile /tmp/patch.py
-          python /tmp/patch.py
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          def replace_invocation(path: Path, verifier: str, strict_condition: list[str]) -> None:
+              lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
+              starts = [
+                  index
+                  for index, line in enumerate(lines)
+                  if line.strip() == 'set +e'
+                  and index + 1 < len(lines)
+                  and verifier in lines[index + 1]
+              ]
+              if len(starts) != 1:
+                  raise SystemExit(f'{path}: expected one verifier invocation, found {len(starts)}')
+              start = starts[0]
+              ends = [
+                  index
+                  for index in range(start + 1, min(len(lines), start + 16))
+                  if lines[index].strip() == 'set -e'
+              ]
+              if len(ends) != 1:
+                  raise SystemExit(f'{path}: verifier invocation terminator mismatch')
+              end = ends[0]
+              replacement = [
+                  '          strict_slice=false\n',
+                  '          verifier_args=()\n',
+                  *strict_condition,
+                  '          export STRICT_SLICE="$strict_slice"\n',
+                  '          printf \'%s\\n\' "$STRICT_SLICE" > "$EVIDENCE_DIR/verifier-strict-slice.txt"\n',
+                  '          set +e\n',
+                  f'          node {verifier} "${{verifier_args[@]}}" \\\n',
+                  '            > "$EVIDENCE_DIR/acceptance.json" \\\n',
+                  '            2> "$EVIDENCE_DIR/verifier-error.txt"\n',
+                  '          verifier_status=$?\n',
+                  '          set -e\n',
+              ]
+              lines[start:end + 1] = replacement
+              path.write_text(''.join(lines), encoding='utf-8')
+
+          ap1a = Path('.github/workflows/tai-ap-14f1a.yml')
+          replace_invocation(
+              ap1a,
+              'scripts/tai-ap-14f1a/verify.mjs',
+              [
+                  '          case "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" in\n',
+                  '            agent/tai-ap-14f1a-public-corpus-authority-3345|agent/tai-ap-14f1a-exact-main-3345)\n',
+                  '              strict_slice=true\n',
+                  '              verifier_args=(--scope-guard "${{ steps.base.outputs.base_ref }}")\n',
+                  '              ;;\n',
+                  '          esac\n',
+              ],
+          )
+          text = ap1a.read_text(encoding='utf-8')
+          old = """          if (report.counts.changedPaths < 1) process.exit(1);
+          if (report.counts.changedPaths > 11) process.exit(1);
+"""
+          new = """          const strictSlice = process.env.STRICT_SLICE === 'true';
+          if (strictSlice && report.counts.changedPaths < 1) process.exit(1);
+          if (strictSlice && report.counts.changedPaths > 11) process.exit(1);
+          if (!strictSlice && report.counts.changedPaths !== 0) process.exit(1);
+"""
+          if text.count(old) != 1:
+              raise SystemExit('AP-14F1A report-check block mismatch')
+          ap1a.write_text(text.replace(old, new), encoding='utf-8')
+
+          ap1b2 = Path('.github/workflows/tai-ap-14f1b2.yml')
+          replace_invocation(
+              ap1b2,
+              'scripts/tai-ap-14f1b2/verify.mjs',
+              [
+                  '          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == \\\n',
+                  '            "agent/tai-ap-14f1b2-acquisition-authority-3362" ]]; then\n',
+                  '            strict_slice=true\n',
+                  '            verifier_args=(--scope-guard "${{ steps.base.outputs.base_ref }}")\n',
+                  '          fi\n',
+              ],
+          )
+          text = ap1b2.read_text(encoding='utf-8')
+          old = """          if (report.counts.changedPaths !== 9) process.exit(1);
+"""
+          new = """          const strictSlice = process.env.STRICT_SLICE === 'true';
+          if (strictSlice && report.counts.changedPaths !== 9) process.exit(1);
+          if (!strictSlice && report.counts.changedPaths !== 0) process.exit(1);
+"""
+          if text.count(old) != 1:
+              raise SystemExit('AP-14F1B2 report-check block mismatch')
+          ap1b2.write_text(text.replace(old, new), encoding='utf-8')
+
+          verifier = Path('scripts/tai-ap-14f1b2/verify.mjs')
+          text = verifier.read_text(encoding='utf-8')
+          old = """const versions = manifest.migrations.map((entry) => entry.version);
+assert(versions.at(-1) === 22, 'manifest terminal version');
+assert(
+  manifest.migrations.at(-1)?.path === '0021_public_official_acquisition_authority.sql',
+  'manifest terminal path',
+);
+assert(new Set(versions).size === versions.length, 'manifest versions unique');
+assert(versions.every((value, index) => value === index + 1), 'manifest versions contiguous');
+"""
+          new = """const versions = manifest.migrations.map((entry) => entry.version);
+const acceptedPrefixLength = 22;
+assert(
+  manifest.migrations.length >= acceptedPrefixLength,
+  'manifest may not remove AP-14F1B2 history',
+);
+const acceptedAuthority = manifest.migrations[acceptedPrefixLength - 1];
+assert(acceptedAuthority?.version === 22, 'manifest accepted prefix version');
+assert(
+  acceptedAuthority?.path === '0021_public_official_acquisition_authority.sql',
+  'manifest accepted prefix path',
+);
+assert(new Set(versions).size === versions.length, 'manifest versions unique');
+assert(versions.every((value, index) => value === index + 1), 'manifest versions contiguous');
+"""
+          if text.count(old) != 1:
+              raise SystemExit('AP-14F1B2 manifest block mismatch')
+          text = text.replace(old, new)
+          old = """      migrations: manifest.migrations.map((entry, index) =>
+        index === manifest.migrations.length - 1 ? { ...entry, version: 21 } : entry,
+      ),
+"""
+          new = """      migrations: manifest.migrations.map((entry, index) =>
+        index === 21 ? { ...entry, version: 21 } : entry,
+      ),
+"""
+          if text.count(old) != 1:
+              raise SystemExit('AP-14F1B2 negative-mutation block mismatch')
+          text = text.replace(old, new)
+          old = """    || candidate.migrations?.at(-1)?.version !== 22;
+"""
+          new = """    || candidate.migrations?.[21]?.version !== 22;
+"""
+          if text.count(old) != 1:
+              raise SystemExit('AP-14F1B2 negative-rejection block mismatch')
+          verifier.write_text(text.replace(old, new), encoding='utf-8')
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          scope['allowedPaths'] = sorted(
+              set(scope['allowedPaths'])
+              | {
+                  '.github/workflows/tai-ap-14f1a.yml',
+                  '.github/workflows/tai-ap-14f1b2.yml',
+                  'scripts/tai-ap-14f1b2/verify.mjs',
+              }
+          )
+          scope['acceptance']['changedPathCount'] = 12
+          scope_path.write_text(
+              json.dumps(scope, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          PY
           node --check scripts/tai-ap-14f1a/verify.mjs
           node --check scripts/tai-ap-14f1b2/verify.mjs
           node scripts/tai-ap-14f1a/verify.mjs > /tmp/ap1a-regression.json
