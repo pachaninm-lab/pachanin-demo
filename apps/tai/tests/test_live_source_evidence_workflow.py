@@ -67,11 +67,13 @@ def test_live_evidence_workflow_is_read_only_exact_main_and_non_merge_blocking()
         "Enforce collector structural validity"
     )
     assert "test -f live-evidence/live-run-manifest.json" in workflow
+    assert "test -f live-evidence/public-live-knowledge.v1.json" in workflow
     assert "source-health-history.v1.json" in workflow
     assert "source-health-dashboard.v1.json" in workflow
     assert "active-alerts.v1.json" in workflow
     assert "knowledge-acceptance.v1.json" in workflow
     assert "evidence-bundle-index.v1.json" in workflow
+    assert "live knowledge sources" in workflow
     assert "--require-complete-coverage" in workflow
     assert "[ \"$GITHUB_EVENT_NAME\" = 'issue_comment' ]" in workflow
     assert "github.token" in workflow
