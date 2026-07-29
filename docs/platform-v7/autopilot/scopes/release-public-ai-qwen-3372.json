@@ -5,15 +5,12 @@
   "status": "active",
   "issue": 3372,
   "baseCommit": "aa0583eef4a3d70a0810992a2d115811a6a97d0d",
-  "operationalStatus": "ROLLBACK_AND_LIVE_UI_ACCEPTANCE_PATCHING",
+  "operationalStatus": "ROLLBACK_AND_LIVE_UI_ACCEPTANCE_IMPLEMENTED_PENDING_EXACT_HEAD_GATES",
   "maturityBoundary": "release-trigger-and-fail-closed-activation-only",
   "allowedPaths": [
-    ".github/workflows/release-public-ai-qwen-3372-patch.yml",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
-    ".github/workflows/workflow-syntax-guard.yml",
     "apps/web/next.config.js",
-    "docs/platform-v7/autopilot/scopes/release-public-ai-qwen-3372.json",
-    "scripts/release-public-ai-qwen-3372-patch.py"
+    "docs/platform-v7/autopilot/scopes/release-public-ai-qwen-3372.json"
   ],
   "forbiddenPaths": [
     "apps/api/**",
