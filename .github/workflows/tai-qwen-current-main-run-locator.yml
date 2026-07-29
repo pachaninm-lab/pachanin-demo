@@ -1,0 +1,53 @@
+name: TAI Qwen Current-Main Run Locator
+
+on:
+  push:
+    branches:
+      - ops/qwen-run-locator-3372
+    paths:
+      - '.github/workflows/tai-qwen-current-main-run-locator.yml'
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  locate:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Locate exact current-main runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          find_run(){
+            local workflow="$1"
+            gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&per_page=50" \
+              --jq --arg sha "$main_sha" '[.workflow_runs[] | select(.head_sha == $sha)][0] // {}'
+          }
+          activation="$(find_run tai-restricted-qwen-reg-ru-activation.yml)"
+          images="$(find_run docker-publish.yml)"
+          activation_id="$(jq -r '.id // empty' <<<"$activation")"
+          activation_status="$(jq -r '.status // "not_found"' <<<"$activation")"
+          activation_conclusion="$(jq -r '.conclusion // "pending"' <<<"$activation")"
+          activation_url="$(jq -r '.html_url // empty' <<<"$activation")"
+          image_id="$(jq -r '.id // empty' <<<"$images")"
+          image_status="$(jq -r '.status // "not_found"' <<<"$images")"
+          image_conclusion="$(jq -r '.conclusion // "pending"' <<<"$images")"
+          image_url="$(jq -r '.html_url // empty' <<<"$images")"
+          marker="<!-- qwen-current-main-run-locator:${main_sha}:${activation_id:-none}:${image_id:-none} -->"
+          body="$marker
+          Current-main Qwen release runs for \`$main_sha\`:
+
+          - canonical images: run \`${image_id:-not_found}\`, status \`$image_status\`, conclusion \`$image_conclusion\`${image_url:+ — $image_url};
+          - REG.RU activation: run \`${activation_id:-not_found}\`, status \`$activation_status\`, conclusion \`$activation_conclusion\`${activation_url:+ — $activation_url}.
+
+          Issue remains open until the activation observer records live PASS."
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "$body"
+          test -n "$activation_id"
+          test -n "$image_id"
