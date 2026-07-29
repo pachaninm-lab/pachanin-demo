@@ -1,0 +1,63 @@
+name: TAI AP-14F1D Regression Compatibility Staging
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-14f1d-regression-fix-staging
+    paths:
+      - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-ap-14f1d-regression-fix-staging
+  cancel-in-progress: true
+
+jobs:
+  patch-regression-authorities:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-14f1d-regression-fix-staging
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Add strict-slice and regression verifier modes
+        shell: bash
+        env:
+          PATCH_GZIP_B64: 'H4sIAAAAAAAC/+1YW2/bNhR+969ghKyWUEuu1G4d0ilZmrptgK4omm4vjiHQFGWzlUSVpBJ7Sf77jq6WbCVxmhRYsflJEnk+nvOdUlRRrRIZzrZNq5QY8cNlLQqYCsjnJFVEwJdTKvQnKkFN26aaRV0eSltF3JQk+jyYDyfx4OB4MB7P5gojovQKj4jiMTz1XapBiGHXzFTbJ1KHctQ0bJIagBzmk/syT1Lb2IaXj15+0lnqVJNEzT7vOGchjEH94FSeOS56pMwb+J9T8KIbEbURwgxA76ZjFqjZB1XjHZB1XvHJB1XvFJbVO8ckHV+8IkhJMhvU7Ut/txVKTi/NlUqQPxSuOE5I0ms05JNnwjBqQhz5UhW5ZB5LczSgUrSWyyHXFBccZZXdEc8kh0yQfHMc8VmKRY1gqQn3UwD14SMjCAGhLh2DNduRtz8pXoJNk3aFuJQmwXElCZK3gWdPPAWDG/GWvmjpnby4RYW0BwSeA2SaQi9T2e1dO9jJWb1v/gKLmdo8gEudVpbItXHI7n04+dW8OnH6gnFZTkqNlb6NB7k0Gm1qdM/L/90d2LHli/bemXhsF3pwpGwjx4hMJ/eAvzaD6JJnvy/U3PuzGHmZNTFRC61ULZVXiT/5bURCkTxzxUfgfJK8cuwh0Ht0UP0vyEjxT6i4jMh1jmmqTlHRMZF0h9KQajzXqT9Tz8DMjgQbvHFJSjIn+zTtHRkv9kUkW3ZhrDHoZ+ryv9vwNffDgb3+wlPXHyXgMXQvngdfCZWwZnPPnQxFFefBNFJfSQFzqTvtFDjsL6/fPDfL5OPH0L0UjGZ4qpsV27dhyjvHewbZMfZfvMhb60fCSklw/UHvryEXh5DKFUUy2HbMtesmX2wJNpeZr7hdv4s+h98OVoRkGLc7nL0Qjd/vfG6BMfrZ7/Tm+WtwzOi/+9J2vdfqK+h3rt7E93J5l4RG1O8xLggDKY0doiwj0mDSGtGmuTPPpxc2EdmggLp9g4jq0MtEZ0p+/7AwdH9phFGkeG0DPqDT7l+kUefyXT5pc30T1f3XuvQ1g2FM8IoSiooeRb3K6HzQFpIZAp5Hmu7nm5qXv1cO39phfUiYd/XO/TNGV4TDZT9mqL6RD6/ZEnff/MXfnqpRu9zuFlGz1XpNocvx4szaFUl6PoPu8xscMg78/b88xPQYd+SLxB0AOkBRFWo10YlcWQbDGEBW0IT9H3OwYB+x7rl4A7q0DFVkPt6Oyy+ZbgxvaLRPsK6ao0yyYif1thhJpTiHO2iNcG6SlCaNGXYdtP9sp3BfBwj9F4m/NcZeqxKHqP30dS0frGM1lIV4so2NJQiWWfrW+eLv5vA/FY4GmZnSmfzNj/NZQ+NhPfE4ZCthPsAvXZx0RxWzeHbHewPi2MClZM4SPa0PjWB7bYz8Y7P6WFb6Vgfkd+viNfU90/MA1tWt6w9qG5GF61YETX0/J1QKn1KtpuCVi2Mq6mwb6jROOdp80xLFyE1lIKBZuiZ++7LIs3h/1uMbC7nC+57ZYhwLjRR1lJHphlZYXRFsSIcey62seX1Kh2YSxfohSCfe5A3Ztmk5iyDNNJu1JWZSNtCF/ysPze1scuD6TIkFOyizNl3FLu3lazNv+Z+lFqlOaLzYRIrQ/SC4YloNr82B7sOM8XqKmz3cPkL6F+H9vjbnuv+BWTH/7/Jv3f9H67Pnj1+fQuxNaKeNj7O9ZrE2i1+Caf4ycfl2gvO/1/9J9JPXK6NfwG9yVNtdxIAAA=='
+        run: |
+          set -euo pipefail
+          printf '%s' "$PATCH_GZIP_B64" \
+            | base64 --decode \
+            | gzip --decompress \
+            > /tmp/patch.py
+          python -m py_compile /tmp/patch.py
+          python /tmp/patch.py
+          node --check scripts/tai-ap-14f1a/verify.mjs
+          node --check scripts/tai-ap-14f1b2/verify.mjs
+          node scripts/tai-ap-14f1a/verify.mjs > /tmp/ap1a-regression.json
+          node scripts/tai-ap-14f1b2/verify.mjs > /tmp/ap1b2-regression.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          for (const path of ['/tmp/ap1a-regression.json', '/tmp/ap1b2-regression.json']) {
+            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+            if (report.status !== 'PASS') throw new Error(`${path} did not pass`);
+            if (report.operationalStatus !== 'NOT_ATTESTED') throw new Error(`${path} status drift`);
+            if (Object.values(report.boundaries).some(Boolean)) throw new Error(`${path} boundary drift`);
+          }
+          NODE
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/tai-ap-14f1a.yml \
+            .github/workflows/tai-ap-14f1b2.yml \
+            scripts/tai-ap-14f1b2/verify.mjs \
+            docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json
+          git commit -m 'AP-14F1D: preserve legacy authority regression modes'
+          git push origin HEAD:agent/tai-ap-14f1d-regression-fix-staging
