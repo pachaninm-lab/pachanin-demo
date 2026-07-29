@@ -8,12 +8,13 @@
   "operationalStatus": "COMMENT_ONLY_EXACT_MAIN_RELEASE_TRIGGER_PENDING_GATES",
   "maturityBoundary": "release-trigger-only-no-runtime-behavior-change",
   "allowedPaths": [
-    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/next.config.js",
     "docs/platform-v7/autopilot/scopes/release-public-ai-qwen-3372.json"
   ],
   "forbiddenPaths": [
     ".github/workflows/**",
     "apps/api/**",
+    "apps/web/app/**",
     "apps/web/components/**",
     "apps/web/styles/**",
     "packages/**",
@@ -32,8 +33,8 @@
     "productionDeployment": true
   },
   "requiredEvidence": [
-    "The implementation changes exactly this scope file and one comment in the already watched restricted public assistant route",
-    "The TypeScript AST and emitted runtime behavior remain unchanged",
+    "The implementation changes exactly this scope file and one comment in the already watched Next.js configuration",
+    "The JavaScript AST and emitted runtime behavior remain unchanged",
     "All exact-head CI, web, security, runtime and production-like Kubernetes gates pass",
     "The resulting merge SHA is current main before activation",
     "TAI Restricted Qwen REG.RU Activation deploys exact API, web and migration images",
