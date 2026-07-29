@@ -8,6 +8,8 @@
   "allowedPaths": [
     "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/next.config.js",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "apps/web/tests/unit/publicContactDockRuntime.test.tsx"
   ],
   "forbiddenCapabilities": [
