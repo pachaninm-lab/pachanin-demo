@@ -4,8 +4,9 @@
   "status": "active",
   "issue": 3368,
   "baseCommit": "e1f22f4f4247d3115ab3af167a7d79f937485d27",
-  "operationalStatus": "UI_ONLY_EXACT_MAIN_PENDING_FINAL_GATES",
+  "operationalStatus": "UI_ONLY_SYNCING_TO_CURRENT_MAIN",
   "allowedPaths": [
+    ".github/workflows/public-ai-window-current-main-sync.yml",
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/styles/platform-v7-public-assistant.css",
     "apps/web/styles/platform-v7-public-assistant-mobile-fix.css",
@@ -29,7 +30,7 @@
     "keyboard, focus trap, cancellation, reduced motion and forced-colors behavior remain intact",
     "mobile layout fits 320, 375, 390 and 430 CSS pixels without horizontal overflow",
     "desktop layout remains usable at 768, 1024 and 1440 CSS pixels",
-    "the branch is synchronized with exact Qwen-connected main before final checks"
+    "the branch is synchronized with current main before final exact-head checks"
   ],
   "productionHosting": "REG_RU_VPS_ONLY"
 }
