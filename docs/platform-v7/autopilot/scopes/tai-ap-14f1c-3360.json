@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f1c-rosstat-dataset-3360",
+  "status": "active",
+  "issue": 3360,
+  "baseCommit": "1136c38f67e0a4a41cef1903dadf334a22b7f4a6",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f1c.yml",
+    "apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-7708234640-VSHP2016254.v1.json",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f1c-3360.json",
+    "scripts/tai-ap-14f1c/discover.mjs"
+  ],
+  "boundaries": {
+    "exactDatasetOnly": true,
+    "datasetCode": "7708234640-VSHP2016254",
+    "realNetworkSourceCount": 1,
+    "realNetworkResourceCount": 4,
+    "noBroadCrawl": true,
+    "noCabinetAccess": true,
+    "noCredentials": true,
+    "noCookies": true,
+    "noPdfOcrMediaArchiveParsing": true,
+    "noTenantLiveOrContractedData": true,
+    "noPiiPersistence": true,
+    "noRawBytePersistence": true,
+    "noEmbeddingsOrVectorMutation": true,
+    "noModelTrainingOrWeights": true,
+    "noRuntimeActivationBeforePinnedEvidence": true,
+    "noExternalWrites": true,
+    "noProductionCompletenessClaim": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 4,
+    "exactResourceCount": 4,
+    "allResourceDigestsMustBePinned": true,
+    "sameHostMaximumRedirects": 0,
+    "publicIpPinningRequired": true,
+    "sharedRagAllowedBeforeFullAcceptance": false,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
