@@ -2,13 +2,14 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-ai-visible-home",
   "status": "active",
-  "purpose": "Keep the anonymous public AI assistant visible, enabled and keyboard-focusable on the main page from the first mobile viewport and trigger the accepted exact-main REG.RU Qwen release without changing runtime authority.",
+  "purpose": "Keep the anonymous public AI assistant visible, enabled and keyboard-focusable on the main page and all public platform routes from the first mobile viewport, and trigger the accepted exact-main REG.RU Qwen release without changing runtime authority.",
   "approvedBy": "owner-direct-requirement-2026-07-29",
   "authorityBaseExactMain": "8687e184db30ec364da6d6ba6b62c06dc83f3582",
   "allowedPaths": [
     "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/next.config.js",
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-product-experience-v3.spec.ts",
     "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "apps/web/tests/unit/publicContactDockRuntime.test.tsx"
   ],
