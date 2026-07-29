@@ -2,17 +2,17 @@ name: TAI Qwen Unprivileged Capability Probe
 
 on:
   push:
-    branches:
-      - ops/qwen-unprivileged-probe-3372-7
+    branches: [main]
     paths:
       - '.github/workflows/tai-qwen-unprivileged-probe.yml'
 
 permissions:
   contents: read
   issues: write
+  statuses: write
 
 concurrency:
-  group: tai-qwen-unprivileged-probe-3372-7
+  group: tai-qwen-unprivileged-probe
   cancel-in-progress: false
 
 env:
@@ -29,12 +29,26 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout exact probe head
+      - name: Checkout exact main
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Publish probe pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state=pending \
+            -f context='TAI Qwen Unprivileged Probe exact-main' \
+            -f description='Read-only model-user capability probe is running' \
+            -f target_url="$run_url" >/dev/null
 
       - name: Resolve protected non-root SSH transport
         id: ssh
@@ -64,9 +78,10 @@ jobs:
           model_port="$(trim "${MODEL_PORT_SECRET:-22}")"
           [[ -n "$model_host" && "$model_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
           [[ "$model_port" =~ ^[0-9]+$ ]] && ((model_port>=1 && model_port<=65535))
-          mkdir -p "$HOME/.ssh"; chmod 0700 "$HOME/.ssh"
+          mkdir -p "$HOME/.ssh"
+          chmod 0700 "$HOME/.ssh"
           model_key="${MODEL_KEY_SECRET:-${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}}"
-          write_key "$model_key" "$HOME/.ssh/id_tai_model" || exit 10
+          write_key "$model_key" "$HOME/.ssh/id_tai_model"
           ssh-keyscan -T 10 -p "$model_port" "$model_host" 2>/dev/null | sort -u > "$HOME/.ssh/model_known_hosts"
           [[ -s "$HOME/.ssh/model_known_hosts" ]]
           chmod 0600 "$HOME/.ssh/model_known_hosts"
@@ -85,16 +100,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          remote='set -u
+          output="$(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" 'bash -s' <<'REMOTE'
+          set -u
           service=tai-qwen3-8b.service
           env_file=/etc/tai/qwen3-8b.env
-          bool(){ if "$@"; then printf 1; else printf 0; fi; }
-          service_active=$(bool systemctl is-active --quiet "$service")
-          env_readable=$(bool test -r "$env_file")
-          service_user=$(systemctl show "$service" --property=User --value 2>/dev/null || true)
+          service_active=0
+          systemctl is-active --quiet "$service" && service_active=1
+          env_readable=0
+          [ -r "$env_file" ] && env_readable=1
+          service_user="$(systemctl show "$service" --property=User --value 2>/dev/null || true)"
           same_user=0
           [ -n "$service_user" ] && [ "$service_user" = "$(id -un)" ] && same_user=1
-          main_pid=$(systemctl show "$service" --property=MainPID --value 2>/dev/null || true)
+          main_pid="$(systemctl show "$service" --property=MainPID --value 2>/dev/null || true)"
           case "$main_pid" in ""|*[!0-9]*) main_pid=0 ;; esac
           proc_readable=0
           [ "$main_pid" -gt 1 ] && [ -r "/proc/$main_pid/environ" ] && proc_readable=1
@@ -105,33 +125,35 @@ jobs:
           key_source=NONE
           key=""
           if [ "$env_readable" -eq 1 ]; then
-            set +u; set -a; . "$env_file" >/dev/null 2>&1 || true; set +a
-            key="${TAI_LLM_API_KEY:-}"; unset TAI_LLM_API_KEY
+            set +u
+            set -a
+            . "$env_file" >/dev/null 2>&1 || true
+            set +a
+            key="${TAI_LLM_API_KEY:-}"
+            unset TAI_LLM_API_KEY
             [ "${#key}" -ge 32 ] && key_source=ENV_FILE
             set -u
           fi
           if [ "$key_source" = NONE ] && [ "$proc_readable" -eq 1 ]; then
-            key=$(tr "\000" "\n" < "/proc/$main_pid/environ" 2>/dev/null | sed -n '"'"'s/^TAI_LLM_API_KEY=//p'"'"' | head -1)
+            key="$(tr '\000' '\n' < "/proc/$main_pid/environ" 2>/dev/null | awk -F= '$1 == "TAI_LLM_API_KEY" { sub(/^[^=]*=/, ""); print; exit }')"
             [ "${#key}" -ge 32 ] && key_source=PROC_ENV
           fi
           auth_health=0
           if [ "$key_source" != NONE ]; then
-            code=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $key" http://192.168.0.206:18080/health 2>/dev/null || true)
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $key" http://192.168.0.206:18080/health 2>/dev/null || true)"
             [ "$code" = 200 ] && auth_health=1
           fi
           unset key
-          printf "SERVICE_ACTIVE=%s\n" "$service_active"
-          printf "ENV_READABLE=%s\n" "$env_readable"
-          printf "SAME_AS_SERVICE_USER=%s\n" "$same_user"
-          printf "PROC_ENV_READABLE=%s\n" "$proc_readable"
-          printf "PRIVATE_LISTENER=%s\n" "$private_listener"
-          printf "PUBLIC_LISTENER_ABSENT=%s\n" "$public_absent"
-          printf "KEY_SOURCE=%s\n" "$key_source"
-          printf "AUTHENTICATED_HEALTH_200=%s\n" "$auth_health"'
-          output="$(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
-            -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
-            -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" "$remote")"
+          printf 'SERVICE_ACTIVE=%s\n' "$service_active"
+          printf 'ENV_READABLE=%s\n' "$env_readable"
+          printf 'SAME_AS_SERVICE_USER=%s\n' "$same_user"
+          printf 'PROC_ENV_READABLE=%s\n' "$proc_readable"
+          printf 'PRIVATE_LISTENER=%s\n' "$private_listener"
+          printf 'PUBLIC_LISTENER_ABSENT=%s\n' "$public_absent"
+          printf 'KEY_SOURCE=%s\n' "$key_source"
+          printf 'AUTHENTICATED_HEALTH_200=%s\n' "$auth_health"
+          REMOTE
+          )"
           printf '%s\n' "$output"
           while IFS='=' read -r key value; do
             case "$key" in
@@ -141,19 +163,33 @@ jobs:
           done <<< "$output"
 
       - name: Publish bounded diagnostic result
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          SERVICE_ACTIVE: ${{ steps.probe.outputs.service_active }}
-          ENV_READABLE: ${{ steps.probe.outputs.env_readable }}
-          SAME_AS_SERVICE_USER: ${{ steps.probe.outputs.same_as_service_user }}
-          PROC_ENV_READABLE: ${{ steps.probe.outputs.proc_env_readable }}
-          PRIVATE_LISTENER: ${{ steps.probe.outputs.private_listener }}
-          PUBLIC_LISTENER_ABSENT: ${{ steps.probe.outputs.public_listener_absent }}
-          KEY_SOURCE: ${{ steps.probe.outputs.key_source }}
-          AUTHENTICATED_HEALTH_200: ${{ steps.probe.outputs.authenticated_health_200 }}
+          SERVICE_ACTIVE: ${{ steps.probe.outputs.service_active || '0' }}
+          ENV_READABLE: ${{ steps.probe.outputs.env_readable || '0' }}
+          SAME_AS_SERVICE_USER: ${{ steps.probe.outputs.same_as_service_user || '0' }}
+          PROC_ENV_READABLE: ${{ steps.probe.outputs.proc_env_readable || '0' }}
+          PRIVATE_LISTENER: ${{ steps.probe.outputs.private_listener || '0' }}
+          PUBLIC_LISTENER_ABSENT: ${{ steps.probe.outputs.public_listener_absent || '0' }}
+          KEY_SOURCE: ${{ steps.probe.outputs.key_source || 'NONE' }}
+          AUTHENTICATED_HEALTH_200: ${{ steps.probe.outputs.authenticated_health_200 || '0' }}
         shell: bash
         run: |
           set -euo pipefail
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          body="Read-only Qwen model-user capability probe completed. Service active: \`$SERVICE_ACTIVE\`; env readable: \`$ENV_READABLE\`; SSH user equals service user: \`$SAME_AS_SERVICE_USER\`; process environment readable: \`$PROC_ENV_READABLE\`; exact private listener: \`$PRIVATE_LISTENER\`; public listener absent: \`$PUBLIC_LISTENER_ABSENT\`; bounded key source: \`$KEY_SOURCE\`; authenticated health 200: \`$AUTHENTICATED_HEALTH_200\`. Probe: $run_url. No secret values or production mutations occurred."
+          state=failure
+          description='Unprivileged model access is insufficient'
+          if [[ "$SERVICE_ACTIVE" == 1 && "$PRIVATE_LISTENER" == 1 && "$PUBLIC_LISTENER_ABSENT" == 1 && "$AUTHENTICATED_HEALTH_200" == 1 ]]; then
+            state=success
+            description='Unprivileged authenticated Qwen access is ready'
+          fi
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state="$state" \
+            -f context='TAI Qwen Unprivileged Probe exact-main' \
+            -f description="$description" \
+            -f target_url="$run_url" >/dev/null
+          body="Read-only Qwen model-user capability probe completed for exact main \`$GITHUB_SHA\`. Service active: \`$SERVICE_ACTIVE\`; env readable: \`$ENV_READABLE\`; SSH user equals service user: \`$SAME_AS_SERVICE_USER\`; process environment readable: \`$PROC_ENV_READABLE\`; exact private listener: \`$PRIVATE_LISTENER\`; public listener absent: \`$PUBLIC_LISTENER_ABSENT\`; bounded key source: \`$KEY_SOURCE\`; authenticated health 200: \`$AUTHENTICATED_HEALTH_200\`. Probe: $run_url. No secret values or production mutations occurred."
+          gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
           gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "$body"
