@@ -15,7 +15,8 @@ import { normalizeAssistantQuestion } from './assistant-language-normalizer';
 const MAX_MESSAGE_LENGTH = 4_000;
 const MAX_HISTORY_ITEMS = 10;
 const MAX_HISTORY_ITEM_LENGTH = 1_200;
-const PROVIDER_TIMEOUT_MS = 18_000;
+const DEFAULT_PROVIDER_TIMEOUT_MS = 120_000;
+const DEFAULT_PROVIDER_MAX_TOKENS = 500;
 const MAX_PROVIDER_CONTEXT_CHARS = 20_000;
 const SAFE_PAGE_PATH = /^\/platform-v7(?:\/[^\u0000-\u001F\u007F]*)?$/u;
 
@@ -285,7 +286,7 @@ export class AiAssistantService {
     if (!model) throw new ServiceUnavailableException('AI model is not configured.');
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), providerTimeoutMs());
     const endpoint = new URL('chat/completions', ensureTrailingSlash(baseUrl));
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const apiKey = process.env.AI_ASSISTANT_API_KEY?.trim();
@@ -308,7 +309,15 @@ export class AiAssistantService {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 900 }),
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0,
+          seed: 0,
+          max_tokens: providerMaxTokens(),
+          stream: false,
+          chat_template_kwargs: { enable_thinking: false },
+        }),
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`provider_http_${response.status}`);
@@ -720,6 +729,35 @@ function validateProviderBaseUrl(raw: string): string {
 
 function ensureTrailingSlash(value: string): string {
   return value.endsWith('/') ? value : `${value}/`;
+}
+
+function providerTimeoutMs(): number {
+  return boundedProviderInteger(
+    process.env.AI_ASSISTANT_TIMEOUT_MS,
+    DEFAULT_PROVIDER_TIMEOUT_MS,
+    1_000,
+    300_000,
+  );
+}
+
+function providerMaxTokens(): number {
+  return boundedProviderInteger(
+    process.env.AI_ASSISTANT_MAX_TOKENS,
+    DEFAULT_PROVIDER_MAX_TOKENS,
+    32,
+    1_200,
+  );
+}
+
+function boundedProviderInteger(
+  raw: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(maximum, Math.max(minimum, parsed));
 }
 
 function dealLabel(deal: RegistryDeal): string {
