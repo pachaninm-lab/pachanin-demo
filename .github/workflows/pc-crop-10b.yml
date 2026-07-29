@@ -59,7 +59,7 @@ jobs:
             git fetch --no-tags origin "${{ github.base_ref }}"
             export BASE_REF="origin/${{ github.base_ref }}"
           else
-            export BASE_REF="b35d48b655c213661d6b1b5aaa61d85a7a93a3f5"
+            export BASE_REF="2ec85d97a0c63e5965df52029ece9f262763a486"
           fi
           export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           bash scripts/p7-autopilot-guard.sh
