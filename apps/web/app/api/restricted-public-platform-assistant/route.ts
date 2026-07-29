@@ -17,12 +17,32 @@ const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const INTERNAL_PATH = '/internal/tai/public-generate';
 const MAX_API_RESPONSE_BYTES = 1_048_576;
 const DEFAULT_TIMEOUT_MS = 130_000;
+const OFFICIAL_EVIDENCE_HOSTS = new Set([
+  'specagro.ru',
+  'www.specagro.ru',
+  'rosstat.gov.ru',
+  'www.rosstat.gov.ru',
+  'meteoinfo.ru',
+  'www.meteoinfo.ru',
+  'mpr.meteoinfo.ru',
+  'pogoda.meteoinfo.ru',
+  'publication.pravo.gov.ru',
+  'www.cbr.ru',
+  'cbr.ru',
+  'mintrans.gov.ru',
+  'www.mintrans.gov.ru',
+  'eec.eaeunion.org',
+  'rosselhoscenter.ru',
+  'www.rosselhoscenter.ru',
+]);
 
 const PLATFORM_INTENT_PATTERNS = [
   /(?:прозрачн(?:ая|ой|ую|ые|ых)?\s+цен(?:а|ы|е|у|ой)?|платформ(?:а|ы|е|у|ой)|личн(?:ый|ого|ом)\s+кабинет|зарегистрир|служб(?:а|у|е)\s+поддержк|у\s+вас)/iu,
   /(?:transparent\s+price|your\s+platform|the\s+platform|this\s+platform|workspace|sign\s*up|register|support)/iu,
   /(?:透明价格|你们的平台|本平台|平台中|注册|客服)/u,
 ] as const;
+
+const EVIDENCE_STATUSES = new Set(['not_requested', 'available', 'partial', 'unavailable']);
 
 type PublicKnowledgeAnswer = Readonly<{
   requestId: string;
@@ -42,6 +62,22 @@ type PublicKnowledgeAnswer = Readonly<{
   understanding?: Readonly<{ normalizedQuestion?: string; detectedLocale?: string }>;
 }>;
 
+type OfficialEvidenceCitation = Readonly<{
+  sourceId: string;
+  title: string;
+  owner: string;
+  uri: string;
+  geography: string;
+  publishedAt: string;
+  retrievedAt: string;
+  observationPeriod: Readonly<{
+    start: string | null;
+    end: string;
+    precision: 'publication_date';
+  }>;
+  topics: readonly string[];
+}>;
+
 type ModelResponse = Readonly<{
   answer: string;
   provider: 'openai-compatible';
@@ -51,6 +87,8 @@ type ModelResponse = Readonly<{
   completionTokens: number | null;
   operationalStatus: 'NOT_ATTESTED';
   mode: 'read_only';
+  evidenceStatus: 'not_requested' | 'available' | 'partial' | 'unavailable';
+  evidenceSources: readonly OfficialEvidenceCitation[];
 }>;
 
 type RuntimeConfig = Readonly<{
@@ -157,20 +195,29 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
           },
         };
         const answer = await callInternalModel(runtimeConfig, payload, request.signal);
+        const emittedUris = new Set<string>();
         if (answerMode === 'verified_platform') {
           const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
           for (const source of grounding.sources) {
             const uri = absoluteCitationUri(source.href, base);
-            if (!uri) continue;
+            if (!uri || emittedUris.has(uri)) continue;
+            emittedUris.add(uri);
             if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
           }
+        }
+        for (const source of answer.evidenceSources) {
+          if (emittedUris.has(source.uri)) continue;
+          emittedUris.add(source.uri);
+          const date = source.publishedAt.slice(0, 10);
+          const title = `${source.title} · ${date} · ${source.geography}`;
+          if (!writer.emit({ event: 'citation', sourceId: source.sourceId, title, uri: source.uri })) return;
         }
         for (const chunk of chunkAnswer(answer.answer)) {
           if (!writer.emit({ event: 'token', text: chunk })) return;
         }
         writer.emit({
           event: 'assessment',
-          summary: `${answerMode === 'verified_platform' ? 'Verified public platform context' : 'General agriculture and agribusiness guidance'}; restricted local read-only runtime; ${answer.modelIdentity}; permanent admission remains NOT_ATTESTED.`,
+          summary: `${answerMode === 'verified_platform' ? 'Verified public platform context' : 'General agriculture and agribusiness guidance'}; official evidence ${answer.evidenceStatus}; restricted local read-only runtime; ${answer.modelIdentity}; permanent admission remains NOT_ATTESTED.`,
           operationalStatus: 'NOT_ATTESTED',
         });
         writer.complete();
@@ -245,14 +292,77 @@ async function callInternalModel(
       || !decoded.answer.trim()
       || typeof decoded.modelIdentity !== 'string'
       || !decoded.modelIdentity.trim()
+      || typeof decoded.evidenceStatus !== 'string'
+      || !EVIDENCE_STATUSES.has(decoded.evidenceStatus)
+      || !Array.isArray(decoded.evidenceSources)
     ) {
       throw new Error('restricted_runtime_contract_invalid');
     }
-    return decoded as ModelResponse;
+    const evidenceSources = Object.freeze(decoded.evidenceSources.slice(0, 6).map(normalizeOfficialEvidenceCitation));
+    return Object.freeze({
+      answer: decoded.answer,
+      provider: 'openai-compatible',
+      modelIdentity: decoded.modelIdentity,
+      latencyMs: nonNegativeInteger(decoded.latencyMs),
+      promptTokens: nullableNonNegativeInteger(decoded.promptTokens),
+      completionTokens: nullableNonNegativeInteger(decoded.completionTokens),
+      operationalStatus: 'NOT_ATTESTED',
+      mode: 'read_only',
+      evidenceStatus: decoded.evidenceStatus as ModelResponse['evidenceStatus'],
+      evidenceSources,
+    });
   } finally {
     clearTimeout(timeout);
     readerSignal.removeEventListener('abort', onReaderAbort);
   }
+}
+
+function normalizeOfficialEvidenceCitation(value: unknown): OfficialEvidenceCitation {
+  const row = asRecord(value);
+  if (!row) throw new Error('restricted_runtime_evidence_source_invalid');
+  const sourceId = boundedText(row.sourceId, 160);
+  const title = boundedText(row.title, 500);
+  const owner = boundedText(row.owner, 500);
+  const geography = boundedText(row.geography, 500);
+  const publishedAt = boundedDateTime(row.publishedAt);
+  const retrievedAt = boundedDateTime(row.retrievedAt);
+  const topics = Array.isArray(row.topics)
+    ? row.topics.slice(0, 20).map((topic) => boundedText(topic, 120)).filter(Boolean)
+    : [];
+  const periodRow = asRecord(row.observationPeriod);
+  const end = boundedDate(periodRow?.end);
+  if (!sourceId.startsWith('official.') || !title || !owner || !geography || topics.length === 0 || !periodRow) {
+    throw new Error('restricted_runtime_evidence_source_invalid');
+  }
+  if (periodRow.precision !== 'publication_date' || (periodRow.start !== null && periodRow.start !== undefined)) {
+    throw new Error('restricted_runtime_evidence_period_invalid');
+  }
+  let uri: URL;
+  try {
+    uri = new URL(boundedText(row.uri, 2_000));
+  } catch {
+    throw new Error('restricted_runtime_evidence_uri_invalid');
+  }
+  if (
+    uri.protocol !== 'https:'
+    || uri.username
+    || uri.password
+    || uri.hash
+    || !OFFICIAL_EVIDENCE_HOSTS.has(uri.hostname.toLowerCase())
+  ) {
+    throw new Error('restricted_runtime_evidence_uri_forbidden');
+  }
+  return Object.freeze({
+    sourceId,
+    title,
+    owner,
+    uri: uri.toString(),
+    geography,
+    publishedAt,
+    retrievedAt,
+    observationPeriod: Object.freeze({ start: null, end, precision: 'publication_date' }),
+    topics: Object.freeze(topics),
+  });
 }
 
 function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): RuntimeConfig {
@@ -325,6 +435,43 @@ function canonicalJson(value: unknown): string {
   if (typeof value !== 'object') throw new Error('unsupported_signed_value');
   const row = value as Record<string, unknown>;
   return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(row[key])}`).join(',')}}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function boundedText(value: unknown, limit: number): string {
+  return typeof value === 'string'
+    ? value.replace(/[\u0000-\u001F\u007F]/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, limit)
+    : '';
+}
+
+function boundedDateTime(value: unknown): string {
+  const text = boundedText(value, 80);
+  if (!text || !Number.isFinite(Date.parse(text))) throw new Error('restricted_runtime_evidence_datetime_invalid');
+  return new Date(text).toISOString();
+}
+
+function boundedDate(value: unknown): string {
+  const text = boundedText(value, 10);
+  if (!/^20\d{2}-\d{2}-\d{2}$/u.test(text) || !Number.isFinite(Date.parse(`${text}T00:00:00.000Z`))) {
+    throw new Error('restricted_runtime_evidence_date_invalid');
+  }
+  return text;
+}
+
+function nonNegativeInteger(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new Error('restricted_runtime_integer_invalid');
+  }
+  return value;
+}
+
+function nullableNonNegativeInteger(value: unknown): number | null {
+  return value === null ? null : nonNegativeInteger(value);
 }
 
 function boundedInteger(raw: string | undefined, fallback: number, minimum: number, maximum: number): number {
