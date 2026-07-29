@@ -18,6 +18,12 @@ const INTERNAL_PATH = '/internal/tai/public-generate';
 const MAX_API_RESPONSE_BYTES = 1_048_576;
 const DEFAULT_TIMEOUT_MS = 130_000;
 
+const PLATFORM_INTENT_PATTERNS = [
+  /(?:прозрачн(?:ая|ой|ую|ые|ых)?\s+цен(?:а|ы|е|у|ой)?|платформ(?:а|ы|е|у|ой)|личн(?:ый|ого|ом)\s+кабинет|зарегистрир|служб(?:а|у|е)\s+поддержк|у\s+вас)/iu,
+  /(?:transparent\s+price|your\s+platform|the\s+platform|this\s+platform|workspace|sign\s*up|register|support)/iu,
+  /(?:透明价格|你们的平台|本平台|平台中|注册|客服)/u,
+] as const;
+
 type PublicKnowledgeAnswer = Readonly<{
   requestId: string;
   generatedAt: string;
@@ -65,6 +71,7 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text();
+  const publicQuestion = readPublicQuestion(rawBody);
   const groundingRequest = rebuildRequestWithoutStream(request, rawBody);
   const groundingResponse = await knowledgePost(groundingRequest);
   if (!groundingResponse.ok) return groundingResponse;
@@ -79,10 +86,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return streamRestrictedAnswer(request, grounding);
+  return streamRestrictedAnswer(request, grounding, publicQuestion);
 }
 
-function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledgeAnswer) {
+function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledgeAnswer, publicQuestion: string) {
   const encoder = new TextEncoder();
   const streamId = crypto.randomUUID();
   const runtimeConfig = readRuntimeConfig();
@@ -114,9 +121,6 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
       }
       request.signal.addEventListener('abort', cancel, { once: true });
 
-      // The restricted contour is intentionally not represented as permanent
-      // admission. The exact identity is audited server-side; null prevents the
-      // existing UI from labelling it as an admitted AP-13D model.
       writer.emit({ event: 'meta', mode: 'public', modelIdentity: null });
 
       const run = async () => {
@@ -124,8 +128,8 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
           writer.fail('FEATURE_DISABLED', 'The restricted public model runtime is not enabled in this deployment.');
           return;
         }
-        if (grounding.resolution !== 'answered') {
-          writer.fail('ABSTAINED_NO_DATA', grounding.answer || 'Verified public grounding is insufficient.');
+        if (grounding.resolution === 'refused') {
+          writer.fail('ABSTAINED_NO_DATA', grounding.answer || 'The requested private or write capability is unavailable in public mode.');
           return;
         }
 
@@ -133,9 +137,11 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
           || grounding.understanding?.detectedLocale === 'zh'
           ? grounding.understanding.detectedLocale
           : 'ru';
+        const answerMode = hasExplicitPlatformIntent(publicQuestion) ? 'verified_platform' : 'general_agro';
         const payload = {
-          question: grounding.understanding?.normalizedQuestion || grounding.title,
+          question: grounding.understanding?.normalizedQuestion || publicQuestion || grounding.title,
           locale,
+          answerMode,
           grounding: {
             knowledgeVersion: grounding.knowledgeVersion,
             topic: grounding.topic,
@@ -148,18 +154,20 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
           },
         };
         const answer = await callInternalModel(runtimeConfig, payload, request.signal);
-        const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
-        for (const source of grounding.sources) {
-          const uri = absoluteCitationUri(source.href, base);
-          if (!uri) continue;
-          if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
+        if (answerMode === 'verified_platform') {
+          const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
+          for (const source of grounding.sources) {
+            const uri = absoluteCitationUri(source.href, base);
+            if (!uri) continue;
+            if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
+          }
         }
         for (const chunk of chunkAnswer(answer.answer)) {
           if (!writer.emit({ event: 'token', text: chunk })) return;
         }
         writer.emit({
           event: 'assessment',
-          summary: `Restricted local read-only runtime; ${answer.modelIdentity}; permanent admission remains NOT_ATTESTED.`,
+          summary: `${answerMode === 'verified_platform' ? 'Verified public platform context' : 'General agriculture and agribusiness guidance'}; restricted local read-only runtime; ${answer.modelIdentity}; permanent admission remains NOT_ATTESTED.`,
           operationalStatus: 'NOT_ATTESTED',
         });
         writer.complete();
@@ -273,6 +281,23 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   }
   const endpoint = new URL('internal/tai/public-generate', base);
   return Object.freeze({ enabled: true, endpoint, secret, identity, timeoutMs });
+}
+
+function readPublicQuestion(rawBody: string): string {
+  try {
+    const decoded = JSON.parse(rawBody) as unknown;
+    if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) return '';
+    const message = (decoded as Record<string, unknown>).message;
+    return typeof message === 'string' ? message.trim().slice(0, 1_200) : '';
+  } catch {
+    return '';
+  }
+}
+
+function hasExplicitPlatformIntent(question: string): boolean {
+  if (/\bСделк/u.test(question)) return true;
+  const normalized = question.normalize('NFKC').replace(/\s+/gu, ' ').trim();
+  return PLATFORM_INTENT_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): NextRequest {
