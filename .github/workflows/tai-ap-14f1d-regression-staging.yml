@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: tai-ap-14f1d-regression-fix-staging-pr-v2
+  group: tai-ap-14f1d-regression-fix-staging-pr-v3
   cancel-in-progress: true
 
 jobs:
@@ -32,7 +32,26 @@ jobs:
           from pathlib import Path
           import json
 
-          def replace_invocation(path: Path, verifier: str, strict_condition: list[str]) -> None:
+          def replace_sequence(path: Path, old: list[str], new: list[str]) -> None:
+              lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
+              matches = [
+                  index
+                  for index in range(len(lines) - len(old) + 1)
+                  if lines[index:index + len(old)] == old
+              ]
+              if len(matches) != 1:
+                  raise SystemExit(
+                      f'{path}: expected one sequence, found {len(matches)}'
+                  )
+              start = matches[0]
+              lines[start:start + len(old)] = new
+              path.write_text(''.join(lines), encoding='utf-8')
+
+          def replace_invocation(
+              path: Path,
+              verifier: str,
+              strict_condition: list[str],
+          ) -> None:
               lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
               starts = [
                   index
@@ -42,7 +61,9 @@ jobs:
                   and verifier in lines[index + 1]
               ]
               if len(starts) != 1:
-                  raise SystemExit(f'{path}: expected one verifier invocation, found {len(starts)}')
+                  raise SystemExit(
+                      f'{path}: expected one verifier invocation, found {len(starts)}'
+                  )
               start = starts[0]
               ends = [
                   index
@@ -50,7 +71,7 @@ jobs:
                   if lines[index].strip() == 'set -e'
               ]
               if len(ends) != 1:
-                  raise SystemExit(f'{path}: verifier invocation terminator mismatch')
+                  raise SystemExit(f'{path}: invocation terminator mismatch')
               end = ends[0]
               replacement = [
                   '          strict_slice=false\n',
@@ -81,18 +102,19 @@ jobs:
                   '          esac\n',
               ],
           )
-          text = ap1a.read_text(encoding='utf-8')
-          old = """          if (report.counts.changedPaths < 1) process.exit(1);
-          if (report.counts.changedPaths > 11) process.exit(1);
-"""
-          new = """          const strictSlice = process.env.STRICT_SLICE === 'true';
-          if (strictSlice && report.counts.changedPaths < 1) process.exit(1);
-          if (strictSlice && report.counts.changedPaths > 11) process.exit(1);
-          if (!strictSlice && report.counts.changedPaths !== 0) process.exit(1);
-"""
-          if text.count(old) != 1:
-              raise SystemExit('AP-14F1A report-check block mismatch')
-          ap1a.write_text(text.replace(old, new), encoding='utf-8')
+          replace_sequence(
+              ap1a,
+              [
+                  '          if (report.counts.changedPaths < 1) process.exit(1);\n',
+                  '          if (report.counts.changedPaths > 11) process.exit(1);\n',
+              ],
+              [
+                  "          const strictSlice = process.env.STRICT_SLICE === 'true';\n",
+                  '          if (strictSlice && report.counts.changedPaths < 1) process.exit(1);\n',
+                  '          if (strictSlice && report.counts.changedPaths > 11) process.exit(1);\n',
+                  '          if (!strictSlice && report.counts.changedPaths !== 0) process.exit(1);\n',
+              ],
+          )
 
           ap1b2 = Path('.github/workflows/tai-ap-14f1b2.yml')
           replace_invocation(
@@ -106,66 +128,68 @@ jobs:
                   '          fi\n',
               ],
           )
-          text = ap1b2.read_text(encoding='utf-8')
-          old = """          if (report.counts.changedPaths !== 9) process.exit(1);
-"""
-          new = """          const strictSlice = process.env.STRICT_SLICE === 'true';
-          if (strictSlice && report.counts.changedPaths !== 9) process.exit(1);
-          if (!strictSlice && report.counts.changedPaths !== 0) process.exit(1);
-"""
-          if text.count(old) != 1:
-              raise SystemExit('AP-14F1B2 report-check block mismatch')
-          ap1b2.write_text(text.replace(old, new), encoding='utf-8')
+          replace_sequence(
+              ap1b2,
+              ['          if (report.counts.changedPaths !== 9) process.exit(1);\n'],
+              [
+                  "          const strictSlice = process.env.STRICT_SLICE === 'true';\n",
+                  '          if (strictSlice && report.counts.changedPaths !== 9) process.exit(1);\n',
+                  '          if (!strictSlice && report.counts.changedPaths !== 0) process.exit(1);\n',
+              ],
+          )
 
           verifier = Path('scripts/tai-ap-14f1b2/verify.mjs')
-          text = verifier.read_text(encoding='utf-8')
-          old = """const versions = manifest.migrations.map((entry) => entry.version);
-assert(versions.at(-1) === 22, 'manifest terminal version');
-assert(
-  manifest.migrations.at(-1)?.path === '0021_public_official_acquisition_authority.sql',
-  'manifest terminal path',
-);
-assert(new Set(versions).size === versions.length, 'manifest versions unique');
-assert(versions.every((value, index) => value === index + 1), 'manifest versions contiguous');
-"""
-          new = """const versions = manifest.migrations.map((entry) => entry.version);
-const acceptedPrefixLength = 22;
-assert(
-  manifest.migrations.length >= acceptedPrefixLength,
-  'manifest may not remove AP-14F1B2 history',
-);
-const acceptedAuthority = manifest.migrations[acceptedPrefixLength - 1];
-assert(acceptedAuthority?.version === 22, 'manifest accepted prefix version');
-assert(
-  acceptedAuthority?.path === '0021_public_official_acquisition_authority.sql',
-  'manifest accepted prefix path',
-);
-assert(new Set(versions).size === versions.length, 'manifest versions unique');
-assert(versions.every((value, index) => value === index + 1), 'manifest versions contiguous');
-"""
-          if text.count(old) != 1:
-              raise SystemExit('AP-14F1B2 manifest block mismatch')
-          text = text.replace(old, new)
-          old = """      migrations: manifest.migrations.map((entry, index) =>
-        index === manifest.migrations.length - 1 ? { ...entry, version: 21 } : entry,
-      ),
-"""
-          new = """      migrations: manifest.migrations.map((entry, index) =>
-        index === 21 ? { ...entry, version: 21 } : entry,
-      ),
-"""
-          if text.count(old) != 1:
-              raise SystemExit('AP-14F1B2 negative-mutation block mismatch')
-          text = text.replace(old, new)
-          old = """    || candidate.migrations?.at(-1)?.version !== 22;
-"""
-          new = """    || candidate.migrations?.[21]?.version !== 22;
-"""
-          if text.count(old) != 1:
-              raise SystemExit('AP-14F1B2 negative-rejection block mismatch')
-          verifier.write_text(text.replace(old, new), encoding='utf-8')
+          replace_sequence(
+              verifier,
+              [
+                  'const versions = manifest.migrations.map((entry) => entry.version);\n',
+                  "assert(versions.at(-1) === 22, 'manifest terminal version');\n",
+                  'assert(\n',
+                  "  manifest.migrations.at(-1)?.path === '0021_public_official_acquisition_authority.sql',\n",
+                  "  'manifest terminal path',\n",
+                  ');\n',
+                  "assert(new Set(versions).size === versions.length, 'manifest versions unique');\n",
+                  "assert(versions.every((value, index) => value === index + 1), 'manifest versions contiguous');\n",
+              ],
+              [
+                  'const versions = manifest.migrations.map((entry) => entry.version);\n',
+                  'const acceptedPrefixLength = 22;\n',
+                  'assert(\n',
+                  '  manifest.migrations.length >= acceptedPrefixLength,\n',
+                  "  'manifest may not remove AP-14F1B2 history',\n",
+                  ');\n',
+                  'const acceptedAuthority = manifest.migrations[acceptedPrefixLength - 1];\n',
+                  "assert(acceptedAuthority?.version === 22, 'manifest accepted prefix version');\n",
+                  'assert(\n',
+                  "  acceptedAuthority?.path === '0021_public_official_acquisition_authority.sql',\n",
+                  "  'manifest accepted prefix path',\n",
+                  ');\n',
+                  "assert(new Set(versions).size === versions.length, 'manifest versions unique');\n",
+                  "assert(versions.every((value, index) => value === index + 1), 'manifest versions contiguous');\n",
+              ],
+          )
+          replace_sequence(
+              verifier,
+              [
+                  '      migrations: manifest.migrations.map((entry, index) =>\n',
+                  '        index === manifest.migrations.length - 1 ? { ...entry, version: 21 } : entry,\n',
+                  '      ),\n',
+              ],
+              [
+                  '      migrations: manifest.migrations.map((entry, index) =>\n',
+                  '        index === 21 ? { ...entry, version: 21 } : entry,\n',
+                  '      ),\n',
+              ],
+          )
+          replace_sequence(
+              verifier,
+              ["    || candidate.migrations?.at(-1)?.version !== 22;\n"],
+              ["    || candidate.migrations?.[21]?.version !== 22;\n"],
+          )
 
-          scope_path = Path('docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json')
+          scope_path = Path(
+              'docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json'
+          )
           scope = json.loads(scope_path.read_text(encoding='utf-8'))
           scope['allowedPaths'] = sorted(
               set(scope['allowedPaths'])
