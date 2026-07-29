@@ -81,10 +81,16 @@ assert(scope.boundaries.noCredentials === true, 'credential boundary');
 assert(scope.boundaries.noModelTrainingOrWeights === true, 'model boundary');
 
 const versions = manifest.migrations.map((entry) => entry.version);
-assert(versions.at(-1) === 22, 'manifest terminal version');
+const acceptedPrefixLength = 22;
 assert(
-  manifest.migrations.at(-1)?.path === '0021_public_official_acquisition_authority.sql',
-  'manifest terminal path',
+  manifest.migrations.length >= acceptedPrefixLength,
+  'manifest may not remove AP-14F1B2 history',
+);
+const acceptedAuthority = manifest.migrations[acceptedPrefixLength - 1];
+assert(acceptedAuthority?.version === 22, 'manifest accepted prefix version');
+assert(
+  acceptedAuthority?.path === '0021_public_official_acquisition_authority.sql',
+  'manifest accepted prefix path',
 );
 assert(new Set(versions).size === versions.length, 'manifest versions unique');
 assert(versions.every((value, index) => value === index + 1), 'manifest versions contiguous');
@@ -187,7 +193,7 @@ assert(workflowSource.includes('pytest'), 'workflow pytest acceptance');
 assert(workflowSource.includes('TAI AP-14F1B2 exact-main'), 'workflow exact-main status');
 assert(!workflowSource.includes('curl '), 'workflow real network fetch forbidden');
 
-let changedPaths = expectedPaths;
+let changedPaths = [];
 if (comparisonBase) {
   git('cat-file', '-e', `${baseCommit}^{commit}`);
   git('merge-base', '--is-ancestor', baseCommit, 'HEAD');
@@ -219,7 +225,7 @@ const negativeMutationProbes = [
     () => ({
       ...manifest,
       migrations: manifest.migrations.map((entry, index) =>
-        index === manifest.migrations.length - 1 ? { ...entry, version: 21 } : entry,
+        index === 21 ? { ...entry, version: 21 } : entry,
       ),
     }),
   ],
@@ -230,7 +236,7 @@ for (const [label, mutate] of negativeMutationProbes) {
     candidate.operationalStatus !== 'NOT_ATTESTED'
     || candidate.boundaries?.noRealNetworkAcceptance !== true
     || candidate.acceptance?.realNetworkSourceCount !== 0
-    || candidate.migrations?.at(-1)?.version !== 22;
+    || candidate.migrations?.[21]?.version !== 22;
   assert(rejected, `negative probe accepted: ${label}`);
 }
 
