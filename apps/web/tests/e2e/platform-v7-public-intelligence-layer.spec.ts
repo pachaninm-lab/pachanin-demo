@@ -140,9 +140,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     const taiProductLink = page.getByRole('link', { name: 'Посмотреть TAI подробнее' }).first();
     await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
-    await expect(page.locator('#maturity')).toContainText(/private cloud и on-premise/i);
-    await expect(page.locator('#integrations [role="row"]')).toHaveCount(5);
-    await expect(page.locator('#integrations')).not.toContainText('CONFIRMED_LIVE');
+    await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
     await expect(page.locator('#faq details')).toHaveCount(4);
 
     await settleContactDock(page);
@@ -218,10 +216,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       await expect(page.locator('#difference')).toBeVisible();
       await expect(page.locator('#functions')).toBeVisible();
       await expect(page.locator('#live')).toBeVisible();
-      // The integration table sits inside the trust section the owner removed
-      // (#3286), so it is hidden with its parent. Asserting it visible would
-      // require restoring a block that was deliberately taken off the homepage.
-      await expect(page.locator('#integrations')).toBeHidden();
+      await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
       await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');
