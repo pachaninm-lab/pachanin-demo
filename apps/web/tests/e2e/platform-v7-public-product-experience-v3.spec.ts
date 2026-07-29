@@ -52,20 +52,11 @@ async function scrollAndFlush(page: Page, top: number) {
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
-
-  if (!mobile) {
-    await scrollAndFlush(page, 0);
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
-    return;
-  }
 
   await scrollAndFlush(page, 0);
-  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-  await scrollAndFlush(page, 1400);
-  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-  await scrollAndFlush(page, 800);
   await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+  await expect(dock).toBeVisible();
+  await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {

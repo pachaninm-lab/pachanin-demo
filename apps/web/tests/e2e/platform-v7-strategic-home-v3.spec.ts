@@ -36,7 +36,6 @@ async function scrollAndFlush(page: Page, top: number) {
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  const expected = (page.viewportSize()?.width ?? 1024) <= 767 ? 'true' : 'false';
 
   await expect.poll(async () => {
     await scrollAndFlush(page, 0);
@@ -44,8 +43,10 @@ async function settleContactDock(page: Page) {
   }, {
     timeout: 15_000,
     intervals: [100, 250, 500],
-    message: 'contact dock must settle at the top after route hydration and hash restoration',
-  }).toBe(expected);
+    message: 'public contact dock must remain available after route hydration and hash restoration',
+  }).toBe('false');
+  await expect(dock).toBeVisible();
+  await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {
@@ -172,30 +173,21 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
   });
 
-  test('mobile contact dock stays off the first screen and returns only on upward scrolling below the hero', async ({ page }) => {
+  test('mobile public AI remains visible and enabled throughout homepage scrolling', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     const dock = page.locator('.pc-public-contact-dock');
-    const assistant = dock.locator('button').first();
+    const assistant = dock.locator('.pc-public-contact-dock-assistant');
     const call = dock.locator('a');
 
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-    await expect(dock).toBeHidden();
-    await expect(assistant).toBeDisabled();
-    await expect(assistant).toHaveAttribute('tabindex', '-1');
-    await expect(call).toHaveAttribute('tabindex', '-1');
-
-    await scrollAndFlush(page, 1300);
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-
-    await scrollAndFlush(page, 900);
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
-    await expect(dock).toBeVisible();
-    await expect(assistant).toBeEnabled();
-
-    await scrollAndFlush(page, 0);
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-    await expect(dock).toBeHidden();
+    for (const top of [0, 1300, 900, 0]) {
+      await scrollAndFlush(page, top);
+      await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+      await expect(dock).toBeVisible();
+      await expect(assistant).toBeEnabled();
+      await expect(assistant).toHaveAttribute('tabindex', '0');
+      await expect(call).toHaveAttribute('tabindex', '0');
+    }
   });
 
   for (const width of [320, 375, 390, 430]) {
