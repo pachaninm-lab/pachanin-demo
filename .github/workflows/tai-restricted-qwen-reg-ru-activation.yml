@@ -1,0 +1,436 @@
+name: TAI Restricted Qwen REG.RU Activation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
+      - 'apps/api/src/modules/ai-insights/ai-assistant.service.ts'
+      - 'apps/api/src/modules/ai-insights/ai-insights.module.ts'
+      - 'apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts'
+      - 'apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts'
+      - 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
+      - 'apps/web/next.config.js'
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter ACTIVATE-RESTRICTED-QWEN-REG-RU
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: tai-restricted-qwen-reg-ru-activation
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_PROD_HOST: 195.19.12.120
+  MODEL_PRIVATE_IP: 192.168.0.206
+  MODEL_PORT: '18080'
+  MODEL_BASE_URL: http://192.168.0.206:18080/v1/
+  MODEL_IDENTITY: tai-qwen3-8b-q4km
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_PASSWORD_SECRET: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
+  PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  PROD_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  PROD_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+  BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}
+
+jobs:
+  activate:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        github.event_name == 'push' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner &&
+          inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU'
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current-main target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.sha }}'
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for exact API, web and migration images
+        id: images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          for component in api web migration; do
+            image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+            ready=0
+            for attempt in $(seq 1 90); do
+              if docker pull "$image" >/dev/null 2>&1; then
+                revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+                if [[ "$revision" == "$TARGET_SHA" ]]; then ready=1; break; fi
+              fi
+              sleep 10
+            done
+            (( ready == 1 )) || { echo "Exact ${component} image unavailable." >&2; exit 2; }
+            echo "${component}_image=$image" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Resolve protected SSH transports
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+
+          model_host="$(trim "${MODEL_HOST_SECRET:-}")"
+          model_user="$(trim "${MODEL_USER_SECRET:-root}")"
+          model_port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          prod_host="$(trim "${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}")"
+          prod_user="$(trim "${PROD_USER_SECRET:-root}")"
+          prod_port="$(trim "${PROD_PORT_SECRET:-22}")"
+          [[ -n "$model_host" && "$model_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$model_port" =~ ^[0-9]+$ ]] && ((model_port>=1 && model_port<=65535))
+          [[ "$prod_host" == "$DEFAULT_PROD_HOST" && "$prod_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$prod_port" =~ ^[0-9]+$ ]] && ((prod_port>=1 && prod_port<=65535))
+          [[ "$PROD_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          model_key="${MODEL_KEY_SECRET:-${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}}"
+          prod_key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
+          write_key "$model_key" "$HOME/.ssh/id_tai_model" || { echo 'Protected model-host private key is unavailable.' >&2; exit 10; }
+          write_key "$prod_key" "$HOME/.ssh/id_pc_prod" || { echo 'Protected production private key is unavailable.' >&2; exit 11; }
+
+          ssh-keyscan -T 10 -p "$model_port" "$model_host" 2>/dev/null | sort -u > "$HOME/.ssh/model_known_hosts"
+          [[ -s "$HOME/.ssh/model_known_hosts" ]]
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$prod_port" "$prod_host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$PROD_HOST_FINGERPRINT" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/prod_known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/"*known_hosts
+
+          {
+            echo "model_host=$model_host"
+            echo "model_user=$model_user"
+            echo "model_port=$model_port"
+            echo "prod_host=$prod_host"
+            echo "prod_user=$prod_user"
+            echo "prod_port=$prod_port"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify private model service and recover API key without disclosure
+        id: model
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.model_host }}
+          MODEL_USER: ${{ steps.ssh.outputs.model_user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.model_port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote='set -euo pipefail
+          test "$(id -u)" -eq 0
+          systemctl is-active --quiet tai-qwen3-8b.service
+          test -r /etc/tai/qwen3-8b.env
+          test "$(stat -c %a /etc/tai/qwen3-8b.env)" = 600
+          set -a; source /etc/tai/qwen3-8b.env; set +a
+          test "${#TAI_LLM_API_KEY}" -ge 32
+          ss -H -ltn | grep -Eq "192[.]168[.]0[.]206:18080[[:space:]]"
+          ! ss -H -ltn | grep -Eq "(^|[[:space:]])(0[.]0[.]0[.]0|[[]::[]]):18080[[:space:]]"
+          curl -fsS --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $TAI_LLM_API_KEY" http://192.168.0.206:18080/health >/dev/null
+          printf %s "$TAI_LLM_API_KEY"'
+          api_key="$(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" "$remote")"
+          [[ "${#api_key}" -ge 32 ]]
+          echo "::add-mask::$api_key"
+          printf '%s' "$api_key" > "$RUNNER_TEMP/tai-model-api-key"
+          chmod 0600 "$RUNNER_TEMP/tai-model-api-key"
+          echo 'model_service_verified=1' >> "$GITHUB_OUTPUT"
+
+      - name: Prepare root-only activation payload
+        id: payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          api_key="$(cat "$RUNNER_TEMP/tai-model-api-key")"
+          hmac_secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$hmac_secret"
+          cat > "$RUNNER_TEMP/tai-qwen-api.env" <<EOF
+          AI_ASSISTANT_PROVIDER=openai-compatible
+          AI_ASSISTANT_BASE_URL=$MODEL_BASE_URL
+          AI_ASSISTANT_MODEL=$MODEL_IDENTITY
+          AI_ASSISTANT_API_KEY=$api_key
+          AI_ASSISTANT_ALLOWED_HOSTS=$MODEL_PRIVATE_IP
+          TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true
+          TAI_PUBLIC_GATEWAY_HMAC_SECRET=$hmac_secret
+          EOF
+          cat > "$RUNNER_TEMP/tai-qwen-web.env" <<EOF
+          TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true
+          TAI_RESTRICTED_QWEN_MODEL_IDENTITY=$MODEL_IDENTITY
+          TAI_PUBLIC_GATEWAY_HMAC_SECRET=$hmac_secret
+          TAI_INTERNAL_API_BASE_URL=http://api:3001/api/
+          TAI_INTERNAL_API_ALLOWED_HOSTS=api
+          TAI_PUBLIC_MODEL_TIMEOUT_MS=130000
+          NEXT_PUBLIC_SITE_URL=https://процент-агро.рф
+          EOF
+          chmod 0600 "$RUNNER_TEMP/tai-qwen-api.env" "$RUNNER_TEMP/tai-qwen-web.env"
+          rm -f "$RUNNER_TEMP/tai-model-api-key"
+
+      - name: Deploy exact main API and web images
+        env:
+          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
+          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
+          PROD_SSH_PORT: ${{ steps.ssh.outputs.prod_port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          API_IMAGE: ${{ steps.images.outputs.api_image }}
+          WEB_IMAGE: ${{ steps.images.outputs.web_image }}
+          MIGRATION_IMAGE: ${{ steps.images.outputs.migration_image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          enc(){ printf '%s' "$1" | base64 -w0; }
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PROD_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes)
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PROD_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes)
+          scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$PROD_USER@$PROD_HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
+          raw="$(mktemp)"
+          set +e
+          ssh "${ssh_common[@]}" "$PROD_USER@$PROD_HOST" \
+            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+          rc=$?
+          set -e
+          sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw"
+          grep -Fxq 'DEPLOYMENT_COMPLETE=1' "$raw"
+          rm -f "$raw"
+          ((rc == 0))
+
+      - name: Activate restricted Qwen environment on production
+        env:
+          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
+          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
+          PROD_SSH_PORT: ${{ steps.ssh.outputs.prod_port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PROD_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes)
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PROD_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes)
+          scp "${scp_common[@]}" "$RUNNER_TEMP/tai-qwen-api.env" "$PROD_USER@$PROD_HOST:/tmp/tai-qwen-api-${GITHUB_RUN_ID}.env"
+          scp "${scp_common[@]}" "$RUNNER_TEMP/tai-qwen-web.env" "$PROD_USER@$PROD_HOST:/tmp/tai-qwen-web-${GITHUB_RUN_ID}.env"
+          ssh "${ssh_common[@]}" "$PROD_USER@$PROD_HOST" "TARGET_SHA='$TARGET_SHA' RUN_ID='$GITHUB_RUN_ID' MODEL_IP='$MODEL_PRIVATE_IP' MODEL_PORT='$MODEL_PORT' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          test "$(id -u)" -eq 0
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$MODEL_IP" == 192.168.0.206 && "$MODEL_PORT" == 18080 ]]
+          api_env_tmp="/tmp/tai-qwen-api-${RUN_ID}.env"
+          web_env_tmp="/tmp/tai-qwen-web-${RUN_ID}.env"
+          test -s "$api_env_tmp" && test -s "$web_env_tmp"
+          chmod 0600 "$api_env_tmp" "$web_env_tmp"
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+          prod_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+          prod_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          test -d "$prod_dir" && test -n "$prod_files" && test -n "$prod_project"
+
+          IFS=',' read -r -a raw_files <<< "$prod_files"
+          compose_files=()
+          override="$prod_dir/compose.tai-restricted-qwen.override.yml"
+          for raw in "${raw_files[@]}"; do
+            file="${raw#"${raw%%[![:space:]]*}"}"; file="${file%"${file##*[![:space:]]}"}"
+            [[ -n "$file" ]] || continue
+            [[ "$file" == /* ]] || file="$prod_dir/$file"
+            [[ "$file" == "$override" ]] || compose_files+=("$file")
+          done
+          (( ${#compose_files[@]} >= 1 ))
+          for file in "${compose_files[@]}"; do test -f "$file"; done
+
+          dc=(docker compose --project-directory "$prod_dir" --project-name "$prod_project")
+          for file in "${compose_files[@]}"; do dc+=(-f "$file"); done
+          api_id="$("${dc[@]}" ps -q api | head -1)"
+          web_id="$("${dc[@]}" ps -q web | head -1)"
+          test -n "$api_id" && test -n "$web_id"
+          test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" = "$TARGET_SHA"
+          test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" = "$TARGET_SHA"
+
+          state_root="/var/lib/pc-release-authority/tai-qwen-${RUN_ID}"
+          install -d -m 0700 "$state_root" /etc/transparent-price
+          for current in /etc/transparent-price/tai-qwen-api.env /etc/transparent-price/tai-qwen-web.env "$override"; do
+            if [[ -f "$current" ]]; then cp -a "$current" "$state_root/$(basename "$current").before"; fi
+          done
+          install -m 0600 -o root -g root "$api_env_tmp" /etc/transparent-price/tai-qwen-api.env
+          install -m 0600 -o root -g root "$web_env_tmp" /etc/transparent-price/tai-qwen-web.env
+          rm -f "$api_env_tmp" "$web_env_tmp"
+          umask 077
+          cat > "$override.tmp" <<'YAML'
+          services:
+            api:
+              env_file:
+                - /etc/transparent-price/tai-qwen-api.env
+            web:
+              env_file:
+                - /etc/transparent-price/tai-qwen-web.env
+          YAML
+          mv "$override.tmp" "$override"
+          chmod 0600 "$override"
+
+          dc_qwen=("${dc[@]}" -f "$override")
+          "${dc_qwen[@]}" config --quiet
+          "${dc_qwen[@]}" up -d --no-deps api web
+
+          for attempt in $(seq 1 45); do
+            api_id="$("${dc_qwen[@]}" ps -q api | head -1)"
+            if [[ -n "$api_id" ]] && docker exec "$api_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then break; fi
+            sleep 4
+          done
+          docker exec "$api_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+          web_id="$("${dc_qwen[@]}" ps -q web | head -1)"
+          for attempt in $(seq 1 45); do
+            state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id" 2>/dev/null || true)"
+            [[ "$state" == healthy ]] && break
+            sleep 4
+          done
+          test "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")" = healthy
+          test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" = "$TARGET_SHA"
+          test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" = "$TARGET_SHA"
+
+          docker exec "$api_id" sh -ceu 'test "$AI_ASSISTANT_PROVIDER" = openai-compatible; test "$AI_ASSISTANT_MODEL" = tai-qwen3-8b-q4km; test "$TAI_RESTRICTED_QWEN_PUBLIC_ENABLED" = true; test "${#AI_ASSISTANT_API_KEY}" -ge 32; test "${#TAI_PUBLIC_GATEWAY_HMAC_SECRET}" -ge 32'
+          docker exec "$web_id" sh -ceu 'test "$TAI_RESTRICTED_QWEN_PUBLIC_ENABLED" = true; test "$TAI_RESTRICTED_QWEN_MODEL_IDENTITY" = tai-qwen3-8b-q4km; test "${#TAI_PUBLIC_GATEWAY_HMAC_SECRET}" -ge 32; test -z "${AI_ASSISTANT_API_KEY:-}"'
+          docker exec "$api_id" /nodejs/bin/node <<'NODE'
+          const endpoint = new URL('chat/completions', process.env.AI_ASSISTANT_BASE_URL);
+          fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.AI_ASSISTANT_API_KEY}` },
+            body: JSON.stringify({ model: process.env.AI_ASSISTANT_MODEL, messages: [{ role: 'user', content: 'Reply only TAI_API_MODEL_OK' }], temperature: 0, max_tokens: 32, stream: false, chat_template_kwargs: { enable_thinking: false } }),
+            signal: AbortSignal.timeout(120000),
+          }).then(async (response) => {
+            if (!response.ok) process.exit(2);
+            const payload = await response.json();
+            const content = payload?.choices?.[0]?.message?.content;
+            if (typeof content !== 'string' || !content.includes('TAI_API_MODEL_OK')) process.exit(3);
+          }).catch(() => process.exit(4));
+          NODE
+          echo 'RESTRICTED_QWEN_PRODUCTION_ENV=ACTIVE'
+          echo "DEPLOYED_EXACT_SHA=$TARGET_SHA"
+          REMOTE
+          rm -f "$RUNNER_TEMP/tai-qwen-api.env" "$RUNNER_TEMP/tai-qwen-web.env"
+
+      - name: Verify live public RU, EN and ZH model answers
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tai-live"
+          questions=(
+            'ru|Как работает платформа?'
+            'en|How does the platform work?'
+            'zh|平台如何运作？'
+          )
+          for entry in "${questions[@]}"; do
+            locale="${entry%%|*}"; question="${entry#*|}"
+            payload="$(python3 - "$locale" "$question" <<'PY'
+          import json, sys
+          print(json.dumps({'message': sys.argv[2], 'locale': sys.argv[1]}, ensure_ascii=False))
+          PY
+            )"
+            curl -fsS --connect-timeout 10 --max-time 240 \
+              -H 'Content-Type: application/json' \
+              -H 'Accept: text/event-stream' \
+              -H 'Sec-Fetch-Site: same-origin' \
+              -H "Origin: $LIVE_BASE" \
+              --data-binary "$payload" \
+              "$LIVE_BASE/api/public-platform-assistant?stream=1" \
+              > "$RUNNER_TEMP/tai-live/${locale}.sse"
+          done
+          python3 - "$RUNNER_TEMP/tai-live" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          for locale in ('ru', 'en', 'zh'):
+              text = (root / f'{locale}.sse').read_text(encoding='utf-8')
+              frames = []
+              for block in text.split('\n\n'):
+                  for line in block.splitlines():
+                      if line.startswith('data: '): frames.append(json.loads(line[6:]))
+              events = [frame.get('event') for frame in frames]
+              assert 'token' in events, (locale, events)
+              assert any(frame.get('event') == 'assessment' and frame.get('operationalStatus') == 'NOT_ATTESTED' for frame in frames)
+              assert frames[-1].get('event') == 'done' and frames[-1].get('complete') is True
+              assert '192.168.0.206' not in text
+              for forbidden in ('tenantId', 'membershipId', 'subjectId', 'AI_ASSISTANT_API_KEY', 'TAI_PUBLIC_GATEWAY_HMAC_SECRET'):
+                  assert forbidden not in text
+          PY
+          echo "LIVE_PUBLIC_QWEN_RU_EN_ZH=PASS"
+          echo "LIVE_EXACT_SHA=$TARGET_SHA"
+
+      - name: Record restricted maturity boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Restricted Qwen activation completed on REG.RU for exact main \`$TARGET_SHA\`. Public RU/EN/ZH live inference passed; API-to-private-model authenticated inference passed; model key remained server-only; browser responses contained no private model address; runtime remains read-only and permanent AP-13D admission remains NOT_ATTESTED. Terminal operational boundary: \`RESTRICTED_LIVE_READ_ONLY_QWEN_ACTIVE_PUBLIC_AND_ROLE_SCOPED_PENDING_EXTERNAL_IMMUTABILITY_AND_ADMISSION\`."
