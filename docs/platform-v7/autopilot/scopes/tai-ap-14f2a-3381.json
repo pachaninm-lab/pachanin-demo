@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f2a-rosstat-fact-pack-3381",
+  "status": "active",
+  "issue": 3381,
+  "baseCommit": "015d6fc4c1fdee24860a2ebee49d2cd95de9be2c",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f2a.yml",
+    "apps/tai/tai/migrations/0022_public_fact_pack_authority.sql",
+    "apps/tai/tai/migrations/manifest.json",
+    "apps/tai/tai/rosstat_fact_pack.py",
+    "apps/tai/tests/test_migration_manifest.py",
+    "apps/tai/tests/test_rosstat_fact_pack.py",
+    "apps/tai/tests/test_rosstat_fact_pack_database.py",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f2a-3381.json",
+    "scripts/tai-ap-14f2a/verify.py"
+  ],
+  "boundaries": {
+    "exactSourceOnly": true,
+    "sourceId": "official.rosstat.opendata.7708234640-vshp2016254",
+    "datasetCode": "7708234640-VSHP2016254",
+    "noSecondSource": true,
+    "tenantIdMustBeNull": true,
+    "noModelInvocation": true,
+    "noForecastOrInference": true,
+    "noFloatAuthority": true,
+    "noEmbeddingsOrVectorDatabase": true,
+    "noModelTrainingOrWeights": true,
+    "noTenantLiveOrContractedData": true,
+    "noCredentials": true,
+    "noExternalWrites": true,
+    "noRegRuRuntimeActivation": true,
+    "noProductionCompletenessClaim": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 9,
+    "migrationFile": "0022_public_fact_pack_authority.sql",
+    "migrationManifestVersion": 24,
+    "packId": "factpack.rosstat.7708234640-vshp2016254",
+    "measureCode": "OBS_VALUE",
+    "localizedLocales": [
+      "ru",
+      "en",
+      "zh"
+    ],
+    "concurrentFirstMaterializationRequired": true,
+    "idempotentReplayRequired": true,
+    "atomicSuccessorActivationRequired": true,
+    "withdrawalEmptyVersionRequired": true,
+    "staleFactCountAfterWithdrawal": 0,
+    "exactDecimalRequired": true,
+    "exactCitationRequired": true,
+    "unsupportedQueryFailClosedRequired": true,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
