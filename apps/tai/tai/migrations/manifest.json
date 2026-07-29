@@ -83,6 +83,10 @@
     {
       "path": "0020_public_official_corpus_audit_authority.sql",
       "version": 21
+    },
+    {
+      "path": "0021_public_official_acquisition_authority.sql",
+      "version": 22
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
