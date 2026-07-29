@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PUBLIC-AI-QWEN-PRIVILEGE-FIX-GENERATOR-3372-5",
+  "branch": "ops/generate-qwen-privilege-fix-3372-5",
+  "status": "temporary",
+  "issue": 3372,
+  "baseCommit": "cb663a720005d912213738e834294f22f43fa422",
+  "operationalStatus": "PRIVILEGED_MODEL_SHELL_PATCH_GENERATION_PENDING",
+  "maturityBoundary": "temporary-source-controlled-patch-generator-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-privilege-fix-generator.yml",
+    "docs/platform-v7/autopilot/scopes/generate-qwen-privilege-fix-3372-5.json"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": false
+  },
+  "requiredEvidence": [
+    "Generator runs only for its exact same-repository head branch",
+    "Generated branch starts from exact current main",
+    "Only the activation workflow, repair workflow and a generated scope are changed",
+    "Patch preserves all existing deployment, rollback and live acceptance steps",
+    "No credentials or secret values are read or written",
+    "Generator PR is closed without merge after generated patch extraction"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
