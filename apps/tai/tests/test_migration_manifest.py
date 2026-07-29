@@ -16,17 +16,18 @@ def _repo_root() -> Path:
 
 def test_repository_manifest_preserves_historical_paths_with_unique_authority_order() -> None:
     inventory = _migration_inventory(_repo_root())
-    assert [item.version for item in inventory.migrations] == list(range(1, 24))
+    assert [item.version for item in inventory.migrations] == list(range(1, 25))
     paths = [item.path for item in inventory.migrations]
     assert paths[9].endswith("0010_operational_authority.sql")
     assert paths[10].endswith("0010_orchestration_runtime.sql")
-    assert paths[-7].endswith("0016_official_source_coverage.sql")
-    assert paths[-6].endswith("0017_official_source_run_evidence.sql")
-    assert paths[-5].endswith("0018_confirmation_denial_audit.sql")
-    assert paths[-4].endswith("0019_public_official_corpus.sql")
-    assert paths[-3].endswith("0020_public_official_corpus_audit_authority.sql")
-    assert paths[-2].endswith("0021_public_official_acquisition_authority.sql")
-    assert paths[-1].endswith("0022_rosstat_vshp2016254_snapshot.sql")
+    assert paths[-8].endswith("0016_official_source_coverage.sql")
+    assert paths[-7].endswith("0017_official_source_run_evidence.sql")
+    assert paths[-6].endswith("0018_confirmation_denial_audit.sql")
+    assert paths[-5].endswith("0019_public_official_corpus.sql")
+    assert paths[-4].endswith("0020_public_official_corpus_audit_authority.sql")
+    assert paths[-3].endswith("0021_public_official_acquisition_authority.sql")
+    assert paths[-2].endswith("0022_rosstat_vshp2016254_snapshot.sql")
+    assert paths[-1].endswith("0023_rosstat_vshp2016254_source_admission.sql")
 
 
 def _fixture(root: Path) -> Path:
