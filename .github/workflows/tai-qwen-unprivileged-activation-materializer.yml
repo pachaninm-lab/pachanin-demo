@@ -230,6 +230,14 @@ jobs:
           grep -Fq "entryPoint: 'public-contact-dock-assistant'" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
           git diff --check -- .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
 
+      - name: Upload materialized activation workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-final-activation-${{ github.event.pull_request.head.sha }}
+          path: .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Rebuild as one clean activation workflow commit
         env:
           BRANCH: ops/qwen-recovery-unprivileged-activation-3372
