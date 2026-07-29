@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -16,6 +17,7 @@ import {
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const MAX_CLOCK_SKEW_SECONDS = 90;
 const INTERNAL_PATH = '/internal/tai/public-generate';
+const PRIVATE_PUBLIC_SOURCE = /^\/platform-v7\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\/|$)/u;
 
 type HeaderMap = Record<string, string | string[] | undefined>;
 
@@ -30,6 +32,7 @@ export class RestrictedPublicQwenController {
     @Headers() headers: HeaderMap,
   ): Promise<RestrictedPublicQwenResponse> {
     verifyInternalSignature(body, headers);
+    verifyPublicSourceBoundary(body);
     return this.qwen.generate(body);
   }
 }
@@ -67,6 +70,24 @@ export function verifyInternalSignature(
   }
 }
 
+export function verifyPublicSourceBoundary(body: unknown): void {
+  const row = asRecord(body);
+  const grounding = asRecord(row?.grounding);
+  const sources = Array.isArray(grounding?.sources) ? grounding.sources : [];
+  for (const source of sources) {
+    const sourceRow = asRecord(source);
+    const href = typeof sourceRow?.href === 'string' ? sourceRow.href.trim() : '';
+    if (
+      !/^\/platform-v7(?:\/|$)/u.test(href)
+      || href.includes('..')
+      || href.includes('://')
+      || PRIVATE_PUBLIC_SOURCE.test(href)
+    ) {
+      throw new BadRequestException('A source is outside the approved public platform contour.');
+    }
+  }
+}
+
 export function canonicalJson(value: unknown): string {
   if (value === null) return 'null';
   if (typeof value === 'string') return JSON.stringify(value);
@@ -79,6 +100,12 @@ export function canonicalJson(value: unknown): string {
   if (typeof value !== 'object') throw new UnauthorizedException('Unsupported value in signed payload.');
   const row = value as Record<string, unknown>;
   return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(row[key])}`).join(',')}}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
 }
 
 function singleHeader(headers: HeaderMap, name: string): string {
