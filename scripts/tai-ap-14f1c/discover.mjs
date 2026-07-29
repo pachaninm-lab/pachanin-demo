@@ -96,6 +96,13 @@ function headerDigest(headers) {
     .join('\n')));
 }
 
+function decodeUtf16Be(body, offset = 0) {
+  const length = body.length - offset - ((body.length - offset) % 2);
+  const swapped = Buffer.from(body.subarray(offset, offset + length));
+  swapped.swap16();
+  return swapped.toString('utf16le');
+}
+
 function decodeXmlText(body) {
   if (body.length >= 3 && body[0] === 0xef && body[1] === 0xbb && body[2] === 0xbf) {
     return body.subarray(3).toString('utf8');
@@ -104,10 +111,13 @@ function decodeXmlText(body) {
     return body.subarray(2).toString('utf16le');
   }
   if (body.length >= 2 && body[0] === 0xfe && body[1] === 0xff) {
-    const evenLength = body.length - (body.length % 2);
-    const swapped = Buffer.from(body.subarray(2, evenLength));
-    swapped.swap16();
-    return swapped.toString('utf16le');
+    return decodeUtf16Be(body, 2);
+  }
+  if (body.length >= 4 && body[0] === 0x3c && body[1] === 0x00 && body[2] === 0x3f && body[3] === 0x00) {
+    return body.toString('utf16le');
+  }
+  if (body.length >= 4 && body[0] === 0x00 && body[1] === 0x3c && body[2] === 0x00 && body[3] === 0x3f) {
+    return decodeUtf16Be(body);
   }
   return body.toString('utf8');
 }
@@ -135,11 +145,16 @@ function assertBody(resource, body) {
   if (!xml.startsWith('<')) {
     fail('ROSSTAT_XML_SIGNATURE_MISMATCH', `${resource.code}:${body.subarray(0, 16).toString('hex')}`);
   }
+  if (xml.startsWith('<html') || xml.startsWith('<!doctype html')) {
+    fail('ROSSTAT_XML_HTML_MISMATCH', resource.code);
+  }
   if (xml.includes('<!doctype') || xml.includes('<!entity') || xml.includes('<xi:include')) {
     fail('ROSSTAT_XML_EXTERNAL_OR_ENTITY_FORBIDDEN', resource.code);
   }
   if (resource.code === 'STRUCTURE_XSD') {
-    if (!xml.includes('http://www.w3.org/2001/xmlschema')) fail('ROSSTAT_XSD_NAMESPACE_MISSING');
+    if (!xml.includes('http://www.w3.org/2001/xmlschema')) {
+      fail('ROSSTAT_XSD_NAMESPACE_MISSING', xml.slice(0, 512).replace(/\s+/g, ' '));
+    }
     if (/<(?:xs|xsd):(include|import|redefine)\b/i.test(xml)) {
       fail('ROSSTAT_XSD_COMPOSITION_FORBIDDEN');
     }
@@ -254,6 +269,10 @@ function selfTest() {
   const xsdText = '<?xml version="1.0"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"></xs:schema>';
   assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(xsdText)]));
   assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(xsdText, 'utf16le')]));
+  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.from(xsdText, 'utf16le'));
+  const utf16Be = Buffer.from(xsdText, 'utf16le');
+  utf16Be.swap16();
+  assertBody({ code: 'STRUCTURE_XSD' }, utf16Be);
   console.log('TAI AP-14F1C discovery self-test = success');
 }
 
