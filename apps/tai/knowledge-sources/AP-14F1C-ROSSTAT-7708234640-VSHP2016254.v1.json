@@ -1,6 +1,6 @@
 {
   "schemaVersion": "tai.ap14f1c-rosstat-dataset.v1",
-  "manifestVersion": "1.0.0",
+  "manifestVersion": "1.1.0",
   "datasetCode": "7708234640-VSHP2016254",
   "sourceId": "official.rosstat.opendata.7708234640-vshp2016254",
   "parentCandidateSourceId": "official.rosstat.agriculture",
@@ -46,7 +46,10 @@
     "cookiesAllowed": false,
     "acceptEncoding": "identity",
     "connectTimeoutSeconds": 10,
-    "totalTimeoutSeconds": 90
+    "totalTimeoutSeconds": 90,
+    "rootCaSha256Fingerprint": "d2:6d:2d:02:31:b7:c3:9f:92:cc:73:85:12:ba:54:10:35:19:e4:40:5d:68:b5:bd:70:3e:97:88:ca:8e:cf:31",
+    "intermediateCaSha256Fingerprint": "21:55:78:50:36:c9:00:db:b5:f1:bb:2a:15:69:c8:0c:55:59:5b:d6:bf:94:86:7a:29:bb:dd:bc:7d:88:a3:f2",
+    "intermediateAiaLocator": "http://nuc-cdp.digital.gov.ru/cdp/subca_ssl_rsa2024.crt"
   },
   "resources": [
     {
@@ -55,8 +58,9 @@
       "path": "/opendata/7708234640-VSHP2016254",
       "allowedMediaTypes": ["text/html"],
       "maximumBytes": 5000000,
-      "expectedSha256": null,
-      "evidenceState": "DISCOVERY_REQUIRED"
+      "expectedSha256": "65ced63e12b4a3dc379700e89b2413c2a3970763d4297da354d6721fd6b8b0c2",
+      "observedSizeBytes": 795378,
+      "evidenceState": "PINNED"
     },
     {
       "code": "PASSPORT_CSV",
@@ -64,8 +68,9 @@
       "path": "/opendata/7708234640-VSHP2016254/meta.csv",
       "allowedMediaTypes": ["text/csv", "text/plain", "application/octet-stream"],
       "maximumBytes": 1000000,
-      "expectedSha256": null,
-      "evidenceState": "DISCOVERY_REQUIRED"
+      "expectedSha256": "f3aa83bc421d56e5951e0c499686fc919d0fa73efcdc3d98a1012b3c827fb89e",
+      "observedSizeBytes": 1083,
+      "evidenceState": "PINNED"
     },
     {
       "code": "STRUCTURE_XSD",
@@ -73,8 +78,10 @@
       "path": "/opendata/7708234640-VSHP2016254/structure-20181211T0212.xsd",
       "allowedMediaTypes": ["application/xml", "text/xml", "application/octet-stream"],
       "maximumBytes": 5000000,
-      "expectedSha256": null,
-      "evidenceState": "DISCOVERY_REQUIRED"
+      "actualContentModel": "SDMX_2_0_STRUCTURE_DOCUMENT_NOT_W3C_XML_SCHEMA",
+      "expectedSha256": "c969338269a3dcf2b2e4949685e7e75d86e8ef587289df95fedd9a1054ddc2bc",
+      "observedSizeBytes": 29287,
+      "evidenceState": "PINNED"
     },
     {
       "code": "DATA_XML",
@@ -82,8 +89,9 @@
       "path": "/opendata/7708234640-VSHP2016254/data-20181211T0212-structure-20181211T0212.xml",
       "allowedMediaTypes": ["application/xml", "text/xml", "application/octet-stream"],
       "maximumBytes": 20000000,
-      "expectedSha256": null,
-      "evidenceState": "DISCOVERY_REQUIRED"
+      "expectedSha256": "fa9a5313d783acd6ba5075f2d673492db720f10968c2b18edb54cd95293e60cd",
+      "observedSizeBytes": 266607,
+      "evidenceState": "PINNED"
     }
   ],
   "activation": {
@@ -92,7 +100,7 @@
     "postgresqlAdmissionEnabled": false,
     "snapshotActivationEnabled": false,
     "sharedRagAllowed": false,
-    "statusReason": "Exact resource bytes, MIME, size and SHA-256 evidence must be captured and pinned before parser, PostgreSQL admission or snapshot activation."
+    "statusReason": "All exact resource digests are pinned. Parser, PostgreSQL admission and snapshot activation remain disabled until the SDMX data model and retrieval provenance acceptance are implemented."
   },
   "boundaries": {
     "exactDatasetOnly": true,
