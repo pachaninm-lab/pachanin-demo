@@ -16,7 +16,8 @@
     "apps/tai/tests/test_migration_manifest.py",
     "apps/tai/tests/test_rosstat_vshp2016254.py",
     "docs/platform-v7/autopilot/scopes/tai-ap-14f1c-3360.json",
-    "scripts/tai-ap-14f1c/discover.mjs"
+    "scripts/tai-ap-14f1c/discover.mjs",
+    "scripts/tai-ap-14f1c/verify.py"
   ],
   "boundaries": {
     "exactDatasetOnly": true,
@@ -44,7 +45,7 @@
     "exactMainRequired": true,
     "mergeExpectedHeadRequired": true,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 10,
+    "changedPathCount": 11,
     "migrationVersion": 24,
     "governedResourceCount": 5,
     "allResourceIntegrityMustPass": true,
