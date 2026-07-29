@@ -1,0 +1,144 @@
+name: QWEN Recovery Dispatch Gate Materializer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/tai-qwen-unprivileged-activation-materializer.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qwen-recovery-dispatch-gate-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.actor == github.repository_owner &&
+      github.head_ref == 'ops/qwen-recovery-unprivileged-activation-3372'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact recovery branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Verify exact owner-authorized scope
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch='ops/qwen-recovery-unprivileged-activation-3372'
+          scope='docs/platform-v7/autopilot/scopes/qwen-recovery-unprivileged-activation-3372.json'
+          git fetch --no-tags origin main "$branch"
+          test "$(git rev-parse HEAD)" = "$SOURCE_HEAD_SHA"
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          node - "$scope" <<'NODE'
+          const fs = require('node:fs');
+          const scope = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (scope.branch !== 'ops/qwen-recovery-unprivileged-activation-3372') process.exit(2);
+          if (scope.status !== 'active' || scope.issue !== 3372) process.exit(3);
+          if (scope.ownerAuthorizedExceptionId !== 'PRODUCTION_AI_RECOVERY_3372') process.exit(4);
+          if (!scope.allowedPaths.includes('.github/workflows/tai-qwen-unprivileged-activation-materializer.yml')) process.exit(5);
+          if (!scope.allowedPaths.includes('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')) process.exit(6);
+          NODE
+          node scripts/verify-pc-crop-project-lock.mjs --self-test
+          PC_CROP_BRANCH="$branch" \
+          PC_CROP_TITLE='QWEN-RECOVERY: permit governed chain dispatch and reject root model SSH' \
+          PC_CROP_ISSUE=3372 \
+          PC_CROP_SCOPE_PATH="$scope" \
+            node scripts/verify-pc-crop-project-lock.mjs
+
+      - name: Materialize exact activation gate repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          text = path.read_text(encoding='utf-8')
+
+          old_gate = """        (
+          github.event_name == 'workflow_dispatch' &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner &&
+          inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU'
+        )
+"""
+          new_gate = """        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU' &&
+          (
+            (
+              github.actor == github.repository_owner &&
+              github.triggering_actor == github.repository_owner
+            ) ||
+            github.actor == 'github-actions[bot]' ||
+            github.triggering_actor == 'github-actions[bot]'
+          )
+        )
+"""
+          if text.count(old_gate) != 1:
+              raise SystemExit('DISPATCH_GATE_MATERIALIZER_FAIL=GATE_ANCHOR_MISMATCH')
+          text = text.replace(old_gate, new_gate, 1)
+
+          old_user = '          model_user="$(trim "${MODEL_USER_SECRET:-root}")"\n'
+          new_user = '          model_user="$(trim "${MODEL_USER_SECRET:-}")"\n'
+          if text.count(old_user) != 1:
+              raise SystemExit('DISPATCH_GATE_MATERIALIZER_FAIL=MODEL_USER_ANCHOR_MISMATCH')
+          text = text.replace(old_user, new_user, 1)
+
+          old_validation = '          [[ -n "$model_host" && "$model_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]\n'
+          new_validation = old_validation + '          [[ "$model_user" != root ]]\n'
+          if text.count(old_validation) != 1:
+              raise SystemExit('DISPATCH_GATE_MATERIALIZER_FAIL=MODEL_USER_VALIDATION_MISMATCH')
+          text = text.replace(old_validation, new_validation, 1)
+
+          old_remote = """          remote='set -euo pipefail
+          systemctl is-active --quiet tai-qwen3-8b.service
+"""
+          new_remote = """          remote='set -euo pipefail
+          test "$(id -u)" -ne 0
+          systemctl is-active --quiet tai-qwen3-8b.service
+"""
+          if text.count(old_remote) != 1:
+              raise SystemExit('DISPATCH_GATE_MATERIALIZER_FAIL=REMOTE_ANCHOR_MISMATCH')
+          text = text.replace(old_remote, new_remote, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          ruby -e "require 'yaml'; YAML.load_file(ARGV.fetch(0))" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq "github.actor == 'github-actions[bot]'" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq 'model_user="$(trim "${MODEL_USER_SECRET:-}")"' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq '[[ "$model_user" != root ]]' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq 'test "$(id -u)" -ne 0' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          git diff --check -- .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+
+      - name: Rebuild branch as one clean activation commit
+        env:
+          BRANCH: ops/qwen-recovery-unprivileged-activation-3372
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/tai-qwen-unprivileged-activation-materializer.yml
+          git fetch --no-tags origin main
+          git reset --soft origin/main
+          git add -A
+          mapfile -t changed < <(git diff --cached --name-only)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
+          git diff --cached --check
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git commit -m 'QWEN-RECOVERY: permit governed chain dispatch and reject root model SSH'
+          git push --force-with-lease="refs/heads/$BRANCH:$SOURCE_HEAD_SHA" origin "HEAD:refs/heads/$BRANCH"
