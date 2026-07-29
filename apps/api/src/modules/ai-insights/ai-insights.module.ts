@@ -5,11 +5,13 @@ import { AiAssistantController } from './ai-assistant.controller';
 import { AiAssistantService } from './ai-assistant.service';
 import { AiInsightsService } from './ai-insights.service';
 import { AiInsightsController } from './ai-insights.controller';
+import { RestrictedPublicQwenController } from './restricted-public-qwen.controller';
+import { RestrictedPublicQwenService } from './restricted-public-qwen.service';
 
 @Module({
   imports: [DealsModule, AuditModule],
-  providers: [AiAssistantService, AiInsightsService],
-  controllers: [AiAssistantController, AiInsightsController],
+  providers: [AiAssistantService, AiInsightsService, RestrictedPublicQwenService],
+  controllers: [AiAssistantController, AiInsightsController, RestrictedPublicQwenController],
   exports: [AiAssistantService, AiInsightsService],
 })
 export class AiInsightsModule {
