@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-// Exact-main Qwen activation trigger for issue #3372; emitted runtime behavior is unchanged.
+// Exact-main Qwen activation retry after public API middleware repair for issue #3372; runtime behavior is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
