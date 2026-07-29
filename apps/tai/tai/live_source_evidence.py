@@ -21,7 +21,6 @@ from tai.official_source_observation import (
 )
 from tai.source_coverage import (
     CoverageAssessment,
-    CoverageTopic,
     OfficialSourceCatalog,
     OfficialSourceCoverageAuthority,
     SourceObservation,
@@ -615,7 +614,11 @@ def _extract_public_text(body: str) -> str:
         seen.add(compact)
         chunks.append(compact)
     text = "\n".join(chunks)
-    text = "".join(character for character in text if character >= " " or character == "\n")
+    text = "".join(
+        character
+        for character in text
+        if character >= " " or character == "\n"
+    )
     text = text[:_MAX_PUBLIC_EXCERPT_CHARS].strip()
     if len(text) < 40:
         raise ValueError("source_public_text_empty")
