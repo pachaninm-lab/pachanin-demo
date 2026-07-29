@@ -35,3 +35,4 @@ jobs:
           git add .github/workflows/tai-restricted-qwen-reg-ru-activation.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
           git commit -m 'QWEN: repair live agro AI Chromium acceptance'
           git push origin HEAD:fix/qwen-live-ui-acceptance-v2
+# push-trigger: 2
