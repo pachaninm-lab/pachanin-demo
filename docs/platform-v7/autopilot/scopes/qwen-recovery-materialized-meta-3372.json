@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "qwen-recovery.payload.v1",
+  "baseSha": "c31bb9a291437c30f9ab6942e3263b771e7916da",
+  "payloadBranch": "qwen-recovery-payload-3372-30474746069",
+  "activationBlobPath": "docs/platform-v7/autopilot/scopes/qwen-recovery-materialized-activation-3372.txt",
+  "activationTargetPath": ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+  "scopeTargetPath": "docs/platform-v7/autopilot/scopes/qwen-recovery-unprivileged-activation-3372.json"
+}
