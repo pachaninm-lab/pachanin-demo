@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-// Operational release retry for issue #3372 after missing live proof; emitted runtime behavior is unchanged.
+// Exact-main Qwen activation trigger for issue #3372; emitted runtime behavior is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
