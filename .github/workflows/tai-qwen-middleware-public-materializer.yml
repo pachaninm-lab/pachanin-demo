@@ -1,0 +1,77 @@
+name: TAI Qwen Middleware Public API Materializer
+
+on:
+  push:
+    branches:
+      - ops/qwen-middleware-public-materializer-3372
+    paths:
+      - '.github/workflows/tai-qwen-middleware-public-materializer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Patch and verify public assistant middleware
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = '213aa56491b6894b0eec2d9c64571a481437f24c'
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/middleware.ts')
+          text = path.read_text(encoding='utf-8')
+          anchor = "  '/api/health/ready',\n"
+          addition = "  '/api/public-platform-assistant',\n  '/api/restricted-public-platform-assistant',\n"
+          if text.count(anchor) != 1:
+              raise SystemExit('MIDDLEWARE_PUBLIC_FIX_FAIL=ANCHOR_MISMATCH')
+          if '/api/public-platform-assistant' in text or '/api/restricted-public-platform-assistant' in text:
+              raise SystemExit('MIDDLEWARE_PUBLIC_FIX_FAIL=PATH_ALREADY_PRESENT')
+          text = text.replace(anchor, anchor + addition, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          grep -Fq "'/api/public-platform-assistant'" apps/web/middleware.ts
+          grep -Fq "'/api/restricted-public-platform-assistant'" apps/web/middleware.ts
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const text = fs.readFileSync('apps/web/middleware.ts', 'utf8');
+          for (const path of ['/api/public-platform-assistant', '/api/restricted-public-platform-assistant']) {
+            if ((text.match(new RegExp(path.replaceAll('/', '\\/'), 'g')) || []).length !== 1) process.exit(2);
+          }
+          const start = text.indexOf('const PUBLIC_API_EXACT = new Set([');
+          const end = text.indexOf(']);', start);
+          if (start < 0 || end < 0) process.exit(3);
+          const block = text.slice(start, end);
+          if (!block.includes("'/api/public-platform-assistant'") || !block.includes("'/api/restricted-public-platform-assistant'")) process.exit(4);
+          NODE
+          git diff --check -- apps/web/middleware.ts
+
+      - name: Publish final non-workflow branch
+        env:
+          TARGET_BRANCH: ops/qwen-middleware-public-3372-final
+        shell: bash
+        run: |
+          set -euo pipefail
+          patched="$RUNNER_TEMP/middleware.ts"
+          cp apps/web/middleware.ts "$patched"
+          git checkout -B "$TARGET_BRANCH" origin/main
+          install -m 0644 "$patched" apps/web/middleware.ts
+          git add apps/web/middleware.ts
+          git diff --cached --check
+          test "$(git diff --cached --name-only)" = 'apps/web/middleware.ts'
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git commit -m 'Allow public restricted Qwen assistant API through middleware'
+          git push --force origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "FINAL_BRANCH=$TARGET_BRANCH"
