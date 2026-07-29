@@ -10,7 +10,12 @@
       "formats": ["HTML"],
       "expected_update_interval_seconds": 2678400,
       "maximum_publication_age_seconds": 31536000,
-      "verified_at": "2026-07-19T18:20:00+00:00"
+      "verified_at": "2026-07-19T18:20:00+00:00",
+      "public_profile": {
+        "geography": "Российская Федерация",
+        "language": "ru",
+        "citation_label": "Центр Агроаналитики — ФГИС «Зерно»"
+      }
     },
     {
       "source_id": "official.rosstat.agriculture",
@@ -21,7 +26,12 @@
       "formats": ["HTML", "XLSX", "ZIP"],
       "expected_update_interval_seconds": 2678400,
       "maximum_publication_age_seconds": 5356800,
-      "verified_at": "2026-07-19T04:15:00+00:00"
+      "verified_at": "2026-07-19T04:15:00+00:00",
+      "public_profile": {
+        "geography": "Российская Федерация",
+        "language": "ru",
+        "citation_label": "Росстат — сельское хозяйство"
+      }
     },
     {
       "source_id": "official.eec.grain-regulation",
@@ -32,7 +42,12 @@
       "formats": ["HTML"],
       "expected_update_interval_seconds": 31536000,
       "maximum_publication_age_seconds": 63072000,
-      "verified_at": "2026-07-19T14:10:00+00:00"
+      "verified_at": "2026-07-19T14:10:00+00:00",
+      "public_profile": {
+        "geography": "Евразийский экономический союз",
+        "language": "ru",
+        "citation_label": "ЕЭК — регулирование и качество зерна"
+      }
     },
     {
       "source_id": "official.rosselhoscenter.agronomy",
@@ -43,7 +58,12 @@
       "formats": ["HTML"],
       "expected_update_interval_seconds": 31536000,
       "maximum_publication_age_seconds": 34560000,
-      "verified_at": "2026-07-19T14:10:00+00:00"
+      "verified_at": "2026-07-19T14:10:00+00:00",
+      "public_profile": {
+        "geography": "Российская Федерация",
+        "language": "ru",
+        "citation_label": "Россельхозцентр — агрономические рекомендации"
+      }
     },
     {
       "source_id": "official.mintrans.rail-tariffs",
@@ -54,7 +74,12 @@
       "formats": ["HTML", "PDF"],
       "expected_update_interval_seconds": 31536000,
       "maximum_publication_age_seconds": 34560000,
-      "verified_at": "2026-07-19T04:15:00+00:00"
+      "verified_at": "2026-07-19T04:15:00+00:00",
+      "public_profile": {
+        "geography": "Российская Федерация",
+        "language": "ru",
+        "citation_label": "Минтранс России — железнодорожные тарифы"
+      }
     },
     {
       "source_id": "official.cbr.key-rate",
@@ -65,7 +90,12 @@
       "formats": ["HTML"],
       "expected_update_interval_seconds": 604800,
       "maximum_publication_age_seconds": 1209600,
-      "verified_at": "2026-07-19T04:15:00+00:00"
+      "verified_at": "2026-07-19T04:15:00+00:00",
+      "public_profile": {
+        "geography": "Российская Федерация",
+        "language": "ru",
+        "citation_label": "Банк России — ключевая ставка"
+      }
     }
   ],
   "requirements": [
