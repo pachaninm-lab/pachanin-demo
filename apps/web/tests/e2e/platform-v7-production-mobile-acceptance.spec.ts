@@ -5,6 +5,17 @@ const viewports = [
   { width: 430, height: 932, name: '430x932' },
 ] as const;
 
+const currentPublicAnchorIds = [
+  'difference',
+  'functions',
+  'deal-path',
+  'live',
+  'participants',
+  'tai',
+  'faq',
+  'connect-organization',
+] as const;
+
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => Math.max(
     document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -30,29 +41,38 @@ async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum
   expect(boxes.every((box) => box.width >= minimum && box.height >= minimum), JSON.stringify(boxes, null, 2)).toBe(true);
 }
 
-async function expectAnchorsBelowStickyHeader(page: Page) {
-  const ids = ['deal-path', 'role-entry', 'participants', 'money', 'tai', 'integrations', 'connect-organization'];
+async function expectCurrentAnchorsBelowStickyHeader(page: Page) {
+  const selector = currentPublicAnchorIds.map((id) => `#${id}`).join(', ');
+  const headerHeight = await page.locator('.pc-site-header').evaluate((node) => node.getBoundingClientRect().height);
+  const anchors = await page.locator(selector).evaluateAll((nodes) => nodes.map((node) => {
+    const element = node as HTMLElement;
+    return {
+      id: element.id,
+      scrollMarginTop: Number.parseFloat(window.getComputedStyle(element).scrollMarginTop),
+    };
+  }));
 
-  for (const id of ids) {
-    const target = page.locator(`#${id}`);
-    await expect(target, `${id} anchor should exist`).toHaveCount(1);
-    await page.evaluate((anchorId) => {
-      history.replaceState(null, '', `${location.pathname}${location.search}#${anchorId}`);
-      document.getElementById(anchorId)?.scrollIntoView();
-    }, id);
-    await page.waitForTimeout(80);
+  expect(anchors.map((anchor) => anchor.id).sort()).toEqual([...currentPublicAnchorIds].sort());
+  expect(
+    anchors.every((anchor) => Number.isFinite(anchor.scrollMarginTop) && anchor.scrollMarginTop >= headerHeight),
+    JSON.stringify(anchors, null, 2),
+  ).toBe(true);
 
-    const positions = await page.evaluate((anchorId) => {
-      const header = document.querySelector('.pc-site-header');
-      const element = document.getElementById(anchorId);
-      return {
-        headerBottom: header?.getBoundingClientRect().bottom ?? 0,
-        targetTop: element?.getBoundingClientRect().top ?? -1,
-      };
-    }, id);
+  await page.evaluate(() => {
+    history.replaceState(null, '', `${location.pathname}${location.search}#live`);
+    document.getElementById('live')?.scrollIntoView();
+  });
+  await page.waitForTimeout(100);
 
-    expect(positions.targetTop, `${id} must not be hidden under the sticky header`).toBeGreaterThanOrEqual(positions.headerBottom - 1);
-  }
+  const livePosition = await page.evaluate(() => {
+    const header = document.querySelector('.pc-site-header');
+    const target = document.getElementById('live');
+    return {
+      headerBottom: header?.getBoundingClientRect().bottom ?? 0,
+      targetTop: target?.getBoundingClientRect().top ?? -1,
+    };
+  });
+  expect(livePosition.targetTop, 'live anchor must not be hidden under the sticky header').toBeGreaterThanOrEqual(livePosition.headerBottom - 1);
 }
 
 test.describe('Platform V7 exact production mobile acceptance', () => {
@@ -96,14 +116,15 @@ test.describe('Platform V7 exact production mobile acceptance', () => {
 
       await expect(page.getByRole('region', { name: 'Пример интерфейса · данные сценария' })).toBeVisible();
       await expect(page.getByRole('list', { name: 'Этапы исполнения сценария' })).toBeVisible();
-      await expect(page.getByRole('tablist', { name: 'Сделка в работе' })).toBeVisible();
+      await expect(page.getByRole('tablist', { name: 'Что видит каждый участник' })).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Банк' })).toBeVisible();
+      await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
 
       const formControlHeights = await page.locator('#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible, #connect-organization select:visible, #connect-organization button:visible').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).getBoundingClientRect().height));
       expect(formControlHeights.length).toBeGreaterThan(0);
       expect(formControlHeights.every((height) => height >= 52 && height <= 56), JSON.stringify(formControlHeights, null, 2)).toBe(true);
 
-      await expectAnchorsBelowStickyHeader(page);
+      await expectCurrentAnchorsBelowStickyHeader(page);
       await expectNoHorizontalOverflow(page);
       expect(runtimeFailures).toEqual([]);
 
