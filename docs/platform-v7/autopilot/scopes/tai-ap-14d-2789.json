@@ -2,12 +2,13 @@
   "id": "TAI-AP-14D-2789",
   "parentProgramIssue": 2726,
   "issue": 2789,
+  "extendsIssue": 3419,
   "branch": "agent/tai-ap-14d7-live-remediation",
   "status": "active",
-  "maturityBoundary": "official-source-health-and-exact-main-knowledge-evidence-only",
-  "globalProgramStateUnchanged": "This isolated TAI scope does not advance platform-v7 Industrial Integration-Ready or TAI operational attestation.",
-  "branchBaseExactMain": "3ff82ac89ca166fcfc0139204d551d9489731e46",
-  "taiKnowledgeBaselineExactMain": "d19dfdd9556ee9c771b121c66849f459bc267625",
+  "maturityBoundary": "official-source-health-and-public-live-knowledge-evidence-only",
+  "globalProgramStateUnchanged": "This isolated TAI scope produces governed read-only public knowledge evidence but does not by itself attest the public assistant or advance platform-v7 Industrial Integration-Ready.",
+  "branchBaseExactMain": "4f7c7d3e1a53c91088f418565e103b96e0da858d",
+  "taiKnowledgeBaselineExactMain": "4f7c7d3e1a53c91088f418565e103b96e0da858d",
   "remediatesReviewThreads": [
     "PR #2803 discussion_r3610703119",
     "PR #2803 discussion_r3610703121"
@@ -59,6 +60,9 @@
     "exact-SHA read-only workflow with artifact upload before enforcement",
     "owner-only exact issue command for connector-driven acceptance",
     "controlled exact-main 6/6 sources and 8/8 critical topics",
+    "bounded visible-text evidence excerpt for every observed source",
+    "source owner, citation URI, publication date, retrieval time, geography and topic metadata",
+    "explicit conflict-preservation and no-model-memory authority policy",
     "Ruff, strict mypy, pytest coverage and exact-head security gates",
     "zero unresolved review threads before merge"
   ],
@@ -66,6 +70,7 @@
     "TAI operationally attested",
     "complete Russian agricultural knowledge",
     "production source availability guaranteed",
+    "public assistant consumes the evidence before integration acceptance",
     "Industrial Integration-Ready",
     "PRODUCTION_OPERATIONALLY_ACCEPTED"
   ]
