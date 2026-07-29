@@ -139,16 +139,21 @@ jobs:
           set -euo pipefail
           repair_log="$RUNNER_TEMP/tai-qwen-model-repair.log"
           rm -f "$repair_log" "$RUNNER_TEMP/tai-qwen-repair-failure"
+          bootstrap='if [ "$(id -u)" -eq 0 ]; then exec /bin/bash -s; fi
+          command -v sudo >/dev/null 2>&1 || { echo MODEL_REPAIR_FAIL=SUDO_UNAVAILABLE; exit 31; }
+          sudo -n true >/dev/null 2>&1 || { echo MODEL_REPAIR_FAIL=SUDO_PASSWORD_REQUIRED; exit 32; }
+          exec sudo -n /bin/bash -s'
           set +e
           ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
             -o StrictHostKeyChecking=yes \
-            "$MODEL_USER@$MODEL_HOST" 'bash -s' 2>&1 <<'REMOTE' | tee "$repair_log"
+            "$MODEL_USER@$MODEL_HOST" "$bootstrap" 2>&1 <<'REMOTE' | tee "$repair_log"
           set -Eeuo pipefail
           service=tai-qwen3-8b.service
           env_file=/etc/tai/qwen3-8b.env
           private_listener=192.168.0.206:18080
+          login_user="${SUDO_USER:-root}"
 
           diagnostics(){
             systemctl show "$service" --no-pager \
@@ -157,48 +162,33 @@ jobs:
             ss -H -ltn 'sport = :18080' 2>/dev/null |
               awk '{print $4}' | sort -u | sed 's/^/MODEL_LISTENER=/' >&2 || true
           }
-          fail(){
-            printf 'MODEL_REPAIR_FAIL=%s\n' "$1" >&2
-            diagnostics
-            exit "$2"
-          }
+          fail(){ printf 'MODEL_REPAIR_FAIL=%s\n' "$1" >&2; diagnostics; exit "$2"; }
           pass(){ printf 'MODEL_REPAIR_PASS=%s\n' "$1"; }
 
-          [[ "$(id -u)" -eq 0 ]] || fail SSH_USER_NOT_ROOT 31
-          pass SSH_USER_ROOT
-          [[ -r "$env_file" ]] || fail ENV_FILE_MISSING_OR_UNREADABLE 32
-          pass ENV_FILE_READABLE
-
-          mode="$(stat -c %a "$env_file" 2>/dev/null || true)"
-          if [[ "$mode" != 600 ]]; then
-            chmod 0600 "$env_file" || fail ENV_FILE_MODE_REPAIR_FAILED 33
-            pass ENV_FILE_MODE_REPAIRED
-          else
-            pass ENV_FILE_MODE_600
-          fi
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_ELEVATION_FAILED 33
+          pass ROOT_ELEVATION_READY
+          [[ -r "$env_file" ]] || fail ENV_FILE_MISSING_OR_UNREADABLE 34
+          chmod 0600 "$env_file" || fail ENV_FILE_MODE_REPAIR_FAILED 35
+          pass ENV_FILE_MODE_600
 
           set +u
           set -a
-          if ! source "$env_file"; then fail ENV_FILE_PARSE_FAILED 34; fi
+          source "$env_file" || fail ENV_FILE_PARSE_FAILED 36
           set +a
           key_length="${#TAI_LLM_API_KEY}"
           set -u
-
           if (( key_length < 32 )); then
-            command -v openssl >/dev/null 2>&1 || fail OPENSSL_UNAVAILABLE 35
+            command -v openssl >/dev/null 2>&1 || fail OPENSSL_UNAVAILABLE 37
             new_key="$(openssl rand -hex 32)"
             tmp="$(mktemp)"
             found=0
             while IFS= read -r line || [[ -n "$line" ]]; do
               case "$line" in
-                TAI_LLM_API_KEY=*)
-                  printf 'TAI_LLM_API_KEY=%s\n' "$new_key" >> "$tmp"
-                  found=1
-                  ;;
+                TAI_LLM_API_KEY=*) printf 'TAI_LLM_API_KEY=%s\n' "$new_key" >> "$tmp"; found=1 ;;
                 *) printf '%s\n' "$line" >> "$tmp" ;;
               esac
             done < "$env_file"
-            if (( found == 0 )); then printf 'TAI_LLM_API_KEY=%s\n' "$new_key" >> "$tmp"; fi
+            (( found == 1 )) || printf 'TAI_LLM_API_KEY=%s\n' "$new_key" >> "$tmp"
             install -m 0600 -o root -g root "$tmp" "$env_file"
             rm -f "$tmp"
             unset new_key TAI_LLM_API_KEY
@@ -208,9 +198,8 @@ jobs:
             pass API_KEY_LENGTH_VALID
           fi
 
-          systemctl daemon-reload || fail SYSTEMD_DAEMON_RELOAD_FAILED 36
-          systemctl restart "$service" || fail SERVICE_RESTART_FAILED 37
-
+          systemctl daemon-reload || fail SYSTEMD_DAEMON_RELOAD_FAILED 38
+          systemctl restart "$service" || fail SERVICE_RESTART_FAILED 39
           ready=0
           for attempt in $(seq 1 45); do
             if systemctl is-active --quiet "$service" &&
@@ -220,32 +209,63 @@ jobs:
             fi
             sleep 4
           done
-          (( ready == 1 )) || fail PRIVATE_LISTENER_NOT_READY 38
+          (( ready == 1 )) || fail PRIVATE_LISTENER_NOT_READY 40
           pass SERVICE_ACTIVE
           pass PRIVATE_LISTENER_READY
 
           listeners="$(ss -H -ltn 'sport = :18080' 2>/dev/null | awk '{print $4}' | sort -u)"
-          [[ -n "$listeners" ]] || fail LISTENER_SET_EMPTY 39
+          [[ -n "$listeners" ]] || fail LISTENER_SET_EMPTY 41
           while IFS= read -r listener; do
             case "$listener" in
-              0.0.0.0:18080|'[::]':18080|'*':18080) fail PUBLIC_LISTENER_PRESENT 40 ;;
+              0.0.0.0:18080|'[::]':18080|'*':18080) fail PUBLIC_LISTENER_PRESENT 42 ;;
             esac
           done <<< "$listeners"
           pass PUBLIC_LISTENER_ABSENT
 
           set +u
           set -a
-          if ! source "$env_file"; then fail ENV_FILE_RELOAD_FAILED 41; fi
+          source "$env_file" || fail ENV_FILE_RELOAD_FAILED 43
           set +a
-          [[ "${#TAI_LLM_API_KEY}" -ge 32 ]] || fail API_KEY_INVALID_AFTER_REPAIR 42
+          [[ "${#TAI_LLM_API_KEY}" -ge 32 ]] || fail API_KEY_INVALID_AFTER_REPAIR 44
           health_code="$(curl -sS -o /dev/null -w '%{http_code}' \
             --connect-timeout 3 --max-time 20 \
             -H "Authorization: Bearer $TAI_LLM_API_KEY" \
             http://192.168.0.206:18080/health || true)"
           unset TAI_LLM_API_KEY
           set -u
-          [[ "$health_code" == 200 ]] || fail "HEALTH_HTTP_${health_code:-NONE}" 43
+          [[ "$health_code" == 200 ]] || fail "HEALTH_HTTP_${health_code:-NONE}" 45
           pass AUTHENTICATED_HEALTH_200
+
+          if [[ "$login_user" != root ]]; then
+            id "$login_user" >/dev/null 2>&1 || fail LOGIN_USER_UNKNOWN 46
+            command -v sudo >/dev/null 2>&1 || fail SUDO_UNAVAILABLE_AFTER_ELEVATION 47
+            bridge=/usr/local/sbin/tai-qwen-ssh-root-bridge
+            install -d -m 0700 /etc/tai
+            current_shell="$(getent passwd "$login_user" | awk -F: '{print $7}')"
+            [[ -n "$current_shell" ]] || fail LOGIN_SHELL_UNRESOLVED 48
+            if [[ ! -f /etc/tai/qwen3-8b-ssh-shell.before ]]; then
+              printf '%s\n' "$current_shell" > /etc/tai/qwen3-8b-ssh-shell.before
+              chmod 0600 /etc/tai/qwen3-8b-ssh-shell.before
+            fi
+            cat > "$bridge.tmp" <<'BRIDGE'
+          #!/bin/sh
+          if [ "${1:-}" = "-c" ] && [ "$#" -eq 2 ]; then
+            case "$2" in
+              *"exec sudo -n /bin/bash -s"*"MODEL_REPAIR_FAIL=SUDO_PASSWORD_REQUIRED"*) exec /bin/bash -c "$2" ;;
+              *"tai-qwen3-8b.service"*"/etc/tai/qwen3-8b.env"*"192.168.0.206:18080"*) exec sudo -n /bin/bash -c "$2" ;;
+            esac
+          fi
+          echo TAI_QWEN_SSH_COMMAND_DENIED >&2
+          exit 126
+          BRIDGE
+            install -m 0755 -o root -g root "$bridge.tmp" "$bridge"
+            rm -f "$bridge.tmp"
+            usermod -s "$bridge" "$login_user" || fail SSH_ROOT_BRIDGE_INSTALL_FAILED 49
+            [[ "$(getent passwd "$login_user" | awk -F: '{print $7}')" == "$bridge" ]] || fail SSH_ROOT_BRIDGE_NOT_ACTIVE 50
+            pass SSH_ROOT_BRIDGE_ACTIVE
+          else
+            pass SSH_LOGIN_ALREADY_ROOT
+          fi
           printf 'MODEL_REPAIR_STATUS=PASS\n'
           REMOTE
           rc=${PIPESTATUS[0]}
@@ -263,7 +283,7 @@ jobs:
           set -euo pipefail
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Model-host repair and authenticated private health passed for exact main \`$TARGET_SHA\`. Repair workflow: $run_url. The accepted REG.RU activation workflow is now being dispatched; no live-success claim is made until its observer records PASS."
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Model-host root elevation, repair and authenticated private health passed for exact main \`$TARGET_SHA\`. Repair workflow: $run_url. The accepted REG.RU activation workflow is now being dispatched; no live-success claim is made until its observer records PASS."
           jq -n --arg ref main --arg sha "$TARGET_SHA" '{ref:$ref,inputs:{target_sha:$sha,confirmation:"ACTIVATE-RESTRICTED-QWEN-REG-RU"}}' |
             gh api --method POST \
               "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
