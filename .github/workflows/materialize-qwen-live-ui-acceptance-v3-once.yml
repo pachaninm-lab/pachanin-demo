@@ -1,9 +1,9 @@
 name: One-time materialize Qwen live UI acceptance v3
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/qwen-live-ui-acceptance-v2
+      - main
     paths:
       - .github/workflows/materialize-qwen-live-ui-acceptance-v3-once.yml
 
@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   materialize:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
