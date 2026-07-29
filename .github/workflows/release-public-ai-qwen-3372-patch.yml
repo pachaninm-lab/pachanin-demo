@@ -1,0 +1,44 @@
+name: Patch public AI activation rollback and live UI acceptance
+
+on:
+  push:
+    branches:
+      - ops/release-public-ai-qwen-3372
+    paths:
+      - .github/workflows/release-public-ai-qwen-3372-patch.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-public-ai-qwen-3372-patch
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ops/release-public-ai-qwen-3372
+          fetch-depth: 0
+
+      - name: Apply patch and remove temporary files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          branch='ops/release-public-ai-qwen-3372'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main "$branch"
+          expected_head="$(git rev-parse "origin/$branch")"
+          test "$(git rev-parse HEAD)" = "$expected_head"
+          python3 scripts/release-public-ai-qwen-3372-patch.py
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix(release): add fail-closed rollback and live UI acceptance'
+          git fetch --no-tags origin main "$branch"
+          test "$(git rev-parse "origin/$branch")" = "$expected_head"
+          git push origin "HEAD:refs/heads/$branch"
