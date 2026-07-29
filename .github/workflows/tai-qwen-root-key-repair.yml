@@ -153,7 +153,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo 'MODEL_ROOT_REPAIR_PASS=ROOT_SSH_READY'
 
-      - name: Repair Qwen and install restricted command bridge
+      - name: Repair Qwen and install hash-allowlisted command bridge
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.model_host }}
           MODEL_USER: ${{ steps.ssh.outputs.model_user }}
@@ -175,6 +175,8 @@ jobs:
           env_file=/etc/tai/qwen3-8b.env
           private_listener=192.168.0.206:18080
           login_user="$MODEL_LOGIN_USER"
+          activation_sha=2f4c983b3b64c7d8a952c8f473974ee788ce66e2728d9fb25a6a91606642fe77
+          repair_sha=fa815c47dbe54ced322e0d4f068bd064f1b0ad9cfe351dc00dae744c23c78795
           fail(){ printf 'MODEL_ROOT_REPAIR_FAIL=%s\n' "$1" >&2; exit "$2"; }
           pass(){ printf 'MODEL_ROOT_REPAIR_PASS=%s\n' "$1"; }
 
@@ -241,6 +243,7 @@ jobs:
           root_exec=/usr/local/sbin/tai-qwen-root-exec
           login_bridge=/usr/local/sbin/tai-qwen-ssh-command-bridge
           sudoers=/etc/sudoers.d/tai-qwen-ssh-command-bridge
+          hashes=/etc/tai/qwen3-8b-command-sha256
           install -d -m 0700 /etc/tai
           original_shell="$(getent passwd "$login_user" | awk -F: '{print $7}')"
           [[ -n "$original_shell" ]] || fail LOGIN_SHELL_UNRESOLVED 45
@@ -248,17 +251,24 @@ jobs:
             printf '%s\n' "$original_shell" > /etc/tai/qwen3-8b-ssh-shell.before
             chmod 0600 /etc/tai/qwen3-8b-ssh-shell.before
           fi
+          printf '%s\n%s\n' "$activation_sha" "$repair_sha" > "$hashes.tmp"
+          install -m 0600 -o root -g root "$hashes.tmp" "$hashes"
+          rm -f "$hashes.tmp"
 
           cat > "$root_exec.tmp" <<'ROOTEXEC'
           #!/bin/sh
           set -eu
           command_text="${1:-}"
-          case "$command_text" in
-            TAI_QWEN_BRIDGE_PROBE=1) printf '%s\n' TAI_QWEN_BRIDGE_PROBE_PASS; exit 0 ;;
-            *tai-qwen3-8b.service*'/etc/tai/qwen3-8b.env'*192.168.0.206:18080*) exec /bin/bash -c "$command_text" ;;
-          esac
-          echo TAI_QWEN_ROOT_COMMAND_DENIED >&2
-          exit 126
+          if [ "$command_text" = TAI_QWEN_BRIDGE_PROBE=1 ]; then
+            printf '%s\n' TAI_QWEN_BRIDGE_PROBE_PASS
+            exit 0
+          fi
+          actual="$(printf %s "$command_text" | sha256sum | awk '{print $1}')"
+          grep -Fxq "$actual" /etc/tai/qwen3-8b-command-sha256 || {
+            echo TAI_QWEN_ROOT_COMMAND_DENIED >&2
+            exit 126
+          }
+          exec /bin/bash -c "$command_text"
           ROOTEXEC
           install -m 0755 -o root -g root "$root_exec.tmp" "$root_exec"
           rm -f "$root_exec.tmp"
@@ -267,9 +277,7 @@ jobs:
           #!/bin/sh
           set -eu
           if [ "${1:-}" = "-c" ] && [ "$#" -eq 2 ]; then
-            case "$2" in
-              TAI_QWEN_BRIDGE_PROBE=1|*tai-qwen3-8b.service*'/etc/tai/qwen3-8b.env'*192.168.0.206:18080*) exec sudo -n /usr/local/sbin/tai-qwen-root-exec "$2" ;;
-            esac
+            exec sudo -n /usr/local/sbin/tai-qwen-root-exec "$2"
           fi
           echo TAI_QWEN_SSH_COMMAND_DENIED >&2
           exit 126
@@ -286,7 +294,7 @@ jobs:
           [[ "$(getent passwd "$login_user" | awk -F: '{print $7}')" == "$login_bridge" ]] || fail LOGIN_BRIDGE_NOT_ACTIVE 48
           probe="$(sudo -u "$login_user" "$login_bridge" -c TAI_QWEN_BRIDGE_PROBE=1 2>/dev/null || true)"
           [[ "$probe" == TAI_QWEN_BRIDGE_PROBE_PASS ]] || fail LOGIN_BRIDGE_PROBE_FAILED 49
-          pass RESTRICTED_ROOT_BRIDGE_ACTIVE
+          pass HASH_ALLOWLISTED_ROOT_BRIDGE_ACTIVE
           printf 'MODEL_ROOT_REPAIR_STATUS=PASS\n'
           REMOTE
           rc=${PIPESTATUS[0]}
@@ -304,7 +312,7 @@ jobs:
           set -euo pipefail
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Protected root-key repair, private Qwen health and restricted model-user command bridge passed for exact main \`$TARGET_SHA\`. Root-repair workflow: $run_url. The accepted REG.RU activation is now dispatched; live success remains pending its observer PASS."
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Protected root-key repair, private Qwen health and hash-allowlisted model-user command bridge passed for exact main \`$TARGET_SHA\`. Root-repair workflow: $run_url. The accepted REG.RU activation is now dispatched; live success remains pending its observer PASS."
           jq -n --arg ref main --arg sha "$TARGET_SHA" '{ref:$ref,inputs:{target_sha:$sha,confirmation:"ACTIVATE-RESTRICTED-QWEN-REG-RU"}}' |
             gh api --method POST \
               "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
