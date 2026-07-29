@@ -1,9 +1,7 @@
 name: TAI AP-14F1D Regression Compatibility Staging
 
 on:
-  push:
-    branches:
-      - agent/tai-ap-14f1d-regression-fix-staging
+  pull_request:
     paths:
       - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
   workflow_dispatch:
@@ -12,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: tai-ap-14f1d-regression-fix-staging
+  group: tai-ap-14f1d-regression-fix-staging-pr
   cancel-in-progress: true
 
 jobs:
