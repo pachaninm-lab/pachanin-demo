@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PUBLIC-AI-QWEN-REG-RU-RELEASE-3372",
+  "branch": "ops/release-public-ai-qwen-3372",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "aa0583eef4a3d70a0810992a2d115811a6a97d0d",
+  "operationalStatus": "ROLLBACK_AND_LIVE_UI_ACCEPTANCE_EXACT_HEAD_GATES_RUNNING",
+  "maturityBoundary": "release-trigger-and-fail-closed-activation-only",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/web/next.config.js",
+    "docs/platform-v7/autopilot/scopes/release-public-ai-qwen-3372.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/app/**",
+    "apps/web/components/**",
+    "apps/web/styles/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": true
+  },
+  "requiredEvidence": [
+    "The release trigger remains comment-only and changes no emitted application runtime behavior",
+    "Activation snapshots the prior Qwen env and compose override before mutation",
+    "Any failed activation, SSE or live browser acceptance restores the previous exact API/web images and Qwen environment",
+    "Live Chromium opens the public assistant and proves the clean PR #3369 UI, compact empty state, integrated composer and successful submitted answer",
+    "All exact-head CI, web, security, runtime and production-like Kubernetes gates pass",
+    "The resulting merge SHA is current main before activation",
+    "TAI Restricted Qwen REG.RU Activation deploys exact API, web and migration images",
+    "Authenticated API-to-private-model inference passes",
+    "Live public RU, EN and ZH SSE responses pass",
+    "No private model address or secret is exposed",
+    "Permanent AP-13D admission remains NOT_ATTESTED"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
