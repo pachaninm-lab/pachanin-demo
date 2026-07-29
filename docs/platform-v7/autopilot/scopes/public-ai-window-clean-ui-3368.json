@@ -4,7 +4,7 @@
   "status": "active",
   "issue": 3368,
   "baseCommit": "1136c38f67e0a4a41cef1903dadf334a22b7f4a6",
-  "operationalStatus": "UI_ONLY_SYNCED_TO_CURRENT_MAIN_PENDING_FINAL_GATES",
+  "operationalStatus": "UI_ONLY_EXACT_MAIN_FINAL_GATES_RUNNING",
   "allowedPaths": [
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/styles/platform-v7-public-assistant.css",
