@@ -59,6 +59,7 @@ type Copy = {
   error: string;
   sources: string;
   details: string;
+  model: string;
   confidence: string;
   high: string;
   medium: string;
@@ -68,8 +69,8 @@ type Copy = {
 
 const COPY: Record<Locale, Copy> = {
   ru: {
-    open: 'Спросить ИИ',
-    shortcutHint: 'О платформе',
+    open: 'Спросить о платформе',
+    shortcutHint: 'ИИ-помощник',
     close: 'Закрыть ИИ-помощника',
     title: 'ИИ Прозрачной Цены',
     subtitle: 'Помощник по платформе',
@@ -82,6 +83,7 @@ const COPY: Record<Locale, Copy> = {
     error: 'Не удалось получить подтверждённый ответ. Попробуй ещё раз.',
     sources: 'Источники',
     details: 'Основание ответа',
+    model: 'Модель',
     confidence: 'Уверенность',
     high: 'высокая',
     medium: 'средняя',
@@ -89,8 +91,8 @@ const COPY: Record<Locale, Copy> = {
     processing: 'Формирую ответ…',
   },
   en: {
-    open: 'Ask AI',
-    shortcutHint: 'About the platform',
+    open: 'Ask about the platform',
+    shortcutHint: 'AI assistant',
     close: 'Close AI assistant',
     title: 'Transparent Price AI',
     subtitle: 'Platform assistant',
@@ -103,6 +105,7 @@ const COPY: Record<Locale, Copy> = {
     error: 'A verified answer was not available. Try again.',
     sources: 'Sources',
     details: 'Basis of the answer',
+    model: 'Model',
     confidence: 'Confidence',
     high: 'high',
     medium: 'medium',
@@ -110,8 +113,8 @@ const COPY: Record<Locale, Copy> = {
     processing: 'Preparing the answer…',
   },
   zh: {
-    open: '询问 AI',
-    shortcutHint: '关于平台',
+    open: '询问平台',
+    shortcutHint: 'AI 助手',
     close: '关闭 AI 助手',
     title: '透明价格 AI',
     subtitle: '平台助手',
@@ -124,6 +127,7 @@ const COPY: Record<Locale, Copy> = {
     error: '暂时无法获得经过验证的回答，请重试。',
     sources: '来源',
     details: '回答依据',
+    model: '模型',
     confidence: '置信度',
     high: '高',
     medium: '中',
@@ -416,7 +420,7 @@ export function PublicPlatformAssistant() {
               </button>
             </header>
 
-            <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite'>
+            <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite' aria-busy={sending}>
               {!hasConversation ? (
                 <section className='pc-public-assistant-empty' aria-labelledby='pc-public-assistant-empty-title'>
                   <div className='pc-public-assistant-empty-copy'>
@@ -465,15 +469,25 @@ export function PublicPlatformAssistant() {
                     </p>
                   ) : null}
 
-                  {message.stream?.status === 'answered' && message.stream.citations.length ? (
+                  {message.stream?.status === 'answered' ? (
                     <div className='pc-public-assistant-answer'>
-                      <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
-                        {message.stream.citations.map((citation) => (
-                          <a key={citation.uri} href={citation.uri}>
-                            {citation.title}<ExternalLink size={14} aria-hidden='true' />
-                          </a>
-                        ))}
-                      </div>
+                      {message.stream.citations.length ? (
+                        <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
+                          {message.stream.citations.map((citation) => (
+                            <a key={citation.uri} href={citation.uri}>
+                              {citation.title}<ExternalLink size={14} aria-hidden='true' />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                      {message.stream.modelIdentity ? (
+                        <details className='pc-public-assistant-details'>
+                          <summary>{ui.details}</summary>
+                          <div className='pc-public-assistant-details-body'>
+                            <p className='pc-public-assistant-model'>{ui.model}: {message.stream.modelIdentity}</p>
+                          </div>
+                        </details>
+                      ) : null}
                     </div>
                   ) : null}
 
