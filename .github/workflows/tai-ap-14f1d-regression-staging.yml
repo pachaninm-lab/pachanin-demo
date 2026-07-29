@@ -1,6 +1,11 @@
 name: TAI AP-14F1D Exact CA Pin Export
 
 on:
+  push:
+    branches:
+      - agent/tai-ap-14f1d-regression-fix-staging
+    paths:
+      - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
   pull_request:
     paths:
       - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
