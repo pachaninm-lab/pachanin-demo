@@ -1,4 +1,5 @@
 name: TAI Qwen Exact Image Activation Chain
+# activation-trigger-contract: final-v2
 
 on:
   push:

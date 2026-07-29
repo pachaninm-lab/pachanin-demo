@@ -1,0 +1,240 @@
+name: QWEN Recovery Final Activation Hardening Materializer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/tai-qwen-final-activation-hardening-materializer.yml'
+      - 'docs/platform-v7/autopilot/scopes/qwen-recovery-final-activation-3372.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qwen-recovery-final-activation-hardening-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.actor == github.repository_owner &&
+      github.head_ref == 'ops/qwen-recovery-final-activation-3372'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Verify governed context
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch='ops/qwen-recovery-final-activation-3372'
+          scope='docs/platform-v7/autopilot/scopes/qwen-recovery-final-activation-3372.json'
+          git fetch --no-tags origin main "$branch"
+          test "$(git rev-parse HEAD)" = "$SOURCE_HEAD_SHA"
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git merge-base --is-ancestor origin/main HEAD
+          node - "$scope" <<'NODE'
+          const fs = require('node:fs');
+          const scope = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (scope.branch !== 'ops/qwen-recovery-final-activation-3372') process.exit(2);
+          if (scope.status !== 'active' || scope.issue !== 3372) process.exit(3);
+          if (scope.ownerAuthorizedExceptionId !== 'PRODUCTION_AI_RECOVERY_3372') process.exit(4);
+          if (!scope.allowedPaths.includes('.github/workflows/tai-qwen-final-activation-hardening-materializer.yml')) process.exit(5);
+          if (!scope.allowedPaths.includes('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')) process.exit(6);
+          if (!scope.allowedPaths.includes('.github/workflows/tai-qwen-exact-image-activation-chain.yml')) process.exit(7);
+          NODE
+          node scripts/verify-pc-crop-project-lock.mjs --self-test
+          PC_CROP_BRANCH="$branch" \
+          PC_CROP_TITLE='QWEN-RECOVERY: finalize exact image and non-root activation' \
+          PC_CROP_ISSUE=3372 \
+          PC_CROP_SCOPE_PATH="$scope" \
+            node scripts/verify-pc-crop-project-lock.mjs
+
+      - name: Bind bot dispatch to exact governed chain run
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          activation = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          text = activation.read_text(encoding='utf-8')
+
+          input_anchor = '''      confirmation:
+                  description: Enter ACTIVATE-RESTRICTED-QWEN-REG-RU
+                  required: true
+                  type: string
+          '''
+          input_replacement = input_anchor + '''      chain_run_id:
+                  description: Exact governed chain run ID; leave empty for direct owner dispatch
+                  required: false
+                  type: string
+          '''
+          if text.count(input_anchor) != 1:
+              raise SystemExit('CHAIN_PROVENANCE_FAIL=INPUT_ANCHOR_MISMATCH')
+          text = text.replace(input_anchor, input_replacement, 1)
+
+          permissions_anchor = '''permissions:
+            contents: read
+            packages: read
+            issues: write
+          '''
+          permissions_replacement = '''permissions:
+            contents: read
+            packages: read
+            issues: write
+            actions: read
+          '''
+          if text.count(permissions_anchor) != 1:
+              raise SystemExit('CHAIN_PROVENANCE_FAIL=PERMISSIONS_ANCHOR_MISMATCH')
+          text = text.replace(permissions_anchor, permissions_replacement, 1)
+
+          gate_old = '''        (
+                    github.event_name == 'workflow_dispatch' &&
+                    inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU' &&
+                    (
+                      (
+                        github.actor == github.repository_owner &&
+                        github.triggering_actor == github.repository_owner
+                      ) ||
+                      github.actor == 'github-actions[bot]' ||
+                      github.triggering_actor == 'github-actions[bot]'
+                    )
+                  )
+          '''
+          gate_new = '''        (
+                    github.event_name == 'workflow_dispatch' &&
+                    inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU' &&
+                    (
+                      (
+                        github.actor == github.repository_owner &&
+                        github.triggering_actor == github.repository_owner &&
+                        inputs.chain_run_id == ''
+                      ) ||
+                      (
+                        (
+                          github.actor == 'github-actions[bot]' ||
+                          github.triggering_actor == 'github-actions[bot]'
+                        ) &&
+                        inputs.chain_run_id != ''
+                      )
+                    )
+                  )
+          '''
+          if text.count(gate_old) != 1:
+              raise SystemExit('CHAIN_PROVENANCE_FAIL=GATE_ANCHOR_MISMATCH')
+          text = text.replace(gate_old, gate_new, 1)
+
+          target_anchor = '''          echo "sha=$target" >> "$GITHUB_OUTPUT"
+                    echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+          
+                - name: Wait for exact API, web and migration images
+          '''
+          verification = '''          echo "sha=$target" >> "$GITHUB_OUTPUT"
+                    echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+          
+                - name: Verify governed activation dispatch provenance
+                  if: github.event_name == 'workflow_dispatch' && inputs.chain_run_id != ''
+                  env:
+                    GH_TOKEN: ${{ github.token }}
+                    TARGET_SHA: ${{ steps.target.outputs.sha }}
+                    CHAIN_RUN_ID: ${{ inputs.chain_run_id }}
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    [[ "$CHAIN_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+                    mapfile -t fields < <(
+                      gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CHAIN_RUN_ID" --jq '[
+                        .name,
+                        .path,
+                        .head_sha,
+                        .head_branch,
+                        .event,
+                        .status,
+                        (.conclusion // ""),
+                        .repository.full_name,
+                        .actor.login,
+                        (.triggering_actor.login // "")
+                      ] | .[]'
+                    )
+                    test "${#fields[@]}" -eq 10
+                    test "${fields[0]}" = 'TAI Qwen Exact Image Activation Chain'
+                    [[ "${fields[1]}" == '.github/workflows/tai-qwen-exact-image-activation-chain.yml'* ]]
+                    test "${fields[2]}" = "$TARGET_SHA"
+                    test "${fields[3]}" = main
+                    [[ "${fields[4]}" == push || "${fields[4]}" == workflow_dispatch ]]
+                    [[ "${fields[5]}" == in_progress || "${fields[5]}" == completed ]]
+                    if [[ "${fields[5]}" == completed ]]; then test "${fields[6]}" = success; fi
+                    test "${fields[7]}" = "$GITHUB_REPOSITORY"
+                    [[ "${fields[8]}" == "$GITHUB_REPOSITORY_OWNER" || "${fields[9]}" == "$GITHUB_REPOSITORY_OWNER" ]]
+          
+                - name: Wait for exact API, web and migration images
+          '''
+          if text.count(target_anchor) != 1:
+              raise SystemExit('CHAIN_PROVENANCE_FAIL=TARGET_ANCHOR_MISMATCH')
+          text = text.replace(target_anchor, verification, 1)
+          activation.write_text(text, encoding='utf-8')
+
+          chain = Path('.github/workflows/tai-qwen-exact-image-activation-chain.yml')
+          chain_text = chain.read_text(encoding='utf-8')
+          dispatch_anchor = '''            -f "inputs[target_sha]=$TARGET_SHA" \\
+                      -f 'inputs[confirmation]=ACTIVATE-RESTRICTED-QWEN-REG-RU' >/dev/null
+          '''
+          dispatch_replacement = '''            -f "inputs[target_sha]=$TARGET_SHA" \\
+                      -f 'inputs[confirmation]=ACTIVATE-RESTRICTED-QWEN-REG-RU' \\
+                      -f "inputs[chain_run_id]=$GITHUB_RUN_ID" >/dev/null
+          '''
+          if chain_text.count(dispatch_anchor) != 1:
+              raise SystemExit('CHAIN_PROVENANCE_FAIL=DISPATCH_ANCHOR_MISMATCH')
+          chain_text = chain_text.replace(dispatch_anchor, dispatch_replacement, 1)
+          if '# activation-trigger-contract: final-v2\n' not in chain_text:
+              raise SystemExit('CHAIN_PROVENANCE_FAIL=TRIGGER_MARKER_MISSING')
+          chain_text = chain_text.replace(
+              '# activation-trigger-contract: final-v2\n',
+              '# activation-trigger-contract: final-v3\n',
+              1,
+          )
+          chain.write_text(chain_text, encoding='utf-8')
+          PY
+
+          ruby -e "require 'yaml'; YAML.load_file(ARGV.fetch(0))" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          ruby -e "require 'yaml'; YAML.load_file(ARGV.fetch(0))" .github/workflows/tai-qwen-exact-image-activation-chain.yml
+          grep -Fq 'chain_run_id:' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq 'Verify governed activation dispatch provenance' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq 'inputs[chain_run_id]=$GITHUB_RUN_ID' .github/workflows/tai-qwen-exact-image-activation-chain.yml
+          grep -Fq '# activation-trigger-contract: final-v3' .github/workflows/tai-qwen-exact-image-activation-chain.yml
+          grep -Fq '[[ "$model_user" != root ]]' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq 'test "$(id -u)" -ne 0' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          git diff --check -- .github/workflows/tai-restricted-qwen-reg-ru-activation.yml .github/workflows/tai-qwen-exact-image-activation-chain.yml
+
+      - name: Publish hardened generated sources
+        env:
+          BLOB_BRANCH: ops/qwen-recovery-final-blob-3372
+        shell: bash
+        run: |
+          set -euo pipefail
+          activation="$RUNNER_TEMP/final-activation-v3.yml"
+          chain="$RUNNER_TEMP/final-chain-v3.yml"
+          cp .github/workflows/tai-restricted-qwen-reg-ru-activation.yml "$activation"
+          cp .github/workflows/tai-qwen-exact-image-activation-chain.yml "$chain"
+          git fetch --no-tags origin main "$BLOB_BRANCH"
+          git checkout --detach origin/main
+          root='docs/platform-v7/autopilot/generated/qwen-recovery-final-3372'
+          mkdir -p "$root"
+          cp "$activation" "$root/activation.yml"
+          cp "$chain" "$root/chain.yml"
+          git add "$root/activation.yml" "$root/chain.yml"
+          git diff --cached --check
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git commit -m 'Stage provenance-bound Qwen activation sources'
+          git push --force origin "HEAD:refs/heads/$BLOB_BRANCH"

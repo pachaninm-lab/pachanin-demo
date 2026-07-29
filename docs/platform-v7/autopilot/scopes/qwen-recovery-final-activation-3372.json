@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "QWEN-RECOVERY-FINAL-ACTIVATION-3372",
+  "branch": "ops/qwen-recovery-final-activation-3372",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3372,
+  "activeSlice": "PC-CROP-10B",
+  "ownerAuthorizedExceptionId": "PRODUCTION_AI_RECOVERY_3372",
+  "ownerAuthorizedExceptionCommentId": 5120686584,
+  "exceptionExpiresWhenIssueClosed": true,
+  "exceptionPurpose": "restore-accepted-restricted-qwen-contour-only",
+  "baseCommit": "7ee34519779d4ac6ccf8a73b31d1553f57052cda",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "restricted-live-read-only-qwen-recovery-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-final-activation-hardening-materializer.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/tai-qwen-exact-image-activation-chain.yml",
+    "docs/platform-v7/autopilot/scopes/qwen-recovery-final-activation-3372.json"
+  ],
+  "forbiddenPaths": [
+    ".github/workflows/pc-crop-**",
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "docs/platform-v7/crop-platform/**",
+    "docs/platform-v7/autopilot/project-locks/**",
+    "scripts/pc-crop-**",
+    "production credentials"
+  ],
+  "boundaries": {
+    "modelHostMutation": false,
+    "rootOrSudoRequired": false,
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "financeOrSafeToolChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "canonicalImagePublication": true,
+    "productionActivationDispatch": true,
+    "productionDeploymentOnlyAfterMerge": true
+  },
+  "requiredEvidence": [
+    "Workflow-dispatched activation is accepted only from the repository owner or the governed exact-image chain",
+    "Chain-dispatched activation verifies the exact source workflow run and target SHA",
+    "Model SSH user is explicit and non-root",
+    "Remote UID zero is rejected before process-environment access",
+    "Canonical API web and migration images are published for exact current main",
+    "API-to-private-model authenticated inference passes",
+    "Live RU EN ZH SSE passes",
+    "Public AI window Chromium acceptance passes",
+    "Issue 3372 closes only after activation observer SUCCESS"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

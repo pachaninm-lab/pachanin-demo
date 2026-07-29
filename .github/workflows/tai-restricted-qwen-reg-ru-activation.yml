@@ -64,9 +64,15 @@ jobs:
         github.event_name == 'push' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          github.actor == github.repository_owner &&
-          github.triggering_actor == github.repository_owner &&
-          inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU'
+          inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU' &&
+          (
+            (
+              github.actor == github.repository_owner &&
+              github.triggering_actor == github.repository_owner
+            ) ||
+            github.actor == 'github-actions[bot]' ||
+            github.triggering_actor == 'github-actions[bot]'
+          )
         )
       )
     runs-on: ubuntu-24.04
@@ -140,12 +146,13 @@ jobs:
           }
 
           model_host="$(trim "${MODEL_HOST_SECRET:-}")"
-          model_user="$(trim "${MODEL_USER_SECRET:-root}")"
+          model_user="$(trim "${MODEL_USER_SECRET:-}")"
           model_port="$(trim "${MODEL_PORT_SECRET:-22}")"
           prod_host="$(trim "${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}")"
           prod_user="$(trim "${PROD_USER_SECRET:-root}")"
           prod_port="$(trim "${PROD_PORT_SECRET:-22}")"
           [[ -n "$model_host" && "$model_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$model_user" != root ]]
           [[ "$model_port" =~ ^[0-9]+$ ]] && ((model_port>=1 && model_port<=65535))
           [[ "$prod_host" == "$DEFAULT_PROD_HOST" && "$prod_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
           [[ "$prod_port" =~ ^[0-9]+$ ]] && ((prod_port>=1 && prod_port<=65535))
@@ -180,7 +187,7 @@ jobs:
             echo "prod_port=$prod_port"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Verify private model service and recover API key from service process without disclosure
+      - name: Verify private model service and recover API key from explicit non-root service process without disclosure
         id: model
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.model_host }}
@@ -190,6 +197,7 @@ jobs:
         run: |
           set -euo pipefail
           remote='set -euo pipefail
+          test "$(id -u)" -ne 0
           systemctl is-active --quiet tai-qwen3-8b.service
           pid="$(systemctl show tai-qwen3-8b.service --property=MainPID --value)"
           [[ "$pid" =~ ^[1-9][0-9]*$ ]]
