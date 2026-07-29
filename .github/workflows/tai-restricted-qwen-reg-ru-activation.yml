@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
+      - '.github/workflows/tai-qwen-exact-image-activation-chain.yml'
       - 'apps/api/src/modules/ai-insights/ai-assistant.service.ts'
       - 'apps/api/src/modules/ai-insights/ai-insights.module.ts'
       - 'apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts'
@@ -571,7 +572,18 @@ jobs:
               }, targetSha);
               if (manifest.commitSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifest.commitSha}`);
 
-              const trigger = page.locator('.pc-public-assistant-shortcut');
+              await page.evaluate(() => {
+                window.scrollTo(0, 260);
+                window.dispatchEvent(new Event('scroll'));
+              });
+              await page.waitForTimeout(300);
+              await page.evaluate(() => {
+                window.scrollTo(0, 180);
+                window.dispatchEvent(new Event('scroll'));
+              });
+              await page.waitForFunction(() => document.querySelector('.pc-public-contact-dock')?.getAttribute('data-scroll-hidden') === 'false');
+              const dock = page.locator('.pc-public-contact-dock');
+              const trigger = dock.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' });
               await trigger.waitFor({ state: 'visible', timeout: 30000 });
               await trigger.click();
 

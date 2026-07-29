@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "QWEN-RECOVERY-REAL-DOCK-3372",
+  "branch": "ops/qwen-recovery-real-dock-3372",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3372,
+  "activeSlice": "PC-CROP-10B",
+  "ownerAuthorizedExceptionId": "PRODUCTION_AI_RECOVERY_3372",
+  "ownerAuthorizedExceptionCommentId": 5120686584,
+  "exceptionExpiresWhenIssueClosed": true,
+  "exceptionPurpose": "restore-accepted-restricted-qwen-contour-only",
+  "baseCommit": "978ddd74146fcc097f4b596920647cae5d15356b",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "restricted-live-read-only-qwen-recovery-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-exact-image-activation-chain.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "docs/platform-v7/autopilot/scopes/qwen-recovery-real-dock-3372.json"
+  ],
+  "boundaries": {
+    "modelHostMutation": false,
+    "rootOrSudoRequired": false,
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "financeOrSafeToolChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "publicDockImplementationChange": false,
+    "chromiumUsesRealPublicDock": true,
+    "botWorkflowDispatchToActivation": false,
+    "canonicalImagePublication": true,
+    "productionDeploymentOnlyAfterMerge": true
+  },
+  "requiredEvidence": [
+    "The stale hidden delegation trigger is not used by live Chromium acceptance",
+    "Chromium reveals and clicks the real public AI contact-dock action",
+    "The contact dock delegates to the existing assistant workflow",
+    "Canonical API web and migration images are published for exact current main",
+    "Accepted activation starts natively from the same main push",
+    "API-to-private-model inference passes",
+    "Live RU EN ZH SSE passes",
+    "Public AI window Chromium acceptance passes",
+    "Issue 3372 closes only after activation observer SUCCESS"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
