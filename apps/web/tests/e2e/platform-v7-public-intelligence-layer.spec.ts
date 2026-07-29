@@ -31,18 +31,10 @@ async function scrollAndFlush(page: Page, top: number) {
 async function settleContactDock(page: Page) {
   const dock = page.locator('.pc-public-contact-dock');
   if (await dock.count() === 0) return;
-  const mobile = (page.viewportSize()?.width ?? 1024) <= 767;
-  if (!mobile) {
-    await scrollAndFlush(page, 0);
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
-    return;
-  }
   await scrollAndFlush(page, 0);
-  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-  await scrollAndFlush(page, 1400);
-  await expect(dock).toHaveAttribute('data-scroll-hidden', 'true');
-  await scrollAndFlush(page, 800);
   await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+  await expect(dock).toBeVisible();
+  await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {
@@ -156,7 +148,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('390×844 first viewport contains the category, result and primary action', async ({ page }) => {
+  test('390×844 first viewport contains the category, result, primary action and public AI', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
@@ -171,7 +163,10 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     const dealCardBox = await page.locator('[data-testid="platform-v7-deal-card"]').boundingBox();
     expect(dealCardBox).not.toBeNull();
     expect(dealCardBox?.y ?? 9999).toBeLessThan(844);
-    await expect(page.locator('.pc-public-contact-dock')).toHaveAttribute('data-scroll-hidden', 'true');
+    const dock = page.locator('.pc-public-contact-dock');
+    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+    await expect(dock).toBeVisible();
+    await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
     await expectNoHorizontalOverflow(page);
   });
 
