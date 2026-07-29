@@ -1,4 +1,5 @@
 name: TAI Qwen Exact Image Activation Chain
+# QWEN UI acceptance recovery: publish exact images for the workflow-only main SHA.
 
 on:
   push:
