@@ -11,10 +11,17 @@ import { fileURLToPath } from 'node:url';
 const HOST = 'rosstat.gov.ru';
 const DATASET = '7708234640-VSHP2016254';
 const BASE_PATH = `/opendata/${DATASET}`;
+const RIGHTS_PATH = '/opendata/';
 const SOURCE_ID = 'official.rosstat.opendata.7708234640-vshp2016254';
 const DEFAULT_MANIFEST = `apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-${DATASET}.v1.json`;
 const DEFAULT_OUTPUT = 'artifacts/tai-ap-14f1c/rosstat-resource-evidence.json';
-const REQUIRED_CODES = ['DATASET_PAGE', 'PASSPORT_CSV', 'SDMX_STRUCTURE_XML', 'DATA_XML'];
+const REQUIRED_CODES = [
+  'RIGHTS_TERMS_PAGE',
+  'DATASET_PAGE',
+  'PASSPORT_CSV',
+  'SDMX_STRUCTURE_XML',
+  'DATA_XML',
+];
 const SHA256 = /^[0-9a-f]{64}$/;
 const SDMX_MESSAGE_NS = 'http://www.sdmx.org/resources/sdmxml/schemas/v2_0/message';
 const SDMX_STRUCTURE_NS = 'http://www.sdmx.org/resources/sdmxml/schemas/v2_0/structure';
@@ -33,6 +40,48 @@ function digest(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function normalizeText(value) {
+  return value.normalize('NFKC').replace(/\s+/g, ' ').trim();
+}
+
+function decodeHtmlEntities(value) {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, raw) => String.fromCodePoint(Number.parseInt(raw, 16)))
+    .replace(/&#([0-9]+);/g, (_, raw) => String.fromCodePoint(Number.parseInt(raw, 10)))
+    .replace(/&nbsp;|&thinsp;|&ensp;|&emsp;/gi, ' ')
+    .replace(/&ndash;/gi, '–')
+    .replace(/&mdash;/gi, '—')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;|&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&');
+}
+
+function htmlVisibleText(body) {
+  const source = body.toString('utf8').replace(/^\uFEFF/, '');
+  const withoutExecutable = source
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ');
+  return normalizeText(decodeHtmlEntities(withoutExecutable.replace(/<[^>]+>/g, ' ')));
+}
+
+function semanticMarkerDigest(resource, body) {
+  if (!Array.isArray(resource.semanticMarkers) || resource.semanticMarkers.length < 1) {
+    fail('ROSSTAT_SEMANTIC_MARKERS_EMPTY', resource.code);
+  }
+  const visible = htmlVisibleText(body).toLocaleLowerCase('ru-RU');
+  for (const rawMarker of resource.semanticMarkers) {
+    const marker = normalizeText(rawMarker).toLocaleLowerCase('ru-RU');
+    if (!visible.includes(marker)) {
+      fail('ROSSTAT_SEMANTIC_MARKER_MISSING', `${resource.code}:${rawMarker}`);
+    }
+  }
+  return digest(Buffer.from(resource.semanticMarkers.map(normalizeText).join('\n'), 'utf8'));
+}
+
 function assertExactRoute(resource) {
   const uri = new URL(resource.uri);
   if (uri.protocol !== 'https:') fail('ROSSTAT_HTTPS_REQUIRED', resource.code);
@@ -41,6 +90,10 @@ function assertExactRoute(resource) {
     fail('ROSSTAT_URI_CREDENTIAL_QUERY_OR_FRAGMENT', resource.code);
   }
   if (uri.pathname !== resource.path) fail('ROSSTAT_PATH_PIN_MISMATCH', resource.code);
+  if (resource.code === 'RIGHTS_TERMS_PAGE') {
+    if (uri.pathname !== RIGHTS_PATH) fail('ROSSTAT_RIGHTS_PATH_ESCAPE');
+    return;
+  }
   if (uri.pathname !== BASE_PATH && !uri.pathname.startsWith(`${BASE_PATH}/`)) {
     fail('ROSSTAT_SEGMENT_BOUNDED_PATH_ESCAPE', resource.code);
   }
@@ -201,20 +254,10 @@ function assertSdmxStructure(xml, lowered) {
 }
 
 function assertBody(resource, body) {
-  const latinHead = body.subarray(0, 1024).toString('latin1').trimStart().toLowerCase();
-  if (resource.code === 'DATASET_PAGE') {
-    const text = body.toString('utf8').replace(/^\uFEFF/, '');
-    for (const marker of [
-      DATASET,
-      'meta.csv',
-      'structure-20181211T0212.xsd',
-      'data-20181211T0212-structure-20181211T0212.xml',
-    ]) {
-      if (!text.includes(marker)) fail('ROSSTAT_PAGE_MARKER_MISSING', marker);
-    }
-    return;
+  if (resource.integrityMode === 'SEMANTIC_MARKER_SET') {
+    return semanticMarkerDigest(resource, body);
   }
-
+  const latinHead = body.subarray(0, 1024).toString('latin1').trimStart().toLowerCase();
   if (resource.code === 'PASSPORT_CSV') {
     if (latinHead.startsWith('<html') || latinHead.startsWith('<!doctype html')) {
       fail('ROSSTAT_CSV_HTML_MISMATCH');
@@ -227,13 +270,14 @@ function assertBody(resource, body) {
     ]) {
       if (!text.includes(marker)) fail('ROSSTAT_CSV_MARKER_MISSING', marker);
     }
-    return;
+    return null;
   }
 
   const { xml, lowered } = normalizedXml(body, resource.code);
   if (resource.code === 'SDMX_STRUCTURE_XML') {
     assertSdmxStructure(xml, lowered);
   }
+  return null;
 }
 
 function validateManifest(manifest) {
@@ -285,12 +329,33 @@ function validateManifest(manifest) {
     if (!Array.isArray(resource.allowedMediaTypes) || resource.allowedMediaTypes.length === 0) {
       fail('ROSSTAT_MEDIA_POLICY', resource.code);
     }
-    if (resource.expectedSha256 !== null && !SHA256.test(resource.expectedSha256)) {
-      fail('ROSSTAT_PIN_FORMAT', resource.code);
-    }
-    const expectedState = resource.expectedSha256 === null ? 'DISCOVERY_REQUIRED' : 'PINNED';
-    if (resource.evidenceState !== expectedState) {
-      fail('ROSSTAT_EVIDENCE_STATE', resource.code);
+    if (resource.integrityMode === 'EXACT_BYTES') {
+      if (!SHA256.test(resource.expectedSha256 ?? '') || resource.evidenceState !== 'PINNED') {
+        fail('ROSSTAT_EXACT_BYTE_PIN_INVALID', resource.code);
+      }
+      if (resource.expectedSemanticSha256 !== undefined || resource.semanticMarkers !== undefined) {
+        fail('ROSSTAT_EXACT_BYTE_POLICY_AMBIGUOUS', resource.code);
+      }
+    } else if (resource.integrityMode === 'SEMANTIC_MARKER_SET') {
+      if (resource.expectedSha256 !== null || !SHA256.test(resource.expectedSemanticSha256 ?? '')) {
+        fail('ROSSTAT_SEMANTIC_PIN_INVALID', resource.code);
+      }
+      if (
+        !Array.isArray(resource.semanticMarkers)
+        || resource.semanticMarkers.length < 1
+        || resource.evidenceState !== 'SEMANTIC_PINNED'
+      ) {
+        fail('ROSSTAT_SEMANTIC_POLICY_INCOMPLETE', resource.code);
+      }
+      const canonicalDigest = digest(Buffer.from(
+        resource.semanticMarkers.map(normalizeText).join('\n'),
+        'utf8',
+      ));
+      if (canonicalDigest !== resource.expectedSemanticSha256) {
+        fail('ROSSTAT_SEMANTIC_MANIFEST_DIGEST_MISMATCH', resource.code);
+      }
+    } else {
+      fail('ROSSTAT_INTEGRITY_MODE_INVALID', resource.code);
     }
     if (
       resource.code === 'SDMX_STRUCTURE_XML'
@@ -371,10 +436,15 @@ function acquire(resource, ip, directory) {
     fail('ROSSTAT_MIME_MISMATCH', `${resource.code}:${mediaType}`);
   }
 
-  assertBody(resource, body);
-  const sha = digest(body);
-  if (resource.expectedSha256 !== null && resource.expectedSha256 !== sha) {
-    fail('ROSSTAT_DIGEST_MISMATCH', resource.code);
+  const semanticSha256 = assertBody(resource, body);
+  const rawSha256 = digest(body);
+  let integrityMatched = false;
+  if (resource.integrityMode === 'EXACT_BYTES') {
+    integrityMatched = rawSha256 === resource.expectedSha256;
+    if (!integrityMatched) fail('ROSSTAT_DIGEST_MISMATCH', resource.code);
+  } else {
+    integrityMatched = semanticSha256 === resource.expectedSemanticSha256;
+    if (!integrityMatched) fail('ROSSTAT_SEMANTIC_DIGEST_MISMATCH', resource.code);
   }
 
   return {
@@ -386,25 +456,26 @@ function acquire(resource, ip, directory) {
     httpStatus: parsed.status,
     mediaType,
     sizeBytes: body.length,
-    wireSha256: sha,
-    decodedSha256: sha,
+    integrityMode: resource.integrityMode,
+    wireSha256: rawSha256,
+    decodedSha256: rawSha256,
     responseHeadersSha256: headerDigest(parsed.headers),
-    expectedSha256: resource.expectedSha256,
-    digestMatched: resource.expectedSha256 === sha,
+    expectedSha256: resource.expectedSha256 ?? null,
+    semanticSha256,
+    expectedSemanticSha256: resource.expectedSemanticSha256 ?? null,
+    integrityMatched,
     observedContentProfile: resource.observedContentProfile ?? null,
   };
 }
 
 function buildEvidence({ dnsEvidence, resources, failure = null }) {
-  const allDigestsPinned = (
+  const allIntegritySatisfied = (
     failure === null
     && resources.length === REQUIRED_CODES.length
-    && resources.every(
-      (resource) => resource.expectedSha256 !== null && resource.digestMatched,
-    )
+    && resources.every((resource) => resource.integrityMatched)
   );
   return {
-    schemaVersion: 'tai.ap14f1c-rosstat-resource-evidence.v1',
+    schemaVersion: 'tai.ap14f1c-rosstat-resource-evidence.v2',
     datasetCode: DATASET,
     sourceId: SOURCE_ID,
     exactHead: process.env.EXACT_HEAD ?? process.env.GITHUB_SHA ?? 'LOCAL_UNATTESTED',
@@ -415,7 +486,7 @@ function buildEvidence({ dnsEvidence, resources, failure = null }) {
     resources,
     failure,
     rawBytesPersisted: false,
-    allDigestsPinned,
+    allIntegritySatisfied,
     sharedRagAllowed: false,
   };
 }
@@ -427,6 +498,11 @@ function selfTest() {
     path: `${BASE_PATH}/data.xml`,
   };
   assertExactRoute(valid);
+  assertExactRoute({
+    code: 'RIGHTS_TERMS_PAGE',
+    uri: `https://${HOST}${RIGHTS_PATH}`,
+    path: RIGHTS_PATH,
+  });
   const invalid = [
     { ...valid, uri: valid.uri.replace('https:', 'http:') },
     { ...valid, uri: valid.uri.replace(HOST, 'example.org') },
@@ -468,22 +544,38 @@ function selfTest() {
   <Header><ID>7708234640-VSHP2016-254</ID></Header>
 </Structure>`;
   assertBody(
-    { code: 'SDMX_STRUCTURE_XML' },
+    { code: 'SDMX_STRUCTURE_XML', integrityMode: 'EXACT_BYTES' },
     Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(sdmx)]),
   );
   assertBody(
-    { code: 'SDMX_STRUCTURE_XML' },
+    { code: 'SDMX_STRUCTURE_XML', integrityMode: 'EXACT_BYTES' },
     Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(sdmx, 'utf16le')]),
   );
 
   const fakeXsd = '<?xml version="1.0"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>';
   let xsdRejected = false;
   try {
-    assertBody({ code: 'SDMX_STRUCTURE_XML' }, Buffer.from(fakeXsd));
+    assertBody({ code: 'SDMX_STRUCTURE_XML', integrityMode: 'EXACT_BYTES' }, Buffer.from(fakeXsd));
   } catch {
     xsdRejected = true;
   }
   if (!xsdRejected) fail('ROSSTAT_SELF_TEST_XSD_MISCLASSIFICATION_ACCEPTED');
+
+  const semanticResource = {
+    code: 'RIGHTS_TERMS_PAGE',
+    integrityMode: 'SEMANTIC_MARKER_SET',
+    semanticMarkers: ['без заключения договора', 'не искажать открытые данные'],
+  };
+  const semanticBody = Buffer.from(
+    '<html><body>Без <b>заключения</b> договора. Не искажать открытые данные.</body></html>',
+  );
+  const semanticSha = assertBody(semanticResource, semanticBody);
+  const expectedSemantic = digest(Buffer.from(
+    semanticResource.semanticMarkers.map(normalizeText).join('\n'),
+  ));
+  if (semanticSha !== expectedSemantic) {
+    fail('ROSSTAT_SELF_TEST_SEMANTIC_DIGEST');
+  }
 
   console.log('TAI AP-14F1C discovery self-test = success');
 }
@@ -527,17 +619,28 @@ async function main() {
     writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
     console.log(JSON.stringify({
       outputPath,
+      allIntegritySatisfied: evidence.allIntegritySatisfied,
       resources: resources.map(
-        ({ code, mediaType, sizeBytes, wireSha256, observedContentProfile }) => ({
+        ({
           code,
+          integrityMode,
           mediaType,
           sizeBytes,
           wireSha256,
+          semanticSha256,
+          observedContentProfile,
+        }) => ({
+          code,
+          integrityMode,
+          mediaType,
+          sizeBytes,
+          wireSha256,
+          semanticSha256,
           observedContentProfile,
         }),
       ),
     }, null, 2));
-    if (!evidence.allDigestsPinned) process.exitCode = 42;
+    if (!evidence.allIntegritySatisfied) process.exitCode = 42;
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -554,7 +657,9 @@ export {
   assertBody,
   assertExactRoute,
   decodeXmlText,
+  htmlVisibleText,
   isGlobalIpv4,
   parseHeaders,
+  semanticMarkerDigest,
   validateManifest,
 };
