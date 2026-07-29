@@ -1,0 +1,433 @@
+name: TAI AP-14F1B2 Governed Acquisition Authority
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap-14f1b2.yml'
+      - 'apps/tai/tai/migrations/0021_public_official_acquisition_authority.sql'
+      - 'apps/tai/tai/migrations/manifest.json'
+      - 'apps/tai/tai/public_official_acquisition.py'
+      - 'apps/tai/tests/test_migration_manifest.py'
+      - 'apps/tai/tests/test_public_official_acquisition.py'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1b2-3362.json'
+      - 'scripts/tai-ap-14f1a/verify.mjs'
+      - 'scripts/tai-ap-14f1b2/verify.mjs'
+  push:
+    branches:
+      - main
+      - agent/tai-ap-14f1b2-acquisition-authority-3362
+    paths:
+      - '.github/workflows/tai-ap-14f1b2.yml'
+      - 'apps/tai/tai/migrations/0021_public_official_acquisition_authority.sql'
+      - 'apps/tai/tai/migrations/manifest.json'
+      - 'apps/tai/tai/public_official_acquisition.py'
+      - 'apps/tai/tests/test_migration_manifest.py'
+      - 'apps/tai/tests/test_public_official_acquisition.py'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1b2-3362.json'
+      - 'scripts/tai-ap-14f1a/verify.mjs'
+      - 'scripts/tai-ap-14f1b2/verify.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: tai-ap-14f1b2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/tai-ap-14f1b2
+  TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tai_ap14f1b2
+
+jobs:
+  governed-acquisition-authority:
+    name: Transport bounds · extraction · fencing · immutable evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tai_ap14f1b2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tai_ap14f1b2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Resolve governed comparison base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            base_ref="HEAD^"
+          else
+            base_ref="2c7a65e8cdffb9f7e5797703a277a466756c0aad"
+          fi
+          printf 'base_ref=%s\n' "$base_ref" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/tai/pyproject.toml
+
+      - name: Verify source-controlled scope
+        if: github.ref_name != 'main'
+        shell: bash
+        env:
+          BASE_REF: ${{ steps.base.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          bash scripts/p7-autopilot-guard.sh
+
+      - name: Install TAI test toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e 'apps/tai[dev]'
+
+      - name: Static and adversarial unit acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          ruff check \
+            apps/tai/tai/public_official_acquisition.py \
+            apps/tai/tests/test_public_official_acquisition.py \
+            apps/tai/tests/test_migration_manifest.py \
+            | tee "$EVIDENCE_DIR/ruff.txt"
+          mypy apps/tai/tai/public_official_acquisition.py \
+            | tee "$EVIDENCE_DIR/mypy.txt"
+          pytest \
+            apps/tai/tests/test_public_official_acquisition.py \
+            apps/tai/tests/test_migration_manifest.py \
+            | tee "$EVIDENCE_DIR/pytest.txt"
+
+      - name: PostgreSQL 16 authority and exploit acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY' | tee "$EVIDENCE_DIR/postgresql.txt"
+          from __future__ import annotations
+
+          import os
+          from pathlib import Path
+
+          import psycopg
+          from psycopg import errors
+
+          database_url = os.environ['TEST_DATABASE_URL']
+          migration_root = Path('apps/tai/tai/migrations')
+          migrations = [
+              migration_root / '0019_public_official_corpus.sql',
+              migration_root / '0020_public_official_corpus_audit_authority.sql',
+              migration_root / '0021_public_official_acquisition_authority.sql',
+          ]
+
+          with psycopg.connect(database_url, autocommit=True) as connection:
+              for migration in migrations:
+                  connection.execute(migration.read_text(encoding='utf-8'))
+
+              required_tables = {
+                  'tai_public_acquisition_runs',
+                  'tai_public_acquisition_raw_evidence',
+                  'tai_public_acquisition_fragments',
+                  'tai_public_acquisition_terminals',
+                  'tai_public_acquisition_audit',
+              }
+              actual_tables = {
+                  row[0]
+                  for row in connection.execute(
+                      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'tai_public_acquisition_%'"
+                  ).fetchall()
+              }
+              if not required_tables.issubset(actual_tables):
+                  raise SystemExit(f'missing tables: {sorted(required_tables - actual_tables)}')
+
+              required_functions = {
+                  'tai_public_acquisition_assert_fence',
+                  'tai_record_public_acquisition_start',
+                  'tai_record_public_acquisition_raw_evidence',
+                  'tai_record_public_acquisition_fragment',
+                  'tai_record_public_acquisition_terminal',
+              }
+              actual_functions = {
+                  row[0]
+                  for row in connection.execute(
+                      "SELECT proname FROM pg_proc WHERE proname LIKE 'tai_%public_acquisition%'"
+                  ).fetchall()
+              }
+              if not required_functions.issubset(actual_functions):
+                  raise SystemExit(f'missing functions: {sorted(required_functions - actual_functions)}')
+
+              trigger_count = connection.execute(
+                  """
+                  SELECT count(*)
+                  FROM pg_trigger
+                  WHERE tgname LIKE 'tai_public_acquisition_%_immutable'
+                    AND NOT tgisinternal
+                  """
+              ).fetchone()[0]
+              if trigger_count != 5:
+                  raise SystemExit(f'expected 5 immutable triggers, got {trigger_count}')
+
+              connection.execute(
+                  """
+                  INSERT INTO tai_public_corpus_source_admissions(
+                      source_id, data_plane, source_class, rights_decision_id, official_uri,
+                      host_pin, rights_review_due_at, admitted_at, trust_score, status
+                  ) VALUES (
+                      'official.rosstat.agriculture', 'PUBLIC_OFFICIAL', 'OPEN_DATASET',
+                      'AP14F0-OPEN_DATASET-DEFAULT',
+                      'https://rosstat.gov.ru/opendata/7708234640-census',
+                      'rosstat.gov.ru', '2027-07-29T00:00:00Z', '2026-07-29T00:00:00Z',
+                      0.900, 'ADMITTED'
+                  )
+                  """
+              )
+
+              start_args = (
+                  'acq_0123456789abcdef',
+                  'official.rosstat.agriculture',
+                  'worker-01',
+                  '1' * 64,
+                  3,
+                  '2026-07-29T01:00:00Z',
+                  '2026-07-29T01:10:00Z',
+                  'worker-01',
+                  'RUN_START',
+                  '2' * 64,
+                  '2026-07-29T01:00:00Z',
+              )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_start(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                  start_args,
+              )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_start(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                  start_args,
+              )
+
+              try:
+                  connection.execute(
+                      "SELECT tai_record_public_acquisition_start(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                      (*start_args[:1], 'official.other.source', *start_args[2:]),
+                  )
+              except errors.UniqueViolation:
+                  pass
+              else:
+                  raise SystemExit('conflicting start replay was accepted')
+
+              evidence_args = (
+                  'acq_0123456789abcdef',
+                  'worker-01',
+                  '1' * 64,
+                  3,
+                  'https://rosstat.gov.ru/opendata/7708234640-census',
+                  'https://rosstat.gov.ru/opendata/7708234640-census/data.xml',
+                  '3' * 64,
+                  '4' * 64,
+                  100,
+                  200,
+                  'application/xml',
+                  'utf-8',
+                  '5' * 64,
+                  '8.8.8.8',
+                  'rosstat.gov.ru',
+                  '2026-07-29T01:00:01Z',
+                  '2026-07-29T01:00:02Z',
+                  'HTTP_200',
+                  '6' * 64,
+                  'worker-01',
+                  'FETCH_ACCEPTED',
+                  '7' * 64,
+              )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_raw_evidence(" + ','.join(['%s'] * 22) + ")",
+                  evidence_args,
+              )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_raw_evidence(" + ','.join(['%s'] * 22) + ")",
+                  evidence_args,
+              )
+
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_fragment(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                  (
+                      'acq_0123456789abcdef', 'worker-01', '1' * 64, 3, 0,
+                      'XML_XPATH', '/root/row[1]', '8' * 64, 32, '2026-07-29T01:00:03Z',
+                  ),
+              )
+
+              terminal_args = (
+                  'acq_0123456789abcdef',
+                  'worker-01',
+                  '1' * 64,
+                  3,
+                  'MATERIALIZED',
+                  '6' * 64,
+                  '9' * 64,
+                  None,
+                  '2026-07-29T01:00:04Z',
+                  'a' * 64,
+                  'worker-01',
+                  'MATERIALIZED_ACCEPTED',
+                  'b' * 64,
+              )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_terminal(" + ','.join(['%s'] * 13) + ")",
+                  terminal_args,
+              )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_terminal(" + ','.join(['%s'] * 13) + ")",
+                  terminal_args,
+              )
+
+              try:
+                  connection.execute(
+                      "SELECT tai_record_public_acquisition_terminal(" + ','.join(['%s'] * 13) + ")",
+                      (*terminal_args[:4], 'QUARANTINED', *terminal_args[5:]),
+                  )
+              except errors.UniqueViolation:
+                  pass
+              else:
+                  raise SystemExit('conflicting terminal replay was accepted')
+
+              audit_types = {
+                  row[0]
+                  for row in connection.execute(
+                      "SELECT event_type FROM tai_public_acquisition_audit WHERE run_id = 'acq_0123456789abcdef'"
+                  ).fetchall()
+              }
+              if audit_types != {'RUN_STARTED', 'FETCH_EVIDENCE', 'MATERIALIZED'}:
+                  raise SystemExit(f'atomic audit mismatch: {sorted(audit_types)}')
+
+              connection.execute('SET ROLE tai_public_acquisition_writer')
+              for statement in (
+                  "INSERT INTO tai_public_acquisition_runs(run_id,source_id,owner_id,lease_token_sha256,lease_version,acquired_at,expires_at) VALUES ('acq_directwrite123456','official.rosstat.agriculture','x','1' || repeat('0',63),1,clock_timestamp(),clock_timestamp()+interval '1 hour')",
+                  "UPDATE tai_public_acquisition_runs SET owner_id = 'tampered' WHERE run_id = 'acq_0123456789abcdef'",
+                  "DELETE FROM tai_public_acquisition_audit WHERE run_id = 'acq_0123456789abcdef'",
+              ):
+                  try:
+                      connection.execute(statement)
+                  except errors.InsufficientPrivilege:
+                      pass
+                  else:
+                      raise SystemExit(f'restricted role direct mutation accepted: {statement}')
+              connection.execute('RESET ROLE')
+
+              for table in required_tables:
+                  try:
+                      connection.execute(f"DELETE FROM {table}")
+                  except errors.ObjectNotInPrerequisiteState:
+                      pass
+                  else:
+                      raise SystemExit(f'immutable delete accepted for {table}')
+
+              bad_run = 'acq_badatomicaudit1'
+              try:
+                  connection.execute(
+                      "SELECT tai_record_public_acquisition_start(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                      (
+                          bad_run, 'official.rosstat.agriculture', 'worker-02', 'c' * 64, 1,
+                          '2026-07-29T01:01:00Z', '2026-07-29T01:09:00Z', 'worker-02',
+                          'RUN_START', 'not-a-digest', '2026-07-29T01:01:00Z',
+                      ),
+                  )
+              except errors.CheckViolation:
+                  pass
+              else:
+                  raise SystemExit('invalid audit digest accepted')
+              if connection.execute(
+                  "SELECT count(*) FROM tai_public_acquisition_runs WHERE run_id = %s", (bad_run,)
+              ).fetchone()[0] != 0:
+                  raise SystemExit('failed audit left a committed run mutation')
+
+              print('POSTGRESQL_ACCEPTANCE=PASS')
+              print('AUTHORITY_TABLES=5')
+              print('IMMUTABLE_TRIGGERS=5')
+              print('RESTRICTED_MUTATION_FUNCTIONS=4')
+              print('ATOMIC_AUDIT_TYPES=3')
+              print('REAL_NETWORK_SOURCES=0')
+          PY
+
+      - name: Verify fail-closed slice contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          printf '%s\n' "${{ steps.base.outputs.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
+          set +e
+          node scripts/tai-ap-14f1b2/verify.mjs \
+            --scope-guard "${{ steps.base.outputs.base_ref }}" \
+            > "$EVIDENCE_DIR/acceptance.json" \
+            2> "$EVIDENCE_DIR/verifier-error.txt"
+          verifier_status=$?
+          set -e
+          cat "$EVIDENCE_DIR/acceptance.json"
+          cat "$EVIDENCE_DIR/verifier-error.txt" >&2
+          test "$verifier_status" -eq 0
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/acceptance.json`, 'utf8'));
+          if (report.status !== 'PASS') process.exit(1);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
+          if (report.counts.changedPaths !== 9) process.exit(1);
+          if (report.counts.migrationVersion !== 22) process.exit(1);
+          if (report.counts.realNetworkSources !== 0) process.exit(1);
+          if (Object.values(report.boundaries).some(Boolean)) process.exit(1);
+          NODE
+
+      - name: Upload AP-14F1B2 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap-14f1b2-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish observable exact-main status
+        if: always() && github.ref_name == 'main'
+        uses: actions/github-script@v7
+        env:
+          ACCEPTANCE_JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const state = process.env.ACCEPTANCE_JOB_STATUS === 'success' ? 'success' : 'failure';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.EXACT_HEAD,
+              state,
+              context: 'TAI AP-14F1B2 exact-main',
+              description: state === 'success'
+                ? 'Governed acquisition authority accepted on exact main'
+                : 'AP-14F1B2 exact-main acceptance failed',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });

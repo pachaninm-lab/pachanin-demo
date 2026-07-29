@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../..');
 const scopePath = 'docs/platform-v7/autopilot/scopes/tai-ap-14f1a-3345.json';
+const successorScopePath = 'docs/platform-v7/autopilot/scopes/tai-ap-14f1b2-3362.json';
 const allowedPaths = [
   '.github/workflows/tai-ap-14f1a.yml',
   'apps/tai/tai/migrations/0019_public_official_corpus.sql',
@@ -72,16 +73,21 @@ assert(
 );
 assert(Array.isArray(manifest.migrations), 'migration manifest must contain migrations');
 const versions = manifest.migrations.map((item) => item.version);
+const acceptedPrefix = Array.from({ length: 21 }, (_, index) => index + 1);
+assert(versions.length >= acceptedPrefix.length, 'migration manifest may not remove AP-14F1A history');
 assert(
-  JSON.stringify(versions)
-    === JSON.stringify(Array.from({ length: 21 }, (_, index) => index + 1)),
-  'migration versions must be exactly 1..21',
+  JSON.stringify(versions.slice(0, acceptedPrefix.length)) === JSON.stringify(acceptedPrefix),
+  'AP-14F1A migration prefix must remain exactly 1..21',
 );
-const latest = manifest.migrations.at(-1);
 assert(
-  latest?.path === '0020_public_official_corpus_audit_authority.sql'
-    && latest.version === 21,
-  'AP-14F1A immutable audit migration must be version 21',
+  versions.every((version, index) => version === index + 1),
+  'successor migration versions must remain contiguous',
+);
+const authorityMigration = manifest.migrations[20];
+assert(
+  authorityMigration?.path === '0020_public_official_corpus_audit_authority.sql'
+    && authorityMigration.version === 21,
+  'AP-14F1A immutable audit migration must remain version 21',
 );
 
 const corpusSql = text('apps/tai/tai/migrations/0019_public_official_corpus.sql');
@@ -234,10 +240,30 @@ if (scopeIndex !== -1) {
     .sort();
   assert(changedPaths.length > 0, 'scope diff must not be empty');
   assert(new Set(changedPaths).size === changedPaths.length, 'scope diff must be unique');
-  for (const path of changedPaths) {
-    assert(allowedPaths.includes(path), `out-of-scope path changed: ${path}`);
+
+  if (changedPaths.includes(successorScopePath)) {
+    const successorScope = JSON.parse(text(successorScopePath));
+    assert(
+      successorScope.schemaVersion === 'platform-v7.concurrent-scope.v1',
+      'successor scope schema changed',
+    );
+    assert(
+      successorScope.branch === 'agent/tai-ap-14f1b2-acquisition-authority-3362',
+      'successor scope branch mismatch',
+    );
+    assert(successorScope.issue === 3362, 'successor scope issue mismatch');
+    assert(successorScope.operationalStatus === 'NOT_ATTESTED', 'successor status changed');
+    assert(successorScope.boundaries.noRealNetworkAcceptance === true, 'successor network boundary');
+    assert(Array.isArray(successorScope.allowedPaths), 'successor allowedPaths must be an array');
+    for (const path of changedPaths) {
+      assert(successorScope.allowedPaths.includes(path), `successor out-of-scope path changed: ${path}`);
+    }
+  } else {
+    for (const path of changedPaths) {
+      assert(allowedPaths.includes(path), `out-of-scope path changed: ${path}`);
+    }
+    assert(changedPaths.includes(scopePath), 'source-controlled scope manifest must be in the diff');
   }
-  assert(changedPaths.includes(scopePath), 'source-controlled scope manifest must be in the diff');
 }
 
 process.stdout.write(`${JSON.stringify({
@@ -248,7 +274,7 @@ process.stdout.write(`${JSON.stringify({
   productionHosting: 'REG_RU_VPS_ONLY',
   counts: {
     changedPaths: changedPaths.length,
-    migrationVersion: latest.version,
+    migrationVersion: 21,
     dataPlanesAdmitted: 1,
     quarantineReasons: 12,
     auditEventTypes: 7,
