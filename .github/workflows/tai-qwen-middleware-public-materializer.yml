@@ -6,6 +6,10 @@ on:
       - ops/qwen-middleware-public-materializer-3372
     paths:
       - '.github/workflows/tai-qwen-middleware-public-materializer.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/tai-qwen-middleware-public-materializer.yml'
 
 permissions:
   contents: write
@@ -19,7 +23,7 @@ jobs:
       - name: Checkout exact source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Patch and verify public assistant middleware
