@@ -20,6 +20,7 @@ permissions:
   contents: read
   actions: write
   issues: write
+  statuses: write
 
 concurrency:
   group: tai-qwen-model-host-repair-and-activation
@@ -70,6 +71,21 @@ jobs:
           [[ "$target" == "$(git rev-parse HEAD)" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
 
+      - name: Publish repair pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" \
+            -f state=pending \
+            -f context='TAI Qwen Model Host Repair exact-main' \
+            -f description='REG.RU Qwen model-host repair is running' \
+            -f target_url="$run_url" >/dev/null
+
       - name: Resolve protected model-host SSH transport
         id: ssh
         shell: bash
@@ -103,9 +119,9 @@ jobs:
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
           model_key="${MODEL_KEY_SECRET:-${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}}"
-          write_key "$model_key" "$HOME/.ssh/id_tai_model" || { echo 'MODEL_REPAIR_FAIL=SSH_PRIVATE_KEY_UNAVAILABLE' >&2; exit 10; }
+          write_key "$model_key" "$HOME/.ssh/id_tai_model" || { printf '%s\n' 'MODEL_REPAIR_FAIL=SSH_PRIVATE_KEY_UNAVAILABLE' | tee "$RUNNER_TEMP/tai-qwen-repair-failure" >&2; exit 10; }
           ssh-keyscan -T 10 -p "$model_port" "$model_host" 2>/dev/null | sort -u > "$HOME/.ssh/model_known_hosts"
-          [[ -s "$HOME/.ssh/model_known_hosts" ]] || { echo 'MODEL_REPAIR_FAIL=SSH_HOST_KEY_UNAVAILABLE' >&2; exit 11; }
+          [[ -s "$HOME/.ssh/model_known_hosts" ]] || { printf '%s\n' 'MODEL_REPAIR_FAIL=SSH_HOST_KEY_UNAVAILABLE' | tee "$RUNNER_TEMP/tai-qwen-repair-failure" >&2; exit 11; }
           chmod 600 "$HOME/.ssh/model_known_hosts"
           {
             echo "model_host=$model_host"
@@ -121,11 +137,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          repair_log="$RUNNER_TEMP/tai-qwen-model-repair.log"
+          rm -f "$repair_log" "$RUNNER_TEMP/tai-qwen-repair-failure"
+          set +e
           ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
             -o StrictHostKeyChecking=yes \
-            "$MODEL_USER@$MODEL_HOST" 'bash -s' <<'REMOTE'
+            "$MODEL_USER@$MODEL_HOST" 'bash -s' 2>&1 <<'REMOTE' | tee "$repair_log"
           set -Eeuo pipefail
           service=tai-qwen3-8b.service
           env_file=/etc/tai/qwen3-8b.env
@@ -229,6 +248,11 @@ jobs:
           pass AUTHENTICATED_HEALTH_200
           printf 'MODEL_REPAIR_STATUS=PASS\n'
           REMOTE
+          rc=${PIPESTATUS[0]}
+          set -e
+          marker="$(grep -E '^MODEL_REPAIR_FAIL=' "$repair_log" | tail -1 || true)"
+          if [[ -n "$marker" ]]; then printf '%s\n' "$marker" > "$RUNNER_TEMP/tai-qwen-repair-failure"; fi
+          (( rc == 0 )) || exit "$rc"
 
       - name: Record repair success and dispatch accepted activation
         env:
@@ -244,4 +268,30 @@ jobs:
             gh api --method POST \
               "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
               --input -
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" \
+            -f state=success \
+            -f context='TAI Qwen Model Host Repair exact-main' \
+            -f description='Model host repaired; accepted activation dispatched' \
+            -f target_url="$run_url" >/dev/null
           echo "ACTIVATION_DISPATCHED_FOR_EXACT_MAIN=$TARGET_SHA"
+
+      - name: Record fail-closed repair failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          marker="$(cat "$RUNNER_TEMP/tai-qwen-repair-failure" 2>/dev/null || true)"
+          [[ "$marker" =~ ^MODEL_REPAIR_FAIL=[A-Z0-9_]+$ ]] || marker='MODEL_REPAIR_FAIL=PRE_REMOTE_OR_UNCLASSIFIED_FAILURE'
+          gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Qwen model-host repair failed closed for exact main \`$TARGET_SHA\`: \`$marker\`. Repair workflow: $run_url. Production activation was not dispatched; issue remains open."
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" \
+            -f state=failure \
+            -f context='TAI Qwen Model Host Repair exact-main' \
+            -f description="$marker" \
+            -f target_url="$run_url" >/dev/null
