@@ -1,0 +1,247 @@
+name: TAI Qwen Model Host Repair and Activation Retry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-qwen-model-host-repair.yml'
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter REPAIR-AND-ACTIVATE-QWEN-REG-RU
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+concurrency:
+  group: tai-qwen-model-host-repair-and-activation
+  cancel-in-progress: false
+
+env:
+  MODEL_PRIVATE_IP: 192.168.0.206
+  MODEL_PORT: '18080'
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+
+jobs:
+  repair-and-dispatch:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        github.event_name == 'push' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner &&
+          inputs.confirmation == 'REPAIR-AND-ACTIVATE-QWEN-REG-RU'
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current-main target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.sha }}'
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected model-host SSH transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+
+          model_host="$(trim "${MODEL_HOST_SECRET:-}")"
+          model_user="$(trim "${MODEL_USER_SECRET:-root}")"
+          model_port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$model_host" && "$model_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$model_port" =~ ^[0-9]+$ ]] && ((model_port>=1 && model_port<=65535))
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          model_key="${MODEL_KEY_SECRET:-${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}}"
+          write_key "$model_key" "$HOME/.ssh/id_tai_model" || { echo 'MODEL_REPAIR_FAIL=SSH_PRIVATE_KEY_UNAVAILABLE' >&2; exit 10; }
+          ssh-keyscan -T 10 -p "$model_port" "$model_host" 2>/dev/null | sort -u > "$HOME/.ssh/model_known_hosts"
+          [[ -s "$HOME/.ssh/model_known_hosts" ]] || { echo 'MODEL_REPAIR_FAIL=SSH_HOST_KEY_UNAVAILABLE' >&2; exit 11; }
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          {
+            echo "model_host=$model_host"
+            echo "model_user=$model_user"
+            echo "model_port=$model_port"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Repair and verify private Qwen service
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.model_host }}
+          MODEL_USER: ${{ steps.ssh.outputs.model_user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.model_port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "$MODEL_USER@$MODEL_HOST" 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          service=tai-qwen3-8b.service
+          env_file=/etc/tai/qwen3-8b.env
+          private_listener=192.168.0.206:18080
+
+          diagnostics(){
+            systemctl show "$service" --no-pager \
+              --property=ActiveState,SubState,Result,ExecMainStatus,NRestarts 2>/dev/null |
+              sed 's/^/MODEL_SERVICE_/' >&2 || true
+            ss -H -ltn 'sport = :18080' 2>/dev/null |
+              awk '{print $4}' | sort -u | sed 's/^/MODEL_LISTENER=/' >&2 || true
+          }
+          fail(){
+            printf 'MODEL_REPAIR_FAIL=%s\n' "$1" >&2
+            diagnostics
+            exit "$2"
+          }
+          pass(){ printf 'MODEL_REPAIR_PASS=%s\n' "$1"; }
+
+          [[ "$(id -u)" -eq 0 ]] || fail SSH_USER_NOT_ROOT 31
+          pass SSH_USER_ROOT
+          [[ -r "$env_file" ]] || fail ENV_FILE_MISSING_OR_UNREADABLE 32
+          pass ENV_FILE_READABLE
+
+          mode="$(stat -c %a "$env_file" 2>/dev/null || true)"
+          if [[ "$mode" != 600 ]]; then
+            chmod 0600 "$env_file" || fail ENV_FILE_MODE_REPAIR_FAILED 33
+            pass ENV_FILE_MODE_REPAIRED
+          else
+            pass ENV_FILE_MODE_600
+          fi
+
+          set +u
+          set -a
+          if ! source "$env_file"; then fail ENV_FILE_PARSE_FAILED 34; fi
+          set +a
+          key_length="${#TAI_LLM_API_KEY}"
+          set -u
+
+          if (( key_length < 32 )); then
+            command -v openssl >/dev/null 2>&1 || fail OPENSSL_UNAVAILABLE 35
+            new_key="$(openssl rand -hex 32)"
+            tmp="$(mktemp)"
+            found=0
+            while IFS= read -r line || [[ -n "$line" ]]; do
+              case "$line" in
+                TAI_LLM_API_KEY=*)
+                  printf 'TAI_LLM_API_KEY=%s\n' "$new_key" >> "$tmp"
+                  found=1
+                  ;;
+                *) printf '%s\n' "$line" >> "$tmp" ;;
+              esac
+            done < "$env_file"
+            if (( found == 0 )); then printf 'TAI_LLM_API_KEY=%s\n' "$new_key" >> "$tmp"; fi
+            install -m 0600 -o root -g root "$tmp" "$env_file"
+            rm -f "$tmp"
+            unset new_key TAI_LLM_API_KEY
+            pass API_KEY_ROTATED_WITHOUT_DISCLOSURE
+          else
+            unset TAI_LLM_API_KEY
+            pass API_KEY_LENGTH_VALID
+          fi
+
+          systemctl daemon-reload || fail SYSTEMD_DAEMON_RELOAD_FAILED 36
+          systemctl restart "$service" || fail SERVICE_RESTART_FAILED 37
+
+          ready=0
+          for attempt in $(seq 1 45); do
+            if systemctl is-active --quiet "$service" &&
+               ss -H -ltn 'sport = :18080' 2>/dev/null | awk -v expected="$private_listener" '$4 == expected { found=1 } END { exit(found ? 0 : 1) }'; then
+              ready=1
+              break
+            fi
+            sleep 4
+          done
+          (( ready == 1 )) || fail PRIVATE_LISTENER_NOT_READY 38
+          pass SERVICE_ACTIVE
+          pass PRIVATE_LISTENER_READY
+
+          listeners="$(ss -H -ltn 'sport = :18080' 2>/dev/null | awk '{print $4}' | sort -u)"
+          [[ -n "$listeners" ]] || fail LISTENER_SET_EMPTY 39
+          while IFS= read -r listener; do
+            case "$listener" in
+              0.0.0.0:18080|'[::]':18080|'*':18080) fail PUBLIC_LISTENER_PRESENT 40 ;;
+            esac
+          done <<< "$listeners"
+          pass PUBLIC_LISTENER_ABSENT
+
+          set +u
+          set -a
+          if ! source "$env_file"; then fail ENV_FILE_RELOAD_FAILED 41; fi
+          set +a
+          [[ "${#TAI_LLM_API_KEY}" -ge 32 ]] || fail API_KEY_INVALID_AFTER_REPAIR 42
+          health_code="$(curl -sS -o /dev/null -w '%{http_code}' \
+            --connect-timeout 3 --max-time 20 \
+            -H "Authorization: Bearer $TAI_LLM_API_KEY" \
+            http://192.168.0.206:18080/health || true)"
+          unset TAI_LLM_API_KEY
+          set -u
+          [[ "$health_code" == 200 ]] || fail "HEALTH_HTTP_${health_code:-NONE}" 43
+          pass AUTHENTICATED_HEALTH_200
+          printf 'MODEL_REPAIR_STATUS=PASS\n'
+          REMOTE
+
+      - name: Record repair success and dispatch accepted activation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Model-host repair and authenticated private health passed for exact main \`$TARGET_SHA\`. Repair workflow: $run_url. The accepted REG.RU activation workflow is now being dispatched; no live-success claim is made until its observer records PASS."
+          jq -n --arg ref main --arg sha "$TARGET_SHA" '{ref:$ref,inputs:{target_sha:$sha,confirmation:"ACTIVATE-RESTRICTED-QWEN-REG-RU"}}' |
+            gh api --method POST \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
+              --input -
+          echo "ACTIVATION_DISPATCHED_FOR_EXACT_MAIN=$TARGET_SHA"
