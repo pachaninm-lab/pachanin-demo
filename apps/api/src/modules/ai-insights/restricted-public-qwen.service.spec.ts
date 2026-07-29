@@ -1,4 +1,5 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { resetPublicOfficialEvidenceCacheForTests } from './public-official-evidence';
 import { RestrictedPublicQwenService } from './restricted-public-qwen.service';
 
 const VALID_REQUEST = {
@@ -38,9 +39,11 @@ describe('RestrictedPublicQwenService', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
+    resetPublicOfficialEvidenceCacheForTests();
     process.env = {
       ...originalEnv,
       TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: 'true',
+      TAI_PUBLIC_LIVE_OFFICIAL_SOURCES_ENABLED: 'false',
       AI_ASSISTANT_PROVIDER: 'openai-compatible',
       AI_ASSISTANT_BASE_URL: 'http://192.168.0.206:18080/v1/',
       AI_ASSISTANT_MODEL: 'tai-qwen3-8b-q4km',
@@ -74,6 +77,8 @@ describe('RestrictedPublicQwenService', () => {
       completionTokens: 18,
       operationalStatus: 'NOT_ATTESTED',
       mode: 'read_only',
+      evidenceStatus: 'not_requested',
+      evidenceSources: [],
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
@@ -90,7 +95,9 @@ describe('RestrictedPublicQwenService', () => {
     });
     expect(body.messages[0].content).toContain('use the supplied verified public grounding as the authority');
     expect(body.messages[0].content).toContain('Never present planned, proposed or unverified functionality as already available');
+    expect(body.messages[0].content).toContain('CURRENT_OFFICIAL_EVIDENCE_JSON is the only authority');
     expect(body.messages[1].content).toContain('ANSWER_MODE: verified_platform');
+    expect(body.messages[1].content).toContain('CURRENT_EVIDENCE_STATUS: not_requested');
     const wire = JSON.stringify(body);
     for (const privateKey of ['tenantId', 'orgId', 'userId', 'dealId', 'membershipId']) {
       expect(wire).not.toContain(privateKey);
@@ -114,6 +121,64 @@ describe('RestrictedPublicQwenService', () => {
     expect(body.messages[0].content).toContain('Do not invent platform capabilities, connected integrations, tariffs, customer results or production status');
     expect(body.messages[1].content).toContain('ANSWER_MODE: general_agro');
     expect(body.messages[1].content).toContain('PUBLIC_USER_QUESTION:\nПривет');
+  });
+
+  it('grounds a current agro-news answer and returns structured official citations', async () => {
+    process.env.TAI_PUBLIC_LIVE_OFFICIAL_SOURCES_ENABLED = 'true';
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(new Response(
+        '<html><body><h1>Новости</h1><time>29.07.2026</time><p>Экспорт зерна вырос. Российская Федерация.</p></body></html>',
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      ))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: 'По официальной публикации экспорт зерна вырос.' } }],
+        usage: { prompt_tokens: 420, completion_tokens: 28 },
+      }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await new RestrictedPublicQwenService().generate({
+      ...GENERAL_AGRO_REQUEST,
+      question: 'Какие последние новости по экспорту зерна?',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String((fetchMock.mock.calls[0] as [URL])[0])).toBe('https://specagro.ru/news');
+    expect(String((fetchMock.mock.calls[1] as [URL])[0])).toBe('http://192.168.0.206:18080/v1/chat/completions');
+    expect(result.evidenceStatus).toBe('available');
+    expect(result.evidenceSources).toHaveLength(1);
+    expect(result.evidenceSources[0]).toMatchObject({
+      sourceId: 'official.specagro.news',
+      uri: 'https://specagro.ru/news',
+      publishedAt: '2026-07-29T00:00:00.000Z',
+      geography: 'Российская Федерация',
+    });
+    expect(result.answer).toContain('Актуальные сведения проверены');
+    const modelBody = JSON.parse(String((fetchMock.mock.calls[1] as [URL, RequestInit])[1].body));
+    expect(modelBody.messages[1].content).toContain('CURRENT_EVIDENCE_STATUS: available');
+    expect(modelBody.messages[1].content).toContain('official.specagro.news');
+    expect(modelBody.messages[1].content).toContain('Экспорт зерна вырос');
+  });
+
+  it('makes current-evidence unavailability visible instead of using model memory', async () => {
+    process.env.TAI_PUBLIC_LIVE_OFFICIAL_SOURCES_ENABLED = 'true';
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(new Response('temporarily unavailable', { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: 'Могу объяснить устойчивые факторы формирования ставки и кредита.' } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await new RestrictedPublicQwenService().generate({
+      ...GENERAL_AGRO_REQUEST,
+      question: 'Какая текущая ключевая ставка Банка России?',
+    });
+
+    expect(result.evidenceStatus).toBe('unavailable');
+    expect(result.evidenceSources).toEqual([]);
+    expect(result.answer).toContain('Актуальные официальные данные сейчас не получены');
+    const modelBody = JSON.parse(String((fetchMock.mock.calls[1] as [URL, RequestInit])[1].body));
+    expect(modelBody.messages[1].content).toContain('CURRENT_EVIDENCE_STATUS: unavailable');
+    expect(modelBody.messages[1].content).toContain('official.cbr.key-rate');
   });
 
   it('instructs the model to redirect unrelated requests without becoming a scripted refusal bot', async () => {
@@ -177,7 +242,7 @@ describe('RestrictedPublicQwenService', () => {
     expect(prompt).toContain('cannot confirm the function\'s current status');
   });
 
-  it('rejects private fields before any model call', async () => {
+  it('rejects private fields before any model or source call', async () => {
     const fetchMock = jest.fn();
     global.fetch = fetchMock as typeof fetch;
 
