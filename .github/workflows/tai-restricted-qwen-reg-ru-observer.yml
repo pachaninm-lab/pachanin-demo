@@ -59,22 +59,27 @@ jobs:
 
           marker="<!-- tai-qwen-activation-observer:${TARGET_SHA}:${CONCLUSION}:${RUN_ID} -->"
           if ! gh api "repos/$GITHUB_REPOSITORY/issues/3372/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+            body_file="$RUNNER_TEMP/tai-qwen-observer.md"
             if [[ "$CONCLUSION" == success ]]; then
-              body="$marker
-REG.RU activation observer confirmed **SUCCESS** for exact main \`$TARGET_SHA\`.
-
-- Activation workflow: $RUN_URL
-- Exact-main status: \`TAI Restricted Qwen REG.RU Activation exact-main = success\`
-- The activation workflow remains the authority for API-to-private-model inference, RU/EN/ZH SSE, Chromium UI acceptance and rollback cleanup."
+              {
+                printf '%s\n' "$marker"
+                printf '%s\n' "REG.RU activation observer confirmed **SUCCESS** for exact main \`$TARGET_SHA\`."
+                printf '\n'
+                printf '%s\n' "- Activation workflow: $RUN_URL"
+                printf '%s\n' '- Exact-main status: `TAI Restricted Qwen REG.RU Activation exact-main = success`'
+                printf '%s\n' '- The activation workflow remains the authority for API-to-private-model inference, RU/EN/ZH SSE, Chromium UI acceptance and rollback cleanup.'
+              } > "$body_file"
             else
-              body="$marker
-REG.RU activation observer recorded **${CONCLUSION^^}** for exact main \`$TARGET_SHA\`.
-
-- Failed or interrupted workflow: $RUN_URL
-- Exact-main status: \`TAI Restricted Qwen REG.RU Activation exact-main = $state\`
-- Issue remains open. The activation workflow's fail-closed rollback step is authoritative; no live-success claim is allowed."
+              {
+                printf '%s\n' "$marker"
+                printf '%s\n' "REG.RU activation observer recorded **${CONCLUSION^^}** for exact main \`$TARGET_SHA\`."
+                printf '\n'
+                printf '%s\n' "- Failed or interrupted workflow: $RUN_URL"
+                printf '%s\n' "- Exact-main status: \`TAI Restricted Qwen REG.RU Activation exact-main = $state\`"
+                printf '%s\n' "- Issue remains open. The activation workflow's fail-closed rollback step is authoritative; no live-success claim is allowed."
+              } > "$body_file"
             fi
-            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "$body"
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body-file "$body_file"
           fi
 
           if [[ "$CONCLUSION" == success ]]; then
