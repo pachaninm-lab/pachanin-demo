@@ -1,0 +1,44 @@
+name: One-time register Qwen live UI acceptance v2 scope
+
+on:
+  push:
+    branches:
+      - governance/qwen-live-ui-acceptance-v2
+    paths:
+      - .github/workflows/register-qwen-live-ui-acceptance-v2-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: governance/qwen-live-ui-acceptance-v2
+          fetch-depth: 0
+      - name: Register owner-approved concurrent scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data.setdefault('approvedConcurrentScopes', {})['fix/qwen-live-ui-acceptance-v2'] = [
+              'docs/platform-v7/autopilot/autopilot-state.json',
+              'docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json',
+              '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml',
+              'apps/web/next.config.js',
+          ]
+          path.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+          PY
+          git rm .github/workflows/register-qwen-live-ui-acceptance-v2-once.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'GOVERNANCE: register Qwen live UI acceptance v2 scope'
+          git push origin HEAD:governance/qwen-live-ui-acceptance-v2
