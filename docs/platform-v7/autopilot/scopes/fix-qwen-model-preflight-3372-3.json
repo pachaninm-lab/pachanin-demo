@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PUBLIC-AI-QWEN-REG-RU-PREFLIGHT-FIX-3372-3",
+  "branch": "ops/fix-qwen-model-preflight-3372-3",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "d1f690c93574718aec3bc9a1761b23f542866b75",
+  "operationalStatus": "MODEL_HOST_PREFLIGHT_FAILURE_DIAGNOSIS_AND_RETRY_PENDING",
+  "maturityBoundary": "release-retry-and-preflight-diagnostics-only",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-observer.yml",
+    "docs/platform-v7/autopilot/scopes/fix-qwen-model-preflight-3372-3.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/app/**",
+    "apps/web/components/**",
+    "apps/web/styles/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": true
+  },
+  "requiredEvidence": [
+    "Every model-host preflight assertion emits a precise non-secret PASS or FAIL marker",
+    "Failure output identifies the exact assertion without printing the model API key or environment contents",
+    "Listener diagnostics disclose only bounded address and port metadata required to prove private binding",
+    "The API key is transferred only after every remote assertion succeeds and remains masked",
+    "Observer reopens issue 3372 for failure, cancellation or skip and closes it only after activation success",
+    "Existing exact-image, rollback, RU/EN/ZH SSE and live Chromium acceptance remain unchanged",
+    "The workflow change itself retriggers one exact-main REG.RU activation after merge",
+    "Permanent AP-13D admission remains NOT_ATTESTED",
+    "Production hosting remains REG_RU_VPS_ONLY"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
