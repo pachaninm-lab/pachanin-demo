@@ -6,7 +6,7 @@
   "projectLockId": "PC-CROP-REMAINDER",
   "issue": 3389,
   "activeSlice": "PC-CROP-10B",
-  "baseCommit": "b48d9baac6f68c20ce96e0551a2a66e568536b40",
+  "baseCommit": "213aa56491b6894b0eec2d9c64571a481437f24c",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "project-governance-only",
   "allowedPaths": [
@@ -34,7 +34,10 @@
   },
   "requiredEvidence": [
     "Active lock points only to PC-CROP-10B issue 3390",
-    "TAI and Qwen branch/title drift is rejected",
+    "Production AI recovery remains bound to issue 3372 and expires when it closes",
+    "Recovery runtime permission is exact to apps/web/middleware.ts rather than apps/**",
+    "Obsolete tai-qwen helper workflow permission is removed",
+    "TAI and Qwen branch/title drift remains rejected outside the owner-authorized exception",
     "Out-of-sequence PC-CROP slices are rejected",
     "Future scopes must bind projectLockId PC-CROP-REMAINDER",
     "Production authority remains REG_RU_VPS_ONLY",

@@ -54,8 +54,8 @@
         "model-host"
       ],
       "allowedPathPrefixes": [
-        ".github/workflows/tai-qwen-",
         ".github/workflows/tai-restricted-qwen-",
+        "apps/web/middleware.ts",
         "docs/platform-v7/autopilot/scopes/qwen-recovery-"
       ],
       "forbiddenPathPrefixes": [
