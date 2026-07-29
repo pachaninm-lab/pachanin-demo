@@ -6,6 +6,10 @@ on:
       - ops/qwen-run-locator-3372
     paths:
       - '.github/workflows/tai-qwen-current-main-run-locator.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/tai-qwen-current-main-run-locator.yml'
 
 permissions:
   actions: read
