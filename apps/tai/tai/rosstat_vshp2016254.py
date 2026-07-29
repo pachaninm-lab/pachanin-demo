@@ -11,9 +11,11 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Final
 
+from tai.knowledge_chunking import ChunkingPolicy, DeterministicKnowledgeChunker
 from tai.public_official_corpus import (
     PublicArtifactProvenance,
     PublicCorpusArtifact,
+    PublicCorpusSnapshot,
     PublicOfficialCorpusBuilder,
     PublicSourceAdmission,
     SourceClass,
@@ -27,6 +29,12 @@ DATA_URI: Final = (
     "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/"
     "data-20181211T0212-structure-20181211T0212.xml"
 )
+STRUCTURE_URI: Final = (
+    "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/"
+    "structure-20181211T0212.xsd"
+)
+DATASET_URI: Final = "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254"
+RIGHTS_URI: Final = "https://rosstat.gov.ru/opendata/"
 HOST_PIN: Final = "rosstat.gov.ru"
 PASSPORT_SHA256: Final = "f3aa83bc421d56e5951e0c499686fc919d0fa73efcdc3d98a1012b3c827fb89e"
 STRUCTURE_SHA256: Final = "c969338269a3dcf2b2e4949685e7e75d86e8ef587289df95fedd9a1054ddc2bc"
@@ -44,6 +52,12 @@ HISTORICAL_LABEL: Final = (
 ATTRIBUTION: Final = (
     "Источник: Росстат, набор 7708234640-VSHP2016254, опубликован 11.12.2018."
 )
+PUBLICATION_DATE: Final = date(2018, 12, 11)
+EFFECTIVE_DATE: Final = date(2018, 12, 11)
+PERIOD_START: Final = date(2016, 1, 1)
+PERIOD_END: Final = date(2016, 12, 31)
+RIGHTS_REVIEW_DUE_AT: Final = datetime(2026, 10, 29, tzinfo=UTC)
+FRESHNESS_DUE_AT: Final = datetime(2031, 1, 1, tzinfo=UTC)
 _SDMX_NAMESPACE_PREFIX: Final = "http://www.sdmx.org/resources/sdmxml/schemas/v2_0/"
 _FORBIDDEN_XML: Final = re.compile(
     r"<!\s*(?:doctype|entity)|<\s*xi:include\b|\bsystem\s+[\"']|\bpublic\s+[\"']",
@@ -67,6 +81,10 @@ _SECRET_PATTERNS: Final = (
         re.IGNORECASE,
     ),
     re.compile(r"\bsk-[a-z0-9_-]{20,}\b", re.IGNORECASE),
+)
+_PII_PATTERNS: Final = (
+    re.compile(r"\b\d{3}-\d{3}-\d{3}\s?\d{2}\b"),
+    re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE),
 )
 _BIDI_CONTROLS: Final = frozenset(
     {
@@ -97,12 +115,12 @@ class RosstatSdmxRecord:
     def __post_init__(self) -> None:
         if self.ordinal < 0:
             raise ValueError("record ordinal must be non-negative")
-        if not self.xpath.startswith("/") or len(self.xpath) > 2048:
+        if not self.xpath.startswith("/") or len(self.xpath) > 1024:
             raise ValueError("record XPath must be absolute and bounded")
         normalized = _normalize(self.value)
         if not normalized:
             raise ValueError("record value must not be blank")
-        if len(normalized.encode("utf-8")) > 100_000:
+        if len(normalized.encode("utf-8")) > 1024:
             raise ValueError("record value is too large")
         expected_value = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         if self.value_sha256 != expected_value:
@@ -122,19 +140,49 @@ class RosstatMaterialization:
     artifact_size_bytes: int
     artifact_text: str
     records: tuple[RosstatSdmxRecord, ...]
-    snapshot_sha256: str
-    chunks: tuple[dict[str, object], ...]
+    admission: PublicSourceAdmission
+    provenance: PublicArtifactProvenance
+    artifact: PublicCorpusArtifact
+    snapshot: PublicCorpusSnapshot
+
+    @property
+    def snapshot_sha256(self) -> str:
+        return self.snapshot.snapshot_sha256
+
+    @property
+    def chunks(self) -> tuple[dict[str, object], ...]:
+        valid_until = min(
+            self.admission.rights_review_due_at,
+            self.provenance.freshness_due_at,
+        )
+        return tuple(
+            {
+                "ordinal": chunk.ordinal,
+                "chunkId": chunk.chunk_id,
+                "text": chunk.text,
+                "tokenEstimate": chunk.token_estimate,
+                "artifactSha256": self.artifact_sha256,
+                "sourceId": SOURCE_ID,
+                "validUntil": valid_until.isoformat(),
+            }
+            for chunk in self.snapshot.chunks
+        )
 
     def to_json(self) -> dict[str, object]:
         return {
-            "schemaVersion": "tai.ap14f1c-rosstat-materialization.v1",
+            "schemaVersion": "tai.ap14f1c-rosstat-materialization.v2",
             "sourceId": SOURCE_ID,
             "datasetCode": DATASET_CODE,
             "rightsDecisionId": RIGHTS_DECISION_ID,
             "officialUri": DATA_URI,
+            "structureUri": STRUCTURE_URI,
+            "datasetUri": DATASET_URI,
+            "rightsUri": RIGHTS_URI,
             "hostPin": HOST_PIN,
-            "publicationDate": "2018-12-11",
-            "effectiveDate": "2018-12-11",
+            "publicationDate": PUBLICATION_DATE.isoformat(),
+            "effectiveDate": EFFECTIVE_DATE.isoformat(),
+            "periodStart": PERIOD_START.isoformat(),
+            "periodEnd": PERIOD_END.isoformat(),
             "declaredActualThrough": "2030-12-31",
             "historicalLabel": HISTORICAL_LABEL,
             "attribution": ATTRIBUTION,
@@ -156,6 +204,10 @@ class RosstatMaterialization:
                     "value": record.value,
                     "valueSha256": record.value_sha256,
                     "fragmentSha256": record.fragment_sha256,
+                    "publicationDate": PUBLICATION_DATE.isoformat(),
+                    "periodStart": PERIOD_START.isoformat(),
+                    "periodEnd": PERIOD_END.isoformat(),
+                    "sourceUri": DATA_URI,
                 }
                 for record in self.records
             ],
@@ -163,7 +215,8 @@ class RosstatMaterialization:
             "chunks": list(self.chunks),
             "rawBytesPersisted": False,
             "tenantId": None,
-            "sharedRagEligible": True,
+            "sharedRagCandidate": True,
+            "sharedRagActivated": False,
             "operationalStatus": "NOT_ATTESTED",
             "productionHosting": "REG_RU_VPS_ONLY",
         }
@@ -203,13 +256,18 @@ class RosstatVshp2016254Materializer:
         observed_at: datetime,
     ) -> RosstatMaterialization:
         observed = _aware(observed_at)
+        if observed >= RIGHTS_REVIEW_DUE_AT:
+            raise ValueError("ROSSTAT_RIGHTS_REVIEW_EXPIRED")
         _require_digest(passport_csv, PASSPORT_SHA256, "passport")
         _require_digest(structure_xml, STRUCTURE_SHA256, "structure")
         _require_digest(data_xml, DATA_SHA256, "data")
+        self._validate_passport(passport_csv)
         self._validate_structure(structure_xml)
         records = self._records(data_xml)
         artifact_text = self._artifact_text(records)
         artifact_bytes = artifact_text.encode("utf-8")
+        if len(artifact_bytes) > 20_000_000:
+            raise ValueError("ROSSTAT_ARTIFACT_SIZE_LIMIT_EXCEEDED")
         artifact_sha256 = hashlib.sha256(artifact_bytes).hexdigest()
 
         admission = PublicSourceAdmission(
@@ -218,7 +276,7 @@ class RosstatVshp2016254Materializer:
             rights_decision_id=RIGHTS_DECISION_ID,
             official_uri=DATA_URI,
             host_pin=HOST_PIN,
-            rights_review_due_at=datetime(2026, 10, 29, tzinfo=UTC),
+            rights_review_due_at=RIGHTS_REVIEW_DUE_AT,
             admitted_at=observed,
             trust_score=0.97,
         )
@@ -232,41 +290,53 @@ class RosstatVshp2016254Materializer:
             content_sha256=artifact_sha256,
             media_type="text/plain",
             size_bytes=len(artifact_bytes),
-            publication_date=date(2018, 12, 11),
-            effective_date=date(2018, 12, 11),
+            publication_date=PUBLICATION_DATE,
+            effective_date=EFFECTIVE_DATE,
             observed_at=observed,
             locator_kind=SourceLocatorKind.XML_XPATH,
-            locator_value="/",
-            freshness_due_at=datetime(2031, 1, 1, tzinfo=UTC),
+            locator_value="/GenericData[1]/DataSet[1]",
+            freshness_due_at=FRESHNESS_DUE_AT,
+            period_start=PERIOD_START,
+            period_end=PERIOD_END,
         )
         artifact = PublicCorpusArtifact(provenance=provenance, normalized_text=artifact_text)
-        snapshot = PublicOfficialCorpusBuilder().build(
+        chunker = DeterministicKnowledgeChunker(
+            ChunkingPolicy(max_chars=4096, overlap_chars=0, min_chars=1)
+        )
+        snapshot = PublicOfficialCorpusBuilder(chunker).build(
             admissions=(admission,),
             artifacts=(artifact,),
             now=observed,
         )
-        valid_until = min(admission.rights_review_due_at, provenance.freshness_due_at)
-        chunks = tuple(
-            {
-                "ordinal": chunk.ordinal,
-                "chunkId": chunk.chunk_id,
-                "text": chunk.text,
-                "tokenEstimate": chunk.token_estimate,
-                "artifactSha256": artifact_sha256,
-                "sourceId": SOURCE_ID,
-                "validUntil": valid_until.isoformat(),
-            }
-            for chunk in snapshot.chunks
-        )
+        for chunk in snapshot.chunks:
+            if (
+                HISTORICAL_LABEL not in chunk.text
+                or DATA_URI not in chunk.text
+                or "XPath:" not in chunk.text
+            ):
+                raise ValueError("ROSSTAT_CHUNK_CITATION_CONTRACT_FAILED")
         return RosstatMaterialization(
             observed_at=observed,
             artifact_sha256=artifact_sha256,
             artifact_size_bytes=len(artifact_bytes),
             artifact_text=artifact_text,
             records=records,
-            snapshot_sha256=snapshot.snapshot_sha256,
-            chunks=chunks,
+            admission=admission,
+            provenance=provenance,
+            artifact=artifact,
+            snapshot=snapshot,
         )
+
+    @staticmethod
+    def _validate_passport(payload: bytes) -> None:
+        text = payload.decode("utf-8-sig", errors="strict")
+        for marker in (
+            DATASET_CODE,
+            "structure-20181211T0212.xsd",
+            "data-20181211T0212-structure-20181211T0212.xml",
+        ):
+            if marker not in text:
+                raise ValueError("ROSSTAT_PASSPORT_PROVENANCE_INCOMPLETE")
 
     def _validate_structure(self, payload: bytes) -> None:
         text = _decode_xml(payload)
@@ -285,6 +355,8 @@ class RosstatVshp2016254Materializer:
         expected_dataset_id = DATASET_CODE.casefold().replace("vshp2016254", "vshp2016-254")
         if expected_dataset_id not in rendered:
             raise ValueError("ROSSTAT_SDMX_STRUCTURE_DATASET_ID_MISSING")
+        if re.search(r"<(?:xs|xsd):schema(?:\s|>)", text, re.IGNORECASE):
+            raise ValueError("ROSSTAT_SDMX_RESOURCE_IS_UNEXPECTED_XSD")
 
     def _records(self, payload: bytes) -> tuple[RosstatSdmxRecord, ...]:
         text = _decode_xml(payload)
@@ -296,7 +368,7 @@ class RosstatVshp2016254Materializer:
         namespace, root_local = _expanded_name(root.tag)
         if not namespace.startswith(_SDMX_NAMESPACE_PREFIX):
             raise ValueError("ROSSTAT_SDMX_DATA_NAMESPACE_MISMATCH")
-        if root_local.casefold() in {"html", "error"}:
+        if root_local.casefold() in {"html", "error", "structure"}:
             raise ValueError("ROSSTAT_SDMX_DATA_ROOT_MISMATCH")
 
         records: list[RosstatSdmxRecord] = []
@@ -352,19 +424,30 @@ class RosstatVshp2016254Materializer:
         walk(root, f"/{root_local}[1]", 0)
         if not records:
             raise ValueError("ROSSTAT_SDMX_DATA_EMPTY")
+        if len({record.xpath for record in records}) != len(records):
+            raise ValueError("ROSSTAT_SDMX_DUPLICATE_LOCATOR")
         return tuple(records)
 
     @staticmethod
     def _artifact_text(records: tuple[RosstatSdmxRecord, ...]) -> str:
-        paragraphs = [
-            HISTORICAL_LABEL,
-            ATTRIBUTION,
-            f"Официальный URI: {DATA_URI}",
-            f"SHA-256 исходного XML: {DATA_SHA256}",
-        ]
-        paragraphs.extend(
-            f"XPath: {record.xpath}\nЗначение: {record.value}" for record in records
-        )
+        paragraphs: list[str] = []
+        for record in records:
+            paragraph = "\n".join(
+                (
+                    HISTORICAL_LABEL,
+                    ATTRIBUTION,
+                    f"Официальный URI данных: {DATA_URI}",
+                    f"URI структуры SDMX: {STRUCTURE_URI}",
+                    f"Дата публикации: {PUBLICATION_DATE.isoformat()}",
+                    f"Период данных: {PERIOD_START.isoformat()} — {PERIOD_END.isoformat()}",
+                    f"SHA-256 исходного XML: {DATA_SHA256}",
+                    f"XPath: {record.xpath}",
+                    f"Значение: {record.value}",
+                )
+            )
+            if len(paragraph) > 3900:
+                raise ValueError("ROSSTAT_RECORD_RENDER_LIMIT_EXCEEDED")
+            paragraphs.append(paragraph)
         return "\n\n".join(paragraphs)
 
 
@@ -419,6 +502,8 @@ def _content_safety(value: str) -> None:
         raise ValueError("ROSSTAT_PROMPT_INJECTION_DETECTED")
     if any(pattern.search(value) for pattern in _SECRET_PATTERNS):
         raise ValueError("ROSSTAT_CREDENTIAL_INDICATOR_DETECTED")
+    if any(pattern.search(value) for pattern in _PII_PATTERNS):
+        raise ValueError("ROSSTAT_PII_INDICATOR_DETECTED")
 
 
 def _parse_datetime(value: str) -> datetime:
