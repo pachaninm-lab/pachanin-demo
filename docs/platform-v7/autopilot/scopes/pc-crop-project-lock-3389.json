@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PC-CROP-PROJECT-LOCK-3389",
+  "branch": "governance/pc-crop-project-lock-3389",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3389,
+  "activeSlice": "PC-CROP-10B",
+  "baseCommit": "043f9273e36c2fa534565582f2e248dafd61b818",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "project-governance-only",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-project-lock.yml",
+    "docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json",
+    "scripts/verify-pc-crop-project-lock.mjs"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": false
+  },
+  "requiredEvidence": [
+    "Active lock points only to PC-CROP-10B issue 3390",
+    "TAI and Qwen branch/title drift is rejected",
+    "Out-of-sequence PC-CROP slices are rejected",
+    "Future scopes must bind projectLockId PC-CROP-REMAINDER",
+    "Production authority remains REG_RU_VPS_ONLY",
+    "Operational status remains NOT_ATTESTED"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
