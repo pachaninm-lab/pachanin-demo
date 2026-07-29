@@ -1,18 +1,23 @@
 name: TAI AP-14F1D Regression Compatibility Staging
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
+      - 'scripts/tai-ap-14f1d/regression_staging_patch.py'
   push:
     branches:
       - agent/tai-ap-14f1d-regression-fix-staging
     paths:
       - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
+      - 'scripts/tai-ap-14f1d/regression_staging_patch.py'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: tai-ap-14f1d-regression-fix-staging-push
+  group: tai-ap-14f1d-regression-fix-staging-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
