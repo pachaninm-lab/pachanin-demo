@@ -9,6 +9,11 @@
   "allowedPaths": [
     ".github/workflows/tai-ap-14f1c.yml",
     "apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-7708234640-VSHP2016254.v1.json",
+    "apps/tai/tai/migrations/0022_rosstat_vshp2016254_snapshot.sql",
+    "apps/tai/tai/migrations/manifest.json",
+    "apps/tai/tai/rosstat_vshp2016254.py",
+    "apps/tai/tests/test_migration_manifest.py",
+    "apps/tai/tests/test_rosstat_vshp2016254.py",
     "docs/platform-v7/autopilot/scopes/tai-ap-14f1c-3360.json",
     "scripts/tai-ap-14f1c/discover.mjs"
   ],
@@ -29,8 +34,8 @@
     "noRawBytePersistence": true,
     "noEmbeddingsOrVectorMutation": true,
     "noModelTrainingOrWeights": true,
-    "noRuntimeActivationBeforeGovernedIntegrity": true,
     "noExternalWrites": true,
+    "noRegRuRuntimeActivation": true,
     "noProductionCompletenessClaim": true
   },
   "acceptance": {
@@ -38,14 +43,19 @@
     "exactMainRequired": true,
     "mergeExpectedHeadRequired": true,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 4,
+    "changedPathCount": 9,
+    "migrationVersion": 23,
     "governedResourceCount": 5,
     "allResourceIntegrityMustPass": true,
     "exactByteResourceCount": 3,
     "semanticMarkerResourceCount": 2,
     "sameHostMaximumRedirects": 0,
     "publicIpPinningRequired": true,
-    "sharedRagAllowedBeforeFullAcceptance": false,
+    "deterministicSdmxRecordsRequired": true,
+    "deterministicAp05ChunksRequired": true,
+    "postgresqlSnapshotActivationRequired": true,
+    "withdrawalRevocationRequired": true,
+    "sharedRagAllowedOnlyInsideAcceptedSnapshot": true,
     "operationalStatus": "NOT_ATTESTED"
   }
 }
