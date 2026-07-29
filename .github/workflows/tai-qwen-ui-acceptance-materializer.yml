@@ -1,0 +1,100 @@
+name: TAI Qwen Visible Dock Acceptance Materializer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/tai-qwen-ui-acceptance-materializer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.head_ref == 'ops/qwen-ui-acceptance-materializer-3372'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Patch exact live Chromium acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = '978ddd74146fcc097f4b596920647cae5d15356b'
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          text = path.read_text(encoding='utf-8')
+          old = """              const trigger = page.locator('.pc-public-assistant-shortcut');
+              await trigger.waitFor({ state: 'visible', timeout: 30000 });
+              await trigger.click();
+"""
+          new = """              await page.evaluate(() => {
+                const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+                window.scrollTo(0, Math.min(240, maxTop));
+              });
+              await page.waitForTimeout(300);
+              await page.evaluate(() => window.scrollBy(0, -48));
+              await page.waitForTimeout(300);
+              const trigger = page.locator('.pc-public-contact-dock-assistant');
+              await trigger.waitFor({ state: 'visible', timeout: 30000 });
+              if (await trigger.isDisabled()) throw new Error('visible_ai_dock_disabled');
+              await trigger.click();
+"""
+          if text.count(old) != 1:
+              raise SystemExit('QWEN_UI_ACCEPTANCE_MATERIALIZE_FAIL=OLD_SELECTOR_DRIFT')
+          text = text.replace(old, new, 1)
+          if text.count("page.locator('.pc-public-contact-dock-assistant')") != 1:
+              raise SystemExit('QWEN_UI_ACCEPTANCE_MATERIALIZE_FAIL=VISIBLE_DOCK_SELECTOR_MISSING')
+          ui_start = text.index('      - name: Verify clean public AI window in live Chromium\n')
+          ui_end = text.index('\n      - name: Upload live public AI UI evidence\n', ui_start)
+          segment = text[ui_start:ui_end]
+          if ".pc-public-assistant-shortcut" in segment:
+              raise SystemExit('QWEN_UI_ACCEPTANCE_MATERIALIZE_FAIL=HIDDEN_TRIGGER_REMAINS')
+          path.write_text(text, encoding='utf-8')
+          PY
+          git diff --check -- .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq "page.locator('.pc-public-contact-dock-assistant')" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq "visible_ai_dock_disabled" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+
+      - name: Publish non-workflow payload branch
+        env:
+          BASE_SHA: 978ddd74146fcc097f4b596920647cae5d15356b
+        shell: bash
+        run: |
+          set -euo pipefail
+          activation_tmp="$RUNNER_TEMP/activation.yml"
+          cp .github/workflows/tai-restricted-qwen-reg-ru-activation.yml "$activation_tmp"
+          payload_branch="qwen-ui-acceptance-payload-3372-${GITHUB_RUN_ID}"
+          git checkout -B "$payload_branch" origin/main
+          payload='docs/platform-v7/autopilot/scopes/qwen-ui-acceptance-materialized-3372.txt'
+          meta='docs/platform-v7/autopilot/scopes/qwen-ui-acceptance-materialized-meta-3372.json'
+          install -D -m 0644 "$activation_tmp" "$payload"
+          python3 - "$BASE_SHA" "$payload_branch" "$meta" <<'PY'
+          import json, pathlib, sys
+          pathlib.Path(sys.argv[3]).write_text(json.dumps({
+              'schemaVersion': 'qwen-ui-acceptance.payload.v1',
+              'baseSha': sys.argv[1],
+              'payloadBranch': sys.argv[2],
+              'activationBlobPath': 'docs/platform-v7/autopilot/scopes/qwen-ui-acceptance-materialized-3372.txt',
+              'activationTargetPath': '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml',
+              'failureRun': 30478734654,
+              'failureMarker': 'hidden assistant trigger intercepted pointer events',
+          }, indent=2) + '\n', encoding='utf-8')
+          PY
+          git add "$payload" "$meta"
+          git diff --cached --check
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git commit -m 'Publish visible Qwen dock acceptance payload'
+          git push origin "HEAD:refs/heads/$payload_branch"
+          echo "PAYLOAD_BRANCH=$payload_branch"
