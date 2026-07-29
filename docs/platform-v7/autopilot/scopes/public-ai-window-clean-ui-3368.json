@@ -6,6 +6,7 @@
   "baseCommit": "3dbeab2132dde930b90b4034eb9e1763c9e02ea7",
   "operationalStatus": "UI_ONLY_PENDING_REVIEW",
   "allowedPaths": [
+    ".github/workflows/public-ai-window-clean-ui-sync.yml",
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/styles/platform-v7-public-assistant.css",
     "apps/web/styles/platform-v7-public-assistant-mobile-fix.css",
