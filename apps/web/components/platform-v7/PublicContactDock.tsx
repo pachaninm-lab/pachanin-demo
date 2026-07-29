@@ -171,14 +171,16 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
     trigger.click();
   };
 
-  const hidden = dialogOpen || hiddenByScroll;
+  // Public landing access is unconditional: scroll behavior must never hide or disable the AI entry point.
+  const scrollHidden = assistantContext === 'public' ? false : hiddenByScroll;
+  const hidden = dialogOpen || scrollHidden;
 
   return (
     <nav
       className='pc-public-contact-dock'
       aria-label={ui.group}
       data-dialog-open={dialogOpen ? 'true' : 'false'}
-      data-scroll-hidden={hiddenByScroll ? 'true' : 'false'}
+      data-scroll-hidden={scrollHidden ? 'true' : 'false'}
       data-assistant-context={assistantContext}
     >
       <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistantAria} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
