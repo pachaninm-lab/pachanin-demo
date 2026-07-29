@@ -15,6 +15,11 @@ const SOURCE_ID = 'official.rosstat.opendata.7708234640-vshp2016254';
 const DEFAULT_MANIFEST = `apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-${DATASET}.v1.json`;
 const DEFAULT_OUTPUT = 'artifacts/tai-ap-14f1c/rosstat-resource-evidence.json';
 const REQUIRED_CODES = ['DATASET_PAGE', 'PASSPORT_CSV', 'STRUCTURE_XSD', 'DATA_XML'];
+const SDMX_STRUCTURE_NAMESPACES = [
+  'http://www.sdmx.org/resources/sdmxml/schemas/v2_0/message',
+  'http://www.sdmx.org/resources/sdmxml/schemas/v2_0/structure',
+  'http://www.sdmx.org/resources/sdmxml/schemas/v2_0/common',
+];
 const SHA256 = /^[0-9a-f]{64}$/;
 
 function fail(code, detail = '') {
@@ -152,11 +157,12 @@ function assertBody(resource, body) {
     fail('ROSSTAT_XML_EXTERNAL_OR_ENTITY_FORBIDDEN', resource.code);
   }
   if (resource.code === 'STRUCTURE_XSD') {
-    if (!xml.includes('http://www.w3.org/2001/xmlschema')) {
-      fail('ROSSTAT_XSD_NAMESPACE_MISSING', xml.slice(0, 512).replace(/\s+/g, ' '));
+    if (!xml.includes('<structure')) {
+      fail('ROSSTAT_SDMX_STRUCTURE_ROOT_MISSING', xml.slice(0, 256).replace(/\s+/g, ' '));
     }
-    if (/<(?:xs|xsd):(include|import|redefine)\b/i.test(xml)) {
-      fail('ROSSTAT_XSD_COMPOSITION_FORBIDDEN');
+    const missingNamespaces = SDMX_STRUCTURE_NAMESPACES.filter((namespace) => !xml.includes(namespace));
+    if (missingNamespaces.length) {
+      fail('ROSSTAT_SDMX_STRUCTURE_NAMESPACE_MISSING', missingNamespaces.join(','));
     }
   }
 }
@@ -266,11 +272,11 @@ function selfTest() {
   }
   if (!isGlobalIpv4('8.8.8.8')) fail('ROSSTAT_SELF_TEST_GLOBAL_REJECTED');
 
-  const xsdText = '<?xml version="1.0"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"></xs:schema>';
-  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(xsdText)]));
-  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(xsdText, 'utf16le')]));
-  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.from(xsdText, 'utf16le'));
-  const utf16Be = Buffer.from(xsdText, 'utf16le');
+  const structureText = `<?xml version="1.0"?><Structure xmlns="${SDMX_STRUCTURE_NAMESPACES[0]}" xmlns:structure="${SDMX_STRUCTURE_NAMESPACES[1]}" xmlns:common="${SDMX_STRUCTURE_NAMESPACES[2]}"></Structure>`;
+  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(structureText)]));
+  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(structureText, 'utf16le')]));
+  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.from(structureText, 'utf16le'));
+  const utf16Be = Buffer.from(structureText, 'utf16le');
   utf16Be.swap16();
   assertBody({ code: 'STRUCTURE_XSD' }, utf16Be);
   console.log('TAI AP-14F1C discovery self-test = success');
