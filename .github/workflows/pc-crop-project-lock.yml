@@ -1,0 +1,81 @@
+name: PC-CROP Active Project Lock
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-project-lock.yml'
+      - 'docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json'
+      - 'scripts/verify-pc-crop-project-lock.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-project-lock-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  project-lock:
+    if: >-
+      github.event_name != 'pull_request' ||
+      startsWith(github.head_ref, 'agent/pc-crop-') ||
+      startsWith(github.head_ref, 'fix/pc-crop-') ||
+      startsWith(github.head_ref, 'governance/pc-crop-') ||
+      startsWith(github.head_ref, 'ops/pc-crop-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Prove lock and negative drift cases
+        run: node scripts/verify-pc-crop-project-lock.mjs --self-test
+
+      - name: Resolve source-controlled PC-CROP scope
+        if: github.event_name == 'pull_request'
+        id: scope
+        env:
+          BRANCH: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$BRANCH" == "governance/pc-crop-project-lock-3389" ]]; then
+            scope='docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json'
+          else
+            scope="$(GITHUB_HEAD_REF="$BRANCH" node scripts/p7-source-controlled-scope.mjs)"
+          fi
+          test -f "$scope"
+          issue="$(node -e "const s=require('./' + process.argv[1]); if(!Number.isInteger(s.issue))process.exit(2); process.stdout.write(String(s.issue))" "$scope")"
+          printf 'path=%s\n' "$scope" >> "$GITHUB_OUTPUT"
+          printf 'issue=%s\n' "$issue" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce active project context
+        if: github.event_name == 'pull_request'
+        env:
+          PC_CROP_BRANCH: ${{ github.head_ref }}
+          PC_CROP_TITLE: ${{ github.event.pull_request.title }}
+          PC_CROP_ISSUE: ${{ steps.scope.outputs.issue }}
+          PC_CROP_SCOPE_PATH: ${{ steps.scope.outputs.path }}
+        run: node scripts/verify-pc-crop-project-lock.mjs
+
+      - name: Upload project-lock evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-project-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/pc-crop-project-lock
+          if-no-files-found: error
+          retention-days: 90
