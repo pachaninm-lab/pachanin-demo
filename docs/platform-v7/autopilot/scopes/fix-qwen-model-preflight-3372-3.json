@@ -8,7 +8,7 @@
   "operationalStatus": "MODEL_HOST_PREFLIGHT_FAILURE_DIAGNOSIS_AND_RETRY_PENDING",
   "maturityBoundary": "release-retry-and-preflight-diagnostics-only",
   "allowedPaths": [
-    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/tai-qwen-model-host-repair.yml",
     ".github/workflows/tai-restricted-qwen-reg-ru-observer.yml",
     "docs/platform-v7/autopilot/scopes/fix-qwen-model-preflight-3372-3.json"
   ],
@@ -33,13 +33,14 @@
     "productionDeployment": true
   },
   "requiredEvidence": [
-    "Every model-host preflight assertion emits a precise non-secret PASS or FAIL marker",
+    "Every model-host repair assertion emits a precise non-secret PASS or FAIL marker",
     "Failure output identifies the exact assertion without printing the model API key or environment contents",
     "Listener diagnostics disclose only bounded address and port metadata required to prove private binding",
-    "The API key is transferred only after every remote assertion succeeds and remains masked",
+    "A stopped service or invalid key-file mode is repaired before re-verification",
+    "A missing or too-short Bearer key is rotated locally without disclosure and the service is restarted",
+    "The accepted activation workflow is dispatched only after private listener and authenticated health pass",
     "Observer reopens issue 3372 for failure, cancellation or skip and closes it only after activation success",
-    "Existing exact-image, rollback, RU/EN/ZH SSE and live Chromium acceptance remain unchanged",
-    "The workflow change itself retriggers one exact-main REG.RU activation after merge",
+    "Existing exact-image, rollback, RU/EN/ZH SSE and live Chromium acceptance remain authoritative",
     "Permanent AP-13D admission remains NOT_ATTESTED",
     "Production hosting remains REG_RU_VPS_ONLY"
   ],
