@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from tai.managed_loader import FetchDisposition, FetchRequest, SourceFetcher
 from tai.official_source_fetcher import OfficialFetchPolicy, OfficialSourceHTTPFetcher
+from tai.official_source_metadata import HTMLMetadataAdapter
 from tai.official_source_observation import (
     OfficialObservationDefinition,
     definitions_from_catalog,
@@ -31,7 +32,23 @@ from tai.source_health import SourceRefreshEvent, SourceRefreshOutcome
 
 _GIT_OBJECT_ID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 _MAX_PUBLIC_EXCERPT_CHARS = 16_000
+_EXCERPT_WINDOW_RADIUS = 8
 _IGNORED_HTML_TAGS = frozenset({"script", "style", "noscript", "svg", "template"})
+_RU_MONTHS_GENITIVE = (
+    "",
+    "января",
+    "февраля",
+    "марта",
+    "апреля",
+    "мая",
+    "июня",
+    "июля",
+    "августа",
+    "сентября",
+    "октября",
+    "ноября",
+    "декабря",
+)
 
 
 class LiveCollectionStatus(StrEnum):
@@ -311,7 +328,11 @@ class LiveSourceEvidenceCollector:
                 body=response.body,
                 fetched_at=completed_at,
             )
-            text = _extract_public_text(response.body)
+            text = _extract_public_text(
+                response.body,
+                published_at=metadata.latest_publication_at,
+                marker_groups=_adapter_marker_groups(definition.adapter),
+            )
         except ValueError as error:
             return LiveSourceResult(
                 source_id=definition.source.source_id,
@@ -598,31 +619,109 @@ class _VisibleTextParser(HTMLParser):
             self.text_chunks.append(compact)
 
 
-def _extract_public_text(body: str) -> str:
+def _extract_public_text(
+    body: str,
+    *,
+    published_at: datetime,
+    marker_groups: tuple[tuple[str, ...], ...],
+) -> str:
+    _aware(published_at, "published_at")
     parser = _VisibleTextParser()
     try:
         parser.feed(body)
         parser.close()
     except Exception as error:
         raise ValueError("source_public_text_parse_failed") from error
+
     chunks: list[str] = []
+    normalized_chunks: list[str] = []
     seen: set[str] = set()
     for raw in parser.text_chunks:
         compact = unicodedata.normalize("NFKC", raw).strip()
-        if len(compact) < 3 or compact in seen:
+        normalized = compact.casefold()
+        if len(compact) < 3 or normalized in seen:
             continue
-        seen.add(compact)
+        seen.add(normalized)
         chunks.append(compact)
-    text = "\n".join(chunks)
+        normalized_chunks.append(normalized)
+
+    date_tokens = _publication_date_tokens(published_at)
+    ranked_anchors: list[tuple[int, int]] = []
+    for index, normalized in enumerate(normalized_chunks):
+        date_match = any(token in normalized for token in date_tokens)
+        matched_groups = sum(
+            any(term.casefold() in normalized for term in group)
+            for group in marker_groups
+        )
+        if not date_match and matched_groups == 0:
+            continue
+        score = (100 if date_match else 0) + (matched_groups * 10)
+        ranked_anchors.append((score, index))
+
+    if not ranked_anchors:
+        raise ValueError("source_public_text_relevance_missing")
+
+    selected: set[int] = set()
+    estimated_chars = 0
+    for _, anchor in sorted(ranked_anchors, key=lambda item: (-item[0], item[1])):
+        start = max(0, anchor - _EXCERPT_WINDOW_RADIUS)
+        end = min(len(chunks), anchor + _EXCERPT_WINDOW_RADIUS + 1)
+        for index in range(start, end):
+            if index in selected:
+                continue
+            selected.add(index)
+            estimated_chars += len(chunks[index]) + 1
+        if estimated_chars >= _MAX_PUBLIC_EXCERPT_CHARS:
+            break
+
+    excerpt_chunks: list[str] = []
+    remaining = _MAX_PUBLIC_EXCERPT_CHARS
+    for index in sorted(selected):
+        chunk = chunks[index]
+        if excerpt_chunks:
+            if remaining <= 1:
+                break
+            remaining -= 1
+        if len(chunk) > remaining:
+            excerpt_chunks.append(chunk[:remaining])
+            remaining = 0
+            break
+        excerpt_chunks.append(chunk)
+        remaining -= len(chunk)
+
+    text = "\n".join(excerpt_chunks).strip()
     text = "".join(
         character
         for character in text
         if character >= " " or character == "\n"
     )
-    text = text[:_MAX_PUBLIC_EXCERPT_CHARS].strip()
     if len(text) < 40:
         raise ValueError("source_public_text_empty")
     return text
+
+
+def _adapter_marker_groups(
+    adapter: object,
+) -> tuple[tuple[str, ...], ...]:
+    if not isinstance(adapter, HTMLMetadataAdapter):
+        return ()
+    return adapter.publication_marker_groups or adapter.required_marker_groups
+
+
+def _publication_date_tokens(published_at: datetime) -> frozenset[str]:
+    value = published_at.date()
+    return frozenset(
+        {
+            f"{value:%Y-%m-%d}",
+            f"{value:%Y/%m/%d}",
+            f"{value:%Y.%m.%d}",
+            f"{value.day:02d}.{value.month:02d}.{value.year}",
+            f"{value.day}.{value.month}.{value.year}",
+            f"{value.day:02d}-{value.month:02d}-{value.year}",
+            f"{value.day}-{value.month}-{value.year}",
+            f"{value.day} {_RU_MONTHS_GENITIVE[value.month]} {value.year}",
+        }
+    )
 
 
 def _fallback_profile(source_id: str, owner: str) -> PublicSourceProfile:
