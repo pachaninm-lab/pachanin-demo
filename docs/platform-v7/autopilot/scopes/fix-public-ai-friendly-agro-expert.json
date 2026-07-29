@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ai-friendly-agro-expert",
+  "status": "active",
+  "purpose": "Make the anonymous local Qwen assistant behave as a natural domain AI for Transparent Price, agriculture and agribusiness: friendly greetings, substantive agro answers, graceful off-topic redirection, truthful platform positioning and context-sensitive conversion without private data or write authority.",
+  "approvedBy": "owner-direct-requirement-2026-07-30",
+  "authorityBaseExactMain": "4f7c7d3e1a53c91088f418565e103b96e0da858d",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-friendly-agro-expert.json",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts"
+  ],
+  "requiredBehavior": [
+    "natural greeting and small talk",
+    "full agriculture and agribusiness domain answers",
+    "friendly off-topic redirection without solving unrelated requests",
+    "truthful verified platform capability descriptions",
+    "describe a missing capability as under development only when verified platform context explicitly confirms roadmap or implementation status",
+    "otherwise state that current availability or roadmap status cannot be confirmed and offer support",
+    "one contextual soft registration or support call to action at most",
+    "explicit current-data limits when live evidence is absent"
+  ],
+  "forbiddenCapabilities": [
+    "account or private workspace data access from public mode",
+    "cross-role or cross-tenant access",
+    "autonomous commands or write actions",
+    "payment or Deal state mutation",
+    "inferring roadmap status from a missing function or broad product ambition",
+    "fabricating live platform functionality, integrations, tariffs or results",
+    "fabricating current news, prices, weather, laws, regulations or statistics",
+    "external public model calls"
+  ]
+}
