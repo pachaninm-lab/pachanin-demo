@@ -1,97 +1,29 @@
 {
   "migrations": [
-    {
-      "path": "0001_loader_state.sql",
-      "version": 1
-    },
-    {
-      "path": "0002_materialization_claims.sql",
-      "version": 2
-    },
-    {
-      "path": "0003_loader_recovery.sql",
-      "version": 3
-    },
-    {
-      "path": "0004_loader_checkpoints.sql",
-      "version": 4
-    },
-    {
-      "path": "0005_retrieval_index.sql",
-      "version": 5
-    },
-    {
-      "path": "0006_rag_trace.sql",
-      "version": 6
-    },
-    {
-      "path": "0007_local_model_runtime.sql",
-      "version": 7
-    },
-    {
-      "path": "0008_agent_tool_runtime.sql",
-      "version": 8
-    },
-    {
-      "path": "0009_evaluation_authority.sql",
-      "version": 9
-    },
-    {
-      "path": "0010_operational_authority.sql",
-      "version": 10
-    },
-    {
-      "path": "0010_orchestration_runtime.sql",
-      "version": 11
-    },
-    {
-      "path": "0011_release_attestation.sql",
-      "version": 12
-    },
-    {
-      "path": "0012_git_object_id_contract.sql",
-      "version": 13
-    },
-    {
-      "path": "0013_production_composition.sql",
-      "version": 14
-    },
-    {
-      "path": "0014_governed_tool_planner.sql",
-      "version": 15
-    },
-    {
-      "path": "0015_model_admission_authority.sql",
-      "version": 16
-    },
-    {
-      "path": "0016_official_source_coverage.sql",
-      "version": 17
-    },
-    {
-      "path": "0017_official_source_run_evidence.sql",
-      "version": 18
-    },
-    {
-      "path": "0018_confirmation_denial_audit.sql",
-      "version": 19
-    },
-    {
-      "path": "0019_public_official_corpus.sql",
-      "version": 20
-    },
-    {
-      "path": "0020_public_official_corpus_audit_authority.sql",
-      "version": 21
-    },
-    {
-      "path": "0021_public_official_acquisition_authority.sql",
-      "version": 22
-    },
-    {
-      "path": "0022_rosstat_vshp2016254_snapshot.sql",
-      "version": 23
-    }
+    {"path": "0001_loader_state.sql", "version": 1},
+    {"path": "0002_materialization_claims.sql", "version": 2},
+    {"path": "0003_loader_recovery.sql", "version": 3},
+    {"path": "0004_loader_checkpoints.sql", "version": 4},
+    {"path": "0005_retrieval_index.sql", "version": 5},
+    {"path": "0006_rag_trace.sql", "version": 6},
+    {"path": "0007_local_model_runtime.sql", "version": 7},
+    {"path": "0008_agent_tool_runtime.sql", "version": 8},
+    {"path": "0009_evaluation_authority.sql", "version": 9},
+    {"path": "0010_operational_authority.sql", "version": 10},
+    {"path": "0010_orchestration_runtime.sql", "version": 11},
+    {"path": "0011_release_attestation.sql", "version": 12},
+    {"path": "0012_git_object_id_contract.sql", "version": 13},
+    {"path": "0013_production_composition.sql", "version": 14},
+    {"path": "0014_governed_tool_planner.sql", "version": 15},
+    {"path": "0015_model_admission_authority.sql", "version": 16},
+    {"path": "0016_official_source_coverage.sql", "version": 17},
+    {"path": "0017_official_source_run_evidence.sql", "version": 18},
+    {"path": "0018_confirmation_denial_audit.sql", "version": 19},
+    {"path": "0019_public_official_corpus.sql", "version": 20},
+    {"path": "0020_public_official_corpus_audit_authority.sql", "version": 21},
+    {"path": "0021_public_official_acquisition_authority.sql", "version": 22},
+    {"path": "0022_rosstat_vshp2016254_snapshot.sql", "version": 23},
+    {"path": "0023_rosstat_vshp2016254_source_admission.sql", "version": 24}
   ],
   "schema_version": "tai.migration.manifest.v1"
 }
