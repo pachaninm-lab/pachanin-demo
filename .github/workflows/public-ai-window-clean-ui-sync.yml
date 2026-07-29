@@ -1,0 +1,41 @@
+name: Public AI window exact-main synchronizer
+
+on:
+  push:
+    branches:
+      - agent/public-ai-window-clean-ui
+    paths:
+      - .github/workflows/public-ai-window-clean-ui-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: public-ai-window-clean-ui-sync
+  cancel-in-progress: true
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout UI branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/public-ai-window-clean-ui
+          fetch-depth: 0
+      - name: Merge exact current main and remove synchronizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch --no-tags origin main agent/public-ai-window-clean-ui
+          expected_head="$(git rev-parse origin/agent/public-ai-window-clean-ui)"
+          [[ "$(git rev-parse HEAD)" == "$expected_head" ]]
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" == "e1f22f4f4247d3115ab3af167a7d79f937485d27" ]]
+          git merge --no-ff "$main_sha" -m "Merge exact main after Qwen connection"
+          git rm .github/workflows/public-ai-window-clean-ui-sync.yml
+          git commit -m "UI clean assistant: remove temporary exact-main synchronizer"
+          git push --force-with-lease="refs/heads/agent/public-ai-window-clean-ui:${expected_head}" origin HEAD:refs/heads/agent/public-ai-window-clean-ui
