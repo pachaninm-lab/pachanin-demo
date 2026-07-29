@@ -3,7 +3,7 @@
   "branch": "agent/tai-ap-13c1g-public-role-qwen-3365",
   "status": "active",
   "issue": 3365,
-  "baseCommit": "3dbeab2132dde930b90b4034eb9e1763c9e02ea7",
+  "baseCommit": "2c7a65e8cdffb9f7e5797703a277a466756c0aad",
   "operationalStatus": "RESTRICTED_READ_ONLY_PENDING_REG_RU_DEPLOYMENT",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
