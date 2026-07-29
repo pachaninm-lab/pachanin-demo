@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -13,6 +14,8 @@ from tai.live_source_evidence import (
     LiveEvidenceBundle,
     LiveSourceResult,
     LiveSourceResultStatus,
+    OfficialKnowledgeExcerpt,
+    PublicSourceProfile,
 )
 from tai.source_coverage import (
     CoverageRequirement,
@@ -38,9 +41,20 @@ class _Collector:
 
     def __init__(self, **kwargs: object) -> None:
         assert kwargs["repository_sha"] == REPOSITORY_SHA
+        assert kwargs["public_profiles"] == _profiles()
 
     def collect(self) -> LiveEvidenceBundle:
         return self.bundle
+
+
+def _profiles() -> dict[str, PublicSourceProfile]:
+    return {
+        "official.cbr.key-rate": PublicSourceProfile(
+            geography="Российская Федерация",
+            language="ru",
+            citation_label="Банк России — ключевая ставка",
+        )
+    }
 
 
 def _catalog() -> OfficialSourceCatalog:
@@ -113,6 +127,21 @@ def _complete_bundle() -> LiveEvidenceBundle:
         observations=(observation,),
         now=NOW,
     )
+    text = "Ключевая ставка. Официальная публикация Банка России от 18.07.2026."
+    excerpt = OfficialKnowledgeExcerpt(
+        source_id="official.cbr.key-rate",
+        owner="Банк России",
+        citation_uri="https://www.cbr.ru/hd_base/KeyRate/",
+        citation_label="Банк России — ключевая ставка",
+        geography="Российская Федерация",
+        language="ru",
+        published_at=NOW - timedelta(days=1),
+        retrieved_at=NOW,
+        topics=("FINANCE_RATES",),
+        text=text,
+        content_sha256="d" * 64,
+        excerpt_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+    )
     return LiveEvidenceBundle(
         repository_sha=REPOSITORY_SHA,
         catalog_sha256="c" * 64,
@@ -128,21 +157,20 @@ def _complete_bundle() -> LiveEvidenceBundle:
                 reason="official_source_observed",
                 refresh_outcome=SourceRefreshOutcome.SUCCEEDED,
                 observation=observation,
+                knowledge_excerpt=excerpt,
             ),
         ),
         assessment=assessment,
     )
+
+
 def _read(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(payload, dict)
     return payload
 
 
-def test_cli_writes_failed_live_result_as_valid_artifact(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def _patch_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         live_source_evidence_cli,
         "load_official_source_catalog",
@@ -150,9 +178,22 @@ def test_cli_writes_failed_live_result_as_valid_artifact(
     )
     monkeypatch.setattr(
         live_source_evidence_cli,
+        "load_public_source_profiles",
+        lambda path: _profiles(),
+    )
+    monkeypatch.setattr(
+        live_source_evidence_cli,
         "live_definitions",
         lambda **kwargs: (object(),),
     )
+
+
+def test_cli_writes_failed_live_result_as_valid_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _patch_catalog(monkeypatch)
     _Collector.bundle = _bundle()
     monkeypatch.setattr(
         live_source_evidence_cli,
@@ -174,6 +215,7 @@ def test_cli_writes_failed_live_result_as_valid_artifact(
     assert result == 3
     manifest = _read(output / "live-run-manifest.json")
     observations = _read(output / "source-observations.v1.json")
+    knowledge = _read(output / "public-live-knowledge.v1.json")
     coverage = _read(output / "coverage-assessment.json")
     dashboard = _read(output / "source-health-dashboard.v1.json")
     history = _read(output / "source-health-history.v1.json")
@@ -182,10 +224,16 @@ def test_cli_writes_failed_live_result_as_valid_artifact(
     assert manifest["status"] == "FAILED"
     assert len(str(manifest["evidence_bundle_sha256"])) == 64
     assert observations["observations"] == []
+    assert knowledge["sources"] == []
     assert coverage["all_critical_covered"] is False
     assert dashboard["status"] == "CRITICAL"
     assert history["cycles"][0]["events"][0]["outcome"] == "RETRYABLE_FAILURE"
     assert acceptance["accepted"] is False
+    assert "PUBLIC_KNOWLEDGE_EXCERPTS_INCOMPLETE" in acceptance["reasons"]
+    assert any(
+        item["path"] == "public-live-knowledge.v1.json"
+        for item in index["files"]
+    )
     assert len(str(index["index_sha256"])) == 64
     assert '"status": "FAILED"' in capsys.readouterr().out
 
@@ -256,16 +304,7 @@ def test_invalid_previous_history_becomes_machine_readable_gap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        live_source_evidence_cli,
-        "load_official_source_catalog",
-        lambda path: _catalog(),
-    )
-    monkeypatch.setattr(
-        live_source_evidence_cli,
-        "live_definitions",
-        lambda **kwargs: (object(),),
-    )
+    _patch_catalog(monkeypatch)
     _Collector.bundle = _bundle()
     monkeypatch.setattr(
         live_source_evidence_cli,
