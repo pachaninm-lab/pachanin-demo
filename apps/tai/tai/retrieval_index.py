@@ -13,7 +13,7 @@ from tai.knowledge_chunking import KnowledgeChunk
 
 _TOKEN = re.compile(r"[0-9A-Za-zА-Яа-яЁё]+", re.UNICODE)
 _LEXICAL_IDENTITY_SHA256 = hashlib.sha256(
-    b"tai.lexical.bm25.v1|k1=1.2|b=0.75|numerator=2.2|trust=0.5+0.5x"
+    b"tai.lexical.bm25.v2|k1=1.2|b=0.75|numerator=2.2|trust=0.5+0.5x|source-filter"
 ).hexdigest()
 
 
@@ -52,6 +52,7 @@ class RetrievalQuery:
     text: str
     tenant_id: str | None
     now: datetime
+    source_ids: frozenset[str] | None = None
     minimum_trust_score: float = 0.5
     limit: int = 10
 
@@ -60,6 +61,11 @@ class RetrievalQuery:
             raise ValueError("query text must not be blank")
         if self.tenant_id is not None and not self.tenant_id.strip():
             raise ValueError("tenant_id must be null or non-blank")
+        if self.source_ids is not None:
+            normalized = frozenset(item.strip() for item in self.source_ids)
+            if not normalized or any(not item or len(item) > 160 for item in normalized):
+                raise ValueError("source_ids must be null or contain bounded non-blank ids")
+            object.__setattr__(self, "source_ids", normalized)
         if not 0.0 <= self.minimum_trust_score <= 1.0:
             raise ValueError("minimum_trust_score must be between 0 and 1")
         if self.limit < 1 or self.limit > 100:
@@ -82,6 +88,8 @@ class RetrievalIndexRepository(Protocol):
     def add(self, generation: int, documents: tuple[RetrievalDocument, ...]) -> None: ...
 
     def activate(self, generation: int) -> None: ...
+
+    def active_generation(self) -> int | None: ...
 
     def active_documents(self) -> tuple[IndexedChunk, ...]: ...
 
@@ -122,15 +130,21 @@ class InMemoryRetrievalIndexRepository:
                 self._statuses[current] = IndexGenerationStatus.RETIRED
         self._statuses[generation] = IndexGenerationStatus.ACTIVE
 
-    def active_documents(self) -> tuple[IndexedChunk, ...]:
-        active = [
+    def active_generation(self) -> int | None:
+        active = tuple(
             generation
             for generation, status in self._statuses.items()
             if status is IndexGenerationStatus.ACTIVE
-        ]
-        if len(active) != 1:
+        )
+        if len(active) > 1:
+            raise RuntimeError("multiple retrieval generations are ACTIVE")
+        return None if not active else active[0]
+
+    def active_documents(self) -> tuple[IndexedChunk, ...]:
+        generation = self.active_generation()
+        if generation is None:
             return ()
-        return tuple(self._documents[active[0]].values())
+        return tuple(self._documents[generation].values())
 
 
 class LexicalRetriever:
@@ -211,6 +225,8 @@ def is_document_eligible(document: RetrievalDocument, query: RetrievalQuery) -> 
     if document.revoked or document.trust_score < query.minimum_trust_score:
         return False
     if document.valid_until is not None and document.valid_until <= query.now:
+        return False
+    if query.source_ids is not None and document.chunk.source_id not in query.source_ids:
         return False
     if document.tenant_id is None:
         return True
