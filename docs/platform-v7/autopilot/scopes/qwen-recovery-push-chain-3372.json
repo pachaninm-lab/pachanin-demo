@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "QWEN-RECOVERY-PUSH-CHAIN-3372",
+  "branch": "ops/qwen-recovery-push-chain-3372",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3372,
+  "activeSlice": "PC-CROP-10B",
+  "ownerAuthorizedExceptionId": "PRODUCTION_AI_RECOVERY_3372",
+  "ownerAuthorizedExceptionCommentId": 5120686584,
+  "exceptionExpiresWhenIssueClosed": true,
+  "exceptionPurpose": "restore-accepted-restricted-qwen-contour-only",
+  "baseCommit": "7ee34519779d4ac6ccf8a73b31d1553f57052cda",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "restricted-live-read-only-qwen-recovery-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-push-chain-materializer.yml",
+    ".github/workflows/tai-qwen-exact-image-activation-chain.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "docs/platform-v7/autopilot/scopes/qwen-recovery-push-chain-3372.json"
+  ],
+  "boundaries": {
+    "modelHostMutation": false,
+    "rootOrSudoRequired": false,
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "financeOrSafeToolChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "canonicalImagePublication": true,
+    "activationUsesPushAuthority": true,
+    "botWorkflowDispatchToActivation": false,
+    "productionDeploymentOnlyAfterMerge": true
+  },
+  "requiredEvidence": [
+    "Activation workflow push paths include the exact-image helper",
+    "Helper dispatches canonical API web and migration images for exact current main",
+    "Helper never dispatches activation through github-actions bot",
+    "Accepted activation starts from the same main push",
+    "API-to-private-model inference passes",
+    "Live RU EN ZH SSE passes",
+    "Public AI window Chromium acceptance passes",
+    "Issue 3372 closes only after activation observer SUCCESS"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

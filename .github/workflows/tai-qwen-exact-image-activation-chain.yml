@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: Enter BUILD-AND-ACTIVATE-RESTRICTED-QWEN
+        description: Enter BUILD-EXACT-IMAGES-FOR-RESTRICTED-QWEN
         required: true
         type: string
 
@@ -35,7 +35,7 @@ jobs:
           github.event_name == 'workflow_dispatch' &&
           github.actor == github.repository_owner &&
           github.triggering_actor == github.repository_owner &&
-          inputs.confirmation == 'BUILD-AND-ACTIVATE-RESTRICTED-QWEN'
+          inputs.confirmation == 'BUILD-EXACT-IMAGES-FOR-RESTRICTED-QWEN'
         )
       )
     runs-on: ubuntu-24.04
@@ -57,10 +57,7 @@ jobs:
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           test "$target" = "$(git rev-parse HEAD)"
           test "$target" = "$(git rev-parse origin/main)"
-          {
-            echo "sha=$target"
-            echo "short=${target:0:7}"
-          } >> "$GITHUB_OUTPUT"
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
 
       - name: Cancel only superseded Qwen activation runs
         env:
@@ -97,22 +94,7 @@ jobs:
             -f ref=main \
             -f 'inputs[services]=all' >/dev/null
 
-      - name: Dispatch accepted REG.RU Qwen activation
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin main
-          test "$TARGET_SHA" = "$(git rev-parse origin/main)"
-          gh api --method POST \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
-            -f ref=main \
-            -f "inputs[target_sha]=$TARGET_SHA" \
-            -f 'inputs[confirmation]=ACTIVATE-RESTRICTED-QWEN-REG-RU' >/dev/null
-
-      - name: Verify activation run was created
+      - name: Verify accepted activation push run exists
         id: activation
         env:
           GH_TOKEN: ${{ github.token }}
@@ -125,7 +107,7 @@ jobs:
           for attempt in $(seq 1 30); do
             row="$(
               gh api \
-                "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/runs?branch=main&event=workflow_dispatch&per_page=30" \
+                "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/runs?branch=main&event=push&per_page=30" \
                 --jq ".workflow_runs[] | select(.head_sha == \"$TARGET_SHA\") | [.id, .html_url] | @tsv" |
                 head -1
             )"
@@ -142,7 +124,7 @@ jobs:
             echo "run_url=$run_url"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Record exact chain dispatch
+      - name: Record exact chain
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
@@ -151,16 +133,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          marker="<!-- qwen-exact-image-activation-chain:${TARGET_SHA}:${RUN_ID} -->"
+          marker="<!-- qwen-exact-image-push-chain:${TARGET_SHA}:${RUN_ID} -->"
           if ! gh api "repos/$GITHUB_REPOSITORY/issues/3372/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
-            body="$RUNNER_TEMP/qwen-chain.md"
+            body="$RUNNER_TEMP/qwen-push-chain.md"
             {
               printf '%s\n' "$marker"
-              printf '%s\n' "Exact-SHA recovery chain dispatched for \`$TARGET_SHA\`."
+              printf '%s\n' "Exact-SHA image publication and push-triggered activation started for \`$TARGET_SHA\`."
               printf '\n'
-              printf '%s\n' '- Canonical API/web/migration image publication: dispatched from `docker-publish.yml`.'
+              printf '%s\n' '- Canonical API/web/migration image publication: dispatched.'
               printf '%s\n' "- REG.RU activation and live acceptance: $RUN_URL"
-              printf '%s\n' '- No live-success claim is allowed until the activation observer records SUCCESS.'
+              printf '%s\n' '- Live success remains exclusively authoritative after the activation observer records SUCCESS.'
             } > "$body"
             gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body-file "$body"
           fi
