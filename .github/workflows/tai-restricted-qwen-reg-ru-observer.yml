@@ -76,7 +76,7 @@ jobs:
                 printf '\n'
                 printf '%s\n' "- Failed or interrupted workflow: $RUN_URL"
                 printf '%s\n' "- Exact-main status: \`TAI Restricted Qwen REG.RU Activation exact-main = $state\`"
-                printf '%s\n' "- Issue remains open. The activation workflow's fail-closed rollback step is authoritative; no live-success claim is allowed."
+                printf '%s\n' "- Issue is reopened. The activation workflow's fail-closed rollback step is authoritative; no live-success claim is allowed."
               } > "$body_file"
             fi
             gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body-file "$body_file"
@@ -85,4 +85,6 @@ jobs:
           if [[ "$CONCLUSION" == success ]]; then
             gh issue close 3372 --repo "$GITHUB_REPOSITORY" --reason completed || true
             gh issue close 3368 --repo "$GITHUB_REPOSITORY" --reason completed || true
+          else
+            gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" || true
           fi
