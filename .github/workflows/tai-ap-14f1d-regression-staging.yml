@@ -14,10 +14,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: tai-ap-14f1d-regression-fix-staging-${{ github.event.pull_request.number || github.ref }}
+  group: tai-ap-14f1d-regression-fix-staging-artifact-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -50,12 +50,22 @@ jobs:
           }
           NODE
           git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
+          mkdir -p artifacts/tai-ap-14f1d-regression-compat
+          cp --parents \
             .github/workflows/tai-ap-14f1a.yml \
             .github/workflows/tai-ap-14f1b2.yml \
             scripts/tai-ap-14f1b2/verify.mjs \
-            docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json
-          git commit -m 'AP-14F1D: preserve legacy authority regression modes'
-          git push origin HEAD:agent/tai-ap-14f1d-regression-fix-staging
+            docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json \
+            artifacts/tai-ap-14f1d-regression-compat
+          cp /tmp/ap1a-regression.json \
+            artifacts/tai-ap-14f1d-regression-compat/ap1a-regression.json
+          cp /tmp/ap1b2-regression.json \
+            artifacts/tai-ap-14f1d-regression-compat/ap1b2-regression.json
+
+      - name: Upload verified compatibility sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap-14f1d-regression-compat-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/tai-ap-14f1d-regression-compat
+          if-no-files-found: error
+          retention-days: 14
