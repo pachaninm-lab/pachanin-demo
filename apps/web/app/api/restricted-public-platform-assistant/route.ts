@@ -69,6 +69,9 @@ export async function POST(request: NextRequest) {
   if (request.nextUrl.searchParams.get('stream') !== '1') {
     return knowledgePost(request);
   }
+  if (request.headers.get('sec-fetch-site') === 'cross-site') {
+    return knowledgePost(request);
+  }
 
   const rawBody = await request.text();
   const publicQuestion = readPublicQuestion(rawBody);
