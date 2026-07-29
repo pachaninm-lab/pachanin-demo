@@ -4,6 +4,7 @@ import { RestrictedPublicQwenService } from './restricted-public-qwen.service';
 const VALID_REQUEST = {
   question: 'Как работает аукцион?',
   locale: 'ru',
+  answerMode: 'verified_platform',
   grounding: {
     knowledgeVersion: 'public-kb-2026-07-29',
     topic: 'auction',
@@ -13,6 +14,22 @@ const VALID_REQUEST = {
     maturity: 'Описан подтверждённый публичный процесс.',
     confidence: 'high',
     sources: [{ label: 'Как работает сделка', href: '/platform-v7/how-it-works' }],
+  },
+} as const;
+
+const GENERAL_AGRO_REQUEST = {
+  question: 'Привет',
+  locale: 'ru',
+  answerMode: 'general_agro',
+  grounding: {
+    knowledgeVersion: 'public-kb-2026-07-29',
+    topic: 'overview',
+    title: 'Нужно одно уточнение',
+    answer: 'Публичная база платформы не содержит отдельной статьи для приветствия.',
+    facts: [],
+    maturity: 'Контекст платформы может быть нерелевантен общему вопросу.',
+    confidence: 'medium',
+    sources: [{ label: 'Главная платформы', href: '/platform-v7' }],
   },
 } as const;
 
@@ -71,10 +88,93 @@ describe('RestrictedPublicQwenService', () => {
       stream: false,
       chat_template_kwargs: { enable_thinking: false },
     });
+    expect(body.messages[0].content).toContain('use the supplied verified public grounding as the authority');
+    expect(body.messages[0].content).toContain('Never present planned, proposed or unverified functionality as already available');
+    expect(body.messages[1].content).toContain('ANSWER_MODE: verified_platform');
     const wire = JSON.stringify(body);
     for (const privateKey of ['tenantId', 'orgId', 'userId', 'dealId', 'membershipId']) {
       expect(wire).not.toContain(privateKey);
     }
+  });
+
+  it('answers greetings and broad agriculture questions in friendly general-agro mode', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'Привет! Я помогу с вопросами по сельскому хозяйству, агробизнесу и платформе.' } }],
+      usage: { prompt_tokens: 140, completion_tokens: 22 },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await new RestrictedPublicQwenService().generate(GENERAL_AGRO_REQUEST);
+
+    expect(result.answer).toContain('Привет!');
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
+    expect(body.messages[0].content).toContain('Respond naturally to greetings');
+    expect(body.messages[0].content).toContain('actual reasoning assistant, not a scripted FAQ bot');
+    expect(body.messages[0].content).toContain('Do not refuse merely because the platform knowledge base does not cover an agriculture or agribusiness topic');
+    expect(body.messages[0].content).toContain('Do not invent platform capabilities, connected integrations, tariffs, customer results or production status');
+    expect(body.messages[1].content).toContain('ANSWER_MODE: general_agro');
+    expect(body.messages[1].content).toContain('PUBLIC_USER_QUESTION:\nПривет');
+  });
+
+  it('instructs the model to redirect unrelated requests without becoming a scripted refusal bot', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'Я специализируюсь на агробизнесе и платформе. Для легкового автомобиля лучше воспользоваться поиском; если речь о технике или транспорте для хозяйства, помогу подобрать критерии.' } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    await new RestrictedPublicQwenService().generate({
+      ...GENERAL_AGRO_REQUEST,
+      question: 'Где купить машину?',
+    });
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
+    const prompt = String(body.messages[0].content);
+    expect(prompt).toContain('PATH 4 — outside the domain');
+    expect(prompt).toContain('do not solve the unrelated request in substance');
+    expect(prompt).toContain('tractor, combine, farm truck, commercial fleet or agricultural logistics vehicle');
+    expect(prompt).toContain('Never shame the user and never sound like a refusal template');
+  });
+
+  it('uses only a relevant and truthful soft platform conversion', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'Для контроля исполнения сделки можно использовать подтверждённые возможности платформы и при необходимости обратиться в поддержку.' } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    await new RestrictedPublicQwenService().generate(VALID_REQUEST);
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
+    const prompt = String(body.messages[0].content);
+    expect(prompt).toContain('naturally explain how Transparent Price can help');
+    expect(prompt).toContain('End with at most one soft next step');
+    expect(prompt).toContain('Do not turn every answer into an advertisement');
+    expect(prompt).toContain('distinguish verified current capability from roadmap or unknown status');
+  });
+
+  it('describes a missing function as in development only when verified roadmap context confirms it', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'Эта функция находится в процессе реализации командой разработки.' } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    await new RestrictedPublicQwenService().generate({
+      ...VALID_REQUEST,
+      question: 'Есть ли автоматическая проверка субсидий?',
+      grounding: {
+        ...VALID_REQUEST.grounding,
+        title: 'Проверка субсидий',
+        answer: 'Функция включена в подтверждённую дорожную карту и находится в процессе реализации.',
+        maturity: 'Функция ещё не доступна пользователям.',
+      },
+    });
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
+    const prompt = String(body.messages[0].content);
+    expect(prompt).toContain('If, and only if, the supplied verified public platform context explicitly says');
+    expect(prompt).toContain('the development team is currently implementing it');
+    expect(prompt).toContain('must not imply that it is already available');
+    expect(prompt).toContain('or infer development status merely because the function is absent');
+    expect(prompt).toContain('cannot confirm the function\'s current status');
   });
 
   it('rejects private fields before any model call', async () => {

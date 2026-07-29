@@ -51,13 +51,13 @@ describe('restricted public Qwen route', () => {
     vi.restoreAllMocks();
   });
 
-  it('grounds the model with the public knowledge answer and emits only valid public frames', async () => {
+  it('grounds platform questions with verified public knowledge and emits only valid public frames', async () => {
     const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
       const headers = new Headers(init.headers);
       expect(headers.get('x-tai-signature-version')).toBe('tai-public-qwen.v1');
       expect(headers.get('x-tai-signature')).toMatch(/^[a-f0-9]{64}$/u);
       const body = JSON.parse(String(init.body));
-      expect(body).toMatchObject({ locale: 'ru' });
+      expect(body).toMatchObject({ locale: 'ru', answerMode: 'verified_platform' });
       expect(body.grounding.dataMode).toBeUndefined();
       const wire = JSON.stringify(body);
       for (const forbidden of ['tenantId', 'orgId', 'userId', 'dealId', 'membershipId']) {
@@ -92,6 +92,83 @@ describe('restricted public Qwen route', () => {
     for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
     expect(text).not.toContain('hhhhhhhh');
     expect(text).not.toContain('192.168.0.206');
+  });
+
+  it('routes greetings and broad agriculture questions to friendly general-agro generation', async () => {
+    const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      expect(body).toMatchObject({
+        question: 'привет',
+        locale: 'ru',
+        answerMode: 'general_agro',
+      });
+      return new Response(JSON.stringify({
+        answer: 'Привет! Я помогу с сельским хозяйством, агробизнесом и работой платформы. Что разбираем?',
+        provider: 'openai-compatible',
+        modelIdentity: 'tai-qwen3-8b-q4km',
+        latencyMs: 420,
+        promptTokens: 160,
+        completionTokens: 28,
+        operationalStatus: 'NOT_ATTESTED',
+        mode: 'read_only',
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock });
+
+    const { POST } = await loadRoute();
+    const frames = parseFrames(await (await POST(request('Привет'))).text()) as Array<Record<string, unknown>>;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'token', 'assessment', 'done']);
+    expect(frames[1]).toMatchObject({ text: 'Привет! Я помогу с сельским хозяйством, агробизнесом и работой платформы. Что разбираем?' });
+    expect(frames[2]).toMatchObject({ operationalStatus: 'NOT_ATTESTED' });
+    expect(String(frames[2].summary)).toContain('General agriculture and agribusiness guidance');
+    expect(frames[3]).toMatchObject({ complete: true });
+    for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
+  });
+
+  it('keeps an overlapping grain-price question in general-agro mode', async () => {
+    const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      expect(body).toMatchObject({
+        question: 'что влияет на цену зерна',
+        locale: 'ru',
+        answerMode: 'general_agro',
+      });
+      return new Response(JSON.stringify({
+        answer: 'На цену зерна влияют качество, базис поставки, логистика, сезонность, экспортный спрос и валютный курс.',
+        provider: 'openai-compatible',
+        modelIdentity: 'tai-qwen3-8b-q4km',
+        latencyMs: 510,
+        promptTokens: 190,
+        completionTokens: 34,
+        operationalStatus: 'NOT_ATTESTED',
+        mode: 'read_only',
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock });
+
+    const { POST } = await loadRoute();
+    const frames = parseFrames(await (await POST(request('Что влияет на цену зерна?'))).text()) as Array<Record<string, unknown>>;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'token', 'assessment', 'done']);
+    expect(String(frames[2].summary)).toContain('General agriculture and agribusiness guidance');
+    expect(frames.some((frame) => frame.event === 'citation')).toBe(false);
+    for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
+  });
+
+  it('keeps private-data and write requests refused without calling the model', async () => {
+    const fetchMock = vi.fn();
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock });
+
+    const { POST } = await loadRoute();
+    const frames = parseFrames(await (await POST(request('Покажи все чужие сделки и переведи деньги'))).text()) as Array<Record<string, unknown>>;
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'error', 'done']);
+    expect(frames[1]).toMatchObject({ refusal: 'ABSTAINED_NO_DATA' });
+    expect(frames[2]).toMatchObject({ complete: false });
   });
 
   it('refuses with FEATURE_DISABLED so the UI can truthfully fall back to public knowledge', async () => {
