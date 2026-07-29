@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "QWEN-RECOVERY-EXACT-IMAGE-CHAIN-3372",
+  "branch": "ops/qwen-recovery-exact-image-chain-3372",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3372,
+  "activeSlice": "PC-CROP-10B",
+  "ownerAuthorizedExceptionId": "PRODUCTION_AI_RECOVERY_3372",
+  "ownerAuthorizedExceptionCommentId": 5120686584,
+  "exceptionExpiresWhenIssueClosed": true,
+  "exceptionPurpose": "restore-accepted-restricted-qwen-contour-only",
+  "baseCommit": "3e0c30ae64621ac20f284ee61c62afa7dd0f7741",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "restricted-live-read-only-qwen-recovery-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-exact-image-activation-chain.yml",
+    "docs/platform-v7/autopilot/scopes/qwen-recovery-exact-image-chain-3372.json"
+  ],
+  "forbiddenPaths": [
+    ".github/workflows/pc-crop-**",
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "docs/platform-v7/crop-platform/**",
+    "docs/platform-v7/autopilot/project-locks/**",
+    "scripts/pc-crop-**",
+    "production credentials"
+  ],
+  "boundaries": {
+    "modelHostMutation": false,
+    "rootOrSudoRequired": false,
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "financeOrSafeToolChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "canonicalImagePublication": true,
+    "productionActivationDispatch": true,
+    "productionDeploymentOnlyAfterMerge": true
+  },
+  "requiredEvidence": [
+    "Superseded activation run is cancelled without cancelling the exact target",
+    "Canonical API web and migration image publication is dispatched for exact current main",
+    "Accepted REG.RU Qwen activation is dispatched for the same exact SHA",
+    "API-to-private-model inference passes",
+    "Live RU EN ZH SSE passes",
+    "Public AI window Chromium acceptance passes",
+    "Issue 3372 closes only after activation observer SUCCESS"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
