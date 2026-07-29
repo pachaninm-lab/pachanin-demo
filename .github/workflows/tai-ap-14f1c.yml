@@ -4,11 +4,6 @@ on:
   pull_request:
     paths:
       - '.github/workflows/tai-ap-14f1c.yml'
-  push:
-    branches:
-      - agent/tai-ap-14f1c-rosstat-dataset-3360
-    paths:
-      - '.github/workflows/tai-ap-14f1c.yml'
   workflow_dispatch:
 
 permissions:
@@ -19,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  fix-and-restore:
+  fix-source:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -27,13 +22,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: agent/tai-ap-14f1c-rosstat-dataset-3360
-          fetch-depth: 2
+          fetch-depth: 1
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Apply bounded Ruff fixes and restore acceptance workflow
+      - name: Apply and push bounded Ruff source fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -41,12 +36,10 @@ jobs:
           ruff check --fix \
             apps/tai/tai/rosstat_vshp2016254.py \
             apps/tai/tests/test_rosstat_vshp2016254.py
-          git checkout HEAD^ -- .github/workflows/tai-ap-14f1c.yml
           git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
-            .github/workflows/tai-ap-14f1c.yml \
             apps/tai/tai/rosstat_vshp2016254.py \
             apps/tai/tests/test_rosstat_vshp2016254.py
           if git diff --cached --quiet; then
