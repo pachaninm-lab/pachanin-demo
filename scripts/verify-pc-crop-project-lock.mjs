@@ -16,6 +16,54 @@ function assert(condition, message, target = failures) {
   if (!condition) target.push(message);
 }
 
+function validateOwnerAuthorizedExceptions(lock, target = failures) {
+  const exceptions = lock.ownerAuthorizedExceptions;
+  assert(Array.isArray(exceptions) && exceptions.length === 1, 'owner-authorized exception set must contain exactly one entry', target);
+  if (!Array.isArray(exceptions) || exceptions.length !== 1) return;
+
+  const exception = exceptions[0];
+  assert(exception.id === 'PRODUCTION_AI_RECOVERY_3372', 'owner-authorized exception id mismatch', target);
+  assert(exception.status === 'active', 'owner-authorized exception is not active', target);
+  assert(exception.issue === 3372, 'owner-authorized exception issue mismatch', target);
+  assert(exception.governanceCommentId === 5120686584, 'owner authorization evidence mismatch', target);
+  assert(exception.expiresWhenIssueClosed === true, 'owner-authorized exception must expire when issue closes', target);
+  assert(
+    JSON.stringify(exception.branchPrefixes) === JSON.stringify([
+      'agent/qwen-recovery-',
+      'fix/qwen-recovery-',
+      'ops/qwen-recovery-',
+    ]),
+    'owner-authorized exception branch prefixes mismatch',
+    target,
+  );
+  assert(exception.titlePrefix === 'QWEN-RECOVERY:', 'owner-authorized exception title prefix mismatch', target);
+  assert(
+    Array.isArray(exception.allowedProgramTokens) &&
+      exception.allowedProgramTokens.includes('qwen') &&
+      !exception.allowedProgramTokens.includes('model-admission'),
+    'owner-authorized exception token allowance is unsafe',
+    target,
+  );
+  assert(
+    Array.isArray(exception.allowedPathPrefixes) && exception.allowedPathPrefixes.length === 3,
+    'owner-authorized exception path prefixes incomplete',
+    target,
+  );
+  assert(
+    Array.isArray(exception.forbiddenPathPrefixes) &&
+      exception.forbiddenPathPrefixes.includes('docs/platform-v7/crop-platform/'),
+    'owner-authorized exception PC-CROP path protection incomplete',
+    target,
+  );
+  assert(
+    exception.allowedPurpose === 'restore-accepted-restricted-qwen-contour-only',
+    'owner-authorized exception purpose mismatch',
+    target,
+  );
+  assert(exception.productionHosting === 'REG_RU_VPS_ONLY', 'owner-authorized exception hosting mismatch', target);
+  assert(exception.operationalStatus === 'NOT_ATTESTED', 'owner-authorized exception status mismatch', target);
+}
+
 function validateLock(lock, target = failures) {
   assert(lock.schemaVersion === 'platform-v7.active-project-lock.v1', 'lock schema mismatch', target);
   assert(lock.id === 'PC-CROP-REMAINDER', 'lock id mismatch', target);
@@ -31,6 +79,17 @@ function validateLock(lock, target = failures) {
   assert(lock.rules?.exactIssueRequired === true, 'exact issue requirement disabled', target);
   assert(lock.rules?.sourceControlledScopeRequired === true, 'scope requirement disabled', target);
   assert(lock.rules?.projectLockBindingRequired === true, 'project lock binding disabled', target);
+  validateOwnerAuthorizedExceptions(lock, target);
+}
+
+function getOwnerAuthorizedException(lock, scope) {
+  const requestedId = String(scope?.ownerAuthorizedExceptionId || '');
+  if (!requestedId) return null;
+  return (
+    lock.ownerAuthorizedExceptions?.find(
+      (entry) => entry.id === requestedId && entry.status === 'active',
+    ) || null
+  );
 }
 
 function validateContext(lock, context) {
@@ -40,18 +99,64 @@ function validateContext(lock, context) {
   const issue = Number(context.issue);
   const scope = context.scope || {};
   const governance = branch === lock.governanceBranch;
+  const requestedExceptionId = String(scope.ownerAuthorizedExceptionId || '');
+  const ownerException = getOwnerAuthorizedException(lock, scope);
+  const exceptionContext = Boolean(ownerException);
 
-  assert(lock.allowedBranchPrefixes.some((prefix) => branch.startsWith(prefix)), `branch is outside PC-CROP prefixes: ${branch}`, local);
+  if (requestedExceptionId && !ownerException) {
+    local.push(`unknown or inactive owner-authorized exception: ${requestedExceptionId}`);
+  }
 
   const branchAndTitle = `${branch}\n${title}`.toLowerCase();
+  const allowedExceptionTokens = new Set(ownerException?.allowedProgramTokens || []);
   for (const token of lock.forbiddenProgramTokens) {
-    assert(!branchAndTitle.includes(String(token).toLowerCase()), `forbidden program token in branch/title: ${token}`, local);
+    const normalized = String(token).toLowerCase();
+    if (exceptionContext && allowedExceptionTokens.has(token)) continue;
+    assert(!branchAndTitle.includes(normalized), `forbidden program token in branch/title: ${token}`, local);
   }
 
   if (governance) {
+    assert(lock.allowedBranchPrefixes.some((prefix) => branch.startsWith(prefix)), `branch is outside PC-CROP prefixes: ${branch}`, local);
     assert(issue === lock.governanceIssue, 'governance branch issue mismatch', local);
     assert(scope.issue === lock.governanceIssue, 'governance scope issue mismatch', local);
+  } else if (exceptionContext) {
+    assert(
+      ownerException.branchPrefixes.some((prefix) => branch.startsWith(prefix)),
+      `branch is outside owner-authorized exception prefixes: ${branch}`,
+      local,
+    );
+    assert(issue === ownerException.issue, `only exception issue #${ownerException.issue} is allowed`, local);
+    assert(title.startsWith(ownerException.titlePrefix), `exception title must start with ${ownerException.titlePrefix}`, local);
+    assert(scope.issue === ownerException.issue, 'exception scope issue mismatch', local);
+    assert(scope.activeSlice === lock.activeSlice, 'exception scope must preserve active PC-CROP slice', local);
+    assert(
+      scope.ownerAuthorizedExceptionCommentId === ownerException.governanceCommentId,
+      'exception scope owner authorization evidence mismatch',
+      local,
+    );
+    assert(
+      scope.exceptionExpiresWhenIssueClosed === ownerException.expiresWhenIssueClosed,
+      'exception scope expiry contract mismatch',
+      local,
+    );
+    assert(scope.exceptionPurpose === ownerException.allowedPurpose, 'exception scope purpose mismatch', local);
+    assert(
+      Array.isArray(scope.allowedPaths) &&
+        scope.allowedPaths.every((path) =>
+          ownerException.allowedPathPrefixes.some((prefix) => String(path).startsWith(prefix)),
+        ),
+      'exception scope contains a path outside the narrow recovery prefixes',
+      local,
+    );
+    assert(
+      !scope.allowedPaths?.some((path) =>
+        ownerException.forbiddenPathPrefixes.some((prefix) => String(path).startsWith(prefix)),
+      ),
+      'exception scope overlaps protected PC-CROP paths',
+      local,
+    );
   } else {
+    assert(lock.allowedBranchPrefixes.some((prefix) => branch.startsWith(prefix)), `branch is outside PC-CROP prefixes: ${branch}`, local);
     assert(issue === lock.activeIssue, `only active issue #${lock.activeIssue} is allowed`, local);
     assert(title.startsWith(lock.activeSlice), `title must start with ${lock.activeSlice}`, local);
     assert(scope.issue === lock.activeIssue, 'scope issue does not match active issue', local);
@@ -62,7 +167,11 @@ function validateContext(lock, context) {
   assert(scope.productionHosting === 'REG_RU_VPS_ONLY', 'scope production authority mismatch', local);
   assert(scope.operationalStatus === 'NOT_ATTESTED', 'scope operational status mismatch', local);
   assert(Array.isArray(scope.allowedPaths) && scope.allowedPaths.length > 0, 'scope allowed paths missing', local);
-  assert(!scope.allowedPaths?.some((path) => path === '**' || path === 'apps/**'), 'unsafe wildcard scope is forbidden', local);
+  assert(
+    !scope.allowedPaths?.some((path) => path === '**' || path === 'apps/**' || String(path).includes('**')),
+    'unsafe wildcard scope is forbidden',
+    local,
+  );
 
   return local;
 }
@@ -86,6 +195,84 @@ if (process.argv.includes('--self-test')) {
   });
   assert(accepted.length === 0, `valid PC-CROP-10B scope rejected: ${accepted.join('; ')}`);
 
+  const authorizedRecovery = validateContext(lock, {
+    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
+    title: 'QWEN-RECOVERY: verify accepted restricted contour prerequisites',
+    issue: 3372,
+    scope: {
+      projectLockId: 'PC-CROP-REMAINDER',
+      issue: 3372,
+      activeSlice: 'PC-CROP-10B',
+      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
+      ownerAuthorizedExceptionCommentId: 5120686584,
+      exceptionExpiresWhenIssueClosed: true,
+      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
+      operationalStatus: 'NOT_ATTESTED',
+      productionHosting: 'REG_RU_VPS_ONLY',
+      allowedPaths: [
+        '.github/workflows/tai-qwen-unprivileged-probe.yml',
+        'docs/platform-v7/autopilot/scopes/qwen-recovery-unprivileged-probe-3372.json',
+      ],
+    },
+  });
+  assert(authorizedRecovery.length === 0, `valid owner-authorized recovery rejected: ${authorizedRecovery.join('; ')}`);
+
+  const wrongExceptionIssue = validateContext(lock, {
+    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
+    title: 'QWEN-RECOVERY: wrong issue probe',
+    issue: 3390,
+    scope: {
+      projectLockId: 'PC-CROP-REMAINDER',
+      issue: 3390,
+      activeSlice: 'PC-CROP-10B',
+      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
+      ownerAuthorizedExceptionCommentId: 5120686584,
+      exceptionExpiresWhenIssueClosed: true,
+      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
+      operationalStatus: 'NOT_ATTESTED',
+      productionHosting: 'REG_RU_VPS_ONLY',
+      allowedPaths: ['.github/workflows/tai-qwen-unprivileged-probe.yml'],
+    },
+  });
+  assert(wrongExceptionIssue.some((message) => message.includes('only exception issue')), 'wrong exception issue was not rejected');
+
+  const unsafeExceptionPath = validateContext(lock, {
+    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
+    title: 'QWEN-RECOVERY: unsafe path probe',
+    issue: 3372,
+    scope: {
+      projectLockId: 'PC-CROP-REMAINDER',
+      issue: 3372,
+      activeSlice: 'PC-CROP-10B',
+      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
+      ownerAuthorizedExceptionCommentId: 5120686584,
+      exceptionExpiresWhenIssueClosed: true,
+      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
+      operationalStatus: 'NOT_ATTESTED',
+      productionHosting: 'REG_RU_VPS_ONLY',
+      allowedPaths: ['docs/platform-v7/crop-platform/pc-crop-10b.json'],
+    },
+  });
+  assert(unsafeExceptionPath.some((message) => message.includes('outside the narrow recovery')), 'unsafe exception path was not rejected');
+
+  const missingExceptionBinding = validateContext(lock, {
+    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
+    title: 'QWEN-RECOVERY: unbound probe',
+    issue: 3372,
+    scope: {
+      projectLockId: 'PC-CROP-REMAINDER',
+      issue: 3372,
+      activeSlice: 'PC-CROP-10B',
+      operationalStatus: 'NOT_ATTESTED',
+      productionHosting: 'REG_RU_VPS_ONLY',
+      allowedPaths: ['.github/workflows/tai-qwen-unprivileged-probe.yml'],
+    },
+  });
+  assert(
+    missingExceptionBinding.some((message) => message.includes('outside PC-CROP') || message.includes('forbidden program token')),
+    'unbound recovery branch was not rejected',
+  );
+
   const drift = validateContext(lock, {
     branch: 'ops/qwen-model-host-repair',
     title: 'Repair Qwen activation',
@@ -99,7 +286,7 @@ if (process.argv.includes('--self-test')) {
       allowedPaths: ['.github/workflows/qwen.yml'],
     },
   });
-  assert(drift.some((message) => message.includes('outside PC-CROP') || message.includes('forbidden program token')), 'TAI/Qwen drift was not rejected');
+  assert(drift.some((message) => message.includes('outside PC-CROP') || message.includes('forbidden program token')), 'unrelated TAI/Qwen drift was not rejected');
 
   const wrongIssue = validateContext(lock, {
     branch: 'agent/pc-crop-11-lab',
@@ -123,6 +310,7 @@ if (process.argv.includes('--self-test')) {
     governanceIssue: lock.governanceIssue,
     activeIssue: lock.activeIssue,
     activeSlice: lock.activeSlice,
+    ownerAuthorizedExceptionId: lock.ownerAuthorizedExceptions?.[0]?.id || null,
     productionHosting: lock.productionHosting,
     operationalStatus: lock.operationalStatus,
     failures,
@@ -154,6 +342,7 @@ const report = {
   issue: Number(process.env.PC_CROP_ISSUE),
   activeIssue: lock.activeIssue,
   activeSlice: lock.activeSlice,
+  ownerAuthorizedExceptionId: scope.ownerAuthorizedExceptionId || null,
   scopePath,
   productionHosting: lock.productionHosting,
   operationalStatus: lock.operationalStatus,

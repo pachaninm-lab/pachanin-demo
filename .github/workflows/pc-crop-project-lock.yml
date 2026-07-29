@@ -25,7 +25,10 @@ jobs:
       startsWith(github.head_ref, 'agent/pc-crop-') ||
       startsWith(github.head_ref, 'fix/pc-crop-') ||
       startsWith(github.head_ref, 'governance/pc-crop-') ||
-      startsWith(github.head_ref, 'ops/pc-crop-')
+      startsWith(github.head_ref, 'ops/pc-crop-') ||
+      startsWith(github.head_ref, 'agent/qwen-recovery-') ||
+      startsWith(github.head_ref, 'fix/qwen-recovery-') ||
+      startsWith(github.head_ref, 'ops/qwen-recovery-')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -55,7 +58,27 @@ jobs:
           if [[ "$BRANCH" == "governance/pc-crop-project-lock-3389" ]]; then
             scope='docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json'
           else
-            scope="$(GITHUB_HEAD_REF="$BRANCH" node scripts/p7-source-controlled-scope.mjs)"
+            scope="$(
+              BRANCH="$BRANCH" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+
+          const branch = String(process.env.BRANCH || '').trim();
+          const relativeDirectory = 'docs/platform-v7/autopilot/scopes';
+          const directory = path.resolve(relativeDirectory);
+          const matches = fs.readdirSync(directory, { withFileTypes: true })
+            .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+            .map((entry) => entry.name)
+            .filter((filename) => {
+              const value = JSON.parse(fs.readFileSync(path.join(directory, filename), 'utf8'));
+              return value.branch === branch && value.status === 'active';
+            });
+          if (matches.length !== 1) {
+            throw new Error(`expected exactly one active scope for ${branch}; found ${matches.length}`);
+          }
+          process.stdout.write(`${relativeDirectory}/${matches[0]}`);
+          NODE
+            )"
           fi
           test -f "$scope"
           issue="$(node -e "const s=require('./' + process.argv[1]); if(!Number.isInteger(s.issue))process.exit(2); process.stdout.write(String(s.issue))" "$scope")"
