@@ -1,10 +1,16 @@
-name: TAI AP-14F1C Rosstat Dataset Evidence
+name: TAI AP-14F1C Rosstat Dataset Acceptance
 
 on:
   pull_request:
     paths:
       - '.github/workflows/tai-ap-14f1c.yml'
       - 'apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-7708234640-VSHP2016254.v1.json'
+      - 'apps/tai/tai/migrations/0022_rosstat_vshp2016254_snapshot.sql'
+      - 'apps/tai/tai/migrations/0023_rosstat_vshp2016254_source_admission.sql'
+      - 'apps/tai/tai/migrations/manifest.json'
+      - 'apps/tai/tai/rosstat_vshp2016254.py'
+      - 'apps/tai/tests/test_migration_manifest.py'
+      - 'apps/tai/tests/test_rosstat_vshp2016254.py'
       - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1c-3360.json'
       - 'scripts/tai-ap-14f1c/discover.mjs'
   push:
@@ -14,6 +20,12 @@ on:
     paths:
       - '.github/workflows/tai-ap-14f1c.yml'
       - 'apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-7708234640-VSHP2016254.v1.json'
+      - 'apps/tai/tai/migrations/0022_rosstat_vshp2016254_snapshot.sql'
+      - 'apps/tai/tai/migrations/0023_rosstat_vshp2016254_source_admission.sql'
+      - 'apps/tai/tai/migrations/manifest.json'
+      - 'apps/tai/tai/rosstat_vshp2016254.py'
+      - 'apps/tai/tests/test_migration_manifest.py'
+      - 'apps/tai/tests/test_rosstat_vshp2016254.py'
       - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1c-3360.json'
       - 'scripts/tai-ap-14f1c/discover.mjs'
   workflow_dispatch:
@@ -21,6 +33,7 @@ on:
 permissions:
   contents: read
   statuses: write
+  security-events: write
 
 concurrency:
   group: tai-ap-14f1c-${{ github.event.pull_request.number || github.ref }}
@@ -30,12 +43,27 @@ env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   MANIFEST: apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-7708234640-VSHP2016254.v1.json
   EVIDENCE_DIR: artifacts/tai-ap-14f1c
+  TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tai_ap14f1c
 
 jobs:
-  exact-resource-evidence:
-    name: Exact routes · pinned DNS · governed integrity
+  exact-resource-snapshot:
+    name: Exact source · SDMX provenance · PostgreSQL snapshot
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tai_ap14f1c
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tai_ap14f1c"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - name: Checkout exact revision
@@ -63,6 +91,12 @@ jobs:
         with:
           node-version: '24'
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/tai/pyproject.toml
+
       - name: Verify source-controlled scope
         if: github.ref_name != 'main'
         shell: bash
@@ -73,17 +107,36 @@ jobs:
           export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           bash scripts/p7-autopilot-guard.sh
 
-      - name: Static and adversarial discovery acceptance
+      - name: Install TAI acceptance toolchain
         shell: bash
         run: |
           set -euo pipefail
-          node --check scripts/tai-ap-14f1c/discover.mjs
-          node scripts/tai-ap-14f1c/discover.mjs --self-test
+          python -m pip install --upgrade pip
+          pip install -e 'apps/tai[dev]'
 
-      - name: Build and verify Rosstat Russian CA chain
+      - name: Static and adversarial acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          node --check scripts/tai-ap-14f1c/discover.mjs
+          node scripts/tai-ap-14f1c/discover.mjs --self-test \
+            | tee "$EVIDENCE_DIR/discovery-self-test.txt"
+          ruff check \
+            apps/tai/tai/rosstat_vshp2016254.py \
+            apps/tai/tests/test_rosstat_vshp2016254.py \
+            apps/tai/tests/test_migration_manifest.py \
+            | tee "$EVIDENCE_DIR/ruff.txt"
+          mypy apps/tai/tai/rosstat_vshp2016254.py \
+            | tee "$EVIDENCE_DIR/mypy.txt"
+          pytest \
+            apps/tai/tests/test_rosstat_vshp2016254.py \
+            apps/tai/tests/test_migration_manifest.py \
+            | tee "$EVIDENCE_DIR/pytest.txt"
+
+      - name: Build and verify pinned Rosstat Russian CA chain
         shell: bash
         env:
-          ROOT_CERT_URL: https://gu-st.ru/content/Other/doc/russian_trusted_root_ca.cer
           ROOT_CERT_SHA256_FINGERPRINT: d2:6d:2d:02:31:b7:c3:9f:92:cc:73:85:12:ba:54:10:35:19:e4:40:5d:68:b5:bd:70:3e:97:88:ca:8e:cf:31
           SUB_CERT_SHA256_FINGERPRINT: 21:55:78:50:36:c9:00:db:b5:f1:bb:2a:15:69:c8:0c:55:59:5b:d6:bf:94:86:7a:29:bb:dd:bc:7d:88:a3:f2
         run: |
@@ -100,57 +153,52 @@ jobs:
             fi
           }
 
-          # Bootstrap only: the downloaded object is accepted solely after exact SHA-256
-          # fingerprint verification and self-signature validation below.
-          curl --silent --show-error --fail \
-            --insecure \
-            --proto '=https' \
-            --tlsv1.2 \
-            --max-redirs 0 \
-            --connect-timeout 10 \
-            --max-time 30 \
-            "$ROOT_CERT_URL" \
-            -o /tmp/rosstat-ca/root.cer
-          convert_certificate /tmp/rosstat-ca/root.cer /tmp/rosstat-ca/root.pem
+          download_pinned_http_certificate() {
+            local target="$1"
+            shift
+            local downloaded=false
+            for url in "$@"; do
+              if curl --silent --show-error --fail \
+                --proto '=http' \
+                --max-redirs 0 \
+                --connect-timeout 10 \
+                --max-time 30 \
+                "$url" \
+                -o "$target"
+              then
+                printf '%s\n' "$url"
+                downloaded=true
+                break
+              fi
+            done
+            test "$downloaded" = true
+          }
 
+          download_pinned_http_certificate /tmp/rosstat-ca/root.cer \
+            'http://nuc-cdp.digital.gov.ru/cdp/rootca_ssl_rsa2022.crt' \
+            'http://nuc-cdp.voskhod.ru/cdp/rootca_ssl_rsa2022.crt' \
+            | tee "$EVIDENCE_DIR/rosstat-root-source.txt"
+          convert_certificate /tmp/rosstat-ca/root.cer /tmp/rosstat-ca/root.pem
           root_fingerprint="$(
             openssl x509 -in /tmp/rosstat-ca/root.pem -noout -fingerprint -sha256 \
-              | cut -d= -f2 \
-              | tr 'A-F' 'a-f'
+              | cut -d= -f2 | tr 'A-F' 'a-f'
           )"
           test "$root_fingerprint" = "$ROOT_CERT_SHA256_FINGERPRINT"
-          openssl x509 -in /tmp/rosstat-ca/root.pem -noout -subject -issuer -nameopt RFC2253 \
-            | grep -F 'CN=Russian Trusted Root CA'
+          root_subject="$(openssl x509 -in /tmp/rosstat-ca/root.pem -noout -subject -nameopt RFC2253)"
+          root_issuer="$(openssl x509 -in /tmp/rosstat-ca/root.pem -noout -issuer -nameopt RFC2253)"
+          test "$root_subject" = "$root_issuer"
+          grep -F 'CN=Russian Trusted Root CA' <<<"$root_subject"
           openssl verify -CAfile /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/root.pem \
             | tee "$EVIDENCE_DIR/rosstat-root-verification.txt"
-          openssl x509 -in /tmp/rosstat-ca/root.pem -noout \
-            -subject -issuer -serial -dates -fingerprint -sha256 \
-            | tee "$EVIDENCE_DIR/rosstat-root-certificate.txt"
 
-          sub_downloaded=false
-          for sub_url in \
+          download_pinned_http_certificate /tmp/rosstat-ca/sub.cer \
             'http://nuc-cdp.digital.gov.ru/cdp/subca_ssl_rsa2024.crt' \
-            'http://nuc-cdp.voskhod.ru/cdp/subca_ssl_rsa2024.crt'
-          do
-            if curl --silent --show-error --fail \
-              --proto '=http' \
-              --max-redirs 0 \
-              --connect-timeout 10 \
-              --max-time 30 \
-              "$sub_url" \
-              -o /tmp/rosstat-ca/sub.cer
-            then
-              printf '%s\n' "$sub_url" > "$EVIDENCE_DIR/rosstat-sub-aia-source.txt"
-              sub_downloaded=true
-              break
-            fi
-          done
-          test "$sub_downloaded" = true
+            'http://nuc-cdp.voskhod.ru/cdp/subca_ssl_rsa2024.crt' \
+            | tee "$EVIDENCE_DIR/rosstat-sub-source.txt"
           convert_certificate /tmp/rosstat-ca/sub.cer /tmp/rosstat-ca/sub.pem
           sub_fingerprint="$(
             openssl x509 -in /tmp/rosstat-ca/sub.pem -noout -fingerprint -sha256 \
-              | cut -d= -f2 \
-              | tr 'A-F' 'a-f'
+              | cut -d= -f2 | tr 'A-F' 'a-f'
           )"
           test "$sub_fingerprint" = "$SUB_CERT_SHA256_FINGERPRINT"
           openssl x509 -in /tmp/rosstat-ca/sub.pem -noout -subject -issuer -nameopt RFC2253 \
@@ -159,15 +207,12 @@ jobs:
           grep -F 'CN=Russian Trusted Root CA' "$EVIDENCE_DIR/rosstat-sub-identity.txt"
           openssl verify -CAfile /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/sub.pem \
             | tee "$EVIDENCE_DIR/rosstat-sub-verification.txt"
-          openssl x509 -in /tmp/rosstat-ca/sub.pem -noout \
-            -subject -issuer -serial -dates -fingerprint -sha256 \
-            | tee "$EVIDENCE_DIR/rosstat-sub-certificate.txt"
 
           timeout 20 openssl s_client \
             -connect rosstat.gov.ru:443 \
             -servername rosstat.gov.ru \
             -showcerts \
-            </dev/null > "$EVIDENCE_DIR/rosstat-tls-chain.txt" 2>&1
+            </dev/null > "$EVIDENCE_DIR/rosstat-tls-chain.txt" 2>&1 || true
           awk '
             /-----BEGIN CERTIFICATE-----/ {capture=1}
             capture {print}
@@ -185,50 +230,27 @@ jobs:
             -subject -issuer -serial -dates -fingerprint -sha256 \
             | tee "$EVIDENCE_DIR/rosstat-tls-leaf.txt"
 
-          cat /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/sub.pem \
-            > /tmp/rosstat-ca/ca-bundle.pem
+          cat /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/sub.pem > /tmp/rosstat-ca/ca-bundle.pem
           chmod 0600 /tmp/rosstat-ca/ca-bundle.pem
           printf 'CURL_CA_BUNDLE=%s\n' '/tmp/rosstat-ca/ca-bundle.pem' >> "$GITHUB_ENV"
 
       - name: Controlled governed-resource acquisition
-        id: acquisition
-        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$EVIDENCE_DIR"
           node scripts/tai-ap-14f1c/discover.mjs \
             --manifest "$MANIFEST" \
             --output "$EVIDENCE_DIR/rosstat-resource-evidence.json" \
             | tee "$EVIDENCE_DIR/acquisition.log"
-
-      - name: Upload immutable discovery evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-ap-14f1c-rosstat-evidence-${{ env.EXACT_HEAD }}
-          path: ${{ env.EVIDENCE_DIR }}
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Enforce governed integrity before admission
-        shell: bash
-        env:
-          ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}
-        run: |
-          set -euo pipefail
-          if [[ "$ACQUISITION_OUTCOME" != "success" ]]; then
-            echo "Rosstat acquisition failed closed; inspect the uploaded immutable evidence." >&2
-            exit 1
-          fi
           node - <<'NODE'
           const fs = require('node:fs');
           const evidence = JSON.parse(fs.readFileSync('artifacts/tai-ap-14f1c/rosstat-resource-evidence.json', 'utf8'));
           if (evidence.exactHead !== process.env.EXACT_HEAD) throw new Error('exact-head evidence mismatch');
-          if (!evidence.allIntegritySatisfied) throw new Error('resource integrity is not satisfied');
-          if (evidence.failure !== null) throw new Error('resource evidence contains a failure');
+          if (!evidence.allIntegritySatisfied || evidence.failure !== null) {
+            throw new Error('resource integrity is not satisfied');
+          }
           if (evidence.rawBytesPersisted !== false || evidence.sharedRagAllowed !== false) {
-            throw new Error('evidence boundary mismatch');
+            throw new Error('discovery evidence boundary mismatch');
           }
           if (evidence.resources.length !== 5 || evidence.resources.some((item) => !item.integrityMatched)) {
             throw new Error('resource integrity evidence is incomplete');
@@ -243,10 +265,414 @@ jobs:
           console.log('TAI AP-14F1C governed resource integrity = success');
           NODE
 
+      - name: Ephemeral exact-byte refetch and deterministic SDMX materialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rosstat-static
+          pinned_ip="$(jq -r '.dns.selected' "$EVIDENCE_DIR/rosstat-resource-evidence.json")"
+          test -n "$pinned_ip"
+
+          fetch_exact() {
+            local url="$1"
+            local target="$2"
+            local maximum_bytes="$3"
+            local effective
+            effective="$(curl --silent --show-error --fail-with-body \
+              --cacert "$CURL_CA_BUNDLE" \
+              --proto '=https' \
+              --tlsv1.2 \
+              --max-redirs 0 \
+              --connect-timeout 10 \
+              --max-time 90 \
+              --max-filesize "$maximum_bytes" \
+              --header 'Accept-Encoding: identity' \
+              --header 'Cookie:' \
+              --user-agent 'Transparent-Agro-Intelligence/1.0 governed-open-data-materialization' \
+              --resolve "rosstat.gov.ru:443:$pinned_ip" \
+              --output "$target" \
+              --write-out '%{url_effective}' \
+              "$url")"
+            test "$effective" = "$url"
+          }
+
+          fetch_exact \
+            'https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/meta.csv' \
+            /tmp/rosstat-static/meta.csv \
+            1000000
+          fetch_exact \
+            'https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/structure-20181211T0212.xsd' \
+            /tmp/rosstat-static/structure.xml \
+            5000000
+          fetch_exact \
+            'https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/data-20181211T0212-structure-20181211T0212.xml' \
+            /tmp/rosstat-static/data.xml \
+            20000000
+
+          {
+            printf '%s  %s\n' 'f3aa83bc421d56e5951e0c499686fc919d0fa73efcdc3d98a1012b3c827fb89e' /tmp/rosstat-static/meta.csv
+            printf '%s  %s\n' 'c969338269a3dcf2b2e4949685e7e75d86e8ef587289df95fedd9a1054ddc2bc' /tmp/rosstat-static/structure.xml
+            printf '%s  %s\n' 'fa9a5313d783acd6ba5075f2d673492db720f10968c2b18edb54cd95293e60cd' /tmp/rosstat-static/data.xml
+          } | tee "$EVIDENCE_DIR/static-resource-sha256.txt" | sha256sum --check
+
+          observed_at="$(jq -r '.observedAt' "$EVIDENCE_DIR/rosstat-resource-evidence.json")"
+          python -m tai.rosstat_vshp2016254 \
+            --passport-csv /tmp/rosstat-static/meta.csv \
+            --structure-xml /tmp/rosstat-static/structure.xml \
+            --data-xml /tmp/rosstat-static/data.xml \
+            --observed-at "$observed_at" \
+            --output "$EVIDENCE_DIR/rosstat-materialization.json" \
+            | tee "$EVIDENCE_DIR/materialization.log"
+
+          rm -rf /tmp/rosstat-static
+          test ! -e /tmp/rosstat-static
+
+      - name: PostgreSQL 16 acquisition, snapshot and withdrawal acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY' | tee "$EVIDENCE_DIR/postgresql.txt"
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          from datetime import datetime, timedelta
+          from pathlib import Path
+
+          import psycopg
+          from psycopg import errors
+
+          database_url = os.environ["TEST_DATABASE_URL"]
+          evidence = json.loads(
+              Path("artifacts/tai-ap-14f1c/rosstat-resource-evidence.json").read_text(encoding="utf-8")
+          )
+          materialization = json.loads(
+              Path("artifacts/tai-ap-14f1c/rosstat-materialization.json").read_text(encoding="utf-8")
+          )
+          source_id = materialization["sourceId"]
+          data_resource = next(item for item in evidence["resources"] if item["code"] == "DATA_XML")
+          rights_resource = next(
+              item for item in evidence["resources"] if item["code"] == "RIGHTS_TERMS_PAGE"
+          )
+          dataset_resource = next(
+              item for item in evidence["resources"] if item["code"] == "DATASET_PAGE"
+          )
+          observed_at = datetime.fromisoformat(materialization["observedAt"].replace("Z", "+00:00"))
+          requested_at = observed_at - timedelta(seconds=2)
+          received_at = observed_at - timedelta(seconds=1)
+          completed_at = observed_at
+          actor_id = "github-actions-ap14f1c"
+          owner_id = "ap14f1c-worker"
+          run_id = "acq_" + hashlib.sha256(
+              f"{source_id}\n{data_resource['wireSha256']}\n{evidence['exactHead']}".encode()
+          ).hexdigest()[:32]
+          lease_token_sha256 = hashlib.sha256(
+              f"lease\n{evidence['exactHead']}\n{run_id}".encode()
+          ).hexdigest()
+          lease_version = 1
+          expires_at = observed_at + timedelta(hours=1)
+
+          def h(*values: object) -> str:
+              return hashlib.sha256("\n".join(str(value) for value in values).encode()).hexdigest()
+
+          raw_evidence_sha256 = h(
+              run_id,
+              source_id,
+              data_resource["requestedUri"],
+              data_resource["finalUri"],
+              data_resource["wireSha256"],
+              data_resource["decodedSha256"],
+              data_resource["sizeBytes"],
+              data_resource["sizeBytes"],
+              data_resource["mediaType"],
+              "utf-8",
+              data_resource["responseHeadersSha256"],
+              data_resource["resolvedIp"],
+              data_resource["tlsServerName"],
+              requested_at.isoformat(),
+              received_at.isoformat(),
+              "HTTP_200",
+          )
+          fragments_manifest_sha256 = hashlib.sha256(
+              "\n".join(
+                  sorted(record["fragmentSha256"] for record in materialization["records"])
+              ).encode()
+          ).hexdigest()
+          terminal_sha256 = h(
+              run_id,
+              "MATERIALIZED",
+              raw_evidence_sha256,
+              fragments_manifest_sha256,
+              "",
+              completed_at.isoformat(),
+          )
+
+          migration_root = Path("apps/tai/tai/migrations")
+          migrations = [
+              migration_root / "0019_public_official_corpus.sql",
+              migration_root / "0020_public_official_corpus_audit_authority.sql",
+              migration_root / "0021_public_official_acquisition_authority.sql",
+              migration_root / "0022_rosstat_vshp2016254_snapshot.sql",
+              migration_root / "0023_rosstat_vshp2016254_source_admission.sql",
+          ]
+
+          with psycopg.connect(database_url, autocommit=True) as connection:
+              for migration in migrations:
+                  connection.execute(migration.read_text(encoding="utf-8"))
+
+              connection.execute("SET ROLE tai_rosstat_vshp2016254_writer")
+              connection.execute(
+                  "SELECT tai_admit_rosstat_vshp2016254_source(%s,%s,%s,%s)",
+                  (
+                      observed_at,
+                      rights_resource["semanticSha256"],
+                      dataset_resource["semanticSha256"],
+                      actor_id,
+                  ),
+              )
+              connection.execute("RESET ROLE")
+
+              connection.execute("SET ROLE tai_public_acquisition_writer")
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_start(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                  (
+                      run_id,
+                      source_id,
+                      owner_id,
+                      lease_token_sha256,
+                      lease_version,
+                      requested_at,
+                      expires_at,
+                      actor_id,
+                      "ROSSTAT_CONTROLLED_ACQUISITION",
+                      h(run_id, "RUN_STARTED", observed_at.isoformat()),
+                      requested_at,
+                  ),
+              )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_raw_evidence(" + ",".join(["%s"] * 22) + ")",
+                  (
+                      run_id,
+                      owner_id,
+                      lease_token_sha256,
+                      lease_version,
+                      data_resource["requestedUri"],
+                      data_resource["finalUri"],
+                      data_resource["wireSha256"],
+                      data_resource["decodedSha256"],
+                      data_resource["sizeBytes"],
+                      data_resource["sizeBytes"],
+                      data_resource["mediaType"],
+                      "utf-8",
+                      data_resource["responseHeadersSha256"],
+                      data_resource["resolvedIp"],
+                      data_resource["tlsServerName"],
+                      requested_at,
+                      received_at,
+                      "HTTP_200",
+                      raw_evidence_sha256,
+                      actor_id,
+                      "ROSSTAT_FETCH_ACCEPTED",
+                      h(run_id, "FETCH_EVIDENCE", raw_evidence_sha256),
+                  ),
+              )
+              with connection.cursor() as cursor:
+                  cursor.executemany(
+                      "SELECT tai_record_public_acquisition_fragment(" + ",".join(["%s"] * 10) + ")",
+                      [
+                          (
+                              run_id,
+                              owner_id,
+                              lease_token_sha256,
+                              lease_version,
+                              record["ordinal"],
+                              "XML_XPATH",
+                              record["xpath"],
+                              record["fragmentSha256"],
+                              len(record["value"].encode("utf-8")),
+                              received_at,
+                          )
+                          for record in materialization["records"]
+                      ],
+                  )
+              connection.execute(
+                  "SELECT tai_record_public_acquisition_terminal(" + ",".join(["%s"] * 13) + ")",
+                  (
+                      run_id,
+                      owner_id,
+                      lease_token_sha256,
+                      lease_version,
+                      "MATERIALIZED",
+                      raw_evidence_sha256,
+                      fragments_manifest_sha256,
+                      None,
+                      completed_at,
+                      terminal_sha256,
+                      actor_id,
+                      "ROSSTAT_SDMX_MATERIALIZED",
+                      h(run_id, "MATERIALIZED", terminal_sha256),
+                  ),
+              )
+              connection.execute("RESET ROLE")
+
+              admission_args = (
+                  run_id,
+                  materialization["artifactSha256"],
+                  materialization["artifactSizeBytes"],
+                  materialization["artifactText"],
+                  observed_at,
+                  materialization["snapshotSha256"],
+                  json.dumps(materialization["records"], ensure_ascii=False),
+                  json.dumps(materialization["chunks"], ensure_ascii=False),
+                  actor_id,
+              )
+              connection.execute("SET ROLE tai_rosstat_vshp2016254_writer")
+              snapshot_id = connection.execute(
+                  "SELECT tai_admit_rosstat_vshp2016254_snapshot(" + ",".join(["%s"] * 9) + ")",
+                  admission_args,
+              ).fetchone()[0]
+              replay_snapshot_id = connection.execute(
+                  "SELECT tai_admit_rosstat_vshp2016254_snapshot(" + ",".join(["%s"] * 9) + ")",
+                  admission_args,
+              ).fetchone()[0]
+              if replay_snapshot_id != snapshot_id:
+                  raise SystemExit("exact replay returned a different snapshot")
+
+              for statement in (
+                  "INSERT INTO tai_public_corpus_source_admissions("
+                  "source_id,data_plane,source_class,rights_decision_id,official_uri,host_pin,"
+                  "rights_review_due_at,admitted_at,trust_score,status) VALUES ("
+                  "'official.direct.write','PUBLIC_OFFICIAL','OPEN_DATASET',"
+                  "'AP14F0-DIRECT-WRITE-DENIED','https://example.org/x','example.org',"
+                  "clock_timestamp()+interval '1 day',clock_timestamp(),0.9,'ADMITTED')",
+                  "UPDATE tai_public_corpus_artifacts SET status='WITHDRAWN'",
+                  "DELETE FROM tai_rosstat_vshp2016254_records",
+              ):
+                  try:
+                      connection.execute(statement)
+                  except errors.InsufficientPrivilege:
+                      pass
+                  else:
+                      raise SystemExit(f"restricted role direct DML was accepted: {statement}")
+              connection.execute("RESET ROLE")
+
+              active_records = connection.execute(
+                  "SELECT count(*) FROM tai_active_rosstat_vshp2016254_records_v1"
+              ).fetchone()[0]
+              active_chunks = connection.execute(
+                  "SELECT count(*) FROM tai_active_public_corpus_chunks_v1 WHERE source_id=%s",
+                  (source_id,),
+              ).fetchone()[0]
+              if active_records != len(materialization["records"]):
+                  raise SystemExit("active record count mismatch")
+              if active_chunks != len(materialization["chunks"]):
+                  raise SystemExit("active chunk count mismatch")
+              if connection.execute(
+                  "SELECT count(*) FROM tai_active_public_corpus_chunks_v1 "
+                  "WHERE source_id=%s AND chunk_text LIKE %s",
+                  (
+                      source_id,
+                      "%Исторические данные Всероссийской сельскохозяйственной переписи 2016 года%",
+                  ),
+              ).fetchone()[0] < 1:
+                  raise SystemExit("historical-data label is absent from active retrieval")
+              if connection.execute(
+                  "SELECT count(*) FROM tai_active_public_corpus_chunks_v1 "
+                  "WHERE source_id=%s AND chunk_text LIKE %s",
+                  (source_id, "%Источник: Росстат, набор 7708234640-VSHP2016254%"),
+              ).fetchone()[0] < 1:
+                  raise SystemExit("source attribution is absent from active retrieval")
+
+              mutated_records = json.loads(json.dumps(materialization["records"]))
+              mutated_records[0]["value"] += "-conflict"
+              connection.execute("SET ROLE tai_rosstat_vshp2016254_writer")
+              try:
+                  connection.execute(
+                      "SELECT tai_admit_rosstat_vshp2016254_snapshot(" + ",".join(["%s"] * 9) + ")",
+                      (*admission_args[:6], json.dumps(mutated_records, ensure_ascii=False), *admission_args[7:]),
+                  )
+              except (errors.CheckViolation, errors.InvalidParameterValue, errors.RaiseException):
+                  pass
+              else:
+                  raise SystemExit("conflicting record replay was accepted")
+              connection.execute("RESET ROLE")
+
+              for statement in (
+                  "UPDATE tai_rosstat_vshp2016254_records SET value_text='tampered'",
+                  "DELETE FROM tai_rosstat_vshp2016254_records",
+              ):
+                  try:
+                      connection.execute(statement)
+                  except errors.ObjectNotInPrerequisiteState:
+                      pass
+                  else:
+                      raise SystemExit(f"immutable record mutation was accepted: {statement}")
+
+              connection.execute(
+                  "SELECT tai_withdraw_public_corpus_source(%s,%s,%s,%s)",
+                  (
+                      source_id,
+                      actor_id,
+                      "AP14F1C_WITHDRAWAL_ACCEPTANCE",
+                      observed_at + timedelta(minutes=1),
+                  ),
+              )
+              remaining_records = connection.execute(
+                  "SELECT count(*) FROM tai_active_rosstat_vshp2016254_records_v1"
+              ).fetchone()[0]
+              remaining_chunks = connection.execute(
+                  "SELECT count(*) FROM tai_active_public_corpus_chunks_v1 WHERE source_id=%s",
+                  (source_id,),
+              ).fetchone()[0]
+              if remaining_records != 0 or remaining_chunks != 0:
+                  raise SystemExit("withdrawal did not revoke current retrieval")
+
+              result = {
+                  "schemaVersion": "tai.ap14f1c-postgresql-acceptance.v1",
+                  "exactHead": evidence["exactHead"],
+                  "sourceId": source_id,
+                  "snapshotId": snapshot_id,
+                  "snapshotSha256": materialization["snapshotSha256"],
+                  "artifactSha256": materialization["artifactSha256"],
+                  "recordCount": active_records,
+                  "chunkCount": active_chunks,
+                  "withdrawnActiveRecordCount": remaining_records,
+                  "withdrawnActiveChunkCount": remaining_chunks,
+                  "directDmlDenied": True,
+                  "exactReplayIdempotent": True,
+                  "conflictingReplayDenied": True,
+                  "operationalStatus": "NOT_ATTESTED",
+                  "productionHosting": "REG_RU_VPS_ONLY",
+              }
+              Path("artifacts/tai-ap-14f1c/postgresql-acceptance.json").write_text(
+                  json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+          PY
+
+      - name: Remove ephemeral source bytes
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/rosstat-static
+          test ! -e /tmp/rosstat-static
+
+      - name: Upload immutable AP-14F1C evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap-14f1c-rosstat-acceptance-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+
   exact-main-status:
     name: Observable exact-main status
     if: github.ref_name == 'main'
-    needs: exact-resource-evidence
+    needs: exact-resource-snapshot
     runs-on: ubuntu-24.04
     steps:
       - name: Publish exact-main acceptance status
@@ -260,6 +686,6 @@ jobs:
               sha: process.env.EXACT_HEAD,
               state: 'success',
               context: 'TAI AP-14F1C exact-main',
-              description: 'Exact Rosstat governed integrity accepted',
+              description: 'Rosstat source, SDMX provenance and snapshot accepted',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });
