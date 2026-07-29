@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f1d-rosstat-shared-retrieval-3374",
+  "status": "active",
+  "issue": 3374,
+  "baseCommit": "aa0583eef4a3d70a0810992a2d115811a6a97d0d",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f1d.yml",
+    "apps/tai/tai/migrations/0021_retrieval_activation_serialization.sql",
+    "apps/tai/tai/public_corpus_retrieval_sync.py",
+    "apps/tai/tests/test_public_corpus_retrieval_sync.py",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json",
+    "scripts/tai-ap-14f1d/verify.py"
+  ],
+  "boundaries": {
+    "exactDatasetOnly": true,
+    "datasetCode": "7708234640-VSHP2016254",
+    "sourceId": "official.rosstat.opendata.7708234640-vshp2016254",
+    "noSecondSourceAdmission": true,
+    "preserveNonTargetRetrievalDocuments": true,
+    "tenantIdMustBeNull": true,
+    "noModelInvocation": true,
+    "noEmbeddingsOrVectorDatabase": true,
+    "noModelTrainingOrWeights": true,
+    "noTenantLiveOrContractedData": true,
+    "noCredentials": true,
+    "noExternalWrites": true,
+    "noRegRuRuntimeActivation": true,
+    "noProductionCompletenessClaim": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 6,
+    "migrationFile": "0021_retrieval_activation_serialization.sql",
+    "serializedGenerationActivationRequired": true,
+    "sourceSpecificSyncRequired": true,
+    "manifestIdempotencyRequired": true,
+    "localizedLocales": [
+      "ru",
+      "en",
+      "zh"
+    ],
+    "exactCitationUriRequired": true,
+    "historicalLimitationRequired": true,
+    "irrelevantQueryAbstentionRequired": true,
+    "withdrawalEmptyGenerationRequired": true,
+    "staleHitCountAfterWithdrawal": 0,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
