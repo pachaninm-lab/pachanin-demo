@@ -96,25 +96,45 @@ function headerDigest(headers) {
     .join('\n')));
 }
 
+function decodeXmlText(body) {
+  if (body.length >= 3 && body[0] === 0xef && body[1] === 0xbb && body[2] === 0xbf) {
+    return body.subarray(3).toString('utf8');
+  }
+  if (body.length >= 2 && body[0] === 0xff && body[1] === 0xfe) {
+    return body.subarray(2).toString('utf16le');
+  }
+  if (body.length >= 2 && body[0] === 0xfe && body[1] === 0xff) {
+    const evenLength = body.length - (body.length % 2);
+    const swapped = Buffer.from(body.subarray(2, evenLength));
+    swapped.swap16();
+    return swapped.toString('utf16le');
+  }
+  return body.toString('utf8');
+}
+
 function assertBody(resource, body) {
-  const head = body.subarray(0, 1024).toString('latin1').trimStart().toLowerCase();
+  const latinHead = body.subarray(0, 1024).toString('latin1').trimStart().toLowerCase();
   if (resource.code === 'DATASET_PAGE') {
-    const text = body.toString('utf8');
+    const text = body.toString('utf8').replace(/^\uFEFF/, '');
     for (const marker of [DATASET, 'meta.csv', 'structure-20181211T0212.xsd', 'data-20181211T0212-structure-20181211T0212.xml']) {
       if (!text.includes(marker)) fail('ROSSTAT_PAGE_MARKER_MISSING', marker);
     }
     return;
   }
   if (resource.code === 'PASSPORT_CSV') {
-    if (head.startsWith('<html') || head.startsWith('<!doctype html')) fail('ROSSTAT_CSV_HTML_MISMATCH');
+    if (latinHead.startsWith('<html') || latinHead.startsWith('<!doctype html')) {
+      fail('ROSSTAT_CSV_HTML_MISMATCH');
+    }
     const text = body.toString('latin1');
     for (const marker of [DATASET, 'structure-20181211T0212.xsd', 'data-20181211T0212-structure-20181211T0212.xml']) {
       if (!text.includes(marker)) fail('ROSSTAT_CSV_MARKER_MISSING', marker);
     }
     return;
   }
-  if (!head.startsWith('<')) fail('ROSSTAT_XML_SIGNATURE_MISMATCH', resource.code);
-  const xml = body.toString('latin1').toLowerCase();
+  const xml = decodeXmlText(body).replace(/^\uFEFF/, '').trimStart().toLowerCase();
+  if (!xml.startsWith('<')) {
+    fail('ROSSTAT_XML_SIGNATURE_MISMATCH', `${resource.code}:${body.subarray(0, 16).toString('hex')}`);
+  }
   if (xml.includes('<!doctype') || xml.includes('<!entity') || xml.includes('<xi:include')) {
     fail('ROSSTAT_XML_EXTERNAL_OR_ENTITY_FORBIDDEN', resource.code);
   }
@@ -230,6 +250,10 @@ function selfTest() {
     if (isGlobalIpv4(ip)) fail('ROSSTAT_SELF_TEST_NON_GLOBAL_ACCEPTED', ip);
   }
   if (!isGlobalIpv4('8.8.8.8')) fail('ROSSTAT_SELF_TEST_GLOBAL_REJECTED');
+
+  const xsdText = '<?xml version="1.0"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"></xs:schema>';
+  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(xsdText)]));
+  assertBody({ code: 'STRUCTURE_XSD' }, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(xsdText, 'utf16le')]));
   console.log('TAI AP-14F1C discovery self-test = success');
 }
 
@@ -262,7 +286,10 @@ async function main() {
       sharedRagAllowed: false,
     };
     writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
-    console.log(JSON.stringify({ outputPath, resources: resources.map(({ code, mediaType, sizeBytes, wireSha256 }) => ({ code, mediaType, sizeBytes, wireSha256 })) }, null, 2));
+    console.log(JSON.stringify({
+      outputPath,
+      resources: resources.map(({ code, mediaType, sizeBytes, wireSha256 }) => ({ code, mediaType, sizeBytes, wireSha256 })),
+    }, null, 2));
     if (!allDigestsPinned) process.exitCode = 42;
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -276,4 +303,4 @@ if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   });
 }
 
-export { assertExactRoute, isGlobalIpv4, parseHeaders, validateManifest };
+export { assertBody, assertExactRoute, decodeXmlText, isGlobalIpv4, parseHeaders, validateManifest };
