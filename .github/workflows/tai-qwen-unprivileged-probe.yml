@@ -1,6 +1,10 @@
 name: TAI Qwen Unprivileged Capability Probe
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/tai-qwen-unprivileged-probe.yml'
   push:
     branches: [main]
     paths:
@@ -12,7 +16,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: tai-qwen-unprivileged-probe
+  group: tai-qwen-unprivileged-probe-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -26,27 +30,34 @@ env:
 
 jobs:
   probe:
+    if: >-
+      github.event_name == 'push' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.head.ref == 'ops/qwen-unprivileged-probe-3372-7'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout exact main
+      - name: Checkout exact revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Publish probe pending status
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           gh api --method POST \
-            "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" \
             -f state=pending \
-            -f context='TAI Qwen Unprivileged Probe exact-main' \
+            -f context='TAI Qwen Unprivileged Probe exact-revision' \
             -f description='Read-only model-user capability probe is running' \
             -f target_url="$run_url" >/dev/null
 
@@ -166,6 +177,7 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SERVICE_ACTIVE: ${{ steps.probe.outputs.service_active || '0' }}
           ENV_READABLE: ${{ steps.probe.outputs.env_readable || '0' }}
           SAME_AS_SERVICE_USER: ${{ steps.probe.outputs.same_as_service_user || '0' }}
@@ -185,11 +197,11 @@ jobs:
             description='Unprivileged authenticated Qwen access is ready'
           fi
           gh api --method POST \
-            "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" \
             -f state="$state" \
-            -f context='TAI Qwen Unprivileged Probe exact-main' \
+            -f context='TAI Qwen Unprivileged Probe exact-revision' \
             -f description="$description" \
             -f target_url="$run_url" >/dev/null
-          body="Read-only Qwen model-user capability probe completed for exact main \`$GITHUB_SHA\`. Service active: \`$SERVICE_ACTIVE\`; env readable: \`$ENV_READABLE\`; SSH user equals service user: \`$SAME_AS_SERVICE_USER\`; process environment readable: \`$PROC_ENV_READABLE\`; exact private listener: \`$PRIVATE_LISTENER\`; public listener absent: \`$PUBLIC_LISTENER_ABSENT\`; bounded key source: \`$KEY_SOURCE\`; authenticated health 200: \`$AUTHENTICATED_HEALTH_200\`. Probe: $run_url. No secret values or production mutations occurred."
+          body="Read-only Qwen model-user capability probe completed for exact revision \`$TARGET_SHA\`. Service active: \`$SERVICE_ACTIVE\`; env readable: \`$ENV_READABLE\`; SSH user equals service user: \`$SAME_AS_SERVICE_USER\`; process environment readable: \`$PROC_ENV_READABLE\`; exact private listener: \`$PRIVATE_LISTENER\`; public listener absent: \`$PUBLIC_LISTENER_ABSENT\`; bounded key source: \`$KEY_SOURCE\`; authenticated health 200: \`$AUTHENTICATED_HEALTH_200\`. Probe: $run_url. No secret values or production mutations occurred."
           gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
           gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "$body"
