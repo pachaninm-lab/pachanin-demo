@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { BookOpenCheck, ExternalLink, Loader2, Send, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { ExternalLink, Loader2, RotateCcw, Send, Sparkles, Square, X } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
 import { readGatewayStream, refusalCopy, type GatewayStreamStatus } from '@/lib/platform-v7/ai-gateway-stream';
 import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';
@@ -35,11 +35,6 @@ type Answer = {
   suggestions: string[];
   limitations: string[];
 };
-/**
- * A message produced by the gateway stream rather than by the knowledge-base
- * lookup. Kept separate from `answer` on purpose: the two are different claims,
- * and a reader must be able to tell a generated answer from a looked-up one.
- */
 type StreamedAnswer = {
   status: GatewayStreamStatus;
   refusal: GatewayRefusal | null;
@@ -51,35 +46,93 @@ type ContextPayload = { context: string; prompts: string[] };
 
 type Copy = {
   open: string;
+  shortcutHint: string;
   close: string;
   title: string;
   subtitle: string;
-  publicMode: string;
-  noAccountData: string;
-  greeting: string;
+  emptyTitle: string;
+  emptyBody: string;
   placeholder: string;
   send: string;
   stop: string;
   newChat: string;
   error: string;
-  facts: string;
-  maturity: string;
   sources: string;
+  details: string;
+  model: string;
   confidence: string;
   high: string;
   medium: string;
-  knowledge: string;
+  privacy: string;
+  processing: string;
 };
 
 const COPY: Record<Locale, Copy> = {
   ru: {
-    open: 'Спросить о платформе', close: 'Закрыть помощника по платформе', title: 'Помощник по платформе', subtitle: 'Публичные знания без доступа к личным кабинетам', publicMode: 'Публичный режим', noAccountData: 'Нет доступа к данным ЛК', greeting: 'Расскажу, как устроены Сделка, роли, аукцион, логистика, документы, деньги, споры, безопасность и внешние подключения. В публичном режиме я не вижу пользователей и реальные сделки.', placeholder: 'Спроси, как работает платформа…', send: 'Отправить', stop: 'Остановить', newChat: 'Новый диалог', error: 'Не удалось получить подтверждённый ответ из публичной базы знаний.', facts: 'Ключевые факты', maturity: 'Статус зрелости', sources: 'Открыть разделы', confidence: 'Уверенность', high: 'Высокая', medium: 'Средняя', knowledge: 'Версия знаний',
+    open: 'Спросить о платформе',
+    shortcutHint: 'ИИ-помощник',
+    close: 'Закрыть ИИ-помощника',
+    title: 'ИИ Прозрачной Цены',
+    subtitle: 'Помощник по платформе',
+    emptyTitle: 'Что нужно узнать?',
+    emptyBody: 'Объясню, как работает платформа, Сделка, роли и связанные процессы.',
+    placeholder: 'Задай вопрос о платформе',
+    send: 'Отправить',
+    stop: 'Остановить ответ',
+    newChat: 'Новый диалог',
+    error: 'Не удалось получить подтверждённый ответ. Попробуй ещё раз.',
+    sources: 'Источники',
+    details: 'Основание ответа',
+    model: 'Модель',
+    confidence: 'Уверенность',
+    high: 'высокая',
+    medium: 'средняя',
+    privacy: 'Публичный режим · без доступа к данным личных кабинетов',
+    processing: 'Формирую ответ…',
   },
   en: {
-    open: 'Ask about the platform', close: 'Close platform assistant', title: 'Platform assistant', subtitle: 'Public knowledge with no workspace access', publicMode: 'Public mode', noAccountData: 'No account data access', greeting: 'I can explain the Deal, roles, auction, logistics, documents, money, disputes, security and external connections. Public mode has no access to users or real deals.', placeholder: 'Ask how the platform works…', send: 'Send', stop: 'Stop', newChat: 'New chat', error: 'A confirmed answer from the public knowledge base was not available.', facts: 'Key facts', maturity: 'Maturity status', sources: 'Open sections', confidence: 'Confidence', high: 'High', medium: 'Medium', knowledge: 'Knowledge version',
+    open: 'Ask about the platform',
+    shortcutHint: 'AI assistant',
+    close: 'Close AI assistant',
+    title: 'Transparent Price AI',
+    subtitle: 'Platform assistant',
+    emptyTitle: 'What would you like to know?',
+    emptyBody: 'I can explain the platform, the Deal, roles and related processes.',
+    placeholder: 'Ask a question about the platform',
+    send: 'Send',
+    stop: 'Stop answer',
+    newChat: 'New chat',
+    error: 'A verified answer was not available. Try again.',
+    sources: 'Sources',
+    details: 'Basis of the answer',
+    model: 'Model',
+    confidence: 'Confidence',
+    high: 'high',
+    medium: 'medium',
+    privacy: 'Public mode · no access to workspace data',
+    processing: 'Preparing the answer…',
   },
   zh: {
-    open: '询问平台', close: '关闭平台助手', title: '平台助手', subtitle: '公共知识，不访问工作区数据', publicMode: '公共模式', noAccountData: '无法访问账户数据', greeting: '我可以解释交易、角色、竞价、物流、文件、资金、争议、安全和外部连接。公共模式无法访问用户或真实交易。', placeholder: '询问平台如何运作…', send: '发送', stop: '停止', newChat: '新对话', error: '无法从公共知识库获得已确认回答。', facts: '关键事实', maturity: '成熟度状态', sources: '打开相关页面', confidence: '置信度', high: '高', medium: '中', knowledge: '知识版本',
+    open: '询问平台',
+    shortcutHint: 'AI 助手',
+    close: '关闭 AI 助手',
+    title: '透明价格 AI',
+    subtitle: '平台助手',
+    emptyTitle: '你想了解什么？',
+    emptyBody: '我可以解释平台、交易、角色和相关流程。',
+    placeholder: '询问平台相关问题',
+    send: '发送',
+    stop: '停止回答',
+    newChat: '新对话',
+    error: '暂时无法获得经过验证的回答，请重试。',
+    sources: '来源',
+    details: '回答依据',
+    model: '模型',
+    confidence: '置信度',
+    high: '高',
+    medium: '中',
+    privacy: '公共模式 · 无法访问工作区数据',
+    processing: '正在生成回答…',
   },
 };
 
@@ -98,14 +151,17 @@ function messageId(prefix: string) {
 }
 
 function focusable(root: HTMLElement) {
-  return Array.from(root.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'))
+  return Array.from(root.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])'))
     .filter((node) => !node.hasAttribute('hidden') && node.getAttribute('aria-hidden') !== 'true');
 }
 
 function formatTime(value: string, locale: Locale) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale === 'zh' ? 'zh-CN' : 'ru-RU', { hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale === 'zh' ? 'zh-CN' : 'ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 export function PublicPlatformAssistant() {
@@ -124,12 +180,12 @@ export function PublicPlatformAssistant() {
   const messagesRef = React.useRef<HTMLDivElement>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const ui = COPY[locale];
-  const starterPrompts = contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || []);
+  const starterPrompts = (contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || [])).slice(0, 3);
+  const hasConversation = messages.length > 0;
+  const hasStreamingMessage = messages.some((message) => message.stream?.status === 'streaming');
 
   React.useEffect(() => {
-    const nextLocale = resolveLocale();
-    setLocale(nextLocale);
-    setMessages([{ id: messageId('assistant'), role: 'assistant', text: COPY[nextLocale].greeting }]);
+    setLocale(resolveLocale());
   }, []);
 
   React.useEffect(() => {
@@ -137,7 +193,7 @@ export function PublicPlatformAssistant() {
       const detail = (event as CustomEvent<ContextPayload>).detail;
       if (!detail || !Array.isArray(detail.prompts)) return;
       setContextName(typeof detail.context === 'string' ? detail.context : 'platform');
-      setContextualPrompts(detail.prompts.filter((prompt) => typeof prompt === 'string').slice(0, 6));
+      setContextualPrompts(detail.prompts.filter((prompt) => typeof prompt === 'string').slice(0, 3));
       setOpen(true);
       trackEvent('contextual_ai_prompt_opened', { context: detail.context || 'platform', source: 'public_contact_dock' });
     };
@@ -149,7 +205,9 @@ export function PublicPlatformAssistant() {
     if (!open || catalog) return;
     const controller = new AbortController();
     void fetch(`/api/public-platform-assistant?locale=${encodeURIComponent(locale)}`, {
-      cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal,
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
     }).then(async (response) => {
       if (!response.ok) return;
       const payload = await response.json() as Catalog;
@@ -194,7 +252,7 @@ export function PublicPlatformAssistant() {
 
   const reset = () => {
     abortRef.current?.abort();
-    setMessages([{ id: messageId('assistant'), role: 'assistant', text: ui.greeting }]);
+    setMessages([]);
     setInput('');
     setError('');
     setSending(false);
@@ -208,16 +266,6 @@ export function PublicPlatformAssistant() {
     setSending(false);
   };
 
-  /**
-   * Try the gateway stream before the knowledge-base lookup.
-   *
-   * Returns false only when the gateway is simply not switched on in this
-   * deployment, which is the one case where falling back to the verified public
-   * knowledge base is honest — that lookup never claims to be a model answer.
-   * Every other refusal is shown as a refusal: replacing it with a prepared
-   * answer is precisely how an assistant comes to look like it concluded
-   * something it did not.
-   */
   const streamAnswer = async (question: string, controller: AbortController): Promise<boolean> => {
     const id = messageId('assistant');
     let opened = false;
@@ -226,7 +274,11 @@ export function PublicPlatformAssistant() {
       const stream: StreamedAnswer = {
         status: snapshot.status,
         refusal: snapshot.refusal,
-        citations: snapshot.citations.map((citation) => ({ sourceId: citation.sourceId, title: citation.title, uri: citation.uri })),
+        citations: snapshot.citations.map((citation) => ({
+          sourceId: citation.sourceId,
+          title: citation.title,
+          uri: citation.uri,
+        })),
         modelIdentity: snapshot.modelIdentity,
       };
       setMessages((current) => {
@@ -244,13 +296,13 @@ export function PublicPlatformAssistant() {
     let response: Response;
     try {
       response = await fetch('/api/public-platform-assistant?stream=1', {
-        method: 'POST', cache: 'no-store',
+        method: 'POST',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-        signal: controller.signal, body: JSON.stringify({ message: question, locale }),
+        signal: controller.signal,
+        body: JSON.stringify({ message: question, locale }),
       });
     } catch {
-      // The stream could not even be opened. That is a transport problem, not a
-      // statement about the gateway, so the knowledge base may still answer.
       return false;
     }
 
@@ -266,11 +318,12 @@ export function PublicPlatformAssistant() {
     if (snapshot.refusal === 'FEATURE_DISABLED' || snapshot.refusal === 'MODEL_NOT_ADMITTED' || snapshot.refusal === null) {
       return false;
     }
-
     if (snapshot.refusal === 'CANCELLED') return true;
 
     setMessages((current) => [...current, {
-      id, role: 'assistant', text: refusalCopy(locale, snapshot.refusal),
+      id,
+      role: 'assistant',
+      text: refusalCopy(locale, snapshot.refusal),
       stream: { status: 'refused', refusal: snapshot.refusal, citations: [], modelIdentity: snapshot.modelIdentity },
     }]);
     trackEvent('public_platform_assistant_stream_refusal', { refusal: snapshot.refusal, locale });
@@ -292,11 +345,22 @@ export function PublicPlatformAssistant() {
       if (await streamAnswer(normalized, controller)) return;
 
       const response = await fetch('/api/public-platform-assistant', {
-        method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, signal: controller.signal, body: JSON.stringify({ message: normalized, locale }),
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({ message: normalized, locale }),
       });
       const payload = await response.json().catch(() => null) as Answer | null;
-      if (!response.ok || !payload || payload.dataMode !== 'public_knowledge' || typeof payload.answer !== 'string') throw new Error(`public_assistant_http_${response.status}`);
-      setMessages((current) => [...current, { id: payload.requestId || messageId('assistant'), role: 'assistant', text: payload.answer, answer: payload }]);
+      if (!response.ok || !payload || payload.dataMode !== 'public_knowledge' || typeof payload.answer !== 'string') {
+        throw new Error(`public_assistant_http_${response.status}`);
+      }
+      setMessages((current) => [...current, {
+        id: payload.requestId || messageId('assistant'),
+        role: 'assistant',
+        text: payload.answer,
+        answer: payload,
+      }]);
       trackEvent('public_platform_assistant_answer', { topic: payload.topic, confidence: payload.confidence });
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') return;
@@ -324,80 +388,192 @@ export function PublicPlatformAssistant() {
         }}
       >
         <span className='pc-public-assistant-shortcut-icon' aria-hidden='true'><Sparkles size={20} /></span>
-        <span className='pc-public-assistant-shortcut-copy'><strong>{ui.open}</strong><small>{ui.noAccountData}</small></span>
+        <span className='pc-public-assistant-shortcut-copy'><strong>{ui.open}</strong><small>{ui.shortcutHint}</small></span>
       </button>
 
       {open ? (
         <>
           <button className='pc-public-assistant-backdrop' type='button' aria-label={ui.close} onClick={() => setOpen(false)} />
-          <section ref={panelRef} id='pc-public-assistant-panel' role='dialog' aria-modal='true' aria-labelledby='pc-public-assistant-title' className='pc-public-assistant-panel' data-knowledge-version={catalog?.knowledgeVersion || 'loading'} data-context={contextName}>
+          <section
+            ref={panelRef}
+            id='pc-public-assistant-panel'
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='pc-public-assistant-title'
+            className='pc-public-assistant-panel'
+            data-knowledge-version={catalog?.knowledgeVersion || 'loading'}
+            data-context={contextName}
+            data-has-conversation={String(hasConversation)}
+          >
             <header className='pc-public-assistant-header'>
               <div className='pc-public-assistant-identity'>
                 <span className='pc-public-assistant-mark' aria-hidden='true'><Sparkles size={20} /></span>
                 <div><strong id='pc-public-assistant-title'>{ui.title}</strong><span>{ui.subtitle}</span></div>
               </div>
-              <button type='button' className='pc-public-assistant-icon-button' onClick={() => setOpen(false)} aria-label={ui.close}><X size={20} aria-hidden='true' /></button>
+              {hasConversation ? (
+                <button type='button' className='pc-public-assistant-header-action' onClick={reset} aria-label={ui.newChat} title={ui.newChat}>
+                  <RotateCcw size={18} aria-hidden='true' />
+                </button>
+              ) : null}
+              <button type='button' className='pc-public-assistant-icon-button' onClick={() => setOpen(false)} aria-label={ui.close}>
+                <X size={20} aria-hidden='true' />
+              </button>
             </header>
 
-            <div className='pc-public-assistant-boundary' role='note'>
-              <span><BookOpenCheck size={16} aria-hidden='true' />{ui.publicMode}</span>
-              <span><ShieldCheck size={16} aria-hidden='true' />{ui.noAccountData}</span>
-            </div>
-
-            <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite'>
-              {messages.map((message) => (
-                <article key={message.id} className='pc-public-assistant-message' data-role={message.role} data-stream-status={message.stream?.status} data-stream-refusal={message.stream?.refusal ?? undefined}>
-                  <div className='pc-public-assistant-bubble'>{message.answer ? <strong className='pc-public-assistant-answer-title'>{message.answer.title}</strong> : null}<p>{message.text}</p></div>
-                  {message.stream ? (
-                    <div className='pc-public-assistant-stream' data-status={message.stream.status}>
-                      {message.stream.status === 'streaming' ? (
-                        // Marked provisional for as long as it is provisional. If the
-                        // stream never completes this whole message is removed, so an
-                        // unfinished answer is never left on screen looking validated.
-                        <p className='pc-public-assistant-stream-provisional' role='status'>
-                          <Loader2 size={15} aria-hidden='true' />
-                          {locale === 'en' ? 'Answer in progress — not yet complete' : locale === 'zh' ? '回答生成中——尚未完成' : 'Ответ ещё формируется — он пока не завершён'}
-                        </p>
-                      ) : null}
-                      {message.stream.status === 'answered' && message.stream.citations.length ? (
-                        <nav aria-label={ui.sources}><strong>{ui.sources}</strong><div>{message.stream.citations.map((citation) => <a key={citation.uri} href={citation.uri}>{citation.title}<ExternalLink size={14} aria-hidden='true' /></a>)}</div></nav>
-                      ) : null}
-                      {message.stream.modelIdentity ? <small className='pc-public-assistant-model'>{locale === 'en' ? 'Admitted model' : locale === 'zh' ? '已准入模型' : 'Допущенная модель'}: {message.stream.modelIdentity}</small> : null}
+            <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite' aria-busy={sending}>
+              {!hasConversation ? (
+                <section className='pc-public-assistant-empty' aria-labelledby='pc-public-assistant-empty-title'>
+                  <div className='pc-public-assistant-empty-copy'>
+                    <h2 id='pc-public-assistant-empty-title'>{ui.emptyTitle}</h2>
+                    <p>{ui.emptyBody}</p>
+                  </div>
+                  {starterPrompts.length ? (
+                    <div className='pc-public-assistant-quick-actions' data-context={contextName}>
+                      {starterPrompts.map((prompt) => (
+                        <button
+                          key={prompt}
+                          type='button'
+                          onClick={() => {
+                            trackEvent('contextual_ai_prompt_opened', { context: contextName, action: 'selected' });
+                            void submit(prompt);
+                          }}
+                        >
+                          {prompt}
+                        </button>
+                      ))}
                     </div>
                   ) : null}
+                </section>
+              ) : null}
+
+              {messages.map((message) => (
+                <article
+                  key={message.id}
+                  className='pc-public-assistant-message'
+                  data-role={message.role}
+                  data-stream-status={message.stream?.status}
+                  data-stream-refusal={message.stream?.refusal ?? undefined}
+                  data-model-identity={message.stream?.modelIdentity ?? undefined}
+                >
+                  {message.text || message.answer?.title ? (
+                    <div className='pc-public-assistant-bubble'>
+                      {message.answer ? <strong className='pc-public-assistant-answer-title'>{message.answer.title}</strong> : null}
+                      {message.text ? <p>{message.text}</p> : null}
+                    </div>
+                  ) : null}
+
+                  {message.stream?.status === 'streaming' ? (
+                    <p className='pc-public-assistant-stream-provisional' role='status'>
+                      <Loader2 size={15} aria-hidden='true' />
+                      {ui.processing}
+                    </p>
+                  ) : null}
+
+                  {message.stream?.status === 'answered' ? (
+                    <div className='pc-public-assistant-answer'>
+                      {message.stream.citations.length ? (
+                        <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
+                          {message.stream.citations.map((citation) => (
+                            <a key={citation.uri} href={citation.uri}>
+                              {citation.title}<ExternalLink size={14} aria-hidden='true' />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                      {message.stream.modelIdentity ? (
+                        <details className='pc-public-assistant-details'>
+                          <summary>{ui.details}</summary>
+                          <div className='pc-public-assistant-details-body'>
+                            <p className='pc-public-assistant-model'>{ui.model}: {message.stream.modelIdentity}</p>
+                          </div>
+                        </details>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {message.answer ? (
                     <div className='pc-public-assistant-answer'>
-                      <section><h3>{ui.facts}</h3><ul>{message.answer.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul></section>
-                      <section className='pc-public-assistant-maturity'><h3>{ui.maturity}</h3><p>{message.answer.maturity}</p></section>
-                      <footer><span>{ui.confidence}: <strong>{message.answer.confidence === 'high' ? ui.high : ui.medium}</strong></span><span>{formatTime(message.answer.generatedAt, locale)}</span></footer>
                       {message.answer.sources.length ? (
-                        <nav aria-label={ui.sources}><strong>{ui.sources}</strong><div>{message.answer.sources.map((source) => <a key={`${source.href}-${source.label}`} href={source.href} onClick={() => trackEvent('public_platform_assistant_source_opened', { topic: message.answer?.topic, href: source.href })}>{source.label}<ExternalLink size={14} aria-hidden='true' /></a>)}</div></nav>
+                        <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
+                          {message.answer.sources.map((source) => (
+                            <a
+                              key={`${source.href}-${source.label}`}
+                              href={source.href}
+                              onClick={() => trackEvent('public_platform_assistant_source_opened', {
+                                topic: message.answer?.topic,
+                                href: source.href,
+                              })}
+                            >
+                              {source.label}<ExternalLink size={14} aria-hidden='true' />
+                            </a>
+                          ))}
+                        </div>
                       ) : null}
-                      {message.answer.suggestions.length ? <div className='pc-public-assistant-suggestions'>{message.answer.suggestions.map((suggestion) => <button key={suggestion} type='button' onClick={() => void submit(suggestion)}>{suggestion}</button>)}</div> : null}
+
+                      <details className='pc-public-assistant-details'>
+                        <summary>{ui.details}</summary>
+                        <div className='pc-public-assistant-details-body'>
+                          {message.answer.facts.length ? (
+                            <ul>{message.answer.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul>
+                          ) : null}
+                          {message.answer.maturity ? <p>{message.answer.maturity}</p> : null}
+                          <div className='pc-public-assistant-answer-meta'>
+                            <span>{ui.confidence}: {message.answer.confidence === 'high' ? ui.high : ui.medium}</span>
+                            <time dateTime={message.answer.generatedAt}>{formatTime(message.answer.generatedAt, locale)}</time>
+                          </div>
+                        </div>
+                      </details>
+
+                      {message.answer.suggestions.length ? (
+                        <div className='pc-public-assistant-followups'>
+                          {message.answer.suggestions.slice(0, 3).map((suggestion) => (
+                            <button key={suggestion} type='button' onClick={() => void submit(suggestion)}>{suggestion}</button>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </article>
               ))}
-              {sending ? <div className='pc-public-assistant-processing' role='status'><Loader2 size={17} aria-hidden='true' /><span>{locale === 'en' ? 'Checking the public knowledge base…' : locale === 'zh' ? '正在检查公共知识库…' : 'Сверяю публичную базу знаний…'}</span></div> : null}
-            </div>
 
-            {!messages.some((message) => message.answer) && starterPrompts.length ? (
-              <div className='pc-public-assistant-starters' data-context={contextName}>
-                {starterPrompts.map((prompt) => <button key={prompt} type='button' onClick={() => { trackEvent('contextual_ai_prompt_opened', { context: contextName, action: 'selected' }); void submit(prompt); }}>{prompt}</button>)}
-              </div>
-            ) : null}
+              {sending && !hasStreamingMessage ? (
+                <div className='pc-public-assistant-processing' role='status'>
+                  <Loader2 size={17} aria-hidden='true' /><span>{ui.processing}</span>
+                </div>
+              ) : null}
+            </div>
 
             {error ? <div className='pc-public-assistant-error' role='alert'>{error}</div> : null}
 
-            <form className='pc-public-assistant-form' onSubmit={(event) => { event.preventDefault(); void submit(input); }}>
-              <textarea ref={textareaRef} value={input} onChange={(event) => setInput(event.target.value.slice(0, 1_200))} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void submit(input); } }} rows={2} maxLength={1_200} placeholder={ui.placeholder} aria-label={ui.placeholder} />
-              <div className='pc-public-assistant-form-actions'>
-                <button type='button' className='pc-public-assistant-secondary' onClick={reset}>{ui.newChat}</button>
-                {sending ? <button type='button' className='pc-public-assistant-primary' onClick={stop}>{ui.stop}</button> : <button type='submit' className='pc-public-assistant-primary' disabled={!input.trim()}><Send size={16} aria-hidden='true' />{ui.send}</button>}
+            <form className='pc-public-assistant-composer' onSubmit={(event) => { event.preventDefault(); void submit(input); }}>
+              <div className='pc-public-assistant-composer-shell'>
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(event) => setInput(event.target.value.slice(0, 1_200))}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      void submit(input);
+                    }
+                  }}
+                  rows={1}
+                  maxLength={1_200}
+                  placeholder={ui.placeholder}
+                  aria-label={ui.placeholder}
+                />
+                {sending ? (
+                  <button type='button' className='pc-public-assistant-composer-button' data-kind='stop' onClick={stop} aria-label={ui.stop} title={ui.stop}>
+                    <Square size={17} aria-hidden='true' />
+                  </button>
+                ) : (
+                  <button type='submit' className='pc-public-assistant-composer-button' disabled={!input.trim()} aria-label={ui.send} title={ui.send}>
+                    <Send size={18} aria-hidden='true' />
+                  </button>
+                )}
               </div>
+              <p className='pc-public-assistant-privacy'>{ui.privacy}</p>
             </form>
-
-            <small className='pc-public-assistant-version'>{ui.knowledge}: {catalog?.knowledgeVersion || '—'}</small>
           </section>
         </>
       ) : null}

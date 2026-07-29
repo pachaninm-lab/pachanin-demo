@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/public-ai-window-clean-ui",
+  "status": "active",
+  "issue": 3368,
+  "baseCommit": "1136c38f67e0a4a41cef1903dadf334a22b7f4a6",
+  "operationalStatus": "UI_ONLY_EXACT_MAIN_FINAL_GATES_RUNNING",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/styles/platform-v7-public-assistant.css",
+    "apps/web/styles/platform-v7-public-assistant-mobile-fix.css",
+    "apps/web/tests/unit/platformV7PublicAssistantCleanUi.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-ai-window-clean-ui-3368.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "empty state contains one short explanation and at most three starter prompts",
+    "public data boundary is stated once without duplicate badges or paragraphs",
+    "composer uses one integrated send or stop control and no persistent secondary action row",
+    "sources remain visible and answer provenance remains available without permanent technical clutter",
+    "new conversation control is shown only after the dialogue has content",
+    "RU, EN and ZH copy remains complete",
+    "keyboard, focus trap, cancellation, reduced motion and forced-colors behavior remain intact",
+    "mobile layout fits 320, 375, 390 and 430 CSS pixels without horizontal overflow",
+    "desktop layout remains usable at 768, 1024 and 1440 CSS pixels",
+    "the branch is synchronized with current main before final exact-head checks"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
