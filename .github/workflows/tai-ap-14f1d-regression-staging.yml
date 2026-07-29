@@ -68,4 +68,5 @@ jobs:
           name: tai-ap-14f1d-regression-compat-${{ github.event.pull_request.head.sha || github.sha }}
           path: artifacts/tai-ap-14f1d-regression-compat
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
