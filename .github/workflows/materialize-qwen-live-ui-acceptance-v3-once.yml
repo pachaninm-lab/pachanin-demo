@@ -33,68 +33,88 @@ jobs:
           text = workflow.read_text(encoding='utf-8')
           nl = chr(10)
 
-          def replace_once(old: str, new: str, label: str) -> None:
+          def locate_line(token: str) -> tuple[int, int, str]:
+              pos = text.index(token)
+              start = text.rfind(nl, 0, pos) + 1
+              end = text.find(nl, pos)
+              if end < 0:
+                  end = len(text)
+              return start, end, text[start:pos]
+
+          def replace_unique(old: str, new: str, label: str) -> None:
               global text
               count = text.count(old)
               if count != 1:
                   raise SystemExit(f'{label}: expected one match, found {count}')
               text = text.replace(old, new, 1)
 
-          dock = "    const dockTrigger = page.locator('.pc-public-contact-dock-assistant');"
-          hydration = nl.join([
-              "    const hiddenTrigger = page.locator('.pc-public-assistant-shortcut');",
-              "    await hiddenTrigger.waitFor({ state: 'attached', timeout: 30000 });",
-              "    await page.waitForFunction(() => document.querySelector('.pc-public-assistant-shortcut')?.getAttribute('aria-hidden') === 'true', null, { timeout: 30000 });",
+          dock_token = "const dockTrigger = page.locator('.pc-public-contact-dock-assistant');"
+          dock_start, dock_end, prefix = locate_line(dock_token)
+          hydration_lines = [
+              "const hiddenTrigger = page.locator('.pc-public-assistant-shortcut');",
+              "await hiddenTrigger.waitFor({ state: 'attached', timeout: 30000 });",
+              "await page.waitForFunction(() => document.querySelector('.pc-public-assistant-shortcut')?.getAttribute('aria-hidden') === 'true', null, { timeout: 30000 });",
               '',
-              dock,
-          ])
-          replace_once(dock, hydration, 'dock hydration anchor')
+              dock_token,
+          ]
+          hydration = nl.join(prefix + line if line else '' for line in hydration_lines)
+          text = text[:dock_start] + hydration + text[dock_end:]
 
-          old_dialog = nl.join([
-              "    const dialog = page.locator('#pc-public-assistant-panel');",
-              "    await dialog.waitFor({ state: 'visible', timeout: 30000 });",
-          ])
-          new_dialog = nl.join([
-              "    const dialog = page.locator('#pc-public-assistant-panel');",
-              '    try {',
-              "      await dialog.waitFor({ state: 'visible', timeout: 5000 });",
-              '    } catch {',
-              '      await hiddenTrigger.evaluate((node) => node.click());',
-              '    }',
-              "    await dialog.waitFor({ state: 'visible', timeout: 30000 });",
-          ])
-          replace_once(old_dialog, new_dialog, 'dialog hydration fallback')
+          dialog_token = "const dialog = page.locator('#pc-public-assistant-panel');"
+          dialog_start, _, dialog_prefix = locate_line(dialog_token)
+          wait_token = "await dialog.waitFor({ state: 'visible', timeout: 30000 });"
+          wait_pos = text.index(wait_token, dialog_start)
+          wait_end = text.find(nl, wait_pos)
+          if wait_end < 0:
+              wait_end = len(text)
+          dialog_lines = [
+              dialog_token,
+              'try {',
+              "  await dialog.waitFor({ state: 'visible', timeout: 5000 });",
+              '} catch {',
+              '  await hiddenTrigger.evaluate((node) => node.click());',
+              '}',
+              wait_token,
+          ]
+          dialog_block = nl.join(dialog_prefix + line if line else '' for line in dialog_lines)
+          text = text[:dialog_start] + dialog_block + text[wait_end:]
 
-          replace_once("!== 'Что нужно узнать?'", "!== 'Чем помочь?'", 'current empty state')
-          replace_once("throw new Error('compact_empty_state_missing');", "throw new Error('agro_empty_state_missing');" + nl + "    if (!((await dialog.locator('.pc-public-assistant-identity span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');", 'agro subtitle assertion')
-          replace_once("{ name: 'Задай вопрос о платформе' }", "{ name: 'Задай вопрос об агробизнесе или платформе' }", 'composer accessible name')
-          replace_once("    const answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]');", "    let answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]').last();", 'mutable answer locator')
-          replace_once("    const answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();", "    let answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();", 'mutable answer text')
-          replace_once("throw new Error('ui_answer_too_short');", "throw new Error('ui_platform_answer_too_short');", 'platform answer assertion')
+          replace_unique("!== 'Что нужно узнать?'", "!== 'Чем помочь?'", 'current empty state')
+          empty_error = "throw new Error('compact_empty_state_missing');"
+          empty_pos = text.index(empty_error)
+          _, _, assertion_prefix = locate_line(empty_error)
+          subtitle = assertion_prefix + "if (!((await dialog.locator('.pc-public-assistant-identity span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');"
+          replace_unique(empty_error, "throw new Error('agro_empty_state_missing');" + nl + subtitle, 'agro subtitle assertion')
+          replace_unique("{ name: 'Задай вопрос о платформе' }", "{ name: 'Задай вопрос об агробизнесе или платформе' }", 'composer accessible name')
+          replace_unique("const answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]');", "let answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]').last();", 'mutable answer locator')
+          replace_unique("const answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();", "let answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();", 'mutable answer text')
+          replace_unique("throw new Error('ui_answer_too_short');", "throw new Error('ui_platform_answer_too_short');", 'platform answer assertion')
 
-          alert = "    if (await dialog.locator('[role=\"alert\"]').count()) throw new Error('ui_alert_present');"
-          additional = nl.join([
-              alert,
+          alert_token = "if (await dialog.locator('[role=\"alert\"]').count()) throw new Error('ui_alert_present');"
+          alert_start, alert_end, check_prefix = locate_line(alert_token)
+          extra_lines = [
+              alert_token,
               '',
-              "    await dialog.getByRole('button', { name: 'Новый диалог' }).click();",
-              "    await composer.fill('Привет');",
-              "    await dialog.getByRole('button', { name: 'Отправить' }).click();",
-              "    answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]').last();",
-              "    await answered.waitFor({ state: 'visible', timeout: 240000 });",
-              "    answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();",
-              "    if (answerText.length < 10) throw new Error('ui_greeting_answer_too_short');",
-              "    if (answerText.includes('нет подтверждённого основания')) throw new Error('legacy_greeting_refusal_present');",
+              "await dialog.getByRole('button', { name: 'Новый диалог' }).click();",
+              "await composer.fill('Привет');",
+              "await dialog.getByRole('button', { name: 'Отправить' }).click();",
+              "answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]').last();",
+              "await answered.waitFor({ state: 'visible', timeout: 240000 });",
+              "answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();",
+              "if (answerText.length < 10) throw new Error('ui_greeting_answer_too_short');",
+              "if (answerText.includes('нет подтверждённого основания')) throw new Error('legacy_greeting_refusal_present');",
               '',
-              "    await dialog.getByRole('button', { name: 'Новый диалог' }).click();",
-              "    await composer.fill('Что влияет на цену зерна?');",
-              "    await dialog.getByRole('button', { name: 'Отправить' }).click();",
-              "    answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]').last();",
-              "    await answered.waitFor({ state: 'visible', timeout: 240000 });",
-              "    answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();",
-              "    if (answerText.length < 20) throw new Error('ui_general_agro_answer_too_short');",
-              "    if (await answered.locator('.pc-public-assistant-source-list a').count()) throw new Error('general_agro_fake_platform_citation');",
-          ])
-          replace_once(alert, additional, 'greeting and agro live checks')
+              "await dialog.getByRole('button', { name: 'Новый диалог' }).click();",
+              "await composer.fill('Что влияет на цену зерна?');",
+              "await dialog.getByRole('button', { name: 'Отправить' }).click();",
+              "answered = dialog.locator('.pc-public-assistant-message[data-role=\"assistant\"][data-stream-status=\"answered\"]').last();",
+              "await answered.waitFor({ state: 'visible', timeout: 240000 });",
+              "answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();",
+              "if (answerText.length < 20) throw new Error('ui_general_agro_answer_too_short');",
+              "if (await answered.locator('.pc-public-assistant-source-list a').count()) throw new Error('general_agro_fake_platform_citation');",
+          ]
+          extra = nl.join(check_prefix + line if line else '' for line in extra_lines)
+          text = text[:alert_start] + extra + text[alert_end:]
           text = text.replace("emptyState: 'Что нужно узнать?'", "emptyState: 'Чем помочь?'", 1)
           workflow.write_text(text, encoding='utf-8')
 
