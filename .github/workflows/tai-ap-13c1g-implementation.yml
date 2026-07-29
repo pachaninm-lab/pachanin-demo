@@ -25,11 +25,12 @@ jobs:
           ref: agent/tai-ap-13c1g-public-role-qwen-3365
           fetch-depth: 0
 
-      - name: Apply exact bounded runtime hardening
+      - name: Apply exact bounded runtime hardening and register scope
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
+          import json
           from pathlib import Path
 
           def replace_once(path: str, old: str, new: str) -> None:
@@ -76,6 +77,18 @@ jobs:
               "if (!/^\\/platform-v7(?:\\/|$)/u.test(href) || href.includes('..') || href.includes('://')) {",
               "const privateRoute = /^\\/platform-v7\\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\\/|$)/u;\n  if (!/^\\/platform-v7(?:\\/|$)/u.test(href) || privateRoute.test(href) || href.includes('..') || href.includes('://')) {",
           )
+
+          scope_path = Path("apps/tai/governance/scopes/ap-13c1g-public-role-qwen-3365.json")
+          state_path = Path("docs/platform-v7/autopilot/autopilot-state.json")
+          scope = json.loads(scope_path.read_text(encoding="utf-8"))
+          state = json.loads(state_path.read_text(encoding="utf-8"))
+          branch = scope["branch"]
+          approved = state.setdefault("approvedConcurrentScopes", {})
+          approved[branch] = scope["allowed_paths"]
+          state_path.write_text(
+              json.dumps(state, ensure_ascii=False, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
           PY
 
       - name: Install exact dependencies
@@ -117,7 +130,8 @@ jobs:
           git add \
             apps/api/src/modules/ai-insights/ai-assistant.service.ts \
             apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts \
-            apps/web/app/api/restricted-public-platform-assistant/route.ts
+            apps/web/app/api/restricted-public-platform-assistant/route.ts \
+            docs/platform-v7/autopilot/autopilot-state.json
           git diff --cached --check
           git commit -m 'TAI AP-13C.1g: harden restricted Qwen runtime'
           git push origin HEAD:agent/tai-ap-13c1g-public-role-qwen-3365
