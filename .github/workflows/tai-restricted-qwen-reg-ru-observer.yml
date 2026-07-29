@@ -1,0 +1,88 @@
+name: TAI Restricted Qwen REG.RU Activation Observer
+
+on:
+  workflow_run:
+    workflows:
+      - TAI Restricted Qwen REG.RU Activation
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+  statuses: write
+
+concurrency:
+  group: tai-restricted-qwen-reg-ru-observer-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  record:
+    if: github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Publish exact-main status and durable issue result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          case "$CONCLUSION" in
+            success)
+              state=success
+              description='REG.RU Qwen activation and live acceptance passed'
+              ;;
+            cancelled|skipped)
+              state=error
+              description="REG.RU Qwen activation ${CONCLUSION}"
+              ;;
+            *)
+              state=failure
+              description="REG.RU Qwen activation ${CONCLUSION}"
+              ;;
+          esac
+
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" \
+            -f state="$state" \
+            -f context='TAI Restricted Qwen REG.RU Activation exact-main' \
+            -f description="$description" \
+            -f target_url="$RUN_URL" >/dev/null
+
+          marker="<!-- tai-qwen-activation-observer:${TARGET_SHA}:${CONCLUSION}:${RUN_ID} -->"
+          if ! gh api "repos/$GITHUB_REPOSITORY/issues/3372/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
+            body_file="$RUNNER_TEMP/tai-qwen-observer.md"
+            if [[ "$CONCLUSION" == success ]]; then
+              {
+                printf '%s\n' "$marker"
+                printf '%s\n' "REG.RU activation observer confirmed **SUCCESS** for exact main \`$TARGET_SHA\`."
+                printf '\n'
+                printf '%s\n' "- Activation workflow: $RUN_URL"
+                printf '%s\n' '- Exact-main status: `TAI Restricted Qwen REG.RU Activation exact-main = success`'
+                printf '%s\n' '- The activation workflow remains the authority for API-to-private-model inference, RU/EN/ZH SSE, Chromium UI acceptance and rollback cleanup.'
+              } > "$body_file"
+            else
+              {
+                printf '%s\n' "$marker"
+                printf '%s\n' "REG.RU activation observer recorded **${CONCLUSION^^}** for exact main \`$TARGET_SHA\`."
+                printf '\n'
+                printf '%s\n' "- Failed or interrupted workflow: $RUN_URL"
+                printf '%s\n' "- Exact-main status: \`TAI Restricted Qwen REG.RU Activation exact-main = $state\`"
+                printf '%s\n' "- Issue remains open. The activation workflow's fail-closed rollback step is authoritative; no live-success claim is allowed."
+              } > "$body_file"
+            fi
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body-file "$body_file"
+          fi
+
+          if [[ "$CONCLUSION" == success ]]; then
+            gh issue close 3372 --repo "$GITHUB_REPOSITORY" --reason completed || true
+            gh issue close 3368 --repo "$GITHUB_REPOSITORY" --reason completed || true
+          fi
