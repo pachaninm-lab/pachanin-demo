@@ -1,6 +1,9 @@
 name: TAI AP-14F1C One-Shot Ruff Fix
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap-14f1c.yml'
   push:
     branches:
       - agent/tai-ap-14f1c-rosstat-dataset-3360
