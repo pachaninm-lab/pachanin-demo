@@ -87,6 +87,10 @@
     {
       "path": "0021_public_official_acquisition_authority.sql",
       "version": 22
+    },
+    {
+      "path": "0021_retrieval_activation_serialization.sql",
+      "version": 23
     }
   ],
   "schema_version": "tai.migration.manifest.v1"

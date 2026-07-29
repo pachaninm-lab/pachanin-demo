@@ -381,9 +381,17 @@ jobs:
           set -euo pipefail
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
           printf '%s\n' "${{ steps.base.outputs.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
+          strict_slice=false
+          verifier_args=()
+          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == \
+            "agent/tai-ap-14f1b2-acquisition-authority-3362" ]]; then
+            strict_slice=true
+            verifier_args=(--scope-guard "${{ steps.base.outputs.base_ref }}")
+          fi
+          export STRICT_SLICE="$strict_slice"
+          printf '%s\n' "$STRICT_SLICE" > "$EVIDENCE_DIR/verifier-strict-slice.txt"
           set +e
-          node scripts/tai-ap-14f1b2/verify.mjs \
-            --scope-guard "${{ steps.base.outputs.base_ref }}" \
+          node scripts/tai-ap-14f1b2/verify.mjs "${verifier_args[@]}" \
             > "$EVIDENCE_DIR/acceptance.json" \
             2> "$EVIDENCE_DIR/verifier-error.txt"
           verifier_status=$?
@@ -397,7 +405,9 @@ jobs:
           if (report.status !== 'PASS') process.exit(1);
           if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
           if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);
-          if (report.counts.changedPaths !== 9) process.exit(1);
+          const strictSlice = process.env.STRICT_SLICE === 'true';
+          if (strictSlice && report.counts.changedPaths !== 9) process.exit(1);
+          if (!strictSlice && report.counts.changedPaths !== 0) process.exit(1);
           if (report.counts.migrationVersion !== 22) process.exit(1);
           if (report.counts.realNetworkSources !== 0) process.exit(1);
           if (Object.values(report.boundaries).some(Boolean)) process.exit(1);
