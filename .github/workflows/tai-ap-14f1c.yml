@@ -80,26 +80,106 @@ jobs:
           node --check scripts/tai-ap-14f1c/discover.mjs
           node scripts/tai-ap-14f1c/discover.mjs --self-test
 
-      - name: Capture Rosstat TLS identity and served chain
+      - name: Build and verify Rosstat Russian CA chain
         shell: bash
+        env:
+          ROOT_CERT_URL: https://gu-st.ru/content/Other/doc/russian_trusted_root_ca.cer
+          ROOT_CERT_SHA256_FINGERPRINT: d2:6d:2d:02:31:b7:c3:9f:92:cc:73:85:12:ba:54:10:35:19:e4:40:5d:68:b5:bd:70:3e:97:88:ca:8e:cf:31
         run: |
           set -euo pipefail
-          mkdir -p "$EVIDENCE_DIR"
+          mkdir -p "$EVIDENCE_DIR" /tmp/rosstat-ca
+
+          convert_certificate() {
+            local input="$1"
+            local output="$2"
+            if openssl x509 -in "$input" -noout >/dev/null 2>&1; then
+              openssl x509 -in "$input" -out "$output"
+            else
+              openssl x509 -inform DER -in "$input" -out "$output"
+            fi
+          }
+
+          curl --silent --show-error --fail \
+            --insecure \
+            --proto '=https' \
+            --tlsv1.2 \
+            --max-redirs 0 \
+            --connect-timeout 10 \
+            --max-time 30 \
+            "$ROOT_CERT_URL" \
+            -o /tmp/rosstat-ca/root.cer
+          convert_certificate /tmp/rosstat-ca/root.cer /tmp/rosstat-ca/root.pem
+
+          root_fingerprint="$(
+            openssl x509 -in /tmp/rosstat-ca/root.pem -noout -fingerprint -sha256 \
+              | cut -d= -f2 \
+              | tr 'A-F' 'a-f'
+          )"
+          test "$root_fingerprint" = "$ROOT_CERT_SHA256_FINGERPRINT"
+          openssl x509 -in /tmp/rosstat-ca/root.pem -noout -subject -issuer -nameopt RFC2253 \
+            | grep -F 'CN=Russian Trusted Root CA'
+          openssl verify -CAfile /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/root.pem \
+            | tee "$EVIDENCE_DIR/rosstat-root-verification.txt"
+          openssl x509 -in /tmp/rosstat-ca/root.pem -noout \
+            -subject -issuer -serial -dates -fingerprint -sha256 \
+            | tee "$EVIDENCE_DIR/rosstat-root-certificate.txt"
+
+          sub_downloaded=false
+          for sub_url in \
+            'http://nuc-cdp.digital.gov.ru/cdp/subca_ssl_rsa2024.crt' \
+            'http://nuc-cdp.voskhod.ru/cdp/subca_ssl_rsa2024.crt'
+          do
+            if curl --silent --show-error --fail \
+              --proto '=http' \
+              --max-redirs 0 \
+              --connect-timeout 10 \
+              --max-time 30 \
+              "$sub_url" \
+              -o /tmp/rosstat-ca/sub.cer
+            then
+              printf '%s\n' "$sub_url" > "$EVIDENCE_DIR/rosstat-sub-aia-source.txt"
+              sub_downloaded=true
+              break
+            fi
+          done
+          test "$sub_downloaded" = true
+          convert_certificate /tmp/rosstat-ca/sub.cer /tmp/rosstat-ca/sub.pem
+          openssl x509 -in /tmp/rosstat-ca/sub.pem -noout -subject -issuer -nameopt RFC2253 \
+            | tee "$EVIDENCE_DIR/rosstat-sub-identity.txt"
+          grep -F 'CN=Russian Trusted Sub CA' "$EVIDENCE_DIR/rosstat-sub-identity.txt"
+          grep -F 'CN=Russian Trusted Root CA' "$EVIDENCE_DIR/rosstat-sub-identity.txt"
+          openssl verify -CAfile /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/sub.pem \
+            | tee "$EVIDENCE_DIR/rosstat-sub-verification.txt"
+          openssl x509 -in /tmp/rosstat-ca/sub.pem -noout \
+            -subject -issuer -serial -dates -fingerprint -sha256 \
+            | tee "$EVIDENCE_DIR/rosstat-sub-certificate.txt"
+
           timeout 20 openssl s_client \
             -connect rosstat.gov.ru:443 \
             -servername rosstat.gov.ru \
             -showcerts \
-            -verify_return_error \
-            </dev/null > "$EVIDENCE_DIR/rosstat-tls-chain.txt" 2>&1 || true
+            </dev/null > "$EVIDENCE_DIR/rosstat-tls-chain.txt" 2>&1
           awk '
             /-----BEGIN CERTIFICATE-----/ {capture=1}
             capture {print}
             /-----END CERTIFICATE-----/ {exit}
-          ' "$EVIDENCE_DIR/rosstat-tls-chain.txt" > /tmp/rosstat-leaf.pem
-          test -s /tmp/rosstat-leaf.pem
-          openssl x509 -in /tmp/rosstat-leaf.pem -noout \
+          ' "$EVIDENCE_DIR/rosstat-tls-chain.txt" > /tmp/rosstat-ca/leaf.pem
+          test -s /tmp/rosstat-ca/leaf.pem
+          openssl x509 -in /tmp/rosstat-ca/leaf.pem -noout -checkhost rosstat.gov.ru \
+            | tee "$EVIDENCE_DIR/rosstat-leaf-hostname.txt"
+          openssl verify \
+            -CAfile /tmp/rosstat-ca/root.pem \
+            -untrusted /tmp/rosstat-ca/sub.pem \
+            /tmp/rosstat-ca/leaf.pem \
+            | tee "$EVIDENCE_DIR/rosstat-leaf-chain-verification.txt"
+          openssl x509 -in /tmp/rosstat-ca/leaf.pem -noout \
             -subject -issuer -serial -dates -fingerprint -sha256 \
             | tee "$EVIDENCE_DIR/rosstat-tls-leaf.txt"
+
+          cat /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/sub.pem \
+            > /tmp/rosstat-ca/ca-bundle.pem
+          chmod 0600 /tmp/rosstat-ca/ca-bundle.pem
+          printf 'CURL_CA_BUNDLE=%s\n' '/tmp/rosstat-ca/ca-bundle.pem' >> "$GITHUB_ENV"
 
       - name: Controlled exact-resource acquisition
         id: acquisition
