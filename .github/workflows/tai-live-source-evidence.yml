@@ -297,6 +297,7 @@ jobs:
           print(f"- history: `{dashboard['history_status']}`")
           print(f"- coverage: `{dashboard['coverage_basis_points']}/10000`")
           print(f"- accepted: `{acceptance['accepted']}`")
+          print(f"- live knowledge sources: `{acceptance.get('live_knowledge_source_count', 0)}`")
           print(f"- active alerts: `{len(dashboard['alerts'])}`")
           PY
           fi
@@ -310,6 +311,7 @@ jobs:
           test "$(cat live-evidence/collector-exit-code.txt)" = '0'
           test -f live-evidence/live-run-manifest.json
           test -f live-evidence/source-observations.v1.json
+          test -f live-evidence/public-live-knowledge.v1.json
           test -f live-evidence/coverage-assessment.json
           test -f live-evidence/source-health-history.v1.json
           test -f live-evidence/source-health-dashboard.v1.json
