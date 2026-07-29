@@ -96,6 +96,20 @@ class PostgreSQLRetrievalIndexRepository:
             raise ValueError("generation must be positive")
         self._execute("SELECT tai_activate_retrieval_generation(%s)", (generation,))
 
+    def active_generation(self) -> int | None:
+        rows = self._execute_all(
+            """
+            SELECT generation
+            FROM tai_retrieval_generations
+            WHERE status = 'ACTIVE'
+            ORDER BY generation
+            """,
+            (),
+        )
+        if len(rows) > 1:
+            raise RuntimeError("multiple PostgreSQL retrieval generations are ACTIVE")
+        return None if not rows else int(rows[0]["generation"])
+
     def active_documents(self) -> tuple[IndexedChunk, ...]:
         query = """
             SELECT
