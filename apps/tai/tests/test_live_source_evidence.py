@@ -224,6 +224,37 @@ def test_complete_collection_produces_observations_assessment_and_digest() -> No
     assert evidence_bundle_sha256(bundle) == evidence_bundle_sha256(bundle)
 
 
+def test_excerpt_selects_validated_publication_after_long_boilerplate() -> None:
+    boilerplate = "".join(
+        f"<span>Навигационный раздел {index} без официальных фактов.</span>"
+        for index in range(900)
+    )
+    body = (
+        f"<nav>{boilerplate}</nav>"
+        "<article><h1>Ключевая ставка</h1><time>18.07.2026</time>"
+        "<p>Подтверждённый официальный материал Банка России сохранён.</p>"
+        "</article>"
+    )
+    response = FetchResponse(
+        disposition=FetchDisposition.FETCHED,
+        body=body,
+        fetched_at=NOW,
+    )
+    collector, _ = _collector(
+        (response, _success("official.specagro.fgis-grain"))
+    )
+
+    bundle = collector.collect()
+    excerpt = bundle.knowledge_excerpts[0].text
+
+    assert len(boilerplate) > 16_000
+    assert "Подтверждённый официальный материал" in excerpt
+    assert "Ключевая ставка" in excerpt
+    assert "18.07.2026" in excerpt
+    assert "Навигационный раздел 0" not in excerpt
+    assert len(excerpt) <= 16_000
+
+
 def test_partial_collection_keeps_failed_topic_unobserved() -> None:
     failure = FetchResponse(
         disposition=FetchDisposition.RETRYABLE_FAILURE,
