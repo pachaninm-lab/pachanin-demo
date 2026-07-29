@@ -126,7 +126,7 @@ class RosstatSdmxRecord:
         if self.value_sha256 != expected_value:
             raise ValueError("record value digest mismatch")
         expected_fragment = hashlib.sha256(
-            f"XML_XPATH\n{self.xpath}\n{self.ordinal}\n{normalized}".encode("utf-8")
+            f"XML_XPATH\n{self.xpath}\n{self.ordinal}\n{normalized}".encode()
         ).hexdigest()
         if self.fragment_sha256 != expected_fragment:
             raise ValueError("record fragment digest mismatch")
@@ -392,7 +392,7 @@ class RosstatVshp2016254Materializer:
                     value=value,
                     value_sha256=hashlib.sha256(value.encode("utf-8")).hexdigest(),
                     fragment_sha256=hashlib.sha256(
-                        f"XML_XPATH\n{xpath}\n{ordinal}\n{value}".encode("utf-8")
+                        f"XML_XPATH\n{xpath}\n{ordinal}\n{value}".encode()
                     ).hexdigest(),
                 )
             )
