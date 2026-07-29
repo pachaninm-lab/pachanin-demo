@@ -174,11 +174,11 @@ jobs:
               raise SystemExit('FINAL_MATERIALIZER_FAIL=REMOTE_USER_ANCHOR')
           text = text.replace(old_remote, new_remote, 1)
 
-          old_trigger = '''    const trigger = page.locator('.pc-public-assistant-shortcut');
+          old_trigger = '''              const trigger = page.locator('.pc-public-assistant-shortcut');
                 await trigger.waitFor({ state: 'visible', timeout: 30000 });
                 await trigger.click();
           '''
-          new_trigger = '''    const trigger = page.locator('.pc-public-contact-dock-assistant');
+          new_trigger = '''              const trigger = page.locator('.pc-public-contact-dock-assistant');
                 await trigger.waitFor({ state: 'attached', timeout: 30000 });
                 if (!(await trigger.isVisible())) {
                   await page.evaluate(() => window.scrollTo({ top: 180, behavior: 'instant' }));
@@ -193,12 +193,12 @@ jobs:
               raise SystemExit('FINAL_MATERIALIZER_FAIL=UI_TRIGGER_ANCHOR')
           text = text.replace(old_trigger, new_trigger, 1)
 
-          old_evidence = """      viewport: '390x844',
-                    status: 'PASS',
+          old_evidence = """                viewport: '390x844',
+                status: 'PASS',
           """
-          new_evidence = """      viewport: '390x844',
-                    entryPoint: 'public-contact-dock-assistant',
-                    status: 'PASS',
+          new_evidence = """                viewport: '390x844',
+                entryPoint: 'public-contact-dock-assistant',
+                status: 'PASS',
           """
           if text.count(old_evidence) != 1:
               raise SystemExit('FINAL_MATERIALIZER_FAIL=EVIDENCE_ANCHOR')
