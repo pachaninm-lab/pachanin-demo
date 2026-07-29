@@ -1,0 +1,312 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+WORKFLOW = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+SCOPE = Path('docs/platform-v7/autopilot/scopes/release-public-ai-qwen-3372.json')
+HELPER = Path('.github/workflows/release-public-ai-qwen-3372-patch.yml')
+SELF = Path('scripts/release-public-ai-qwen-3372-patch.py')
+
+text = WORKFLOW.read_text(encoding='utf-8')
+
+old_backup = '''          state_root="/var/lib/pc-release-authority/tai-qwen-${RUN_ID}"
+          install -d -m 0700 "$state_root" /etc/transparent-price
+          for current in /etc/transparent-price/tai-qwen-api.env /etc/transparent-price/tai-qwen-web.env "$override"; do
+            if [[ -f "$current" ]]; then cp -a "$current" "$state_root/$(basename "$current").before"; fi
+          done
+          install -m 0600 -o root -g root "$api_env_tmp" /etc/transparent-price/tai-qwen-api.env
+'''
+
+new_backup = '''          state_root="/var/lib/pc-release-authority/tai-qwen-${RUN_ID}"
+          install -d -m 0700 "$state_root" /etc/transparent-price
+          backup_file() {
+            local current="$1" base
+            base="$(basename "$current")"
+            rm -f "$state_root/${base}.before" "$state_root/${base}.absent"
+            if [[ -f "$current" ]]; then
+              cp -a "$current" "$state_root/${base}.before"
+            else
+              : > "$state_root/${base}.absent"
+            fi
+          }
+          backup_file /etc/transparent-price/tai-qwen-api.env
+          backup_file /etc/transparent-price/tai-qwen-web.env
+          backup_file "$override"
+          cat > "$state_root/rollback-qwen-env.sh" <<'ROLLBACK'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          state_root="$(cd "$(dirname "$0")" && pwd)"
+          restore_file() {
+            local target="$1" base
+            base="$(basename "$target")"
+            if [[ -f "$state_root/${base}.before" ]]; then
+              install -m 0600 -o root -g root "$state_root/${base}.before" "$target"
+            elif [[ -f "$state_root/${base}.absent" ]]; then
+              rm -f "$target"
+            else
+              echo "Rollback snapshot missing for $target" >&2
+              exit 71
+            fi
+          }
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+          prod_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+          prod_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          test -d "$prod_dir" && test -n "$prod_files" && test -n "$prod_project"
+          override="$prod_dir/compose.tai-restricted-qwen.override.yml"
+
+          IFS=',' read -r -a raw_files <<< "$prod_files"
+          compose_files=()
+          for raw in "${raw_files[@]}"; do
+            file="${raw#"${raw%%[![:space:]]*}"}"; file="${file%"${file##*[![:space:]]}"}"
+            [[ -n "$file" ]] || continue
+            [[ "$file" == /* ]] || file="$prod_dir/$file"
+            [[ "$file" == "$override" ]] || compose_files+=("$file")
+          done
+          (( ${#compose_files[@]} >= 1 ))
+          for file in "${compose_files[@]}"; do test -f "$file"; done
+
+          restore_file /etc/transparent-price/tai-qwen-api.env
+          restore_file /etc/transparent-price/tai-qwen-web.env
+          restore_file "$override"
+
+          dc=(docker compose --project-directory "$prod_dir" --project-name "$prod_project")
+          for file in "${compose_files[@]}"; do dc+=(-f "$file"); done
+          [[ ! -f "$override" ]] || dc+=(-f "$override")
+          "${dc[@]}" config --quiet
+          "${dc[@]}" up -d --no-deps --pull never api web
+
+          for attempt in $(seq 1 45); do
+            api_id="$("${dc[@]}" ps -q api | head -1)"
+            if [[ -n "$api_id" ]] && docker exec "$api_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then break; fi
+            sleep 4
+          done
+          docker exec "$api_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+          web_id="$("${dc[@]}" ps -q web | head -1)"
+          for attempt in $(seq 1 45); do
+            state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id" 2>/dev/null || true)"
+            [[ "$state" == healthy ]] && break
+            sleep 4
+          done
+          test "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")" = healthy
+          rm -f "$state_root/MUTATION_STARTED"
+          touch "$state_root/ROLLED_BACK"
+          echo 'QWEN_ENV_ROLLBACK_COMPLETE=1'
+          ROLLBACK
+          chmod 0700 "$state_root/rollback-qwen-env.sh"
+          touch "$state_root/MUTATION_STARTED"
+          install -m 0600 -o root -g root "$api_env_tmp" /etc/transparent-price/tai-qwen-api.env
+'''
+
+if old_backup not in text:
+    raise SystemExit('activation backup anchor not found')
+text = text.replace(old_backup, new_backup, 1)
+
+marker = '      - name: Record restricted maturity boundary\n'
+index = text.find(marker)
+if index < 0:
+    raise SystemExit('record step anchor not found')
+
+tail = r'''      - name: Verify clean public AI window in live Chromium
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          UI_EVIDENCE_DIR: ${{ runner.temp }}/tai-live-ui/evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          ui_root="$RUNNER_TEMP/tai-live-ui"
+          rm -rf "$ui_root"
+          mkdir -p "$ui_root" "$UI_EVIDENCE_DIR"
+          cd "$ui_root"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --ignore-scripts playwright@1.59.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { chromium } = require('playwright');
+
+          const liveBase = process.env.LIVE_BASE;
+          const targetSha = process.env.TARGET_SHA;
+          const evidenceDir = process.env.UI_EVIDENCE_DIR;
+          if (!liveBase || !/^[0-9a-f]{40}$/.test(targetSha || '')) process.exit(2);
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: 'ru-RU' });
+            const pageErrors = [];
+            page.on('pageerror', (error) => pageErrors.push(String(error)));
+            try {
+              const response = await page.goto(`${liveBase}/platform-v7?lang=ru&release=${targetSha}`, {
+                waitUntil: 'domcontentloaded',
+                timeout: 120000,
+              });
+              if (!response || !response.ok()) throw new Error(`live_page_http_${response?.status()}`);
+
+              const manifest = await page.evaluate(async (sha) => {
+                const response = await fetch(`/manifest-pc-deploy.json?ui=${sha}&ts=${Date.now()}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`manifest_http_${response.status}`);
+                return response.json();
+              }, targetSha);
+              if (manifest.commitSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifest.commitSha}`);
+
+              const trigger = page.locator('.pc-public-assistant-shortcut');
+              await trigger.waitFor({ state: 'visible', timeout: 30000 });
+              await trigger.click();
+
+              const dialog = page.locator('#pc-public-assistant-panel');
+              await dialog.waitFor({ state: 'visible', timeout: 30000 });
+              const title = page.locator('#pc-public-assistant-title');
+              if ((await title.textContent())?.trim() !== 'ИИ Прозрачной Цены') throw new Error('new_title_missing');
+              if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Что нужно узнать?') throw new Error('compact_empty_state_missing');
+              if (await dialog.getByText('Расскажу, как устроены Сделка, роли, аукцион, логистика, документы, деньги, споры, безопасность и внешние подключения.', { exact: false }).count()) throw new Error('legacy_greeting_present');
+              const quickCount = await dialog.locator('.pc-public-assistant-quick-actions button').count();
+              if (quickCount > 3) throw new Error(`too_many_quick_actions:${quickCount}`);
+              if (await dialog.locator('[aria-label="Новый диалог"]').count()) throw new Error('premature_new_chat_action');
+
+              const composer = dialog.getByRole('textbox', { name: 'Задай вопрос о платформе' });
+              await composer.fill('Как работает платформа?');
+              await dialog.getByRole('button', { name: 'Отправить' }).click();
+              await dialog.locator('.pc-public-assistant-message[data-role="user"]').waitFor({ state: 'visible', timeout: 30000 });
+              const answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]');
+              await answered.waitFor({ state: 'visible', timeout: 240000 });
+              const answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+              if (answerText.length < 20) throw new Error('ui_answer_too_short');
+              await answered.locator('.pc-public-assistant-source-list a').first().waitFor({ state: 'visible', timeout: 30000 });
+              if (await dialog.locator('[role="alert"]').count()) throw new Error('ui_alert_present');
+
+              const overflow = await dialog.evaluate((node) => ({
+                horizontal: node.scrollWidth - node.clientWidth,
+                viewportRight: node.getBoundingClientRect().right - window.innerWidth,
+              }));
+              if (overflow.horizontal > 1 || overflow.viewportRight > 1) throw new Error(`ui_overflow:${JSON.stringify(overflow)}`);
+              if (pageErrors.length) throw new Error(`page_errors:${pageErrors.join('|')}`);
+
+              await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-390x844.png'), fullPage: true });
+              fs.writeFileSync(path.join(evidenceDir, 'public-ai-window.json'), JSON.stringify({
+                targetSha,
+                manifestSha: manifest.commitSha,
+                title: 'ИИ Прозрачной Цены',
+                emptyState: 'Что нужно узнать?',
+                quickActions: quickCount,
+                answerCharacters: answerText.length,
+                viewport: '390x844',
+                status: 'PASS',
+              }, null, 2));
+            } finally {
+              await browser.close();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          echo "LIVE_PUBLIC_AI_UI=PASS"
+          echo "LIVE_UI_EXACT_SHA=$TARGET_SHA"
+
+      - name: Upload live public AI UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-live-public-ai-ui-${{ github.run_id }}
+          path: ${{ runner.temp }}/tai-live-ui/evidence
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Roll back production after failed activation acceptance
+        if: failure()
+        env:
+          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
+          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
+          PROD_SSH_PORT: ${{ steps.ssh.outputs.prod_port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          enc(){ printf '%s' "$1" | base64 -w0; }
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PROD_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes)
+          full_state="/var/lib/pc-release-authority/full-stack-${GITHUB_RUN_ID}.state"
+          if ssh "${ssh_common[@]}" "$PROD_USER@$PROD_HOST" "test -f '$full_state'"; then
+            raw="$(mktemp)"
+            set +e
+            ssh "${ssh_common[@]}" "$PROD_USER@$PROD_HOST" \
+              "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh rollback '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+            rc=$?
+            set -e
+            sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw"
+            grep -Fxq 'ROLLBACK_COMPLETE=1' "$raw"
+            rm -f "$raw"
+            (( rc == 0 ))
+          else
+            echo 'FULL_STACK_ROLLBACK=NOT_REQUIRED'
+          fi
+
+          ssh "${ssh_common[@]}" "$PROD_USER@$PROD_HOST" "RUN_ID='$GITHUB_RUN_ID' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          state_root="/var/lib/pc-release-authority/tai-qwen-${RUN_ID}"
+          if [[ -f "$state_root/MUTATION_STARTED" ]]; then
+            test -x "$state_root/rollback-qwen-env.sh"
+            "$state_root/rollback-qwen-env.sh"
+          else
+            echo 'QWEN_ENV_ROLLBACK=NOT_REQUIRED'
+          fi
+          REMOTE
+          rm -f "$RUNNER_TEMP/tai-qwen-api.env" "$RUNNER_TEMP/tai-qwen-web.env" "$RUNNER_TEMP/tai-model-api-key"
+          echo 'FAILED_ACTIVATION_ROLLBACK=PASS'
+
+      - name: Record restricted maturity boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Restricted Qwen activation completed on REG.RU for exact main \`$TARGET_SHA\`. Public RU/EN/ZH live inference passed; API-to-private-model authenticated inference passed; model key remained server-only; browser responses contained no private model address; runtime remains read-only and permanent AP-13D admission remains NOT_ATTESTED. Terminal operational boundary: \`RESTRICTED_LIVE_READ_ONLY_QWEN_ACTIVE_PUBLIC_AND_ROLE_SCOPED_PENDING_EXTERNAL_IMMUTABILITY_AND_ADMISSION\`."
+          gh issue comment 3368 --repo "$GITHUB_REPOSITORY" --body "Clean public AI window from PR #3369 is live on REG.RU for exact main \`$TARGET_SHA\`. Chromium acceptance opened the assistant at 390x844, verified title \`ИИ Прозрачной Цены\`, compact empty state, at most three starter prompts, integrated composer, successful submitted model answer, visible sources and no horizontal overflow."
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "REG.RU public AI release accepted for exact main \`$TARGET_SHA\`: clean UI live, authenticated Qwen inference live, RU/EN/ZH SSE PASS, Chromium UI PASS, rollback snapshot removed only after acceptance."
+
+      - name: Remove accepted Qwen rollback snapshot
+        if: success()
+        env:
+          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
+          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
+          PROD_SSH_PORT: ${{ steps.ssh.outputs.prod_port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" "rm -rf '/var/lib/pc-release-authority/tai-qwen-${GITHUB_RUN_ID}'"
+'''
+
+text = text[:index] + tail
+WORKFLOW.write_text(text, encoding='utf-8')
+
+data = json.loads(SCOPE.read_text(encoding='utf-8'))
+data['operationalStatus'] = 'ROLLBACK_AND_LIVE_UI_ACCEPTANCE_IMPLEMENTED_PENDING_EXACT_HEAD_GATES'
+data['allowedPaths'] = [
+    item
+    for item in data['allowedPaths']
+    if item not in {
+        '.github/workflows/release-public-ai-qwen-3372-patch.yml',
+        'scripts/release-public-ai-qwen-3372-patch.py',
+    }
+]
+SCOPE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+HELPER.unlink()
+SELF.unlink()
+
+patched = WORKFLOW.read_text(encoding='utf-8')
+for required in (
+    'rollback-qwen-env.sh',
+    'Verify clean public AI window in live Chromium',
+    'Roll back production after failed activation acceptance',
+    'LIVE_PUBLIC_AI_UI=PASS',
+    'gh issue comment 3368',
+):
+    if required not in patched:
+        raise SystemExit(f'missing patched marker: {required}')
