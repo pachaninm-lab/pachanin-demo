@@ -357,9 +357,30 @@ jobs:
           test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" = "$TARGET_SHA"
           test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" = "$TARGET_SHA"
 
-          docker exec "$api_id" sh -ceu 'test "$AI_ASSISTANT_PROVIDER" = openai-compatible; test "$AI_ASSISTANT_MODEL" = tai-qwen3-8b-q4km; test "$TAI_RESTRICTED_QWEN_PUBLIC_ENABLED" = true; test "${#AI_ASSISTANT_API_KEY}" -ge 32; test "${#TAI_PUBLIC_GATEWAY_HMAC_SECRET}" -ge 32'
-          docker exec "$web_id" sh -ceu 'test "$TAI_RESTRICTED_QWEN_PUBLIC_ENABLED" = true; test "$TAI_RESTRICTED_QWEN_MODEL_IDENTITY" = tai-qwen3-8b-q4km; test "${#TAI_PUBLIC_GATEWAY_HMAC_SECRET}" -ge 32; test -z "${AI_ASSISTANT_API_KEY:-}"'
-          docker exec "$api_id" /nodejs/bin/node <<'NODE'
+          api_env_json="$(mktemp)"
+          web_env_json="$(mktemp)"
+          docker inspect --format '{{json .Config.Env}}' "$api_id" > "$api_env_json"
+          docker inspect --format '{{json .Config.Env}}' "$web_id" > "$web_env_json"
+          python3 - "$api_env_json" "$web_env_json" <<'PY'
+          import json, sys
+          def env(path):
+              rows = json.load(open(path, encoding='utf-8'))
+              return dict(row.split('=', 1) for row in rows if '=' in row)
+          api = env(sys.argv[1])
+          web = env(sys.argv[2])
+          assert api.get('AI_ASSISTANT_PROVIDER') == 'openai-compatible'
+          assert api.get('AI_ASSISTANT_MODEL') == 'tai-qwen3-8b-q4km'
+          assert api.get('TAI_RESTRICTED_QWEN_PUBLIC_ENABLED') == 'true'
+          assert len(api.get('AI_ASSISTANT_API_KEY', '')) >= 32
+          assert len(api.get('TAI_PUBLIC_GATEWAY_HMAC_SECRET', '')) >= 32
+          assert web.get('TAI_RESTRICTED_QWEN_PUBLIC_ENABLED') == 'true'
+          assert web.get('TAI_RESTRICTED_QWEN_MODEL_IDENTITY') == 'tai-qwen3-8b-q4km'
+          assert len(web.get('TAI_PUBLIC_GATEWAY_HMAC_SECRET', '')) >= 32
+          assert not web.get('AI_ASSISTANT_API_KEY')
+          PY
+          rm -f "$api_env_json" "$web_env_json"
+
+          docker exec -i "$api_id" /nodejs/bin/node <<'NODE'
           const endpoint = new URL('chat/completions', process.env.AI_ASSISTANT_BASE_URL);
           fetch(endpoint, {
             method: 'POST',
