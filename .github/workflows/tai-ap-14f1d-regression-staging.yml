@@ -1,72 +1,208 @@
-name: TAI AP-14F1D Regression Compatibility Staging
+name: TAI AP-14F1D Exact CA Pin Export
 
 on:
   pull_request:
     paths:
       - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
-      - 'scripts/tai-ap-14f1d/regression_staging_patch.py'
-  push:
-    branches:
-      - agent/tai-ap-14f1d-regression-fix-staging
-    paths:
-      - '.github/workflows/tai-ap-14f1d-regression-staging.yml'
-      - 'scripts/tai-ap-14f1d/regression_staging_patch.py'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: tai-ap-14f1d-regression-fix-staging-artifact-${{ github.event.pull_request.number || github.ref }}
+  group: tai-ap-14f1d-exact-ca-export-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  patch-regression-authorities:
+  export-exact-ca-pins:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           ref: agent/tai-ap-14f1d-regression-fix-staging
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+
+      - uses: actions/setup-python@v5
         with:
-          node-version: '24'
-      - name: Patch and prove legacy regression compatibility
+          python-version: '3.12'
+
+      - name: Fetch candidates and select exact DER fingerprints
         shell: bash
+        env:
+          ROOT_SHA256: d26d2d0231b7c39f92cc738512ba54103519e4405d68b5bd703e9788ca8ecf31
+          SUB_SHA256: 2155785036c900dbb5f1bb2a1569c80c55595bd6bf94867a29bbddbc7d88a3f2
         run: |
           set -euo pipefail
-          python scripts/tai-ap-14f1d/regression_staging_patch.py
-          node --check scripts/tai-ap-14f1a/verify.mjs
-          node --check scripts/tai-ap-14f1b2/verify.mjs
-          node scripts/tai-ap-14f1a/verify.mjs > /tmp/ap1a-regression.json
-          node scripts/tai-ap-14f1b2/verify.mjs > /tmp/ap1b2-regression.json
-          node - <<'NODE'
-          const fs = require('node:fs');
-          for (const path of ['/tmp/ap1a-regression.json', '/tmp/ap1b2-regression.json']) {
-            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
-            if (report.status !== 'PASS') throw new Error(`${path} did not pass`);
-            if (report.operationalStatus !== 'NOT_ATTESTED') throw new Error(`${path} status drift`);
-            if (Object.values(report.boundaries).some(Boolean)) throw new Error(`${path} boundary drift`);
-          }
-          NODE
-          git diff --check
-          mkdir -p artifacts/tai-ap-14f1d-regression-compat
-          cp --parents \
-            .github/workflows/tai-ap-14f1a.yml \
-            .github/workflows/tai-ap-14f1b2.yml \
-            scripts/tai-ap-14f1b2/verify.mjs \
-            docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json \
-            artifacts/tai-ap-14f1d-regression-compat
-          cp /tmp/ap1a-regression.json \
-            artifacts/tai-ap-14f1d-regression-compat/ap1a-regression.json
-          cp /tmp/ap1b2-regression.json \
-            artifacts/tai-ap-14f1d-regression-compat/ap1b2-regression.json
+          work=/tmp/tai-ap14f1d-ca-export
+          rm -rf "$work"
+          mkdir -p "$work/candidates" "$work/output" "$work/rpm"
 
-      - name: Upload verified compatibility sources
+          cat > "$work/select.py" <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          expected = sys.argv[1].lower()
+          output = Path(sys.argv[2])
+          candidates = [Path(item) for item in sys.argv[3:]]
+          pem_re = re.compile(
+              rb"-----BEGIN CERTIFICATE-----\s+.+?-----END CERTIFICATE-----",
+              re.DOTALL,
+          )
+
+          def run(*args: str, stdin: bytes | None = None) -> bytes:
+              return subprocess.run(
+                  args,
+                  input=stdin,
+                  check=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              ).stdout
+
+          examined = 0
+          for candidate in candidates:
+              if not candidate.is_file() or candidate.stat().st_size == 0:
+                  continue
+              raw = candidate.read_bytes()
+              blocks = pem_re.findall(raw)
+              if not blocks:
+                  blocks = [raw]
+              for block in blocks:
+                  examined += 1
+                  try:
+                      if block.lstrip().startswith(b"-----BEGIN CERTIFICATE-----"):
+                          der = run("openssl", "x509", "-inform", "PEM", "-outform", "DER", stdin=block)
+                      else:
+                          der = run("openssl", "x509", "-inform", "DER", "-outform", "DER", stdin=block)
+                  except subprocess.CalledProcessError:
+                      continue
+                  digest = hashlib.sha256(der).hexdigest()
+                  if digest != expected:
+                      continue
+                  pem = run("openssl", "x509", "-inform", "DER", "-outform", "PEM", stdin=der)
+                  output.write_bytes(pem)
+                  print(f"MATCH={candidate}")
+                  print(f"DER_SHA256={digest}")
+                  print(f"EXAMINED={examined}")
+                  raise SystemExit(0)
+
+          raise SystemExit(f"exact certificate not found; examined={examined}")
+          PY
+
+          fetch() {
+            local label="$1"
+            local url="$2"
+            local path="$work/candidates/$label"
+            for attempt in 1 2 3; do
+              if curl --fail --location --silent --show-error \
+                --connect-timeout 10 --max-time 45 \
+                --retry 2 --retry-all-errors \
+                "$url" -o "$path"; then
+                printf '%s\t%s\t%s\n' "$label" "$url" "$(wc -c < "$path")" \
+                  >> "$work/fetch-evidence.tsv"
+                return 0
+              fi
+              sleep "$attempt"
+            done
+            rm -f "$path"
+            printf '%s\t%s\tFAILED\n' "$label" "$url" \
+              >> "$work/fetch-evidence.tsv"
+            return 0
+          }
+
+          fetch root_gu_st https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt
+          fetch root_company_rt http://company.rt.ru/cdp/rootca_ssl_rsa2022.crt
+          fetch root_rostelecom http://rostelecom.ru/cdp/rootca_ssl_rsa2022.crt
+          fetch root_reestr_pki http://reestr-pki.ru/cdp/rootca_ssl_rsa2022.crt
+          fetch root_digital http://nuc-cdp.digital.gov.ru/cdp/rootca_ssl_rsa2022.crt
+          fetch root_voskhod http://nuc-cdp.voskhod.ru/cdp/rootca_ssl_rsa2022.crt
+
+          fetch sub_gu_st_2024 https://gu-st.ru/content/lending/russian_trusted_sub_ca_2024_pem.crt
+          fetch sub_gu_st https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt
+          fetch sub_digital http://nuc-cdp.digital.gov.ru/cdp/subca_ssl_rsa2024.crt
+          fetch sub_voskhod http://nuc-cdp.voskhod.ru/cdp/subca_ssl_rsa2024.crt
+          fetch sub_digital_dv http://nuc-cdp.digital.gov.ru/cdp/subca_ssl_rsa2024_dv.crt
+          fetch sub_voskhod_dv http://nuc-cdp.voskhod.ru/cdp/subca_ssl_rsa2024_dv.crt
+
+          if ! python "$work/select.py" "$ROOT_SHA256" \
+            "$work/output/russian-trusted-root-ca-2022.pem" \
+            "$work"/candidates/root_* \
+            | tee "$work/root-selection.txt"; then
+            fetch root_rpm https://download.opensuse.org/repositories/home:/slyfox:/redsafe/Fedora_43/x86_64/russian-trusted-root-ca-pem-2025.12-5.1.x86_64.rpm
+            python -m pip install --disable-pip-version-check 'rpmfile==2.1.0'
+            python - <<'PY'
+          import rpmfile
+          from pathlib import Path
+          rpm = Path('/tmp/tai-ap14f1d-ca-export/candidates/root_rpm')
+          out = Path('/tmp/tai-ap14f1d-ca-export/rpm')
+          if rpm.is_file():
+              with rpmfile.open(str(rpm)) as package:
+                  for member in package.getmembers():
+                      if member.name.endswith('.crt'):
+                          target = out / ('root_' + Path(member.name).name)
+                          target.write_bytes(package.extractfile(member).read())
+          PY
+            python "$work/select.py" "$ROOT_SHA256" \
+              "$work/output/russian-trusted-root-ca-2022.pem" \
+              "$work"/rpm/root_* \
+              | tee "$work/root-selection.txt"
+          fi
+
+          if ! python "$work/select.py" "$SUB_SHA256" \
+            "$work/output/russian-trusted-sub-ca-2024.pem" \
+            "$work"/candidates/sub_* \
+            | tee "$work/sub-selection.txt"; then
+            fetch sub_rpm https://download.opensuse.org/repositories/home:/slyfox:/redsafe/Fedora_43/x86_64/russian-trusted-sub-ca-pem-2025.12-2.1.x86_64.rpm
+            python -m pip install --disable-pip-version-check 'rpmfile==2.1.0'
+            python - <<'PY'
+          import rpmfile
+          from pathlib import Path
+          rpm = Path('/tmp/tai-ap14f1d-ca-export/candidates/sub_rpm')
+          out = Path('/tmp/tai-ap14f1d-ca-export/rpm')
+          if rpm.is_file():
+              with rpmfile.open(str(rpm)) as package:
+                  for member in package.getmembers():
+                      if member.name.endswith('.crt'):
+                          target = out / ('sub_' + Path(member.name).name)
+                          target.write_bytes(package.extractfile(member).read())
+          PY
+            python "$work/select.py" "$SUB_SHA256" \
+              "$work/output/russian-trusted-sub-ca-2024.pem" \
+              "$work"/rpm/sub_* \
+              | tee "$work/sub-selection.txt"
+          fi
+
+          root="$work/output/russian-trusted-root-ca-2022.pem"
+          sub="$work/output/russian-trusted-sub-ca-2024.pem"
+          test -s "$root"
+          test -s "$sub"
+
+          root_der_sha="$(openssl x509 -in "$root" -outform DER | sha256sum | awk '{print $1}')"
+          sub_der_sha="$(openssl x509 -in "$sub" -outform DER | sha256sum | awk '{print $1}')"
+          test "$root_der_sha" = "$ROOT_SHA256"
+          test "$sub_der_sha" = "$SUB_SHA256"
+          openssl verify -CAfile "$root" "$root" | tee "$work/root-verify.txt"
+          openssl verify -CAfile "$root" "$sub" | tee "$work/sub-verify.txt"
+          openssl x509 -in "$root" -noout -subject -issuer -serial -dates -fingerprint -sha256 \
+            > "$work/root-metadata.txt"
+          openssl x509 -in "$sub" -noout -subject -issuer -serial -dates -fingerprint -sha256 \
+            > "$work/sub-metadata.txt"
+          printf 'ROOT_DER_SHA256=%s\nSUB_DER_SHA256=%s\n' "$root_der_sha" "$sub_der_sha" \
+            > "$work/exact-fingerprints.txt"
+
+          mkdir -p artifacts/tai-ap-14f1d-exact-ca
+          cp -a "$work/output/." artifacts/tai-ap-14f1d-exact-ca/
+          cp "$work"/*.txt "$work/fetch-evidence.tsv" artifacts/tai-ap-14f1d-exact-ca/
+
+      - name: Upload exact CA pins
         uses: actions/upload-artifact@v4
         with:
-          name: tai-ap-14f1d-regression-compat-${{ github.event.pull_request.head.sha || github.sha }}
-          path: artifacts/tai-ap-14f1d-regression-compat
+          name: tai-ap-14f1d-exact-ca-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/tai-ap-14f1d-exact-ca
           if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 14
+          retention-days: 30
