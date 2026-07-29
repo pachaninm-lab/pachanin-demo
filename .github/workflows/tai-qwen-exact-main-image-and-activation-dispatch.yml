@@ -1,0 +1,149 @@
+name: TAI Qwen Exact-Main Image and Activation Dispatch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-qwen-exact-main-image-and-activation-dispatch.yml'
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter PUBLISH-IMAGES-AND-ACTIVATE-QWEN
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: tai-qwen-exact-main-image-and-activation-dispatch
+  cancel-in-progress: false
+
+jobs:
+  publish-and-dispatch:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        github.event_name == 'push' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner &&
+          inputs.confirmation == 'PUBLISH-IMAGES-AND-ACTIVATE-QWEN'
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current-main target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.sha }}'
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Record exact-main publication start
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main Qwen recovery image publication started for \`$TARGET_SHA\`. Dispatcher: $run_url. No live-success claim is allowed until the activation observer records PASS."
+
+      - name: Dispatch canonical API web and migration image publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n '{ref:"main",inputs:{services:"all"}}' |
+            gh api --method POST \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/docker-publish.yml/dispatches" \
+              --input -
+          echo 'CANONICAL_IMAGE_PUBLICATION_DISPATCHED=1'
+
+      - name: Wait for all exact canonical images
+        id: images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          ready=0
+          for attempt in $(seq 1 180); do
+            matched=0
+            for component in api web migration; do
+              image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+              revision=''
+              if docker pull "$image" >/dev/null 2>&1; then
+                revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+              fi
+              if [[ "$revision" == "$TARGET_SHA" ]]; then
+                matched=$((matched + 1))
+              fi
+            done
+            echo "Exact image readiness attempt $attempt/180: $matched/3"
+            if (( matched == 3 )); then
+              ready=1
+              break
+            fi
+            sleep 10
+          done
+          (( ready == 1 )) || {
+            echo 'EXACT_CANONICAL_IMAGES_UNAVAILABLE=1' >&2
+            exit 20
+          }
+          echo 'exact_images_ready=1' >> "$GITHUB_OUTPUT"
+          echo "EXACT_CANONICAL_IMAGES_READY=$TARGET_SHA"
+
+      - name: Dispatch accepted restricted Qwen activation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n --arg sha "$TARGET_SHA" '{ref:"main",inputs:{target_sha:$sha,confirmation:"ACTIVATE-RESTRICTED-QWEN-REG-RU"}}' |
+            gh api --method POST \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
+              --input -
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact API/web/migration images are ready for \`$TARGET_SHA\`; accepted REG.RU restricted-Qwen activation has been dispatched. Dispatcher: $run_url. Issue remains open pending API-to-model, RU/EN/ZH SSE and Chromium live acceptance."
+          echo "RESTRICTED_QWEN_ACTIVATION_DISPATCHED=$TARGET_SHA"
+
+      - name: Record fail-closed dispatcher failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main Qwen image publication/activation dispatcher failed closed for \`$TARGET_SHA\`. Workflow: $run_url. Production success is not claimed."

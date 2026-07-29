@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "QWEN-RECOVERY-IMAGE-PUBLICATION-3372",
+  "branch": "ops/qwen-recovery-image-publication-3372",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3372,
+  "activeSlice": "PC-CROP-10B",
+  "ownerAuthorizedExceptionId": "PRODUCTION_AI_RECOVERY_3372",
+  "ownerAuthorizedExceptionCommentId": 5120686584,
+  "exceptionExpiresWhenIssueClosed": true,
+  "exceptionPurpose": "restore-accepted-restricted-qwen-contour-only",
+  "baseCommit": "7ee34519779d4ac6ccf8a73b31d1553f57052cda",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "exact-main-image-publication-and-restricted-activation-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-exact-main-image-and-activation-dispatch.yml",
+    "docs/platform-v7/autopilot/scopes/qwen-recovery-image-publication-3372.json"
+  ],
+  "forbiddenPaths": [
+    ".github/workflows/pc-crop-**",
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "docs/platform-v7/crop-platform/**",
+    "docs/platform-v7/autopilot/project-locks/**",
+    "scripts/pc-crop-**",
+    "production credentials"
+  ],
+  "boundaries": {
+    "modelHostMutation": false,
+    "rootOrSudoRequired": false,
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "financeOrSafeToolChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": true,
+    "productionDeploymentOnlyAfterMerge": true
+  },
+  "requiredEvidence": [
+    "Canonical API web and migration images exist for exact current main",
+    "Each image revision label equals exact current main",
+    "Accepted restricted Qwen activation is dispatched for exact current main",
+    "Issue 3372 remains open until activation observer records live PASS",
+    "Production hosting remains REG_RU_VPS_ONLY"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
