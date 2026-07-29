@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PUBLIC-AI-QWEN-REG-RU-RETRY-3372-2",
+  "branch": "ops/retry-public-ai-qwen-3372-2",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "08cd82d629301f735a8d22ffcb57f7bdbc30b6e8",
+  "operationalStatus": "RETRY_TRIGGER_AND_DURABLE_OBSERVABILITY_PENDING_EXACT_HEAD_GATES",
+  "maturityBoundary": "release-retry-and-observability-only",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-observer.yml",
+    "apps/web/next.config.js",
+    "docs/platform-v7/autopilot/scopes/retry-public-ai-qwen-3372-2.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/app/**",
+    "apps/web/components/**",
+    "apps/web/styles/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": true
+  },
+  "requiredEvidence": [
+    "The release trigger remains comment-only and changes no emitted application runtime behavior",
+    "The observer is triggered only by completion of TAI Restricted Qwen REG.RU Activation",
+    "The observer writes an exact-main status bound to the activation workflow head SHA and run URL",
+    "Failure, cancellation or skip leaves issue 3372 open and cannot claim live success",
+    "Success closes issues 3372 and 3368 only after the activation workflow completes successfully",
+    "The retry push triggers canonical API, web and migration image publication for one exact SHA",
+    "The activation workflow concurrency group prevents competing production deployments",
+    "All exact-head CI, web, security, runtime and production-like Kubernetes gates pass",
+    "Permanent AP-13D admission remains NOT_ATTESTED",
+    "Production hosting remains REG_RU_VPS_ONLY"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
