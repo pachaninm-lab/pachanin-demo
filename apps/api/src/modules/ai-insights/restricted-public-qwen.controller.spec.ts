@@ -66,10 +66,10 @@ describe('restricted public Qwen HMAC authority', () => {
     try {
       await expect(controller.generate(BODY, signedHeaders(BODY))).resolves.toEqual({ answer: 'ok' });
       expect(generate).toHaveBeenCalledWith(BODY);
-      await expect(controller.generate(BODY, {
+      expect(() => controller.generate(BODY, {
         ...signedHeaders(BODY),
         'x-tai-signature': '0'.repeat(64),
-      })).rejects.toBeInstanceOf(UnauthorizedException);
+      })).toThrow(UnauthorizedException);
       expect(generate).toHaveBeenCalledTimes(1);
     } finally {
       if (original === undefined) delete process.env.TAI_PUBLIC_GATEWAY_HMAC_SECRET;
