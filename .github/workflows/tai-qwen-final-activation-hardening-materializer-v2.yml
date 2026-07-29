@@ -225,6 +225,7 @@ jobs:
           cp .github/workflows/tai-restricted-qwen-reg-ru-activation.yml "$activation"
           cp .github/workflows/tai-qwen-exact-image-activation-chain.yml "$chain"
           git fetch --no-tags origin main "$BLOB_BRANCH"
+          git reset --hard HEAD
           git checkout --detach origin/main
           root='docs/platform-v7/autopilot/generated/qwen-recovery-final-3372'
           mkdir -p "$root"
