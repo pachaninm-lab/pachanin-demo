@@ -8,7 +8,7 @@
   "status": "active",
   "maturity_boundary": "RESTRICTED_LIVE_READ_ONLY_QWEN_ACTIVE_PUBLIC_AND_ROLE_SCOPED_PENDING_EXTERNAL_IMMUTABILITY_AND_ADMISSION",
   "allowed_paths": [
-    ".github/workflows/tai-ap-13c1g-implementation.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
     "apps/api/src/modules/ai-insights/ai-assistant.service.spec.ts",
     "apps/api/src/modules/ai-insights/ai-insights.module.ts",
@@ -35,6 +35,7 @@
     "normal AP-13D admission and production readiness remain fail-closed and NOT_ATTESTED",
     "RU, EN and ZH tests cover public and role-scoped model invocation",
     "the API key is server-only and absent from browser output, logs, commits and test fixtures",
+    "exact-main REG.RU activation is automatic only after all exact OCI images exist and protected SSH authority passes",
     "REG.RU production activation is not claimed until exact-image and live endpoint acceptance pass"
   ],
   "forbidden_capabilities": [
