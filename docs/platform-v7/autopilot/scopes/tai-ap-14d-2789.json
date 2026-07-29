@@ -1,4 +1,5 @@
 {
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "TAI-AP-14D-2789",
   "parentProgramIssue": 2726,
   "issue": 2789,
