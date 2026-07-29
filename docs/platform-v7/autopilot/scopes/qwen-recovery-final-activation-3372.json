@@ -10,11 +10,12 @@
   "ownerAuthorizedExceptionCommentId": 5120686584,
   "exceptionExpiresWhenIssueClosed": true,
   "exceptionPurpose": "restore-accepted-restricted-qwen-contour-only",
-  "baseCommit": "7ee34519779d4ac6ccf8a73b31d1553f57052cda",
+  "baseCommit": "213aa56491b6894b0eec2d9c64571a481437f24c",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "restricted-live-read-only-qwen-recovery-only",
   "allowedPaths": [
     ".github/workflows/tai-qwen-final-activation-hardening-materializer.yml",
+    ".github/workflows/tai-qwen-final-activation-hardening-materializer-v2.yml",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     ".github/workflows/tai-qwen-exact-image-activation-chain.yml",
     "docs/platform-v7/autopilot/scopes/qwen-recovery-final-activation-3372.json"
