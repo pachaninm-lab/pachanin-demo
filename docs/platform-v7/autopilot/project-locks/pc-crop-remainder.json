@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.active-project-lock.v1",
+  "id": "PC-CROP-REMAINDER",
+  "status": "active",
+  "governanceIssue": 3389,
+  "activeIssue": 3390,
+  "activeSlice": "PC-CROP-10B",
+  "sequence": [
+    "PC-CROP-10B",
+    "PC-CROP-10C",
+    "PC-CROP-10D"
+  ],
+  "allowedBranchPrefixes": [
+    "agent/pc-crop-",
+    "fix/pc-crop-",
+    "governance/pc-crop-",
+    "ops/pc-crop-"
+  ],
+  "governanceBranch": "governance/pc-crop-project-lock-3389",
+  "forbiddenProgramTokens": [
+    "tai-",
+    "qwen",
+    "model-host",
+    "model-admission",
+    "ap-13",
+    "ap-14",
+    "netlify",
+    "vercel",
+    "railway"
+  ],
+  "sourceDocument": "Остаток_ТЗ_Прозрачная_Цена_растениеводство",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "aiException": {
+    "slice": "PC-CROP-18",
+    "allowedOnlyWhenActive": true
+  },
+  "rules": {
+    "exactIssueRequired": true,
+    "sourceControlledScopeRequired": true,
+    "projectLockBindingRequired": true,
+    "unrelatedPrerequisiteRequiresSeparateEvidence": true,
+    "runtimeChange": false,
+    "authorizationChange": false,
+    "tenantBoundaryChange": false,
+    "productionTopologyChange": false
+  }
+}
