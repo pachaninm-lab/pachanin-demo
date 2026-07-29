@@ -22,7 +22,8 @@
     "describe a missing capability as under development only when verified platform context explicitly confirms roadmap or implementation status",
     "otherwise state that current availability or roadmap status cannot be confirmed and offer support",
     "one contextual soft registration or support call to action at most",
-    "explicit current-data limits when live evidence is absent"
+    "explicit current-data limits when live evidence is absent",
+    "domain-oriented assistant copy remains consistent across RU, EN and ZH"
   ],
   "forbiddenCapabilities": [
     "account or private workspace data access from public mode",
