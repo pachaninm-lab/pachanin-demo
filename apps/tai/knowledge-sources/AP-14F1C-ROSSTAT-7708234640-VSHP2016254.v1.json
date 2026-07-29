@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "tai.ap14f1c-rosstat-dataset.v1",
+  "manifestVersion": "1.0.0",
+  "datasetCode": "7708234640-VSHP2016254",
+  "sourceId": "official.rosstat.opendata.7708234640-vshp2016254",
+  "parentCandidateSourceId": "official.rosstat.agriculture",
+  "owner": "Федеральная служба государственной статистики",
+  "title": "СТРУКТУРА СЕЛЬСКОХОЗЯЙСТВЕННЫХ УГОДИЙ В ХОЗЯЙСТВАХ ВСЕХ КАТЕГОРИЙ",
+  "dataPlane": "PUBLIC_OFFICIAL",
+  "sourceClass": "OPEN_DATASET",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "historicalData": {
+    "censusYear": 2016,
+    "firstPublishedAt": "2018-12-11",
+    "lastModifiedAt": "2018-12-11",
+    "declaredActualThrough": "2030-12-31",
+    "mandatoryAnswerLabel": "Исторические данные Всероссийской сельскохозяйственной переписи 2016 года; не являются текущими рыночными или хозяйственными данными."
+  },
+  "rights": {
+    "decisionId": "AP14F0-ROSSTAT-OPEN-DATA-7708234640-VSHP2016254",
+    "disposition": "ALLOWED_SHARED_RAG",
+    "evidenceLocator": "https://rosstat.gov.ru/opendata",
+    "datasetLocator": "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254",
+    "reviewedAt": "2026-07-29",
+    "reviewDueAt": "2026-10-29",
+    "contractRequired": false,
+    "freeUse": true,
+    "commercialUseAllowed": true,
+    "modificationAllowed": true,
+    "combinationAllowed": true,
+    "attributionRequired": true,
+    "noDistortionRequired": true,
+    "sourceLinkRequired": true,
+    "modelWeightsAllowed": false,
+    "scopeStatement": "Разрешение относится только к точным ресурсам набора 7708234640-VSHP2016254 и не распространяется на иные страницы, публикации или наборы Росстата."
+  },
+  "transport": {
+    "hostPin": "rosstat.gov.ru",
+    "httpsOnly": true,
+    "publicDnsOnly": true,
+    "pinnedAddressRequired": true,
+    "sameHostRedirectRequired": true,
+    "maximumRedirects": 0,
+    "credentialsAllowed": false,
+    "cookiesAllowed": false,
+    "acceptEncoding": "identity",
+    "connectTimeoutSeconds": 10,
+    "totalTimeoutSeconds": 90
+  },
+  "resources": [
+    {
+      "code": "DATASET_PAGE",
+      "uri": "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254",
+      "path": "/opendata/7708234640-VSHP2016254",
+      "allowedMediaTypes": ["text/html"],
+      "maximumBytes": 5000000,
+      "expectedSha256": null,
+      "evidenceState": "DISCOVERY_REQUIRED"
+    },
+    {
+      "code": "PASSPORT_CSV",
+      "uri": "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/meta.csv",
+      "path": "/opendata/7708234640-VSHP2016254/meta.csv",
+      "allowedMediaTypes": ["text/csv", "text/plain", "application/octet-stream"],
+      "maximumBytes": 1000000,
+      "expectedSha256": null,
+      "evidenceState": "DISCOVERY_REQUIRED"
+    },
+    {
+      "code": "STRUCTURE_XSD",
+      "uri": "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/structure-20181211T0212.xsd",
+      "path": "/opendata/7708234640-VSHP2016254/structure-20181211T0212.xsd",
+      "allowedMediaTypes": ["application/xml", "text/xml", "application/octet-stream"],
+      "maximumBytes": 5000000,
+      "expectedSha256": null,
+      "evidenceState": "DISCOVERY_REQUIRED"
+    },
+    {
+      "code": "DATA_XML",
+      "uri": "https://rosstat.gov.ru/opendata/7708234640-VSHP2016254/data-20181211T0212-structure-20181211T0212.xml",
+      "path": "/opendata/7708234640-VSHP2016254/data-20181211T0212-structure-20181211T0212.xml",
+      "allowedMediaTypes": ["application/xml", "text/xml", "application/octet-stream"],
+      "maximumBytes": 20000000,
+      "expectedSha256": null,
+      "evidenceState": "DISCOVERY_REQUIRED"
+    }
+  ],
+  "activation": {
+    "sourceFetchEnabled": true,
+    "parserExecutionEnabled": false,
+    "postgresqlAdmissionEnabled": false,
+    "snapshotActivationEnabled": false,
+    "sharedRagAllowed": false,
+    "statusReason": "Exact resource bytes, MIME, size and SHA-256 evidence must be captured and pinned before parser, PostgreSQL admission or snapshot activation."
+  },
+  "boundaries": {
+    "exactDatasetOnly": true,
+    "otherAp14f1bSourcesEnabled": false,
+    "broadRosstatCrawlAllowed": false,
+    "tenantLiveDataAllowed": false,
+    "contractedDataAllowed": false,
+    "cabinetAccessAllowed": false,
+    "credentialsAllowed": false,
+    "piiAllowed": false,
+    "modelTrainingAllowed": false,
+    "externalWritesAllowed": false,
+    "productionCompletenessClaimAllowed": false
+  }
+}
