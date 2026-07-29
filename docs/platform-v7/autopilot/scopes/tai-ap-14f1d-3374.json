@@ -8,8 +8,10 @@
   "operationalStatus": "NOT_ATTESTED",
   "allowedPaths": [
     ".github/workflows/tai-ap-14f1d.yml",
+    "apps/tai/tai/migrations/manifest.json",
     "apps/tai/tai/migrations/0021_retrieval_activation_serialization.sql",
     "apps/tai/tai/public_corpus_retrieval_sync.py",
+    "apps/tai/tests/test_migration_manifest.py",
     "apps/tai/tests/test_public_corpus_retrieval_sync.py",
     "docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json",
     "scripts/tai-ap-14f1d/verify.py"
@@ -35,8 +37,9 @@
     "exactMainRequired": true,
     "mergeExpectedHeadRequired": true,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 6,
+    "changedPathCount": 8,
     "migrationFile": "0021_retrieval_activation_serialization.sql",
+    "migrationManifestVersion": 23,
     "serializedGenerationActivationRequired": true,
     "sourceSpecificSyncRequired": true,
     "manifestIdempotencyRequired": true,
