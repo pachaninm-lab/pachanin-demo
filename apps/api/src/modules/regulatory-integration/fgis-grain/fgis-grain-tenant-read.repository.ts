@@ -392,7 +392,7 @@ export class FgisGrainTenantReadRepository {
           throw new PreconditionFailedException('Authorization version changed');
         }
         const replay = await this.findReplay(tx, context, input.idempotencyKey);
-        if (replay) return { replay, context, authorization: null, configuration: null } as const;
+        if (replay) return { replay, context, authorization: null, configuration: null, denial: null } as const;
         if (authorization.status !== 'READ_ONLY_ATTESTED') {
           await this.writeAudit(tx, context, {
             authorizationId: authorization.id,
@@ -405,14 +405,25 @@ export class FgisGrainTenantReadRepository {
             decision: 'DENIED',
             reasonCode: 'AUTHORIZATION_NOT_ATTESTED',
           });
-          throw new ForbiddenException('FGIS Grain read authorization is not externally attested');
+          return { replay: null, context, authorization: null, configuration: null, denial: 'FGIS Grain read authorization is not externally attested' } as const;
         }
         if (
           authorization.validUntil.getTime() <= Date.now()
           || !authorization.attestationValidUntil
           || authorization.attestationValidUntil.getTime() <= Date.now()
         ) {
-          throw new ForbiddenException('FGIS Grain read authorization or attestation expired');
+          await this.writeAudit(tx, context, {
+            authorizationId: authorization.id,
+            configurationId: authorization.configurationId,
+            operationCode: input.operationCode,
+            correlationId: input.correlationId,
+            idempotencyKey: input.idempotencyKey,
+            requestReference: input.requestReference,
+            requestSha256: input.requestSha256,
+            decision: 'DENIED',
+            reasonCode: 'AUTHORIZATION_OR_ATTESTATION_EXPIRED',
+          });
+          return { replay: null, context, authorization: null, configuration: null, denial: 'FGIS Grain read authorization or attestation expired' } as const;
         }
         if (!authorization.allowedOperations.includes(input.operationCode)) {
           await this.writeAudit(tx, context, {
@@ -426,7 +437,7 @@ export class FgisGrainTenantReadRepository {
             decision: 'DENIED',
             reasonCode: 'OPERATION_NOT_AUTHORIZED',
           });
-          throw new ForbiddenException('Operation is outside tenant authorization');
+          return { replay: null, context, authorization: null, configuration: null, denial: 'Operation is outside tenant authorization' } as const;
         }
         const configuration = await this.requireProviderAuthority(
           tx,
@@ -434,7 +445,7 @@ export class FgisGrainTenantReadRepository {
           authorization.configurationId,
           authorization.configurationVersion,
         );
-        return { replay: null, context, authorization, configuration } as const;
+        return { replay: null, context, authorization, configuration, denial: null } as const;
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -443,6 +454,7 @@ export class FgisGrainTenantReadRepository {
     );
 
     if (preflight.replay) return this.replayReceipt(preflight.replay, input);
+    if (preflight.denial) throw new ForbiddenException(preflight.denial);
     if (!preflight.authorization || !preflight.configuration) {
       throw new ConflictException('FGIS Grain read preflight is incomplete');
     }
