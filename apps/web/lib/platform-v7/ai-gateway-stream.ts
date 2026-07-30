@@ -117,13 +117,13 @@ function isRecognizableScratchpadEnvelope(value: unknown): boolean {
 
   const entries = Object.entries(value as Record<string, unknown>);
   const ambiguous = entries.filter(([key]) => PUBLIC_AMBIGUOUS_INTERNAL_JSON_KEYS.has(key.toLowerCase()));
-  if (ambiguous.length === 0) return false;
-
   const hasCompanion = entries.some(([key]) => PUBLIC_SCRATCHPAD_COMPANION_KEYS.has(key.toLowerCase()));
-  return ambiguous.some(([, child]) => (
+  const recognizableAtCurrentLevel = ambiguous.some(([, child]) => (
     (typeof child === 'string' || Array.isArray(child))
     && (hasCompanion || scratchpadNarrative(child))
   ));
+  if (recognizableAtCurrentLevel) return true;
+  return entries.some(([, child]) => isRecognizableScratchpadEnvelope(child));
 }
 
 function hasPublicInternalJsonEnvelope(value: unknown): boolean {
