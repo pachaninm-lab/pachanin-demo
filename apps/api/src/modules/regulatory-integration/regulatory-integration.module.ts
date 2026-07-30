@@ -5,6 +5,12 @@ import { FgisGrainDispatchRepository } from './fgis-grain/fgis-grain-dispatch.re
 import { FgisGrainExchangeCorrelationRepository } from './fgis-grain/fgis-grain-exchange-correlation.repository';
 import { FgisGrainProviderAttestationRepository } from './fgis-grain/fgis-grain-provider-attestation.repository';
 import { FgisGrainSdizProjectionRepository } from './fgis-grain/fgis-grain-sdiz-projection.repository';
+import { FgisGrainTenantReadController } from './fgis-grain/fgis-grain-tenant-read.controller';
+import { FgisGrainTenantReadRepository } from './fgis-grain/fgis-grain-tenant-read.repository';
+import {
+  DisabledFgisGrainTenantReadTransport,
+  FGIS_GRAIN_TENANT_READ_TRANSPORT,
+} from './fgis-grain/fgis-grain-tenant-read.transport';
 import { FgisGrainXmlCodecService } from './fgis-grain/fgis-grain-xml-codec.service';
 import { RegulatoryIntegrationControlTowerCommandService } from './regulatory-integration.control-tower.command.service';
 import { RegulatoryIntegrationControlTowerController } from './regulatory-integration.control-tower.controller';
@@ -15,7 +21,10 @@ import { RegulatoryIntegrationInboxRepository } from './regulatory-integration.i
 import { RegulatoryIntegrationReconciliationRepository } from './regulatory-integration.reconciliation.repository';
 
 @Module({
-  controllers: [RegulatoryIntegrationControlTowerController],
+  controllers: [
+    RegulatoryIntegrationControlTowerController,
+    FgisGrainTenantReadController,
+  ],
   providers: [
     RegulatoryIntegrationInboxRepository,
     RegulatoryIntegrationInboxLifecycleRepository,
@@ -30,6 +39,12 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
     FgisGrainAckRepository,
     FgisGrainProviderAttestationRepository,
     FgisGrainSdizProjectionRepository,
+    FgisGrainTenantReadRepository,
+    DisabledFgisGrainTenantReadTransport,
+    {
+      provide: FGIS_GRAIN_TENANT_READ_TRANSPORT,
+      useExisting: DisabledFgisGrainTenantReadTransport,
+    },
   ],
   exports: [
     RegulatoryIntegrationInboxRepository,
@@ -45,6 +60,8 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
     FgisGrainAckRepository,
     FgisGrainProviderAttestationRepository,
     FgisGrainSdizProjectionRepository,
+    FgisGrainTenantReadRepository,
+    FGIS_GRAIN_TENANT_READ_TRANSPORT,
   ],
 })
 export class RegulatoryIntegrationModule {}
