@@ -117,17 +117,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (request.nextUrl.searchParams.get('stream') !== '1') {
-    return knowledgePost(request);
-  }
-  if (request.headers.get('sec-fetch-site') === 'cross-site') {
-    return knowledgePost(request);
-  }
+  if (request.nextUrl.searchParams.get('stream') !== '1') return knowledgePost(request);
+  if (request.headers.get('sec-fetch-site') === 'cross-site') return knowledgePost(request);
 
   const rawBody = await request.text();
   const envelope = readPublicEnvelope(rawBody);
-  const groundingRequest = rebuildRequestWithoutStream(request, rawBody);
-  const groundingResponse = await knowledgePost(groundingRequest);
+  const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody));
   if (!groundingResponse.ok) return groundingResponse;
 
   let grounding: PublicKnowledgeAnswer;
@@ -139,15 +134,10 @@ export async function POST(request: NextRequest) {
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
-
   return streamRestrictedAnswer(request, grounding, envelope);
 }
 
-function streamRestrictedAnswer(
-  request: NextRequest,
-  grounding: PublicKnowledgeAnswer,
-  envelope: PublicEnvelope,
-) {
+function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledgeAnswer, envelope: PublicEnvelope) {
   const encoder = new TextEncoder();
   const streamId = crypto.randomUUID();
   const runtimeConfig = readRuntimeConfig();
@@ -156,9 +146,7 @@ function streamRestrictedAnswer(
     start(controller) {
       let closed = false;
       const writer = new GatewayStreamWriter(
-        (chunk) => {
-          if (!closed) controller.enqueue(encoder.encode(chunk));
-        },
+        (chunk) => { if (!closed) controller.enqueue(encoder.encode(chunk)); },
         'public',
         streamId,
       );
@@ -187,12 +175,8 @@ function streamRestrictedAnswer(
 
         if (containsSensitiveInput(envelope.question, envelope.history)) {
           emitDirectAnswer(writer, sensitiveInputCopy(locale), {
-            source: 'policy',
-            answerMode,
-            currentDataRequired,
-            modelIdentity: null,
-            truncated: false,
-            safetyFlags: ['SENSITIVE_INPUT_BLOCKED'],
+            source: 'policy', answerMode, currentDataRequired, modelIdentity: null,
+            truncated: false, safetyFlags: ['SENSITIVE_INPUT_BLOCKED'],
           });
           return;
         }
@@ -206,17 +190,10 @@ function streamRestrictedAnswer(
         }
 
         if (answerMode === 'verified_platform' && grounding.resolution !== 'answered') {
-          for (const source of grounding.sources) {
-            const uri = absoluteCitationUri(source.href, (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null);
-            if (!uri) continue;
-            if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
-          }
+          emitSources(writer, grounding.sources);
           emitDirectAnswer(writer, grounding.answer, {
-            source: 'verified_knowledge',
-            answerMode,
-            currentDataRequired: false,
-            modelIdentity: null,
-            truncated: false,
+            source: 'verified_knowledge', answerMode, currentDataRequired: false,
+            modelIdentity: null, truncated: false,
             safetyFlags: ['PLATFORM_GROUNDING_CLARIFICATION'],
           });
           return;
@@ -228,9 +205,10 @@ function streamRestrictedAnswer(
         }
 
         const payload = {
-          question: answerMode === 'verified_platform'
-            ? grounding.understanding?.normalizedQuestion || envelope.question || grounding.title
-            : envelope.question || grounding.understanding?.normalizedQuestion || grounding.title,
+          // The normalized understanding question drives generation for both
+          // contours; the exact raw wording remains separately available for
+          // nuance, audit and typo transparency.
+          question: grounding.understanding?.normalizedQuestion || envelope.question || grounding.title,
           originalQuestion: envelope.question,
           locale,
           answerMode,
@@ -248,27 +226,15 @@ function streamRestrictedAnswer(
           },
         };
         const answer = await callInternalModel(runtimeConfig, payload, request.signal);
-
-        if (answerMode === 'verified_platform') {
-          const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
-          for (const source of grounding.sources) {
-            const uri = absoluteCitationUri(source.href, base);
-            if (!uri) continue;
-            if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
-          }
-        }
-
+        if (answerMode === 'verified_platform') emitSources(writer, grounding.sources);
         for (const chunk of chunkAnswer(answer.answer)) {
           if (!writer.emit({ event: 'token', text: chunk })) return;
         }
         writer.emit({
           event: 'assessment',
           summary: JSON.stringify({
-            source: 'local_qwen',
-            answerMode,
-            currentDataRequired,
-            modelIdentity: answer.modelIdentity,
-            latencyMs: answer.latencyMs,
+            source: 'local_qwen', answerMode, currentDataRequired,
+            modelIdentity: answer.modelIdentity, latencyMs: answer.latencyMs,
             truncated: answer.truncated === true,
             finishReason: answer.finishReason || 'other',
             safetyFlags: answer.safetyFlags || [],
@@ -280,9 +246,7 @@ function streamRestrictedAnswer(
 
       void run()
         .catch(() => {
-          if (!request.signal.aborted) {
-            writer.fail('UPSTREAM_ERROR', 'The restricted public model could not complete the answer.');
-          }
+          if (!request.signal.aborted) writer.fail('UPSTREAM_ERROR', 'The restricted public model could not complete the answer.');
         })
         .finally(() => {
           request.signal.removeEventListener('abort', cancel);
@@ -305,6 +269,18 @@ function streamRestrictedAnswer(
   });
 }
 
+function emitSources(
+  writer: GatewayStreamWriter,
+  sources: readonly Readonly<{ label: string; href: string }>[],
+): void {
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
+  for (const source of sources) {
+    const uri = absoluteCitationUri(source.href, base);
+    if (!uri) continue;
+    if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
+  }
+}
+
 function emitDirectAnswer(
   writer: GatewayStreamWriter,
   answer: string,
@@ -313,11 +289,7 @@ function emitDirectAnswer(
   for (const chunk of chunkAnswer(answer)) {
     if (!writer.emit({ event: 'token', text: chunk })) return;
   }
-  writer.emit({
-    event: 'assessment',
-    summary: JSON.stringify(assessment),
-    operationalStatus: 'NOT_ATTESTED',
-  });
+  writer.emit({ event: 'assessment', summary: JSON.stringify(assessment), operationalStatus: 'NOT_ATTESTED' });
   writer.complete();
 }
 
@@ -330,8 +302,9 @@ async function callInternalModel(
   const timestamp = String(Math.floor(Date.now() / 1_000));
   const body = canonicalJson(payload);
   const bodyHash = createHash('sha256').update(body, 'utf8').digest('hex');
-  const signed = [SIGNATURE_VERSION, 'POST', INTERNAL_PATH, timestamp, bodyHash].join('\n');
-  const signature = createHmac('sha256', config.secret).update(signed, 'utf8').digest('hex');
+  const signature = createHmac('sha256', config.secret)
+    .update([SIGNATURE_VERSION, 'POST', INTERNAL_PATH, timestamp, bodyHash].join('\n'), 'utf8')
+    .digest('hex');
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
   const onReaderAbort = () => controller.abort();
@@ -363,9 +336,7 @@ async function callInternalModel(
       || !decoded.answer.trim()
       || typeof decoded.modelIdentity !== 'string'
       || !decoded.modelIdentity.trim()
-    ) {
-      throw new Error('restricted_runtime_contract_invalid');
-    }
+    ) throw new Error('restricted_runtime_contract_invalid');
     return decoded as ModelResponse;
   } finally {
     clearTimeout(timeout);
@@ -385,40 +356,41 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   }
 
   let base: URL;
-  try {
-    base = new URL(rawBase.endsWith('/') ? rawBase : `${rawBase}/`);
-  } catch {
+  try { base = new URL(rawBase.endsWith('/') ? rawBase : `${rawBase}/`); } catch {
     return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
   }
   if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
     return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
   }
   const allowedHosts = (environment.TAI_INTERNAL_API_ALLOWED_HOSTS || '')
-    .split(',')
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
+    .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
   if (!allowedHosts.includes(base.hostname.toLowerCase())) {
     return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
   }
-  const endpoint = new URL('internal/tai/public-generate', base);
-  return Object.freeze({ enabled: true, endpoint, secret, identity, timeoutMs });
+  return Object.freeze({
+    enabled: true,
+    endpoint: new URL('internal/tai/public-generate', base),
+    secret,
+    identity,
+    timeoutMs,
+  });
 }
 
 function readPublicEnvelope(rawBody: string): PublicEnvelope {
   try {
-    const decoded = JSON.parse(rawBody) as unknown;
-    const row = asRecord(decoded);
-    if (!row) return Object.freeze({ question: '', locale: 'ru', context: 'platform', history: [] });
+    const row = asRecord(JSON.parse(rawBody));
+    if (!row) return emptyEnvelope();
     const question = typeof row.message === 'string' ? row.message.trim().slice(0, 1_200) : '';
     const locale: PublicLocale = row.locale === 'en' || row.locale === 'zh' ? row.locale : 'ru';
     const context = typeof row.context === 'string' ? row.context.trim().slice(0, 120) : 'platform';
-    const history = normalizeHistory(row.history);
-    return Object.freeze({ question, locale, context, history });
+    return Object.freeze({ question, locale, context, history: normalizeHistory(row.history) });
   } catch {
-    return Object.freeze({ question: '', locale: 'ru', context: 'platform', history: [] });
+    return emptyEnvelope();
   }
 }
-
+function emptyEnvelope(): PublicEnvelope {
+  return Object.freeze({ question: '', locale: 'ru', context: 'platform', history: [] });
+}
 function normalizeHistory(value: unknown): readonly HistoryTurn[] {
   if (!Array.isArray(value)) return [];
   const turns: HistoryTurn[] = [];
@@ -437,14 +409,9 @@ function normalizeHistory(value: unknown): readonly HistoryTurn[] {
   return Object.freeze(turns);
 }
 
-function classifyAnswerMode(
-  question: string,
-  context: string,
-  history: readonly HistoryTurn[],
-): PublicAnswerMode {
+function classifyAnswerMode(question: string, context: string, history: readonly HistoryTurn[]): PublicAnswerMode {
   const normalized = normalizeIntent(question);
   if (EXPLICIT_PLATFORM_PATTERNS.some((pattern) => pattern.test(normalized))) return 'verified_platform';
-
   const workflow = PLATFORM_WORKFLOW_PATTERNS.some((pattern) => pattern.test(normalized));
   const deepAgro = GENERAL_AGRO_DEPTH_PATTERNS.some((pattern) => pattern.test(normalized));
   if (workflow && !deepAgro) return 'verified_platform';
@@ -456,65 +423,41 @@ function classifyAnswerMode(
     if (
       EXPLICIT_PLATFORM_PATTERNS.some((pattern) => pattern.test(prior))
       || PLATFORM_WORKFLOW_PATTERNS.some((pattern) => pattern.test(prior))
-    ) {
-      return 'verified_platform';
-    }
+    ) return 'verified_platform';
   }
-
   if (context !== 'platform' && /(?:платформ|сделк|аукцион|кабинет|фгис|интеграц)/iu.test(context)) {
     return 'verified_platform';
   }
   return 'general_agro';
 }
-
 function requiresCurrentEvidence(question: string): boolean {
   const normalized = normalizeIntent(question);
   return CURRENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalized));
 }
-
 function containsSensitiveInput(question: string, history: readonly HistoryTurn[]): boolean {
   const wire = [question, ...history.map((turn) => turn.text)].join('\n');
   return SENSITIVE_INPUT_PATTERNS.some((pattern) => pattern.test(wire));
 }
-
 function resolveLocale(grounding: PublicKnowledgeAnswer, requested: PublicLocale): PublicLocale {
   const detected = grounding.understanding?.detectedLocale;
-  if (detected === 'en' || detected === 'zh') return detected;
-  return requested;
+  return detected === 'en' || detected === 'zh' ? detected : requested;
 }
-
 function sensitiveInputCopy(locale: PublicLocale): string {
-  if (locale === 'en') {
-    return 'Do not send passwords, API keys, tokens, banking credentials or personal data in this public chat. Remove the sensitive value and ask the question again.';
-  }
-  if (locale === 'zh') {
-    return '请勿在公共聊天中发送密码、API 密钥、令牌、银行凭据或个人数据。删除敏感值后重新提问。';
-  }
+  if (locale === 'en') return 'Do not send passwords, API keys, tokens, banking credentials or personal data in this public chat. Remove the sensitive value and ask the question again.';
+  if (locale === 'zh') return '请勿在公共聊天中发送密码、API 密钥、令牌、银行凭据或个人数据。删除敏感值后重新提问。';
   return 'Не отправляй в публичный чат пароли, API-ключи, токены, банковские реквизиты и персональные данные. Удали секретное значение и задай вопрос повторно.';
 }
-
 function normalizeIntent(value: string): string {
-  return value
-    .normalize('NFKC')
-    .toLocaleLowerCase('ru-RU')
-    .replace(/ё/gu, 'е')
-    .replace(/[^\p{L}\p{N}\s«»"'-]+/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .trim();
+  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е')
+    .replace(/[^\p{L}\p{N}\s«»"'-]+/gu, ' ').replace(/\s+/gu, ' ').trim();
 }
-
 function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): NextRequest {
   const url = new URL(request.url);
   url.searchParams.delete('stream');
   const headers = new Headers(request.headers);
   headers.delete('content-length');
-  return new NextRequest(url, {
-    method: 'POST',
-    headers,
-    body: rawBody,
-  });
+  return new NextRequest(url, { method: 'POST', headers, body: rawBody });
 }
-
 function canonicalJson(value: unknown): string {
   if (value === null) return 'null';
   if (typeof value === 'string') return JSON.stringify(value);
@@ -528,15 +471,10 @@ function canonicalJson(value: unknown): string {
   const row = value as Record<string, unknown>;
   return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(row[key])}`).join(',')}}`;
 }
-
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
-
 function boundedInteger(raw: string | undefined, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(raw);
-  if (!Number.isInteger(parsed)) return fallback;
-  return Math.min(maximum, Math.max(minimum, parsed));
+  return Number.isInteger(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
 }
