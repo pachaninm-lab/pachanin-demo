@@ -599,7 +599,9 @@ jobs:
               if ((await title.textContent())?.trim() !== 'ИИ для агробизнеса') throw new Error('approved_title_missing');
               if (await dialog.getByText('ИИ Прозрачной Цены', { exact: true }).count()) throw new Error('legacy_title_present');
               if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Чем помочь?') throw new Error('agro_empty_state_missing');
-              if ((await dialog.locator('[data-pc-public-assistant-subtitle="true"]').textContent())?.trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');
+              const approvedSubtitle = dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible');
+              await approvedSubtitle.waitFor({ state: 'visible', timeout: 30000 });
+              if ((await approvedSubtitle.textContent())?.trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');
               if (await dialog.locator('[data-pc-public-assistant-ai-mark="true"]:visible').count() !== 1) throw new Error('ai_mark_count_invalid');
               if (await dialog.locator('.pc-modal-sheet-fullscreen-button').count()) throw new Error('duplicate_fullscreen_control_present');
               if (await dialog.getByRole('button', { name: 'Развернуть на весь экран' }).count() !== 1) throw new Error('native_fullscreen_control_count_invalid');
