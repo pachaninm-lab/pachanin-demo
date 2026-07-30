@@ -38,6 +38,7 @@ env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   EVIDENCE_DIR: artifacts/pc-crop-10c
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  PC_CROP_10C_RUNTIME_DATABASE_URL: postgresql://app_runtime:app_runtime@localhost:5432/grainflow?schema=public
 
 jobs:
   tenant-read-authority:
@@ -99,6 +100,26 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Bootstrap restricted runtime principal
+        env:
+          PGPASSWORD: postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d grainflow -v ON_ERROR_STOP=1 <<'SQL'
+          DO $bootstrap$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime') THEN
+              CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+            ELSE
+              ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+            END IF;
+          END;
+          $bootstrap$;
+          GRANT CONNECT ON DATABASE grainflow TO app_runtime;
+          GRANT USAGE ON SCHEMA public TO app_runtime;
+          SQL
+
       - name: Apply complete PostgreSQL migration chain
         shell: bash
         run: |
@@ -109,6 +130,36 @@ jobs:
           pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
           test -f apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql
           touch "$EVIDENCE_DIR/migration.ok"
+
+      - name: Verify restricted principal and append-only grants
+        env:
+          PGPASSWORD: postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d grainflow -v ON_ERROR_STOP=1 <<'SQL'
+          DO $verify$
+          BEGIN
+            IF NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'SELECT')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'INSERT')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'UPDATE')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'DELETE')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'SELECT')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'INSERT')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'UPDATE')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'DELETE')
+            THEN
+              RAISE EXCEPTION 'PC_CROP_10C_RUNTIME_GRANTS_INVALID';
+            END IF;
+            IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'fgis_grain_tenant_read_authorizations') <> 3
+               OR (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'fgis_grain_tenant_read_audits') <> 2
+            THEN
+              RAISE EXCEPTION 'PC_CROP_10C_RLS_POLICIES_INVALID';
+            END IF;
+          END;
+          $verify$;
+          SQL
+          touch "$EVIDENCE_DIR/restricted-principal.ok"
 
       - name: Typecheck API authority
         shell: bash
@@ -199,46 +250,3 @@ jobs:
             -f description="$description" \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
           [[ "$state" == success ]]
-
-  temporary-apply:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/pc-crop-10c-tenant-authorized-read-adapter'
-    permissions:
-      contents: write
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: agent/pc-crop-10c-tenant-authorized-read-adapter
-          fetch-depth: 0
-          persist-credentials: true
-      - name: Apply staged hardening and restore final workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 .github/scripts/temp-pc10c-migration.py
-          python3 .github/scripts/temp-pc10c-repository.py
-          python3 .github/scripts/temp-pc10c-e2e.py
-          python3 .github/scripts/temp-pc10c-workflow.py
-          python3 .github/scripts/temp-pc10c-verifier.py
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('.github/workflows/pc-crop-10c.yml')
-          source = path.read_text()
-          marker = '\n  temporary-apply:'
-          if marker not in source:
-              raise SystemExit('temporary job marker missing')
-          path.write_text(source.split(marker, 1)[0] + '\n')
-          PY
-          rm -f \
-            .github/scripts/temp-pc10c-migration.py \
-            .github/scripts/temp-pc10c-repository.py \
-            .github/scripts/temp-pc10c-e2e.py \
-            .github/scripts/temp-pc10c-workflow.py \
-            .github/scripts/temp-pc10c-verifier.py \
-            .github/workflows/temp-pc10c-apply.yml
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'PC-CROP-10C: harden replay, RLS and denial evidence'
-          git push origin HEAD:agent/pc-crop-10c-tenant-authorized-read-adapter
