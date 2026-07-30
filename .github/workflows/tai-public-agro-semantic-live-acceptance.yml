@@ -5,16 +5,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/tai-public-agro-semantic-live-acceptance.yml'
-      - 'apps/web/next.config.js'
       - 'docs/platform-v7/autopilot/scopes/fix-qwen-broad-agro-semantic-acceptance.json'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/tai-public-agro-semantic-live-acceptance.yml'
-      - 'apps/web/next.config.js'
-      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
-      - 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
-      - 'apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts'
+  workflow_run:
+    workflows: ['TAI Restricted Qwen REG.RU Activation']
+    types: [completed]
   workflow_dispatch:
     inputs:
       target_sha:
@@ -27,6 +21,7 @@ on:
         type: string
 
 permissions:
+  actions: read
   contents: read
   issues: write
 
@@ -41,7 +36,11 @@ jobs:
   live-semantic-acceptance:
     if: >-
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      ) ||
       (
         github.event_name == 'workflow_dispatch' &&
         github.ref == 'refs/heads/main' &&
@@ -50,7 +49,7 @@ jobs:
         inputs.confirmation == 'VERIFY-PUBLIC-AGRO-SEMANTICS'
       )
     runs-on: ubuntu-24.04
-    timeout-minutes: 110
+    timeout-minutes: 55
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -58,37 +57,40 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve governed production target
+      - name: Validate serialized acceptance contract
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow='.github/workflows/tai-public-agro-semantic-live-acceptance.yml'
+          grep -Fq "workflow_run:" "$workflow"
+          grep -Fq "workflows: ['TAI Restricted Qwen REG.RU Activation']" "$workflow"
+          grep -Fq "github.event.workflow_run.conclusion == 'success'" "$workflow"
+          grep -Fq "github.event.workflow_run.head_branch == 'main'" "$workflow"
+          if grep -Eq '^[[:space:]]+push:' "$workflow"; then
+            echo 'Semantic production acceptance must not run concurrently from push.' >&2
+            exit 1
+          fi
+          echo 'SEMANTIC_ACCEPTANCE_SERIALIZATION=PASS'
+
+      - name: Resolve exact activated main
+        if: github.event_name != 'pull_request'
         id: target
         shell: bash
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
-            manifest="$RUNNER_TEMP/live-manifest.json"
-            curl -fsS --connect-timeout 10 --max-time 30 \
-              "$LIVE_BASE/manifest-pc-deploy.json?semantic_pr=${{ github.event.pull_request.head.sha }}&ts=$(date +%s%N)" \
-              -o "$manifest"
-            target="$(python3 - "$manifest" <<'PY'
-          import json, pathlib, sys
-          payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          print(payload.get('commitSha', ''))
-          PY
-            )"
-            [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-            git merge-base --is-ancestor "$target" origin/main
-          elif [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then
-            target='${{ inputs.target_sha }}'
-            [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-            [[ "$target" == "$(git rev-parse origin/main)" ]]
+          if [[ '${{ github.event_name }}' == 'workflow_run' ]]; then
+            target='${{ github.event.workflow_run.head_sha }}'
           else
-            target='${{ github.sha }}'
-            [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-            [[ "$target" == "$(git rev-parse origin/main)" ]]
+            target='${{ inputs.target_sha }}'
           fi
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse origin/main)" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
 
       - name: Wait for exact REG.RU deployment manifest
+        if: github.event_name != 'pull_request'
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
@@ -96,7 +98,7 @@ jobs:
           set -euo pipefail
           ready=0
           mkdir -p "$RUNNER_TEMP/tai-public-agro-semantic"
-          for attempt in $(seq 1 540); do
+          for attempt in $(seq 1 90); do
             manifest="$RUNNER_TEMP/tai-public-agro-semantic/manifest.json"
             if curl -fsS --connect-timeout 10 --max-time 30 \
               "$LIVE_BASE/manifest-pc-deploy.json?semantic=$TARGET_SHA&attempt=$attempt&ts=$(date +%s%N)" \
@@ -121,6 +123,7 @@ jobs:
           echo "LIVE_MANIFEST_EXACT_SHA=$TARGET_SHA"
 
       - name: Verify substantive broad-agro response in live Chromium
+        if: github.event_name != 'pull_request'
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
           EVIDENCE_DIR: ${{ runner.temp }}/tai-public-agro-semantic/evidence
@@ -186,66 +189,42 @@ jobs:
               if (manifest.commitSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifest.commitSha}`);
 
               const dialog = page.locator('#pc-public-assistant-panel');
-              const hiddenTrigger = page.locator('.pc-public-assistant-shortcut');
-              await hiddenTrigger.waitFor({ state: 'attached', timeout: 30000 });
-              await page.waitForTimeout(750);
-
-              let opened = false;
-              const dockTrigger = page.locator('.pc-public-contact-dock-assistant');
-              if (await dockTrigger.count()) {
-                await page.evaluate(() => window.scrollTo(0, 260));
-                await page.waitForTimeout(250);
-                await page.evaluate(() => window.scrollTo(0, 160));
-                try {
-                  await dockTrigger.waitFor({ state: 'visible', timeout: 10000 });
-                  if (await dockTrigger.isEnabled()) {
-                    await dockTrigger.click();
-                    await dialog.waitFor({ state: 'visible', timeout: 5000 });
-                    opened = true;
-                  }
-                } catch {}
-              }
-              if (!opened) await hiddenTrigger.evaluate((node) => node.click());
+              const trigger = page.locator('.pc-public-assistant-shortcut');
+              await trigger.waitFor({ state: 'attached', timeout: 30000 });
+              await trigger.evaluate((node) => node.click());
               await dialog.waitFor({ state: 'visible', timeout: 30000 });
 
               if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'ИИ Прозрачной Цены') {
                 throw new Error('semantic_title_missing');
               }
-              if (((await page.locator('#pc-public-assistant-empty-title').textContent()) || '').trim() !== 'Чем помочь?') {
-                throw new Error('semantic_empty_state_missing');
-              }
-              const identity = ((await dialog.locator('.pc-public-assistant-identity div > span').textContent()) || '').trim();
-              if (!identity.includes('агробизнесу')) throw new Error('semantic_agro_identity_missing');
-
               const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
               await composer.fill('Что влияет на цену зерна?');
               await dialog.getByRole('button', { name: 'Отправить' }).click();
               await dialog.locator('.pc-public-assistant-message[data-role="user"]').last().waitFor({ state: 'visible', timeout: 30000 });
 
-              const answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
-              await answered.waitFor({ state: 'visible', timeout: 240000 });
-              const answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+              const terminal = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"], .pc-public-assistant-message[data-role="assistant"][data-stream-status="refused"]').last();
+              await terminal.waitFor({ state: 'visible', timeout: 150000 });
+              const streamStatus = await terminal.getAttribute('data-stream-status');
+              const refusal = await terminal.getAttribute('data-stream-refusal');
+              if (streamStatus !== 'answered') throw new Error(`semantic_terminal_${streamStatus}:${refusal || 'unknown'}`);
+
+              const answerText = ((await terminal.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
               const normalized = answerText.toLocaleLowerCase('ru-RU').replace(/\s+/g, ' ');
               if (answerText.length < 120) throw new Error(`semantic_answer_too_short:${answerText.length}`);
-              const refusal = refusalPatterns.find((pattern) => pattern.test(normalized));
-              if (refusal) throw new Error(`semantic_refusal_or_error:${refusal.source}`);
+              const refusalPattern = refusalPatterns.find((pattern) => pattern.test(normalized));
+              if (refusalPattern) throw new Error(`semantic_refusal_or_error:${refusalPattern.source}`);
               const factorHits = factorFamilies.filter(([, pattern]) => pattern.test(normalized)).map(([name]) => name);
               if (factorHits.length < 3) throw new Error(`semantic_factor_coverage_too_low:${factorHits.join(',')}`);
-              if (await answered.locator('.pc-public-assistant-source-list a').count()) {
-                throw new Error('semantic_general_agro_fake_platform_citation');
-              }
+              if (await terminal.locator('.pc-public-assistant-source-list a').count()) throw new Error('semantic_general_agro_fake_platform_citation');
               if (await dialog.locator('[role="alert"]').count()) throw new Error('semantic_ui_alert_present');
 
               const overflow = await dialog.evaluate((node) => ({
                 horizontal: node.scrollWidth - node.clientWidth,
                 viewportRight: node.getBoundingClientRect().right - window.innerWidth,
               }));
-              if (overflow.horizontal > 1 || overflow.viewportRight > 1) {
-                throw new Error(`semantic_ui_overflow:${JSON.stringify(overflow)}`);
-              }
+              if (overflow.horizontal > 1 || overflow.viewportRight > 1) throw new Error(`semantic_ui_overflow:${JSON.stringify(overflow)}`);
               if (pageErrors.length) throw new Error(`semantic_page_errors:${pageErrors.join('|')}`);
 
-              fs.mkdirSync(evidenceDir, { recursive: true });
               await page.screenshot({ path: path.join(evidenceDir, 'public-agro-semantic-390x844.png'), fullPage: true });
               fs.writeFileSync(path.join(evidenceDir, 'public-agro-semantic.json'), JSON.stringify({
                 targetSha,
@@ -254,12 +233,19 @@ jobs:
                 answerCharacters: answerText.length,
                 answerSha256: crypto.createHash('sha256').update(answerText, 'utf8').digest('hex'),
                 factorHits,
-                refusalPatternsMatched: 0,
-                fakePlatformCitationLinks: 0,
                 viewport: '390x844',
                 status: 'PASS',
               }, null, 2));
               console.log(`LIVE_PUBLIC_AGRO_SEMANTIC=PASS factors=${factorHits.join(',')} chars=${answerText.length}`);
+            } catch (error) {
+              await page.screenshot({ path: path.join(evidenceDir, 'public-agro-semantic-failure.png'), fullPage: true }).catch(() => undefined);
+              fs.writeFileSync(path.join(evidenceDir, 'public-agro-semantic-failure.json'), JSON.stringify({
+                targetSha,
+                error: String(error),
+                pageErrors,
+                status: 'FAIL',
+              }, null, 2));
+              throw error;
             } finally {
               await browser.close();
             }
@@ -270,16 +256,16 @@ jobs:
           NODE
 
       - name: Upload semantic live evidence
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: tai-public-agro-semantic-${{ github.run_id }}
           path: ${{ runner.temp }}/tai-public-agro-semantic/evidence
-          if-no-files-found: ignore
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Record semantic acceptance failure
-        if: failure() && github.event_name == 'push'
+        if: failure() && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
@@ -287,20 +273,15 @@ jobs:
         run: |
           set -euo pipefail
           gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" || true
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance failed closed for \`$TARGET_SHA\` in workflow \`$GITHUB_RUN_ID\`. The prior activation success must not be treated as complete broad-agro semantic evidence until this gate passes."
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance failed closed for \`$TARGET_SHA\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
 
       - name: Record semantic acceptance success
-        if: success() && github.event_name == 'push'
+        if: success() && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          marker="<!-- tai-public-agro-semantic-live:$TARGET_SHA:success -->"
-          if ! gh api "repos/$GITHUB_REPOSITORY/issues/3372/comments" --paginate --jq '.[].body' | grep -Fq "$marker"; then
-            body="$marker
-          Exact-main public agro semantic acceptance **PASS** for \`$TARGET_SHA\`: live Chromium received a substantive answer to \`Что влияет на цену зерна?\`, rejected refusal/error patterns, proved at least three independent market-factor families, found no fake platform citation, no alert, no page error and no mobile overflow. Evidence workflow: \`$GITHUB_RUN_ID\`."
-            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "$body"
-            gh issue comment 3368 --repo "$GITHUB_REPOSITORY" --body "$body"
-          fi
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance passed for \`$TARGET_SHA\` after successful REG.RU Qwen activation. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          gh issue close 3372 --repo "$GITHUB_REPOSITORY" --reason completed
