@@ -84,9 +84,14 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.sha }}'
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            target="$(git rev-parse origin/main)"
+          else
+            target='${{ inputs.target_sha }}'
+          fi
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           [[ "$target" == "$(git rev-parse origin/main)" ]]
+          git checkout --detach "$target"
           [[ "$target" == "$(git rev-parse HEAD)" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
           echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
