@@ -26,13 +26,36 @@ function snapshot(status: GatewayStreamSnapshot['status'], text: string): Gatewa
 }
 
 describe('public assistant production-safe UI', () => {
-  it('uses one fullscreen control and the approved two-line identity', () => {
-    expect(controllerSource).toContain("title: 'ИИ в агробизнесе'");
+  it('uses one fullscreen control and the approved two-line agribusiness identity', () => {
+    expect(controllerSource).toContain("title: 'ИИ для агробизнеса'");
+    expect(controllerSource).toContain("subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.'");
     expect(controllerSource).toContain("title: 'AI for agribusiness'");
+    expect(controllerSource).toContain("subtitle: 'Developed by Transparent Price for agriculture.'");
     expect(controllerSource).toContain("title: '农业商业人工智能'");
-    expect(controllerSource).toContain("subtitle: 'разработан Прозрачной Ценой'");
+    expect(controllerSource).toContain("subtitle: '由“透明价格”为农业打造。'");
     expect(controllerSource).toContain("querySelectorAll<HTMLElement>('.pc-modal-sheet-fullscreen-button')");
     expect(controllerSource).toContain('data-pc-public-assistant-fullscreen');
+  });
+
+  it('restores the AI mark and removes all unapproved identity children', () => {
+    expect(controllerSource).toContain("mark.dataset.pcPublicAssistantAiMark = 'true'");
+    expect(controllerSource).toContain("identity.dataset.pcPublicAssistantIdentity = 'two-lines-only'");
+    expect(controllerSource).toContain("textGroup.className = 'pc-public-assistant-identity-copy'");
+    expect(controllerSource).toContain("subtitle.dataset.pcPublicAssistantSubtitle = 'true'");
+    expect(controllerSource).toContain('for (const child of Array.from(identity.children))');
+    expect(controllerSource).toContain('if (child !== mark && child !== textGroup) child.remove()');
+    expect(controllerSource).toContain('.pc-public-assistant-header-action {');
+    expect(controllerSource).toContain('display: none !important');
+  });
+
+  it('enforces a mobile-safe header layout without clipping or button collision', () => {
+    expect(controllerSource).toContain('@media (max-width: 430px)');
+    expect(controllerSource).toContain('grid-template-columns: minmax(0, 1fr) 42px 42px !important');
+    expect(controllerSource).toContain('grid-template-columns: 40px minmax(0, 1fr) !important');
+    expect(controllerSource).toContain("[data-pc-public-assistant-subtitle='true']");
+    expect(controllerSource).toContain('color: #2f7d5a !important');
+    expect(controllerSource).toContain('-webkit-line-clamp: 2 !important');
+    expect(controllerSource).toContain('visibility: visible !important');
   });
 
   it('stops a public request that exceeds the bounded deadline and exposes a real retry action', () => {
@@ -47,7 +70,9 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain("backdrop?.addEventListener('click', onCloseCapture, { capture: true })");
     expect(controllerSource).toContain("document.addEventListener('keydown', onEscapeCapture, { capture: true })");
     expect(controllerSource).toContain("panel.dataset.fullscreen !== 'true'");
+    expect(controllerSource).toContain("backdrop?.removeEventListener('click', onCloseCapture, { capture: true })");
     expect(controllerSource).toContain("document.removeEventListener('keydown', onEscapeCapture, { capture: true })");
+    expect(controllerSource).toMatch(/return \(\) => \{\s+stopActiveRequest\(\);\s+observer\.disconnect\(\);/u);
   });
 
   it('never projects provisional tokens or operational metadata while thinking', () => {
@@ -60,10 +85,10 @@ describe('public assistant production-safe UI', () => {
     });
   });
 
-  it('removes reasoning blocks and tool envelopes from a completed answer', () => {
+  it('removes reasoning blocks and nested tool envelopes from a completed answer', () => {
     const answer = [
       '<think>Проверяю внутренние шаги и вызываю инструмент.</think>',
-      '{"tool_calls":[{"name":"search","arguments":"secret"}]}',
+      '{"tool_calls":[{"name":"search","arguments":{"query":"grain","secret":true}}]}',
       'Итоговый ответ пользователю.',
     ].join('\n');
 
@@ -74,6 +99,36 @@ describe('public assistant production-safe UI', () => {
       assessment: null,
       modelIdentity: null,
     });
+  });
+
+  it('removes multiline and array-root internal JSON without trailing fragments', () => {
+    const multiline = [
+      '{',
+      '  "tool_calls": [',
+      '    {"name":"search","arguments":{"query":"grain {market}","quote":"\\"exact\\""}}',
+      '  ]',
+      '}',
+      'Публичный вывод.',
+    ].join('\n');
+    const arrayRoot = '[{"tool_call":{"name":"lookup","arguments":{"id":1}}}]\nОтвет пользователю.';
+
+    expect(stripPublicAssistantInternalArtifacts(multiline)).toBe('Публичный вывод.');
+    expect(stripPublicAssistantInternalArtifacts(arrayRoot)).toBe('Ответ пользователю.');
+  });
+
+  it('preserves ordinary JSON including braces and escaped quotes inside strings', () => {
+    const answer = 'Показатели: {"protein":12.5,"note":"скобки {сохраняются} и \\"кавычки\\""}.';
+    expect(stripPublicAssistantInternalArtifacts(answer)).toBe(answer);
+  });
+
+  it('fails closed on incomplete or malformed internal JSON envelopes', () => {
+    const incomplete = 'Видимый префикс.\n{"tool_calls":[{"name":"search"';
+    const malformed = 'До.\n{"reasoning_content":bad}\nПосле.';
+
+    expect(stripPublicAssistantInternalArtifacts(incomplete)).toBe('Видимый префикс.');
+    expect(stripPublicAssistantInternalArtifacts(malformed)).toBe('До.\n\nПосле.');
+    expect(publicSnapshotForDisplay(snapshot('answered', '{"reasoning_content":"незавершённый')))
+      .toMatchObject({ status: 'refused', text: '', refusal: 'ABSTAINED_NO_DATA' });
   });
 
   it('fails closed when an unterminated reasoning block consumes the final answer', () => {

@@ -1,10 +1,10 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/public-ai-production-safety-final-3477",
+  "branch": "fix/public-ai-branding-cleanup-20260730",
   "status": "active",
   "issue": 3450,
-  "baseCommit": "de91445d29548f73dfbe5eef92f500ad3f21517b",
-  "operationalStatus": "PUBLIC_AI_PRODUCTION_SAFETY_FINAL_PR",
+  "baseCommit": "b22ad0df85de8113c9983839278e325842bcead1",
+  "operationalStatus": "PUBLIC_AI_BRANDING_AND_STRUCTURAL_SANITIZER_FINAL_GATES",
   "approvedBy": "owner-direct-implement-2026-07-30",
   "allowedPaths": [
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
@@ -20,11 +20,14 @@
     "productionDeployment": false
   },
   "acceptance": [
-    "the public assistant header has exactly two branding lines in RU, EN and ZH",
-    "the Russian title is ИИ в агробизнесе and the subtitle is разработан Прозрачной Ценой",
+    "the public assistant identity contains only the visible AI mark, title and subtitle",
+    "the Russian title is ИИ для агробизнеса and the subtitle is Разработан Прозрачной ценой для сельского хозяйства.",
+    "the subtitle uses a smaller calm green accent distinct from the title",
+    "the identity remains readable without clipping, off-screen overflow or button collision from 360 through 430 CSS pixels",
     "the public assistant keeps exactly one native fullscreen control",
     "support chat fullscreen behavior remains unchanged",
     "public users never see provisional tokens, reasoning, think blocks, tool traces, debug JSON, model identity or safety flags",
+    "nested, array-root, malformed and incomplete internal JSON envelopes are structurally removed without trailing fragments while ordinary JSON is preserved",
     "a public stream is terminated after 45 seconds and the user receives a real retry control",
     "every close path aborts the active public assistant request before cleanup",
     "repetitive integration caveats and navigation boilerplate are not rendered in public answers",

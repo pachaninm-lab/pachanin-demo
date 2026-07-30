@@ -27,9 +27,9 @@ const LABELS: Record<Locale, { expand: string; collapse: string }> = {
 };
 
 const PUBLIC_ASSISTANT_BRANDING: Record<Locale, { title: string; subtitle: string }> = {
-  ru: { title: 'ИИ в агробизнесе', subtitle: 'разработан Прозрачной Ценой' },
-  en: { title: 'AI for agribusiness', subtitle: 'developed by Transparent Price' },
-  zh: { title: '农业商业人工智能', subtitle: '由“透明价格”开发' },
+  ru: { title: 'ИИ для агробизнеса', subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.' },
+  en: { title: 'AI for agribusiness', subtitle: 'Developed by Transparent Price for agriculture.' },
+  zh: { title: '农业商业人工智能', subtitle: '由“透明价格”为农业打造。' },
 };
 
 const PUBLIC_ASSISTANT_TIMEOUT_COPY: Record<Locale, { message: string; retry: string }> = {
@@ -39,7 +39,132 @@ const PUBLIC_ASSISTANT_TIMEOUT_COPY: Record<Locale, { message: string; retry: st
 };
 
 const PUBLIC_ASSISTANT_TIMEOUT_MS = 45_000;
+const PUBLIC_ASSISTANT_IDENTITY_STYLE_ID = 'pc-public-assistant-identity-branding-v2';
 const INTERNAL_ARTIFACT_PATTERN = /(?:<\/?(?:think|analysis|reasoning)\b|tool[_ -]?calls?|tool[_ -]?trace|think-state|reasoning[_ -]?state|"(?:arguments|tool_call_id)"\s*:)/iu;
+
+const PUBLIC_ASSISTANT_IDENTITY_CSS = `
+.pc-public-assistant-panel .pc-public-assistant-header {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 44px 44px !important;
+  align-items: center !important;
+  column-gap: 8px !important;
+  min-height: 68px !important;
+  padding: 8px 10px 8px 12px !important;
+  overflow: hidden !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-identity {
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-identity > .pc-public-assistant-mark {
+  position: static !important;
+  display: inline-flex !important;
+  visibility: visible !important;
+  flex: 0 0 42px !important;
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  border: 1px solid #c7ddd0 !important;
+  border-radius: 11px !important;
+  background: #f3faf6 !important;
+  color: #087a3b !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-identity > .pc-public-assistant-mark svg {
+  display: block !important;
+  width: 21px !important;
+  height: 21px !important;
+  stroke-width: 2 !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-identity > .pc-public-assistant-identity-copy {
+  display: grid !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  gap: 3px !important;
+  overflow: hidden !important;
+}
+.pc-public-assistant-panel #pc-public-assistant-title {
+  display: block !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  color: #092118 !important;
+  font-size: clamp(15px, 4vw, 17px) !important;
+  font-weight: 750 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-identity [data-pc-public-assistant-subtitle='true'] {
+  display: -webkit-box !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  color: #2f7d5a !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  line-height: 1.18 !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-header-action {
+  display: none !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-header > .pc-public-assistant-icon-button {
+  display: inline-flex !important;
+  flex: 0 0 44px !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+}
+@media (max-width: 430px) {
+  .pc-public-assistant-panel .pc-public-assistant-header {
+    grid-template-columns: minmax(0, 1fr) 42px 42px !important;
+    column-gap: 6px !important;
+    min-height: 70px !important;
+    padding: 7px 8px 7px 10px !important;
+  }
+  .pc-public-assistant-panel .pc-public-assistant-identity {
+    grid-template-columns: 40px minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+  .pc-public-assistant-panel .pc-public-assistant-identity > .pc-public-assistant-mark {
+    flex-basis: 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+  .pc-public-assistant-panel #pc-public-assistant-title {
+    font-size: 15px !important;
+  }
+  .pc-public-assistant-panel .pc-public-assistant-identity [data-pc-public-assistant-subtitle='true'] {
+    font-size: 8.5px !important;
+    line-height: 1.16 !important;
+  }
+  .pc-public-assistant-panel .pc-public-assistant-header > .pc-public-assistant-icon-button {
+    flex-basis: 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+  }
+}
+`;
 
 function resolveLocale(): Locale {
   const query = new URLSearchParams(window.location.search).get('lang');
@@ -93,6 +218,40 @@ function setControlledTextareaValue(textarea: HTMLTextAreaElement, value: string
   if (setter) setter.call(textarea, value);
   else textarea.value = value;
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function ensurePublicAssistantIdentityStyle() {
+  if (document.getElementById(PUBLIC_ASSISTANT_IDENTITY_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = PUBLIC_ASSISTANT_IDENTITY_STYLE_ID;
+  style.textContent = PUBLIC_ASSISTANT_IDENTITY_CSS;
+  document.head.append(style);
+}
+
+function enforcePublicAssistantIdentity(panel: HTMLElement) {
+  ensurePublicAssistantIdentityStyle();
+
+  const identity = panel.querySelector<HTMLElement>('.pc-public-assistant-identity');
+  const mark = identity?.querySelector<HTMLElement>('.pc-public-assistant-mark');
+  const title = identity?.querySelector<HTMLElement>('#pc-public-assistant-title');
+  const textGroup = title?.parentElement;
+  const subtitle = textGroup?.querySelector<HTMLElement>(':scope > span');
+  if (!identity || !mark || !title || !textGroup || !subtitle) return;
+
+  for (const child of Array.from(identity.children)) {
+    if (child !== mark && child !== textGroup) child.remove();
+  }
+  for (const child of Array.from(textGroup.children)) {
+    if (child !== title && child !== subtitle) child.remove();
+  }
+  for (const node of Array.from(textGroup.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) node.remove();
+  }
+
+  identity.dataset.pcPublicAssistantIdentity = 'two-lines-only';
+  mark.dataset.pcPublicAssistantAiMark = 'true';
+  textGroup.className = 'pc-public-assistant-identity-copy';
+  subtitle.dataset.pcPublicAssistantSubtitle = 'true';
 }
 
 function enhancePublicAssistant(panel: HTMLElement) {
@@ -193,6 +352,7 @@ function enhancePublicAssistant(panel: HTMLElement) {
     const copy = PUBLIC_ASSISTANT_BRANDING[resolveLocale()];
     if (title && title.textContent !== copy.title) title.textContent = copy.title;
     if (subtitle && subtitle.textContent !== copy.subtitle) subtitle.textContent = copy.subtitle;
+    enforcePublicAssistantIdentity(panel);
 
     for (const duplicate of panel.querySelectorAll<HTMLElement>('.pc-modal-sheet-fullscreen-button')) duplicate.remove();
 

@@ -64,8 +64,111 @@ const PUBLIC_INTERNAL_BLOCK_PATTERNS = [
   /<(?:think|analysis|reasoning)\b[^>]*>[\s\S]*?<\/(?:think|analysis|reasoning)>/giu,
   /\[(?:think|analysis|reasoning)\][\s\S]*?\[\/(?:think|analysis|reasoning)\]/giu,
   /```(?:json|javascript|typescript|text)?\s*[\s\S]{0,24000}?"(?:tool_calls?|tool_call_id|arguments|reasoning)"[\s\S]{0,24000}?```/giu,
-  /\{[\s\S]{0,24000}?"(?:tool_calls?|tool_call_id)"\s*:[\s\S]{0,24000}?\}/giu,
 ] as const;
+
+const PUBLIC_INTERNAL_JSON_KEYS: ReadonlySet<string> = new Set([
+  'tool_calls',
+  'tool_call',
+  'tool_call_id',
+  'reasoning',
+  'reasoning_content',
+  'analysis',
+  'thinking',
+  'scratchpad',
+]);
+const MAX_PUBLIC_INTERNAL_JSON_CHARS = 24_000;
+
+function hasPublicInternalJsonKey(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasPublicInternalJsonKey);
+  if (!value || typeof value !== 'object') return false;
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (PUBLIC_INTERNAL_JSON_KEYS.has(key.toLowerCase())) return true;
+    if (hasPublicInternalJsonKey(child)) return true;
+  }
+  return false;
+}
+
+function looksLikePublicInternalJson(value: string): boolean {
+  return /"(?:tool_calls?|tool_call_id|reasoning(?:_content)?|analysis|thinking|scratchpad)"\s*:/iu.test(value);
+}
+
+function balancedPublicJsonEnd(value: string, start: number): number | null {
+  const opener = value[start];
+  if (opener !== '{' && opener !== '[') return null;
+  const stack = [opener];
+  const limit = Math.min(value.length, start + MAX_PUBLIC_INTERNAL_JSON_CHARS);
+  let quoted = false;
+  let escaped = false;
+
+  for (let index = start + 1; index < limit; index += 1) {
+    const character = value[index];
+    if (quoted) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\') {
+        escaped = true;
+      } else if (character === '"') {
+        quoted = false;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      quoted = true;
+    } else if (character === '{' || character === '[') {
+      stack.push(character);
+    } else if (character === '}' || character === ']') {
+      const expected = character === '}' ? '{' : '[';
+      if (stack[stack.length - 1] !== expected) return null;
+      stack.pop();
+      if (stack.length === 0) return index + 1;
+    }
+  }
+  return null;
+}
+
+function stripPublicAssistantInternalJson(value: string): string {
+  let output = '';
+  let cursor = 0;
+  let searchFrom = 0;
+
+  while (searchFrom < value.length) {
+    const objectStart = value.indexOf('{', searchFrom);
+    const arrayStart = value.indexOf('[', searchFrom);
+    const start = objectStart === -1
+      ? arrayStart
+      : arrayStart === -1
+        ? objectStart
+        : Math.min(objectStart, arrayStart);
+    if (start === -1) break;
+
+    const end = balancedPublicJsonEnd(value, start);
+    if (end === null) {
+      const boundedTail = value.slice(start, start + MAX_PUBLIC_INTERNAL_JSON_CHARS);
+      if (looksLikePublicInternalJson(boundedTail)) {
+        output += value.slice(cursor, start);
+        return output;
+      }
+      searchFrom = start + 1;
+      continue;
+    }
+
+    const segment = value.slice(start, end);
+    let internal = false;
+    try {
+      internal = hasPublicInternalJsonKey(JSON.parse(segment));
+    } catch {
+      internal = looksLikePublicInternalJson(segment);
+    }
+    if (internal) {
+      output += value.slice(cursor, start);
+      cursor = end;
+    }
+    searchFrom = end;
+  }
+
+  return output + value.slice(cursor);
+}
 
 /** Remove repetitive operational and navigation boilerplate from public answers. */
 export function stripPublicAssistantBoilerplate(value: string): string {
@@ -87,6 +190,7 @@ export function stripPublicAssistantBoilerplate(value: string): string {
 export function stripPublicAssistantInternalArtifacts(value: string): string {
   let result = value;
   for (const pattern of PUBLIC_INTERNAL_BLOCK_PATTERNS) result = result.replace(pattern, '');
+  result = stripPublicAssistantInternalJson(result);
 
   result = result
     // Fail closed on an unterminated scratchpad block.
