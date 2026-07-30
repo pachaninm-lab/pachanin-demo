@@ -37,7 +37,7 @@
   "ownerAuthorizedExceptions": [
     {
       "id": "PRODUCTION_AI_RECOVERY_3372",
-      "status": "active",
+      "status": "expired",
       "issue": 3372,
       "governanceCommentId": 5120686584,
       "expiresWhenIssueClosed": true,
@@ -65,7 +65,8 @@
       ],
       "allowedPurpose": "restore-accepted-restricted-qwen-contour-only",
       "productionHosting": "REG_RU_VPS_ONLY",
-      "operationalStatus": "NOT_ATTESTED"
+      "operationalStatus": "NOT_ATTESTED",
+      "expiredBecauseIssueClosed": true
     }
   ],
   "rules": {

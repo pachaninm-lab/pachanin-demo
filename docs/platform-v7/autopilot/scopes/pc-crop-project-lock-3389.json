@@ -35,6 +35,7 @@
   "requiredEvidence": [
     "PC-CROP-10B exact-main d1be70ecf8f5ba10792cf6d671d1c9504f4b0422 is accepted",
     "Active lock points only to PC-CROP-10C issue 3446",
+    "Closed Qwen recovery issue 3372 exception is expired before PC-CROP-10C activation",
     "TAI and Qwen branch/title drift is rejected",
     "Completed PC-CROP-10B and out-of-sequence slices are rejected",
     "Future scopes must bind projectLockId PC-CROP-REMAINDER",

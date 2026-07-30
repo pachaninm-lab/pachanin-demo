@@ -30,7 +30,7 @@ function validateOwnerAuthorizedExceptions(lock, target = failures) {
 
   const exception = exceptions[0];
   assert(exception.id === 'PRODUCTION_AI_RECOVERY_3372', 'owner-authorized exception id mismatch', target);
-  assert(exception.status === 'active', 'owner-authorized exception is not active', target);
+  assert(exception.status === 'expired', 'closed owner-authorized exception must be expired', target);
   assert(exception.issue === 3372, 'owner-authorized exception issue mismatch', target);
   assert(exception.governanceCommentId === 5120686584, 'owner authorization evidence mismatch', target);
   assert(exception.expiresWhenIssueClosed === true, 'owner-authorized exception expiry contract mismatch', target);
@@ -225,9 +225,9 @@ if (process.argv.includes('--self-test')) {
   });
   assert(governance.length === 0, `valid governance transition rejected: ${governance.join('; ')}`);
 
-  const authorizedRecovery = validateContext(lock, {
+  const expiredRecovery = validateContext(lock, {
     branch: 'ops/qwen-recovery-unprivileged-probe-3372',
-    title: 'QWEN-RECOVERY: verify accepted restricted contour prerequisites',
+    title: 'QWEN-RECOVERY: expired recovery probe',
     issue: 3372,
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
@@ -237,70 +237,14 @@ if (process.argv.includes('--self-test')) {
       ownerAuthorizedExceptionCommentId: 5120686584,
       exceptionExpiresWhenIssueClosed: true,
       exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
-      operationalStatus: 'NOT_ATTESTED',
-      productionHosting: 'REG_RU_VPS_ONLY',
-      allowedPaths: [
-        '.github/workflows/tai-qwen-unprivileged-probe.yml',
-        'docs/platform-v7/autopilot/scopes/qwen-recovery-unprivileged-probe-3372.json',
-      ],
-    },
-  });
-  assert(authorizedRecovery.length === 0, `valid owner-authorized recovery rejected: ${authorizedRecovery.join('; ')}`);
-
-  const wrongExceptionIssue = validateContext(lock, {
-    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
-    title: 'QWEN-RECOVERY: wrong issue probe',
-    issue: 3446,
-    scope: {
-      projectLockId: 'PC-CROP-REMAINDER',
-      issue: 3446,
-      activeSlice: 'PC-CROP-10C',
-      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
-      ownerAuthorizedExceptionCommentId: 5120686584,
-      exceptionExpiresWhenIssueClosed: true,
-      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
-      operationalStatus: 'NOT_ATTESTED',
-      productionHosting: 'REG_RU_VPS_ONLY',
-      allowedPaths: ['.github/workflows/tai-qwen-unprivileged-probe.yml'],
-    },
-  });
-  assert(wrongExceptionIssue.some((message) => message.includes('only exception issue')), 'wrong exception issue was not rejected');
-
-  const unsafeExceptionPath = validateContext(lock, {
-    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
-    title: 'QWEN-RECOVERY: unsafe path probe',
-    issue: 3372,
-    scope: {
-      projectLockId: 'PC-CROP-REMAINDER',
-      issue: 3372,
-      activeSlice: 'PC-CROP-10C',
-      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
-      ownerAuthorizedExceptionCommentId: 5120686584,
-      exceptionExpiresWhenIssueClosed: true,
-      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
-      operationalStatus: 'NOT_ATTESTED',
-      productionHosting: 'REG_RU_VPS_ONLY',
-      allowedPaths: ['docs/platform-v7/crop-platform/pc-crop-10c.json'],
-    },
-  });
-  assert(unsafeExceptionPath.some((message) => message.includes('outside the narrow recovery')), 'unsafe exception path was not rejected');
-
-  const missingExceptionBinding = validateContext(lock, {
-    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
-    title: 'QWEN-RECOVERY: unbound probe',
-    issue: 3372,
-    scope: {
-      projectLockId: 'PC-CROP-REMAINDER',
-      issue: 3372,
-      activeSlice: 'PC-CROP-10C',
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
       allowedPaths: ['.github/workflows/tai-qwen-unprivileged-probe.yml'],
     },
   });
   assert(
-    missingExceptionBinding.some((message) => message.includes('outside PC-CROP') || message.includes('forbidden program token')),
-    'unbound recovery branch was not rejected',
+    expiredRecovery.some((message) => message.includes('unknown or inactive owner-authorized exception')),
+    'expired owner-authorized recovery exception was not rejected',
   );
 
   const completedPreviousSlice = validateContext(lock, {
