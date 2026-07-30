@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ai-generic-platform-routing-3438",
+  "status": "active",
+  "purpose": "Extend the released verified-platform routing fix so generic RU EN ZH questions about how the platform or system works consistently emit governed citations without changing broad agriculture routing.",
+  "approvedBy": "owner-direct-implement-2026-07-30",
+  "authorityBaseExactMain": "9e9f45e93360766eb21c74d30f71beb4d6123dc2",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-generic-platform-routing-3438.json",
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts"
+  ],
+  "requiredBehavior": [
+    "generic RU EN ZH how-the-platform-or-system-works questions classify as verified_platform",
+    "verified platform responses emit valid citations before answer tokens",
+    "broad agriculture questions remain general_agro without fake platform citations",
+    "the released 90-second web gateway timeout remains unchanged",
+    "existing privacy read-only and stream-contract boundaries remain unchanged",
+    "production activation workflow assertions remain unchanged"
+  ],
+  "forbiddenCapabilities": [
+    "private account or tenant data access",
+    "write authority or autonomous commands",
+    "model replacement or external AI calls",
+    "secret or credential changes",
+    "acceptance weakening",
+    "Netlify or Vercel deployment"
+  ]
+}
