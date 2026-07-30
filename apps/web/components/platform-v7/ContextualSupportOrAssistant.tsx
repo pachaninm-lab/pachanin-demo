@@ -56,6 +56,15 @@ const PUBLIC_PREFIXES = [
   '/platform-v7/role-preview',
 ] as const;
 
+type VirtualKeyboardLike = EventTarget & {
+  boundingRect?: DOMRectReadOnly;
+  overlaysContent?: boolean;
+};
+
+type NavigatorWithVirtualKeyboard = Navigator & {
+  virtualKeyboard?: VirtualKeyboardLike;
+};
+
 function normalize(pathname: string): string {
   const clean = pathname.split('?')[0].replace(/\/+$/u, '');
   const rewrittenHome = `${PUBLIC_ENTRY_REWRITE_PREFIX}${PUBLIC_HOME}`;
@@ -79,13 +88,43 @@ function useVisualViewportMetrics() {
   useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
+    const virtualKeyboard = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
     let frame = 0;
     let focusTimers: number[] = [];
-    let stableViewportHeight = Math.max(window.innerHeight, Math.round(viewport?.height ?? 0));
+    let composerFocused = false;
+    let focusBaselineHeight = 0;
+    let previousKeyboardOverlay: boolean | null = null;
+    let stableViewportHeight = Math.max(
+      window.innerHeight,
+      root.clientHeight,
+      Math.round(viewport?.height ?? 0),
+    );
+
+    const isComposerTextarea = (target: EventTarget | null): target is HTMLTextAreaElement => (
+      target instanceof HTMLTextAreaElement
+      && Boolean(target.closest('.pc-public-assistant-composer'))
+    );
 
     const clearFocusTimers = () => {
       for (const timer of focusTimers) window.clearTimeout(timer);
       focusTimers = [];
+    };
+
+    const setVirtualKeyboardOverlay = (enabled: boolean) => {
+      if (!virtualKeyboard || !('overlaysContent' in virtualKeyboard)) return;
+      try {
+        if (enabled) {
+          if (previousKeyboardOverlay === null) {
+            previousKeyboardOverlay = Boolean(virtualKeyboard.overlaysContent);
+          }
+          virtualKeyboard.overlaysContent = true;
+        } else if (previousKeyboardOverlay !== null) {
+          virtualKeyboard.overlaysContent = previousKeyboardOverlay;
+          previousKeyboardOverlay = null;
+        }
+      } catch {
+        // Some Chromium shells expose a read-only partial API. visualViewport stays authoritative.
+      }
     };
 
     const clearKeyboardViewport = (panel: HTMLElement | null) => {
@@ -95,38 +134,94 @@ function useVisualViewportMetrics() {
       panel.style.removeProperty('--pc-ai-keyboard-height');
     };
 
-    const sync = () => {
-      frame = 0;
+    const clearKeyboardFocus = (panel: HTMLElement | null) => {
+      if (!panel) return;
+      delete panel.dataset.pcKeyboardFocus;
+      panel.style.removeProperty('--pc-ai-keyboard-inset');
+      clearKeyboardViewport(panel);
+    };
+
+    const readViewport = () => {
       const height = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
       const offsetTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
-      const hiddenBottom = Math.max(0, Math.round(window.innerHeight - offsetTop - height));
+      const layoutHeight = Math.max(1, Math.round(window.innerHeight), Math.round(root.clientHeight));
+      const visualBottom = offsetTop + height;
+      const keyboardRect = virtualKeyboard?.boundingRect;
+      const keyboardHeight = Math.max(0, Math.round(keyboardRect?.height ?? 0));
+      const rawKeyboardTop = Math.round(keyboardRect?.top ?? visualBottom);
+      const keyboardTop = keyboardHeight > 0 && rawKeyboardTop > offsetTop + 48
+        ? rawKeyboardTop
+        : Number.POSITIVE_INFINITY;
+
+      return {
+        height,
+        offsetTop,
+        layoutHeight,
+        visualBottom,
+        keyboardHeight,
+        keyboardTop,
+      };
+    };
+
+    const sync = () => {
+      frame = 0;
+      const {
+        height,
+        offsetTop,
+        layoutHeight,
+        visualBottom,
+        keyboardHeight,
+        keyboardTop,
+      } = readViewport();
+      const hiddenBottom = Math.max(0, layoutHeight - visualBottom);
 
       root.style.setProperty('--pc-visual-viewport-height', `${height}px`);
       root.style.setProperty('--pc-visual-viewport-top', `${offsetTop}px`);
       root.style.setProperty('--pc-visual-viewport-bottom', `${hiddenBottom}px`);
 
       const panel = document.querySelector<HTMLElement>('.pc-public-assistant-panel');
-      const active = document.activeElement;
-      const composerFocused = active instanceof HTMLTextAreaElement
-        && Boolean(active.closest('.pc-public-assistant-composer'));
+      const focused = composerFocused || isComposerTextarea(document.activeElement);
       const mobile = window.matchMedia('(max-width: 720px)').matches;
 
-      if (!composerFocused) {
-        stableViewportHeight = Math.max(stableViewportHeight, height, window.innerHeight);
+      if (!focused) {
+        stableViewportHeight = Math.max(stableViewportHeight, layoutHeight, visualBottom);
+        focusBaselineHeight = 0;
+        clearKeyboardFocus(panel);
+        return;
       }
 
-      const keyboardOpen = mobile && composerFocused && (
-        hiddenBottom > 80
-        || stableViewportHeight - height > 80
-        || height < Math.round(stableViewportHeight * 0.88)
+      composerFocused = true;
+      if (!focusBaselineHeight) {
+        focusBaselineHeight = Math.max(stableViewportHeight, layoutHeight, visualBottom);
+      }
+      const baselineHeight = Math.max(stableViewportHeight, focusBaselineHeight);
+      const fallbackKeyboardTop = Math.max(offsetTop + 1, baselineHeight - keyboardHeight);
+      const measuredKeyboardTop = keyboardHeight > 0
+        ? Math.min(visualBottom, Number.isFinite(keyboardTop) ? keyboardTop : fallbackKeyboardTop)
+        : visualBottom;
+      const visibleBottom = Math.max(offsetTop + 1, measuredKeyboardTop);
+      const keyboardInset = Math.max(
+        hiddenBottom,
+        baselineHeight - visualBottom,
+        baselineHeight - layoutHeight,
+        keyboardHeight,
       );
+      const keyboardOpen = mobile && (
+        keyboardInset > 64
+        || visibleBottom < Math.round(baselineHeight * 0.9)
+      );
+
+      if (panel) {
+        panel.dataset.pcKeyboardFocus = 'true';
+        panel.style.setProperty('--pc-ai-keyboard-inset', `${keyboardInset}px`);
+      }
 
       if (!keyboardOpen || !panel) {
         clearKeyboardViewport(panel);
         return;
       }
 
-      const usableHeight = Math.max(1, height - 2);
+      const usableHeight = Math.max(1, visibleBottom - offsetTop - 2);
       panel.dataset.pcKeyboardViewport = 'true';
       panel.style.setProperty('--pc-ai-keyboard-top', `${offsetTop}px`);
       panel.style.setProperty('--pc-ai-keyboard-height', `${usableHeight}px`);
@@ -140,27 +235,57 @@ function useVisualViewportMetrics() {
     const scheduleFocusSync = () => {
       clearFocusTimers();
       scheduleSync();
-      focusTimers = [80, 220, 420].map((delay) => window.setTimeout(scheduleSync, delay));
+      focusTimers = [60, 140, 260, 420, 700, 1_000]
+        .map((delay) => window.setTimeout(scheduleSync, delay));
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      if (isComposerTextarea(event.target)) {
+        const current = readViewport();
+        composerFocused = true;
+        focusBaselineHeight = Math.max(
+          stableViewportHeight,
+          current.layoutHeight,
+          current.visualBottom,
+        );
+        setVirtualKeyboardOverlay(true);
+      }
+      scheduleFocusSync();
+    };
+
+    const handleFocusOut = () => {
+      clearFocusTimers();
+      focusTimers = [window.setTimeout(() => {
+        composerFocused = isComposerTextarea(document.activeElement);
+        if (!composerFocused) {
+          focusBaselineHeight = 0;
+          setVirtualKeyboardOverlay(false);
+        }
+        scheduleFocusSync();
+      }, 0)];
     };
 
     sync();
     viewport?.addEventListener('resize', scheduleSync);
     viewport?.addEventListener('scroll', scheduleSync);
+    virtualKeyboard?.addEventListener('geometrychange', scheduleSync);
     window.addEventListener('resize', scheduleSync);
     window.addEventListener('orientationchange', scheduleSync);
-    document.addEventListener('focusin', scheduleFocusSync);
-    document.addEventListener('focusout', scheduleFocusSync);
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
       clearFocusTimers();
       viewport?.removeEventListener('resize', scheduleSync);
       viewport?.removeEventListener('scroll', scheduleSync);
+      virtualKeyboard?.removeEventListener('geometrychange', scheduleSync);
       window.removeEventListener('resize', scheduleSync);
       window.removeEventListener('orientationchange', scheduleSync);
-      document.removeEventListener('focusin', scheduleFocusSync);
-      document.removeEventListener('focusout', scheduleFocusSync);
-      clearKeyboardViewport(document.querySelector<HTMLElement>('.pc-public-assistant-panel'));
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+      setVirtualKeyboardOverlay(false);
+      clearKeyboardFocus(document.querySelector<HTMLElement>('.pc-public-assistant-panel'));
       root.style.removeProperty('--pc-visual-viewport-height');
       root.style.removeProperty('--pc-visual-viewport-top');
       root.style.removeProperty('--pc-visual-viewport-bottom');
