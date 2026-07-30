@@ -1,20 +1,24 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "ops/release-public-ai-branding-20260730",
+  "branch": "fix/qwen-live-ui-approved-branding-20260730",
   "status": "active",
-  "purpose": "Publish and activate the owner-approved public AI agribusiness identity and safety correction from exact current main on REG.RU, without changing runtime behavior.",
-  "approvedBy": "owner-direct-implement-and-release-2026-07-30",
-  "authorityBaseExactMain": "768bfd65ba172446c5024ee36ca8f563c77c42bb",
+  "purpose": "Align exact-main REG.RU Chromium acceptance with the owner-approved public AI identity, then trigger canonical images and repeat the accepted release chain.",
+  "approvedBy": "owner-direct-urgent-live-acceptance-correction-2026-07-30",
+  "authorityBaseExactMain": "72d1a6ad7c277615430a58a9d357485ae34f6f5c",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/next.config.js"
   ],
   "acceptance": [
-    "the change is runtime-neutral and only triggers canonical exact API, web and migration image publication",
-    "the TAI Restricted Qwen REG.RU Activation workflow targets the exact merged current-main SHA",
-    "live Chromium verifies the visible AI mark, ИИ для агробизнеса, Разработан Прозрачной ценой для сельского хозяйства., one fullscreen control and no reasoning or tool traces",
-    "authenticated private-model inference and RU EN ZH public SSE remain mandatory",
+    "live Chromium requires the visible title ИИ для агробизнеса",
+    "live Chromium requires the exact subtitle Разработан Прозрачной ценой для сельского хозяйства.",
+    "live Chromium verifies exactly one visible AI mark",
+    "evidence metadata and issue evidence use the same approved identity",
+    "canonical exact API web and migration images remain mandatory",
+    "authenticated private-model inference and RU EN ZH SSE remain mandatory",
+    "one native fullscreen control and no duplicate fullscreen control remain mandatory",
+    "functional reset successful answers citation alert overflow page-error and trace-suppression checks remain mandatory",
     "production remains REG_RU_VPS_ONLY"
   ],
   "forbiddenCapabilities": [
