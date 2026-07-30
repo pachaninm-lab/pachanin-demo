@@ -1460,10 +1460,11 @@ model FgisGrainTenantReadProviderClaim {
   requestReference      String
   requestSha256         String    @db.Char(64)
   completionTokenSha256 String    @db.Char(64)
+  leaseExpiresAt        DateTime  @db.Timestamptz(6)
+  leaseGeneration       BigInt    @default(0)
   completedAuditId      String?   @unique(map: "fgis_grain_tenant_read_claim_completed_audit_key")
   completedAt           DateTime? @db.Timestamptz(6)
   createdAt             DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
-  leaseExpiresAt        DateTime  @default(dbgenerated("(clock_timestamp() + interval '5 minutes')")) @db.Timestamptz(6)
 
   organization  Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_org_fk")
   authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_auth_fk")
@@ -1473,6 +1474,7 @@ model FgisGrainTenantReadProviderClaim {
   audits         FgisGrainTenantReadAudit[]        @relation("FgisGrainTenantReadClaimAudits")
 
   @@unique([tenantId, organizationId, requestIdempotencyKey], map: "fgis_grain_tenant_read_claim_request_key")
+  @@index([tenantId, organizationId, leaseExpiresAt], map: "fgis_grain_tenant_read_claim_lease_idx")
   @@map("fgis_grain_tenant_read_provider_claims")
 }
 

@@ -367,31 +367,10 @@ export class FgisGrainTenantReadRepository {
         if (!authorization) {
           throw new NotFoundException('FGIS Grain read authorization not found');
         }
-        const prior = await this.findRequestEvent(tx, context, input.idempotencyKey);
-        if (prior) {
-          this.assertRequestEventMatches(prior, input);
-          if (prior.decision === 'IN_FLIGHT') {
-            const reconciledAuditId = await this.reconcileAbandonedClaim(tx, prior);
-            if (reconciledAuditId) {
-              return {
-                replay: null,
-                authorization: null,
-                configuration: null,
-                claim: null,
-                denial: null,
-                transportDisabled: false,
-                reconciled: true,
-              } as const;
-            }
-            throw new ConflictException({
-              code: 'FGIS_GRAIN_READ_IN_FLIGHT',
-              retryable: true,
-            });
-          }
-        }
         if (authorization.version !== BigInt(input.authorizationVersion)) {
           throw new PreconditionFailedException('Authorization version changed');
         }
+        const prior = await this.findRequestEvent(tx, context, input.idempotencyKey);
         const deny = async (reasonCode: string, message: string) => {
           if (!prior) {
             await this.writeAudit(tx, {
@@ -471,12 +450,30 @@ export class FgisGrainTenantReadRepository {
           } as const;
         }
         if (prior) {
+          this.assertRequestEventMatches(prior, input);
           if (prior.decision === 'SUCCEEDED') {
             return {
               replay: prior,
               authorization: null,
               configuration: null,
               claim: null,
+              denial: null,
+              transportDisabled: false,
+            } as const;
+          }
+          if (prior.decision === 'IN_FLIGHT') {
+            const claim = await this.recoverProviderClaim(tx, prior, input);
+            if (!claim) {
+              throw new ConflictException({
+                code: 'FGIS_GRAIN_READ_IN_FLIGHT',
+                retryable: true,
+              });
+            }
+            return {
+              replay: null,
+              authorization,
+              configuration,
+              claim,
               denial: null,
               transportDisabled: false,
             } as const;
@@ -518,13 +515,6 @@ export class FgisGrainTenantReadRepository {
       },
     );
 
-    if ('reconciled' in preflight && preflight.reconciled) {
-      throw new ServiceUnavailableException({
-        code: 'FGIS_GRAIN_READ_CLAIM_RECONCILED',
-        retryable: true,
-        retryWithNewIdempotencyKey: true,
-      });
-    }
     if (preflight.replay) return this.replayReceipt(preflight.replay, input);
     if (preflight.denial) throw new ForbiddenException(preflight.denial);
     if (preflight.transportDisabled) {
@@ -782,19 +772,38 @@ export class FgisGrainTenantReadRepository {
     return rows[0];
   }
 
-  private async reconcileAbandonedClaim(
+  private async recoverProviderClaim(
     tx: Prisma.TransactionClient,
     prior: AuditRow,
-  ): Promise<string | null> {
+    input: FgisGrainTenantReadRequestInput,
+  ): Promise<ProviderClaimCapability | null> {
     if (!prior.providerClaimId) {
-      throw new ConflictException('FGIS Grain read claim binding is missing');
+      throw new ConflictException('In-flight provider claim binding is missing');
     }
-    const rows = await tx.$queryRaw<Array<{ auditId: string | null }>>(Prisma.sql`
-      SELECT public.reconcile_fgis_grain_tenant_read_claim(
-        ${prior.providerClaimId}
-      ) AS "auditId"
+    const completionToken = randomBytes(32).toString('base64url');
+    const rows = await tx.$queryRaw<Array<{
+      claimId: string;
+      recovered: boolean;
+    }>>(Prisma.sql`
+      SELECT command.claim_id AS "claimId", command.recovered
+      FROM public.recover_fgis_grain_tenant_read_claim(
+        ${prior.providerClaimId},
+        ${input.authorizationId},
+        ${BigInt(input.authorizationVersion)},
+        ${input.operationCode},
+        ${input.correlationId},
+        ${input.idempotencyKey},
+        ${input.requestReference},
+        ${input.requestSha256},
+        ${createHash('sha256').update(completionToken).digest('hex')}
+      ) AS command
     `);
-    return rows[0]?.auditId ?? null;
+    const recovery = rows[0];
+    if (!recovery?.recovered) return null;
+    return {
+      id: recovery.claimId,
+      completionToken,
+    };
   }
 
   private async writeAudit(

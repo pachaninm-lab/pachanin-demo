@@ -242,12 +242,17 @@ jobs:
                )
                OR NOT has_function_privilege(
                  'app_runtime',
-                 'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
+                 'public.recover_fgis_grain_tenant_read_claim(text,text,bigint,text,text,text,text,text,text)',
                  'EXECUTE'
                )
                OR NOT has_function_privilege(
                  'app_runtime',
-                 'public.reconcile_fgis_grain_tenant_read_claim(text)',
+                 'public.reconcile_abandoned_fgis_grain_tenant_read_claim(text)',
+                 'EXECUTE'
+               )
+               OR NOT has_function_privilege(
+                 'app_runtime',
+                 'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
                  'EXECUTE'
                )
                OR has_function_privilege(
