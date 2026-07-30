@@ -36,7 +36,7 @@ describe('platform-v7 public assistant mobile keyboard contract', () => {
     expect(css).toContain("[data-pc-keyboard-focus='true']:not([data-pc-keyboard-viewport='true'])");
     expect(css).toContain('env(keyboard-inset-height, 0px)');
     expect(css).toContain('bottom: var(--pc-ai-effective-keyboard-inset) !important');
-    expect(css).toContain("panel.style.setProperty('--pc-ai-keyboard-inset'");
+    expect(controller).toContain("panel.style.setProperty('--pc-ai-keyboard-inset'");
   });
 
   it('removes the redundant frame but retains a compact keyboard-focus cue', () => {
