@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -26,7 +27,7 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$/u;
 const VERSION = /^(?:0|[1-9][0-9]{0,18})$/u;
 
 function assertPathId(value: string): string {
-  if (!SAFE_ID.test(value)) throw new Error('Invalid route identifier');
+  if (!SAFE_ID.test(value)) throw new BadRequestException('Invalid route identifier');
   return value;
 }
 
@@ -34,7 +35,7 @@ function assertIfMatch(value: string | undefined, expected: string): void {
   if (!value) return;
   const normalized = value.trim().replace(/^W\//u, '').replace(/^"|"$/gu, '');
   if (!VERSION.test(normalized) || normalized !== expected) {
-    throw new Error('If-Match authorization version does not match request body');
+    throw new BadRequestException('If-Match authorization version does not match request body');
   }
 }
 
