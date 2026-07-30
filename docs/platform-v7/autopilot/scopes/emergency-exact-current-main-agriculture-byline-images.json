@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/exact-main-agriculture-byline-images-20260730",
+  "status": "temporary-operational",
+  "purpose": "Publish and verify immutable API, web and migration images for the exact current main containing the owner-approved public AI agriculture byline, without deploying or mutating production.",
+  "approvedBy": "owner-direct-urgent-release-2026-07-30",
+  "allowedPaths": [
+    ".github/workflows/emergency-exact-current-main-agriculture-byline-images.yml",
+    "docs/platform-v7/autopilot/scopes/emergency-exact-current-main-agriculture-byline-images.json"
+  ],
+  "forbiddenCapabilities": [
+    "production deployment",
+    "production mutation",
+    "AI runtime behavior changes",
+    "private data access",
+    "write authority inside the platform",
+    "Netlify or Vercel deployment"
+  ],
+  "acceptance": [
+    "resolve exact current main at runtime",
+    "checkout only that immutable commit",
+    "publish API, web and migration images with the exact SHA tag and OCI revision",
+    "verify all three OCI revisions",
+    "fail closed if main changes during publication",
+    "never merge this temporary operational PR"
+  ]
+}
