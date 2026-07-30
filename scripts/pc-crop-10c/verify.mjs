@@ -195,6 +195,13 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('fgis_grain_tenant_read_auth_update_policy'), 'authorization UPDATE policy missing');
   check(migration.includes('text_array_has_unique_elements'), 'database duplicate-operation guard missing');
   check(repository.includes('pg_advisory_xact_lock'), 'audit-chain serialization missing');
+  check(
+    repository.includes('const auditChainLock = [')
+      && repository.includes('WHERE "tenantId" = ${context.tenantId}')
+      && migration.includes('audit."tenantId" = current_setting(\'app.current_tenant_id\', true)')
+      && migration.includes('audit."organizationId" = current_setting(\'app.current_org_id\', true)'),
+    'audit chain is not scoped to the forced tenant and organization RLS boundary',
+  );
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
   check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
   check(repository.includes('authorizationVersion !== BigInt(input.authorizationVersion)'), 'replay is not bound to the current authorization version');
@@ -239,6 +246,7 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('FGIS_GRAIN_READ_IN_FLIGHT'), 'PostgreSQL E2E does not prove single-flight admission');
   check(e2e.includes('transport.available = false'), 'PostgreSQL E2E does not reject replay while transport is disabled');
   check(e2e.includes('forged direct runtime transition'), 'PostgreSQL E2E does not prove direct runtime DML denial');
+  check(e2e.includes('audit hash chains tenant and organization scoped'), 'PostgreSQL E2E does not prove tenant-scoped audit chaining');
 }
 
 function validateTruthBoundary(scope, repository, transport) {

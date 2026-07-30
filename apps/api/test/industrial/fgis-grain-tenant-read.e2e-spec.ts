@@ -606,6 +606,77 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(transport.calls).toHaveLength(0);
   });
 
+  it('keeps immutable audit hash chains tenant and organization scoped', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const firstTenantAudit = await prisma.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
+      SELECT "hash"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "tenantId" = ${TENANT_A}
+        AND "organizationId" = ${ORG_A}
+      ORDER BY "createdAt" DESC, "id" DESC
+      LIMIT 1
+    `);
+    expect(firstTenantAudit[0]?.hash).toMatch(/^[a-f0-9]{64}$/u);
+
+    const foreignAuthorizationId = `${RUN_ID}.foreign-chain-authorization`;
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO public."fgis_grain_tenant_read_authorizations" (
+        "id", "tenantId", "organizationId", "configurationId",
+        "configurationVersion", "allowedOperations", "authorizationReference",
+        "status", "validUntil", "reason", "version",
+        "createdByUserId", "updatedByUserId"
+      ) VALUES (
+        ${foreignAuthorizationId}, ${TENANT_B}, ${ORG_B},
+        ${configuration.configurationId}, ${BigInt(configuration.version)},
+        ARRAY['DICTIONARIES']::text[],
+        ${`authorization://foreign-chain/${RUN_ID}`},
+        'AUTHORIZED_NOT_ATTESTED', ${new Date(Date.now() + 60 * 60_000)},
+        'Foreign tenant fixture proves that audit heads never cross RLS scopes.',
+        0, ${EXEC_B.id}, ${EXEC_B.id}
+      )
+    `);
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO public."fgis_grain_tenant_read_audits" (
+        "id", "tenantId", "organizationId", "authorizationId",
+        "authorizationVersion", "configurationId", "actorUserId", "actorRole",
+        "operationCode", "correlationId", "idempotencyKey",
+        "requestIdempotencyKey", "requestReference", "requestSha256",
+        "decision", "reasonCode", "hash", "prevHash", "createdAt"
+      ) VALUES (
+        ${`${RUN_ID}.foreign-chain-audit`}, ${TENANT_B}, ${ORG_B},
+        ${foreignAuthorizationId}, 0, ${configuration.configurationId},
+        ${EXEC_B.id}, ${EXEC_B.role}, 'AUTHORIZE',
+        ${`${RUN_ID}.foreign-chain-correlation`},
+        ${`${RUN_ID}.foreign-chain-event`},
+        ${`${RUN_ID}.foreign-chain-request`},
+        ${`authorization://foreign-chain/${RUN_ID}`}, ${'c'.repeat(64)},
+        'AUTHORIZED', 'TENANT_READ_AUTHORIZATION_RECORDED',
+        ${'d'.repeat(64)}, NULL, clock_timestamp() + interval '1 second'
+      )
+    `);
+
+    const reauthorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    expect(reauthorized.authorizationId).toBe(authorized.authorizationId);
+    const latestTenantAudit = await prisma.$queryRaw<Array<{ prevHash: string | null }>>(
+      Prisma.sql`
+        SELECT "prevHash"
+        FROM public."fgis_grain_tenant_read_audits"
+        WHERE "tenantId" = ${TENANT_A}
+          AND "organizationId" = ${ORG_A}
+        ORDER BY "createdAt" DESC, "id" DESC
+        LIMIT 1
+      `,
+    );
+    expect(latestTenantAudit[0]?.prevHash).toBe(firstTenantAudit[0]?.hash);
+  });
+
   it('rejects mutation operations before PostgreSQL or transport execution', async () => {
     await expect(readRepository.execute(BUYER_A, {
       ...readRequest('authorization-001', '0', 'mutation'),

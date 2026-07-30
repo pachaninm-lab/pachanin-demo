@@ -648,11 +648,18 @@ BEGIN
   END IF;
 
   PERFORM pg_advisory_xact_lock(
-    hashtextextended('platform-v7:fgis-grain-tenant-read-audit-chain', 0)
+    hashtextextended(
+      'platform-v7:fgis-grain-tenant-read-audit-chain'
+        || ':' || current_setting('app.current_tenant_id', true)
+        || ':' || current_setting('app.current_org_id', true),
+      0
+    )
   );
   SELECT audit."hash"
   INTO current_head
   FROM public."fgis_grain_tenant_read_audits" AS audit
+  WHERE audit."tenantId" = current_setting('app.current_tenant_id', true)
+    AND audit."organizationId" = current_setting('app.current_org_id', true)
   ORDER BY audit."createdAt" DESC, audit."id" DESC
   LIMIT 1;
   IF current_head IS DISTINCT FROM p_prev_hash THEN
