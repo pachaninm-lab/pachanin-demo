@@ -1,0 +1,201 @@
+name: PC-CROP-10C FGIS Grain Tenant Read Authority
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-10c.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/dto/fgis-grain-tenant-read.dto.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.*'
+      - 'apps/api/test/industrial/fgis-grain-tenant-read.e2e-spec.ts'
+      - 'scripts/pc-crop-10c/verify.mjs'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-10c.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/src/modules/regulatory-integration/dto/fgis-grain-tenant-read.dto.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.*'
+      - 'apps/api/test/industrial/fgis-grain-tenant-read.e2e-spec.ts'
+      - 'scripts/pc-crop-10c/verify.mjs'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: pc-crop-10c-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-10c
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+
+jobs:
+  tenant-read-authority:
+    name: Server authority · 19 reads · forced RLS · disabled transport
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision and full ancestry
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Resolve exact base and enforce active PC-CROP project lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+            export PC_CROP_BRANCH="${{ github.head_ref }}"
+            export PC_CROP_TITLE="${{ github.event.pull_request.title }}"
+            export PC_CROP_ISSUE='3446'
+            export PC_CROP_SCOPE_PATH='docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
+            node scripts/verify-pc-crop-project-lock.mjs | tee "$EVIDENCE_DIR/project-lock.log"
+          else
+            base_ref='HEAD^'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          BASE_REF="$base_ref" node --check scripts/pc-crop-10c/verify.mjs
+          BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs | tee "$EVIDENCE_DIR/source-verification.log"
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply complete PostgreSQL migration chain
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma validate --schema prisma/schema.prisma 2>&1 | tee "$EVIDENCE_DIR/prisma-validate.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+          test -f apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql
+          touch "$EVIDENCE_DIR/migration.ok"
+
+      - name: Typecheck API authority
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/api-typecheck.log"
+          touch "$EVIDENCE_DIR/api-typecheck.ok"
+
+      - name: Run contract repository and controller tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.contract.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.controller.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+          touch "$EVIDENCE_DIR/unit-tests.ok"
+
+      - name: Run PostgreSQL tenant isolation and immutable audit acceptance
+        env:
+          PC_CROP_10C_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            test/industrial/fgis-grain-tenant-read.e2e-spec.ts \
+            --runInBand 2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+          touch "$EVIDENCE_DIR/postgresql-acceptance.ok"
+
+      - name: Rebuild and enforce machine-readable exact-head evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_ref="$(cat "$EVIDENCE_DIR/base-ref.txt")"
+          BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs | tee "$EVIDENCE_DIR/final-verification.log"
+          node - "$EVIDENCE_DIR/acceptance.json" "$EXACT_HEAD" <<'NODE'
+          const fs = require('node:fs');
+          const [path, exactHead] = process.argv.slice(2);
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (report.schemaVersion !== 'pc-crop-10c.acceptance.v1') process.exit(1);
+          if (report.status !== 'PASS' || report.exactHead !== exactHead) process.exit(2);
+          if (report.issue !== 3446 || report.slice !== 'PC-CROP-10C') process.exit(3);
+          if (report.operationalStatus !== 'NOT_ATTESTED') process.exit(4);
+          if (report.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(5);
+          if (report.counts?.catalogOperations !== 57) process.exit(6);
+          if (report.counts?.readOperations !== 19) process.exit(7);
+          if (report.counts?.mutationOperationsRejected !== 38) process.exit(8);
+          if (report.counts?.allowedPaths !== 15) process.exit(9);
+          if (Object.values(report.boundaries || {}).some(Boolean)) process.exit(10);
+          if ((report.failures || []).length !== 0) process.exit(11);
+          NODE
+
+      - name: Upload exact-head PC-CROP-10C evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-10c-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+  exact-main-status:
+    name: Publish PC-CROP-10C exact-main status
+    if: always() && github.ref_name == 'main'
+    needs: [tenant-read-authority]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Publish disabled-authority exact-main result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.sha }}
+          RESULT: ${{ needs.tenant-read-authority.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=failure
+          description='PC-CROP-10C internal read authority failed'
+          if [[ "$RESULT" == success ]]; then
+            state=success
+            description='PC-CROP-10C disabled read authority passed; external provider remains not attested'
+          fi
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA" \
+            -f state="$state" \
+            -f context='PC-CROP-10C exact-main' \
+            -f description="$description" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
+          [[ "$state" == success ]]
