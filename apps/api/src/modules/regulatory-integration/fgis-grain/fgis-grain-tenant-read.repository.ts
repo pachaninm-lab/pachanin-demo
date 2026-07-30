@@ -104,6 +104,8 @@ type AuditRow = Readonly<{
   id: string;
   authorizationId: string;
   operationCode: string;
+  correlationId: string;
+  requestReference: string;
   requestSha256: string;
   decision: string;
   providerRequestId: string | null;
@@ -385,12 +387,12 @@ export class FgisGrainTenantReadRepository {
     const preflight = await this.transactions.withTrustedContext(
       user,
       async (tx, context) => {
-        const replay = await this.findReplay(tx, context, input.idempotencyKey);
-        if (replay) return { replay, context, authorization: null, configuration: null } as const;
         const authorization = await this.lockAuthorization(tx, context, input.authorizationId);
         if (authorization.version !== BigInt(input.authorizationVersion)) {
           throw new PreconditionFailedException('Authorization version changed');
         }
+        const replay = await this.findReplay(tx, context, input.idempotencyKey);
+        if (replay) return { replay, context, authorization: null, configuration: null } as const;
         if (authorization.status !== 'READ_ONLY_ATTESTED') {
           await this.writeAudit(tx, context, {
             authorizationId: authorization.id,
@@ -525,6 +527,8 @@ export class FgisGrainTenantReadRepository {
     if (
       row.authorizationId !== input.authorizationId
       || row.operationCode !== input.operationCode
+      || row.correlationId !== input.correlationId
+      || row.requestReference !== input.requestReference
       || row.requestSha256 !== input.requestSha256
       || row.decision !== 'SUCCEEDED'
       || !row.providerRequestId
@@ -653,8 +657,8 @@ export class FgisGrainTenantReadRepository {
     idempotencyKey: string,
   ): Promise<AuditRow | undefined> {
     const rows = await tx.$queryRaw<AuditRow[]>(Prisma.sql`
-      SELECT "id", "authorizationId", "operationCode", "requestSha256",
-             "decision", "providerRequestId", "responseReference",
+      SELECT "id", "authorizationId", "operationCode", "correlationId",
+             "requestReference", "requestSha256", "decision", "providerRequestId", "responseReference",
              "responseSha256", "receivedAt", "reasonCode"
       FROM public."fgis_grain_tenant_read_audits"
       WHERE "tenantId" = ${context.tenantId}
