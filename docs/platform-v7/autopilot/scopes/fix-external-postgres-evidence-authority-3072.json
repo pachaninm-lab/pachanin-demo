@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/external-postgres-evidence-authority-20260730",
+  "status": "active",
+  "issue": 3072,
+  "baseCommit": "0b5a70b22963c025b1d33f0df3c45f56b534694e",
+  "operationalStatus": "EXTERNAL_POSTGRES_DURABLE_EVIDENCE_AUTHORITY_FIX",
+  "allowedPaths": [
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/check-production-full-stack-release.mjs",
+    "apps/api/prisma/migrations/20260730113000_public_organization_intake_evidence_authority/migration.sql",
+    ".github/workflows/one-shot-external-postgres-evidence-authority.yml",
+    "scripts/one-shot-external-postgres-evidence-authority.py",
+    "docs/platform-v7/autopilot/templates/public-intake-evidence-authority.sql",
+    "docs/platform-v7/autopilot/scopes/one-shot-external-postgres-evidence-authority-3072.json",
+    "docs/platform-v7/autopilot/scopes/fix-external-postgres-evidence-authority-3072.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "compose PostgreSQL evidence remains supported",
+    "external PostgreSQL evidence is verified through the exact API runtime Prisma connection",
+    "the database function returns only verdict audit ID and outbox ID",
+    "no PII is returned or stored in release evidence",
+    "live and durable acceptance must pass before release success",
+    "production remains REG.RU VPS only"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
