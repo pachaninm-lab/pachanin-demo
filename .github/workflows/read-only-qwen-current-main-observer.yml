@@ -43,4 +43,6 @@ jobs:
             fi
             printf '\nThis observer is read-only. It did not rerun, dispatch, cancel, merge, deploy or mutate production.\n'
           } > "$body"
-          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+
+          cat "$body"
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body" || true
