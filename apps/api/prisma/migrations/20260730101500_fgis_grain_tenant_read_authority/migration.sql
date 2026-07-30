@@ -45,7 +45,31 @@ CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
   CONSTRAINT "fgis_grain_tenant_read_auth_version_ck"
     CHECK ("version" >= 0 AND "configurationVersion" >= 0),
   CONSTRAINT "fgis_grain_tenant_read_auth_operations_ck"
-    CHECK (cardinality("allowedOperations") > 0),
+    CHECK (
+      cardinality("allowedOperations") > 0
+      AND "allowedOperations" <@ ARRAY[
+        'DICTIONARIES',
+        'GET_LIST_GPB',
+        'GET_LIST_GPB_DEBIT',
+        'GET_LIST_GPB_EXTINCTION',
+        'GET_LIST_GPB_EXTINCTION_REFUSAL',
+        'GET_LIST_GPB_SDIZ',
+        'GET_LIST_GM_APPLICATION',
+        'GET_LIST_HARVESTED_CROP',
+        'GET_LIST_PRIMARY_STORAGE_PLACE',
+        'GET_LIST_RESEARCH',
+        'GET_LIST_SAMPLES_PICKING',
+        'GET_LIST_LOT',
+        'GET_LIST_LOT_DEBIT',
+        'GET_LIST_PURCHASE_FROM_INDIVIDUAL_DOC',
+        'GET_LIST_EXTINCTION',
+        'GET_LIST_EXTINCTION_REFUSAL',
+        'GET_LIST_SDIZ',
+        'GET_LIST_SDIZ_ELEVATOR',
+        'GET_LIST_VED_CONTRACT'
+      ]::text[]
+      AND cardinality("allowedOperations") = cardinality(ARRAY(SELECT DISTINCT unnest("allowedOperations")))
+    ),
   CONSTRAINT "fgis_grain_tenant_read_auth_ttl_ck"
     CHECK ("validUntil" > "createdAt"),
   CONSTRAINT "fgis_grain_tenant_read_attestation_pair_ck"
@@ -61,7 +85,9 @@ CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
         AND "attestedByUserId" IS NOT NULL)
     ),
   CONSTRAINT "fgis_grain_tenant_read_auth_config_key"
-    UNIQUE ("tenantId", "organizationId", "configurationId")
+    UNIQUE ("tenantId", "organizationId", "configurationId"),
+  CONSTRAINT "fgis_grain_tenant_read_auth_tenant_key"
+    UNIQUE ("id", "tenantId", "organizationId")
 );
 
 CREATE INDEX "fgis_grain_tenant_read_auth_status_idx"
@@ -94,8 +120,8 @@ CREATE TABLE public."fgis_grain_tenant_read_audits" (
   "prevHash" char(64),
   "createdAt" timestamptz NOT NULL DEFAULT clock_timestamp(),
   CONSTRAINT "fgis_grain_tenant_read_audit_auth_fk"
-    FOREIGN KEY ("authorizationId")
-    REFERENCES public."fgis_grain_tenant_read_authorizations"("id")
+    FOREIGN KEY ("authorizationId", "tenantId", "organizationId")
+    REFERENCES public."fgis_grain_tenant_read_authorizations"("id", "tenantId", "organizationId")
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT "fgis_grain_tenant_read_audit_config_fk"
     FOREIGN KEY ("configurationId")
@@ -165,31 +191,90 @@ ALTER TABLE public."fgis_grain_tenant_read_authorizations" FORCE ROW LEVEL SECUR
 ALTER TABLE public."fgis_grain_tenant_read_audits" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."fgis_grain_tenant_read_audits" FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY "fgis_grain_tenant_read_auth_tenant_org_policy"
+CREATE POLICY "fgis_grain_tenant_read_auth_select_policy"
 ON public."fgis_grain_tenant_read_authorizations"
-FOR ALL
+FOR SELECT
 USING (
-  "tenantId" = current_setting('app.current_tenant_id', true)
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND "organizationId" = current_setting('app.current_org_id', true)
-)
-WITH CHECK (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND "organizationId" = current_setting('app.current_org_id', true)
+  AND current_setting('app.current_role', true) IN (
+    'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING',
+    'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER'
+  )
 );
 
-CREATE POLICY "fgis_grain_tenant_read_audit_tenant_org_policy"
+CREATE POLICY "fgis_grain_tenant_read_auth_insert_policy"
+ON public."fgis_grain_tenant_read_authorizations"
+FOR INSERT
+WITH CHECK (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND "organizationId" = current_setting('app.current_org_id', true)
+  AND current_setting('app.current_role', true) IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')
+);
+
+CREATE POLICY "fgis_grain_tenant_read_auth_update_policy"
+ON public."fgis_grain_tenant_read_authorizations"
+FOR UPDATE
+USING (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND "organizationId" = current_setting('app.current_org_id', true)
+  AND current_setting('app.current_role', true) IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')
+)
+WITH CHECK (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND "organizationId" = current_setting('app.current_org_id', true)
+  AND current_setting('app.current_role', true) IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')
+);
+
+CREATE POLICY "fgis_grain_tenant_read_audit_select_policy"
 ON public."fgis_grain_tenant_read_audits"
-FOR ALL
+FOR SELECT
 USING (
-  "tenantId" = current_setting('app.current_tenant_id', true)
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND "organizationId" = current_setting('app.current_org_id', true)
-)
-WITH CHECK (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND "organizationId" = current_setting('app.current_org_id', true)
+  AND current_setting('app.current_role', true) IN (
+    'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING',
+    'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER'
+  )
 );
 
-GRANT SELECT, INSERT, UPDATE ON public."fgis_grain_tenant_read_authorizations"
-  TO grainflow_runtime;
-GRANT SELECT, INSERT ON public."fgis_grain_tenant_read_audits"
-  TO grainflow_runtime;
+CREATE POLICY "fgis_grain_tenant_read_audit_insert_policy"
+ON public."fgis_grain_tenant_read_audits"
+FOR INSERT
+WITH CHECK (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND "organizationId" = current_setting('app.current_org_id', true)
+  AND current_setting('app.current_role', true) IN (
+    'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING',
+    'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER'
+  )
+);
+
+REVOKE ALL ON TABLE public."fgis_grain_tenant_read_authorizations" FROM PUBLIC;
+REVOKE ALL ON TABLE public."fgis_grain_tenant_read_audits" FROM PUBLIC;
+
+DO $grants$
+DECLARE
+  runtime_role text;
+BEGIN
+  FOREACH runtime_role IN ARRAY ARRAY['app_runtime', 'app_service']
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = runtime_role) THEN
+      EXECUTE format(
+        'GRANT SELECT, INSERT, UPDATE ON TABLE public."fgis_grain_tenant_read_authorizations" TO %I',
+        runtime_role
+      );
+      EXECUTE format(
+        'GRANT SELECT, INSERT ON TABLE public."fgis_grain_tenant_read_audits" TO %I',
+        runtime_role
+      );
+    END IF;
+  END LOOP;
+END;
+$grants$;
