@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-intake-middleware-release-20260730",
+  "status": "active",
+  "issue": 3072,
+  "baseCommit": "7be95adb256133d7d3d9123ba6839fe3f167b712",
+  "operationalStatus": "PUBLIC_INTAKE_401_FIX_AND_EXACT_RELEASE",
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7PublicOrganizationConnectMiddleware.test.ts",
+    "scripts/check-production-full-stack-release.mjs",
+    ".github/workflows/one-shot-release-controller-fix.yml",
+    "docs/platform-v7/autopilot/scopes/one-shot-release-controller-fix-3072.json",
+    "docs/platform-v7/autopilot/scopes/fix-public-intake-middleware-release-3072.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "the exact public organization-connect BFF path is available without cabinet authentication",
+    "all other API authentication behavior remains unchanged",
+    "the temporary one-shot generator and its scope are removed",
+    "the merge triggers exact API web migration images and the production release",
+    "live acceptance and durable PostgreSQL audit outbox evidence must pass",
+    "production remains REG.RU VPS only"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
