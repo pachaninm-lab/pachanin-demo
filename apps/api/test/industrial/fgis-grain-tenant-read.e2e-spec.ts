@@ -88,9 +88,23 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
   private nextBarrier: {
     readonly started: () => void;
     readonly wait: Promise<void>;
+    readonly ignoreAbort: boolean;
   } | null = null;
 
   blockNext(): { readonly started: Promise<void>; readonly release: () => void } {
+    return this.prepareBarrier(false);
+  }
+
+  blockNextIgnoringAbort(): {
+    readonly started: Promise<void>;
+    readonly release: () => void;
+  } {
+    return this.prepareBarrier(true);
+  }
+
+  private prepareBarrier(
+    ignoreAbort: boolean,
+  ): { readonly started: Promise<void>; readonly release: () => void } {
     let markStarted!: () => void;
     let release!: () => void;
     const started = new Promise<void>((resolve) => {
@@ -99,7 +113,7 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
     const wait = new Promise<void>((resolve) => {
       release = resolve;
     });
-    this.nextBarrier = { started: markStarted, wait };
+    this.nextBarrier = { started: markStarted, wait, ignoreAbort };
     return { started, release };
   }
 
@@ -127,18 +141,22 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
     barrier?.started();
 
     if (barrier) {
-      let rejectAbort!: (reason: unknown) => void;
-      const aborted = new Promise<never>((_resolve, reject) => {
-        rejectAbort = reject;
-      });
-      const onAbort = () => rejectAbort(
-        control.signal.reason ?? new Error('Provider execution aborted'),
-      );
-      control.signal.addEventListener('abort', onAbort, { once: true });
-      try {
-        await Promise.race([barrier.wait, aborted]);
-      } finally {
-        control.signal.removeEventListener('abort', onAbort);
+      if (barrier.ignoreAbort) {
+        await barrier.wait;
+      } else {
+        let rejectAbort!: (reason: unknown) => void;
+        const aborted = new Promise<never>((_resolve, reject) => {
+          rejectAbort = reject;
+        });
+        const onAbort = () => rejectAbort(
+          control.signal.reason ?? new Error('Provider execution aborted'),
+        );
+        control.signal.addEventListener('abort', onAbort, { once: true });
+        try {
+          await Promise.race([barrier.wait, aborted]);
+        } finally {
+          control.signal.removeEventListener('abort', onAbort);
+        }
       }
     }
     if (control.signal.aborted || Date.now() > new Date(control.deadlineAt).getTime()) {
@@ -159,6 +177,12 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
     reasonCode: 'PROVIDER_READ_SUCCEEDED' | 'PROVIDER_READ_FAILED',
   ): Promise<string> {
     return finalizeAsTransport(claim, result, decision, reasonCode);
+  }
+
+  async start(
+    claim: FgisGrainTenantReadClaimCapability,
+  ): Promise<string> {
+    return startAsTransport(claim);
   }
 }
 
@@ -402,6 +426,25 @@ async function executeAsTransport(statement: Prisma.Sql): Promise<number> {
       'SET LOCAL ROLE fgis_grain_read_transport',
     );
     return tx.$executeRaw(statement);
+  });
+}
+
+async function startAsTransport(
+  claim: FgisGrainTenantReadClaimCapability,
+): Promise<string> {
+  return transportPrisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(
+      'SET LOCAL ROLE fgis_grain_read_transport',
+    );
+    const rows = await tx.$queryRaw<Array<{ claimId: string }>>(Prisma.sql`
+      SELECT public.start_fgis_grain_tenant_read_claim(
+        ${claim.id},
+        ${claim.completionToken}
+      ) AS "claimId"
+    `);
+    const claimId = rows[0]?.claimId;
+    if (!claimId) throw new Error('Dedicated transport starter returned no claim id');
+    return claimId;
   });
 }
 
@@ -800,6 +843,76 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(transport.calls).toHaveLength(1);
   });
 
+  it('keeps an unconfirmed cancellation in flight and blocks a new-key duplicate', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-unconfirmed-cancellation/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent evidence admits the uncooperative transport regression.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'provider-unconfirmed-cancellation',
+    );
+    transport.maxExecutionMs = 50;
+    const barrier = transport.blockNextIgnoringAbort();
+    const execution = readRepository.execute(BUYER_A, request);
+    await barrier.started;
+
+    await expect(execution).rejects.toMatchObject({
+      response: {
+        code: 'FGIS_GRAIN_READ_DEADLINE_EXCEEDED',
+        cancellationConfirmed: false,
+        claimState: 'IN_FLIGHT',
+      },
+    });
+
+    const claims = await prisma.$queryRaw<Array<{
+      id: string;
+      started: boolean;
+      completed: boolean;
+    }>>(Prisma.sql`
+      SELECT "id",
+             "transportStartedAt" IS NOT NULL AS "started",
+             "completedAuditId" IS NOT NULL AS "completed"
+      FROM public."fgis_grain_tenant_read_provider_claims"
+      WHERE "requestIdempotencyKey" = ${request.idempotencyKey}
+    `);
+    expect(claims).toEqual([{
+      id: expect.any(String),
+      started: true,
+      completed: false,
+    }]);
+
+    const retryWithNewKey = {
+      ...request,
+      correlationId: `${request.correlationId}.retry`,
+      idempotencyKey: `${request.idempotencyKey}.retry`,
+    };
+    await expect(
+      readRepository.execute(BUYER_A, retryWithNewKey),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(transport.calls).toHaveLength(1);
+
+    barrier.release();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const decisions = await prisma.$queryRaw<Array<{ decision: string }>>(Prisma.sql`
+      SELECT "decision"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "requestIdempotencyKey" = ${request.idempotencyKey}
+      ORDER BY "chainSequence"
+    `);
+    expect(decisions).toEqual([{ decision: 'IN_FLIGHT' }]);
+  });
+
   it('admits only one provider call for concurrent requests with one idempotency key', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(
@@ -1133,6 +1246,20 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         ${new Date()}
       )
     `)).rejects.toThrow(/permission denied/iu);
+
+    await expect(executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.start_fgis_grain_tenant_read_claim(
+        ${claimId},
+        ${completionToken}
+      )
+    `)).rejects.toThrow(/permission denied/iu);
+
+    await executeAsTransport(Prisma.sql`
+      SELECT public.start_fgis_grain_tenant_read_claim(
+        ${claimId},
+        ${completionToken}
+      )
+    `);
 
     await expect(executeAsTransport(Prisma.sql`
       SELECT public.finalize_fgis_grain_tenant_read_claim(

@@ -57,6 +57,19 @@ const READ_ROLES = new Set<Role>([
 ]);
 const PROVIDER_GATES = ['OWNER', 'SECURITY', 'LEGAL', 'OPERATIONS'] as const;
 
+class FgisGrainTenantReadCancellationUnconfirmedException
+  extends ServiceUnavailableException {
+  constructor() {
+    super({
+      code: 'FGIS_GRAIN_READ_DEADLINE_EXCEEDED',
+      retryable: true,
+      cancellationConfirmed: false,
+      claimState: 'IN_FLIGHT',
+      operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
+    });
+  }
+}
+
 type TrustedContext = Readonly<{
   tenantId: string;
   orgId: string;
@@ -529,6 +542,16 @@ export class FgisGrainTenantReadRepository {
       throw new ConflictException('FGIS Grain read preflight is incomplete');
     }
 
+    try {
+      await this.outcomeAuthority.start(preflight.claim);
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'FGIS_GRAIN_READ_TRANSPORT_START_NOT_RECORDED',
+        retryable: true,
+        operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
+      });
+    }
+
     let result: FgisGrainTenantReadTransportResult;
     try {
       result = assertFgisGrainTenantReadTransportResult(
@@ -546,6 +569,9 @@ export class FgisGrainTenantReadRepository {
         }),
       );
     } catch (error) {
+      if (error instanceof FgisGrainTenantReadCancellationUnconfirmedException) {
+        throw error;
+      }
       try {
         await this.outcomeAuthority.finalize(
           preflight.claim,
@@ -604,26 +630,37 @@ export class FgisGrainTenantReadRepository {
     const controller = new AbortController();
     const deadlineAt = new Date(Date.now() + this.transport.maxExecutionMs);
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let cancellationHandle: ReturnType<typeof setImmediate> | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
       timeoutHandle = setTimeout(() => {
-        reject(new ServiceUnavailableException({
+        controller.abort(new ServiceUnavailableException({
           code: 'FGIS_GRAIN_READ_DEADLINE_EXCEEDED',
           retryable: true,
+          cancellationConfirmed: true,
           operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
         }));
-        controller.abort(new Error('FGIS Grain provider deadline exceeded'));
+        cancellationHandle = setImmediate(() => {
+          reject(new FgisGrainTenantReadCancellationUnconfirmedException());
+        });
       }, this.transport.maxExecutionMs);
     });
     try {
+      const execution = this.transport.execute(request, {
+        signal: controller.signal,
+        deadlineAt: deadlineAt.toISOString(),
+      }).then((result) => {
+        if (controller.signal.aborted) {
+          throw controller.signal.reason;
+        }
+        return result;
+      });
       return await Promise.race([
-        this.transport.execute(request, {
-          signal: controller.signal,
-          deadlineAt: deadlineAt.toISOString(),
-        }),
+        execution,
         timeout,
       ]);
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (cancellationHandle) clearImmediate(cancellationHandle);
     }
   }
 

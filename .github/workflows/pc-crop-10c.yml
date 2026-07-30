@@ -277,6 +277,21 @@ jobs:
                  'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
                  'EXECUTE'
                )
+               OR has_function_privilege(
+                 'app_runtime',
+                 'public.start_fgis_grain_tenant_read_claim(text,text)',
+                 'EXECUTE'
+               )
+               OR has_function_privilege(
+                 'app_service',
+                 'public.start_fgis_grain_tenant_read_claim(text,text)',
+                 'EXECUTE'
+               )
+               OR NOT has_function_privilege(
+                 'fgis_grain_read_transport',
+                 'public.start_fgis_grain_tenant_read_claim(text,text)',
+                 'EXECUTE'
+               )
                OR NOT has_function_privilege(
                  'fgis_grain_read_transport',
                  'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',

@@ -224,6 +224,7 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('append_fgis_grain_tenant_read_audit'), 'controlled audit command missing');
   check(migration.includes('recover_fgis_grain_tenant_read_claim'), 'expired provider-claim recovery command missing');
   check(migration.includes('reconcile_abandoned_fgis_grain_tenant_read_claim'), 'governed abandoned-claim reconciliation command missing');
+  check(migration.includes('start_fgis_grain_tenant_read_claim'), 'dedicated provider-claim start command missing');
   check(migration.includes('finalize_fgis_grain_tenant_read_claim'), 'claim-bound terminal command missing');
   check(
     migration.includes('CREATE ROLE fgis_grain_read_transport')
@@ -241,9 +242,11 @@ function validatePostgres(schema, migration, repository) {
   check(
     migration.includes('"leaseExpiresAt"')
       && migration.includes('"leaseGeneration"')
+      && migration.includes('"transportStartedAt"')
+      && migration.includes('fgis_grain_tenant_read_claim_active_fingerprint_key')
       && migration.includes("'PROVIDER_READ_CLAIM_RECOVERED'")
       && repository.includes('recoverProviderClaim('),
-    'abandoned provider claims cannot be safely recovered',
+    'unstarted abandoned claims or active-request quarantine are incomplete',
   );
   check(
     migration.includes("p_valid_until > statement_timestamp() + interval '90 days'")
@@ -315,9 +318,11 @@ function validatePostgres(schema, migration, repository) {
   check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
   check(repository.includes('completionToken'), 'repository does not retain an opaque claim completion capability');
   check(
-    repository.includes('outcomeAuthority.finalize')
+    repository.includes('outcomeAuthority.start')
+      && repository.includes('outcomeAuthority.finalize')
+      && repository.includes('FgisGrainTenantReadCancellationUnconfirmedException')
       && !repository.includes('finalize_fgis_grain_tenant_read_claim'),
-    'generic runtime repository retains direct terminal-evidence authority',
+    'transport start, cancellation quarantine, or terminal authority boundary is incomplete',
   );
   check(repository.includes('authorizationVersion !== BigInt(input.authorizationVersion)'), 'replay is not bound to the current authorization version');
   check(
@@ -378,6 +383,7 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('serializes terminal outcomes'), 'PostgreSQL E2E does not prove terminal outcome serialization');
   check(e2e.includes('rejects unsafe provider result references before immutable storage or response'), 'PostgreSQL E2E does not prove provider-result reference safety');
   check(e2e.includes('cancels a stalled provider read before lease expiry'), 'PostgreSQL E2E does not prove deadline cancellation before claim recovery');
+  check(e2e.includes('keeps an unconfirmed cancellation in flight and blocks a new-key duplicate'), 'PostgreSQL E2E does not prove unconfirmed-cancellation quarantine');
   check(e2e.includes('binds reauthorization to the existing provider configuration'), 'PostgreSQL E2E does not prove configuration-bound reauthorization');
   check(e2e.includes('recovers an abandoned provider claim only after its lease expires'), 'PostgreSQL E2E does not prove abandoned claim recovery');
   check(e2e.includes('reconciles an abandoned claim after authority drift without calling the provider'), 'PostgreSQL E2E does not prove governed abandoned-claim reconciliation');

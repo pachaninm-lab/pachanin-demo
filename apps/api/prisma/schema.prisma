@@ -1462,6 +1462,7 @@ model FgisGrainTenantReadProviderClaim {
   completionTokenSha256 String    @db.Char(64)
   leaseExpiresAt        DateTime  @db.Timestamptz(6)
   leaseGeneration       BigInt    @default(0)
+  transportStartedAt    DateTime? @db.Timestamptz(6)
   completedAuditId      String?   @unique(map: "fgis_grain_tenant_read_claim_completed_audit_key")
   completedAt           DateTime? @db.Timestamptz(6)
   createdAt             DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)

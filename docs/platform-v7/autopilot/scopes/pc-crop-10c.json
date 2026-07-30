@@ -55,6 +55,8 @@
     "generic runtime principals can mint governed claims but cannot finalize provider evidence",
     "terminal provider evidence requires a dedicated no-login PostgreSQL transport authority",
     "every provider call receives an enforced abort deadline safely below claim recovery",
+    "the dedicated transport durably marks a claim started before any provider call",
+    "an unconfirmed cancellation remains in flight and blocks an equivalent new-key provider call",
     "provider result identifiers and references are validated before immutable storage or response",
     "same-tenant outsiders and cross-tenant actors are denied",
     "idempotency replay cannot change the original operation or request fingerprint",

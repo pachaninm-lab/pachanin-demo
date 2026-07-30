@@ -163,6 +163,7 @@ CREATE TABLE public."fgis_grain_tenant_read_provider_claims" (
   "completionTokenSha256" char(64) NOT NULL,
   "leaseExpiresAt" timestamptz NOT NULL,
   "leaseGeneration" bigint NOT NULL DEFAULT 0,
+  "transportStartedAt" timestamptz,
   "completedAuditId" text,
   "completedAt" timestamptz,
   "createdAt" timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -190,6 +191,14 @@ CREATE TABLE public."fgis_grain_tenant_read_provider_claims" (
     CHECK ("leaseExpiresAt" > "createdAt"),
   CONSTRAINT "fgis_grain_tenant_read_claim_lease_generation_ck"
     CHECK ("leaseGeneration" >= 0),
+  CONSTRAINT "fgis_grain_tenant_read_claim_transport_start_ck"
+    CHECK (
+      "transportStartedAt" IS NULL
+      OR (
+        "transportStartedAt" >= "createdAt"
+        AND "transportStartedAt" < "leaseExpiresAt"
+      )
+    ),
   CONSTRAINT "fgis_grain_tenant_read_claim_completion_pair_ck"
     CHECK (
       ("completedAuditId" IS NULL AND "completedAt" IS NULL)
@@ -205,6 +214,12 @@ CREATE TABLE public."fgis_grain_tenant_read_provider_claims" (
 CREATE INDEX "fgis_grain_tenant_read_claim_lease_idx"
   ON public."fgis_grain_tenant_read_provider_claims"
   ("tenantId", "organizationId", "leaseExpiresAt");
+CREATE UNIQUE INDEX "fgis_grain_tenant_read_claim_active_fingerprint_key"
+  ON public."fgis_grain_tenant_read_provider_claims" (
+    "tenantId", "organizationId", "authorizationId", "authorizationVersion",
+    "operationCode", "requestReference", "requestSha256"
+  )
+  WHERE "completedAuditId" IS NULL;
 
 CREATE TABLE public."fgis_grain_tenant_read_audits" (
   "id" text PRIMARY KEY,
@@ -269,7 +284,8 @@ CREATE TABLE public."fgis_grain_tenant_read_audits" (
     CHECK (
       "responseReference" IS NULL
       OR (
-        "responseReference" ~ '^(provider-response|object-store)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,500}$'
+        length("responseReference") <= 530
+        AND "responseReference" ~ '^(provider-response|object-store)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2}[A-Za-z0-9:_.\/-]*$'
         AND position('@' IN "responseReference") = 0
         AND "responseReference" !~* '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
       )
@@ -1079,6 +1095,75 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.start_fgis_grain_tenant_read_claim(
+  p_claim_id text,
+  p_completion_token text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  claim public."fgis_grain_tenant_read_provider_claims"%ROWTYPE;
+BEGIN
+  IF NOT pg_catalog.pg_has_role(
+       session_user,
+       'fgis_grain_read_transport',
+       'MEMBER'
+     )
+     AND NOT COALESCE((
+       SELECT role_row.rolsuper
+       FROM pg_catalog.pg_roles AS role_row
+       WHERE role_row.rolname = session_user
+     ), false)
+  THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim starter principal is denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_completion_token IS NULL
+     OR length(p_completion_token) < 43
+  THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read start capability is invalid'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT *
+  INTO claim
+  FROM public."fgis_grain_tenant_read_provider_claims" AS candidate
+  WHERE candidate."id" = p_claim_id
+    AND candidate."completionTokenSha256" = encode(
+      public.digest(convert_to(p_completion_token, 'UTF8'), 'sha256'),
+      'hex'
+    )
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR claim."completedAuditId" IS NOT NULL
+     OR claim."transportStartedAt" IS NOT NULL
+     OR claim."leaseExpiresAt" <= statement_timestamp()
+  THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim cannot start transport'
+      USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public."fgis_grain_tenant_read_provider_claims"
+  SET "transportStartedAt" = clock_timestamp()
+  WHERE "id" = claim."id"
+    AND "completedAuditId" IS NULL
+    AND "transportStartedAt" IS NULL
+    AND "leaseExpiresAt" > statement_timestamp();
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim start raced'
+      USING ERRCODE = '40001';
+  END IF;
+
+  RETURN claim."id";
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.recover_fgis_grain_tenant_read_claim(
   p_claim_id text,
   p_authorization_id text,
@@ -1162,6 +1247,7 @@ BEGIN
   END IF;
 
   IF claim."completedAuditId" IS NOT NULL
+     OR claim."transportStartedAt" IS NOT NULL
      OR claim."leaseExpiresAt" > statement_timestamp()
   THEN
     RETURN QUERY SELECT claim."id", false;
@@ -1205,6 +1291,7 @@ BEGIN
       "leaseGeneration" = next_generation
   WHERE "id" = claim."id"
     AND "completedAuditId" IS NULL
+    AND "transportStartedAt" IS NULL
     AND "leaseGeneration" = claim."leaseGeneration"
     AND "leaseExpiresAt" <= statement_timestamp();
 
@@ -1295,6 +1382,7 @@ BEGIN
 
   IF NOT FOUND
      OR claim."completedAuditId" IS NOT NULL
+     OR claim."transportStartedAt" IS NOT NULL
      OR claim."leaseExpiresAt" > statement_timestamp()
   THEN
     RAISE EXCEPTION 'FGIS Grain provider claim is not abandoned'
@@ -1403,6 +1491,7 @@ BEGIN
 
   IF NOT FOUND
      OR claim."completedAuditId" IS NOT NULL
+     OR claim."transportStartedAt" IS NULL
      OR claim."leaseExpiresAt" <= statement_timestamp()
   THEN
     RAISE EXCEPTION 'FGIS Grain tenant-read claim is missing or already finalized'
@@ -1416,7 +1505,8 @@ BEGIN
       OR p_provider_request_id IS NULL
       OR p_provider_request_id !~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$'
       OR p_response_reference IS NULL
-      OR p_response_reference !~ '^(provider-response|object-store)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,500}$'
+      OR length(p_response_reference) > 530
+      OR p_response_reference !~ '^(provider-response|object-store)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2}[A-Za-z0-9:_.\/-]*$'
       OR position('@' IN p_response_reference) > 0
       OR p_response_reference ~* '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
       OR p_response_sha256 IS NULL
@@ -1548,8 +1638,22 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
+  IF NEW."completedAuditId" IS NULL
+     AND NEW."completedAt" IS NULL
+     AND OLD."transportStartedAt" IS NULL
+     AND NEW."transportStartedAt" IS NOT NULL
+     AND NEW."transportStartedAt" >= OLD."createdAt"
+     AND NEW."transportStartedAt" < OLD."leaseExpiresAt"
+     AND NEW."completionTokenSha256" IS NOT DISTINCT FROM OLD."completionTokenSha256"
+     AND NEW."leaseExpiresAt" IS NOT DISTINCT FROM OLD."leaseExpiresAt"
+     AND NEW."leaseGeneration" IS NOT DISTINCT FROM OLD."leaseGeneration"
+  THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW."completedAuditId" IS NOT NULL
      AND NEW."completedAt" IS NOT NULL
+     AND NEW."transportStartedAt" IS NOT DISTINCT FROM OLD."transportStartedAt"
      AND NEW."completionTokenSha256" IS NOT DISTINCT FROM OLD."completionTokenSha256"
      AND NEW."leaseExpiresAt" IS NOT DISTINCT FROM OLD."leaseExpiresAt"
      AND NEW."leaseGeneration" IS NOT DISTINCT FROM OLD."leaseGeneration"
@@ -1559,6 +1663,8 @@ BEGIN
 
   IF NEW."completedAuditId" IS NULL
      AND NEW."completedAt" IS NULL
+     AND OLD."transportStartedAt" IS NULL
+     AND NEW."transportStartedAt" IS NULL
      AND OLD."leaseExpiresAt" <= statement_timestamp()
      AND NEW."completionTokenSha256" IS DISTINCT FROM OLD."completionTokenSha256"
      AND NEW."leaseGeneration" = OLD."leaseGeneration" + 1
@@ -1713,6 +1819,9 @@ REVOKE ALL ON FUNCTION public.recover_fgis_grain_tenant_read_claim(
 REVOKE ALL ON FUNCTION public.reconcile_abandoned_fgis_grain_tenant_read_claim(
   text
 ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.start_fgis_grain_tenant_read_claim(
+  text, text
+) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(
   text, text, text, text, text, text, text, timestamptz
 ) FROM PUBLIC;
@@ -1794,6 +1903,9 @@ END;
 $grants$;
 
 GRANT USAGE ON SCHEMA public TO fgis_grain_read_transport;
+GRANT EXECUTE ON FUNCTION public.start_fgis_grain_tenant_read_claim(
+  text, text
+) TO fgis_grain_read_transport;
 GRANT EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(
   text, text, text, text, text, text, text, timestamptz
 ) TO fgis_grain_read_transport;

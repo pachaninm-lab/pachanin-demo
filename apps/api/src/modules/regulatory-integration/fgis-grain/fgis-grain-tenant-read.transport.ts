@@ -26,6 +26,10 @@ export type FgisGrainTenantReadClaimCapability = Readonly<{
 export interface FgisGrainTenantReadTransport {
   readonly available: boolean;
   readonly maxExecutionMs: number;
+  /**
+   * The promise may settle only after the outbound provider operation has
+   * completed or cancellation has been acknowledged by the adapter.
+   */
   execute(
     request: FgisGrainTenantReadTransportRequest,
     control: FgisGrainTenantReadTransportControl,
@@ -34,6 +38,7 @@ export interface FgisGrainTenantReadTransport {
 
 export interface FgisGrainTenantReadOutcomeAuthority {
   readonly available: boolean;
+  start(claim: FgisGrainTenantReadClaimCapability): Promise<string>;
   finalize(
     claim: FgisGrainTenantReadClaimCapability,
     result: FgisGrainTenantReadTransportResult | null,
@@ -66,6 +71,12 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
     _result: FgisGrainTenantReadTransportResult | null,
     _decision: 'SUCCEEDED' | 'FAILED',
     _reasonCode: 'PROVIDER_READ_SUCCEEDED' | 'PROVIDER_READ_FAILED',
+  ): Promise<string> {
+    throw this.disabled();
+  }
+
+  async start(
+    _claim: FgisGrainTenantReadClaimCapability,
   ): Promise<string> {
     throw this.disabled();
   }
