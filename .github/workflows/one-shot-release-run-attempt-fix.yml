@@ -1,0 +1,116 @@
+name: One-shot release run-attempt evidence correction
+
+on:
+  push:
+    branches: [fix/release-run-attempt-evidence-3469]
+    paths:
+      - '.github/workflows/one-shot-release-run-attempt-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/release-run-attempt-evidence-3469
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bind DB evidence to the live run-attempt identifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          workflow = Path('.github/workflows/production-full-stack-exact-sha.yml')
+          text = workflow.read_text()
+          old = '''          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
+          correlation="$(sed -n 's/^LIVE_CORRELATION_ID=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
+          [[ "$request" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]]
+          [[ "$correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]]
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \\
+            "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh verify-intake '$TARGET_SHA' '$GITHUB_RUN_ID' '$request' '$correlation'" \\
+            | tee "$EVIDENCE_DIR/durable-intake-db.log"
+'''
+          new = '''          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
+          correlation="$(sed -n 's/^LIVE_CORRELATION_ID=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
+          [[ "$request" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]]
+          [[ "$correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]]
+          [[ "$RELEASE_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \\
+            "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh verify-intake '$TARGET_SHA' '$RELEASE_RUN_ID' '$request' '$correlation'" \\
+            | tee "$EVIDENCE_DIR/durable-intake-db.log"
+'''
+          if text.count(old) != 1:
+              raise SystemExit('database evidence invocation anchor mismatch')
+          workflow.write_text(text.replace(old, new))
+
+          contract = Path('scripts/check-production-full-stack-release.mjs')
+          text = contract.read_text()
+          anchor = "  'DURABLE_INTAKE_DB=PASS',\n  'steps.database.outcome',"
+          replacement = "  'DURABLE_INTAKE_DB=PASS',\n  'RELEASE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}',\n  \"verify-intake '$TARGET_SHA' '$RELEASE_RUN_ID'\",\n  'steps.database.outcome',"
+          if text.count(anchor) != 1:
+              raise SystemExit('release contract anchor mismatch')
+          contract.write_text(text.replace(anchor, replacement))
+
+          scope = {
+              'schemaVersion': 'platform-v7.concurrent-scope.v1',
+              'branch': 'fix/release-run-attempt-evidence-3469',
+              'status': 'active',
+              'issue': 3469,
+              'baseCommit': '3b8315e2035dde1050946078077b077363b8efb1',
+              'operationalStatus': 'LIVE_AND_DB_EVIDENCE_RUN_ID_ALIGNMENT',
+              'allowedPaths': [
+                  '.github/workflows/production-full-stack-exact-sha.yml',
+                  'scripts/check-production-full-stack-release.mjs',
+                  'docs/platform-v7/autopilot/scopes/fix-release-run-attempt-evidence-3469.json',
+              ],
+              'boundaries': {
+                  'runtimeBusinessBehaviorChange': False,
+                  'securityGateDisabled': False,
+                  'acceptanceGateWeakened': False,
+                  'blanketContinueOnError': False,
+                  'productionDeployment': True,
+              },
+              'acceptance': [
+                  'live acceptance and external PostgreSQL evidence use the same run-attempt-qualified identifier',
+                  'deployment and rollback state continue to use the stable GitHub run id',
+                  'release contract fails closed if the identifier alignment is removed',
+                  'REG.RU VPS remains the only production authority',
+              ],
+              'productionHosting': 'REG_RU_VPS_ONLY',
+          }
+          Path('docs/platform-v7/autopilot/scopes/fix-release-run-attempt-evidence-3469.json').write_text(
+              json.dumps(scope, ensure_ascii=False, indent=2) + '\n'
+          )
+          PY
+
+          rm .github/workflows/one-shot-release-run-attempt-fix.yml
+          node scripts/check-production-full-stack-release.mjs
+          BASE_REF=origin/main GITHUB_HEAD_REF=fix/release-run-attempt-evidence-3469 bash scripts/p7-autopilot-guard.sh
+          git diff --check
+          git add .github/workflows/production-full-stack-exact-sha.yml \
+            scripts/check-production-full-stack-release.mjs \
+            docs/platform-v7/autopilot/scopes/fix-release-run-attempt-evidence-3469.json \
+            .github/workflows/one-shot-release-run-attempt-fix.yml
+          git commit -m 'FIX: align durable evidence with live run attempt'
+          git push origin HEAD:fix/release-run-attempt-evidence-3469
