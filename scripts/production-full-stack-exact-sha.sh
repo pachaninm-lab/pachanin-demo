@@ -166,12 +166,48 @@ rollback_images() {
 verify_durable_intake() {
   [[ "$INTAKE_REQUEST_NUMBER" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]] || fail INTAKE_REQUEST_NUMBER_INVALID 40
   [[ "$INTAKE_CORRELATION_ID" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || fail INTAKE_CORRELATION_ID_INVALID 41
-  [[ -n "$postgres_service" ]] || fail POSTGRES_EVIDENCE_AUTHORITY_UNAVAILABLE 42
-  local pg_id sql result
-  pg_id="$(compose_id "$postgres_service")"
-  [[ -n "$pg_id" ]] || fail POSTGRES_RUNTIME_MISSING 43
-  sql="SELECT CASE WHEN count(*) = 1 AND bool_and(a.action = 'public:organization-intake:create' AND a.outcome = 'SUCCESS' AND a.\"correlationId\" = r.\"correlationId\") AND bool_and(o.type = 'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED' AND o.\"correlationId\" = r.\"correlationId\" AND o.\"auditId\" = r.\"auditEventId\" AND NOT (o.payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])) THEN 'PASS' ELSE 'FAIL' END || '|' || min(r.\"auditEventId\") || '|' || min(r.\"outboxEntryId\") FROM public.public_organization_connection_requests r JOIN public.audit_events a ON a.id = r.\"auditEventId\" JOIN public.outbox_entries o ON o.id = r.\"outboxEntryId\" WHERE r.\"requestNumber\" = '$INTAKE_REQUEST_NUMBER' AND r.\"correlationId\" = '$INTAKE_CORRELATION_ID';"
-  result="$(docker exec "$pg_id" sh -ceu 'test -n "${POSTGRES_USER:-}"; test -n "${POSTGRES_DB:-}"; psql -v ON_ERROR_STOP=1 --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command "$1"' sh "$sql" | tr -d '[:space:]')"
+  local pg_id api_runtime_id sql result node_program audit_id outbox_id
+  sql="SELECT verdict || '|' || audit_id || '|' || outbox_id FROM public.verify_public_organization_connection_request_evidence('$INTAKE_REQUEST_NUMBER', '$INTAKE_CORRELATION_ID');"
+
+  if [[ -n "$postgres_service" ]]; then
+    pg_id="$(compose_id "$postgres_service")"
+    [[ -n "$pg_id" ]] || fail POSTGRES_RUNTIME_MISSING 43
+    if ! result="$(docker exec "$pg_id" sh -ceu 'test -n "${POSTGRES_USER:-}"; test -n "${POSTGRES_DB:-}"; psql -v ON_ERROR_STOP=1 --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command "$1"' sh "$sql" | tr -d '[:space:]')"; then
+      fail POSTGRES_EVIDENCE_AUTHORITY_UNAVAILABLE 42
+    fi
+    printf 'POSTGRES_EVIDENCE_AUTHORITY=COMPOSE_POSTGRES\n'
+  else
+    api_runtime_id="$(compose_id api)"
+    [[ -n "$api_runtime_id" ]] || fail API_RUNTIME_MISSING 43
+    [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_runtime_id")" == "$TARGET_SHA" ]] || fail API_DB_EVIDENCE_REVISION_MISMATCH 45
+    read -r -d '' node_program <<'NODE' || true
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+(async () => {
+  const rows = await prisma.$queryRawUnsafe(
+    'SELECT verdict, audit_id, outbox_id FROM public.verify_public_organization_connection_request_evidence($1, $2)',
+    process.env.PC_INTAKE_REQUEST_NUMBER,
+    process.env.PC_INTAKE_CORRELATION_ID,
+  );
+  const row = rows[0];
+  if (!row) process.exit(2);
+  process.stdout.write(`${row.verdict}|${row.audit_id}|${row.outbox_id}`);
+})().catch(() => {
+  process.stderr.write('API_PRISMA_EVIDENCE_QUERY_FAILED\n');
+  process.exitCode = 1;
+}).finally(async () => {
+  await prisma.$disconnect();
+});
+NODE
+    if ! result="$(docker exec \
+      -e PC_INTAKE_REQUEST_NUMBER="$INTAKE_REQUEST_NUMBER" \
+      -e PC_INTAKE_CORRELATION_ID="$INTAKE_CORRELATION_ID" \
+      "$api_runtime_id" /nodejs/bin/node -e "$node_program" | tr -d '[:space:]')"; then
+      fail POSTGRES_EVIDENCE_AUTHORITY_UNAVAILABLE 42
+    fi
+    printf 'POSTGRES_EVIDENCE_AUTHORITY=API_PRISMA_SECURITY_DEFINER\n'
+  fi
+
   [[ "$result" =~ ^PASS\|audit-[A-Za-z0-9-]+\|outbox-[A-Za-z0-9-]+$ ]] || fail DURABLE_INTAKE_EVIDENCE_FAILED 44
   IFS='|' read -r _ audit_id outbox_id <<< "$result"
   printf 'DURABLE_INTAKE_DB=PASS\n'
