@@ -445,6 +445,76 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(state).toEqual([{ status: 'AUTHORIZED_NOT_ATTESTED' }]);
   });
 
+  it('enforces database authorization and attestation TTL ceilings', async () => {
+    const configuration = await approvedConfiguration();
+    const overlongAuthorizationId = `${RUN_ID}.ttl.authorization.overlong`;
+
+    await expect(executeAsRuntime(EXEC_A, Prisma.sql`
+      SELECT public.write_fgis_grain_tenant_read_authorization(
+        ${overlongAuthorizationId},
+        ${configuration.configurationId},
+        ${BigInt(configuration.version)},
+        ARRAY['DICTIONARIES', 'GET_LIST_SDIZ']::text[],
+        ${`authorization://tenant/${ORG_A}/fgis-read/ttl-overlong`},
+        ${new Date(Date.now() + 91 * 24 * 60 * 60_000)},
+        'Direct database callers cannot exceed the authorization TTL ceiling.',
+        NULL::bigint,
+        ${`${RUN_ID}.ttl.authorization.audit`},
+        ${`${RUN_ID}.ttl.authorization.correlation`},
+        ${`${RUN_ID}.ttl.authorization.idempotency`},
+        ${'c'.repeat(64)}
+      )
+    `)).rejects.toThrow(/authorization lifetime/iu);
+
+    const rejectedAuthorization = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM public."fgis_grain_tenant_read_authorizations"
+      WHERE "id" = ${overlongAuthorizationId}
+    `);
+    expect(rejectedAuthorization[0]?.count).toBe(0n);
+
+    const authorized = await readRepository.authorize(EXEC_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_SCHEMA_VERSION,
+      configurationId: configuration.configurationId,
+      configurationVersion: configuration.version,
+      allowedOperations: ['DICTIONARIES', 'GET_LIST_SDIZ'],
+      authorizationReference: `authorization://tenant/${ORG_A}/fgis-read/ttl-valid`,
+      validUntil: new Date(Date.now() + 60 * 24 * 60 * 60_000).toISOString(),
+      reason: 'The bounded authorization is valid while the attestation ceiling remains independent.',
+    });
+
+    await expect(executeAsRuntime(SECURITY_A, Prisma.sql`
+      SELECT public.attest_fgis_grain_tenant_read_authorization(
+        ${authorized.authorizationId},
+        ${BigInt(authorized.authorizationVersion)},
+        ${`evidence://fgis-grain/read-ttl-overlong/${RUN_ID}`},
+        ${new Date(Date.now() + 31 * 24 * 60 * 60_000)},
+        'Direct database callers cannot exceed the attestation TTL ceiling.',
+        ${`${RUN_ID}.ttl.attestation.audit`},
+        ${`${RUN_ID}.ttl.attestation.correlation`},
+        ${`${RUN_ID}.ttl.attestation.idempotency`},
+        ${'d'.repeat(64)}
+      )
+    `)).rejects.toThrow(/attestation lifetime/iu);
+
+    const unchanged = await prisma.$queryRaw<Array<{
+      status: string;
+      attestationAuditCount: bigint;
+    }>>(Prisma.sql`
+      SELECT authorization."status",
+             count(audit."id") FILTER (WHERE audit."decision" = 'ATTESTED')::bigint
+               AS "attestationAuditCount"
+      FROM public."fgis_grain_tenant_read_authorizations" AS authorization
+      LEFT JOIN public."fgis_grain_tenant_read_audits" AS audit
+        ON audit."authorizationId" = authorization."id"
+      WHERE authorization."id" = ${authorized.authorizationId}
+      GROUP BY authorization."status"
+    `);
+    expect(unchanged).toEqual([{
+      status: 'AUTHORIZED_NOT_ATTESTED',
+      attestationAuditCount: 0n,
+    }]);
+  });
   it('executes an attested read exactly once and replays the durable result', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(
@@ -528,6 +598,112 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(transport.calls).toHaveLength(1);
   });
 
+  it('reconciles an expired abandoned provider claim without the lost capability', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-abandoned-claim/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent evidence admits the abandoned-claim recovery regression.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'abandoned-claim',
+    );
+    const claimId = `${RUN_ID}.abandoned-claim.claim`;
+    const lostCompletionTokenSha256 = createHash('sha256')
+      .update(`${RUN_ID}.abandoned-claim.lost-completion-capability`)
+      .digest('hex');
+
+    await executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${claimId},
+        ${authorized.authorizationId},
+        ${BigInt(attested.authorizationVersion)},
+        ${configuration.configurationId},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.claim`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
+        'IN_FLIGHT',
+        'PROVIDER_READ_CLAIMED',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        ${lostCompletionTokenSha256}
+      )
+    `);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE public."fgis_grain_tenant_read_provider_claims" DISABLE TRIGGER "fgis_grain_tenant_read_claims_guard_update"',
+      );
+      try {
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE public."fgis_grain_tenant_read_provider_claims"
+          SET "createdAt" = clock_timestamp() - interval '10 minutes',
+              "leaseExpiresAt" = clock_timestamp() - interval '5 minutes'
+          WHERE "id" = ${claimId}
+        `);
+      } finally {
+        await tx.$executeRawUnsafe(
+          'ALTER TABLE public."fgis_grain_tenant_read_provider_claims" ENABLE TRIGGER "fgis_grain_tenant_read_claims_guard_update"',
+        );
+      }
+    });
+
+    await expect(readRepository.execute(BUYER_A, request)).rejects.toMatchObject({
+      response: {
+        code: 'FGIS_GRAIN_READ_CLAIM_RECONCILED',
+        retryable: true,
+        retryWithNewIdempotencyKey: true,
+      },
+    });
+    expect(transport.calls).toHaveLength(0);
+
+    const reconciled = await prisma.$queryRaw<Array<{
+      completedAuditId: string;
+      completedAt: Date;
+      decision: string;
+      reasonCode: string;
+      providerRequestId: string | null;
+    }>>(Prisma.sql`
+      SELECT claim."completedAuditId", claim."completedAt",
+             audit."decision", audit."reasonCode", audit."providerRequestId"
+      FROM public."fgis_grain_tenant_read_provider_claims" AS claim
+      JOIN public."fgis_grain_tenant_read_audits" AS audit
+        ON audit."id" = claim."completedAuditId"
+      WHERE claim."id" = ${claimId}
+    `);
+    expect(reconciled).toHaveLength(1);
+    expect(reconciled[0]).toMatchObject({
+      decision: 'FAILED',
+      reasonCode: 'PROVIDER_READ_CLAIM_EXPIRED',
+      providerRequestId: null,
+    });
+    expect(reconciled[0]?.completedAt).toBeInstanceOf(Date);
+
+    const recoveredRequest = {
+      ...request,
+      correlationId: `${request.correlationId}.recovered`,
+      idempotencyKey: `${request.idempotencyKey}.recovered`,
+    };
+    await expect(readRepository.execute(BUYER_A, recoveredRequest)).resolves.toMatchObject({
+      replayed: false,
+      operationCode: 'GET_LIST_SDIZ',
+    });
+    expect(transport.calls).toHaveLength(1);
+  });
   it('serializes competing direct terminal outcomes for one opaque provider claim', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(

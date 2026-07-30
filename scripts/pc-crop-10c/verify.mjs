@@ -192,6 +192,13 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('"requestIdempotencyKey" text NOT NULL'), 'audit lacks request-level idempotency binding');
   check(migration.includes("'IN_FLIGHT'"), 'durable single-flight claim state missing');
   check(
+    schema.includes('leaseExpiresAt        DateTime')
+      && migration.includes('"leaseExpiresAt" timestamptz NOT NULL')
+      && migration.includes("interval '5 minutes'")
+      && migration.includes('fgis_grain_tenant_read_claim_open_lease_idx'),
+    'bounded durable provider-claim lease is missing',
+  );
+  check(
     migration.includes('GRANT SELECT ON TABLE public."fgis_grain_tenant_read_authorizations"')
       && migration.includes('GRANT SELECT ON TABLE public."fgis_grain_tenant_read_audits"'),
     'runtime tables are not read-only',
@@ -250,6 +257,13 @@ function validatePostgres(schema, migration, repository) {
     'authorization or attestation state can commit without its database-owned audit',
   );
   check(
+    authorizationCommand.includes("interval '90 days'")
+      && authorizationCommand.includes('authorization lifetime is invalid')
+      && attestationCommand.includes("interval '30 days'")
+      && attestationCommand.includes('attestation lifetime is invalid'),
+    'database authorization or attestation TTL ceiling is missing',
+  );
+  check(
     attestationCommand.includes('"tenantReadTransportAdmittedVersion"')
       && attestationCommand.includes('= current_row."configurationVersion"')
       && migration.includes('REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_provider_configurations"'),
@@ -257,7 +271,7 @@ function validatePostgres(schema, migration, repository) {
   );
   const finalizer = migration.slice(
     migration.indexOf('CREATE OR REPLACE FUNCTION public.finalize_fgis_grain_tenant_read_claim'),
-    migration.indexOf('CREATE OR REPLACE FUNCTION public.reject_fgis_grain_tenant_read_audit_mutation'),
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.reconcile_fgis_grain_tenant_read_claim'),
   );
   check(
     finalizer.includes('fgis_grain_tenant_read_provider_claims')
@@ -268,9 +282,25 @@ function validatePostgres(schema, migration, repository) {
       && finalizer.includes("p_reason_code <> 'PROVIDER_READ_FAILED'")
       && finalizer.includes('FOR UPDATE')
       && finalizer.includes('claim."completedAuditId" IS NOT NULL')
+      && finalizer.includes('claim."leaseExpiresAt" <= statement_timestamp()')
       && !finalizer.includes('fgis_grain_tenant_read_context_ready')
       && !finalizer.includes("current_setting('app.current_"),
     'terminal provider outcome is not capability- and claim-bound independently of session state',
+  );
+  const reconciler = migration.slice(
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.reconcile_fgis_grain_tenant_read_claim'),
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.reject_fgis_grain_tenant_read_audit_mutation'),
+  );
+  check(
+    reconciler.includes('fgis_grain_tenant_read_context_ready(false)')
+      && reconciler.includes('claim."leaseExpiresAt" > statement_timestamp()')
+      && reconciler.includes("'PROVIDER_READ_CLAIM_EXPIRED'")
+      && reconciler.includes('FOR UPDATE')
+      && reconciler.includes('claim."completedAuditId" IS NOT NULL')
+      && repository.includes('reconcileAbandonedClaim(tx, prior)')
+      && repository.includes('FGIS_GRAIN_READ_CLAIM_RECONCILED')
+      && repository.includes('retryWithNewIdempotencyKey: true'),
+    'expired abandoned provider claims have no governed reconciliation path',
   );
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
   check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
@@ -327,6 +357,10 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('fgis_grain_tenant_read_audit_heads'), 'PostgreSQL E2E does not prove monotonic chain-head state');
   check(e2e.includes('rejects direct database attestation while transport admission is absent'), 'PostgreSQL E2E does not prove database transport admission');
   check(e2e.includes('serializes competing direct terminal outcomes for one opaque provider claim'), 'PostgreSQL E2E does not prove terminal outcome serialization');
+  check(e2e.includes('enforces database authorization and attestation TTL ceilings'), 'PostgreSQL E2E does not prove database TTL ceilings');
+  check(e2e.includes('reconciles an expired abandoned provider claim without the lost capability'), 'PostgreSQL E2E does not prove abandoned-claim recovery');
+  check(e2e.includes('PROVIDER_READ_CLAIM_EXPIRED'), 'PostgreSQL E2E does not prove the governed expired-claim terminal fact');
+  check(e2e.includes('FGIS_GRAIN_READ_CLAIM_RECONCILED'), 'PostgreSQL E2E does not prove the retry contract after reconciliation');
 }
 
 function validateTruthBoundary(scope, repository, transport) {

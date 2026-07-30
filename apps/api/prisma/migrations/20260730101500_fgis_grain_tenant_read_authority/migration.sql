@@ -135,6 +135,7 @@ CREATE TABLE public."fgis_grain_tenant_read_provider_claims" (
   "completedAuditId" text,
   "completedAt" timestamptz,
   "createdAt" timestamptz NOT NULL DEFAULT clock_timestamp(),
+  "leaseExpiresAt" timestamptz NOT NULL DEFAULT (clock_timestamp() + interval '5 minutes'),
   CONSTRAINT "fgis_grain_tenant_read_claim_auth_fk"
     FOREIGN KEY ("authorizationId", "tenantId", "organizationId")
     REFERENCES public."fgis_grain_tenant_read_authorizations"("id", "tenantId", "organizationId")
@@ -155,6 +156,11 @@ CREATE TABLE public."fgis_grain_tenant_read_provider_claims" (
     CHECK ("requestSha256" ~ '^[a-f0-9]{64}$'),
   CONSTRAINT "fgis_grain_tenant_read_claim_completion_token_hash_ck"
     CHECK ("completionTokenSha256" ~ '^[a-f0-9]{64}$'),
+  CONSTRAINT "fgis_grain_tenant_read_claim_lease_ck"
+    CHECK (
+      "leaseExpiresAt" > "createdAt"
+      AND "leaseExpiresAt" <= "createdAt" + interval '15 minutes'
+    ),
   CONSTRAINT "fgis_grain_tenant_read_claim_completion_pair_ck"
     CHECK (
       ("completedAuditId" IS NULL AND "completedAt" IS NULL)
@@ -166,6 +172,11 @@ CREATE TABLE public."fgis_grain_tenant_read_provider_claims" (
   CONSTRAINT "fgis_grain_tenant_read_claim_request_key"
     UNIQUE ("tenantId", "organizationId", "requestIdempotencyKey")
 );
+
+CREATE INDEX "fgis_grain_tenant_read_claim_open_lease_idx"
+  ON public."fgis_grain_tenant_read_provider_claims"
+  ("tenantId", "organizationId", "leaseExpiresAt")
+  WHERE "completedAuditId" IS NULL;
 
 CREATE TABLE public."fgis_grain_tenant_read_audits" (
   "id" text PRIMARY KEY,
@@ -564,6 +575,13 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  IF p_valid_until <= statement_timestamp()
+     OR p_valid_until > statement_timestamp() + interval '90 days'
+  THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read authorization lifetime is invalid'
+      USING ERRCODE = '22023';
+  END IF;
+
   IF NOT public.fgis_grain_tenant_read_provider_authority_valid(
     p_configuration_id,
     p_configuration_version
@@ -720,6 +738,7 @@ BEGIN
   END IF;
   IF current_row."validUntil" <= statement_timestamp()
      OR p_valid_until <= statement_timestamp()
+     OR p_valid_until > statement_timestamp() + interval '30 days'
      OR p_valid_until > current_row."validUntil"
   THEN
     RAISE EXCEPTION 'FGIS Grain tenant-read attestation lifetime is invalid'
@@ -1065,6 +1084,11 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  IF claim."leaseExpiresAt" <= statement_timestamp() THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim lease expired'
+      USING ERRCODE = '55000';
+  END IF;
+
   IF (
     p_decision = 'SUCCEEDED'
     AND (
@@ -1138,6 +1162,107 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.reconcile_fgis_grain_tenant_read_claim(
+  p_claim_id text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  claim public."fgis_grain_tenant_read_provider_claims"%ROWTYPE;
+  outcome_id text;
+  outcome_idempotency_key text;
+BEGIN
+  IF session_user NOT IN ('app_runtime', 'app_service')
+     AND NOT COALESCE((
+       SELECT role_row.rolsuper
+       FROM pg_catalog.pg_roles AS role_row
+       WHERE role_row.rolname = session_user
+     ), false)
+  THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim reconciliation principal is denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT public.fgis_grain_tenant_read_context_ready(false)
+     OR current_setting('app.current_role', true) NOT IN (
+       'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING',
+       'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER'
+     )
+  THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim reconciliation context is denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT *
+  INTO claim
+  FROM public."fgis_grain_tenant_read_provider_claims" AS candidate
+  WHERE candidate."id" = p_claim_id
+    AND candidate."tenantId" = current_setting('app.current_tenant_id', true)
+    AND candidate."organizationId" = current_setting('app.current_org_id', true)
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim is not available for reconciliation'
+      USING ERRCODE = '42501';
+  END IF;
+  IF claim."completedAuditId" IS NOT NULL THEN
+    RETURN claim."completedAuditId";
+  END IF;
+  IF claim."leaseExpiresAt" > statement_timestamp() THEN
+    RETURN NULL;
+  END IF;
+
+  outcome_id := public.gen_random_uuid()::text;
+  outcome_idempotency_key := 'fgis-read:outcome:' || encode(
+    public.digest(
+      convert_to('OUTCOME:' || claim."requestIdempotencyKey", 'UTF8'),
+      'sha256'
+    ),
+    'hex'
+  );
+
+  PERFORM public.append_fgis_grain_tenant_read_audit_internal(
+    outcome_id,
+    claim."tenantId",
+    claim."organizationId",
+    claim."authorizationId",
+    claim."authorizationVersion",
+    claim."configurationId",
+    claim."actorUserId",
+    claim."actorRole",
+    claim."operationCode",
+    claim."correlationId",
+    outcome_idempotency_key,
+    claim."requestIdempotencyKey",
+    claim."requestReference",
+    claim."requestSha256",
+    'FAILED',
+    'PROVIDER_READ_CLAIM_EXPIRED',
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    claim."id"
+  );
+
+  UPDATE public."fgis_grain_tenant_read_provider_claims"
+  SET "completedAuditId" = outcome_id,
+      "completedAt" = clock_timestamp()
+  WHERE "id" = claim."id"
+    AND "completedAuditId" IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim reconciliation raced'
+      USING ERRCODE = '40001';
+  END IF;
+
+  RETURN outcome_id;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.reject_fgis_grain_tenant_read_audit_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1177,7 +1302,8 @@ BEGIN
        NEW."requestReference",
        NEW."requestSha256",
        NEW."completionTokenSha256",
-       NEW."createdAt"
+       NEW."createdAt",
+       NEW."leaseExpiresAt"
      ) IS DISTINCT FROM ROW(
        OLD."id",
        OLD."tenantId",
@@ -1193,7 +1319,8 @@ BEGIN
        OLD."requestReference",
        OLD."requestSha256",
        OLD."completionTokenSha256",
-       OLD."createdAt"
+       OLD."createdAt",
+       OLD."leaseExpiresAt"
      )
      OR NEW."completedAuditId" IS NULL
      OR NEW."completedAt" IS NULL
@@ -1342,6 +1469,7 @@ REVOKE ALL ON FUNCTION public.append_fgis_grain_tenant_read_audit(
 REVOKE ALL ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(
   text, text, text, text, text, text, text, timestamptz
 ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.reconcile_fgis_grain_tenant_read_claim(text) FROM PUBLIC;
 
 DO $grants$
 DECLARE
@@ -1408,6 +1536,10 @@ BEGIN
       );
       EXECUTE format(
         'GRANT EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(text, text, text, text, text, text, text, timestamptz) TO %I',
+        runtime_role
+      );
+      EXECUTE format(
+        'GRANT EXECUTE ON FUNCTION public.reconcile_fgis_grain_tenant_read_claim(text) TO %I',
         runtime_role
       );
     END IF;

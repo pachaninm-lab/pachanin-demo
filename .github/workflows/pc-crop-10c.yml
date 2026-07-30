@@ -245,6 +245,11 @@ jobs:
                  'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
                  'EXECUTE'
                )
+               OR NOT has_function_privilege(
+                 'app_runtime',
+                 'public.reconcile_fgis_grain_tenant_read_claim(text)',
+                 'EXECUTE'
+               )
                OR has_function_privilege(
                  'app_runtime',
                  'public.append_fgis_grain_tenant_read_audit_internal(text,text,text,text,bigint,text,text,text,text,text,text,text,text,text,text,text,text,text,text,timestamptz,text)',

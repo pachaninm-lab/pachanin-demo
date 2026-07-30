@@ -114,6 +114,7 @@ type AuditRow = Readonly<{
   responseSha256: string | null;
   receivedAt: Date | null;
   reasonCode: string;
+  providerClaimId: string | null;
 }>;
 
 type AuditPhase = 'CLAIM' | 'DENIED';
@@ -366,10 +367,31 @@ export class FgisGrainTenantReadRepository {
         if (!authorization) {
           throw new NotFoundException('FGIS Grain read authorization not found');
         }
+        const prior = await this.findRequestEvent(tx, context, input.idempotencyKey);
+        if (prior) {
+          this.assertRequestEventMatches(prior, input);
+          if (prior.decision === 'IN_FLIGHT') {
+            const reconciledAuditId = await this.reconcileAbandonedClaim(tx, prior);
+            if (reconciledAuditId) {
+              return {
+                replay: null,
+                authorization: null,
+                configuration: null,
+                claim: null,
+                denial: null,
+                transportDisabled: false,
+                reconciled: true,
+              } as const;
+            }
+            throw new ConflictException({
+              code: 'FGIS_GRAIN_READ_IN_FLIGHT',
+              retryable: true,
+            });
+          }
+        }
         if (authorization.version !== BigInt(input.authorizationVersion)) {
           throw new PreconditionFailedException('Authorization version changed');
         }
-        const prior = await this.findRequestEvent(tx, context, input.idempotencyKey);
         const deny = async (reasonCode: string, message: string) => {
           if (!prior) {
             await this.writeAudit(tx, {
@@ -449,7 +471,6 @@ export class FgisGrainTenantReadRepository {
           } as const;
         }
         if (prior) {
-          this.assertRequestEventMatches(prior, input);
           if (prior.decision === 'SUCCEEDED') {
             return {
               replay: prior,
@@ -459,12 +480,6 @@ export class FgisGrainTenantReadRepository {
               denial: null,
               transportDisabled: false,
             } as const;
-          }
-          if (prior.decision === 'IN_FLIGHT') {
-            throw new ConflictException({
-              code: 'FGIS_GRAIN_READ_IN_FLIGHT',
-              retryable: true,
-            });
           }
           throw new ConflictException('Idempotency key already has a terminal result');
         }
@@ -503,6 +518,13 @@ export class FgisGrainTenantReadRepository {
       },
     );
 
+    if ('reconciled' in preflight && preflight.reconciled) {
+      throw new ServiceUnavailableException({
+        code: 'FGIS_GRAIN_READ_CLAIM_RECONCILED',
+        retryable: true,
+        retryWithNewIdempotencyKey: true,
+      });
+    }
     if (preflight.replay) return this.replayReceipt(preflight.replay, input);
     if (preflight.denial) throw new ForbiddenException(preflight.denial);
     if (preflight.transportDisabled) {
@@ -741,7 +763,7 @@ export class FgisGrainTenantReadRepository {
       SELECT "id", "authorizationId", "authorizationVersion", "operationCode",
              "correlationId", "requestIdempotencyKey", "requestReference",
              "requestSha256", "decision", "providerRequestId", "responseReference",
-             "responseSha256", "receivedAt", "reasonCode"
+             "responseSha256", "receivedAt", "reasonCode", "providerClaimId"
       FROM public."fgis_grain_tenant_read_audits"
       WHERE "tenantId" = ${context.tenantId}
         AND "organizationId" = ${context.orgId}
@@ -758,6 +780,21 @@ export class FgisGrainTenantReadRepository {
       LIMIT 1
     `);
     return rows[0];
+  }
+
+  private async reconcileAbandonedClaim(
+    tx: Prisma.TransactionClient,
+    prior: AuditRow,
+  ): Promise<string | null> {
+    if (!prior.providerClaimId) {
+      throw new ConflictException('FGIS Grain read claim binding is missing');
+    }
+    const rows = await tx.$queryRaw<Array<{ auditId: string | null }>>(Prisma.sql`
+      SELECT public.reconcile_fgis_grain_tenant_read_claim(
+        ${prior.providerClaimId}
+      ) AS "auditId"
+    `);
+    return rows[0]?.auditId ?? null;
   }
 
   private async writeAudit(
