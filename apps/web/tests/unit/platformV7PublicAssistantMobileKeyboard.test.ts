@@ -9,34 +9,34 @@ const controller = read('apps/web/components/platform-v7/ContextualSupportOrAssi
 const css = read('apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css');
 
 describe('platform-v7 public assistant mobile keyboard contract', () => {
-  it('tracks visual viewport and VirtualKeyboard geometry through the full focus animation', () => {
+  it('tracks visual viewport and optional VirtualKeyboard geometry through the full animation', () => {
     expect(controller).toContain('window.visualViewport');
     expect(controller).toContain('NavigatorWithVirtualKeyboard');
-    expect(controller).toContain("virtualKeyboard?.addEventListener('geometrychange', scheduleSync)");
+    expect(controller).toContain("virtualKeyboard?.addEventListener('geometrychange', scheduleMeasure)");
     expect(controller).toContain('virtualKeyboard.overlaysContent = true');
     expect(controller).toContain("document.addEventListener('focusin', handleFocusIn)");
     expect(controller).toContain("document.addEventListener('focusout', handleFocusOut)");
     expect(controller).toContain("target.closest('.pc-public-assistant-composer')");
+    expect(controller).toContain('[40, 100, 180, 300, 480, 700, 1_000, 1_400, 1_900]');
+  });
+
+  it('binds every focused mobile composer to the live viewport without a keyboard threshold', () => {
     expect(controller).toContain("panel.dataset.pcKeyboardFocus = 'true'");
     expect(controller).toContain("panel.dataset.pcKeyboardViewport = 'true'");
-    expect(controller).toContain('[60, 140, 260, 420, 700, 1_000]');
+    expect(controller).toContain("panel.style.setProperty('--pc-ai-keyboard-height', `${visibleHeight}px`)");
+    expect(controller).toContain('A focused mobile composer is');
+    expect(controller).not.toContain('const keyboardOpen =');
+    expect(controller).not.toContain('keyboardInset > 64');
   });
 
-  it('never makes the sheet taller than the measured visible keyboard viewport', () => {
-    expect(controller).toContain('const usableHeight = Math.max(1, visibleBottom - offsetTop - 2)');
-    expect(controller).not.toContain('Math.max(240, height');
-    expect(css).toContain(".pc-public-assistant-panel[data-pc-keyboard-viewport='true']");
-    expect(css).toContain('top: var(--pc-ai-keyboard-top, 0px) !important');
-    expect(css).toContain('height: var(--pc-ai-keyboard-height, 100dvh) !important');
-    expect(css).toContain('max-height: var(--pc-ai-keyboard-height, 100dvh) !important');
-    expect(css).toContain('bottom: auto !important');
-  });
-
-  it('raises the compact sheet immediately with the keyboard inset CSS fallback', () => {
-    expect(css).toContain("[data-pc-keyboard-focus='true']:not([data-pc-keyboard-viewport='true'])");
+  it('uses the measured visual viewport height as the exact authority above the keyboard', () => {
+    expect(css).toContain(".pc-public-assistant-panel[data-pc-keyboard-focus='true']");
+    expect(css).toContain('height: var(');
+    expect(css).toContain('--pc-ai-keyboard-height,');
     expect(css).toContain('env(keyboard-inset-height, 0px)');
-    expect(css).toContain('bottom: var(--pc-ai-effective-keyboard-inset) !important');
-    expect(controller).toContain("panel.style.setProperty('--pc-ai-keyboard-inset'");
+    expect(css).not.toContain('height: min(');
+    expect(css).toContain('border-radius: 0 !important');
+    expect(css).toContain('padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important');
   });
 
   it('removes the redundant frame but retains a compact keyboard-focus cue', () => {
@@ -47,7 +47,7 @@ describe('platform-v7 public assistant mobile keyboard contract', () => {
     expect(css).toContain('outline: 2px solid Highlight !important');
   });
 
-  it('lightens the assistant and reduces the public brand weight', () => {
+  it('keeps the assistant visually light', () => {
     expect(css).toContain('.pc-site-header .pc-site-brand-text strong');
     expect(css).toContain('font-weight: 650 !important');
     expect(css).toContain('background: rgba(9, 33, 24, 0.18) !important');

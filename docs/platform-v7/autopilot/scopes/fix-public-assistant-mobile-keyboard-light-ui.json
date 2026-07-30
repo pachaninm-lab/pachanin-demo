@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-assistant-mobile-keyboard-light-ui",
   "status": "active",
-  "purpose": "Keep the public assistant and its composer fully visible above mobile software keyboards, including Chromium shells that expose VirtualKeyboard overlay geometry later than visualViewport resize events, without changing AI, data, authorization or transaction behavior.",
+  "purpose": "Make the public assistant occupy the complete live mobile viewport above the software keyboard whenever its composer is focused, eliminating the visible dead gap shown by the owner without changing AI, data, authorization or transaction behavior.",
   "approvedBy": "owner-direct-implement-2026-07-31",
-  "authorityBaseExactMain": "a7f11e899c12a976755c1cb62ca3738f1d744a0d",
+  "authorityBaseExactMain": "bc7af6e70c59d3b1429faa25ee5664dd14a633c0",
   "allowedPaths": [
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css",
@@ -13,14 +13,13 @@
     "docs/platform-v7/autopilot/scopes/fix-public-assistant-mobile-keyboard-light-ui.json"
   ],
   "requiredBehavior": [
-    "opening the public assistant and focusing its textarea keeps the complete panel and composer inside the exact live mobile visual viewport",
-    "the keyboard transition is remeasured after focus, resize, visual viewport scroll, VirtualKeyboard geometry changes and orientation changes",
-    "Chromium overlay keyboards raise the compact sheet immediately through keyboard-inset environment geometry before the exact JavaScript viewport frame settles",
-    "the sheet height never exceeds the measured visible viewport above the keyboard, including short landscape and split-screen states",
-    "the assistant backdrop, borders and shadows remain visually light",
-    "the public brand wordmark remains medium rather than heavy weight",
-    "the composer has no redundant border or halo but retains a compact keyboard focus indicator",
-    "keyboard, screen-reader, forced-colors and reduced-motion usability remain intact",
+    "focusing the public assistant textarea unconditionally binds the complete panel to the exact live visual viewport on mobile without waiting for a keyboard-open threshold",
+    "the composer bottom edge remains directly above the software keyboard with no exposed page gap",
+    "visualViewport resize and scroll, VirtualKeyboard geometrychange, window resize, orientation and the full keyboard animation window are remeasured",
+    "iOS and third-party keyboards use visualViewport geometry while Chromium overlay keyboards also use VirtualKeyboard and keyboard-inset environment geometry",
+    "the panel height never exceeds the visible area above the keyboard in portrait, landscape or split-screen states",
+    "blur returns the panel to its compact sheet geometry and restores any prior VirtualKeyboard overlay mode",
+    "the light UI, keyboard navigation, screen-reader and forced-colors behavior remain intact",
     "exact-main web images and REG.RU acceptance are retriggered"
   ],
   "forbiddenCapabilities": [
