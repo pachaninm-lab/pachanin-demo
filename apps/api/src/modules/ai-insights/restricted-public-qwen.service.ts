@@ -11,7 +11,7 @@ const MAX_RESPONSE_BYTES = 1_048_576;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
 const MAX_HISTORY_TOTAL_CHARS = 12_000;
-const DEFAULT_TIMEOUT_MS = 45_000;
+const DEFAULT_TIMEOUT_MS = 80_000;
 const DEFAULT_MAX_TOKENS = 900;
 
 type PublicLocale = 'ru' | 'en' | 'zh';
