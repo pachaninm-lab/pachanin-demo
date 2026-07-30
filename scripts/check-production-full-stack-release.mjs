@@ -211,3 +211,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('PASS: exact API/web/migration images, serialized image publication, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, live intake and PostgreSQL/audit/outbox evidence are enforced.');
+
+// release-trigger: public-organization-connect-middleware-direct-20260730
