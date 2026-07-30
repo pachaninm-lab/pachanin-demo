@@ -7,8 +7,8 @@ on:
       - '.github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml'
 
 permissions:
-  contents: read
-  pull-requests: read
+  contents: write
+  pull-requests: write
 
 jobs:
   patch:
@@ -22,16 +22,18 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
-      - name: Generate exact bounded correction artifact
+      - name: Materialize exact bounded correction
         shell: bash
         env:
           EXPECTED_BASE: 72d1a6ad7c277615430a58a9d357485ae34f6f5c
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
           [[ "$(git merge-base HEAD origin/main)" == "$EXPECTED_BASE" ]]
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_BASE" ]]
 
           python3 - <<'PY'
           import json
@@ -50,6 +52,13 @@ jobs:
               if old not in text:
                   raise SystemExit(f'missing expected workflow text: {old}')
               text = text.replace(old, new)
+
+          subtitle_assertion = "if ((await dialog.locator('.pc-public-assistant-identity div > span').textContent())?.trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');"
+          mark_assertion = "if (await dialog.locator('[data-pc-public-assistant-ai-mark=\"true\"]:visible').count() !== 1) throw new Error('ai_mark_count_invalid');"
+          if subtitle_assertion not in text:
+              raise SystemExit('updated subtitle assertion missing')
+          if mark_assertion not in text:
+              text = text.replace(subtitle_assertion, subtitle_assertion + "\n    " + mark_assertion, 1)
           workflow_path.write_text(text, encoding='utf-8')
 
           next_path = Path('apps/web/next.config.js')
@@ -57,6 +66,8 @@ jobs:
           trigger = "// Exact-main retry after aligning live Chromium acceptance with approved `ИИ для агробизнеса` branding; runtime configuration is unchanged.\n"
           if trigger not in next_text:
               marker = "const createNextIntlPlugin = require('next-intl/plugin');"
+              if marker not in next_text:
+                  raise SystemExit('next config marker missing')
               next_text = next_text.replace(marker, trigger + marker, 1)
           next_path.write_text(next_text, encoding='utf-8')
 
@@ -70,26 +81,37 @@ jobs:
           scope['acceptance'] = [
               'live Chromium requires the visible title ИИ для агробизнеса',
               'live Chromium requires the exact subtitle Разработан Прозрачной ценой для сельского хозяйства.',
+              'live Chromium verifies exactly one visible AI mark',
               'evidence metadata and issue evidence use the same approved identity',
               'canonical exact API web and migration images remain mandatory',
               'authenticated private-model inference and RU EN ZH SSE remain mandatory',
-              'one fullscreen control and no reasoning tool or debug traces remain mandatory',
+              'one native fullscreen control and no duplicate fullscreen control remain mandatory',
+              'functional reset successful answers citation alert overflow page-error and trace-suppression checks remain mandatory',
               'production remains REG_RU_VPS_ONLY',
           ]
           scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
 
-          rm -rf /tmp/qwen-branding-patch
-          mkdir -p /tmp/qwen-branding-patch/.github/workflows /tmp/qwen-branding-patch/apps/web /tmp/qwen-branding-patch/docs/platform-v7/autopilot/scopes
-          cp .github/workflows/tai-restricted-qwen-reg-ru-activation.yml /tmp/qwen-branding-patch/.github/workflows/
-          cp apps/web/next.config.js /tmp/qwen-branding-patch/apps/web/
-          cp docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json /tmp/qwen-branding-patch/docs/platform-v7/autopilot/scopes/
+          rm -f .github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml
           git diff --check
 
-      - name: Upload exact correction artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: qwen-approved-branding-correction-${{ github.run_id }}
-          path: /tmp/qwen-branding-patch
-          if-no-files-found: error
-          retention-days: 7
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_BASE" | sort)
+          expected=(
+            '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
+            'apps/web/next.config.js'
+            'docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json'
+          )
+          [[ "${#changed[@]}" == 3 ]]
+          [[ "${changed[*]}" == "${expected[*]}" ]]
+
+          grep -Fq "!== 'ИИ для агробизнеса'" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq "!== 'Разработан Прозрачной ценой для сельского хозяйства.'" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          grep -Fq 'ai_mark_count_invalid' .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          ! grep -Fq "!== 'ИИ в агробизнесе'" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          ! grep -Fq "!== 'разработан Прозрачной Ценой'" .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tai-restricted-qwen-reg-ru-activation.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json .github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml
+          git commit -m 'FIX: align live Qwen acceptance with approved public AI branding'
+          git push origin "HEAD:$HEAD_BRANCH"
