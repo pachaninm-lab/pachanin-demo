@@ -1,0 +1,21 @@
+{
+  "exactMain": "72d1a6ad7c277615430a58a9d357485ae34f6f5c",
+  "newBranch": "fix/qwen-live-ui-branding-acceptance-v3",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/web/next.config.js",
+    "docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json"
+  ],
+  "approvedTitle": "ИИ для агробизнеса",
+  "approvedSubtitle": "Разработан Прозрачной ценой для сельского хозяйства.",
+  "requirements": [
+    "replace stale live Chromium exact title assertion and evidence",
+    "replace stale live Chromium exact subtitle assertion and evidence",
+    "verify exactly one visible AI mark",
+    "preserve one native fullscreen, reset, answers, citation, alert, overflow and page-error checks",
+    "add runtime-neutral next.config.js release trigger",
+    "rebind active scope to exact base and new branch",
+    "no runtime or business behavior changes",
+    "REG.RU only"
+  ]
+}
