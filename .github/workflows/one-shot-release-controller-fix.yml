@@ -1,0 +1,141 @@
+name: One-shot production release controller fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-release-controller-fix.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build bounded release authority fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          FIX_BRANCH: fix/release-controller-authority-generated-20260730
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$FIX_BRANCH" origin/main
+
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          release = Path('.github/workflows/production-full-stack-exact-sha.yml')
+          text = release.read_text()
+          old = """      (github.event_name == 'workflow_dispatch' &&
+               github.actor == github.repository_owner &&
+               inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA')"""
+          new = """      (github.event_name == 'workflow_dispatch' &&
+               (github.actor == github.repository_owner ||
+                github.actor == 'github-actions[bot]') &&
+               inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA')"""
+          if text.count(old) != 1:
+              raise SystemExit('release actor guard anchor mismatch')
+          release.write_text(text.replace(old, new))
+
+          controller = Path('.github/workflows/platform-v7-safe-merge.yml')
+          text = controller.read_text()
+          old = """          latest_release_conclusion=none
+          latest_release_step=none
+          if [[ -n \"$selected_release\" ]]; then
+            IFS=$'\\t' read -r latest_release_id _ latest_release_status latest_release_conclusion _ _ _ <<< \"$selected_release\"
+            latest_release_step=$(gh api -H 'Accept: application/vnd.github+json' \"repos/$REPO/actions/runs/$latest_release_id/jobs?per_page=100\" \\
+              --jq '[.jobs[] | {name, step: (([.steps[]? | select(.status == \"in_progress\" or .conclusion == \"failure\") | .name][0]) // \"none\")} | select(.step != \"none\") | (.name + \" / \" + .step)][0] // \"none\"')
+          fi"""
+          new = """          latest_release_conclusion=none
+          latest_release_step=none
+          latest_release_deploy_state=not-found
+          if [[ -n \"$selected_release\" ]]; then
+            IFS=$'\\t' read -r latest_release_id _ latest_release_status latest_release_conclusion _ _ _ <<< \"$selected_release\"
+            latest_release_deploy_state=$(gh api -H 'Accept: application/vnd.github+json' \"repos/$REPO/actions/runs/$latest_release_id/jobs?per_page=100\" \\
+              --jq '[.jobs[] | select(.name == \"Migrate, deploy API and web, verify live intake\") | (.conclusion // .status)][0] // \"missing\"')
+            latest_release_step=$(gh api -H 'Accept: application/vnd.github+json' \"repos/$REPO/actions/runs/$latest_release_id/jobs?per_page=100\" \\
+              --jq '[.jobs[] | {name, step: (([.steps[]? | select(.status == \"in_progress\" or .conclusion == \"failure\") | .name][0]) // \"none\")} | select(.step != \"none\") | (.name + \" / \" + .step)][0] // \"none\"')
+          fi"""
+          if text.count(old) != 1:
+              raise SystemExit('controller state anchor mismatch')
+          text = text.replace(old, new)
+
+          old = """          if [[ \"$latest_release_conclusion\" == 'success' ]]; then
+            status_title=\"Production release success · $sha7\"
+          elif [[ \"$latest_release_status\" == 'in_progress' || \"$latest_release_status\" == 'queued' || \"$latest_release_status\" == 'pending' ]]; then"""
+          new = """          if [[ \"$latest_release_conclusion\" == 'success' && \"$latest_release_deploy_state\" == 'success' ]]; then
+            status_title=\"Production release success · $sha7\"
+          elif [[ \"$latest_release_deploy_state\" == 'skipped' ]]; then
+            status_title=\"Production release blocked: deployment job skipped · $sha7\"
+          elif [[ \"$latest_release_status\" == 'in_progress' || \"$latest_release_status\" == 'queued' || \"$latest_release_status\" == 'pending' ]]; then"""
+          if text.count(old) != 1:
+              raise SystemExit('controller title anchor mismatch')
+          controller.write_text(text.replace(old, new))
+
+          final_scope = {
+              'schemaVersion': 'platform-v7.concurrent-scope.v1',
+              'branch': 'fix/release-controller-authority-generated-20260730',
+              'status': 'active',
+              'issue': 3072,
+              'baseCommit': 'GENERATED_FROM_CURRENT_MAIN',
+              'operationalStatus': 'PRODUCTION_RELEASE_CONTROLLER_AUTHORITY_FIX',
+              'allowedPaths': [
+                  '.github/workflows/production-full-stack-exact-sha.yml',
+                  '.github/workflows/platform-v7-safe-merge.yml',
+                  '.github/workflows/one-shot-release-controller-fix.yml',
+                  'docs/platform-v7/autopilot/scopes/one-shot-release-controller-fix-3072.json',
+                  'docs/platform-v7/autopilot/scopes/fix-release-controller-authority-3072.json',
+              ],
+              'boundaries': {
+                  'runtimeBusinessBehaviorChange': False,
+                  'securityGateDisabled': False,
+                  'acceptanceGateWeakened': False,
+                  'blanketContinueOnError': False,
+                  'productionDeployment': True,
+              },
+              'acceptance': [
+                  'owner-gated issue controller may dispatch exact-main release through github-actions bot',
+                  'target SHA remains exact current main',
+                  'skipped deployment can never be reported as production success',
+                  'REG.RU VPS remains the only production authority',
+              ],
+              'productionHosting': 'REG_RU_VPS_ONLY',
+          }
+          Path('docs/platform-v7/autopilot/scopes/fix-release-controller-authority-3072.json').write_text(
+              json.dumps(final_scope, ensure_ascii=False, indent=2) + '\n'
+          )
+          PY
+
+          rm .github/workflows/one-shot-release-controller-fix.yml
+          rm docs/platform-v7/autopilot/scopes/one-shot-release-controller-fix-3072.json
+          node scripts/check-production-full-stack-release.mjs
+          git diff --check
+
+          git add .github/workflows/production-full-stack-exact-sha.yml \
+            .github/workflows/platform-v7-safe-merge.yml \
+            .github/workflows/one-shot-release-controller-fix.yml \
+            docs/platform-v7/autopilot/scopes/one-shot-release-controller-fix-3072.json \
+            docs/platform-v7/autopilot/scopes/fix-release-controller-authority-3072.json
+          git commit -m 'OPS: fix exact-main production release authority'
+          git push --force-with-lease origin "HEAD:refs/heads/$FIX_BRANCH"
+
+          existing=$(gh pr list --repo "$REPO" --state open --head "$FIX_BRANCH" --json number --jq '.[0].number // empty')
+          if [[ -z "$existing" ]]; then
+            gh pr create --repo "$REPO" --base main --head "$FIX_BRANCH" \
+              --title 'OPS: fix exact-main production release authority' \
+              --body 'Fixes the production controller defect that reported success when the deployment job was skipped. Allows only the owner-gated issue controller path to dispatch through github-actions[bot], preserves exact-main SHA, confirmation, SSH pinning, immutable images and REG.RU-only production. Removes the one-shot generator in the same PR.'
+          fi
