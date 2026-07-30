@@ -35,6 +35,40 @@
     "slice": "PC-CROP-18",
     "allowedOnlyWhenActive": true
   },
+  "ownerAuthorizedExceptions": [
+    {
+      "id": "PRODUCTION_AI_RECOVERY_3372",
+      "status": "active",
+      "issue": 3372,
+      "governanceCommentId": 5120686584,
+      "expiresWhenIssueClosed": true,
+      "branchPrefixes": [
+        "agent/qwen-recovery-",
+        "fix/qwen-recovery-",
+        "ops/qwen-recovery-"
+      ],
+      "titlePrefix": "QWEN-RECOVERY:",
+      "allowedProgramTokens": [
+        "tai-",
+        "qwen",
+        "model-host"
+      ],
+      "allowedPathPrefixes": [
+        ".github/workflows/tai-qwen-",
+        ".github/workflows/tai-restricted-qwen-",
+        "docs/platform-v7/autopilot/scopes/qwen-recovery-"
+      ],
+      "forbiddenPathPrefixes": [
+        ".github/workflows/pc-crop-",
+        "docs/platform-v7/crop-platform/",
+        "docs/platform-v7/autopilot/project-locks/",
+        "scripts/pc-crop-"
+      ],
+      "allowedPurpose": "restore-accepted-restricted-qwen-contour-only",
+      "productionHosting": "REG_RU_VPS_ONLY",
+      "operationalStatus": "NOT_ATTESTED"
+    }
+  ],
   "rules": {
     "exactIssueRequired": true,
     "sourceControlledScopeRequired": true,

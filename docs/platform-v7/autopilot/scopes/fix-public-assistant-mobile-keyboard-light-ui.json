@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-mobile-keyboard-light-ui",
+  "status": "active",
+  "purpose": "Keep the public assistant fully visible above the mobile software keyboard and simplify the public assistant and header visual weight without changing AI, data, authorization or transaction behavior.",
+  "approvedBy": "owner-direct-implement-2026-07-30",
+  "authorityBaseExactMain": "65dc0928930588823f358bfcedbf6f14819b444b",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileKeyboard.test.ts",
+    "apps/web/next.config.js",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-mobile-keyboard-light-ui.json"
+  ],
+  "requiredBehavior": [
+    "opening the public assistant and focusing its textarea keeps the complete panel and composer inside the exact live mobile visual viewport",
+    "the keyboard transition is remeasured after focus, resize, visual viewport scroll and orientation changes",
+    "the sheet height never exceeds the measured visual viewport, including short landscape and split-screen states",
+    "the assistant backdrop, borders and shadows are visually lighter",
+    "the public brand wordmark uses a medium rather than heavy weight",
+    "the composer has no redundant border or halo but retains a compact keyboard focus indicator",
+    "keyboard, screen-reader, forced-colors and reduced-motion usability remain intact",
+    "exact-main web images and REG.RU acceptance are retriggered"
+  ],
+  "forbiddenCapabilities": [
+    "private account tenant Deal document payment or personal-data access",
+    "write authority or autonomous actions",
+    "model prompt routing or provider changes",
+    "credential or infrastructure topology changes",
+    "acceptance weakening",
+    "Netlify or Vercel deployment"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

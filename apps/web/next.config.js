@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
-// Operational release retry for issue #3372 after missing live proof; emitted runtime behavior is unchanged.
+// Exact-main public assistant mobile keyboard and lighter UI release trigger; runtime configuration is unchanged.
+// Exact-main Qwen broad-agro semantic acceptance trigger: substantive market-factor proof.
+// Exact-main Qwen live UI acceptance v2 trigger: hydrated agro assistant.
+// Exact-main Qwen activation retry after public API middleware repair for issue #3372; runtime behavior is unchanged.
+// Exact-main public-home AI visibility release trigger for PR #3417; runtime configuration is unchanged.
+// Exact-main Qwen activation retry after 80-second provider timeout remediation; runtime behavior is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');

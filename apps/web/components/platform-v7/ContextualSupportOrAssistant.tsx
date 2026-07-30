@@ -14,6 +14,7 @@ import '@/styles/platform-v7-public-assistant.css';
 import '@/styles/platform-v7-public-assistant-shortcut.css';
 import '@/styles/platform-v7-public-assistant-mobile-fix.css';
 import '@/styles/platform-v7-unified-modal-fullscreen.css';
+import '@/styles/platform-v7-public-assistant-mobile-hotfix.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const AI_IN_ACTION = '/platform-v7/ai-in-action';
@@ -79,6 +80,20 @@ function useVisualViewportMetrics() {
     const root = document.documentElement;
     const viewport = window.visualViewport;
     let frame = 0;
+    let focusTimers: number[] = [];
+    let stableViewportHeight = Math.max(window.innerHeight, Math.round(viewport?.height ?? 0));
+
+    const clearFocusTimers = () => {
+      for (const timer of focusTimers) window.clearTimeout(timer);
+      focusTimers = [];
+    };
+
+    const clearKeyboardViewport = (panel: HTMLElement | null) => {
+      if (!panel) return;
+      delete panel.dataset.pcKeyboardViewport;
+      panel.style.removeProperty('--pc-ai-keyboard-top');
+      panel.style.removeProperty('--pc-ai-keyboard-height');
+    };
 
     const sync = () => {
       frame = 0;
@@ -89,6 +104,32 @@ function useVisualViewportMetrics() {
       root.style.setProperty('--pc-visual-viewport-height', `${height}px`);
       root.style.setProperty('--pc-visual-viewport-top', `${offsetTop}px`);
       root.style.setProperty('--pc-visual-viewport-bottom', `${hiddenBottom}px`);
+
+      const panel = document.querySelector<HTMLElement>('.pc-public-assistant-panel');
+      const active = document.activeElement;
+      const composerFocused = active instanceof HTMLTextAreaElement
+        && Boolean(active.closest('.pc-public-assistant-composer'));
+      const mobile = window.matchMedia('(max-width: 720px)').matches;
+
+      if (!composerFocused) {
+        stableViewportHeight = Math.max(stableViewportHeight, height, window.innerHeight);
+      }
+
+      const keyboardOpen = mobile && composerFocused && (
+        hiddenBottom > 80
+        || stableViewportHeight - height > 80
+        || height < Math.round(stableViewportHeight * 0.88)
+      );
+
+      if (!keyboardOpen || !panel) {
+        clearKeyboardViewport(panel);
+        return;
+      }
+
+      const usableHeight = Math.max(1, height - 2);
+      panel.dataset.pcKeyboardViewport = 'true';
+      panel.style.setProperty('--pc-ai-keyboard-top', `${offsetTop}px`);
+      panel.style.setProperty('--pc-ai-keyboard-height', `${usableHeight}px`);
     };
 
     const scheduleSync = () => {
@@ -96,18 +137,30 @@ function useVisualViewportMetrics() {
       frame = window.requestAnimationFrame(sync);
     };
 
+    const scheduleFocusSync = () => {
+      clearFocusTimers();
+      scheduleSync();
+      focusTimers = [80, 220, 420].map((delay) => window.setTimeout(scheduleSync, delay));
+    };
+
     sync();
     viewport?.addEventListener('resize', scheduleSync);
     viewport?.addEventListener('scroll', scheduleSync);
     window.addEventListener('resize', scheduleSync);
     window.addEventListener('orientationchange', scheduleSync);
+    document.addEventListener('focusin', scheduleFocusSync);
+    document.addEventListener('focusout', scheduleFocusSync);
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
+      clearFocusTimers();
       viewport?.removeEventListener('resize', scheduleSync);
       viewport?.removeEventListener('scroll', scheduleSync);
       window.removeEventListener('resize', scheduleSync);
       window.removeEventListener('orientationchange', scheduleSync);
+      document.removeEventListener('focusin', scheduleFocusSync);
+      document.removeEventListener('focusout', scheduleFocusSync);
+      clearKeyboardViewport(document.querySelector<HTMLElement>('.pc-public-assistant-panel'));
       root.style.removeProperty('--pc-visual-viewport-height');
       root.style.removeProperty('--pc-visual-viewport-top');
       root.style.removeProperty('--pc-visual-viewport-bottom');

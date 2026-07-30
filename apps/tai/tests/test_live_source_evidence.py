@@ -11,9 +11,11 @@ from tai.live_source_evidence import (
     LiveSourceEvidenceCollector,
     LiveSourceResult,
     LiveSourceResultStatus,
+    PublicSourceProfile,
     coverage_payload,
     evidence_bundle_sha256,
     observations_payload,
+    public_knowledge_payload,
     run_manifest_payload,
 )
 from tai.managed_loader import FetchDisposition, FetchRequest, FetchResponse
@@ -128,6 +130,7 @@ def _definition(
 def _success(source_id: str) -> FetchResponse:
     body = (
         "<h1>Ключевая ставка</h1><time>18.07.2026</time>"
+        "<p>Официальная публикация Банка России.</p>"
         if source_id == "official.cbr.key-rate"
         else (
             "<title>ФГИС Зерно: Изменения ОКПД2 01.03.2026</title>"
@@ -156,11 +159,24 @@ def _collector(
             NOW,
         )
     )
+    profiles = {
+        "official.cbr.key-rate": PublicSourceProfile(
+            geography="Российская Федерация",
+            language="ru",
+            citation_label="Банк России — ключевая ставка",
+        ),
+        "official.specagro.fgis-grain": PublicSourceProfile(
+            geography="Российская Федерация",
+            language="ru",
+            citation_label="Центр Агроаналитики — ФГИС Зерно",
+        ),
+    }
     return (
         LiveSourceEvidenceCollector(
             catalog=catalog,
             definitions=(first, second),
             repository_sha=REPOSITORY_SHA,
+            public_profiles=profiles,
             clock=clock,
         ),
         (first_fetcher, second_fetcher),
@@ -179,6 +195,7 @@ def test_complete_collection_produces_observations_assessment_and_digest() -> No
 
     assert bundle.status is LiveCollectionStatus.COMPLETE
     assert len(bundle.observations) == 2
+    assert len(bundle.knowledge_excerpts) == 2
     assert bundle.assessment.all_critical_covered is True
     assert bundle.assessment.coverage_basis_points == 10000
     assert [request.source_id for request in fetchers[0].requests] == [
@@ -189,14 +206,53 @@ def test_complete_collection_produces_observations_assessment_and_digest() -> No
     ]
     manifest = run_manifest_payload(bundle)
     observations = observations_payload(bundle)
+    knowledge = public_knowledge_payload(bundle)
     assessment = coverage_payload(bundle)
     assert manifest["status"] == "COMPLETE"
     assert manifest["repository_sha"] == REPOSITORY_SHA
     assert manifest["observed_source_count"] == 2
+    assert manifest["knowledge_excerpt_count"] == 2
     assert len(observations["observations"]) == 2
+    assert knowledge["source_count"] == 2
+    assert knowledge["sources"][0]["geography"] == "Российская Федерация"
+    assert knowledge["sources"][0]["retrieved_at"] == NOW.isoformat()
+    assert knowledge["claim_policy"]["conflicts"] == (
+        "preserve_each_source_and_disclose_disagreement"
+    )
     assert assessment["all_critical_covered"] is True
     assert len(evidence_bundle_sha256(bundle)) == 64
     assert evidence_bundle_sha256(bundle) == evidence_bundle_sha256(bundle)
+
+
+def test_excerpt_selects_validated_publication_after_long_boilerplate() -> None:
+    boilerplate = "".join(
+        f"<span>Навигационный раздел {index} без официальных фактов.</span>"
+        for index in range(900)
+    )
+    body = (
+        f"<nav>{boilerplate}</nav>"
+        "<article><h1>Ключевая ставка</h1><time>18.07.2026</time>"
+        "<p>Подтверждённый официальный материал Банка России сохранён.</p>"
+        "</article>"
+    )
+    response = FetchResponse(
+        disposition=FetchDisposition.FETCHED,
+        body=body,
+        fetched_at=NOW,
+    )
+    collector, _ = _collector(
+        (response, _success("official.specagro.fgis-grain"))
+    )
+
+    bundle = collector.collect()
+    excerpt = bundle.knowledge_excerpts[0].text
+
+    assert len(boilerplate) > 16_000
+    assert "Подтверждённый официальный материал" in excerpt
+    assert "Ключевая ставка" in excerpt
+    assert "18.07.2026" in excerpt
+    assert "Навигационный раздел 0" not in excerpt
+    assert len(excerpt) <= 16_000
 
 
 def test_partial_collection_keeps_failed_topic_unobserved() -> None:
@@ -212,6 +268,7 @@ def test_partial_collection_keeps_failed_topic_unobserved() -> None:
 
     assert bundle.status is LiveCollectionStatus.PARTIAL
     assert len(bundle.observations) == 1
+    assert len(bundle.knowledge_excerpts) == 1
     assert bundle.assessment.all_critical_covered is False
     assert bundle.assessment.coverage_basis_points == 5000
     assert bundle.source_results[1].status is LiveSourceResultStatus.FAILED
@@ -240,6 +297,7 @@ def test_all_failed_collection_is_failed_without_fake_observations() -> None:
 
     assert bundle.status is LiveCollectionStatus.FAILED
     assert bundle.observations == ()
+    assert bundle.knowledge_excerpts == ()
     assert bundle.assessment.coverage_basis_points == 0
     assert bundle.source_results[0].reason == (
         "source_content_prompt_injection_detected"
@@ -306,7 +364,7 @@ def test_bundle_and_result_invariants_reject_inconsistent_evidence() -> None:
             source_results=valid.source_results,
             assessment=valid.assessment,
         )
-    with pytest.raises(ValueError, match="requires an observation"):
+    with pytest.raises(ValueError, match="requires observation"):
         LiveSourceResult(
             source_id=catalog.sources[0].source_id,
             status=LiveSourceResultStatus.OBSERVED,

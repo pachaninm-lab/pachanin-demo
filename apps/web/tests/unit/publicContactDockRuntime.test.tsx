@@ -79,6 +79,29 @@ describe('PublicContactDock runtime', () => {
       .toHaveAttribute('href', 'tel:+79162778989');
   });
 
+  it('keeps the public AI action visible and enabled at the top of a mobile homepage', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+      matches: true,
+      media: '(max-width: 767px)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    nativeButton('pc-public-assistant-shortcut');
+    nativeButton('p7-support-chat-button');
+
+    render(<PublicContactDock />);
+
+    const dock = screen.getByRole('navigation', { name: 'Связь и помощь' });
+    const assistant = screen.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' });
+    expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+    expect(assistant).toBeEnabled();
+    expect(assistant).toHaveAttribute('tabindex', '0');
+  });
+
   it('delegates the private AI action and stays above the cabinet navigation', () => {
     const assistantClick = vi.fn();
     nativeButton('p7-ai-trigger', assistantClick);

@@ -12,7 +12,9 @@ from tai.live_source_evidence import (
     LiveSourceEvidenceCollector,
     coverage_payload,
     evidence_bundle_sha256,
+    load_public_source_profiles,
     observations_payload,
+    public_knowledge_payload,
     refresh_events,
     run_manifest_payload,
 )
@@ -81,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         if not 1.0 <= arguments.timeout_seconds <= 60.0:
             raise ValueError("--timeout-seconds must be between 1 and 60")
         catalog = load_official_source_catalog(arguments.catalog)
+        public_profiles = load_public_source_profiles(arguments.catalog)
         definitions = live_definitions(
             catalog=catalog,
             timeout_seconds=arguments.timeout_seconds,
@@ -89,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
             catalog=catalog,
             definitions=definitions,
             repository_sha=arguments.repository_sha,
+            public_profiles=public_profiles,
         ).collect()
         output_dir: Path = arguments.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -99,6 +103,10 @@ def main(argv: list[str] | None = None) -> int:
         _write_json(
             output_dir / "source-observations.v1.json",
             observations_payload(bundle),
+        )
+        _write_json(
+            output_dir / "public-live-knowledge.v1.json",
+            public_knowledge_payload(bundle),
         )
         _write_json(
             output_dir / "coverage-assessment.json",
@@ -167,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
                     "evidence_index_sha256": index["index_sha256"],
                     "history_status": history_status.value,
                     "knowledge_accepted": acceptance["accepted"],
+                    "live_knowledge_source_count": len(bundle.knowledge_excerpts),
                     "observed_source_count": len(bundle.observations),
                     "status": bundle.status.value,
                 },
@@ -230,6 +239,8 @@ def _knowledge_acceptance(
         reasons.append("CRITICAL_COVERAGE_NOT_COMPLETE")
     if not bundle.assessment.all_critical_covered:
         reasons.append("CRITICAL_TOPICS_NOT_COVERED")
+    if len(bundle.knowledge_excerpts) != len(catalog.sources):
+        reasons.append("PUBLIC_KNOWLEDGE_EXCERPTS_INCOMPLETE")
     if dashboard_status is not SourceHealthStatus.HEALTHY:
         reasons.append("SOURCE_HEALTH_NOT_HEALTHY")
     if history_status is SourceHistoryStatus.GAP:
@@ -252,6 +263,7 @@ def _knowledge_acceptance(
         ),
         "dashboard_sha256": dashboard_sha256,
         "history_status": history_status.value,
+        "live_knowledge_source_count": len(bundle.knowledge_excerpts),
         "reasons": reasons,
         "repository_sha": bundle.repository_sha,
         "required_complete_coverage": require_complete,
@@ -259,7 +271,7 @@ def _knowledge_acceptance(
         "required_critical_topics": sorted(
             topic.value for topic in _REQUIRED_CRITICAL_TOPICS
         ),
-        "schema_version": "tai.exact-main-knowledge-acceptance.v1",
+        "schema_version": "tai.exact-main-knowledge-acceptance.v2",
         "source_count": len(bundle.source_results),
         "topic_statuses": [
             {"status": topic.status.value, "topic": topic.topic.value}
@@ -347,6 +359,7 @@ def _evidence_index(output_dir: Path) -> dict[str, object]:
         "coverage-assessment.json",
         "knowledge-acceptance.v1.json",
         "live-run-manifest.json",
+        "public-live-knowledge.v1.json",
         "remediation-trace.v1.json",
         "source-health-dashboard.v1.json",
         "source-health-history.v1.json",
@@ -361,7 +374,7 @@ def _evidence_index(output_dir: Path) -> dict[str, object]:
     ]
     payload: dict[str, object] = {
         "files": files,
-        "schema_version": "tai.live-evidence-index.v1",
+        "schema_version": "tai.live-evidence-index.v2",
     }
     payload["index_sha256"] = _payload_sha256(payload)
     return payload
