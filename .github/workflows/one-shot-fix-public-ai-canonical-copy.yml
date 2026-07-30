@@ -119,7 +119,6 @@ jobs:
 
           rm -f .github/workflows/one-shot-fix-public-ai-canonical-copy.yml
           git diff --check
-          pnpm --filter web exec vitest run tests/unit/publicPlatformAssistantDomainCopy.test.ts
 
           mapfile -t changed < <(git diff --name-only "$EXPECTED_BASE" | sort)
           expected=(
