@@ -1,5 +1,8 @@
 name: TAI Qwen Exact Image Activation Chain
+# Exact current-main recovery trigger for DOM-safe public AI identity `9d6f2b1170946a116408a4fa3e64da96fe1bbc3f`; runtime behavior is unchanged.
 # QWEN recovery authority: publish exact images, activate REG.RU, then allow the serialized semantic gate to verify current main.
+# Release trigger v3: include request abort on backdrop and compact Escape, 2026-07-30 exact current main.
+# Recovery trigger: canonical public AI identity now lives in the React source; release exact current main without runner deadlock.
 
 on:
   push:

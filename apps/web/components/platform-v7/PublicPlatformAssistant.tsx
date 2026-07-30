@@ -128,8 +128,8 @@ const COPY: Record<Locale, Copy> = {
     open: 'Спросить ИИ',
     shortcutHint: 'ИИ-помощник',
     close: 'Закрыть ИИ-помощника',
-    title: 'ИИ Прозрачной Цены',
-    subtitle: 'Помощник по агробизнесу и платформе',
+    title: 'ИИ для агробизнеса',
+    subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.',
     emptyTitle: 'Чем помочь?',
     emptyBody: 'Отвечу по сельскому хозяйству, агробизнесу и возможностям «Прозрачной Цены».',
     placeholder: 'Задай вопрос об агробизнесе или платформе',
@@ -165,8 +165,8 @@ const COPY: Record<Locale, Copy> = {
     open: 'Ask AI',
     shortcutHint: 'AI assistant',
     close: 'Close AI assistant',
-    title: 'Transparent Price AI',
-    subtitle: 'Agribusiness and platform assistant',
+    title: 'AI for agribusiness',
+    subtitle: 'Developed by Transparent Price for agriculture.',
     emptyTitle: 'What would you like to know?',
     emptyBody: 'Ask about agriculture, agribusiness, or Transparent Price capabilities.',
     placeholder: 'Ask about agribusiness or the platform',
@@ -202,8 +202,8 @@ const COPY: Record<Locale, Copy> = {
     open: '询问 AI',
     shortcutHint: 'AI 助手',
     close: '关闭 AI 助手',
-    title: '透明价格 AI',
-    subtitle: '农业商业与平台助手',
+    title: '农业商业人工智能',
+    subtitle: '由“透明价格”为农业打造。',
     emptyTitle: '你想了解什么？',
     emptyBody: '我可以回答农业、农业商业和“透明价格”平台相关问题。',
     placeholder: '询问农业商业或平台问题',
@@ -753,9 +753,9 @@ export function PublicPlatformAssistant() {
             style={panelStyle}
           >
             <header className='pc-public-assistant-header'>
-              <div className='pc-public-assistant-identity'>
-                <span className='pc-public-assistant-mark' aria-hidden='true'><Sparkles size={20} /></span>
-                <div><strong id='pc-public-assistant-title'>{ui.title}</strong><span>{ui.subtitle}</span></div>
+              <div className='pc-public-assistant-identity' data-pc-public-assistant-identity='two-lines-only'>
+                <span className='pc-public-assistant-mark' aria-hidden='true' data-pc-public-assistant-ai-mark='true'><Sparkles size={20} /></span>
+                <div className='pc-public-assistant-identity-copy'><strong id='pc-public-assistant-title'>{ui.title}</strong><span data-pc-public-assistant-subtitle='true'>{ui.subtitle}</span></div>
               </div>
               <button
                 type='button'

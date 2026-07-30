@@ -80,6 +80,7 @@ const PUBLIC_API_EXACT = new Set([
   '/api/health/ready',
   '/api/public-platform-assistant',
   '/api/restricted-public-platform-assistant',
+  '/api/platform-v7/organization-connect',
   '/api/platform-v7/inquiries',
   '/api/platform-v7/leads',
 ]);

@@ -1,16 +1,28 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/qwen-live-ui-acceptance-v2",
+  "branch": "fix/qwen-subtitle-stable-selector-20260730",
   "status": "active",
-  "purpose": "Repair exact-main REG.RU Chromium acceptance for the released agro AI copy and prove live platform, greeting and broad agro answers after server and RU/EN/ZH inference already passed.",
-  "approvedBy": "owner-direct-urgent-remediation-2026-07-30",
-  "authorityBaseExactMain": "86a2472a7c6f206222199b1e9846952aa0b54758",
+  "purpose": "Replace only the brittle Chromium subtitle locator with the public assistant's stable data attribute, then repeat the exact REG.RU release chain.",
+  "approvedBy": "owner-direct-continue-urgent-release-2026-07-30",
+  "authorityBaseExactMain": "25402379df279ea1bde69a0d80608276317f08c5",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/next.config.js"
   ],
+  "acceptance": [
+    "live Chromium reads the approved subtitle through data-pc-public-assistant-subtitle=true",
+    "live Chromium requires the visible title ИИ для агробизнеса",
+    "live Chromium requires the exact subtitle Разработан Прозрачной ценой для сельского хозяйства.",
+    "live Chromium verifies exactly one visible AI mark",
+    "canonical exact API web and migration images remain mandatory",
+    "authenticated private-model inference and RU EN ZH SSE remain mandatory",
+    "one native fullscreen control and no duplicate fullscreen control remain mandatory",
+    "functional reset successful answers citation alert overflow page-error and trace-suppression checks remain mandatory",
+    "production remains REG_RU_VPS_ONLY"
+  ],
   "forbiddenCapabilities": [
+    "application runtime changes",
     "runtime AI behavior changes",
     "private data access",
     "write authority",

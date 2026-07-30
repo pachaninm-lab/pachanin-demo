@@ -163,20 +163,143 @@ rollback_images() {
   wait_api && wait_web
 }
 
-verify_durable_intake() {
-  [[ "$INTAKE_REQUEST_NUMBER" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]] || fail INTAKE_REQUEST_NUMBER_INVALID 40
-  [[ "$INTAKE_CORRELATION_ID" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || fail INTAKE_CORRELATION_ID_INVALID 41
-  [[ -n "$postgres_service" ]] || fail POSTGRES_EVIDENCE_AUTHORITY_UNAVAILABLE 42
-  local pg_id sql result
+verify_durable_intake_local_postgres() {
+  local pg_id sql result audit_id outbox_id
   pg_id="$(compose_id "$postgres_service")"
   [[ -n "$pg_id" ]] || fail POSTGRES_RUNTIME_MISSING 43
   sql="SELECT CASE WHEN count(*) = 1 AND bool_and(a.action = 'public:organization-intake:create' AND a.outcome = 'SUCCESS' AND a.\"correlationId\" = r.\"correlationId\") AND bool_and(o.type = 'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED' AND o.\"correlationId\" = r.\"correlationId\" AND o.\"auditId\" = r.\"auditEventId\" AND NOT (o.payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])) THEN 'PASS' ELSE 'FAIL' END || '|' || min(r.\"auditEventId\") || '|' || min(r.\"outboxEntryId\") FROM public.public_organization_connection_requests r JOIN public.audit_events a ON a.id = r.\"auditEventId\" JOIN public.outbox_entries o ON o.id = r.\"outboxEntryId\" WHERE r.\"requestNumber\" = '$INTAKE_REQUEST_NUMBER' AND r.\"correlationId\" = '$INTAKE_CORRELATION_ID';"
   result="$(docker exec "$pg_id" sh -ceu 'test -n "${POSTGRES_USER:-}"; test -n "${POSTGRES_DB:-}"; psql -v ON_ERROR_STOP=1 --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command "$1"' sh "$sql" | tr -d '[:space:]')"
   [[ "$result" =~ ^PASS\|audit-[A-Za-z0-9-]+\|outbox-[A-Za-z0-9-]+$ ]] || fail DURABLE_INTAKE_EVIDENCE_FAILED 44
   IFS='|' read -r _ audit_id outbox_id <<< "$result"
-  printf 'DURABLE_INTAKE_DB=PASS\n'
+  printf 'DURABLE_INTAKE_EVIDENCE_MODE=COMPOSE_POSTGRES_DIRECT_JOIN\n'
   printf 'DURABLE_INTAKE_AUDIT_ID=%s\n' "$audit_id"
   printf 'DURABLE_INTAKE_OUTBOX_ID=%s\n' "$outbox_id"
+}
+
+verify_durable_intake_external_postgres() {
+  local exact_api_id exact_api_revision result release_prefix release_run_id
+  exact_api_id="$(compose_id api)"
+  [[ -n "$exact_api_id" ]] || fail API_RUNTIME_MISSING_FOR_DB_EVIDENCE 45
+  exact_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$exact_api_id")"
+  [[ "$exact_api_revision" == "$TARGET_SHA" ]] || fail API_DB_EVIDENCE_REVISION_MISMATCH 46
+
+  release_prefix="release-intake:${TARGET_SHA}:"
+  [[ "$INTAKE_CORRELATION_ID" == "$release_prefix"* ]] || fail EXTERNAL_POSTGRES_RELEASE_RUN_ID_UNAVAILABLE 47
+  release_run_id="${INTAKE_CORRELATION_ID#"$release_prefix"}"
+  [[ "$release_run_id" =~ ^[A-Za-z0-9._:-]{1,64}$ ]] || fail EXTERNAL_POSTGRES_RELEASE_RUN_ID_INVALID 48
+
+  result="$(docker exec -i "$exact_api_id" /nodejs/bin/node - "$TARGET_SHA" "$release_run_id" "$INTAKE_REQUEST_NUMBER" "$INTAKE_CORRELATION_ID" <<'NODE'
+const { createHash } = require('node:crypto');
+const { PrismaClient } = require('@prisma/client');
+
+const [targetSha, runId, requestNumber, correlationId] = process.argv.slice(2);
+const fail = (message) => {
+  process.stderr.write(`${message}\n`);
+  process.exitCode = 1;
+};
+
+if (!/^[0-9a-f]{40}$/.test(targetSha ?? '')
+  || !/^[A-Za-z0-9._:-]{1,128}$/.test(runId ?? '')
+  || !/^PC-[0-9]{8}-[0-9A-F]{12}$/.test(requestNumber ?? '')
+  || !/^[A-Za-z0-9._:-]{8,128}$/.test(correlationId ?? '')) {
+  fail('EXTERNAL_POSTGRES_EVIDENCE_INPUT_INVALID');
+  process.exit(1);
+}
+
+const sha7 = targetSha.slice(0, 7);
+const idempotencyKey = `release-intake:${targetSha}:${runId}`;
+const request = {
+  organizationName: `ООО Системная проверка Прозрачная Цена ${sha7} ${runId}`,
+  inn: '7707083893',
+  contactName: 'Системный оператор',
+  position: 'Release acceptance',
+  phone: '+74950000000',
+  email: `release-${sha7}-${runId}@procent-agro.test`.toLowerCase(),
+  organizationRole: 'PUBLIC_INDUSTRY_PARTNER',
+  scenario: 'EXTERNAL_INTEGRATION',
+  locale: 'ru',
+  consentVersion: 'public-organization-connect-v1',
+};
+const payloadHash = createHash('sha256').update(JSON.stringify(request)).digest('hex');
+const prisma = new PrismaClient();
+
+(async () => {
+  const rows = await prisma.$queryRawUnsafe(
+    'SELECT request_number, request_status, replay, correlation_id FROM public.lookup_public_organization_connection_request($1, $2)',
+    idempotencyKey,
+    payloadHash,
+  );
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('EXTERNAL_POSTGRES_REQUEST_LOOKUP_FAILED');
+  const row = rows[0];
+  if (row.request_number !== requestNumber
+    || row.request_status !== 'NEW'
+    || row.replay !== true
+    || row.correlation_id !== correlationId) {
+    throw new Error('EXTERNAL_POSTGRES_REQUEST_EVIDENCE_MISMATCH');
+  }
+
+  const constraints = await prisma.$queryRawUnsafe(`
+    SELECT
+      count(*)::int AS constraint_count,
+      bool_and(contype = 'f' AND convalidated AND confdeltype = 'r') AS constraints_valid,
+      bool_and(
+        (conname = 'public_org_connection_requests_audit_fkey' AND confrelid = 'public.audit_events'::regclass)
+        OR
+        (conname = 'public_org_connection_requests_outbox_fkey' AND confrelid = 'public.outbox_entries'::regclass)
+      ) AS targets_valid
+    FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'public.public_organization_connection_requests'::regclass
+      AND conname IN (
+        'public_org_connection_requests_audit_fkey',
+        'public_org_connection_requests_outbox_fkey'
+      )
+  `);
+  const constraint = constraints[0];
+  if (constraint?.constraint_count !== 2
+    || constraint?.constraints_valid !== true
+    || constraint?.targets_valid !== true) {
+    throw new Error('EXTERNAL_POSTGRES_FK_EVIDENCE_INVALID');
+  }
+
+  const attributes = await prisma.$queryRawUnsafe(`
+    SELECT count(*)::int AS not_null_count
+    FROM pg_catalog.pg_attribute
+    WHERE attrelid = 'public.public_organization_connection_requests'::regclass
+      AND attname IN ('auditEventId', 'outboxEntryId')
+      AND attnotnull
+      AND NOT attisdropped
+  `);
+  if (attributes[0]?.not_null_count !== 2) throw new Error('EXTERNAL_POSTGRES_FK_COLUMNS_NULLABLE');
+
+  process.stdout.write('PASS|REFERENTIAL_INTEGRITY|REFERENTIAL_INTEGRITY\n');
+})()
+  .catch((error) => {
+    process.stderr.write(`${String(error?.message ?? error)}\n`);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect().catch(() => undefined);
+  });
+NODE
+)" || fail EXTERNAL_POSTGRES_DURABLE_INTAKE_EVIDENCE_FAILED 49
+
+  [[ "$result" == 'PASS|REFERENTIAL_INTEGRITY|REFERENTIAL_INTEGRITY' ]] || fail EXTERNAL_POSTGRES_DURABLE_INTAKE_EVIDENCE_INVALID 51
+  printf 'DURABLE_INTAKE_EVIDENCE_MODE=EXTERNAL_POSTGRES_API_SECURITY_DEFINER\n'
+  printf 'DURABLE_INTAKE_AUDIT_ID=REFERENTIAL_INTEGRITY_CONFIRMED\n'
+  printf 'DURABLE_INTAKE_OUTBOX_ID=REFERENTIAL_INTEGRITY_CONFIRMED\n'
+}
+
+verify_durable_intake() {
+  [[ "$INTAKE_REQUEST_NUMBER" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]] || fail INTAKE_REQUEST_NUMBER_INVALID 40
+  [[ "$INTAKE_CORRELATION_ID" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || fail INTAKE_CORRELATION_ID_INVALID 41
+
+  if [[ -n "$postgres_service" ]]; then
+    verify_durable_intake_local_postgres
+  else
+    verify_durable_intake_external_postgres
+  fi
+
+  printf 'DURABLE_INTAKE_DB=PASS\n'
 }
 
 if [[ "$ACTION" == verify-intake ]]; then

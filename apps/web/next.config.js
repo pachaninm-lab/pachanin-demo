@@ -1,10 +1,17 @@
 /** @type {import('next').NextConfig} */
+// Exact-main public AI production correction release: approved agribusiness branding, one fullscreen control and complete mobile assistant UI.
 // Exact-main public assistant mobile keyboard and lighter UI release trigger; runtime configuration is unchanged.
 // Exact-main Qwen broad-agro semantic acceptance trigger: substantive market-factor proof.
 // Exact-main Qwen live UI acceptance v2 trigger: hydrated agro assistant.
 // Exact-main Qwen activation retry after public API middleware repair for issue #3372; runtime behavior is unchanged.
 // Exact-main public-home AI visibility release trigger for PR #3417; runtime configuration is unchanged.
 // Exact-main Qwen activation retry after 80-second provider timeout remediation; runtime behavior is unchanged.
+// Exact-main Qwen push activation after trace suppression and complete request-abort hardening; runtime configuration is unchanged.
+// Exact-main release trigger for approved `ИИ для агробизнеса` identity and final public reasoning-safety fixes; runtime configuration is unchanged.
+// Exact-main retry after aligning live Chromium acceptance with approved `ИИ для агробизнеса` branding; runtime configuration is unchanged.
+// Exact-main retry after binding Chromium subtitle acceptance to the stable public-assistant data attribute; runtime configuration is unchanged.
+// Exact-main release after moving approved public AI branding into the canonical React source; runtime routing is unchanged.
+// Exact-main push activation for DOM-safe public AI identity after workflow-dispatch actor rejection; runtime configuration is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
