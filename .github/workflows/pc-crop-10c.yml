@@ -162,6 +162,66 @@ jobs:
                OR has_table_privilege('app_service', 'public.fgis_grain_provider_configurations', 'INSERT')
                OR has_table_privilege('app_service', 'public.fgis_grain_provider_configurations', 'UPDATE')
                OR has_table_privilege('app_service', 'public.fgis_grain_provider_configurations', 'DELETE')
+               OR NOT has_column_privilege(
+                 'app_runtime',
+                 'public.fgis_grain_provider_configurations',
+                 'endpointReference',
+                 'INSERT'
+               )
+               OR NOT has_column_privilege(
+                 'app_runtime',
+                 'public.fgis_grain_provider_configurations',
+                 'endpointReference',
+                 'UPDATE'
+               )
+               OR NOT has_column_privilege(
+                 'app_runtime',
+                 'public.fgis_grain_provider_configurations',
+                 'status',
+                 'UPDATE'
+               )
+               OR has_column_privilege(
+                 'app_runtime',
+                 'public.fgis_grain_provider_configurations',
+                 'tenantReadTransportAdmittedVersion',
+                 'INSERT'
+               )
+               OR has_column_privilege(
+                 'app_runtime',
+                 'public.fgis_grain_provider_configurations',
+                 'tenantReadTransportAdmittedVersion',
+                 'UPDATE'
+               )
+               OR NOT has_column_privilege(
+                 'app_service',
+                 'public.fgis_grain_provider_configurations',
+                 'endpointReference',
+                 'INSERT'
+               )
+               OR NOT has_column_privilege(
+                 'app_service',
+                 'public.fgis_grain_provider_configurations',
+                 'endpointReference',
+                 'UPDATE'
+               )
+               OR NOT has_column_privilege(
+                 'app_service',
+                 'public.fgis_grain_provider_configurations',
+                 'status',
+                 'UPDATE'
+               )
+               OR has_column_privilege(
+                 'app_service',
+                 'public.fgis_grain_provider_configurations',
+                 'tenantReadTransportAdmittedVersion',
+                 'INSERT'
+               )
+               OR has_column_privilege(
+                 'app_service',
+                 'public.fgis_grain_provider_configurations',
+                 'tenantReadTransportAdmittedVersion',
+                 'UPDATE'
+               )
             THEN
               RAISE EXCEPTION 'PC_CROP_10C_RUNTIME_GRANTS_INVALID';
             END IF;

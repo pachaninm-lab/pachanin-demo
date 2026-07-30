@@ -1355,6 +1355,26 @@ BEGIN
         runtime_role
       );
       EXECUTE format(
+        'GRANT INSERT (
+          "id", "tenantId", "organizationId", "adapterCode", "apiVersion",
+          "mappingVersion", "signingPolicyVersion", "environment",
+          "endpointReference", "tlsPolicyReference", "credentialReference",
+          "signingKeyReference", "payloadStoreReference", "status", "version",
+          "createdByUserId", "updatedByUserId", "createdAt", "updatedAt"
+        ) ON TABLE public."fgis_grain_provider_configurations" TO %I',
+        runtime_role
+      );
+      EXECUTE format(
+        'GRANT UPDATE (
+          "id", "tenantId", "organizationId", "adapterCode", "apiVersion",
+          "mappingVersion", "signingPolicyVersion", "environment",
+          "endpointReference", "tlsPolicyReference", "credentialReference",
+          "signingKeyReference", "payloadStoreReference", "status", "version",
+          "createdByUserId", "updatedByUserId", "createdAt", "updatedAt"
+        ) ON TABLE public."fgis_grain_provider_configurations" TO %I',
+        runtime_role
+      );
+      EXECUTE format(
         'GRANT SELECT ON TABLE public."fgis_grain_tenant_read_authorizations" TO %I',
         runtime_role
       );
