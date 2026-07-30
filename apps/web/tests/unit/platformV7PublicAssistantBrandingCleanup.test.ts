@@ -48,11 +48,12 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain('display: none !important');
   });
 
-  it('preserves reset through an accessible proxy without adding header clutter', () => {
+  it('preserves reset through a stable accessible proxy without adding header clutter', () => {
     expect(controllerSource).toContain("ru: 'Новый диалог'");
     expect(controllerSource).toContain("resetProxy.className = 'pc-public-assistant-reset-proxy'");
     expect(controllerSource).toContain("resetProxy.dataset.pcPublicAssistantResetProxy = 'true'");
     expect(controllerSource).toContain("panel.querySelector<HTMLButtonElement>('.pc-public-assistant-header-action')?.click()");
+    expect(controllerSource).toContain('if (resetProxy.textContent !== label) resetProxy.textContent = label');
     expect(controllerSource).toContain('if (resetProxy.nextElementSibling !== form) form.before(resetProxy)');
     expect(controllerSource).toMatch(/return \(\) => \{[\s\S]*removeResetProxy\(\);[\s\S]*removeWatchdogError\(\);/u);
   });
@@ -138,11 +139,13 @@ describe('public assistant production-safe UI', () => {
     });
   });
 
-  it('removes generic reasoning keys only for recognizable scratchpad envelopes', () => {
+  it('recursively removes recognizable scratchpad envelopes but preserves plain reasoning data', () => {
     const envelope = '{"analysis":"Сначала вызову инструмент поиска, затем проверю результат.","final":"Ответ"}\nПубличный ответ.';
+    const nested = '{"payload":{"analysis":"First call tool, then verify result","final":"answer"}}\nПубличный ответ.';
     const plain = '{"reasoning":"Содержание белка рассчитано лабораторией"}';
 
     expect(stripPublicAssistantInternalArtifacts(envelope)).toBe('Публичный ответ.');
+    expect(stripPublicAssistantInternalArtifacts(nested)).toBe('Публичный ответ.');
     expect(stripPublicAssistantInternalArtifacts(plain)).toBe(plain);
   });
 
