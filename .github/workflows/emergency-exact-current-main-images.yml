@@ -12,8 +12,8 @@ permissions:
   packages: write
 
 concurrency:
-  group: emergency-exact-current-main-images-acffe4e
-  cancel-in-progress: false
+  group: tai-restricted-qwen-reg-ru-activation
+  cancel-in-progress: true
 
 jobs:
   publish:
