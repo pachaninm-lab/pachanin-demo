@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/platform-v7-product-copy",
+  "status": "active",
+  "purpose": "Present the public platform-v7 homepage as one operating agricultural Deal system while preserving the approved structure, typography, responsive behavior and authority boundaries.",
+  "approvedBy": "user-directed-homepage-operating-product-copy-2026-07-31",
+  "allowedPaths": [
+    "apps/web/i18n/platform-v7-home-story-product.ts",
+    "apps/web/i18n/platform-v7-home-v3-product.ts",
+    "apps/web/i18n/platform-v7-organization-connect-product.ts",
+    "apps/web/i18n/platform-v7-hero-message.ts",
+    "apps/web/tsconfig.json",
+    "apps/web/tests/unit/platformV7HomepageProductCopy.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-product-copy-2026-07-31.json"
+  ],
+  "forbiddenChanges": [
+    "homepage structure, component hierarchy or CSS",
+    "fonts, spacing, breakpoints, animations or visual tokens",
+    "API, database, RBAC, TAI runtime or protected routes",
+    "unverified claims that a named external provider is connected",
+    "pilot, demo, roadmap, development-stage or maturity-status wording"
+  ],
+  "acceptance": [
+    "RU EN ZH product copy is complete",
+    "all visible blocks connect capability to a user scenario and result",
+    "the final CTA registers an organization request and returns a request number",
+    "critical decisions remain with an authorized participant",
+    "existing layout and CSS files remain unchanged"
+  ]
+}
