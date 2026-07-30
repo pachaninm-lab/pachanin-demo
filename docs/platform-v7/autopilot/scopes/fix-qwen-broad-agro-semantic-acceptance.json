@@ -6,6 +6,7 @@
   "approvedBy": "owner-direct-continue-to-ideal-2026-07-30",
   "authorityBaseExactMain": "c486953991edf652302e584ec48914bc64943007",
   "allowedPaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/scopes/fix-qwen-broad-agro-semantic-acceptance.json",
     ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
     "apps/web/next.config.js"
