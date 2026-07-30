@@ -1,0 +1,90 @@
+name: One-shot Fix Qwen Live UI Approved Branding
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  patch:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/qwen-live-ui-approved-branding-20260730'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Apply exact bounded correction
+        shell: bash
+        env:
+          EXPECTED_BASE: 72d1a6ad7c277615430a58a9d357485ae34f6f5c
+          HEAD_BRANCH: fix/qwen-live-ui-approved-branding-20260730
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git merge-base HEAD origin/main)" == "$EXPECTED_BASE" ]]
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          workflow_path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          text = workflow_path.read_text(encoding='utf-8')
+          replacements = {
+              "!== 'ИИ в агробизнесе'": "!== 'ИИ для агробизнеса'",
+              "!== 'разработан Прозрачной Ценой'": "!== 'Разработан Прозрачной ценой для сельского хозяйства.'",
+              "title: 'ИИ в агробизнесе'": "title: 'ИИ для агробизнеса'",
+              "subtitle: 'разработан Прозрачной Ценой'": "subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.'",
+              "verified title \\`ИИ в агробизнесе\\`, subtitle \\`разработан Прозрачной Ценой\\`": "verified title \\`ИИ для агробизнеса\\`, subtitle \\`Разработан Прозрачной ценой для сельского хозяйства.\\`",
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count < 1:
+                  raise SystemExit(f'missing expected workflow text: {old}')
+              text = text.replace(old, new)
+          workflow_path.write_text(text, encoding='utf-8')
+
+          next_path = Path('apps/web/next.config.js')
+          next_text = next_path.read_text(encoding='utf-8')
+          trigger = "// Exact-main retry after aligning live Chromium acceptance with approved `ИИ для агробизнеса` branding; runtime configuration is unchanged.\n"
+          if trigger not in next_text:
+              marker = "const createNextIntlPlugin = require('next-intl/plugin');"
+              next_text = next_text.replace(marker, trigger + marker, 1)
+          next_path.write_text(next_text, encoding='utf-8')
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          scope['branch'] = 'fix/qwen-live-ui-approved-branding-20260730'
+          scope['status'] = 'active'
+          scope['purpose'] = 'Align exact-main REG.RU Chromium acceptance with the owner-approved public AI identity, then trigger canonical images and repeat the accepted release chain.'
+          scope['approvedBy'] = 'owner-direct-urgent-live-acceptance-correction-2026-07-30'
+          scope['authorityBaseExactMain'] = '72d1a6ad7c277615430a58a9d357485ae34f6f5c'
+          scope['acceptance'] = [
+              'live Chromium requires the visible title ИИ для агробизнеса',
+              'live Chromium requires the exact subtitle Разработан Прозрачной ценой для сельского хозяйства.',
+              'evidence metadata and issue evidence use the same approved identity',
+              'canonical exact API web and migration images remain mandatory',
+              'authenticated private-model inference and RU EN ZH SSE remain mandatory',
+              'one fullscreen control and no reasoning tool or debug traces remain mandatory',
+              'production remains REG_RU_VPS_ONLY',
+          ]
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          git rm .github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tai-restricted-qwen-reg-ru-activation.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
+          git commit -m 'FIX: align live Qwen acceptance with approved branding'
+          git push origin "HEAD:$HEAD_BRANCH"
