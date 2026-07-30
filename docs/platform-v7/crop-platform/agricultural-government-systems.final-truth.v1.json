@@ -1,0 +1,93 @@
+{
+  "$schema": "./agricultural-government-systems.final-truth.schema.v1.json",
+  "schemaVersion": "pc-crop.agricultural-government-systems.final-truth.v1",
+  "generatedAt": "2026-07-30T18:00:00Z",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "sourceTechnicalSpecification": "Остаток_ТЗ_Прозрачная_Цена_растениеводство",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "immutableAuthorities": {
+    "registryV1": {
+      "path": "docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json",
+      "mergeSha": "0446f477e418e6dcbd97faa627b1ef7b57b4fa4e",
+      "blobSha": "0b790f54599302edeaa46e9ea4e64fbc4f3a8442"
+    },
+    "authorityBindingsV1": {
+      "path": "docs/platform-v7/crop-platform/agricultural-government-systems.authority-bindings.v1.json",
+      "mergeSha": "d1be70ecf8f5ba10792cf6d671d1c9504f4b0422",
+      "blobSha": "601e8193e90f6af16e23e7e5cbf7df93d7a5148b"
+    }
+  },
+  "acceptedAuthoritySlices": [
+    "PC-CROP-08A",
+    "PC-CROP-08B",
+    "PC-CROP-08C",
+    "PC-CROP-08D",
+    "PC-CROP-08E",
+    "PC-CROP-08F",
+    "PC-CROP-08H",
+    "PC-CROP-08I",
+    "PC-CROP-10A",
+    "PC-CROP-10C"
+  ],
+  "terminalAuthority": {
+    "slice": "PC-CROP-10C",
+    "pr": 3454,
+    "mergeSha": "0402b22e80641b5b696e23127e0d5dad3126417a",
+    "exactMainStatusContext": "PC-CROP-10C exact-main",
+    "pathBindings": [
+      {
+        "path": "apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql",
+        "blobSha": "82bce49e0ce3b0869e2fac175d50f46741599c36"
+      },
+      {
+        "path": "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts",
+        "blobSha": "f163496ee68230a94d78d930938a27aa98f16285"
+      },
+      {
+        "path": "docs/platform-v7/autopilot/scopes/pc-crop-10c.json",
+        "blobSha": "272982af037c0667a9e1f111783ead998d858849"
+      }
+    ],
+    "operationalStatus": "NOT_ATTESTED",
+    "externalLiveEvidence": "ABSENT"
+  },
+  "repositoryCompletion": {
+    "completionSlice": "PC-CROP-10D",
+    "internalRepositoryRemainderComplete": true,
+    "implementationSequenceClosed": true,
+    "liveCompletionClaimed": false
+  },
+  "fgisGrain": {
+    "systemCode": "FGIS_GRAIN",
+    "apiContractVersion": "1.0.23",
+    "acceptedRuntimeAuthorities": 9,
+    "tenantAuthorizedReadAuthority": "ACCEPTED_DISABLED_BY_DEFAULT",
+    "allowedReadOperations": 19,
+    "rejectedMutationOperations": 38,
+    "platformReadEnabled": false,
+    "platformWriteEnabled": false,
+    "externalProviderE2E": "ABSENT",
+    "productionAttestation": "ABSENT"
+  },
+  "externalIndustrialReadiness": {
+    "industrialLiveReady": false,
+    "assessment": "NOT_ASSESSED",
+    "implementationAuthorized": false,
+    "blockers": [
+      "GOVERNED_PROVIDER_CREDENTIAL_REFERENCE_REQUIRED",
+      "REAL_PROVIDER_READ_E2E_REQUIRED",
+      "LEGAL_ATTESTATION_REQUIRED",
+      "SECURITY_ATTESTATION_REQUIRED",
+      "OPERATIONS_ATTESTATION_REQUIRED"
+    ]
+  },
+  "forbiddenConclusions": [
+    "INTERNAL_REPOSITORY_COMPLETION_MEANS_LIVE",
+    "FGIS_GRAIN_PLATFORM_READ_IS_ENABLED",
+    "FGIS_GRAIN_WRITE_IS_ENABLED",
+    "EXTERNAL_PROVIDER_E2E_EXISTS",
+    "PRODUCTION_INTEGRATION_IS_ATTESTED",
+    "EXTERNAL_IMPLEMENTATION_IS_AUTHORIZED"
+  ]
+}
