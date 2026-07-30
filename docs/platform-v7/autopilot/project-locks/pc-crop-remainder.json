@@ -1,13 +1,26 @@
 {
   "schemaVersion": "platform-v7.active-project-lock.v1",
   "id": "PC-CROP-REMAINDER",
-  "status": "active",
+  "status": "completed",
   "governanceIssue": 3389,
-  "activeIssue": 3504,
-  "activeSlice": "PC-CROP-10D",
-  "sequence": [
-    "PC-CROP-10D"
-  ],
+  "activeIssue": null,
+  "activeSlice": null,
+  "sequence": [],
+  "completion": {
+    "slice": "PC-CROP-10D",
+    "issue": 3504,
+    "pr": 3506,
+    "mergeSha": "2a2a58778d194d4abc37c4dde429993dc8546d1f",
+    "exactMainStatusContext": "PC-CROP-10D exact-main",
+    "completedAt": "2026-07-30T19:53:53Z",
+    "finalTruthPath": "docs/platform-v7/crop-platform/agricultural-government-systems.final-truth.v1.json",
+    "finalTruthBlobSha": "20650c296b75c6a3a248e40ce67f78a7f023496f",
+    "readinessPath": "docs/platform-v7/crop-platform/agricultural-government-systems.readiness.v2.json",
+    "readinessBlobSha": "f175a5583771275562ceaa2a5af09f7f9c86c867",
+    "internalRepositoryRemainderComplete": true,
+    "industrialLiveReady": false,
+    "implementationAuthorized": false
+  },
   "allowedBranchPrefixes": [
     "agent/pc-crop-",
     "fix/pc-crop-",
