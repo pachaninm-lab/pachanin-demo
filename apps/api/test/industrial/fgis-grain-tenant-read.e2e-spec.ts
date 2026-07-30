@@ -186,29 +186,40 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
   }
 }
 
-function providerDraft(suffix: string) {
+type ProviderEnvironment = 'PRE_PRODUCTION' | 'PRODUCTION';
+
+function providerDraft(
+  suffix: string,
+  environment: ProviderEnvironment = 'PRE_PRODUCTION',
+) {
+  const environmentPath = environment === 'PRODUCTION'
+    ? 'production'
+    : 'pre-production';
   return {
     schemaVersion: FGIS_GRAIN_PROVIDER_CONFIG_SCHEMA_VERSION,
     adapterCode: 'FGIS_ZERNO' as const,
     apiVersion: '1.0.23' as const,
     mappingVersion: 'fgis-zerno-1.0.23-catalog.v1' as const,
     signingPolicyVersion: 'fgis-zerno-1.0.23-signing-policy.v1' as const,
-    environment: 'PRE_PRODUCTION' as const,
-    endpointReference: `endpoint://fgis-zerno/pre-production/${suffix}`,
-    tlsPolicyReference: `tls://fgis-zerno/pre-production/${suffix}`,
-    credentialReference: `credential://vault/fgis-zerno/pre-production/${suffix}`,
-    signingKeyReference: `signing-key://vault/fgis-zerno/pre-production/${suffix}`,
-    payloadStoreReference: `object-store://fgis-zerno/pre-production/${suffix}`,
+    environment,
+    endpointReference: `endpoint://fgis-zerno/${environmentPath}/${suffix}`,
+    tlsPolicyReference: `tls://fgis-zerno/${environmentPath}/${suffix}`,
+    credentialReference: `credential://vault/fgis-zerno/${environmentPath}/${suffix}`,
+    signingKeyReference: `signing-key://vault/fgis-zerno/${environmentPath}/${suffix}`,
+    payloadStoreReference: `object-store://fgis-zerno/${environmentPath}/${suffix}`,
   };
 }
 
-function providerUpsert(key: string): UpsertProviderConfigurationCommand {
+function providerUpsert(
+  key: string,
+  environment: ProviderEnvironment = 'PRE_PRODUCTION',
+): UpsertProviderConfigurationCommand {
   return {
     idempotencyKey: `${RUN_ID}.${key}`,
     correlationId: `${RUN_ID}.${key}.correlation`,
     reason: 'Configuration authority is changed after governed server-side review.',
     expectedVersion: '0',
-    draft: providerDraft(key),
+    draft: providerDraft(key, environment),
   };
 }
 
@@ -312,10 +323,13 @@ async function resetAuthority(): Promise<void> {
   transport.reset();
 }
 
-async function approvedConfiguration(transportAdmitted = true) {
+async function approvedConfiguration(
+  transportAdmitted = true,
+  environment: ProviderEnvironment = 'PRE_PRODUCTION',
+) {
   const created = await providerRepository.upsertDraft(
     EXEC_A,
-    providerUpsert(`config-${Math.random().toString(16).slice(2)}`),
+    providerUpsert(`config-${Math.random().toString(16).slice(2)}`, environment),
   );
   const review = await providerRepository.submitForReview(
     EXEC_A,
@@ -662,7 +676,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
 
   it('binds reauthorization to the existing provider configuration inside PostgreSQL', async () => {
     const firstConfiguration = await approvedConfiguration();
-    const secondConfiguration = await approvedConfiguration();
+    const secondConfiguration = await approvedConfiguration(true, 'PRODUCTION');
     const authorized = await authorizeRead(
       firstConfiguration.configurationId,
       firstConfiguration.version,
