@@ -166,12 +166,33 @@ rollback_images() {
 verify_durable_intake() {
   [[ "$INTAKE_REQUEST_NUMBER" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]] || fail INTAKE_REQUEST_NUMBER_INVALID 40
   [[ "$INTAKE_CORRELATION_ID" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || fail INTAKE_CORRELATION_ID_INVALID 41
-  [[ -n "$postgres_service" ]] || fail POSTGRES_EVIDENCE_AUTHORITY_UNAVAILABLE 42
-  local pg_id sql result
-  pg_id="$(compose_id "$postgres_service")"
-  [[ -n "$pg_id" ]] || fail POSTGRES_RUNTIME_MISSING 43
-  sql="SELECT CASE WHEN count(*) = 1 AND bool_and(a.action = 'public:organization-intake:create' AND a.outcome = 'SUCCESS' AND a.\"correlationId\" = r.\"correlationId\") AND bool_and(o.type = 'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED' AND o.\"correlationId\" = r.\"correlationId\" AND o.\"auditId\" = r.\"auditEventId\" AND NOT (o.payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])) THEN 'PASS' ELSE 'FAIL' END || '|' || min(r.\"auditEventId\") || '|' || min(r.\"outboxEntryId\") FROM public.public_organization_connection_requests r JOIN public.audit_events a ON a.id = r.\"auditEventId\" JOIN public.outbox_entries o ON o.id = r.\"outboxEntryId\" WHERE r.\"requestNumber\" = '$INTAKE_REQUEST_NUMBER' AND r.\"correlationId\" = '$INTAKE_CORRELATION_ID';"
-  result="$(docker exec "$pg_id" sh -ceu 'test -n "${POSTGRES_USER:-}"; test -n "${POSTGRES_DB:-}"; psql -v ON_ERROR_STOP=1 --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command "$1"' sh "$sql" | tr -d '[:space:]')"
+  local sql result
+  sql="SELECT CASE WHEN count(*) = 1 AND bool_and(a.action = 'public:organization-intake:create' AND a.outcome = 'SUCCESS' AND a.\"correlationId\" = r.\"correlationId\") AND bool_and(o.type = 'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED' AND o.\"correlationId\" = r.\"correlationId\" AND o.\"auditId\" = r.\"auditEventId\" AND NOT (o.payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])) THEN 'PASS' ELSE 'FAIL' END || '|' || min(r.\"auditEventId\") || '|' || min(r.\"outboxEntryId\") AS evidence FROM public.public_organization_connection_requests r JOIN public.audit_events a ON a.id = r.\"auditEventId\" JOIN public.outbox_entries o ON o.id = r.\"outboxEntryId\" WHERE r.\"requestNumber\" = '$INTAKE_REQUEST_NUMBER' AND r.\"correlationId\" = '$INTAKE_CORRELATION_ID';"
+
+  if [[ -n "$postgres_service" ]]; then
+    local pg_id
+    pg_id="$(compose_id "$postgres_service")"
+    [[ -n "$pg_id" ]] || fail POSTGRES_RUNTIME_MISSING 43
+    result="$(docker exec "$pg_id" sh -ceu 'test -n "${POSTGRES_USER:-}"; test -n "${POSTGRES_DB:-}"; psql -v ON_ERROR_STOP=1 --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command "$1"' sh "$sql" | tr -d '[:space:]')"
+  else
+    result="$(docker exec -i "$api_id" /nodejs/bin/node - "$INTAKE_REQUEST_NUMBER" "$INTAKE_CORRELATION_ID" <<'NODE'
+const { PrismaClient } = require('@prisma/client');
+const [requestNumber, correlationId] = process.argv.slice(2);
+const prisma = new PrismaClient();
+const sql = `SELECT CASE WHEN count(*) = 1 AND bool_and(a.action = 'public:organization-intake:create' AND a.outcome = 'SUCCESS' AND a."correlationId" = r."correlationId") AND bool_and(o.type = 'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED' AND o."correlationId" = r."correlationId" AND o."auditId" = r."auditEventId" AND NOT (o.payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])) THEN 'PASS' ELSE 'FAIL' END || '|' || min(r."auditEventId") || '|' || min(r."outboxEntryId") AS evidence FROM public.public_organization_connection_requests r JOIN public.audit_events a ON a.id = r."auditEventId" JOIN public.outbox_entries o ON o.id = r."outboxEntryId" WHERE r."requestNumber" = $1 AND r."correlationId" = $2;`;
+async function main() {
+  const rows = await prisma.$queryRawUnsafe(sql, requestNumber, correlationId);
+  const evidence = rows?.[0]?.evidence;
+  if (typeof evidence !== 'string') throw new Error('evidence_unavailable');
+  process.stdout.write(evidence.replace(/\s+/gu, ''));
+}
+main()
+  .catch(() => { process.exitCode = 45; })
+  .finally(async () => { await prisma.$disconnect(); });
+NODE
+    )" || fail API_DATABASE_EVIDENCE_QUERY_FAILED 45
+  fi
+
   [[ "$result" =~ ^PASS\|audit-[A-Za-z0-9-]+\|outbox-[A-Za-z0-9-]+$ ]] || fail DURABLE_INTAKE_EVIDENCE_FAILED 44
   IFS='|' read -r _ audit_id outbox_id <<< "$result"
   printf 'DURABLE_INTAKE_DB=PASS\n'
