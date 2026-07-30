@@ -28,7 +28,8 @@
     "the database function returns only verdict audit ID and outbox ID",
     "no PII is returned or stored in release evidence",
     "live and durable acceptance must pass before release success",
-    "production remains REG.RU VPS only"
+    "production remains REG.RU VPS only",
+    "pull-request checks are synchronized after generator completion"
   ],
   "productionHosting": "REG_RU_VPS_ONLY"
 }
