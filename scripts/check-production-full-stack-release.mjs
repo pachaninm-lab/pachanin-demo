@@ -5,6 +5,7 @@ const paths = {
   publish: '.github/workflows/docker-publish.yml',
   workflow: '.github/workflows/production-full-stack-exact-sha.yml',
   controller: '.github/workflows/platform-v7-safe-merge.yml',
+  middleware: 'apps/web/middleware.ts',
   executor: 'scripts/production-full-stack-exact-sha.sh',
   live: 'scripts/production-full-stack-live-acceptance.sh',
   scope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
@@ -122,6 +123,10 @@ requireAll('controller', [
   'Main advanced during image publication',
   'gh workflow run production-full-stack-exact-sha.yml',
 ]);
+requireAll('middleware', [
+  "'/api/platform-v7/organization-connect'",
+  '|| PUBLIC_API_EXACT.has(p)',
+]);
 const controllerSource = text.controller ?? '';
 const publishDispatchIndex = controllerSource.indexOf('gh workflow run docker-publish.yml');
 const imageWatchIndex = controllerSource.indexOf('gh run watch "$image_run_id"');
@@ -210,4 +215,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('PASS: exact API/web/migration images, serialized image publication, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, live intake and PostgreSQL/audit/outbox evidence are enforced.');
+console.log('PASS: exact API/web/migration images, serialized image publication, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');
