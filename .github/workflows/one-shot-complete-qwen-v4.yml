@@ -1,0 +1,66 @@
+name: One-shot complete Qwen v4 exact-main trigger
+
+on:
+  push:
+    branches: [ops/dispatch-current-main-qwen-ui-20260730-v4]
+    paths:
+      - '.github/workflows/one-shot-complete-qwen-v4.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  complete:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/dispatch-current-main-qwen-ui-20260730-v4
+          fetch-depth: 0
+      - name: Synchronize and add direct push activation trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main
+          git merge --no-edit origin/main
+
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          activation = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          text = activation.read_text()
+          marker = '# Direct push trigger v4: exact current-main public AI safety release, 2026-07-30.'
+          if marker not in text:
+              text = text.replace('name: TAI Restricted Qwen REG.RU Activation\n', f'name: TAI Restricted Qwen REG.RU Activation\n{marker}\n', 1)
+          activation.write_text(text)
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/dispatch-current-main-qwen-ui-3372-v4.json')
+          scope = json.loads(scope_path.read_text())
+          allowed = scope['allowedPaths']
+          activation_path = '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
+          if activation_path not in allowed:
+              allowed.insert(1, activation_path)
+          scope['baseCommit'] = '79390feeaa918f79bd805b166affcc2efd5304b9'
+          scope['operationalStatus'] = 'DISPATCH_DIRECT_PUSH_AND_CHAIN_EXACT_CURRENT_MAIN_V4'
+          acceptance = scope['acceptance']
+          direct = 'the activation workflow is triggered directly by the trusted main push and does not depend on bot workflow-dispatch authorization'
+          if direct not in acceptance:
+              acceptance.insert(1, direct)
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n')
+          PY
+
+          rm .github/workflows/one-shot-complete-qwen-v4.yml
+          python -m json.tool docs/platform-v7/autopilot/scopes/dispatch-current-main-qwen-ui-3372-v4.json >/dev/null
+          git diff --check
+          git add .github/workflows/tai-qwen-exact-image-activation-chain.yml \
+                  .github/workflows/tai-restricted-qwen-reg-ru-activation.yml \
+                  docs/platform-v7/autopilot/scopes/dispatch-current-main-qwen-ui-3372-v4.json \
+                  .github/workflows/one-shot-complete-qwen-v4.yml
+          git commit -m 'OPS: trigger exact current-main images and direct REG.RU activation v4'
+          git push origin HEAD:ops/dispatch-current-main-qwen-ui-20260730-v4
+
+# trigger 1
