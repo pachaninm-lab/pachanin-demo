@@ -63,8 +63,8 @@ const PUBLIC_ASSISTANT_BOILERPLATE_PATTERNS = [
 const PUBLIC_INTERNAL_BLOCK_PATTERNS = [
   /<(?:think|analysis|reasoning)\b[^>]*>[\s\S]*?<\/(?:think|analysis|reasoning)>/giu,
   /\[(?:think|analysis|reasoning)\][\s\S]*?\[\/(?:think|analysis|reasoning)\]/giu,
-  /```(?:json|javascript|typescript|text)?\s*[\s\S]{0,24_000}?"(?:tool_calls?|tool_call_id|arguments|reasoning)"[\s\S]{0,24_000}?```/giu,
-  /\{[\s\S]{0,24_000}?"(?:tool_calls?|tool_call_id)"\s*:[\s\S]{0,24_000}?\}/giu,
+  /```(?:json|javascript|typescript|text)?\s*[\s\S]{0,24000}?"(?:tool_calls?|tool_call_id|arguments|reasoning)"[\s\S]{0,24000}?```/giu,
+  /\{[\s\S]{0,24000}?"(?:tool_calls?|tool_call_id)"\s*:[\s\S]{0,24000}?\}/giu,
 ] as const;
 
 /** Remove repetitive operational and navigation boilerplate from public answers. */
