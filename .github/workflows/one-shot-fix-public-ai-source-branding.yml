@@ -1,0 +1,97 @@
+name: One-shot Fix Public AI Source Branding
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/one-shot-fix-public-ai-source-branding.yml'
+      - 'docs/platform-v7/autopilot/scopes/fix-public-ai-source-branding-race-3372.json'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  patch:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/public-ai-source-branding-race-20260730'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply exact source branding correction
+        shell: bash
+        env:
+          EXPECTED_BASE: 25402379df279ea1bde69a0d80608276317f08c5
+          HEAD_BRANCH: fix/public-ai-source-branding-race-20260730
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git merge-base HEAD origin/main)" == "$EXPECTED_BASE" ]]
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_BASE" ]]
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          assistant = Path('apps/web/components/platform-v7/PublicPlatformAssistant.tsx')
+          text = assistant.read_text(encoding='utf-8')
+          replacements = {
+              "title: 'ИИ Прозрачной Цены',": "title: 'ИИ для агробизнеса',",
+              "subtitle: 'Помощник по агробизнесу и платформе',": "subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.',",
+              "title: 'Transparent Price AI',": "title: 'AI for agribusiness',",
+              "subtitle: 'Agribusiness and platform assistant',": "subtitle: 'Developed by Transparent Price for agriculture.',",
+              "title: '透明价格 AI',": "title: '农业商业人工智能',",
+              "subtitle: '农业商业与平台助手',": "subtitle: '由“透明价格”为农业打造。',",
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'unexpected source copy count for {old}: {text.count(old)}')
+              text = text.replace(old, new, 1)
+          assistant.write_text(text, encoding='utf-8')
+
+          test_path = Path('apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts')
+          test = test_path.read_text(encoding='utf-8')
+          controller_decl = "const controllerSource = readFileSync(\n  join(process.cwd(), 'components/platform-v7/UnifiedModalSheetFullscreenController.tsx'),\n  'utf8',\n);"
+          assistant_decl = controller_decl + "\nconst assistantSource = readFileSync(\n  join(process.cwd(), 'components/platform-v7/PublicPlatformAssistant.tsx'),\n  'utf8',\n);"
+          if 'const assistantSource = readFileSync(' not in test:
+              if controller_decl not in test:
+                  raise SystemExit('controller source declaration missing')
+              test = test.replace(controller_decl, assistant_decl, 1)
+          marker = "    expect(controllerSource).toContain(\"subtitle: '由“透明价格”为农业打造。'\");"
+          source_assertions = marker + "\n    expect(assistantSource).toContain(\"title: 'ИИ для агробизнеса'\");\n    expect(assistantSource).toContain(\"subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.'\");\n    expect(assistantSource).toContain(\"title: 'AI for agribusiness'\");\n    expect(assistantSource).toContain(\"subtitle: 'Developed by Transparent Price for agriculture.'\");\n    expect(assistantSource).toContain(\"title: '农业商业人工智能'\");\n    expect(assistantSource).toContain(\"subtitle: '由“透明价格”为农业打造。'\");"
+          if "expect(assistantSource).toContain(\"title: 'ИИ для агробизнеса'\")" not in test:
+              if marker not in test:
+                  raise SystemExit('branding test marker missing')
+              test = test.replace(marker, source_assertions, 1)
+          test_path.write_text(test, encoding='utf-8')
+
+          next_path = Path('apps/web/next.config.js')
+          next_text = next_path.read_text(encoding='utf-8')
+          trigger = "// Exact-main retry after removing the public AI source-branding hydration race; runtime configuration is unchanged.\n"
+          if trigger not in next_text:
+              marker = "const createNextIntlPlugin = require('next-intl/plugin');"
+              if marker not in next_text:
+                  raise SystemExit('next config marker missing')
+              next_text = next_text.replace(marker, trigger + marker, 1)
+          next_path.write_text(next_text, encoding='utf-8')
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/fix-public-ai-source-branding-race-3372.json')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          scope['status'] = 'active'
+          scope['operationalStatus'] = 'SOURCE_BRANDING_RACE_FIXED_PENDING_EXACT_GATES'
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/components/platform-v7/PublicPlatformAssistant.tsx apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-public-ai-source-branding-race-3372.json
+          git commit -m 'FIX: render approved public AI branding at source'
+          git push origin "HEAD:$HEAD_BRANCH"
