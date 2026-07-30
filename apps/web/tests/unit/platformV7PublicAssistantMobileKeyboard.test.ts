@@ -29,11 +29,12 @@ describe('platform-v7 public assistant mobile keyboard contract', () => {
     expect(controller).not.toContain('keyboardInset > 64');
   });
 
-  it('fills the exact area above the keyboard so the composer has no dead gap', () => {
+  it('uses the measured visual viewport height as the exact authority above the keyboard', () => {
     expect(css).toContain(".pc-public-assistant-panel[data-pc-keyboard-focus='true']");
-    expect(css).toContain('height: min(');
-    expect(css).toContain('var(--pc-ai-keyboard-height, 100dvh)');
+    expect(css).toContain('height: var(');
+    expect(css).toContain('--pc-ai-keyboard-height,');
     expect(css).toContain('env(keyboard-inset-height, 0px)');
+    expect(css).not.toContain('height: min(');
     expect(css).toContain('border-radius: 0 !important');
     expect(css).toContain('padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important');
   });
