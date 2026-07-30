@@ -7,7 +7,6 @@ import {
   NotFoundException,
   PreconditionFailedException,
   ServiceUnavailableException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RlsTransactionService } from '../../../common/prisma/rls-transaction.service';
@@ -17,6 +16,7 @@ import {
   assertFgisGrainTenantReadAttestationInput,
   assertFgisGrainTenantReadAuthorizationInput,
   assertFgisGrainTenantReadRequestInput,
+  assertFgisGrainTenantReadTransportResult,
   canonicalFgisGrainTenantReadHash,
   type FgisGrainReadOperationCode,
   type FgisGrainTenantReadAttestationInput,
@@ -530,43 +530,37 @@ export class FgisGrainTenantReadRepository {
 
     let result: FgisGrainTenantReadTransportResult;
     try {
-      result = await this.transport.execute({
-        operationCode: input.operationCode,
-        requestReference: input.requestReference,
-        requestSha256: input.requestSha256,
-        correlationId: input.correlationId,
-        configuration: {
-          endpointReference: preflight.configuration.endpointReference,
-          tlsPolicyReference: preflight.configuration.tlsPolicyReference,
-          credentialReference: preflight.configuration.credentialReference,
-          environment: preflight.configuration.environment,
-        },
-      });
-      if (
-        !result.providerRequestId
-        || !result.responseReference
-        || !/^[a-f0-9]{64}$/u.test(result.responseSha256)
-        || !Number.isFinite(new Date(result.receivedAt).getTime())
-      ) {
-        throw new UnprocessableEntityException('Provider transport result is malformed');
-      }
-    } catch (error) {
-      await this.recordTransportOutcome(
-        user,
-        preflight.claim,
-        null,
-        'FAILED',
-        'PROVIDER_READ_FAILED',
+      result = assertFgisGrainTenantReadTransportResult(
+        await this.transport.execute({
+          operationCode: input.operationCode,
+          requestReference: input.requestReference,
+          requestSha256: input.requestSha256,
+          correlationId: input.correlationId,
+          configuration: {
+            endpointReference: preflight.configuration.endpointReference,
+            tlsPolicyReference: preflight.configuration.tlsPolicyReference,
+            credentialReference: preflight.configuration.credentialReference,
+            environment: preflight.configuration.environment,
+          },
+        }),
       );
+    } catch (error) {
+      await this.transport.finalizeOutcome({
+        claimId: preflight.claim.id,
+        completionToken: preflight.claim.completionToken,
+        decision: 'FAILED',
+        reasonCode: 'PROVIDER_READ_FAILED',
+        result: null,
+      });
       throw error;
     }
-    await this.recordTransportOutcome(
-      user,
-      preflight.claim,
+    await this.transport.finalizeOutcome({
+      claimId: preflight.claim.id,
+      completionToken: preflight.claim.completionToken,
+      decision: 'SUCCEEDED',
+      reasonCode: 'PROVIDER_READ_SUCCEEDED',
       result,
-      'SUCCEEDED',
-      'PROVIDER_READ_SUCCEEDED',
-    );
+    });
     return {
       authorizationId: preflight.authorization.id,
       authorizationVersion: preflight.authorization.version.toString(),
@@ -579,29 +573,6 @@ export class FgisGrainTenantReadRepository {
       replayed: false,
       operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
     };
-  }
-
-  private async recordTransportOutcome(
-    user: RequestUser,
-    claim: ProviderClaimCapability,
-    result: FgisGrainTenantReadTransportResult | null,
-    decision: 'SUCCEEDED' | 'FAILED',
-    reasonCode: string,
-  ): Promise<void> {
-    await this.transactions.withTrustedContext(user, async (tx) => {
-      await tx.$queryRaw(Prisma.sql`
-        SELECT public.finalize_fgis_grain_tenant_read_claim(
-          ${claim.id},
-          ${claim.completionToken},
-          ${decision},
-          ${reasonCode},
-          ${result?.providerRequestId ?? null},
-          ${result?.responseReference ?? null},
-          ${result?.responseSha256 ?? null},
-          ${result ? new Date(result.receivedAt) : null}
-        ) AS "auditId"
-      `);
-    });
   }
 
   private replayReceipt(

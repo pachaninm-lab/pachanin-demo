@@ -39,6 +39,7 @@ env:
   EVIDENCE_DIR: artifacts/pc-crop-10c
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
   PC_CROP_10C_RUNTIME_DATABASE_URL: postgresql://app_runtime:app_runtime@localhost:5432/grainflow?schema=public
+  PC_CROP_10C_TRANSPORT_DATABASE_URL: postgresql://fgis_grain_read_transport:fgis_grain_read_transport@localhost:5432/grainflow?schema=public
 
 jobs:
   tenant-read-authority:
@@ -100,7 +101,7 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Bootstrap restricted runtime principal
+      - name: Bootstrap separated runtime and transport principals
         env:
           PGPASSWORD: postgres
         shell: bash
@@ -114,10 +115,25 @@ jobs:
             ELSE
               ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
             END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_roles WHERE rolname = 'fgis_grain_read_transport'
+            ) THEN
+              CREATE ROLE fgis_grain_read_transport
+                LOGIN PASSWORD 'fgis_grain_read_transport'
+                NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+                NOREPLICATION NOBYPASSRLS;
+            ELSE
+              ALTER ROLE fgis_grain_read_transport
+                LOGIN PASSWORD 'fgis_grain_read_transport'
+                NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+                NOREPLICATION NOBYPASSRLS;
+            END IF;
           END;
           $bootstrap$;
           GRANT CONNECT ON DATABASE grainflow TO app_runtime;
           GRANT USAGE ON SCHEMA public TO app_runtime;
+          GRANT CONNECT ON DATABASE grainflow TO fgis_grain_read_transport;
+          GRANT USAGE ON SCHEMA public TO fgis_grain_read_transport;
           SQL
 
       - name: Apply complete PostgreSQL migration chain
@@ -222,8 +238,47 @@ jobs:
                  'tenantReadTransportAdmittedVersion',
                  'UPDATE'
                )
+               OR has_table_privilege(
+                 'fgis_grain_read_transport',
+                 'public.fgis_grain_tenant_read_authorizations',
+                 'SELECT'
+               )
+               OR has_table_privilege(
+                 'fgis_grain_read_transport',
+                 'public.fgis_grain_tenant_read_audits',
+                 'SELECT'
+               )
+               OR has_table_privilege(
+                 'fgis_grain_read_transport',
+                 'public.fgis_grain_tenant_read_provider_claims',
+                 'SELECT'
+               )
+               OR has_table_privilege(
+                 'fgis_grain_read_transport',
+                 'public.fgis_grain_tenant_read_audit_heads',
+                 'SELECT'
+               )
+               OR EXISTS (
+                 SELECT 1
+                 FROM information_schema.role_table_grants
+                 WHERE grantee = 'fgis_grain_read_transport'
+                   AND table_schema = 'public'
+               )
             THEN
               RAISE EXCEPTION 'PC_CROP_10C_RUNTIME_GRANTS_INVALID';
+            END IF;
+            IF NOT EXISTS (
+                 SELECT 1
+                 FROM pg_roles
+                 WHERE rolname = 'fgis_grain_read_transport'
+                   AND NOT rolsuper
+                   AND NOT rolinherit
+                   AND NOT rolbypassrls
+                   AND NOT rolcreatedb
+                   AND NOT rolcreaterole
+               )
+            THEN
+              RAISE EXCEPTION 'PC_CROP_10C_TRANSPORT_ROLE_INVALID';
             END IF;
             IF NOT has_function_privilege(
                  'app_runtime',
@@ -250,8 +305,18 @@ jobs:
                  'public.reconcile_abandoned_fgis_grain_tenant_read_claim(text)',
                  'EXECUTE'
                )
-               OR NOT has_function_privilege(
+               OR has_function_privilege(
                  'app_runtime',
+                 'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
+                 'EXECUTE'
+               )
+               OR has_function_privilege(
+                 'app_service',
+                 'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
+                 'EXECUTE'
+               )
+               OR NOT has_function_privilege(
+                 'fgis_grain_read_transport',
                  'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
                  'EXECUTE'
                )

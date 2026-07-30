@@ -125,6 +125,13 @@ function validateCatalog(catalog, contract) {
   check(contract.includes('ALL_OPERATION_SET') && contract.includes('READ_OPERATION_SET'), 'contract does not distinguish known mutations from unknown operations');
   check(contract.includes('exactKeys('), 'contract does not reject extra client fields');
   check(contract.includes('INLINE_SECRET_FORBIDDEN'), 'contract lacks inline-secret rejection');
+  check(
+    contract.includes('assertFgisGrainTenantReadTransportResult')
+      && contract.includes("'MALFORMED_TRANSPORT_RESULT'")
+      && contract.includes("startsWith('provider-response://')")
+      && contract.includes("startsWith('object-store://')"),
+    'provider result does not enforce opaque safe references',
+  );
   return { readRows, mutationRows };
 }
 
@@ -154,11 +161,14 @@ function validateTransport(transport, module, repository) {
   check(transport.includes('readonly available = false'), 'default provider transport is not disabled');
   check(transport.includes('FGIS_GRAIN_READ_TRANSPORT_DISABLED'), 'disabled transport error missing');
   check(!/\bfetch\s*\(|axios|https?\.request|new WebSocket/iu.test(transport), 'default transport contains a network path');
+  check(transport.includes('finalizeOutcome('), 'transport does not own provider-result finalization');
   check(module.includes('useExisting: DisabledFgisGrainTenantReadTransport'), 'module does not bind disabled transport by default');
   check(repository.includes("authorization.status !== 'READ_ONLY_ATTESTED'"), 'execute does not require read attestation');
   check(repository.includes('if (!this.transport.available)'), 'execute does not fail closed on disabled transport');
   check(repository.includes('authorization.allowedOperations.includes(input.operationCode)'), 'tenant operation allow-list is not enforced');
   check(repository.includes('configuration.credentialReference'), 'transport receives credential reference metadata');
+  check(repository.includes('assertFgisGrainTenantReadTransportResult'), 'repository trusts unvalidated provider results');
+  check(repository.includes('this.transport.finalizeOutcome({'), 'repository does not delegate result finalization to transport authority');
   check(!repository.includes('credentialBytes') && !repository.includes('privateKeyBytes'), 'repository handles inline credential material');
 }
 
@@ -204,6 +214,12 @@ function validatePostgres(schema, migration, repository) {
   check(!migration.includes('GRANT DELETE') && !migration.includes('GRANT ALL'), 'migration grants unsafe mutation authority');
   check(!migration.includes('grainflow_runtime'), 'migration targets a nonexistent runtime principal');
   check(migration.includes("ARRAY['app_runtime', 'app_service']"), 'runtime principal grant set mismatch');
+  check(
+    migration.includes("'CREATE ROLE fgis_grain_read_transport '")
+      && migration.includes('FROM fgis_grain_read_transport')
+      && migration.includes('TO fgis_grain_read_transport'),
+    'dedicated provider transport principal is missing',
+  );
   check(migration.includes('public.app_rls_context_ready()'), 'role-aware RLS context guard missing');
   check(migration.includes('auth.sessions') && migration.includes('membership."role"'), 'database command context is not bound to persistent session role');
   check(migration.includes('mfa_verified_at') && migration.includes('mfa_level'), 'database command context is not bound to MFA');
@@ -213,6 +229,11 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('recover_fgis_grain_tenant_read_claim'), 'expired provider-claim recovery command missing');
   check(migration.includes('reconcile_abandoned_fgis_grain_tenant_read_claim'), 'governed abandoned-claim reconciliation command missing');
   check(migration.includes('finalize_fgis_grain_tenant_read_claim'), 'claim-bound terminal command missing');
+  check(
+    migration.includes('fgis_grain_tenant_read_audit_provider_request_id_ck')
+      && migration.includes('fgis_grain_tenant_read_audit_response_reference_ck'),
+    'database does not reject unsafe provider result references',
+  );
   check(
     migration.includes('"leaseExpiresAt"')
       && migration.includes('"leaseGeneration"')
@@ -264,6 +285,11 @@ function validatePostgres(schema, migration, repository) {
     'authorization or attestation state can commit without its database-owned audit',
   );
   check(
+    authorizationCommand.includes('current_row."configurationId" IS DISTINCT FROM p_configuration_id')
+      && authorizationCommand.includes('authorization configuration binding changed'),
+    'reauthorization can substitute a different provider configuration',
+  );
+  check(
     attestationCommand.includes('"tenantReadTransportAdmittedVersion"')
       && attestationCommand.includes('= current_row."configurationVersion"')
       && migration.includes('REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_provider_configurations"'),
@@ -282,6 +308,9 @@ function validatePostgres(schema, migration, repository) {
       && finalizer.includes("p_reason_code <> 'PROVIDER_READ_FAILED'")
       && finalizer.includes('FOR UPDATE')
       && finalizer.includes('claim."completedAuditId" IS NOT NULL')
+      && finalizer.includes("session_user <> 'fgis_grain_read_transport'")
+      && !finalizer.includes("'app_runtime'")
+      && finalizer.includes("'^(provider-response|object-store)://")
       && !finalizer.includes('fgis_grain_tenant_read_context_ready')
       && !finalizer.includes("current_setting('app.current_"),
     'terminal provider outcome is not capability- and claim-bound independently of session state',
@@ -289,7 +318,11 @@ function validatePostgres(schema, migration, repository) {
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
   check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
   check(repository.includes('completionToken'), 'repository does not retain an opaque claim completion capability');
-  check(repository.includes('finalize_fgis_grain_tenant_read_claim'), 'repository bypasses claim-bound finalization');
+  check(
+    repository.includes('this.transport.finalizeOutcome({')
+      && !repository.includes('finalize_fgis_grain_tenant_read_claim'),
+    'generic application runtime can finalize provider outcomes',
+  );
   check(repository.includes('authorizationVersion !== BigInt(input.authorizationVersion)'), 'replay is not bound to the current authorization version');
   check(repository.includes('Prisma.join(input.allowedOperations)'), 'PostgreSQL operation array binding is not parameterized safely');
   check(repository.includes('if (preflight.denial)'), 'denied request audit can roll back with the HTTP rejection');
@@ -297,6 +330,12 @@ function validatePostgres(schema, migration, repository) {
 
 function validateWorkflowEvidence(workflow) {
   check(!workflow.includes('set -o pipefail'), 'workflow contains a fail-open shell pipeline');
+  check(
+    workflow.includes('PC_CROP_10C_TRANSPORT_DATABASE_URL')
+      && workflow.includes('fgis_grain_read_transport')
+      && workflow.includes("has_function_privilege(\n                 'fgis_grain_read_transport'"),
+    'workflow does not prove separated transport authority',
+  );
   for (const marker of [
     'migration.ok',
     'api-typecheck.ok',
@@ -317,6 +356,7 @@ function validateWorkflowEvidence(workflow) {
 function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(contractSpec.includes('toHaveLength(19)'), 'contract test does not pin nineteen reads');
   check(contractSpec.includes('MUTATION_OPERATION_FORBIDDEN'), 'contract test does not prove mutation denial');
+  check(contractSpec.includes('accepts only opaque referenced provider results'), 'contract test does not reject unsafe provider results');
   check(repositorySpec.includes('not.toHaveBeenCalled()'), 'repository test does not prove pre-DB rejection');
   check(repositorySpec.includes('DisabledFgisGrainTenantReadTransport'), 'repository test does not prove disabled default transport');
   check(controllerSpec.includes('If-Match') && controllerSpec.includes('BadRequestException'), 'controller test does not prove optimistic concurrency input');
@@ -344,6 +384,10 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('recovers an abandoned provider claim only after its lease expires'), 'PostgreSQL E2E does not prove abandoned claim recovery');
   check(e2e.includes('reconciles an abandoned claim after authority drift without calling the provider'), 'PostgreSQL E2E does not prove governed abandoned-claim reconciliation');
   check(e2e.includes('enforces authorization and attestation TTL ceilings inside PostgreSQL'), 'PostgreSQL E2E does not prove database TTL ceilings');
+  check(e2e.includes('binds reauthorization to the existing provider configuration'), 'PostgreSQL E2E does not prove configuration binding');
+  check(e2e.includes('runtime-forged-provider'), 'PostgreSQL E2E does not deny runtime provider-result finalization');
+  check(e2e.includes('unsafe-provider-result'), 'PostgreSQL E2E does not reject unsafe provider result references');
+  check(e2e.includes('executeAsTransport'), 'PostgreSQL E2E does not use the dedicated transport principal');
 }
 
 function validateTruthBoundary(scope, repository, transport) {

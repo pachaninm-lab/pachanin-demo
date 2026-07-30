@@ -8,6 +8,7 @@ import {
   assertFgisGrainTenantReadAttestationInput,
   assertFgisGrainTenantReadAuthorizationInput,
   assertFgisGrainTenantReadRequestInput,
+  assertFgisGrainTenantReadTransportResult,
 } from './fgis-grain-tenant-read.contract';
 
 const NOW = new Date('2026-07-30T10:00:00.000Z');
@@ -99,5 +100,34 @@ describe('FGIS Grain tenant-authorized read contract', () => {
       ...value,
       operationCode: 'CREATE_SDIZ',
     })).toThrow(expect.objectContaining({ code: 'MUTATION_OPERATION_FORBIDDEN' }));
+  });
+
+  it('accepts only opaque referenced provider results', () => {
+    const value = assertFgisGrainTenantReadTransportResult({
+      providerRequestId: 'fgis-provider-request-001',
+      responseReference: 'provider-response://fgis-grain/response-001',
+      responseSha256: 'b'.repeat(64),
+      receivedAt: '2026-07-30T10:00:00.000Z',
+    });
+    expect(value.receivedAt).toBe('2026-07-30T10:00:00.000Z');
+    expect(Object.isFrozen(value)).toBe(true);
+
+    for (const unsafe of [
+      {
+        ...value,
+        responseReference: '<Response><Token>inline-secret</Token></Response>',
+      },
+      {
+        ...value,
+        responseReference: 'provider-response://user:token@fgis-grain/response-001',
+      },
+      {
+        ...value,
+        providerRequestId: 'provider request with whitespace',
+      },
+    ]) {
+      expect(() => assertFgisGrainTenantReadTransportResult(unsafe))
+        .toThrow(FgisGrainTenantReadContractError);
+    }
   });
 });

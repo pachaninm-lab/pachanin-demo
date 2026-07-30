@@ -10,6 +10,26 @@ AS $function$
   );
 $function$;
 
+DO $transport_role$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_roles
+    WHERE rolname = 'fgis_grain_read_transport'
+  ) THEN
+    EXECUTE
+      'CREATE ROLE fgis_grain_read_transport '
+      'NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS '
+      'NOCREATEDB NOCREATEROLE NOREPLICATION';
+  ELSE
+    EXECUTE
+      'ALTER ROLE fgis_grain_read_transport '
+      'NOINHERIT NOSUPERUSER NOBYPASSRLS '
+      'NOCREATEDB NOCREATEROLE NOREPLICATION';
+  END IF;
+END;
+$transport_role$;
+
 ALTER TABLE public."fgis_grain_provider_configurations"
 ADD COLUMN "tenantReadTransportAdmittedVersion" bigint,
 ADD CONSTRAINT "fgis_grain_provider_config_tenant_read_admission_version_ck"
@@ -231,6 +251,20 @@ CREATE TABLE public."fgis_grain_tenant_read_audits" (
     CHECK ("requestSha256" ~ '^[a-f0-9]{64}$'),
   CONSTRAINT "fgis_grain_tenant_read_audit_response_hash_ck"
     CHECK ("responseSha256" IS NULL OR "responseSha256" ~ '^[a-f0-9]{64}$'),
+  CONSTRAINT "fgis_grain_tenant_read_audit_provider_request_id_ck"
+    CHECK (
+      "providerRequestId" IS NULL
+      OR "providerRequestId" ~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$'
+    ),
+  CONSTRAINT "fgis_grain_tenant_read_audit_response_reference_ck"
+    CHECK (
+      "responseReference" IS NULL
+      OR (
+        length("responseReference") <= 530
+        AND "responseReference"
+          ~ '^(provider-response|object-store)://[A-Za-z0-9][-A-Za-z0-9:_./][-A-Za-z0-9:_./][-A-Za-z0-9:_./]*$'
+      )
+    ),
   CONSTRAINT "fgis_grain_tenant_read_audit_hash_ck"
     CHECK ("hash" ~ '^[a-f0-9]{64}$'),
   CONSTRAINT "fgis_grain_tenant_read_audit_prev_hash_ck"
@@ -623,6 +657,10 @@ BEGIN
     IF NOT FOUND OR current_row."version" IS DISTINCT FROM p_expected_version THEN
       RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
         USING ERRCODE = '40001';
+    END IF;
+    IF current_row."configurationId" IS DISTINCT FROM p_configuration_id THEN
+      RAISE EXCEPTION 'FGIS Grain tenant-read authorization configuration binding changed'
+        USING ERRCODE = '42501';
     END IF;
     IF current_row."status" = 'REVOKED' THEN
       RAISE EXCEPTION 'Revoked FGIS Grain tenant-read authorization cannot be reused'
@@ -1323,7 +1361,7 @@ DECLARE
   outcome_id text;
   outcome_idempotency_key text;
 BEGIN
-  IF session_user NOT IN ('app_runtime', 'app_service')
+  IF session_user <> 'fgis_grain_read_transport'
      AND NOT COALESCE((
        SELECT role_row.rolsuper
        FROM pg_catalog.pg_roles AS role_row
@@ -1364,7 +1402,12 @@ BEGIN
     AND (
       p_reason_code <> 'PROVIDER_READ_SUCCEEDED'
       OR p_provider_request_id IS NULL
+      OR p_provider_request_id
+        !~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$'
       OR p_response_reference IS NULL
+      OR length(p_response_reference) > 530
+      OR p_response_reference
+        !~ '^(provider-response|object-store)://[A-Za-z0-9][-A-Za-z0-9:_./][-A-Za-z0-9:_./][-A-Za-z0-9:_./]*$'
       OR p_response_sha256 IS NULL
       OR p_response_sha256 !~ '^[a-f0-9]{64}$'
       OR p_received_at IS NULL
@@ -1733,10 +1776,33 @@ BEGIN
         runtime_role
       );
       EXECUTE format(
-        'GRANT EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(text, text, text, text, text, text, text, timestamptz) TO %I',
+        'REVOKE EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(text, text, text, text, text, text, text, timestamptz) FROM %I',
         runtime_role
       );
     END IF;
   END LOOP;
 END;
 $grants$;
+
+DO $transport_grants$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_roles
+    WHERE rolname = 'fgis_grain_read_transport'
+  ) THEN
+    REVOKE ALL ON TABLE
+      public."fgis_grain_tenant_read_authorizations",
+      public."fgis_grain_tenant_read_audits",
+      public."fgis_grain_tenant_read_provider_claims",
+      public."fgis_grain_tenant_read_audit_heads",
+      public."fgis_grain_provider_configurations",
+      public."fgis_grain_provider_attestations"
+    FROM fgis_grain_read_transport;
+    GRANT USAGE ON SCHEMA public TO fgis_grain_read_transport;
+    GRANT EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(
+      text, text, text, text, text, text, text, timestamptz
+    ) TO fgis_grain_read_transport;
+  END IF;
+END;
+$transport_grants$;

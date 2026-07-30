@@ -118,6 +118,7 @@ export type FgisGrainTenantReadErrorCode =
   | 'MALFORMED_AUTHORIZATION'
   | 'MALFORMED_ATTESTATION'
   | 'MALFORMED_READ_REQUEST'
+  | 'MALFORMED_TRANSPORT_RESULT'
   | 'REFERENCE_INVALID'
   | 'INLINE_SECRET_FORBIDDEN'
   | 'OPERATION_UNKNOWN'
@@ -166,9 +167,13 @@ function safeReference(value: unknown, field: string): string {
   return value;
 }
 
-function safeKey(value: unknown, field: string): string {
+function safeKey(
+  value: unknown,
+  field: string,
+  code: FgisGrainTenantReadErrorCode = 'MALFORMED_READ_REQUEST',
+): string {
   if (typeof value !== 'string' || !SAFE_KEY.test(value)) {
-    throw new FgisGrainTenantReadContractError('MALFORMED_READ_REQUEST', `${field} is invalid`);
+    throw new FgisGrainTenantReadContractError(code, `${field} is invalid`);
   }
   return value;
 }
@@ -305,6 +310,60 @@ export function assertFgisGrainTenantReadRequestInput(
     requestSha256: row.requestSha256,
     correlationId: safeKey(row.correlationId, 'correlationId'),
     idempotencyKey: safeKey(row.idempotencyKey, 'idempotencyKey'),
+  });
+}
+
+export function assertFgisGrainTenantReadTransportResult(
+  value: unknown,
+): FgisGrainTenantReadTransportResult {
+  const row = record(value, 'MALFORMED_TRANSPORT_RESULT');
+  exactKeys(row, [
+    'providerRequestId',
+    'responseReference',
+    'responseSha256',
+    'receivedAt',
+  ], 'MALFORMED_TRANSPORT_RESULT');
+  const responseReference = safeReference(
+    row.responseReference,
+    'responseReference',
+  );
+  if (
+    !responseReference.startsWith('provider-response://')
+    && !responseReference.startsWith('object-store://')
+  ) {
+    throw new FgisGrainTenantReadContractError(
+      'REFERENCE_INVALID',
+      'responseReference is not an approved provider-result reference',
+    );
+  }
+  if (typeof row.responseSha256 !== 'string' || !SHA256.test(row.responseSha256)) {
+    throw new FgisGrainTenantReadContractError(
+      'FINGERPRINT_INVALID',
+      'Response fingerprint is invalid',
+    );
+  }
+  if (typeof row.receivedAt !== 'string') {
+    throw new FgisGrainTenantReadContractError(
+      'MALFORMED_TRANSPORT_RESULT',
+      'receivedAt is invalid',
+    );
+  }
+  const receivedAt = new Date(row.receivedAt);
+  if (!Number.isFinite(receivedAt.getTime())) {
+    throw new FgisGrainTenantReadContractError(
+      'MALFORMED_TRANSPORT_RESULT',
+      'receivedAt is invalid',
+    );
+  }
+  return Object.freeze({
+    providerRequestId: safeKey(
+      row.providerRequestId,
+      'providerRequestId',
+      'MALFORMED_TRANSPORT_RESULT',
+    ),
+    responseReference,
+    responseSha256: row.responseSha256,
+    receivedAt: receivedAt.toISOString(),
   });
 }
 

@@ -8,11 +8,22 @@ export const FGIS_GRAIN_TENANT_READ_TRANSPORT = Symbol(
   'FGIS_GRAIN_TENANT_READ_TRANSPORT',
 );
 
+export interface FgisGrainTenantReadTransportOutcome {
+  readonly claimId: string;
+  readonly completionToken: string;
+  readonly decision: 'SUCCEEDED' | 'FAILED';
+  readonly reasonCode: 'PROVIDER_READ_SUCCEEDED' | 'PROVIDER_READ_FAILED';
+  readonly result: FgisGrainTenantReadTransportResult | null;
+}
+
 export interface FgisGrainTenantReadTransport {
   readonly available: boolean;
   execute(
     request: FgisGrainTenantReadTransportRequest,
   ): Promise<FgisGrainTenantReadTransportResult>;
+  finalizeOutcome(
+    outcome: FgisGrainTenantReadTransportOutcome,
+  ): Promise<void>;
 }
 
 /**
@@ -28,6 +39,16 @@ implements FgisGrainTenantReadTransport {
   async execute(
     _request: FgisGrainTenantReadTransportRequest,
   ): Promise<FgisGrainTenantReadTransportResult> {
+    throw new ServiceUnavailableException({
+      code: 'FGIS_GRAIN_READ_TRANSPORT_DISABLED',
+      retryable: false,
+      operationalStatus: 'NOT_ATTESTED',
+    });
+  }
+
+  async finalizeOutcome(
+    _outcome: FgisGrainTenantReadTransportOutcome,
+  ): Promise<void> {
     throw new ServiceUnavailableException({
       code: 'FGIS_GRAIN_READ_TRANSPORT_DISABLED',
       retryable: false,
