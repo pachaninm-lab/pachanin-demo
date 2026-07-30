@@ -1,0 +1,67 @@
+name: TEMP PC-CROP-10C denial audit finalization
+
+on:
+  push:
+    branches:
+      - agent/pc-crop-10c-tenant-authorized-read-adapter
+    paths:
+      - .github/workflows/temp-pc-crop-10c-denial-audit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-10c-tenant-authorized-read-adapter
+          fetch-depth: 0
+      - name: Commit durable denial facts and remove launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts')
+          source = path.read_text()
+          replacements = [
+            (
+              'if (replay) return { replay, context, authorization: null, configuration: null } as const;',
+              'if (replay) return { replay, context, authorization: null, configuration: null, denial: null } as const;',
+            ),
+            (
+              "          throw new ForbiddenException('FGIS Grain read authorization is not externally attested');",
+              "          return { replay: null, context, authorization: null, configuration: null, denial: 'FGIS Grain read authorization is not externally attested' } as const;",
+            ),
+            (
+              "          throw new ForbiddenException('FGIS Grain read authorization or attestation expired');",
+              "          await this.writeAudit(tx, context, {\n            authorizationId: authorization.id,\n            configurationId: authorization.configurationId,\n            operationCode: input.operationCode,\n            correlationId: input.correlationId,\n            idempotencyKey: input.idempotencyKey,\n            requestReference: input.requestReference,\n            requestSha256: input.requestSha256,\n            decision: 'DENIED',\n            reasonCode: 'AUTHORIZATION_OR_ATTESTATION_EXPIRED',\n          });\n          return { replay: null, context, authorization: null, configuration: null, denial: 'FGIS Grain read authorization or attestation expired' } as const;",
+            ),
+            (
+              "          throw new ForbiddenException('Operation is outside tenant authorization');",
+              "          return { replay: null, context, authorization: null, configuration: null, denial: 'Operation is outside tenant authorization' } as const;",
+            ),
+            (
+              '        return { replay: null, context, authorization, configuration } as const;',
+              '        return { replay: null, context, authorization, configuration, denial: null } as const;',
+            ),
+            (
+              '    if (preflight.replay) return this.replayReceipt(preflight.replay, input);\n    if (!preflight.authorization || !preflight.configuration) {',
+              '    if (preflight.replay) return this.replayReceipt(preflight.replay, input);\n    if (preflight.denial) throw new ForbiddenException(preflight.denial);\n    if (!preflight.authorization || !preflight.configuration) {',
+            ),
+          ]
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'denial replacement anchor count {count}: {old[:100]}')
+              source = source.replace(old, new)
+          path.write_text(source)
+          PY
+          rm .github/workflows/temp-pc-crop-10c-denial-audit.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts .github/workflows/temp-pc-crop-10c-denial-audit.yml
+          git commit -m 'PC-CROP-10C: persist denied read decisions before response'
+          git push origin HEAD:agent/pc-crop-10c-tenant-authorized-read-adapter
