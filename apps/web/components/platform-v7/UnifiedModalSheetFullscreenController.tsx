@@ -10,15 +10,19 @@ type SheetConfig = {
   closeSelector: string;
   scrollSelector: string;
   alignAnswers?: boolean;
+  nativeFullscreen?: boolean;
+  publicAssistantBranding?: boolean;
 };
 
 const SHEETS: SheetConfig[] = [
   {
     panelSelector: '.pc-public-assistant-panel',
     headerSelector: '.pc-public-assistant-header',
-    closeSelector: '.pc-public-assistant-icon-button',
+    closeSelector: '.pc-public-assistant-header > .pc-public-assistant-icon-button:last-child',
     scrollSelector: '.pc-public-assistant-messages',
     alignAnswers: true,
+    nativeFullscreen: true,
+    publicAssistantBranding: true,
   },
   {
     panelSelector: '.p7-support-chat-panel',
@@ -34,6 +38,12 @@ const LABELS: Record<Locale, { expand: string; collapse: string }> = {
   zh: { expand: '全屏显示', collapse: '退出全屏' },
 };
 
+const PUBLIC_ASSISTANT_BRANDING: Record<Locale, { title: string; subtitle: string }> = {
+  ru: { title: 'ИИ в агробизнесе', subtitle: 'разработан Прозрачной Ценой' },
+  en: { title: 'AI for agribusiness', subtitle: 'developed by Transparent Price' },
+  zh: { title: '农业商业人工智能', subtitle: '由“透明价格”开发' },
+};
+
 function resolveLocale(): Locale {
   const query = new URLSearchParams(window.location.search).get('lang');
   if (query === 'en' || query === 'zh') return query;
@@ -41,6 +51,17 @@ function resolveLocale(): Locale {
   if (lang.startsWith('en')) return 'en';
   if (lang.startsWith('zh')) return 'zh';
   return 'ru';
+}
+
+function applyPublicAssistantBranding(panel: HTMLElement) {
+  const identity = panel.querySelector<HTMLElement>('.pc-public-assistant-identity');
+  const title = identity?.querySelector<HTMLElement>('#pc-public-assistant-title');
+  const subtitle = identity?.querySelector<HTMLElement>('div > span');
+  if (!title || !subtitle) return;
+
+  const copy = PUBLIC_ASSISTANT_BRANDING[resolveLocale()];
+  title.textContent = copy.title;
+  subtitle.textContent = copy.subtitle;
 }
 
 function updateButton(button: HTMLButtonElement, expanded: boolean) {
@@ -89,6 +110,17 @@ function enhanceSheet(panel: HTMLElement, config: SheetConfig) {
   if (!header || !close) return () => undefined;
 
   panel.dataset.pcFullscreenEnhanced = 'true';
+  if (config.publicAssistantBranding) applyPublicAssistantBranding(panel);
+
+  const cleanupAnswerAlignment = config.alignAnswers ? alignLatestAssistantAnswer(panel) : () => undefined;
+
+  if (config.nativeFullscreen) {
+    return () => {
+      cleanupAnswerAlignment();
+      delete panel.dataset.pcFullscreenEnhanced;
+    };
+  }
+
   panel.dataset.pcFullscreen = 'false';
 
   const button = document.createElement('button');
@@ -111,7 +143,6 @@ function enhanceSheet(panel: HTMLElement, config: SheetConfig) {
 
   button.addEventListener('click', onToggle);
   header.insertBefore(button, close);
-  const cleanupAnswerAlignment = config.alignAnswers ? alignLatestAssistantAnswer(panel) : () => undefined;
 
   return () => {
     cleanupAnswerAlignment();
