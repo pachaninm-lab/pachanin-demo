@@ -245,10 +245,11 @@ function validatePostgres(schema, migration, repository) {
     migration.includes('"leaseExpiresAt"')
       && migration.includes('"leaseGeneration"')
       && migration.includes('"transportStartedAt"')
+      && migration.includes('"leaseExpiresAt" = statement_timestamp() + interval \'2 minutes\'')
       && migration.includes('fgis_grain_tenant_read_claim_active_fingerprint_key')
       && migration.includes("'PROVIDER_READ_CLAIM_RECOVERED'")
       && repository.includes('recoverProviderClaim('),
-    'unstarted abandoned claims or active-request quarantine are incomplete',
+    'transport-start lease refresh, abandoned-claim recovery, or active-request quarantine is incomplete',
   );
   check(
     migration.includes("p_valid_until > statement_timestamp() + interval '90 days'")
@@ -289,9 +290,15 @@ function validatePostgres(schema, migration, repository) {
   check(
     authorizationCommand.includes('append_fgis_grain_tenant_read_audit_internal')
       && attestationCommand.includes('append_fgis_grain_tenant_read_audit_internal')
+      && authorizationCommand.includes("'fgis-grain-tenant-read-authorization-command.v1'")
+      && attestationCommand.includes("'fgis-grain-tenant-read-attestation-command.v1'")
+      && authorizationCommand.includes('audit_request_sha256,')
+      && attestationCommand.includes('audit_request_sha256,')
+      && !authorizationCommand.includes('    p_audit_request_sha256,\n')
+      && !attestationCommand.includes('    p_audit_request_sha256,\n')
       && !repository.includes("decision: 'AUTHORIZED'")
       && !repository.includes("decision: 'ATTESTED'"),
-    'authorization or attestation state can commit without its database-owned audit',
+    'authorization or attestation state or payload digest can commit outside its database-owned audit',
   );
   check(
     attestationCommand.includes('"tenantReadTransportAdmittedVersion"')
@@ -384,8 +391,10 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('fgis_grain_tenant_read_audit_heads'), 'PostgreSQL E2E does not prove monotonic chain-head state');
   check(e2e.includes('rejects direct database attestation while transport admission is absent'), 'PostgreSQL E2E does not prove database transport admission');
   check(e2e.includes('separates runtime claim minting from dedicated transport finalization'), 'PostgreSQL E2E does not prove terminal authority separation');
+  check(e2e.includes('refreshes the transport lease'), 'PostgreSQL E2E does not prove transport-start lease renewal');
   check(e2e.includes('serializes terminal outcomes'), 'PostgreSQL E2E does not prove terminal outcome serialization');
   check(e2e.includes('rejects unsafe request and provider result references before immutable storage or response'), 'PostgreSQL E2E does not prove request/result reference safety');
+  check(e2e.includes('callerOwned: false'), 'PostgreSQL E2E does not prove database-owned command payload digests');
   check(e2e.includes('cancels a stalled provider read before lease expiry'), 'PostgreSQL E2E does not prove deadline cancellation before claim recovery');
   check(e2e.includes('preserves a provider completion acknowledged immediately after the deadline abort'), 'PostgreSQL E2E does not prove post-abort completion preservation');
   check(e2e.includes('keeps an unconfirmed cancellation in flight and blocks a new-key duplicate'), 'PostgreSQL E2E does not prove unconfirmed-cancellation quarantine');

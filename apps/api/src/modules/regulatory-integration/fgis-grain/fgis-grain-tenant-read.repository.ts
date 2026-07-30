@@ -552,22 +552,20 @@ export class FgisGrainTenantReadRepository {
       });
     }
 
-    let result: FgisGrainTenantReadTransportResult;
+    let rawResult: FgisGrainTenantReadTransportResult;
     try {
-      result = assertFgisGrainTenantReadTransportResult(
-        await this.executeTransportWithDeadline({
-          operationCode: input.operationCode,
-          requestReference: input.requestReference,
-          requestSha256: input.requestSha256,
-          correlationId: input.correlationId,
-          configuration: {
-            endpointReference: preflight.configuration.endpointReference,
-            tlsPolicyReference: preflight.configuration.tlsPolicyReference,
-            credentialReference: preflight.configuration.credentialReference,
-            environment: preflight.configuration.environment,
-          },
-        }),
-      );
+      rawResult = await this.executeTransportWithDeadline({
+        operationCode: input.operationCode,
+        requestReference: input.requestReference,
+        requestSha256: input.requestSha256,
+        correlationId: input.correlationId,
+        configuration: {
+          endpointReference: preflight.configuration.endpointReference,
+          tlsPolicyReference: preflight.configuration.tlsPolicyReference,
+          credentialReference: preflight.configuration.credentialReference,
+          environment: preflight.configuration.environment,
+        },
+      });
     } catch (error) {
       if (error instanceof FgisGrainTenantReadCancellationUnconfirmedException) {
         throw error;
@@ -589,6 +587,10 @@ export class FgisGrainTenantReadRepository {
       throw error;
     }
 
+    // A fulfilled provider call may already have caused the external read. If its
+    // metadata is unsafe or malformed, keep the started claim quarantined instead
+    // of recording FAILED and releasing the active-request fingerprint.
+    const result = assertFgisGrainTenantReadTransportResult(rawResult);
     await this.outcomeAuthority.finalize(
       preflight.claim,
       result,

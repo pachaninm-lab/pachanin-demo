@@ -627,6 +627,7 @@ AS $function$
 DECLARE
   current_row public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
   next_version bigint;
+  audit_request_sha256 text;
 BEGIN
   IF session_user NOT IN ('app_runtime', 'app_service')
      AND NOT COALESCE((
@@ -683,6 +684,24 @@ BEGIN
     RAISE EXCEPTION 'FGIS Grain provider authority is missing or stale'
       USING ERRCODE = '42501';
   END IF;
+
+  -- The caller-provided digest remains in the stable command signature only for
+  -- compatibility. PostgreSQL binds immutable evidence to the exact state
+  -- transition facts and never trusts p_audit_request_sha256.
+  audit_request_sha256 := encode(public.digest(convert_to(jsonb_build_object(
+    'schemaVersion', 'fgis-grain-tenant-read-authorization-command.v1',
+    'authorizationId', p_authorization_id,
+    'configurationId', p_configuration_id,
+    'configurationVersion', p_configuration_version::text,
+    'allowedOperations', to_jsonb(p_allowed_operations),
+    'authorizationReference', p_authorization_reference,
+    'validUntil', to_char(
+      p_valid_until AT TIME ZONE 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+    ),
+    'reason', p_reason,
+    'expectedVersion', p_expected_version::text
+  )::text, 'UTF8'), 'sha256'), 'hex');
 
   IF p_expected_version IS NULL THEN
     INSERT INTO public."fgis_grain_tenant_read_authorizations" (
@@ -747,7 +766,7 @@ BEGIN
     p_audit_idempotency_key,
     p_audit_idempotency_key,
     p_authorization_reference,
-    p_audit_request_sha256,
+    audit_request_sha256,
     'AUTHORIZED',
     'TENANT_READ_AUTHORIZATION_RECORDED',
     NULL,
@@ -779,6 +798,7 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   current_row public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
+  audit_request_sha256 text;
 BEGIN
   IF session_user NOT IN ('app_runtime', 'app_service')
      AND NOT COALESCE((
@@ -843,6 +863,22 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  -- As above, the compatibility argument is deliberately ignored: PostgreSQL
+  -- derives the evidence fingerprint from the transition it is about to commit.
+  audit_request_sha256 := encode(public.digest(convert_to(jsonb_build_object(
+    'schemaVersion', 'fgis-grain-tenant-read-attestation-command.v1',
+    'authorizationId', p_authorization_id,
+    'expectedVersion', p_expected_version::text,
+    'configurationId', current_row."configurationId",
+    'configurationVersion', current_row."configurationVersion"::text,
+    'evidenceReference', p_evidence_reference,
+    'validUntil', to_char(
+      p_valid_until AT TIME ZONE 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+    ),
+    'justification', p_justification
+  )::text, 'UTF8'), 'sha256'), 'hex');
+
   UPDATE public."fgis_grain_tenant_read_authorizations"
   SET "status" = 'READ_ONLY_ATTESTED',
       "attestationEvidenceReference" = p_evidence_reference,
@@ -877,7 +913,7 @@ BEGIN
     p_audit_idempotency_key,
     p_audit_idempotency_key,
     p_evidence_reference,
-    p_audit_request_sha256,
+    audit_request_sha256,
     'ATTESTED',
     'EXTERNAL_READ_EVIDENCE_RECORDED',
     NULL,
@@ -1165,7 +1201,8 @@ BEGIN
   END IF;
 
   UPDATE public."fgis_grain_tenant_read_provider_claims"
-  SET "transportStartedAt" = clock_timestamp()
+  SET "transportStartedAt" = clock_timestamp(),
+      "leaseExpiresAt" = statement_timestamp() + interval '2 minutes'
   WHERE "id" = claim."id"
     AND "completedAuditId" IS NULL
     AND "transportStartedAt" IS NULL
@@ -1659,9 +1696,11 @@ BEGIN
      AND OLD."transportStartedAt" IS NULL
      AND NEW."transportStartedAt" IS NOT NULL
      AND NEW."transportStartedAt" >= OLD."createdAt"
-     AND NEW."transportStartedAt" < OLD."leaseExpiresAt"
+     AND NEW."transportStartedAt" < NEW."leaseExpiresAt"
      AND NEW."completionTokenSha256" IS NOT DISTINCT FROM OLD."completionTokenSha256"
-     AND NEW."leaseExpiresAt" IS NOT DISTINCT FROM OLD."leaseExpiresAt"
+     AND NEW."leaseExpiresAt" > OLD."leaseExpiresAt"
+     AND NEW."leaseExpiresAt" > statement_timestamp()
+     AND NEW."leaseExpiresAt" <= statement_timestamp() + interval '2 minutes'
      AND NEW."leaseGeneration" IS NOT DISTINCT FROM OLD."leaseGeneration"
   THEN
     RETURN NEW;
