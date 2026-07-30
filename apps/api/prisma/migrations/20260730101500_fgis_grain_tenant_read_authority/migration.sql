@@ -1,12 +1,12 @@
-CREATE OR REPLACE FUNCTION public.text_array_has_unique_elements(values text[])
+CREATE OR REPLACE FUNCTION public.text_array_has_unique_elements(items text[])
 RETURNS boolean
 LANGUAGE sql
 IMMUTABLE
 PARALLEL SAFE
 AS $function$
-  SELECT cardinality(values) = (
+  SELECT cardinality(items) = (
     SELECT count(DISTINCT value)::integer
-    FROM unnest(values) AS item(value)
+    FROM unnest(items) AS item(value)
   );
 $function$;
 
