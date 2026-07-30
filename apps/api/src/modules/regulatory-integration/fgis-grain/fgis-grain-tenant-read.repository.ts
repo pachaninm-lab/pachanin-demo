@@ -230,7 +230,7 @@ export class FgisGrainTenantReadRepository {
           const updated = await tx.$executeRaw(Prisma.sql`
             UPDATE public."fgis_grain_tenant_read_authorizations"
             SET "configurationVersion" = ${BigInt(input.configurationVersion)},
-                "allowedOperations" = ${input.allowedOperations}::text[],
+                "allowedOperations" = ARRAY[${Prisma.join(input.allowedOperations)}]::text[],
                 "authorizationReference" = ${input.authorizationReference},
                 "status" = 'AUTHORIZED_NOT_ATTESTED',
                 "validUntil" = ${new Date(input.validUntil)},
@@ -256,7 +256,7 @@ export class FgisGrainTenantReadRepository {
             ) VALUES (
               ${authorizationId}, ${context.tenantId}, ${context.orgId},
               ${input.configurationId}, ${BigInt(input.configurationVersion)},
-              ${input.allowedOperations}::text[], ${input.authorizationReference},
+              ARRAY[${Prisma.join(input.allowedOperations)}]::text[], ${input.authorizationReference},
               'AUTHORIZED_NOT_ATTESTED', ${new Date(input.validUntil)}, ${input.reason},
               0, ${context.userId}, ${context.userId}
             )
