@@ -157,4 +157,5 @@ jobs:
           name: qwen-live-ui-final-${{ github.run_id }}
           path: ${{ runner.temp }}/qwen-live-ui-final
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 7
