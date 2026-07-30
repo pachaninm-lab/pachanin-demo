@@ -278,7 +278,7 @@ describe('restricted public Qwen route', () => {
     expect(frames[2]).toMatchObject({ complete: false });
   });
 
-  it('refuses with FEATURE_DISABLED so the UI can truthfully label the knowledge fallback', async () => {
+  it('returns verified grounding immediately when the model runtime is disabled', async () => {
     process.env.TAI_RESTRICTED_QWEN_PUBLIC_ENABLED = 'false';
     const fetchMock = vi.fn();
     Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock });
@@ -287,12 +287,16 @@ describe('restricted public Qwen route', () => {
     const frames = parseFrames(await (await POST(request())).text());
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'error', 'done']);
-    expect(frames[1]).toMatchObject({ refusal: 'FEATURE_DISABLED' });
-    expect(frames[2]).toMatchObject({ complete: false });
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'citation', 'token', 'assessment', 'done']);
+    expect(String(frames[2].text)).toContain('Сделка');
+    expect(JSON.parse(String(frames[3].summary))).toMatchObject({
+      source: 'verified_knowledge',
+      safetyFlags: ['MODEL_RUNTIME_UNAVAILABLE'],
+    });
+    expect(frames[4]).toMatchObject({ complete: true });
   });
 
-  it('does not substitute a generated answer when the internal API fails', async () => {
+  it('returns verified grounding instead of a technical error when the internal API fails', async () => {
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
       writable: true,
@@ -302,9 +306,13 @@ describe('restricted public Qwen route', () => {
     const { POST } = await loadRoute();
     const frames = parseFrames(await (await POST(request())).text());
 
-    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'error', 'done']);
-    expect(frames[1]).toMatchObject({ refusal: 'UPSTREAM_ERROR' });
-    expect(frames[2]).toMatchObject({ complete: false });
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'citation', 'token', 'assessment', 'done']);
+    expect(String(frames[2].text)).toContain('Сделка');
+    expect(JSON.parse(String(frames[3].summary))).toMatchObject({
+      source: 'verified_knowledge',
+      safetyFlags: ['MODEL_FAST_FALLBACK'],
+    });
+    expect(frames[4]).toMatchObject({ complete: true });
   });
 
   it('preserves the original public route cross-site denial before model execution', async () => {
