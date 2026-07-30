@@ -13,7 +13,7 @@
 // Exact-main retry after binding Chromium subtitle acceptance to the stable public-assistant data attribute; runtime configuration is unchanged.
 // Exact-main release after moving approved public AI branding into the canonical React source; runtime routing is unchanged.
 // Exact-main push activation for DOM-safe public AI identity after workflow-dispatch actor rejection; runtime configuration is unchanged.
-// Exact-main trusted push publishes the approved DOM-safe public AI after the completed PC-CROP project lock; runtime configuration is unchanged.
+// Exact-main trusted push publishes the approved DOM-safe public AI after finalized PC-CROP lock maintenance; runtime configuration is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
