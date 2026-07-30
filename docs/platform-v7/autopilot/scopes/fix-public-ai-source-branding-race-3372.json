@@ -7,7 +7,6 @@
   "purpose": "Eliminate the public AI branding hydration race by making the source React copy identical to the approved controller identity before first render, then trigger the exact REG.RU release chain.",
   "approvedBy": "owner-direct-urgent-production-fix-2026-07-30",
   "allowedPaths": [
-    ".github/workflows/one-shot-fix-public-ai-source-branding.yml",
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
     "apps/web/next.config.js",
