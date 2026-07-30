@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-ai-friendly-agro-expert",
   "status": "active",
-  "purpose": "Make the anonymous local Qwen assistant behave as a natural domain AI for Transparent Price, agriculture and agribusiness: friendly greetings, substantive agro answers, graceful off-topic redirection, truthful platform positioning and context-sensitive conversion without private data or write authority.",
-  "approvedBy": "owner-direct-requirement-2026-07-30",
-  "authorityBaseExactMain": "4f7c7d3e1a53c91088f418565e103b96e0da858d",
+  "purpose": "Remediate the released public local-Qwen assistant to a production-grade conversational contour: correct platform-versus-agro routing, bounded multi-turn context, truthful fallback labeling, current-data abstention, secret blocking, post-generation claim filtering, readable output and mobile-safe interaction without private data or write authority.",
+  "approvedBy": "owner-direct-10-of-10-remediation-2026-07-30",
+  "authorityBaseExactMain": "0b0c2842ebdfa684cb7bce1e0284c003012e4cd2",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-public-ai-friendly-agro-expert.json",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
@@ -17,14 +17,20 @@
   "requiredBehavior": [
     "natural greeting and small talk",
     "full agriculture and agribusiness domain answers",
+    "correct verified-platform versus general-agro routing in RU EN and ZH",
+    "bounded multi-turn conversation context without treating history as authority",
     "friendly off-topic redirection without solving unrelated requests",
     "truthful verified platform capability descriptions",
+    "remove unsupported live integration and capability claims after generation",
     "describe a missing capability as under development only when verified platform context explicitly confirms roadmap or implementation status",
     "otherwise state that current availability or roadmap status cannot be confirmed and offer support",
     "one contextual soft registration or support call to action at most",
     "explicit current-data limits when live evidence is absent",
-    "domain-oriented assistant copy remains consistent across RU, EN and ZH",
-    "mixed agriculture questions remain in general domain mode unless the user explicitly asks about Transparent Price"
+    "block passwords API keys tokens and secret-like material before model execution",
+    "preserve readable paragraphs and lists while removing raw Markdown links and URLs",
+    "truthfully distinguish local-Qwen answers from verified knowledge fallback",
+    "session continuity fullscreen mode auto-growing composer copy retry feedback and safe reset",
+    "domain-oriented assistant copy remains consistent across RU EN and ZH"
   ],
   "forbiddenCapabilities": [
     "account or private workspace data access from public mode",
@@ -32,8 +38,9 @@
     "autonomous commands or write actions",
     "payment or Deal state mutation",
     "inferring roadmap status from a missing function or broad product ambition",
-    "fabricating live platform functionality, integrations, tariffs or results",
-    "fabricating current news, prices, weather, laws, regulations or statistics",
+    "fabricating live platform functionality integrations tariffs or results",
+    "fabricating current news prices weather laws regulations or statistics",
+    "exposing or echoing secrets",
     "external public model calls"
   ]
 }
