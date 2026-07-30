@@ -3,8 +3,8 @@
   "branch": "fix/public-ai-branding-cleanup-20260730",
   "status": "active",
   "issue": 3450,
-  "baseCommit": "57262ed76487edb56f498c39a257b8868b5187d4",
-  "operationalStatus": "PUBLIC_AI_PRODUCTION_SAFETY_HOTFIX_FINAL_GATES_RUNNING",
+  "baseCommit": "b1fc1686ab82008d0e2ba0cb90fa1df2c15a9abb",
+  "operationalStatus": "PUBLIC_AI_PRODUCTION_SAFETY_HOTFIX_SYNCHRONIZED_FINAL_GATES_RUNNING",
   "approvedBy": "owner-direct-implement-2026-07-30",
   "allowedPaths": [
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
