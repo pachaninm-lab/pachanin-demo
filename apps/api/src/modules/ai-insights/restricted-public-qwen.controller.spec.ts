@@ -7,10 +7,15 @@ import { createHash, createHmac } from 'node:crypto';
 import {
   RestrictedPublicQwenController,
   canonicalJson,
+  redactPublicModelInternals,
+  stripInternalModelTrace,
   verifyInternalSignature,
   verifyPublicSourceBoundary,
 } from './restricted-public-qwen.controller';
-import type { RestrictedPublicQwenService } from './restricted-public-qwen.service';
+import type {
+  RestrictedPublicQwenResponse,
+  RestrictedPublicQwenService,
+} from './restricted-public-qwen.service';
 
 const SECRET = 's'.repeat(64);
 const NOW = 1_785_283_200;
@@ -32,6 +37,23 @@ function signedHeaders(body: unknown, timestamp = NOW) {
     'x-tai-signature-version': 'tai-public-qwen.v1',
     'x-tai-timestamp': timestampText,
     'x-tai-signature': createHmac('sha256', SECRET).update(signed, 'utf8').digest('hex'),
+  };
+}
+
+function modelResponse(answer: string): RestrictedPublicQwenResponse {
+  return {
+    answer,
+    provider: 'openai-compatible',
+    modelIdentity: 'tai-qwen3-8b-q4km',
+    latencyMs: 12,
+    promptTokens: 10,
+    completionTokens: 20,
+    operationalStatus: 'NOT_ATTESTED',
+    mode: 'read_only',
+    answerMode: 'general_agro',
+    finishReason: 'stop',
+    truncated: false,
+    safetyFlags: [],
   };
 }
 
@@ -89,6 +111,43 @@ describe('restricted public Qwen HMAC authority', () => {
         },
       })).toThrow(BadRequestException);
     }
+  });
+
+  it('removes tagged reasoning, fenced tool traces and channel analysis', () => {
+    const raw = [
+      '<think>Внутренние рассуждения и служебный план.</think>',
+      '```tool_trace',
+      '{"tool":"internal","status":"debug"}',
+      '```',
+      '<|channel|>analysis<|message|>Скрытая служебная проверка.<|channel|>final<|message|>',
+      'На цену зерна влияют качество, базис поставки, логистика и рыночный баланс.',
+    ].join('\n');
+
+    const visible = stripInternalModelTrace(raw);
+
+    expect(visible).toBe('На цену зерна влияют качество, базис поставки, логистика и рыночный баланс.');
+    expect(visible).not.toContain('рассуждения');
+    expect(visible).not.toContain('tool_trace');
+    expect(visible).not.toContain('analysis');
+    expect(visible).not.toContain('{"tool"');
+  });
+
+  it('cuts an unclosed internal block without deleting the completed visible answer', () => {
+    expect(stripInternalModelTrace(
+      'Проверенный ответ для пользователя.\n<thinking>Незавершённый внутренний процесс',
+    )).toBe('Проверенный ответ для пользователя.');
+  });
+
+  it('records redaction and fails closed when no public answer remains', () => {
+    const result = redactPublicModelInternals(modelResponse(
+      '<reasoning>Скрытый разбор.</reasoning>\nГотовый публичный ответ.',
+    ));
+
+    expect(result.answer).toBe('Готовый публичный ответ.');
+    expect(result.safetyFlags).toContain('INTERNAL_REASONING_REMOVED');
+    expect(() => redactPublicModelInternals(modelResponse(
+      '<analysis>Только внутренняя логика.</analysis>',
+    ))).toThrow(ServiceUnavailableException);
   });
 
   it('invokes the model service only after signature and source verification', async () => {
