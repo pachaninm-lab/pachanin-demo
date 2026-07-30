@@ -48,6 +48,15 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain('display: none !important');
   });
 
+  it('preserves reset through an accessible proxy without adding header clutter', () => {
+    expect(controllerSource).toContain("ru: 'Новый диалог'");
+    expect(controllerSource).toContain("resetProxy.className = 'pc-public-assistant-reset-proxy'");
+    expect(controllerSource).toContain("resetProxy.dataset.pcPublicAssistantResetProxy = 'true'");
+    expect(controllerSource).toContain("panel.querySelector<HTMLButtonElement>('.pc-public-assistant-header-action')?.click()");
+    expect(controllerSource).toContain('if (resetProxy.nextElementSibling !== form) form.before(resetProxy)');
+    expect(controllerSource).toMatch(/return \(\) => \{[\s\S]*removeResetProxy\(\);[\s\S]*removeWatchdogError\(\);/u);
+  });
+
   it('enforces a mobile-safe header layout without clipping or button collision', () => {
     expect(controllerSource).toContain('@media (max-width: 430px)');
     expect(controllerSource).toContain('grid-template-columns: minmax(0, 1fr) 42px 42px !important');
@@ -116,17 +125,37 @@ describe('public assistant production-safe UI', () => {
     expect(stripPublicAssistantInternalArtifacts(arrayRoot)).toBe('Ответ пользователю.');
   });
 
-  it('preserves ordinary JSON including braces and escaped quotes inside strings', () => {
-    const answer = 'Показатели: {"protein":12.5,"note":"скобки {сохраняются} и \\"кавычки\\""}.';
-    expect(stripPublicAssistantInternalArtifacts(answer)).toBe(answer);
+  it('preserves ordinary and agribusiness analysis JSON exactly', () => {
+    const ordinary = 'Показатели: {"protein":12.5,"note":"скобки {сохраняются} и \\"кавычки\\""}.';
+    const analysis = '{"analysis":{"protein":12.5}}';
+
+    expect(stripPublicAssistantInternalArtifacts(ordinary)).toBe(ordinary);
+    expect(stripPublicAssistantInternalArtifacts(analysis)).toBe(analysis);
+    expect(publicSnapshotForDisplay(snapshot('answered', analysis))).toMatchObject({
+      status: 'answered',
+      text: analysis,
+      refusal: null,
+    });
   });
 
-  it('fails closed on incomplete or malformed internal JSON envelopes', () => {
+  it('removes generic reasoning keys only for recognizable scratchpad envelopes', () => {
+    const envelope = '{"analysis":"Сначала вызову инструмент поиска, затем проверю результат.","final":"Ответ"}\nПубличный ответ.';
+    const plain = '{"reasoning":"Содержание белка рассчитано лабораторией"}';
+
+    expect(stripPublicAssistantInternalArtifacts(envelope)).toBe('Публичный ответ.');
+    expect(stripPublicAssistantInternalArtifacts(plain)).toBe(plain);
+  });
+
+  it('fails closed on incomplete, malformed and unquoted hard internal envelopes', () => {
     const incomplete = 'Видимый префикс.\n{"tool_calls":[{"name":"search"';
     const malformed = 'До.\n{"reasoning_content":bad}\nПосле.';
+    const unquoted = 'До.\n{tool_calls:[{"name":"search"}]}\nПосле.';
+    const unquotedIncomplete = 'Префикс.\n{tool_call_id:';
 
     expect(stripPublicAssistantInternalArtifacts(incomplete)).toBe('Видимый префикс.');
     expect(stripPublicAssistantInternalArtifacts(malformed)).toBe('До.\n\nПосле.');
+    expect(stripPublicAssistantInternalArtifacts(unquoted)).toBe('До.\n\nПосле.');
+    expect(stripPublicAssistantInternalArtifacts(unquotedIncomplete)).toBe('Префикс.');
     expect(publicSnapshotForDisplay(snapshot('answered', '{"reasoning_content":"незавершённый')))
       .toMatchObject({ status: 'refused', text: '', refusal: 'ABSTAINED_NO_DATA' });
   });
