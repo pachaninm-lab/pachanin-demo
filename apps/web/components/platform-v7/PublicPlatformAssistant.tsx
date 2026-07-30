@@ -403,6 +403,8 @@ export function PublicPlatformAssistant() {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const messagesRef = React.useRef<HTMLDivElement>(null);
   const abortRef = React.useRef<AbortController | null>(null);
+  const sendingRef = React.useRef(false);
+  const freshConversationRef = React.useRef(false);
   const stickToBottomRef = React.useRef(true);
   const hydratedStorageRef = React.useRef<Locale | null>(null);
   const ui = COPY[locale];
@@ -512,7 +514,11 @@ export function PublicPlatformAssistant() {
 
   const reset = () => {
     if (messages.length > 2 && !window.confirm(ui.resetConfirm)) return;
-    abortRef.current?.abort();
+    const controller = abortRef.current;
+    abortRef.current = null;
+    sendingRef.current = false;
+    freshConversationRef.current = true;
+    controller?.abort();
     setMessages([]);
     setInput('');
     setError('');
@@ -524,8 +530,10 @@ export function PublicPlatformAssistant() {
   };
 
   const stop = () => {
-    abortRef.current?.abort();
+    const controller = abortRef.current;
     abortRef.current = null;
+    sendingRef.current = false;
+    controller?.abort();
     setSending(false);
   };
 
@@ -656,8 +664,9 @@ export function PublicPlatformAssistant() {
 
   const submit = async (value: string) => {
     const normalized = value.replace(/\s+/gu, ' ').trim().slice(0, 1_200);
-    if (!normalized || sending) return;
-    const history = historyFrom(messages);
+    if (!normalized || sendingRef.current) return;
+    const history = freshConversationRef.current ? [] : historyFrom(messages);
+    freshConversationRef.current = false;
     const userMessage: Message = {
       id: messageId('user'),
       role: 'user',
@@ -668,6 +677,7 @@ export function PublicPlatformAssistant() {
     setMessages((current) => [...current, userMessage]);
     setInput('');
     setError('');
+    sendingRef.current = true;
     setSending(true);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -681,9 +691,12 @@ export function PublicPlatformAssistant() {
       if (reason instanceof DOMException && reason.name === 'AbortError') return;
       setError(ui.error);
     } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setSending(false);
-      window.setTimeout(() => textareaRef.current?.focus(), 0);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        sendingRef.current = false;
+        setSending(false);
+        window.setTimeout(() => textareaRef.current?.focus(), 0);
+      }
     }
   };
 
