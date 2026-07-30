@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PC-CROP-10C-3446",
+  "branch": "agent/pc-crop-10c-tenant-authorized-read-adapter",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3446,
+  "activeSlice": "PC-CROP-10C",
+  "baseCommit": "bb18f74bb23901b5556944095dfdabb5a2d1a8da",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "tenant-authorized-read-authority-disabled-by-default",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-10c.yml",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "apps/api/src/modules/regulatory-integration/dto/fgis-grain-tenant-read.dto.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.contract.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.contract.spec.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.transport.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.spec.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.controller.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.controller.spec.ts",
+    "apps/api/test/industrial/fgis-grain-tenant-read.e2e-spec.ts",
+    "scripts/pc-crop-10c/verify.mjs",
+    "docs/platform-v7/autopilot/scopes/pc-crop-10c.json"
+  ],
+  "forbiddenPaths": [
+    "apps/web/**",
+    "apps/landing/**",
+    "packages/**",
+    "pnpm-lock.yaml",
+    "production credentials",
+    "model weights"
+  ],
+  "boundaries": {
+    "providerWriteAllowed": false,
+    "clientSelectedAuthorityAllowed": false,
+    "inlineSecretsAllowed": false,
+    "externalLiveClaimAllowed": false,
+    "transportEnabledByDefault": false,
+    "runtimeDeployment": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false
+  },
+  "requiredBehavior": [
+    "tenant organization actor and role authority are derived only from authenticated server context",
+    "only the nineteen API 1.0.23 operations classified as READ are admissible",
+    "every mutation operation is rejected before PostgreSQL or transport execution",
+    "authorization and immutable audit facts are PostgreSQL-authoritative under forced tenant and organization RLS",
+    "provider configuration is reference-only and requires four fresh independent attestations",
+    "external-read attestation is impossible while the provider transport is disabled",
+    "the default transport performs zero network calls and remains fail closed",
+    "same-tenant outsiders and cross-tenant actors are denied",
+    "idempotency replay cannot change the original operation or request fingerprint",
+    "public and internal status remains NOT_ATTESTED without governed external read evidence"
+  ],
+  "forbiddenCapabilities": [
+    "create update delete acknowledge or any provider mutation",
+    "client supplied tenant organization user role or MFA authority",
+    "credentials tokens certificates private endpoints or payload bytes in source logs audit or responses",
+    "live connected or production-attested claim without external E2E and legal security operations evidence",
+    "TAI Qwen model-host Netlify Vercel Railway or unrelated PC-CROP work"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
