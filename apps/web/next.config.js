@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Exact-main public assistant mobile keyboard and lighter UI release trigger; runtime configuration is unchanged.
 // Exact-main Qwen broad-agro semantic acceptance trigger: substantive market-factor proof.
 // Exact-main Qwen live UI acceptance v2 trigger: hydrated agro assistant.
 // Exact-main Qwen activation retry after public API middleware repair for issue #3372; runtime behavior is unchanged.
