@@ -1291,14 +1291,13 @@ CREATE OR REPLACE FUNCTION public.start_fgis_grain_tenant_read_claim(
   p_claim_id text,
   p_completion_token text
 )
-RETURNS text
+RETURNS TABLE(claim_id text, transport_started_at timestamptz)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
 DECLARE
   claim public."fgis_grain_tenant_read_provider_claims"%ROWTYPE;
-  transport_started_at timestamptz;
 BEGIN
   IF NOT pg_catalog.pg_has_role(
        session_user,
@@ -1361,7 +1360,8 @@ BEGIN
       USING ERRCODE = '40001';
   END IF;
 
-  RETURN claim."id";
+  claim_id := claim."id";
+  RETURN NEXT;
 END;
 $function$;
 
@@ -1747,6 +1747,7 @@ BEGIN
       OR p_response_sha256 IS NULL
       OR p_response_sha256 !~ '^[a-f0-9]{64}$'
       OR p_received_at IS NULL
+      OR p_received_at < claim."transportStartedAt"
       OR p_received_at > finalized_at + interval '5 minutes'
       OR p_received_at < finalized_at - interval '24 hours'
     )

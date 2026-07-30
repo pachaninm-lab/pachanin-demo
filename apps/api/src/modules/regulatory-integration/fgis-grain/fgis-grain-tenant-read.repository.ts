@@ -30,6 +30,7 @@ import {
   FGIS_GRAIN_TENANT_READ_OUTCOME_AUTHORITY,
   FGIS_GRAIN_TENANT_READ_TRANSPORT,
   type FgisGrainTenantReadClaimCapability,
+  type FgisGrainTenantReadClaimStart,
   type FgisGrainTenantReadOutcomeAuthority,
   type FgisGrainTenantReadTransport,
 } from './fgis-grain-tenant-read.transport';
@@ -377,6 +378,8 @@ export class FgisGrainTenantReadRepository {
       user,
       async (tx, context) => {
         await this.lockIdempotency(tx, context, input.idempotencyKey);
+        const prior = await this.findRequestEvent(tx, context, input.idempotencyKey);
+        if (prior) this.assertRequestEventMatches(prior, input);
         const authorization = await this.findAuthorization(tx, context, input.authorizationId);
         if (!authorization) {
           throw new NotFoundException('FGIS Grain read authorization not found');
@@ -384,7 +387,6 @@ export class FgisGrainTenantReadRepository {
         if (authorization.version !== BigInt(input.authorizationVersion)) {
           throw new PreconditionFailedException('Authorization version changed');
         }
-        const prior = await this.findRequestEvent(tx, context, input.idempotencyKey);
         const deny = async (reasonCode: string, message: string) => {
           if (!prior) {
             await this.writeAudit(tx, {
@@ -527,8 +529,12 @@ export class FgisGrainTenantReadRepository {
       throw new ConflictException('FGIS Grain read preflight is incomplete');
     }
 
+    let claimStart: FgisGrainTenantReadClaimStart;
     try {
-      await this.outcomeAuthority.start(preflight.claim);
+      claimStart = await this.outcomeAuthority.start(preflight.claim);
+      if (claimStart.claimId !== preflight.claim.id) {
+        throw new Error('FGIS Grain read claim start binding mismatch');
+      }
     } catch {
       throw new ServiceUnavailableException({
         code: 'FGIS_GRAIN_READ_TRANSPORT_START_NOT_RECORDED',
@@ -575,7 +581,10 @@ export class FgisGrainTenantReadRepository {
     // A fulfilled provider call may already have caused the external read. If its
     // metadata is unsafe or malformed, keep the started claim quarantined instead
     // of recording FAILED and releasing the active-request fingerprint.
-    const result = assertFgisGrainTenantReadTransportResult(rawResult);
+    const result = assertFgisGrainTenantReadTransportResult(
+      rawResult,
+      new Date(claimStart.transportStartedAt),
+    );
     await this.outcomeAuthority.finalize(
       preflight.claim,
       result,

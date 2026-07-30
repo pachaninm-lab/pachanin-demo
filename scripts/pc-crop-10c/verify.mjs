@@ -355,6 +355,7 @@ function validatePostgres(schema, migration, repository) {
       && finalizer.includes("p_reason_code <> 'PROVIDER_READ_SUCCEEDED'")
       && finalizer.includes("p_reason_code <> 'PROVIDER_READ_FAILED'")
       && finalizer.includes('length(p_response_reference) > 522')
+      && finalizer.includes('p_received_at < claim."transportStartedAt"')
       && finalizer.includes('FOR UPDATE')
       && finalizer.includes('claim."completedAuditId" IS NOT NULL')
       && !finalizer.includes('fgis_grain_tenant_read_context_ready')
@@ -415,6 +416,18 @@ function validatePostgres(schema, migration, repository) {
     'claim recovery or reconciliation uses a stale pre-lock lease clock',
   );
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
+  const priorLookup = repository.indexOf('const prior = await this.findRequestEvent');
+  const priorBinding = repository.indexOf(
+    'if (prior) this.assertRequestEventMatches(prior, input);',
+    priorLookup,
+  );
+  const denialEvaluation = repository.indexOf('const deny = async', priorLookup);
+  check(
+    priorLookup >= 0
+      && priorBinding > priorLookup
+      && denialEvaluation > priorBinding,
+    'an existing denied request can bypass exact idempotency-payload matching',
+  );
   check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
   check(repository.includes('completionToken'), 'repository does not retain an opaque claim completion capability');
   check(
@@ -423,6 +436,12 @@ function validatePostgres(schema, migration, repository) {
       && repository.includes('FgisGrainTenantReadCancellationUnconfirmedException')
       && !repository.includes('finalize_fgis_grain_tenant_read_claim'),
     'transport start, cancellation quarantine, or terminal authority boundary is incomplete',
+  );
+  check(
+    migration.includes('RETURNS TABLE(claim_id text, transport_started_at timestamptz)')
+      && repository.includes('new Date(claimStart.transportStartedAt)')
+      && contract.includes('receivedAt.getTime() < transportStartedAtMs'),
+    'provider-result receipt is not bound to the durable claim start fence',
   );
   check(repository.includes('authorizationVersion !== BigInt(input.authorizationVersion)'), 'replay is not bound to the current authorization version');
   check(
@@ -466,6 +485,8 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('cross-tenant') || e2e.includes('BUYER_B'), 'PostgreSQL E2E does not prove cross-tenant denial');
   check(e2e.includes('READ_ONLY_ATTESTED'), 'PostgreSQL E2E does not prove attested read state');
   check(e2e.includes('replayed: true'), 'PostgreSQL E2E does not prove durable replay');
+  check(e2e.includes('before its durable claim start'), 'PostgreSQL E2E does not reject stale provider results');
+  check(e2e.includes('deniedRequest.correlationId}.conflict'), 'PostgreSQL E2E does not reject conflicting denied-request replay');
   check(e2e.includes('immutable'), 'PostgreSQL E2E does not prove audit immutability');
   check(e2e.includes('CREATE_SDIZ'), 'PostgreSQL E2E does not prove provider mutation rejection');
   check(e2e.includes('runtimeVisibleAuthorizationCount'), 'PostgreSQL E2E does not use the restricted runtime principal');

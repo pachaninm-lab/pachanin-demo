@@ -335,6 +335,7 @@ export function assertFgisGrainTenantReadRequestInput(
 
 export function assertFgisGrainTenantReadTransportResult(
   value: unknown,
+  transportStartedAt: Date,
   now = new Date(),
 ): FgisGrainTenantReadTransportResult {
   const row = record(value, 'MALFORMED_TRANSPORT_RESULT');
@@ -370,9 +371,12 @@ export function assertFgisGrainTenantReadTransportResult(
     );
   }
   const receivedAt = new Date(row.receivedAt);
+  const transportStartedAtMs = transportStartedAt.getTime();
   const ageMs = now.getTime() - receivedAt.getTime();
   if (
-    !Number.isFinite(receivedAt.getTime())
+    !Number.isFinite(transportStartedAtMs)
+    || !Number.isFinite(receivedAt.getTime())
+    || receivedAt.getTime() < transportStartedAtMs
     || ageMs < -5 * 60_000
     || ageMs > 24 * 60 * 60_000
   ) {

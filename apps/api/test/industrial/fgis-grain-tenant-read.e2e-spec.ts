@@ -28,6 +28,7 @@ import {
 import { FgisGrainTenantReadRepository } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository';
 import type {
   FgisGrainTenantReadClaimCapability,
+  FgisGrainTenantReadClaimStart,
   FgisGrainTenantReadOutcomeAuthority,
   FgisGrainTenantReadTransport,
   FgisGrainTenantReadTransportControl,
@@ -154,7 +155,10 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
           control.signal.addEventListener('abort', () => resolve(), { once: true });
         });
       }
-      return postAbortResult;
+      return {
+        ...postAbortResult,
+        receivedAt: new Date().toISOString(),
+      };
     }
 
     if (barrier) {
@@ -198,7 +202,7 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
 
   async start(
     claim: FgisGrainTenantReadClaimCapability,
-  ): Promise<string> {
+  ): Promise<FgisGrainTenantReadClaimStart> {
     return startAsTransport(claim);
   }
 }
@@ -469,20 +473,28 @@ async function executeAsTransport(statement: Prisma.Sql): Promise<number> {
 
 async function startAsTransport(
   claim: FgisGrainTenantReadClaimCapability,
-): Promise<string> {
+): Promise<FgisGrainTenantReadClaimStart> {
   return transportPrisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe(
       'SET LOCAL ROLE fgis_grain_read_transport',
     );
-    const rows = await tx.$queryRaw<Array<{ claimId: string }>>(Prisma.sql`
-      SELECT public.start_fgis_grain_tenant_read_claim(
+    const rows = await tx.$queryRaw<Array<{
+      claimId: string;
+      transportStartedAt: Date;
+    }>>(Prisma.sql`
+      SELECT command.claim_id AS "claimId",
+             command.transport_started_at AS "transportStartedAt"
+      FROM public.start_fgis_grain_tenant_read_claim(
         ${claim.id},
         ${claim.completionToken}
-      ) AS "claimId"
+      ) AS command
     `);
-    const claimId = rows[0]?.claimId;
-    if (!claimId) throw new Error('Dedicated transport starter returned no claim id');
-    return claimId;
+    const started = rows[0];
+    if (!started) throw new Error('Dedicated transport starter returned no claim fence');
+    return {
+      claimId: started.claimId,
+      transportStartedAt: started.transportStartedAt.toISOString(),
+    };
   });
 }
 
@@ -567,10 +579,19 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(view.blockers).toContain('EXTERNAL_READ_EVIDENCE_REQUIRED');
     expect(view.operationalStatus).toBe('NOT_ATTESTED');
 
-    await expect(readRepository.execute(
-      BUYER_A,
-      readRequest(authorized.authorizationId, authorized.authorizationVersion, 'before-attestation'),
-    )).rejects.toBeInstanceOf(ForbiddenException);
+    const deniedRequest = readRequest(
+      authorized.authorizationId,
+      authorized.authorizationVersion,
+      'before-attestation',
+    );
+    await expect(
+      readRepository.execute(BUYER_A, deniedRequest),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(readRepository.execute(BUYER_A, {
+      ...deniedRequest,
+      operationCode: 'DICTIONARIES',
+      correlationId: `${deniedRequest.correlationId}.conflict`,
+    })).rejects.toBeInstanceOf(ConflictException);
     expect(transport.calls).toHaveLength(0);
     const denied = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
       SELECT count(*)::bigint AS "count"
@@ -918,6 +939,49 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     await expect(
       readRepository.execute(BUYER_A, retryWithNewKey),
     ).rejects.toBeInstanceOf(ConflictException);
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it('quarantines a provider result received before its durable claim start', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-stale-result/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent evidence admits the claim-start timestamp regression.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'stale-provider-result',
+    );
+    transport.returnNext({
+      providerRequestId: `${RUN_ID}.provider.stale-result`,
+      responseReference: `provider-response://fgis-grain/${request.correlationId}`,
+      responseSha256: 'b'.repeat(64),
+      receivedAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    await expect(
+      readRepository.execute(BUYER_A, request),
+    ).rejects.toMatchObject({ code: 'MALFORMED_TRANSPORT_RESULT' });
+
+    const claims = await prisma.$queryRaw<Array<{
+      started: boolean;
+      completed: boolean;
+    }>>(Prisma.sql`
+      SELECT "transportStartedAt" IS NOT NULL AS "started",
+             "completedAuditId" IS NOT NULL AS "completed"
+      FROM public."fgis_grain_tenant_read_provider_claims"
+      WHERE "requestIdempotencyKey" = ${request.idempotencyKey}
+    `);
+    expect(claims).toEqual([{ started: true, completed: false }]);
     expect(transport.calls).toHaveLength(1);
   });
 
@@ -1439,10 +1503,11 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     await startAsTransport({ id: claimId, completionToken });
     const afterStart = await prisma.$queryRaw<Array<{
       leaseExpiresAt: Date;
+      transportStartedAt: Date;
       remainingLeaseSeconds: number;
       started: boolean;
     }>>(Prisma.sql`
-      SELECT "leaseExpiresAt",
+      SELECT "leaseExpiresAt", "transportStartedAt",
              extract(epoch FROM ("leaseExpiresAt" - "transportStartedAt"))::double precision
                AS "remainingLeaseSeconds",
              "transportStartedAt" IS NOT NULL AS "started"
@@ -1457,6 +1522,19 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       .toBeGreaterThan(beforeStart[0]!.leaseExpiresAt.getTime());
     expect(afterStart[0]!.remainingLeaseSeconds).toBeGreaterThanOrEqual(119);
     expect(afterStart[0]!.remainingLeaseSeconds).toBeLessThanOrEqual(120);
+
+    await expect(executeAsTransport(Prisma.sql`
+      SELECT public.finalize_fgis_grain_tenant_read_claim(
+        ${claimId},
+        ${completionToken},
+        'SUCCEEDED',
+        'PROVIDER_READ_SUCCEEDED',
+        ${`${RUN_ID}.stale-result.provider`},
+        ${`provider-response://stale-result/${RUN_ID}`},
+        ${'b'.repeat(64)},
+        ${new Date(afterStart[0]!.transportStartedAt.getTime() - 1)}
+      )
+    `)).rejects.toThrow(/reference-safe|outcome/iu);
 
     await expect(executeAsTransport(Prisma.sql`
       SELECT public.finalize_fgis_grain_tenant_read_claim(

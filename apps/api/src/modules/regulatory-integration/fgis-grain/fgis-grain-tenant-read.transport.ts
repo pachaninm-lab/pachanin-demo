@@ -23,6 +23,11 @@ export type FgisGrainTenantReadClaimCapability = Readonly<{
   completionToken: string;
 }>;
 
+export type FgisGrainTenantReadClaimStart = Readonly<{
+  claimId: string;
+  transportStartedAt: string;
+}>;
+
 export interface FgisGrainTenantReadTransport {
   readonly available: boolean;
   readonly maxExecutionMs: number;
@@ -38,7 +43,9 @@ export interface FgisGrainTenantReadTransport {
 
 export interface FgisGrainTenantReadOutcomeAuthority {
   readonly available: boolean;
-  start(claim: FgisGrainTenantReadClaimCapability): Promise<string>;
+  start(
+    claim: FgisGrainTenantReadClaimCapability,
+  ): Promise<FgisGrainTenantReadClaimStart>;
   finalize(
     claim: FgisGrainTenantReadClaimCapability,
     result: FgisGrainTenantReadTransportResult | null,
@@ -77,7 +84,7 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
 
   async start(
     _claim: FgisGrainTenantReadClaimCapability,
-  ): Promise<string> {
+  ): Promise<FgisGrainTenantReadClaimStart> {
     throw this.disabled();
   }
 

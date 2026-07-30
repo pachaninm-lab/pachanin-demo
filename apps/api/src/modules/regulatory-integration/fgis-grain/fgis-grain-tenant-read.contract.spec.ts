@@ -120,18 +120,23 @@ describe('FGIS Grain tenant-authorized read contract', () => {
       responseReference: 'provider-response://fgis-grain/responses/response-001.xml',
       responseSha256: 'b'.repeat(64),
       receivedAt: NOW.toISOString(),
-    }, NOW);
+    }, NOW, NOW);
     expect(valid.receivedAt).toBe(NOW.toISOString());
 
     expect(() => assertFgisGrainTenantReadTransportResult({
       ...valid,
       responseReference: 'provider-response://fgis/token=secret',
-    }, NOW)).toThrow(expect.objectContaining({ code: 'INLINE_SECRET_FORBIDDEN' }));
+    }, NOW, NOW)).toThrow(expect.objectContaining({ code: 'INLINE_SECRET_FORBIDDEN' }));
 
     expect(() => assertFgisGrainTenantReadTransportResult({
       ...valid,
       providerRequestId: '<raw-provider-payload>',
-    }, NOW)).toThrow(expect.objectContaining({ code: 'MALFORMED_TRANSPORT_RESULT' }));
+    }, NOW, NOW)).toThrow(expect.objectContaining({ code: 'MALFORMED_TRANSPORT_RESULT' }));
+
+    expect(() => assertFgisGrainTenantReadTransportResult({
+      ...valid,
+      receivedAt: new Date(NOW.getTime() - 1).toISOString(),
+    }, NOW, NOW)).toThrow(expect.objectContaining({ code: 'MALFORMED_TRANSPORT_RESULT' }));
   });
 
   it('accepts only fingerprinted referenced read requests', () => {
