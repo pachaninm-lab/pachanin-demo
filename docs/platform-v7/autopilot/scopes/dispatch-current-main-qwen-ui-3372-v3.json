@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/dispatch-current-main-qwen-ui-20260730-v3",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "49c709d8b7f07adb6827e16e8f3032dd7733d94d",
+  "operationalStatus": "DISPATCH_PUBLIC_AI_SAFETY_EXACT_CURRENT_MAIN_V3",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-exact-image-activation-chain.yml",
+    "docs/platform-v7/autopilot/scopes/dispatch-current-main-qwen-ui-3372-v3.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "the chain cancels superseded Qwen activation runs",
+    "the chain dispatches canonical exact API web migration images for current main",
+    "the accepted REG.RU Qwen activation is dispatched for the same exact current main",
+    "public answers contain no reasoning debug or tool traces",
+    "active requests abort on close backdrop compact Escape timeout and unmount",
+    "live mobile Chromium requires ИИ в агробизнесе and разработан Прозрачной Ценой",
+    "the public AI header contains exactly one native fullscreen control",
+    "authenticated Qwen inference and RU EN ZH SSE must pass",
+    "production remains REG.RU VPS only"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
