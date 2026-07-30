@@ -163,7 +163,7 @@ jobs:
                )
                OR NOT has_function_privilege(
                  'app_runtime',
-                 'public.append_fgis_grain_tenant_read_audit(text,text,bigint,text,text,text,text,text,text,text,text,text,text,text,text,timestamptz,text,text)',
+                 'public.append_fgis_grain_tenant_read_audit(text,text,bigint,text,text,text,text,text,text,text,text,text,text,text,text,timestamptz)',
                  'EXECUTE'
                )
             THEN

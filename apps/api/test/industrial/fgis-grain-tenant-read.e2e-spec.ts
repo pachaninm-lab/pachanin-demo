@@ -482,6 +482,62 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(transport.calls).toHaveLength(1);
   });
 
+  it('records the claimed provider outcome after concurrent reauthorization', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-concurrent-reauthorization/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent read evidence admits the exact claimed provider operation.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'concurrent-reauthorization',
+    );
+    const barrier = transport.blockNext();
+    const execution = readRepository.execute(BUYER_A, request);
+    await barrier.started;
+
+    let reauthorized;
+    try {
+      reauthorized = await authorizeRead(
+        configuration.configurationId,
+        configuration.version,
+      );
+    } finally {
+      barrier.release();
+    }
+    expect(reauthorized.authorizationVersion).not.toBe(attested.authorizationVersion);
+    await expect(execution).resolves.toMatchObject({
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: attested.authorizationVersion,
+      replayed: false,
+    });
+
+    const terminal = await prisma.$queryRaw<Array<{
+      authorizationVersion: bigint;
+      decision: string;
+    }>>(Prisma.sql`
+      SELECT "authorizationVersion", "decision"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "tenantId" = ${TENANT_A}
+        AND "organizationId" = ${ORG_A}
+        AND "requestIdempotencyKey" = ${request.idempotencyKey}
+        AND "decision" IN ('SUCCEEDED', 'FAILED')
+    `);
+    expect(terminal).toEqual([{
+      authorizationVersion: BigInt(attested.authorizationVersion),
+      decision: 'SUCCEEDED',
+    }]);
+  });
+
   it('does not replay a prior success after reauthorization changes the authority version', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(
@@ -675,6 +731,70 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       `,
     );
     expect(latestTenantAudit[0]?.prevHash).toBe(firstTenantAudit[0]?.hash);
+  });
+
+  it('computes every immutable audit hash inside PostgreSQL', async () => {
+    const configuration = await approvedConfiguration();
+    await authorizeRead(configuration.configurationId, configuration.version);
+
+    const signatures = await prisma.$queryRaw<Array<{
+      databaseOwned: string | null;
+      callerHash: string | null;
+    }>>(Prisma.sql`
+      SELECT
+        to_regprocedure(
+          'public.append_fgis_grain_tenant_read_audit(text,text,bigint,text,text,text,text,text,text,text,text,text,text,text,text,timestamptz)'
+        )::text AS "databaseOwned",
+        to_regprocedure(
+          'public.append_fgis_grain_tenant_read_audit(text,text,bigint,text,text,text,text,text,text,text,text,text,text,text,text,timestamptz,text,text)'
+        )::text AS "callerHash"
+    `);
+    expect(signatures[0]?.databaseOwned).toContain(
+      'append_fgis_grain_tenant_read_audit',
+    );
+    expect(signatures[0]?.callerHash).toBeNull();
+
+    const rows = await prisma.$queryRaw<Array<{
+      hash: string;
+      expectedHash: string;
+    }>>(Prisma.sql`
+      SELECT
+        audit."hash",
+        encode(public.digest(convert_to(jsonb_build_object(
+          'id', audit."id",
+          'tenantId', audit."tenantId",
+          'organizationId', audit."organizationId",
+          'authorizationId', audit."authorizationId",
+          'authorizationVersion', audit."authorizationVersion"::text,
+          'configurationId', audit."configurationId",
+          'actorUserId', audit."actorUserId",
+          'actorRole', audit."actorRole",
+          'operationCode', audit."operationCode",
+          'correlationId', audit."correlationId",
+          'idempotencyKey', audit."idempotencyKey",
+          'requestIdempotencyKey', audit."requestIdempotencyKey",
+          'requestReference', audit."requestReference",
+          'requestSha256', audit."requestSha256",
+          'decision', audit."decision",
+          'reasonCode', audit."reasonCode",
+          'providerRequestId', audit."providerRequestId",
+          'responseReference', audit."responseReference",
+          'responseSha256', audit."responseSha256",
+          'receivedAt', CASE
+            WHEN audit."receivedAt" IS NULL THEN NULL
+            ELSE to_char(
+              audit."receivedAt" AT TIME ZONE 'UTC',
+              'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+            )
+          END,
+          'prevHash', audit."prevHash"
+        )::text, 'UTF8'), 'sha256'), 'hex') AS "expectedHash"
+      FROM public."fgis_grain_tenant_read_audits" AS audit
+      WHERE audit."tenantId" = ${TENANT_A}
+        AND audit."organizationId" = ${ORG_A}
+    `);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row.hash).toBe(row.expectedHash);
   });
 
   it('rejects mutation operations before PostgreSQL or transport execution', async () => {
