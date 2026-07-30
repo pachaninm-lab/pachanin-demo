@@ -2,11 +2,11 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "PC-CROP-PROJECT-LOCK-3389",
   "branch": "governance/pc-crop-project-lock-3389",
-  "status": "completed",
+  "status": "active",
   "projectLockId": "PC-CROP-REMAINDER",
   "issue": 3389,
   "activeSlice": null,
-  "baseCommit": "a17138e28471db684d804b706eb01c65964540fb",
+  "baseCommit": "8f01d677108012d2eede6aee866ff4c3fdcf8e42",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "internal-repository-project-completed-external-live-blocked",
   "allowedPaths": [
