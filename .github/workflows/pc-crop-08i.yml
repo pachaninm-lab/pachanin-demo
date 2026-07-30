@@ -3,12 +3,8 @@ name: PC-CROP-08I FGIS Outbound ACK Acceptance
 on:
   pull_request:
     paths:
-      - '.github/workflows/pc-crop-08h.yml'
-      - '.github/workflows/pc-crop-08i.yml'
-      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack*.ts'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.ack-policy.lock.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack.json'
@@ -18,12 +14,8 @@ on:
       - main
       - agent/pc-crop-08i-fgis-outbound-ack
     paths:
-      - '.github/workflows/pc-crop-08h.yml'
-      - '.github/workflows/pc-crop-08i.yml'
-      - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/**'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack*.ts'
-      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/industrial/fgis-grain-ack.e2e-spec.ts'
       - 'docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.ack-policy.lock.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-08i-outbound-ack.json'
