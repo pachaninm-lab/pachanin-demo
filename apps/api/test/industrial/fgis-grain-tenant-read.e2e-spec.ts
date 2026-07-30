@@ -652,7 +652,10 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         NULL,
         NULL
       )
-    `)).rejects.toThrow(/idempotency binding conflicts/iu);
+    `)).rejects.toMatchObject({
+      code: 'P2010',
+      meta: expect.objectContaining({ code: '23505' }),
+    });
     const directDenials = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
       SELECT count(*)::bigint AS "count"
       FROM public."fgis_grain_tenant_read_audits"
