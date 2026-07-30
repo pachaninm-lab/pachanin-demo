@@ -63,4 +63,4 @@ jobs:
           git commit -m 'OPS: trigger exact current-main images and direct REG.RU activation v4'
           git push origin HEAD:ops/dispatch-current-main-qwen-ui-20260730-v4
 
-# trigger 1
+# trigger 2
