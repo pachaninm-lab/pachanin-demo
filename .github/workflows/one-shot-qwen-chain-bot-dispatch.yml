@@ -105,3 +105,5 @@ jobs:
             .github/workflows/one-shot-qwen-chain-bot-dispatch.yml
           git commit -m 'FIX: allow owner-triggered Qwen chain activation'
           git push origin HEAD:fix/qwen-chain-bot-dispatch-3483
+
+# trigger after workflow registration
