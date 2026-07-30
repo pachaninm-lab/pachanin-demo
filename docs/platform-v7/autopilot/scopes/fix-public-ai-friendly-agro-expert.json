@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-ai-friendly-agro-expert",
   "status": "active",
-  "purpose": "Remediate the released public local-Qwen assistant to a production-grade conversational contour: correct platform-versus-agro routing, bounded multi-turn context, truthful fallback labeling, current-data abstention, secret blocking, post-generation claim filtering, readable output and mobile-safe interaction without private data or write authority.",
-  "approvedBy": "owner-direct-10-of-10-remediation-2026-07-30",
-  "authorityBaseExactMain": "0b0c2842ebdfa684cb7bce1e0284c003012e4cd2",
+  "purpose": "Keep the public agribusiness assistant responsive and truthful: use local Qwen when it completes quickly, but return verified grounding directly when the runtime is disabled, unavailable or too slow, without exposing technical outage labels.",
+  "approvedBy": "owner-direct-implement-2026-07-31",
+  "authorityBaseExactMain": "4c374a12e8305f89fe9088ae0c364059effd4230",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-public-ai-friendly-agro-expert.json",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
@@ -21,6 +21,10 @@
     "bounded multi-turn conversation context without treating history as authority",
     "friendly off-topic redirection without solving unrelated requests",
     "truthful verified platform capability descriptions",
+    "when the restricted model runtime is disabled or misconfigured the verified grounding is returned in the same stream without a second browser request",
+    "when the model call fails or exceeds the short first-answer deadline the verified grounding is returned instead of a technical error",
+    "public users never see model-runtime outage or fallback implementation labels",
+    "the model first-answer wait is bounded to eight seconds even if the upstream runtime timeout is longer",
     "remove unsupported live integration and capability claims after generation",
     "describe a missing capability as under development only when verified platform context explicitly confirms roadmap or implementation status",
     "otherwise state that current availability or roadmap status cannot be confirmed and offer support",
@@ -28,8 +32,7 @@
     "explicit current-data limits when live evidence is absent",
     "block passwords API keys tokens and secret-like material before model execution",
     "preserve readable paragraphs and lists while removing raw Markdown links and URLs",
-    "truthfully distinguish local-Qwen answers from verified knowledge fallback",
-    "session continuity fullscreen mode auto-growing composer copy retry feedback and safe reset",
+    "session continuity fullscreen mode auto-growing composer copy retry and safe reset",
     "domain-oriented assistant copy remains consistent across RU EN and ZH"
   ],
   "forbiddenCapabilities": [
