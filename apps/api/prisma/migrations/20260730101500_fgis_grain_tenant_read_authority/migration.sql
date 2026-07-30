@@ -68,7 +68,6 @@ CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
         'GET_LIST_SDIZ_ELEVATOR',
         'GET_LIST_VED_CONTRACT'
       ]::text[]
-      AND cardinality("allowedOperations") = cardinality(ARRAY(SELECT DISTINCT unnest("allowedOperations")))
     ),
   CONSTRAINT "fgis_grain_tenant_read_auth_ttl_ck"
     CHECK ("validUntil" > "createdAt"),
