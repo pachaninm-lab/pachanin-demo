@@ -1,0 +1,50 @@
+name: TEMP fix external PostgreSQL Node return
+
+on:
+  push:
+    branches: [fix/external-postgres-node-return-20260730]
+    paths:
+      - '.github/workflows/temp-fix-external-postgres-node-return.yml'
+      - 'docs/platform-v7/autopilot/scopes/temp-fix-external-postgres-node-return-3072.json'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/external-postgres-node-return-20260730
+          fetch-depth: 0
+      - name: Patch illegal top-level return
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+          path = Path('scripts/production-full-stack-exact-sha.sh')
+          text = path.read_text()
+          old = "  fail('EXTERNAL_POSTGRES_EVIDENCE_INPUT_INVALID');\n  return;\n}\n\nconst sha7"
+          new = "  fail('EXTERNAL_POSTGRES_EVIDENCE_INPUT_INVALID');\n  process.exit(1);\n}\n\nconst sha7"
+          if text.count(old) != 1:
+              raise SystemExit('illegal return anchor mismatch')
+          path.write_text(text.replace(old, new))
+          PY
+          rm .github/workflows/temp-fix-external-postgres-node-return.yml
+          rm docs/platform-v7/autopilot/scopes/temp-fix-external-postgres-node-return-3072.json
+          bash -n scripts/production-full-stack-exact-sha.sh
+          git diff --check
+      - name: Commit fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/production-full-stack-exact-sha.sh \
+            .github/workflows/temp-fix-external-postgres-node-return.yml \
+            docs/platform-v7/autopilot/scopes/temp-fix-external-postgres-node-return-3072.json
+          git commit -m 'FIX: remove illegal Node top-level return'
+          git push origin HEAD:fix/external-postgres-node-return-20260730
