@@ -753,9 +753,9 @@ export function PublicPlatformAssistant() {
             style={panelStyle}
           >
             <header className='pc-public-assistant-header'>
-              <div className='pc-public-assistant-identity'>
-                <span className='pc-public-assistant-mark' aria-hidden='true'><Sparkles size={20} /></span>
-                <div><strong id='pc-public-assistant-title'>{ui.title}</strong><span>{ui.subtitle}</span></div>
+              <div className='pc-public-assistant-identity' data-pc-public-assistant-identity='two-lines-only'>
+                <span className='pc-public-assistant-mark' aria-hidden='true' data-pc-public-assistant-ai-mark='true'><Sparkles size={20} /></span>
+                <div className='pc-public-assistant-identity-copy'><strong id='pc-public-assistant-title'>{ui.title}</strong><span data-pc-public-assistant-subtitle='true'>{ui.subtitle}</span></div>
               </div>
               <button
                 type='button'

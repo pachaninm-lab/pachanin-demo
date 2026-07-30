@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ai-branding-dom-root-cause-20260730",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "fd7d2b21132eef3406fa9d079a9e9a0cc0337064",
+  "operationalStatus": "PUBLIC_AI_IDENTITY_DOM_ROOT_CAUSE_FIX_IN_REVIEW",
+  "approvedBy": "owner-direct-finish-without-hanging-2026-07-30",
+  "allowedPaths": [
+    ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
+    "apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-branding-dom-root-cause-20260730.json"
+  ],
+  "boundaries": {
+    "dealOrFinancialAuthorityChange": false,
+    "privateDataAccess": false,
+    "writeAuthority": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionTopologyChange": false
+  },
+  "acceptance": [
+    "the base RU EN and ZH assistant identity matches the approved two-line agribusiness branding before client-side enhancement",
+    "the sanitizer updates only data-pc-public-assistant-subtitle and never writes subtitle copy into the AI mark",
+    "the visible AI mark contains exactly one SVG and no replacement text",
+    "the Russian title is ИИ для агробизнеса and the subtitle is Разработан Прозрачной ценой для сельского хозяйства.",
+    "the restricted activation and semantic workflows serialize on the shared Qwen lock",
+    "controller and base assistant identity changes trigger exact-main REG.RU activation",
+    "RU EN ZH inference and mobile Chromium acceptance remain mandatory",
+    "production remains REG_RU_VPS_ONLY",
+    "the live Chromium assertions wait for the visible stable subtitle node before exact-copy validation"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

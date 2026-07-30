@@ -410,13 +410,13 @@ function enhancePublicAssistant(panel: HTMLElement) {
   };
 
   const scrubPublicUi = () => {
+    enforcePublicAssistantIdentity(panel);
     const identity = panel.querySelector<HTMLElement>('.pc-public-assistant-identity');
     const title = identity?.querySelector<HTMLElement>('#pc-public-assistant-title');
-    const subtitle = identity?.querySelector<HTMLElement>('div > span');
+    const subtitle = identity?.querySelector<HTMLElement>("[data-pc-public-assistant-subtitle='true']");
     const copy = PUBLIC_ASSISTANT_BRANDING[resolveLocale()];
     if (title && title.textContent !== copy.title) title.textContent = copy.title;
     if (subtitle && subtitle.textContent !== copy.subtitle) subtitle.textContent = copy.subtitle;
-    enforcePublicAssistantIdentity(panel);
 
     for (const duplicate of panel.querySelectorAll<HTMLElement>('.pc-modal-sheet-fullscreen-button')) duplicate.remove();
 

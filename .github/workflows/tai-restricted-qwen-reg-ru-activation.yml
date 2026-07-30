@@ -10,6 +10,8 @@ on:
       - 'apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts'
       - 'apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts'
       - 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
+      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+      - 'apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx'
       - 'apps/web/next.config.js'
   workflow_dispatch:
     inputs:
@@ -599,8 +601,13 @@ jobs:
               if ((await title.textContent())?.trim() !== 'ИИ для агробизнеса') throw new Error('approved_title_missing');
               if (await dialog.getByText('ИИ Прозрачной Цены', { exact: true }).count()) throw new Error('legacy_title_present');
               if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Чем помочь?') throw new Error('agro_empty_state_missing');
-              if ((await dialog.locator('[data-pc-public-assistant-subtitle="true"]').textContent())?.trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');
-              if (await dialog.locator('[data-pc-public-assistant-ai-mark="true"]:visible').count() !== 1) throw new Error('ai_mark_count_invalid');
+              const approvedSubtitle = dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible');
+              await approvedSubtitle.waitFor({ state: 'visible', timeout: 30000 });
+              if ((await approvedSubtitle.textContent())?.trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');
+              const aiMark = dialog.locator('[data-pc-public-assistant-ai-mark="true"]:visible');
+              if (await aiMark.count() !== 1) throw new Error('ai_mark_count_invalid');
+              if (await aiMark.locator('svg').count() !== 1) throw new Error('ai_mark_icon_missing');
+              if (((await aiMark.textContent()) || '').trim()) throw new Error('ai_mark_text_present');
               if (await dialog.locator('.pc-modal-sheet-fullscreen-button').count()) throw new Error('duplicate_fullscreen_control_present');
               if (await dialog.getByRole('button', { name: 'Развернуть на весь экран' }).count() !== 1) throw new Error('native_fullscreen_control_count_invalid');
               if (await dialog.getByText('Расскажу, как устроены Сделка, роли, аукцион, логистика, документы, деньги, споры, безопасность и внешние подключения.', { exact: false }).count()) throw new Error('legacy_greeting_present');
