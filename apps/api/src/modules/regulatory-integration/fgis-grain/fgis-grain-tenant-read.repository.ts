@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   ConflictException,
   ForbiddenException,
@@ -116,7 +116,12 @@ type AuditRow = Readonly<{
   reasonCode: string;
 }>;
 
-type AuditPhase = 'CLAIM' | 'DENIED' | 'OUTCOME';
+type AuditPhase = 'CLAIM' | 'DENIED';
+
+type ProviderClaimCapability = Readonly<{
+  id: string;
+  completionToken: string;
+}>;
 
 export interface FgisGrainTenantReadReceipt {
   readonly authorizationId: string;
@@ -230,6 +235,10 @@ export class FgisGrainTenantReadRepository {
         if (current?.status === 'REVOKED') {
           throw new ConflictException('Revoked tenant read authorization cannot be reused');
         }
+        const expectedNextVersion = current ? current.version + 1n : 0n;
+        const auditId = randomUUID();
+        const auditCorrelationId = `authorization:${authorizationId}:${expectedNextVersion}`;
+        const auditIdempotencyKey = `authorization:${authorizationId}:${expectedNextVersion}`;
         const written = await tx.$queryRaw<Array<{ authorizationVersion: bigint }>>(Prisma.sql`
           SELECT command.authorization_version AS "authorizationVersion"
           FROM public.write_fgis_grain_tenant_read_authorization(
@@ -241,6 +250,9 @@ export class FgisGrainTenantReadRepository {
             ${new Date(input.validUntil)},
             ${input.reason},
             ${current?.version ?? null}::bigint,
+            ${auditId},
+            ${auditCorrelationId},
+            ${auditIdempotencyKey},
             ${canonicalFgisGrainTenantReadHash(input)}
           ) AS command
         `);
@@ -304,6 +316,9 @@ export class FgisGrainTenantReadRepository {
             ${input.evidenceReference},
             ${new Date(input.validUntil)},
             ${input.justification},
+            ${randomUUID()},
+            ${`attestation:${authorization.id}:${authorization.version + 1n}`},
+            ${`attestation:${authorization.id}:${authorization.version + 1n}`},
             ${canonicalFgisGrainTenantReadHash(input)}
           ) AS "authorizationVersion"
         `);
@@ -375,6 +390,7 @@ export class FgisGrainTenantReadRepository {
             replay: null,
             authorization: null,
             configuration: null,
+            claim: null,
             denial: message,
             transportDisabled: false,
           } as const;
@@ -427,6 +443,7 @@ export class FgisGrainTenantReadRepository {
             replay: null,
             authorization: null,
             configuration: null,
+            claim: null,
             denial: null,
             transportDisabled: true,
           } as const;
@@ -438,6 +455,7 @@ export class FgisGrainTenantReadRepository {
               replay: prior,
               authorization: null,
               configuration: null,
+              claim: null,
               denial: null,
               transportDisabled: false,
             } as const;
@@ -450,7 +468,8 @@ export class FgisGrainTenantReadRepository {
           }
           throw new ConflictException('Idempotency key already has a terminal result');
         }
-        await this.writeAudit(tx, {
+        const completionToken = randomBytes(32).toString('base64url');
+        const claimId = await this.writeAudit(tx, {
           authorizationId: authorization.id,
           authorizationVersion: authorization.version,
           configurationId: authorization.configurationId,
@@ -462,11 +481,18 @@ export class FgisGrainTenantReadRepository {
           requestSha256: input.requestSha256,
           decision: 'IN_FLIGHT',
           reasonCode: 'PROVIDER_READ_CLAIMED',
+          completionTokenSha256: createHash('sha256')
+            .update(completionToken)
+            .digest('hex'),
         });
         return {
           replay: null,
           authorization,
           configuration,
+          claim: {
+            id: claimId,
+            completionToken,
+          },
           denial: null,
           transportDisabled: false,
         } as const;
@@ -486,7 +512,7 @@ export class FgisGrainTenantReadRepository {
         operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
       });
     }
-    if (!preflight.authorization || !preflight.configuration) {
+    if (!preflight.authorization || !preflight.configuration || !preflight.claim) {
       throw new ConflictException('FGIS Grain read preflight is incomplete');
     }
 
@@ -513,10 +539,22 @@ export class FgisGrainTenantReadRepository {
         throw new UnprocessableEntityException('Provider transport result is malformed');
       }
     } catch (error) {
-      await this.recordTransportOutcome(user, preflight.authorization, input, null, 'FAILED', 'PROVIDER_READ_FAILED');
+      await this.recordTransportOutcome(
+        user,
+        preflight.claim,
+        null,
+        'FAILED',
+        'PROVIDER_READ_FAILED',
+      );
       throw error;
     }
-    await this.recordTransportOutcome(user, preflight.authorization, input, result, 'SUCCEEDED', 'PROVIDER_READ_SUCCEEDED');
+    await this.recordTransportOutcome(
+      user,
+      preflight.claim,
+      result,
+      'SUCCEEDED',
+      'PROVIDER_READ_SUCCEEDED',
+    );
     return {
       authorizationId: preflight.authorization.id,
       authorizationVersion: preflight.authorization.version.toString(),
@@ -533,28 +571,24 @@ export class FgisGrainTenantReadRepository {
 
   private async recordTransportOutcome(
     user: RequestUser,
-    authorization: AuthorizationRow,
-    input: FgisGrainTenantReadRequestInput,
+    claim: ProviderClaimCapability,
     result: FgisGrainTenantReadTransportResult | null,
     decision: 'SUCCEEDED' | 'FAILED',
     reasonCode: string,
   ): Promise<void> {
-    await this.transactions.withTrustedContext(user, async (tx, context) => {
-      await this.lockIdempotency(tx, context, input.idempotencyKey);
-      await this.writeAudit(tx, {
-        authorizationId: authorization.id,
-        authorizationVersion: authorization.version,
-        configurationId: authorization.configurationId,
-        operationCode: input.operationCode,
-        correlationId: input.correlationId,
-        idempotencyKey: executionAuditKey(input.idempotencyKey, 'OUTCOME'),
-        requestIdempotencyKey: input.idempotencyKey,
-        requestReference: input.requestReference,
-        requestSha256: input.requestSha256,
-        decision,
-        reasonCode,
-        result,
-      });
+    await this.transactions.withTrustedContext(user, async (tx) => {
+      await tx.$queryRaw(Prisma.sql`
+        SELECT public.finalize_fgis_grain_tenant_read_claim(
+          ${claim.id},
+          ${claim.completionToken},
+          ${decision},
+          ${reasonCode},
+          ${result?.providerRequestId ?? null},
+          ${result?.responseReference ?? null},
+          ${result?.responseSha256 ?? null},
+          ${result ? new Date(result.receivedAt) : null}
+        ) AS "auditId"
+      `);
     });
   }
 
@@ -720,8 +754,7 @@ export class FgisGrainTenantReadRepository {
           WHEN 'IN_FLIGHT' THEN 3
           ELSE 4
         END,
-        "createdAt" DESC,
-        "id" DESC
+        "chainSequence" DESC
       LIMIT 1
     `);
     return rows[0];
@@ -739,13 +772,12 @@ export class FgisGrainTenantReadRepository {
       requestIdempotencyKey: string;
       requestReference: string;
       requestSha256: string;
-      decision: string;
+      decision: 'DENIED' | 'IN_FLIGHT';
       reasonCode: string;
-      result?: FgisGrainTenantReadTransportResult | null;
+      completionTokenSha256?: string;
     },
-  ): Promise<void> {
+  ): Promise<string> {
     const id = randomUUID();
-    const receivedAt = input.result ? new Date(input.result.receivedAt) : null;
     try {
       await tx.$queryRaw(Prisma.sql`
         SELECT public.append_fgis_grain_tenant_read_audit(
@@ -761,10 +793,11 @@ export class FgisGrainTenantReadRepository {
           ${input.requestSha256},
           ${input.decision},
           ${input.reasonCode},
-          ${input.result?.providerRequestId ?? null},
-          ${input.result?.responseReference ?? null},
-          ${input.result?.responseSha256 ?? null},
-          ${receivedAt}
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          ${input.completionTokenSha256 ?? null}
         ) AS "auditId"
       `);
     } catch (error) {
@@ -781,5 +814,6 @@ export class FgisGrainTenantReadRepository {
       }
       throw error;
     }
+    return id;
   }
 }
