@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/read-only-qwen-run-observer-20260730",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "acffe4e6fea38990219923da50a8a0f63cdedb8e",
+  "operationalStatus": "READ_ONLY_QWEN_CURRENT_MAIN_RUN_OBSERVER",
+  "allowedPaths": [
+    ".github/workflows/read-only-qwen-current-main-observer.yml",
+    "docs/platform-v7/autopilot/scopes/read-only-qwen-current-main-observer-3372.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "read only actions metadata for exact SHA is reported",
+    "no workflow is dispatched rerun cancelled or mutated",
+    "no production or registry mutation occurs",
+    "the branch is not merged into main"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
