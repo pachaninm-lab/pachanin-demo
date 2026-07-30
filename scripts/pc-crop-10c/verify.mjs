@@ -245,7 +245,8 @@ function validatePostgres(schema, migration, repository) {
     migration.includes('"leaseExpiresAt"')
       && migration.includes('"leaseGeneration"')
       && migration.includes('"transportStartedAt"')
-      && migration.includes('"leaseExpiresAt" = statement_timestamp() + interval \'2 minutes\'')
+      && migration.includes('"leaseExpiresAt" = transport_started_at + interval \'2 minutes\'')
+      && migration.includes('"leaseExpiresAt"\n       = NEW."transportStartedAt" + interval \'2 minutes\'')
       && migration.includes('fgis_grain_tenant_read_claim_active_fingerprint_key')
       && migration.includes("'PROVIDER_READ_CLAIM_RECOVERED'")
       && repository.includes('recoverProviderClaim('),

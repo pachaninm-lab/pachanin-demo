@@ -1158,6 +1158,7 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   claim public."fgis_grain_tenant_read_provider_claims"%ROWTYPE;
+  transport_started_at timestamptz;
 BEGIN
   IF NOT pg_catalog.pg_has_role(
        session_user,
@@ -1191,22 +1192,29 @@ BEGIN
     )
   FOR UPDATE;
 
-  IF NOT FOUND
-     OR claim."completedAuditId" IS NOT NULL
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim cannot start transport'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Capture one wall-clock fence only after the row lock is held. A fixed
+  -- statement timestamp could already be stale after lock contention.
+  transport_started_at := clock_timestamp();
+  IF claim."completedAuditId" IS NOT NULL
      OR claim."transportStartedAt" IS NOT NULL
-     OR claim."leaseExpiresAt" <= statement_timestamp()
+     OR claim."leaseExpiresAt" <= transport_started_at
   THEN
     RAISE EXCEPTION 'FGIS Grain tenant-read claim cannot start transport'
       USING ERRCODE = '42501';
   END IF;
 
   UPDATE public."fgis_grain_tenant_read_provider_claims"
-  SET "transportStartedAt" = clock_timestamp(),
-      "leaseExpiresAt" = statement_timestamp() + interval '2 minutes'
+  SET "transportStartedAt" = transport_started_at,
+      "leaseExpiresAt" = transport_started_at + interval '2 minutes'
   WHERE "id" = claim."id"
     AND "completedAuditId" IS NULL
     AND "transportStartedAt" IS NULL
-    AND "leaseExpiresAt" > statement_timestamp();
+    AND "leaseExpiresAt" > transport_started_at;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'FGIS Grain tenant-read claim start raced'
@@ -1699,8 +1707,8 @@ BEGIN
      AND NEW."transportStartedAt" < NEW."leaseExpiresAt"
      AND NEW."completionTokenSha256" IS NOT DISTINCT FROM OLD."completionTokenSha256"
      AND NEW."leaseExpiresAt" > OLD."leaseExpiresAt"
-     AND NEW."leaseExpiresAt" > statement_timestamp()
-     AND NEW."leaseExpiresAt" <= statement_timestamp() + interval '2 minutes'
+     AND NEW."leaseExpiresAt"
+       = NEW."transportStartedAt" + interval '2 minutes'
      AND NEW."leaseGeneration" IS NOT DISTINCT FROM OLD."leaseGeneration"
   THEN
     RETURN NEW;
