@@ -1,0 +1,93 @@
+name: Read-only Qwen Release Observer 25402379
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/read-only-qwen-release-observer-25402379.yml'
+
+permissions:
+  actions: read
+  packages: read
+  issues: write
+  contents: read
+
+jobs:
+  inspect:
+    if: github.event.pull_request.head.ref == 'ops/read-only-qwen-release-observer-25402379'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: 25402379df279ea1bde69a0d80608276317f08c5
+      SHORT_SHA: 2540237
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Read exact release workflow status
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.parse, urllib.request
+          repo = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GH_TOKEN']
+          sha = os.environ['TARGET_SHA']
+          params = urllib.parse.urlencode({'head_sha': sha, 'per_page': 100})
+          req = urllib.request.Request(
+              f'https://api.github.com/repos/{repo}/actions/runs?{params}',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(req, timeout=60) as response:
+              data = json.load(response)
+          relevant = []
+          for run in data.get('workflow_runs', []):
+              name = run.get('name', '')
+              if name in {'TAI Restricted Qwen REG.RU Activation', 'Build & Publish Canonical Docker Images'} or 'Canonical Docker' in name:
+                  relevant.append({
+                      'id': run.get('id'), 'name': name, 'event': run.get('event'),
+                      'status': run.get('status'), 'conclusion': run.get('conclusion'),
+                      'html_url': run.get('html_url'), 'run_attempt': run.get('run_attempt'),
+                  })
+          open('/tmp/runs.json', 'w', encoding='utf-8').write(json.dumps(relevant, ensure_ascii=False, indent=2))
+          PY
+
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          : > /tmp/images.txt
+          for component in api web migration; do
+            image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+            if docker pull "$image" >/dev/null 2>&1; then
+              revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+              if [[ "$revision" == "$TARGET_SHA" ]]; then state=available; else state="wrong-revision:$revision"; fi
+            else
+              state=unavailable
+            fi
+            printf '%s=%s (%s)\n' "$component" "$state" "$image" >> /tmp/images.txt
+          done
+
+          body="$(python3 - <<'PY'
+          import json, os, pathlib
+          sha=os.environ['TARGET_SHA']
+          runs=json.loads(pathlib.Path('/tmp/runs.json').read_text())
+          images=pathlib.Path('/tmp/images.txt').read_text().strip()
+          lines=[f'<!-- read-only-qwen-release-observer:{sha} -->', f'## Read-only exact release status for `{sha}`', '', '### Images', '```', images, '```', '', '### Relevant push runs']
+          if runs:
+              for r in runs:
+                  lines.append(f"- `{r['name']}` run `{r['id']}`: event=`{r['event']}`, status=`{r['status']}`, conclusion=`{r['conclusion'] or 'pending'}`, attempt=`{r['run_attempt']}` — {r['html_url']}")
+          else:
+              lines.append('- No relevant run found yet.')
+          lines += ['', 'Observer only: no rerun, dispatch, cancellation, merge, deployment or production mutation occurred.']
+          print('\n'.join(lines))
+          PY
+          )"
+          python3 - "$body" <<'PY'
+          import json, os, sys, urllib.request
+          repo=os.environ['GITHUB_REPOSITORY']; token=os.environ['GH_TOKEN']; body=sys.argv[1]
+          req=urllib.request.Request(
+              f'https://api.github.com/repos/{repo}/issues/3372/comments',
+              data=json.dumps({'body': body}, ensure_ascii=False).encode(), method='POST',
+              headers={'Authorization': f'Bearer {token}', 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28', 'Content-Type':'application/json'})
+          with urllib.request.urlopen(req, timeout=60) as response: print(response.status)
+          PY
