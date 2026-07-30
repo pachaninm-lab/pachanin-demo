@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/merge-final-ai-branding-20260730",
+  "status": "temporary-never-merge",
+  "purpose": "Run a one-shot same-repository controller that discovers the exact titled public-AI branding implementation PR, proves its already-registered concurrent scope, exact copy, focused tests, green checks, immutable head and resolved reviews, then merges only that exact head. This controller PR must be closed, never merged.",
+  "approvedBy": "owner-direct-urgent-remediation-2026-07-30",
+  "allowedPaths": [
+    ".github/workflows/owner-merge-final-ai-branding.yml",
+    "docs/platform-v7/autopilot/scopes/owner-merge-final-ai-branding-3372.json"
+  ],
+  "forbiddenCapabilities": [
+    "direct product-code mutation",
+    "production deployment",
+    "model or API changes",
+    "RBAC or tenant changes",
+    "Deal, document or money authority changes",
+    "Netlify or Vercel deployment"
+  ],
+  "acceptance": [
+    "exact implementation PR title is unique",
+    "implementation branch is registered in main autopilot-state approvedConcurrentScopes",
+    "changed files are a subset of that registered scope",
+    "exact title and subtitle are present and legacy header copy is absent",
+    "focused unit tests and web typecheck pass",
+    "all target PR checks pass",
+    "no unresolved review threads remain",
+    "merge uses immutable expected head SHA",
+    "temporary controller PR closes without merge"
+  ]
+}
