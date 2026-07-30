@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/exact-image-emergency-publisher-20260730",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "acffe4e6fea38990219923da50a8a0f63cdedb8e",
+  "operationalStatus": "EMERGENCY_EXACT_CURRENT_MAIN_IMAGE_PUBLICATION",
+  "allowedPaths": [
+    ".github/workflows/emergency-exact-current-main-images.yml",
+    "docs/platform-v7/autopilot/scopes/emergency-exact-current-main-images-3372.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "the publisher fails if target SHA is not exact current main",
+    "API web and migration images are built from the same immutable target SHA",
+    "OCI revision labels match the exact target SHA",
+    "no production deployment or environment mutation occurs",
+    "the temporary branch is not merged into main"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
