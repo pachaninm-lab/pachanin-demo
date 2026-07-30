@@ -18,6 +18,13 @@ const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const MAX_CLOCK_SKEW_SECONDS = 90;
 const INTERNAL_PATH = '/internal/tai/public-generate';
 const PRIVATE_PUBLIC_SOURCE = /^\/platform-v7\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\/|$)/u;
+const INTERNAL_TAG_BLOCK = /<\s*(think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/giu;
+const INTERNAL_TAG_TAIL = /<\s*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>[\s\S]*$/iu;
+const INTERNAL_FENCE_BLOCK = /```[ \t]*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^\n]*\n[\s\S]*?```/giu;
+const INTERNAL_CHANNEL_WITH_FINAL = /<\|channel\|>\s*(?:analysis|reasoning|commentary|tool)\s*<\|message\|>[\s\S]*?(?=<\|channel\|>\s*final\s*<\|message\|>)/giu;
+const INTERNAL_CHANNEL_TAIL = /<\|channel\|>\s*(?:analysis|reasoning|commentary|tool)\s*<\|message\|>[\s\S]*$/iu;
+
+const INTERNAL_MARKER = /(?:<\s*\/?\s*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b|```[ \t]*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b|<\|channel\|>\s*(?:analysis|reasoning|commentary|tool|final)\b)/iu;
 
 type HeaderMap = Record<string, string | string[] | undefined>;
 
@@ -33,8 +40,51 @@ export class RestrictedPublicQwenController {
   ): Promise<RestrictedPublicQwenResponse> {
     verifyInternalSignature(body, headers);
     verifyPublicSourceBoundary(body);
-    return this.qwen.generate(body);
+    return this.qwen.generate(body).then(redactPublicModelInternals);
   }
+}
+
+export function stripInternalModelTrace(value: string): string {
+  let result = typeof value === 'string' ? value : '';
+  if (!result || !INTERNAL_MARKER.test(result)) return result.trim();
+
+  for (let pass = 0; pass < 4; pass += 1) {
+    const next = result.replace(INTERNAL_TAG_BLOCK, ' ');
+    if (next === result) break;
+    result = next;
+  }
+
+  result = result
+    .replace(INTERNAL_FENCE_BLOCK, ' ')
+    .replace(INTERNAL_CHANNEL_WITH_FINAL, ' ')
+    .replace(INTERNAL_CHANNEL_TAIL, ' ')
+    .replace(INTERNAL_TAG_TAIL, ' ')
+    .replace(/<\|channel\|>\s*final\s*<\|message\|>/giu, ' ')
+    .replace(/<\|[^|>\r\n]{1,64}\|>/gu, ' ')
+    .replace(/<\s*\/?\s*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>/giu, ' ')
+    .replace(/[ \t]+/gu, ' ')
+    .replace(/ *\n */gu, '\n')
+    .replace(/\n{3,}/gu, '\n\n')
+    .trim();
+
+  return result;
+}
+
+export function redactPublicModelInternals(
+  response: RestrictedPublicQwenResponse,
+): RestrictedPublicQwenResponse {
+  const answer = stripInternalModelTrace(response.answer);
+  if (!answer) {
+    throw new ServiceUnavailableException('Restricted public model returned only internal reasoning content.');
+  }
+  if (answer === response.answer) return response;
+
+  const safetyFlags = Array.isArray(response.safetyFlags) ? response.safetyFlags : [];
+  return Object.freeze({
+    ...response,
+    answer,
+    safetyFlags: Object.freeze([...new Set([...safetyFlags, 'INTERNAL_REASONING_REMOVED'])]),
+  });
 }
 
 export function verifyInternalSignature(
