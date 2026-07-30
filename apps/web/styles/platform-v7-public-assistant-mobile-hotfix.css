@@ -61,6 +61,34 @@
   border-color: #e5ebe7 !important;
 }
 
+/* Internal answer-source state remains in data attributes and audit events, but
+ * public users do not see implementation labels such as model/fallback outages. */
+.pc-public-assistant-message[data-role='assistant'][data-origin]
+  .pc-public-assistant-answer > div:first-child > span:first-child {
+  display: none !important;
+}
+
+/* Product feedback controls are intentionally absent from the public surface. */
+.pc-public-assistant-message-actions button[aria-label='Ответ полезен'],
+.pc-public-assistant-message-actions button[aria-label='Сообщить об ошибке'],
+.pc-public-assistant-message-actions button[aria-label='Useful answer'],
+.pc-public-assistant-message-actions button[aria-label='Report an error'],
+.pc-public-assistant-message-actions button[aria-label='回答有用'],
+.pc-public-assistant-message-actions button[aria-label='报告错误'] {
+  display: none !important;
+}
+
+/* Keep only the compact activity glyph; never show a long “preparing answer”
+ * message while the response path is resolving. */
+.pc-public-assistant-stream-provisional {
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+.pc-public-assistant-processing span {
+  display: none !important;
+}
+
 .pc-public-assistant-composer {
   gap: 5px !important;
   padding: 9px 10px max(9px, env(safe-area-inset-bottom, 0px)) !important;
