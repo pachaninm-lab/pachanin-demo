@@ -563,7 +563,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     await prisma.$disconnect();
   });
 
-  it('keeps tenant authorization non-attested until separate external evidence', async () => {
+  it('keeps authorization non-attested and database-locks denial replays', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(
       configuration.configurationId,
@@ -601,6 +601,64 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         AND "reasonCode" = 'AUTHORIZATION_NOT_ATTESTED'
     `);
     expect(denied[0]?.count).toBe(1n);
+
+    const directRequest = readRequest(
+      authorized.authorizationId,
+      authorized.authorizationVersion,
+      'direct-denial-idempotency',
+    );
+    const directDenialId = `${RUN_ID}.direct-denial.audit`;
+    const directDenialAuditKey = `${directRequest.idempotencyKey}.denied`;
+    const appendDirectDenial = () => executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${directDenialId},
+        ${authorized.authorizationId},
+        ${BigInt(authorized.authorizationVersion)},
+        ${configuration.configurationId},
+        ${directRequest.operationCode},
+        ${directRequest.correlationId},
+        ${directDenialAuditKey},
+        ${directRequest.idempotencyKey},
+        ${directRequest.requestReference},
+        ${directRequest.requestSha256},
+        'DENIED',
+        'AUTHORIZATION_NOT_ATTESTED',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+      )
+    `);
+    await appendDirectDenial();
+    await appendDirectDenial();
+    await expect(executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${`${directDenialId}.conflict`},
+        ${authorized.authorizationId},
+        ${BigInt(authorized.authorizationVersion)},
+        ${configuration.configurationId},
+        'DICTIONARIES',
+        ${`${directRequest.correlationId}.conflict`},
+        ${`${directDenialAuditKey}.conflict`},
+        ${directRequest.idempotencyKey},
+        ${directRequest.requestReference},
+        ${directRequest.requestSha256},
+        'DENIED',
+        'AUTHORIZATION_NOT_ATTESTED',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+      )
+    `)).rejects.toThrow(/idempotency binding conflicts/iu);
+    const directDenials = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "requestIdempotencyKey" = ${directRequest.idempotencyKey}
+    `);
+    expect(directDenials).toEqual([{ count: 1n }]);
   });
 
   it('rejects direct database attestation while transport admission is absent', async () => {
@@ -1317,7 +1375,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     }]);
   });
 
-  it('reconciles an abandoned claim after authority drift without calling the provider', async () => {
+  it('governedly reconciles both unstarted and started uncertain expired claims', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(
       configuration.configurationId,
@@ -1424,6 +1482,86 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       actorRole: 'ADMIN',
       authorizationVersion: BigInt(attested.authorizationVersion),
     }]);
+
+    const uncertainRequest = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'started-dispatch-uncertain-reconciliation',
+    );
+    const uncertainClaimId = `${RUN_ID}.started-dispatch-uncertain.claim`;
+    const uncertainCreatedAt = new Date(Date.now() - 10 * 60_000);
+    const uncertainStartedAt = new Date(Date.now() - 6 * 60_000);
+    const uncertainLeaseExpiresAt = new Date(Date.now() - 5 * 60_000);
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO public."fgis_grain_tenant_read_provider_claims" (
+          "id", "tenantId", "organizationId", "authorizationId",
+          "authorizationVersion", "configurationId", "actorUserId", "actorRole",
+          "operationCode", "correlationId", "requestIdempotencyKey",
+          "requestReference", "requestSha256", "completionTokenSha256",
+          "leaseExpiresAt", "leaseGeneration", "transportStartedAt", "createdAt"
+        ) VALUES (
+          ${uncertainClaimId}, ${TENANT_A}, ${ORG_A}, ${authorized.authorizationId},
+          ${BigInt(attested.authorizationVersion)}, ${configuration.configurationId},
+          ${BUYER_A.id}, ${BUYER_A.role}, ${uncertainRequest.operationCode},
+          ${uncertainRequest.correlationId}, ${uncertainRequest.idempotencyKey},
+          ${uncertainRequest.requestReference}, ${uncertainRequest.requestSha256},
+          ${'e'.repeat(64)}, ${uncertainLeaseExpiresAt}, 0,
+          ${uncertainStartedAt}, ${uncertainCreatedAt}
+        )
+      `);
+      await tx.$executeRaw(Prisma.sql`
+        SELECT public.append_fgis_grain_tenant_read_audit_internal(
+          ${uncertainClaimId},
+          ${TENANT_A},
+          ${ORG_A},
+          ${authorized.authorizationId},
+          ${BigInt(attested.authorizationVersion)},
+          ${configuration.configurationId},
+          ${BUYER_A.id},
+          ${BUYER_A.role},
+          ${uncertainRequest.operationCode},
+          ${uncertainRequest.correlationId},
+          ${`${uncertainRequest.idempotencyKey}.claim`},
+          ${uncertainRequest.idempotencyKey},
+          ${uncertainRequest.requestReference},
+          ${uncertainRequest.requestSha256},
+          'IN_FLIGHT',
+          'PROVIDER_READ_CLAIMED',
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          ${uncertainClaimId}
+        )
+      `);
+    });
+
+    await executeAsRuntime(SECURITY_A, Prisma.sql`
+      SELECT public.reconcile_abandoned_fgis_grain_tenant_read_claim(
+        ${uncertainClaimId}
+      )
+    `);
+    const uncertain = await prisma.$queryRaw<Array<{
+      completed: boolean;
+      decision: string;
+      reasonCode: string;
+      actorUserId: string;
+    }>>(Prisma.sql`
+      SELECT claim."completedAuditId" IS NOT NULL AS "completed",
+             audit."decision", audit."reasonCode", audit."actorUserId"
+      FROM public."fgis_grain_tenant_read_provider_claims" AS claim
+      JOIN public."fgis_grain_tenant_read_audits" AS audit
+        ON audit."id" = claim."completedAuditId"
+      WHERE claim."id" = ${uncertainClaimId}
+    `);
+    expect(uncertain).toEqual([{
+      completed: true,
+      decision: 'FAILED',
+      reasonCode: 'PROVIDER_READ_DISPATCH_UNCERTAIN',
+      actorUserId: SECURITY_A.id,
+    }]);
+    expect(transport.calls).toHaveLength(0);
   });
 
   it('separates runtime claim minting from dedicated transport finalization, refreshes the transport lease, and serializes terminal outcomes', async () => {

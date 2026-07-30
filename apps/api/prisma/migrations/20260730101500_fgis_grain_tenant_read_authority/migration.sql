@@ -1058,6 +1058,7 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   current_authorization public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
+  prior_request public."fgis_grain_tenant_read_audits"%ROWTYPE;
   effective_reason_code text;
   decision_at timestamptz;
 BEGIN
@@ -1149,17 +1150,29 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  -- Denials and claims share one request-scoped lock. Direct callers cannot
+  -- fork immutable request history by bypassing the repository preflight.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended(
+      'platform-v7:fgis-grain-tenant-read-idempotency'
+        || ':' || current_setting('app.current_tenant_id', true)
+        || ':' || current_setting('app.current_org_id', true)
+        || ':' || p_request_idempotency_key,
+      0
+    )
+  );
+  decision_at := clock_timestamp();
+
+  SELECT *
+  INTO prior_request
+  FROM public."fgis_grain_tenant_read_audits" AS prior
+  WHERE prior."tenantId" = current_setting('app.current_tenant_id', true)
+    AND prior."organizationId" = current_setting('app.current_org_id', true)
+    AND prior."requestIdempotencyKey" = p_request_idempotency_key
+  ORDER BY prior."chainSequence" DESC
+  LIMIT 1;
+
   IF p_decision = 'IN_FLIGHT' THEN
-    PERFORM pg_advisory_xact_lock(
-      hashtextextended(
-        'platform-v7:fgis-grain-tenant-read-idempotency'
-          || ':' || current_setting('app.current_tenant_id', true)
-          || ':' || current_setting('app.current_org_id', true)
-          || ':' || p_request_idempotency_key,
-        0
-      )
-    );
-    decision_at := clock_timestamp();
     IF NOT public.fgis_grain_tenant_read_context_ready(false)
        OR current_authorization."status" <> 'READ_ONLY_ATTESTED'
        OR current_authorization."validUntil" <= decision_at
@@ -1194,13 +1207,7 @@ BEGIN
        OR p_response_reference IS NOT NULL
        OR p_response_sha256 IS NOT NULL
        OR p_received_at IS NOT NULL
-       OR EXISTS (
-         SELECT 1
-         FROM public."fgis_grain_tenant_read_audits" AS prior
-         WHERE prior."tenantId" = current_setting('app.current_tenant_id', true)
-           AND prior."organizationId" = current_setting('app.current_org_id', true)
-           AND prior."requestIdempotencyKey" = p_request_idempotency_key
-       )
+       OR prior_request."id" IS NOT NULL
     THEN
       RAISE EXCEPTION 'FGIS Grain read execution claim is invalid'
         USING ERRCODE = '23505';
@@ -1232,7 +1239,6 @@ BEGIN
       decision_at
     );
   ELSE
-    decision_at := clock_timestamp();
     IF current_authorization."status" <> 'READ_ONLY_ATTESTED' THEN
       effective_reason_code := 'AUTHORIZATION_NOT_ATTESTED';
     ELSIF current_authorization."validUntil" <= decision_at
@@ -1258,6 +1264,30 @@ BEGIN
     THEN
       RAISE EXCEPTION 'FGIS Grain read denial audit is invalid'
         USING ERRCODE = '42501';
+    END IF;
+
+    IF prior_request."id" IS NOT NULL THEN
+      IF prior_request."id" = p_id
+         AND prior_request."authorizationId" = p_authorization_id
+         AND prior_request."authorizationVersion" = p_authorization_version
+         AND prior_request."configurationId" = p_configuration_id
+         AND prior_request."actorUserId"
+           = current_setting('app.current_user_id', true)
+         AND prior_request."actorRole"
+           = current_setting('app.current_role', true)
+         AND prior_request."operationCode" = p_operation_code
+         AND prior_request."correlationId" = p_correlation_id
+         AND prior_request."idempotencyKey" = p_idempotency_key
+         AND prior_request."requestReference" = p_request_reference
+         AND prior_request."requestSha256" = p_request_sha256
+         AND prior_request."decision" = 'DENIED'
+         AND prior_request."reasonCode" = effective_reason_code
+         AND prior_request."providerClaimId" IS NULL
+      THEN
+        RETURN prior_request."id";
+      END IF;
+      RAISE EXCEPTION 'FGIS Grain denied request idempotency binding conflicts'
+        USING ERRCODE = '23505';
     END IF;
   END IF;
 
@@ -1565,6 +1595,7 @@ DECLARE
   claim public."fgis_grain_tenant_read_provider_claims"%ROWTYPE;
   outcome_id text;
   outcome_idempotency_key text;
+  reconciliation_reason text;
   finalized_at timestamptz;
 BEGIN
   IF session_user NOT IN ('app_runtime', 'app_service')
@@ -1609,7 +1640,6 @@ BEGIN
   END IF;
 
   IF claim."completedAuditId" IS NOT NULL
-     OR claim."transportStartedAt" IS NOT NULL
      OR claim."leaseExpiresAt" > finalized_at
   THEN
     RAISE EXCEPTION 'FGIS Grain provider claim is not abandoned'
@@ -1617,6 +1647,11 @@ BEGIN
   END IF;
 
   outcome_id := public.gen_random_uuid()::text;
+  reconciliation_reason := CASE
+    WHEN claim."transportStartedAt" IS NULL
+      THEN 'PROVIDER_READ_CLAIM_ABANDONED'
+    ELSE 'PROVIDER_READ_DISPATCH_UNCERTAIN'
+  END;
   outcome_idempotency_key := 'fgis-read:abandoned-claim:' || encode(
     public.digest(
       convert_to(claim."id", 'UTF8'),
@@ -1641,7 +1676,7 @@ BEGIN
     claim."requestReference",
     claim."requestSha256",
     'FAILED',
-    'PROVIDER_READ_CLAIM_ABANDONED',
+    reconciliation_reason,
     NULL,
     NULL,
     NULL,

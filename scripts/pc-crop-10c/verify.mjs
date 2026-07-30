@@ -371,9 +371,11 @@ function validatePostgres(schema, migration, repository) {
       && appendCommand.includes("effective_reason_code := 'AUTHORIZATION_OR_ATTESTATION_EXPIRED'")
       && appendCommand.includes("effective_reason_code := 'OPERATION_NOT_AUTHORIZED'")
       && appendCommand.includes('p_reason_code IS DISTINCT FROM effective_reason_code')
+      && appendCommand.includes('prior_request public."fgis_grain_tenant_read_audits"%ROWTYPE')
+      && appendCommand.includes('FGIS Grain denied request idempotency binding conflicts')
       && appendCommand.includes('FGIS Grain read denial condition is not present')
       && !appendCommand.includes("'PROVIDER_TRANSPORT_DISABLED'"),
-    'immutable denial evidence is not derived from database-owned authorization facts',
+    'immutable denial evidence is not derived or idempotently locked by PostgreSQL',
   );
   check(
     appendCommand.includes('p_request_reference')
@@ -388,6 +390,8 @@ function validatePostgres(schema, migration, repository) {
       && appendCommand.includes('decision_at := clock_timestamp()')
       && appendCommand.indexOf('decision_at := clock_timestamp()')
         > appendCommand.indexOf('pg_advisory_xact_lock')
+      && appendCommand.indexOf('pg_advisory_xact_lock')
+        < appendCommand.indexOf("IF p_decision = 'IN_FLIGHT'")
       && appendCommand.includes('current_authorization."validUntil" <= decision_at')
       && appendCommand.includes('decision_at + interval \'2 minutes\'')
       && appendCommand.includes('"createdAt"'),
@@ -411,9 +415,11 @@ function validatePostgres(schema, migration, repository) {
       && reconciliationCommand.indexOf('finalized_at := clock_timestamp()')
         > reconciliationCommand.indexOf('FOR UPDATE;')
       && reconciliationCommand.includes('claim."leaseExpiresAt" > finalized_at')
+      && reconciliationCommand.includes("'PROVIDER_READ_DISPATCH_UNCERTAIN'")
+      && !reconciliationCommand.includes('OR claim."transportStartedAt" IS NOT NULL')
       && reconciliationCommand.includes('"completedAt" = finalized_at')
       && migration.includes('transition_at timestamptz := clock_timestamp()'),
-    'claim recovery or reconciliation uses a stale pre-lock lease clock',
+    'claim recovery or governed started-claim reconciliation is incomplete',
   );
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
   const priorLookup = repository.indexOf('const prior = await this.findRequestEvent');
@@ -487,6 +493,8 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('replayed: true'), 'PostgreSQL E2E does not prove durable replay');
   check(e2e.includes('before its durable claim start'), 'PostgreSQL E2E does not reject stale provider results');
   check(e2e.includes('deniedRequest.correlationId}.conflict'), 'PostgreSQL E2E does not reject conflicting denied-request replay');
+  check(e2e.includes('direct-denial-idempotency'), 'PostgreSQL E2E does not lock direct-command denial replay');
+  check(e2e.includes('PROVIDER_READ_DISPATCH_UNCERTAIN'), 'PostgreSQL E2E does not reconcile the post-start pre-dispatch gap');
   check(e2e.includes('immutable'), 'PostgreSQL E2E does not prove audit immutability');
   check(e2e.includes('CREATE_SDIZ'), 'PostgreSQL E2E does not prove provider mutation rejection');
   check(e2e.includes('runtimeVisibleAuthorizationCount'), 'PostgreSQL E2E does not use the restricted runtime principal');
@@ -522,7 +530,7 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('keeps an unconfirmed cancellation in flight and blocks a new-key duplicate'), 'PostgreSQL E2E does not prove unconfirmed-cancellation quarantine');
   check(e2e.includes('binds reauthorization to the existing provider configuration'), 'PostgreSQL E2E does not prove configuration-bound reauthorization');
   check(e2e.includes('recovers an abandoned provider claim only after its lease expires'), 'PostgreSQL E2E does not prove abandoned claim recovery');
-  check(e2e.includes('reconciles an abandoned claim after authority drift without calling the provider'), 'PostgreSQL E2E does not prove governed abandoned-claim reconciliation');
+  check(e2e.includes('governedly reconciles both unstarted and started uncertain expired claims'), 'PostgreSQL E2E does not prove governed abandoned-claim reconciliation');
   check(e2e.includes('enforces authorization and attestation TTL ceilings inside PostgreSQL'), 'PostgreSQL E2E does not prove database TTL ceilings');
 }
 
