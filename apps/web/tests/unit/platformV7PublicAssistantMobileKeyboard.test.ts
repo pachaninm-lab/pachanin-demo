@@ -38,6 +38,15 @@ describe('platform-v7 public assistant mobile keyboard contract', () => {
     expect(css).toContain('border-radius: 0 !important');
   });
 
+  it('removes public implementation labels, long wait copy and feedback controls', () => {
+    expect(css).toContain(".pc-public-assistant-message[data-role='assistant'][data-origin]");
+    expect(css).toContain("button[aria-label='Ответ полезен']");
+    expect(css).toContain("button[aria-label='Сообщить об ошибке']");
+    expect(css).toContain('.pc-public-assistant-processing span');
+    expect(css).toContain('.pc-public-assistant-stream-provisional');
+    expect(css.match(/display: none !important;/gu)?.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('removes the redundant frame but retains a compact keyboard-focus cue', () => {
     expect(css).toContain('.pc-public-assistant-composer-shell:focus-within');
     expect(css).toContain('box-shadow: none !important');
