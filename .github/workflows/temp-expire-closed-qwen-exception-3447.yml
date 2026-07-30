@@ -48,29 +48,32 @@ jobs:
               "assert(exception.status === 'active', 'owner-authorized exception is not active', target);",
               "assert(exception.status === 'expired', 'closed owner-authorized exception must be expired', target);",
           )
-          replacement = r'''const expiredRecovery = validateContext(lock, {
-    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
-    title: 'QWEN-RECOVERY: expired recovery probe',
-    issue: 3372,
-    scope: {
-      projectLockId: 'PC-CROP-REMAINDER',
-      issue: 3372,
-      activeSlice: 'PC-CROP-10C',
-      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
-      ownerAuthorizedExceptionCommentId: 5120686584,
-      exceptionExpiresWhenIssueClosed: true,
-      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
-      operationalStatus: 'NOT_ATTESTED',
-      productionHosting: 'REG_RU_VPS_ONLY',
-      allowedPaths: ['.github/workflows/tai-qwen-unprivileged-probe.yml'],
-    },
-  });
-  assert(
-    expiredRecovery.some((message) => message.includes('unknown or inactive owner-authorized exception')),
-    'expired owner-authorized recovery exception was not rejected',
-  );
-
-  '''
+          replacement_lines = [
+              "const expiredRecovery = validateContext(lock, {",
+              "    branch: 'ops/qwen-recovery-unprivileged-probe-3372',",
+              "    title: 'QWEN-RECOVERY: expired recovery probe',",
+              "    issue: 3372,",
+              "    scope: {",
+              "      projectLockId: 'PC-CROP-REMAINDER',",
+              "      issue: 3372,",
+              "      activeSlice: 'PC-CROP-10C',",
+              "      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',",
+              "      ownerAuthorizedExceptionCommentId: 5120686584,",
+              "      exceptionExpiresWhenIssueClosed: true,",
+              "      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',",
+              "      operationalStatus: 'NOT_ATTESTED',",
+              "      productionHosting: 'REG_RU_VPS_ONLY',",
+              "      allowedPaths: ['.github/workflows/tai-qwen-unprivileged-probe.yml'],",
+              "    },",
+              "  });",
+              "  assert(",
+              "    expiredRecovery.some((message) => message.includes('unknown or inactive owner-authorized exception')),",
+              "    'expired owner-authorized recovery exception was not rejected',",
+              "  );",
+              "",
+              "  ",
+          ]
+          replacement = '\n'.join(replacement_lines)
           source, count = re.subn(
               r"const authorizedRecovery = validateContext\(lock, \{.*?const completedPreviousSlice = validateContext",
               replacement + 'const completedPreviousSlice = validateContext',
