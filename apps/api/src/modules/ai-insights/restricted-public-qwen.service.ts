@@ -80,7 +80,10 @@ const HIGH_RISK_ENTITY_PATTERNS = [
   /(?:банк\s+россии|центробанк|central\s+bank)/iu,
 ] as const;
 const LIVE_CAPABILITY_PATTERN = /(?:уже\s+(?:работает|доступн\w*|подключен\w*)|интеграц\w*.{0,35}(?:работает|подключен\w*|доступн\w*)|в\s+реальном\s+времени|автоматически\s+(?:выгружает|переда[её]т|обменивает|подписывает|оплачивает)|is\s+live|already\s+available|real[-\s]?time|已上线|实时)/iu;
-const EXACT_CURRENT_CLAIM_PATTERN = /(?:\b\d{1,3}(?:[ \u00A0\u202F]\d{3})*(?:[.,]\d+)?\s*(?:%|₽|руб(?:\.|лей|ля)?|долл(?:\.|аров)?|т\/га|ц\/га|тонн(?:а|ы)?|тыс\.?|млн\.?|°c)\b|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b)/iu;
+// JavaScript word boundaries do not treat Cyrillic letters as Unicode words reliably.
+// Deliberately avoid \b around units such as "руб." and match only in the
+// already-classified current-evidence contour.
+const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(?:[.,]\d+)?\s*(?:%|₽|руб(?:\.|лей|ля)?|долл(?:\.|аров)?|т\/га|ц\/га|тонн(?:а|ы)?|тыс\.?|млн\.?|°c)|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/iu;
 
 @Injectable()
 export class RestrictedPublicQwenService {
