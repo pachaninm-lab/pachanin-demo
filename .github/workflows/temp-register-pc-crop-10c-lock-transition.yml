@@ -1,0 +1,42 @@
+name: TEMP register PC-CROP 10C lock transition
+
+on:
+  push:
+    branches:
+      - governance/register-pc-crop-10c-lock-transition-3447
+    paths:
+      - .github/workflows/temp-register-pc-crop-10c-lock-transition.yml
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: governance/register-pc-crop-10c-lock-transition-3447
+          fetch-depth: 0
+      - name: Register exact scope and remove launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const state = JSON.parse(fs.readFileSync(path, 'utf8'));
+          state.approvedConcurrentScopes ||= {};
+          state.approvedConcurrentScopes['governance/pc-crop-project-lock-3389'] = [
+            'docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json',
+            'docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json',
+            'scripts/verify-pc-crop-project-lock.mjs'
+          ];
+          fs.writeFileSync(path, `${JSON.stringify(state)}\n`);
+          NODE
+          rm .github/workflows/temp-register-pc-crop-10c-lock-transition.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json .github/workflows/temp-register-pc-crop-10c-lock-transition.yml
+          git commit -m 'GOVERNANCE: register PC-CROP 10C lock transition scope'
+          git push origin HEAD:governance/register-pc-crop-10c-lock-transition-3447
