@@ -49,41 +49,43 @@ jobs:
               "subtitle: '农业商业与平台助手'": "subtitle: '由“透明价格”为农业打造。'",
           }
           for old, new in replacements.items():
-              if text.count(old) != 1:
-                  raise SystemExit(f'unexpected source copy count for {old}: {text.count(old)}')
-              text = text.replace(old, new, 1)
+              if old in text:
+                  text = text.replace(old, new, 1)
+              elif new not in text:
+                  raise SystemExit(f'missing both legacy and canonical source copy: {old}')
           for old in replacements:
               if old in text:
                   raise SystemExit(f'legacy copy remains: {old}')
           component.write_text(text, encoding='utf-8')
 
-          test = Path('apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts')
-          test.write_text("""import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
-
-const source = readFileSync(resolve(process.cwd(), 'components/platform-v7/PublicPlatformAssistant.tsx'), 'utf8');
-
-describe('public AI domain copy', () => {
-  it('renders the canonical agribusiness identity directly in RU, EN and ZH', () => {
-    expect(source).toContain("title: 'ИИ для агробизнеса'");
-    expect(source).toContain("subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.'");
-    expect(source).toContain("title: 'AI for agribusiness'");
-    expect(source).toContain("subtitle: 'Developed by Transparent Price for agriculture.'");
-    expect(source).toContain("title: '农业商业人工智能'");
-    expect(source).toContain("subtitle: '由“透明价格”为农业打造。'");
-  });
-
-  it('keeps the agribusiness composer scope and removes legacy identity copy', () => {
-    expect(source).toContain("placeholder: 'Задай вопрос об агробизнесе или платформе'");
-    expect(source).toContain("placeholder: 'Ask about agribusiness or the platform'");
-    expect(source).toContain("placeholder: '询问农业商业或平台问题'");
-    expect(source).not.toContain("title: 'ИИ Прозрачной Цены'");
-    expect(source).not.toContain("subtitle: 'Помощник по агробизнесу и платформе'");
-    expect(source).not.toContain("subtitle: 'Помощник по платформе'");
-  });
-});
-""", encoding='utf-8')
+          test_lines = [
+              "import { readFileSync } from 'node:fs';",
+              "import { resolve } from 'node:path';",
+              "import { describe, expect, it } from 'vitest';",
+              "",
+              "const source = readFileSync(resolve(process.cwd(), 'components/platform-v7/PublicPlatformAssistant.tsx'), 'utf8');",
+              "",
+              "describe('public AI domain copy', () => {",
+              "  it('renders the canonical agribusiness identity directly in RU, EN and ZH', () => {",
+              "    expect(source).toContain(\"title: 'ИИ для агробизнеса'\");",
+              "    expect(source).toContain(\"subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.'\");",
+              "    expect(source).toContain(\"title: 'AI for agribusiness'\");",
+              "    expect(source).toContain(\"subtitle: 'Developed by Transparent Price for agriculture.'\");",
+              "    expect(source).toContain(\"title: '农业商业人工智能'\");",
+              "    expect(source).toContain(\"subtitle: '由“透明价格”为农业打造。'\");",
+              "  });",
+              "",
+              "  it('keeps the agribusiness composer scope and removes legacy identity copy', () => {",
+              "    expect(source).toContain(\"placeholder: 'Задай вопрос об агробизнесе или платформе'\");",
+              "    expect(source).toContain(\"placeholder: 'Ask about agribusiness or the platform'\");",
+              "    expect(source).toContain(\"placeholder: '询问农业商业或平台问题'\");",
+              "    expect(source).not.toContain(\"title: 'ИИ Прозрачной Цены'\");",
+              "    expect(source).not.toContain(\"subtitle: 'Помощник по агробизнесу и платформе'\");",
+              "    expect(source).not.toContain(\"subtitle: 'Помощник по платформе'\");",
+              "  });",
+              "});",
+          ]
+          Path('apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts').write_text('\n'.join(test_lines) + '\n', encoding='utf-8')
 
           next_path = Path('apps/web/next.config.js')
           next_text = next_path.read_text(encoding='utf-8')
@@ -96,42 +98,41 @@ describe('public AI domain copy', () => {
           next_path.write_text(next_text, encoding='utf-8')
 
           scope_path = Path('docs/platform-v7/autopilot/scopes/fix-public-ai-canonical-copy-3372.json')
-          scope = {
-              'schemaVersion': 'platform-v7.concurrent-scope.v1',
-              'branch': 'fix/public-ai-canonical-copy-20260730',
-              'status': 'active',
-              'issue': 3372,
-              'purpose': 'Move the owner-approved public AI identity into the canonical React copy so rerenders cannot restore legacy branding.',
-              'approvedBy': 'owner-direct-implement-in-platform-2026-07-30',
-              'authorityBaseExactMain': '5bc1cf2e60ab102cdbb6e6bc988cda946d8d7fb8',
-              'allowedPaths': [
-                  'apps/web/components/platform-v7/PublicPlatformAssistant.tsx',
-                  'apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts',
-                  'apps/web/next.config.js',
-                  'docs/platform-v7/autopilot/scopes/fix-public-ai-canonical-copy-3372.json',
-              ],
-              'acceptance': [
-                  'the canonical Russian title is ИИ для агробизнеса',
-                  'the canonical Russian subtitle is Разработан Прозрачной ценой для сельского хозяйства.',
-                  'the canonical EN and ZH identity matches the defensive controller branding',
-                  'legacy title and helper subtitle cannot return on React rerender',
-                  'composer agribusiness scope remains unchanged',
-                  'the merge triggers exact images and REG.RU activation',
-                  'production remains REG_RU_VPS_ONLY',
-              ],
-              'forbiddenCapabilities': [
-                  'model policy changes', 'private data access', 'write authority',
-                  'RBAC or tenant changes', 'Netlify or Vercel deployment',
-              ],
-          }
-          scope_path.parent.mkdir(parents=True, exist_ok=True)
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          scope['allowedPaths'] = [
+              'apps/web/components/platform-v7/PublicPlatformAssistant.tsx',
+              'apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts',
+              'apps/web/next.config.js',
+              'docs/platform-v7/autopilot/scopes/fix-public-ai-canonical-copy-3372.json',
+          ]
+          scope['acceptance'] = [
+              'the canonical Russian title is ИИ для агробизнеса',
+              'the canonical Russian subtitle is Разработан Прозрачной ценой для сельского хозяйства.',
+              'the canonical EN and ZH identity matches the defensive controller branding',
+              'legacy title and helper subtitle cannot return on React rerender',
+              'composer agribusiness scope remains unchanged',
+              'the merge triggers exact images and REG.RU activation',
+              'production remains REG_RU_VPS_ONLY',
+          ]
           scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
 
+          rm -f .github/workflows/one-shot-fix-public-ai-canonical-copy.yml
           git diff --check
           pnpm --filter web exec vitest run tests/unit/publicPlatformAssistantDomainCopy.test.ts
+
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_BASE" | sort)
+          expected=(
+            'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+            'apps/web/next.config.js'
+            'apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts'
+            'docs/platform-v7/autopilot/scopes/fix-public-ai-canonical-copy-3372.json'
+          )
+          [[ "${#changed[@]}" == 4 ]]
+          [[ "${changed[*]}" == "${expected[*]}" ]]
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/web/components/platform-v7/PublicPlatformAssistant.tsx apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-public-ai-canonical-copy-3372.json
+          git add apps/web/components/platform-v7/PublicPlatformAssistant.tsx apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-public-ai-canonical-copy-3372.json .github/workflows/one-shot-fix-public-ai-canonical-copy.yml
           git commit -m 'FIX: make approved public AI identity canonical'
           git push origin "HEAD:$HEAD_BRANCH"
