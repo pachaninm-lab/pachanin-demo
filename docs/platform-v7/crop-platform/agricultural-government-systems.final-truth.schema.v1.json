@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin.example/schemas/agricultural-government-systems.final-truth.schema.v1.json",
+  "title": "PC-CROP-10D final repository truth",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "generatedAt",
+    "projectLockId",
+    "sourceTechnicalSpecification",
+    "operationalStatus",
+    "productionHosting",
+    "immutableAuthorities",
+    "acceptedAuthoritySlices",
+    "terminalAuthority",
+    "repositoryCompletion",
+    "fgisGrain",
+    "externalIndustrialReadiness",
+    "forbiddenConclusions"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./agricultural-government-systems.final-truth.schema.v1.json"
+    },
+    "schemaVersion": {
+      "const": "pc-crop.agricultural-government-systems.final-truth.v1"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "projectLockId": {
+      "const": "PC-CROP-REMAINDER"
+    },
+    "sourceTechnicalSpecification": {
+      "const": "Остаток_ТЗ_Прозрачная_Цена_растениеводство"
+    },
+    "operationalStatus": {
+      "const": "NOT_ATTESTED"
+    },
+    "productionHosting": {
+      "const": "REG_RU_VPS_ONLY"
+    },
+    "immutableAuthorities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registryV1", "authorityBindingsV1"],
+      "properties": {
+        "registryV1": {
+          "$ref": "#/$defs/immutableAuthority"
+        },
+        "authorityBindingsV1": {
+          "$ref": "#/$defs/immutableAuthority"
+        }
+      }
+    },
+    "acceptedAuthoritySlices": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "PC-CROP-08A",
+          "PC-CROP-08B",
+          "PC-CROP-08C",
+          "PC-CROP-08D",
+          "PC-CROP-08E",
+          "PC-CROP-08F",
+          "PC-CROP-08H",
+          "PC-CROP-08I",
+          "PC-CROP-10A",
+          "PC-CROP-10C"
+        ]
+      }
+    },
+    "terminalAuthority": {
+      "$ref": "#/$defs/terminalAuthority"
+    },
+    "repositoryCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completionSlice",
+        "internalRepositoryRemainderComplete",
+        "implementationSequenceClosed",
+        "liveCompletionClaimed"
+      ],
+      "properties": {
+        "completionSlice": {
+          "const": "PC-CROP-10D"
+        },
+        "internalRepositoryRemainderComplete": {
+          "const": true
+        },
+        "implementationSequenceClosed": {
+          "const": true
+        },
+        "liveCompletionClaimed": {
+          "const": false
+        }
+      }
+    },
+    "fgisGrain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "systemCode",
+        "apiContractVersion",
+        "acceptedRuntimeAuthorities",
+        "tenantAuthorizedReadAuthority",
+        "allowedReadOperations",
+        "rejectedMutationOperations",
+        "platformReadEnabled",
+        "platformWriteEnabled",
+        "externalProviderE2E",
+        "productionAttestation"
+      ],
+      "properties": {
+        "systemCode": {
+          "const": "FGIS_GRAIN"
+        },
+        "apiContractVersion": {
+          "const": "1.0.23"
+        },
+        "acceptedRuntimeAuthorities": {
+          "const": 9
+        },
+        "tenantAuthorizedReadAuthority": {
+          "const": "ACCEPTED_DISABLED_BY_DEFAULT"
+        },
+        "allowedReadOperations": {
+          "const": 19
+        },
+        "rejectedMutationOperations": {
+          "const": 38
+        },
+        "platformReadEnabled": {
+          "const": false
+        },
+        "platformWriteEnabled": {
+          "const": false
+        },
+        "externalProviderE2E": {
+          "const": "ABSENT"
+        },
+        "productionAttestation": {
+          "const": "ABSENT"
+        }
+      }
+    },
+    "externalIndustrialReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "industrialLiveReady",
+        "assessment",
+        "implementationAuthorized",
+        "blockers"
+      ],
+      "properties": {
+        "industrialLiveReady": {
+          "const": false
+        },
+        "assessment": {
+          "const": "NOT_ASSESSED"
+        },
+        "implementationAuthorized": {
+          "const": false
+        },
+        "blockers": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{3,160}$"
+          }
+        }
+      }
+    },
+    "forbiddenConclusions": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_]{3,160}$"
+      }
+    }
+  },
+  "$defs": {
+    "sha40": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "immutableAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "mergeSha", "blobSha"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 3
+        },
+        "mergeSha": {
+          "$ref": "#/$defs/sha40"
+        },
+        "blobSha": {
+          "$ref": "#/$defs/sha40"
+        }
+      }
+    },
+    "pathBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "blobSha"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 3
+        },
+        "blobSha": {
+          "$ref": "#/$defs/sha40"
+        }
+      }
+    },
+    "terminalAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slice",
+        "pr",
+        "mergeSha",
+        "exactMainStatusContext",
+        "pathBindings",
+        "operationalStatus",
+        "externalLiveEvidence"
+      ],
+      "properties": {
+        "slice": {
+          "const": "PC-CROP-10C"
+        },
+        "pr": {
+          "const": 3454
+        },
+        "mergeSha": {
+          "$ref": "#/$defs/sha40"
+        },
+        "exactMainStatusContext": {
+          "const": "PC-CROP-10C exact-main"
+        },
+        "pathBindings": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/pathBinding"
+          }
+        },
+        "operationalStatus": {
+          "const": "NOT_ATTESTED"
+        },
+        "externalLiveEvidence": {
+          "const": "ABSENT"
+        }
+      }
+    }
+  }
+}
