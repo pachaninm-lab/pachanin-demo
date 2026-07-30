@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/qwen-live-subtitle-dom-acceptance-20260730",
+  "status": "active",
+  "purpose": "Wait for the hydrated visible public AI subtitle before REG.RU Chromium branding acceptance and repeat the exact-main release chain.",
+  "approvedBy": "owner-direct-urgent-live-acceptance-correction-2026-07-30",
+  "authorityBaseExactMain": "d7827bcad98e6955c283411d8c09bab53cb6fafc",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-qwen-live-subtitle-dom-acceptance.json",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/web/next.config.js"
+  ],
+  "acceptance": [
+    "workflow YAML parses",
+    "live Chromium waits for the visible hydrated subtitle element",
+    "exact subtitle remains Разработан Прозрачной ценой для сельского хозяйства.",
+    "canonical exact images private-model inference RU EN ZH SSE and rollback remain mandatory",
+    "production remains REG_RU_VPS_ONLY"
+  ],
+  "forbiddenCapabilities": [
+    "runtime AI behavior changes",
+    "private data access",
+    "write authority",
+    "external model calls",
+    "Netlify or Vercel deployment"
+  ]
+}
