@@ -593,7 +593,7 @@ jobs:
               const title = page.locator('#pc-public-assistant-title');
               if ((await title.textContent())?.trim() !== 'ИИ Прозрачной Цены') throw new Error('new_title_missing');
               if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Чем помочь?') throw new Error('agro_empty_state_missing');
-              if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Чем помочь?') if (!((await dialog.locator('.pc-public-assistant-identity span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');
+              if (!((await dialog.locator('.pc-public-assistant-identity span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');
               if (await dialog.getByText('Расскажу, как устроены Сделка, роли, аукцион, логистика, документы, деньги, споры, безопасность и внешние подключения.', { exact: false }).count()) throw new Error('legacy_greeting_present');
               const quickCount = await dialog.locator('.pc-public-assistant-quick-actions button').count();
               if (quickCount > 3) throw new Error(`too_many_quick_actions:${quickCount}`);
