@@ -69,6 +69,7 @@ describe('RestrictedPublicQwenService', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     process.env = originalEnv;
     global.fetch = originalFetch;
     jest.restoreAllMocks();
@@ -112,6 +113,34 @@ describe('RestrictedPublicQwenService', () => {
     for (const privateKey of ['tenantId', 'orgId', 'userId', 'dealId', 'membershipId']) {
       expect(wire).not.toContain(privateKey);
     }
+  });
+
+  it('uses the bounded 80-second default when no provider timeout is configured', async () => {
+    jest.useFakeTimers();
+    delete process.env.AI_ASSISTANT_TIMEOUT_MS;
+
+    const fetchMock = jest.fn((_url: URL, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      const signal = init.signal as AbortSignal;
+      const rejectAbort = () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      };
+      if (signal.aborted) rejectAbort();
+      else signal.addEventListener('abort', rejectAbort, { once: true });
+    }));
+    global.fetch = fetchMock as typeof fetch;
+
+    const pending = new RestrictedPublicQwenService().generate(VALID_REQUEST);
+    const rejection = expect(pending).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await Promise.resolve();
+    const signal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal;
+
+    await jest.advanceTimersByTimeAsync(79_999);
+    expect(signal.aborted).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(signal.aborted).toBe(true);
+    await rejection;
   });
 
   it('answers greetings and broad agriculture questions in friendly general-agro mode', async () => {
