@@ -394,7 +394,7 @@ function enhancePublicAssistant(panel: HTMLElement) {
       resetProxy.dataset.pcPublicAssistantResetProxy = 'true';
       resetProxy.addEventListener('click', onResetProxyClick);
     }
-    resetProxy.textContent = label;
+    if (resetProxy.textContent !== label) resetProxy.textContent = label;
     resetProxy.setAttribute('aria-label', label);
     resetProxy.title = label;
     if (resetProxy.nextElementSibling !== form) form.before(resetProxy);
