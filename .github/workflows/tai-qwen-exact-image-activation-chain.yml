@@ -1,5 +1,6 @@
 name: TAI Qwen Exact Image Activation Chain
 # QWEN recovery authority: publish exact images, activate REG.RU, then allow the serialized semantic gate to verify current main.
+# Release trigger v3: include request abort on backdrop and compact Escape, 2026-07-30 exact current main.
 
 on:
   push:

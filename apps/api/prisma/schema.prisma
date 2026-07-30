@@ -1433,6 +1433,7 @@ model FgisGrainTenantReadAuthorization {
   audits FgisGrainTenantReadAudit[]
 
   @@unique([tenantId, organizationId, configurationId], map: "fgis_grain_tenant_read_auth_config_key")
+  @@unique([id, tenantId, organizationId], map: "fgis_grain_tenant_read_auth_tenant_key")
   @@index([tenantId, organizationId, status, validUntil], map: "fgis_grain_tenant_read_auth_status_idx")
   @@index([updatedAt(sort: Desc), id], map: "fgis_grain_tenant_read_auth_updated_idx")
   @@map("fgis_grain_tenant_read_authorizations")
@@ -1462,7 +1463,7 @@ model FgisGrainTenantReadAudit {
   createdAt         DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
   organization Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_org_fk")
-  authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_auth_fk")
+  authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_auth_fk")
   configuration FgisGrainProviderConfiguration   @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_config_fk")
   actorUser User                                  @relation("FgisGrainTenantReadAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_user_fk")
 
@@ -1472,4 +1473,3 @@ model FgisGrainTenantReadAudit {
   @@index([tenantId, organizationId, decision, createdAt(sort: Desc)], map: "fgis_grain_tenant_read_audit_decision_idx")
   @@map("fgis_grain_tenant_read_audits")
 }
-

@@ -183,6 +183,25 @@ function validatePostgres(schema, migration, repository) {
   check(repository.includes('if (preflight.denial)'), 'denied request audit can roll back with the HTTP rejection');
 }
 
+function validateWorkflowEvidence(workflow) {
+  check(!workflow.includes('set -o pipefail'), 'workflow contains a fail-open shell pipeline');
+  for (const marker of [
+    'migration.ok',
+    'api-typecheck.ok',
+    'unit-tests.ok',
+    'postgresql-acceptance.ok',
+  ]) {
+    const markerIndex = workflow.indexOf(marker);
+    const runIndex = workflow.lastIndexOf('run: |', markerIndex);
+    check(markerIndex >= 0, `workflow evidence marker missing: ${marker}`);
+    check(
+      runIndex >= 0
+        && workflow.slice(runIndex, markerIndex).includes('set -euo pipefail'),
+      `workflow evidence marker can be written after a failed command: ${marker}`,
+    );
+  }
+}
+
 function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(contractSpec.includes('toHaveLength(19)'), 'contract test does not pin nineteen reads');
   check(contractSpec.includes('MUTATION_OPERATION_FORBIDDEN'), 'contract test does not prove mutation denial');
@@ -216,6 +235,7 @@ const dto = read(PATHS.dto);
 const transport = read(PATHS.transport);
 const repository = read(PATHS.repository);
 const controller = read(PATHS.controller);
+const workflow = read(PATHS.workflow);
 const schema = read(PATHS.schema);
 const migration = read(PATHS.migration);
 const module = read(PATHS.module);
@@ -230,6 +250,7 @@ const { readRows, mutationRows } = validateCatalog(catalog, contract);
 validateServerAuthority(dto, controller, repository);
 validateTransport(transport, module, repository);
 validatePostgres(schema, migration, repository);
+validateWorkflowEvidence(workflow);
 validateTests(contractSpec, repositorySpec, controllerSpec, e2e);
 validateTruthBoundary(scope, repository, transport);
 

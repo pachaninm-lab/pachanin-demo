@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/trigger-qwen-current-main-push-20260730",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "79390feeaa918f79bd805b166affcc2efd5304b9",
+  "operationalStatus": "TRIGGER_QWEN_EXACT_CURRENT_MAIN_BY_TRUSTED_PUSH",
+  "allowedPaths": [
+    "apps/web/next.config.js",
+    "docs/platform-v7/autopilot/scopes/trigger-qwen-current-main-push-3372.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "push to an activation-watched application path triggers the owner-governed exact-main activation job",
+    "canonical API web and migration images carry the same exact current-main revision",
+    "REG.RU deployment passes authenticated Qwen inference RU EN ZH SSE and mobile Chromium",
+    "public answers expose no reasoning debug or tool traces",
+    "active requests terminate on close backdrop compact Escape timeout and unmount",
+    "production remains REG.RU VPS only"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
