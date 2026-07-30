@@ -473,6 +473,13 @@ function validatePostgres(schema, migration, repository) {
 
 function validateWorkflowEvidence(workflow) {
   check(!workflow.includes('set -o pipefail'), 'workflow contains a fail-open shell pipeline');
+  check(
+    workflow.includes('base_ref=\'${{ github.event.before }}\'')
+      && workflow.includes('git cat-file -e "${base_ref}^{commit}"')
+      && workflow.indexOf('base_ref=\'${{ github.event.before }}\'')
+        < workflow.indexOf('base_ref=\'HEAD^\''),
+    'exact-main verification does not use the pre-push main commit as its base',
+  );
   for (const marker of [
     'migration.ok',
     'api-typecheck.ok',

@@ -90,6 +90,9 @@ jobs:
             export PC_CROP_ISSUE='3446'
             export PC_CROP_SCOPE_PATH='docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
             node scripts/verify-pc-crop-project-lock.mjs | tee "$EVIDENCE_DIR/project-lock.log"
+          elif [[ "${{ github.event_name }}" == 'push' ]]; then
+            base_ref='${{ github.event.before }}'
+            git cat-file -e "${base_ref}^{commit}"
           else
             base_ref='HEAD^'
           fi
