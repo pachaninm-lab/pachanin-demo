@@ -38,6 +38,12 @@ const PUBLIC_ASSISTANT_TIMEOUT_COPY: Record<Locale, { message: string; retry: st
   zh: { message: '回答未完成。请重试上一个问题。', retry: '重试问题' },
 };
 
+const PUBLIC_ASSISTANT_RESET_COPY: Record<Locale, string> = {
+  ru: 'Новый диалог',
+  en: 'New conversation',
+  zh: '新对话',
+};
+
 const PUBLIC_ASSISTANT_TIMEOUT_MS = 45_000;
 const PUBLIC_ASSISTANT_IDENTITY_STYLE_ID = 'pc-public-assistant-identity-branding-v2';
 const INTERNAL_ARTIFACT_PATTERN = /(?:<\/?(?:think|analysis|reasoning)\b|tool[_ -]?calls?|tool[_ -]?trace|think-state|reasoning[_ -]?state|"(?:arguments|tool_call_id)"\s*:)/iu;
@@ -121,6 +127,30 @@ const PUBLIC_ASSISTANT_IDENTITY_CSS = `
 }
 .pc-public-assistant-panel .pc-public-assistant-header-action {
   display: none !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-reset-proxy {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: flex-start !important;
+  width: max-content !important;
+  max-width: calc(100% - 24px) !important;
+  min-height: 32px !important;
+  margin: 6px 12px 0 !important;
+  padding: 6px 11px !important;
+  border: 1px solid #d2e2d8 !important;
+  border-radius: 999px !important;
+  background: #f5faf7 !important;
+  color: #07572e !important;
+  font: inherit !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  cursor: pointer !important;
+}
+.pc-public-assistant-panel .pc-public-assistant-reset-proxy:focus-visible {
+  outline: 2px solid #087a3b !important;
+  outline-offset: 2px !important;
 }
 .pc-public-assistant-panel .pc-public-assistant-header > .pc-public-assistant-icon-button {
   display: inline-flex !important;
@@ -262,6 +292,7 @@ function enhancePublicAssistant(panel: HTMLElement) {
   let timedOut = false;
   let busyPreviously = false;
   let syncing = false;
+  let resetProxy: HTMLButtonElement | null = null;
 
   const clearWatchdogTimer = () => {
     window.clearTimeout(watchdogTimer);
@@ -336,6 +367,39 @@ function enhancePublicAssistant(panel: HTMLElement) {
     stop?.click();
   };
 
+  const onResetProxyClick = () => {
+    panel.querySelector<HTMLButtonElement>('.pc-public-assistant-header-action')?.click();
+  };
+
+  const removeResetProxy = () => {
+    if (!resetProxy) return;
+    resetProxy.removeEventListener('click', onResetProxyClick);
+    resetProxy.remove();
+    resetProxy = null;
+  };
+
+  const syncResetProxy = () => {
+    const nativeReset = panel.querySelector<HTMLButtonElement>('.pc-public-assistant-header-action');
+    const form = panel.querySelector<HTMLFormElement>('.pc-public-assistant-composer');
+    if (!nativeReset || !form) {
+      removeResetProxy();
+      return;
+    }
+
+    const label = PUBLIC_ASSISTANT_RESET_COPY[resolveLocale()];
+    if (!resetProxy) {
+      resetProxy = document.createElement('button');
+      resetProxy.type = 'button';
+      resetProxy.className = 'pc-public-assistant-reset-proxy';
+      resetProxy.dataset.pcPublicAssistantResetProxy = 'true';
+      resetProxy.addEventListener('click', onResetProxyClick);
+    }
+    resetProxy.textContent = label;
+    resetProxy.setAttribute('aria-label', label);
+    resetProxy.title = label;
+    if (resetProxy.nextElementSibling !== form) form.before(resetProxy);
+  };
+
   const onWatchdogTimeout = () => {
     const messages = panel.querySelector<HTMLElement>('.pc-public-assistant-messages');
     if (messages?.getAttribute('aria-busy') !== 'true') return;
@@ -364,6 +428,7 @@ function enhancePublicAssistant(panel: HTMLElement) {
       for (const duplicate of iconButtons.slice(1, -1)) duplicate.remove();
     }
     iconButtons[0]?.setAttribute('data-pc-public-assistant-fullscreen', 'native');
+    syncResetProxy();
 
     for (const article of panel.querySelectorAll<HTMLElement>(".pc-public-assistant-message[data-role='assistant']")) {
       article.removeAttribute('data-model-identity');
@@ -442,6 +507,7 @@ function enhancePublicAssistant(panel: HTMLElement) {
     backdrop?.removeEventListener('click', onCloseCapture, { capture: true });
     document.removeEventListener('keydown', onEscapeCapture, { capture: true });
     form?.removeEventListener('submit', onSubmitCapture, { capture: true });
+    removeResetProxy();
     removeWatchdogError();
     delete panel.dataset.pcPublicAssistantSafetyEnhanced;
     delete panel.dataset.pcPublicAssistantTimedOut;
