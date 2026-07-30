@@ -8,6 +8,7 @@ const paths = {
   middleware: 'apps/web/middleware.ts',
   executor: 'scripts/production-full-stack-exact-sha.sh',
   live: 'scripts/production-full-stack-live-acceptance.sh',
+  evidenceMigration: 'apps/api/prisma/migrations/20260730113000_public_organization_intake_evidence_authority/migration.sql',
   scope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
 };
 const failures = [];
@@ -148,12 +149,22 @@ requireAll('executor', [
   'rollback_images',
   'verify_durable_intake',
   'DURABLE_INTAKE_DB=PASS',
-  'public_organization_connection_requests',
-  'public:organization-intake:create',
-  'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED',
+  'API_PRISMA_SECURITY_DEFINER',
+  'verify_public_organization_connection_request_evidence',
+  'API_DB_EVIDENCE_REVISION_MISMATCH',
   'NON_TARGET_CONTAINER_CHANGED',
   'WATCHTOWER_RETIRED=1',
   'DEPLOYMENT_COMPLETE=1',
+]);
+requireAll('evidenceMigration', [
+  'SECURITY DEFINER',
+  'verify_public_organization_connection_request_evidence',
+  'public_organization_connection_requests',
+  'public:organization-intake:create',
+  'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED',
+  'REVOKE ALL ON FUNCTION',
+  'GRANT EXECUTE ON FUNCTION',
+  "NOT (payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])",
 ]);
 requireAll('live', [
   'for locale in ru en zh',
