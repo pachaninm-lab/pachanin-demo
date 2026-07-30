@@ -1,0 +1,74 @@
+name: One-shot public AI safety branch synchronization
+
+on:
+  push:
+    branches: [fix/public-ai-branding-cleanup-20260730]
+    paths:
+      - '.github/workflows/one-shot-public-ai-rebase-branding.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/public-ai-branding-cleanup-20260730
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Synchronize with main and align approved branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main
+          git merge --no-edit origin/main
+
+          python <<'PY'
+          from pathlib import Path
+          import json
+          import subprocess
+
+          replacements = {
+              'ИИ в агросекторе': 'ИИ в агробизнесе',
+              'AI for agriculture': 'AI for agribusiness',
+              '农业人工智能': '农业商业人工智能',
+          }
+          for path in [
+              Path('apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx'),
+              Path('apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts'),
+          ]:
+              text = path.read_text()
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              path.write_text(text)
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/fix-public-ai-branding-cleanup-3450.json')
+          scope = json.loads(scope_path.read_text())
+          scope['baseCommit'] = subprocess.check_output(['git', 'rev-parse', 'origin/main'], text=True).strip()
+          scope['operationalStatus'] = 'PUBLIC_AI_PRODUCTION_SAFETY_HOTFIX_SYNCHRONIZED_FOR_FINAL_GATES'
+          scope['acceptance'] = [
+              item.replace('ИИ в агросекторе', 'ИИ в агробизнесе')
+              for item in scope['acceptance']
+          ]
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n')
+          PY
+
+          rm .github/workflows/one-shot-public-ai-rebase-branding.yml
+          grep -Fq "ru: { title: 'ИИ в агробизнесе', subtitle: 'разработан Прозрачной Ценой' }" apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx
+          grep -Fq 'PUBLIC_STREAM_TIMEOUT_MS = 45_000' apps/web/lib/platform-v7/ai-gateway-stream.ts
+          grep -Fq 'stripPublicAssistantInternalArtifacts' apps/web/lib/platform-v7/ai-gateway-stream.ts
+          BASE_REF=origin/main GITHUB_HEAD_REF=fix/public-ai-branding-cleanup-20260730 bash scripts/p7-autopilot-guard.sh
+          git diff --check
+          git add apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx \
+            apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts \
+            docs/platform-v7/autopilot/scopes/fix-public-ai-branding-cleanup-3450.json \
+            .github/workflows/one-shot-public-ai-rebase-branding.yml
+          git commit -m 'FIX: align public AI safety UI with approved branding'
+          git push origin HEAD:fix/public-ai-branding-cleanup-20260730
