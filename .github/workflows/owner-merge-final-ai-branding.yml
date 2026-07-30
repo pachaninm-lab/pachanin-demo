@@ -1,0 +1,206 @@
+name: Owner One-Shot Final AI Branding Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/owner-merge-final-ai-branding.yml'
+      - 'docs/platform-v7/autopilot/scopes/owner-merge-final-ai-branding-3372.json'
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: owner-merge-final-ai-branding
+  cancel-in-progress: true
+
+jobs:
+  validate-and-merge:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      TARGET_TITLE: 'FIX: finalize public AI agribusiness branding'
+      ISSUE_NUMBER: '3372'
+    steps:
+      - name: Checkout current main authority
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Resolve exactly one target PR
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for attempt in $(seq 1 40); do
+            matches="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+              --json number,title,headRefName,headRefOid,baseRefName,isDraft \
+              --jq '[.[] | select(.title == env.TARGET_TITLE)]')"
+            count="$(jq 'length' <<<"$matches")"
+            if [[ "$count" -eq 1 ]]; then break; fi
+            if [[ "$count" -gt 1 ]]; then
+              echo "More than one exact-title implementation PR exists." >&2
+              exit 2
+            fi
+            sleep 15
+          done
+          [[ "$(jq 'length' <<<"$matches")" -eq 1 ]]
+          number="$(jq -r '.[0].number' <<<"$matches")"
+          title="$(jq -r '.[0].title' <<<"$matches")"
+          branch="$(jq -r '.[0].headRefName' <<<"$matches")"
+          head="$(jq -r '.[0].headRefOid' <<<"$matches")"
+          base="$(jq -r '.[0].baseRefName' <<<"$matches")"
+          draft="$(jq -r '.[0].isDraft' <<<"$matches")"
+          [[ "$title" == "$TARGET_TITLE" && "$base" == main && "$draft" == false ]]
+          [[ "$head" =~ ^[0-9a-f]{40}$ ]]
+          printf 'number=%s\nbranch=%s\nhead=%s\n' "$number" "$branch" "$head" >> "$GITHUB_OUTPUT"
+
+      - name: Verify registered concurrent scope and exact changed paths
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.target.outputs.number }}
+          TARGET_BRANCH: ${{ steps.target.outputs.branch }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          git checkout --detach origin/main
+          python3 - "$TARGET_BRANCH" "$PR_NUMBER" <<'PY'
+          import fnmatch
+          import json
+          import subprocess
+          import sys
+
+          branch, pr_number = sys.argv[1:]
+          state = json.load(open('docs/platform-v7/autopilot/autopilot-state.json', encoding='utf-8'))
+          scopes = state.get('approvedConcurrentScopes') or {}
+          allowed = scopes.get(branch)
+          if not isinstance(allowed, list) or not allowed:
+              raise SystemExit(f'branch_not_registered:{branch}')
+          changed = subprocess.check_output(
+              ['gh', 'pr', 'diff', pr_number, '--repo', subprocess.check_output(['git', 'config', '--get', 'remote.origin.url'], text=True).strip(), '--name-only'],
+              text=True,
+          ).splitlines()
+          changed = [row.strip() for row in changed if row.strip()]
+          if not changed:
+              raise SystemExit('empty_diff')
+          def accepted(path: str) -> bool:
+              return any(fnmatch.fnmatch(path, pattern) for pattern in allowed)
+          rejected = [path for path in changed if not accepted(path)]
+          if rejected:
+              raise SystemExit('out_of_scope:' + ','.join(rejected))
+          runtime_prefixes = ('apps/web/components/platform-v7/', 'apps/web/styles/', 'apps/web/tests/')
+          if not any(path.startswith(runtime_prefixes) for path in changed):
+              raise SystemExit('no_public_assistant_runtime_or_test_change')
+          print('REGISTERED_SCOPE=PASS')
+          print('CHANGED_PATHS=' + ','.join(changed))
+          PY
+
+      - name: Checkout exact implementation head
+        env:
+          PR_NUMBER: ${{ steps.target.outputs.number }}
+          EXPECTED_HEAD: ${{ steps.target.outputs.head }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin "pull/${PR_NUMBER}/head:refs/remotes/origin/owner-target"
+          git checkout --detach refs/remotes/origin/owner-target
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_HEAD" ]]
+
+      - name: Verify exact branding contract in source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          controller='apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx'
+          test_file='apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts'
+          test -f "$controller" && test -f "$test_file"
+          grep -Fq 'ИИ для агробизнеса' "$controller"
+          grep -Fq 'Разработан Прозрачной ценой для сельского хозяйства.' "$controller"
+          grep -Fq 'ИИ для агробизнеса' "$test_file"
+          grep -Fq 'Разработан Прозрачной ценой для сельского хозяйства.' "$test_file"
+          ! grep -Fq 'Помощник по агробизнесу и платформе' "$controller"
+          ! grep -Fq 'ИИ Прозрачная цена' "$controller"
+          ! grep -Fq 'ИИ Прозрачной Цены' "$controller"
+          grep -Eiq '(assistant.*icon|icon.*assistant|identity.*icon|icon.*identity|AI)' "$controller"
+          echo 'EXACT_BRANDING_SOURCE=PASS'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Run focused branding and type checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          pnpm --filter @pc/web exec vitest run tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts
+          pnpm --filter @pc/web typecheck
+          git diff --check origin/main...HEAD
+
+      - name: Wait for target PR checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.target.outputs.number }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          timeout 35m gh pr checks "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --watch --fail-fast
+
+      - name: Verify no unresolved review threads and immutable head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.target.outputs.number }}
+          EXPECTED_HEAD: ${{ steps.target.outputs.head }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          current_head="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq .headRefOid)"
+          [[ "$current_head" == "$EXPECTED_HEAD" ]]
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repo="${GITHUB_REPOSITORY##*/}"
+          unresolved="$(gh api graphql \
+            -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' \
+            -f owner="$owner" -f repo="$repo" -F number="$PR_NUMBER" \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')"
+          [[ "$unresolved" -eq 0 ]]
+
+      - name: Merge exact approved implementation head
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.target.outputs.number }}
+          EXPECTED_HEAD: ${{ steps.target.outputs.head }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          result="$(gh api --method PUT "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/merge" \
+            -f merge_method=squash -f sha="$EXPECTED_HEAD")"
+          jq -e '.merged == true' <<<"$result" >/dev/null
+          merge_sha="$(jq -r .sha <<<"$result")"
+          [[ "$merge_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$merge_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Record merge authority and close temporary controller PR
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_PR: ${{ steps.target.outputs.number }}
+          TARGET_HEAD: ${{ steps.target.outputs.head }}
+          MERGE_SHA: ${{ steps.merge.outputs.sha }}
+          CONTROLLER_PR: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "Final public AI branding implementation merged: PR #$TARGET_PR, expected head \`$TARGET_HEAD\`, merge SHA \`$MERGE_SHA\`. Exact-main REG.RU release and live mobile acceptance remain authoritative before a live-success claim."
+          gh pr close "$CONTROLLER_PR" --repo "$GITHUB_REPOSITORY" --comment 'Temporary guarded owner merge controller completed and is intentionally not merged.'
