@@ -7,6 +7,7 @@
 // Exact-main public-home AI visibility release trigger for PR #3417; runtime configuration is unchanged.
 // Exact-main Qwen activation retry after 80-second provider timeout remediation; runtime behavior is unchanged.
 // Exact-main Qwen push activation after trace suppression and complete request-abort hardening; runtime configuration is unchanged.
+// Exact-main release trigger for approved `ИИ для агробизнеса` identity and final public reasoning-safety fixes; runtime configuration is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');

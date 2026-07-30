@@ -1,14 +1,21 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/qwen-live-ui-acceptance-v2",
+  "branch": "ops/release-public-ai-branding-20260730",
   "status": "active",
-  "purpose": "Repair exact-main REG.RU Chromium acceptance for the released agro AI copy and prove live platform, greeting and broad agro answers after server and RU/EN/ZH inference already passed.",
-  "approvedBy": "owner-direct-urgent-remediation-2026-07-30",
-  "authorityBaseExactMain": "86a2472a7c6f206222199b1e9846952aa0b54758",
+  "purpose": "Publish and activate the owner-approved public AI agribusiness identity and safety correction from exact current main on REG.RU, without changing runtime behavior.",
+  "approvedBy": "owner-direct-implement-and-release-2026-07-30",
+  "authorityBaseExactMain": "768bfd65ba172446c5024ee36ca8f563c77c42bb",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/next.config.js"
+  ],
+  "acceptance": [
+    "the change is runtime-neutral and only triggers canonical exact API, web and migration image publication",
+    "the TAI Restricted Qwen REG.RU Activation workflow targets the exact merged current-main SHA",
+    "live Chromium verifies the visible AI mark, ИИ для агробизнеса, Разработан Прозрачной ценой для сельского хозяйства., one fullscreen control and no reasoning or tool traces",
+    "authenticated private-model inference and RU EN ZH public SSE remain mandatory",
+    "production remains REG_RU_VPS_ONLY"
   ],
   "forbiddenCapabilities": [
     "runtime AI behavior changes",
