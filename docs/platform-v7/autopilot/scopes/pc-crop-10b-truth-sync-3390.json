@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PC-CROP-10B-TRUTH-SYNC-3390",
+  "branch": "agent/pc-crop-10b-truth-sync-3390",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3390,
+  "activeSlice": "PC-CROP-10B",
+  "baseCommit": "2ec85d97a0c63e5965df52029ece9f262763a486",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "government-system-truth-synchronization-only",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-10b.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-10b-truth-sync-3390.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.authority-bindings.schema.v1.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.authority-bindings.v1.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.readiness.v1.json",
+    "scripts/pc-crop-10b/verify.mjs"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": false
+  },
+  "requiredEvidence": [
+    "PC-CROP-10A registry is bound by exact merge and blob identity",
+    "FGIS Grain PC-CROP-08A through PC-CROP-08I accepted authorities resolve in current main ancestry",
+    "Every capability is tied to exact predecessor paths",
+    "Registry, runtime declarations and status remain non-live and non-contradictory",
+    "PC-CROP-10C is the only permitted successor and remains tenant-read-only",
+    "No credentials, network access, TAI, Qwen or production activation"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

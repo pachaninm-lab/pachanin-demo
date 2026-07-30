@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "pc-crop.agricultural-government-systems.readiness.v1",
+  "generatedAt": "2026-07-29T16:15:00Z",
+  "sourceBinding": "./agricultural-government-systems.authority-bindings.v1.json",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "counts": {
+    "acceptedAuthoritySlices": 9,
+    "acceptedFgisGrainRuntimeSlices": 8,
+    "publicUiDeclarations": 8,
+    "integrationSdkDeclarations": 15,
+    "liveDeclarations": 0,
+    "credentialReferencesPresent": 0,
+    "credentialMaterialPresent": 0
+  },
+  "fgisGrain": {
+    "systemCode": "FGIS_GRAIN",
+    "registryIntegrationStatus": "CONTRACT_PINNED",
+    "registryPlatformState": "SANDBOX_ONLY",
+    "runtimeAuthority": "ACCEPTED_NON_LIVE_AUTHORITY",
+    "apiContractVersion": "1.0.23",
+    "platformReadEnabled": false,
+    "platformWriteEnabled": false,
+    "tenantAuthorizedAdapterPresent": false,
+    "externalProviderE2E": "ABSENT",
+    "productionAttestation": "ABSENT"
+  },
+  "declarationTruth": {
+    "publicFgisCode": {
+      "code": "fgis_grain",
+      "state": "MANUAL_ROUTE",
+      "classification": "RUNTIME_AUTHORITY_EXISTS_DECLARATION_NOT_LIVE"
+    },
+    "sdkFgisCode": {
+      "code": "FGIS_ZERNO",
+      "state": "MOCK_ADAPTER",
+      "classification": "LEGACY_MOCK_REFERENCE_ONLY_DESPITE_RUNTIME_AUTHORITY"
+    },
+    "allOtherSdkCodes": "MOCK_REFERENCE_ONLY",
+    "allDeclarationsLiveStatus": "NOT_LIVE"
+  },
+  "nextAdapter": {
+    "slice": "PC-CROP-10C",
+    "systemCode": "FGIS_GRAIN",
+    "mode": "TENANT_AUTHORIZED_READ_ONLY",
+    "readiness": "BLOCKED_PENDING_GOVERNED_TENANT_ACCESS",
+    "platformState": "DISABLED",
+    "writeAllowed": false,
+    "requiredBeforeImplementationAcceptance": [
+      "SERVER_DERIVED_TENANT_ORG_ROLE_SCOPE",
+      "GOVERNED_CREDENTIAL_REFERENCE",
+      "RLS_NEGATIVE_TESTS",
+      "PROVIDER_READ_E2E",
+      "EXTERNAL_LEGAL_SECURITY_OPERATIONS_ATTESTATIONS"
+    ]
+  },
+  "forbiddenConclusions": [
+    "FGIS_GRAIN_IS_LIVE",
+    "MOCK_SDK_IS_RUNTIME_AUTHORITY",
+    "MANUAL_UI_ROUTE_IS_PROVIDER_ACCEPTANCE",
+    "WRITE_ACCESS_IS_ENABLED",
+    "PRODUCTION_INTEGRATION_IS_ATTESTED"
+  ]
+}
