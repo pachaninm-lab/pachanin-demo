@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/qwen-live-ui-acceptance-v2",
+  "status": "active",
+  "purpose": "Repair exact-main REG.RU Chromium acceptance for the released agro AI copy and prove live platform, greeting and broad agro answers after server and RU/EN/ZH inference already passed.",
+  "approvedBy": "owner-direct-urgent-remediation-2026-07-30",
+  "authorityBaseExactMain": "86a2472a7c6f206222199b1e9846952aa0b54758",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/web/next.config.js"
+  ],
+  "forbiddenCapabilities": [
+    "runtime AI behavior changes",
+    "private data access",
+    "write authority",
+    "external model calls",
+    "Netlify or Vercel deployment"
+  ]
+}
