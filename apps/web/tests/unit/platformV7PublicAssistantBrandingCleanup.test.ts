@@ -78,6 +78,18 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toMatch(/return \(\) => \{[\s\S]*removeResetProxy\(\);[\s\S]*removeWatchdogError\(\);/u);
   });
 
+  it('starts an immediate post-reset request without stale sending state or history', () => {
+    expect(assistantSource).toContain('const sendingRef = React.useRef(false)');
+    expect(assistantSource).toContain('const freshConversationRef = React.useRef(false)');
+    expect(assistantSource).toContain('freshConversationRef.current = true');
+    expect(assistantSource).toContain('if (!normalized || sendingRef.current) return');
+    expect(assistantSource).toContain('const history = freshConversationRef.current ? [] : historyFrom(messages)');
+    expect(assistantSource).toContain('freshConversationRef.current = false');
+    expect(assistantSource).toMatch(
+      /if \(abortRef\.current === controller\) \{\s+abortRef\.current = null;\s+sendingRef\.current = false;\s+setSending\(false\)/u,
+    );
+  });
+
   it('enforces a mobile-safe header layout without clipping or button collision', () => {
     expect(controllerSource).toContain('@media (max-width: 430px)');
     expect(controllerSource).toContain('grid-template-columns: minmax(0, 1fr) 42px 42px !important');
