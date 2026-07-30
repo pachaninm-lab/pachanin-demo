@@ -1,6 +1,8 @@
 import {
+  ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
@@ -71,13 +73,40 @@ const BUYER_B = actor(TENANT_B, ORG_B, `${RUN_ID}.buyer-b`, Role.BUYER);
 const GUEST_A = actor(TENANT_A, ORG_A, `${RUN_ID}.guest-a`, Role.GUEST);
 
 class FakeReadTransport implements FgisGrainTenantReadTransport {
-  readonly available = true;
+  available = true;
   readonly calls: FgisGrainTenantReadTransportRequest[] = [];
+  private nextBarrier: {
+    readonly started: () => void;
+    readonly wait: Promise<void>;
+  } | null = null;
+
+  blockNext(): { readonly started: Promise<void>; readonly release: () => void } {
+    let markStarted!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.nextBarrier = { started: markStarted, wait };
+    return { started, release };
+  }
+
+  reset(): void {
+    this.available = true;
+    this.calls.length = 0;
+    this.nextBarrier = null;
+  }
 
   async execute(
     request: FgisGrainTenantReadTransportRequest,
   ): Promise<FgisGrainTenantReadTransportResult> {
+    const barrier = this.nextBarrier;
+    this.nextBarrier = null;
     this.calls.push(request);
+    barrier?.started();
+    await barrier?.wait;
     return {
       providerRequestId: `${RUN_ID}.provider.${this.calls.length}`,
       responseReference: `provider-response://fgis-grain/${request.correlationId}`,
@@ -169,6 +198,40 @@ async function seedIdentity(): Promise<void> {
       )
       ON CONFLICT ("id") DO NOTHING
     `);
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO public."user_orgs" (
+        "id", "userId", "organizationId", "role", "isDefault", "joinedAt"
+      ) VALUES (
+        ${user.membershipId}, ${user.id}, ${user.orgId}, ${user.role}, true, ${now}
+      )
+      ON CONFLICT ("id") DO UPDATE
+      SET "userId" = EXCLUDED."userId",
+          "organizationId" = EXCLUDED."organizationId",
+          "role" = EXCLUDED."role"
+    `);
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO auth.sessions (
+        id, user_id, membership_id, organization_id, tenant_id, status,
+        refresh_family_id, credential_version, mfa_level, mfa_verified_at,
+        mfa_verified_method, expires_at, created_at, updated_at
+      ) VALUES (
+        ${user.sessionId}, ${user.id}, ${user.membershipId}, ${user.orgId},
+        ${user.tenantId}, 'ACTIVE', ${`${user.sessionId}.family`}, 1,
+        ${user.mfaVerified === true ? 'TOTP' : 'NONE'},
+        ${user.mfaVerified === true ? now : null},
+        ${user.mfaVerified === true ? 'TOTP' : null},
+        ${new Date(now.getTime() + 24 * 60 * 60_000)}, ${now}, ${now}
+      )
+      ON CONFLICT (id) DO UPDATE
+      SET status = 'ACTIVE',
+          mfa_level = EXCLUDED.mfa_level,
+          mfa_verified_at = EXCLUDED.mfa_verified_at,
+          mfa_verified_method = EXCLUDED.mfa_verified_method,
+          expires_at = EXCLUDED.expires_at,
+          revoked_at = NULL,
+          revocation_reason = NULL,
+          updated_at = EXCLUDED.updated_at
+    `);
   }
 }
 
@@ -176,7 +239,7 @@ async function resetAuthority(): Promise<void> {
   await prisma.$executeRawUnsafe(
     'TRUNCATE TABLE public."fgis_grain_tenant_read_audits", public."fgis_grain_tenant_read_authorizations", public."fgis_grain_provider_attestations", public."fgis_grain_provider_configurations" RESTART IDENTITY CASCADE',
   );
-  transport.calls.length = 0;
+  transport.reset();
 }
 
 async function approvedConfiguration() {
@@ -261,6 +324,23 @@ async function runtimeVisibleAuthorizationCount(
   });
 }
 
+async function executeAsRuntime(
+  user: RequestUser,
+  statement: Prisma.Sql,
+): Promise<number> {
+  return runtimePrisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT
+        set_config('app.current_user_id', ${user.id}, true),
+        set_config('app.current_org_id', ${user.orgId}, true),
+        set_config('app.current_tenant_id', ${user.tenantId}, true),
+        set_config('app.current_role', ${user.role}, true),
+        set_config('app.current_session_id', ${user.sessionId}, true)
+    `);
+    return tx.$executeRaw(statement);
+  });
+}
+
 describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () => {
   jest.setTimeout(180_000);
 
@@ -272,10 +352,11 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     runtimePrisma = new PrismaClient({ datasources: { db: { url: runtimeDatabaseUrl } } });
     await runtimePrisma.$connect();
     await seedIdentity();
-    const transactions = new RlsTransactionService(prisma);
-    providerRepository = new FgisGrainProviderAttestationRepository(transactions);
+    const providerTransactions = new RlsTransactionService(prisma);
+    const runtimeTransactions = new RlsTransactionService(runtimePrisma as never);
+    providerRepository = new FgisGrainProviderAttestationRepository(providerTransactions);
     transport = new FakeReadTransport();
-    readRepository = new FgisGrainTenantReadRepository(transactions, transport);
+    readRepository = new FgisGrainTenantReadRepository(runtimeTransactions, transport);
   });
 
   beforeEach(resetAuthority);
@@ -353,6 +434,158 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         credentialReference: expect.stringMatching(/^credential:\/\//u),
       },
     });
+  });
+
+  it('admits only one provider call for concurrent requests with one idempotency key', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-single-flight/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent provider read evidence enables the bounded single-flight test.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'single-flight',
+    );
+    const barrier = transport.blockNext();
+    const first = readRepository.execute(BUYER_A, request);
+    await barrier.started;
+
+    try {
+      await expect(readRepository.execute(BUYER_A, request)).rejects.toMatchObject({
+        response: {
+          code: 'FGIS_GRAIN_READ_IN_FLIGHT',
+          retryable: true,
+        },
+      });
+    } finally {
+      barrier.release();
+    }
+    expect(transport.calls).toHaveLength(1);
+
+    await expect(first).resolves.toMatchObject({
+      replayed: false,
+      operationCode: 'GET_LIST_SDIZ',
+    });
+    const replay = await readRepository.execute(BUYER_A, request);
+    expect(replay.replayed).toBe(true);
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it('does not replay a prior success after reauthorization changes the authority version', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const firstAttestation = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-version-1/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'First independent provider read evidence is bound to authorization version one.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      firstAttestation.authorizationVersion,
+      'authorization-version',
+    );
+    await readRepository.execute(BUYER_A, request);
+
+    const reauthorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const secondAttestation = await readRepository.attest(LEGAL_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: reauthorized.authorizationId,
+      authorizationVersion: reauthorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-version-2/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 5 * 60 * 60_000).toISOString(),
+      justification: 'Second independent provider read evidence is bound to the reauthorized version.',
+    });
+
+    await expect(readRepository.execute(BUYER_A, {
+      ...request,
+      authorizationVersion: secondAttestation.authorizationVersion,
+    })).rejects.toBeInstanceOf(ConflictException);
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it('does not replay a prior success while the provider transport is disabled', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-transport/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent provider read evidence is valid only while transport is admitted.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'transport-disabled-replay',
+    );
+    await readRepository.execute(BUYER_A, request);
+    transport.available = false;
+
+    await expect(readRepository.execute(BUYER_A, request))
+      .rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it('denies direct runtime authorization mutation and forged audit insertion', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+
+    await expect(executeAsRuntime(EXEC_A, Prisma.sql`
+      UPDATE public."fgis_grain_tenant_read_authorizations"
+      SET "status" = 'READ_ONLY_ATTESTED',
+          "attestationEvidenceReference" = 'evidence://forged',
+          "attestationValidUntil" = clock_timestamp() + interval '1 hour',
+          "attestationJustification" = 'forged direct runtime transition',
+          "attestedByUserId" = ${EXEC_A.id},
+          "version" = "version" + 1
+      WHERE "id" = ${authorized.authorizationId}
+    `)).rejects.toThrow(/permission denied/iu);
+
+    await expect(executeAsRuntime(BUYER_A, Prisma.sql`
+      INSERT INTO public."fgis_grain_tenant_read_audits" (
+        "id", "tenantId", "organizationId", "authorizationId",
+        "authorizationVersion", "configurationId", "actorUserId", "actorRole",
+        "operationCode", "correlationId", "idempotencyKey",
+        "requestIdempotencyKey", "requestReference", "requestSha256",
+        "decision", "reasonCode", "providerRequestId", "responseReference",
+        "responseSha256", "receivedAt", "hash", "prevHash"
+      ) VALUES (
+        ${`${RUN_ID}.forged-audit`}, ${TENANT_A}, ${ORG_A},
+        ${authorized.authorizationId}, ${BigInt(authorized.authorizationVersion)},
+        ${configuration.configurationId}, ${BUYER_A.id}, ${BUYER_A.role},
+        'GET_LIST_SDIZ', ${`${RUN_ID}.forged-correlation`},
+        ${`${RUN_ID}.forged-event-key`}, ${`${RUN_ID}.forged-request-key`},
+        'object-store://forged', ${'a'.repeat(64)}, 'SUCCEEDED',
+        'PROVIDER_READ_SUCCEEDED', 'forged-provider-request',
+        'provider-response://forged', ${'b'.repeat(64)}, clock_timestamp(),
+        ${'c'.repeat(64)}, NULL
+      )
+    `)).rejects.toThrow(/permission denied/iu);
   });
 
   it('denies cross-tenant and guest reads under the server-derived authority boundary', async () => {

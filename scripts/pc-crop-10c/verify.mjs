@@ -168,16 +168,36 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('current_setting(\'app.current_org_id\', true)'), 'organization RLS setting missing');
   check(migration.includes('reject_fgis_grain_tenant_read_audit_mutation'), 'immutable audit trigger missing');
   check(migration.includes('UNIQUE ("tenantId", "organizationId", "idempotencyKey")'), 'durable idempotency constraint missing');
-  check(migration.includes('GRANT SELECT, INSERT ON TABLE public."fgis_grain_tenant_read_audits"'), 'audit runtime grant is not append-only');
+  check(migration.includes('"authorizationVersion" bigint NOT NULL'), 'audit is not bound to the authorization version');
+  check(migration.includes('"requestIdempotencyKey" text NOT NULL'), 'audit lacks request-level idempotency binding');
+  check(migration.includes("'IN_FLIGHT'"), 'durable single-flight claim state missing');
+  check(
+    migration.includes('GRANT SELECT ON TABLE public."fgis_grain_tenant_read_authorizations"')
+      && migration.includes('GRANT SELECT ON TABLE public."fgis_grain_tenant_read_audits"'),
+    'runtime tables are not read-only',
+  );
+  check(
+    !migration.includes('GRANT SELECT, INSERT, UPDATE ON TABLE public."fgis_grain_tenant_read_authorizations"')
+      && !migration.includes('GRANT SELECT, INSERT ON TABLE public."fgis_grain_tenant_read_audits"'),
+    'runtime keeps a direct authorization or audit DML bypass',
+  );
   check(!migration.includes('GRANT DELETE') && !migration.includes('GRANT ALL'), 'migration grants unsafe mutation authority');
   check(!migration.includes('grainflow_runtime'), 'migration targets a nonexistent runtime principal');
   check(migration.includes("ARRAY['app_runtime', 'app_service']"), 'runtime principal grant set mismatch');
   check(migration.includes('public.app_rls_context_ready()'), 'role-aware RLS context guard missing');
+  check(migration.includes('auth.sessions') && migration.includes('membership."role"'), 'database command context is not bound to persistent session role');
+  check(migration.includes('mfa_verified_at') && migration.includes('mfa_level'), 'database command context is not bound to MFA');
+  check(migration.includes('write_fgis_grain_tenant_read_authorization'), 'controlled authorization command missing');
+  check(migration.includes('attest_fgis_grain_tenant_read_authorization'), 'controlled attestation command missing');
+  check(migration.includes('append_fgis_grain_tenant_read_audit'), 'controlled audit command missing');
   check(migration.includes('fgis_grain_tenant_read_auth_select_policy'), 'authorization SELECT policy missing');
   check(migration.includes('fgis_grain_tenant_read_auth_insert_policy'), 'authorization INSERT policy missing');
   check(migration.includes('fgis_grain_tenant_read_auth_update_policy'), 'authorization UPDATE policy missing');
   check(migration.includes('text_array_has_unique_elements'), 'database duplicate-operation guard missing');
   check(repository.includes('pg_advisory_xact_lock'), 'audit-chain serialization missing');
+  check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
+  check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
+  check(repository.includes('authorizationVersion !== BigInt(input.authorizationVersion)'), 'replay is not bound to the current authorization version');
   check(repository.includes('prevHash') && repository.includes('canonicalAuditHash'), 'chained audit hashing missing');
   check(repository.includes('Prisma.join(input.allowedOperations)'), 'PostgreSQL operation array binding is not parameterized safely');
   check(repository.includes('if (preflight.denial)'), 'denied request audit can roll back with the HTTP rejection');
@@ -216,6 +236,9 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('CREATE_SDIZ'), 'PostgreSQL E2E does not prove provider mutation rejection');
   check(e2e.includes('runtimeVisibleAuthorizationCount'), 'PostgreSQL E2E does not use the restricted runtime principal');
   check(e2e.includes('AUTHORIZATION_NOT_ATTESTED'), 'PostgreSQL E2E does not prove committed denial evidence');
+  check(e2e.includes('FGIS_GRAIN_READ_IN_FLIGHT'), 'PostgreSQL E2E does not prove single-flight admission');
+  check(e2e.includes('transport.available = false'), 'PostgreSQL E2E does not reject replay while transport is disabled');
+  check(e2e.includes('forged direct runtime transition'), 'PostgreSQL E2E does not prove direct runtime DML denial');
 }
 
 function validateTruthBoundary(scope, repository, transport) {

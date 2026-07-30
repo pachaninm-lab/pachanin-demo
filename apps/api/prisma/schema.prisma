@@ -1440,27 +1440,29 @@ model FgisGrainTenantReadAuthorization {
 }
 
 model FgisGrainTenantReadAudit {
-  id                String    @id
-  tenantId          String
-  organizationId    String
-  authorizationId   String
-  configurationId   String
-  actorUserId       String
-  actorRole         String
-  operationCode     String
-  correlationId     String
-  idempotencyKey    String
-  requestReference  String
-  requestSha256     String    @db.Char(64)
-  decision          String
-  reasonCode        String
-  providerRequestId String?
-  responseReference String?
-  responseSha256    String?   @db.Char(64)
-  receivedAt        DateTime? @db.Timestamptz(6)
-  hash              String    @db.Char(64)
-  prevHash          String?   @db.Char(64)
-  createdAt         DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  id                    String    @id
+  tenantId              String
+  organizationId        String
+  authorizationId       String
+  authorizationVersion  BigInt
+  configurationId       String
+  actorUserId           String
+  actorRole             String
+  operationCode         String
+  correlationId         String
+  idempotencyKey        String
+  requestIdempotencyKey String
+  requestReference      String
+  requestSha256         String    @db.Char(64)
+  decision              String
+  reasonCode            String
+  providerRequestId     String?
+  responseReference     String?
+  responseSha256        String?   @db.Char(64)
+  receivedAt            DateTime? @db.Timestamptz(6)
+  hash                  String    @db.Char(64)
+  prevHash              String?   @db.Char(64)
+  createdAt             DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
   organization Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_org_fk")
   authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_auth_fk")
@@ -1468,6 +1470,7 @@ model FgisGrainTenantReadAudit {
   actorUser User                                  @relation("FgisGrainTenantReadAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_user_fk")
 
   @@unique([tenantId, organizationId, idempotencyKey], map: "fgis_grain_tenant_read_audit_idempotency_key")
+  @@index([tenantId, organizationId, requestIdempotencyKey, createdAt(sort: Desc)], map: "fgis_grain_tenant_read_audit_request_idx")
   @@index([authorizationId, createdAt(sort: Desc), id(sort: Desc)], map: "fgis_grain_tenant_read_audit_auth_idx")
   @@index([correlationId], map: "fgis_grain_tenant_read_audit_correlation_idx")
   @@index([tenantId, organizationId, decision, createdAt(sort: Desc)], map: "fgis_grain_tenant_read_audit_decision_idx")

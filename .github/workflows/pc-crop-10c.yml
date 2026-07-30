@@ -141,15 +141,33 @@ jobs:
           DO $verify$
           BEGIN
             IF NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'SELECT')
-               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'INSERT')
-               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'UPDATE')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'INSERT')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'UPDATE')
                OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'DELETE')
                OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'SELECT')
-               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'INSERT')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'INSERT')
                OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'UPDATE')
                OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'DELETE')
             THEN
               RAISE EXCEPTION 'PC_CROP_10C_RUNTIME_GRANTS_INVALID';
+            END IF;
+            IF NOT has_function_privilege(
+                 'app_runtime',
+                 'public.write_fgis_grain_tenant_read_authorization(text,text,bigint,text[],text,timestamptz,text,bigint)',
+                 'EXECUTE'
+               )
+               OR NOT has_function_privilege(
+                 'app_runtime',
+                 'public.attest_fgis_grain_tenant_read_authorization(text,bigint,text,timestamptz,text)',
+                 'EXECUTE'
+               )
+               OR NOT has_function_privilege(
+                 'app_runtime',
+                 'public.append_fgis_grain_tenant_read_audit(text,text,bigint,text,text,text,text,text,text,text,text,text,text,text,text,timestamptz,text,text)',
+                 'EXECUTE'
+               )
+            THEN
+              RAISE EXCEPTION 'PC_CROP_10C_COMMAND_GRANTS_INVALID';
             END IF;
             IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'fgis_grain_tenant_read_authorizations') <> 3
                OR (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'fgis_grain_tenant_read_audits') <> 2

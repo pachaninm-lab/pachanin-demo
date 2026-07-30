@@ -103,8 +103,10 @@ type ProviderGateRow = Readonly<{
 type AuditRow = Readonly<{
   id: string;
   authorizationId: string;
+  authorizationVersion: bigint;
   operationCode: string;
   correlationId: string;
+  requestIdempotencyKey: string;
   requestReference: string;
   requestSha256: string;
   decision: string;
@@ -114,6 +116,8 @@ type AuditRow = Readonly<{
   receivedAt: Date | null;
   reasonCode: string;
 }>;
+
+type AuditPhase = 'CLAIM' | 'DENIED' | 'OUTCOME';
 
 export interface FgisGrainTenantReadReceipt {
   readonly authorizationId: string;
@@ -163,6 +167,13 @@ function canonicalAuditHash(value: Record<string, unknown>): string {
   return createHash('sha256')
     .update(canonicalFgisGrainTenantReadHash(value))
     .digest('hex');
+}
+
+function executionAuditKey(idempotencyKey: string, phase: AuditPhase): string {
+  const digest = createHash('sha256')
+    .update(`${phase}:${idempotencyKey}`)
+    .digest('hex');
+  return `fgis-read:${phase.toLowerCase()}:${digest}`;
 }
 
 function view(row: AuthorizationRow, transportAvailable: boolean): FgisGrainTenantReadAuthorizationView {
@@ -221,55 +232,36 @@ export class FgisGrainTenantReadRepository {
           tx,
           context,
           input.configurationId,
-          true,
         );
         const authorizationId = current?.id ?? randomUUID();
-        const nextVersion = current ? current.version + 1n : 0n;
         if (current?.status === 'REVOKED') {
           throw new ConflictException('Revoked tenant read authorization cannot be reused');
         }
-        if (current) {
-          const updated = await tx.$executeRaw(Prisma.sql`
-            UPDATE public."fgis_grain_tenant_read_authorizations"
-            SET "configurationVersion" = ${BigInt(input.configurationVersion)},
-                "allowedOperations" = ARRAY[${Prisma.join(input.allowedOperations)}]::text[],
-                "authorizationReference" = ${input.authorizationReference},
-                "status" = 'AUTHORIZED_NOT_ATTESTED',
-                "validUntil" = ${new Date(input.validUntil)},
-                "attestationEvidenceReference" = NULL,
-                "attestationValidUntil" = NULL,
-                "reason" = ${input.reason},
-                "version" = ${nextVersion},
-                "updatedByUserId" = ${context.userId},
-                "updatedAt" = clock_timestamp()
-            WHERE "id" = ${current.id}
-              AND "tenantId" = ${context.tenantId}
-              AND "organizationId" = ${context.orgId}
-              AND "version" = ${current.version}
-          `);
-          if (updated !== 1) throw new PreconditionFailedException('Authorization version changed');
-        } else {
-          await tx.$executeRaw(Prisma.sql`
-            INSERT INTO public."fgis_grain_tenant_read_authorizations" (
-              "id", "tenantId", "organizationId", "configurationId",
-              "configurationVersion", "allowedOperations", "authorizationReference",
-              "status", "validUntil", "reason", "version",
-              "createdByUserId", "updatedByUserId"
-            ) VALUES (
-              ${authorizationId}, ${context.tenantId}, ${context.orgId},
-              ${input.configurationId}, ${BigInt(input.configurationVersion)},
-              ARRAY[${Prisma.join(input.allowedOperations)}]::text[], ${input.authorizationReference},
-              'AUTHORIZED_NOT_ATTESTED', ${new Date(input.validUntil)}, ${input.reason},
-              0, ${context.userId}, ${context.userId}
-            )
-          `);
+        const written = await tx.$queryRaw<Array<{ authorizationVersion: bigint }>>(Prisma.sql`
+          SELECT command.authorization_version AS "authorizationVersion"
+          FROM public.write_fgis_grain_tenant_read_authorization(
+            ${authorizationId},
+            ${input.configurationId},
+            ${BigInt(input.configurationVersion)},
+            ARRAY[${Prisma.join(input.allowedOperations)}]::text[],
+            ${input.authorizationReference},
+            ${new Date(input.validUntil)},
+            ${input.reason},
+            ${current?.version ?? null}::bigint
+          ) AS command
+        `);
+        const nextVersion = written[0]?.authorizationVersion;
+        if (nextVersion === undefined) {
+          throw new PreconditionFailedException('Authorization command returned no version');
         }
         await this.writeAudit(tx, context, {
           authorizationId,
+          authorizationVersion: nextVersion,
           configurationId: input.configurationId,
           operationCode: 'AUTHORIZE',
           correlationId: `authorization:${authorizationId}:${nextVersion}`,
           idempotencyKey: `authorization:${authorizationId}:${nextVersion}`,
+          requestIdempotencyKey: `authorization:${authorizationId}:${nextVersion}`,
           requestReference: input.authorizationReference,
           requestSha256: canonicalFgisGrainTenantReadHash(input),
           decision: 'AUTHORIZED',
@@ -305,11 +297,10 @@ export class FgisGrainTenantReadRepository {
     return this.transactions.withTrustedContext(
       user,
       async (tx, context) => {
-        const authorization = await this.lockAuthorization(
-          tx,
-          context,
-          input.authorizationId,
-        );
+        const authorization = await this.findAuthorization(tx, context, input.authorizationId);
+        if (!authorization) {
+          throw new NotFoundException('FGIS Grain read authorization not found');
+        }
         if (authorization.version !== BigInt(input.authorizationVersion)) {
           throw new PreconditionFailedException('Authorization version changed');
         }
@@ -325,28 +316,27 @@ export class FgisGrainTenantReadRepository {
           authorization.configurationId,
           authorization.configurationVersion,
         );
-        const nextVersion = authorization.version + 1n;
-        const updated = await tx.$executeRaw(Prisma.sql`
-          UPDATE public."fgis_grain_tenant_read_authorizations"
-          SET "status" = 'READ_ONLY_ATTESTED',
-              "attestationEvidenceReference" = ${input.evidenceReference},
-              "attestationValidUntil" = ${new Date(input.validUntil)},
-              "attestationJustification" = ${input.justification},
-              "attestedByUserId" = ${context.userId},
-              "version" = ${nextVersion},
-              "updatedByUserId" = ${context.userId},
-              "updatedAt" = clock_timestamp()
-          WHERE "id" = ${authorization.id}
-            AND "version" = ${authorization.version}
-            AND "status" = 'AUTHORIZED_NOT_ATTESTED'
+        const written = await tx.$queryRaw<Array<{ authorizationVersion: bigint }>>(Prisma.sql`
+          SELECT public.attest_fgis_grain_tenant_read_authorization(
+            ${authorization.id},
+            ${authorization.version},
+            ${input.evidenceReference},
+            ${new Date(input.validUntil)},
+            ${input.justification}
+          ) AS "authorizationVersion"
         `);
-        if (updated !== 1) throw new PreconditionFailedException('Authorization state changed');
+        const nextVersion = written[0]?.authorizationVersion;
+        if (nextVersion === undefined) {
+          throw new PreconditionFailedException('Attestation command returned no version');
+        }
         await this.writeAudit(tx, context, {
           authorizationId: authorization.id,
+          authorizationVersion: nextVersion,
           configurationId: authorization.configurationId,
           operationCode: 'ATTEST',
           correlationId: `attestation:${authorization.id}:${nextVersion}`,
           idempotencyKey: `attestation:${authorization.id}:${nextVersion}`,
+          requestIdempotencyKey: `attestation:${authorization.id}:${nextVersion}`,
           requestReference: input.evidenceReference,
           requestSha256: canonicalFgisGrainTenantReadHash(input),
           decision: 'ATTESTED',
@@ -387,57 +377,60 @@ export class FgisGrainTenantReadRepository {
     const preflight = await this.transactions.withTrustedContext(
       user,
       async (tx, context) => {
-        const authorization = await this.lockAuthorization(tx, context, input.authorizationId);
+        await this.lockIdempotency(tx, context, input.idempotencyKey);
+        const authorization = await this.findAuthorization(tx, context, input.authorizationId);
+        if (!authorization) {
+          throw new NotFoundException('FGIS Grain read authorization not found');
+        }
         if (authorization.version !== BigInt(input.authorizationVersion)) {
           throw new PreconditionFailedException('Authorization version changed');
         }
-        const replay = await this.findReplay(tx, context, input.idempotencyKey);
-        if (replay) return { replay, context, authorization: null, configuration: null, denial: null } as const;
+        const prior = await this.findRequestEvent(tx, context, input.idempotencyKey);
+        const deny = async (reasonCode: string, message: string) => {
+          if (!prior) {
+            await this.writeAudit(tx, context, {
+              authorizationId: authorization.id,
+              authorizationVersion: authorization.version,
+              configurationId: authorization.configurationId,
+              operationCode: input.operationCode,
+              correlationId: input.correlationId,
+              idempotencyKey: executionAuditKey(input.idempotencyKey, 'DENIED'),
+              requestIdempotencyKey: input.idempotencyKey,
+              requestReference: input.requestReference,
+              requestSha256: input.requestSha256,
+              decision: 'DENIED',
+              reasonCode,
+            });
+          }
+          return {
+            replay: null,
+            authorization: null,
+            configuration: null,
+            denial: message,
+            transportDisabled: false,
+          } as const;
+        };
         if (authorization.status !== 'READ_ONLY_ATTESTED') {
-          await this.writeAudit(tx, context, {
-            authorizationId: authorization.id,
-            configurationId: authorization.configurationId,
-            operationCode: input.operationCode,
-            correlationId: input.correlationId,
-            idempotencyKey: input.idempotencyKey,
-            requestReference: input.requestReference,
-            requestSha256: input.requestSha256,
-            decision: 'DENIED',
-            reasonCode: 'AUTHORIZATION_NOT_ATTESTED',
-          });
-          return { replay: null, context, authorization: null, configuration: null, denial: 'FGIS Grain read authorization is not externally attested' } as const;
+          return deny(
+            'AUTHORIZATION_NOT_ATTESTED',
+            'FGIS Grain read authorization is not externally attested',
+          );
         }
         if (
           authorization.validUntil.getTime() <= Date.now()
           || !authorization.attestationValidUntil
           || authorization.attestationValidUntil.getTime() <= Date.now()
         ) {
-          await this.writeAudit(tx, context, {
-            authorizationId: authorization.id,
-            configurationId: authorization.configurationId,
-            operationCode: input.operationCode,
-            correlationId: input.correlationId,
-            idempotencyKey: input.idempotencyKey,
-            requestReference: input.requestReference,
-            requestSha256: input.requestSha256,
-            decision: 'DENIED',
-            reasonCode: 'AUTHORIZATION_OR_ATTESTATION_EXPIRED',
-          });
-          return { replay: null, context, authorization: null, configuration: null, denial: 'FGIS Grain read authorization or attestation expired' } as const;
+          return deny(
+            'AUTHORIZATION_OR_ATTESTATION_EXPIRED',
+            'FGIS Grain read authorization or attestation expired',
+          );
         }
         if (!authorization.allowedOperations.includes(input.operationCode)) {
-          await this.writeAudit(tx, context, {
-            authorizationId: authorization.id,
-            configurationId: authorization.configurationId,
-            operationCode: input.operationCode,
-            correlationId: input.correlationId,
-            idempotencyKey: input.idempotencyKey,
-            requestReference: input.requestReference,
-            requestSha256: input.requestSha256,
-            decision: 'DENIED',
-            reasonCode: 'OPERATION_NOT_AUTHORIZED',
-          });
-          return { replay: null, context, authorization: null, configuration: null, denial: 'Operation is outside tenant authorization' } as const;
+          return deny(
+            'OPERATION_NOT_AUTHORIZED',
+            'Operation is outside tenant authorization',
+          );
         }
         const configuration = await this.requireProviderAuthority(
           tx,
@@ -445,7 +438,69 @@ export class FgisGrainTenantReadRepository {
           authorization.configurationId,
           authorization.configurationVersion,
         );
-        return { replay: null, context, authorization, configuration, denial: null } as const;
+        if (!this.transport.available) {
+          if (!prior) {
+            await this.writeAudit(tx, context, {
+              authorizationId: authorization.id,
+              authorizationVersion: authorization.version,
+              configurationId: authorization.configurationId,
+              operationCode: input.operationCode,
+              correlationId: input.correlationId,
+              idempotencyKey: executionAuditKey(input.idempotencyKey, 'DENIED'),
+              requestIdempotencyKey: input.idempotencyKey,
+              requestReference: input.requestReference,
+              requestSha256: input.requestSha256,
+              decision: 'DENIED',
+              reasonCode: 'PROVIDER_TRANSPORT_DISABLED',
+            });
+          }
+          return {
+            replay: null,
+            authorization: null,
+            configuration: null,
+            denial: null,
+            transportDisabled: true,
+          } as const;
+        }
+        if (prior) {
+          this.assertRequestEventMatches(prior, input);
+          if (prior.decision === 'SUCCEEDED') {
+            return {
+              replay: prior,
+              authorization: null,
+              configuration: null,
+              denial: null,
+              transportDisabled: false,
+            } as const;
+          }
+          if (prior.decision === 'IN_FLIGHT') {
+            throw new ConflictException({
+              code: 'FGIS_GRAIN_READ_IN_FLIGHT',
+              retryable: true,
+            });
+          }
+          throw new ConflictException('Idempotency key already has a terminal result');
+        }
+        await this.writeAudit(tx, context, {
+          authorizationId: authorization.id,
+          authorizationVersion: authorization.version,
+          configurationId: authorization.configurationId,
+          operationCode: input.operationCode,
+          correlationId: input.correlationId,
+          idempotencyKey: executionAuditKey(input.idempotencyKey, 'CLAIM'),
+          requestIdempotencyKey: input.idempotencyKey,
+          requestReference: input.requestReference,
+          requestSha256: input.requestSha256,
+          decision: 'IN_FLIGHT',
+          reasonCode: 'PROVIDER_READ_CLAIMED',
+        });
+        return {
+          replay: null,
+          authorization,
+          configuration,
+          denial: null,
+          transportDisabled: false,
+        } as const;
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -455,16 +510,15 @@ export class FgisGrainTenantReadRepository {
 
     if (preflight.replay) return this.replayReceipt(preflight.replay, input);
     if (preflight.denial) throw new ForbiddenException(preflight.denial);
-    if (!preflight.authorization || !preflight.configuration) {
-      throw new ConflictException('FGIS Grain read preflight is incomplete');
-    }
-    if (!this.transport.available) {
-      await this.recordTransportOutcome(user, preflight.authorization, input, null, 'FAILED', 'PROVIDER_TRANSPORT_DISABLED');
+    if (preflight.transportDisabled) {
       throw new ServiceUnavailableException({
         code: 'FGIS_GRAIN_READ_TRANSPORT_DISABLED',
         retryable: false,
         operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
       });
+    }
+    if (!preflight.authorization || !preflight.configuration) {
+      throw new ConflictException('FGIS Grain read preflight is incomplete');
     }
 
     let result: FgisGrainTenantReadTransportResult;
@@ -517,12 +571,15 @@ export class FgisGrainTenantReadRepository {
     reasonCode: string,
   ): Promise<void> {
     await this.transactions.withTrustedContext(user, async (tx, context) => {
+      await this.lockIdempotency(tx, context, input.idempotencyKey);
       await this.writeAudit(tx, context, {
         authorizationId: authorization.id,
+        authorizationVersion: authorization.version,
         configurationId: authorization.configurationId,
         operationCode: input.operationCode,
         correlationId: input.correlationId,
-        idempotencyKey: input.idempotencyKey,
+        idempotencyKey: executionAuditKey(input.idempotencyKey, 'OUTCOME'),
+        requestIdempotencyKey: input.idempotencyKey,
         requestReference: input.requestReference,
         requestSha256: input.requestSha256,
         decision,
@@ -536,13 +593,9 @@ export class FgisGrainTenantReadRepository {
     row: AuditRow,
     input: FgisGrainTenantReadRequestInput,
   ): FgisGrainTenantReadExecutionReceipt {
+    this.assertRequestEventMatches(row, input);
     if (
-      row.authorizationId !== input.authorizationId
-      || row.operationCode !== input.operationCode
-      || row.correlationId !== input.correlationId
-      || row.requestReference !== input.requestReference
-      || row.requestSha256 !== input.requestSha256
-      || row.decision !== 'SUCCEEDED'
+      row.decision !== 'SUCCEEDED'
       || !row.providerRequestId
       || !row.responseReference
       || !row.responseSha256
@@ -552,7 +605,7 @@ export class FgisGrainTenantReadRepository {
     }
     return {
       authorizationId: row.authorizationId,
-      authorizationVersion: input.authorizationVersion,
+      authorizationVersion: row.authorizationVersion.toString(),
       operationCode: input.operationCode,
       correlationId: input.correlationId,
       providerRequestId: row.providerRequestId,
@@ -562,6 +615,23 @@ export class FgisGrainTenantReadRepository {
       replayed: true,
       operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
     };
+  }
+
+  private assertRequestEventMatches(
+    row: AuditRow,
+    input: FgisGrainTenantReadRequestInput,
+  ): void {
+    if (
+      row.authorizationId !== input.authorizationId
+      || row.authorizationVersion !== BigInt(input.authorizationVersion)
+      || row.operationCode !== input.operationCode
+      || row.correlationId !== input.correlationId
+      || row.requestIdempotencyKey !== input.idempotencyKey
+      || row.requestReference !== input.requestReference
+      || row.requestSha256 !== input.requestSha256
+    ) {
+      throw new ConflictException('Idempotency key payload or authorization version mismatch');
+    }
   }
 
   private async requireProviderAuthority(
@@ -617,16 +687,13 @@ export class FgisGrainTenantReadRepository {
     tx: Prisma.TransactionClient,
     context: TrustedContext,
     configurationId: string,
-    lock = false,
   ): Promise<AuthorizationRow | undefined> {
-    const lockSql = lock ? Prisma.sql`FOR UPDATE` : Prisma.empty;
     const rows = await tx.$queryRaw<AuthorizationRow[]>(Prisma.sql`
       SELECT *
       FROM public."fgis_grain_tenant_read_authorizations"
       WHERE "tenantId" = ${context.tenantId}
         AND "organizationId" = ${context.orgId}
         AND "configurationId" = ${configurationId}
-      ${lockSql}
     `);
     return rows[0];
   }
@@ -646,36 +713,47 @@ export class FgisGrainTenantReadRepository {
     return rows[0];
   }
 
-  private async lockAuthorization(
+  private async lockIdempotency(
     tx: Prisma.TransactionClient,
     context: TrustedContext,
-    authorizationId: string,
-  ): Promise<AuthorizationRow> {
-    const rows = await tx.$queryRaw<AuthorizationRow[]>(Prisma.sql`
-      SELECT *
-      FROM public."fgis_grain_tenant_read_authorizations"
-      WHERE "id" = ${authorizationId}
-        AND "tenantId" = ${context.tenantId}
-        AND "organizationId" = ${context.orgId}
-      FOR UPDATE
-    `);
-    if (!rows[0]) throw new NotFoundException('FGIS Grain read authorization not found');
-    return rows[0];
+    idempotencyKey: string,
+  ): Promise<void> {
+    const lockKey = [
+      'platform-v7:fgis-grain-tenant-read-idempotency',
+      context.tenantId,
+      context.orgId,
+      idempotencyKey,
+    ].join(':');
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+    );
   }
 
-  private async findReplay(
+  private async findRequestEvent(
     tx: Prisma.TransactionClient,
     context: TrustedContext,
     idempotencyKey: string,
   ): Promise<AuditRow | undefined> {
     const rows = await tx.$queryRaw<AuditRow[]>(Prisma.sql`
-      SELECT "id", "authorizationId", "operationCode", "correlationId",
-             "requestReference", "requestSha256", "decision", "providerRequestId", "responseReference",
+      SELECT "id", "authorizationId", "authorizationVersion", "operationCode",
+             "correlationId", "requestIdempotencyKey", "requestReference",
+             "requestSha256", "decision", "providerRequestId", "responseReference",
              "responseSha256", "receivedAt", "reasonCode"
       FROM public."fgis_grain_tenant_read_audits"
       WHERE "tenantId" = ${context.tenantId}
         AND "organizationId" = ${context.orgId}
-        AND "idempotencyKey" = ${idempotencyKey}
+        AND "requestIdempotencyKey" = ${idempotencyKey}
+      ORDER BY
+        CASE "decision"
+          WHEN 'SUCCEEDED' THEN 0
+          WHEN 'FAILED' THEN 1
+          WHEN 'DENIED' THEN 2
+          WHEN 'IN_FLIGHT' THEN 3
+          ELSE 4
+        END,
+        "createdAt" DESC,
+        "id" DESC
+      LIMIT 1
     `);
     return rows[0];
   }
@@ -685,10 +763,12 @@ export class FgisGrainTenantReadRepository {
     context: TrustedContext,
     input: {
       authorizationId: string;
+      authorizationVersion: bigint;
       configurationId: string;
       operationCode: string;
       correlationId: string;
       idempotencyKey: string;
+      requestIdempotencyKey: string;
       requestReference: string;
       requestSha256: string;
       decision: string;
@@ -710,12 +790,14 @@ export class FgisGrainTenantReadRepository {
       tenantId: context.tenantId,
       organizationId: context.orgId,
       authorizationId: input.authorizationId,
+      authorizationVersion: input.authorizationVersion.toString(),
       configurationId: input.configurationId,
       actorUserId: context.userId,
       actorRole: context.role,
       operationCode: input.operationCode,
       correlationId: input.correlationId,
       idempotencyKey: input.idempotencyKey,
+      requestIdempotencyKey: input.requestIdempotencyKey,
       requestReference: input.requestReference,
       requestSha256: input.requestSha256,
       decision: input.decision,
@@ -728,25 +810,38 @@ export class FgisGrainTenantReadRepository {
     };
     const hash = canonicalAuditHash(authority);
     try {
-      await tx.$executeRaw(Prisma.sql`
-        INSERT INTO public."fgis_grain_tenant_read_audits" (
-          "id", "tenantId", "organizationId", "authorizationId", "configurationId",
-          "actorUserId", "actorRole", "operationCode", "correlationId",
-          "idempotencyKey", "requestReference", "requestSha256", "decision",
-          "reasonCode", "providerRequestId", "responseReference", "responseSha256",
-          "receivedAt", "hash", "prevHash"
-        ) VALUES (
-          ${id}, ${context.tenantId}, ${context.orgId}, ${input.authorizationId},
-          ${input.configurationId}, ${context.userId}, ${context.role},
-          ${input.operationCode}, ${input.correlationId}, ${input.idempotencyKey},
-          ${input.requestReference}, ${input.requestSha256}, ${input.decision},
-          ${input.reasonCode}, ${input.result?.providerRequestId ?? null},
-          ${input.result?.responseReference ?? null}, ${input.result?.responseSha256 ?? null},
-          ${receivedAt}, ${hash}, ${previous[0]?.hash ?? null}
-        )
+      await tx.$queryRaw(Prisma.sql`
+        SELECT public.append_fgis_grain_tenant_read_audit(
+          ${id},
+          ${input.authorizationId},
+          ${input.authorizationVersion},
+          ${input.configurationId},
+          ${input.operationCode},
+          ${input.correlationId},
+          ${input.idempotencyKey},
+          ${input.requestIdempotencyKey},
+          ${input.requestReference},
+          ${input.requestSha256},
+          ${input.decision},
+          ${input.reasonCode},
+          ${input.result?.providerRequestId ?? null},
+          ${input.result?.responseReference ?? null},
+          ${input.result?.responseSha256 ?? null},
+          ${receivedAt},
+          ${hash},
+          ${previous[0]?.hash ?? null}
+        ) AS "auditId"
       `);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const databaseCode = error instanceof Prisma.PrismaClientKnownRequestError
+        && error.meta
+        && typeof error.meta === 'object'
+        ? String((error.meta as Record<string, unknown>).code ?? '')
+        : '';
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && (error.code === 'P2002' || databaseCode === '23505')
+      ) {
         throw new ConflictException('Idempotency key already used');
       }
       throw error;
