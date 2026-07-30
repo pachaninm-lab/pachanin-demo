@@ -111,6 +111,28 @@ describe('restricted public Qwen route', () => {
     for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
   });
 
+  it('routes generic platform wording through verified grounding and publishes a source', async () => {
+    const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      expect(body).toMatchObject({
+        originalQuestion: 'Как работает платформа?',
+        answerMode: 'verified_platform',
+        currentDataRequired: false,
+      });
+      return modelResponse('Платформа ведёт Сделку по контролируемому маршруту от условий до закрытия.');
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock });
+
+    const { POST } = await loadRoute();
+    const frames = parseFrames(await (await POST(request('Как работает платформа?'))).text());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'citation', 'token', 'assessment', 'done']);
+    expect(frames[1]).toMatchObject({ event: 'citation' });
+    expect(JSON.parse(String(frames[3].summary))).toMatchObject({ answerMode: 'verified_platform' });
+    for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
+  });
+
   it('routes greetings and broad agriculture questions to general-agro generation without fake citations', async () => {
     const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
       const body = JSON.parse(String(init.body));

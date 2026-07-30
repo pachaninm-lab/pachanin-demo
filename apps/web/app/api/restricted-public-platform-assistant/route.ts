@@ -16,7 +16,7 @@ export const runtime = 'nodejs';
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const INTERNAL_PATH = '/internal/tai/public-generate';
 const MAX_API_RESPONSE_BYTES = 1_048_576;
-const DEFAULT_TIMEOUT_MS = 45_000;
+const DEFAULT_TIMEOUT_MS = 90_000;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
 const MAX_HISTORY_TOTAL_CHARS = 12_000;
@@ -83,6 +83,7 @@ const SENSITIVE_INPUT_PATTERNS = [
 const EXPLICIT_PLATFORM_PATTERNS = [
   /(?:прозрачн\w*\s+цен\w*|transparent\s+price|透明价格)/iu,
   /(?:эта|данная|ваша|наша)\s+(?:платформа|система)|(?:платформа|система)\s+(?:прозрачн\w*\s+цен\w*)/iu,
+  /(?:как\s+работает|как\s+устроен\w*|что\s+такое|для\s+чего|зачем|чем\s+помогает|опиши(?:те)?|расскажи(?:те)?)\s+(?:(?:эта|данная|ваша|наша)\s+)?платформ\w*/iu,
   /(?:личн\w*\s+кабинет|зарегистрир\w*|регистрац\w*|подключить\s+организац\w*|стоимост\w*\s+(?:доступа|внедрения)|тариф\w*)/iu,
   /(?:что\s+(?:ты|вы)\s+уме\w*|возможност\w*\s+(?:ии|помощника)|ваш\w*\s+ии|функционал\w*\s+(?:платформы|системы)?)/iu,
   /(?:your\s+platform|this\s+platform|the\s+platform|workspace|sign\s*up|register|platform\s+capabilit)/iu,
