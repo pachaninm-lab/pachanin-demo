@@ -22,5 +22,6 @@
     "authenticated private-model inference RU EN ZH SSE and live Chromium remain mandatory",
     "one visible AI mark one fullscreen reset functionality and no reasoning tool or debug traces remain mandatory"
   ],
-  "productionHosting": "REG_RU_VPS_ONLY"
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "SOURCE_BRANDING_RACE_FIXED_PENDING_EXACT_GATES"
 }

@@ -13,6 +13,10 @@ const controllerSource = readFileSync(
   join(process.cwd(), 'components/platform-v7/UnifiedModalSheetFullscreenController.tsx'),
   'utf8',
 );
+const assistantSource = readFileSync(
+  join(process.cwd(), 'components/platform-v7/PublicPlatformAssistant.tsx'),
+  'utf8',
+);
 
 function snapshot(status: GatewayStreamSnapshot['status'], text: string): GatewayStreamSnapshot {
   return {
@@ -33,6 +37,12 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain("subtitle: 'Developed by Transparent Price for agriculture.'");
     expect(controllerSource).toContain("title: '农业商业人工智能'");
     expect(controllerSource).toContain("subtitle: '由“透明价格”为农业打造。'");
+    expect(assistantSource).toContain("title: 'ИИ для агробизнеса'");
+    expect(assistantSource).toContain("subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.'");
+    expect(assistantSource).toContain("title: 'AI for agribusiness'");
+    expect(assistantSource).toContain("subtitle: 'Developed by Transparent Price for agriculture.'");
+    expect(assistantSource).toContain("title: '农业商业人工智能'");
+    expect(assistantSource).toContain("subtitle: '由“透明价格”为农业打造。'");
     expect(controllerSource).toContain("querySelectorAll<HTMLElement>('.pc-modal-sheet-fullscreen-button')");
     expect(controllerSource).toContain('data-pc-public-assistant-fullscreen');
   });
