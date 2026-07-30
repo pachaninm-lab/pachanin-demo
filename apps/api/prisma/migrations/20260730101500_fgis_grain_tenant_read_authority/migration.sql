@@ -10,6 +10,14 @@ AS $function$
   );
 $function$;
 
+ALTER TABLE public."fgis_grain_provider_configurations"
+ADD COLUMN "tenantReadTransportAdmittedVersion" bigint,
+ADD CONSTRAINT "fgis_grain_provider_config_tenant_read_admission_version_ck"
+  CHECK (
+    "tenantReadTransportAdmittedVersion" IS NULL
+    OR "tenantReadTransportAdmittedVersion" >= 0
+  );
+
 CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
   "id" text PRIMARY KEY,
   "tenantId" text NOT NULL,
@@ -505,6 +513,20 @@ BEGIN
     RAISE EXCEPTION 'FGIS Grain provider authority is missing or stale'
       USING ERRCODE = '42501';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public."fgis_grain_provider_configurations" AS transport_configuration
+    WHERE transport_configuration."id" = current_row."configurationId"
+      AND transport_configuration."tenantId"
+        = current_setting('app.current_tenant_id', true)
+      AND transport_configuration."organizationId"
+        = current_setting('app.current_org_id', true)
+      AND transport_configuration."tenantReadTransportAdmittedVersion"
+        = current_row."configurationVersion"
+  ) THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read transport admission is missing'
+      USING ERRCODE = '42501';
+  END IF;
 
   UPDATE public."fgis_grain_tenant_read_authorizations"
   SET "status" = 'READ_ONLY_ATTESTED',
@@ -667,6 +689,18 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  IF p_decision IN ('IN_FLIGHT', 'SUCCEEDED', 'FAILED') THEN
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended(
+        'platform-v7:fgis-grain-tenant-read-request'
+          || ':' || audit_tenant_id
+          || ':' || audit_organization_id
+          || ':' || p_request_idempotency_key,
+        0
+      )
+    );
+  END IF;
+
   IF p_decision = 'AUTHORIZED' THEN
     IF p_operation_code <> 'AUTHORIZE'
        OR audit_actor_role NOT IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')
@@ -751,6 +785,15 @@ BEGIN
        OR NOT public.fgis_grain_tenant_read_provider_authority_valid(
          current_authorization."configurationId",
          current_authorization."configurationVersion"
+       )
+       OR NOT EXISTS (
+         SELECT 1
+         FROM public."fgis_grain_provider_configurations" AS transport_configuration
+         WHERE transport_configuration."id" = current_authorization."configurationId"
+           AND transport_configuration."tenantId" = audit_tenant_id
+           AND transport_configuration."organizationId" = audit_organization_id
+           AND transport_configuration."tenantReadTransportAdmittedVersion"
+             = current_authorization."configurationVersion"
        )
     THEN
       RAISE EXCEPTION 'FGIS Grain read execution authority is missing or stale'
@@ -1010,6 +1053,18 @@ BEGIN
   FOREACH runtime_role IN ARRAY ARRAY['app_runtime', 'app_service']
   LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = runtime_role) THEN
+      EXECUTE format(
+        'REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_provider_configurations" FROM %I',
+        runtime_role
+      );
+      EXECUTE format(
+        'REVOKE ALL ON SEQUENCE %s FROM %I',
+        pg_get_serial_sequence(
+          'public."fgis_grain_tenant_read_audits"',
+          'chainSequence'
+        ),
+        runtime_role
+      );
       EXECUTE format(
         'GRANT SELECT ON TABLE public."fgis_grain_tenant_read_authorizations" TO %I',
         runtime_role

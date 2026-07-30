@@ -257,7 +257,7 @@ async function resetAuthority(): Promise<void> {
   transport.reset();
 }
 
-async function approvedConfiguration() {
+async function approvedConfiguration(transportAdmitted = true) {
   const created = await providerRepository.upsertDraft(
     EXEC_A,
     providerUpsert(`config-${Math.random().toString(16).slice(2)}`),
@@ -289,6 +289,14 @@ async function approvedConfiguration() {
     providerMetadata(`activate-${review.configurationId}`, review.version),
   );
   expect(approved.state).toBe('TEST_APPROVED');
+  const transportAdmissionVersion = transportAdmitted
+    ? BigInt(approved.version)
+    : null;
+  await prisma.$executeRaw(Prisma.sql`
+    UPDATE public."fgis_grain_provider_configurations"
+    SET "tenantReadTransportAdmittedVersion" = ${transportAdmissionVersion}
+    WHERE "id" = ${approved.configurationId}
+  `);
   return approved;
 }
 
@@ -432,6 +440,41 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(denied[0]?.count).toBe(1n);
   });
 
+  it('rejects direct database attestation while transport admission is absent', async () => {
+    const configuration = await approvedConfiguration(false);
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+
+    await expect(executeAsRuntime(EXEC_A, Prisma.sql`
+      UPDATE public."fgis_grain_provider_configurations"
+      SET "tenantReadTransportAdmittedVersion" = ${BigInt(configuration.version)}
+      WHERE "id" = ${configuration.configurationId}
+    `)).rejects.toThrow(/permission denied/iu);
+
+    await expect(queryAsRuntime<{ authorizationVersion: bigint }>(
+      SECURITY_A,
+      Prisma.sql`
+        SELECT public.attest_fgis_grain_tenant_read_authorization(
+          ${authorized.authorizationId},
+          ${BigInt(authorized.authorizationVersion)},
+          ${`evidence://fgis-grain/transport-not-admitted/${RUN_ID}`},
+          ${new Date(Date.now() + 6 * 60 * 60_000)},
+          'Caller evidence cannot bypass the database-owned transport admission.',
+          ${'f'.repeat(64)}
+        ) AS "authorizationVersion"
+      `,
+    )).rejects.toThrow(/transport admission/iu);
+
+    const state = await prisma.$queryRaw<Array<{ status: string }>>(Prisma.sql`
+      SELECT "status"
+      FROM public."fgis_grain_tenant_read_authorizations"
+      WHERE "id" = ${authorized.authorizationId}
+    `);
+    expect(state).toEqual([{ status: 'AUTHORIZED_NOT_ATTESTED' }]);
+  });
+
   it('executes an attested read exactly once and replays the durable result', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(
@@ -513,6 +556,101 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     const replay = await readRepository.execute(BUYER_A, request);
     expect(replay.replayed).toBe(true);
     expect(transport.calls).toHaveLength(1);
+  });
+
+  it('serializes competing direct terminal outcomes for one immutable claim', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-terminal-race/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent evidence admits the exact terminal race regression.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'terminal-race',
+    );
+    await queryAsRuntime<{ auditId: string }>(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${`${RUN_ID}.terminal-race.claim`},
+        ${authorized.authorizationId},
+        ${BigInt(attested.authorizationVersion)},
+        ${configuration.configurationId},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.claim`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
+        'IN_FLIGHT',
+        'PROVIDER_READ_CLAIMED',
+        NULL,
+        NULL,
+        NULL,
+        NULL
+      ) AS "auditId"
+    `);
+
+    const success = queryAsRuntime<{ auditId: string }>(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${`${RUN_ID}.terminal-race.success`},
+        ${authorized.authorizationId},
+        ${BigInt(attested.authorizationVersion)},
+        ${configuration.configurationId},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.success`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
+        'SUCCEEDED',
+        'PROVIDER_READ_SUCCEEDED',
+        ${`${RUN_ID}.terminal-race.provider`},
+        ${`provider-response://terminal-race/${RUN_ID}`},
+        ${'b'.repeat(64)},
+        ${new Date()}
+      ) AS "auditId"
+    `);
+    const failed = queryAsRuntime<{ auditId: string }>(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${`${RUN_ID}.terminal-race.failed`},
+        ${authorized.authorizationId},
+        ${BigInt(attested.authorizationVersion)},
+        ${configuration.configurationId},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.failed`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
+        'FAILED',
+        'PROVIDER_READ_FAILED',
+        NULL,
+        NULL,
+        NULL,
+        NULL
+      ) AS "auditId"
+    `);
+    const settled = await Promise.allSettled([success, failed]);
+    expect(settled.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
+    expect(settled.filter((item) => item.status === 'rejected')).toHaveLength(1);
+
+    const terminal = await prisma.$queryRaw<Array<{ decision: string }>>(Prisma.sql`
+      SELECT "decision"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "tenantId" = ${TENANT_A}
+        AND "organizationId" = ${ORG_A}
+        AND "requestIdempotencyKey" = ${request.idempotencyKey}
+        AND "decision" IN ('SUCCEEDED', 'FAILED')
+    `);
+    expect(terminal).toHaveLength(1);
   });
 
   it('records the claimed provider outcome after concurrent reauthorization and session revocation', async () => {

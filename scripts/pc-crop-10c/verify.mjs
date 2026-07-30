@@ -182,6 +182,14 @@ function validatePostgres(schema, migration, repository) {
       && migration.includes('("tenantId", "organizationId", "chainSequence" DESC)'),
     'database-owned monotonic audit sequence is missing',
   );
+  check(
+    schema.includes('tenantReadTransportAdmittedVersion BigInt?')
+      && migration.includes('ADD COLUMN "tenantReadTransportAdmittedVersion" bigint')
+      && migration.includes('"tenantReadTransportAdmittedVersion"')
+      && migration.includes('= current_row."configurationVersion"')
+      && migration.includes('tenant-read transport admission is missing'),
+    'database-owned disabled-by-default version-bound transport admission is missing',
+  );
   check(migration.includes("'IN_FLIGHT'"), 'durable single-flight claim state missing');
   check(
     migration.includes('GRANT SELECT ON TABLE public."fgis_grain_tenant_read_authorizations"')
@@ -214,6 +222,11 @@ function validatePostgres(schema, migration, repository) {
     writeCommand.includes('PERFORM public.append_fgis_grain_tenant_read_audit')
       && attestCommand.includes('PERFORM public.append_fgis_grain_tenant_read_audit'),
     'authorization or attestation state command can commit without its audit',
+  );
+  check(
+    attestCommand.includes('"tenantReadTransportAdmittedVersion"')
+      && attestCommand.includes('= current_row."configurationVersion"'),
+    'direct database attestation can bypass transport admission',
   );
   check(migration.includes('fgis_grain_tenant_read_auth_select_policy'), 'authorization SELECT policy missing');
   check(migration.includes('fgis_grain_tenant_read_auth_insert_policy'), 'authorization INSERT policy missing');
@@ -249,6 +262,16 @@ function validatePostgres(schema, migration, repository) {
       && migration.includes("p_reason_code <> 'PROVIDER_READ_SUCCEEDED'")
       && migration.includes("p_reason_code <> 'PROVIDER_READ_FAILED'"),
     'terminal provider outcome is not bound to its immutable claim',
+  );
+  const requestLock = migration.indexOf('platform-v7:fgis-grain-tenant-read-request');
+  const terminalDuplicateCheck = migration.indexOf(
+    'FROM public."fgis_grain_tenant_read_audits" AS outcome',
+  );
+  check(
+    requestLock >= 0
+      && terminalDuplicateCheck >= 0
+      && requestLock < terminalDuplicateCheck,
+    'terminal duplicate check is not protected by a request-scoped database lock',
   );
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
   check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
@@ -299,6 +322,8 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('computes every immutable audit hash inside PostgreSQL'), 'PostgreSQL E2E does not prove database-owned audit hashing');
   check(e2e.includes('atomically audits direct authorization and attestation command transitions'), 'PostgreSQL E2E does not prove atomic state-transition auditing');
   check(e2e.includes('ORDER BY audit."chainSequence"'), 'PostgreSQL E2E does not prove monotonic audit-chain ordering');
+  check(e2e.includes('rejects direct database attestation while transport admission is absent'), 'PostgreSQL E2E does not prove database transport admission');
+  check(e2e.includes('serializes competing direct terminal outcomes for one immutable claim'), 'PostgreSQL E2E does not prove terminal outcome serialization');
 }
 
 function validateTruthBoundary(scope, repository, transport) {

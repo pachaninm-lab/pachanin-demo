@@ -1202,6 +1202,7 @@ model FgisGrainProviderConfiguration {
   credentialReference   String
   signingKeyReference   String
   payloadStoreReference String
+  tenantReadTransportAdmittedVersion BigInt?
   status                String   @default("DRAFT")
   version               BigInt   @default(0)
   createdByUserId       String
