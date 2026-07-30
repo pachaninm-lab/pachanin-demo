@@ -5,6 +5,7 @@
   "purpose": "Present the public platform-v7 homepage as one operating agricultural Deal system while preserving the approved structure, typography, responsive behavior and authority boundaries.",
   "approvedBy": "user-directed-homepage-operating-product-copy-2026-07-31",
   "allowedPaths": [
+    "apps/web/app/platform-v7/page.tsx",
     "apps/web/i18n/platform-v7-home-story-product.ts",
     "apps/web/i18n/platform-v7-home-v3-product.ts",
     "apps/web/i18n/platform-v7-organization-connect-product.ts",
@@ -25,6 +26,7 @@
     "all visible blocks connect capability to a user scenario and result",
     "the final CTA registers an organization request and returns a request number",
     "critical decisions remain with an authorized participant",
+    "SEO and social metadata describe one unified platform",
     "existing layout and CSS files remain unchanged"
   ]
 }
