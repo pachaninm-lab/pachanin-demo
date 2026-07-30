@@ -133,6 +133,42 @@ describe('restricted public Qwen route', () => {
     for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
   });
 
+  it.each([
+    ['ru', 'Как работает система?'],
+    ['ru', 'Как устроена система?'],
+    ['en', 'How does the platform work?'],
+    ['en', 'How is the platform structured?'],
+    ['en', 'How does the system work?'],
+    ['zh', '平台如何运作？'],
+    ['zh', '平台怎么运行？'],
+    ['zh', '系统如何工作？'],
+  ] as const)('routes multilingual generic platform wording in %s through verified citations', async (locale, question) => {
+    const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      expect(body).toMatchObject({
+        originalQuestion: question,
+        locale,
+        answerMode: 'verified_platform',
+        currentDataRequired: false,
+      });
+      return modelResponse('Платформа ведёт сделку по проверяемому маршруту и показывает разрешённый контекст.');
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock });
+
+    const { POST } = await loadRoute();
+    const frames = parseFrames(await (await POST(request(question, { locale }))).text());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'citation', 'token', 'assessment', 'done']);
+    expect(frames[1]).toMatchObject({ event: 'citation' });
+    expect(String(frames[1].uri)).toMatch(/^https:\/\//u);
+    expect(JSON.parse(String(frames[3].summary))).toMatchObject({
+      answerMode: 'verified_platform',
+      currentDataRequired: false,
+    });
+    for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
+  });
+
   it('routes greetings and broad agriculture questions to general-agro generation without fake citations', async () => {
     const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
       const body = JSON.parse(String(init.body));
