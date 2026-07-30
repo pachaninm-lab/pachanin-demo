@@ -94,6 +94,7 @@ if (!pushPaths) {
 requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
   'DEPLOY-FULL-STACK-EXACT-SHA',
+  'github.actor == github.repository_owner',
   'RELEASE_ISSUE_NUMBER: 3072',
   'for component in api web migration',
   'grainflow-${component}:sha-${SHORT_SHA}',
