@@ -116,28 +116,25 @@
   }
 
   /*
-   * Once the composer receives focus, the sheet stops behaving as a compact
-   * 68dvh card. It occupies the exact live viewport above the software keyboard.
-   * JavaScript's measured visualViewport height is authoritative; the CSS env
-   * expression is only a no-JS/first-frame fallback for overlay keyboards.
+   * The keyboard state is positioned by both edges, not by a guessed height.
+   * This avoids the dead strip produced by Chromium shells whose keyboard top
+   * and visualViewport use different coordinate spaces.
    */
   .pc-public-assistant-panel[data-pc-keyboard-focus='true'],
   .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] {
     top: var(--pc-ai-keyboard-top, var(--pc-visual-viewport-top, 0px)) !important;
     right: 0 !important;
-    bottom: auto !important;
+    bottom: var(
+      --pc-ai-keyboard-bottom,
+      max(var(--pc-visual-viewport-bottom, 0px), env(keyboard-inset-height, 0px))
+    ) !important;
     left: 0 !important;
     width: 100% !important;
-    height: var(
-      --pc-ai-keyboard-height,
-      calc(100dvh - var(--pc-ai-keyboard-top, 0px) - env(keyboard-inset-height, 0px))
-    ) !important;
+    height: auto !important;
     min-height: 0 !important;
     max-width: none !important;
-    max-height: var(
-      --pc-ai-keyboard-height,
-      calc(100dvh - var(--pc-ai-keyboard-top, 0px) - env(keyboard-inset-height, 0px))
-    ) !important;
+    max-height: none !important;
+    box-sizing: border-box !important;
     border-right: 0 !important;
     border-bottom: 0 !important;
     border-left: 0 !important;
