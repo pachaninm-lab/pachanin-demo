@@ -6,7 +6,7 @@
   "projectLockId": "PC-CROP-REMAINDER",
   "issue": 3504,
   "activeSlice": "PC-CROP-10D",
-  "baseCommit": "8072b7c121268feec1dc72d576844a975cf5161b",
+  "baseCommit": "314d4366bdac943c1566b2bad00a5fb3af3888b2",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "internal-repository-completion-with-external-live-blocked",
   "allowedPaths": [
