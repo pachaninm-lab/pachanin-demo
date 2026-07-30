@@ -217,7 +217,7 @@ function validateContext(lock, context) {
     assert(issue === lock.governanceIssue, 'governance branch issue mismatch', local);
     assert(scope.issue === lock.governanceIssue, 'governance scope issue mismatch', local);
     assert(scope.activeSlice === lock.activeSlice, 'governance scope active slice mismatch', local);
-    assert(scope.status === 'completed', 'governance scope must record completed status', local);
+    assert(scope.status === 'active', 'governance maintenance scope must remain active', local);
   } else if (lock.status === 'completed') {
     local.push('PC-CROP project lock is completed; only the governance branch is allowed');
   } else if (exceptionContext) {
@@ -283,7 +283,7 @@ if (process.argv.includes('--self-test')) {
     title: 'PC-CROP governance: complete project lock',
     issue: 3389,
     scope: {
-      status: 'completed',
+      status: 'active',
       projectLockId: 'PC-CROP-REMAINDER',
       issue: 3389,
       activeSlice: null,
