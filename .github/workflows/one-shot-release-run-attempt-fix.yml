@@ -114,3 +114,5 @@ jobs:
             .github/workflows/one-shot-release-run-attempt-fix.yml
           git commit -m 'FIX: align durable evidence with live run attempt'
           git push origin HEAD:fix/release-run-attempt-evidence-3469
+
+# retrigger after workflow registration
