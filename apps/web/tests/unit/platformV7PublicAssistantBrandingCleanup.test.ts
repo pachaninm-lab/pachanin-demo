@@ -27,10 +27,12 @@ function snapshot(status: GatewayStreamSnapshot['status'], text: string): Gatewa
 
 describe('public assistant production-safe UI', () => {
   it('uses one fullscreen control and the approved two-line identity', () => {
-    expect(controllerSource).toContain("title: 'ИИ в агросекторе'");
+    expect(controllerSource).toContain("title: 'ИИ в агробизнесе'");
+    expect(controllerSource).toContain("title: 'AI for agribusiness'");
+    expect(controllerSource).toContain("title: '农业商业人工智能'");
     expect(controllerSource).toContain("subtitle: 'разработан Прозрачной Ценой'");
     expect(controllerSource).toContain("querySelectorAll<HTMLElement>('.pc-modal-sheet-fullscreen-button')");
-    expect(controllerSource).toContain("data-pc-public-assistant-fullscreen");
+    expect(controllerSource).toContain('data-pc-public-assistant-fullscreen');
   });
 
   it('stops a public request that exceeds the bounded deadline and exposes a real retry action', () => {
@@ -38,6 +40,10 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain('PUBLIC_ASSISTANT_TIMEOUT_MS = 45_000');
     expect(controllerSource).toContain(".pc-public-assistant-composer-button[data-kind='stop']");
     expect(controllerSource).toContain('form.requestSubmit()');
+  });
+
+  it('aborts an active request when any close path unmounts the assistant', () => {
+    expect(controllerSource).toMatch(/return \(\) => \{\s+stopActiveRequest\(\);\s+observer\.disconnect\(\);/u);
   });
 
   it('never projects provisional tokens or operational metadata while thinking', () => {
