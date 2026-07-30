@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/read-only-public-ai-release-observer-20260730-v2",
+  "status": "active",
+  "purpose": "Read exact GitHub Actions and GHCR status for the merged public AI REG.RU release without rerunning, dispatching, cancelling, merging, deploying or mutating production.",
+  "approvedBy": "owner-direct-read-only-release-observation-2026-07-30",
+  "authorityBaseExactMain": "25402379df279ea1bde69a0d80608276317f08c5",
+  "allowedPaths": [
+    ".github/workflows/read-only-public-ai-release-observer-v2.yml",
+    "docs/platform-v7/autopilot/scopes/read-only-public-ai-release-observer-v2-3372.json"
+  ],
+  "boundaries": {
+    "repositoryMutation": false,
+    "workflowRerun": false,
+    "workflowDispatch": false,
+    "productionMutation": false,
+    "secretDisclosure": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
