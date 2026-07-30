@@ -1,9 +1,9 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/external-postgres-evidence-authority-20260730",
+  "branch": "fix/external-postgres-evidence-authority-3472",
   "status": "active",
   "issue": 3072,
-  "baseCommit": "0b5a70b22963c025b1d33f0df3c45f56b534694e",
+  "baseCommit": "2280f197c72f77e49c7f19443f6454e5c64a0e6c",
   "operationalStatus": "EXTERNAL_POSTGRES_DURABLE_EVIDENCE_AUTHORITY_FIX",
   "allowedPaths": [
     "scripts/production-full-stack-exact-sha.sh",
@@ -28,8 +28,7 @@
     "the database function returns only verdict audit ID and outbox ID",
     "no PII is returned or stored in release evidence",
     "live and durable acceptance must pass before release success",
-    "production remains REG.RU VPS only",
-    "pull-request checks are synchronized after generator completion"
+    "production remains REG.RU VPS only"
   ],
   "productionHosting": "REG_RU_VPS_ONLY"
 }
