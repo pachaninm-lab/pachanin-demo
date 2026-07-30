@@ -1,0 +1,84 @@
+name: One-time stage Qwen live UI acceptance v3
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/materialize-qwen-live-ui-acceptance-v3-once.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  stage:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/qwen-live-ui-acceptance-v2
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Download validated final files and stage normal repository paths
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: '8743607225'
+          BRANCH: fix/qwen-live-ui-acceptance-v2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          work="$RUNNER_TEMP/qwen-live-ui-stage"
+          rm -rf "$work"
+          mkdir -p "$work"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+            -o "$work/final.zip"
+          unzip -q "$work/final.zip" -d "$work/final"
+
+          source_workflow="$work/final/.github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
+          source_next="$work/final/apps/web/next.config.js"
+          source_scope="$work/final/docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json"
+          test -s "$source_workflow"
+          test -s "$source_next"
+          test -s "$source_scope"
+
+          staged_workflow='docs/platform-v7/autopilot/materialized/tai-restricted-qwen-reg-ru-activation.yml'
+          mkdir -p "$(dirname "$staged_workflow")" "$(dirname "$source_scope")"
+          cp "$source_workflow" "$staged_workflow"
+          cp "$source_next" apps/web/next.config.js
+          cp "$source_scope" docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
+
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('docs/platform-v7/autopilot/materialized/tai-restricted-qwen-reg-ru-activation.yml')
+          text = path.read_text(encoding='utf-8')
+          malformed = "              if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Чем помочь?') if (!((await dialog.locator('.pc-public-assistant-identity span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');"
+          corrected = "              if (!((await dialog.locator('.pc-public-assistant-identity span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');"
+          if text.count(malformed) != 1:
+              raise SystemExit(f'malformed assertion count={text.count(malformed)}')
+          path.write_text(text.replace(malformed, corrected, 1), encoding='utf-8')
+          PY
+
+          grep -Fq "emptyState: 'Чем помочь?'" "$staged_workflow"
+          grep -Fq "name: 'Задай вопрос об агробизнесе или платформе'" "$staged_workflow"
+          grep -Fq "await composer.fill('Привет');" "$staged_workflow"
+          grep -Fq "await composer.fill('Что влияет на цену зерна?');" "$staged_workflow"
+          grep -Fq "general_agro_fake_platform_citation" "$staged_workflow"
+          ! grep -Fq ") if (!((await dialog.locator" "$staged_workflow"
+          node --check apps/web/next.config.js
+          python3 -m json.tool docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json >/dev/null
+
+          git rm -f .github/qwen-live-ui-v2.trigger
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "$staged_workflow" apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
+          git diff --cached --check
+          git commit -m 'QWEN: stage validated live agro AI acceptance files'
+          git push origin "HEAD:$BRANCH"
