@@ -1,20 +1,23 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "ops/release-public-ai-branding-20260730",
+  "branch": "fix/qwen-live-ui-branding-acceptance-v3",
   "status": "active",
-  "purpose": "Publish and activate the owner-approved public AI agribusiness identity and safety correction from exact current main on REG.RU, without changing runtime behavior.",
+  "purpose": "Correct only the stale live Chromium branding assertions, publish the runtime-neutral exact-main trigger and re-run the accepted REG.RU activation path.",
   "approvedBy": "owner-direct-implement-and-release-2026-07-30",
-  "authorityBaseExactMain": "768bfd65ba172446c5024ee36ca8f563c77c42bb",
+  "authorityBaseExactMain": "72d1a6ad7c277615430a58a9d357485ae34f6f5c",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/next.config.js"
   ],
   "acceptance": [
-    "the change is runtime-neutral and only triggers canonical exact API, web and migration image publication",
-    "the TAI Restricted Qwen REG.RU Activation workflow targets the exact merged current-main SHA",
-    "live Chromium verifies the visible AI mark, ИИ для агробизнеса, Разработан Прозрачной ценой для сельского хозяйства., one fullscreen control and no reasoning or tool traces",
+    "the diff is limited to the three registered release paths and changes no application runtime behavior",
+    "live Chromium requires the exact title ИИ для агробизнеса",
+    "live Chromium requires the exact subtitle Разработан Прозрачной ценой для сельского хозяйства.",
+    "live Chromium verifies exactly one visible AI mark and exactly one native fullscreen control",
+    "the existing reset, successful-answer, citation, alert, overflow, page-error and reasoning-trace checks remain enforced",
     "authenticated private-model inference and RU EN ZH public SSE remain mandatory",
+    "the TAI Restricted Qwen REG.RU Activation workflow targets the exact merged current-main SHA",
     "production remains REG_RU_VPS_ONLY"
   ],
   "forbiddenCapabilities": [
