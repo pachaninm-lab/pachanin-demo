@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Exact-main release after final PC-CROP governance closure; runtime configuration is unchanged.
 // Exact-main public AI production correction release: approved agribusiness branding, one fullscreen control and complete mobile assistant UI.
 // Exact-main public assistant mobile keyboard and lighter UI release trigger; runtime configuration is unchanged.
 // Exact-main Qwen broad-agro semantic acceptance trigger: substantive market-factor proof.
