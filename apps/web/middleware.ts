@@ -82,6 +82,7 @@ const PUBLIC_API_EXACT = new Set([
   '/api/restricted-public-platform-assistant',
   '/api/platform-v7/inquiries',
   '/api/platform-v7/leads',
+  '/api/platform-v7/organization-connect',
 ]);
 
 function isPrivateMode(): boolean {
