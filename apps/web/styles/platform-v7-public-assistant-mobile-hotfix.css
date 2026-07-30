@@ -1,0 +1,175 @@
+/*
+ * Public assistant mobile keyboard and visual-lightness authority.
+ * Loaded after the legacy assistant layers so current composer selectors win.
+ */
+
+.pc-site-header .pc-site-brand-text strong {
+  font-weight: 650 !important;
+  letter-spacing: -0.015em !important;
+}
+
+.pc-public-assistant-backdrop {
+  background: rgba(9, 33, 24, 0.18) !important;
+  -webkit-backdrop-filter: blur(1px) !important;
+  backdrop-filter: blur(1px) !important;
+}
+
+.pc-public-assistant-panel {
+  border-color: #e1e8e4 !important;
+  box-shadow: 0 14px 42px rgba(9, 33, 24, 0.13) !important;
+}
+
+.pc-public-assistant-header {
+  min-height: 58px !important;
+  border-bottom-color: #edf1ef !important;
+}
+
+.pc-public-assistant-identity strong {
+  font-weight: 650 !important;
+  letter-spacing: -0.015em !important;
+}
+
+.pc-public-assistant-mark {
+  border-color: #d9e5de !important;
+  background: #f7faf8 !important;
+}
+
+.pc-public-assistant-messages {
+  background: #ffffff !important;
+}
+
+.pc-public-assistant-empty h2,
+.pc-public-assistant-answer-title {
+  font-weight: 650 !important;
+}
+
+.pc-public-assistant-quick-actions button,
+.pc-public-assistant-followups button {
+  border-color: transparent !important;
+  background: #f3f6f4 !important;
+  font-weight: 600 !important;
+}
+
+.pc-public-assistant-quick-actions button:hover,
+.pc-public-assistant-followups button:hover {
+  border-color: transparent !important;
+  background: #eaf1ed !important;
+}
+
+.pc-public-assistant-bubble,
+.pc-public-assistant-answer {
+  border-color: #e5ebe7 !important;
+}
+
+.pc-public-assistant-composer {
+  gap: 5px !important;
+  padding: 9px 10px max(9px, env(safe-area-inset-bottom, 0px)) !important;
+  border-top-color: #edf1ef !important;
+  background: #ffffff !important;
+}
+
+.pc-public-assistant-composer-shell {
+  gap: 6px !important;
+  padding: 4px 4px 4px 12px !important;
+  border: 0 !important;
+  border-radius: 13px !important;
+  background: #f2f5f3 !important;
+  box-shadow: none !important;
+}
+
+.pc-public-assistant-composer-shell:focus-within {
+  border: 0 !important;
+  background: #edf2ef !important;
+  box-shadow: none !important;
+}
+
+.pc-public-assistant-composer-shell:has(textarea:focus-visible) {
+  box-shadow: inset 0 -2px 0 rgba(8, 122, 59, 0.62) !important;
+}
+
+.pc-public-assistant-composer textarea,
+.pc-public-assistant-composer textarea:focus,
+.pc-public-assistant-composer textarea:focus-visible {
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  caret-color: #087a3b !important;
+  font-weight: 400 !important;
+}
+
+.pc-public-assistant-composer-button {
+  border: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.pc-public-assistant-privacy {
+  color: #7b8982 !important;
+}
+
+@media (max-width: 720px) {
+  .pc-public-assistant-panel {
+    border-top-color: #e1e8e4 !important;
+    border-radius: 18px 18px 0 0 !important;
+    box-shadow: 0 -10px 34px rgba(9, 33, 24, 0.13) !important;
+  }
+
+  .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] {
+    top: var(--pc-ai-keyboard-top, 0px) !important;
+    right: 0 !important;
+    bottom: auto !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: var(--pc-ai-keyboard-height, 100dvh) !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: var(--pc-ai-keyboard-height, 100dvh) !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    border-left: 0 !important;
+  }
+
+  .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] .pc-public-assistant-messages {
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] .pc-public-assistant-composer {
+    flex: 0 0 auto !important;
+    padding-bottom: 8px !important;
+  }
+
+  .pc-public-assistant-header {
+    min-height: 56px !important;
+    padding: 7px 9px 7px 12px !important;
+  }
+
+  .pc-public-assistant-composer textarea {
+    min-height: 42px !important;
+    max-height: 84px !important;
+    padding: 9px 0 7px !important;
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .pc-site-header .pc-site-brand-text strong {
+    font-size: 17px !important;
+  }
+
+  .pc-public-assistant-identity strong {
+    font-size: 15px !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .pc-public-assistant-composer-shell {
+    border: 1px solid ButtonText !important;
+  }
+
+  .pc-public-assistant-composer-shell:has(textarea:focus-visible) {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+}
