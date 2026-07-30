@@ -168,7 +168,7 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('current_setting(\'app.current_org_id\', true)'), 'organization RLS setting missing');
   check(migration.includes('reject_fgis_grain_tenant_read_audit_mutation'), 'immutable audit trigger missing');
   check(migration.includes('UNIQUE ("tenantId", "organizationId", "idempotencyKey")'), 'durable idempotency constraint missing');
-  check(migration.includes('GRANT SELECT, INSERT ON public."fgis_grain_tenant_read_audits"'), 'audit runtime grant is not append-only');
+  check(migration.includes('GRANT SELECT, INSERT ON TABLE public."fgis_grain_tenant_read_audits"'), 'audit runtime grant is not append-only');
   check(!migration.includes('GRANT DELETE') && !migration.includes('GRANT ALL'), 'migration grants unsafe mutation authority');
   check(!migration.includes('grainflow_runtime'), 'migration targets a nonexistent runtime principal');
   check(migration.includes("ARRAY['app_runtime', 'app_service']"), 'runtime principal grant set mismatch');
