@@ -1,7 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-ai-branding-cleanup-20260730",
-  "status": "ready_for_review",
+  "status": "active",
   "issue": 3450,
   "baseCommit": "b22ad0df85de8113c9983839278e325842bcead1",
   "operationalStatus": "PUBLIC_AI_BRANDING_RESET_AND_STRUCTURAL_SANITIZER_READY",
