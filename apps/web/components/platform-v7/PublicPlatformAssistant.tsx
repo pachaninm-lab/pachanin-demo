@@ -1,13 +1,33 @@
 'use client';
 
 import * as React from 'react';
-import { ExternalLink, Loader2, RotateCcw, Send, Sparkles, Square, X } from 'lucide-react';
+import {
+  Copy as CopyIcon,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  Sparkles,
+  Square,
+  ThumbsDown,
+  ThumbsUp,
+  X,
+} from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
-import { readGatewayStream, refusalCopy, type GatewayStreamStatus } from '@/lib/platform-v7/ai-gateway-stream';
+import {
+  readGatewayStream,
+  refusalCopy,
+  type GatewayStreamSnapshot,
+  type GatewayStreamStatus,
+} from '@/lib/platform-v7/ai-gateway-stream';
 import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Confidence = 'high' | 'medium';
+type AnswerOrigin = 'local_qwen' | 'verified_knowledge' | 'knowledge_fallback' | 'policy' | 'refusal';
+type AnswerMode = 'verified_platform' | 'general_agro' | null;
 
 type Source = { label: string; href: string };
 type Catalog = {
@@ -20,6 +40,7 @@ type Catalog = {
 };
 type Answer = {
   requestId: string;
+  escalationId?: string;
   generatedAt: string;
   knowledgeVersion: string;
   dataMode: 'public_knowledge';
@@ -35,14 +56,34 @@ type Answer = {
   suggestions: string[];
   limitations: string[];
 };
+type StreamAssessment = {
+  source: AnswerOrigin;
+  answerMode: AnswerMode;
+  currentDataRequired: boolean;
+  modelIdentity: string | null;
+  latencyMs: number | null;
+  truncated: boolean;
+  finishReason: string | null;
+  safetyFlags: string[];
+};
 type StreamedAnswer = {
   status: GatewayStreamStatus;
   refusal: GatewayRefusal | null;
   citations: readonly { sourceId: string; title: string; uri: string }[];
   modelIdentity: string | null;
+  assessment: StreamAssessment;
 };
-type Message = { id: string; role: 'user' | 'assistant'; text: string; answer?: Answer; stream?: StreamedAnswer };
+type Message = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  createdAt: string;
+  answer?: Answer;
+  stream?: StreamedAnswer;
+  origin?: AnswerOrigin;
+};
 type ContextPayload = { context: string; prompts: string[] };
+type HistoryTurn = { role: 'user' | 'assistant'; text: string };
 
 type Copy = {
   open: string;
@@ -56,6 +97,9 @@ type Copy = {
   send: string;
   stop: string;
   newChat: string;
+  resetConfirm: string;
+  fullscreen: string;
+  compact: string;
   error: string;
   sources: string;
   details: string;
@@ -65,6 +109,18 @@ type Copy = {
   medium: string;
   privacy: string;
   processing: string;
+  copy: string;
+  copied: string;
+  retry: string;
+  useful: string;
+  inaccurate: string;
+  originQwen: string;
+  originKnowledge: string;
+  originFallback: string;
+  originPolicy: string;
+  truncated: string;
+  currentLimited: string;
+  escalation: string;
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -80,15 +136,30 @@ const COPY: Record<Locale, Copy> = {
     send: 'Отправить',
     stop: 'Остановить ответ',
     newChat: 'Новый диалог',
-    error: 'Не удалось получить подтверждённый ответ. Попробуй ещё раз.',
+    resetConfirm: 'Удалить текущий диалог?',
+    fullscreen: 'Развернуть на весь экран',
+    compact: 'Вернуть компактный режим',
+    error: 'Ответ не получен. Проверь соединение и повтори запрос.',
     sources: 'Источники',
     details: 'Основание ответа',
     model: 'Модель',
     confidence: 'Уверенность',
     high: 'высокая',
     medium: 'средняя',
-    privacy: 'Публичный режим · без доступа к данным личных кабинетов',
+    privacy: 'Публичный режим · без доступа к данным личных кабинетов · не вводи пароли, токены и персональные данные',
     processing: 'Формирую ответ…',
+    copy: 'Копировать ответ',
+    copied: 'Скопировано',
+    retry: 'Повторить запрос',
+    useful: 'Ответ полезен',
+    inaccurate: 'Сообщить об ошибке',
+    originQwen: 'Ответ локального ИИ',
+    originKnowledge: 'Подтверждённая база платформы',
+    originFallback: 'База знаний · ИИ временно недоступен',
+    originPolicy: 'Защитное ограничение',
+    truncated: 'Ответ ограничен по длине',
+    currentLimited: 'Нет подтверждённых актуальных данных',
+    escalation: 'Код обращения',
   },
   en: {
     open: 'Ask AI',
@@ -102,15 +173,30 @@ const COPY: Record<Locale, Copy> = {
     send: 'Send',
     stop: 'Stop answer',
     newChat: 'New chat',
-    error: 'A verified answer was not available. Try again.',
+    resetConfirm: 'Delete the current conversation?',
+    fullscreen: 'Open full screen',
+    compact: 'Return to compact mode',
+    error: 'No answer was received. Check the connection and try again.',
     sources: 'Sources',
     details: 'Basis of the answer',
     model: 'Model',
     confidence: 'Confidence',
     high: 'high',
     medium: 'medium',
-    privacy: 'Public mode · no access to workspace data',
+    privacy: 'Public mode · no access to workspace data · do not enter passwords, tokens or personal data',
     processing: 'Preparing the answer…',
+    copy: 'Copy answer',
+    copied: 'Copied',
+    retry: 'Retry request',
+    useful: 'Useful answer',
+    inaccurate: 'Report an error',
+    originQwen: 'Local AI answer',
+    originKnowledge: 'Verified platform knowledge',
+    originFallback: 'Knowledge base · AI temporarily unavailable',
+    originPolicy: 'Safety boundary',
+    truncated: 'Length-limited response',
+    currentLimited: 'No verified current data',
+    escalation: 'Reference code',
   },
   zh: {
     open: '询问 AI',
@@ -124,16 +210,61 @@ const COPY: Record<Locale, Copy> = {
     send: '发送',
     stop: '停止回答',
     newChat: '新对话',
-    error: '暂时无法获得经过验证的回答，请重试。',
+    resetConfirm: '删除当前对话？',
+    fullscreen: '全屏显示',
+    compact: '返回紧凑模式',
+    error: '未收到回答。请检查连接后重试。',
     sources: '来源',
     details: '回答依据',
     model: '模型',
     confidence: '置信度',
     high: '高',
     medium: '中',
-    privacy: '公共模式 · 无法访问工作区数据',
+    privacy: '公共模式 · 无法访问工作区数据 · 请勿输入密码、令牌或个人数据',
     processing: '正在生成回答…',
+    copy: '复制回答',
+    copied: '已复制',
+    retry: '重试问题',
+    useful: '回答有用',
+    inaccurate: '报告错误',
+    originQwen: '本地 AI 回答',
+    originKnowledge: '已验证的平台知识',
+    originFallback: '知识库 · AI 暂时不可用',
+    originPolicy: '安全限制',
+    truncated: '回答受长度限制',
+    currentLimited: '没有经过验证的当前数据',
+    escalation: '参考编号',
   },
+};
+
+const actionStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  minWidth: 44,
+  minHeight: 44,
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  padding: '8px 10px',
+  border: '1px solid #cfdcd4',
+  borderRadius: 10,
+  background: '#fff',
+  color: '#07572e',
+  font: 'inherit',
+  fontSize: 12,
+  cursor: 'pointer',
+};
+
+const badgeStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  minHeight: 28,
+  alignItems: 'center',
+  padding: '4px 8px',
+  border: '1px solid #cfdcd4',
+  borderRadius: 999,
+  background: '#f5f8f6',
+  color: '#52635b',
+  fontSize: 11,
+  lineHeight: 1.2,
 };
 
 function resolveLocale(): Locale {
@@ -164,14 +295,107 @@ function formatTime(value: string, locale: Locale) {
   }).format(date);
 }
 
+function sanitizeDisplayText(value: string): string {
+  return value
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/|\/)[^)]+\)/gu, '$1')
+    .replace(/`([^`]+)`/gu, '$1')
+    .replace(/\*\*([^*]+)\*\*/gu, '$1')
+    .replace(/__([^_]+)__/gu, '$1')
+    .replace(/^\s*#{1,6}\s+/gmu, '')
+    .replace(/^\s*\*\s+/gmu, '• ')
+    .replace(/[ \t]+/gu, ' ')
+    .replace(/ *\n */gu, '\n')
+    .replace(/\n{3,}/gu, '\n\n')
+    .trim();
+}
+
+function defaultAssessment(): StreamAssessment {
+  return {
+    source: 'local_qwen',
+    answerMode: null,
+    currentDataRequired: false,
+    modelIdentity: null,
+    latencyMs: null,
+    truncated: false,
+    finishReason: null,
+    safetyFlags: [],
+  };
+}
+
+function parseAssessment(value: string | null): StreamAssessment {
+  if (!value) return defaultAssessment();
+  try {
+    const row = JSON.parse(value) as Record<string, unknown>;
+    const source: AnswerOrigin = row.source === 'verified_knowledge'
+      || row.source === 'knowledge_fallback'
+      || row.source === 'policy'
+      || row.source === 'refusal'
+      ? row.source
+      : 'local_qwen';
+    const answerMode: AnswerMode = row.answerMode === 'verified_platform' || row.answerMode === 'general_agro'
+      ? row.answerMode
+      : null;
+    return {
+      source,
+      answerMode,
+      currentDataRequired: row.currentDataRequired === true,
+      modelIdentity: typeof row.modelIdentity === 'string' ? row.modelIdentity : null,
+      latencyMs: typeof row.latencyMs === 'number' ? row.latencyMs : null,
+      truncated: row.truncated === true,
+      finishReason: typeof row.finishReason === 'string' ? row.finishReason : null,
+      safetyFlags: Array.isArray(row.safetyFlags)
+        ? row.safetyFlags.filter((item): item is string => typeof item === 'string').slice(0, 12)
+        : [],
+    };
+  } catch {
+    return { ...defaultAssessment(), safetyFlags: ['ASSESSMENT_UNPARSEABLE'] };
+  }
+}
+
+function originLabel(origin: AnswerOrigin, ui: Copy): string {
+  if (origin === 'verified_knowledge') return ui.originKnowledge;
+  if (origin === 'knowledge_fallback') return ui.originFallback;
+  if (origin === 'policy') return ui.originPolicy;
+  return ui.originQwen;
+}
+
+function sessionKey(locale: Locale) {
+  return `pc-public-assistant-v2:${locale}`;
+}
+
+function safeStoredMessages(value: unknown): Message[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(-40).flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const row = item as Record<string, unknown>;
+    if (row.role !== 'user' && row.role !== 'assistant') return [];
+    if (typeof row.text !== 'string' || !row.text.trim()) return [];
+    return [{
+      id: typeof row.id === 'string' ? row.id : messageId(String(row.role)),
+      role: row.role,
+      text: sanitizeDisplayText(row.text).slice(0, 12_000),
+      createdAt: typeof row.createdAt === 'string' ? row.createdAt : new Date().toISOString(),
+      origin: row.origin === 'verified_knowledge'
+        || row.origin === 'knowledge_fallback'
+        || row.origin === 'policy'
+        || row.origin === 'refusal'
+        || row.origin === 'local_qwen'
+        ? row.origin
+        : undefined,
+    } satisfies Message];
+  });
+}
+
 export function PublicPlatformAssistant() {
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [open, setOpen] = React.useState(false);
+  const [fullscreen, setFullscreen] = React.useState(false);
   const [catalog, setCatalog] = React.useState<Catalog | null>(null);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState('');
   const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [copiedId, setCopiedId] = React.useState('');
   const [contextualPrompts, setContextualPrompts] = React.useState<string[]>([]);
   const [contextName, setContextName] = React.useState('platform');
   const panelRef = React.useRef<HTMLElement>(null);
@@ -179,6 +403,8 @@ export function PublicPlatformAssistant() {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const messagesRef = React.useRef<HTMLDivElement>(null);
   const abortRef = React.useRef<AbortController | null>(null);
+  const stickToBottomRef = React.useRef(true);
+  const hydratedStorageRef = React.useRef<Locale | null>(null);
   const ui = COPY[locale];
   const starterPrompts = (contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || [])).slice(0, 3);
   const hasConversation = messages.length > 0;
@@ -187,6 +413,26 @@ export function PublicPlatformAssistant() {
   React.useEffect(() => {
     setLocale(resolveLocale());
   }, []);
+
+  React.useEffect(() => {
+    if (hydratedStorageRef.current === locale) return;
+    hydratedStorageRef.current = locale;
+    try {
+      const stored = window.sessionStorage.getItem(sessionKey(locale));
+      if (stored) setMessages(safeStoredMessages(JSON.parse(stored)));
+    } catch {
+      window.sessionStorage.removeItem(sessionKey(locale));
+    }
+  }, [locale]);
+
+  React.useEffect(() => {
+    if (hydratedStorageRef.current !== locale) return;
+    try {
+      window.sessionStorage.setItem(sessionKey(locale), JSON.stringify(messages.slice(-40)));
+    } catch {
+      // Session persistence is optional; the assistant remains usable without it.
+    }
+  }, [locale, messages]);
 
   React.useEffect(() => {
     const handleContext = (event: Event) => {
@@ -217,15 +463,24 @@ export function PublicPlatformAssistant() {
   }, [catalog, locale, open]);
 
   React.useEffect(() => {
-    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' });
+    if (!stickToBottomRef.current) return;
+    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: sending ? 'auto' : 'smooth' });
   }, [messages, sending]);
+
+  React.useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(120, Math.max(42, textarea.scrollHeight))}px`;
+  }, [input, open, fullscreen]);
 
   React.useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setOpen(false);
+        if (fullscreen) setFullscreen(false);
+        else setOpen(false);
         return;
       }
       if (event.key !== 'Tab' || !panelRef.current) return;
@@ -248,14 +503,22 @@ export function PublicPlatformAssistant() {
       document.removeEventListener('keydown', onKeyDown);
       window.setTimeout(() => triggerRef.current?.focus(), 0);
     };
-  }, [open]);
+  }, [fullscreen, open]);
+
+  const close = () => {
+    setFullscreen(false);
+    setOpen(false);
+  };
 
   const reset = () => {
+    if (messages.length > 2 && !window.confirm(ui.resetConfirm)) return;
     abortRef.current?.abort();
     setMessages([]);
     setInput('');
     setError('');
     setSending(false);
+    setCopiedId('');
+    window.sessionStorage.removeItem(sessionKey(locale));
     window.setTimeout(() => textareaRef.current?.focus(), 0);
     trackEvent('public_platform_assistant_reset');
   };
@@ -266,11 +529,21 @@ export function PublicPlatformAssistant() {
     setSending(false);
   };
 
-  const streamAnswer = async (question: string, controller: AbortController): Promise<boolean> => {
+  const historyFrom = (items: Message[]): HistoryTurn[] => items
+    .filter((message) => message.text.trim().length > 0)
+    .slice(-12)
+    .map((message) => ({ role: message.role, text: message.text.slice(0, 2_000) }));
+
+  const streamAnswer = async (
+    question: string,
+    history: HistoryTurn[],
+    controller: AbortController,
+  ): Promise<'answered' | 'fallback' | 'handled'> => {
     const id = messageId('assistant');
     let opened = false;
 
-    const paint = (snapshot: Parameters<NonNullable<Parameters<typeof readGatewayStream>[1]['onSnapshot']>>[0]) => {
+    const paint = (snapshot: GatewayStreamSnapshot) => {
+      const assessment = parseAssessment(snapshot.assessment);
       const stream: StreamedAnswer = {
         status: snapshot.status,
         refusal: snapshot.refusal,
@@ -279,12 +552,20 @@ export function PublicPlatformAssistant() {
           title: citation.title,
           uri: citation.uri,
         })),
-        modelIdentity: snapshot.modelIdentity,
+        modelIdentity: assessment.modelIdentity || snapshot.modelIdentity,
+        assessment,
       };
       setMessages((current) => {
-        const next = opened ? current.slice(0, -1) : current;
+        const next = opened ? current.filter((message) => message.id !== id) : current;
         opened = true;
-        return [...next, { id, role: 'assistant', text: snapshot.text, stream }];
+        return [...next, {
+          id,
+          role: 'assistant',
+          text: sanitizeDisplayText(snapshot.text),
+          stream,
+          origin: assessment.source,
+          createdAt: new Date().toISOString(),
+        }];
       });
     };
 
@@ -300,40 +581,91 @@ export function PublicPlatformAssistant() {
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         signal: controller.signal,
-        body: JSON.stringify({ message: question, locale }),
+        body: JSON.stringify({ message: question, locale, context: contextName, history }),
       });
     } catch {
-      return false;
+      return 'fallback';
     }
 
     const snapshot = await readGatewayStream(response, { mode: 'public', onSnapshot: paint, signal: controller.signal });
 
     if (snapshot.status === 'answered') {
-      trackEvent('public_platform_assistant_stream_answer', { locale, context: contextName });
-      return true;
+      trackEvent('public_platform_assistant_stream_answer', {
+        locale,
+        context: contextName,
+        source: parseAssessment(snapshot.assessment).source,
+      });
+      return 'answered';
     }
 
     dropProvisional();
-
-    if (snapshot.refusal === 'FEATURE_DISABLED' || snapshot.refusal === 'MODEL_NOT_ADMITTED' || snapshot.refusal === null) {
-      return false;
+    if (
+      snapshot.refusal === 'FEATURE_DISABLED'
+      || snapshot.refusal === 'MODEL_NOT_ADMITTED'
+      || snapshot.refusal === 'UPSTREAM_ERROR'
+      || snapshot.refusal === null
+    ) {
+      return 'fallback';
     }
-    if (snapshot.refusal === 'CANCELLED') return true;
+    if (snapshot.refusal === 'CANCELLED') return 'handled';
 
     setMessages((current) => [...current, {
       id,
       role: 'assistant',
       text: refusalCopy(locale, snapshot.refusal),
-      stream: { status: 'refused', refusal: snapshot.refusal, citations: [], modelIdentity: snapshot.modelIdentity },
+      origin: 'refusal',
+      createdAt: new Date().toISOString(),
+      stream: {
+        status: 'refused',
+        refusal: snapshot.refusal,
+        citations: [],
+        modelIdentity: snapshot.modelIdentity,
+        assessment: { ...defaultAssessment(), source: 'refusal' },
+      },
     }]);
     trackEvent('public_platform_assistant_stream_refusal', { refusal: snapshot.refusal, locale });
+    return 'handled';
+  };
+
+  const knowledgeFallback = async (
+    question: string,
+    controller: AbortController,
+  ): Promise<boolean> => {
+    const response = await fetch('/api/public-platform-assistant', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({ message: question, locale }),
+    });
+    const payload = await response.json().catch(() => null) as Answer | null;
+    if (!response.ok || !payload || payload.dataMode !== 'public_knowledge' || typeof payload.answer !== 'string') {
+      return false;
+    }
+    setMessages((current) => [...current, {
+      id: payload.requestId || messageId('assistant'),
+      role: 'assistant',
+      text: sanitizeDisplayText(payload.answer),
+      answer: payload,
+      origin: 'knowledge_fallback',
+      createdAt: payload.generatedAt || new Date().toISOString(),
+    }]);
+    trackEvent('public_platform_assistant_fallback_answer', { topic: payload.topic, confidence: payload.confidence });
     return true;
   };
 
-  const submit = async (question: string) => {
-    const normalized = question.trim().slice(0, 1_200);
+  const submit = async (value: string) => {
+    const normalized = value.replace(/\s+/gu, ' ').trim().slice(0, 1_200);
     if (!normalized || sending) return;
-    setMessages((current) => [...current, { id: messageId('user'), role: 'user', text: normalized }]);
+    const history = historyFrom(messages);
+    const userMessage: Message = {
+      id: messageId('user'),
+      role: 'user',
+      text: normalized,
+      createdAt: new Date().toISOString(),
+    };
+    stickToBottomRef.current = true;
+    setMessages((current) => [...current, userMessage]);
     setInput('');
     setError('');
     setSending(true);
@@ -342,26 +674,9 @@ export function PublicPlatformAssistant() {
     trackEvent('public_platform_assistant_question', { length: normalized.length, locale, context: contextName });
 
     try {
-      if (await streamAnswer(normalized, controller)) return;
-
-      const response = await fetch('/api/public-platform-assistant', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({ message: normalized, locale }),
-      });
-      const payload = await response.json().catch(() => null) as Answer | null;
-      if (!response.ok || !payload || payload.dataMode !== 'public_knowledge' || typeof payload.answer !== 'string') {
-        throw new Error(`public_assistant_http_${response.status}`);
-      }
-      setMessages((current) => [...current, {
-        id: payload.requestId || messageId('assistant'),
-        role: 'assistant',
-        text: payload.answer,
-        answer: payload,
-      }]);
-      trackEvent('public_platform_assistant_answer', { topic: payload.topic, confidence: payload.confidence });
+      const result = await streamAnswer(normalized, history, controller);
+      if (result === 'answered' || result === 'handled') return;
+      if (!await knowledgeFallback(normalized, controller)) throw new Error('knowledge_fallback_failed');
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') return;
       setError(ui.error);
@@ -371,6 +686,36 @@ export function PublicPlatformAssistant() {
       window.setTimeout(() => textareaRef.current?.focus(), 0);
     }
   };
+
+  const copyMessage = async (message: Message) => {
+    try {
+      await navigator.clipboard.writeText(message.text);
+      setCopiedId(message.id);
+      window.setTimeout(() => setCopiedId((current) => current === message.id ? '' : current), 1_500);
+      trackEvent('public_platform_assistant_answer_copied', { origin: message.origin || 'unknown' });
+    } catch {
+      setError(ui.error);
+    }
+  };
+
+  const retryMessage = (index: number) => {
+    const previous = [...messages.slice(0, index)].reverse().find((message) => message.role === 'user');
+    if (previous) void submit(previous.text);
+  };
+
+  const panelStyle: React.CSSProperties | undefined = fullscreen ? {
+    inset: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '100vw',
+    height: '100dvh',
+    maxHeight: '100dvh',
+    borderRadius: 0,
+    borderLeft: 0,
+    borderRight: 0,
+  } : undefined;
 
   return (
     <div className='pc-public-assistant' data-public-platform-assistant='true'>
@@ -393,7 +738,7 @@ export function PublicPlatformAssistant() {
 
       {open ? (
         <>
-          <button className='pc-public-assistant-backdrop' type='button' aria-label={ui.close} onClick={() => setOpen(false)} />
+          <button className='pc-public-assistant-backdrop' type='button' aria-label={ui.close} onClick={close} />
           <section
             ref={panelRef}
             id='pc-public-assistant-panel'
@@ -404,23 +749,42 @@ export function PublicPlatformAssistant() {
             data-knowledge-version={catalog?.knowledgeVersion || 'loading'}
             data-context={contextName}
             data-has-conversation={String(hasConversation)}
+            data-fullscreen={String(fullscreen)}
+            style={panelStyle}
           >
             <header className='pc-public-assistant-header'>
               <div className='pc-public-assistant-identity'>
                 <span className='pc-public-assistant-mark' aria-hidden='true'><Sparkles size={20} /></span>
                 <div><strong id='pc-public-assistant-title'>{ui.title}</strong><span>{ui.subtitle}</span></div>
               </div>
+              <button
+                type='button'
+                className='pc-public-assistant-icon-button'
+                onClick={() => setFullscreen((current) => !current)}
+                aria-label={fullscreen ? ui.compact : ui.fullscreen}
+                title={fullscreen ? ui.compact : ui.fullscreen}
+              >
+                {fullscreen ? <Minimize2 size={20} aria-hidden='true' /> : <Maximize2 size={20} aria-hidden='true' />}
+              </button>
               {hasConversation ? (
                 <button type='button' className='pc-public-assistant-header-action' onClick={reset} aria-label={ui.newChat} title={ui.newChat}>
                   <RotateCcw size={18} aria-hidden='true' />
                 </button>
               ) : null}
-              <button type='button' className='pc-public-assistant-icon-button' onClick={() => setOpen(false)} aria-label={ui.close}>
+              <button type='button' className='pc-public-assistant-icon-button' onClick={close} aria-label={ui.close}>
                 <X size={20} aria-hidden='true' />
               </button>
             </header>
 
-            <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite' aria-busy={sending}>
+            <div
+              ref={messagesRef}
+              className='pc-public-assistant-messages'
+              aria-busy={sending}
+              onScroll={(event) => {
+                const node = event.currentTarget;
+                stickToBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+              }}
+            >
               {!hasConversation ? (
                 <section className='pc-public-assistant-empty' aria-labelledby='pc-public-assistant-empty-title'>
                   <div className='pc-public-assistant-empty-copy'>
@@ -446,98 +810,102 @@ export function PublicPlatformAssistant() {
                 </section>
               ) : null}
 
-              {messages.map((message) => (
-                <article
-                  key={message.id}
-                  className='pc-public-assistant-message'
-                  data-role={message.role}
-                  data-stream-status={message.stream?.status}
-                  data-stream-refusal={message.stream?.refusal ?? undefined}
-                  data-model-identity={message.stream?.modelIdentity ?? undefined}
-                >
-                  {message.text || message.answer?.title ? (
-                    <div className='pc-public-assistant-bubble'>
-                      {message.answer ? <strong className='pc-public-assistant-answer-title'>{message.answer.title}</strong> : null}
-                      {message.text ? <p>{message.text}</p> : null}
-                    </div>
-                  ) : null}
+              {messages.map((message, index) => {
+                const assessment = message.stream?.assessment;
+                const origin = message.origin || assessment?.source || (message.answer ? 'knowledge_fallback' : undefined);
+                const sources = message.stream?.citations || message.answer?.sources || [];
+                return (
+                  <article
+                    key={message.id}
+                    className='pc-public-assistant-message'
+                    data-role={message.role}
+                    data-stream-status={message.stream?.status}
+                    data-stream-refusal={message.stream?.refusal ?? undefined}
+                    data-model-identity={message.stream?.modelIdentity ?? undefined}
+                    data-origin={origin}
+                  >
+                    {message.text || message.answer?.title ? (
+                      <div className='pc-public-assistant-bubble'>
+                        {message.answer ? <strong className='pc-public-assistant-answer-title'>{message.answer.title}</strong> : null}
+                        {message.text ? <p>{message.text}</p> : null}
+                      </div>
+                    ) : null}
 
-                  {message.stream?.status === 'streaming' ? (
-                    <p className='pc-public-assistant-stream-provisional' role='status'>
-                      <Loader2 size={15} aria-hidden='true' />
-                      {ui.processing}
-                    </p>
-                  ) : null}
+                    {message.stream?.status === 'streaming' ? (
+                      <p className='pc-public-assistant-stream-provisional' role='status' aria-live='polite'>
+                        <Loader2 size={15} aria-hidden='true' />
+                        {ui.processing}
+                      </p>
+                    ) : null}
 
-                  {message.stream?.status === 'answered' ? (
-                    <div className='pc-public-assistant-answer'>
-                      {message.stream.citations.length ? (
-                        <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
-                          {message.stream.citations.map((citation) => (
-                            <a key={citation.uri} href={citation.uri}>
-                              {citation.title}<ExternalLink size={14} aria-hidden='true' />
-                            </a>
-                          ))}
+                    {message.role === 'assistant' && message.stream?.status !== 'streaming' ? (
+                      <div className='pc-public-assistant-answer'>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {origin ? <span style={badgeStyle}>{originLabel(origin, ui)}</span> : null}
+                          {assessment?.currentDataRequired ? <span style={badgeStyle}>{ui.currentLimited}</span> : null}
+                          {assessment?.truncated ? <span style={badgeStyle}>{ui.truncated}</span> : null}
                         </div>
-                      ) : null}
-                      {message.stream.modelIdentity ? (
+
+                        {sources.length ? (
+                          <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
+                            {sources.map((source) => {
+                              const href = 'uri' in source ? source.uri : source.href;
+                              const label = 'title' in source ? source.title : source.label;
+                              return <a key={`${href}-${label}`} href={href}>{label}</a>;
+                            })}
+                          </div>
+                        ) : null}
+
                         <details className='pc-public-assistant-details'>
                           <summary>{ui.details}</summary>
                           <div className='pc-public-assistant-details-body'>
-                            <p className='pc-public-assistant-model'>{ui.model}: {message.stream.modelIdentity}</p>
+                            {message.answer?.facts.length ? (
+                              <ul>{message.answer.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul>
+                            ) : null}
+                            {message.answer?.maturity ? <p>{message.answer.maturity}</p> : null}
+                            {message.answer?.limitations.length ? (
+                              <ul>{message.answer.limitations.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul>
+                            ) : null}
+                            {message.answer?.escalationId ? <p>{ui.escalation}: {message.answer.escalationId}</p> : null}
+                            {message.stream?.modelIdentity ? <p className='pc-public-assistant-model'>{ui.model}: {message.stream.modelIdentity}</p> : null}
+                            {assessment?.safetyFlags.length ? <p>{assessment.safetyFlags.join(' · ')}</p> : null}
+                            <div className='pc-public-assistant-answer-meta'>
+                              {message.answer ? <span>{ui.confidence}: {message.answer.confidence === 'high' ? ui.high : ui.medium}</span> : <span>{origin ? originLabel(origin, ui) : ''}</span>}
+                              <time dateTime={message.createdAt}>{formatTime(message.createdAt, locale)}</time>
+                            </div>
                           </div>
                         </details>
-                      ) : null}
-                    </div>
-                  ) : null}
 
-                  {message.answer ? (
-                    <div className='pc-public-assistant-answer'>
-                      {message.answer.sources.length ? (
-                        <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
-                          {message.answer.sources.map((source) => (
-                            <a
-                              key={`${source.href}-${source.label}`}
-                              href={source.href}
-                              onClick={() => trackEvent('public_platform_assistant_source_opened', {
-                                topic: message.answer?.topic,
-                                href: source.href,
-                              })}
-                            >
-                              {source.label}<ExternalLink size={14} aria-hidden='true' />
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      <details className='pc-public-assistant-details'>
-                        <summary>{ui.details}</summary>
-                        <div className='pc-public-assistant-details-body'>
-                          {message.answer.facts.length ? (
-                            <ul>{message.answer.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul>
-                          ) : null}
-                          {message.answer.maturity ? <p>{message.answer.maturity}</p> : null}
-                          <div className='pc-public-assistant-answer-meta'>
-                            <span>{ui.confidence}: {message.answer.confidence === 'high' ? ui.high : ui.medium}</span>
-                            <time dateTime={message.answer.generatedAt}>{formatTime(message.answer.generatedAt, locale)}</time>
+                        {message.answer?.suggestions.length ? (
+                          <div className='pc-public-assistant-followups'>
+                            {message.answer.suggestions.slice(0, 3).map((suggestion) => (
+                              <button key={suggestion} type='button' onClick={() => void submit(suggestion)}>{suggestion}</button>
+                            ))}
                           </div>
-                        </div>
-                      </details>
+                        ) : null}
 
-                      {message.answer.suggestions.length ? (
-                        <div className='pc-public-assistant-followups'>
-                          {message.answer.suggestions.slice(0, 3).map((suggestion) => (
-                            <button key={suggestion} type='button' onClick={() => void submit(suggestion)}>{suggestion}</button>
-                          ))}
+                        <div className='pc-public-assistant-message-actions' style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          <button type='button' style={actionStyle} onClick={() => void copyMessage(message)} aria-label={ui.copy} title={ui.copy}>
+                            <CopyIcon size={15} aria-hidden='true' />{copiedId === message.id ? ui.copied : ui.copy}
+                          </button>
+                          <button type='button' style={actionStyle} onClick={() => retryMessage(index)} aria-label={ui.retry} title={ui.retry}>
+                            <RefreshCw size={15} aria-hidden='true' />{ui.retry}
+                          </button>
+                          <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'useful', origin: origin || 'unknown' })} aria-label={ui.useful} title={ui.useful}>
+                            <ThumbsUp size={15} aria-hidden='true' />
+                          </button>
+                          <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'inaccurate', origin: origin || 'unknown' })} aria-label={ui.inaccurate} title={ui.inaccurate}>
+                            <ThumbsDown size={15} aria-hidden='true' />
+                          </button>
                         </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
 
               {sending && !hasStreamingMessage ? (
-                <div className='pc-public-assistant-processing' role='status'>
+                <div className='pc-public-assistant-processing' role='status' aria-live='polite'>
                   <Loader2 size={17} aria-hidden='true' /><span>{ui.processing}</span>
                 </div>
               ) : null}
