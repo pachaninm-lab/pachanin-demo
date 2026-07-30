@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+      - 'apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx'
       - 'apps/web/styles/platform-v7-public-assistant.css'
   workflow_run:
     workflows: ['TAI Restricted Qwen REG.RU Activation']
@@ -80,7 +81,7 @@ jobs:
             # When the same commit also triggers Qwen activation, this direct
             # push run releases the shared lock quickly. The workflow_run event
             # performs the real semantic probe after activation succeeds.
-            if grep -Eq '^(.github/workflows/tai-restricted-qwen-reg-ru-activation[.]yml|apps/api/src/modules/ai-insights/(ai-assistant[.]service[.]ts|ai-insights[.]module[.]ts|restricted-public-qwen[.]controller[.]ts|restricted-public-qwen[.]service[.]ts)|apps/web/app/api/restricted-public-platform-assistant/route[.]ts|apps/web/next[.]config[.]js)$' "$changed"; then
+            if grep -Eq '^(.github/workflows/tai-restricted-qwen-reg-ru-activation[.]yml|apps/api/src/modules/ai-insights/(ai-assistant[.]service[.]ts|ai-insights[.]module[.]ts|restricted-public-qwen[.]controller[.]ts|restricted-public-qwen[.]service[.]ts)|apps/web/app/api/restricted-public-platform-assistant/route[.]ts|apps/web/components/platform-v7/(PublicPlatformAssistant|UnifiedModalSheetFullscreenController)[.]tsx|apps/web/next[.]config[.]js)$' "$changed"; then
               live=0
             fi
           fi
@@ -97,6 +98,7 @@ jobs:
           grep -Fq "github.event.workflow_run.conclusion == 'success'" "$workflow"
           grep -Fq "group: tai-restricted-qwen-reg-ru-activation" "$workflow"
           grep -Fq "apps/web/components/platform-v7/PublicPlatformAssistant.tsx" "$workflow"
+          grep -Fq "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx" "$workflow"
           echo 'SEMANTIC_ACCEPTANCE_SERIALIZATION=PASS'
 
       - name: Resolve exact production target
@@ -222,8 +224,17 @@ jobs:
               await trigger.evaluate((node) => node.click());
               await dialog.waitFor({ state: 'visible', timeout: 30000 });
 
-              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'ИИ Прозрачной Цены') {
+              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'ИИ для агробизнеса') {
                 throw new Error('semantic_title_missing');
+              }
+              const semanticSubtitle = dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible');
+              await semanticSubtitle.waitFor({ state: 'visible', timeout: 30000 });
+              if (((await semanticSubtitle.textContent()) || '').trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') {
+                throw new Error('semantic_subtitle_missing');
+              }
+              const aiMark = dialog.locator('[data-pc-public-assistant-ai-mark="true"]:visible');
+              if (await aiMark.count() !== 1 || await aiMark.locator('svg').count() !== 1) {
+                throw new Error('semantic_ai_mark_missing');
               }
               const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
               await composer.fill('Что влияет на цену зерна?');

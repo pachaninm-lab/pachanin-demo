@@ -13,6 +13,10 @@ const controllerSource = readFileSync(
   join(process.cwd(), 'components/platform-v7/UnifiedModalSheetFullscreenController.tsx'),
   'utf8',
 );
+const assistantSource = readFileSync(
+  join(process.cwd(), 'components/platform-v7/PublicPlatformAssistant.tsx'),
+  'utf8',
+);
 
 function snapshot(status: GatewayStreamSnapshot['status'], text: string): GatewayStreamSnapshot {
   return {
@@ -38,6 +42,9 @@ describe('public assistant production-safe UI', () => {
   });
 
   it('restores the AI mark and removes all unapproved identity children', () => {
+    expect(assistantSource).toContain("data-pc-public-assistant-identity='two-lines-only'");
+    expect(assistantSource).toContain("data-pc-public-assistant-ai-mark='true'");
+    expect(assistantSource).toContain("data-pc-public-assistant-subtitle='true'");
     expect(controllerSource).toContain("mark.dataset.pcPublicAssistantAiMark = 'true'");
     expect(controllerSource).toContain("identity.dataset.pcPublicAssistantIdentity = 'two-lines-only'");
     expect(controllerSource).toContain("textGroup.className = 'pc-public-assistant-identity-copy'");
@@ -46,6 +53,19 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain('if (child !== mark && child !== textGroup) child.remove()');
     expect(controllerSource).toContain('.pc-public-assistant-header-action {');
     expect(controllerSource).toContain('display: none !important');
+  });
+
+  it('updates the stable subtitle node without replacing the AI icon', () => {
+    const scrubStart = controllerSource.indexOf('const scrubPublicUi = () => {');
+    const scrubEnd = controllerSource.indexOf('const syncBusyState = () => {');
+    const scrubSource = controllerSource.slice(scrubStart, scrubEnd);
+
+    expect(scrubStart).toBeGreaterThan(-1);
+    expect(scrubEnd).toBeGreaterThan(scrubStart);
+    expect(scrubSource).toContain('enforcePublicAssistantIdentity(panel);');
+    expect(scrubSource).toContain("identity?.querySelector<HTMLElement>(\"[data-pc-public-assistant-subtitle='true']\")");
+    expect(scrubSource).not.toContain("querySelector<HTMLElement>('div > span')");
+    expect(scrubSource).not.toContain('mark.textContent');
   });
 
   it('preserves reset through a stable accessible proxy without adding header clutter', () => {
