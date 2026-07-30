@@ -1,18 +1,9 @@
 name: TAI Restricted Qwen REG.RU Activation
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
-      - 'apps/api/src/modules/ai-insights/ai-assistant.service.ts'
-      - 'apps/api/src/modules/ai-insights/ai-insights.module.ts'
-      - 'apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts'
-      - 'apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts'
-      - 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
-      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
-      - 'apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx'
-      - 'apps/web/next.config.js'
+  workflow_run:
+    workflows: ['Build & Publish Canonical Docker Images']
+    types: [completed]
   workflow_dispatch:
     inputs:
       target_sha:
@@ -61,15 +52,18 @@ env:
 jobs:
   activate:
     if: >-
-      github.ref == 'refs/heads/main' &&
       (
-        github.event_name == 'push' ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          github.actor == github.repository_owner &&
-          github.triggering_actor == github.repository_owner &&
-          inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU'
-        )
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'push'
+      ) ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main' &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        inputs.confirmation == 'ACTIVATE-RESTRICTED-QWEN-REG-RU'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -86,8 +80,11 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            target="$(git rev-parse origin/main)"
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
+            target='${{ github.event.workflow_run.head_sha }}'
+            [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
+            [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
+            [[ '${{ github.event.workflow_run.event }}' == push ]]
           else
             target='${{ inputs.target_sha }}'
           fi
