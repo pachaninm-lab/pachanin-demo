@@ -27,9 +27,9 @@ const LABELS: Record<Locale, { expand: string; collapse: string }> = {
 };
 
 const PUBLIC_ASSISTANT_BRANDING: Record<Locale, { title: string; subtitle: string }> = {
-  ru: { title: 'ИИ в агросекторе', subtitle: 'разработан Прозрачной Ценой' },
-  en: { title: 'AI for agriculture', subtitle: 'developed by Transparent Price' },
-  zh: { title: '农业人工智能', subtitle: '由“透明价格”开发' },
+  ru: { title: 'ИИ в агробизнесе', subtitle: 'разработан Прозрачной Ценой' },
+  en: { title: 'AI for agribusiness', subtitle: 'developed by Transparent Price' },
+  zh: { title: '农业商业人工智能', subtitle: '由“透明价格”开发' },
 };
 
 const PUBLIC_ASSISTANT_TIMEOUT_COPY: Record<Locale, { message: string; retry: string }> = {
@@ -266,6 +266,7 @@ function enhancePublicAssistant(panel: HTMLElement) {
   sync();
 
   return () => {
+    stopActiveRequest();
     observer.disconnect();
     clearWatchdogTimer();
     cleanupAlignment();
