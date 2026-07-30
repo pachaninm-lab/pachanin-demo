@@ -240,26 +240,14 @@ export class FgisGrainTenantReadRepository {
             ${input.authorizationReference},
             ${new Date(input.validUntil)},
             ${input.reason},
-            ${current?.version ?? null}::bigint
+            ${current?.version ?? null}::bigint,
+            ${canonicalFgisGrainTenantReadHash(input)}
           ) AS command
         `);
         const nextVersion = written[0]?.authorizationVersion;
         if (nextVersion === undefined) {
           throw new PreconditionFailedException('Authorization command returned no version');
         }
-        await this.writeAudit(tx, {
-          authorizationId,
-          authorizationVersion: nextVersion,
-          configurationId: input.configurationId,
-          operationCode: 'AUTHORIZE',
-          correlationId: `authorization:${authorizationId}:${nextVersion}`,
-          idempotencyKey: `authorization:${authorizationId}:${nextVersion}`,
-          requestIdempotencyKey: `authorization:${authorizationId}:${nextVersion}`,
-          requestReference: input.authorizationReference,
-          requestSha256: canonicalFgisGrainTenantReadHash(input),
-          decision: 'AUTHORIZED',
-          reasonCode: 'TENANT_READ_AUTHORIZATION_RECORDED',
-        });
         return {
           authorizationId,
           authorizationVersion: nextVersion.toString(),
@@ -315,26 +303,14 @@ export class FgisGrainTenantReadRepository {
             ${authorization.version},
             ${input.evidenceReference},
             ${new Date(input.validUntil)},
-            ${input.justification}
+            ${input.justification},
+            ${canonicalFgisGrainTenantReadHash(input)}
           ) AS "authorizationVersion"
         `);
         const nextVersion = written[0]?.authorizationVersion;
         if (nextVersion === undefined) {
           throw new PreconditionFailedException('Attestation command returned no version');
         }
-        await this.writeAudit(tx, {
-          authorizationId: authorization.id,
-          authorizationVersion: nextVersion,
-          configurationId: authorization.configurationId,
-          operationCode: 'ATTEST',
-          correlationId: `attestation:${authorization.id}:${nextVersion}`,
-          idempotencyKey: `attestation:${authorization.id}:${nextVersion}`,
-          requestIdempotencyKey: `attestation:${authorization.id}:${nextVersion}`,
-          requestReference: input.evidenceReference,
-          requestSha256: canonicalFgisGrainTenantReadHash(input),
-          decision: 'ATTESTED',
-          reasonCode: 'EXTERNAL_READ_EVIDENCE_RECORDED',
-        });
         return {
           authorizationId: authorization.id,
           authorizationVersion: nextVersion.toString(),

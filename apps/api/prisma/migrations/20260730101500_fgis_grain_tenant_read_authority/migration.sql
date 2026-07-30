@@ -111,6 +111,7 @@ CREATE INDEX "fgis_grain_tenant_read_auth_updated_idx"
 
 CREATE TABLE public."fgis_grain_tenant_read_audits" (
   "id" text PRIMARY KEY,
+  "chainSequence" bigserial NOT NULL,
   "tenantId" text NOT NULL,
   "organizationId" text NOT NULL,
   "authorizationId" text NOT NULL,
@@ -172,9 +173,14 @@ CREATE TABLE public."fgis_grain_tenant_read_audits" (
         AND "receivedAt" IS NOT NULL)
     ),
   CONSTRAINT "fgis_grain_tenant_read_audit_idempotency_key"
-    UNIQUE ("tenantId", "organizationId", "idempotencyKey")
+    UNIQUE ("tenantId", "organizationId", "idempotencyKey"),
+  CONSTRAINT "fgis_grain_tenant_read_audits_chainSequence_key"
+    UNIQUE ("chainSequence")
 );
 
+CREATE INDEX "fgis_grain_tenant_read_audit_chain_idx"
+  ON public."fgis_grain_tenant_read_audits"
+  ("tenantId", "organizationId", "chainSequence" DESC);
 CREATE INDEX "fgis_grain_tenant_read_audit_auth_idx"
   ON public."fgis_grain_tenant_read_audits"
   ("authorizationId", "createdAt" DESC, "id" DESC);
@@ -270,6 +276,37 @@ AS $function$
   );
 $function$;
 
+-- Forward declaration: the state commands below call the final SECURITY DEFINER
+-- implementation after this migration has installed it.
+CREATE OR REPLACE FUNCTION public.append_fgis_grain_tenant_read_audit(
+  p_id text,
+  p_authorization_id text,
+  p_authorization_version bigint,
+  p_configuration_id text,
+  p_operation_code text,
+  p_correlation_id text,
+  p_idempotency_key text,
+  p_request_idempotency_key text,
+  p_request_reference text,
+  p_request_sha256 text,
+  p_decision text,
+  p_reason_code text,
+  p_provider_request_id text,
+  p_response_reference text,
+  p_response_sha256 text,
+  p_received_at timestamptz
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+BEGIN
+  RAISE EXCEPTION 'FGIS Grain tenant-read audit command is not initialized'
+    USING ERRCODE = '55000';
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.write_fgis_grain_tenant_read_authorization(
   p_authorization_id text,
   p_configuration_id text,
@@ -278,7 +315,8 @@ CREATE OR REPLACE FUNCTION public.write_fgis_grain_tenant_read_authorization(
   p_authorization_reference text,
   p_valid_until timestamptz,
   p_reason text,
-  p_expected_version bigint
+  p_expected_version bigint,
+  p_request_sha256 text
 )
 RETURNS TABLE(authorization_id text, authorization_version bigint)
 LANGUAGE plpgsql
@@ -287,6 +325,7 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   current_row public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
+  next_version bigint;
 BEGIN
   IF session_user NOT IN ('app_runtime', 'app_service')
      AND NOT COALESCE((
@@ -336,51 +375,70 @@ BEGIN
       current_setting('app.current_user_id', true),
       current_setting('app.current_user_id', true)
     );
-    RETURN QUERY SELECT p_authorization_id, 0::bigint;
-    RETURN;
+    next_version := 0;
+  ELSE
+    SELECT *
+    INTO current_row
+    FROM public."fgis_grain_tenant_read_authorizations" AS target_authorization
+    WHERE target_authorization."id" = p_authorization_id
+      AND target_authorization."tenantId" = current_setting('app.current_tenant_id', true)
+      AND target_authorization."organizationId" = current_setting('app.current_org_id', true)
+    FOR UPDATE;
+
+    IF NOT FOUND OR current_row."version" IS DISTINCT FROM p_expected_version THEN
+      RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
+        USING ERRCODE = '40001';
+    END IF;
+    IF current_row."status" = 'REVOKED' THEN
+      RAISE EXCEPTION 'Revoked FGIS Grain tenant-read authorization cannot be reused'
+        USING ERRCODE = '55000';
+    END IF;
+
+    UPDATE public."fgis_grain_tenant_read_authorizations"
+    SET "configurationVersion" = p_configuration_version,
+        "allowedOperations" = p_allowed_operations,
+        "authorizationReference" = p_authorization_reference,
+        "status" = 'AUTHORIZED_NOT_ATTESTED',
+        "validUntil" = p_valid_until,
+        "attestationEvidenceReference" = NULL,
+        "attestationValidUntil" = NULL,
+        "attestationJustification" = NULL,
+        "attestedByUserId" = NULL,
+        "reason" = p_reason,
+        "version" = p_expected_version + 1,
+        "updatedByUserId" = current_setting('app.current_user_id', true),
+        "updatedAt" = clock_timestamp()
+    WHERE "id" = p_authorization_id
+      AND "tenantId" = current_setting('app.current_tenant_id', true)
+      AND "organizationId" = current_setting('app.current_org_id', true)
+      AND "version" = p_expected_version;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
+        USING ERRCODE = '40001';
+    END IF;
+    next_version := p_expected_version + 1;
   END IF;
 
-  SELECT *
-  INTO current_row
-  FROM public."fgis_grain_tenant_read_authorizations" AS target_authorization
-  WHERE target_authorization."id" = p_authorization_id
-    AND target_authorization."tenantId" = current_setting('app.current_tenant_id', true)
-    AND target_authorization."organizationId" = current_setting('app.current_org_id', true)
-  FOR UPDATE;
-
-  IF NOT FOUND OR current_row."version" IS DISTINCT FROM p_expected_version THEN
-    RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
-      USING ERRCODE = '40001';
-  END IF;
-  IF current_row."status" = 'REVOKED' THEN
-    RAISE EXCEPTION 'Revoked FGIS Grain tenant-read authorization cannot be reused'
-      USING ERRCODE = '55000';
-  END IF;
-
-  UPDATE public."fgis_grain_tenant_read_authorizations"
-  SET "configurationVersion" = p_configuration_version,
-      "allowedOperations" = p_allowed_operations,
-      "authorizationReference" = p_authorization_reference,
-      "status" = 'AUTHORIZED_NOT_ATTESTED',
-      "validUntil" = p_valid_until,
-      "attestationEvidenceReference" = NULL,
-      "attestationValidUntil" = NULL,
-      "attestationJustification" = NULL,
-      "attestedByUserId" = NULL,
-      "reason" = p_reason,
-      "version" = p_expected_version + 1,
-      "updatedByUserId" = current_setting('app.current_user_id', true),
-      "updatedAt" = clock_timestamp()
-  WHERE "id" = p_authorization_id
-    AND "tenantId" = current_setting('app.current_tenant_id', true)
-    AND "organizationId" = current_setting('app.current_org_id', true)
-    AND "version" = p_expected_version;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
-      USING ERRCODE = '40001';
-  END IF;
-  RETURN QUERY SELECT p_authorization_id, p_expected_version + 1;
+  PERFORM public.append_fgis_grain_tenant_read_audit(
+    'fgis-read:authorization:' || p_authorization_id || ':' || next_version::text,
+    p_authorization_id,
+    next_version,
+    p_configuration_id,
+    'AUTHORIZE',
+    'authorization:' || p_authorization_id || ':' || next_version::text,
+    'authorization:' || p_authorization_id || ':' || next_version::text,
+    'authorization:' || p_authorization_id || ':' || next_version::text,
+    p_authorization_reference,
+    p_request_sha256,
+    'AUTHORIZED',
+    'TENANT_READ_AUTHORIZATION_RECORDED',
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  );
+  RETURN QUERY SELECT p_authorization_id, next_version;
 END;
 $function$;
 
@@ -389,7 +447,8 @@ CREATE OR REPLACE FUNCTION public.attest_fgis_grain_tenant_read_authorization(
   p_expected_version bigint,
   p_evidence_reference text,
   p_valid_until timestamptz,
-  p_justification text
+  p_justification text,
+  p_request_sha256 text
 )
 RETURNS bigint
 LANGUAGE plpgsql
@@ -466,6 +525,24 @@ BEGIN
     RAISE EXCEPTION 'FGIS Grain tenant-read authorization state changed'
       USING ERRCODE = '40001';
   END IF;
+  PERFORM public.append_fgis_grain_tenant_read_audit(
+    'fgis-read:attestation:' || p_authorization_id || ':' || (p_expected_version + 1)::text,
+    p_authorization_id,
+    p_expected_version + 1,
+    current_row."configurationId",
+    'ATTEST',
+    'attestation:' || p_authorization_id || ':' || (p_expected_version + 1)::text,
+    'attestation:' || p_authorization_id || ':' || (p_expected_version + 1)::text,
+    'attestation:' || p_authorization_id || ':' || (p_expected_version + 1)::text,
+    p_evidence_reference,
+    p_request_sha256,
+    'ATTESTED',
+    'EXTERNAL_READ_EVIDENCE_RECORDED',
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  );
   RETURN p_expected_version + 1;
 END;
 $function$;
@@ -495,7 +572,13 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   current_authorization public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
+  execution_claim public."fgis_grain_tenant_read_audits"%ROWTYPE;
   current_head text;
+  audit_tenant_id text;
+  audit_organization_id text;
+  audit_actor_user_id text;
+  audit_actor_role text;
+  audit_chain_sequence bigint;
   audit_created_at timestamptz;
   computed_hash text;
   require_mfa boolean;
@@ -511,18 +594,67 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  require_mfa := p_decision IN ('AUTHORIZED', 'ATTESTED');
-  IF NOT public.fgis_grain_tenant_read_context_ready(require_mfa) THEN
-    RAISE EXCEPTION 'FGIS Grain tenant-read audit context is denied'
-      USING ERRCODE = '42501';
+  IF p_decision IN ('SUCCEEDED', 'FAILED') THEN
+    SELECT *
+    INTO execution_claim
+    FROM public."fgis_grain_tenant_read_audits" AS claim
+    WHERE claim."authorizationId" = p_authorization_id
+      AND claim."authorizationVersion" = p_authorization_version
+      AND claim."configurationId" = p_configuration_id
+      AND claim."operationCode" = p_operation_code
+      AND claim."correlationId" = p_correlation_id
+      AND claim."requestIdempotencyKey" = p_request_idempotency_key
+      AND claim."requestReference" = p_request_reference
+      AND claim."requestSha256" = p_request_sha256
+      AND claim."decision" = 'IN_FLIGHT'
+      AND claim."reasonCode" = 'PROVIDER_READ_CLAIMED'
+    ORDER BY claim."chainSequence" DESC
+    LIMIT 1;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'FGIS Grain read execution outcome is not claim-bound'
+        USING ERRCODE = '42501';
+    END IF;
+    audit_tenant_id := execution_claim."tenantId";
+    audit_organization_id := execution_claim."organizationId";
+    audit_actor_user_id := execution_claim."actorUserId";
+    audit_actor_role := execution_claim."actorRole";
+    IF current_setting('app.current_tenant_id', true)
+         IS DISTINCT FROM audit_tenant_id
+       OR current_setting('app.current_org_id', true)
+         IS DISTINCT FROM audit_organization_id
+       OR current_setting('app.current_user_id', true)
+         IS DISTINCT FROM audit_actor_user_id
+       OR NOT EXISTS (
+         SELECT 1
+         FROM auth.sessions AS terminal_session
+         WHERE terminal_session.id
+             = current_setting('app.current_session_id', true)
+           AND terminal_session.user_id = audit_actor_user_id
+           AND terminal_session.tenant_id = audit_tenant_id
+           AND terminal_session.organization_id = audit_organization_id
+       )
+    THEN
+      RAISE EXCEPTION 'FGIS Grain read execution outcome actor is not claim-bound'
+        USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    require_mfa := p_decision IN ('AUTHORIZED', 'ATTESTED');
+    IF NOT public.fgis_grain_tenant_read_context_ready(require_mfa) THEN
+      RAISE EXCEPTION 'FGIS Grain tenant-read audit context is denied'
+        USING ERRCODE = '42501';
+    END IF;
+    audit_tenant_id := current_setting('app.current_tenant_id', true);
+    audit_organization_id := current_setting('app.current_org_id', true);
+    audit_actor_user_id := current_setting('app.current_user_id', true);
+    audit_actor_role := current_setting('app.current_role', true);
   END IF;
 
   SELECT *
   INTO current_authorization
   FROM public."fgis_grain_tenant_read_authorizations" AS candidate
   WHERE candidate."id" = p_authorization_id
-    AND candidate."tenantId" = current_setting('app.current_tenant_id', true)
-    AND candidate."organizationId" = current_setting('app.current_org_id', true)
+    AND candidate."tenantId" = audit_tenant_id
+    AND candidate."organizationId" = audit_organization_id
     AND candidate."configurationId" = p_configuration_id;
 
   IF NOT FOUND
@@ -537,25 +669,45 @@ BEGIN
 
   IF p_decision = 'AUTHORIZED' THEN
     IF p_operation_code <> 'AUTHORIZE'
-       OR current_setting('app.current_role', true)
-         NOT IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')
+       OR audit_actor_role NOT IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')
        OR current_authorization."status" <> 'AUTHORIZED_NOT_ATTESTED'
+       OR p_reason_code <> 'TENANT_READ_AUTHORIZATION_RECORDED'
+       OR p_id <> 'fgis-read:authorization:' || p_authorization_id || ':' || p_authorization_version::text
+       OR p_correlation_id <> 'authorization:' || p_authorization_id || ':' || p_authorization_version::text
+       OR p_idempotency_key <> p_correlation_id
+       OR p_request_idempotency_key <> p_correlation_id
+       OR p_request_reference <> current_authorization."authorizationReference"
+       OR p_provider_request_id IS NOT NULL
+       OR p_response_reference IS NOT NULL
+       OR p_response_sha256 IS NOT NULL
+       OR p_received_at IS NOT NULL
     THEN
       RAISE EXCEPTION 'FGIS Grain authorization audit transition is denied'
         USING ERRCODE = '42501';
     END IF;
   ELSIF p_decision = 'ATTESTED' THEN
     IF p_operation_code <> 'ATTEST'
-       OR current_setting('app.current_role', true) NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')
+       OR audit_actor_role NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')
        OR current_authorization."status" <> 'READ_ONLY_ATTESTED'
        OR current_authorization."attestedByUserId"
-         IS DISTINCT FROM current_setting('app.current_user_id', true)
+         IS DISTINCT FROM audit_actor_user_id
+       OR p_reason_code <> 'EXTERNAL_READ_EVIDENCE_RECORDED'
+       OR p_id <> 'fgis-read:attestation:' || p_authorization_id || ':' || p_authorization_version::text
+       OR p_correlation_id <> 'attestation:' || p_authorization_id || ':' || p_authorization_version::text
+       OR p_idempotency_key <> p_correlation_id
+       OR p_request_idempotency_key <> p_correlation_id
+       OR p_request_reference
+         IS DISTINCT FROM current_authorization."attestationEvidenceReference"
+       OR p_provider_request_id IS NOT NULL
+       OR p_response_reference IS NOT NULL
+       OR p_response_sha256 IS NOT NULL
+       OR p_received_at IS NOT NULL
     THEN
       RAISE EXCEPTION 'FGIS Grain attestation audit transition is denied'
         USING ERRCODE = '42501';
     END IF;
   ELSE
-    IF current_setting('app.current_role', true) NOT IN (
+    IF audit_actor_role NOT IN (
       'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING',
       'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER'
     ) THEN
@@ -615,8 +767,8 @@ BEGIN
        OR EXISTS (
          SELECT 1
          FROM public."fgis_grain_tenant_read_audits" AS prior
-         WHERE prior."tenantId" = current_setting('app.current_tenant_id', true)
-           AND prior."organizationId" = current_setting('app.current_org_id', true)
+         WHERE prior."tenantId" = audit_tenant_id
+           AND prior."organizationId" = audit_organization_id
            AND prior."requestIdempotencyKey" = p_request_idempotency_key
        )
     THEN
@@ -624,28 +776,11 @@ BEGIN
         USING ERRCODE = '23505';
     END IF;
   ELSIF p_decision IN ('SUCCEEDED', 'FAILED') THEN
-    IF NOT EXISTS (
-      SELECT 1
-      FROM public."fgis_grain_tenant_read_audits" AS claim
-      WHERE claim."tenantId" = current_setting('app.current_tenant_id', true)
-        AND claim."organizationId" = current_setting('app.current_org_id', true)
-        AND claim."authorizationId" = p_authorization_id
-        AND claim."authorizationVersion" = p_authorization_version
-        AND claim."configurationId" = p_configuration_id
-        AND claim."actorUserId" = current_setting('app.current_user_id', true)
-        AND claim."actorRole" = current_setting('app.current_role', true)
-        AND claim."operationCode" = p_operation_code
-        AND claim."correlationId" = p_correlation_id
-        AND claim."requestIdempotencyKey" = p_request_idempotency_key
-        AND claim."requestReference" = p_request_reference
-        AND claim."requestSha256" = p_request_sha256
-        AND claim."decision" = 'IN_FLIGHT'
-        AND claim."reasonCode" = 'PROVIDER_READ_CLAIMED'
-    ) OR EXISTS (
+    IF EXISTS (
       SELECT 1
       FROM public."fgis_grain_tenant_read_audits" AS outcome
-      WHERE outcome."tenantId" = current_setting('app.current_tenant_id', true)
-        AND outcome."organizationId" = current_setting('app.current_org_id', true)
+      WHERE outcome."tenantId" = audit_tenant_id
+        AND outcome."organizationId" = audit_organization_id
         AND outcome."requestIdempotencyKey" = p_request_idempotency_key
         AND outcome."decision" IN ('SUCCEEDED', 'FAILED')
     ) OR (
@@ -675,29 +810,34 @@ BEGIN
   PERFORM pg_advisory_xact_lock(
     hashtextextended(
       'platform-v7:fgis-grain-tenant-read-audit-chain'
-        || ':' || current_setting('app.current_tenant_id', true)
-        || ':' || current_setting('app.current_org_id', true),
+        || ':' || audit_tenant_id
+        || ':' || audit_organization_id,
       0
     )
   );
   SELECT audit."hash"
   INTO current_head
   FROM public."fgis_grain_tenant_read_audits" AS audit
-  WHERE audit."tenantId" = current_setting('app.current_tenant_id', true)
-    AND audit."organizationId" = current_setting('app.current_org_id', true)
-  ORDER BY audit."createdAt" DESC, audit."id" DESC
+  WHERE audit."tenantId" = audit_tenant_id
+    AND audit."organizationId" = audit_organization_id
+  ORDER BY audit."chainSequence" DESC
   LIMIT 1;
 
+  audit_chain_sequence := nextval(pg_get_serial_sequence(
+    'public."fgis_grain_tenant_read_audits"',
+    'chainSequence'
+  )::regclass);
   audit_created_at := clock_timestamp();
   computed_hash := encode(public.digest(convert_to(jsonb_build_object(
     'id', p_id,
-    'tenantId', current_setting('app.current_tenant_id', true),
-    'organizationId', current_setting('app.current_org_id', true),
+    'chainSequence', audit_chain_sequence::text,
+    'tenantId', audit_tenant_id,
+    'organizationId', audit_organization_id,
     'authorizationId', p_authorization_id,
     'authorizationVersion', p_authorization_version::text,
     'configurationId', p_configuration_id,
-    'actorUserId', current_setting('app.current_user_id', true),
-    'actorRole', current_setting('app.current_role', true),
+    'actorUserId', audit_actor_user_id,
+    'actorRole', audit_actor_role,
     'operationCode', p_operation_code,
     'correlationId', p_correlation_id,
     'idempotencyKey', p_idempotency_key,
@@ -724,7 +864,7 @@ BEGIN
   )::text, 'UTF8'), 'sha256'), 'hex');
 
   INSERT INTO public."fgis_grain_tenant_read_audits" (
-    "id", "tenantId", "organizationId", "authorizationId",
+    "id", "chainSequence", "tenantId", "organizationId", "authorizationId",
     "authorizationVersion", "configurationId", "actorUserId", "actorRole",
     "operationCode", "correlationId", "idempotencyKey",
     "requestIdempotencyKey", "requestReference", "requestSha256", "decision",
@@ -732,13 +872,14 @@ BEGIN
     "receivedAt", "hash", "prevHash", "createdAt"
   ) VALUES (
     p_id,
-    current_setting('app.current_tenant_id', true),
-    current_setting('app.current_org_id', true),
+    audit_chain_sequence,
+    audit_tenant_id,
+    audit_organization_id,
     p_authorization_id,
     p_authorization_version,
     p_configuration_id,
-    current_setting('app.current_user_id', true),
-    current_setting('app.current_role', true),
+    audit_actor_user_id,
+    audit_actor_role,
     p_operation_code,
     p_correlation_id,
     p_idempotency_key,
@@ -852,10 +993,10 @@ REVOKE ALL ON TABLE public."fgis_grain_tenant_read_audits" FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.fgis_grain_tenant_read_context_ready(boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.fgis_grain_tenant_read_provider_authority_valid(text, bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.write_fgis_grain_tenant_read_authorization(
-  text, text, bigint, text[], text, timestamptz, text, bigint
+  text, text, bigint, text[], text, timestamptz, text, bigint, text
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.attest_fgis_grain_tenant_read_authorization(
-  text, bigint, text, timestamptz, text
+  text, bigint, text, timestamptz, text, text
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.append_fgis_grain_tenant_read_audit(
   text, text, bigint, text, text, text, text, text, text, text,
@@ -890,11 +1031,11 @@ BEGIN
         runtime_role
       );
       EXECUTE format(
-        'GRANT EXECUTE ON FUNCTION public.write_fgis_grain_tenant_read_authorization(text, text, bigint, text[], text, timestamptz, text, bigint) TO %I',
+        'GRANT EXECUTE ON FUNCTION public.write_fgis_grain_tenant_read_authorization(text, text, bigint, text[], text, timestamptz, text, bigint, text) TO %I',
         runtime_role
       );
       EXECUTE format(
-        'GRANT EXECUTE ON FUNCTION public.attest_fgis_grain_tenant_read_authorization(text, bigint, text, timestamptz, text) TO %I',
+        'GRANT EXECUTE ON FUNCTION public.attest_fgis_grain_tenant_read_authorization(text, bigint, text, timestamptz, text, text) TO %I',
         runtime_role
       );
       EXECUTE format(

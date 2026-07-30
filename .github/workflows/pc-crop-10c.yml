@@ -148,17 +148,25 @@ jobs:
                OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'INSERT')
                OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'UPDATE')
                OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'DELETE')
+               OR has_sequence_privilege(
+                    'app_runtime',
+                    pg_get_serial_sequence(
+                      'public."fgis_grain_tenant_read_audits"',
+                      'chainSequence'
+                    )::regclass,
+                    'USAGE'
+                  )
             THEN
               RAISE EXCEPTION 'PC_CROP_10C_RUNTIME_GRANTS_INVALID';
             END IF;
             IF NOT has_function_privilege(
                  'app_runtime',
-                 'public.write_fgis_grain_tenant_read_authorization(text,text,bigint,text[],text,timestamptz,text,bigint)',
+                 'public.write_fgis_grain_tenant_read_authorization(text,text,bigint,text[],text,timestamptz,text,bigint,text)',
                  'EXECUTE'
                )
                OR NOT has_function_privilege(
                  'app_runtime',
-                 'public.attest_fgis_grain_tenant_read_authorization(text,bigint,text,timestamptz,text)',
+                 'public.attest_fgis_grain_tenant_read_authorization(text,bigint,text,timestamptz,text,text)',
                  'EXECUTE'
                )
                OR NOT has_function_privilege(

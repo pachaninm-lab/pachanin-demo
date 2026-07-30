@@ -1441,6 +1441,7 @@ model FgisGrainTenantReadAuthorization {
 
 model FgisGrainTenantReadAudit {
   id                    String    @id
+  chainSequence         BigInt    @default(autoincrement()) @unique
   tenantId              String
   organizationId        String
   authorizationId       String
@@ -1470,6 +1471,7 @@ model FgisGrainTenantReadAudit {
   actorUser User                                  @relation("FgisGrainTenantReadAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_user_fk")
 
   @@unique([tenantId, organizationId, idempotencyKey], map: "fgis_grain_tenant_read_audit_idempotency_key")
+  @@index([tenantId, organizationId, chainSequence(sort: Desc)], map: "fgis_grain_tenant_read_audit_chain_idx")
   @@index([tenantId, organizationId, requestIdempotencyKey, createdAt(sort: Desc)], map: "fgis_grain_tenant_read_audit_request_idx")
   @@index([authorizationId, createdAt(sort: Desc), id(sort: Desc)], map: "fgis_grain_tenant_read_audit_auth_idx")
   @@index([correlationId], map: "fgis_grain_tenant_read_audit_correlation_idx")

@@ -176,6 +176,12 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('UNIQUE ("tenantId", "organizationId", "idempotencyKey")'), 'durable idempotency constraint missing');
   check(migration.includes('"authorizationVersion" bigint NOT NULL'), 'audit is not bound to the authorization version');
   check(migration.includes('"requestIdempotencyKey" text NOT NULL'), 'audit lacks request-level idempotency binding');
+  check(
+    schema.includes('chainSequence         BigInt    @default(autoincrement()) @unique')
+      && migration.includes('"chainSequence" bigserial NOT NULL')
+      && migration.includes('("tenantId", "organizationId", "chainSequence" DESC)'),
+    'database-owned monotonic audit sequence is missing',
+  );
   check(migration.includes("'IN_FLIGHT'"), 'durable single-flight claim state missing');
   check(
     migration.includes('GRANT SELECT ON TABLE public."fgis_grain_tenant_read_authorizations"')
@@ -196,20 +202,38 @@ function validatePostgres(schema, migration, repository) {
   check(migration.includes('write_fgis_grain_tenant_read_authorization'), 'controlled authorization command missing');
   check(migration.includes('attest_fgis_grain_tenant_read_authorization'), 'controlled attestation command missing');
   check(migration.includes('append_fgis_grain_tenant_read_audit'), 'controlled audit command missing');
+  const writeCommand = migration.slice(
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.write_fgis_grain_tenant_read_authorization'),
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.attest_fgis_grain_tenant_read_authorization'),
+  );
+  const attestCommand = migration.slice(
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.attest_fgis_grain_tenant_read_authorization'),
+    migration.lastIndexOf('CREATE OR REPLACE FUNCTION public.append_fgis_grain_tenant_read_audit'),
+  );
+  check(
+    writeCommand.includes('PERFORM public.append_fgis_grain_tenant_read_audit')
+      && attestCommand.includes('PERFORM public.append_fgis_grain_tenant_read_audit'),
+    'authorization or attestation state command can commit without its audit',
+  );
   check(migration.includes('fgis_grain_tenant_read_auth_select_policy'), 'authorization SELECT policy missing');
   check(migration.includes('fgis_grain_tenant_read_auth_insert_policy'), 'authorization INSERT policy missing');
   check(migration.includes('fgis_grain_tenant_read_auth_update_policy'), 'authorization UPDATE policy missing');
   check(migration.includes('text_array_has_unique_elements'), 'database duplicate-operation guard missing');
   check(migration.includes('pg_advisory_xact_lock'), 'database audit-chain serialization missing');
   check(
-    migration.includes('audit."tenantId" = current_setting(\'app.current_tenant_id\', true)')
-      && migration.includes('audit."organizationId" = current_setting(\'app.current_org_id\', true)'),
+    migration.includes('audit."tenantId" = audit_tenant_id')
+      && migration.includes('audit."organizationId" = audit_organization_id')
+      && migration.includes("current_setting('app.current_tenant_id', true)")
+      && migration.includes("current_setting('app.current_org_id', true)"),
     'audit chain is not scoped to the forced tenant and organization RLS boundary',
   );
   check(
     migration.includes('computed_hash := encode(public.digest')
       && migration.includes('computed_hash,')
       && migration.includes('current_head')
+      && migration.includes('ORDER BY audit."chainSequence" DESC')
+      && migration.includes('pg_get_serial_sequence(')
+      && migration.includes("'chainSequence', audit_chain_sequence::text")
       && migration.includes("'createdAt', to_char(")
       && migration.includes('HH24:MI:SS.US')
       && !migration.includes('p_hash text')
@@ -220,6 +244,8 @@ function validatePostgres(schema, migration, repository) {
     migration.includes("p_decision NOT IN ('SUCCEEDED', 'FAILED')")
       && migration.includes('claim."authorizationVersion" = p_authorization_version')
       && migration.includes("claim.\"decision\" = 'IN_FLIGHT'")
+      && migration.includes('audit_actor_user_id := execution_claim."actorUserId"')
+      && migration.includes('terminal_session.id')
       && migration.includes("p_reason_code <> 'PROVIDER_READ_SUCCEEDED'")
       && migration.includes("p_reason_code <> 'PROVIDER_READ_FAILED'"),
     'terminal provider outcome is not bound to its immutable claim',
@@ -268,9 +294,11 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('transport.available = false'), 'PostgreSQL E2E does not reject replay while transport is disabled');
   check(e2e.includes('forged direct runtime transition'), 'PostgreSQL E2E does not prove direct runtime DML denial');
   check(e2e.includes('audit hash chains tenant and organization scoped'), 'PostgreSQL E2E does not prove tenant-scoped audit chaining');
-  check(e2e.includes('records the claimed provider outcome after concurrent reauthorization'), 'PostgreSQL E2E does not prove claim-bound terminal outcome');
+  check(e2e.includes('records the claimed provider outcome after concurrent reauthorization and session revocation'), 'PostgreSQL E2E does not prove claim-bound terminal outcome after session revocation');
   check(e2e.includes('FORGED_PROVIDER_READ_SUCCEEDED'), 'PostgreSQL E2E does not reject forged runtime outcome facts');
   check(e2e.includes('computes every immutable audit hash inside PostgreSQL'), 'PostgreSQL E2E does not prove database-owned audit hashing');
+  check(e2e.includes('atomically audits direct authorization and attestation command transitions'), 'PostgreSQL E2E does not prove atomic state-transition auditing');
+  check(e2e.includes('ORDER BY audit."chainSequence"'), 'PostgreSQL E2E does not prove monotonic audit-chain ordering');
 }
 
 function validateTruthBoundary(scope, repository, transport) {
