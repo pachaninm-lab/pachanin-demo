@@ -7,7 +7,6 @@
   "approvedBy": "owner-direct-implement-in-platform-2026-07-30",
   "authorityBaseExactMain": "5bc1cf2e60ab102cdbb6e6bc988cda946d8d7fb8",
   "allowedPaths": [
-    ".github/workflows/one-shot-fix-public-ai-canonical-copy.yml",
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts",
     "apps/web/next.config.js",
@@ -19,7 +18,6 @@
     "the canonical EN and ZH identity matches the defensive controller branding",
     "legacy title and helper subtitle cannot return on React rerender",
     "composer agribusiness scope remains unchanged",
-    "the temporary materializer removes itself from the final tree",
     "the merge triggers exact images and REG.RU activation",
     "production remains REG_RU_VPS_ONLY"
   ],
