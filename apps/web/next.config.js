@@ -8,6 +8,9 @@
 // Exact-main Qwen activation retry after 80-second provider timeout remediation; runtime behavior is unchanged.
 // Exact-main Qwen push activation after trace suppression and complete request-abort hardening; runtime configuration is unchanged.
 // Exact-main release trigger for approved `ИИ для агробизнеса` identity and final public reasoning-safety fixes; runtime configuration is unchanged.
+// Exact-main retry after aligning live Chromium acceptance with approved `ИИ для агробизнеса` branding; runtime configuration is unchanged.
+// Exact-main retry after binding Chromium subtitle acceptance to the stable public-assistant data attribute; runtime configuration is unchanged.
+// Exact-main release after moving approved public AI branding into the canonical React source; runtime routing is unchanged.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
