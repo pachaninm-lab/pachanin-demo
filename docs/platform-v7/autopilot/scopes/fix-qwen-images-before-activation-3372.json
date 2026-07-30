@@ -5,7 +5,7 @@
   "issue": 3372,
   "purpose": "Serialize restricted Qwen activation after successful canonical image publication so activation never occupies a runner while exact images are still building.",
   "approvedBy": "owner-direct-continue-release-2026-07-30",
-  "authorityBaseExactMain": "0402b22e80641b5b696e23127e0d5dad3126417a",
+  "authorityBaseExactMain": "8072b7c121268feec1dc72d576844a975cf5161b",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/next.config.js",

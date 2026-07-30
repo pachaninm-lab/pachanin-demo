@@ -76,10 +76,10 @@ function validateLock(lock, target = failures) {
   assert(lock.id === 'PC-CROP-REMAINDER', 'lock id mismatch', target);
   assert(lock.status === 'active', 'project lock is not active', target);
   assert(lock.governanceIssue === 3389, 'governance issue mismatch', target);
-  assert(lock.activeIssue === 3446, 'active issue must be PC-CROP-10C issue 3446', target);
-  assert(lock.activeSlice === 'PC-CROP-10C', 'active slice must be PC-CROP-10C', target);
+  assert(lock.activeIssue === 3504, 'active issue must be PC-CROP-10D issue 3504', target);
+  assert(lock.activeSlice === 'PC-CROP-10D', 'active slice must be PC-CROP-10D', target);
   assert(
-    JSON.stringify(lock.sequence) === JSON.stringify(['PC-CROP-10C', 'PC-CROP-10D']),
+    JSON.stringify(lock.sequence) === JSON.stringify(['PC-CROP-10D']),
     'remaining PC-CROP sequence mismatch',
     target,
   );
@@ -196,28 +196,28 @@ validateLock(lock);
 
 if (process.argv.includes('--self-test')) {
   const accepted = validateContext(lock, {
-    branch: 'agent/pc-crop-10c-tenant-authorized-read-adapter',
-    title: 'PC-CROP-10C: tenant-authorized read-only adapter for FGIS Grain',
-    issue: 3446,
+    branch: 'agent/pc-crop-10d-final-truth',
+    title: 'PC-CROP-10D: final internal repository truth and closure',
+    issue: 3504,
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
-      issue: 3446,
-      activeSlice: 'PC-CROP-10C',
+      issue: 3504,
+      activeSlice: 'PC-CROP-10D',
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
-      allowedPaths: ['scripts/pc-crop-10c/verify.mjs'],
+      allowedPaths: ['scripts/pc-crop-10d/verify.mjs'],
     },
   });
-  assert(accepted.length === 0, `valid PC-CROP-10C scope rejected: ${accepted.join('; ')}`);
+  assert(accepted.length === 0, `valid PC-CROP-10D scope rejected: ${accepted.join('; ')}`);
 
   const governance = validateContext(lock, {
     branch: 'governance/pc-crop-project-lock-3389',
-    title: 'PC-CROP governance: advance active lock to 10C',
+    title: 'PC-CROP governance: advance active lock to 10D',
     issue: 3389,
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
       issue: 3389,
-      activeSlice: 'PC-CROP-10C',
+      activeSlice: 'PC-CROP-10D',
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
       allowedPaths: [LOCK_PATH],
@@ -232,7 +232,7 @@ if (process.argv.includes('--self-test')) {
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
       issue: 3372,
-      activeSlice: 'PC-CROP-10C',
+      activeSlice: 'PC-CROP-10D',
       ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
       ownerAuthorizedExceptionCommentId: 5120686584,
       exceptionExpiresWhenIssueClosed: true,
@@ -248,19 +248,19 @@ if (process.argv.includes('--self-test')) {
   );
 
   const completedPreviousSlice = validateContext(lock, {
-    branch: 'agent/pc-crop-10b-truth-sync-3390',
-    title: 'PC-CROP-10B: completed previous slice',
-    issue: 3390,
+    branch: 'agent/pc-crop-10c-tenant-authorized-read-adapter',
+    title: 'PC-CROP-10C: completed previous slice',
+    issue: 3446,
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
-      issue: 3390,
-      activeSlice: 'PC-CROP-10B',
+      issue: 3446,
+      activeSlice: 'PC-CROP-10C',
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
-      allowedPaths: ['scripts/pc-crop-10b/verify.mjs'],
+      allowedPaths: ['scripts/pc-crop-10c/verify.mjs'],
     },
   });
-  assert(completedPreviousSlice.some((message) => message.includes('only active issue')), 'completed PC-CROP-10B slice was not rejected');
+  assert(completedPreviousSlice.some((message) => message.includes('only active issue')), 'completed PC-CROP-10C slice was not rejected');
 
   const drift = validateContext(lock, {
     branch: 'ops/qwen-model-host-repair',
@@ -269,7 +269,7 @@ if (process.argv.includes('--self-test')) {
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
       issue: 3372,
-      activeSlice: 'PC-CROP-10C',
+      activeSlice: 'PC-CROP-10D',
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
       allowedPaths: ['.github/workflows/qwen.yml'],
@@ -278,13 +278,13 @@ if (process.argv.includes('--self-test')) {
   assert(drift.some((message) => message.includes('outside PC-CROP') || message.includes('forbidden program token')), 'unrelated TAI/Qwen drift was not rejected');
 
   const wildcard = validateContext(lock, {
-    branch: 'agent/pc-crop-10c-unsafe',
-    title: 'PC-CROP-10C: unsafe wildcard',
-    issue: 3446,
+    branch: 'agent/pc-crop-10d-unsafe',
+    title: 'PC-CROP-10D: unsafe wildcard',
+    issue: 3504,
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
-      issue: 3446,
-      activeSlice: 'PC-CROP-10C',
+      issue: 3504,
+      activeSlice: 'PC-CROP-10D',
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
       allowedPaths: ['apps/**'],
