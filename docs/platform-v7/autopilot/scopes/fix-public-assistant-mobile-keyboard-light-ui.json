@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-assistant-mobile-keyboard-light-ui",
   "status": "active",
-  "purpose": "Eliminate the remaining exposed page strip between the public assistant and mobile keyboard by deriving overlay geometry from stable keyboard height and anchoring the panel by exact top and bottom edges.",
+  "purpose": "Eliminate the exposed page strip between the public assistant and mobile keyboard, and remove public technical wait, fallback and feedback elements that do not help the user.",
   "approvedBy": "owner-direct-implement-2026-07-31",
   "authorityBaseExactMain": "dae30e955b6f5a452a8332f1b3562745b0a4018e",
   "allowedPaths": [
@@ -18,6 +18,9 @@
     "overlay keyboard top is derived from layout bottom minus stable keyboard height",
     "the focused panel is anchored by exact top and bottom edges instead of a guessed height",
     "visualViewport resize and scroll, VirtualKeyboard geometrychange, window resize, orientation and the full keyboard animation window are remeasured",
+    "public users do not see technical model or fallback outage labels",
+    "public users do not see like or dislike feedback controls",
+    "the long visible response-preparation copy is removed while accessible busy state and compact activity indication remain",
     "blur returns the panel to compact sheet geometry and restores any prior VirtualKeyboard overlay mode",
     "the light UI, keyboard navigation, screen-reader and forced-colors behavior remain intact",
     "exact-main web images and REG.RU acceptance are retriggered"
