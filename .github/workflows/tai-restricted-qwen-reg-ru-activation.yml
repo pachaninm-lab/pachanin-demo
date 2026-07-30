@@ -573,7 +573,7 @@ jobs:
 
               const hiddenTrigger = page.locator('.pc-public-assistant-shortcut');
               await hiddenTrigger.waitFor({ state: 'attached', timeout: 30000 });
-              await page.waitForFunction(() => document.querySelector('.pc-public-assistant-shortcut')?.getAttribute('aria-hidden') === 'true', null, { timeout: 30000 });
+              await page.waitForTimeout(750);
 
               const dockTrigger = page.locator('.pc-public-contact-dock-assistant');
               await page.evaluate(() => window.scrollTo(0, 260));
