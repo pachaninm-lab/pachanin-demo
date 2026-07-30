@@ -1,0 +1,90 @@
+name: TEMP expire closed Qwen recovery exception
+
+on:
+  push:
+    branches:
+      - governance/pc-crop-project-lock-3389
+    paths:
+      - .github/workflows/temp-expire-closed-qwen-exception-3447.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: governance/pc-crop-project-lock-3389
+          fetch-depth: 0
+      - name: Expire closed exception and rebuild verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          lock_path = Path('docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json')
+          lock = json.loads(lock_path.read_text())
+          exception = lock['ownerAuthorizedExceptions'][0]
+          exception['status'] = 'expired'
+          exception['expiredBecauseIssueClosed'] = True
+          lock_path.write_text(json.dumps(lock, ensure_ascii=False, indent=2) + '\n')
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json')
+          scope = json.loads(scope_path.read_text())
+          evidence = scope['requiredEvidence']
+          marker = 'Closed Qwen recovery issue 3372 exception is expired before PC-CROP-10C activation'
+          if marker not in evidence:
+              evidence.insert(2, marker)
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n')
+
+          verifier_path = Path('scripts/verify-pc-crop-project-lock.mjs')
+          source = verifier_path.read_text()
+          source = source.replace(
+              "assert(exception.status === 'active', 'owner-authorized exception is not active', target);",
+              "assert(exception.status === 'expired', 'closed owner-authorized exception must be expired', target);",
+          )
+          replacement = r'''const expiredRecovery = validateContext(lock, {
+    branch: 'ops/qwen-recovery-unprivileged-probe-3372',
+    title: 'QWEN-RECOVERY: expired recovery probe',
+    issue: 3372,
+    scope: {
+      projectLockId: 'PC-CROP-REMAINDER',
+      issue: 3372,
+      activeSlice: 'PC-CROP-10C',
+      ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
+      ownerAuthorizedExceptionCommentId: 5120686584,
+      exceptionExpiresWhenIssueClosed: true,
+      exceptionPurpose: 'restore-accepted-restricted-qwen-contour-only',
+      operationalStatus: 'NOT_ATTESTED',
+      productionHosting: 'REG_RU_VPS_ONLY',
+      allowedPaths: ['.github/workflows/tai-qwen-unprivileged-probe.yml'],
+    },
+  });
+  assert(
+    expiredRecovery.some((message) => message.includes('unknown or inactive owner-authorized exception')),
+    'expired owner-authorized recovery exception was not rejected',
+  );
+
+  '''
+          source, count = re.subn(
+              r"const authorizedRecovery = validateContext\(lock, \{.*?const completedPreviousSlice = validateContext",
+              replacement + 'const completedPreviousSlice = validateContext',
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit('failed to replace owner-exception self-test block')
+          verifier_path.write_text(source)
+          PY
+          rm .github/workflows/temp-expire-closed-qwen-exception-3447.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json scripts/verify-pc-crop-project-lock.mjs .github/workflows/temp-expire-closed-qwen-exception-3447.yml
+          git commit -m 'PC-CROP: expire closed Qwen recovery exception'
+          git push origin HEAD:governance/pc-crop-project-lock-3389
