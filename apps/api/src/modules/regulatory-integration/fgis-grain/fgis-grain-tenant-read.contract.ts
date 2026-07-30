@@ -157,11 +157,25 @@ function exactKeys(
   }
 }
 
+function containsSecretMaterial(
+  value: string,
+  allowAuthorizationReferenceScheme: boolean,
+): boolean {
+  const candidate = allowAuthorizationReferenceScheme
+    ? value.replace(/^authorization:\/\//iu, '')
+    : value;
+  const normalized = candidate.toLowerCase();
+  return SECRET_MARKERS.some((marker) => normalized.includes(marker.toLowerCase()));
+}
+
 function safeReference(value: unknown, field: string): string {
   if (typeof value !== 'string') {
     throw new FgisGrainTenantReadContractError('REFERENCE_INVALID', `${field} is not an approved reference`);
   }
-  if (SECRET_MARKERS.some((marker) => value.includes(marker)) || value.includes('@')) {
+  if (
+    containsSecretMaterial(value, true)
+    || value.includes('@')
+  ) {
     throw new FgisGrainTenantReadContractError('INLINE_SECRET_FORBIDDEN', `${field} contains secret material`);
   }
   if (!SAFE_REFERENCE.test(value)) {
@@ -205,7 +219,14 @@ function reason(value: unknown, code: FgisGrainTenantReadErrorCode): string {
   if (typeof value !== 'string' || value.trim().length < 20 || value.trim().length > 2000) {
     throw new FgisGrainTenantReadContractError(code, 'Reason is invalid');
   }
-  return value.trim();
+  const normalized = value.trim();
+  if (containsSecretMaterial(normalized, false)) {
+    throw new FgisGrainTenantReadContractError(
+      'INLINE_SECRET_FORBIDDEN',
+      'Reason contains secret material',
+    );
+  }
+  return normalized;
 }
 
 export function assertFgisGrainReadOperation(value: unknown): FgisGrainReadOperationCode {

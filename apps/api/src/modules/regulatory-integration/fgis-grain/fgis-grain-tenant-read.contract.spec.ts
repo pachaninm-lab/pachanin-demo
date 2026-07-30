@@ -50,17 +50,48 @@ describe('FGIS Grain tenant-authorized read contract', () => {
     expect(Object.isFrozen(value)).toBe(true);
   });
 
-  it('rejects client-controlled extra fields and secret-like references', () => {
+  it('rejects client-controlled extra fields', () => {
     expect(() => assertFgisGrainTenantReadAuthorizationInput({
       schemaVersion: FGIS_GRAIN_TENANT_READ_SCHEMA_VERSION,
       configurationId: 'config-fgis-001',
       configurationVersion: '3',
       allowedOperations: ['DICTIONARIES'],
-      authorizationReference: 'vault://user:password@host/key',
+      authorizationReference: 'authorization://tenant/org/read-001',
       validUntil: future(60),
       reason: 'Tenant owner approved the exact read-only operation set.',
       tenantId: 'client-selected',
     }, NOW)).toThrow(FgisGrainTenantReadContractError);
+  });
+
+  it('rejects secret markers case-insensitively in references and narrative evidence', () => {
+    expect(() => assertFgisGrainTenantReadAuthorizationInput({
+      schemaVersion: FGIS_GRAIN_TENANT_READ_SCHEMA_VERSION,
+      configurationId: 'config-fgis-001',
+      configurationVersion: '3',
+      allowedOperations: ['DICTIONARIES'],
+      authorizationReference: 'vault://tenant/ToKeN=forbidden',
+      validUntil: future(60),
+      reason: 'Tenant owner approved the exact read-only operation set.',
+    }, NOW)).toThrow(expect.objectContaining({ code: 'INLINE_SECRET_FORBIDDEN' }));
+
+    expect(() => assertFgisGrainTenantReadAuthorizationInput({
+      schemaVersion: FGIS_GRAIN_TENANT_READ_SCHEMA_VERSION,
+      configurationId: 'config-fgis-001',
+      configurationVersion: '3',
+      allowedOperations: ['DICTIONARIES'],
+      authorizationReference: 'authorization://tenant/org/read-001',
+      validUntil: future(60),
+      reason: 'Tenant owner supplied ToKeN=forbidden in narrative evidence.',
+    }, NOW)).toThrow(expect.objectContaining({ code: 'INLINE_SECRET_FORBIDDEN' }));
+
+    expect(() => assertFgisGrainTenantReadAttestationInput({
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: 'authorization-001',
+      authorizationVersion: '0',
+      evidenceReference: 'evidence://fgis-grain/read-e2e-001',
+      validUntil: future(60),
+      justification: 'Independent evidence contained AuThOrIzAtIoN: forbidden.',
+    }, NOW)).toThrow(expect.objectContaining({ code: 'INLINE_SECRET_FORBIDDEN' }));
   });
 
   it('requires bounded external evidence for attestation', () => {

@@ -1807,7 +1807,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     const request = readRequest(
       authorized.authorizationId,
       attested.authorizationVersion,
-      'forged-denial',
+      'forged-denial-direct-command',
     );
 
     await expect(executeAsRuntime(EXEC_A, Prisma.sql`
@@ -1823,7 +1823,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
 
     await expect(executeAsRuntime(BUYER_A, Prisma.sql`
       SELECT public.append_fgis_grain_tenant_read_audit(
-        ${`${RUN_ID}.forged-denial.audit`},
+        ${`${RUN_ID}.forged-denial-direct-command.audit`},
         ${authorized.authorizationId},
         ${BigInt(attested.authorizationVersion)},
         ${configuration.configurationId},
@@ -1905,6 +1905,24 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         ${'f'.repeat(64)}
       )
     `)).rejects.toThrow(/authorization reference.*invalid/iu);
+
+    await expect(executeAsRuntime(EXEC_A, Prisma.sql`
+      SELECT *
+      FROM public.write_fgis_grain_tenant_read_authorization(
+        ${`${authorizationId}.unsafe-reason`},
+        ${configuration.configurationId},
+        ${BigInt(configuration.version)},
+        ARRAY['GET_LIST_SDIZ']::text[],
+        ${`authorization://atomic-command/${RUN_ID}/safe-reason-reference`},
+        ${authorizationValidUntil},
+        'Tenant narrative contains ToKeN=forbidden-narrative-secret.',
+        NULL::bigint,
+        ${`${RUN_ID}.atomic-command.unsafe-reason.audit`},
+        ${`${RUN_ID}.atomic-command.unsafe-reason.correlation`},
+        ${`${RUN_ID}.atomic-command.unsafe-reason`},
+        ${'f'.repeat(64)}
+      )
+    `)).rejects.toThrow(/auth_reason|reason|check constraint/iu);
 
     await executeAsRuntime(EXEC_A, Prisma.sql`
       SELECT *
@@ -2005,6 +2023,21 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         ${'f'.repeat(64)}
       )
     `)).rejects.toThrow(/evidence reference.*invalid/iu);
+
+    await expect(executeAsRuntime(SECURITY_A, Prisma.sql`
+      SELECT public.attest_fgis_grain_tenant_read_authorization(
+        ${authorizationId},
+        0::bigint,
+        ${`evidence://atomic-command/${RUN_ID}/safe-justification-reference`},
+        ${attestationValidUntil},
+        'Independent evidence contains AuThOrIzAtIoN: forbidden-narrative-secret.',
+        ${`${RUN_ID}.atomic-command.unsafe-justification.audit`},
+        ${`${RUN_ID}.atomic-command.unsafe-justification.correlation`},
+        ${`${RUN_ID}.atomic-command.unsafe-justification`},
+        ${'f'.repeat(64)}
+      )
+    `)).rejects.toThrow(/attestation_justification|justification|check constraint/iu);
+
     const afterUnsafeAttestation = await prisma.$queryRaw<Array<{
       status: string;
       version: bigint;

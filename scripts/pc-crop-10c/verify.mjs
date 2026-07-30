@@ -239,9 +239,13 @@ function validatePostgres(schema, migration, repository) {
       && migration.includes('fgis_grain_tenant_read_audit_request_reference_ck')
       && migration.includes('fgis_grain_tenant_read_audit_response_reference_ck')
       && migration.includes('fgis_grain_tenant_read_auth_reference_ck')
+      && migration.includes('fgis_grain_tenant_read_auth_reason_ck')
       && migration.includes('fgis_grain_tenant_read_attestation_reference_ck')
+      && migration.includes('fgis_grain_tenant_read_attestation_justification_ck')
+      && migration.includes('fgis_grain_tenant_read_claim_identifiers_ck')
+      && migration.includes('fgis_grain_tenant_read_audit_identifiers_ck')
       && migration.includes('not claim-bound or reference-safe'),
-    'authorization, attestation, request, or provider result references are not validated before immutable storage',
+    'identifiers, references, or narrative evidence are not validated before immutable storage',
   );
   check(
     migration.includes('"leaseExpiresAt"')
@@ -255,9 +259,13 @@ function validatePostgres(schema, migration, repository) {
     'transport-start lease refresh, abandoned-claim recovery, or active-request quarantine is incomplete',
   );
   check(
-    migration.includes("p_valid_until > statement_timestamp() + interval '90 days'")
-      && migration.includes("p_valid_until > statement_timestamp() + interval '30 days'"),
-    'database authorization or attestation TTL ceiling missing',
+    migration.includes("p_valid_until > command_now + interval '90 days'")
+      && migration.includes("p_valid_until > command_now + interval '30 days'")
+      && migration.includes('auth_session.expires_at > clock_timestamp()')
+      && migration.includes('latest."validUntil" > clock_timestamp()')
+      && (migration.match(/LANGUAGE sql\nVOLATILE/gu) ?? []).length >= 2
+      && !migration.includes('statement_timestamp()'),
+    'database session, authority, authorization, or attestation TTL uses a stale statement clock',
   );
   check(migration.includes('fgis_grain_tenant_read_auth_select_policy'), 'authorization SELECT policy missing');
   check(migration.includes('fgis_grain_tenant_read_auth_insert_policy'), 'authorization INSERT policy missing');
@@ -306,29 +314,30 @@ function validatePostgres(schema, migration, repository) {
   check(
     authorizationCommand.includes('p_authorization_reference')
       && authorizationCommand.includes('authorization reference is invalid')
+      && authorizationCommand.includes("regexp_replace(p_authorization_reference, '^authorization://'")
       && attestationCommand.includes('p_evidence_reference')
       && attestationCommand.includes('attestation evidence reference is invalid')
+      && attestationCommand.includes("regexp_replace(p_evidence_reference, '^authorization://'")
       && migration.includes('fgis_grain_tenant_read_auth_reference_ck')
       && migration.includes('fgis_grain_tenant_read_attestation_reference_ck'),
     'authorization or attestation commands can persist unsafe references',
+  );
+  check(
+    authorizationCommand.includes('command_now := clock_timestamp()')
+      && authorizationCommand.indexOf('command_now := clock_timestamp()')
+        > authorizationCommand.indexOf('FOR UPDATE;')
+      && authorizationCommand.includes('p_valid_until <= command_now')
+      && attestationCommand.includes('command_now := clock_timestamp()')
+      && attestationCommand.indexOf('command_now := clock_timestamp()')
+        > attestationCommand.indexOf('FOR UPDATE;')
+      && attestationCommand.includes('current_row."validUntil" <= command_now'),
+    'authorization or attestation does not revalidate wall-clock authority after its row lock',
   );
   check(
     attestationCommand.includes('"tenantReadTransportAdmittedVersion"')
       && attestationCommand.includes('= current_row."configurationVersion"')
       && migration.includes('REVOKE INSERT, UPDATE, DELETE ON TABLE public."fgis_grain_provider_configurations"'),
     'direct database attestation can bypass version-bound transport admission',
-  );
-  const executionAuditCommand = migration.slice(
-    migration.indexOf('CREATE OR REPLACE FUNCTION public.append_fgis_grain_tenant_read_audit(\n'),
-    migration.indexOf('CREATE OR REPLACE FUNCTION public.start_fgis_grain_tenant_read_claim'),
-  );
-  check(
-    executionAuditCommand.includes('effective_reason_code := CASE')
-      && executionAuditCommand.includes('p_reason_code IS DISTINCT FROM effective_reason_code')
-      && executionAuditCommand.includes('FGIS Grain read denial condition is not present')
-      && executionAuditCommand.includes('    effective_reason_code,')
-      && !executionAuditCommand.includes("'PROVIDER_TRANSPORT_DISABLED'"),
-    'runtime callers can fabricate immutable denial reasons outside database authority',
   );
   const finalizer = migration.slice(
     migration.indexOf('CREATE OR REPLACE FUNCTION public.finalize_fgis_grain_tenant_read_claim'),
@@ -339,15 +348,71 @@ function validatePostgres(schema, migration, repository) {
       && finalizer.includes('claim."actorUserId"')
       && finalizer.includes('claim."authorizationVersion"')
       && finalizer.includes('"completionTokenSha256"')
+      && finalizer.includes('finalized_at timestamptz;')
+      && finalizer.includes('finalized_at := clock_timestamp()')
+      && finalizer.includes('claim."leaseExpiresAt" <= finalized_at')
+      && finalizer.includes('"completedAt" = finalized_at')
       && finalizer.includes("p_reason_code <> 'PROVIDER_READ_SUCCEEDED'")
       && finalizer.includes("p_reason_code <> 'PROVIDER_READ_FAILED'")
+      && finalizer.includes('length(p_response_reference) > 522')
       && finalizer.includes('FOR UPDATE')
       && finalizer.includes('claim."completedAuditId" IS NOT NULL')
-      && finalizer.includes('finalization_checked_at := clock_timestamp()')
-      && finalizer.includes('claim."leaseExpiresAt" <= finalization_checked_at')
       && !finalizer.includes('fgis_grain_tenant_read_context_ready')
       && !finalizer.includes("current_setting('app.current_"),
     'terminal provider outcome is not capability- and claim-bound independently of session state',
+  );
+  const appendCommand = migration.slice(
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.append_fgis_grain_tenant_read_audit(\n'),
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.start_fgis_grain_tenant_read_claim'),
+  );
+  check(
+    appendCommand.includes("effective_reason_code := 'AUTHORIZATION_NOT_ATTESTED'")
+      && appendCommand.includes("effective_reason_code := 'AUTHORIZATION_OR_ATTESTATION_EXPIRED'")
+      && appendCommand.includes("effective_reason_code := 'OPERATION_NOT_AUTHORIZED'")
+      && appendCommand.includes('p_reason_code IS DISTINCT FROM effective_reason_code')
+      && appendCommand.includes('FGIS Grain read denial condition is not present')
+      && !appendCommand.includes("'PROVIDER_TRANSPORT_DISABLED'"),
+    'immutable denial evidence is not derived from database-owned authorization facts',
+  );
+  check(
+    appendCommand.includes('p_request_reference')
+      && appendCommand.includes('request reference is invalid')
+      && appendCommand.includes("regexp_replace(p_request_reference, '^authorization://'")
+      && migration.includes('fgis_grain_tenant_read_claim_request_reference_ck')
+      && migration.includes('fgis_grain_tenant_read_audit_request_reference_ck'),
+    'the granted append command can persist an unsafe request reference',
+  );
+  check(
+    appendCommand.includes('FOR SHARE;')
+      && appendCommand.includes('decision_at := clock_timestamp()')
+      && appendCommand.indexOf('decision_at := clock_timestamp()')
+        > appendCommand.indexOf('pg_advisory_xact_lock')
+      && appendCommand.includes('current_authorization."validUntil" <= decision_at')
+      && appendCommand.includes('decision_at + interval \'2 minutes\'')
+      && appendCommand.includes('"createdAt"'),
+    'claim admission is not authorization-locked or post-wait wall-clock fenced',
+  );
+  const recoveryCommand = migration.slice(
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.recover_fgis_grain_tenant_read_claim'),
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.reconcile_abandoned_fgis_grain_tenant_read_claim'),
+  );
+  const reconciliationCommand = migration.slice(
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.reconcile_abandoned_fgis_grain_tenant_read_claim'),
+    migration.indexOf('CREATE OR REPLACE FUNCTION public.finalize_fgis_grain_tenant_read_claim'),
+  );
+  check(
+    recoveryCommand.includes('recovered_at := clock_timestamp()')
+      && recoveryCommand.indexOf('recovered_at := clock_timestamp()')
+        > recoveryCommand.indexOf('FOR UPDATE;')
+      && recoveryCommand.includes('claim."leaseExpiresAt" > recovered_at')
+      && recoveryCommand.includes('"leaseExpiresAt" = recovered_at + interval \'2 minutes\'')
+      && reconciliationCommand.includes('finalized_at := clock_timestamp()')
+      && reconciliationCommand.indexOf('finalized_at := clock_timestamp()')
+        > reconciliationCommand.indexOf('FOR UPDATE;')
+      && reconciliationCommand.includes('claim."leaseExpiresAt" > finalized_at')
+      && reconciliationCommand.includes('"completedAt" = finalized_at')
+      && migration.includes('transition_at timestamptz := clock_timestamp()'),
+    'claim recovery or reconciliation uses a stale pre-lock lease clock',
   );
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
   check(repository.includes("decision: 'IN_FLIGHT'"), 'repository does not durably claim provider execution');
@@ -393,6 +458,7 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(contractSpec.includes('toHaveLength(19)'), 'contract test does not pin nineteen reads');
   check(contractSpec.includes('MUTATION_OPERATION_FORBIDDEN'), 'contract test does not prove mutation denial');
   check(contractSpec.includes('unsafe provider results'), 'contract test does not prove provider-result reference safety');
+  check(contractSpec.includes('secret markers case-insensitively'), 'contract test does not prove narrative and reference secret rejection');
   check(repositorySpec.includes('not.toHaveBeenCalled()'), 'repository test does not prove pre-DB rejection');
   check(repositorySpec.includes('DisabledFgisGrainTenantReadTransport'), 'repository test does not prove disabled default transport');
   check(controllerSpec.includes('If-Match') && controllerSpec.includes('BadRequestException'), 'controller test does not prove optimistic concurrency input');
@@ -404,8 +470,6 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('CREATE_SDIZ'), 'PostgreSQL E2E does not prove provider mutation rejection');
   check(e2e.includes('runtimeVisibleAuthorizationCount'), 'PostgreSQL E2E does not use the restricted runtime principal');
   check(e2e.includes('AUTHORIZATION_NOT_ATTESTED'), 'PostgreSQL E2E does not prove committed denial evidence');
-  check(e2e.includes('forged-denial.audit'), 'PostgreSQL E2E does not reject caller-selected denial evidence');
-  check(e2e.includes('finalizer-lock-clock'), 'PostgreSQL E2E does not fence finalization after row-lock wait');
   check(e2e.includes('FGIS_GRAIN_READ_IN_FLIGHT'), 'PostgreSQL E2E does not prove single-flight admission');
   check(e2e.includes('transport.available = false'), 'PostgreSQL E2E does not reject replay while transport is disabled');
   check(e2e.includes('forged direct runtime transition'), 'PostgreSQL E2E does not prove direct runtime DML denial');
@@ -420,10 +484,16 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('rejects direct database attestation while transport admission is absent'), 'PostgreSQL E2E does not prove database transport admission');
   check(e2e.includes('separates runtime claim minting from dedicated transport finalization'), 'PostgreSQL E2E does not prove terminal authority separation');
   check(e2e.includes('refreshes the transport lease'), 'PostgreSQL E2E does not prove transport-start lease renewal');
-  check(e2e.includes('session_replication_role = replica') && e2e.includes('finalizer-lock-clock'), 'PostgreSQL E2E does not prove post-lock finalization expiry');
+  check(
+    e2e.includes('session_replication_role = replica')
+      && e2e.includes('checks finalization expiry against the wall clock after the claim row lock')
+      && e2e.includes('finalizer-lock-clock'),
+    'PostgreSQL E2E does not prove post-lock finalization expiry',
+  );
   check(e2e.includes('serializes terminal outcomes'), 'PostgreSQL E2E does not prove terminal outcome serialization');
   check(e2e.includes('rejects unsafe request and provider result references before immutable storage or response'), 'PostgreSQL E2E does not prove request/result reference safety');
   check(e2e.includes('atomic-command/token=forbidden'), 'PostgreSQL E2E does not prove authorization/attestation command reference safety');
+  check(e2e.includes('forbidden-narrative-secret'), 'PostgreSQL E2E does not prove authorization/attestation narrative secret rejection');
   check(e2e.includes('forged-denial') && e2e.includes('denial condition is not present'), 'PostgreSQL E2E does not reject fabricated denial evidence');
   check(e2e.includes('callerOwned: false'), 'PostgreSQL E2E does not prove database-owned command payload digests');
   check(e2e.includes('cancels a stalled provider read before lease expiry'), 'PostgreSQL E2E does not prove deadline cancellation before claim recovery');
