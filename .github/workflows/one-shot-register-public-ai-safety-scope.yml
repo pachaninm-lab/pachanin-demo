@@ -1,0 +1,57 @@
+name: One-shot register public AI safety scope
+
+on:
+  push:
+    branches: [governance/register-public-ai-safety-3468]
+    paths:
+      - '.github/workflows/one-shot-register-public-ai-safety-scope.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: governance/register-public-ai-safety-3468
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Register exact concurrent scope and remove controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main
+          git merge --no-edit origin/main
+
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          state_path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(state_path.read_text())
+          scopes = state.setdefault('approvedConcurrentScopes', {})
+          scopes['fix/public-ai-branding-cleanup-20260730'] = [
+              'apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx',
+              'apps/web/lib/platform-v7/ai-gateway-stream.ts',
+              'apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts',
+              'docs/platform-v7/autopilot/scopes/fix-public-ai-branding-cleanup-3450.json',
+          ]
+          state_path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')) + '\n')
+          PY
+
+          rm .github/workflows/one-shot-register-public-ai-safety-scope.yml
+          python -m json.tool docs/platform-v7/autopilot/autopilot-state.json >/dev/null
+          grep -Fq 'fix/public-ai-branding-cleanup-20260730' docs/platform-v7/autopilot/autopilot-state.json
+          git diff --check
+          git add docs/platform-v7/autopilot/autopilot-state.json .github/workflows/one-shot-register-public-ai-safety-scope.yml
+          git commit -m 'GOVERNANCE: register public AI production-safety scope'
+          git push origin HEAD:governance/register-public-ai-safety-3468
+
+# trigger registration
