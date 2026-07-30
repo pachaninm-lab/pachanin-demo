@@ -307,6 +307,7 @@ async function runtimeVisibleAuthorizationCount(
   authorizationId: string,
 ): Promise<bigint> {
   return runtimePrisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SET LOCAL ROLE app_runtime');
     await tx.$queryRaw(Prisma.sql`
       SELECT
         set_config('app.current_user_id', ${user.id}, true),
@@ -329,6 +330,7 @@ async function executeAsRuntime(
   statement: Prisma.Sql,
 ): Promise<number> {
   return runtimePrisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SET LOCAL ROLE app_runtime');
     await tx.$queryRaw(Prisma.sql`
       SELECT
         set_config('app.current_user_id', ${user.id}, true),

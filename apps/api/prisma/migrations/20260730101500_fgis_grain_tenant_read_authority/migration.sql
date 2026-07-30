@@ -340,12 +340,12 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT authorization.*
+  SELECT *
   INTO current_row
-  FROM public."fgis_grain_tenant_read_authorizations" AS authorization
-  WHERE authorization."id" = p_authorization_id
-    AND authorization."tenantId" = current_setting('app.current_tenant_id', true)
-    AND authorization."organizationId" = current_setting('app.current_org_id', true)
+  FROM public."fgis_grain_tenant_read_authorizations" AS target_authorization
+  WHERE target_authorization."id" = p_authorization_id
+    AND target_authorization."tenantId" = current_setting('app.current_tenant_id', true)
+    AND target_authorization."organizationId" = current_setting('app.current_org_id', true)
   FOR UPDATE;
 
   IF NOT FOUND OR current_row."version" IS DISTINCT FROM p_expected_version THEN
@@ -417,12 +417,12 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  SELECT authorization.*
+  SELECT *
   INTO current_row
-  FROM public."fgis_grain_tenant_read_authorizations" AS authorization
-  WHERE authorization."id" = p_authorization_id
-    AND authorization."tenantId" = current_setting('app.current_tenant_id', true)
-    AND authorization."organizationId" = current_setting('app.current_org_id', true)
+  FROM public."fgis_grain_tenant_read_authorizations" AS target_authorization
+  WHERE target_authorization."id" = p_authorization_id
+    AND target_authorization."tenantId" = current_setting('app.current_tenant_id', true)
+    AND target_authorization."organizationId" = current_setting('app.current_org_id', true)
   FOR UPDATE;
 
   IF NOT FOUND
@@ -496,7 +496,7 @@ SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
 DECLARE
-  authorization public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
+  current_authorization public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
   current_head text;
   require_mfa boolean;
 BEGIN
@@ -517,15 +517,17 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  SELECT candidate.*
-  INTO authorization
+  SELECT *
+  INTO current_authorization
   FROM public."fgis_grain_tenant_read_authorizations" AS candidate
   WHERE candidate."id" = p_authorization_id
     AND candidate."tenantId" = current_setting('app.current_tenant_id', true)
     AND candidate."organizationId" = current_setting('app.current_org_id', true)
     AND candidate."configurationId" = p_configuration_id;
 
-  IF NOT FOUND OR authorization."version" IS DISTINCT FROM p_authorization_version THEN
+  IF NOT FOUND
+     OR current_authorization."version" IS DISTINCT FROM p_authorization_version
+  THEN
     RAISE EXCEPTION 'FGIS Grain tenant-read audit authorization binding is invalid'
       USING ERRCODE = '42501';
   END IF;
@@ -534,7 +536,7 @@ BEGIN
     IF p_operation_code <> 'AUTHORIZE'
        OR current_setting('app.current_role', true)
          NOT IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')
-       OR authorization."status" <> 'AUTHORIZED_NOT_ATTESTED'
+       OR current_authorization."status" <> 'AUTHORIZED_NOT_ATTESTED'
     THEN
       RAISE EXCEPTION 'FGIS Grain authorization audit transition is denied'
         USING ERRCODE = '42501';
@@ -542,8 +544,8 @@ BEGIN
   ELSIF p_decision = 'ATTESTED' THEN
     IF p_operation_code <> 'ATTEST'
        OR current_setting('app.current_role', true) NOT IN ('ADMIN', 'COMPLIANCE_OFFICER')
-       OR authorization."status" <> 'READ_ONLY_ATTESTED'
-       OR authorization."attestedByUserId"
+       OR current_authorization."status" <> 'READ_ONLY_ATTESTED'
+       OR current_authorization."attestedByUserId"
          IS DISTINCT FROM current_setting('app.current_user_id', true)
     THEN
       RAISE EXCEPTION 'FGIS Grain attestation audit transition is denied'
@@ -584,14 +586,16 @@ BEGIN
   END IF;
 
   IF p_decision IN ('IN_FLIGHT', 'SUCCEEDED', 'FAILED') THEN
-    IF authorization."status" <> 'READ_ONLY_ATTESTED'
-       OR authorization."validUntil" <= statement_timestamp()
-       OR authorization."attestationValidUntil" IS NULL
-       OR authorization."attestationValidUntil" <= statement_timestamp()
-       OR NOT (p_operation_code = ANY(authorization."allowedOperations"))
+    IF current_authorization."status" <> 'READ_ONLY_ATTESTED'
+       OR current_authorization."validUntil" <= statement_timestamp()
+       OR current_authorization."attestationValidUntil" IS NULL
+       OR current_authorization."attestationValidUntil" <= statement_timestamp()
+       OR NOT (
+         p_operation_code = ANY(current_authorization."allowedOperations")
+       )
        OR NOT public.fgis_grain_tenant_read_provider_authority_valid(
-         authorization."configurationId",
-         authorization."configurationVersion"
+         current_authorization."configurationId",
+         current_authorization."configurationVersion"
        )
     THEN
       RAISE EXCEPTION 'FGIS Grain read execution authority is missing or stale'
