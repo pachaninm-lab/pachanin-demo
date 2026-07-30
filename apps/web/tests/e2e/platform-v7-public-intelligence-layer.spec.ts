@@ -128,7 +128,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.getByRole('tabpanel')).toContainText('спорную сумму');
 
     await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории');
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('не разрешает платёж');
+    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Готовность расчёта нельзя подтвердить');
     const taiProductLink = page.getByRole('link', { name: 'Посмотреть TAI подробнее' }).first();
     await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
