@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ai-source-branding-race-20260730",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "25402379df279ea1bde69a0d80608276317f08c5",
+  "purpose": "Eliminate the public AI branding hydration race by making the source React copy identical to the approved controller identity before first render, then trigger the exact REG.RU release chain.",
+  "approvedBy": "owner-direct-urgent-production-fix-2026-07-30",
+  "allowedPaths": [
+    ".github/workflows/one-shot-fix-public-ai-source-branding.yml",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
+    "apps/web/next.config.js",
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-source-branding-race-3372.json"
+  ],
+  "acceptance": [
+    "the source React copy renders ИИ для агробизнеса before controller enhancement",
+    "the source React copy renders Разработан Прозрачной ценой для сельского хозяйства. before controller enhancement",
+    "EN and ZH source copy matches the approved controller identity",
+    "focused unit contracts assert both source and controller branding",
+    "the change triggers canonical exact images and REG.RU Qwen activation",
+    "authenticated private-model inference RU EN ZH SSE and live Chromium remain mandatory",
+    "one visible AI mark one fullscreen reset functionality and no reasoning tool or debug traces remain mandatory"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
