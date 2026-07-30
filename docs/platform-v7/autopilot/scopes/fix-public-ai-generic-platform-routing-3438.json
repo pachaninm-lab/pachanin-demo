@@ -13,6 +13,7 @@
   "requiredBehavior": [
     "generic RU EN ZH how-the-platform-or-system-works questions classify as verified_platform",
     "verified platform responses emit valid citations before answer tokens",
+    "focused route regressions cover RU EN ZH platform and system wording",
     "broad agriculture questions remain general_agro without fake platform citations",
     "the released 90-second web gateway timeout remains unchanged",
     "existing privacy read-only and stream-contract boundaries remain unchanged",
