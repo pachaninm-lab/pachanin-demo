@@ -8,7 +8,7 @@ on:
       - .github/workflows/materialize-qwen-live-ui-acceptance-v3-once.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   materialize:
@@ -20,11 +20,14 @@ jobs:
         with:
           ref: fix/qwen-live-ui-acceptance-v2
           fetch-depth: 0
-      - name: Build clean governed repair files
+          persist-credentials: true
+      - name: Build and stage governed repair
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          staging='docs/platform-v7/autopilot/staging/tai-restricted-qwen-reg-ru-activation.yml.txt'
+          if [[ ! -f "$staging" ]]; then
+            python3 - <<'PY'
           import json
           from pathlib import Path
 
@@ -147,15 +150,23 @@ jobs:
               ],
           }, ensure_ascii=False, indent=2) + nl, encoding='utf-8')
           PY
-          out="$RUNNER_TEMP/qwen-live-ui-final"
+            mkdir -p "$(dirname "$staging")"
+            cp .github/workflows/tai-restricted-qwen-reg-ru-activation.yml "$staging"
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add "$staging" apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
+            git commit -m 'QWEN: stage final live UI acceptance files'
+            git push origin HEAD:fix/qwen-live-ui-acceptance-v2
+          fi
+          out="$RUNNER_TEMP/qwen-live-ui-tree-meta"
           rm -rf "$out"
           mkdir -p "$out"
-          cp --parents .github/workflows/tai-restricted-qwen-reg-ru-activation.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json "$out"
-      - name: Upload final governed files
+          git rev-parse HEAD > "$out/commit-sha.txt"
+          git rev-parse 'HEAD^{tree}' > "$out/tree-sha.txt"
+      - name: Upload staging tree metadata
         uses: actions/upload-artifact@v4
         with:
-          name: qwen-live-ui-final-${{ github.run_id }}
-          path: ${{ runner.temp }}/qwen-live-ui-final
+          name: qwen-live-ui-tree-${{ github.run_id }}
+          path: ${{ runner.temp }}/qwen-live-ui-tree-meta
           if-no-files-found: error
-          include-hidden-files: true
           retention-days: 7
