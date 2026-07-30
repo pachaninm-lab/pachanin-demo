@@ -100,9 +100,10 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain('visibility: visible !important');
   });
 
-  it('stops a public request that exceeds the bounded deadline and exposes a real retry action', () => {
-    expect(PUBLIC_STREAM_TIMEOUT_MS).toBe(45_000);
-    expect(controllerSource).toContain('PUBLIC_ASSISTANT_TIMEOUT_MS = 45_000');
+  it('keeps the client deadline beyond the server ceiling and exposes a real retry action', () => {
+    expect(PUBLIC_STREAM_TIMEOUT_MS).toBe(100_000);
+    expect(controllerSource).toContain("import { PUBLIC_STREAM_TIMEOUT_MS } from '@/lib/platform-v7/ai-gateway-stream'");
+    expect(controllerSource).toContain('PUBLIC_ASSISTANT_TIMEOUT_MS = PUBLIC_STREAM_TIMEOUT_MS');
     expect(controllerSource).toContain(".pc-public-assistant-composer-button[data-kind='stop']");
     expect(controllerSource).toContain('form.requestSubmit()');
   });
