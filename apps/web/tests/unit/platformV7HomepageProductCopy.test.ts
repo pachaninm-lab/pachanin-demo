@@ -9,6 +9,7 @@ const home = read('i18n/platform-v7-home-v3-product.ts');
 const hero = read('i18n/platform-v7-hero-message.ts');
 const connect = read('i18n/platform-v7-organization-connect-product.ts');
 const component = read('components/platform-v7/PlatformV7StrategicHome.tsx');
+const page = read('app/platform-v7/page.tsx');
 const tsconfig = JSON.parse(read('tsconfig.json')) as {
   compilerOptions?: { paths?: Record<string, string[]> };
 };
@@ -39,7 +40,7 @@ describe('platform-v7 homepage operating-product copy', () => {
   });
 
   it('removes development-stage, demonstration and hidden integration-status wording', () => {
-    const publicCopy = [story, home, hero, connect].join('\n');
+    const publicCopy = [story, home, hero, connect, page].join('\n');
     const forbidden = [
       'Демонстрационный сценарий',
       'Сценарий демонстрационный',
@@ -55,6 +56,7 @@ describe('platform-v7 homepage operating-product copy', () => {
       'Требует отдельного подключения',
       'fake-live',
       'план подключения',
+      'отдельный операционный AI-продукт',
     ];
 
     for (const phrase of forbidden) expect(publicCopy.toLowerCase()).not.toContain(phrase.toLowerCase());
@@ -66,6 +68,13 @@ describe('platform-v7 homepage operating-product copy', () => {
     expect(connect).toContain("submit: 'Start connection'");
     expect(connect).toContain("submit: '开始接入'");
     expect(connect).toContain('После отправки вы получите номер заявки и подтверждённый следующий шаг.');
+  });
+
+  it('describes TAI as part of one platform in SEO and social metadata', () => {
+    expect(page).toContain("title: 'Прозрачная Цена — единая система управления агросделкой'");
+    expect(page).toContain('расчёт, спор и TAI связаны в одной Сделке');
+    expect(page).toContain('Единая система управления агросделкой с собственным ИИ TAI');
+    expect(page).not.toContain('отдельный операционный AI-продукт');
   });
 
   it('keeps critical decisions with the authorised participant', () => {
