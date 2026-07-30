@@ -5,12 +5,17 @@ on:
     branches: [ops/dispatch-current-main-qwen-ui-20260730-v4]
     paths:
       - '.github/workflows/one-shot-complete-qwen-v4.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-complete-qwen-v4.yml'
 
 permissions:
   contents: write
 
 jobs:
   complete:
+    if: github.head_ref == 'ops/dispatch-current-main-qwen-ui-20260730-v4' || github.ref == 'refs/heads/ops/dispatch-current-main-qwen-ui-20260730-v4'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -38,6 +43,16 @@ jobs:
               text = text.replace('name: TAI Restricted Qwen REG.RU Activation\n', f'name: TAI Restricted Qwen REG.RU Activation\n{marker}\n', 1)
           activation.write_text(text)
 
+          chain = Path('.github/workflows/tai-qwen-exact-image-activation-chain.yml')
+          chain_text = chain.read_text()
+          old = '# Release trigger v3: include request abort on backdrop and compact Escape, 2026-07-30 exact current main.'
+          new = '# Release trigger v4: direct trusted-main activation plus exact images, 2026-07-30.'
+          if old in chain_text:
+              chain_text = chain_text.replace(old, new, 1)
+          elif new not in chain_text:
+              chain_text = chain_text.replace('name: TAI Qwen Exact Image Activation Chain\n', f'name: TAI Qwen Exact Image Activation Chain\n{new}\n', 1)
+          chain.write_text(chain_text)
+
           scope_path = Path('docs/platform-v7/autopilot/scopes/dispatch-current-main-qwen-ui-3372-v4.json')
           scope = json.loads(scope_path.read_text())
           allowed = scope['allowedPaths']
@@ -63,4 +78,4 @@ jobs:
           git commit -m 'OPS: trigger exact current-main images and direct REG.RU activation v4'
           git push origin HEAD:ops/dispatch-current-main-qwen-ui-20260730-v4
 
-# trigger 2
+# trigger by PR
