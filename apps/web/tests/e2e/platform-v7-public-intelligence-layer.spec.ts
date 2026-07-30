@@ -78,7 +78,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.locator('#pc-v6-title')).toContainText('от цены до расчёта');
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Показатель белка ниже условия договора');
 
-    await expect(page.locator('#difference')).toContainText('Маркетплейс помогает договориться');
+    await expect(page.locator('#difference')).toContainText('От согласования цены до закрытия Сделки — один управляемый процесс');
     await expect(page.locator('#difference [role="table"]')).toHaveCount(1);
     await expect(page.locator('#difference [data-comparison-row="true"]')).toHaveCount(6);
     await expect(page.locator('#functions article')).toHaveCount(8);
@@ -128,8 +128,8 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.getByRole('tabpanel')).toContainText('спорную сумму');
 
     await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории');
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('не разрешает платёж');
-    const taiProductLink = page.getByRole('link', { name: 'Посмотреть TAI подробнее' }).first();
+    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Готовность расчёта нельзя подтвердить');
+    const taiProductLink = page.getByRole('link', { name: 'Посмотреть ИИ в работе' }).first();
     await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
     await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);

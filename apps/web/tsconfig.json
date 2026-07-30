@@ -27,6 +27,15 @@
       "@/components/platform-v7/GrainExecutionPage": [
         "./components/platform-v7/GrainExecutionPageFixed.tsx"
       ],
+      "@/i18n/platform-v7-home-v3": [
+        "./i18n/platform-v7-home-v3-product.ts"
+      ],
+      "@/i18n/platform-v7-home-story": [
+        "./i18n/platform-v7-home-story-product.ts"
+      ],
+      "@/i18n/platform-v7-organization-connect": [
+        "./i18n/platform-v7-organization-connect-product.ts"
+      ],
       "@pc/ai-assistant-stream-contract": [
         "../api/src/modules/ai-insights/ai-assistant-stream.contract.ts"
       ],

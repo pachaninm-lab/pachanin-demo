@@ -10,19 +10,19 @@ const messages: Record<'ru' | 'en' | 'zh', PlatformV7HeroMessage> = {
     kicker: 'Платформа управления агросделками в растениеводстве\nс собственным искусственным интеллектом',
     title: 'Управляйте агросделкой',
     accent: 'от цены до расчёта',
-    lead: 'Одна платформа связывает торги, договор, поставку, приёмку, лабораторию, документы, готовность расчёта и спор. TAI находит отклонения и объясняет следующий шаг, но решение остаётся за участником.',
+    lead: 'Одна платформа управляет торгами, договором, поставкой, приёмкой, качеством, документами, расчётом и спором. TAI сопоставляет данные Сделки, объясняет отклонения и показывает следующий шаг с источниками.',
   },
   en: {
-    kicker: 'Crop Deal execution platform',
+    kicker: 'Crop Deal management platform\nwith proprietary artificial intelligence',
     title: 'Manage an agricultural Deal',
     accent: 'from price to settlement',
-    lead: 'One platform connects trading, contract, delivery, acceptance, laboratory, documents, settlement readiness and disputes. TAI detects deviations and explains the next step, while the participant retains authority.',
+    lead: 'One platform manages trading, contract, delivery, acceptance, quality, documents, settlement and disputes. TAI matches Deal data, explains deviations and shows the next step with sources.',
   },
   zh: {
-    kicker: '种植业农业交易管理平台',
+    kicker: '种植业农业交易管理平台\n配备自主人工智能',
     title: '管理农业交易',
     accent: '从价格到结算',
-    lead: '一个平台连接竞价、合同、交付、验收、实验室、文件、结算准备与争议。TAI 发现偏差并解释下一步，但决定仍由参与方作出。',
+    lead: '一个平台统一管理竞价、合同、交付、验收、质量、文件、结算与争议。TAI 对照交易数据，解释偏差，并附带来源给出下一步。',
   },
 };
 
