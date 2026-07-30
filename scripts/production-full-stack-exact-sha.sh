@@ -198,7 +198,7 @@ if (!/^[0-9a-f]{40}$/.test(targetSha ?? '')
   || !/^PC-[0-9]{8}-[0-9A-F]{12}$/.test(requestNumber ?? '')
   || !/^[A-Za-z0-9._:-]{8,128}$/.test(correlationId ?? '')) {
   fail('EXTERNAL_POSTGRES_EVIDENCE_INPUT_INVALID');
-  return;
+  process.exit(1);
 }
 
 const sha7 = targetSha.slice(0, 7);
