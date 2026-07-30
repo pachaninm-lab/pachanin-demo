@@ -1,0 +1,1 @@
+Temporary read-only observer branch. Do not merge. The exact Chromium acceptance correction request is recorded here only for the connected review agent; implementation must be opened from exact current main in a separate three-path PR.
