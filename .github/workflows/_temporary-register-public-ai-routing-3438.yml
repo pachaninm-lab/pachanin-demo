@@ -1,0 +1,68 @@
+name: Temporary register public AI routing scope
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+    paths:
+      - .github/workflows/_temporary-register-public-ai-routing-3438.yml
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    if: github.event.pull_request.head.ref == 'governance/register-public-ai-routing-3438'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: governance/register-public-ai-routing-3438
+          fetch-depth: 0
+
+      - name: Register exact bounded scope and remove temporary workflow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          raw = path.read_text(encoding='utf-8')
+          key = 'fix/public-ai-generic-platform-routing-3438'
+          marker = '"approvedConcurrentScopes":{'
+          entry = (
+              '"fix/public-ai-generic-platform-routing-3438":['
+              '"docs/platform-v7/autopilot/scopes/fix-public-ai-generic-platform-routing-3438.json",'
+              '"apps/web/app/api/restricted-public-platform-assistant/route.ts",'
+              '"apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts"],'
+          )
+
+          if key not in raw:
+              count = raw.count(marker)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one approvedConcurrentScopes marker, got {count}')
+              raw = raw.replace(marker, marker + entry, 1)
+              path.write_text(raw, encoding='utf-8')
+
+          parsed = json.loads(path.read_text(encoding='utf-8'))
+          expected = [
+              'docs/platform-v7/autopilot/scopes/fix-public-ai-generic-platform-routing-3438.json',
+              'apps/web/app/api/restricted-public-platform-assistant/route.ts',
+              'apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts',
+          ]
+          actual = parsed['approvedConcurrentScopes'].get(key)
+          if actual != expected:
+              raise SystemExit(f'wrong registered scope: {actual!r}')
+          PY
+
+          rm -f .github/workflows/_temporary-register-public-ai-routing-3438.yml
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json \
+            .github/workflows/_temporary-register-public-ai-routing-3438.yml
+          git commit -m 'GOVERNANCE: register public AI routing scope'
+          git push origin HEAD:governance/register-public-ai-routing-3438
