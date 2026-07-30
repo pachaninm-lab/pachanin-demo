@@ -1,4 +1,4 @@
-name: Read-only Qwen Current-Main Observer
+name: Read-only Branch Workflow Observer
 
 on:
   pull_request:
@@ -18,38 +18,29 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      TARGET_SHA: acffe4e6fea38990219923da50a8a0f63cdedb8e
-      ISSUE_NUMBER: '3372'
+      TARGET_SHA: 2eb2321a02f96c74340e292853f85b5dee64c64b
+      TARGET_BRANCH: fix/public-ai-branding-cleanup-20260730
+      ISSUE_NUMBER: '3450'
     steps:
-      - name: Resolve exact current main and read workflow runs
+      - name: Read exact branch workflow runs
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
-          activation_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/runs?branch=main&head_sha=$TARGET_SHA&per_page=20")"
-          publish_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/docker-publish.yml/runs?branch=main&head_sha=$TARGET_SHA&per_page=20")"
+          runs_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=$TARGET_BRANCH&head_sha=$TARGET_SHA&per_page=100")"
 
-          body="$RUNNER_TEMP/qwen-read-only-status.md"
+          body="$RUNNER_TEMP/branch-read-only-status.md"
           {
-            printf '<!-- read-only-qwen-current-main-observer:%s -->\n' "$TARGET_SHA"
-            printf '## Read-only GitHub Actions status for `%s`\n\n' "$TARGET_SHA"
-            printf -- '- Current `main`: `%s`\n' "$current_main"
-            printf -- '- Exact-main match: `%s`\n\n' "$([[ "$current_main" == "$TARGET_SHA" ]] && echo PASS || echo FAIL)"
-            printf '### TAI Restricted Qwen REG.RU Activation\n\n'
-            if [[ "$(jq '.total_count' <<< "$activation_json")" -eq 0 ]]; then
-              printf -- '- No run found for this exact SHA.\n'
+            printf '<!-- read-only-branch-workflow-observer:%s -->\n' "$TARGET_SHA"
+            printf '## Read-only workflow status for `%s`\n\n' "$TARGET_SHA"
+            printf -- '- Branch: `%s`\n' "$TARGET_BRANCH"
+            if [[ "$(jq '.total_count' <<< "$runs_json")" -eq 0 ]]; then
+              printf -- '- No workflow run found for this exact branch commit.\n'
             else
-              jq -r '.workflow_runs[] | "- Run `\(.id)`: event=`\(.event)`, status=`\(.status)`, conclusion=`\(.conclusion // "pending")`, attempt=`\(.run_attempt)`, URL=\(.html_url)"' <<< "$activation_json"
+              jq -r '.workflow_runs[] | "- `\(.name)` run `\(.id)`: event=`\(.event)`, status=`\(.status)`, conclusion=`\(.conclusion // "pending")`, attempt=`\(.run_attempt)`, URL=\(.html_url)"' <<< "$runs_json"
             fi
-            printf '\n### Canonical docker-publish\n\n'
-            if [[ "$(jq '.total_count' <<< "$publish_json")" -eq 0 ]]; then
-              printf -- '- No run found for this exact SHA.\n'
-            else
-              jq -r '.workflow_runs[] | "- Run `\(.id)`: event=`\(.event)`, status=`\(.status)`, conclusion=`\(.conclusion // "pending")`, attempt=`\(.run_attempt)`, URL=\(.html_url)"' <<< "$publish_json"
-            fi
-            printf '\nThis observer is read-only. It did not rerun, dispatch, deploy, cancel or mutate production.\n'
+            printf '\nThis observer is read-only. It did not rerun, dispatch, cancel, merge, deploy or mutate production.\n'
           } > "$body"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
