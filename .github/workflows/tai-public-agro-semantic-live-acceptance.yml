@@ -6,6 +6,11 @@ on:
     paths:
       - '.github/workflows/tai-public-agro-semantic-live-acceptance.yml'
       - 'docs/platform-v7/autopilot/scopes/fix-qwen-broad-agro-semantic-acceptance.json'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+      - 'apps/web/styles/platform-v7-public-assistant.css'
   workflow_run:
     workflows: ['TAI Restricted Qwen REG.RU Activation']
     types: [completed]
@@ -25,8 +30,11 @@ permissions:
   contents: read
   issues: write
 
+# This group is deliberately identical to the activation workflow group.
+# A later activation therefore queues behind a running semantic probe instead
+# of contending for the single private Qwen runtime.
 concurrency:
-  group: tai-public-agro-semantic-live-acceptance
+  group: tai-restricted-qwen-reg-ru-activation
   cancel-in-progress: false
 
 env:
@@ -36,6 +44,7 @@ jobs:
   live-semantic-acceptance:
     if: >-
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (
         github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
@@ -57,6 +66,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Determine live execution mode
+        id: mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          live=1
+          if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
+            live=0
+          elif [[ '${{ github.event_name }}' == 'push' ]]; then
+            changed="$RUNNER_TEMP/semantic-changed-paths.txt"
+            git diff-tree --no-commit-id --name-only -r HEAD^ HEAD > "$changed"
+            # When the same commit also triggers Qwen activation, this direct
+            # push run releases the shared lock quickly. The workflow_run event
+            # performs the real semantic probe after activation succeeds.
+            if grep -Eq '^(.github/workflows/tai-restricted-qwen-reg-ru-activation[.]yml|apps/api/src/modules/ai-insights/(ai-assistant[.]service[.]ts|ai-insights[.]module[.]ts|restricted-public-qwen[.]controller[.]ts|restricted-public-qwen[.]service[.]ts)|apps/web/app/api/restricted-public-platform-assistant/route[.]ts|apps/web/next[.]config[.]js)$' "$changed"; then
+              live=0
+            fi
+          fi
+          echo "live=$live" >> "$GITHUB_OUTPUT"
+
       - name: Validate serialized acceptance contract
         if: github.event_name == 'pull_request'
         shell: bash
@@ -66,15 +95,12 @@ jobs:
           grep -Fq "workflow_run:" "$workflow"
           grep -Fq "workflows: ['TAI Restricted Qwen REG.RU Activation']" "$workflow"
           grep -Fq "github.event.workflow_run.conclusion == 'success'" "$workflow"
-          grep -Fq "github.event.workflow_run.head_branch == 'main'" "$workflow"
-          if grep -Eq '^[[:space:]]+push:' "$workflow"; then
-            echo 'Semantic production acceptance must not run concurrently from push.' >&2
-            exit 1
-          fi
+          grep -Fq "group: tai-restricted-qwen-reg-ru-activation" "$workflow"
+          grep -Fq "apps/web/components/platform-v7/PublicPlatformAssistant.tsx" "$workflow"
           echo 'SEMANTIC_ACCEPTANCE_SERIALIZATION=PASS'
 
-      - name: Resolve exact activated main
-        if: github.event_name != 'pull_request'
+      - name: Resolve exact production target
+        if: steps.mode.outputs.live == '1'
         id: target
         shell: bash
         run: |
@@ -82,15 +108,17 @@ jobs:
           git fetch --no-tags origin main
           if [[ '${{ github.event_name }}' == 'workflow_run' ]]; then
             target='${{ github.event.workflow_run.head_sha }}'
-          else
+          elif [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then
             target='${{ inputs.target_sha }}'
+          else
+            target='${{ github.sha }}'
           fi
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           [[ "$target" == "$(git rev-parse origin/main)" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
 
       - name: Wait for exact REG.RU deployment manifest
-        if: github.event_name != 'pull_request'
+        if: steps.mode.outputs.live == '1'
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
@@ -123,7 +151,7 @@ jobs:
           echo "LIVE_MANIFEST_EXACT_SHA=$TARGET_SHA"
 
       - name: Verify substantive broad-agro response in live Chromium
-        if: github.event_name != 'pull_request'
+        if: steps.mode.outputs.live == '1'
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
           EVIDENCE_DIR: ${{ runner.temp }}/tai-public-agro-semantic/evidence
@@ -256,7 +284,7 @@ jobs:
           NODE
 
       - name: Upload semantic live evidence
-        if: always() && github.event_name != 'pull_request'
+        if: always() && steps.mode.outputs.live == '1'
         uses: actions/upload-artifact@v4
         with:
           name: tai-public-agro-semantic-${{ github.run_id }}
@@ -265,7 +293,7 @@ jobs:
           retention-days: 30
 
       - name: Record semantic acceptance failure
-        if: failure() && github.event_name != 'pull_request'
+        if: failure() && steps.mode.outputs.live == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
@@ -276,12 +304,12 @@ jobs:
           gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance failed closed for \`$TARGET_SHA\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
 
       - name: Record semantic acceptance success
-        if: success() && github.event_name != 'pull_request'
+        if: success() && steps.mode.outputs.live == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance passed for \`$TARGET_SHA\` after successful REG.RU Qwen activation. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance passed for \`$TARGET_SHA\` after serialized production verification. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
           gh issue close 3372 --repo "$GITHUB_REPOSITORY" --reason completed
