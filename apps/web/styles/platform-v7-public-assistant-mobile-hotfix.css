@@ -115,6 +115,23 @@
     box-shadow: 0 -10px 34px rgba(9, 33, 24, 0.13) !important;
   }
 
+  /*
+   * Chromium shells that expose VirtualKeyboard CSS environment variables can
+   * raise the sheet immediately, before the first visualViewport animation
+   * frame arrives. The exact measured viewport rule below remains authoritative.
+   */
+  .pc-public-assistant-panel[data-pc-keyboard-focus='true']:not([data-pc-keyboard-viewport='true']) {
+    --pc-ai-effective-keyboard-inset: max(
+      var(--pc-visual-viewport-bottom, 0px),
+      var(--pc-ai-keyboard-inset, 0px),
+      env(keyboard-inset-height, 0px)
+    );
+    bottom: var(--pc-ai-effective-keyboard-inset) !important;
+    max-height: calc(
+      var(--pc-visual-viewport-height) - var(--pc-ai-effective-keyboard-inset) - 2px
+    ) !important;
+  }
+
   .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] {
     top: var(--pc-ai-keyboard-top, 0px) !important;
     right: 0 !important;
