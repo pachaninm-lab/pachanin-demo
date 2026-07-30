@@ -154,9 +154,9 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await form.getByLabel('Телефон').fill('+7 900 000-00-00');
     await form.getByLabel('Email').fill('test@example.com');
     await form.getByLabel('Роль организации').selectOption('BUYER_PROCESSOR');
-    await form.getByLabel('Интересующий сценарий').selectOption('DEAL_EXECUTION');
+    await form.getByLabel('Рабочая задача').selectOption('DEAL_EXECUTION');
     await form.getByLabel(/Я согласен/).check();
-    await form.getByRole('button', { name: 'Зарегистрировать заявку' }).click();
+    await form.getByRole('button', { name: 'Начать подключение' }).click();
 
     await expect(page.getByRole('status')).toContainText('REQ-2026-TEST');
     expect(idempotencyKey).toMatch(/^public-org-connect:/);
