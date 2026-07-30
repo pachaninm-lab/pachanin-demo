@@ -145,3 +145,5 @@ jobs:
             .github/workflows/one-shot-durable-intake-api-authority.yml
           git commit -m 'FIX: verify durable intake through exact API database authority'
           git push origin HEAD:fix/release-durable-intake-api-authority-3462
+
+# retrigger after workflow file exists on branch
