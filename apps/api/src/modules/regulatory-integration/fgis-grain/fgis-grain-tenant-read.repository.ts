@@ -680,7 +680,7 @@ export class FgisGrainTenantReadRepository {
       result?: FgisGrainTenantReadTransportResult | null;
     },
   ): Promise<void> {
-    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${AUDIT_CHAIN_LOCK}, 0))`);
+    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${AUDIT_CHAIN_LOCK}, 0))`);
     const previous = await tx.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
       SELECT "hash"
       FROM public."fgis_grain_tenant_read_audits"
