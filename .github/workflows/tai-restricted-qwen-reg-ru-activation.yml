@@ -571,6 +571,10 @@ jobs:
               }, targetSha);
               if (manifest.commitSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifest.commitSha}`);
 
+              const hiddenTrigger = page.locator('.pc-public-assistant-shortcut');
+              await hiddenTrigger.waitFor({ state: 'attached', timeout: 30000 });
+              await page.waitForTimeout(750);
+
               const dockTrigger = page.locator('.pc-public-contact-dock-assistant');
               await page.evaluate(() => window.scrollTo(0, 260));
               await page.waitForTimeout(250);
@@ -580,25 +584,49 @@ jobs:
               await dockTrigger.click();
 
               const dialog = page.locator('#pc-public-assistant-panel');
+              try {
+                await dialog.waitFor({ state: 'visible', timeout: 5000 });
+              } catch {
+                await hiddenTrigger.evaluate((node) => node.click());
+              }
               await dialog.waitFor({ state: 'visible', timeout: 30000 });
               const title = page.locator('#pc-public-assistant-title');
               if ((await title.textContent())?.trim() !== 'ИИ Прозрачной Цены') throw new Error('new_title_missing');
-              if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Что нужно узнать?') throw new Error('compact_empty_state_missing');
+              if ((await page.locator('#pc-public-assistant-empty-title').textContent())?.trim() !== 'Чем помочь?') throw new Error('agro_empty_state_missing');
+              if (!((await dialog.locator('.pc-public-assistant-identity div > span').textContent()) || '').includes('агробизнесу')) throw new Error('agro_subtitle_missing');
               if (await dialog.getByText('Расскажу, как устроены Сделка, роли, аукцион, логистика, документы, деньги, споры, безопасность и внешние подключения.', { exact: false }).count()) throw new Error('legacy_greeting_present');
               const quickCount = await dialog.locator('.pc-public-assistant-quick-actions button').count();
               if (quickCount > 3) throw new Error(`too_many_quick_actions:${quickCount}`);
               if (await dialog.locator('[aria-label="Новый диалог"]').count()) throw new Error('premature_new_chat_action');
 
-              const composer = dialog.getByRole('textbox', { name: 'Задай вопрос о платформе' });
+              const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
               await composer.fill('Как работает платформа?');
               await dialog.getByRole('button', { name: 'Отправить' }).click();
               await dialog.locator('.pc-public-assistant-message[data-role="user"]').waitFor({ state: 'visible', timeout: 30000 });
-              const answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]');
+              let answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
               await answered.waitFor({ state: 'visible', timeout: 240000 });
-              const answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
-              if (answerText.length < 20) throw new Error('ui_answer_too_short');
+              let answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+              if (answerText.length < 20) throw new Error('ui_platform_answer_too_short');
               await answered.locator('.pc-public-assistant-source-list a').first().waitFor({ state: 'visible', timeout: 30000 });
               if (await dialog.locator('[role="alert"]').count()) throw new Error('ui_alert_present');
+
+              await dialog.getByRole('button', { name: 'Новый диалог' }).click();
+              await composer.fill('Привет');
+              await dialog.getByRole('button', { name: 'Отправить' }).click();
+              answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
+              await answered.waitFor({ state: 'visible', timeout: 240000 });
+              answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+              if (answerText.length < 10) throw new Error('ui_greeting_answer_too_short');
+              if (answerText.includes('нет подтверждённого основания')) throw new Error('legacy_greeting_refusal_present');
+
+              await dialog.getByRole('button', { name: 'Новый диалог' }).click();
+              await composer.fill('Что влияет на цену зерна?');
+              await dialog.getByRole('button', { name: 'Отправить' }).click();
+              answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
+              await answered.waitFor({ state: 'visible', timeout: 240000 });
+              answerText = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+              if (answerText.length < 20) throw new Error('ui_general_agro_answer_too_short');
+              if (await answered.locator('.pc-public-assistant-source-list a').count()) throw new Error('general_agro_fake_platform_citation');
 
               const overflow = await dialog.evaluate((node) => ({
                 horizontal: node.scrollWidth - node.clientWidth,
@@ -612,7 +640,7 @@ jobs:
                 targetSha,
                 manifestSha: manifest.commitSha,
                 title: 'ИИ Прозрачной Цены',
-                emptyState: 'Что нужно узнать?',
+                emptyState: 'Чем помочь?',
                 quickActions: quickCount,
                 answerCharacters: answerText.length,
                 viewport: '390x844',
