@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/release-durable-intake-api-authority-3462",
+  "status": "active",
+  "issue": 3462,
+  "baseCommit": "57262ed76487edb56f498c39a257b8868b5187d4",
+  "operationalStatus": "DURABLE_INTAKE_EXTERNAL_POSTGRES_AUTHORITY_REMEDIATION",
+  "allowedPaths": [
+    "scripts/production-full-stack-exact-sha.sh",
+    "docs/platform-v7/autopilot/scopes/fix-release-durable-intake-api-authority-3462.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "Compose PostgreSQL keeps the existing direct psql evidence path",
+    "external PostgreSQL is verified read-only through PrismaClient inside the exact API container",
+    "request number and correlation id remain validated and parameterized",
+    "DATABASE_URL and credentials are never printed or copied",
+    "release succeeds only with durable intake audit and outbox evidence",
+    "REG.RU VPS remains the only production authority"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
