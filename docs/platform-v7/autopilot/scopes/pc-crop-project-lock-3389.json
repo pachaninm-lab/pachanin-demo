@@ -5,8 +5,8 @@
   "status": "active",
   "projectLockId": "PC-CROP-REMAINDER",
   "issue": 3389,
-  "activeSlice": "PC-CROP-10B",
-  "baseCommit": "b48d9baac6f68c20ce96e0551a2a66e568536b40",
+  "activeSlice": "PC-CROP-10C",
+  "baseCommit": "d1be70ecf8f5ba10792cf6d671d1c9504f4b0422",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "project-governance-only",
   "allowedPaths": [
@@ -33,9 +33,11 @@
     "productionDeployment": false
   },
   "requiredEvidence": [
-    "Active lock points only to PC-CROP-10B issue 3390",
+    "PC-CROP-10B exact-main d1be70ecf8f5ba10792cf6d671d1c9504f4b0422 is accepted",
+    "Active lock points only to PC-CROP-10C issue 3446",
+    "Closed Qwen recovery issue 3372 exception is expired before PC-CROP-10C activation",
     "TAI and Qwen branch/title drift is rejected",
-    "Out-of-sequence PC-CROP slices are rejected",
+    "Completed PC-CROP-10B and out-of-sequence slices are rejected",
     "Future scopes must bind projectLockId PC-CROP-REMAINDER",
     "Production authority remains REG_RU_VPS_ONLY",
     "Operational status remains NOT_ATTESTED"
