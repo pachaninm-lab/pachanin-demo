@@ -72,3 +72,5 @@ jobs:
             .github/workflows/one-shot-public-ai-rebase-branding.yml
           git commit -m 'FIX: align public AI safety UI with approved branding'
           git push origin HEAD:fix/public-ai-branding-cleanup-20260730
+
+# trigger after workflow registration
