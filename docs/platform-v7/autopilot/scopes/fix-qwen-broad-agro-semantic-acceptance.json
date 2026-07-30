@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/qwen-broad-agro-semantic-acceptance",
+  "status": "active",
+  "purpose": "Close the post-merge P1 by adding exact-main live semantic acceptance for substantive agriculture and agribusiness answers after REG.RU Qwen activation, while preserving the existing read-only privacy boundary.",
+  "approvedBy": "owner-direct-continue-to-ideal-2026-07-30",
+  "authorityBaseExactMain": "c486953991edf652302e584ec48914bc64943007",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-qwen-broad-agro-semantic-acceptance.json",
+    ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
+    "apps/web/next.config.js"
+  ],
+  "forbiddenCapabilities": [
+    "runtime AI behavior changes",
+    "private data access",
+    "write authority",
+    "external model calls",
+    "Netlify or Vercel deployment"
+  ]
+}
