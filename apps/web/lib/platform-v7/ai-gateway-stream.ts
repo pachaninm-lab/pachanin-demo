@@ -64,6 +64,41 @@ const EMPTY: GatewayStreamSnapshot = {
   refusal: null,
 };
 
+const PUBLIC_ASSISTANT_BOILERPLATE_PATTERNS = [
+  /Внешние банковские и государственные шаги считаются подключ[её]нными только после отдельного подтверждения интеграции\.?/giu,
+  /Для (?:получения )?более подробной информации\s*:\s*[^\n.!?。！？]{1,180}[.!?。！？]?/giu,
+  /Подробнее\s*:\s*[^\n.!?。！？]{1,180}[.!?。！？]?/giu,
+  /Bank and government steps are treated as connected only after separate integration acceptance\.?/giu,
+  /For (?:more|further) information\s*:\s*[^\n.!?。！？]{1,180}[.!?。！？]?/giu,
+  /银行和政府步骤只有在单独完成集成验收后才被视为已连接[。.]?/gu,
+  /(?:更多|详细)信息\s*[：:]\s*[^\n。！？]{1,180}[。！？]?/gu,
+] as const;
+
+/** Remove repetitive operational and navigation boilerplate from public answers. */
+export function stripPublicAssistantBoilerplate(value: string): string {
+  let result = value;
+  for (const pattern of PUBLIC_ASSISTANT_BOILERPLATE_PATTERNS) result = result.replace(pattern, '');
+  return result
+    .replace(/[ \t]+\n/gu, '\n')
+    .replace(/\n[ \t]+/gu, '\n')
+    .replace(/[ \t]{2,}/gu, ' ')
+    .replace(/\n{3,}/gu, '\n\n')
+    .trim();
+}
+
+/**
+ * Produce the public UI projection without allowing an empty cleaned answer to
+ * retain the authoritative `answered` state.
+ */
+export function publicSnapshotForDisplay(snapshot: GatewayStreamSnapshot): GatewayStreamSnapshot {
+  if (!snapshot.text) return snapshot;
+  const text = stripPublicAssistantBoilerplate(snapshot.text);
+  if (!text && snapshot.status === 'answered') {
+    return { ...snapshot, status: 'refused', text: '', refusal: 'ABSTAINED_NO_DATA' };
+  }
+  return text === snapshot.text ? snapshot : { ...snapshot, text };
+}
+
 /**
  * Split an SSE buffer into complete records, returning the unfinished tail.
  *
@@ -143,7 +178,9 @@ export async function readGatewayStream(
   options: ReadGatewayStreamOptions,
 ): Promise<GatewayStreamSnapshot> {
   let snapshot = EMPTY;
-  const publish = () => options.onSnapshot?.(snapshot);
+  const publish = () => options.onSnapshot?.(
+    options.mode === 'public' ? publicSnapshotForDisplay(snapshot) : snapshot,
+  );
 
   const finish = (fallback: GatewayRefusal): GatewayStreamSnapshot => {
     snapshot = sealSnapshot(snapshot, fallback);
@@ -196,6 +233,10 @@ export async function readGatewayStream(
         if (isRejection(verdict)) return finish('UPSTREAM_ERROR');
 
         snapshot = applyFrame(snapshot, verdict.frame);
+        if (options.mode === 'public' && snapshot.status === 'answered') {
+          const visible = publicSnapshotForDisplay(snapshot);
+          if (visible.status === 'refused') snapshot = visible;
+        }
         publish();
         if (snapshot.status !== 'streaming') return snapshot;
       }

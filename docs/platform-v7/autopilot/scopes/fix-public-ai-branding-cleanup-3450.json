@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ai-branding-cleanup-20260730",
+  "status": "active",
+  "issue": 3450,
+  "baseCommit": "bb18f74bb23901b5556944095dfdabb5a2d1a8da",
+  "operationalStatus": "PUBLIC_AI_UI_AND_COPY_FIX_FINAL_GATES_RUNNING",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-branding-cleanup-3450.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "the public assistant header has exactly two branding lines in RU, EN and ZH",
+    "the Russian title is ИИ в агробизнесе and the subtitle is разработан Прозрачной Ценой",
+    "the public assistant keeps only its native fullscreen control",
+    "support chat fullscreen behavior remains unchanged",
+    "repetitive integration caveats and navigation boilerplate are not rendered in public answers",
+    "substantive agribusiness and platform answer content remains unchanged",
+    "the branch is synchronized with current main before merge"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
