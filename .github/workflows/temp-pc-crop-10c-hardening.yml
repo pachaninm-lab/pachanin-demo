@@ -1,0 +1,377 @@
+name: Temporary harden PC-CROP-10C authority
+
+on:
+  push:
+    branches:
+      - agent/pc-crop-10c-tenant-authorized-read-adapter
+    paths:
+      - .github/workflows/temp-pc-crop-10c-hardening.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-10c-tenant-authorized-read-adapter
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Harden RLS tests and persist denial evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          migration = Path('apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql')
+          source = migration.read_text()
+          invalid = '\n      AND cardinality("allowedOperations") = cardinality(ARRAY(SELECT DISTINCT unnest("allowedOperations")))'
+          assert source.count(invalid) == 1, source.count(invalid)
+          migration.write_text(source.replace(invalid, ''))
+
+          repository = Path('apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts')
+          source = repository.read_text()
+          replacements = [
+            (
+              "if (replay) return { replay, context, authorization: null, configuration: null } as const;",
+              "if (replay) return { replay, context, authorization: null, configuration: null, denial: null } as const;",
+            ),
+            (
+              """        if (authorization.status !== 'READ_ONLY_ATTESTED') {
+          await this.writeAudit(tx, context, {
+            authorizationId: authorization.id,
+            configurationId: authorization.configurationId,
+            operationCode: input.operationCode,
+            correlationId: input.correlationId,
+            idempotencyKey: input.idempotencyKey,
+            requestReference: input.requestReference,
+            requestSha256: input.requestSha256,
+            decision: 'DENIED',
+            reasonCode: 'AUTHORIZATION_NOT_ATTESTED',
+          });
+          throw new ForbiddenException('FGIS Grain read authorization is not externally attested');
+        }""",
+              """        if (authorization.status !== 'READ_ONLY_ATTESTED') {
+          await this.writeAudit(tx, context, {
+            authorizationId: authorization.id,
+            configurationId: authorization.configurationId,
+            operationCode: input.operationCode,
+            correlationId: input.correlationId,
+            idempotencyKey: input.idempotencyKey,
+            requestReference: input.requestReference,
+            requestSha256: input.requestSha256,
+            decision: 'DENIED',
+            reasonCode: 'AUTHORIZATION_NOT_ATTESTED',
+          });
+          return {
+            replay: null,
+            context,
+            authorization: null,
+            configuration: null,
+            denial: 'FGIS Grain read authorization is not externally attested',
+          } as const;
+        }""",
+            ),
+            (
+              """        if (
+          authorization.validUntil.getTime() <= Date.now()
+          || !authorization.attestationValidUntil
+          || authorization.attestationValidUntil.getTime() <= Date.now()
+        ) {
+          throw new ForbiddenException('FGIS Grain read authorization or attestation expired');
+        }""",
+              """        if (
+          authorization.validUntil.getTime() <= Date.now()
+          || !authorization.attestationValidUntil
+          || authorization.attestationValidUntil.getTime() <= Date.now()
+        ) {
+          await this.writeAudit(tx, context, {
+            authorizationId: authorization.id,
+            configurationId: authorization.configurationId,
+            operationCode: input.operationCode,
+            correlationId: input.correlationId,
+            idempotencyKey: input.idempotencyKey,
+            requestReference: input.requestReference,
+            requestSha256: input.requestSha256,
+            decision: 'DENIED',
+            reasonCode: 'AUTHORIZATION_OR_ATTESTATION_EXPIRED',
+          });
+          return {
+            replay: null,
+            context,
+            authorization: null,
+            configuration: null,
+            denial: 'FGIS Grain read authorization or attestation expired',
+          } as const;
+        }""",
+            ),
+            (
+              """        if (!authorization.allowedOperations.includes(input.operationCode)) {
+          await this.writeAudit(tx, context, {
+            authorizationId: authorization.id,
+            configurationId: authorization.configurationId,
+            operationCode: input.operationCode,
+            correlationId: input.correlationId,
+            idempotencyKey: input.idempotencyKey,
+            requestReference: input.requestReference,
+            requestSha256: input.requestSha256,
+            decision: 'DENIED',
+            reasonCode: 'OPERATION_NOT_AUTHORIZED',
+          });
+          throw new ForbiddenException('Operation is outside tenant authorization');
+        }""",
+              """        if (!authorization.allowedOperations.includes(input.operationCode)) {
+          await this.writeAudit(tx, context, {
+            authorizationId: authorization.id,
+            configurationId: authorization.configurationId,
+            operationCode: input.operationCode,
+            correlationId: input.correlationId,
+            idempotencyKey: input.idempotencyKey,
+            requestReference: input.requestReference,
+            requestSha256: input.requestSha256,
+            decision: 'DENIED',
+            reasonCode: 'OPERATION_NOT_AUTHORIZED',
+          });
+          return {
+            replay: null,
+            context,
+            authorization: null,
+            configuration: null,
+            denial: 'Operation is outside tenant authorization',
+          } as const;
+        }""",
+            ),
+            (
+              "return { replay: null, context, authorization, configuration } as const;",
+              "return { replay: null, context, authorization, configuration, denial: null } as const;",
+            ),
+            (
+              """    if (preflight.replay) return this.replayReceipt(preflight.replay, input);
+    if (!preflight.authorization || !preflight.configuration) {""",
+              """    if (preflight.replay) return this.replayReceipt(preflight.replay, input);
+    if (preflight.denial) throw new ForbiddenException(preflight.denial);
+    if (!preflight.authorization || !preflight.configuration) {""",
+            ),
+          ]
+          for old, new in replacements:
+              assert source.count(old) == 1, (old[:80], source.count(old))
+              source = source.replace(old, new)
+          repository.write_text(source)
+
+          e2e = Path('apps/api/test/industrial/fgis-grain-tenant-read.e2e-spec.ts')
+          source = e2e.read_text()
+          assert source.count("import { Prisma } from '@prisma/client';") == 1
+          source = source.replace("import { Prisma } from '@prisma/client';", "import { Prisma, PrismaClient } from '@prisma/client';")
+          source = source.replace(
+              "const ORG_A = `${RUN_ID}.org-a`;\nconst ORG_B = `${RUN_ID}.org-b`;",
+              "const ORG_A = `${RUN_ID}.org-a`;\nconst ORG_A_OUTSIDER = `${RUN_ID}.org-a-outsider`;\nconst ORG_B = `${RUN_ID}.org-b`;",
+          )
+          source = source.replace(
+              "let prisma: PrismaService;\nlet providerRepository:",
+              "let prisma: PrismaService;\nlet runtimePrisma: PrismaClient;\nlet providerRepository:",
+          )
+          source = source.replace(
+              "const BUYER_A = actor(TENANT_A, ORG_A, `${RUN_ID}.buyer-a`, Role.BUYER);\nconst EXEC_B",
+              "const BUYER_A = actor(TENANT_A, ORG_A, `${RUN_ID}.buyer-a`, Role.BUYER);\nconst BUYER_A_OUTSIDER = actor(TENANT_A, ORG_A_OUTSIDER, `${RUN_ID}.buyer-a-outsider`, Role.BUYER);\nconst EXEC_B",
+          )
+          source = source.replace(
+              """      (${ORG_A}, ${innA}, ${`${RUN_ID} Org A`}, ${TENANT_A}, ${now}),
+      (${ORG_B}, ${innB}, ${`${RUN_ID} Org B`}, ${TENANT_B}, ${now})""",
+              """      (${ORG_A}, ${innA}, ${`${RUN_ID} Org A`}, ${TENANT_A}, ${now}),
+      (${ORG_A_OUTSIDER}, ${`${int(79)}${'0' * 8}`}, ${`${RUN_ID} Org A Outsider`}, ${TENANT_A}, ${now}),
+      (${ORG_B}, ${innB}, ${`${RUN_ID} Org B`}, ${TENANT_B}, ${now})""",
+          )
+          source = source.replace(
+              "for (const user of [EXEC_A, SECURITY_A, LEGAL_A, OPS_A, BUYER_A, EXEC_B, BUYER_B, GUEST_A])",
+              "for (const user of [EXEC_A, SECURITY_A, LEGAL_A, OPS_A, BUYER_A, BUYER_A_OUTSIDER, EXEC_B, BUYER_B, GUEST_A])",
+          )
+          helper_marker = "\ndescribePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () => {"
+          assert source.count(helper_marker) == 1
+          helper = """
+
+async function runtimeVisibleAuthorizationCount(
+  user: RequestUser,
+  authorizationId: string,
+): Promise<bigint> {
+  return runtimePrisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT
+        set_config('app.current_user_id', ${user.id}, true),
+        set_config('app.current_org_id', ${user.orgId}, true),
+        set_config('app.current_tenant_id', ${user.tenantId}, true),
+        set_config('app.current_role', ${user.role}, true),
+        set_config('app.current_session_id', ${user.sessionId}, true)
+    `);
+    const rows = await tx.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM public."fgis_grain_tenant_read_authorizations"
+      WHERE "id" = ${authorizationId}
+    `);
+    return rows[0]?.count ?? 0n;
+  });
+}
+"""
+          source = source.replace(helper_marker, helper + helper_marker)
+          source = source.replace(
+              """    prisma = new PrismaService();
+    await prisma.$connect();
+    await seedIdentity();""",
+              """    prisma = new PrismaService();
+    await prisma.$connect();
+    const runtimeDatabaseUrl = process.env.PC_CROP_10C_RUNTIME_DATABASE_URL;
+    if (!runtimeDatabaseUrl) throw new Error('PC_CROP_10C_RUNTIME_DATABASE_URL is required');
+    runtimePrisma = new PrismaClient({ datasources: { db: { url: runtimeDatabaseUrl } } });
+    await runtimePrisma.$connect();
+    await seedIdentity();""",
+          )
+          source = source.replace(
+              """  afterAll(async () => {
+    await prisma.$disconnect();
+  });""",
+              """  afterAll(async () => {
+    await runtimePrisma.$disconnect();
+    await prisma.$disconnect();
+  });""",
+          )
+          denied_marker = """    expect(transport.calls).toHaveLength(0);
+  });
+
+  it('executes an attested read exactly once"""
+          assert source.count(denied_marker) == 1
+          source = source.replace(
+              denied_marker,
+              """    expect(transport.calls).toHaveLength(0);
+    const denied = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "authorizationId" = ${authorized.authorizationId}
+        AND "decision" = 'DENIED'
+        AND "reasonCode" = 'AUTHORIZATION_NOT_ATTESTED'
+    `);
+    expect(denied[0]?.count).toBe(1n);
+  });
+
+  it('executes an attested read exactly once""",
+          )
+          cross_marker = """    await expect(readRepository.getView(GUEST_A, authorized.authorizationId))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(transport.calls).toHaveLength(0);"""
+          assert source.count(cross_marker) == 1
+          source = source.replace(
+              cross_marker,
+              """    await expect(readRepository.getView(GUEST_A, authorized.authorizationId))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(await runtimeVisibleAuthorizationCount(BUYER_A, authorized.authorizationId)).toBe(1n);
+    expect(await runtimeVisibleAuthorizationCount(BUYER_A_OUTSIDER, authorized.authorizationId)).toBe(0n);
+    expect(await runtimeVisibleAuthorizationCount(BUYER_B, authorized.authorizationId)).toBe(0n);
+    expect(transport.calls).toHaveLength(0);""",
+          )
+          e2e.write_text(source)
+
+          workflow = Path('.github/workflows/pc-crop-10c.yml')
+          source = workflow.read_text()
+          source = source.replace(
+              "  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public",
+              "  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public\n  PC_CROP_10C_RUNTIME_DATABASE_URL: postgresql://app_runtime:app_runtime@localhost:5432/grainflow?schema=public",
+          )
+          migration_marker = """      - name: Apply complete PostgreSQL migration chain
+        shell: bash"""
+          assert source.count(migration_marker) == 1
+          bootstrap = """      - name: Bootstrap restricted runtime principal
+        env:
+          PGPASSWORD: postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d grainflow -v ON_ERROR_STOP=1 <<'SQL'
+          DO $bootstrap$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime') THEN
+              CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+            ELSE
+              ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+            END IF;
+          END;
+          $bootstrap$;
+          GRANT CONNECT ON DATABASE grainflow TO app_runtime;
+          GRANT USAGE ON SCHEMA public TO app_runtime;
+          SQL
+
+"""
+          source = source.replace(migration_marker, bootstrap + migration_marker)
+          privilege_marker = """      - name: Typecheck API authority
+        shell: bash"""
+          assert source.count(privilege_marker) == 1
+          privilege = """      - name: Verify restricted principal and append-only grants
+        env:
+          PGPASSWORD: postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d grainflow -v ON_ERROR_STOP=1 <<'SQL'
+          DO $verify$
+          BEGIN
+            IF NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'SELECT')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'INSERT')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'UPDATE')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'DELETE')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'SELECT')
+               OR NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'INSERT')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'UPDATE')
+               OR has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_audits', 'DELETE')
+            THEN
+              RAISE EXCEPTION 'PC_CROP_10C_RUNTIME_GRANTS_INVALID';
+            END IF;
+            IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'fgis_grain_tenant_read_authorizations') <> 3
+               OR (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'fgis_grain_tenant_read_audits') <> 2
+            THEN
+              RAISE EXCEPTION 'PC_CROP_10C_RLS_POLICIES_INVALID';
+            END IF;
+          END;
+          $verify$;
+          SQL
+          touch "$EVIDENCE_DIR/restricted-principal.ok"
+
+"""
+          source = source.replace(privilege_marker, privilege + privilege_marker)
+          workflow.write_text(source)
+
+          verifier = Path('scripts/pc-crop-10c/verify.mjs')
+          source = verifier.read_text()
+          marker = """  check(migration.includes('GRANT SELECT, INSERT ON public.\"fgis_grain_tenant_read_audits\"'), 'audit runtime grant is not append-only');
+  check(!migration.includes('GRANT DELETE') && !migration.includes('GRANT ALL'), 'migration grants unsafe mutation authority');"""
+          assert source.count(marker) == 1
+          replacement = marker + """
+  check(!migration.includes('grainflow_runtime'), 'migration targets a nonexistent runtime principal');
+  check(migration.includes("ARRAY['app_runtime', 'app_service']"), 'runtime principal grant set mismatch');
+  check(migration.includes('public.app_rls_context_ready()'), 'role-aware RLS context guard missing');
+  check(migration.includes('fgis_grain_tenant_read_auth_select_policy'), 'authorization SELECT policy missing');
+  check(migration.includes('fgis_grain_tenant_read_auth_insert_policy'), 'authorization INSERT policy missing');
+  check(migration.includes('fgis_grain_tenant_read_auth_update_policy'), 'authorization UPDATE policy missing');"""
+          source = source.replace(marker, replacement)
+          source = source.replace(
+              "check(repository.includes('Prisma.join(input.allowedOperations)'), 'PostgreSQL operation array binding is not parameterized safely');",
+              "check(repository.includes('Prisma.join(input.allowedOperations)'), 'PostgreSQL operation array binding is not parameterized safely');\n  check(repository.includes('if (preflight.denial)'), 'denied request audit can roll back with the HTTP rejection');",
+          )
+          source = source.replace(
+              "check(e2e.includes('CREATE_SDIZ'), 'PostgreSQL E2E does not prove provider mutation rejection');",
+              "check(e2e.includes('CREATE_SDIZ'), 'PostgreSQL E2E does not prove provider mutation rejection');\n  check(e2e.includes('runtimeVisibleAuthorizationCount'), 'PostgreSQL E2E does not use the restricted runtime principal');\n  check(e2e.includes(\"AND \\\"decision\\\" = 'DENIED'\"), 'PostgreSQL E2E does not prove committed denial evidence');",
+          )
+          verifier.write_text(source)
+          PY
+          rm -f .github/workflows/temp-pc-crop-10c-hardening.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql \
+            apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts \
+            apps/api/test/industrial/fgis-grain-tenant-read.e2e-spec.ts \
+            .github/workflows/pc-crop-10c.yml \
+            scripts/pc-crop-10c/verify.mjs \
+            .github/workflows/temp-pc-crop-10c-hardening.yml
+          git commit -m 'PC-CROP-10C: harden RLS and commit denial evidence'
+          git push origin HEAD:agent/pc-crop-10c-tenant-authorized-read-adapter
