@@ -7,7 +7,7 @@ on:
       - '.github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml'
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
@@ -22,13 +22,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-          token: ${{ github.token }}
+          persist-credentials: false
 
-      - name: Apply exact bounded correction
+      - name: Generate exact bounded correction artifact
         shell: bash
         env:
           EXPECTED_BASE: 72d1a6ad7c277615430a58a9d357485ae34f6f5c
-          HEAD_BRANCH: fix/qwen-live-ui-approved-branding-20260730
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
@@ -48,8 +47,7 @@ jobs:
               "verified title \\`ИИ в агробизнесе\\`, subtitle \\`разработан Прозрачной Ценой\\`": "verified title \\`ИИ для агробизнеса\\`, subtitle \\`Разработан Прозрачной ценой для сельского хозяйства.\\`",
           }
           for old, new in replacements.items():
-              count = text.count(old)
-              if count < 1:
+              if old not in text:
                   raise SystemExit(f'missing expected workflow text: {old}')
               text = text.replace(old, new)
           workflow_path.write_text(text, encoding='utf-8')
@@ -81,10 +79,17 @@ jobs:
           scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
 
-          git rm .github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml
+          rm -rf /tmp/qwen-branding-patch
+          mkdir -p /tmp/qwen-branding-patch/.github/workflows /tmp/qwen-branding-patch/apps/web /tmp/qwen-branding-patch/docs/platform-v7/autopilot/scopes
+          cp .github/workflows/tai-restricted-qwen-reg-ru-activation.yml /tmp/qwen-branding-patch/.github/workflows/
+          cp apps/web/next.config.js /tmp/qwen-branding-patch/apps/web/
+          cp docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json /tmp/qwen-branding-patch/docs/platform-v7/autopilot/scopes/
           git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/tai-restricted-qwen-reg-ru-activation.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
-          git commit -m 'FIX: align live Qwen acceptance with approved branding'
-          git push origin "HEAD:$HEAD_BRANCH"
+
+      - name: Upload exact correction artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-approved-branding-correction-${{ github.run_id }}
+          path: /tmp/qwen-branding-patch
+          if-no-files-found: error
+          retention-days: 7
