@@ -53,4 +53,4 @@ jobs:
           git commit -m 'GOVERNANCE: register public AI close-abort scope'
           git push origin HEAD:governance/register-public-ai-close-abort-3480
 
-# trigger registration
+# trigger registration 2
