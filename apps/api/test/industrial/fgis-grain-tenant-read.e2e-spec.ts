@@ -340,8 +340,7 @@ async function resetAuthority(): Promise<void> {
   transport.reset();
 }
 
-async function approvedConfiguration(
-  transportAdmitted = true,
+async function reviewedConfiguration(
   environment: ProviderEnvironment = 'PRE_PRODUCTION',
 ) {
   const created = await providerRepository.upsertDraft(
@@ -369,6 +368,14 @@ async function approvedConfiguration(
     OPS_A,
     providerAttestation(review.configurationId, 'OPERATIONS', review.version),
   );
+  return review;
+}
+
+async function approvedConfiguration(
+  transportAdmitted = true,
+  environment: ProviderEnvironment = 'PRE_PRODUCTION',
+) {
+  const review = await reviewedConfiguration(environment);
   const approved = await providerRepository.activateTest(
     EXEC_A,
     review.configurationId,
@@ -693,7 +700,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
 
   it('binds reauthorization to the existing provider configuration inside PostgreSQL', async () => {
     const firstConfiguration = await approvedConfiguration();
-    const secondConfiguration = await approvedConfiguration(true, 'PRODUCTION');
+    const secondConfiguration = await reviewedConfiguration('PRODUCTION');
     const authorized = await authorizeRead(
       firstConfiguration.configurationId,
       firstConfiguration.version,

@@ -328,7 +328,9 @@ function validatePostgres(schema, migration, repository) {
   );
   check(repository.includes('authorizationVersion !== BigInt(input.authorizationVersion)'), 'replay is not bound to the current authorization version');
   check(
-    migration.includes('current_row."configurationId" IS DISTINCT FROM p_configuration_id'),
+    authorizationCommand.includes('current_row."configurationId" IS DISTINCT FROM p_configuration_id')
+      && authorizationCommand.indexOf('current_row."configurationId" IS DISTINCT FROM p_configuration_id')
+        < authorizationCommand.indexOf('fgis_grain_tenant_read_provider_authority_valid'),
     'reauthorization can rebind an existing authorization to another configuration',
   );
   check(repository.includes('Prisma.join(input.allowedOperations)'), 'PostgreSQL operation array binding is not parameterized safely');

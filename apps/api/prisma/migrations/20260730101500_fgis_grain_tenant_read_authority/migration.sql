@@ -654,6 +654,28 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  IF p_expected_version IS NOT NULL THEN
+    SELECT *
+    INTO current_row
+    FROM public."fgis_grain_tenant_read_authorizations" AS target_authorization
+    WHERE target_authorization."id" = p_authorization_id
+      AND target_authorization."tenantId" = current_setting('app.current_tenant_id', true)
+      AND target_authorization."organizationId" = current_setting('app.current_org_id', true)
+    FOR UPDATE;
+
+    IF NOT FOUND
+       OR current_row."version" IS DISTINCT FROM p_expected_version
+       OR current_row."configurationId" IS DISTINCT FROM p_configuration_id
+    THEN
+      RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
+        USING ERRCODE = '40001';
+    END IF;
+    IF current_row."status" = 'REVOKED' THEN
+      RAISE EXCEPTION 'Revoked FGIS Grain tenant-read authorization cannot be reused'
+        USING ERRCODE = '55000';
+    END IF;
+  END IF;
+
   IF NOT public.fgis_grain_tenant_read_provider_authority_valid(
     p_configuration_id,
     p_configuration_version
@@ -685,26 +707,6 @@ BEGIN
     );
     next_version := 0;
   ELSE
-    SELECT *
-    INTO current_row
-    FROM public."fgis_grain_tenant_read_authorizations" AS target_authorization
-    WHERE target_authorization."id" = p_authorization_id
-      AND target_authorization."tenantId" = current_setting('app.current_tenant_id', true)
-      AND target_authorization."organizationId" = current_setting('app.current_org_id', true)
-    FOR UPDATE;
-
-    IF NOT FOUND
-       OR current_row."version" IS DISTINCT FROM p_expected_version
-       OR current_row."configurationId" IS DISTINCT FROM p_configuration_id
-    THEN
-      RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
-        USING ERRCODE = '40001';
-    END IF;
-    IF current_row."status" = 'REVOKED' THEN
-      RAISE EXCEPTION 'Revoked FGIS Grain tenant-read authorization cannot be reused'
-        USING ERRCODE = '55000';
-    END IF;
-
     UPDATE public."fgis_grain_tenant_read_authorizations"
     SET "configurationVersion" = p_configuration_version,
         "allowedOperations" = p_allowed_operations,
