@@ -16,13 +16,14 @@ export const runtime = 'nodejs';
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const INTERNAL_PATH = '/internal/tai/public-generate';
 const MAX_API_RESPONSE_BYTES = 1_048_576;
-const DEFAULT_TIMEOUT_MS = 130_000;
+const DEFAULT_TIMEOUT_MS = 45_000;
+const MAX_HISTORY_TURNS = 12;
+const MAX_HISTORY_TURN_CHARS = 2_000;
+const MAX_HISTORY_TOTAL_CHARS = 12_000;
 
-const PLATFORM_INTENT_PATTERNS = [
-  /(?:прозрачн(?:ая|ой|ую|ые|ых)?\s+цен(?:а|ы|е|у|ой)?|платформ(?:а|ы|е|у|ой)|личн(?:ый|ого|ом)\s+кабинет|зарегистрир|служб(?:а|у|е)\s+поддержк|у\s+вас)/iu,
-  /(?:transparent\s+price|your\s+platform|the\s+platform|this\s+platform|workspace|sign\s*up|register|support)/iu,
-  /(?:透明价格|你们的平台|本平台|平台中|注册|客服)/u,
-] as const;
+type PublicLocale = 'ru' | 'en' | 'zh';
+type PublicAnswerMode = 'verified_platform' | 'general_agro';
+type HistoryTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 
 type PublicKnowledgeAnswer = Readonly<{
   requestId: string;
@@ -51,6 +52,10 @@ type ModelResponse = Readonly<{
   completionTokens: number | null;
   operationalStatus: 'NOT_ATTESTED';
   mode: 'read_only';
+  answerMode?: PublicAnswerMode;
+  finishReason?: 'stop' | 'length' | 'other';
+  truncated?: boolean;
+  safetyFlags?: readonly string[];
 }>;
 
 type RuntimeConfig = Readonly<{
@@ -60,6 +65,52 @@ type RuntimeConfig = Readonly<{
   identity: string;
   timeoutMs: number;
 }>;
+
+type PublicEnvelope = Readonly<{
+  question: string;
+  locale: PublicLocale;
+  context: string;
+  history: readonly HistoryTurn[];
+}>;
+
+const SENSITIVE_INPUT_PATTERNS = [
+  /\b(?:пароль|password|api[\s_-]?key|ключ\s+api|токен|token|secret)\s*[:=]\s*\S{6,}/iu,
+  /\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/u,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b/iu,
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/u,
+] as const;
+
+const EXPLICIT_PLATFORM_PATTERNS = [
+  /(?:прозрачн\w*\s+цен\w*|transparent\s+price|透明价格)/iu,
+  /(?:эта|данная|ваша|наша)\s+(?:платформа|система)|(?:платформа|система)\s+(?:прозрачн\w*\s+цен\w*)/iu,
+  /(?:личн\w*\s+кабинет|зарегистрир\w*|регистрац\w*|подключить\s+организац\w*|стоимост\w*\s+(?:доступа|внедрения)|тариф\w*)/iu,
+  /(?:что\s+(?:ты|вы)\s+уме\w*|возможност\w*\s+(?:ии|помощника)|ваш\w*\s+ии|функционал\w*\s+(?:платформы|системы)?)/iu,
+  /(?:your\s+platform|this\s+platform|the\s+platform|workspace|sign\s*up|register|platform\s+capabilit)/iu,
+  /(?:你们的平台|本平台|平台中|注册|客服)/u,
+] as const;
+
+const PLATFORM_WORKFLOW_PATTERNS = [
+  /(?:сделк\w*|аукцион\w*|допуск\w*|при[её]мк\w*|лаборатор\w*|документ\w*|выплат\w*|спор\w*|доказательств\w*|роль\w*)/iu,
+  /(?:фгис\s*[«"']?зерно|интеграц\w*|эдо|1с|tms|erp|api-интеграц\w*)/iu,
+  /(?:как\s+работает\s+логистик\w*|логистик\w*\s+(?:в|на)\s+(?:платформе|системе)|выгруз\w*\s+парти\w*)/iu,
+  /(?:deal|auction|acceptance|laboratory|documents?|payment|dispute|evidence|integration)/iu,
+  /(?:交易|竞价|验收|实验室|文件|付款|争议|集成)/u,
+] as const;
+
+const GENERAL_AGRO_DEPTH_PATTERNS = [
+  /(?:почв\w*|удобрени\w*|семен\w*|сорт\w*|гибрид\w*|вредител\w*|болезн\w*|севооборот\w*|урожайн\w*|агроном\w*)/iu,
+  /(?:трактор\w*|комбайн\w*|опрыскивател\w*|посев\w*|уборк\w*|влажност\w*|протеин\w*|клейковин\w*)/iu,
+  /(?:soil|fertili[sz]er|seed|crop|yield|agronom|tractor|combine|harvest)/iu,
+  /(?:土壤|肥料|种子|作物|产量|农艺|拖拉机|收获)/u,
+] as const;
+
+const CURRENT_EVIDENCE_PATTERNS = [
+  /(?:сегодня|сейчас|на\s+данный\s+момент|последн\w*|свеж\w*|актуальн\w*|текущ\w*)/iu,
+  /(?:новост\w*|погод\w*|курс\w*|пошлин\w*|ставк\w*|котировк\w*|индекс\w*|статистик\w*)/iu,
+  /(?:цена|стоимост\w*)\s+(?:сегодня|сейчас|на\s+сегодня|в\s+регионе)/iu,
+  /(?:today|current|latest|recent|news|weather|exchange\s+rate|tariff|duty|statistics)/iu,
+  /(?:今天|当前|最新|新闻|天气|汇率|关税|统计)/u,
+] as const;
 
 export async function GET(request: NextRequest) {
   return knowledgeGet(request);
@@ -74,7 +125,7 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text();
-  const publicQuestion = readPublicQuestion(rawBody);
+  const envelope = readPublicEnvelope(rawBody);
   const groundingRequest = rebuildRequestWithoutStream(request, rawBody);
   const groundingResponse = await knowledgePost(groundingRequest);
   if (!groundingResponse.ok) return groundingResponse;
@@ -89,10 +140,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return streamRestrictedAnswer(request, grounding, publicQuestion);
+  return streamRestrictedAnswer(request, grounding, envelope);
 }
 
-function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledgeAnswer, publicQuestion: string) {
+function streamRestrictedAnswer(
+  request: NextRequest,
+  grounding: PublicKnowledgeAnswer,
+  envelope: PublicEnvelope,
+) {
   const encoder = new TextEncoder();
   const streamId = crypto.randomUUID();
   const runtimeConfig = readRuntimeConfig();
@@ -123,28 +178,64 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
         return;
       }
       request.signal.addEventListener('abort', cancel, { once: true });
-
       writer.emit({ event: 'meta', mode: 'public', modelIdentity: null });
 
       const run = async () => {
+        const locale = resolveLocale(grounding, envelope.locale);
+        const answerMode = classifyAnswerMode(envelope.question, envelope.context, envelope.history);
+        const currentDataRequired = answerMode === 'general_agro' && requiresCurrentEvidence(envelope.question);
+
+        if (containsSensitiveInput(envelope.question, envelope.history)) {
+          emitDirectAnswer(writer, sensitiveInputCopy(locale), {
+            source: 'policy',
+            answerMode,
+            currentDataRequired,
+            modelIdentity: null,
+            truncated: false,
+            safetyFlags: ['SENSITIVE_INPUT_BLOCKED'],
+          });
+          return;
+        }
+
+        if (grounding.resolution === 'refused') {
+          writer.fail(
+            'ABSTAINED_NO_DATA',
+            grounding.answer || 'The requested private or write capability is unavailable in public mode.',
+          );
+          return;
+        }
+
+        if (answerMode === 'verified_platform' && grounding.resolution !== 'answered') {
+          for (const source of grounding.sources) {
+            const uri = absoluteCitationUri(source.href, (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null);
+            if (!uri) continue;
+            if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
+          }
+          emitDirectAnswer(writer, grounding.answer, {
+            source: 'verified_knowledge',
+            answerMode,
+            currentDataRequired: false,
+            modelIdentity: null,
+            truncated: false,
+            safetyFlags: ['PLATFORM_GROUNDING_CLARIFICATION'],
+          });
+          return;
+        }
+
         if (!runtimeConfig.enabled || !runtimeConfig.endpoint) {
           writer.fail('FEATURE_DISABLED', 'The restricted public model runtime is not enabled in this deployment.');
           return;
         }
-        if (grounding.resolution === 'refused') {
-          writer.fail('ABSTAINED_NO_DATA', grounding.answer || 'The requested private or write capability is unavailable in public mode.');
-          return;
-        }
 
-        const locale = grounding.understanding?.detectedLocale === 'en'
-          || grounding.understanding?.detectedLocale === 'zh'
-          ? grounding.understanding.detectedLocale
-          : 'ru';
-        const answerMode = hasExplicitPlatformIntent(publicQuestion) ? 'verified_platform' : 'general_agro';
         const payload = {
-          question: grounding.understanding?.normalizedQuestion || publicQuestion || grounding.title,
+          question: answerMode === 'verified_platform'
+            ? grounding.understanding?.normalizedQuestion || envelope.question || grounding.title
+            : envelope.question || grounding.understanding?.normalizedQuestion || grounding.title,
+          originalQuestion: envelope.question,
           locale,
           answerMode,
+          currentDataRequired,
+          history: envelope.history,
           grounding: {
             knowledgeVersion: grounding.knowledgeVersion,
             topic: grounding.topic,
@@ -157,6 +248,7 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
           },
         };
         const answer = await callInternalModel(runtimeConfig, payload, request.signal);
+
         if (answerMode === 'verified_platform') {
           const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
           for (const source of grounding.sources) {
@@ -165,12 +257,22 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
             if (!writer.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) return;
           }
         }
+
         for (const chunk of chunkAnswer(answer.answer)) {
           if (!writer.emit({ event: 'token', text: chunk })) return;
         }
         writer.emit({
           event: 'assessment',
-          summary: `${answerMode === 'verified_platform' ? 'Verified public platform context' : 'General agriculture and agribusiness guidance'}; restricted local read-only runtime; ${answer.modelIdentity}; permanent admission remains NOT_ATTESTED.`,
+          summary: JSON.stringify({
+            source: 'local_qwen',
+            answerMode,
+            currentDataRequired,
+            modelIdentity: answer.modelIdentity,
+            latencyMs: answer.latencyMs,
+            truncated: answer.truncated === true,
+            finishReason: answer.finishReason || 'other',
+            safetyFlags: answer.safetyFlags || [],
+          }),
           operationalStatus: 'NOT_ATTESTED',
         });
         writer.complete();
@@ -201,6 +303,22 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
       'X-Content-Type-Options': 'nosniff',
     },
   });
+}
+
+function emitDirectAnswer(
+  writer: GatewayStreamWriter,
+  answer: string,
+  assessment: Readonly<Record<string, unknown>>,
+): void {
+  for (const chunk of chunkAnswer(answer)) {
+    if (!writer.emit({ event: 'token', text: chunk })) return;
+  }
+  writer.emit({
+    event: 'assessment',
+    summary: JSON.stringify(assessment),
+    operationalStatus: 'NOT_ATTESTED',
+  });
+  writer.complete();
 }
 
 async function callInternalModel(
@@ -260,7 +378,7 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   const secret = (environment.TAI_PUBLIC_GATEWAY_HMAC_SECRET || '').trim();
   const identity = (environment.TAI_RESTRICTED_QWEN_MODEL_IDENTITY || '').trim();
   const rawBase = (environment.TAI_INTERNAL_API_BASE_URL || environment.NEXT_PUBLIC_API_URL || '').trim();
-  const timeoutMs = boundedInteger(environment.TAI_PUBLIC_MODEL_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 1_000, 300_000);
+  const timeoutMs = boundedInteger(environment.TAI_PUBLIC_MODEL_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 5_000, 90_000);
   if (!enabled) return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
   if (secret.length < 32 || !identity || !rawBase) {
     return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
@@ -286,29 +404,113 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   return Object.freeze({ enabled: true, endpoint, secret, identity, timeoutMs });
 }
 
-function readPublicQuestion(rawBody: string): string {
+function readPublicEnvelope(rawBody: string): PublicEnvelope {
   try {
     const decoded = JSON.parse(rawBody) as unknown;
-    if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) return '';
-    const message = (decoded as Record<string, unknown>).message;
-    return typeof message === 'string' ? message.trim().slice(0, 1_200) : '';
+    const row = asRecord(decoded);
+    if (!row) return Object.freeze({ question: '', locale: 'ru', context: 'platform', history: [] });
+    const question = typeof row.message === 'string' ? row.message.trim().slice(0, 1_200) : '';
+    const locale: PublicLocale = row.locale === 'en' || row.locale === 'zh' ? row.locale : 'ru';
+    const context = typeof row.context === 'string' ? row.context.trim().slice(0, 120) : 'platform';
+    const history = normalizeHistory(row.history);
+    return Object.freeze({ question, locale, context, history });
   } catch {
-    return '';
+    return Object.freeze({ question: '', locale: 'ru', context: 'platform', history: [] });
   }
 }
 
-function hasExplicitPlatformIntent(question: string): boolean {
-  if (/\bСделк/u.test(question)) return true;
-  const normalized = question.normalize('NFKC').replace(/\s+/gu, ' ').trim();
-  return PLATFORM_INTENT_PATTERNS.some((pattern) => pattern.test(normalized));
+function normalizeHistory(value: unknown): readonly HistoryTurn[] {
+  if (!Array.isArray(value)) return [];
+  const turns: HistoryTurn[] = [];
+  let total = 0;
+  for (const item of value.slice(-MAX_HISTORY_TURNS)) {
+    const row = asRecord(item);
+    const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
+    const text = typeof row?.text === 'string'
+      ? row.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
+      : '';
+    if (!role || !text) continue;
+    if (total + text.length > MAX_HISTORY_TOTAL_CHARS) break;
+    turns.push(Object.freeze({ role, text }));
+    total += text.length;
+  }
+  return Object.freeze(turns);
+}
+
+function classifyAnswerMode(
+  question: string,
+  context: string,
+  history: readonly HistoryTurn[],
+): PublicAnswerMode {
+  const normalized = normalizeIntent(question);
+  if (EXPLICIT_PLATFORM_PATTERNS.some((pattern) => pattern.test(normalized))) return 'verified_platform';
+
+  const workflow = PLATFORM_WORKFLOW_PATTERNS.some((pattern) => pattern.test(normalized));
+  const deepAgro = GENERAL_AGRO_DEPTH_PATTERNS.some((pattern) => pattern.test(normalized));
+  if (workflow && !deepAgro) return 'verified_platform';
+
+  const compactFollowUp = normalized.split(' ').filter(Boolean).length <= 7
+    && /^(?:а|и|но|тогда|для|это|подробнее|почему|как|сколько)\b/iu.test(normalized);
+  if (compactFollowUp) {
+    const prior = history.slice(-6).map((turn) => normalizeIntent(turn.text)).join(' ');
+    if (
+      EXPLICIT_PLATFORM_PATTERNS.some((pattern) => pattern.test(prior))
+      || PLATFORM_WORKFLOW_PATTERNS.some((pattern) => pattern.test(prior))
+    ) {
+      return 'verified_platform';
+    }
+  }
+
+  if (context !== 'platform' && /(?:платформ|сделк|аукцион|кабинет|фгис|интеграц)/iu.test(context)) {
+    return 'verified_platform';
+  }
+  return 'general_agro';
+}
+
+function requiresCurrentEvidence(question: string): boolean {
+  const normalized = normalizeIntent(question);
+  return CURRENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function containsSensitiveInput(question: string, history: readonly HistoryTurn[]): boolean {
+  const wire = [question, ...history.map((turn) => turn.text)].join('\n');
+  return SENSITIVE_INPUT_PATTERNS.some((pattern) => pattern.test(wire));
+}
+
+function resolveLocale(grounding: PublicKnowledgeAnswer, requested: PublicLocale): PublicLocale {
+  const detected = grounding.understanding?.detectedLocale;
+  if (detected === 'en' || detected === 'zh') return detected;
+  return requested;
+}
+
+function sensitiveInputCopy(locale: PublicLocale): string {
+  if (locale === 'en') {
+    return 'Do not send passwords, API keys, tokens, banking credentials or personal data in this public chat. Remove the sensitive value and ask the question again.';
+  }
+  if (locale === 'zh') {
+    return '请勿在公共聊天中发送密码、API 密钥、令牌、银行凭据或个人数据。删除敏感值后重新提问。';
+  }
+  return 'Не отправляй в публичный чат пароли, API-ключи, токены, банковские реквизиты и персональные данные. Удали секретное значение и задай вопрос повторно.';
+}
+
+function normalizeIntent(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/gu, 'е')
+    .replace(/[^\p{L}\p{N}\s«»"'-]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
 }
 
 function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): NextRequest {
   const url = new URL(request.url);
   url.searchParams.delete('stream');
+  const headers = new Headers(request.headers);
+  headers.delete('content-length');
   return new NextRequest(url, {
     method: 'POST',
-    headers: new Headers(request.headers),
+    headers,
     body: rawBody,
   });
 }
@@ -325,6 +527,12 @@ function canonicalJson(value: unknown): string {
   if (typeof value !== 'object') throw new Error('unsupported_signed_value');
   const row = value as Record<string, unknown>;
   return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(row[key])}`).join(',')}}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
 }
 
 function boundedInteger(raw: string | undefined, fallback: number, minimum: number, maximum: number): number {
