@@ -61,3 +61,5 @@ jobs:
           path: ${{ runner.temp }}/qwen-subtitle-selector-tree-meta
           if-no-files-found: error
           retention-days: 7
+
+# synchronize trigger 2026-07-30
