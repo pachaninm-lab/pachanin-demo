@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/qwen-images-before-activation-20260730",
+  "status": "active",
+  "issue": 3372,
+  "purpose": "Serialize restricted Qwen activation after successful canonical image publication so activation never occupies a runner while exact images are still building.",
+  "approvedBy": "owner-direct-continue-release-2026-07-30",
+  "authorityBaseExactMain": "8072b7c121268feec1dc72d576844a975cf5161b",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/web/next.config.js",
+    "docs/platform-v7/autopilot/scopes/fix-qwen-images-before-activation-3372.json"
+  ],
+  "acceptance": [
+    "activation starts only after Build and Publish Canonical Docker Images completes successfully from a push to main",
+    "indirect activation rejects manually dispatched upstream image workflows",
+    "workflow-run head SHA must equal exact current origin main before deployment",
+    "manual workflow dispatch remains restricted to the repository owner and exact current main",
+    "push activation is removed so no runner waits for images",
+    "canonical API web and migration image revision checks remain mandatory",
+    "private-model authentication RU EN ZH SSE Chromium UI rollback and evidence gates remain unchanged",
+    "production remains REG_RU_VPS_ONLY"
+  ],
+  "forbiddenCapabilities": [
+    "application runtime changes",
+    "model policy changes",
+    "private data access",
+    "write authority",
+    "RBAC or tenant changes",
+    "Netlify or Vercel deployment"
+  ]
+}

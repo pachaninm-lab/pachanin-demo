@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const LOCK_PATH = 'docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json';
 const EVIDENCE_DIR = 'artifacts/pc-crop-project-lock';
@@ -21,6 +22,22 @@ function writeReport(report) {
   fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
   fs.writeFileSync(`${EVIDENCE_DIR}/acceptance.json`, `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report, null, 2));
+}
+
+function git(...args) {
+  return execFileSync('git', args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function gitSucceeds(...args) {
+  try {
+    execFileSync('git', args, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function validateOwnerAuthorizedExceptions(lock, target = failures) {
@@ -74,15 +91,60 @@ function validateOwnerAuthorizedExceptions(lock, target = failures) {
 function validateLock(lock, target = failures) {
   assert(lock.schemaVersion === 'platform-v7.active-project-lock.v1', 'lock schema mismatch', target);
   assert(lock.id === 'PC-CROP-REMAINDER', 'lock id mismatch', target);
-  assert(lock.status === 'active', 'project lock is not active', target);
+  assert(lock.status === 'completed', 'project lock is not completed', target);
   assert(lock.governanceIssue === 3389, 'governance issue mismatch', target);
-  assert(lock.activeIssue === 3504, 'active issue must be PC-CROP-10D issue 3504', target);
-  assert(lock.activeSlice === 'PC-CROP-10D', 'active slice must be PC-CROP-10D', target);
+  assert(lock.activeIssue === null, 'completed project lock must not retain an active issue', target);
+  assert(lock.activeSlice === null, 'completed project lock must not retain an active slice', target);
   assert(
-    JSON.stringify(lock.sequence) === JSON.stringify(['PC-CROP-10D']),
-    'remaining PC-CROP sequence mismatch',
+    JSON.stringify(lock.sequence) === JSON.stringify([]),
+    'completed PC-CROP sequence must be empty',
     target,
   );
+  const completion = lock.completion || {};
+  assert(completion.slice === 'PC-CROP-10D', 'completion slice mismatch', target);
+  assert(completion.issue === 3504, 'completion issue mismatch', target);
+  assert(completion.pr === 3506, 'completion PR mismatch', target);
+  assert(
+    completion.mergeSha === '2a2a58778d194d4abc37c4dde429993dc8546d1f',
+    'completion merge SHA mismatch',
+    target,
+  );
+  assert(completion.exactMainStatusContext === 'PC-CROP-10D exact-main', 'completion exact-main context mismatch', target);
+  assert(completion.completedAt === '2026-07-30T19:53:53Z', 'completion timestamp mismatch', target);
+  assert(
+    completion.finalTruthPath === 'docs/platform-v7/crop-platform/agricultural-government-systems.final-truth.v1.json'
+      && completion.finalTruthBlobSha === '20650c296b75c6a3a248e40ce67f78a7f023496f',
+    'final-truth completion binding mismatch',
+    target,
+  );
+  assert(
+    completion.readinessPath === 'docs/platform-v7/crop-platform/agricultural-government-systems.readiness.v2.json'
+      && completion.readinessBlobSha === 'f175a5583771275562ceaa2a5af09f7f9c86c867',
+    'readiness completion binding mismatch',
+    target,
+  );
+  assert(completion.internalRepositoryRemainderComplete === true, 'internal repository completion missing', target);
+  assert(completion.industrialLiveReady === false, 'industrial live readiness was elevated', target);
+  assert(completion.implementationAuthorized === false, 'external implementation was authorized', target);
+  assert(
+    gitSucceeds('merge-base', '--is-ancestor', completion.mergeSha, 'HEAD'),
+    'completion merge is outside exact-head ancestry',
+    target,
+  );
+  for (const [path, blobSha] of [
+    [completion.finalTruthPath, completion.finalTruthBlobSha],
+    [completion.readinessPath, completion.readinessBlobSha],
+  ]) {
+    if (!path || !blobSha) continue;
+    assert(gitSucceeds('cat-file', '-e', `${completion.mergeSha}:${path}`), `completion path missing at merge: ${path}`, target);
+    if (gitSucceeds('cat-file', '-e', `${completion.mergeSha}:${path}`)) {
+      assert(git('rev-parse', `${completion.mergeSha}:${path}`) === blobSha, `completion merge blob drift: ${path}`, target);
+    }
+    assert(gitSucceeds('cat-file', '-e', `HEAD:${path}`), `completion path missing at exact head: ${path}`, target);
+    if (gitSucceeds('cat-file', '-e', `HEAD:${path}`)) {
+      assert(git('rev-parse', `HEAD:${path}`) === blobSha, `completion exact-head blob drift: ${path}`, target);
+    }
+  }
   assert(lock.governanceBranch === 'governance/pc-crop-project-lock-3389', 'governance branch mismatch', target);
   assert(lock.productionHosting === 'REG_RU_VPS_ONLY', 'production authority is not REG_RU_VPS_ONLY', target);
   assert(lock.operationalStatus === 'NOT_ATTESTED', 'operational status must remain NOT_ATTESTED', target);
@@ -116,7 +178,7 @@ function getOwnerAuthorizedException(lock, scope) {
 }
 
 function validateCommonScope(lock, scope, target) {
-  assert(scope.projectLockId === lock.id, 'scope is not bound to active project lock', target);
+  assert(scope.projectLockId === lock.id, 'scope is not bound to project lock', target);
   assert(scope.productionHosting === 'REG_RU_VPS_ONLY', 'scope production authority mismatch', target);
   assert(scope.operationalStatus === 'NOT_ATTESTED', 'scope operational status mismatch', target);
   assert(Array.isArray(scope.allowedPaths) && scope.allowedPaths.length > 0, 'scope allowed paths missing', target);
@@ -155,6 +217,9 @@ function validateContext(lock, context) {
     assert(issue === lock.governanceIssue, 'governance branch issue mismatch', local);
     assert(scope.issue === lock.governanceIssue, 'governance scope issue mismatch', local);
     assert(scope.activeSlice === lock.activeSlice, 'governance scope active slice mismatch', local);
+    assert(scope.status === 'completed', 'governance scope must record completed status', local);
+  } else if (lock.status === 'completed') {
+    local.push('PC-CROP project lock is completed; only the governance branch is allowed');
   } else if (exceptionContext) {
     assert(
       ownerException.branchPrefixes.some((prefix) => branch.startsWith(prefix)),
@@ -195,7 +260,7 @@ const lock = readJson(LOCK_PATH);
 validateLock(lock);
 
 if (process.argv.includes('--self-test')) {
-  const accepted = validateContext(lock, {
+  const completedTerminalSlice = validateContext(lock, {
     branch: 'agent/pc-crop-10d-final-truth',
     title: 'PC-CROP-10D: final internal repository truth and closure',
     issue: 3504,
@@ -208,16 +273,20 @@ if (process.argv.includes('--self-test')) {
       allowedPaths: ['scripts/pc-crop-10d/verify.mjs'],
     },
   });
-  assert(accepted.length === 0, `valid PC-CROP-10D scope rejected: ${accepted.join('; ')}`);
+  assert(
+    completedTerminalSlice.some((message) => message.includes('project lock is completed')),
+    'completed PC-CROP-10D slice was not rejected',
+  );
 
   const governance = validateContext(lock, {
     branch: 'governance/pc-crop-project-lock-3389',
-    title: 'PC-CROP governance: advance active lock to 10D',
+    title: 'PC-CROP governance: complete project lock',
     issue: 3389,
     scope: {
+      status: 'completed',
       projectLockId: 'PC-CROP-REMAINDER',
       issue: 3389,
-      activeSlice: 'PC-CROP-10D',
+      activeSlice: null,
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
       allowedPaths: [LOCK_PATH],
@@ -232,7 +301,7 @@ if (process.argv.includes('--self-test')) {
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
       issue: 3372,
-      activeSlice: 'PC-CROP-10D',
+      activeSlice: null,
       ownerAuthorizedExceptionId: 'PRODUCTION_AI_RECOVERY_3372',
       ownerAuthorizedExceptionCommentId: 5120686584,
       exceptionExpiresWhenIssueClosed: true,
@@ -260,7 +329,10 @@ if (process.argv.includes('--self-test')) {
       allowedPaths: ['scripts/pc-crop-10c/verify.mjs'],
     },
   });
-  assert(completedPreviousSlice.some((message) => message.includes('only active issue')), 'completed PC-CROP-10C slice was not rejected');
+  assert(
+    completedPreviousSlice.some((message) => message.includes('project lock is completed')),
+    'completed PC-CROP-10C slice was not rejected',
+  );
 
   const drift = validateContext(lock, {
     branch: 'ops/qwen-model-host-repair',
@@ -269,7 +341,7 @@ if (process.argv.includes('--self-test')) {
     scope: {
       projectLockId: 'PC-CROP-REMAINDER',
       issue: 3372,
-      activeSlice: 'PC-CROP-10D',
+      activeSlice: null,
       operationalStatus: 'NOT_ATTESTED',
       productionHosting: 'REG_RU_VPS_ONLY',
       allowedPaths: ['.github/workflows/qwen.yml'],
@@ -299,6 +371,10 @@ if (process.argv.includes('--self-test')) {
     governanceIssue: lock.governanceIssue,
     activeIssue: lock.activeIssue,
     activeSlice: lock.activeSlice,
+    completionMergeSha: lock.completion?.mergeSha || null,
+    internalRepositoryRemainderComplete:
+      lock.completion?.internalRepositoryRemainderComplete === true,
+    industrialLiveReady: lock.completion?.industrialLiveReady === true,
     ownerAuthorizedExceptionId: lock.ownerAuthorizedExceptions?.[0]?.id || null,
     productionHosting: lock.productionHosting,
     operationalStatus: lock.operationalStatus,
@@ -328,6 +404,10 @@ const report = {
   issue: Number(process.env.PC_CROP_ISSUE),
   activeIssue: lock.activeIssue,
   activeSlice: lock.activeSlice,
+  completionMergeSha: lock.completion?.mergeSha || null,
+  internalRepositoryRemainderComplete:
+    lock.completion?.internalRepositoryRemainderComplete === true,
+  industrialLiveReady: lock.completion?.industrialLiveReady === true,
   ownerAuthorizedExceptionId: scope.ownerAuthorizedExceptionId || null,
   scopePath,
   productionHosting: lock.productionHosting,

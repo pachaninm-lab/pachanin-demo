@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  statuses: read
 
 concurrency:
   group: pc-crop-project-lock-${{ github.event.pull_request.number || github.ref }}
@@ -46,6 +47,28 @@ jobs:
 
       - name: Prove lock and negative drift cases
         run: node scripts/verify-pc-crop-project-lock.mjs --self-test
+
+      - name: Require terminal PC-CROP exact-main completion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_status="$(
+            node -p "require('./docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json').status"
+          )"
+          if [[ "$lock_status" != 'completed' ]]; then
+            exit 0
+          fi
+          completion_sha="$(
+            node -p "require('./docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json').completion.mergeSha"
+          )"
+          completion_context="$(
+            node -p "require('./docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json').completion.exactMainStatusContext"
+          )"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$completion_sha/status" \
+            --jq ".statuses[] | select(.context == \"$completion_context\" and .state == \"success\") | .context" \
+            | grep -Fx "$completion_context"
 
       - name: Resolve source-controlled PC-CROP scope
         if: github.event_name == 'pull_request'
