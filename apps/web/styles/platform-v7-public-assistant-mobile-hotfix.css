@@ -116,45 +116,51 @@
   }
 
   /*
-   * Chromium shells that expose VirtualKeyboard CSS environment variables can
-   * raise the sheet immediately, before the first visualViewport animation
-   * frame arrives. The exact measured viewport rule below remains authoritative.
+   * Once the composer receives focus, the sheet stops behaving as a compact
+   * 68dvh card. It occupies the exact live viewport above the software keyboard.
+   * This is unconditional: no keyboard-height threshold can leave a dead gap.
    */
-  .pc-public-assistant-panel[data-pc-keyboard-focus='true']:not([data-pc-keyboard-viewport='true']) {
-    --pc-ai-effective-keyboard-inset: max(
-      var(--pc-visual-viewport-bottom, 0px),
-      var(--pc-ai-keyboard-inset, 0px),
-      env(keyboard-inset-height, 0px)
-    );
-    bottom: var(--pc-ai-effective-keyboard-inset) !important;
-    max-height: calc(
-      var(--pc-visual-viewport-height) - var(--pc-ai-effective-keyboard-inset) - 2px
-    ) !important;
-  }
-
+  .pc-public-assistant-panel[data-pc-keyboard-focus='true'],
   .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] {
-    top: var(--pc-ai-keyboard-top, 0px) !important;
+    top: var(--pc-ai-keyboard-top, var(--pc-visual-viewport-top, 0px)) !important;
     right: 0 !important;
     bottom: auto !important;
     left: 0 !important;
     width: 100% !important;
-    height: var(--pc-ai-keyboard-height, 100dvh) !important;
+    height: min(
+      var(--pc-ai-keyboard-height, 100dvh),
+      calc(
+        100dvh
+        - var(--pc-ai-keyboard-top, 0px)
+        - env(keyboard-inset-height, 0px)
+      )
+    ) !important;
     min-height: 0 !important;
     max-width: none !important;
-    max-height: var(--pc-ai-keyboard-height, 100dvh) !important;
+    max-height: min(
+      var(--pc-ai-keyboard-height, 100dvh),
+      calc(
+        100dvh
+        - var(--pc-ai-keyboard-top, 0px)
+        - env(keyboard-inset-height, 0px)
+      )
+    ) !important;
     border-right: 0 !important;
     border-bottom: 0 !important;
     border-left: 0 !important;
+    border-radius: 0 !important;
   }
 
+  .pc-public-assistant-panel[data-pc-keyboard-focus='true'] .pc-public-assistant-messages,
   .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] .pc-public-assistant-messages {
     min-height: 0 !important;
     max-height: none !important;
   }
 
+  .pc-public-assistant-panel[data-pc-keyboard-focus='true'] .pc-public-assistant-composer,
   .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] .pc-public-assistant-composer {
     flex: 0 0 auto !important;
-    padding-bottom: 8px !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .pc-public-assistant-header {
