@@ -1,4 +1,4 @@
-name: Read-only Qwen Release Observer 25402379
+name: Read-only Qwen Release Observer 5bc1cf2e
 
 on:
   pull_request:
@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      TARGET_SHA: 25402379df279ea1bde69a0d80608276317f08c5
-      SHORT_SHA: 2540237
+      TARGET_SHA: 5bc1cf2e60ab102cdbb6e6bc988cda946d8d7fb8
+      SHORT_SHA: 5bc1cf2
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Read exact release workflow status
