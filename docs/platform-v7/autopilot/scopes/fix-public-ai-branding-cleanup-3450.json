@@ -1,10 +1,11 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/public-ai-branding-cleanup-20260730",
+  "branch": "fix/public-ai-production-safety-final-3477",
   "status": "active",
   "issue": 3450,
-  "baseCommit": "bb18f74bb23901b5556944095dfdabb5a2d1a8da",
-  "operationalStatus": "PUBLIC_AI_UI_AND_COPY_FIX_FINAL_GATES_RUNNING",
+  "baseCommit": "de91445d29548f73dfbe5eef92f500ad3f21517b",
+  "operationalStatus": "PUBLIC_AI_PRODUCTION_SAFETY_FINAL_PR",
+  "approvedBy": "owner-direct-implement-2026-07-30",
   "allowedPaths": [
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
     "apps/web/lib/platform-v7/ai-gateway-stream.ts",
@@ -21,11 +22,14 @@
   "acceptance": [
     "the public assistant header has exactly two branding lines in RU, EN and ZH",
     "the Russian title is ИИ в агробизнесе and the subtitle is разработан Прозрачной Ценой",
-    "the public assistant keeps only its native fullscreen control",
+    "the public assistant keeps exactly one native fullscreen control",
     "support chat fullscreen behavior remains unchanged",
+    "public users never see provisional tokens, reasoning, think blocks, tool traces, debug JSON, model identity or safety flags",
+    "a public stream is terminated after 45 seconds and the user receives a real retry control",
+    "every close path aborts the active public assistant request before cleanup",
     "repetitive integration caveats and navigation boilerplate are not rendered in public answers",
     "substantive agribusiness and platform answer content remains unchanged",
-    "the branch is synchronized with current main before merge"
+    "the branch is based on exact current main before merge"
   ],
   "productionHosting": "REG_RU_VPS_ONLY"
 }
