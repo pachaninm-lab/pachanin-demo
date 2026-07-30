@@ -7,6 +7,11 @@ on:
       - agent/pc-crop-10c-tenant-authorized-read-adapter
     paths:
       - .github/workflows/temp-pc-crop-10c-schema.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/temp-pc-crop-10c-schema.yml
 
 permissions:
   contents: write
