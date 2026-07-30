@@ -1,0 +1,72 @@
+name: Read-only Public AI Release Observer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/read-only-public-ai-release-observer.yml'
+      - 'docs/platform-v7/autopilot/scopes/read-only-public-ai-release-observer-3372.json'
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  packages: read
+
+jobs:
+  inspect:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: 72d1a6ad7c277615430a58a9d357485ae34f6f5c
+      SHORT_SHA: 72d1a6a
+      ISSUE_NUMBER: '3372'
+    steps:
+      - name: Read exact release workflow status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SHORT_SHA" == "${TARGET_SHA:0:7}" ]]
+
+          runs_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
+          selected="$(jq '[.workflow_runs[] | select(.name == "Build & Publish Canonical Docker Images" or .name == "TAI Restricted Qwen REG.RU Activation")]' <<< "$runs_json")"
+
+          body="$RUNNER_TEMP/public-ai-release-status.md"
+          {
+            printf '<!-- read-only-public-ai-release-observer:%s -->\n' "$TARGET_SHA"
+            printf '## Read-only release status for `%s`\n\n' "$TARGET_SHA"
+            printf -- '- Current main: `%s`\n' "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            printf -- '- Relevant run count: `%s`\n\n' "$(jq 'length' <<< "$selected")"
+
+            for image in api web migration; do
+              ref="ghcr.io/${GITHUB_REPOSITORY_OWNER}/grainflow-${image}:sha-${SHORT_SHA}"
+              if echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1 && docker manifest inspect "$ref" >/dev/null 2>&1; then
+                printf -- '- Exact %s image: `available` (`%s`)\n' "$image" "$ref"
+              else
+                printf -- '- Exact %s image: `unavailable` (`%s`)\n' "$image" "$ref"
+              fi
+            done
+            printf '\n'
+
+            if [[ "$(jq 'length' <<< "$selected")" -eq 0 ]]; then
+              printf 'No matching exact-SHA workflow runs found yet.\n'
+            else
+              while IFS= read -r run; do
+                run_id="$(jq -r '.id' <<< "$run")"
+                printf '### %s\n\n' "$(jq -r '.name' <<< "$run")"
+                jq -r '"- Run `\(.id)`: event=`\(.event)`, status=`\(.status)`, conclusion=`\(.conclusion // "pending")`, attempt=`\(.run_attempt)`, URL=\(.html_url)"' <<< "$run"
+                jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
+                jq -r '.jobs[] | "  - Job `\(.name)`: status=`\(.status)`, conclusion=`\(.conclusion // "pending")`"' <<< "$jobs"
+                jq -r '.jobs[] | .name as $job | .steps[]? | select(.status == "in_progress" or (.conclusion != null and .conclusion != "success" and .conclusion != "skipped")) | "    - Step `\($job) / \(.name)`: status=`\(.status)`, conclusion=`\(.conclusion // "pending")`"' <<< "$jobs"
+                printf '\n'
+              done < <(jq -c '.[]' <<< "$selected")
+            fi
+
+            printf 'This observer is read-only. It did not rerun, dispatch, cancel, merge, deploy or mutate production.\n'
+          } > "$body"
+
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
