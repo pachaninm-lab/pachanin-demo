@@ -3,8 +3,8 @@
   "branch": "fix/public-ai-branding-cleanup-20260730",
   "status": "active",
   "issue": 3450,
-  "baseCommit": "bb18f74bb23901b5556944095dfdabb5a2d1a8da",
-  "operationalStatus": "PUBLIC_AI_UI_AND_COPY_FIX_FINAL_GATES_RUNNING",
+  "baseCommit": "57262ed76487edb56f498c39a257b8868b5187d4",
+  "operationalStatus": "PUBLIC_AI_PRODUCTION_SAFETY_HOTFIX_FINAL_GATES_RUNNING",
   "allowedPaths": [
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
     "apps/web/lib/platform-v7/ai-gateway-stream.ts",
@@ -20,9 +20,12 @@
   },
   "acceptance": [
     "the public assistant header has exactly two branding lines in RU, EN and ZH",
-    "the Russian title is ИИ в агробизнесе and the subtitle is разработан Прозрачной Ценой",
-    "the public assistant keeps only its native fullscreen control",
+    "the Russian title is ИИ в агросекторе and the subtitle is разработан Прозрачной Ценой",
+    "the public assistant keeps exactly one native fullscreen control",
     "support chat fullscreen behavior remains unchanged",
+    "public users never see provisional model tokens, reasoning, think blocks, tool traces, debug JSON, model identity or safety flags",
+    "a public stream is terminated after 45 seconds and the user receives a real retry control",
+    "closing the assistant stops an active request",
     "repetitive integration caveats and navigation boilerplate are not rendered in public answers",
     "substantive agribusiness and platform answer content remains unchanged",
     "the branch is synchronized with current main before merge"
