@@ -1,0 +1,75 @@
+name: PC-CROP-10C Predecessor Trigger Handoff
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-08h.yml'
+      - '.github/workflows/pc-crop-08i.yml'
+      - '.github/workflows/pc-crop-10c-predecessor-trigger-handoff.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-10c-predecessor-trigger-handoff-3446.json'
+      - 'scripts/pc-crop-10c-predecessor-trigger-handoff.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-08h.yml'
+      - '.github/workflows/pc-crop-08i.yml'
+      - '.github/workflows/pc-crop-10c-predecessor-trigger-handoff.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-10c-predecessor-trigger-handoff-3446.json'
+      - 'scripts/pc-crop-10c-predecessor-trigger-handoff.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-10c-predecessor-trigger-handoff-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trigger-handoff:
+    name: Immutable jobs · exact successor · no acceptance weakening
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EVIDENCE_DIR: artifacts/pc-crop-10c-predecessor-trigger-handoff
+      GOVERNANCE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Resolve and fetch pinned PC-CROP-10C successor
+        shell: bash
+        run: |
+          set -euo pipefail
+          scope='docs/platform-v7/autopilot/scopes/pc-crop-10c-predecessor-trigger-handoff-3446.json'
+          successor_branch="$(node -e "const s=require('./' + process.argv[1]); process.stdout.write(s.successor.branch)" "$scope")"
+          successor_commit="$(node -e "const s=require('./' + process.argv[1]); process.stdout.write(s.successor.commit)" "$scope")"
+          test -n "$successor_branch"
+          test -n "$successor_commit"
+          git fetch --no-tags origin "$successor_branch"
+          git cat-file -e "${successor_commit}^{commit}"
+          git merge-base --is-ancestor "$successor_commit" FETCH_HEAD
+
+      - name: Prove exact predecessor handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/pc-crop-10c-predecessor-trigger-handoff.mjs
+          node scripts/pc-crop-10c-predecessor-trigger-handoff.mjs
+
+      - name: Upload exact-head governance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-10c-predecessor-trigger-handoff-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/pc-crop-10c-predecessor-trigger-handoff
+          if-no-files-found: error
+          retention-days: 90
