@@ -1,3 +1,15 @@
+CREATE OR REPLACE FUNCTION public.text_array_has_unique_elements(values text[])
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $function$
+  SELECT cardinality(values) = (
+    SELECT count(DISTINCT value)::integer
+    FROM unnest(values) AS item(value)
+  );
+$function$;
+
 CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
   "id" text PRIMARY KEY,
   "tenantId" text NOT NULL,
@@ -68,6 +80,7 @@ CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
         'GET_LIST_SDIZ_ELEVATOR',
         'GET_LIST_VED_CONTRACT'
       ]::text[]
+      AND public.text_array_has_unique_elements("allowedOperations")
     ),
   CONSTRAINT "fgis_grain_tenant_read_auth_ttl_ck"
     CHECK ("validUntil" > "createdAt"),

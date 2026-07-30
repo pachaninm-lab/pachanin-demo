@@ -2,7 +2,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
@@ -32,9 +32,11 @@ const RUN_ID = `pc-crop-10c.${Date.now()}.${Math.random().toString(16).slice(2)}
 const TENANT_A = `${RUN_ID}.tenant-a`;
 const TENANT_B = `${RUN_ID}.tenant-b`;
 const ORG_A = `${RUN_ID}.org-a`;
+const ORG_A_OUTSIDER = `${RUN_ID}.org-a-outsider`;
 const ORG_B = `${RUN_ID}.org-b`;
 
 let prisma: PrismaService;
+let runtimePrisma: PrismaClient;
 let providerRepository: FgisGrainProviderAttestationRepository;
 let readRepository: FgisGrainTenantReadRepository;
 let transport: FakeReadTransport;
@@ -63,6 +65,7 @@ const SECURITY_A = actor(TENANT_A, ORG_A, `${RUN_ID}.security-a`, Role.ADMIN);
 const LEGAL_A = actor(TENANT_A, ORG_A, `${RUN_ID}.legal-a`, Role.COMPLIANCE_OFFICER);
 const OPS_A = actor(TENANT_A, ORG_A, `${RUN_ID}.ops-a`, Role.SUPPORT_MANAGER);
 const BUYER_A = actor(TENANT_A, ORG_A, `${RUN_ID}.buyer-a`, Role.BUYER);
+const BUYER_A_OUTSIDER = actor(TENANT_A, ORG_A_OUTSIDER, `${RUN_ID}.buyer-a-outsider`, Role.BUYER);
 const EXEC_B = actor(TENANT_B, ORG_B, `${RUN_ID}.exec-b`, Role.EXECUTIVE);
 const BUYER_B = actor(TENANT_B, ORG_B, `${RUN_ID}.buyer-b`, Role.BUYER);
 const GUEST_A = actor(TENANT_A, ORG_A, `${RUN_ID}.guest-a`, Role.GUEST);
@@ -145,16 +148,18 @@ function providerAttestation(
 async function seedIdentity(): Promise<void> {
   const now = new Date();
   const innA = `77${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`;
+  const innAOutsider = `79${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`;
   const innB = `78${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`;
   await prisma.$executeRaw(Prisma.sql`
     INSERT INTO public."organizations" (
       "id", "inn", "name", "tenantId", "updatedAt"
     ) VALUES
       (${ORG_A}, ${innA}, ${`${RUN_ID} Org A`}, ${TENANT_A}, ${now}),
+      (${ORG_A_OUTSIDER}, ${innAOutsider}, ${`${RUN_ID} Org A Outsider`}, ${TENANT_A}, ${now}),
       (${ORG_B}, ${innB}, ${`${RUN_ID} Org B`}, ${TENANT_B}, ${now})
     ON CONFLICT ("id") DO NOTHING
   `);
-  for (const user of [EXEC_A, SECURITY_A, LEGAL_A, OPS_A, BUYER_A, EXEC_B, BUYER_B, GUEST_A]) {
+  for (const user of [EXEC_A, SECURITY_A, LEGAL_A, OPS_A, BUYER_A, BUYER_A_OUTSIDER, EXEC_B, BUYER_B, GUEST_A]) {
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO public."users" (
         "id", "email", "passwordHash", "fullName", "mfaEnabled", "updatedAt"
@@ -234,12 +239,38 @@ function readRequest(authorizationId: string, authorizationVersion: string, suff
   };
 }
 
+async function runtimeVisibleAuthorizationCount(
+  user: RequestUser,
+  authorizationId: string,
+): Promise<bigint> {
+  return runtimePrisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT
+        set_config('app.current_user_id', ${user.id}, true),
+        set_config('app.current_org_id', ${user.orgId}, true),
+        set_config('app.current_tenant_id', ${user.tenantId}, true),
+        set_config('app.current_role', ${user.role}, true),
+        set_config('app.current_session_id', ${user.sessionId}, true)
+    `);
+    const rows = await tx.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM public."fgis_grain_tenant_read_authorizations"
+      WHERE "id" = ${authorizationId}
+    `);
+    return rows[0]?.count ?? 0n;
+  });
+}
+
 describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () => {
   jest.setTimeout(180_000);
 
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
+    const runtimeDatabaseUrl = process.env.PC_CROP_10C_RUNTIME_DATABASE_URL;
+    if (!runtimeDatabaseUrl) throw new Error('PC_CROP_10C_RUNTIME_DATABASE_URL is required');
+    runtimePrisma = new PrismaClient({ datasources: { db: { url: runtimeDatabaseUrl } } });
+    await runtimePrisma.$connect();
     await seedIdentity();
     const transactions = new RlsTransactionService(prisma);
     providerRepository = new FgisGrainProviderAttestationRepository(transactions);
@@ -250,6 +281,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
   beforeEach(resetAuthority);
 
   afterAll(async () => {
+    await runtimePrisma.$disconnect();
     await prisma.$disconnect();
   });
 
@@ -274,6 +306,14 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       readRequest(authorized.authorizationId, authorized.authorizationVersion, 'before-attestation'),
     )).rejects.toBeInstanceOf(ForbiddenException);
     expect(transport.calls).toHaveLength(0);
+    const denied = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "authorizationId" = ${authorized.authorizationId}
+        AND "decision" = 'DENIED'
+        AND "reasonCode" = 'AUTHORIZATION_NOT_ATTESTED'
+    `);
+    expect(denied[0]?.count).toBe(1n);
   });
 
   it('executes an attested read exactly once and replays the durable result', async () => {
@@ -325,6 +365,9 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       .rejects.toBeInstanceOf(NotFoundException);
     await expect(readRepository.getView(GUEST_A, authorized.authorizationId))
       .rejects.toBeInstanceOf(ForbiddenException);
+    expect(await runtimeVisibleAuthorizationCount(BUYER_A, authorized.authorizationId)).toBe(1n);
+    expect(await runtimeVisibleAuthorizationCount(BUYER_A_OUTSIDER, authorized.authorizationId)).toBe(0n);
+    expect(await runtimeVisibleAuthorizationCount(BUYER_B, authorized.authorizationId)).toBe(0n);
     expect(transport.calls).toHaveLength(0);
   });
 
