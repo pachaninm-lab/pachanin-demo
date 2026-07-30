@@ -22,14 +22,13 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
-      - name: Create unreferenced clean correction commit
+      - name: Publish ordinary staging blob and two bounded files
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           EXPECTED_BASE: 72d1a6ad7c277615430a58a9d357485ae34f6f5c
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
@@ -37,21 +36,11 @@ jobs:
           [[ "$(git rev-parse origin/main)" == "$EXPECTED_BASE" ]]
 
           python3 - <<'PY'
-          import base64
           import json
-          import os
-          import subprocess
-          import urllib.request
           from pathlib import Path
 
-          repo = os.environ['GITHUB_REPOSITORY']
-          token = os.environ['GH_TOKEN']
-          pr_number = os.environ['PR_NUMBER']
-          expected_base = os.environ['EXPECTED_BASE']
-          parent = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-
-          workflow_path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
-          text = workflow_path.read_text(encoding='utf-8')
+          source = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          text = source.read_text(encoding='utf-8')
           replacements = {
               "!== 'ИИ в агробизнесе'": "!== 'ИИ для агробизнеса'",
               "!== 'разработан Прозрачной Ценой'": "!== 'Разработан Прозрачной ценой для сельского хозяйства.'",
@@ -69,7 +58,14 @@ jobs:
               raise SystemExit('updated subtitle assertion missing')
           if mark_assertion not in text:
               text = text.replace(subtitle_assertion, subtitle_assertion + '\n    ' + mark_assertion, 1)
-          workflow_path.write_text(text, encoding='utf-8')
+          assert "!== 'ИИ для агробизнеса'" in text
+          assert "!== 'Разработан Прозрачной ценой для сельского хозяйства.'" in text
+          assert 'ai_mark_count_invalid' in text
+          assert "!== 'ИИ в агробизнесе'" not in text
+          assert "!== 'разработан Прозрачной Ценой'" not in text
+          staging = Path('docs/platform-v7/autopilot/artifacts/tai-restricted-qwen-reg-ru-activation-approved-branding.yml')
+          staging.parent.mkdir(parents=True, exist_ok=True)
+          staging.write_text(text, encoding='utf-8')
 
           next_path = Path('apps/web/next.config.js')
           next_text = next_path.read_text(encoding='utf-8')
@@ -87,7 +83,7 @@ jobs:
           scope['status'] = 'active'
           scope['purpose'] = 'Align exact-main REG.RU Chromium acceptance with the owner-approved public AI identity, then trigger canonical images and repeat the accepted release chain.'
           scope['approvedBy'] = 'owner-direct-urgent-live-acceptance-correction-2026-07-30'
-          scope['authorityBaseExactMain'] = expected_base
+          scope['authorityBaseExactMain'] = '72d1a6ad7c277615430a58a9d357485ae34f6f5c'
           scope['acceptance'] = [
               'live Chromium requires the visible title ИИ для агробизнеса',
               'live Chromium requires the exact subtitle Разработан Прозрачной ценой для сельского хозяйства.',
@@ -100,67 +96,11 @@ jobs:
               'production remains REG_RU_VPS_ONLY',
           ]
           scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-
-          subprocess.run(['git', 'diff', '--check'], check=True)
-          assert "!== 'ИИ для агробизнеса'" in text
-          assert "!== 'Разработан Прозрачной ценой для сельского хозяйства.'" in text
-          assert 'ai_mark_count_invalid' in text
-          assert "!== 'ИИ в агробизнесе'" not in text
-          assert "!== 'разработан Прозрачной Ценой'" not in text
-
-          def request(method, route, payload=None):
-              data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode('utf-8')
-              req = urllib.request.Request(
-                  f'https://api.github.com/repos/{repo}{route}',
-                  data=data,
-                  method=method,
-                  headers={
-                      'Authorization': f'Bearer {token}',
-                      'Accept': 'application/vnd.github+json',
-                      'X-GitHub-Api-Version': '2022-11-28',
-                      'Content-Type': 'application/json',
-                  },
-              )
-              with urllib.request.urlopen(req, timeout=60) as response:
-                  return json.load(response)
-
-          base_commit = request('GET', f'/git/commits/{parent}')
-          entries = []
-          for path in (
-              '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml',
-              'apps/web/next.config.js',
-              'docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json',
-          ):
-              raw = Path(path).read_bytes()
-              blob = request('POST', '/git/blobs', {
-                  'content': base64.b64encode(raw).decode('ascii'),
-                  'encoding': 'base64',
-              })
-              entries.append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']})
-          entries.append({
-              'path': '.github/workflows/one-shot-fix-qwen-live-ui-approved-branding.yml',
-              'mode': '100644',
-              'type': 'blob',
-              'sha': None,
-          })
-          tree = request('POST', '/git/trees', {'base_tree': base_commit['tree']['sha'], 'tree': entries})
-          commit = request('POST', '/git/commits', {
-              'message': 'FIX: align live Qwen acceptance with approved public AI branding',
-              'tree': tree['sha'],
-              'parents': [parent],
-          })
-          sha = commit['sha']
-          Path('/tmp/materialized-commit-sha').write_text(sha + '\n', encoding='utf-8')
-          request('POST', f'/issues/{pr_number}/comments', {
-              'body': f'<!-- qwen-branding-materialized-commit:{sha} -->\nClean unreferenced three-path commit created: `{sha}`. Move the PR branch ref to this commit using the authenticated GitHub connector; this run intentionally did not update the ref.'
-          })
-          print(f'MATERIALIZED_COMMIT_SHA={sha}')
           PY
 
-      - name: Upload materialized commit reference
-        uses: actions/upload-artifact@v4
-        with:
-          name: qwen-approved-branding-materialized-${{ github.run_id }}
-          path: /tmp/materialized-commit-sha
-          if-no-files-found: error
-          retention-days: 7
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/artifacts/tai-restricted-qwen-reg-ru-activation-approved-branding.yml apps/web/next.config.js docs/platform-v7/autopilot/scopes/fix-qwen-live-ui-acceptance-v2.json
+          git commit -m 'OPS: stage corrected activation workflow blob'
+          git push origin "HEAD:$HEAD_BRANCH"
