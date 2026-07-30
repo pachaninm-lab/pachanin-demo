@@ -119,6 +119,18 @@ CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
       ]::text[]
       AND public.text_array_has_unique_elements("allowedOperations")
     ),
+  CONSTRAINT "fgis_grain_tenant_read_auth_reference_ck"
+    CHECK (
+      length("authorizationReference") <= 530
+      AND "authorizationReference" ~ '^(authorization|evidence|object-store|provider-response|config|policy|vault)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2}[A-Za-z0-9:_.\/-]*$'
+      AND position('@' IN "authorizationReference") = 0
+      AND "authorizationReference" !~* '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
+    ),
+  CONSTRAINT "fgis_grain_tenant_read_auth_reason_ck"
+    CHECK (
+      length(btrim("reason")) BETWEEN 20 AND 2000
+      AND "reason" = btrim("reason")
+    ),
   CONSTRAINT "fgis_grain_tenant_read_auth_ttl_ck"
     CHECK ("validUntil" > "createdAt"),
   CONSTRAINT "fgis_grain_tenant_read_attestation_pair_ck"
@@ -132,6 +144,24 @@ CREATE TABLE public."fgis_grain_tenant_read_authorizations" (
         AND "attestationValidUntil" IS NOT NULL
         AND "attestationJustification" IS NOT NULL
         AND "attestedByUserId" IS NOT NULL)
+    ),
+  CONSTRAINT "fgis_grain_tenant_read_attestation_reference_ck"
+    CHECK (
+      "attestationEvidenceReference" IS NULL
+      OR (
+        length("attestationEvidenceReference") <= 530
+        AND "attestationEvidenceReference" ~ '^(authorization|evidence|object-store|provider-response|config|policy|vault)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2}[A-Za-z0-9:_.\/-]*$'
+        AND position('@' IN "attestationEvidenceReference") = 0
+        AND "attestationEvidenceReference" !~* '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
+      )
+    ),
+  CONSTRAINT "fgis_grain_tenant_read_attestation_justification_ck"
+    CHECK (
+      "attestationJustification" IS NULL
+      OR (
+        length(btrim("attestationJustification")) BETWEEN 20 AND 2000
+        AND "attestationJustification" = btrim("attestationJustification")
+      )
     ),
   CONSTRAINT "fgis_grain_tenant_read_auth_config_key"
     UNIQUE ("tenantId", "organizationId", "configurationId"),
@@ -953,6 +983,7 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   current_authorization public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
+  effective_reason_code text;
 BEGIN
   IF session_user NOT IN ('app_runtime', 'app_service')
      AND NOT COALESCE((
@@ -1079,6 +1110,7 @@ BEGIN
       RAISE EXCEPTION 'FGIS Grain read execution claim is invalid'
         USING ERRCODE = '23505';
     END IF;
+    effective_reason_code := 'PROVIDER_READ_CLAIMED';
     INSERT INTO public."fgis_grain_tenant_read_provider_claims" (
       "id", "tenantId", "organizationId", "authorizationId",
       "authorizationVersion", "configurationId", "actorUserId", "actorRole",
@@ -1104,12 +1136,23 @@ BEGIN
       0
     );
   ELSE
-    IF p_reason_code NOT IN (
-      'AUTHORIZATION_NOT_ATTESTED',
-      'AUTHORIZATION_OR_ATTESTATION_EXPIRED',
-      'OPERATION_NOT_AUTHORIZED',
-      'PROVIDER_TRANSPORT_DISABLED'
-    )
+    IF current_authorization."status" <> 'READ_ONLY_ATTESTED' THEN
+      effective_reason_code := 'AUTHORIZATION_NOT_ATTESTED';
+    ELSIF current_authorization."validUntil" <= clock_timestamp()
+       OR current_authorization."attestationValidUntil" IS NULL
+       OR current_authorization."attestationValidUntil" <= clock_timestamp()
+    THEN
+      effective_reason_code := 'AUTHORIZATION_OR_ATTESTATION_EXPIRED';
+    ELSIF NOT (
+      p_operation_code = ANY(current_authorization."allowedOperations")
+    ) THEN
+      effective_reason_code := 'OPERATION_NOT_AUTHORIZED';
+    ELSE
+      RAISE EXCEPTION 'FGIS Grain read denial condition is not present'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF p_reason_code IS DISTINCT FROM effective_reason_code
        OR p_completion_token_sha256 IS NOT NULL
        OR p_provider_request_id IS NOT NULL
        OR p_response_reference IS NOT NULL
@@ -1137,7 +1180,7 @@ BEGIN
     p_request_reference,
     p_request_sha256,
     p_decision,
-    p_reason_code,
+    effective_reason_code,
     p_provider_request_id,
     p_response_reference,
     p_response_sha256,
@@ -1413,6 +1456,7 @@ DECLARE
   claim public."fgis_grain_tenant_read_provider_claims"%ROWTYPE;
   outcome_id text;
   outcome_idempotency_key text;
+  finalized_at timestamptz;
 BEGIN
   IF session_user NOT IN ('app_runtime', 'app_service')
      AND NOT COALESCE((
@@ -1550,10 +1594,17 @@ BEGIN
     )
   FOR UPDATE;
 
-  IF NOT FOUND
-     OR claim."completedAuditId" IS NOT NULL
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read claim is missing or already finalized'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- The expiry fence must be evaluated after the row lock is acquired. A
+  -- statement timestamp taken before lock contention is not a valid lease clock.
+  finalized_at := clock_timestamp();
+  IF claim."completedAuditId" IS NOT NULL
      OR claim."transportStartedAt" IS NULL
-     OR claim."leaseExpiresAt" <= statement_timestamp()
+     OR claim."leaseExpiresAt" <= finalized_at
   THEN
     RAISE EXCEPTION 'FGIS Grain tenant-read claim is missing or already finalized'
       USING ERRCODE = '42501';
@@ -1573,8 +1624,8 @@ BEGIN
       OR p_response_sha256 IS NULL
       OR p_response_sha256 !~ '^[a-f0-9]{64}$'
       OR p_received_at IS NULL
-      OR p_received_at > statement_timestamp() + interval '5 minutes'
-      OR p_received_at < statement_timestamp() - interval '24 hours'
+      OR p_received_at > finalized_at + interval '5 minutes'
+      OR p_received_at < finalized_at - interval '24 hours'
     )
   ) OR (
     p_decision = 'FAILED'
@@ -1626,7 +1677,7 @@ BEGIN
 
   UPDATE public."fgis_grain_tenant_read_provider_claims"
   SET "completedAuditId" = outcome_id,
-      "completedAt" = clock_timestamp()
+      "completedAt" = finalized_at
   WHERE "id" = claim."id"
     AND "completedAuditId" IS NULL;
 

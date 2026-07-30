@@ -439,21 +439,6 @@ export class FgisGrainTenantReadRepository {
           authorization.configurationVersion,
         );
         if (!this.transportBoundaryAvailable()) {
-          if (!prior) {
-            await this.writeAudit(tx, {
-              authorizationId: authorization.id,
-              authorizationVersion: authorization.version,
-              configurationId: authorization.configurationId,
-              operationCode: input.operationCode,
-              correlationId: input.correlationId,
-              idempotencyKey: executionAuditKey(input.idempotencyKey, 'DENIED'),
-              requestIdempotencyKey: input.idempotencyKey,
-              requestReference: input.requestReference,
-              requestSha256: input.requestSha256,
-              decision: 'DENIED',
-              reasonCode: 'PROVIDER_TRANSPORT_DISABLED',
-            });
-          }
           return {
             replay: null,
             authorization: null,
