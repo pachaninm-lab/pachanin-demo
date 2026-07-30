@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/dispatch-current-main-qwen-ui-20260730",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "de91445d29548f73dfbe5eef92f500ad3f21517b",
+  "operationalStatus": "DISPATCH_APPROVED_PUBLIC_AI_UI_EXACT_MAIN",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-exact-image-activation-chain.yml",
+    "docs/platform-v7/autopilot/scopes/dispatch-current-main-qwen-ui-3372.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "canonical exact API web migration images are dispatched for current main",
+    "the accepted REG.RU Qwen activation is dispatched for the same exact main",
+    "superseded queued activation runs may be cancelled but the exact current run is preserved",
+    "live Chromium requires the approved two-line branding and one native fullscreen control",
+    "authenticated Qwen inference and RU EN ZH SSE must pass",
+    "production remains REG.RU VPS only"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
