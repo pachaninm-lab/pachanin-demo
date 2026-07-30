@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-assistant-mobile-keyboard-light-ui",
   "status": "active",
-  "purpose": "Make the public assistant occupy the complete live mobile viewport above the software keyboard whenever its composer is focused, eliminating the visible dead gap shown by the owner without changing AI, data, authorization or transaction behavior.",
+  "purpose": "Eliminate the remaining exposed page strip between the public assistant and mobile keyboard by deriving overlay geometry from stable keyboard height and anchoring the panel by exact top and bottom edges.",
   "approvedBy": "owner-direct-implement-2026-07-31",
-  "authorityBaseExactMain": "bc7af6e70c59d3b1429faa25ee5664dd14a633c0",
+  "authorityBaseExactMain": "dae30e955b6f5a452a8332f1b3562745b0a4018e",
   "allowedPaths": [
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css",
@@ -13,12 +13,12 @@
     "docs/platform-v7/autopilot/scopes/fix-public-assistant-mobile-keyboard-light-ui.json"
   ],
   "requiredBehavior": [
-    "focusing the public assistant textarea unconditionally binds the complete panel to the exact live visual viewport on mobile without waiting for a keyboard-open threshold",
-    "the composer bottom edge remains directly above the software keyboard with no exposed page gap",
+    "the composer bottom edge remains directly adjacent to the software keyboard with no exposed page strip",
+    "VirtualKeyboard boundingRect.top is not trusted when it conflicts with layout and visual viewport coordinate spaces",
+    "overlay keyboard top is derived from layout bottom minus stable keyboard height",
+    "the focused panel is anchored by exact top and bottom edges instead of a guessed height",
     "visualViewport resize and scroll, VirtualKeyboard geometrychange, window resize, orientation and the full keyboard animation window are remeasured",
-    "iOS and third-party keyboards use visualViewport geometry while Chromium overlay keyboards also use VirtualKeyboard and keyboard-inset environment geometry",
-    "the panel height never exceeds the visible area above the keyboard in portrait, landscape or split-screen states",
-    "blur returns the panel to its compact sheet geometry and restores any prior VirtualKeyboard overlay mode",
+    "blur returns the panel to compact sheet geometry and restores any prior VirtualKeyboard overlay mode",
     "the light UI, keyboard navigation, screen-reader and forced-colors behavior remain intact",
     "exact-main web images and REG.RU acceptance are retriggered"
   ],
