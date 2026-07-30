@@ -664,6 +664,87 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     expect(directDenials).toEqual([{ count: 1n }]);
   });
 
+  it('rejects a denial when its persistent session expires behind the request lock', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const request = readRequest(
+      authorized.authorizationId,
+      authorized.authorizationVersion,
+      'denial-lock-session-expiry',
+    );
+    const lockKey = [
+      'platform-v7:fgis-grain-tenant-read-idempotency',
+      TENANT_A,
+      ORG_A,
+      request.idempotencyKey,
+    ].join(':');
+
+    let markLocked!: () => void;
+    let releaseLock!: () => void;
+    const locked = new Promise<void>((resolve) => {
+      markLocked = resolve;
+    });
+    const releaseAllowed = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const lockHolder = prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+      `);
+      markLocked();
+      await releaseAllowed;
+      await tx.$executeRaw(Prisma.sql`
+        UPDATE auth.sessions
+        SET expires_at = clock_timestamp() - interval '1 second',
+            updated_at = clock_timestamp()
+        WHERE id = ${BUYER_A.sessionId}
+      `);
+    });
+    await Promise.race([locked, lockHolder]);
+
+    const denied = expect(executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${`${RUN_ID}.denial-lock-session-expiry.audit`},
+        ${authorized.authorizationId},
+        ${BigInt(authorized.authorizationVersion)},
+        ${configuration.configurationId},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.denied`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
+        'DENIED',
+        'AUTHORIZATION_NOT_ATTESTED',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+      )
+    `)).rejects.toThrow(/audit context is denied/iu);
+
+    try {
+      // Let the runtime statement reach the held request lock before the
+      // holder commits the expired session and releases that same lock.
+      await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    } finally {
+      releaseLock();
+    }
+    await lockHolder;
+    await denied;
+
+    const audits = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM public."fgis_grain_tenant_read_audits"
+      WHERE "requestIdempotencyKey" = ${request.idempotencyKey}
+    `);
+    expect(audits).toEqual([{ count: 0n }]);
+  });
+
   it('rejects direct database attestation while transport admission is absent', async () => {
     const configuration = await approvedConfiguration(false);
     const authorized = await authorizeRead(

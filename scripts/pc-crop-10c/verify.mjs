@@ -366,6 +366,15 @@ function validatePostgres(schema, migration, repository) {
     migration.indexOf('CREATE OR REPLACE FUNCTION public.append_fgis_grain_tenant_read_audit(\n'),
     migration.indexOf('CREATE OR REPLACE FUNCTION public.start_fgis_grain_tenant_read_claim'),
   );
+  const requestLockOffset = appendCommand.indexOf('pg_advisory_xact_lock');
+  const priorRequestReadOffset = appendCommand.indexOf(
+    'INTO prior_request',
+    requestLockOffset,
+  );
+  const postRequestLockContextOffset = appendCommand.indexOf(
+    'IF NOT public.fgis_grain_tenant_read_context_ready(false)',
+    requestLockOffset,
+  );
   check(
     appendCommand.includes("effective_reason_code := 'AUTHORIZATION_NOT_ATTESTED'")
       && appendCommand.includes("effective_reason_code := 'AUTHORIZATION_OR_ATTESTATION_EXPIRED'")
@@ -389,13 +398,15 @@ function validatePostgres(schema, migration, repository) {
     appendCommand.includes('FOR SHARE;')
       && appendCommand.includes('decision_at := clock_timestamp()')
       && appendCommand.indexOf('decision_at := clock_timestamp()')
-        > appendCommand.indexOf('pg_advisory_xact_lock')
-      && appendCommand.indexOf('pg_advisory_xact_lock')
+        > requestLockOffset
+      && requestLockOffset
         < appendCommand.indexOf("IF p_decision = 'IN_FLIGHT'")
+      && postRequestLockContextOffset > requestLockOffset
+      && postRequestLockContextOffset < priorRequestReadOffset
       && appendCommand.includes('current_authorization."validUntil" <= decision_at')
       && appendCommand.includes('decision_at + interval \'2 minutes\'')
       && appendCommand.includes('"createdAt"'),
-    'claim admission is not authorization-locked or post-wait wall-clock fenced',
+    'audit admission is not identity/authorization locked or post-wait wall-clock fenced',
   );
   const recoveryCommand = migration.slice(
     migration.indexOf('CREATE OR REPLACE FUNCTION public.recover_fgis_grain_tenant_read_claim'),

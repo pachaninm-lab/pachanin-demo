@@ -1163,6 +1163,15 @@ BEGIN
   );
   decision_at := clock_timestamp();
 
+  -- The persistent session or membership may expire or be revoked while this
+  -- request waits behind another transaction holding the request lock. Apply
+  -- one common post-lock identity fence before either replaying a denial or
+  -- minting a provider claim.
+  IF NOT public.fgis_grain_tenant_read_context_ready(false) THEN
+    RAISE EXCEPTION 'FGIS Grain tenant-read audit context is denied'
+      USING ERRCODE = '42501';
+  END IF;
+
   SELECT *
   INTO prior_request
   FROM public."fgis_grain_tenant_read_audits" AS prior
