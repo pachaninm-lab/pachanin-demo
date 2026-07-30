@@ -1,0 +1,34 @@
+name: Temporary sync Qwen recovery with main
+
+on:
+  push:
+    branches:
+      - ops/qwen-recovery-exact-image-chain-3372
+    paths:
+      - .github/workflows/_temporary-sync-qwen-recovery-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/qwen-recovery-exact-image-chain-3372
+          fetch-depth: 0
+
+      - name: Merge current main and remove temporary workflow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git merge --no-edit -X ours origin/main
+          rm -f .github/workflows/_temporary-sync-qwen-recovery-main.yml
+          git add .github/workflows/_temporary-sync-qwen-recovery-main.yml
+          git commit -m 'SYNC: bring Qwen recovery chain to exact current main'
+          git push origin HEAD:ops/qwen-recovery-exact-image-chain-3372
