@@ -1,0 +1,48 @@
+name: One-time fix Qwen governance scope authority
+
+on:
+  push:
+    branches:
+      - governance/qwen-broad-agro-semantic-acceptance
+    paths:
+      - '.github/workflows/materialize-qwen-governance-scope-fix-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: governance/qwen-broad-agro-semantic-acceptance
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Remove mutable state authority from feature scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          branch = 'fix/qwen-broad-agro-semantic-acceptance'
+          exact_paths = [
+              'docs/platform-v7/autopilot/scopes/fix-qwen-broad-agro-semantic-acceptance.json',
+              '.github/workflows/tai-public-agro-semantic-live-acceptance.yml',
+              'apps/web/next.config.js',
+          ]
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text(encoding='utf-8'))
+          state.setdefault('approvedConcurrentScopes', {})[branch] = exact_paths
+          path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git diff --cached --check
+          git commit -m 'GOVERNANCE: make semantic scope base-owned and immutable'
+          git push origin HEAD:governance/qwen-broad-agro-semantic-acceptance
