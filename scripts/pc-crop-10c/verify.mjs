@@ -210,14 +210,18 @@ function validatePostgres(schema, migration, repository) {
     migration.includes('computed_hash := encode(public.digest')
       && migration.includes('computed_hash,')
       && migration.includes('current_head')
+      && migration.includes("'createdAt', to_char(")
+      && migration.includes('HH24:MI:SS.US')
       && !migration.includes('p_hash text')
       && !migration.includes('p_prev_hash text'),
-    'audit hash and predecessor are not database-computed',
+    'complete-precision audit hash and predecessor are not database-computed',
   );
   check(
     migration.includes("p_decision NOT IN ('SUCCEEDED', 'FAILED')")
       && migration.includes('claim."authorizationVersion" = p_authorization_version')
-      && migration.includes("claim.\"decision\" = 'IN_FLIGHT'"),
+      && migration.includes("claim.\"decision\" = 'IN_FLIGHT'")
+      && migration.includes("p_reason_code <> 'PROVIDER_READ_SUCCEEDED'")
+      && migration.includes("p_reason_code <> 'PROVIDER_READ_FAILED'"),
     'terminal provider outcome is not bound to its immutable claim',
   );
   check(repository.includes('lockIdempotency('), 'request-level single-flight lock missing');
@@ -265,6 +269,7 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('forged direct runtime transition'), 'PostgreSQL E2E does not prove direct runtime DML denial');
   check(e2e.includes('audit hash chains tenant and organization scoped'), 'PostgreSQL E2E does not prove tenant-scoped audit chaining');
   check(e2e.includes('records the claimed provider outcome after concurrent reauthorization'), 'PostgreSQL E2E does not prove claim-bound terminal outcome');
+  check(e2e.includes('FORGED_PROVIDER_READ_SUCCEEDED'), 'PostgreSQL E2E does not reject forged runtime outcome facts');
   check(e2e.includes('computes every immutable audit hash inside PostgreSQL'), 'PostgreSQL E2E does not prove database-owned audit hashing');
 }
 

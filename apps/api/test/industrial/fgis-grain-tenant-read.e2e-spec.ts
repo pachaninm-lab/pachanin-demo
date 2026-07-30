@@ -505,6 +505,27 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     const execution = readRepository.execute(BUYER_A, request);
     await barrier.started;
 
+    await expect(executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${`${RUN_ID}.forged-terminal-outcome`},
+        ${authorized.authorizationId},
+        ${BigInt(attested.authorizationVersion)},
+        ${configuration.configurationId},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.forged-terminal`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
+        'SUCCEEDED',
+        'FORGED_PROVIDER_READ_SUCCEEDED',
+        ${`${RUN_ID}.forged-provider-request`},
+        ${`provider-response://forged/${request.correlationId}`},
+        ${'c'.repeat(64)},
+        clock_timestamp()
+      )
+    `)).rejects.toThrow(/claim-bound/iu);
+
     let reauthorized;
     try {
       reauthorized = await authorizeRead(
@@ -782,12 +803,16 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
           'responseSha256', audit."responseSha256",
           'receivedAt', CASE
             WHEN audit."receivedAt" IS NULL THEN NULL
-            ELSE to_char(
+          ELSE to_char(
               audit."receivedAt" AT TIME ZONE 'UTC',
-              'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+              'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
             )
           END,
-          'prevHash', audit."prevHash"
+          'prevHash', audit."prevHash",
+          'createdAt', to_char(
+            audit."createdAt" AT TIME ZONE 'UTC',
+            'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+          )
         )::text, 'UTF8'), 'sha256'), 'hex') AS "expectedHash"
       FROM public."fgis_grain_tenant_read_audits" AS audit
       WHERE audit."tenantId" = ${TENANT_A}

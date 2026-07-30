@@ -496,6 +496,7 @@ AS $function$
 DECLARE
   current_authorization public."fgis_grain_tenant_read_authorizations"%ROWTYPE;
   current_head text;
+  audit_created_at timestamptz;
   computed_hash text;
   require_mfa boolean;
 BEGIN
@@ -650,7 +651,8 @@ BEGIN
     ) OR (
       p_decision = 'SUCCEEDED'
       AND (
-        p_provider_request_id IS NULL
+        p_reason_code <> 'PROVIDER_READ_SUCCEEDED'
+        OR p_provider_request_id IS NULL
         OR p_response_reference IS NULL
         OR p_response_sha256 IS NULL
         OR p_received_at IS NULL
@@ -658,7 +660,8 @@ BEGIN
     ) OR (
       p_decision = 'FAILED'
       AND (
-        p_provider_request_id IS NOT NULL
+        p_reason_code <> 'PROVIDER_READ_FAILED'
+        OR p_provider_request_id IS NOT NULL
         OR p_response_reference IS NOT NULL
         OR p_response_sha256 IS NOT NULL
         OR p_received_at IS NOT NULL
@@ -685,6 +688,7 @@ BEGIN
   ORDER BY audit."createdAt" DESC, audit."id" DESC
   LIMIT 1;
 
+  audit_created_at := clock_timestamp();
   computed_hash := encode(public.digest(convert_to(jsonb_build_object(
     'id', p_id,
     'tenantId', current_setting('app.current_tenant_id', true),
@@ -709,10 +713,14 @@ BEGIN
       WHEN p_received_at IS NULL THEN NULL
       ELSE to_char(
         p_received_at AT TIME ZONE 'UTC',
-        'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+        'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
       )
     END,
-    'prevHash', current_head
+    'prevHash', current_head,
+    'createdAt', to_char(
+      audit_created_at AT TIME ZONE 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+    )
   )::text, 'UTF8'), 'sha256'), 'hex');
 
   INSERT INTO public."fgis_grain_tenant_read_audits" (
@@ -721,7 +729,7 @@ BEGIN
     "operationCode", "correlationId", "idempotencyKey",
     "requestIdempotencyKey", "requestReference", "requestSha256", "decision",
     "reasonCode", "providerRequestId", "responseReference", "responseSha256",
-    "receivedAt", "hash", "prevHash"
+    "receivedAt", "hash", "prevHash", "createdAt"
   ) VALUES (
     p_id,
     current_setting('app.current_tenant_id', true),
@@ -744,7 +752,8 @@ BEGIN
     p_response_sha256,
     p_received_at,
     computed_hash,
-    current_head
+    current_head,
+    audit_created_at
   );
   RETURN p_id;
 END;
