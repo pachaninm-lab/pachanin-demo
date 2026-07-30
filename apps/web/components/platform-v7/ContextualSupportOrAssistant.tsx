@@ -143,13 +143,20 @@ function useVisualViewportMetrics() {
       );
       const keyboardRect = virtualKeyboard?.boundingRect;
       const keyboardHeight = Math.max(0, Math.round(keyboardRect?.height ?? 0));
-      const keyboardTop = keyboardHeight > 0
-        ? Math.max(offsetTop + 1, Math.round(keyboardRect?.top ?? visualBottom))
-        : visualBottom;
-      const visibleBottom = Math.max(offsetTop + 1, Math.min(visualBottom, keyboardTop));
-      const visibleHeight = Math.max(1, visibleBottom - offsetTop - 1);
       const visualHiddenBottom = Math.max(0, layoutBottom - visualBottom);
-      const keyboardBottomInset = Math.max(visualHiddenBottom, layoutBottom - visibleBottom, keyboardHeight);
+      const keyboardTopFromHeight = keyboardHeight > 0
+        ? Math.max(offsetTop + 1, layoutBottom - keyboardHeight)
+        : visualBottom;
+
+      // Several Chromium shells report boundingRect.top in a different coordinate
+      // space from visualViewport. Height is stable across those shells, so derive
+      // the keyboard top from the layout bottom and use the lower of the reliable
+      // visible boundaries. This removes the exposed page strip above the keyboard.
+      const visibleBottom = keyboardHeight > 0
+        ? Math.max(offsetTop + 1, Math.min(layoutBottom, Math.max(visualBottom, keyboardTopFromHeight)))
+        : Math.max(offsetTop + 1, visualBottom);
+      const visibleHeight = Math.max(1, visibleBottom - offsetTop);
+      const keyboardBottomInset = Math.max(0, layoutBottom - visibleBottom);
 
       root.style.setProperty('--pc-visual-viewport-height', `${height}px`);
       root.style.setProperty('--pc-visual-viewport-top', `${offsetTop}px`);
@@ -164,12 +171,9 @@ function useVisualViewportMetrics() {
         return;
       }
 
-      // Do not wait for a keyboard-open threshold. A focused mobile composer is
-      // always bound to the live visual viewport, so its bottom edge follows the
-      // keyboard through the complete opening/closing animation.
       panel.dataset.pcKeyboardFocus = 'true';
       panel.dataset.pcKeyboardViewport = 'true';
-      panel.dataset.pcKeyboardGeometry = keyboardHeight > 0 ? 'virtual-keyboard' : 'visual-viewport';
+      panel.dataset.pcKeyboardGeometry = keyboardHeight > 0 ? 'keyboard-height' : 'visual-viewport';
       panel.style.setProperty('--pc-ai-keyboard-top', `${offsetTop}px`);
       panel.style.setProperty('--pc-ai-keyboard-height', `${visibleHeight}px`);
       panel.style.setProperty('--pc-ai-keyboard-bottom', `${keyboardBottomInset}px`);
