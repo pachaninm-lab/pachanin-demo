@@ -91,14 +91,7 @@ function useVisualViewportMetrics() {
     const virtualKeyboard = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
     let frame = 0;
     let focusTimers: number[] = [];
-    let composerFocused = false;
-    let focusBaselineHeight = 0;
     let previousKeyboardOverlay: boolean | null = null;
-    let stableViewportHeight = Math.max(
-      window.innerHeight,
-      root.clientHeight,
-      Math.round(viewport?.height ?? 0),
-    );
 
     const isComposerTextarea = (target: EventTarget | null): target is HTMLTextAreaElement => (
       target instanceof HTMLTextAreaElement
@@ -123,169 +116,112 @@ function useVisualViewportMetrics() {
           previousKeyboardOverlay = null;
         }
       } catch {
-        // Some Chromium shells expose a read-only partial API. visualViewport stays authoritative.
+        // Partial browser implementations may expose read-only geometry.
       }
     };
 
-    const clearKeyboardViewport = (panel: HTMLElement | null) => {
-      if (!panel) return;
-      delete panel.dataset.pcKeyboardViewport;
-      panel.style.removeProperty('--pc-ai-keyboard-top');
-      panel.style.removeProperty('--pc-ai-keyboard-height');
-    };
-
-    const clearKeyboardFocus = (panel: HTMLElement | null) => {
+    const clearPanelViewport = (panel: HTMLElement | null) => {
       if (!panel) return;
       delete panel.dataset.pcKeyboardFocus;
+      delete panel.dataset.pcKeyboardViewport;
+      delete panel.dataset.pcKeyboardGeometry;
+      panel.style.removeProperty('--pc-ai-keyboard-top');
+      panel.style.removeProperty('--pc-ai-keyboard-height');
+      panel.style.removeProperty('--pc-ai-keyboard-bottom');
       panel.style.removeProperty('--pc-ai-keyboard-inset');
-      clearKeyboardViewport(panel);
     };
 
-    const readViewport = () => {
+    const measure = () => {
+      frame = 0;
       const height = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
       const offsetTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
-      const layoutHeight = Math.max(1, Math.round(window.innerHeight), Math.round(root.clientHeight));
       const visualBottom = offsetTop + height;
+      const layoutBottom = Math.max(
+        visualBottom,
+        Math.round(window.innerHeight),
+        Math.round(root.clientHeight),
+      );
       const keyboardRect = virtualKeyboard?.boundingRect;
       const keyboardHeight = Math.max(0, Math.round(keyboardRect?.height ?? 0));
-      const rawKeyboardTop = Math.round(keyboardRect?.top ?? visualBottom);
-      const keyboardTop = keyboardHeight > 0 && rawKeyboardTop > offsetTop + 48
-        ? rawKeyboardTop
-        : Number.POSITIVE_INFINITY;
-
-      return {
-        height,
-        offsetTop,
-        layoutHeight,
-        visualBottom,
-        keyboardHeight,
-        keyboardTop,
-      };
-    };
-
-    const sync = () => {
-      frame = 0;
-      const {
-        height,
-        offsetTop,
-        layoutHeight,
-        visualBottom,
-        keyboardHeight,
-        keyboardTop,
-      } = readViewport();
-      const hiddenBottom = Math.max(0, layoutHeight - visualBottom);
+      const keyboardTop = keyboardHeight > 0
+        ? Math.max(offsetTop + 1, Math.round(keyboardRect?.top ?? visualBottom))
+        : visualBottom;
+      const visibleBottom = Math.max(offsetTop + 1, Math.min(visualBottom, keyboardTop));
+      const visibleHeight = Math.max(1, visibleBottom - offsetTop - 1);
+      const visualHiddenBottom = Math.max(0, layoutBottom - visualBottom);
+      const keyboardBottomInset = Math.max(visualHiddenBottom, layoutBottom - visibleBottom, keyboardHeight);
 
       root.style.setProperty('--pc-visual-viewport-height', `${height}px`);
       root.style.setProperty('--pc-visual-viewport-top', `${offsetTop}px`);
-      root.style.setProperty('--pc-visual-viewport-bottom', `${hiddenBottom}px`);
+      root.style.setProperty('--pc-visual-viewport-bottom', `${visualHiddenBottom}px`);
 
       const panel = document.querySelector<HTMLElement>('.pc-public-assistant-panel');
-      const focused = composerFocused || isComposerTextarea(document.activeElement);
+      const focused = isComposerTextarea(document.activeElement);
       const mobile = window.matchMedia('(max-width: 720px)').matches;
 
-      if (!focused) {
-        stableViewportHeight = Math.max(stableViewportHeight, layoutHeight, visualBottom);
-        focusBaselineHeight = 0;
-        clearKeyboardFocus(panel);
+      if (!mobile || !focused || !panel) {
+        clearPanelViewport(panel);
         return;
       }
 
-      composerFocused = true;
-      if (!focusBaselineHeight) {
-        focusBaselineHeight = Math.max(stableViewportHeight, layoutHeight, visualBottom);
-      }
-      const baselineHeight = Math.max(stableViewportHeight, focusBaselineHeight);
-      const fallbackKeyboardTop = Math.max(offsetTop + 1, baselineHeight - keyboardHeight);
-      const measuredKeyboardTop = keyboardHeight > 0
-        ? Math.min(visualBottom, Number.isFinite(keyboardTop) ? keyboardTop : fallbackKeyboardTop)
-        : visualBottom;
-      const visibleBottom = Math.max(offsetTop + 1, measuredKeyboardTop);
-      const keyboardInset = Math.max(
-        hiddenBottom,
-        baselineHeight - visualBottom,
-        baselineHeight - layoutHeight,
-        keyboardHeight,
-      );
-      const keyboardOpen = mobile && (
-        keyboardInset > 64
-        || visibleBottom < Math.round(baselineHeight * 0.9)
-      );
-
-      if (panel) {
-        panel.dataset.pcKeyboardFocus = 'true';
-        panel.style.setProperty('--pc-ai-keyboard-inset', `${keyboardInset}px`);
-      }
-
-      if (!keyboardOpen || !panel) {
-        clearKeyboardViewport(panel);
-        return;
-      }
-
-      const usableHeight = Math.max(1, visibleBottom - offsetTop - 2);
+      // Do not wait for a keyboard-open threshold. A focused mobile composer is
+      // always bound to the live visual viewport, so its bottom edge follows the
+      // keyboard through the complete opening/closing animation.
+      panel.dataset.pcKeyboardFocus = 'true';
       panel.dataset.pcKeyboardViewport = 'true';
+      panel.dataset.pcKeyboardGeometry = keyboardHeight > 0 ? 'virtual-keyboard' : 'visual-viewport';
       panel.style.setProperty('--pc-ai-keyboard-top', `${offsetTop}px`);
-      panel.style.setProperty('--pc-ai-keyboard-height', `${usableHeight}px`);
+      panel.style.setProperty('--pc-ai-keyboard-height', `${visibleHeight}px`);
+      panel.style.setProperty('--pc-ai-keyboard-bottom', `${keyboardBottomInset}px`);
+      panel.style.setProperty('--pc-ai-keyboard-inset', `${keyboardBottomInset}px`);
     };
 
-    const scheduleSync = () => {
+    const scheduleMeasure = () => {
       if (frame) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(sync);
+      frame = window.requestAnimationFrame(measure);
     };
 
-    const scheduleFocusSync = () => {
+    const scheduleFocusMeasure = () => {
       clearFocusTimers();
-      scheduleSync();
-      focusTimers = [60, 140, 260, 420, 700, 1_000]
-        .map((delay) => window.setTimeout(scheduleSync, delay));
+      scheduleMeasure();
+      focusTimers = [40, 100, 180, 300, 480, 700, 1_000, 1_400, 1_900]
+        .map((delay) => window.setTimeout(scheduleMeasure, delay));
     };
 
     const handleFocusIn = (event: FocusEvent) => {
-      if (isComposerTextarea(event.target)) {
-        const current = readViewport();
-        composerFocused = true;
-        focusBaselineHeight = Math.max(
-          stableViewportHeight,
-          current.layoutHeight,
-          current.visualBottom,
-        );
-        setVirtualKeyboardOverlay(true);
-      }
-      scheduleFocusSync();
+      if (isComposerTextarea(event.target)) setVirtualKeyboardOverlay(true);
+      scheduleFocusMeasure();
     };
 
     const handleFocusOut = () => {
       clearFocusTimers();
       focusTimers = [window.setTimeout(() => {
-        composerFocused = isComposerTextarea(document.activeElement);
-        if (!composerFocused) {
-          focusBaselineHeight = 0;
-          setVirtualKeyboardOverlay(false);
-        }
-        scheduleFocusSync();
+        if (!isComposerTextarea(document.activeElement)) setVirtualKeyboardOverlay(false);
+        scheduleFocusMeasure();
       }, 0)];
     };
 
-    sync();
-    viewport?.addEventListener('resize', scheduleSync);
-    viewport?.addEventListener('scroll', scheduleSync);
-    virtualKeyboard?.addEventListener('geometrychange', scheduleSync);
-    window.addEventListener('resize', scheduleSync);
-    window.addEventListener('orientationchange', scheduleSync);
+    measure();
+    viewport?.addEventListener('resize', scheduleMeasure);
+    viewport?.addEventListener('scroll', scheduleMeasure);
+    virtualKeyboard?.addEventListener('geometrychange', scheduleMeasure);
+    window.addEventListener('resize', scheduleMeasure);
+    window.addEventListener('orientationchange', scheduleFocusMeasure);
     document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', handleFocusOut);
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
       clearFocusTimers();
-      viewport?.removeEventListener('resize', scheduleSync);
-      viewport?.removeEventListener('scroll', scheduleSync);
-      virtualKeyboard?.removeEventListener('geometrychange', scheduleSync);
-      window.removeEventListener('resize', scheduleSync);
-      window.removeEventListener('orientationchange', scheduleSync);
+      viewport?.removeEventListener('resize', scheduleMeasure);
+      viewport?.removeEventListener('scroll', scheduleMeasure);
+      virtualKeyboard?.removeEventListener('geometrychange', scheduleMeasure);
+      window.removeEventListener('resize', scheduleMeasure);
+      window.removeEventListener('orientationchange', scheduleFocusMeasure);
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', handleFocusOut);
       setVirtualKeyboardOverlay(false);
-      clearKeyboardFocus(document.querySelector<HTMLElement>('.pc-public-assistant-panel'));
+      clearPanelViewport(document.querySelector<HTMLElement>('.pc-public-assistant-panel'));
       root.style.removeProperty('--pc-visual-viewport-height');
       root.style.removeProperty('--pc-visual-viewport-top');
       root.style.removeProperty('--pc-visual-viewport-bottom');
@@ -306,9 +242,6 @@ export function ContextualSupportOrAssistant({
   const browserPathname = typeof window === 'undefined' ? routerPathname : window.location.pathname;
   const path = normalize(browserPathname || routerPathname);
 
-  // The full-page assistant already renders its own workspace panel. Keep the
-  // shared dock for human support and phone access, while the AI action focuses
-  // that existing panel instead of creating a duplicate floating assistant.
   if (path === ASSISTANT_WORKSPACE) {
     return (
       <>
@@ -334,8 +267,6 @@ export function ContextualSupportOrAssistant({
     );
   }
 
-  // Every public platform surface, including the TAI passport, keeps the single
-  // visible AI / support / call dock. The standalone launchers stay internal.
   return (
     <>
       <UnifiedModalSheetFullscreenController />
