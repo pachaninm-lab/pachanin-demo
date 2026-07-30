@@ -83,6 +83,26 @@ describe('FGIS Grain tenant-authorized read contract', () => {
     }, NOW)).toThrow(expect.objectContaining({ code: 'ATTESTATION_TTL_INVALID' }));
   });
 
+  it('rejects unsafe provider results before immutable storage or response', () => {
+    const valid = assertFgisGrainTenantReadTransportResult({
+      providerRequestId: 'fgis.provider.request-001',
+      responseReference: 'provider-response://fgis-grain/responses/response-001.xml',
+      responseSha256: 'b'.repeat(64),
+      receivedAt: NOW.toISOString(),
+    }, NOW);
+    expect(valid.receivedAt).toBe(NOW.toISOString());
+
+    expect(() => assertFgisGrainTenantReadTransportResult({
+      ...valid,
+      responseReference: 'provider-response://fgis/token=secret',
+    }, NOW)).toThrow(expect.objectContaining({ code: 'INLINE_SECRET_FORBIDDEN' }));
+
+    expect(() => assertFgisGrainTenantReadTransportResult({
+      ...valid,
+      providerRequestId: '<raw-provider-payload>',
+    }, NOW)).toThrow(expect.objectContaining({ code: 'MALFORMED_TRANSPORT_RESULT' }));
+  });
+
   it('accepts only fingerprinted referenced read requests', () => {
     const value = assertFgisGrainTenantReadRequestInput({
       schemaVersion: FGIS_GRAIN_TENANT_READ_SCHEMA_VERSION,
@@ -100,34 +120,5 @@ describe('FGIS Grain tenant-authorized read contract', () => {
       ...value,
       operationCode: 'CREATE_SDIZ',
     })).toThrow(expect.objectContaining({ code: 'MUTATION_OPERATION_FORBIDDEN' }));
-  });
-
-  it('accepts only opaque referenced provider results', () => {
-    const value = assertFgisGrainTenantReadTransportResult({
-      providerRequestId: 'fgis-provider-request-001',
-      responseReference: 'provider-response://fgis-grain/response-001',
-      responseSha256: 'b'.repeat(64),
-      receivedAt: '2026-07-30T10:00:00.000Z',
-    });
-    expect(value.receivedAt).toBe('2026-07-30T10:00:00.000Z');
-    expect(Object.isFrozen(value)).toBe(true);
-
-    for (const unsafe of [
-      {
-        ...value,
-        responseReference: '<Response><Token>inline-secret</Token></Response>',
-      },
-      {
-        ...value,
-        responseReference: 'provider-response://user:token@fgis-grain/response-001',
-      },
-      {
-        ...value,
-        providerRequestId: 'provider request with whitespace',
-      },
-    ]) {
-      expect(() => assertFgisGrainTenantReadTransportResult(unsafe))
-        .toThrow(FgisGrainTenantReadContractError);
-    }
   });
 });

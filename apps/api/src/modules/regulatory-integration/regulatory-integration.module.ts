@@ -9,6 +9,7 @@ import { FgisGrainTenantReadController } from './fgis-grain/fgis-grain-tenant-re
 import { FgisGrainTenantReadRepository } from './fgis-grain/fgis-grain-tenant-read.repository';
 import {
   DisabledFgisGrainTenantReadTransport,
+  FGIS_GRAIN_TENANT_READ_OUTCOME_AUTHORITY,
   FGIS_GRAIN_TENANT_READ_TRANSPORT,
 } from './fgis-grain/fgis-grain-tenant-read.transport';
 import { FgisGrainXmlCodecService } from './fgis-grain/fgis-grain-xml-codec.service';
@@ -45,6 +46,10 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
       provide: FGIS_GRAIN_TENANT_READ_TRANSPORT,
       useExisting: DisabledFgisGrainTenantReadTransport,
     },
+    {
+      provide: FGIS_GRAIN_TENANT_READ_OUTCOME_AUTHORITY,
+      useExisting: DisabledFgisGrainTenantReadTransport,
+    },
   ],
   exports: [
     RegulatoryIntegrationInboxRepository,
@@ -62,6 +67,7 @@ import { RegulatoryIntegrationReconciliationRepository } from './regulatory-inte
     FgisGrainSdizProjectionRepository,
     FgisGrainTenantReadRepository,
     FGIS_GRAIN_TENANT_READ_TRANSPORT,
+    FGIS_GRAIN_TENANT_READ_OUTCOME_AUTHORITY,
   ],
 })
 export class RegulatoryIntegrationModule {}

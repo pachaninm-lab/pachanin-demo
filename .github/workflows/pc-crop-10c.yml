@@ -39,7 +39,7 @@ env:
   EVIDENCE_DIR: artifacts/pc-crop-10c
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
   PC_CROP_10C_RUNTIME_DATABASE_URL: postgresql://app_runtime:app_runtime@localhost:5432/grainflow?schema=public
-  PC_CROP_10C_TRANSPORT_DATABASE_URL: postgresql://fgis_grain_read_transport:fgis_grain_read_transport@localhost:5432/grainflow?schema=public
+  PC_CROP_10C_TRANSPORT_DATABASE_URL: postgresql://fgis_grain_read_transport_test:fgis_grain_read_transport_test@localhost:5432/grainflow?schema=public
 
 jobs:
   tenant-read-authority:
@@ -101,7 +101,7 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Bootstrap separated runtime and transport principals
+      - name: Bootstrap restricted runtime principal
         env:
           PGPASSWORD: postgres
         shell: bash
@@ -115,25 +115,10 @@ jobs:
             ELSE
               ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
             END IF;
-            IF NOT EXISTS (
-              SELECT 1 FROM pg_roles WHERE rolname = 'fgis_grain_read_transport'
-            ) THEN
-              CREATE ROLE fgis_grain_read_transport
-                LOGIN PASSWORD 'fgis_grain_read_transport'
-                NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
-                NOREPLICATION NOBYPASSRLS;
-            ELSE
-              ALTER ROLE fgis_grain_read_transport
-                LOGIN PASSWORD 'fgis_grain_read_transport'
-                NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
-                NOREPLICATION NOBYPASSRLS;
-            END IF;
           END;
           $bootstrap$;
           GRANT CONNECT ON DATABASE grainflow TO app_runtime;
           GRANT USAGE ON SCHEMA public TO app_runtime;
-          GRANT CONNECT ON DATABASE grainflow TO fgis_grain_read_transport;
-          GRANT USAGE ON SCHEMA public TO fgis_grain_read_transport;
           SQL
 
       - name: Apply complete PostgreSQL migration chain
@@ -147,13 +132,29 @@ jobs:
           test -f apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration.sql
           touch "$EVIDENCE_DIR/migration.ok"
 
-      - name: Verify restricted principal and append-only grants
+      - name: Verify restricted runtime and dedicated outcome grants
         env:
           PGPASSWORD: postgres
         shell: bash
         run: |
           set -euo pipefail
           psql -h localhost -U postgres -d grainflow -v ON_ERROR_STOP=1 <<'SQL'
+          DO $bootstrap_transport$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_roles WHERE rolname = 'fgis_grain_read_transport_test'
+            ) THEN
+              CREATE ROLE fgis_grain_read_transport_test LOGIN PASSWORD 'fgis_grain_read_transport_test'
+                NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+            ELSE
+              ALTER ROLE fgis_grain_read_transport_test LOGIN PASSWORD 'fgis_grain_read_transport_test'
+                NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+            END IF;
+          END;
+          $bootstrap_transport$;
+          GRANT CONNECT ON DATABASE grainflow TO fgis_grain_read_transport_test;
+          GRANT fgis_grain_read_transport TO fgis_grain_read_transport_test;
+
           DO $verify$
           BEGIN
             IF NOT has_table_privilege('app_runtime', 'public.fgis_grain_tenant_read_authorizations', 'SELECT')
@@ -238,47 +239,8 @@ jobs:
                  'tenantReadTransportAdmittedVersion',
                  'UPDATE'
                )
-               OR has_table_privilege(
-                 'fgis_grain_read_transport',
-                 'public.fgis_grain_tenant_read_authorizations',
-                 'SELECT'
-               )
-               OR has_table_privilege(
-                 'fgis_grain_read_transport',
-                 'public.fgis_grain_tenant_read_audits',
-                 'SELECT'
-               )
-               OR has_table_privilege(
-                 'fgis_grain_read_transport',
-                 'public.fgis_grain_tenant_read_provider_claims',
-                 'SELECT'
-               )
-               OR has_table_privilege(
-                 'fgis_grain_read_transport',
-                 'public.fgis_grain_tenant_read_audit_heads',
-                 'SELECT'
-               )
-               OR EXISTS (
-                 SELECT 1
-                 FROM information_schema.role_table_grants
-                 WHERE grantee = 'fgis_grain_read_transport'
-                   AND table_schema = 'public'
-               )
             THEN
               RAISE EXCEPTION 'PC_CROP_10C_RUNTIME_GRANTS_INVALID';
-            END IF;
-            IF NOT EXISTS (
-                 SELECT 1
-                 FROM pg_roles
-                 WHERE rolname = 'fgis_grain_read_transport'
-                   AND NOT rolsuper
-                   AND NOT rolinherit
-                   AND NOT rolbypassrls
-                   AND NOT rolcreatedb
-                   AND NOT rolcreaterole
-               )
-            THEN
-              RAISE EXCEPTION 'PC_CROP_10C_TRANSPORT_ROLE_INVALID';
             END IF;
             IF NOT has_function_privilege(
                  'app_runtime',
@@ -319,6 +281,54 @@ jobs:
                  'fgis_grain_read_transport',
                  'public.finalize_fgis_grain_tenant_read_claim(text,text,text,text,text,text,text,timestamptz)',
                  'EXECUTE'
+               )
+               OR has_function_privilege(
+                 'fgis_grain_read_transport',
+                 'public.append_fgis_grain_tenant_read_audit(text,text,bigint,text,text,text,text,text,text,text,text,text,text,text,text,timestamptz,text)',
+                 'EXECUTE'
+               )
+               OR has_function_privilege(
+                 'fgis_grain_read_transport',
+                 'public.recover_fgis_grain_tenant_read_claim(text,text,bigint,text,text,text,text,text,text)',
+                 'EXECUTE'
+               )
+               OR has_table_privilege(
+                 'fgis_grain_read_transport',
+                 'public.fgis_grain_tenant_read_provider_claims',
+                 'SELECT'
+               )
+               OR NOT has_schema_privilege(
+                 'fgis_grain_read_transport',
+                 'public',
+                 'USAGE'
+               )
+               OR NOT pg_has_role(
+                 'fgis_grain_read_transport_test',
+                 'fgis_grain_read_transport',
+                 'MEMBER'
+               )
+               OR pg_has_role(
+                 'app_runtime',
+                 'fgis_grain_read_transport',
+                 'MEMBER'
+               )
+               OR pg_has_role(
+                 'app_service',
+                 'fgis_grain_read_transport',
+                 'MEMBER'
+               )
+               OR EXISTS (
+                 SELECT 1
+                 FROM pg_roles
+                 WHERE rolname = 'fgis_grain_read_transport'
+                   AND (
+                     rolcanlogin
+                     OR rolinherit
+                     OR rolsuper
+                     OR rolbypassrls
+                     OR rolcreatedb
+                     OR rolcreaterole
+                   )
                )
                OR has_function_privilege(
                  'app_runtime',

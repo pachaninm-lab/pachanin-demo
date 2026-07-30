@@ -158,22 +158,21 @@ function exactKeys(
 }
 
 function safeReference(value: unknown, field: string): string {
-  if (typeof value !== 'string' || !SAFE_REFERENCE.test(value)) {
+  if (typeof value !== 'string') {
     throw new FgisGrainTenantReadContractError('REFERENCE_INVALID', `${field} is not an approved reference`);
   }
   if (SECRET_MARKERS.some((marker) => value.includes(marker)) || value.includes('@')) {
     throw new FgisGrainTenantReadContractError('INLINE_SECRET_FORBIDDEN', `${field} contains secret material`);
   }
+  if (!SAFE_REFERENCE.test(value)) {
+    throw new FgisGrainTenantReadContractError('REFERENCE_INVALID', `${field} is not an approved reference`);
+  }
   return value;
 }
 
-function safeKey(
-  value: unknown,
-  field: string,
-  code: FgisGrainTenantReadErrorCode = 'MALFORMED_READ_REQUEST',
-): string {
+function safeKey(value: unknown, field: string): string {
   if (typeof value !== 'string' || !SAFE_KEY.test(value)) {
-    throw new FgisGrainTenantReadContractError(code, `${field} is invalid`);
+    throw new FgisGrainTenantReadContractError('MALFORMED_READ_REQUEST', `${field} is invalid`);
   }
   return value;
 }
@@ -315,6 +314,7 @@ export function assertFgisGrainTenantReadRequestInput(
 
 export function assertFgisGrainTenantReadTransportResult(
   value: unknown,
+  now = new Date(),
 ): FgisGrainTenantReadTransportResult {
   const row = record(value, 'MALFORMED_TRANSPORT_RESULT');
   exactKeys(row, [
@@ -323,17 +323,17 @@ export function assertFgisGrainTenantReadTransportResult(
     'responseSha256',
     'receivedAt',
   ], 'MALFORMED_TRANSPORT_RESULT');
-  const responseReference = safeReference(
-    row.responseReference,
-    'responseReference',
-  );
-  if (
-    !responseReference.startsWith('provider-response://')
-    && !responseReference.startsWith('object-store://')
-  ) {
+  if (typeof row.providerRequestId !== 'string' || !SAFE_KEY.test(row.providerRequestId)) {
+    throw new FgisGrainTenantReadContractError(
+      'MALFORMED_TRANSPORT_RESULT',
+      'providerRequestId is invalid',
+    );
+  }
+  const responseReference = safeReference(row.responseReference, 'responseReference');
+  if (!/^(?:provider-response|object-store):\/\//u.test(responseReference)) {
     throw new FgisGrainTenantReadContractError(
       'REFERENCE_INVALID',
-      'responseReference is not an approved provider-result reference',
+      'responseReference must use an approved response-store scheme',
     );
   }
   if (typeof row.responseSha256 !== 'string' || !SHA256.test(row.responseSha256)) {
@@ -349,18 +349,19 @@ export function assertFgisGrainTenantReadTransportResult(
     );
   }
   const receivedAt = new Date(row.receivedAt);
-  if (!Number.isFinite(receivedAt.getTime())) {
+  const ageMs = now.getTime() - receivedAt.getTime();
+  if (
+    !Number.isFinite(receivedAt.getTime())
+    || ageMs < -5 * 60_000
+    || ageMs > 24 * 60 * 60_000
+  ) {
     throw new FgisGrainTenantReadContractError(
       'MALFORMED_TRANSPORT_RESULT',
-      'receivedAt is invalid',
+      'receivedAt is outside the accepted provider-result window',
     );
   }
   return Object.freeze({
-    providerRequestId: safeKey(
-      row.providerRequestId,
-      'providerRequestId',
-      'MALFORMED_TRANSPORT_RESULT',
-    ),
+    providerRequestId: row.providerRequestId,
     responseReference,
     responseSha256: row.responseSha256,
     receivedAt: receivedAt.toISOString(),

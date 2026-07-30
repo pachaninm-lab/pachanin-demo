@@ -13,19 +13,28 @@ $function$;
 DO $transport_role$
 BEGIN
   IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_roles
+    WHERE rolname = 'fgis_grain_read_transport'
+  ) THEN
+    CREATE ROLE fgis_grain_read_transport
+      NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+  END IF;
+
+  IF EXISTS (
     SELECT 1
     FROM pg_catalog.pg_roles
     WHERE rolname = 'fgis_grain_read_transport'
+      AND (
+        rolcanlogin
+        OR rolinherit
+        OR rolsuper
+        OR rolbypassrls
+        OR rolcreatedb
+        OR rolcreaterole
+      )
   ) THEN
-    EXECUTE
-      'CREATE ROLE fgis_grain_read_transport '
-      'NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS '
-      'NOCREATEDB NOCREATEROLE NOREPLICATION';
-  ELSE
-    EXECUTE
-      'ALTER ROLE fgis_grain_read_transport '
-      'NOINHERIT NOSUPERUSER NOBYPASSRLS '
-      'NOCREATEDB NOCREATEROLE NOREPLICATION';
+    RAISE EXCEPTION 'FGIS Grain tenant-read transport role is unsafe'
+      USING ERRCODE = '42501';
   END IF;
 END;
 $transport_role$;
@@ -260,9 +269,9 @@ CREATE TABLE public."fgis_grain_tenant_read_audits" (
     CHECK (
       "responseReference" IS NULL
       OR (
-        length("responseReference") <= 530
-        AND "responseReference"
-          ~ '^(provider-response|object-store)://[A-Za-z0-9][-A-Za-z0-9:_./][-A-Za-z0-9:_./][-A-Za-z0-9:_./]*$'
+        "responseReference" ~ '^(provider-response|object-store)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,500}$'
+        AND position('@' IN "responseReference") = 0
+        AND "responseReference" !~* '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
       )
     ),
   CONSTRAINT "fgis_grain_tenant_read_audit_hash_ck"
@@ -654,13 +663,12 @@ BEGIN
       AND target_authorization."organizationId" = current_setting('app.current_org_id', true)
     FOR UPDATE;
 
-    IF NOT FOUND OR current_row."version" IS DISTINCT FROM p_expected_version THEN
+    IF NOT FOUND
+       OR current_row."version" IS DISTINCT FROM p_expected_version
+       OR current_row."configurationId" IS DISTINCT FROM p_configuration_id
+    THEN
       RAISE EXCEPTION 'FGIS Grain tenant-read authorization version changed'
         USING ERRCODE = '40001';
-    END IF;
-    IF current_row."configurationId" IS DISTINCT FROM p_configuration_id THEN
-      RAISE EXCEPTION 'FGIS Grain tenant-read authorization configuration binding changed'
-        USING ERRCODE = '42501';
     END IF;
     IF current_row."status" = 'REVOKED' THEN
       RAISE EXCEPTION 'Revoked FGIS Grain tenant-read authorization cannot be reused'
@@ -1361,7 +1369,11 @@ DECLARE
   outcome_id text;
   outcome_idempotency_key text;
 BEGIN
-  IF session_user <> 'fgis_grain_read_transport'
+  IF NOT pg_catalog.pg_has_role(
+       session_user,
+       'fgis_grain_read_transport',
+       'MEMBER'
+     )
      AND NOT COALESCE((
        SELECT role_row.rolsuper
        FROM pg_catalog.pg_roles AS role_row
@@ -1402,15 +1414,16 @@ BEGIN
     AND (
       p_reason_code <> 'PROVIDER_READ_SUCCEEDED'
       OR p_provider_request_id IS NULL
-      OR p_provider_request_id
-        !~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$'
+      OR p_provider_request_id !~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$'
       OR p_response_reference IS NULL
-      OR length(p_response_reference) > 530
-      OR p_response_reference
-        !~ '^(provider-response|object-store)://[A-Za-z0-9][-A-Za-z0-9:_./][-A-Za-z0-9:_./][-A-Za-z0-9:_./]*$'
+      OR p_response_reference !~ '^(provider-response|object-store)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,500}$'
+      OR position('@' IN p_response_reference) > 0
+      OR p_response_reference ~* '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
       OR p_response_sha256 IS NULL
       OR p_response_sha256 !~ '^[a-f0-9]{64}$'
       OR p_received_at IS NULL
+      OR p_received_at > statement_timestamp() + interval '5 minutes'
+      OR p_received_at < statement_timestamp() - interval '24 hours'
     )
   ) OR (
     p_decision = 'FAILED'
@@ -1423,7 +1436,7 @@ BEGIN
     )
   ) OR p_decision NOT IN ('SUCCEEDED', 'FAILED')
   THEN
-    RAISE EXCEPTION 'FGIS Grain read execution outcome is not claim-bound'
+    RAISE EXCEPTION 'FGIS Grain read execution outcome is not claim-bound or reference-safe'
       USING ERRCODE = '42501';
   END IF;
 
@@ -1775,34 +1788,12 @@ BEGIN
         'GRANT EXECUTE ON FUNCTION public.reconcile_abandoned_fgis_grain_tenant_read_claim(text) TO %I',
         runtime_role
       );
-      EXECUTE format(
-        'REVOKE EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(text, text, text, text, text, text, text, timestamptz) FROM %I',
-        runtime_role
-      );
     END IF;
   END LOOP;
 END;
 $grants$;
 
-DO $transport_grants$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_catalog.pg_roles
-    WHERE rolname = 'fgis_grain_read_transport'
-  ) THEN
-    REVOKE ALL ON TABLE
-      public."fgis_grain_tenant_read_authorizations",
-      public."fgis_grain_tenant_read_audits",
-      public."fgis_grain_tenant_read_provider_claims",
-      public."fgis_grain_tenant_read_audit_heads",
-      public."fgis_grain_provider_configurations",
-      public."fgis_grain_provider_attestations"
-    FROM fgis_grain_read_transport;
-    GRANT USAGE ON SCHEMA public TO fgis_grain_read_transport;
-    GRANT EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(
-      text, text, text, text, text, text, text, timestamptz
-    ) TO fgis_grain_read_transport;
-  END IF;
-END;
-$transport_grants$;
+GRANT USAGE ON SCHEMA public TO fgis_grain_read_transport;
+GRANT EXECUTE ON FUNCTION public.finalize_fgis_grain_tenant_read_claim(
+  text, text, text, text, text, text, text, timestamptz
+) TO fgis_grain_read_transport;

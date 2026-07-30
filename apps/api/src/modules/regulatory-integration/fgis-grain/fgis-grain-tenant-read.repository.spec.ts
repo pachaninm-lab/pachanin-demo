@@ -25,10 +25,12 @@ function repository() {
   const transactions = {
     withTrustedContext: jest.fn(),
   };
+  const disabled = new DisabledFgisGrainTenantReadTransport();
   return {
     repository: new FgisGrainTenantReadRepository(
       transactions as never,
-      new DisabledFgisGrainTenantReadTransport(),
+      disabled,
+      disabled,
     ),
     transactions,
   };

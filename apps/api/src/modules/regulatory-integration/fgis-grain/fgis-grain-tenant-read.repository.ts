@@ -26,7 +26,11 @@ import {
   type FgisGrainTenantReadTransportResult,
 } from './fgis-grain-tenant-read.contract';
 import {
+  FGIS_GRAIN_TENANT_READ_MAX_TRANSPORT_MS,
+  FGIS_GRAIN_TENANT_READ_OUTCOME_AUTHORITY,
   FGIS_GRAIN_TENANT_READ_TRANSPORT,
+  type FgisGrainTenantReadClaimCapability,
+  type FgisGrainTenantReadOutcomeAuthority,
   type FgisGrainTenantReadTransport,
 } from './fgis-grain-tenant-read.transport';
 
@@ -119,11 +123,6 @@ type AuditRow = Readonly<{
 
 type AuditPhase = 'CLAIM' | 'DENIED';
 
-type ProviderClaimCapability = Readonly<{
-  id: string;
-  completionToken: string;
-}>;
-
 export interface FgisGrainTenantReadReceipt {
   readonly authorizationId: string;
   readonly authorizationVersion: string;
@@ -210,6 +209,8 @@ export class FgisGrainTenantReadRepository {
     private readonly transactions: RlsTransactionService,
     @Inject(FGIS_GRAIN_TENANT_READ_TRANSPORT)
     private readonly transport: FgisGrainTenantReadTransport,
+    @Inject(FGIS_GRAIN_TENANT_READ_OUTCOME_AUTHORITY)
+    private readonly outcomeAuthority: FgisGrainTenantReadOutcomeAuthority,
   ) {}
 
   async authorize(
@@ -280,7 +281,7 @@ export class FgisGrainTenantReadRepository {
     raw: FgisGrainTenantReadAttestationInput,
   ): Promise<FgisGrainTenantReadReceipt> {
     requireAttestation(user);
-    if (!this.transport.available) {
+    if (!this.transportBoundaryAvailable()) {
       throw new ServiceUnavailableException({
         code: 'FGIS_GRAIN_READ_TRANSPORT_DISABLED',
         retryable: false,
@@ -349,7 +350,7 @@ export class FgisGrainTenantReadRepository {
     return this.transactions.withTrustedContext(user, async (tx, context) => {
       const authorization = await this.findAuthorization(tx, context, authorizationId);
       if (!authorization) throw new NotFoundException('FGIS Grain read authorization not found');
-      return view(authorization, this.transport.available);
+      return view(authorization, this.transportBoundaryAvailable());
     });
   }
 
@@ -424,7 +425,7 @@ export class FgisGrainTenantReadRepository {
           authorization.configurationId,
           authorization.configurationVersion,
         );
-        if (!this.transport.available) {
+        if (!this.transportBoundaryAvailable()) {
           if (!prior) {
             await this.writeAudit(tx, {
               authorizationId: authorization.id,
@@ -531,7 +532,7 @@ export class FgisGrainTenantReadRepository {
     let result: FgisGrainTenantReadTransportResult;
     try {
       result = assertFgisGrainTenantReadTransportResult(
-        await this.transport.execute({
+        await this.executeTransportWithDeadline({
           operationCode: input.operationCode,
           requestReference: input.requestReference,
           requestSha256: input.requestSha256,
@@ -545,22 +546,29 @@ export class FgisGrainTenantReadRepository {
         }),
       );
     } catch (error) {
-      await this.transport.finalizeOutcome({
-        claimId: preflight.claim.id,
-        completionToken: preflight.claim.completionToken,
-        decision: 'FAILED',
-        reasonCode: 'PROVIDER_READ_FAILED',
-        result: null,
-      });
+      try {
+        await this.outcomeAuthority.finalize(
+          preflight.claim,
+          null,
+          'FAILED',
+          'PROVIDER_READ_FAILED',
+        );
+      } catch {
+        throw new ServiceUnavailableException({
+          code: 'FGIS_GRAIN_READ_OUTCOME_NOT_RECORDED',
+          retryable: true,
+          operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
+        });
+      }
       throw error;
     }
-    await this.transport.finalizeOutcome({
-      claimId: preflight.claim.id,
-      completionToken: preflight.claim.completionToken,
-      decision: 'SUCCEEDED',
-      reasonCode: 'PROVIDER_READ_SUCCEEDED',
+
+    await this.outcomeAuthority.finalize(
+      preflight.claim,
       result,
-    });
+      'SUCCEEDED',
+      'PROVIDER_READ_SUCCEEDED',
+    );
     return {
       authorizationId: preflight.authorization.id,
       authorizationVersion: preflight.authorization.version.toString(),
@@ -569,10 +577,54 @@ export class FgisGrainTenantReadRepository {
       providerRequestId: result.providerRequestId,
       responseReference: result.responseReference,
       responseSha256: result.responseSha256,
-      receivedAt: new Date(result.receivedAt).toISOString(),
+      receivedAt: result.receivedAt,
       replayed: false,
       operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
     };
+  }
+
+  private transportBoundaryAvailable(): boolean {
+    return this.transport.available
+      && this.outcomeAuthority.available
+      && Number.isInteger(this.transport.maxExecutionMs)
+      && this.transport.maxExecutionMs > 0
+      && this.transport.maxExecutionMs <= FGIS_GRAIN_TENANT_READ_MAX_TRANSPORT_MS;
+  }
+
+  private async executeTransportWithDeadline(
+    request: Parameters<FgisGrainTenantReadTransport['execute']>[0],
+  ): Promise<FgisGrainTenantReadTransportResult> {
+    if (!this.transportBoundaryAvailable()) {
+      throw new ServiceUnavailableException({
+        code: 'FGIS_GRAIN_READ_TRANSPORT_DISABLED',
+        retryable: false,
+        operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
+      });
+    }
+    const controller = new AbortController();
+    const deadlineAt = new Date(Date.now() + this.transport.maxExecutionMs);
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new ServiceUnavailableException({
+          code: 'FGIS_GRAIN_READ_DEADLINE_EXCEEDED',
+          retryable: true,
+          operationalStatus: FGIS_GRAIN_TENANT_READ_OPERATIONAL_STATUS,
+        }));
+        controller.abort(new Error('FGIS Grain provider deadline exceeded'));
+      }, this.transport.maxExecutionMs);
+    });
+    try {
+      return await Promise.race([
+        this.transport.execute(request, {
+          signal: controller.signal,
+          deadlineAt: deadlineAt.toISOString(),
+        }),
+        timeout,
+      ]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
   }
 
   private replayReceipt(
@@ -747,7 +799,7 @@ export class FgisGrainTenantReadRepository {
     tx: Prisma.TransactionClient,
     prior: AuditRow,
     input: FgisGrainTenantReadRequestInput,
-  ): Promise<ProviderClaimCapability | null> {
+  ): Promise<FgisGrainTenantReadClaimCapability | null> {
     if (!prior.providerClaimId) {
       throw new ConflictException('In-flight provider claim binding is missing');
     }
