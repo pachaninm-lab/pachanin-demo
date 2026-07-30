@@ -66,30 +66,74 @@ const PUBLIC_INTERNAL_BLOCK_PATTERNS = [
   /```(?:json|javascript|typescript|text)?\s*[\s\S]{0,24000}?"(?:tool_calls?|tool_call_id|arguments|reasoning)"[\s\S]{0,24000}?```/giu,
 ] as const;
 
-const PUBLIC_INTERNAL_JSON_KEYS: ReadonlySet<string> = new Set([
+const PUBLIC_HARD_INTERNAL_JSON_KEYS: ReadonlySet<string> = new Set([
   'tool_calls',
   'tool_call',
   'tool_call_id',
-  'reasoning',
   'reasoning_content',
-  'analysis',
-  'thinking',
   'scratchpad',
 ]);
+const PUBLIC_AMBIGUOUS_INTERNAL_JSON_KEYS: ReadonlySet<string> = new Set([
+  'analysis',
+  'reasoning',
+  'thinking',
+]);
+const PUBLIC_SCRATCHPAD_COMPANION_KEYS: ReadonlySet<string> = new Set([
+  'final',
+  'channel',
+  'role',
+  'type',
+  'step',
+  'steps',
+  'tool',
+  'tool_name',
+  'function',
+]);
+const PUBLIC_INTERNAL_NARRATIVE_PATTERN = /(?:\b(?:first|next|then|step|plan|reason|think|thinking|analysis|internal|scratchpad|tool|function|call|invoke|search|lookup|i need|i should|we need|we should)\b|(?:сначала|затем|далее|шаг|план|рассужд|думаю|внутренн|черновик|инструмент|вызов|поиск|проверяю|уточняю|продолжаю))/iu;
+const PUBLIC_HARD_INTERNAL_JSON_PATTERN = /(?:^|[{\[,\s])["']?(?:tool_calls|tool_call|tool_call_id|reasoning_content|scratchpad)["']?\s*:/iu;
+const PUBLIC_AMBIGUOUS_INTERNAL_JSON_PATTERN = /(?:^|[{\[,\s])["']?(?:analysis|reasoning|thinking)["']?\s*:/iu;
+const PUBLIC_SCRATCHPAD_COMPANION_PATTERN = /(?:^|[{\[,\s])["']?(?:final|channel|role|type|step|steps|tool|tool_name|function)["']?\s*:/iu;
 const MAX_PUBLIC_INTERNAL_JSON_CHARS = 24_000;
 
-function hasPublicInternalJsonKey(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(hasPublicInternalJsonKey);
+function hasHardPublicInternalJsonKey(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasHardPublicInternalJsonKey);
   if (!value || typeof value !== 'object') return false;
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (PUBLIC_INTERNAL_JSON_KEYS.has(key.toLowerCase())) return true;
-    if (hasPublicInternalJsonKey(child)) return true;
+    if (PUBLIC_HARD_INTERNAL_JSON_KEYS.has(key.toLowerCase())) return true;
+    if (hasHardPublicInternalJsonKey(child)) return true;
   }
   return false;
 }
 
+function scratchpadNarrative(value: unknown): boolean {
+  if (typeof value === 'string') return PUBLIC_INTERNAL_NARRATIVE_PATTERN.test(value);
+  if (Array.isArray(value)) return value.some(scratchpadNarrative);
+  return false;
+}
+
+function isRecognizableScratchpadEnvelope(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(isRecognizableScratchpadEnvelope);
+  if (!value || typeof value !== 'object') return false;
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  const ambiguous = entries.filter(([key]) => PUBLIC_AMBIGUOUS_INTERNAL_JSON_KEYS.has(key.toLowerCase()));
+  if (ambiguous.length === 0) return false;
+
+  const hasCompanion = entries.some(([key]) => PUBLIC_SCRATCHPAD_COMPANION_KEYS.has(key.toLowerCase()));
+  return ambiguous.some(([, child]) => (
+    (typeof child === 'string' || Array.isArray(child))
+    && (hasCompanion || scratchpadNarrative(child))
+  ));
+}
+
+function hasPublicInternalJsonEnvelope(value: unknown): boolean {
+  return hasHardPublicInternalJsonKey(value) || isRecognizableScratchpadEnvelope(value);
+}
+
 function looksLikePublicInternalJson(value: string): boolean {
-  return /"(?:tool_calls?|tool_call_id|reasoning(?:_content)?|analysis|thinking|scratchpad)"\s*:/iu.test(value);
+  if (PUBLIC_HARD_INTERNAL_JSON_PATTERN.test(value)) return true;
+  return PUBLIC_AMBIGUOUS_INTERNAL_JSON_PATTERN.test(value)
+    && (PUBLIC_SCRATCHPAD_COMPANION_PATTERN.test(value) || PUBLIC_INTERNAL_NARRATIVE_PATTERN.test(value));
 }
 
 function balancedPublicJsonEnd(value: string, start: number): number | null {
@@ -156,7 +200,7 @@ function stripPublicAssistantInternalJson(value: string): string {
     const segment = value.slice(start, end);
     let internal = false;
     try {
-      internal = hasPublicInternalJsonKey(JSON.parse(segment));
+      internal = hasPublicInternalJsonEnvelope(JSON.parse(segment));
     } catch {
       internal = looksLikePublicInternalJson(segment);
     }
