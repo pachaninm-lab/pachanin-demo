@@ -1506,109 +1506,129 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         AND "decision" IN ('SUCCEEDED', 'FAILED')
     `);
     expect(terminal).toHaveLength(1);
+  });
 
-    const delayedRequest = readRequest(
+  it('checks finalization expiry against the wall clock after the claim row lock', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/finalizer-lock-clock/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Finalization expiry is fenced by the post-lock database clock.',
+    });
+    const request = readRequest(
       authorized.authorizationId,
       attested.authorizationVersion,
-      'post-lock-expiry',
+      'finalizer-lock-clock',
     );
-    const delayedClaimId = `${RUN_ID}.post-lock-expiry.claim`;
-    const delayedToken = `${RUN_ID}.post-lock-expiry.opaque-completion-capability`;
-    const delayedTokenSha256 = createHash('sha256')
-      .update(delayedToken)
+    const claimId = `${RUN_ID}.finalizer-lock-clock.claim`;
+    const completionToken = `${RUN_ID}.finalizer-lock-clock.opaque-completion-capability`;
+    const completionTokenSha256 = createHash('sha256')
+      .update(completionToken)
       .digest('hex');
+
     await executeAsRuntime(BUYER_A, Prisma.sql`
       SELECT public.append_fgis_grain_tenant_read_audit(
-        ${delayedClaimId},
+        ${claimId},
         ${authorized.authorizationId},
         ${BigInt(attested.authorizationVersion)},
         ${configuration.configurationId},
-        ${delayedRequest.operationCode},
-        ${delayedRequest.correlationId},
-        ${`${delayedRequest.idempotencyKey}.claim`},
-        ${delayedRequest.idempotencyKey},
-        ${delayedRequest.requestReference},
-        ${delayedRequest.requestSha256},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.claim`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
         'IN_FLIGHT',
         'PROVIDER_READ_CLAIMED',
         NULL,
         NULL,
         NULL,
         NULL,
-        ${delayedTokenSha256}
+        ${completionTokenSha256}
       )
     `);
-    await startAsTransport({
-      id: delayedClaimId,
-      completionToken: delayedToken,
-    });
+    await startAsTransport({ id: claimId, completionToken });
 
-    let markLeaseShortened!: () => void;
-    let releaseLeaseLock!: () => void;
-    const leaseShortened = new Promise<void>((resolve) => {
-      markLeaseShortened = resolve;
+    let markLocked!: () => void;
+    let allowShortLease!: () => void;
+    let markShortLease!: () => void;
+    let releaseLock!: () => void;
+    const locked = new Promise<void>((resolve) => {
+      markLocked = resolve;
     });
-    const holdLeaseLock = new Promise<void>((resolve) => {
-      releaseLeaseLock = resolve;
+    const shortLeaseAllowed = new Promise<void>((resolve) => {
+      allowShortLease = resolve;
+    });
+    const shortLeaseSet = new Promise<void>((resolve) => {
+      markShortLease = resolve;
+    });
+    const lockReleased = new Promise<void>((resolve) => {
+      releaseLock = resolve;
     });
     const lockHolder = prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(
-        'SET LOCAL session_replication_role = replica',
-      );
+      await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+      await tx.$executeRaw(Prisma.sql`
+        UPDATE public."fgis_grain_tenant_read_provider_claims"
+        SET "leaseExpiresAt" = clock_timestamp() + interval '1 minute'
+        WHERE "id" = ${claimId}
+      `);
+      markLocked();
+      await shortLeaseAllowed;
       await tx.$executeRaw(Prisma.sql`
         UPDATE public."fgis_grain_tenant_read_provider_claims"
         SET "leaseExpiresAt" = clock_timestamp() + interval '500 milliseconds'
-        WHERE "id" = ${delayedClaimId}
+        WHERE "id" = ${claimId}
       `);
-      markLeaseShortened();
-      await holdLeaseLock;
+      markShortLease();
+      await lockReleased;
     });
-    await leaseShortened;
+    await Promise.race([locked, lockHolder]);
 
-    let markFinalizerDispatched!: () => void;
-    const finalizerDispatched = new Promise<void>((resolve) => {
-      markFinalizerDispatched = resolve;
-    });
-    const delayedFinalization = transportPrisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(
-        'SET LOCAL ROLE fgis_grain_read_transport',
-      );
-      markFinalizerDispatched();
-      return tx.$queryRaw(Prisma.sql`
-        SELECT public.finalize_fgis_grain_tenant_read_claim(
-          ${delayedClaimId},
-          ${delayedToken},
-          'SUCCEEDED',
-          'PROVIDER_READ_SUCCEEDED',
-          ${`${RUN_ID}.post-lock-expiry.provider`},
-          ${`provider-response://post-lock-expiry/${RUN_ID}`},
-          ${'b'.repeat(64)},
-          ${new Date()}
-        )
-      `);
-    }).then(
-      (value) => ({ status: 'fulfilled' as const, value }),
-      (error: unknown) => ({ status: 'rejected' as const, error }),
-    );
-    await finalizerDispatched;
-    await new Promise<void>((resolve) => setTimeout(resolve, 700));
-    releaseLeaseLock();
-    await lockHolder;
+    const finalization = expect(executeAsTransport(Prisma.sql`
+      SELECT public.finalize_fgis_grain_tenant_read_claim(
+        ${claimId},
+        ${completionToken},
+        'SUCCEEDED',
+        'PROVIDER_READ_SUCCEEDED',
+        ${`${RUN_ID}.finalizer-lock-clock.provider`},
+        ${`provider-response://finalizer-lock-clock/${RUN_ID}`},
+        ${'b'.repeat(64)},
+        clock_timestamp()
+      )
+    `)).rejects.toThrow(/missing|already finalized/iu);
 
-    const delayedOutcome = await delayedFinalization;
-    expect(delayedOutcome.status).toBe('rejected');
-    if (delayedOutcome.status === 'rejected') {
-      expect(String(delayedOutcome.error))
-        .toMatch(/claim is missing or already finalized/iu);
+    try {
+      // The dedicated transport uses a separate connection. Give its finalizer
+      // statement time to enter the row-lock wait while the visible lease is
+      // still one minute, then make the held row expire before releasing it.
+      await new Promise<void>((resolve) => setTimeout(resolve, 250));
+      allowShortLease();
+      await Promise.race([shortLeaseSet, lockHolder]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 750));
+    } finally {
+      allowShortLease();
+      releaseLock();
     }
-    const expiredClaim = await prisma.$queryRaw<Array<{
+
+    await lockHolder;
+    await finalization;
+    const claim = await prisma.$queryRaw<Array<{
       completed: boolean;
+      expired: boolean;
     }>>(Prisma.sql`
-      SELECT "completedAuditId" IS NOT NULL AS "completed"
+      SELECT "completedAuditId" IS NOT NULL AS "completed",
+             "leaseExpiresAt" <= clock_timestamp() AS "expired"
       FROM public."fgis_grain_tenant_read_provider_claims"
-      WHERE "id" = ${delayedClaimId}
+      WHERE "id" = ${claimId}
     `);
-    expect(expiredClaim).toEqual([{ completed: false }]);
+    expect(claim).toEqual([{ completed: false, expired: true }]);
   });
 
   it('records the claimed provider outcome after concurrent reauthorization, session revocation, and role drift', async () => {
@@ -1776,6 +1796,19 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       configuration.configurationId,
       configuration.version,
     );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/forged-denial/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Database-derived denial evidence cannot contradict active authority.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'forged-denial',
+    );
 
     await expect(executeAsRuntime(EXEC_A, Prisma.sql`
       UPDATE public."fgis_grain_tenant_read_authorizations"
@@ -1787,6 +1820,28 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
           "version" = "version" + 1
       WHERE "id" = ${authorized.authorizationId}
     `)).rejects.toThrow(/permission denied/iu);
+
+    await expect(executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${`${RUN_ID}.forged-denial.audit`},
+        ${authorized.authorizationId},
+        ${BigInt(attested.authorizationVersion)},
+        ${configuration.configurationId},
+        ${request.operationCode},
+        ${request.correlationId},
+        ${`${request.idempotencyKey}.denied`},
+        ${request.idempotencyKey},
+        ${request.requestReference},
+        ${request.requestSha256},
+        'DENIED',
+        'AUTHORIZATION_NOT_ATTESTED',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+      )
+    `)).rejects.toThrow(/denial condition is not present/iu);
 
     await expect(executeAsRuntime(BUYER_A, Prisma.sql`
       INSERT INTO public."fgis_grain_tenant_read_audits" (
@@ -1849,7 +1904,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         ${`${RUN_ID}.atomic-command.unsafe-authorization`},
         ${'f'.repeat(64)}
       )
-    `)).rejects.toThrow(/auth_reference|authorizationReference|check constraint/iu);
+    `)).rejects.toThrow(/authorization reference.*invalid/iu);
 
     await executeAsRuntime(EXEC_A, Prisma.sql`
       SELECT *
@@ -1949,7 +2004,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
         ${`${RUN_ID}.atomic-command.unsafe-attestation`},
         ${'f'.repeat(64)}
       )
-    `)).rejects.toThrow(/attestation_reference|attestationEvidenceReference|check constraint/iu);
+    `)).rejects.toThrow(/evidence reference.*invalid/iu);
     const afterUnsafeAttestation = await prisma.$queryRaw<Array<{
       status: string;
       version: bigint;
