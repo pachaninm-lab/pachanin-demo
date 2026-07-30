@@ -183,6 +183,13 @@ CREATE TABLE public."fgis_grain_tenant_read_provider_claims" (
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT "fgis_grain_tenant_read_claim_version_ck"
     CHECK ("authorizationVersion" >= 0),
+  CONSTRAINT "fgis_grain_tenant_read_claim_request_reference_ck"
+    CHECK (
+      length("requestReference") <= 530
+      AND "requestReference" ~ '^(authorization|evidence|object-store|provider-response|config|policy|vault)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2}[A-Za-z0-9:_.\/-]*$'
+      AND position('@' IN "requestReference") = 0
+      AND "requestReference" !~ '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
+    ),
   CONSTRAINT "fgis_grain_tenant_read_claim_request_hash_ck"
     CHECK ("requestSha256" ~ '^[a-f0-9]{64}$'),
   CONSTRAINT "fgis_grain_tenant_read_claim_completion_token_hash_ck"
@@ -271,6 +278,13 @@ CREATE TABLE public."fgis_grain_tenant_read_audits" (
     CHECK ("chainSequence" > 0),
   CONSTRAINT "fgis_grain_tenant_read_audit_authorization_version_ck"
     CHECK ("authorizationVersion" >= 0),
+  CONSTRAINT "fgis_grain_tenant_read_audit_request_reference_ck"
+    CHECK (
+      length("requestReference") <= 530
+      AND "requestReference" ~ '^(authorization|evidence|object-store|provider-response|config|policy|vault)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2}[A-Za-z0-9:_.\/-]*$'
+      AND position('@' IN "requestReference") = 0
+      AND "requestReference" !~ '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
+    ),
   CONSTRAINT "fgis_grain_tenant_read_audit_request_hash_ck"
     CHECK ("requestSha256" ~ '^[a-f0-9]{64}$'),
   CONSTRAINT "fgis_grain_tenant_read_audit_response_hash_ck"

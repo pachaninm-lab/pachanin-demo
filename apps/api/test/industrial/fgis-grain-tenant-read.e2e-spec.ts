@@ -85,6 +85,7 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
   maxExecutionMs = 5_000;
   readonly calls: FgisGrainTenantReadTransportRequest[] = [];
   private nextResult: FgisGrainTenantReadTransportResult | null = null;
+  private nextPostAbortResult: FgisGrainTenantReadTransportResult | null = null;
   private nextBarrier: {
     readonly started: () => void;
     readonly wait: Promise<void>;
@@ -121,11 +122,16 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
     this.nextResult = result;
   }
 
+  completeNextOnAbort(result: FgisGrainTenantReadTransportResult): void {
+    this.nextPostAbortResult = result;
+  }
+
   reset(): void {
     this.available = true;
     this.maxExecutionMs = 5_000;
     this.calls.length = 0;
     this.nextResult = null;
+    this.nextPostAbortResult = null;
     this.nextBarrier = null;
   }
 
@@ -135,10 +141,21 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
   ): Promise<FgisGrainTenantReadTransportResult> {
     const barrier = this.nextBarrier;
     const nextResult = this.nextResult;
+    const postAbortResult = this.nextPostAbortResult;
     this.nextBarrier = null;
     this.nextResult = null;
+    this.nextPostAbortResult = null;
     this.calls.push(request);
     barrier?.started();
+
+    if (postAbortResult) {
+      if (!control.signal.aborted) {
+        await new Promise<void>((resolve) => {
+          control.signal.addEventListener('abort', () => resolve(), { once: true });
+        });
+      }
+      return postAbortResult;
+    }
 
     if (barrier) {
       if (barrier.ignoreAbort) {
@@ -760,7 +777,7 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
     });
   });
 
-  it('rejects unsafe provider result references before immutable storage or response', async () => {
+  it('rejects unsafe request and provider result references before immutable storage or response', async () => {
     const configuration = await approvedConfiguration();
     const authorized = await authorizeRead(
       configuration.configurationId,
@@ -774,6 +791,44 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
       justification: 'Independent evidence admits the result-reference safety regression.',
     });
+    const unsafeRequestReference = 'object-store://fgis-grain/token=forbidden-request-secret';
+    const directClaimId = `${RUN_ID}.unsafe-request-reference.claim`;
+    await expect(executeAsRuntime(BUYER_A, Prisma.sql`
+      SELECT public.append_fgis_grain_tenant_read_audit(
+        ${directClaimId},
+        ${authorized.authorizationId},
+        ${BigInt(attested.authorizationVersion)},
+        ${configuration.configurationId},
+        'GET_LIST_SDIZ',
+        ${`${RUN_ID}.unsafe-request-reference.correlation`},
+        ${`${RUN_ID}.unsafe-request-reference.claim-audit`},
+        ${`${RUN_ID}.unsafe-request-reference.request`},
+        ${unsafeRequestReference},
+        ${'a'.repeat(64)},
+        'IN_FLIGHT',
+        'PROVIDER_READ_CLAIMED',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        ${createHash('sha256').update('unsafe-request-reference-token').digest('hex')}
+      )
+    `)).rejects.toThrow(/request_reference|request reference|check constraint/iu);
+    const unsafeRequestFacts = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT count(*)::bigint AS "count"
+      FROM (
+        SELECT "requestReference"
+        FROM public."fgis_grain_tenant_read_provider_claims"
+        WHERE "id" = ${directClaimId}
+        UNION ALL
+        SELECT "requestReference"
+        FROM public."fgis_grain_tenant_read_audits"
+        WHERE "id" = ${directClaimId}
+      ) AS persisted
+      WHERE persisted."requestReference" = ${unsafeRequestReference}
+    `);
+    expect(unsafeRequestFacts).toEqual([{ count: 0n }]);
+
     const request = readRequest(
       authorized.authorizationId,
       attested.authorizationVersion,
@@ -854,6 +909,53 @@ describePostgres('PC-CROP-10C PostgreSQL tenant-authorized FGIS Grain read', () 
       decision: 'FAILED',
       completedBeforeLeaseExpiry: true,
     }]);
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it('preserves a provider completion acknowledged immediately after the deadline abort', async () => {
+    const configuration = await approvedConfiguration();
+    const authorized = await authorizeRead(
+      configuration.configurationId,
+      configuration.version,
+    );
+    const attested = await readRepository.attest(SECURITY_A, {
+      schemaVersion: FGIS_GRAIN_TENANT_READ_ATTESTATION_SCHEMA_VERSION,
+      authorizationId: authorized.authorizationId,
+      authorizationVersion: authorized.authorizationVersion,
+      evidenceReference: `evidence://fgis-grain/read-post-abort-completion/${RUN_ID}`,
+      validUntil: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+      justification: 'Independent evidence admits the post-abort completion race regression.',
+    });
+    const request = readRequest(
+      authorized.authorizationId,
+      attested.authorizationVersion,
+      'provider-post-abort-completion',
+    );
+    const result = {
+      providerRequestId: `${RUN_ID}.provider.post-abort-completion`,
+      responseReference: `provider-response://fgis-grain/${request.correlationId}`,
+      responseSha256: 'b'.repeat(64),
+      receivedAt: new Date().toISOString(),
+    };
+    transport.maxExecutionMs = 50;
+    transport.completeNextOnAbort(result);
+
+    await expect(
+      readRepository.execute(BUYER_A, request),
+    ).resolves.toMatchObject({
+      providerRequestId: result.providerRequestId,
+      responseReference: result.responseReference,
+      replayed: false,
+    });
+
+    const terminal = await prisma.$queryRaw<Array<{ decision: string }>>(Prisma.sql`
+      SELECT audit."decision"
+      FROM public."fgis_grain_tenant_read_provider_claims" AS claim
+      JOIN public."fgis_grain_tenant_read_audits" AS audit
+        ON audit."id" = claim."completedAuditId"
+      WHERE claim."requestIdempotencyKey" = ${request.idempotencyKey}
+    `);
+    expect(terminal).toEqual([{ decision: 'SUCCEEDED' }]);
     expect(transport.calls).toHaveLength(1);
   });
 

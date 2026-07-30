@@ -235,9 +235,11 @@ function validatePostgres(schema, migration, repository) {
   );
   check(
     contract.includes('assertFgisGrainTenantReadTransportResult')
+      && migration.includes('fgis_grain_tenant_read_claim_request_reference_ck')
+      && migration.includes('fgis_grain_tenant_read_audit_request_reference_ck')
       && migration.includes('fgis_grain_tenant_read_audit_response_reference_ck')
       && migration.includes('not claim-bound or reference-safe'),
-    'provider result identifiers or references are not validated before immutable storage',
+    'request or provider result references are not validated before immutable storage',
   );
   check(
     migration.includes('"leaseExpiresAt"')
@@ -381,8 +383,9 @@ function validateTests(contractSpec, repositorySpec, controllerSpec, e2e) {
   check(e2e.includes('rejects direct database attestation while transport admission is absent'), 'PostgreSQL E2E does not prove database transport admission');
   check(e2e.includes('separates runtime claim minting from dedicated transport finalization'), 'PostgreSQL E2E does not prove terminal authority separation');
   check(e2e.includes('serializes terminal outcomes'), 'PostgreSQL E2E does not prove terminal outcome serialization');
-  check(e2e.includes('rejects unsafe provider result references before immutable storage or response'), 'PostgreSQL E2E does not prove provider-result reference safety');
+  check(e2e.includes('rejects unsafe request and provider result references before immutable storage or response'), 'PostgreSQL E2E does not prove request/result reference safety');
   check(e2e.includes('cancels a stalled provider read before lease expiry'), 'PostgreSQL E2E does not prove deadline cancellation before claim recovery');
+  check(e2e.includes('preserves a provider completion acknowledged immediately after the deadline abort'), 'PostgreSQL E2E does not prove post-abort completion preservation');
   check(e2e.includes('keeps an unconfirmed cancellation in flight and blocks a new-key duplicate'), 'PostgreSQL E2E does not prove unconfirmed-cancellation quarantine');
   check(e2e.includes('binds reauthorization to the existing provider configuration'), 'PostgreSQL E2E does not prove configuration-bound reauthorization');
   check(e2e.includes('recovers an abandoned provider claim only after its lease expires'), 'PostgreSQL E2E does not prove abandoned claim recovery');

@@ -57,7 +57,8 @@
     "every provider call receives an enforced abort deadline safely below claim recovery",
     "the dedicated transport durably marks a claim started before any provider call",
     "an unconfirmed cancellation remains in flight and blocks an equivalent new-key provider call",
-    "provider result identifiers and references are validated before immutable storage or response",
+    "a provider completion acknowledged at the abort boundary is preserved as the terminal result",
+    "request and provider result identifiers and references are validated before immutable storage or response",
     "same-tenant outsiders and cross-tenant actors are denied",
     "idempotency replay cannot change the original operation or request fingerprint",
     "public and internal status remains NOT_ATTESTED without governed external read evidence"

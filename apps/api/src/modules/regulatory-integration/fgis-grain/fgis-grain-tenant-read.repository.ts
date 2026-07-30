@@ -648,11 +648,6 @@ export class FgisGrainTenantReadRepository {
       const execution = this.transport.execute(request, {
         signal: controller.signal,
         deadlineAt: deadlineAt.toISOString(),
-      }).then((result) => {
-        if (controller.signal.aborted) {
-          throw controller.signal.reason;
-        }
-        return result;
       });
       return await Promise.race([
         execution,
