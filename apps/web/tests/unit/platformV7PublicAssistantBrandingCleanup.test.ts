@@ -42,8 +42,12 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toContain('form.requestSubmit()');
   });
 
-  it('aborts an active request when any close path unmounts the assistant', () => {
-    expect(controllerSource).toMatch(/return \(\) => \{\s+stopActiveRequest\(\);\s+observer\.disconnect\(\);/u);
+  it('aborts active requests before backdrop and compact Escape close the assistant', () => {
+    expect(controllerSource).toContain("classList.contains('pc-public-assistant-backdrop')");
+    expect(controllerSource).toContain("backdrop?.addEventListener('click', onCloseCapture, { capture: true })");
+    expect(controllerSource).toContain("document.addEventListener('keydown', onEscapeCapture, { capture: true })");
+    expect(controllerSource).toContain("panel.dataset.fullscreen !== 'true'");
+    expect(controllerSource).toContain("document.removeEventListener('keydown', onEscapeCapture, { capture: true })");
   });
 
   it('never projects provisional tokens or operational metadata while thinking', () => {

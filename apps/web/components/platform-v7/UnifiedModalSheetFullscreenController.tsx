@@ -252,6 +252,9 @@ function enhancePublicAssistant(panel: HTMLElement) {
     stopActiveRequest();
     clearWatchdogTimer();
   };
+  const onEscapeCapture = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && panel.dataset.fullscreen !== 'true') onCloseCapture();
+  };
   const onSubmitCapture = () => clearTimeoutState();
 
   const observer = new MutationObserver(sync);
@@ -259,6 +262,11 @@ function enhancePublicAssistant(panel: HTMLElement) {
 
   const close = panel.querySelector<HTMLButtonElement>('.pc-public-assistant-header > .pc-public-assistant-icon-button:last-child');
   close?.addEventListener('click', onCloseCapture, { capture: true });
+  const backdrop = panel.previousElementSibling?.classList.contains('pc-public-assistant-backdrop')
+    ? panel.previousElementSibling as HTMLButtonElement
+    : null;
+  backdrop?.addEventListener('click', onCloseCapture, { capture: true });
+  document.addEventListener('keydown', onEscapeCapture, { capture: true });
   const form = panel.querySelector<HTMLFormElement>('.pc-public-assistant-composer');
   form?.addEventListener('submit', onSubmitCapture, { capture: true });
 
@@ -271,6 +279,8 @@ function enhancePublicAssistant(panel: HTMLElement) {
     clearWatchdogTimer();
     cleanupAlignment();
     close?.removeEventListener('click', onCloseCapture, { capture: true });
+    backdrop?.removeEventListener('click', onCloseCapture, { capture: true });
+    document.removeEventListener('keydown', onEscapeCapture, { capture: true });
     form?.removeEventListener('submit', onSubmitCapture, { capture: true });
     removeWatchdogError();
     delete panel.dataset.pcPublicAssistantSafetyEnhanced;
