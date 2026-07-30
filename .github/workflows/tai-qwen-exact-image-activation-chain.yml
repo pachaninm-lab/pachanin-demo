@@ -1,5 +1,5 @@
 name: TAI Qwen Exact Image Activation Chain
-# QWEN UI acceptance recovery: publish exact images for the workflow-only main SHA.
+# QWEN recovery authority: publish exact images, activate REG.RU, then allow the serialized semantic gate to verify current main.
 
 on:
   push:
