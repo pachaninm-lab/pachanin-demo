@@ -3,10 +3,9 @@
   "id": "PC-CROP-REMAINDER",
   "status": "active",
   "governanceIssue": 3389,
-  "activeIssue": 3390,
-  "activeSlice": "PC-CROP-10B",
+  "activeIssue": 3446,
+  "activeSlice": "PC-CROP-10C",
   "sequence": [
-    "PC-CROP-10B",
     "PC-CROP-10C",
     "PC-CROP-10D"
   ],
