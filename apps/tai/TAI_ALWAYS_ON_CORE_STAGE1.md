@@ -9,7 +9,7 @@
 
 - bounded FIFO admission before `/v1/platform/answer`;
 - explicit maximum in-flight requests and bounded wait queue;
-- fail-closed overload response with `Retry-After`;
+- fail-closed overload response with `Retry-After` and the canonical `tai.error.v1` envelope;
 - queue timeout and cancellation cleanup without leaked permits;
 - local-model warm-up on application startup;
 - periodic local inference health probe;
