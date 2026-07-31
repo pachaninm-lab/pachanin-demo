@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-terminal-finalizer-20260731",
+  "status": "active",
+  "purpose": "Make the corrected mobile public-AI web revision the terminal REG.RU state after the exact Qwen activation has completed, eliminating every late rollback race before live acceptance is recorded.",
+  "approvedBy": "owner-live-screenshots-and-fix-command-2026-07-31",
+  "authorityBaseExactMain": "5aceb0cf256bdfb29cdc5a2a9564fa0becf13c12",
+  "allowedPaths": [
+    ".github/workflows/public-ai-mobile-terminal-finalizer.yml",
+    "apps/web/release/public-ai-mobile-terminal-finalizer.txt",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-terminal-finalizer-20260731.json"
+  ],
+  "requiredBehavior": [
+    "only an exact owner comment on issue 3523 starts the finalizer",
+    "the target is resolved exclusively from exact current main",
+    "the immutable exact web image must exist before production access",
+    "the finalizer waits until the Qwen activation for the same SHA has reached a terminal state",
+    "the exact web deployment is the final production mutation after that activation",
+    "healthy OCI identity generic live acceptance and the locked single mobile viewport are verified on REG.RU",
+    "evidence is retained for ninety days"
+  ],
+  "forbiddenCapabilities": [
+    "deployment before the same-SHA Qwen activation is terminal",
+    "non-main or non-exact images",
+    "API database migration model prompt credential or RBAC changes",
+    "private data access or autonomous actions",
+    "Netlify or Vercel deployment"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
