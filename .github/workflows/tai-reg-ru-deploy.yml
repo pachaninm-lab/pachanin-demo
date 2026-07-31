@@ -4,13 +4,16 @@ on:
   pull_request:
     paths:
       - ".github/workflows/tai-reg-ru-deploy.yml"
+      - ".github/workflows/tai-reg-ru-preflight.yml"
+      - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
+      - "scripts/pc-tai-release-controller.sh"
       - "scripts/tai-reg-ru-deploy.sh"
-      - "scripts/check-tai-reg-ru-deploy.mjs"
       - "scripts/tai-reg-ru-preflight.sh"
-      - "scripts/check-tai-reg-ru-preflight.mjs"
+      - "scripts/check-tai-reg-ru-deploy.mjs"
+      - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
       - "apps/tai/TAI_REG_RU_DEPLOY.md"
-      - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
-      - "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-reg-ru-deploy-20260731.json"
+      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
   workflow_run:
     workflows: ["TAI Restricted Qwen REG.RU Activation"]
     types: [completed]
@@ -27,49 +30,32 @@ on:
 
 permissions:
   contents: read
-  packages: read
-  statuses: write
 
 concurrency:
   group: tai-reg-ru-deployment
   cancel-in-progress: false
 
-env:
-  DEFAULT_PROD_HOST: 195.19.12.120
-  MODEL_PRIVATE_IP: 192.168.0.206
-  MODEL_PORT: "18080"
-  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
-  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
-  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
-  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
-  PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-  PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-  PROD_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-  PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  PROD_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
-
 jobs:
   contract:
-    name: Fail-closed deployment contract
+    name: Least-privilege deployment contract
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Validate Bash syntax
+      - name: Validate deployment authority
         run: |
+          bash -n scripts/pc-tai-release-controller.sh
           bash -n scripts/tai-reg-ru-deploy.sh
           bash -n scripts/tai-reg-ru-preflight.sh
-      - name: Validate deployment authority
-        run: node scripts/check-tai-reg-ru-deploy.mjs
-      - name: Validate preflight authority
-        run: node scripts/check-tai-reg-ru-preflight.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
 
-  deploy:
-    name: Exact-main standalone TAI on REG.RU
+  image_authority:
+    name: Exact-main rootless TAI image authority
     needs: contract
     if: >-
       (
@@ -85,41 +71,36 @@ jobs:
         inputs.confirmation == 'DEPLOY-TAI-REG-RU'
       )
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
+      reference: ${{ steps.image.outputs.reference }}
+      digest: ${{ steps.image.outputs.digest }}
     steps:
-      - name: Checkout exact current main
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Resolve exact target
+      - name: Resolve exact current main
         id: target
-        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
         run: |
           set -Eeuo pipefail
           git fetch --no-tags origin main
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
-            target='${{ github.event.workflow_run.head_sha }}'
-            [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
-            [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
-          else
-            target='${{ inputs.target_sha }}'
-          fi
-          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$target" == "$(git rev-parse origin/main)" ]]
-          git checkout --detach "$target"
-          [[ "$target" == "$(git rev-parse HEAD)" ]]
-          echo "sha=$target" >> "$GITHUB_OUTPUT"
-          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
-
-      - name: Verify canonical exact-SHA rootless TAI image
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Verify canonical exact-SHA rootless TAI image outside production
         id: image
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
           SHORT_SHA: ${{ steps.target.outputs.short }}
-        shell: bash
         run: |
           set -Eeuo pipefail
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
@@ -130,293 +111,75 @@ jobs:
               revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
               user="$(docker image inspect --format '{{.Config.User}}' "$image")"
               digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
-              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then
-                ready=1
-                break
-              fi
+              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then ready=1; break; fi
             fi
             sleep 10
           done
           (( ready == 1 )) || { echo 'Exact rootless TAI image is unavailable or invalid.' >&2; exit 2; }
           echo "reference=$image" >> "$GITHUB_OUTPUT"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Remove hosted registry session
+        if: always()
+        run: docker logout ghcr.io >/dev/null 2>&1 || true
 
-      - name: Resolve protected SSH transports
-        id: ssh
-        shell: bash
+  deploy:
+    name: Deploy through protected REG.RU controller
+    needs: image_authority
+    if: needs.image_authority.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-release]
+    permissions:
+      contents: read
+      packages: none
+      statuses: none
+    timeout-minutes: 90
+    env:
+      TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+      TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
+      TAI_IMAGE: ${{ needs.image_authority.outputs.reference }}
+      TAI_DIGEST: ${{ needs.image_authority.outputs.digest }}
+    steps:
+      - name: Verify direct production authority is absent
         run: |
           set -Eeuo pipefail
-          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          validate_key(){
-            local source="$1" target="$2" pub
-            tr -d '\r' < "$source" > "$target"
-            chmod 0600 "$target"
-            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
-            pub="$(mktemp)"
-            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
-            rm -f "$pub"
-          }
-          try_key(){
-            local raw="$1" target="$2" a b c
-            [[ -n "$raw" ]] || return 1
-            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
-            printf '%s\n' "$raw" > "$a"
-            validate_key "$a" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
-            printf '%s' "${raw//\\n/$'\n'}" > "$b"
-            validate_key "$b" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
-            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
-            rm -f "$a" "$b" "$c"
-            return 1
-          }
-
-          model_host="$(trim "${MODEL_HOST_SECRET:-}")"
-          model_user="$(trim "${MODEL_USER_SECRET:-root}")"
-          model_port="$(trim "${MODEL_PORT_SECRET:-22}")"
-          prod_host="$(trim "${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}")"
-          prod_user="$(trim "${PROD_USER_SECRET:-}")"
-          prod_port="$(trim "${PROD_PORT_SECRET:-22}")"
-          [[ -n "$model_host" && "$model_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$model_port" =~ ^[0-9]+$ ]] && ((model_port >= 1 && model_port <= 65535))
-          [[ "$prod_host" == "$DEFAULT_PROD_HOST" ]]
-          [[ -n "$prod_user" && "$prod_user" == "${PROD_USER_SECRET:-}" && "$prod_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$prod_port" =~ ^[0-9]+$ ]] && ((prod_port >= 1 && prod_port <= 65535))
-          [[ "$PROD_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
-          try_key "${MODEL_KEY_SECRET:-}" "$HOME/.ssh/id_tai_model" \
-            || try_key "${PROD_KEY_PRIMARY:-}" "$HOME/.ssh/id_tai_model" \
-            || try_key "${PROD_KEY_SECONDARY:-}" "$HOME/.ssh/id_tai_model" \
-            || try_key "${PROD_KEY_FALLBACK:-}" "$HOME/.ssh/id_tai_model" \
-            || { echo 'Protected model-host private key is unavailable.' >&2; exit 10; }
-          try_key "${PROD_KEY_PRIMARY:-}" "$HOME/.ssh/id_pc_prod" \
-            || try_key "${PROD_KEY_SECONDARY:-}" "$HOME/.ssh/id_pc_prod" \
-            || try_key "${PROD_KEY_FALLBACK:-}" "$HOME/.ssh/id_pc_prod" \
-            || { echo 'Protected production private key is unavailable.' >&2; exit 11; }
-
-          ssh-keyscan -T 10 -p "$model_port" "$model_host" 2>/dev/null | sort -u > "$HOME/.ssh/model_known_hosts"
-          [[ -s "$HOME/.ssh/model_known_hosts" ]]
-          scan="$(mktemp)"; match="$(mktemp)"
-          ssh-keyscan -T 10 -p "$prod_port" "$prod_host" 2>/dev/null | sort -u > "$scan"
-          while IFS= read -r line; do
-            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-            [[ "$fp" != "$PROD_HOST_FINGERPRINT" ]] || printf '%s\n' "$line" >> "$match"
-          done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]]
-          mv "$match" "$HOME/.ssh/prod_known_hosts"
-          rm -f "$scan"
-          chmod 600 "$HOME/.ssh/"*known_hosts
-          {
-            echo "model_host=$model_host"
-            echo "model_user=$model_user"
-            echo "model_port=$model_port"
-            echo "prod_host=$prod_host"
-            echo "prod_user=$prod_user"
-            echo "prod_port=$prod_port"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Execute strict read-only pre-deployment inventory
-        env:
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          TAI_IMAGE: ${{ steps.image.outputs.reference }}
-          TAI_DIGEST: ${{ steps.image.outputs.digest }}
-          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
-          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
-          PROD_PORT: ${{ steps.ssh.outputs.prod_port }}
-        shell: bash
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Execute protected exact-main deployment and postflight
         run: |
           set -Eeuo pipefail
-          report="$RUNNER_TEMP/tai-reg-ru-predeploy.json"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" "bash -s -- '$TARGET_SHA' '$TAI_IMAGE' '$TAI_DIGEST'" \
-            < scripts/tai-reg-ru-preflight.sh > "$report"
-          chmod 0600 "$report"
-          python3 - "$report" <<'PY'
-          import json, sys
-          report = json.load(open(sys.argv[1], encoding='utf-8'))
-          blockers = set(report.get('blockers') or [])
-          allowed = {
-              'TAI_SERVICE_NOT_MATERIALIZED',
-              'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
-              'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
-          }
-          if report.get('schemaVersion') != 'tai.reg-ru.preflight.v1':
-              raise SystemExit('invalid preflight schema')
-          if not blockers.issubset(allowed):
-              raise SystemExit(f'unexpected pre-deployment blockers: {sorted(blockers)}')
-          if not blockers and report.get('passed') is not True:
-              raise SystemExit('pre-deployment report is inconsistent')
-          PY
-
-      - name: Recover private Qwen token without disclosure
-        env:
-          MODEL_HOST: ${{ steps.ssh.outputs.model_host }}
-          MODEL_USER: ${{ steps.ssh.outputs.model_user }}
-          MODEL_SSH_PORT: ${{ steps.ssh.outputs.model_port }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          remote='set -Eeuo pipefail
-          systemctl is-active --quiet tai-qwen3-8b.service
-          pid="$(systemctl show tai-qwen3-8b.service --property=MainPID --value)"
-          [[ "$pid" =~ ^[1-9][0-9]*$ ]]
-          test -r "/proc/$pid/environ"
-          test "$(stat -c %u "/proc/$pid")" -eq "$(id -u)"
-          mapfile -t keys < <(tr "\0" "\n" < "/proc/$pid/environ" | sed -n "s/^TAI_LLM_API_KEY=//p")
-          (( ${#keys[@]} == 1 ))
-          api_key="${keys[0]}"
-          test "${#api_key}" -ge 32
-          [[ "$api_key" != *[[:space:]]* ]]
-          ss -H -ltn | grep -Eq "192[.]168[.]0[.]206:18080[[:space:]]"
-          ! ss -H -ltn | grep -Eq "(^|[[:space:]])(0[.]0[.]0[.]0|[[]::[]]):18080[[:space:]]"
-          curl -fsS --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $api_key" http://192.168.0.206:18080/health >/dev/null
-          printf %s "$api_key"'
-          api_key="$(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" "$remote")"
-          [[ "${#api_key}" -ge 32 ]]
-          [[ "$api_key" != *[[:space:]]* ]]
-          echo "::add-mask::$api_key"
-          printf '%s' "$api_key" > "$RUNNER_TEMP/tai-model-token"
-          chmod 0600 "$RUNNER_TEMP/tai-model-token"
-
-      - name: Deploy exact TAI image on existing REG.RU authority
-        env:
-          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
-          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
-          PROD_PORT: ${{ steps.ssh.outputs.prod_port }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          TAI_IMAGE: ${{ steps.image.outputs.reference }}
-          TAI_DIGEST: ${{ steps.image.outputs.digest }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes)
-          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes)
-          remote_script="/tmp/tai-reg-ru-deploy-${GITHUB_RUN_ID}.sh"
-          remote_token="/tmp/tai-model-token-${GITHUB_RUN_ID}"
-          scp "${scp_common[@]}" scripts/tai-reg-ru-deploy.sh "$PROD_USER@$PROD_HOST:$remote_script"
-          scp "${scp_common[@]}" "$RUNNER_TEMP/tai-model-token" "$PROD_USER@$PROD_HOST:$remote_token"
-          raw="$RUNNER_TEMP/tai-reg-ru-deploy.log"
-          set +e
-          ssh "${ssh_common[@]}" "$PROD_USER@$PROD_HOST" \
-            "chmod 0700 '$remote_script' && chmod 0600 '$remote_token' && '$remote_script' '$TARGET_SHA' '$TAI_IMAGE' '$TAI_DIGEST' '$GITHUB_RUN_ID' '$remote_token'" > "$raw" 2>&1
-          rc=$?
-          set -e
-          sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /TOKEN|SECRET|PASSWORD|DATABASE_URL/ s#=.*#=[REDACTED]#' "$raw"
-          grep -Fxq 'TAI_REG_RU_DEPLOYMENT_COMPLETE=1' "$raw"
-          (( rc == 0 ))
-
-      - name: Collect redacted deployment evidence
-        env:
-          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
-          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
-          PROD_PORT: ${{ steps.ssh.outputs.prod_port }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          evidence="$RUNNER_TEMP/tai-reg-ru-deployment.json"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" "cat '/var/lib/pc-release-authority/tai-agro-os-${GITHUB_RUN_ID}/evidence.json'" > "$evidence"
-          chmod 0600 "$evidence"
-          python3 - "$evidence" "$TARGET_SHA" <<'PY'
-          import json, sys
-          report = json.load(open(sys.argv[1], encoding='utf-8'))
-          if report.get('schemaVersion') != 'tai.reg-ru.deployment.v1':
-              raise SystemExit('invalid deployment evidence schema')
-          if report.get('targetSha') != sys.argv[2] or report.get('passed') is not True:
-              raise SystemExit('deployment evidence target or result mismatch')
-          if report.get('publicPorts') != [] or report.get('rootlessUid') != 65532:
-              raise SystemExit('deployment isolation evidence failed')
-          principal = report.get('databasePrincipal') or {}
-          if principal.get('nonTaiTableGrantCount') != 0 or principal.get('inherit') is not False:
-              raise SystemExit('database principal effective boundary failed')
-          if report.get('inference', {}).get('preparedActionCount') != 0:
-              raise SystemExit('deployment inference prepared an action')
-          PY
-
-      - name: Execute strict post-deployment preflight
-        env:
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          TAI_IMAGE: ${{ steps.image.outputs.reference }}
-          TAI_DIGEST: ${{ steps.image.outputs.digest }}
-          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
-          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
-          PROD_PORT: ${{ steps.ssh.outputs.prod_port }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          report="$RUNNER_TEMP/tai-reg-ru-postdeploy.json"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" "bash -s -- '$TARGET_SHA' '$TAI_IMAGE' '$TAI_DIGEST'" \
-            < scripts/tai-reg-ru-preflight.sh > "$report"
-          chmod 0600 "$report"
-          python3 - "$report" <<'PY'
-          import json, sys
-          report = json.load(open(sys.argv[1], encoding='utf-8'))
-          blockers = report.get('blockers') or []
-          if report.get('passed') is not True or blockers:
-              raise SystemExit(f'post-deployment preflight blocked: {blockers}')
-          PY
-
+          sudo -n /usr/local/sbin/pc-tai-release-controller deploy "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
       - name: Upload exact-main deployment evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tai-reg-ru-deployment-${{ steps.target.outputs.short }}-${{ github.run_id }}
+          name: tai-reg-ru-deployment-${{ env.TARGET_SHORT }}-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/tai-reg-ru-predeploy.json
-            ${{ runner.temp }}/tai-reg-ru-deployment.json
-            ${{ runner.temp }}/tai-reg-ru-postdeploy.json
+            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/predeploy.json
+            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/deployment.json
+            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/postdeploy.json
           if-no-files-found: error
           retention-days: 30
 
-      - name: Roll back failed deployment acceptance
-        if: failure() && steps.ssh.outputs.prod_host != ''
-        env:
-          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
-          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
-          PROD_PORT: ${{ steps.ssh.outputs.prod_port }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          state="/var/lib/pc-release-authority/tai-agro-os-${GITHUB_RUN_ID}"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" "if test -x '$state/rollback.sh'; then '$state/rollback.sh'; elif test -f '$state/MUTATION_STARTED'; then echo INCOMPLETE_ROLLBACK_AUTHORITY >&2; exit 73; else echo TAI_ROLLBACK_NOT_REQUIRED; fi"
-
+  publish_status:
+    name: Publish TAI REG.RU deployment status
+    needs: [image_authority, deploy]
+    if: always() && needs.image_authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      statuses: write
+    steps:
       - name: Publish exact-main deployment status
-        if: always() && steps.target.outputs.sha != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-        shell: bash
+          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
         run: |
           set -Eeuo pipefail
-          state=failure
-          description='TAI REG.RU deployment failed or rolled back'
-          if [[ '${{ job.status }}' == success ]]; then
-            state=success
-            description='Standalone TAI REG.RU deployment PASS'
-          fi
-          gh api --method POST \
-            -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
-            -f state="$state" \
-            -f context='TAI REG.RU Deployment' \
-            -f description="$description" \
+          state=failure; description='TAI REG.RU deployment failed or rolled back'
+          if [[ "$DEPLOY_RESULT" == success ]]; then state=success; description='Standalone TAI REG.RU deployment PASS'; fi
+          gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state="$state" -f context='TAI REG.RU Deployment' -f description="$description" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-
-      - name: Remove transient materials
-        if: always()
-        env:
-          PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
-          PROD_USER: ${{ steps.ssh.outputs.prod_user }}
-          PROD_PORT: ${{ steps.ssh.outputs.prod_port }}
-        shell: bash
-        run: |
-          set +e
-          if [[ -n "${PROD_HOST:-}" && -n "${PROD_USER:-}" && -n "${PROD_PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/prod_known_hosts" ]]; then
-            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes \
-              "$PROD_USER@$PROD_HOST" "rm -f '/tmp/tai-reg-ru-deploy-${GITHUB_RUN_ID}.sh' '/tmp/tai-model-token-${GITHUB_RUN_ID}'"
-          fi
-          rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/model_known_hosts" "$HOME/.ssh/prod_known_hosts" "$RUNNER_TEMP/tai-model-token"
-          set -e
