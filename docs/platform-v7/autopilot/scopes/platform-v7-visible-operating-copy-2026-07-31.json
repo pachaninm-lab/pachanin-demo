@@ -14,6 +14,7 @@
     "apps/web/i18n/platform-v7-organization-connect-product.ts",
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/app/api/health/ready/route.ts",
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "apps/web/tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts",
     "docs/platform-v7/autopilot/scopes/platform-v7-visible-operating-copy-2026-07-31.json"
   ],
@@ -30,6 +31,7 @@
     "proof strip exposes 12 roles, 19 stages, RU EN ZH and TAI",
     "role scenario contains no example-interface or permission-explanation residue",
     "organization form uses business tasks rather than technical integration wording",
+    "browser acceptance asserts the final visible role copy",
     "all copy remains inside the approved design and responsive behavior",
     "exact-main production release and live mobile acceptance pass"
   ]
