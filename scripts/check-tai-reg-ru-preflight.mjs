@@ -98,8 +98,11 @@ for (const fragment of [
   'RUNNER_VERSION="2.336.0"',
   'RUNNER_PACKAGE_SHA256="04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d"',
   'RUNNER_REGISTRATION_TOKEN',
+  '[[ "$(id -u)" -eq 0 ]]',
+  'install -d -m 0750 -o root -g root "$RUNNER_ROOT"',
+  '"$RUNNER_ROOT/bin/installdependencies.sh"',
+  'chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_ROOT"',
   '--labels "pc-prod,tai-readonly"',
-  'bin/installdependencies.sh',
   './svc.sh install "$RUNNER_USER"',
   'NoNewPrivileges=true',
   'ProtectKernelTunables=true',
@@ -107,6 +110,16 @@ for (const fragment of [
   'ProtectControlGroups=true',
   'TRANSPORT=OUTBOUND_ONLY',
 ]) requireFragment(bootstrap, fragment, bootstrapPath);
+
+const dependencyInstallIndex = bootstrap.indexOf('"$RUNNER_ROOT/bin/installdependencies.sh"');
+const ownershipTransferIndex = bootstrap.indexOf('chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_ROOT"');
+if (
+  dependencyInstallIndex < 0
+  || ownershipTransferIndex < 0
+  || dependencyInstallIndex > ownershipTransferIndex
+) {
+  violations.push(`${bootstrapPath}: checksum-verified dependency installation must run as root before ownership transfer`);
+}
 
 forbid(
   workflow,
@@ -162,6 +175,11 @@ forbid(script, /(?:password|secret|api_key|database_url)\s*=.*(?:echo|printf)/iu
 forbid(script, /^\s*ports\s*:/mu, `${scriptPath}: preflight must not define public ports`);
 forbid(bootstrap, /set\s+-[^\n]*x/iu, `${bootstrapPath}: shell tracing is forbidden`);
 forbid(bootstrap, /echo[^\n]*(?:RUNNER_REGISTRATION_TOKEN|registration_token|token=)/iu, `${bootstrapPath}: registration token must not be printed`);
+forbid(
+  bootstrap,
+  /sudo\s+-u\s+"?\$RUNNER_USER"?[^\n]*installdependencies[.]sh/iu,
+  `${bootstrapPath}: dependency installer must not run as the unprivileged runner user`,
+);
 
 if (violations.length > 0) {
   console.error('TAI REG.RU preflight contract failed:');
@@ -169,4 +187,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('TAI REG.RU preflight contract PASS: exact-main, local outbound-only runner, read-only, override-aware, digest-bound, effective-least-privilege and fail-closed.');
+console.log('TAI REG.RU preflight contract PASS: exact-main, root-authorized dependency bootstrap, local outbound-only runner, read-only, override-aware, digest-bound, effective-least-privilege and fail-closed.');
