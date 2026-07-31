@@ -13,9 +13,14 @@ on:
       - "infra/docker/Dockerfile.tai"
       - ".github/workflows/docker-publish.yml"
       - ".github/workflows/production-full-stack-exact-sha.yml"
+      - ".github/workflows/tai-reg-ru-preflight.yml"
       - "scripts/production-full-stack-exact-sha.sh"
       - "scripts/production-full-stack-live-acceptance.sh"
       - "scripts/check-production-full-stack-release.mjs"
+      - "scripts/tai-reg-ru-preflight.sh"
+      - "scripts/check-tai-reg-ru-preflight.mjs"
+      - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
+      - "docs/platform-v7/autopilot/scopes/*reg-ru-preflight*.json"
   workflow_dispatch:
     inputs:
       services:
