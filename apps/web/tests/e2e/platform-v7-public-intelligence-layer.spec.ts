@@ -81,18 +81,20 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.locator('#difference')).toContainText('От согласования цены до закрытия Сделки — один управляемый процесс');
     await expect(page.locator('#difference [role="table"]')).toHaveCount(1);
     await expect(page.locator('#difference [data-comparison-row="true"]')).toHaveCount(6);
-    await expect(page.locator('#functions article')).toHaveCount(8);
-    await expect(page.locator('#deal-path article')).toHaveCount(6);
-    await expect(page.locator('#deal-path .pc-v6-lifecycle [role="listitem"]')).toHaveCount(19);
+    await expect(page.locator('#functions article')).toHaveCount(7);
+    await expect(page.locator('#functions')).toContainText('Показать шаги 5–7');
+    await expect(page.locator('#deal-path')).toHaveCount(0);
+    await expect(page.locator('#trust')).toBeVisible();
+    await expect(page.locator('#trust .pc-home-trust-grid article')).toHaveCount(4);
+    await expect(page.locator('#connection-process')).toBeVisible();
+    await expect(page.locator('#connection-process article')).toHaveCount(3);
     if ((page.viewportSize()?.width ?? 1440) < 768) {
       const disclosures = [
         { id: '#difference-more-toggle', controls: 'difference-comparison-rows' },
         { id: '#functions-more-toggle', controls: 'functions-more-cards' },
-        { id: '#phases-more-toggle', controls: 'phases-more-cards' },
       ] as const;
       await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(2);
-      await expect(page.locator('#functions article').nth(7)).toBeHidden();
-      await expect(page.locator('#deal-path article').nth(5)).toBeHidden();
+      await expect(page.locator('#functions article').nth(6)).toBeHidden();
       for (const disclosure of disclosures) {
         const toggle = page.locator(disclosure.id);
         const label = page.locator(`label[for="${disclosure.id.slice(1)}"]`);
@@ -105,8 +107,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       }
     }
     await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(6);
-    await expect(page.locator('#functions article').nth(7)).toBeVisible();
-    await expect(page.locator('#deal-path article').nth(5)).toBeVisible();
+    await expect(page.locator('#functions article').nth(6)).toBeVisible();
     await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
     await expect(page.getByRole('banner')).toHaveCount(1);
     await expect(page.getByRole('contentinfo')).toHaveCount(1);
@@ -140,7 +141,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     await expectMinimumTargets(
       page,
-      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"], label[for="phases-more-toggle"]',
+      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"]',
     );
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
@@ -148,7 +149,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('390×844 first viewport contains the category, result, primary action and public AI', async ({ page }) => {
+  test('390×844 first viewport contains the category, result, primary action and compact public AI', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
@@ -167,7 +168,28 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
     await expect(dock).toBeVisible();
     await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
+    const secondaryActions = dock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
+    await expect(secondaryActions).toHaveCount(2);
+    for (const action of await secondaryActions.all()) await expect(action).toBeHidden();
+    const dockBox = await dock.boundingBox();
+    expect(dockBox).not.toBeNull();
+    expect(dockBox?.width ?? 9999).toBeLessThanOrEqual(58);
+    expect(dockBox?.x ?? -1).toBeGreaterThanOrEqual(320);
     await expectNoHorizontalOverflow(page);
+  });
+
+  test('public Trust Center states verifiable boundaries without certification claims', async ({ page }) => {
+    const runtimeFailures = collectRuntimeFailures(page);
+    const response = await page.goto('/platform-v7/trust?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    await expect(page.locator('#pc-trust-title')).toBeVisible();
+    await expect(page.locator('.pc-trust-domains article')).toHaveCount(4);
+    await expect(page.locator('#controls')).toContainText('Критические решения подтверждает уполномоченный участник');
+    await expect(page.locator('#ai')).toContainText('нет самостоятельного права');
+    await expect(page.locator('#claims')).toContainText('не заявляет без доказательств');
+    await expectNoHorizontalOverflow(page);
+    await expectNoSeriousAxeViolations(page);
+    expect(runtimeFailures).toEqual([]);
   });
 
   test('TAI passport exposes controlled layers without overstating maturity', async ({ page }) => {
@@ -197,7 +219,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('specified 320–1440 widths keep both public routes inside the viewport', async ({ page }, testInfo) => {
+  test('specified 320–1440 widths keep public routes inside the viewport', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Full width matrix runs once on Chromium.');
     const cases = [
       { width: 320, locale: 'ru' }, { width: 375, locale: 'en' }, { width: 390, locale: 'zh' },
@@ -211,10 +233,17 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       await expect(page.locator('#difference')).toBeVisible();
       await expect(page.locator('#functions')).toBeVisible();
       await expect(page.locator('#live')).toBeVisible();
+      await expect(page.locator('#trust')).toBeVisible();
+      await expect(page.locator('#connection-process')).toBeVisible();
+      await expect(page.locator('#deal-path')).toHaveCount(0);
       await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
       await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');
+      const trust = await page.goto(`/platform-v7/trust?lang=${item.locale}`, { waitUntil: 'load' });
+      expect(trust?.ok(), `trust ${item.width}px ${item.locale}`).toBe(true);
+      await expect(page.locator('.pc-trust-domains article')).toHaveCount(4);
+      await expectNoHorizontalOverflow(page);
       const passport = await page.goto(`/platform-v7/ai-in-action?lang=${item.locale}`, { waitUntil: 'load' });
       expect(passport?.ok(), `passport ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-ai-in-action-authority"]')).toBeVisible();
