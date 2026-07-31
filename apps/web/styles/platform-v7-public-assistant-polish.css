@@ -1,0 +1,368 @@
+/*
+ * Final public-assistant presentation authority.
+ *
+ * This layer is intentionally loaded after the historical assistant styles.
+ * It uses current component selectors and slightly higher specificity so the
+ * mobile viewport, header and composer have one deterministic owner.
+ */
+
+.pc-public-assistant .pc-public-assistant-message[data-role='assistant'][data-origin]
+  .pc-public-assistant-answer > div:first-child > span:first-child {
+  display: none !important;
+}
+
+.pc-public-assistant .pc-public-assistant-message-actions button[aria-label='Ответ полезен'],
+.pc-public-assistant .pc-public-assistant-message-actions button[aria-label='Сообщить об ошибке'],
+.pc-public-assistant .pc-public-assistant-message-actions button[aria-label='Useful answer'],
+.pc-public-assistant .pc-public-assistant-message-actions button[aria-label='Report an error'],
+.pc-public-assistant .pc-public-assistant-message-actions button[aria-label='回答有用'],
+.pc-public-assistant .pc-public-assistant-message-actions button[aria-label='报告错误'] {
+  display: none !important;
+}
+
+.pc-public-assistant .pc-public-assistant-processing span {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.pc-public-assistant .pc-public-assistant-stream-provisional {
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+.pc-public-assistant .pc-public-assistant-composer-shell {
+  border: 1px solid transparent !important;
+  background: #f2f5f3 !important;
+  box-shadow: none !important;
+}
+
+.pc-public-assistant .pc-public-assistant-composer-shell:focus-within,
+.pc-public-assistant .pc-public-assistant-composer-shell:has(textarea:focus-visible) {
+  border-color: #b8d0c1 !important;
+  background: #eef3f0 !important;
+  box-shadow: 0 0 0 2px rgba(8, 122, 59, 0.1) !important;
+}
+
+@media (max-width: 720px) {
+  .pc-public-assistant .pc-public-assistant-backdrop {
+    top: var(--pc-visual-viewport-top, 0px) !important;
+    right: 0 !important;
+    bottom: auto !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: var(--pc-visual-viewport-height, 100dvh) !important;
+    min-height: 0 !important;
+    background: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /*
+   * On phones the assistant is a true application viewport, not a short sheet.
+   * The composer therefore remains at the visible bottom both before and after
+   * the software keyboard animates, with no exposed page strip underneath it.
+   */
+  .pc-public-assistant .pc-public-assistant-panel,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true'],
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] {
+    top: var(--pc-ai-visible-top, var(--pc-visual-viewport-top, 0px)) !important;
+    right: 0 !important;
+    bottom: auto !important;
+    left: 0 !important;
+    display: flex !important;
+    width: 100% !important;
+    height: var(--pc-ai-visible-height, var(--pc-visual-viewport-height, 100dvh)) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel .pc-public-assistant-header {
+    position: relative !important;
+    top: auto !important;
+    z-index: 3 !important;
+    display: grid !important;
+    flex: 0 0 auto !important;
+    grid-template-columns: minmax(0, 1fr) 44px !important;
+    min-width: 0 !important;
+    min-height: 60px !important;
+    align-items: center !important;
+    column-gap: 8px !important;
+    padding: max(7px, env(safe-area-inset-top, 0px)) 9px 7px 12px !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    border-bottom: 1px solid #e8eeea !important;
+    background: #ffffff !important;
+  }
+
+  /* A mobile viewport is already full screen; a second expand control is noise. */
+  .pc-public-assistant .pc-public-assistant-panel .pc-public-assistant-header
+    > .pc-public-assistant-icon-button:first-of-type,
+  .pc-public-assistant .pc-public-assistant-panel .pc-public-assistant-header
+    > [data-pc-public-assistant-fullscreen] {
+    display: none !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel .pc-public-assistant-header
+    > .pc-public-assistant-icon-button:last-child {
+    display: inline-flex !important;
+    grid-column: 2 !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-color: #d9e4dd !important;
+    border-radius: 11px !important;
+    background: #ffffff !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel .pc-public-assistant-identity {
+    display: grid !important;
+    grid-template-columns: 40px minmax(0, 1fr) !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    align-items: center !important;
+    gap: 9px !important;
+    overflow: hidden !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel .pc-public-assistant-identity
+    > .pc-public-assistant-mark {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    border-color: #cfe0d6 !important;
+    border-radius: 11px !important;
+    background: #f5faf7 !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel #pc-public-assistant-title {
+    font-size: 16px !important;
+    font-weight: 680 !important;
+    line-height: 1.16 !important;
+    letter-spacing: -0.018em !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel
+    [data-pc-public-assistant-subtitle='true'] {
+    display: -webkit-box !important;
+    color: #2f7d5a !important;
+    font-size: 9.5px !important;
+    font-weight: 580 !important;
+    line-height: 1.2 !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-messages {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 16px 14px 12px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    background: #ffffff !important;
+    overscroll-behavior: contain !important;
+    scrollbar-gutter: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pc-public-assistant .pc-public-assistant-empty {
+    display: grid !important;
+    min-height: 100% !important;
+    align-content: start !important;
+    gap: 16px !important;
+    padding: 2px 0 8px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-empty-copy {
+    gap: 7px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-empty h2 {
+    font-size: clamp(21px, 6vw, 26px) !important;
+    font-weight: 680 !important;
+    line-height: 1.16 !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-empty p {
+    max-width: 38ch !important;
+    font-size: 15px !important;
+    line-height: 1.45 !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-quick-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-quick-actions button {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    min-height: 48px !important;
+    justify-content: center !important;
+    padding: 9px 10px !important;
+    white-space: normal !important;
+    text-align: center !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-quick-actions button:nth-child(3):last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-composer {
+    position: relative !important;
+    bottom: auto !important;
+    z-index: 4 !important;
+    display: grid !important;
+    flex: 0 0 auto !important;
+    gap: 5px !important;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    border-top: 1px solid #e8eeea !important;
+    background: #ffffff !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    .pc-public-assistant-composer,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    .pc-public-assistant-composer {
+    padding-bottom: 8px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-composer-shell {
+    min-height: 52px !important;
+    align-items: flex-end !important;
+    gap: 6px !important;
+    padding: 4px 4px 4px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-composer textarea {
+    min-height: 44px !important;
+    max-height: 96px !important;
+    padding: 10px 0 8px !important;
+    font-size: 16px !important;
+    font-weight: 430 !important;
+    line-height: 1.35 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-composer textarea::placeholder {
+    color: #7b8982 !important;
+    font-size: 14.5px !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-composer-button {
+    flex-basis: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: 11px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-privacy {
+    max-width: 62ch !important;
+    margin-inline: auto !important;
+    color: #74827b !important;
+    font-size: 10.5px !important;
+    line-height: 1.35 !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    .pc-public-assistant-header,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    .pc-public-assistant-header {
+    min-height: 54px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    [data-pc-public-assistant-subtitle='true'],
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    [data-pc-public-assistant-subtitle='true'] {
+    display: none !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    .pc-public-assistant-identity > .pc-public-assistant-mark,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    .pc-public-assistant-identity > .pc-public-assistant-mark {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    .pc-public-assistant-identity,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    .pc-public-assistant-identity {
+    grid-template-columns: 36px minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .pc-public-assistant .pc-public-assistant-quick-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-quick-actions button:nth-child(3):last-child {
+    grid-column: auto !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-empty h2 {
+    font-size: 21px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-empty p {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-height: 520px) and (max-width: 720px) {
+  .pc-public-assistant .pc-public-assistant-empty-copy {
+    display: none !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-empty {
+    gap: 8px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-quick-actions button {
+    min-height: 42px !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .pc-public-assistant .pc-public-assistant-composer-shell,
+  .pc-public-assistant .pc-public-assistant-composer-shell:focus-within {
+    border: 1px solid ButtonText !important;
+    box-shadow: none !important;
+  }
+}
