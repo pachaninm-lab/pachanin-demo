@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          docker run --rm --entrypoint python "$IMAGE" - <<'PY'
+          docker run --rm --interactive --entrypoint python "$IMAGE" - <<'PY'
           import json
           from importlib.resources import files
 
