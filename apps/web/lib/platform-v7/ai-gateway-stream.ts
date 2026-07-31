@@ -39,7 +39,7 @@ export interface ReadGatewayStreamOptions {
 
 /** Largest unfinished SSE record the client will hold. */
 export const MAX_PENDING_RECORD_CHARS = 64 * 1024;
-export const PUBLIC_STREAM_TIMEOUT_MS = 45_000;
+export const PUBLIC_STREAM_TIMEOUT_MS = 100_000;
 
 const EMPTY: GatewayStreamSnapshot = {
   status: 'streaming',
