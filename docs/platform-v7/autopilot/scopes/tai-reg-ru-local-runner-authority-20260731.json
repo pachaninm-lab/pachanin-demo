@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reg-ru-local-runner-authority-20260731",
+  "status": "active",
+  "purpose": "Replace all production inbound SSH dependencies in the TAI REG.RU activation, preflight and deployment chain with an outbound-only exact-main self-hosted release runner on the existing REG.RU VPS.",
+  "approvedBy": "owner-direct-do-it-correctly-2026-07-31",
+  "authorityBaseExactMain": "30eec47491be42db1964a46aa0e7342c0b2eec2f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowed": true,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/tai-reg-ru-preflight.sh",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-preflight.mjs",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/check-tai-reg-ru-local-runner.mjs",
+    "scripts/install-pc-prod-actions-runner.sh",
+    "scripts/tai-restricted-qwen-reg-ru-activate.sh",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "scripts/production-full-stack-exact-sha.sh",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
+    "apps/tai/TAI_REG_RU_DEPLOY.md",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-local-runner-authority-20260731.json"
+  ],
+  "requiredBehavior": [
+    "run pull-request contracts and image verification only on GitHub-hosted runners",
+    "run production activation, preflight and deployment only on the exact labeled REG.RU runner",
+    "require exact current main and owner confirmation for every manual production execution",
+    "remove production SSH host, port, private key, fingerprint, ssh-keyscan, ssh and scp from the production chain",
+    "keep model-host access private-network-only and server-side",
+    "preserve rollback before any success claim",
+    "publish commit statuses and issue comments from hosted jobs, not from the production runner",
+    "provide checksum-pinned one-time runner bootstrap with no recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "production execution from pull_request or pull_request_target",
+    "public production SSH dependency",
+    "new server, provider, VPN, tunnel, SaaS, paid API or recurring payment",
+    "public model port publication",
+    "credential output or client exposure",
+    "cloud LLM fallback",
+    "production PASS without exact-main live evidence",
+    "unbounded database grants or autonomous platform writes"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 12,
+    "requiredChecks": [
+      "Workflow Syntax Guard",
+      "CI",
+      "Node CI",
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatusBeforeRunnerInstallation": "RUNNER_INSTALLATION_REQUIRED"
+  }
+}
