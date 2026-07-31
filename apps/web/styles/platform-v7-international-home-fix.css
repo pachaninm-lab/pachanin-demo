@@ -267,6 +267,12 @@
     scroll-margin-top: calc(var(--entry-header-height, 48px) + 12px);
   }
 
+  .pc-home-trust > .pc-v6-section-head h2,
+  .pc-home-connection-process > .pc-v6-section-head h2 {
+    font-size: clamp(32px, 7.6vw, 38px);
+    line-height: 1.08;
+  }
+
   .pc-home-trust {
     margin-inline: -2px;
     padding: 22px 16px !important;

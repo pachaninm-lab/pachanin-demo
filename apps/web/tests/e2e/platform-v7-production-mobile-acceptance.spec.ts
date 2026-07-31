@@ -8,7 +8,6 @@ const viewports = [
 const currentPublicAnchorIds = [
   'difference',
   'functions',
-  'deal-path',
   'live',
   'participants',
   'tai',
