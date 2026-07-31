@@ -99,7 +99,10 @@ for (const fragment of [
   'RUNNER_PACKAGE_SHA256="04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d"',
   'RUNNER_REGISTRATION_TOKEN',
   '[[ "$(id -u)" -eq 0 ]]',
-  'install -d -m 0750 -o root -g root "$RUNNER_ROOT"',
+  'if [[ ! -d "$RUNNER_ROOT" ]]; then\n  install -d -m 0750 -o root -g root "$RUNNER_ROOT"',
+  'existing runner directory ownership mismatch',
+  'unconfigured runner directory is not empty',
+  'chown root:root "$RUNNER_ROOT"',
   '"$RUNNER_ROOT/bin/installdependencies.sh"',
   'chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_ROOT"',
   '--labels "pc-prod,tai-readonly"',
@@ -187,4 +190,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('TAI REG.RU preflight contract PASS: exact-main, root-authorized dependency bootstrap, local outbound-only runner, read-only, override-aware, digest-bound, effective-least-privilege and fail-closed.');
+console.log('TAI REG.RU preflight contract PASS: exact-main, root-authorized idempotent dependency bootstrap, local outbound-only runner, read-only, override-aware, digest-bound, effective-least-privilege and fail-closed.');
