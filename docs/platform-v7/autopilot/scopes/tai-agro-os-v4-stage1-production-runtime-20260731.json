@@ -9,6 +9,7 @@
   "newRecurringCostRub": 0,
   "allowedPaths": [
     ".github/workflows/docker-publish.yml",
+    ".github/workflows/tai-production-runtime-image.yml",
     "apps/tai/TAI_PRODUCTION_RUNTIME_STAGE1.md",
     "apps/tai/tai/production_authenticated_runtime.py",
     "apps/tai/tai/production_entrypoint.py",
@@ -26,6 +27,8 @@
     "use authenticated transport for inference and supervisor warm-up",
     "build a rootless single-worker TAI image",
     "label the image with the exact source revision",
+    "run the image with a read-only root filesystem and all capabilities dropped",
+    "prove liveness and deny-by-default readiness in the real container",
     "publish the TAI image through the existing GHCR authority",
     "keep all production deployment claims separate from image publication",
     "add focused tests and preserve at least 90 percent TAI coverage"
@@ -49,6 +52,7 @@
     "reviewThreadsRequired": 0,
     "requiredChecks": [
       "TAI Foundation",
+      "TAI Production Runtime Image",
       "CI",
       "Node CI",
       "Security Quality Gate",
