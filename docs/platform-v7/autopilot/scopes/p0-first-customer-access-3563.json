@@ -7,6 +7,19 @@
   "authorityBaseExactMain": "73574d194b53d71103f733553296820f023615a5",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
+  "repairEvidence": {
+    "sourceHead": "73322f2120d112aea997b8c433eb1ff2ce52de34",
+    "synchronizedHead": "d5de50c673b75660d578c26cc0c54dd39881548c",
+    "repairHead": "82453ae20a7b5f04202a974aa0b312c80934825c",
+    "confirmedDefects": [
+      "Prisma schema drift for organization and membership admission columns",
+      "duplicate registration approval authority with divergent organization status semantics"
+    ],
+    "repair": [
+      "align Prisma schema with forward-only PostgreSQL migrations",
+      "retain RegistrationDecisionService as the single approval authority"
+    ]
+  },
   "allowedPaths": [
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260731195000_p0_password_reset_challenges/migration.sql",
