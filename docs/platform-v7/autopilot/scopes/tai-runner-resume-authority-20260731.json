@@ -8,6 +8,7 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
     "scripts/resume-pc-prod-actions-runner.sh",
     "scripts/check-resume-pc-prod-actions-runner.mjs",
     "docs/platform-v7/autopilot/scopes/tai-runner-resume-authority-20260731.json"
@@ -21,7 +22,8 @@
     "materialize only the restricted root controller sudo authority",
     "install and harden the runner systemd service as pcactions",
     "prove the running runner has no Docker supplementary group",
-    "write the redacted runner authority evidence atomically"
+    "write the redacted runner authority evidence atomically",
+    "run Bash and Node resume contracts in the hosted preflight contract job while production jobs remain skipped on pull requests"
   ],
   "forbiddenCapabilities": [
     "runner re-registration or token consumption",
@@ -37,11 +39,12 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 3,
+    "changedPathCount": 4,
     "productionMutationAllowedBeforeMerge": false,
     "requiredChecks": [
       "platform-v7 autopilot guard",
       "Workflow Syntax Guard",
+      "TAI REG.RU Preflight",
       "CI",
       "Node CI",
       "Security Quality Gate",
