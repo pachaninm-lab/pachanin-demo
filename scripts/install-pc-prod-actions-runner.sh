@@ -25,7 +25,7 @@ fail() {
 [[ "$REGISTRATION_TOKEN" != *[[:space:]]* ]] || fail "registration token contains whitespace"
 [[ "$REGISTRATION_TOKEN" =~ ^[A-Za-z0-9._=-]{20,256}$ ]] || fail "registration token format is invalid"
 
-for command in curl tar sha256sum systemctl useradd usermod sudo; do
+for command in curl tar sha256sum systemctl useradd usermod sudo python3 find getent install; do
   command -v "$command" >/dev/null 2>&1 || fail "$command is required"
 done
 getent group docker >/dev/null 2>&1 || fail "docker group is required"
@@ -60,6 +60,8 @@ else
   printf '%s  %s\n' "$RUNNER_PACKAGE_SHA256" "$package" | sha256sum --check --status \
     || fail "runner package checksum mismatch"
   tar --extract --gzip --file "$package" --directory "$RUNNER_ROOT"
+  [[ -x "$RUNNER_ROOT/bin/installdependencies.sh" ]] || fail "runner dependency installer is unavailable"
+  "$RUNNER_ROOT/bin/installdependencies.sh"
   chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_ROOT"
 
   sudo -u "$RUNNER_USER" -H bash -c \
