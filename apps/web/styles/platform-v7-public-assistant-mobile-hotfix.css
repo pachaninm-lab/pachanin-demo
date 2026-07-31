@@ -1,6 +1,7 @@
 /*
  * Public assistant mobile keyboard and visual-lightness authority.
  * Loaded after the legacy assistant layers so current composer selectors win.
+ * Geometry is owned exclusively by PublicAssistantMobileLayoutAuthority.
  */
 
 .pc-site-header .pc-site-brand-text strong {
@@ -143,32 +144,9 @@
     box-shadow: 0 -10px 34px rgba(9, 33, 24, 0.13) !important;
   }
 
-  /*
-   * The keyboard state is positioned by both edges, not by a guessed height.
-   * This avoids the dead strip produced by Chromium shells whose keyboard top
-   * and visualViewport use different coordinate spaces.
-   */
-  .pc-public-assistant-panel[data-pc-keyboard-focus='true'],
-  .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] {
-    top: var(--pc-ai-keyboard-top, var(--pc-visual-viewport-top, 0px)) !important;
-    right: 0 !important;
-    bottom: var(
-      --pc-ai-keyboard-bottom,
-      max(var(--pc-visual-viewport-bottom, 0px), env(keyboard-inset-height, 0px))
-    ) !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-width: none !important;
-    max-height: none !important;
-    box-sizing: border-box !important;
-    border-right: 0 !important;
-    border-bottom: 0 !important;
-    border-left: 0 !important;
-    border-radius: 0 !important;
-  }
-
+  /* Legacy keyboard-focus data attributes remain non-authoritative. Never set
+   * panel top, bottom or height here: doing so creates a second coordinate
+   * system that races the visual-viewport runtime on iOS and Yandex Browser. */
   .pc-public-assistant-panel[data-pc-keyboard-focus='true'] .pc-public-assistant-messages,
   .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] .pc-public-assistant-messages {
     min-height: 0 !important;
@@ -178,7 +156,6 @@
   .pc-public-assistant-panel[data-pc-keyboard-focus='true'] .pc-public-assistant-composer,
   .pc-public-assistant-panel[data-pc-keyboard-viewport='true'] .pc-public-assistant-composer {
     flex: 0 0 auto !important;
-    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .pc-public-assistant-header {

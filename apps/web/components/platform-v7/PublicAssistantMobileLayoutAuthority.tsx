@@ -66,24 +66,11 @@ const MESSAGE_STYLE_PROPERTIES = [
   'overflow-x',
   'overflow-y',
   'background',
+  'touch-action',
 ] as const;
 
-const ROOT_LOCK_PROPERTIES = [
-  'overflow',
-  'overscroll-behavior',
-] as const;
-
-const BODY_LOCK_PROPERTIES = [
-  'position',
-  'top',
-  'right',
-  'bottom',
-  'left',
-  'width',
-  'height',
-  'overflow',
-  'overscroll-behavior',
-] as const;
+const ROOT_LOCK_PROPERTIES = ['overflow', 'overscroll-behavior'] as const;
+const BODY_LOCK_PROPERTIES = ['overflow', 'overscroll-behavior'] as const;
 
 type StyleSnapshot = Map<string, { value: string; priority: string }>;
 type ScrollLock = {
@@ -128,6 +115,10 @@ function clearMobileAuthority(panel: HTMLElement) {
   }
 }
 
+function isInsideMessages(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(MESSAGES_SELECTOR));
+}
+
 export function PublicAssistantMobileLayoutAuthority() {
   useEffect(() => {
     const root = document.documentElement;
@@ -135,15 +126,26 @@ export function PublicAssistantMobileLayoutAuthority() {
     const viewport = window.visualViewport;
     const media = window.matchMedia(MOBILE_QUERY);
     let frame = 0;
+    let settleFrame = 0;
     let pollTimer = 0;
-    let lastGoodHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+    let missingPanelFrames = 0;
     let scrollLock: ScrollLock | null = null;
     let observedPanel: HTMLElement | null = null;
     const resizeObserver = new ResizeObserver(() => schedule());
 
     const schedule = () => {
       if (frame) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(layout);
+      if (settleFrame) window.cancelAnimationFrame(settleFrame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        // WebKit can expose stale viewport values in the first animation frame
+        // after keyboard focus/resize. The second frame is the earliest stable
+        // point documented by real iOS reproductions.
+        settleFrame = window.requestAnimationFrame(() => {
+          settleFrame = 0;
+          layout();
+        });
+      });
     };
 
     const stopPolling = () => {
@@ -153,9 +155,7 @@ export function PublicAssistantMobileLayoutAuthority() {
 
     const startPolling = () => {
       if (pollTimer) return;
-      // WebKit can publish keyboard viewport geometry after the first resize
-      // frame or without another reliable event. Poll only while the dialog is open.
-      pollTimer = window.setInterval(schedule, 120);
+      pollTimer = window.setInterval(schedule, 160);
     };
 
     const lockPage = () => {
@@ -170,14 +170,6 @@ export function PublicAssistantMobileLayoutAuthority() {
       root.dataset.pcPublicAssistantScrollLock = 'true';
       setImportant(root, 'overflow', 'hidden');
       setImportant(root, 'overscroll-behavior', 'none');
-
-      setImportant(body, 'position', 'fixed');
-      setImportant(body, 'top', `${-scrollLock.y}px`);
-      setImportant(body, 'right', '0');
-      setImportant(body, 'bottom', 'auto');
-      setImportant(body, 'left', `${-scrollLock.x}px`);
-      setImportant(body, 'width', '100%');
-      setImportant(body, 'height', 'auto');
       setImportant(body, 'overflow', 'hidden');
       setImportant(body, 'overscroll-behavior', 'none');
     };
@@ -190,6 +182,16 @@ export function PublicAssistantMobileLayoutAuthority() {
       restoreProperties(root, locked.root);
       restoreProperties(body, locked.body);
       window.requestAnimationFrame(() => window.scrollTo(locked.x, locked.y));
+    };
+
+    const preventBackgroundTouch = (event: TouchEvent) => {
+      if (!scrollLock || isInsideMessages(event.target)) return;
+      event.preventDefault();
+    };
+
+    const preventBackgroundWheel = (event: WheelEvent) => {
+      if (!scrollLock || isInsideMessages(event.target)) return;
+      event.preventDefault();
     };
 
     const observePanel = (panel: HTMLElement | null) => {
@@ -206,17 +208,28 @@ export function PublicAssistantMobileLayoutAuthority() {
     };
 
     const layout = () => {
-      frame = 0;
       const panel = document.querySelector<HTMLElement>(PANEL_SELECTOR);
       observePanel(panel);
 
       if (!panel || !media.matches) {
+        if (!panel && media.matches && scrollLock && missingPanelFrames < 2) {
+          missingPanelFrames += 1;
+          schedule();
+          return;
+        }
+        missingPanelFrames = 0;
         stopPolling();
         if (panel) clearMobileAuthority(panel);
+        const backdrop = document.querySelector<HTMLElement>(BACKDROP_SELECTOR);
+        if (backdrop) {
+          delete backdrop.dataset.pcMobileViewportAuthority;
+          removeProperties(backdrop, BACKDROP_STYLE_PROPERTIES);
+        }
         unlockPage();
         return;
       }
 
+      missingPanelFrames = 0;
       const messages = panel.querySelector<HTMLElement>(MESSAGES_SELECTOR);
       const composer = panel.querySelector<HTMLElement>(COMPOSER_SELECTOR);
       if (!messages || !composer) return;
@@ -229,9 +242,7 @@ export function PublicAssistantMobileLayoutAuthority() {
       const pageRelativeTop = Math.max(0, (viewport?.pageTop ?? referenceScrollY) - referenceScrollY);
       const visualTop = Math.round(Math.max(visualOffsetTop, pageRelativeTop));
       const visualLeft = Math.max(0, Math.round(viewport?.offsetLeft ?? 0));
-      const rawHeight = Math.round(viewport?.height ?? window.innerHeight);
-      if (rawHeight >= 120) lastGoodHeight = rawHeight;
-      const visualHeight = Math.max(1, lastGoodHeight);
+      const visualHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
       const visualWidth = Math.max(1, Math.round(viewport?.width ?? window.innerWidth));
 
       panel.dataset.pcMobileViewportAuthority = 'true';
@@ -260,10 +271,8 @@ export function PublicAssistantMobileLayoutAuthority() {
       setImportant(messages, 'overflow-x', 'hidden');
       setImportant(messages, 'overflow-y', 'auto');
       setImportant(messages, 'background', '#ffffff');
+      setImportant(messages, 'touch-action', 'pan-y');
 
-      // Header, messages and composer must be one flex column. Moving the
-      // composer into an absolute footer creates a second coordinate system and
-      // is the direct cause of the exposed scrolling page shown on iOS.
       for (const node of panel.querySelectorAll<HTMLElement>(FOOTER_SELECTOR)) {
         setImportant(node, 'position', 'relative');
         setImportant(node, 'top', 'auto');
@@ -279,6 +288,7 @@ export function PublicAssistantMobileLayoutAuthority() {
 
       const backdrop = document.querySelector<HTMLElement>(BACKDROP_SELECTOR);
       if (backdrop) {
+        backdrop.dataset.pcMobileViewportAuthority = 'true';
         setImportant(backdrop, 'position', 'fixed');
         setImportant(backdrop, 'top', `${visualTop}px`);
         setImportant(backdrop, 'right', 'auto');
@@ -304,11 +314,14 @@ export function PublicAssistantMobileLayoutAuthority() {
     document.addEventListener('focusin', schedule);
     document.addEventListener('focusout', schedule);
     document.addEventListener('visibilitychange', schedule);
+    document.addEventListener('touchmove', preventBackgroundTouch, { passive: false });
+    document.addEventListener('wheel', preventBackgroundWheel, { passive: false });
     media.addEventListener?.('change', schedule);
     schedule();
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
+      if (settleFrame) window.cancelAnimationFrame(settleFrame);
       stopPolling();
       mutationObserver.disconnect();
       resizeObserver.disconnect();
@@ -321,10 +334,15 @@ export function PublicAssistantMobileLayoutAuthority() {
       document.removeEventListener('focusin', schedule);
       document.removeEventListener('focusout', schedule);
       document.removeEventListener('visibilitychange', schedule);
+      document.removeEventListener('touchmove', preventBackgroundTouch);
+      document.removeEventListener('wheel', preventBackgroundWheel);
       media.removeEventListener?.('change', schedule);
       if (observedPanel) clearMobileAuthority(observedPanel);
       const backdrop = document.querySelector<HTMLElement>(BACKDROP_SELECTOR);
-      if (backdrop) removeProperties(backdrop, BACKDROP_STYLE_PROPERTIES);
+      if (backdrop) {
+        delete backdrop.dataset.pcMobileViewportAuthority;
+        removeProperties(backdrop, BACKDROP_STYLE_PROPERTIES);
+      }
       unlockPage();
     };
   }, []);

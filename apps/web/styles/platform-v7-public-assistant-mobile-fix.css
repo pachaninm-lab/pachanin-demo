@@ -5,9 +5,9 @@
 }
 
 /*
- * Mobile assistant authority.
- * The assistant root must not create a low stacking context: otherwise even a
- * very large child z-index remains underneath the public site header.
+ * Mobile assistant presentation layer.
+ * PublicAssistantMobileLayoutAuthority is the sole owner of live panel and
+ * backdrop geometry. CSS dimensions below are fallback-only before hydration.
  */
 .pc-public-assistant {
   position: static !important;
@@ -119,19 +119,16 @@
     border: 0;
   }
 
-  .pc-public-assistant-backdrop {
+  .pc-public-assistant-backdrop:not([data-pc-mobile-viewport-authority='true']) {
     inset: var(--pc-visual-viewport-top) 0 var(--pc-visual-viewport-bottom) 0 !important;
     width: auto !important;
     height: auto !important;
     min-height: 0 !important;
   }
 
-  /*
-   * Canonical modal bottom sheet: anchored to the bottom, never taller than
-   * roughly two thirds of the visible viewport, with the header always inside
-   * the sheet and the message list as the only flexible region.
-   */
-  .pc-public-assistant-panel {
+  /* Fallback bottom sheet before the runtime authority has measured the visual
+   * viewport. Once the data attribute is present, this block cannot compete. */
+  .pc-public-assistant-panel:not([data-pc-mobile-viewport-authority='true']) {
     top: auto !important;
     right: 0 !important;
     bottom: var(--pc-visual-viewport-bottom) !important;
@@ -221,9 +218,8 @@
   }
 }
 
-/* Keyboard-open and short landscape viewports become a contained full-height sheet. */
 @media (max-height: 600px) and (max-width: 720px) {
-  .pc-public-assistant-panel {
+  .pc-public-assistant-panel:not([data-pc-mobile-viewport-authority='true']) {
     height: calc(var(--pc-visual-viewport-height) - 4px) !important;
     min-height: 0 !important;
     max-height: calc(var(--pc-visual-viewport-height) - 4px) !important;
