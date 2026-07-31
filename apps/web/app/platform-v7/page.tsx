@@ -35,6 +35,26 @@ const CRITICAL_HOME_CSS = `
   min-height: var(--entry-public-header-base) !important;
   max-height: var(--entry-public-header-base) !important;
 }
+.pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type::before {
+  content: '×';
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  margin-top: 1px;
+  border: 2px solid #d92d2d;
+  border-radius: 999px;
+  color: #d92d2d;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
 .pc-v6-hero {
   display: grid;
   align-items: center;
@@ -202,6 +222,11 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   .pc-v7-public-entry {
     --entry-public-header-base: 48px;
     --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
+  }
+  .pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type::before {
+    width: 18px;
+    height: 18px;
+    font-size: 16px;
   }
   .pc-v6-hero {
     gap: 14px;
