@@ -1,0 +1,138 @@
+name: TAI Runtime Image
+
+on:
+  pull_request:
+    paths:
+      - "apps/tai/**"
+      - "infra/docker/Dockerfile.tai"
+      - ".github/workflows/tai-runtime-image.yml"
+      - ".github/workflows/docker-publish.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/tai/**"
+      - "infra/docker/Dockerfile.tai"
+      - ".github/workflows/tai-runtime-image.yml"
+      - ".github/workflows/docker-publish.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-runtime-image-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    name: Rootless image · liveness · fail-closed readiness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      IMAGE: local/tai-runtime:${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build canonical TAI image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker build \
+            --file infra/docker/Dockerfile.tai \
+            --build-arg "GIT_COMMIT=$SOURCE_SHA" \
+            --build-arg "BUILD_DATE=1970-01-01T00:00:00Z" \
+            --build-arg "APP_VERSION=0.1.0" \
+            --tag "$IMAGE" \
+            .
+
+      - name: Verify immutable image contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          user="$(docker image inspect --format '{{.Config.User}}' "$IMAGE")"
+          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE")"
+          test "$user" = '65532:65532'
+          test "$revision" = "$SOURCE_SHA"
+          docker image inspect --format '{{json .Config.Env}}' "$IMAGE" > /tmp/tai-image-env.json
+          python3 - /tmp/tai-image-env.json <<'PY'
+          import json
+          import sys
+
+          rows = json.load(open(sys.argv[1], encoding="utf-8"))
+          forbidden = ("SECRET=", "PASSWORD=", "TOKEN=", "API_KEY=", "DATABASE_URL=")
+          if any(any(marker in row.upper() for marker in forbidden) for row in rows):
+              raise SystemExit("secret-like runtime value was baked into the image")
+          PY
+
+      - name: Verify packaged migration authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker run --rm --interactive --entrypoint python "$IMAGE" - <<'PY'
+          import json
+          from importlib.resources import files
+
+          manifest = files("tai").joinpath("migrations/manifest.json")
+          if not manifest.is_file():
+              raise SystemExit("migration manifest is absent from the runtime image")
+          payload = json.loads(manifest.read_text(encoding="utf-8"))
+          migrations = payload.get("migrations")
+          if payload.get("schema_version") != "tai.migration.manifest.v1":
+              raise SystemExit("migration manifest schema is invalid")
+          if not isinstance(migrations, list) or len(migrations) < 23:
+              raise SystemExit("migration history is incomplete")
+          for item in migrations:
+              path = files("tai").joinpath("migrations", item["path"])
+              if not path.is_file():
+                  raise SystemExit(f"packaged migration is missing: {item['path']}")
+          PY
+
+      - name: Verify liveness and fail-closed readiness
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cid="$(docker run --detach --rm --publish 127.0.0.1:18081:8080 "$IMAGE")"
+          trap 'docker rm --force "$cid" >/dev/null 2>&1 || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 3 \
+              http://127.0.0.1:18081/health/live > /tmp/tai-live.json; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+          status="$(curl --silent --show-error --max-time 3 \
+            --output /tmp/tai-ready.json --write-out '%{http_code}' \
+            http://127.0.0.1:18081/health/ready)"
+          test "$status" = 503
+          python3 - /tmp/tai-live.json /tmp/tai-ready.json <<'PY'
+          import json
+          import sys
+
+          live = json.load(open(sys.argv[1], encoding="utf-8"))
+          ready = json.load(open(sys.argv[2], encoding="utf-8"))
+          if live != {"status": "ok"}:
+              raise SystemExit("liveness contract changed")
+          if ready.get("status") != "not_ready":
+              raise SystemExit("unconfigured production image must fail readiness")
+          reasons = ready.get("reasons")
+          if reasons != ["TAI_PRODUCTION_CONFIGURATION_INVALID"]:
+              raise SystemExit("fail-closed configuration reason changed")
+          PY
+
+      - name: Verify runtime process identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cid="$(docker run --detach --rm "$IMAGE")"
+          trap 'docker rm --force "$cid" >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 20); do
+            state="$(docker inspect --format '{{.State.Status}}' "$cid")"
+            test "$state" != exited || exit 1
+            test "$state" = running && break
+            sleep 1
+          done
+          pid_user="$(docker exec "$cid" id -u)"
+          test "$pid_user" = 65532

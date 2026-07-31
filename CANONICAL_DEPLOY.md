@@ -20,9 +20,11 @@ The public IP is operational inventory, not a permanent identifier. Resolve the 
 
 ## Build authority
 
-`.github/workflows/docker-publish.yml` builds canonical API and web images from changes merged to `main` and publishes them to GHCR with both an exact-SHA tag and `latest`. The images carry the source commit in the OCI label `org.opencontainers.image.revision`.
+`.github/workflows/docker-publish.yml` builds canonical API, web, migration and TAI images from relevant changes merged to `main` and publishes them to GHCR with an exact-SHA tag. The images carry the full source commit in the OCI label `org.opencontainers.image.revision`.
 
-A successful image build means an artifact exists. It does not mean the virtual server has pulled or started it.
+The TAI artifact is `ghcr.io/pachaninm-lab/grainflow-tai:sha-<short-sha>` and is built from `infra/docker/Dockerfile.tai`. Its independent image contract is governed by `.github/workflows/tai-runtime-image.yml` and `apps/tai/TAI_RUNTIME_IMAGE_AUTHORITY.md`.
+
+A successful image build means an artifact exists. It does not mean the virtual server has pulled or started it. In particular, publication of the TAI image does not add a TAI service to the production Compose topology.
 
 ## Deployment paths
 
@@ -41,6 +43,8 @@ The server currently includes Watchtower for automatic `:latest` image refresh. 
 Changes to the server Compose definition, Caddy configuration, production environment, volumes, networks, migrations or service topology do not become active merely because code was merged or an image was published. They require an explicit server-side update from the protected operations directory followed by `docker compose up` for the affected contour.
 
 The repository root `docker-compose.yml` is local-development infrastructure and is not the production Compose file.
+
+Adding the independent TAI service is an infrastructure and configuration change. It requires a protected exact-main release that verifies PostgreSQL migrations and grants, model artifact admission, local-model connectivity, governed knowledge readiness, health, rollback and absence of public direct access before it may be called deployed.
 
 ## Definition of deployed
 
