@@ -100,7 +100,7 @@ def test_custom_trust_is_scoped_to_exact_rosstat_source_and_host() -> None:
         diagnostic_live_definitions(catalog=unsafe_catalog, timeout_seconds=20)
 
 
-def test_audited_pems_are_declared_as_wheel_package_data() -> None:
+def test_audited_resources_are_declared_as_wheel_package_data() -> None:
     package_root = importlib.resources.files("tai")
     for resource_name in (
         "russian_trusted_root_ca.pem",
@@ -108,13 +108,20 @@ def test_audited_pems_are_declared_as_wheel_package_data() -> None:
     ):
         assert package_root.joinpath("trust", resource_name).is_file()
 
+    migration_root = package_root.joinpath("migrations")
+    assert migration_root.joinpath("manifest.json").is_file()
+    assert migration_root.joinpath("0001_loader_state.sql").is_file()
+    assert migration_root.joinpath("0023_public_official_corpus.sql").is_file()
+
     pyproject = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
             encoding="utf-8"
         )
     )
     assert pyproject["tool"]["setuptools"]["package-data"]["tai"] == [
-        "trust/*.pem"
+        "migrations/*.sql",
+        "migrations/manifest.json",
+        "trust/*.pem",
     ]
 
 
