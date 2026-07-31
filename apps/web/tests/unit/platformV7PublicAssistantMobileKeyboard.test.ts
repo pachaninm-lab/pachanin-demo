@@ -66,10 +66,13 @@ describe('platform-v7 public assistant mobile keyboard contract', () => {
     expect(polishCss).toContain('grid-column: 1 / -1 !important');
   });
 
-  it('keeps the composer as the final fixed flex item immediately above the keyboard', () => {
+  it('keeps the composer at the visible bottom and removes nonessential typing-time gaps', () => {
     expect(polishCss).toContain('flex: 0 0 auto !important');
     expect(polishCss).toContain('padding-bottom: 8px !important');
     expect(polishCss).toContain('height: var(--pc-ai-visible-height');
     expect(polishCss).toContain('overflow: hidden !important');
+    expect(polishCss).toContain('.pc-public-assistant-privacy');
+    expect(polishCss).toContain('align-content: center !important');
+    expect(polishCss).toContain('align-content: start !important');
   });
 });
