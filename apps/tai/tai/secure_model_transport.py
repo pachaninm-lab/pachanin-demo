@@ -102,6 +102,10 @@ def _bearer_token(value: str) -> str:
         raise ModelBearerTokenError("model bearer token must not contain edge whitespace")
     if not 32 <= len(value) <= 4_096:
         raise ModelBearerTokenError("model bearer token length is outside the safe range")
-    if any(character.isspace() or ord(character) < 33 or ord(character) == 127 for character in value):
+    unsafe = any(
+        character.isspace() or ord(character) < 33 or ord(character) == 127
+        for character in value
+    )
+    if unsafe:
         raise ModelBearerTokenError("model bearer token contains unsafe characters")
     return value
