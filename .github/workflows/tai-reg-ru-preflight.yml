@@ -8,10 +8,13 @@ on:
       - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
       - "scripts/pc-tai-release-controller.sh"
       - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
+      - "scripts/check-resume-pc-prod-actions-runner.mjs"
       - "scripts/check-pc-tai-release-controller.mjs"
       - "scripts/check-tai-reg-ru-preflight.mjs"
       - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
+      - "docs/platform-v7/autopilot/scopes/tai-runner-resume-authority-20260731.json"
   workflow_run:
     workflows: ["Build & Publish Canonical Docker Images"]
     types: [completed]
@@ -48,6 +51,8 @@ jobs:
         run: |
           bash -n scripts/pc-tai-release-controller.sh
           bash -n scripts/install-pc-prod-actions-runner.sh
+          bash -n scripts/resume-pc-prod-actions-runner.sh
+          node scripts/check-resume-pc-prod-actions-runner.mjs
           node scripts/check-pc-tai-release-controller.mjs
           node scripts/check-tai-reg-ru-preflight.mjs
 
