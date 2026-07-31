@@ -28,7 +28,7 @@
     "membershipGuardSourceHead": "34046f8e87568ff76a9c6b09366838c898b98e95",
     "membershipGuardHead": "286960824ba46fc545675355c3f574a35eb69b98",
     "enumerationGuardSourceHead": "783d61131d94c3d147c3782f6d53f8126dfd0314",
-    "enumerationGuardHead": "PENDING_EXACT_HEAD"
+    "enumerationGuardHead": "ed1433fd911eb5f9596af7d2f909322ea5f612fd"
   },
   "allowedPaths": [
     "apps/api/prisma/migrations/20260731195000_p0_password_reset_challenges/migration.sql",
