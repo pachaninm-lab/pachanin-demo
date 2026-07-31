@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
 import { getLocale } from 'next-intl/server';
-
-export { default } from '../../trust/page';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
+import BaseTrustCenterPage from '../../trust/page';
 
 type Locale = 'ru' | 'en' | 'zh';
+type ElementProps = Record<string, unknown> & { children?: ReactNode };
 
 const METADATA: Record<Locale, Readonly<{ title: string; description: string }>> = {
   ru: {
@@ -24,6 +31,25 @@ function localeOf(value: string): Locale {
   if (value.startsWith('en')) return 'en';
   if (value.startsWith('zh')) return 'zh';
   return 'ru';
+}
+
+function clarifyTaiAuthority(node: ReactNode): ReactNode {
+  if (typeof node === 'string') {
+    return node.replace(
+      'TAI не получает самостоятельного права',
+      'У TAI нет самостоятельного права',
+    );
+  }
+  if (Array.isArray(node)) return Children.toArray(node).map(clarifyTaiAuthority);
+  if (!isValidElement(node)) return node;
+
+  const element = node as ReactElement<ElementProps>;
+  const children = Children.toArray(element.props.children).map(clarifyTaiAuthority);
+  return cloneElement(element, undefined, ...children);
+}
+
+export default async function PlatformV7TrustPage() {
+  return clarifyTaiAuthority(await BaseTrustCenterPage());
 }
 
 export async function generateMetadata(): Promise<Metadata> {
