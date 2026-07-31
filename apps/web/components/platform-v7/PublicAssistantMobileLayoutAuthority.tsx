@@ -7,13 +7,14 @@ const PANEL_SELECTOR = '.pc-public-assistant-panel';
 const BACKDROP_SELECTOR = '.pc-public-assistant-backdrop';
 const MESSAGES_SELECTOR = '.pc-public-assistant-messages';
 const COMPOSER_SELECTOR = '.pc-public-assistant-composer';
-const FOOTER_SELECTORS = new Set([
-  'pc-public-assistant-error',
-  'pc-public-assistant-reset-proxy',
-  'pc-public-assistant-composer',
-]);
+const FOOTER_SELECTOR = [
+  '.pc-public-assistant-error',
+  '.pc-public-assistant-reset-proxy',
+  '.pc-public-assistant-composer',
+].join(', ');
 
 const PANEL_STYLE_PROPERTIES = [
+  'position',
   'top',
   'right',
   'bottom',
@@ -23,61 +24,106 @@ const PANEL_STYLE_PROPERTIES = [
   'min-height',
   'max-height',
   'padding-bottom',
+  'box-sizing',
   'display',
   'flex-direction',
   'overflow',
+  'background',
+  'transform',
 ] as const;
 
-const FOOTER_STYLE_PROPERTIES = [
+const BACKDROP_STYLE_PROPERTIES = [
   'position',
+  'top',
   'right',
   'bottom',
   'left',
   'width',
+  'height',
+  'min-height',
+  'max-height',
+  'transform',
+] as const;
+
+const FOOTER_STYLE_PROPERTIES = [
+  'position',
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'width',
+  'height',
   'margin',
   'z-index',
+  'flex',
 ] as const;
 
 const MESSAGE_STYLE_PROPERTIES = [
+  'position',
   'flex',
   'min-height',
   'max-height',
   'overflow-x',
   'overflow-y',
+  'background',
 ] as const;
 
-function inlinePixelVariable(root: HTMLElement, name: string): number | null {
-  const raw = root.style.getPropertyValue(name).trim();
-  if (!/^-?\d+(?:\.\d+)?px$/u.test(raw)) return null;
-  const parsed = Number.parseFloat(raw);
-  return Number.isFinite(parsed) ? parsed : null;
+const ROOT_LOCK_PROPERTIES = [
+  'overflow',
+  'overscroll-behavior',
+] as const;
+
+const BODY_LOCK_PROPERTIES = [
+  'position',
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'width',
+  'height',
+  'overflow',
+  'overscroll-behavior',
+] as const;
+
+type StyleSnapshot = Map<string, { value: string; priority: string }>;
+type ScrollLock = {
+  x: number;
+  y: number;
+  root: StyleSnapshot;
+  body: StyleSnapshot;
+};
+
+function snapshotProperties(node: HTMLElement, properties: readonly string[]): StyleSnapshot {
+  return new Map(properties.map((property) => [property, {
+    value: node.style.getPropertyValue(property),
+    priority: node.style.getPropertyPriority(property),
+  }]));
+}
+
+function restoreProperties(node: HTMLElement, snapshot: StyleSnapshot) {
+  for (const [property, state] of snapshot) {
+    if (state.value) node.style.setProperty(property, state.value, state.priority);
+    else node.style.removeProperty(property);
+  }
 }
 
 function removeProperties(node: HTMLElement, properties: readonly string[]) {
   for (const property of properties) node.style.removeProperty(property);
 }
 
-function directFooterNodes(panel: HTMLElement, messages: HTMLElement): HTMLElement[] {
-  const children = Array.from(panel.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
-  const messageIndex = children.indexOf(messages);
-  if (messageIndex < 0) return [];
-
-  return children.slice(messageIndex + 1).filter((node) => (
-    Array.from(FOOTER_SELECTORS).some((className) => node.classList.contains(className))
-  ));
+function setImportant(node: HTMLElement, property: string, value: string) {
+  node.style.setProperty(property, value, 'important');
 }
 
 function clearMobileAuthority(panel: HTMLElement) {
-  delete panel.dataset.pcMobileFooterAuthority;
-  delete panel.dataset.pcMobileFooterHeight;
+  delete panel.dataset.pcMobileViewportAuthority;
+  delete panel.dataset.pcMobileViewportHeight;
   removeProperties(panel, PANEL_STYLE_PROPERTIES);
 
   const messages = panel.querySelector<HTMLElement>(MESSAGES_SELECTOR);
   if (messages) removeProperties(messages, MESSAGE_STYLE_PROPERTIES);
 
-  for (const node of panel.querySelectorAll<HTMLElement>(
-    '.pc-public-assistant-error, .pc-public-assistant-reset-proxy, .pc-public-assistant-composer',
-  )) {
+  for (const node of panel.querySelectorAll<HTMLElement>(FOOTER_SELECTOR)) {
     removeProperties(node, FOOTER_STYLE_PROPERTIES);
   }
 }
@@ -85,10 +131,13 @@ function clearMobileAuthority(panel: HTMLElement) {
 export function PublicAssistantMobileLayoutAuthority() {
   useEffect(() => {
     const root = document.documentElement;
+    const body = document.body;
     const viewport = window.visualViewport;
     const media = window.matchMedia(MOBILE_QUERY);
     let frame = 0;
     let pollTimer = 0;
+    let lastGoodHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+    let scrollLock: ScrollLock | null = null;
     let observedPanel: HTMLElement | null = null;
     const resizeObserver = new ResizeObserver(() => schedule());
 
@@ -104,7 +153,43 @@ export function PublicAssistantMobileLayoutAuthority() {
 
     const startPolling = () => {
       if (pollTimer) return;
-      pollTimer = window.setInterval(schedule, 180);
+      // WebKit can publish keyboard viewport geometry after the first resize
+      // frame or without another reliable event. Poll only while the dialog is open.
+      pollTimer = window.setInterval(schedule, 120);
+    };
+
+    const lockPage = () => {
+      if (scrollLock) return;
+      scrollLock = {
+        x: window.scrollX,
+        y: window.scrollY,
+        root: snapshotProperties(root, ROOT_LOCK_PROPERTIES),
+        body: snapshotProperties(body, BODY_LOCK_PROPERTIES),
+      };
+
+      root.dataset.pcPublicAssistantScrollLock = 'true';
+      setImportant(root, 'overflow', 'hidden');
+      setImportant(root, 'overscroll-behavior', 'none');
+
+      setImportant(body, 'position', 'fixed');
+      setImportant(body, 'top', `${-scrollLock.y}px`);
+      setImportant(body, 'right', '0');
+      setImportant(body, 'bottom', 'auto');
+      setImportant(body, 'left', `${-scrollLock.x}px`);
+      setImportant(body, 'width', '100%');
+      setImportant(body, 'height', 'auto');
+      setImportant(body, 'overflow', 'hidden');
+      setImportant(body, 'overscroll-behavior', 'none');
+    };
+
+    const unlockPage = () => {
+      if (!scrollLock) return;
+      const locked = scrollLock;
+      scrollLock = null;
+      delete root.dataset.pcPublicAssistantScrollLock;
+      restoreProperties(root, locked.root);
+      restoreProperties(body, locked.body);
+      window.requestAnimationFrame(() => window.scrollTo(locked.x, locked.y));
     };
 
     const observePanel = (panel: HTMLElement | null) => {
@@ -114,7 +199,7 @@ export function PublicAssistantMobileLayoutAuthority() {
       if (!panel) return;
       resizeObserver.observe(panel);
       for (const node of panel.querySelectorAll<HTMLElement>(
-        '.pc-public-assistant-header, .pc-public-assistant-error, .pc-public-assistant-reset-proxy, .pc-public-assistant-composer',
+        '.pc-public-assistant-header, .pc-public-assistant-messages, .pc-public-assistant-error, .pc-public-assistant-reset-proxy, .pc-public-assistant-composer',
       )) {
         resizeObserver.observe(node);
       }
@@ -128,79 +213,82 @@ export function PublicAssistantMobileLayoutAuthority() {
       if (!panel || !media.matches) {
         stopPolling();
         if (panel) clearMobileAuthority(panel);
+        unlockPage();
         return;
       }
-
-      startPolling();
 
       const messages = panel.querySelector<HTMLElement>(MESSAGES_SELECTOR);
       const composer = panel.querySelector<HTMLElement>(COMPOSER_SELECTOR);
       if (!messages || !composer) return;
 
-      const visualTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
-      const visualHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
-      const visualBottom = visualTop + visualHeight;
-      const layoutHeight = Math.max(
-        visualBottom,
-        Math.round(window.innerHeight),
-        Math.round(root.clientHeight),
-      );
+      lockPage();
+      startPolling();
 
-      const authoritativeTop = inlinePixelVariable(root, '--pc-visual-viewport-top') ?? visualTop;
-      const authoritativeBottomInset = inlinePixelVariable(root, '--pc-visual-viewport-bottom')
-        ?? Math.max(0, layoutHeight - visualBottom);
-      const safeTop = Math.max(0, Math.min(authoritativeTop, layoutHeight - 1));
-      const safeBottom = Math.max(
-        0,
-        Math.min(authoritativeBottomInset, Math.max(0, layoutHeight - safeTop - 1)),
-      );
+      const referenceScrollY = scrollLock?.y ?? window.scrollY;
+      const visualOffsetTop = Math.max(0, viewport?.offsetTop ?? 0);
+      const pageRelativeTop = Math.max(0, (viewport?.pageTop ?? referenceScrollY) - referenceScrollY);
+      const visualTop = Math.round(Math.max(visualOffsetTop, pageRelativeTop));
+      const visualLeft = Math.max(0, Math.round(viewport?.offsetLeft ?? 0));
+      const rawHeight = Math.round(viewport?.height ?? window.innerHeight);
+      if (rawHeight >= 120) lastGoodHeight = rawHeight;
+      const visualHeight = Math.max(1, lastGoodHeight);
+      const visualWidth = Math.max(1, Math.round(viewport?.width ?? window.innerWidth));
 
-      panel.dataset.pcMobileFooterAuthority = 'true';
-      panel.style.setProperty('top', `${safeTop}px`, 'important');
-      panel.style.setProperty('right', '0', 'important');
-      panel.style.setProperty('bottom', `${safeBottom}px`, 'important');
-      panel.style.setProperty('left', '0', 'important');
-      panel.style.setProperty('width', '100%', 'important');
-      panel.style.setProperty('height', 'auto', 'important');
-      panel.style.setProperty('min-height', '0', 'important');
-      panel.style.setProperty('max-height', 'none', 'important');
-      panel.style.setProperty('display', 'flex', 'important');
-      panel.style.setProperty('flex-direction', 'column', 'important');
-      panel.style.setProperty('overflow', 'hidden', 'important');
+      panel.dataset.pcMobileViewportAuthority = 'true';
+      panel.dataset.pcMobileViewportHeight = String(visualHeight);
+      setImportant(panel, 'position', 'fixed');
+      setImportant(panel, 'top', `${visualTop}px`);
+      setImportant(panel, 'right', 'auto');
+      setImportant(panel, 'bottom', 'auto');
+      setImportant(panel, 'left', `${visualLeft}px`);
+      setImportant(panel, 'width', `${visualWidth}px`);
+      setImportant(panel, 'height', `${visualHeight}px`);
+      setImportant(panel, 'min-height', '0');
+      setImportant(panel, 'max-height', `${visualHeight}px`);
+      setImportant(panel, 'padding-bottom', '0');
+      setImportant(panel, 'box-sizing', 'border-box');
+      setImportant(panel, 'display', 'flex');
+      setImportant(panel, 'flex-direction', 'column');
+      setImportant(panel, 'overflow', 'hidden');
+      setImportant(panel, 'background', '#ffffff');
+      setImportant(panel, 'transform', 'none');
 
-      messages.style.setProperty('flex', '1 1 0%', 'important');
-      messages.style.setProperty('min-height', '0', 'important');
-      messages.style.setProperty('max-height', 'none', 'important');
-      messages.style.setProperty('overflow-x', 'hidden', 'important');
-      messages.style.setProperty('overflow-y', 'auto', 'important');
+      setImportant(messages, 'position', 'relative');
+      setImportant(messages, 'flex', '1 1 auto');
+      setImportant(messages, 'min-height', '0');
+      setImportant(messages, 'max-height', 'none');
+      setImportant(messages, 'overflow-x', 'hidden');
+      setImportant(messages, 'overflow-y', 'auto');
+      setImportant(messages, 'background', '#ffffff');
 
-      const footerNodes = directFooterNodes(panel, messages);
-      let bottomOffset = 0;
-      for (const node of [...footerNodes].reverse()) {
-        const height = Math.max(0, Math.ceil(node.getBoundingClientRect().height));
-        node.style.setProperty('position', 'absolute', 'important');
-        node.style.setProperty('right', '0', 'important');
-        node.style.setProperty('bottom', `${bottomOffset}px`, 'important');
-        node.style.setProperty('left', '0', 'important');
-        node.style.setProperty('width', '100%', 'important');
-        node.style.setProperty('margin', '0', 'important');
-        node.style.setProperty('z-index', '5', 'important');
-        bottomOffset += height;
+      // Header, messages and composer must be one flex column. Moving the
+      // composer into an absolute footer creates a second coordinate system and
+      // is the direct cause of the exposed scrolling page shown on iOS.
+      for (const node of panel.querySelectorAll<HTMLElement>(FOOTER_SELECTOR)) {
+        setImportant(node, 'position', 'relative');
+        setImportant(node, 'top', 'auto');
+        setImportant(node, 'right', 'auto');
+        setImportant(node, 'bottom', 'auto');
+        setImportant(node, 'left', 'auto');
+        setImportant(node, 'width', 'auto');
+        setImportant(node, 'height', 'auto');
+        setImportant(node, 'margin', '0');
+        setImportant(node, 'z-index', '5');
+        setImportant(node, 'flex', '0 0 auto');
       }
-
-      const composerHeight = Math.max(1, Math.ceil(composer.getBoundingClientRect().height));
-      const footerHeight = Math.max(composerHeight, bottomOffset);
-      panel.dataset.pcMobileFooterHeight = String(footerHeight);
-      panel.style.setProperty('padding-bottom', `${footerHeight}px`, 'important');
 
       const backdrop = document.querySelector<HTMLElement>(BACKDROP_SELECTOR);
       if (backdrop) {
-        backdrop.style.setProperty('top', `${safeTop}px`, 'important');
-        backdrop.style.setProperty('right', '0', 'important');
-        backdrop.style.setProperty('bottom', `${safeBottom}px`, 'important');
-        backdrop.style.setProperty('left', '0', 'important');
-        backdrop.style.setProperty('width', 'auto', 'important');
-        backdrop.style.setProperty('height', 'auto', 'important');
+        setImportant(backdrop, 'position', 'fixed');
+        setImportant(backdrop, 'top', `${visualTop}px`);
+        setImportant(backdrop, 'right', 'auto');
+        setImportant(backdrop, 'bottom', 'auto');
+        setImportant(backdrop, 'left', `${visualLeft}px`);
+        setImportant(backdrop, 'width', `${visualWidth}px`);
+        setImportant(backdrop, 'height', `${visualHeight}px`);
+        setImportant(backdrop, 'min-height', '0');
+        setImportant(backdrop, 'max-height', `${visualHeight}px`);
+        setImportant(backdrop, 'transform', 'none');
       }
     };
 
@@ -209,6 +297,7 @@ export function PublicAssistantMobileLayoutAuthority() {
 
     viewport?.addEventListener('resize', schedule);
     viewport?.addEventListener('scroll', schedule);
+    viewport?.addEventListener('scrollend', schedule);
     window.addEventListener('resize', schedule);
     window.addEventListener('orientationchange', schedule);
     window.addEventListener('pageshow', schedule);
@@ -225,6 +314,7 @@ export function PublicAssistantMobileLayoutAuthority() {
       resizeObserver.disconnect();
       viewport?.removeEventListener('resize', schedule);
       viewport?.removeEventListener('scroll', schedule);
+      viewport?.removeEventListener('scrollend', schedule);
       window.removeEventListener('resize', schedule);
       window.removeEventListener('orientationchange', schedule);
       window.removeEventListener('pageshow', schedule);
@@ -233,6 +323,9 @@ export function PublicAssistantMobileLayoutAuthority() {
       document.removeEventListener('visibilitychange', schedule);
       media.removeEventListener?.('change', schedule);
       if (observedPanel) clearMobileAuthority(observedPanel);
+      const backdrop = document.querySelector<HTMLElement>(BACKDROP_SELECTOR);
+      if (backdrop) removeProperties(backdrop, BACKDROP_STYLE_PROPERTIES);
+      unlockPage();
     };
   }, []);
 
