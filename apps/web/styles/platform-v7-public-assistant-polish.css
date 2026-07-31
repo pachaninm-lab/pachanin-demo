@@ -187,9 +187,9 @@
   .pc-public-assistant .pc-public-assistant-empty {
     display: grid !important;
     min-height: 100% !important;
-    align-content: start !important;
+    align-content: center !important;
     gap: 16px !important;
-    padding: 2px 0 8px !important;
+    padding: clamp(18px, 5vh, 48px) 0 !important;
   }
 
   .pc-public-assistant .pc-public-assistant-empty-copy {
@@ -305,8 +305,27 @@
   .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
     [data-pc-public-assistant-subtitle='true'],
   .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
-    [data-pc-public-assistant-subtitle='true'] {
+    [data-pc-public-assistant-subtitle='true'],
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    .pc-public-assistant-privacy,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    .pc-public-assistant-privacy {
     display: none !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    .pc-public-assistant-messages,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    .pc-public-assistant-messages {
+    padding-top: 10px !important;
+  }
+
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
+    .pc-public-assistant-empty,
+  .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-viewport='true']
+    .pc-public-assistant-empty {
+    align-content: start !important;
+    padding: 2px 0 8px !important;
   }
 
   .pc-public-assistant .pc-public-assistant-panel[data-pc-keyboard-focus='true']
@@ -351,7 +370,9 @@
   }
 
   .pc-public-assistant .pc-public-assistant-empty {
+    align-content: start !important;
     gap: 8px !important;
+    padding: 2px 0 8px !important;
   }
 
   .pc-public-assistant .pc-public-assistant-quick-actions button {
