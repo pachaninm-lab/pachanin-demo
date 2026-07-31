@@ -34,9 +34,14 @@ class AlwaysOnConfigurationError(ValueError):
 
 
 class ModelEndpointBinding(Protocol):
-    model_id: str
-    revision: str
-    endpoint: str
+    @property
+    def model_id(self) -> str: ...
+
+    @property
+    def revision(self) -> str: ...
+
+    @property
+    def endpoint(self) -> str: ...
 
 
 class ModelHealthWriter(Protocol):
@@ -88,7 +93,11 @@ class AlwaysOnConfig:
         return cls(
             maximum_inflight=maximum_inflight,
             maximum_queue=_integer(source, "TAI_MODEL_MAX_QUEUE", 16),
-            queue_timeout_seconds=_number(source, "TAI_MODEL_QUEUE_TIMEOUT_SECONDS", 10.0),
+            queue_timeout_seconds=_number(
+                source,
+                "TAI_MODEL_QUEUE_TIMEOUT_SECONDS",
+                10.0,
+            ),
             supervisor_interval_seconds=_number(
                 source,
                 "TAI_MODEL_SUPERVISOR_INTERVAL_SECONDS",
