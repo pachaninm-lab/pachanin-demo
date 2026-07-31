@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { clearAuthenticatedSession } from '../../../../../lib/server/auth-session-response';
-import { MFA_PENDING_COOKIE, clearMfaPendingCookieOptions } from '../../../../../lib/server/mfa-login-ticket';
+import { clearAuthenticatedSession } from '../../../../lib/server/auth-session-response';
+import { MFA_PENDING_COOKIE, clearMfaPendingCookieOptions } from '../../../../lib/server/mfa-login-ticket';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
