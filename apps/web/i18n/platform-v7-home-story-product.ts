@@ -1,4 +1,17 @@
-export { getPlatformV7HomeStoryCopy } from './platform-v7-home-story-operating';
+import { getPlatformV7HomeStoryCopy as getOperatingStoryCopy } from './platform-v7-home-story-operating';
+
+export function getPlatformV7HomeStoryCopy(locale: string) {
+  const copy = getOperatingStoryCopy(locale);
+  if (locale === 'en' || locale === 'zh') return copy;
+
+  return {
+    ...copy,
+    difference: {
+      ...copy.difference,
+      lead: `От согласования цены до закрытия Сделки — один управляемый процесс. ${copy.difference.lead}`,
+    },
+  };
+}
 
 /**
  * Stable acceptance vocabulary for the approved operating-product presentation.
