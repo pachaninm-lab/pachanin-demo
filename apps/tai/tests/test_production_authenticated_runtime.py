@@ -42,7 +42,7 @@ def test_production_model_access_requires_protected_token() -> None:
         ProductionModelAccess.from_environment(missing)
 
     malformed = _environment()
-    malformed["TAI_MODEL_BEARER_TOKEN"] = "short"
+    malformed["TAI_MODEL_BEARER_TOKEN"] = "short"  # noqa: S105
     with pytest.raises(ProductionModelAccessError, match="invalid"):
         ProductionModelAccess.from_environment(malformed)
 
