@@ -1,5 +1,5 @@
 import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
-import type { RegistrationDecision } from '../registration-application.service';
+import type { RegistrationDecision } from '../registration-decision.service';
 
 export class VerifyRegistrationEmailDto {
   @IsString()

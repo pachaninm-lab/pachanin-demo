@@ -1,14 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID, timingSafeEqual } from 'crypto';
-import { Role, type RequestUser } from '../../common/types/request-user';
+import { Role } from '../../common/types/request-user';
 import { AuthPrismaService } from './auth-prisma.service';
 import { hashAuthMaterial, hashClientValue, sha256, stableJson } from './auth-crypto';
 import { type PublicWorkspaceClass, RegisterDto } from './dto/register.dto';
@@ -73,21 +72,6 @@ type ApplicationStatusRow = {
   decision_reason: string | null;
   version: bigint;
 };
-
-type DecisionApplicationRow = {
-  id: string;
-  kind: 'NEW_ORGANIZATION' | 'JOIN_EXISTING_ORGANIZATION';
-  user_id: string;
-  organization_id: string;
-  membership_id: string;
-  requested_role: Role;
-  requested_workspace: PublicWorkspaceClass;
-  status: string;
-  version: bigint;
-  correlation_id: string;
-};
-
-export type RegistrationDecision = 'APPROVE' | 'REJECT' | 'REQUEST_INFORMATION' | 'SUSPEND';
 
 function safeSecretEqual(leftValue: string, rightValue: string): boolean {
   const left = Buffer.from(leftValue, 'utf8');
@@ -466,169 +450,6 @@ export class RegistrationApplicationService {
     };
   }
 
-  async decide(
-    applicationId: string,
-    decision: RegistrationDecision,
-    reasonInput: string,
-    reviewer: RequestUser,
-    idempotencyKey: string,
-    correlationId: string,
-  ) {
-    const reason = String(reasonInput ?? '').trim();
-    if (reason.length < 8 || reason.length > 1000) {
-      throw new BadRequestException({ code: 'DECISION_REASON_REQUIRED' });
-    }
-    if (!reviewer.mfaVerified) throw new ForbiddenException({ code: 'MFA_REQUIRED' });
-    if (!idempotencyKey || idempotencyKey.length < 16 || idempotencyKey.length > 128) {
-      throw new BadRequestException({ code: 'IDEMPOTENCY_KEY_REQUIRED' });
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const duplicate = await tx.$queryRaw<Array<{ application_id: string }>>(Prisma.sql`
-        SELECT application_id
-        FROM auth.registration_application_events
-        WHERE idempotency_key = ${`decision:${idempotencyKey}`}
-        LIMIT 1
-      `);
-      if (duplicate[0]) return this.readDecisionResult(tx, duplicate[0].application_id);
-
-      const rows = await tx.$queryRaw<DecisionApplicationRow[]>(Prisma.sql`
-        SELECT
-          id, kind, user_id, organization_id, membership_id,
-          requested_role, requested_workspace, status, version, correlation_id
-        FROM auth.registration_applications
-        WHERE id = ${applicationId}
-        FOR UPDATE
-      `);
-      const application = rows[0];
-      if (!application) throw new NotFoundException({ code: 'REGISTRATION_APPLICATION_NOT_FOUND' });
-      if (application.user_id === reviewer.id) throw new ForbiddenException({ code: 'SELF_APPROVAL_FORBIDDEN' });
-      if (!['ORGANIZATION_VERIFICATION_PENDING', 'ADDITIONAL_INFORMATION_REQUIRED', 'SUSPENDED'].includes(application.status)) {
-        throw new ConflictException({ code: 'REGISTRATION_STATE_CONFLICT', status: application.status });
-      }
-
-      if (decision === 'APPROVE') {
-        const approvedVersion = application.version + 1n;
-        const activatedVersion = approvedVersion + 1n;
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE auth.registration_applications
-          SET status = 'ACTIVATED',
-              decided_at = NOW(),
-              decision_reason = ${reason},
-              decision_actor_user_id = ${reviewer.id},
-              version = ${activatedVersion},
-              updated_at = NOW()
-          WHERE id = ${application.id} AND version = ${application.version}
-        `);
-        if (application.kind === 'NEW_ORGANIZATION') {
-          await tx.$executeRaw(Prisma.sql`
-            UPDATE public.organizations
-            SET status = 'ACTIVE', "verifiedAt" = NOW(), version = version + 1, "updatedAt" = NOW()
-            WHERE id = ${application.organization_id} AND status = 'PENDING'
-          `);
-        }
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE public.users
-          SET status = 'ACTIVE', "updatedAt" = NOW()
-          WHERE id = ${application.user_id}
-        `);
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE public.user_orgs
-          SET status = 'ACTIVE',
-              role = ${application.requested_role},
-              activated_at = NOW(),
-              is_org_admin = ${application.kind === 'NEW_ORGANIZATION'},
-              version = version + 1
-          WHERE id = ${application.membership_id} AND status IN ('PENDING', 'SUSPENDED')
-        `);
-        await this.insertEvent(tx, {
-          applicationId: application.id,
-          actorUserId: reviewer.id,
-          actorKind: 'PLATFORM_REVIEWER',
-          previousStatus: application.status,
-          newStatus: 'APPROVED',
-          reason,
-          correlationId,
-          idempotencyKey: `decision-approved:${idempotencyKey}`,
-          applicationVersion: approvedVersion,
-        });
-        await this.insertEvent(tx, {
-          applicationId: application.id,
-          actorUserId: reviewer.id,
-          actorKind: 'SYSTEM',
-          previousStatus: 'APPROVED',
-          newStatus: 'ACTIVATED',
-          reason: 'IDENTITY_AND_MEMBERSHIP_ACTIVATED',
-          correlationId,
-          idempotencyKey: `decision:${idempotencyKey}`,
-          applicationVersion: activatedVersion,
-        });
-      } else {
-        const targetStatus = decision === 'REJECT'
-          ? 'REJECTED'
-          : decision === 'REQUEST_INFORMATION'
-            ? 'ADDITIONAL_INFORMATION_REQUIRED'
-            : 'SUSPENDED';
-        const nextVersion = application.version + 1n;
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE auth.registration_applications
-          SET status = ${targetStatus},
-              decided_at = NOW(),
-              decision_reason = ${reason},
-              decision_actor_user_id = ${reviewer.id},
-              version = ${nextVersion},
-              updated_at = NOW()
-          WHERE id = ${application.id} AND version = ${application.version}
-        `);
-        if (targetStatus === 'REJECTED') {
-          await tx.$executeRaw(Prisma.sql`
-            UPDATE public.users SET status = 'REJECTED', "updatedAt" = NOW() WHERE id = ${application.user_id}
-          `);
-          await tx.$executeRaw(Prisma.sql`
-            UPDATE public.user_orgs SET status = 'REVOKED', revoked_at = NOW(), version = version + 1
-            WHERE id = ${application.membership_id}
-          `);
-          if (application.kind === 'NEW_ORGANIZATION') {
-            await tx.$executeRaw(Prisma.sql`
-              UPDATE public.organizations SET status = 'REJECTED', version = version + 1, "updatedAt" = NOW()
-              WHERE id = ${application.organization_id} AND status = 'PENDING'
-            `);
-          }
-        } else if (targetStatus === 'SUSPENDED') {
-          await tx.$executeRaw(Prisma.sql`
-            UPDATE public.users SET status = 'SUSPENDED', "updatedAt" = NOW() WHERE id = ${application.user_id}
-          `);
-          await tx.$executeRaw(Prisma.sql`
-            UPDATE public.user_orgs SET status = 'SUSPENDED', version = version + 1
-            WHERE id = ${application.membership_id}
-          `);
-        }
-        await this.insertEvent(tx, {
-          applicationId: application.id,
-          actorUserId: reviewer.id,
-          actorKind: 'PLATFORM_REVIEWER',
-          previousStatus: application.status,
-          newStatus: targetStatus,
-          reason,
-          correlationId,
-          idempotencyKey: `decision:${idempotencyKey}`,
-          applicationVersion: nextVersion,
-        });
-      }
-
-      await this.audit(tx, {
-        userId: reviewer.id,
-        membershipId: reviewer.membershipId,
-        organizationId: reviewer.orgId,
-        tenantId: reviewer.tenantId,
-        action: 'auth.registration.decision',
-        outcome: 'SUCCESS',
-        reason: decision,
-        metadata: { applicationId: application.id, correlationId, decisionReason: reason },
-      });
-      return this.readDecisionResult(tx, application.id);
-    });
-  }
 
   private async findByIdempotency(
     idempotencyKey: string,
@@ -660,23 +481,6 @@ export class RegistrationApplicationService {
     };
   }
 
-  private async readDecisionResult(client: AuthSqlClient, applicationId: string) {
-    const rows = await client.$queryRaw<Array<{ id: string; status: string; version: bigint; correlation_id: string }>>(Prisma.sql`
-      SELECT id, status, version, correlation_id
-      FROM auth.registration_applications
-      WHERE id = ${applicationId}
-      LIMIT 1
-    `);
-    const application = rows[0];
-    if (!application) throw new NotFoundException({ code: 'REGISTRATION_APPLICATION_NOT_FOUND' });
-    return {
-      applicationId: application.id,
-      status: application.status,
-      nextAction: nextAction(application.status),
-      version: application.version.toString(),
-      correlationId: application.correlation_id,
-    };
-  }
 
   private async insertEvent(
     client: AuthSqlClient,

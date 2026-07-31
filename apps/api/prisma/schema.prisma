@@ -15,6 +15,9 @@ model Organization {
   id          String    @id @default(cuid())
   inn         String    @unique
   ogrn        String?
+  kpp         String?
+  region      String?
+  version     BigInt    @default(0)
   name        String
   type        String    @default("LEGAL")
   status      String    @default("PENDING")
@@ -80,9 +83,15 @@ model UserOrg {
   id             String   @id @default(cuid())
   userId         String
   organizationId String
-  role           String
-  isDefault      Boolean  @default(false)
-  joinedAt       DateTime @default(now())
+  role               String
+  status             String    @default("ACTIVE")
+  requestedWorkspace String?   @map("requested_workspace")
+  isDefault          Boolean   @default(false)
+  isOrgAdmin         Boolean   @default(false) @map("is_org_admin")
+  joinedAt           DateTime  @default(now())
+  activatedAt        DateTime? @map("activated_at")
+  revokedAt          DateTime? @map("revoked_at")
+  version            BigInt    @default(0)
 
   user         User         @relation(fields: [userId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])

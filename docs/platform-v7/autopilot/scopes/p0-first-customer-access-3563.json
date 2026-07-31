@@ -4,10 +4,11 @@
   "status": "active",
   "purpose": "Deliver the bounded P0 first-customer access vertical: fail-closed public registration, controlled organization admission, email verification, password recovery and server-authoritative identity activation without product-scope expansion.",
   "approvedBy": "owner-direct-p0-first-customer-access-2026-07-31",
-  "authorityBaseExactMain": "f8f2e1c1d5c875e238b59509a4f7fc63ebe9b7b2",
+  "authorityBaseExactMain": "73574d194b53d71103f733553296820f023615a5",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
+    "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260731195000_p0_password_reset_challenges/migration.sql",
     "apps/api/prisma/migrations/20260731201000_p0_registration_applications/migration.sql",
     "apps/api/prisma/migrations/20260731201100_p0_registration_idempotency_payload/migration.sql",
@@ -68,7 +69,7 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 34,
+    "changedPathCount": 35,
     "requiredChecks": [
       "CI",
       "Node CI",

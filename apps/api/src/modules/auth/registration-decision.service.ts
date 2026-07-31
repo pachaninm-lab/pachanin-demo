@@ -12,7 +12,8 @@ import { AuthPrismaService } from './auth-prisma.service';
 import { sha256, stableJson } from './auth-crypto';
 import type { AuthSqlClient } from './persistent-auth.repository';
 import { PersistentAuthRepository } from './persistent-auth.repository';
-import type { RegistrationDecision } from './registration-application.service';
+
+export type RegistrationDecision = 'APPROVE' | 'REJECT' | 'REQUEST_INFORMATION' | 'SUSPEND';
 
 type LockedApplication = {
   id: string;
