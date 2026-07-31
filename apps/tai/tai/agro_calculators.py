@@ -8,8 +8,8 @@ with versioned formulas and fail closed when required data is missing or invalid
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from typing import Final, TypeAlias
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import Final
 
 __all__ = [
     "CalculationResult",
@@ -20,7 +20,7 @@ __all__ = [
     "calculate_seed_requirement",
 ]
 
-DecimalInput: TypeAlias = Decimal | int | str
+type DecimalInput = Decimal | int | str
 _HUNDRED: Final = Decimal("100")
 _TEN_THOUSAND: Final = Decimal("10000")
 _ONE_MILLION: Final = Decimal("1000000")
