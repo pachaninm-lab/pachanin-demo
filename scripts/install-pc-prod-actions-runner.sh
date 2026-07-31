@@ -38,9 +38,13 @@ if ! id "$RUNNER_USER" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "$RUNNER_USER"
 fi
 usermod -aG docker "$RUNNER_USER"
-install -d -m 0750 -o root -g root "$RUNNER_ROOT"
+if [[ ! -d "$RUNNER_ROOT" ]]; then
+  install -d -m 0750 -o root -g root "$RUNNER_ROOT"
+fi
 
 if [[ -f "$RUNNER_ROOT/.runner" ]]; then
+  [[ "$(stat -c '%U:%G' "$RUNNER_ROOT")" == "$RUNNER_USER:$RUNNER_USER" ]] \
+    || fail "existing runner directory ownership mismatch"
   existing_name="$(python3 - "$RUNNER_ROOT/.runner" <<'PY'
 import json, sys
 try:
@@ -51,6 +55,10 @@ PY
   )"
   [[ "$existing_name" == "$RUNNER_NAME" ]] || fail "an existing runner has a different identity"
 else
+  [[ -z "$(find "$RUNNER_ROOT" -mindepth 1 -maxdepth 1 -print -quit)" ]] \
+    || fail "unconfigured runner directory is not empty"
+  chown root:root "$RUNNER_ROOT"
+  chmod 0750 "$RUNNER_ROOT"
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' EXIT
   package="$work/actions-runner.tar.gz"
