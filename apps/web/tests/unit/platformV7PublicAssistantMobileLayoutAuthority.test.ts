@@ -42,11 +42,14 @@ describe('platform-v7 public assistant mobile layout authority', () => {
     expect(authority).not.toContain("panel.style.setProperty('padding-bottom', `${footerHeight}px`, 'important')");
   });
 
-  it('locks and restores the page behind the mobile dialog', () => {
+  it('locks the page without blocking native scrolling inside the message list', () => {
     expect(authority).toContain("root.dataset.pcPublicAssistantScrollLock = 'true'");
     expect(authority).toContain("setImportant(root, 'overflow', 'hidden')");
     expect(authority).toContain("setImportant(body, 'position', 'fixed')");
     expect(authority).toContain("setImportant(body, 'top', `${-scrollLock.y}px`)");
+    expect(authority).toContain("setImportant(messages, 'overflow-y', 'auto')");
+    expect(authority).not.toContain("setImportant(root, 'touch-action', 'none')");
+    expect(authority).not.toContain("'touch-action'");
     expect(authority).toContain('restoreProperties(root, locked.root)');
     expect(authority).toContain('restoreProperties(body, locked.body)');
     expect(authority).toContain('window.scrollTo(locked.x, locked.y)');
