@@ -38,10 +38,6 @@ CREATE TRIGGER registration_public_attempts_append_only
 BEFORE UPDATE OR DELETE ON auth.registration_public_attempts
 FOR EACH ROW EXECUTE FUNCTION auth.reject_registration_public_attempt_mutation();
 
-CREATE TRIGGER registration_public_attempts_no_truncate
-BEFORE TRUNCATE ON auth.registration_public_attempts
-FOR EACH STATEMENT EXECUTE FUNCTION auth.reject_registration_public_attempt_mutation();
-
 DROP TRIGGER IF EXISTS auth_revoke_on_membership_change ON public.user_orgs;
 
 CREATE OR REPLACE FUNCTION auth.revoke_sessions_for_membership_change()
