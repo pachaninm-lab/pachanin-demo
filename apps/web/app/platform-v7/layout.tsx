@@ -52,6 +52,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/request',
   '/platform-v7/docs',
   '/platform-v7/about',
+  '/platform-v7/trust',
   '/platform-v7/oferta',
   '/platform-v7/privacy',
   '/platform-v7/roles',
@@ -164,7 +165,6 @@ const ALIAS_EXACT_PATHS = new Set([
   '/platform-v7/support',
   '/platform-v7/surveyor/grain',
   '/platform-v7/trading',
-  '/platform-v7/trust',
 ]);
 const ALIAS_DYNAMIC_PATHS = [
   /^\/platform-v7\/auctions\/[^/]+$/,
