@@ -111,7 +111,9 @@ def test_audited_resources_are_declared_as_wheel_package_data() -> None:
     migration_root = package_root.joinpath("migrations")
     assert migration_root.joinpath("manifest.json").is_file()
     assert migration_root.joinpath("0001_loader_state.sql").is_file()
-    assert migration_root.joinpath("0023_public_official_corpus.sql").is_file()
+    assert migration_root.joinpath(
+        "0021_retrieval_activation_serialization.sql"
+    ).is_file()
 
     pyproject = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
