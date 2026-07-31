@@ -20,11 +20,15 @@ from tai.postgres_tool_planner import (
     PlannerAwareReadinessProbe,
     PostgreSQLToolPlannerDecisionSink,
 )
+from tai.production_authenticated_runtime import (
+    ProductionModelAccess,
+    ProductionModelAccessError,
+    build_authenticated_production_runtime,
+)
 from tai.production_platform_tools import production_platform_tool_handlers
 from tai.production_runtime import (
     ProductionConfigurationError,
     ProductionRuntimeConfig,
-    build_production_runtime,
 )
 from tai.tool_planner import GovernedToolPlanner
 
@@ -35,6 +39,7 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
         return create_app(configuration_error="TAI_RUNTIME_MODE_PRODUCTION_REQUIRED")
     try:
         config = ProductionRuntimeConfig.from_environment(source)
+        model_access = ProductionModelAccess.from_environment(source)
         always_on_config = AlwaysOnConfig.from_environment(
             source,
             maximum_inflight=config.model_maximum_inflight,
@@ -52,8 +57,9 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
             if tool_handlers
             else None
         )
-        bundle = build_production_runtime(
+        bundle = build_authenticated_production_runtime(
             config,
+            model_access=model_access,
             connection_factory=database,
             tool_handlers=tool_handlers,
             tool_planner=tool_planner,
@@ -76,8 +82,13 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
             endpoint_policy=LocalEndpointPolicy(
                 allowed_hosts=config.allowed_model_hosts,
             ),
+            transport=model_access.transport(),
         )
-    except (ProductionConfigurationError, AlwaysOnConfigurationError):
+    except (
+        ProductionConfigurationError,
+        ProductionModelAccessError,
+        AlwaysOnConfigurationError,
+    ):
         return create_app(configuration_error="TAI_PRODUCTION_CONFIGURATION_INVALID")
     except Exception:
         return create_app(configuration_error="TAI_PRODUCTION_COMPOSITION_FAILED")
