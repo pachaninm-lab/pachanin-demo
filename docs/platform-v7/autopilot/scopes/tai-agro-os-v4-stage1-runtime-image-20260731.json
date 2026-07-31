@@ -15,6 +15,7 @@
     "apps/tai/TAI_RUNTIME_IMAGE_AUTHORITY.md",
     "apps/tai/pyproject.toml",
     "apps/tai/release-source-manifest.json",
+    "apps/tai/tests/test_always_on_core.py",
     "apps/tai/tests/test_rosstat_tls_trust.py",
     "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-runtime-image-20260731.json",
     "infra/docker/Dockerfile.tai",
@@ -30,6 +31,7 @@
     "fail readiness closed when production configuration is absent",
     "bind the runtime Dockerfile into the TAI release source digest",
     "keep audited TLS trust files and governed migrations explicitly bound to wheel package data",
+    "test bounded queue cancellation overload middleware supervisor lifecycle and runtime health without lowering coverage authority",
     "recognize only the governed TAI image as canonical while preserving the retirement of apps ml and Airflow",
     "separate image publication evidence from REG.RU deployment evidence"
   ],
@@ -43,6 +45,7 @@
     "Netlify or Vercel",
     "embedded secret or credential",
     "model admission bypass",
+    "coverage threshold reduction",
     "reactivation of apps ml or Airflow"
   ]
 }
