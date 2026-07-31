@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
+from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -103,7 +104,11 @@ class AlwaysOnConfig:
                 "TAI_MODEL_SUPERVISOR_INTERVAL_SECONDS",
                 30.0,
             ),
-            warmup_timeout_seconds=_number(source, "TAI_MODEL_WARMUP_TIMEOUT_SECONDS", 15.0),
+            warmup_timeout_seconds=_number(
+                source,
+                "TAI_MODEL_WARMUP_TIMEOUT_SECONDS",
+                15.0,
+            ),
             circuit_failure_threshold=_integer(
                 source,
                 "TAI_MODEL_CIRCUIT_FAILURE_THRESHOLD",
@@ -268,9 +273,13 @@ class AlwaysOnBackpressureMiddleware:
             response = JSONResponse(
                 status_code=503,
                 content={
+                    "schema_version": "tai.error.v1",
+                    "error_id": str(uuid4()),
+                    "request_id": None,
                     "code": "TAI_CAPACITY_BUSY",
                     "message": "TAI is processing the maximum safe workload. Retry shortly.",
                     "retryable": True,
+                    "retry_after_seconds": error.retry_after_seconds,
                 },
                 headers={
                     "Cache-Control": "no-store",
