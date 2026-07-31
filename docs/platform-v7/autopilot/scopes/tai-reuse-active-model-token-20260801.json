@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reuse-active-model-token-20260801",
+  "status": "active",
+  "purpose": "Provide an explicit concurrent scope for the exact-main activation repair that reuses the already validated model token from the active local API runtime instead of requiring an unprovisioned model-host SSH key.",
+  "approvedBy": "owner-direct-make-sure-2026-08-01",
+  "authorityBaseExactMain": "751b226a0df67cd95dabb5061f18cb5334f89311",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-tai-local-model-key-authority.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json",
+    "docs/platform-v7/autopilot/scopes/tai-reuse-active-model-token-20260801.json"
+  ],
+  "requiredBehavior": [
+    "recover the model token only from the single active API container",
+    "validate the token against the expected model URL, model identity and private health endpoint",
+    "remove runner model transport files before mutation",
+    "preserve exact-main, rollback and least-privilege controller authority",
+    "publish no model token or private key material"
+  ],
+  "forbiddenCapabilities": [
+    "production mutation before merge",
+    "private SSH key transport through GitHub Actions",
+    "model token output or artifact publication",
+    "direct Docker authority for pcactions",
+    "new infrastructure or recurring cost"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 4,
+    "productionMutationAllowedBeforeMerge": false
+  }
+}
