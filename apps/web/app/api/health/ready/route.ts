@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Exact-SHA production release trigger for the live RU Hero selector fix.
+// Exact-SHA production release trigger for the platform-v7 product-copy release.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
