@@ -21,6 +21,7 @@ const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const AI_IN_ACTION = '/platform-v7/ai-in-action';
 const PUBLIC_HOME = '/platform-v7';
 const PUBLIC_ENTRY_REWRITE_PREFIX = '/pc-public-entry';
+const KEYBOARD_DELTA_PX = 120;
 
 const PUBLIC_EXACT = new Set([
   PUBLIC_HOME,
@@ -91,6 +92,9 @@ function useVisualViewportMetrics() {
     const virtualKeyboard = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
     let frame = 0;
     let focusTimers: number[] = [];
+    let unfocusedVisualHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+    let unfocusedInnerHeight = Math.max(1, Math.round(window.innerHeight));
+    let unfocusedVisualTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
 
     const isComposerTextarea = (target: EventTarget | null): target is HTMLTextAreaElement => (
       target instanceof HTMLTextAreaElement
@@ -117,12 +121,14 @@ function useVisualViewportMetrics() {
 
     const measure = () => {
       frame = 0;
-      const visualHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+      const innerHeight = Math.max(1, Math.round(window.innerHeight));
+      const visualHeight = Math.max(1, Math.round(viewport?.height ?? innerHeight));
       const visualTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
       const visualBottom = visualTop + visualHeight;
+      const innerBottom = Math.max(visualTop + 1, innerHeight);
       const layoutBottom = Math.max(
         visualBottom,
-        Math.round(window.innerHeight),
+        innerHeight,
         Math.round(root.clientHeight),
       );
       const keyboardHeight = Math.max(0, Math.round(virtualKeyboard?.boundingRect?.height ?? 0));
@@ -130,21 +136,66 @@ function useVisualViewportMetrics() {
       const focused = isComposerTextarea(document.activeElement);
       const mobile = window.matchMedia('(max-width: 720px)').matches;
 
+      const visualKeyboardDelta = Math.max(0, unfocusedVisualHeight - visualHeight);
+      const innerKeyboardDelta = Math.max(0, unfocusedInnerHeight - innerHeight);
       let visibleBottom = visualBottom;
       let geometry = 'visual-viewport';
 
-      if (mobile && focused && keyboardHeight > 0) {
-        const keyboardTopFromHeight = Math.max(visualTop + 1, layoutBottom - keyboardHeight);
-        // The usable edge is the earlier of the shrunken visual viewport and
-        // the keyboard top derived from its stable height. Choosing the later
-        // edge exposes a dead page strip above overlay keyboards.
-        visibleBottom = Math.max(visualTop + 1, Math.min(visualBottom, keyboardTopFromHeight));
-        geometry = 'keyboard-height';
+      if (mobile && focused) {
+        const keyboardAwareBottoms: number[] = [];
+        if (visualKeyboardDelta >= KEYBOARD_DELTA_PX) keyboardAwareBottoms.push(visualBottom);
+        if (innerKeyboardDelta >= KEYBOARD_DELTA_PX) keyboardAwareBottoms.push(innerBottom);
+
+        const keyboardAwareBottom = keyboardAwareBottoms.length
+          ? Math.max(...keyboardAwareBottoms)
+          : visualBottom;
+
+        if (keyboardHeight > 0) {
+          const keyboardTopFromHeight = Math.max(visualTop + 1, layoutBottom - keyboardHeight);
+          // VirtualKeyboard geometry is an upper safety bound. Resize-aware
+          // metrics may reclaim browser chrome, but never cross the keyboard.
+          visibleBottom = Math.max(
+            visualTop + 1,
+            Math.min(keyboardAwareBottom, keyboardTopFromHeight),
+          );
+          geometry = keyboardAwareBottoms.length > 1
+            ? 'keyboard-height+resize-metrics'
+            : 'keyboard-height';
+        } else if (keyboardAwareBottoms.length) {
+          // Yandex/WebKit may keep hidden bottom browser chrome subtracted from
+          // visualViewport while window.innerHeight exposes the actual usable
+          // edge. Both metrics must first prove a keyboard-sized contraction;
+          // then the later safe edge removes the dead strip above the keyboard.
+          const baselineBottom = Math.max(
+            unfocusedVisualTop + unfocusedVisualHeight,
+            unfocusedInnerHeight,
+          );
+          const maximumVisibleBottom = Math.max(
+            visualTop + 1,
+            baselineBottom - KEYBOARD_DELTA_PX,
+          );
+          visibleBottom = Math.max(
+            visualTop + 1,
+            Math.min(keyboardAwareBottom, maximumVisibleBottom),
+          );
+          geometry = visualKeyboardDelta >= KEYBOARD_DELTA_PX
+            && innerKeyboardDelta >= KEYBOARD_DELTA_PX
+            ? 'visual-viewport+window-inner-height'
+            : innerKeyboardDelta >= KEYBOARD_DELTA_PX
+              ? 'window-inner-height'
+              : 'visual-viewport';
+        }
       }
 
       const visibleHeight = Math.max(1, visibleBottom - visualTop);
       const activeHeight = mobile && focused ? visibleHeight : visualHeight;
       const hiddenBottom = Math.max(0, layoutBottom - (mobile && focused ? visibleBottom : visualBottom));
+
+      if (mobile && !focused) {
+        unfocusedVisualHeight = visualHeight;
+        unfocusedInnerHeight = innerHeight;
+        unfocusedVisualTop = visualTop;
+      }
 
       root.style.setProperty('--pc-visual-viewport-height', `${activeHeight}px`);
       root.style.setProperty('--pc-visual-viewport-top', `${visualTop}px`);
