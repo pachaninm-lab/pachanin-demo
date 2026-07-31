@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - ".github/workflows/tai-reg-ru-preflight.yml"
+      - ".github/workflows/tai-reg-ru-deploy.yml"
+      - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
       - "scripts/tai-reg-ru-preflight.sh"
       - "scripts/check-tai-reg-ru-preflight.mjs"
+      - "scripts/check-tai-reg-ru-local-runner.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
       - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
-      - "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-reg-ru-preflight-20260731.json"
+      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-local-runner-authority-20260731.json"
   workflow_run:
     workflows: ["Build & Publish Canonical Docker Images"]
     types: [completed]
@@ -24,8 +28,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
-  statuses: write
 
 concurrency:
   group: tai-reg-ru-preflight-${{ github.event.workflow_run.head_sha || github.event.pull_request.number || github.ref }}
@@ -35,18 +37,24 @@ jobs:
   contract:
     name: Read-only preflight contract
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Validate Bash syntax
-        run: bash -n scripts/tai-reg-ru-preflight.sh
-      - name: Enforce no-mutation preflight authority
-        run: node scripts/check-tai-reg-ru-preflight.mjs
+        run: |
+          bash -n scripts/tai-reg-ru-preflight.sh
+          bash -n scripts/install-pc-prod-actions-runner.sh
+      - name: Enforce preflight authority
+        run: |
+          node scripts/check-tai-reg-ru-preflight.mjs
+          node scripts/check-tai-reg-ru-local-runner.mjs
 
-  live-preflight:
-    name: Exact-main REG.RU inventory only
+  image-authority:
+    name: Verify exact-main canonical TAI image
     if: >-
       (
         github.event_name == 'workflow_run' &&
@@ -63,51 +71,30 @@ jobs:
       )
     needs: contract
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    env:
-      DEFAULT_PROD_HOST: 195.19.12.120
-      PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-      PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-      PROD_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-      PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-      PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-      PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-      PROD_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      reference: ${{ steps.image.outputs.reference }}
+      digest: ${{ steps.image.outputs.digest }}
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
     steps:
-      - name: Checkout exact current main
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Resolve exact target
+      - name: Resolve exact target metadata
         id: target
-        shell: bash
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
         run: |
           set -Eeuo pipefail
-          git fetch --no-tags origin main
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
-            target='${{ github.event.workflow_run.head_sha }}'
-            [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
-            [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
-            [[ '${{ github.event.workflow_run.event }}' == push ]]
-          else
-            target='${{ inputs.target_sha }}'
-          fi
-          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$target" == "$(git rev-parse origin/main)" ]]
-          git checkout --detach "$target"
-          [[ "$target" == "$(git rev-parse HEAD)" ]]
-          echo "sha=$target" >> "$GITHUB_OUTPUT"
-          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
-
-      - name: Verify canonical exact-SHA TAI image
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Verify canonical exact-SHA TAI image outside production
         id: image
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
           SHORT_SHA: ${{ steps.target.outputs.short }}
-        shell: bash
         run: |
           set -Eeuo pipefail
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
@@ -118,10 +105,7 @@ jobs:
               revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
               user="$(docker image inspect --format '{{.Config.User}}' "$image")"
               digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
-              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then
-                ready=1
-                break
-              fi
+              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then ready=1; break; fi
             fi
             sleep 10
           done
@@ -129,93 +113,91 @@ jobs:
           echo "reference=$image" >> "$GITHUB_OUTPUT"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve pinned production SSH transport
-        id: ssh
-        shell: bash
+  live-preflight:
+    name: Exact-main REG.RU local inventory only
+    if: needs.image-authority.result == 'success'
+    needs: [contract, image-authority]
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-release]
+    permissions:
+      contents: read
+      packages: none
+      statuses: none
+    timeout-minutes: 35
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          clean: true
+      - name: Resolve exact target
+        id: target
+        env:
+          TARGET_SHA: ${{ needs.image-authority.outputs.target_sha }}
         run: |
           set -Eeuo pipefail
-          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          validate_key(){
-            local source="$1" target="$2" pub
-            tr -d '\r' < "$source" > "$target"
-            chmod 0600 "$target"
-            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
-            pub="$(mktemp)"
-            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
-            rm -f "$pub"
-          }
-          try_key(){
-            local raw="$1" target="$2" a b c
-            [[ -n "$raw" ]] || return 1
-            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
-            printf '%s\n' "$raw" > "$a"
-            validate_key "$a" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
-            printf '%s' "${raw//\\n/$'\n'}" > "$b"
-            validate_key "$b" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
-            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
-            rm -f "$a" "$b" "$c"
-            return 1
-          }
-          host="$(trim "${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}")"
-          user="$(trim "${PROD_USER_SECRET:-}")"
-          port="$(trim "${PROD_PORT_SECRET:-22}")"
-          [[ "$host" == "$DEFAULT_PROD_HOST" ]]
-          [[ -n "$user" && "$user" == "${PROD_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
-          [[ "$PROD_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
-          try_key "${PROD_KEY_PRIMARY:-}" "$HOME/.ssh/id_pc_prod" \
-            || try_key "${PROD_KEY_SECONDARY:-}" "$HOME/.ssh/id_pc_prod" \
-            || try_key "${PROD_KEY_FALLBACK:-}" "$HOME/.ssh/id_pc_prod" \
-            || { echo 'Protected production private key is unavailable.' >&2; exit 10; }
-          scan="$(mktemp)"; match="$(mktemp)"
-          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-          while IFS= read -r line; do
-            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-            [[ "$fp" != "$PROD_HOST_FINGERPRINT" ]] || printf '%s\n' "$line" >> "$match"
-          done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]]
-          mv "$match" "$HOME/.ssh/prod_known_hosts"
-          rm -f "$scan"
-          chmod 600 "$HOME/.ssh/prod_known_hosts"
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-          echo "user=$user" >> "$GITHUB_OUTPUT"
-          echo "port=$port" >> "$GITHUB_OUTPUT"
-
-      - name: Execute read-only production preflight
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          git checkout --detach "$TARGET_SHA"
+          [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Verify local release runner authority
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_OS:-}" == Linux && "${RUNNER_ARCH:-}" == X64 ]]
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -eq 0 ]]
+          [[ -S /var/run/docker.sock ]]
+          docker version >/dev/null
+          docker compose version >/dev/null
+          python3 - <<'PY'
+          import json
+          marker=json.load(open('/etc/pc-release-authority/actions-runner.json', encoding='utf-8'))
+          assert marker['transport']=='OUTBOUND_ONLY_HTTPS'
+          assert marker['executionUser']=='root'
+          assert marker['productionInboundSshRequired'] is False
+          PY
+      - name: Initialize fail-closed evidence
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
-          TAI_IMAGE: ${{ steps.image.outputs.reference }}
-          TAI_DIGEST: ${{ steps.image.outputs.digest }}
-          PROD_HOST: ${{ steps.ssh.outputs.host }}
-          PROD_USER: ${{ steps.ssh.outputs.user }}
-          PROD_PORT: ${{ steps.ssh.outputs.port }}
-        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$RUNNER_TEMP/tai-reg-ru-preflight.json" "$TARGET_SHA" <<'PY'
+          import json, sys
+          json.dump({'schemaVersion':'tai.reg-ru.preflight.v1','targetSha':sys.argv[2],'mode':'READ_ONLY_PREFLIGHT','productionMutationAllowed':False,'checks':[{'code':'PREFLIGHT_NOT_EXECUTED','status':'BLOCKED'}],'blockers':['PREFLIGHT_NOT_EXECUTED'],'passed':False},open(sys.argv[1],'w',encoding='utf-8'),separators=(',',':'))
+          PY
+          chmod 0600 "$RUNNER_TEMP/tai-reg-ru-preflight.json"
+      - name: Execute local read-only production preflight
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          TAI_IMAGE: ${{ needs.image-authority.outputs.reference }}
+          TAI_DIGEST: ${{ needs.image-authority.outputs.digest }}
         run: |
           set -Eeuo pipefail
           report="$RUNNER_TEMP/tai-reg-ru-preflight.json"
-          ssh -i "$HOME/.ssh/id_pc_prod" \
-            -p "$PROD_PORT" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" \
-            -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" \
-            "bash -s -- '$TARGET_SHA' '$TAI_IMAGE' '$TAI_DIGEST'" \
-            < scripts/tai-reg-ru-preflight.sh > "$report"
+          candidate="$RUNNER_TEMP/tai-reg-ru-preflight.candidate.json"
+          if ! bash scripts/tai-reg-ru-preflight.sh "$TARGET_SHA" "$TAI_IMAGE" "$TAI_DIGEST" > "$candidate"; then
+            python3 - "$report" "$TARGET_SHA" <<'PY'
+          import json, sys
+          json.dump({'schemaVersion':'tai.reg-ru.preflight.v1','targetSha':sys.argv[2],'mode':'READ_ONLY_PREFLIGHT','productionMutationAllowed':False,'checks':[{'code':'PREFLIGHT_EXECUTION_FAILED','status':'BLOCKED'}],'blockers':['PREFLIGHT_EXECUTION_FAILED'],'passed':False},open(sys.argv[1],'w',encoding='utf-8'),separators=(',',':'))
+          PY
+            chmod 0600 "$report"
+            exit 20
+          fi
+          mv "$candidate" "$report"
           chmod 0600 "$report"
           python3 - "$report" "$TARGET_SHA" <<'PY'
           import json, sys
-          report = json.load(open(sys.argv[1], encoding='utf-8'))
-          if report.get('schemaVersion') != 'tai.reg-ru.preflight.v1':
-              raise SystemExit('invalid preflight schema')
-          if report.get('targetSha') != sys.argv[2]:
-              raise SystemExit('preflight target mismatch')
-          for item in report.get('checks', []):
-              print(f"{item.get('status')} {item.get('code')}")
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert report.get('schemaVersion')=='tai.reg-ru.preflight.v1'
+          assert report.get('targetSha')==sys.argv[2]
+          assert report.get('productionMutationAllowed') is False
           PY
-
       - name: Upload redacted preflight evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -224,70 +206,43 @@ jobs:
           path: ${{ runner.temp }}/tai-reg-ru-preflight.json
           if-no-files-found: error
           retention-days: 30
-
-      - name: Publish exact-main preflight commit status
-        if: always() && steps.target.outputs.sha != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          report="$RUNNER_TEMP/tai-reg-ru-preflight.json"
-          state=error
-          description='Preflight execution failed before evidence'
-          if [[ -s "$report" ]]; then
-            read -r state description < <(python3 - "$report" <<'PY'
-          import json, sys
-          report = json.load(open(sys.argv[1], encoding='utf-8'))
-          blockers = report.get('blockers') or []
-          if report.get('passed') is True and not blockers:
-              print('success TAI REG.RU preflight PASS')
-          else:
-              print(f"failure BLOCKED: {len(blockers)} prerequisite(s)")
-          PY
-            )
-          fi
-          gh api --method POST \
-            -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
-            -f state="$state" \
-            -f context='TAI REG.RU Preflight' \
-            -f description="$description" \
-            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-
       - name: Enforce manual preflight result
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
+        if: always() && github.event_name == 'workflow_dispatch'
         run: |
-          set -Eeuo pipefail
           python3 - "$RUNNER_TEMP/tai-reg-ru-preflight.json" <<'PY'
           import json, sys
-          report = json.load(open(sys.argv[1], encoding='utf-8'))
-          blockers = report.get('blockers') or []
-          if blockers or report.get('passed') is not True:
-              raise SystemExit('REG.RU preflight is blocked; inspect redacted evidence artifact')
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          if report.get('blockers') or report.get('passed') is not True: raise SystemExit('REG.RU preflight is blocked')
           PY
+      - name: Remove transient runner material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/tai-reg-ru-preflight.json" "$RUNNER_TEMP/tai-reg-ru-preflight.candidate.json"
 
-      - name: Write preflight summary
-        if: always() && steps.target.outputs.sha != ''
-        shell: bash
+  publish-status:
+    name: Publish REG.RU preflight status
+    if: always() && needs.live-preflight.outputs.target_sha != ''
+    needs: live-preflight
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tai-reg-ru-preflight-${{ needs.live-preflight.outputs.target_short }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/tai-reg-ru-preflight
+      - name: Publish exact-main preflight commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.live-preflight.outputs.target_sha }}
         run: |
           set -Eeuo pipefail
-          report="$RUNNER_TEMP/tai-reg-ru-preflight.json"
-          [[ -s "$report" ]] || exit 0
-          python3 - "$report" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          report="$RUNNER_TEMP/tai-reg-ru-preflight/tai-reg-ru-preflight.json"
+          read -r state description < <(python3 - "$report" <<'PY'
           import json, sys
-          report = json.load(open(sys.argv[1], encoding='utf-8'))
-          blockers = report.get('blockers') or []
-          print('## TAI REG.RU preflight')
-          print()
-          print(f"- Status: {'PASS' if report.get('passed') else 'BLOCKED'}")
-          print(f"- Blockers: {len(blockers)}")
-          for code in blockers:
-              print(f"  - `{code}`")
+          r=json.load(open(sys.argv[1],encoding='utf-8')); b=r.get('blockers') or []
+          print('success TAI REG.RU preflight PASS' if r.get('passed') is True and not b else f'failure BLOCKED: {len(b)} prerequisite(s)')
           PY
-
-      - name: Remove transient SSH material
-        if: always()
-        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/prod_known_hosts"
+          )
+          gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" -f state="$state" -f context='TAI REG.RU Preflight' -f description="$description" -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
