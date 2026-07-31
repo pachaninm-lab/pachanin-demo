@@ -80,7 +80,9 @@ class AlwaysOnConfig:
                 "circuit failure threshold must be between 1 and 20"
             )
         if not 5 <= self.circuit_open_seconds <= 600:
-            raise AlwaysOnConfigurationError("circuit open period must be between 5 and 600 seconds")
+            raise AlwaysOnConfigurationError(
+                "circuit open period must be between 5 and 600 seconds"
+            )
         if not 5 <= self.latency_window <= 500:
             raise AlwaysOnConfigurationError("latency window must be between 5 and 500")
 
