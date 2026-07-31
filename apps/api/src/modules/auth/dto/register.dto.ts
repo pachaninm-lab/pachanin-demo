@@ -66,7 +66,7 @@ export class RegisterDto {
   @Matches(/^(?:\d{13}|\d{15})$/)
   orgOgrn?: string;
 
-  @IsIn(ORG_TYPES)
+  @IsIn([...ORG_TYPES])
   orgType!: OrgType;
 
   @IsString()
@@ -74,7 +74,7 @@ export class RegisterDto {
   @MaxLength(160)
   region!: string;
 
-  @IsIn(PUBLIC_WORKSPACE_CLASSES)
+  @IsIn([...PUBLIC_WORKSPACE_CLASSES])
   workspace!: PublicWorkspaceClass;
 
   @IsString()
