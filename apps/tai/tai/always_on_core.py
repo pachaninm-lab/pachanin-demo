@@ -548,8 +548,8 @@ def install_always_on_core(
     """Install middleware, lifecycle hooks and a non-secret operational endpoint."""
 
     app.add_middleware(AlwaysOnBackpressureMiddleware, gate=gate)
-    app.add_event_handler("startup", supervisor.start)
-    app.add_event_handler("shutdown", supervisor.stop)
+    app.router.add_event_handler("startup", supervisor.start)
+    app.router.add_event_handler("shutdown", supervisor.stop)
 
     async def runtime_health() -> JSONResponse:
         pressure = await gate.snapshot()
