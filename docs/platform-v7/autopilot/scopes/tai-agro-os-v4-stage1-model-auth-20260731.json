@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-model-auth-20260731",
+  "status": "active",
+  "purpose": "Require protected Bearer authentication for the private local Qwen endpoint in both inference and supervisor warm-up without duplicating the canonical TAI image authority or mutating REG.RU production.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "76736d52802d85555b7209874ea47e3b842d5bdb",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/tai/TAI_RUNTIME_IMAGE_AUTHORITY.md",
+    "apps/tai/tai/production_authenticated_runtime.py",
+    "apps/tai/tai/production_entrypoint.py",
+    "apps/tai/tai/secure_model_transport.py",
+    "apps/tai/tests/test_production_authenticated_runtime.py",
+    "apps/tai/tests/test_production_entrypoint.py",
+    "apps/tai/tests/test_secure_model_transport.py",
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-model-auth-20260731.json"
+  ],
+  "requiredBehavior": [
+    "require TAI_MODEL_BEARER_TOKEN for production composition",
+    "validate bounded credential length and reject whitespace or control characters",
+    "send the credential only in the Authorization header",
+    "use authenticated transport for answer generation and supervisor warm-up",
+    "keep the credential out of image URL request body browser environment and logs",
+    "fail production configuration closed when access material is absent or malformed",
+    "preserve current endpoint locality policy model admission tenant and write boundaries",
+    "reuse the canonical rootless TAI image authority already present in main",
+    "add focused deterministic tests and preserve the existing coverage gate"
+  ],
+  "forbiddenCapabilities": [
+    "duplicate Dockerfile or image publication workflow",
+    "REG.RU compose mutation",
+    "production deployment or live acceptance claim",
+    "database migration execution",
+    "invented model artifact licence benchmark or admission evidence",
+    "credential logging or image embedding",
+    "new paid dependency or recurring cost",
+    "autonomous platform or financial writes",
+    "client-selected tenant or role"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "requiredChecks": [
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance",
+      "Optional Runtime Retirement Gate"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}

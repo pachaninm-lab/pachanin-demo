@@ -1,6 +1,6 @@
 # TAI Agro OS — canonical runtime image authority
 
-**Baseline:** `1c61ddd3c8de368ec321d9afde8eac89f5752488`  
+**Baseline:** `76736d52802d85555b7209874ea47e3b842d5bdb`  
 **Hosting boundary:** existing REG.RU infrastructure only  
 **New recurring cost:** 0 RUB  
 **Operational status:** `NOT_DEPLOYED` until exact-main REG.RU acceptance
@@ -30,6 +30,18 @@ the full source SHA.
   admission and production configuration are all valid;
 - production command is the explicit ASGI entrypoint
   `tai.production_entrypoint:app` on port `8080`.
+
+## Protected local-model access
+
+Production composition requires `TAI_MODEL_BEARER_TOKEN` from protected REG.RU operations
+storage. The token:
+
+- must contain 32–4096 non-whitespace, non-control characters;
+- is sent only as `Authorization: Bearer <token>` to a private endpoint accepted by the
+  existing local endpoint policy;
+- is used by both normal inference and supervisor warm-up;
+- is never embedded into the image, model URL, request body, browser environment or logs;
+- causes fail-closed production configuration when absent or malformed.
 
 ## Acceptance gate
 
