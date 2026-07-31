@@ -83,10 +83,13 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('#pc-v6-title')).toBeVisible();
       await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
       await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toBeVisible();
-      await expect(page.locator('#deal-path')).toBeVisible();
+      await expect(page.locator('#deal-path')).toHaveCount(0);
+      await expect(page.locator('#functions article')).toHaveCount(7);
+      await expect(page.locator('#trust')).toBeVisible();
       await expect(page.locator('#participants')).toBeVisible();
       await expect(page.locator('#money')).toBeVisible();
       await expect(page.locator('#tai')).toBeVisible();
+      await expect(page.locator('#connection-process')).toBeVisible();
       await expect(page.locator('#connect-organization')).toBeVisible();
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-step', '1');
@@ -178,15 +181,16 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     const dock = page.locator('.pc-public-contact-dock');
     const assistant = dock.locator('.pc-public-contact-dock-assistant');
-    const call = dock.locator('a');
+    const secondaryActions = dock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
 
+    await expect(secondaryActions).toHaveCount(2);
     for (const top of [0, 1300, 900, 0]) {
       await scrollAndFlush(page, top);
       await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
       await expect(dock).toBeVisible();
       await expect(assistant).toBeEnabled();
       await expect(assistant).toHaveAttribute('tabindex', '0');
-      await expect(call).toHaveAttribute('tabindex', '0');
+      for (const action of await secondaryActions.all()) await expect(action).toBeHidden();
     }
   });
 
