@@ -6,8 +6,10 @@ on:
     paths:
       - "apps/api/**"
       - "apps/web/**"
+      - "apps/tai/**"
       - "infra/docker/Dockerfile.api"
       - "infra/docker/Dockerfile.web"
+      - "infra/docker/Dockerfile.tai"
       - "infra/docker/Dockerfile.migrations"
       - ".github/workflows/docker-publish.yml"
       - ".github/workflows/production-full-stack-exact-sha.yml"
@@ -17,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: "Canonical services to build: api, web or all; migration is also supported"
+        description: "Canonical services to build: api, web, tai, migration or all"
         default: "all"
         required: false
 
@@ -114,6 +116,49 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
 
+  build-tai:
+    name: Build TAI image
+    runs-on: ubuntu-latest
+    if: >
+      contains(github.event.inputs.services, 'tai') ||
+      github.event.inputs.services == 'all' ||
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta-tai
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-tai
+          tags: |
+            type=sha,format=short
+
+      - name: Build and push TAI authority
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.tai
+          push: true
+          tags: ${{ steps.meta-tai.outputs.tags }}
+          labels: ${{ steps.meta-tai.outputs.labels }}
+          cache-from: type=gha,scope=tai
+          cache-to: type=gha,mode=max,scope=tai
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_COMMIT=${{ github.sha }}
+            APP_VERSION=0.1.0
+
   build-migration:
     name: Build migration image
     runs-on: ubuntu-latest
@@ -174,4 +219,4 @@ jobs:
       - name: Render Helm chart
         run: helm template grainflow infra/helm/grainflow --namespace grainflow-prod > /tmp/grainflow-rendered.yaml
 
-# Operational no-op: force canonical API/web/migration image publication for the current main SHA.
+# Canonical TAI image publication is artifact evidence, not REG.RU deployment evidence.
