@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getLocale } from 'next-intl/server';
 import {
   Children,
+  Fragment,
   cloneElement,
   isValidElement,
   type ReactElement,
@@ -49,7 +50,13 @@ function clarifyTaiAuthority(node: ReactNode): ReactNode {
 }
 
 export default async function PlatformV7TrustPage() {
-  return clarifyTaiAuthority(await BaseTrustCenterPage());
+  const page = clarifyTaiAuthority(await BaseTrustCenterPage());
+  return (
+    <Fragment>
+      <style>{'.p7-ai-trigger,.p7-support-chat-button{display:none!important}'}</style>
+      {page}
+    </Fragment>
+  );
 }
 
 export async function generateMetadata(): Promise<Metadata> {
