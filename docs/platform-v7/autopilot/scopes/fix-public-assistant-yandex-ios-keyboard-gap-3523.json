@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-yandex-ios-keyboard-gap-3523",
+  "status": "active",
+  "purpose": "Remove the dead gap between the public assistant composer and the software keyboard in Yandex Browser on iOS without changing AI behavior, data access or transaction authority.",
+  "approvedBy": "owner-direct-implement-2026-07-31",
+  "authorityBaseExactMain": "b687512c732834fa8e3999c3b6e297d9331168f8",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileKeyboard.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-yandex-ios-keyboard-gap-3523.json"
+  ],
+  "requiredBehavior": [
+    "the focused composer remains directly above the software keyboard with no exposed page gap",
+    "Yandex iOS browser chrome and keyboard geometry are distinguished from the unfocused viewport baseline",
+    "VirtualKeyboard geometry remains a hard boundary when available",
+    "visualViewport resize, scroll, focus animation and orientation changes are remeasured",
+    "existing public assistant visuals, AI responses, routes and permissions remain unchanged",
+    "after merge the exact main SHA is released only to REG.RU"
+  ],
+  "forbiddenCapabilities": [
+    "private tenant or Deal data access",
+    "write authority or autonomous actions",
+    "model or prompt routing changes",
+    "credential or infrastructure topology changes",
+    "acceptance weakening",
+    "Netlify or Vercel deployment"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
