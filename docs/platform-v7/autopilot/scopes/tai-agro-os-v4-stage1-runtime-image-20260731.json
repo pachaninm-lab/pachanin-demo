@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-runtime-image-20260731",
+  "status": "active",
+  "purpose": "Create the canonical immutable rootless TAI Agro OS runtime image and exact-SHA publication authority without changing the live REG.RU service topology or expanding TAI write authority.",
+  "approvedBy": "owner-continue-implementation-2026-07-31",
+  "authorityBaseExactMain": "1c61ddd3c8de368ec321d9afde8eac89f5752488",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "operationalStatus": "NOT_DEPLOYED",
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    ".github/workflows/tai-runtime-image.yml",
+    "CANONICAL_DEPLOY.md",
+    "apps/tai/TAI_RUNTIME_IMAGE_AUTHORITY.md",
+    "apps/tai/pyproject.toml",
+    "apps/tai/release-source-manifest.json",
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-runtime-image-20260731.json",
+    "infra/docker/Dockerfile.tai"
+  ],
+  "requiredBehavior": [
+    "build a canonical TAI runtime image from exact repository source",
+    "publish only exact-SHA tagged TAI images through the existing GHCR authority",
+    "run the service as unprivileged uid and gid 65532",
+    "package the complete governed TAI migration manifest and SQL history",
+    "bake no secrets database URLs model keys tenant data or production configuration into the image",
+    "keep liveness independent from dependency readiness",
+    "fail readiness closed when production configuration is absent",
+    "bind the runtime Dockerfile into the TAI release source digest",
+    "separate image publication evidence from REG.RU deployment evidence"
+  ],
+  "forbiddenCapabilities": [
+    "production compose mutation",
+    "REG.RU deployment claim",
+    "autonomous platform or financial writes",
+    "client-selected tenant role or membership",
+    "cloud LLM dependency",
+    "new paid service or recurring expense",
+    "Netlify or Vercel",
+    "embedded secret or credential",
+    "model admission bypass"
+  ]
+}
