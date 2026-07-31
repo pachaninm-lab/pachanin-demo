@@ -4,7 +4,7 @@ import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from tai.local_model_invoker import JSONTransport, LocalEndpointPolicy
 from tai.postgres_connection import PsycopgConnectionFactory
@@ -146,7 +146,21 @@ class PostgreSQLPreflightEvidenceRepository:
                         """,
                         (list(_REQUIRED_RELATIONS),),
                     )
-                    relation_rows = cursor.fetchall()
+                    relation_rows = cast(Any, cursor).fetchall()
+                    relations = _relations_from_rows(relation_rows)
+                    relation_names = {item.name for item in relations}
+                    prerequisites_ready = (
+                        relation_names == set(_REQUIRED_RELATIONS)
+                        and all(item.exists and item.select_allowed for item in relations)
+                    )
+                    if not prerequisites_ready:
+                        connection.commit()
+                        return DatabaseEvidence(
+                            relations=relations,
+                            active_generation=False,
+                            active_chunk_count=0,
+                            active_models=(),
+                        )
                     cursor.execute(
                         """
                         SELECT
@@ -180,34 +194,17 @@ class PostgreSQLPreflightEvidenceRepository:
                         """,
                         (),
                     )
-                    model_rows = cursor.fetchall()
+                    model_rows = cast(Any, cursor).fetchall()
                 connection.commit()
             except Exception:
                 connection.rollback()
                 raise
-        relations = tuple(
-            RelationEvidence(
-                name=str(row["name"]),
-                exists=bool(row["exists"]),
-                select_allowed=bool(row["select_allowed"]),
-            )
-            for row in relation_rows
-        )
-        models = tuple(
-            ModelEvidence(
-                model_id=str(row["model_id"]),
-                revision=str(row["revision"]),
-                accepted=bool(row["accepted"]),
-                artifact_matches=bool(row["artifact_matches"]),
-            )
-            for row in model_rows
-        )
         chunk_count = 0 if generation_row is None else int(generation_row["chunk_count"])
         return DatabaseEvidence(
             relations=relations,
             active_generation=generation_row is not None,
             active_chunk_count=chunk_count,
-            active_models=models,
+            active_models=_models_from_rows(model_rows),
         )
 
 
@@ -284,43 +281,46 @@ class ProductionPreflight:
         )
         relation_names = {item.name for item in evidence.relations}
         inventory_complete = relation_names == set(_REQUIRED_RELATIONS)
-        if missing or not inventory_complete:
-            components["postgresql_schema"] = "incomplete"
+        schema_ready = not missing and inventory_complete
+        select_ready = not denied and schema_ready
+        components["postgresql_schema"] = "ready" if schema_ready else "incomplete"
+        components["postgresql_select"] = "ready" if select_ready else "denied"
+        if not schema_ready:
             reasons.append("POSTGRESQL_SCHEMA_INCOMPLETE")
-        else:
-            components["postgresql_schema"] = "ready"
-        if denied:
-            components["postgresql_select"] = "denied"
+        if schema_ready and denied:
             reasons.append("POSTGRESQL_SELECT_DENIED")
-        else:
-            components["postgresql_select"] = "ready"
 
-        knowledge_ready = evidence.active_generation and evidence.active_chunk_count > 0
-        components["knowledge"] = "ready" if knowledge_ready else "unavailable"
-        if not knowledge_ready:
-            reasons.append("KNOWLEDGE_GENERATION_UNAVAILABLE")
-
-        admitted_models = tuple(
-            item
-            for item in evidence.active_models
-            if item.accepted and item.artifact_matches
-        )
-        all_models_admitted = bool(evidence.active_models) and (
-            len(admitted_models) == len(evidence.active_models)
-        )
-        components["model_admission"] = (
-            "ready" if all_models_admitted else "not_admitted"
-        )
-        if not evidence.active_models:
-            reasons.append("ACTIVE_MODEL_PROFILE_UNAVAILABLE")
-        elif not all_models_admitted:
-            reasons.append("MODEL_ARTIFACT_NOT_ADMITTED")
-
+        admitted_models: tuple[ModelEvidence, ...] = ()
         probe_status = "skipped"
-        if all_models_admitted and not missing and not denied and inventory_complete:
-            probe_status = self._probe(admitted_models[0].model_id)
-            if probe_status != "passed":
-                reasons.append("AUTHENTICATED_MODEL_PROBE_FAILED")
+        if select_ready:
+            knowledge_ready = evidence.active_generation and evidence.active_chunk_count > 0
+            components["knowledge"] = "ready" if knowledge_ready else "unavailable"
+            if not knowledge_ready:
+                reasons.append("KNOWLEDGE_GENERATION_UNAVAILABLE")
+
+            admitted_models = tuple(
+                item
+                for item in evidence.active_models
+                if item.accepted and item.artifact_matches
+            )
+            all_models_admitted = bool(evidence.active_models) and (
+                len(admitted_models) == len(evidence.active_models)
+            )
+            components["model_admission"] = (
+                "ready" if all_models_admitted else "not_admitted"
+            )
+            if not evidence.active_models:
+                reasons.append("ACTIVE_MODEL_PROFILE_UNAVAILABLE")
+            elif not all_models_admitted:
+                reasons.append("MODEL_ARTIFACT_NOT_ADMITTED")
+
+            if all_models_admitted:
+                probe_status = self._probe(admitted_models[0].model_id)
+                if probe_status != "passed":
+                    reasons.append("AUTHENTICATED_MODEL_PROBE_FAILED")
+        else:
+            components["knowledge"] = "blocked_by_postgresql"
+            components["model_admission"] = "blocked_by_postgresql"
         components["model_probe"] = probe_status
         unique_reasons = tuple(sorted(set(reasons)))
         return PreflightReport(
@@ -423,6 +423,29 @@ def _failure_report(reason: str, status: str) -> dict[str, object]:
         "relation_count": 0,
         "schema_version": "tai.production.preflight.v1",
     }
+
+
+def _relations_from_rows(rows: list[Mapping[str, Any]]) -> tuple[RelationEvidence, ...]:
+    return tuple(
+        RelationEvidence(
+            name=str(row["name"]),
+            exists=bool(row["exists"]),
+            select_allowed=bool(row["select_allowed"]),
+        )
+        for row in rows
+    )
+
+
+def _models_from_rows(rows: list[Mapping[str, Any]]) -> tuple[ModelEvidence, ...]:
+    return tuple(
+        ModelEvidence(
+            model_id=str(row["model_id"]),
+            revision=str(row["revision"]),
+            accepted=bool(row["accepted"]),
+            artifact_matches=bool(row["artifact_matches"]),
+        )
+        for row in rows
+    )
 
 
 def _required(source: Mapping[str, str], name: str) -> str:
