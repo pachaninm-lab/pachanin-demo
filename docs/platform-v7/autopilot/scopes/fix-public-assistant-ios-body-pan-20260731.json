@@ -2,10 +2,11 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-assistant-ios-body-pan-20260731",
   "status": "active",
-  "purpose": "Eliminate unstable iOS and Yandex keyboard positioning by removing body-fixed scroll locking, retiring legacy CSS geometry authorities, and keeping the public assistant under one mobile viewport controller.",
+  "purpose": "Eliminate unstable iOS and Yandex keyboard positioning by removing body-fixed scroll locking, retiring legacy CSS geometry authorities, keeping the public assistant under one mobile viewport controller, and removing the inherited duplicate route-level comparison-marker style that blocks the mandatory design-system gate.",
   "approvedBy": "owner-live-screenshots-2026-07-31",
   "authorityBaseExactMain": "10e0c5576d67fbeeb95b9cc6d881628800a52da5",
   "allowedPaths": [
+    "apps/web/app/platform-v7/template.tsx",
     "apps/web/components/platform-v7/PublicAssistantMobileLayoutAuthority.tsx",
     "apps/web/styles/platform-v7-public-assistant-mobile-fix.css",
     "apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css",
@@ -17,6 +18,7 @@
     "block background touch scrolling without blocking the assistant message scroller",
     "keep exactly one runtime authority for panel top width and height",
     "retire legacy keyboard top plus bottom CSS geometry",
+    "remove duplicate route-template comparison-marker CSS while preserving the governed stylesheet implementation",
     "preserve desktop layout and restore the original page scroll position after close",
     "verify repeated focus resize scroll and keyboard cycles remain geometrically stable"
   ],
