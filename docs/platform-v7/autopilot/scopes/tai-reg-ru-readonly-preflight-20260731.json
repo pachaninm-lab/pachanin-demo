@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reg-ru-readonly-preflight-20260731",
+  "status": "active",
+  "purpose": "Collect sanitized read-only REG.RU prerequisites for a separate TAI service without mutating Compose, PostgreSQL or production workloads.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "ba4bbd89a3802b54aa9221781d9261052561ad05",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "evidenceIssue": 3553,
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    "apps/tai/tai/production_preflight.py",
+    "apps/tai/tests/test_production_preflight.py",
+    "docs/ops/tai-reg-ru-preflight.md",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-readonly-preflight-20260731.json",
+    "scripts/check-tai-reg-ru-preflight.mjs"
+  ],
+  "requiredBehavior": [
+    "accept only exact current main and its canonical TAI image",
+    "verify the image revision on the runner and REG.RU host",
+    "discover protected production Compose and network authority without changing it",
+    "recover the running private Qwen credential without disclosure",
+    "execute PostgreSQL evidence collection in an explicit read-only transaction",
+    "verify required relations, SELECT privileges, knowledge chunks and model admission",
+    "perform one authenticated deterministic Qwen probe",
+    "publish only sanitized counts, statuses and reason codes to issue 3553",
+    "remove temporary protected environment material",
+    "preserve zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "docker compose up, down, restart or recreate",
+    "production service stop or replacement",
+    "database migration or SQL write",
+    "database role or grant mutation",
+    "port publication",
+    "credential, DSN, endpoint, model identity or model output disclosure",
+    "deployment or live-acceptance claim",
+    "issue 3553 closure",
+    "tenant, role, model-admission, financial, veterinary or write-authority expansion"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 6,
+    "requiredChecks": [
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance",
+      "TAI REG.RU Read-Only Preflight"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}
