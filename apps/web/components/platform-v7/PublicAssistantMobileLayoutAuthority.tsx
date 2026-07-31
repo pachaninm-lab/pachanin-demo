@@ -71,7 +71,6 @@ const MESSAGE_STYLE_PROPERTIES = [
 const ROOT_LOCK_PROPERTIES = [
   'overflow',
   'overscroll-behavior',
-  'touch-action',
 ] as const;
 
 const BODY_LOCK_PROPERTIES = [
@@ -171,7 +170,6 @@ export function PublicAssistantMobileLayoutAuthority() {
       root.dataset.pcPublicAssistantScrollLock = 'true';
       setImportant(root, 'overflow', 'hidden');
       setImportant(root, 'overscroll-behavior', 'none');
-      setImportant(root, 'touch-action', 'none');
 
       setImportant(body, 'position', 'fixed');
       setImportant(body, 'top', `${-scrollLock.y}px`);
