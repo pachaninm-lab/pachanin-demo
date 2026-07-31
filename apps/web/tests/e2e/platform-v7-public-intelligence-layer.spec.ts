@@ -168,16 +168,19 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
     await expect(dock).toBeVisible();
     await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
-    await expect(dock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)')).toBeHidden();
+    const secondaryActions = dock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
+    await expect(secondaryActions).toHaveCount(2);
+    for (const action of await secondaryActions.all()) await expect(action).toBeHidden();
     const dockBox = await dock.boundingBox();
     expect(dockBox).not.toBeNull();
     expect(dockBox?.width ?? 9999).toBeLessThanOrEqual(58);
+    expect(dockBox?.x ?? -1).toBeGreaterThanOrEqual(320);
     await expectNoHorizontalOverflow(page);
   });
 
   test('public Trust Center states verifiable boundaries without certification claims', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
-    const response = await page.goto('/trust?lang=ru', { waitUntil: 'load' });
+    const response = await page.goto('/platform-v7/trust?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
     await expect(page.locator('#pc-trust-title')).toBeVisible();
     await expect(page.locator('.pc-trust-domains article')).toHaveCount(4);
@@ -237,7 +240,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       await expectNoHorizontalOverflow(page);
       await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');
-      const trust = await page.goto(`/trust?lang=${item.locale}`, { waitUntil: 'load' });
+      const trust = await page.goto(`/platform-v7/trust?lang=${item.locale}`, { waitUntil: 'load' });
       expect(trust?.ok(), `trust ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('.pc-trust-domains article')).toHaveCount(4);
       await expectNoHorizontalOverflow(page);
