@@ -9,6 +9,7 @@ import { RequestUser, Role } from '../../common/types/request-user';
 import { AuthService } from './auth.service';
 import { PasswordResetService } from './password-reset.service';
 import { RegistrationApplicationService } from './registration-application.service';
+import { RegistrationDecisionService } from './registration-decision.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -28,6 +29,7 @@ export class AuthController {
     private readonly organizationTeamService: OrganizationTeamService,
     private readonly passwordReset: PasswordResetService,
     private readonly registrationApplications: RegistrationApplicationService,
+    private readonly registrationDecisions: RegistrationDecisionService,
   ) {}
 
   @Public()
@@ -105,7 +107,7 @@ export class AuthController {
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
   ) {
-    return this.registrationApplications.decide(
+    return this.registrationDecisions.decide(
       applicationId,
       dto.decision,
       dto.reason,
