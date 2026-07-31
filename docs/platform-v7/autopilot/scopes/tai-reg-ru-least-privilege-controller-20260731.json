@@ -38,7 +38,14 @@
     "publish statuses and issue comments only from hosted jobs",
     "preserve idempotent root-authorized dependency bootstrap and pcactions ownership on repeat execution",
     "restart the runner service after Docker-group removal and attest the running process has no Docker supplementary group",
-    "validate every runner-input directory and file by type ownership mode link count name and size before root use"
+    "validate every runner-input directory and file by type ownership mode link count name and size before root use",
+    "serialize the automatic release chain as canonical build then preflight then restricted Qwen activation then standalone TAI deployment",
+    "bind API web migration and TAI production pulls to hosted-verified immutable registry digests",
+    "reject an installed release controller whose checksum differs from the exact target main controller source",
+    "execute rollback from an EXIT guard so explicit fail-closed exits cannot bypass rollback",
+    "replace a pending preflight status with explicit error when controller evidence is unavailable",
+    "allow controller-only installer refresh for an existing registered runner without requiring a new registration token",
+    "roll back and fail finalization when current main changes before hosted live acceptance completes"
   ],
   "forbiddenCapabilities": [
     "runner membership in docker group",
