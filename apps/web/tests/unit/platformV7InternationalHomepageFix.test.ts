@@ -14,6 +14,7 @@ const platformLayout = read('apps/web/app/platform-v7/layout.tsx');
 const publicSeoRegistry = read('apps/web/lib/platform-v7/public-seo-routes.json');
 const browserAcceptance = read('apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts');
 const strategicAcceptance = read('apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts');
+const productionMobileAcceptance = read('apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts');
 
 describe('platform-v7 international homepage completion', () => {
   it('routes the canonical homepage through the additive completion layer', () => {
@@ -65,6 +66,16 @@ describe('platform-v7 international homepage completion', () => {
     expect(trustContent).toContain('ISO, SOC 2 или иная сертификация — без опубликованного подтверждения');
     expect(trustContent).toContain('TAI не получает самостоятельного права менять Сделку');
     expect(browserAcceptance).toContain("page.goto('/platform-v7/trust?lang=ru'");
+  });
+
+  it('keeps the new sections inside the approved mobile hierarchy and canonical anchor set', () => {
+    expect(css).toContain('.pc-v7-public-entry .pc-home-trust > .pc-v6-section-head h2');
+    expect(css).toContain('.pc-v7-public-entry .pc-home-connection-process > .pc-v6-section-head h2');
+    expect(css).toContain('font-size: clamp(32px, 8.35vw, 36px) !important');
+    expect(productionMobileAcceptance).toContain("'trust'");
+    expect(productionMobileAcceptance).toContain("'connection-process'");
+    expect(productionMobileAcceptance).not.toContain("'deal-path'");
+    expect(productionMobileAcceptance).toContain('heading.fontSize >= 32 && heading.fontSize <= 38');
   });
 
   it('keeps support and phone in the mobile menu while reducing the mobile dock to AI only', () => {
