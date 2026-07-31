@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-mobile-viewport-polish-20260731",
+  "status": "active",
+  "purpose": "Correct the public AI assistant mobile viewport and software-keyboard geometry, remove clipped and redundant controls, and establish a deterministic compact presentation layer without changing assistant authority or production topology.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileKeyboard.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-mobile-viewport-polish-3520.json"
+  ],
+  "acceptanceEvidence": {
+    "viewportController": "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "presentationAuthority": "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "keyboardContract": "apps/web/tests/unit/platformV7PublicAssistantMobileKeyboard.test.ts"
+  },
+  "constraints": [
+    "Public assistant remains read-only and does not gain access to private cabinet data",
+    "No assistant model, API, authentication, tenant or authorization behavior change",
+    "No production deployment topology change",
+    "No Netlify or Vercel production dependency",
+    "Mobile touch targets remain at least 44 CSS pixels",
+    "Visual viewport and software-keyboard handling must fail safely when optional browser APIs are absent"
+  ]
+}

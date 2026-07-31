@@ -6,59 +6,73 @@ const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 const controller = read('apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx');
-const css = read('apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css');
+const hotfixCss = read('apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css');
+const polishCss = read('apps/web/styles/platform-v7-public-assistant-polish.css');
 
 describe('platform-v7 public assistant mobile keyboard contract', () => {
   it('tracks visual viewport and optional VirtualKeyboard geometry through the full animation', () => {
     expect(controller).toContain('window.visualViewport');
     expect(controller).toContain('NavigatorWithVirtualKeyboard');
     expect(controller).toContain("virtualKeyboard?.addEventListener('geometrychange', scheduleMeasure)");
-    expect(controller).toContain('virtualKeyboard.overlaysContent = true');
+    expect(controller).not.toContain('overlaysContent = true');
     expect(controller).toContain("document.addEventListener('focusin', handleFocusIn)");
     expect(controller).toContain("document.addEventListener('focusout', handleFocusOut)");
     expect(controller).toContain("target.closest('.pc-public-assistant-composer')");
     expect(controller).toContain('[40, 100, 180, 300, 480, 700, 1_000, 1_400, 1_900]');
   });
 
-  it('derives overlay keyboard top from stable height instead of an unreliable top coordinate', () => {
-    expect(controller).toContain('const keyboardTopFromHeight = keyboardHeight > 0');
-    expect(controller).toContain('layoutBottom - keyboardHeight');
-    expect(controller).toContain('Math.max(visualBottom, keyboardTopFromHeight)');
+  it('uses the earlier reliable visible edge instead of exposing a strip above an overlay keyboard', () => {
+    expect(controller).toContain('const keyboardTopFromHeight = Math.max(visualTop + 1, layoutBottom - keyboardHeight)');
+    expect(controller).toContain('Math.min(visualBottom, keyboardTopFromHeight)');
+    expect(controller).not.toContain('Math.max(visualBottom, keyboardTopFromHeight)');
     expect(controller).not.toContain('keyboardRect?.top');
-    expect(controller).toContain("panel.dataset.pcKeyboardGeometry = keyboardHeight > 0 ? 'keyboard-height' : 'visual-viewport'");
+    expect(controller).toContain("panel.dataset.pcKeyboardGeometry = geometry");
   });
 
-  it('anchors the focused sheet by exact top and bottom edges with no exposed page strip', () => {
-    expect(controller).toContain("panel.style.setProperty('--pc-ai-keyboard-bottom', `${keyboardBottomInset}px`)");
-    expect(css).toContain(".pc-public-assistant-panel[data-pc-keyboard-focus='true']");
-    expect(css).toContain('--pc-ai-keyboard-bottom,');
-    expect(css).toContain('height: auto !important');
-    expect(css).toContain('max-height: none !important');
-    expect(css).not.toContain('--pc-ai-keyboard-height,');
-    expect(css).toContain('border-radius: 0 !important');
+  it('binds the mobile panel to exact visual top and height before and during keyboard focus', () => {
+    expect(controller).toContain("panel.style.setProperty('--pc-ai-visible-top', `${visualTop}px`)");
+    expect(controller).toContain("panel.style.setProperty('--pc-ai-visible-height', `${activeHeight}px`)");
+    expect(polishCss).toContain(".pc-public-assistant-panel[data-pc-keyboard-focus='true']");
+    expect(polishCss).toContain('top: var(--pc-ai-visible-top, var(--pc-visual-viewport-top, 0px)) !important');
+    expect(polishCss).toContain('height: var(--pc-ai-visible-height, var(--pc-visual-viewport-height, 100dvh)) !important');
+    expect(polishCss).toContain('bottom: auto !important');
+    expect(polishCss).toContain('border-radius: 0 !important');
   });
 
-  it('removes public implementation labels, long wait copy and feedback controls', () => {
-    expect(css).toContain(".pc-public-assistant-message[data-role='assistant'][data-origin]");
-    expect(css).toContain("button[aria-label='Ответ полезен']");
-    expect(css).toContain("button[aria-label='Сообщить об ошибке']");
-    expect(css).toContain('.pc-public-assistant-processing span');
-    expect(css).toContain('.pc-public-assistant-stream-provisional');
-    expect(css.match(/display: none !important;/gu)?.length).toBeGreaterThanOrEqual(3);
+  it('keeps implementation labels, wait copy and feedback controls off the public surface', () => {
+    expect(polishCss).toContain(".pc-public-assistant-message[data-role='assistant'][data-origin]");
+    expect(polishCss).toContain("button[aria-label='Ответ полезен']");
+    expect(polishCss).toContain("button[aria-label='Сообщить об ошибке']");
+    expect(polishCss).toContain('.pc-public-assistant-processing span');
+    expect(polishCss).toContain('.pc-public-assistant-stream-provisional');
+    expect(polishCss).toContain('clip-path: inset(50%) !important');
+    expect(hotfixCss).toContain('public users do not see implementation labels');
   });
 
-  it('removes the redundant frame but retains a compact keyboard-focus cue', () => {
-    expect(css).toContain('.pc-public-assistant-composer-shell:focus-within');
-    expect(css).toContain('box-shadow: none !important');
-    expect(css).toContain('.pc-public-assistant-composer-shell:has(textarea:focus-visible)');
-    expect(css).toContain('box-shadow: inset 0 -2px 0 rgba(8, 122, 59, 0.62) !important');
-    expect(css).toContain('outline: 2px solid Highlight !important');
+  it('removes the bottom-only focus stripe and retains a restrained full-field cue', () => {
+    expect(polishCss).toContain('.pc-public-assistant-composer-shell:focus-within');
+    expect(polishCss).toContain('.pc-public-assistant-composer-shell:has(textarea:focus-visible)');
+    expect(polishCss).toContain('box-shadow: 0 0 0 2px rgba(8, 122, 59, 0.1) !important');
+    expect(polishCss).not.toContain('inset 0 -2px');
+    expect(polishCss).toContain('border-color: #b8d0c1 !important');
   });
 
-  it('keeps the assistant visually light', () => {
-    expect(css).toContain('.pc-site-header .pc-site-brand-text strong');
-    expect(css).toContain('font-weight: 650 !important');
-    expect(css).toContain('background: rgba(9, 33, 24, 0.18) !important');
-    expect(css).toContain('background: #ffffff !important');
+  it('uses one compact mobile header and non-clipped prompt actions', () => {
+    expect(polishCss).toContain('grid-template-columns: minmax(0, 1fr) 44px !important');
+    expect(polishCss).toContain('> .pc-public-assistant-icon-button:first-of-type');
+    expect(polishCss).toContain('display: none !important');
+    expect(polishCss).toContain('grid-template-columns: repeat(2, minmax(0, 1fr)) !important');
+    expect(polishCss).toContain('white-space: normal !important');
+    expect(polishCss).toContain('grid-column: 1 / -1 !important');
+  });
+
+  it('keeps the composer at the visible bottom and removes nonessential typing-time gaps', () => {
+    expect(polishCss).toContain('flex: 0 0 auto !important');
+    expect(polishCss).toContain('padding-bottom: 8px !important');
+    expect(polishCss).toContain('height: var(--pc-ai-visible-height');
+    expect(polishCss).toContain('overflow: hidden !important');
+    expect(polishCss).toContain('.pc-public-assistant-privacy');
+    expect(polishCss).toContain('align-content: center !important');
+    expect(polishCss).toContain('align-content: start !important');
   });
 });
