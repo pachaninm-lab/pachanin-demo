@@ -14,6 +14,7 @@
     "apps/web/tsconfig.json",
     "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
     "infra/docker/Dockerfile.web"
   ],
   "forbiddenPaths": [
@@ -29,9 +30,9 @@
   "requiredEvidence": [
     "The canonical homepage renders exactly seven numbered Deal steps and no duplicate deal-path section",
     "The public homepage contains a four-domain Trust Center summary and a three-step organisation connection process in RU, EN and ZH",
-    "The Trust Center is reachable at the public root route and the legacy platform-v7 trust page redirects to it without a conflicting route handler",
+    "The Trust Center is served on the canonical platform-v7 public route without a redirect loop or conflicting route handler",
     "The Trust Center contains no unsupported certification, customer, partner, SLA or external-connection claim",
-    "On mobile, support and phone move to the public menu while the fixed dock is reduced to the single AI action",
+    "On mobile, support and phone move to the public menu while the fixed dock is reduced to the single AI action and anchored on the right",
     "The public footer reserves safe-area space and the homepage has no horizontal overflow at 320, 375, 390, 430, 768, 1024 and 1440 CSS pixels",
     "Unit, TypeScript, browser, accessibility, security and exact-head acceptance pass",
     "The exact merge SHA is published and deployed with matching OCI revision, healthy state and live acceptance PASS"
