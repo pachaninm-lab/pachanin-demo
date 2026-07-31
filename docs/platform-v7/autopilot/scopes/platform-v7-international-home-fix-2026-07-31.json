@@ -3,8 +3,8 @@
   "id": "PLATFORM-V7-INTERNATIONAL-HOME-FIX-2026-07-31",
   "branch": "agent/platform-v7-international-home-fix",
   "status": "active",
-  "maturityBoundary": "public-homepage-trust-connection-and-mobile-dock-only",
-  "globalProgramStateUnchanged": "This scope changes only the public homepage composition, its public Trust Center, homepage-specific presentation, public-route classification, SEO registration, acceptance contracts and a comment-only exact-SHA web release trigger. It does not change Deal authority, database state, API behavior, financial execution, tenant or role derivation, TAI tool permissions, external integration status or production topology.",
+  "maturityBoundary": "public-homepage-business-copy-trust-connection-and-mobile-dock-only",
+  "globalProgramStateUnchanged": "This scope changes only the public homepage composition and business copy, its public Trust Center, homepage-specific presentation, acceptance contracts and a comment-only exact-SHA web release trigger. It does not change Deal authority, database state, API behavior, financial execution, tenant or role derivation, TAI tool permissions, external integration status or production topology.",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/platform-v7-international-home-fix-2026-07-31.json",
     "apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx",
@@ -30,9 +30,11 @@
     "production credentials"
   ],
   "requiredEvidence": [
+    "The existing homepage design system, typography and core section structure remain intact",
     "The canonical homepage renders exactly seven numbered Deal steps and no duplicate deal-path section",
-    "The public homepage contains a four-domain Trust Center summary and a three-step organisation connection process in RU, EN and ZH",
-    "The Trust Center is served on the canonical platform-v7 route without authentication and is registered as an indexable public SEO route",
+    "The public homepage presents the platform as one operating Deal system with role-specific value and no internal stage, plan or hidden integration commentary",
+    "The public homepage contains a four-domain business control summary and a three-step next-action path in RU, EN and ZH",
+    "The Trust Center is served on the canonical platform-v7 public route without a redirect loop or conflicting route handler",
     "The Trust Center contains no unsupported certification, customer, partner, SLA or external-connection claim",
     "On mobile, support and phone move to the public menu while the fixed dock is reduced to the single AI action and anchored on the right",
     "The public footer reserves safe-area space and the homepage has no horizontal overflow at 320, 375, 390, 430, 768, 1024 and 1440 CSS pixels",
