@@ -10,38 +10,40 @@ RUNNER_USER="${RUNNER_USER:-pcactions}"
 RUNNER_ROOT="${RUNNER_ROOT:-/opt/actions-runner-pc-prod}"
 RUNNER_NAME="${RUNNER_NAME:-pc-prod-$(hostname -s)}"
 REGISTRATION_TOKEN="${RUNNER_REGISTRATION_TOKEN:-}"
+MODEL_SSH_PORT="${TAI_MODEL_SSH_PORT:-22}"
+MODEL_HOST_FINGERPRINT="${TAI_MODEL_SSH_HOST_FINGERPRINT:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONTROLLER_SOURCE="$SCRIPT_DIR/pc-tai-release-controller.sh"
+CONTROLLER_TARGET="/usr/local/sbin/pc-tai-release-controller"
 
-fail() {
-  printf 'ERROR: %s\n' "$1" >&2
-  exit 1
-}
+fail() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 
 [[ "$(id -u)" -eq 0 ]] || fail "run as root from the REG.RU serial/VNC console"
-[[ "$(uname -s)" == Linux ]] || fail "Linux is required"
-[[ "$(uname -m)" == x86_64 ]] || fail "x86_64 is required"
+[[ "$(uname -s)" == Linux && "$(uname -m)" == x86_64 ]] || fail "Linux x86_64 is required"
 [[ "$REPOSITORY_URL" == "https://github.com/pachaninm-lab/pachanin-demo" ]] || fail "repository authority mismatch"
 [[ "$RUNNER_NAME" =~ ^pc-prod-[A-Za-z0-9._-]{1,48}$ ]] || fail "runner name is invalid"
-[[ -n "$REGISTRATION_TOKEN" ]] || fail "RUNNER_REGISTRATION_TOKEN is required"
-[[ "$REGISTRATION_TOKEN" != *[[:space:]]* ]] || fail "registration token contains whitespace"
-[[ "$REGISTRATION_TOKEN" =~ ^[A-Za-z0-9._=-]{20,256}$ ]] || fail "registration token format is invalid"
+[[ "$MODEL_SSH_PORT" =~ ^[0-9]+$ ]] && ((MODEL_SSH_PORT >= 1 && MODEL_SSH_PORT <= 65535)) || fail "TAI_MODEL_SSH_PORT is invalid"
+[[ "$MODEL_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || fail "TAI_MODEL_SSH_HOST_FINGERPRINT is required"
+[[ -f "$CONTROLLER_SOURCE" && ! -L "$CONTROLLER_SOURCE" ]] || fail "release controller source is unavailable"
 
-for command in curl tar sha256sum systemctl useradd usermod sudo python3; do
+for command in curl tar sha256sum systemctl useradd usermod gpasswd sudo visudo python3 find install git ssh-keyscan ssh-keygen flock; do
   command -v "$command" >/dev/null 2>&1 || fail "$command is required"
 done
-getent group docker >/dev/null 2>&1 || fail "docker group is required"
 [[ -S /var/run/docker.sock ]] || fail "Docker socket is unavailable"
-
 docker version >/dev/null
 docker compose version >/dev/null
 
 if ! id "$RUNNER_USER" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "$RUNNER_USER"
 fi
-usermod -aG docker "$RUNNER_USER"
+if id -nG "$RUNNER_USER" | tr ' ' '\n' | grep -Fxq docker; then
+  gpasswd -d "$RUNNER_USER" docker >/dev/null
+fi
+! id -nG "$RUNNER_USER" | tr ' ' '\n' | grep -Fxq docker || fail "runner user must not retain docker group"
+
 if [[ ! -d "$RUNNER_ROOT" ]]; then
   install -d -m 0750 -o root -g root "$RUNNER_ROOT"
 fi
-
 if [[ -f "$RUNNER_ROOT/.runner" ]]; then
   [[ "$(stat -c '%U:%G' "$RUNNER_ROOT")" == "$RUNNER_USER:$RUNNER_USER" ]] \
     || fail "existing runner directory ownership mismatch"
@@ -55,6 +57,8 @@ PY
   )"
   [[ "$existing_name" == "$RUNNER_NAME" ]] || fail "an existing runner has a different identity"
 else
+  [[ -n "$REGISTRATION_TOKEN" && "$REGISTRATION_TOKEN" != *[[:space:]]* ]] || fail "RUNNER_REGISTRATION_TOKEN is required and normalized for first registration"
+  [[ "$REGISTRATION_TOKEN" =~ ^[A-Za-z0-9._=-]{20,256}$ ]] || fail "registration token format is invalid"
   [[ -z "$(find "$RUNNER_ROOT" -mindepth 1 -maxdepth 1 -print -quit)" ]] \
     || fail "unconfigured runner directory is not empty"
   chown root:root "$RUNNER_ROOT"
@@ -62,18 +66,38 @@ else
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' EXIT
   package="$work/actions-runner.tar.gz"
-  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
-    "$RUNNER_URL" --output "$package"
-  printf '%s  %s\n' "$RUNNER_PACKAGE_SHA256" "$package" | sha256sum --check --status \
-    || fail "runner package checksum mismatch"
+  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$RUNNER_URL" --output "$package"
+  printf '%s  %s\n' "$RUNNER_PACKAGE_SHA256" "$package" | sha256sum --check --status || fail "runner package checksum mismatch"
   tar --extract --gzip --file "$package" --directory "$RUNNER_ROOT"
+  [[ -x "$RUNNER_ROOT/bin/installdependencies.sh" ]] || fail "runner dependency installer is unavailable"
   "$RUNNER_ROOT/bin/installdependencies.sh"
   chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_ROOT"
-  sudo -u "$RUNNER_USER" -H bash -c \
-    'cd "$1"; shift; exec ./config.sh "$@"' bash "$RUNNER_ROOT" \
+  sudo -u "$RUNNER_USER" -H bash -c 'cd "$1"; shift; exec ./config.sh "$@"' bash "$RUNNER_ROOT" \
     --unattended --replace --url "$REPOSITORY_URL" --token "$REGISTRATION_TOKEN" \
     --name "$RUNNER_NAME" --labels "pc-prod,tai-readonly" --work _work
 fi
+
+install -d -m 0700 -o root -g root /etc/pc-release-authority /etc/transparent-price /var/lib/pc-release-authority /var/lib/pc-release-authority/repository /var/lib/pc-release-authority/controller-jobs
+install -d -m 0730 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority/runner-input
+install -d -m 0750 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority/runner-output
+install -m 0750 -o root -g "$RUNNER_USER" "$CONTROLLER_SOURCE" "$CONTROLLER_TARGET"
+
+scan="$(mktemp)"; match="$(mktemp)"
+ssh-keyscan -T 10 -p "$MODEL_SSH_PORT" 192.168.0.206 2>/dev/null | sort -u > "$scan"
+while IFS= read -r line; do
+  fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+  [[ "$fp" != "$MODEL_HOST_FINGERPRINT" ]] || printf '%s\n' "$line" >> "$match"
+done < "$scan"
+[[ "$(grep -c . "$match" || true)" == 1 ]] || fail "private model host fingerprint mismatch"
+install -m 0600 -o root -g root "$match" /etc/pc-release-authority/model_known_hosts
+rm -f "$scan" "$match"
+
+cat > /etc/sudoers.d/pc-tai-release-controller <<'SUDOERS'
+Defaults:pcactions env_reset,use_pty,secure_path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+pcactions ALL=(root) NOPASSWD: /usr/local/sbin/pc-tai-release-controller
+SUDOERS
+chmod 0440 /etc/sudoers.d/pc-tai-release-controller
+visudo -cf /etc/sudoers.d/pc-tai-release-controller >/dev/null
 
 cd "$RUNNER_ROOT"
 service_file="$(find /etc/systemd/system -maxdepth 1 -type f -name "actions.runner.pachaninm-lab-pachanin-demo.${RUNNER_NAME}.service" -print -quit)"
@@ -83,15 +107,15 @@ if [[ -z "$service_file" ]]; then
 fi
 [[ -n "$service_file" ]] || fail "runner systemd service was not created"
 service_name="$(basename "$service_file")"
-
 override_dir="/etc/systemd/system/${service_name}.d"
 install -d -m 0755 "$override_dir"
-cat > "$override_dir/hardening.conf" <<EOF
+cat > "$override_dir/hardening.conf" <<EOF2
 [Service]
 UMask=0077
-NoNewPrivileges=true
 PrivateTmp=true
+PrivateDevices=true
 ProtectSystem=full
+ReadWritePaths=$RUNNER_ROOT /etc/transparent-price /var/lib/pc-release-authority /run/lock
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
@@ -99,47 +123,58 @@ RestrictSUIDSGID=true
 LockPersonality=true
 RestrictRealtime=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-ReadWritePaths=$RUNNER_ROOT
 Restart=always
 RestartSec=10s
-EOF
+EOF2
 chmod 0644 "$override_dir/hardening.conf"
-
 systemctl daemon-reload
-systemctl enable --now "$service_name"
+systemctl enable "$service_name" >/dev/null
+systemctl restart "$service_name"
 systemctl is-active --quiet "$service_name" || fail "runner service is not active"
-sudo -u "$RUNNER_USER" -H docker version >/dev/null
-sudo -u "$RUNNER_USER" -H docker compose version >/dev/null
+[[ "$(systemctl show "$service_name" --property=User --value)" == "$RUNNER_USER" ]] || fail "runner service user mismatch"
+main_pid="$(systemctl show "$service_name" --property=MainPID --value)"
+[[ "$main_pid" =~ ^[1-9][0-9]*$ && -r "/proc/$main_pid/status" ]] || fail "runner service process is unavailable"
+docker_gid="$(getent group docker | cut -d: -f3)"
+! awk -v gid="$docker_gid" '/^Groups:/ {for (i=2;i<=NF;i++) if ($i==gid) found=1} END {exit found?0:1}' "/proc/$main_pid/status" \
+  || fail "running runner process retained docker group"
 
-install -d -m 0755 /etc/pc-release-authority
-python3 - /etc/pc-release-authority/actions-runner.json \
-  "$REPOSITORY_URL" "$RUNNER_NAME" "$RUNNER_VERSION" <<'PY'
+sudo -u "$RUNNER_USER" -H sudo -n -l | grep -Fq "$CONTROLLER_TARGET" || fail "controller sudo authority is unavailable"
+if sudo -u "$RUNNER_USER" -H docker version >/dev/null 2>&1; then fail "runner retained direct Docker authority"; fi
+
+model_known_hosts_sha256="$(sha256sum /etc/pc-release-authority/model_known_hosts | awk '{print $1}')"
+controller_sha256="$(sha256sum "$CONTROLLER_TARGET" | awk '{print $1}')"
+python3 - /etc/pc-release-authority/actions-runner.json "$REPOSITORY_URL" "$RUNNER_NAME" "$RUNNER_VERSION" "$MODEL_SSH_PORT" "$MODEL_HOST_FINGERPRINT" "$model_known_hosts_sha256" "$controller_sha256" <<'PY'
 import json, os, sys, tempfile
-path, repository, name, version = sys.argv[1:]
+path, repository, name, version, model_port, model_fingerprint, known_hosts_sha, controller_sha = sys.argv[1:]
 payload = {
-    "schemaVersion": "pc.actions-runner-authority.v1",
-    "repository": repository,
-    "runnerName": name,
-    "runnerVersion": version,
-    "labels": ["self-hosted", "linux", "x64", "pc-prod", "tai-readonly"],
-    "transport": "OUTBOUND_ONLY",
+  'schemaVersion':'pc.actions-runner-authority.v3',
+  'repository':repository,
+  'runnerName':name,
+  'runnerVersion':version,
+  'labels':['self-hosted','linux','x64','pc-prod','tai-readonly'],
+  'executionUser':'pcactions',
+  'transport':'OUTBOUND_ONLY_HTTPS',
+  'productionInboundSshRequired':False,
+  'dockerSocketAccess':False,
+  'sudoController':'/usr/local/sbin/pc-tai-release-controller',
+  'sudoControllerSha256':controller_sha,
+  'modelSshHost':'192.168.0.206',
+  'modelSshPort':int(model_port),
+  'modelHostFingerprint':model_fingerprint,
+  'modelKnownHostsSha256':known_hosts_sha,
 }
-fd, temporary = tempfile.mkstemp(dir=os.path.dirname(path), prefix='.runner.', text=True)
+fd,tmp=tempfile.mkstemp(dir=os.path.dirname(path),prefix='.runner.',text=True)
 try:
-    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
-        json.dump(payload, handle, ensure_ascii=True, separators=(',', ':'))
-        handle.write('\n')
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.chmod(temporary, 0o644)
-    os.replace(temporary, path)
+  with os.fdopen(fd,'w',encoding='utf-8') as h:
+    json.dump(payload,h,ensure_ascii=True,separators=(',',':')); h.write('\n'); h.flush(); os.fsync(h.fileno())
+  os.chmod(tmp,0o644); os.replace(tmp,path)
 finally:
-    if os.path.exists(temporary):
-        os.unlink(temporary)
+  if os.path.exists(tmp): os.unlink(tmp)
 PY
 
-unset REGISTRATION_TOKEN RUNNER_REGISTRATION_TOKEN
+unset REGISTRATION_TOKEN RUNNER_REGISTRATION_TOKEN MODEL_HOST_FINGERPRINT TAI_MODEL_SSH_HOST_FINGERPRINT
 printf 'PC_PROD_ACTIONS_RUNNER=ACTIVE\n'
 printf 'RUNNER_NAME=%s\n' "$RUNNER_NAME"
 printf 'RUNNER_LABELS=self-hosted,linux,x64,pc-prod,tai-readonly\n'
-printf 'TRANSPORT=OUTBOUND_ONLY\n'
+printf 'DIRECT_DOCKER_AUTHORITY=false\n'
+printf 'ROOT_AUTHORITY=restricted-controller-only\n'
