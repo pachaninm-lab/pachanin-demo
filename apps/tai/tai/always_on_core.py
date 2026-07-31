@@ -74,7 +74,9 @@ class AlwaysOnConfig:
                 "supervisor interval must be between 5 and 300 seconds"
             )
         if not 1 <= self.warmup_timeout_seconds <= 120:
-            raise AlwaysOnConfigurationError("warm-up timeout must be between 1 and 120 seconds")
+            raise AlwaysOnConfigurationError(
+                "warm-up timeout must be between 1 and 120 seconds"
+            )
         if not 1 <= self.circuit_failure_threshold <= 20:
             raise AlwaysOnConfigurationError(
                 "circuit failure threshold must be between 1 and 20"
@@ -84,7 +86,9 @@ class AlwaysOnConfig:
                 "circuit open period must be between 5 and 600 seconds"
             )
         if not 5 <= self.latency_window <= 500:
-            raise AlwaysOnConfigurationError("latency window must be between 5 and 500")
+            raise AlwaysOnConfigurationError(
+                "latency window must be between 5 and 500"
+            )
 
     @classmethod
     def from_environment(
