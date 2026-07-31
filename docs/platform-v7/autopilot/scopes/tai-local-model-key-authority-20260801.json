@@ -8,11 +8,9 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
-    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "scripts/pc-tai-release-controller-core.sh",
     "scripts/check-tai-local-model-key-authority.mjs",
-    "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json",
-    "docs/platform-v7/autopilot/scopes/tai-reuse-active-model-token-20260801.json"
+    "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
   ],
   "requiredBehavior": [
     "recover the model token only from the single active API container on the existing production host",
@@ -37,7 +35,7 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 4,
+    "changedPathCount": 3,
     "productionMutationAllowedBeforeMerge": false,
     "requiredChecks": [
       "platform-v7 autopilot guard",
