@@ -35,25 +35,29 @@ for (const fragment of [
   'ssh-keygen -y -P \'\' -f "$MODEL_KEY" >/dev/null 2>&1 || fail MODEL_KEY_INVALID 42',
   'UserKnownHostsFile="$MODEL_KNOWN_HOSTS"',
   'StrictHostKeyChecking=yes',
+  'rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"',
+  'api_key="$(recover_local_model_token)"',
   'if (( rc != 0 && activation_mutation_started == 1 && activation_complete == 0 )); then rollback_activation; fi',
 ]) requireFragment(core, fragment, corePath);
 
 forbid(workflow, /TAI_MODEL_SSH_KEY|MODEL_KEY_SECRET|\/model-key\b/u, `${workflowPath}: private model SSH key must not transit GitHub Actions`);
 forbid(workflow, /secrets\.[A-Za-z0-9_]*(?:PRIVATE|SSH_KEY|MODEL_KEY)/u, `${workflowPath}: private-key secret reference is forbidden`);
 forbid(workflow, /if:\s*always\(\)\s*&&\s*needs[.]image_authority[.]result\s*==\s*'success'\s*$/mu, `${workflowPath}: finalization must require successful activation`);
+forbid(core, /readarray\s+-t\s+transport\s+<\s*<\(import_model_transport\)/u, `${corePath}: activation must not depend on a separately provisioned model-host SSH key`);
+forbid(core, /api_key="\$\(recover_model_api_key\s+"\$model_user"\s+"\$model_ssh_port"\)"/u, `${corePath}: activation must reuse the already validated local runtime token`);
 forbid(core, /echo[^\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY)/iu, `${corePath}: secret output is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${scopePath}: invalid schemaVersion`);
-if (scope.branch !== 'agent/tai-local-model-key-authority-20260801') violations.push(`${scopePath}: branch mismatch`);
+if (scope.branch !== 'agent/tai-reuse-active-model-token-20260801') violations.push(`${scopePath}: branch mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) violations.push(`${scopePath}: hosting or cost boundary changed`);
 for (const path of [workflowPath, corePath, 'scripts/check-tai-local-model-key-authority.mjs', scopePath]) {
   if (!scope.allowedPaths.includes(path)) violations.push(`${scopePath}: ${path} outside allowedPaths`);
 }
 
 if (violations.length) {
-  console.error('TAI local model-key authority contract failed:');
+  console.error('TAI local model-token authority contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
 
-console.log('TAI local model-key authority contract PASS: root-only persistent key, pinned host verification, no private key in GitHub Actions and no spurious finalization after failed activation.');
+console.log('TAI local model-token authority contract PASS: activation reuses the validated active API token, private SSH keys never transit GitHub Actions, rollback remains fail-closed, and no unprovisioned model key can abort the release before mutation.');
