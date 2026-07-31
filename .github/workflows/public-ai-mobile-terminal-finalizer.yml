@@ -1,0 +1,359 @@
+name: Public AI Mobile Terminal Finalizer
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: public-ai-mobile-terminal-finalizer
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_PROD_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/public-ai-mobile-terminal-finalizer
+  PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  PROD_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  PROD_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+
+jobs:
+  finalize:
+    if: >-
+      github.event.issue.number == 3523 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == 'FINALIZE-PUBLIC-AI-MOBILE-REG-RU'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current-main target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          git checkout --detach "$target"
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$target" > "$EVIDENCE_DIR/target-sha.txt"
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for exact canonical web image
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          image="ghcr.io/$GITHUB_REPOSITORY_OWNER/grainflow-web:sha-$SHORT_SHA"
+          for attempt in $(seq 1 120); do
+            if docker pull "$image" >/dev/null 2>&1; then
+              revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+              echo "Image attempt $attempt/120: expected=$TARGET_SHA actual=${revision:-missing}"
+              if [[ "$revision" == "$TARGET_SHA" ]]; then
+                docker image inspect "$image" > "$EVIDENCE_DIR/registry-web-image.json"
+                echo "image=$image" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo 'Exact web image unavailable.' >&2
+          exit 2
+
+      - name: Wait until the exact Qwen activator is terminal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            runs="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow tai-restricted-qwen-reg-ru-activation.yml \
+              --branch main \
+              --limit 50 \
+              --json databaseId,headSha,status,conclusion,event,createdAt)"
+            row="$(python3 - "$TARGET_SHA" "$runs" <<'PY'
+          import json, sys
+          target = sys.argv[1]
+          rows = json.loads(sys.argv[2])
+          matches = [row for row in rows if row.get('headSha') == target]
+          matches.sort(key=lambda row: row.get('createdAt', ''), reverse=True)
+          print(json.dumps(matches[0], separators=(',', ':')) if matches else '')
+          PY
+            )"
+            if [[ -n "$row" ]]; then
+              status="$(python3 - "$row" <<'PY'
+          import json, sys
+          print(json.loads(sys.argv[1]).get('status', ''))
+          PY
+              )"
+              echo "Activator attempt $attempt/120: $row"
+              if [[ "$status" == completed ]]; then
+                printf '%s\n' "$row" > "$EVIDENCE_DIR/qwen-activation-terminal.json"
+                break
+              fi
+            else
+              echo "Activator attempt $attempt/120: exact run not registered yet"
+            fi
+            sleep 10
+          done
+          test -s "$EVIDENCE_DIR/qwen-activation-terminal.json"
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+
+      - name: Resolve pinned key-only REG.RU SSH
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+
+          host="$(trim "${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}")"
+          user="$(trim "${PROD_USER_SECRET:-root}")"
+          port="$(trim "${PROD_PORT_SECRET:-22}")"
+          key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
+          [[ "$host" == "$DEFAULT_PROD_HOST" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
+          [[ "$PROD_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          write_key "$key" "$HOME/.ssh/id_pc_prod" || { echo 'Protected production private key is unavailable.' >&2; exit 10; }
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$PROD_HOST_FINGERPRINT" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes \
+            "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null'
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Copy immutable web release assets
+        env:
+          PROD_HOST: ${{ steps.ssh.outputs.host }}
+          PROD_USER: ${{ steps.ssh.outputs.user }}
+          PROD_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
+          scp "${scp_common[@]}" scripts/production-web-exact-sha.sh "$PROD_USER@$PROD_HOST:/tmp/pc-production-web-exact-sha-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/production-web-live-acceptance.sh "$PROD_USER@$PROD_HOST:/tmp/pc-production-web-live-acceptance-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/production-web-remote-entrypoint.sh "$PROD_USER@$PROD_HOST:/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" infra/compose/production-web-hardening.override.yml "$PROD_USER@$PROD_HOST:/tmp/pc-production-web-hardening-${GITHUB_RUN_ID}.yml"
+
+      - name: Make exact web revision the terminal production state
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          PROD_HOST: ${{ steps.ssh.outputs.host }}
+          PROD_USER: ${{ steps.ssh.outputs.user }}
+          PROD_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          enc(){ printf '%s' "$1" | base64 -w0; }
+          remote="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" \
+            "chmod 0700 '$remote' && PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' '$remote' deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            | tee "$EVIDENCE_DIR/deploy.log"
+          grep -Fxq 'DEPLOYMENT_COMPLETE=1' "$EVIDENCE_DIR/deploy.log"
+          grep -Fxq "DEPLOYED_WEB_REVISION=$TARGET_SHA" "$EVIDENCE_DIR/deploy.log"
+          grep -Fxq 'DEPLOYED_WEB_STATE=healthy' "$EVIDENCE_DIR/deploy.log"
+          grep -Fxq 'WATCHTOWER_RETIRED=1' "$EVIDENCE_DIR/deploy.log"
+
+      - name: Verify exact public web runtime
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          PC_LIVE_BASE: ${{ env.LIVE_BASE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/production-web-live-acceptance.sh "$TARGET_SHA" deploy | tee "$EVIDENCE_DIR/live-acceptance.log"
+          grep -Fxq 'LIVE_ACCEPTANCE=PASS' "$EVIDENCE_DIR/live-acceptance.log"
+
+      - name: Verify locked public AI mobile viewport on live REG.RU
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ui_root="$RUNNER_TEMP/public-ai-mobile-terminal"
+          rm -rf "$ui_root"
+          mkdir -p "$ui_root" "$EVIDENCE_DIR/ui"
+          cd "$ui_root"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --ignore-scripts playwright@1.59.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { chromium } = require('playwright');
+          const liveBase = process.env.LIVE_BASE;
+          const targetSha = process.env.TARGET_SHA;
+          const evidenceDir = path.resolve(process.env.GITHUB_WORKSPACE, process.env.EVIDENCE_DIR, 'ui');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: 'ru-RU' });
+            const errors = [];
+            page.on('pageerror', (error) => errors.push(String(error)));
+            try {
+              const response = await page.goto(`${liveBase}/platform-v7?lang=ru&release=${targetSha}`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+              if (!response?.ok()) throw new Error(`live_http_${response?.status()}`);
+              const manifest = await page.evaluate(async (sha) => {
+                const response = await fetch(`/manifest-pc-deploy.json?sha=${sha}&ts=${Date.now()}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`manifest_http_${response.status}`);
+                return response.json();
+              }, targetSha);
+              if (manifest.commitSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifest.commitSha}`);
+
+              await page.evaluate(() => window.scrollTo(0, 180));
+              await page.waitForTimeout(250);
+              const beforeOpenScroll = await page.evaluate(() => window.scrollY);
+              const trigger = page.locator('.pc-public-assistant-shortcut');
+              await trigger.waitFor({ state: 'attached', timeout: 30000 });
+              await trigger.evaluate((node) => node.click());
+              const dialog = page.locator('#pc-public-assistant-panel');
+              await dialog.waitFor({ state: 'visible', timeout: 30000 });
+              await page.waitForFunction(() => document.documentElement.dataset.pcPublicAssistantScrollLock === 'true');
+              await page.waitForFunction(() => document.querySelector('#pc-public-assistant-panel')?.getAttribute('data-pc-mobile-viewport-authority') === 'true');
+
+              const fullscreen = dialog.locator('button[aria-label="Развернуть на весь экран"]');
+              const metrics = await page.evaluate(() => {
+                const panel = document.querySelector('#pc-public-assistant-panel');
+                const composer = panel?.querySelector('.pc-public-assistant-composer');
+                const messages = panel?.querySelector('.pc-public-assistant-messages');
+                const vv = window.visualViewport;
+                if (!(panel instanceof HTMLElement) || !(composer instanceof HTMLElement) || !(messages instanceof HTMLElement) || !vv) throw new Error('mobile_authority_nodes_missing');
+                const panelRect = panel.getBoundingClientRect();
+                const composerRect = composer.getBoundingClientRect();
+                return {
+                  panelTop: panelRect.top,
+                  panelBottom: panelRect.bottom,
+                  panelHeight: panelRect.height,
+                  composerBottom: composerRect.bottom,
+                  visualTop: vv.offsetTop,
+                  visualHeight: vv.height,
+                  panelPosition: getComputedStyle(panel).position,
+                  composerPosition: getComputedStyle(composer).position,
+                  messageOverflowY: getComputedStyle(messages).overflowY,
+                  bodyPosition: getComputedStyle(document.body).position,
+                  authority: panel.dataset.pcMobileViewportAuthority,
+                  scrollLock: document.documentElement.dataset.pcPublicAssistantScrollLock,
+                  horizontalOverflow: panel.scrollWidth - panel.clientWidth,
+                };
+              });
+              const near = (a, b, tolerance = 2) => Math.abs(a - b) <= tolerance;
+              if (metrics.authority !== 'true') throw new Error('mobile_viewport_authority_missing');
+              if (metrics.scrollLock !== 'true' || metrics.bodyPosition !== 'fixed') throw new Error('background_scroll_lock_missing');
+              if (metrics.panelPosition !== 'fixed') throw new Error('panel_not_fixed');
+              if (metrics.composerPosition !== 'relative') throw new Error('composer_not_in_normal_flow');
+              if (!['auto', 'scroll'].includes(metrics.messageOverflowY)) throw new Error(`messages_not_scrollable:${metrics.messageOverflowY}`);
+              if (!near(metrics.panelTop, metrics.visualTop)) throw new Error(`panel_visual_top_mismatch:${JSON.stringify(metrics)}`);
+              if (!near(metrics.panelHeight, metrics.visualHeight)) throw new Error(`panel_visual_height_mismatch:${JSON.stringify(metrics)}`);
+              if (!near(metrics.composerBottom, metrics.panelBottom)) throw new Error(`composer_panel_bottom_gap:${JSON.stringify(metrics)}`);
+              if (metrics.horizontalOverflow > 1) throw new Error(`horizontal_overflow:${metrics.horizontalOverflow}`);
+              if (await fullscreen.count() !== 1) throw new Error('native_fullscreen_dom_count_invalid');
+              if (await fullscreen.isVisible()) throw new Error('mobile_fullscreen_control_visible');
+
+              await page.mouse.wheel(0, 650);
+              await page.waitForTimeout(300);
+              const afterWheelScroll = await page.evaluate(() => window.scrollY);
+              if (!near(afterWheelScroll, beforeOpenScroll, 1)) throw new Error(`background_page_scrolled:${beforeOpenScroll}:${afterWheelScroll}`);
+              if (errors.length) throw new Error(`page_errors:${errors.join('|')}`);
+              await page.screenshot({ path: path.join(evidenceDir, 'public-ai-mobile-terminal-390x844.png'), fullPage: false });
+              fs.writeFileSync(path.join(evidenceDir, 'public-ai-mobile-terminal.json'), JSON.stringify({ targetSha, manifestSha: manifest.commitSha, beforeOpenScroll, afterWheelScroll, metrics, status: 'PASS' }, null, 2));
+            } finally {
+              await browser.close();
+            }
+          })().catch((error) => { console.error(error); process.exit(1); });
+          NODE
+          echo 'LIVE_PUBLIC_AI_MOBILE_TERMINAL=PASS'
+
+      - name: Publish terminal exact acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          activation="$(cat "$EVIDENCE_DIR/qwen-activation-terminal.json")"
+          gh issue comment 3523 --repo "$GITHUB_REPOSITORY" --body "Terminal REG.RU acceptance PASS for \`$TARGET_SHA\`. The exact Qwen activation reached a terminal state first: \`$activation\`. The finalizer then fixed the immutable exact web revision as the last production mutation, verified healthy OCI identity and generic live acceptance, proved one visual viewport, normal-flow composer, locked background page, independently scrollable messages, hidden redundant mobile fullscreen control and no horizontal overflow."
+
+      - name: Build evidence checksums
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Upload terminal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-ai-mobile-terminal-finalizer-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
