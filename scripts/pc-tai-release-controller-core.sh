@@ -234,14 +234,13 @@ run_activate() {
   [[ $# -eq 6 ]] || fail INVALID_ARGUMENT_COUNT 60
   validate_job_input
   local api_image="$1" api_digest="$2" web_image="$3" web_digest="$4" migration_image="$5" migration_digest="$6"
-  local model_user model_ssh_port api_key hmac_secret activation_mutation_started=0 activation_complete=0
+  local api_key hmac_secret activation_mutation_started=0 activation_complete=0
   local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env" evidence
   verify_pinned_image "$api_image" "$api_digest" api
   verify_pinned_image "$web_image" "$web_digest" web
   verify_pinned_image "$migration_image" "$migration_digest" migration
-  readarray -t transport < <(import_model_transport)
-  model_user="${transport[0]}"; model_ssh_port="${transport[1]}"
-  api_key="$(recover_model_api_key "$model_user" "$model_ssh_port")"
+  rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"
+  api_key="$(recover_local_model_token)"
   hmac_secret="$(openssl rand -hex 32)"
   cat > "$api_env" <<ENV
 AI_ASSISTANT_PROVIDER=openai-compatible
