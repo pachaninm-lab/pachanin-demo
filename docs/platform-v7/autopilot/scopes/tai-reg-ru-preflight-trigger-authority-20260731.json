@@ -9,6 +9,7 @@
   "newRecurringCostRub": 0,
   "allowedPaths": [
     ".github/workflows/docker-publish.yml",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
     "docs/platform-v7/autopilot/scopes/tai-reg-ru-preflight-trigger-authority-20260731.json"
   ],
   "requiredBehavior": [
@@ -16,6 +17,7 @@
     "preserve canonical API, web, TAI and migration image build logic unchanged",
     "preserve the workflow_run handoff from successful exact-main canonical publication to read-only REG.RU preflight",
     "cause this exact-main merge to publish canonical images and execute the automatic preflight",
+    "document the exact trigger chain in the TAI preflight runbook",
     "preserve redacted evidence and fail-closed blocker status"
   ],
   "forbiddenCapabilities": [
@@ -34,7 +36,7 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 2,
+    "changedPathCount": 3,
     "requiredChecks": [
       "Workflow Syntax Guard",
       "CI",
