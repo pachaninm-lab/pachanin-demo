@@ -267,6 +267,16 @@
     scroll-margin-top: calc(var(--entry-header-height, 48px) + 12px);
   }
 
+  .pc-v7-public-entry .pc-home-trust > .pc-v6-section-head h2,
+  .pc-v7-public-entry .pc-home-connection-process > .pc-v6-section-head h2 {
+    max-width: 22ch !important;
+    margin: 6px 0 10px !important;
+    font-size: clamp(32px, 8.35vw, 36px) !important;
+    line-height: 1.055 !important;
+    letter-spacing: -0.034em !important;
+    text-wrap: balance !important;
+  }
+
   .pc-home-trust {
     margin-inline: -2px;
     padding: 22px 16px !important;
