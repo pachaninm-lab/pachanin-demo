@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: "Canonical services to build: api, web, tai, migration or all"
+        description: "Canonical services to build: api, web or all; tai and migration are also supported"
         default: "all"
         required: false
 
