@@ -11,6 +11,7 @@ from typing import Any, cast
 import pytest
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from tai.always_on_core import (
@@ -198,9 +199,18 @@ def test_pressure_and_supervisor_helpers_are_stable() -> None:
 
     empty_counts = {status: 0 for status in ModelRuntimeStatus}
     assert _aggregate_status(empty_counts) is ModelRuntimeStatus.UNAVAILABLE
-    assert _aggregate_status({**empty_counts, ModelRuntimeStatus.WARMING: 1}) is ModelRuntimeStatus.WARMING
-    assert _aggregate_status({**empty_counts, ModelRuntimeStatus.DEGRADED: 1}) is ModelRuntimeStatus.DEGRADED
-    assert _aggregate_status({**empty_counts, ModelRuntimeStatus.READY: 1}) is ModelRuntimeStatus.READY
+    assert (
+        _aggregate_status({**empty_counts, ModelRuntimeStatus.WARMING: 1})
+        is ModelRuntimeStatus.WARMING
+    )
+    assert (
+        _aggregate_status({**empty_counts, ModelRuntimeStatus.DEGRADED: 1})
+        is ModelRuntimeStatus.DEGRADED
+    )
+    assert (
+        _aggregate_status({**empty_counts, ModelRuntimeStatus.READY: 1})
+        is ModelRuntimeStatus.READY
+    )
 
 
 @pytest.mark.parametrize(
@@ -586,8 +596,12 @@ def test_runtime_health_route_reports_warming_then_ready_without_secrets() -> No
         )
         app = FastAPI()
         install_always_on_core(app, gate=gate, supervisor=supervisor)
-        route = next(route for route in app.routes if getattr(route, "path", None) == "/health/runtime")
-        endpoint = cast(Callable[[], Awaitable[JSONResponse]], getattr(route, "endpoint"))
+        route = next(
+            route
+            for route in app.routes
+            if isinstance(route, APIRoute) and route.path == "/health/runtime"
+        )
+        endpoint = cast(Callable[[], Awaitable[JSONResponse]], route.endpoint)
 
         warming = await endpoint()
         warming_payload = json.loads(warming.body)
