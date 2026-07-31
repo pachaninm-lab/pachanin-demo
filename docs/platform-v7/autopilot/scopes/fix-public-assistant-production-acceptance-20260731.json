@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-production-acceptance-20260731",
+  "status": "active",
+  "purpose": "Guarantee that the exact single-viewport public AI web revision is restored and verified on REG.RU when the legacy Qwen activation workflow rolls it back solely because of its stale mobile fullscreen assertion.",
+  "approvedBy": "owner-live-screenshots-and-production-command-2026-07-31",
+  "authorityBaseExactMain": "fda1d84b598f6288fae622b47d0dd1e8cd589e14",
+  "allowedPaths": [
+    ".github/workflows/public-ai-mobile-exact-sha-recovery.yml",
+    "apps/web/app/api/health/ready/route.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-production-acceptance-20260731.json"
+  ],
+  "requiredBehavior": [
+    "recovery is admitted only after the legacy activation logs contain native_fullscreen_control_count_invalid and no protected-key or exact-image failure",
+    "the recovered target must equal exact current main",
+    "only the immutable exact web image is deployed to the canonical REG.RU VPS",
+    "generic production web live acceptance must pass before mobile UI acceptance",
+    "live mobile acceptance verifies visualViewport ownership composer normal flow document scroll lock scrollable messages hidden mobile fullscreen control and no overflow",
+    "Qwen provider API RBAC Deal data money and production topology remain unchanged",
+    "evidence and checksums are retained for ninety days"
+  ],
+  "forbiddenCapabilities": [
+    "recovery after credential image model or infrastructure failures",
+    "deployment of a non-main or non-exact SHA",
+    "API database migration model environment or private-data mutation",
+    "acceptance weakening",
+    "Netlify or Vercel deployment"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
