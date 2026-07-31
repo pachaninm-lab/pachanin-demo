@@ -1,0 +1,61 @@
+name: TAI stage1 one-shot format fix
+
+on:
+  push:
+    branches:
+      - agent/tai-agro-os-v4-stage1-always-on-core-20260731
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-stage1-one-shot-format-fix
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-agro-os-v4-stage1-always-on-core-20260731
+          fetch-depth: 0
+      - name: Format exact long lines and self-remove
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tai/always_on_core.py')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              '            raise AlwaysOnConfigurationError("warm-up timeout must be between 1 and 120 seconds")': (
+                  '            raise AlwaysOnConfigurationError(\n'
+                  '                "warm-up timeout must be between 1 and 120 seconds"\n'
+                  '            )'
+              ),
+              '            raise AlwaysOnConfigurationError("circuit open period must be between 5 and 600 seconds")': (
+                  '            raise AlwaysOnConfigurationError(\n'
+                  '                "circuit open period must be between 5 and 600 seconds"\n'
+                  '            )'
+              ),
+              '            raise AlwaysOnConfigurationError("latency window must be between 5 and 500")': (
+                  '            raise AlwaysOnConfigurationError(\n'
+                  '                "latency window must be between 5 and 500"\n'
+                  '            )'
+              ),
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'expected line not found: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          rm -- "$GITHUB_WORKSPACE/.github/workflows/tai-stage1-one-shot-format-fix.yml"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/tai/tai/always_on_core.py .github/workflows/tai-stage1-one-shot-format-fix.yml
+          git diff --cached --check
+          git commit -m 'fix(tai): format always-on validation guards'
+          git push origin HEAD:agent/tai-agro-os-v4-stage1-always-on-core-20260731
