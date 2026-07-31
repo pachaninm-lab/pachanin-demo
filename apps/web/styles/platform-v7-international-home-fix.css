@@ -217,6 +217,7 @@
 
   .pc-public-contact-dock[data-assistant-context='public'] {
     right: max(12px, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
     bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 10px)) !important;
     width: 56px !important;
     min-width: 56px !important;
