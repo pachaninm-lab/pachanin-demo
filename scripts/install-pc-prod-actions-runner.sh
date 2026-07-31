@@ -38,7 +38,7 @@ if ! id "$RUNNER_USER" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "$RUNNER_USER"
 fi
 usermod -aG docker "$RUNNER_USER"
-install -d -m 0750 -o "$RUNNER_USER" -g "$RUNNER_USER" "$RUNNER_ROOT"
+install -d -m 0750 -o root -g root "$RUNNER_ROOT"
 
 if [[ -f "$RUNNER_ROOT/.runner" ]]; then
   existing_name="$(python3 - "$RUNNER_ROOT/.runner" <<'PY'
@@ -59,8 +59,8 @@ else
   printf '%s  %s\n' "$RUNNER_PACKAGE_SHA256" "$package" | sha256sum --check --status \
     || fail "runner package checksum mismatch"
   tar --extract --gzip --file "$package" --directory "$RUNNER_ROOT"
+  "$RUNNER_ROOT/bin/installdependencies.sh"
   chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_ROOT"
-  sudo -u "$RUNNER_USER" -H "$RUNNER_ROOT/bin/installdependencies.sh"
   sudo -u "$RUNNER_USER" -H bash -c \
     'cd "$1"; shift; exec ./config.sh "$@"' bash "$RUNNER_ROOT" \
     --unattended --replace --url "$REPOSITORY_URL" --token "$REGISTRATION_TOKEN" \
