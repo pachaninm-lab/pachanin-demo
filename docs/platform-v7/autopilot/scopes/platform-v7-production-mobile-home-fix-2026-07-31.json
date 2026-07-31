@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-PRODUCTION-MOBILE-HOME-FIX-2026-07-31",
+  "branch": "agent/platform-v7-production-mobile-home-fix",
+  "status": "active",
+  "maturityBoundary": "public-homepage-mobile-visual-consistency-and-live-acceptance-only",
+  "globalProgramStateUnchanged": "This scope aligns the two newly added homepage sections with the approved mobile heading hierarchy and updates the exact-production mobile verifier to the current canonical anchor set. It also runs the same verifier on the branch before merge. It does not change Deal authority, API behavior, database state, tenant or role derivation, TAI permissions, financial execution, external integration status or production topology.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-mobile-home-fix-2026-07-31.json",
+    "apps/web/styles/platform-v7-international-home-fix.css",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+    "infra/docker/Dockerfile.web"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "prisma/**",
+    "packages/domain-core/**",
+    ".github/workflows/**",
+    "infra/compose/**",
+    "infra/helm/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The Trust and connection headings use the same approved 32–36 CSS pixel mobile hierarchy as the existing homepage sections",
+    "The exact-production mobile verifier expects the current canonical anchors and no removed duplicate deal-path section",
+    "The current anchor set includes trust and connection-process and every anchor clears the sticky header",
+    "The 390x844 and 430x932 mobile acceptance passes against the exact branch build before merge",
+    "The same 390x844 and 430x932 acceptance passes against exact production after deployment",
+    "Header controls remain at least 44 CSS pixels and organisation form controls remain 52–56 CSS pixels",
+    "Unit, TypeScript, browser, accessibility, security and exact-head acceptance pass",
+    "After merge, the exact main SHA is deployed on REG.RU with matching OCI revision and live mobile acceptance PASS"
+  ]
+}

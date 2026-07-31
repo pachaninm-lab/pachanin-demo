@@ -8,11 +8,12 @@ const viewports = [
 const currentPublicAnchorIds = [
   'difference',
   'functions',
-  'deal-path',
   'live',
   'participants',
   'tai',
+  'trust',
   'faq',
+  'connection-process',
   'connect-organization',
 ] as const;
 
@@ -78,6 +79,11 @@ async function expectCurrentAnchorsBelowStickyHeader(page: Page) {
 test.describe('Platform V7 exact production mobile acceptance', () => {
   for (const viewport of viewports) {
     test(`${viewport.name} keeps the public Deal workspace compact, accessible and anchored`, async ({ page }, testInfo) => {
+      test.skip(
+        testInfo.project.name !== 'desktop-chromium' && testInfo.project.name !== 'production-mobile-chromium',
+        'Run once on Chromium in the pre-merge matrix and again against exact production.',
+      );
+
       const runtimeFailures: string[] = [];
       page.on('pageerror', (error) => runtimeFailures.push(error.message));
       page.on('console', (message) => {
