@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { sendTransactionalMail } from '../../../../../lib/server/transactional-mail';
+import { sendTransactionalMail } from '../../../../lib/server/transactional-mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
