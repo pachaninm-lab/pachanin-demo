@@ -39,17 +39,27 @@ describe('platform-v7 public assistant mobile layout authority', () => {
     expect(authority).toContain("setImportant(node, 'flex', '0 0 auto')");
     expect(authority).not.toContain("node.style.setProperty('position', 'absolute', 'important')");
     expect(authority).not.toContain('bottomOffset += height');
-    expect(authority).not.toContain("panel.style.setProperty('padding-bottom', `${footerHeight}px`, 'important')");
   });
 
-  it('locks the page without blocking native scrolling inside the message list', () => {
-    expect(authority).toContain("root.dataset.pcPublicAssistantScrollLock = 'true'");
+  it('never fixes the body because WKWebView pans fixed bodies by about 84px with the keyboard', () => {
     expect(authority).toContain("setImportant(root, 'overflow', 'hidden')");
-    expect(authority).toContain("setImportant(body, 'position', 'fixed')");
-    expect(authority).toContain("setImportant(body, 'top', `${-scrollLock.y}px`)");
+    expect(authority).toContain("setImportant(body, 'overflow', 'hidden')");
+    expect(authority).not.toContain("setImportant(body, 'position', 'fixed')");
+    expect(authority).not.toContain("setImportant(body, 'top'");
+    expect(authority).not.toContain("setImportant(body, 'right'");
+    expect(authority).not.toContain("setImportant(body, 'bottom'");
+    expect(authority).not.toContain("setImportant(body, 'left'");
+    expect(authority).not.toContain("setImportant(body, 'height'");
+  });
+
+  it('blocks background gestures while preserving native message scrolling', () => {
+    expect(authority).toContain('const preventBackgroundTouch = (event: TouchEvent)');
+    expect(authority).toContain('const preventBackgroundWheel = (event: WheelEvent)');
+    expect(authority).toContain('isInsideMessages(event.target)');
+    expect(authority).toContain("document.addEventListener('touchmove', preventBackgroundTouch, { passive: false })");
+    expect(authority).toContain("document.addEventListener('wheel', preventBackgroundWheel, { passive: false })");
     expect(authority).toContain("setImportant(messages, 'overflow-y', 'auto')");
-    expect(authority).not.toContain("setImportant(root, 'touch-action', 'none')");
-    expect(authority).not.toContain("'touch-action'");
+    expect(authority).toContain("setImportant(messages, 'touch-action', 'pan-y')");
     expect(authority).toContain('restoreProperties(root, locked.root)');
     expect(authority).toContain('restoreProperties(body, locked.body)');
     expect(authority).toContain('window.scrollTo(locked.x, locked.y)');
@@ -58,20 +68,28 @@ describe('platform-v7 public assistant mobile layout authority', () => {
   it('covers the full visual viewport with an opaque panel and matching backdrop', () => {
     expect(authority).toContain("setImportant(panel, 'background', '#ffffff')");
     expect(authority).toContain("setImportant(messages, 'background', '#ffffff')");
+    expect(authority).toContain("backdrop.dataset.pcMobileViewportAuthority = 'true'");
     expect(authority).toContain("setImportant(backdrop, 'top', `${visualTop}px`)");
     expect(authority).toContain("setImportant(backdrop, 'height', `${visualHeight}px`)");
     expect(authority).toContain("setImportant(backdrop, 'bottom', 'auto')");
   });
 
-  it('remeasures delayed WebKit keyboard geometry only while the dialog is open', () => {
+  it('settles delayed WebKit geometry after two animation frames and keeps measuring while open', () => {
+    expect(authority).toContain('settleFrame = window.requestAnimationFrame');
     expect(authority).toContain("viewport?.addEventListener('resize', schedule)");
     expect(authority).toContain("viewport?.addEventListener('scroll', schedule)");
     expect(authority).toContain("viewport?.addEventListener('scrollend', schedule)");
     expect(authority).toContain("document.addEventListener('focusin', schedule)");
     expect(authority).toContain("document.addEventListener('focusout', schedule)");
     expect(authority).toContain('new MutationObserver(schedule)');
-    expect(authority).toContain('window.setInterval(schedule, 120)');
+    expect(authority).toContain('window.setInterval(schedule, 160)');
     expect(authority).toContain('new ResizeObserver(() => schedule())');
+  });
+
+  it('does not release authority during a transient React panel replacement', () => {
+    expect(authority).toContain('let missingPanelFrames = 0');
+    expect(authority).toContain('missingPanelFrames < 2');
+    expect(authority).toContain('missingPanelFrames += 1');
   });
 
   it('does not change desktop layout and removes its inline authority during cleanup', () => {
@@ -80,6 +98,7 @@ describe('platform-v7 public assistant mobile layout authority', () => {
     expect(authority).toContain('clearMobileAuthority(panel)');
     expect(authority).toContain('unlockPage()');
     expect(authority).toContain("delete panel.dataset.pcMobileViewportAuthority");
+    expect(authority).toContain("delete backdrop.dataset.pcMobileViewportAuthority");
     expect(authority).toContain('removeProperties(node, FOOTER_STYLE_PROPERTIES)');
   });
 });
