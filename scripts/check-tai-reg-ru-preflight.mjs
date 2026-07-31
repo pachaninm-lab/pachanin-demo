@@ -85,6 +85,8 @@ for (const fragment of [
   'RUNNER_VERSION="2.336.0"',
   'RUNNER_PACKAGE_SHA256="04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d"',
   'RUNNER_REGISTRATION_TOKEN',
+  'python3 find getent install',
+  'bin/installdependencies.sh',
   '--labels "pc-prod,tai-readonly"',
   './svc.sh install "$RUNNER_USER"',
   'sudo -u "$RUNNER_USER" -H docker version',
