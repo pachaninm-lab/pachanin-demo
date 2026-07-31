@@ -7,6 +7,12 @@ const PANEL_SELECTOR = '.pc-public-assistant-panel';
 const BACKDROP_SELECTOR = '.pc-public-assistant-backdrop';
 const MESSAGES_SELECTOR = '.pc-public-assistant-messages';
 const COMPOSER_SELECTOR = '.pc-public-assistant-composer';
+const KEYBOARD_DELTA_PX = 120;
+const FOCUS_SETTLE_GRACE_MS = 800;
+const DOWNWARD_GUARD_PX = 24;
+const DOWNWARD_SAMPLE_EPSILON_PX = 10;
+const DOWNWARD_CONFIRMATION_COUNT = 6;
+
 const FOOTER_SELECTOR = [
   '.pc-public-assistant-error',
   '.pc-public-assistant-reset-proxy',
@@ -30,6 +36,8 @@ const PANEL_STYLE_PROPERTIES = [
   'overflow',
   'background',
   'transform',
+  '--pc-ai-visible-top',
+  '--pc-ai-visible-height',
 ] as const;
 
 const BACKDROP_STYLE_PROPERTIES = [
@@ -74,15 +82,14 @@ const ROOT_LOCK_PROPERTIES = [
 ] as const;
 
 const BODY_LOCK_PROPERTIES = [
-  'position',
-  'top',
-  'right',
-  'bottom',
-  'left',
-  'width',
-  'height',
   'overflow',
   'overscroll-behavior',
+] as const;
+
+const ROOT_VIEWPORT_PROPERTIES = [
+  '--pc-visual-viewport-height',
+  '--pc-visual-viewport-top',
+  '--pc-visual-viewport-bottom',
 ] as const;
 
 type StyleSnapshot = Map<string, { value: string; priority: string }>;
@@ -91,6 +98,32 @@ type ScrollLock = {
   y: number;
   root: StyleSnapshot;
   body: StyleSnapshot;
+};
+
+type VirtualKeyboardLike = EventTarget & {
+  boundingRect?: DOMRectReadOnly;
+};
+
+type NavigatorWithVirtualKeyboard = Navigator & {
+  virtualKeyboard?: VirtualKeyboardLike;
+};
+
+type ViewportMetrics = {
+  visualTop: number;
+  visualLeft: number;
+  visualWidth: number;
+  visualHeight: number;
+  visualBottom: number;
+  innerHeight: number;
+  clientHeight: number;
+  keyboardHeight: number;
+};
+
+type BaselineMetrics = {
+  visualTop: number;
+  visualHeight: number;
+  innerHeight: number;
+  clientHeight: number;
 };
 
 function snapshotProperties(node: HTMLElement, properties: readonly string[]): StyleSnapshot {
@@ -118,6 +151,9 @@ function setImportant(node: HTMLElement, property: string, value: string) {
 function clearMobileAuthority(panel: HTMLElement) {
   delete panel.dataset.pcMobileViewportAuthority;
   delete panel.dataset.pcMobileViewportHeight;
+  delete panel.dataset.pcKeyboardFocus;
+  delete panel.dataset.pcKeyboardViewport;
+  delete panel.dataset.pcKeyboardGeometry;
   removeProperties(panel, PANEL_STYLE_PROPERTIES);
 
   const messages = panel.querySelector<HTMLElement>(MESSAGES_SELECTOR);
@@ -128,23 +164,43 @@ function clearMobileAuthority(panel: HTMLElement) {
   }
 }
 
+function isComposerFocused(): boolean {
+  const active = document.activeElement;
+  return active instanceof HTMLTextAreaElement
+    && Boolean(active.closest(COMPOSER_SELECTOR));
+}
+
 export function PublicAssistantMobileLayoutAuthority() {
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
     const viewport = window.visualViewport;
+    const virtualKeyboard = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
     const media = window.matchMedia(MOBILE_QUERY);
     let frame = 0;
     let pollTimer = 0;
-    let lastGoodHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
     let scrollLock: ScrollLock | null = null;
     let observedPanel: HTMLElement | null = null;
-    const resizeObserver = new ResizeObserver(() => schedule());
+    let focusedLastFrame = false;
+    let focusStartedAt = 0;
+    let stableVisibleBottom: number | null = null;
+    let pendingDownwardBottom: number | null = null;
+    let pendingDownwardCount = 0;
+
+    const initialVisualTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
+    let baseline: BaselineMetrics = {
+      visualTop: initialVisualTop,
+      visualHeight: Math.max(1, Math.round(viewport?.height ?? window.innerHeight)),
+      innerHeight: Math.max(1, Math.round(window.innerHeight)),
+      clientHeight: Math.max(1, Math.round(root.clientHeight || window.innerHeight)),
+    };
 
     const schedule = () => {
       if (frame) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(layout);
     };
+
+    const resizeObserver = new ResizeObserver(schedule);
 
     const stopPolling = () => {
       if (pollTimer) window.clearInterval(pollTimer);
@@ -153,9 +209,21 @@ export function PublicAssistantMobileLayoutAuthority() {
 
     const startPolling = () => {
       if (pollTimer) return;
-      // WebKit can publish keyboard viewport geometry after the first resize
-      // frame or without another reliable event. Poll only while the dialog is open.
+      // WebKit shells may update keyboard geometry without a final resize event.
+      // Poll only while the assistant is visible and stop immediately on close.
       pollTimer = window.setInterval(schedule, 120);
+    };
+
+    const resetFocusedGeometry = () => {
+      focusedLastFrame = false;
+      focusStartedAt = 0;
+      stableVisibleBottom = null;
+      pendingDownwardBottom = null;
+      pendingDownwardCount = 0;
+    };
+
+    const clearRootViewport = () => {
+      removeProperties(root, ROOT_VIEWPORT_PROPERTIES);
     };
 
     const lockPage = () => {
@@ -170,14 +238,6 @@ export function PublicAssistantMobileLayoutAuthority() {
       root.dataset.pcPublicAssistantScrollLock = 'true';
       setImportant(root, 'overflow', 'hidden');
       setImportant(root, 'overscroll-behavior', 'none');
-
-      setImportant(body, 'position', 'fixed');
-      setImportant(body, 'top', `${-scrollLock.y}px`);
-      setImportant(body, 'right', '0');
-      setImportant(body, 'bottom', 'auto');
-      setImportant(body, 'left', `${-scrollLock.x}px`);
-      setImportant(body, 'width', '100%');
-      setImportant(body, 'height', 'auto');
       setImportant(body, 'overflow', 'hidden');
       setImportant(body, 'overscroll-behavior', 'none');
     };
@@ -189,7 +249,9 @@ export function PublicAssistantMobileLayoutAuthority() {
       delete root.dataset.pcPublicAssistantScrollLock;
       restoreProperties(root, locked.root);
       restoreProperties(body, locked.body);
-      window.requestAnimationFrame(() => window.scrollTo(locked.x, locked.y));
+      if (window.scrollX !== locked.x || window.scrollY !== locked.y) {
+        window.requestAnimationFrame(() => window.scrollTo(locked.x, locked.y));
+      }
     };
 
     const observePanel = (panel: HTMLElement | null) => {
@@ -205,6 +267,116 @@ export function PublicAssistantMobileLayoutAuthority() {
       }
     };
 
+    const readMetrics = (): ViewportMetrics => {
+      const visualTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
+      const visualHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+      return {
+        visualTop,
+        visualLeft: Math.max(0, Math.round(viewport?.offsetLeft ?? 0)),
+        visualWidth: Math.max(1, Math.round(viewport?.width ?? window.innerWidth)),
+        visualHeight,
+        visualBottom: visualTop + visualHeight,
+        innerHeight: Math.max(1, Math.round(window.innerHeight)),
+        clientHeight: Math.max(1, Math.round(root.clientHeight || window.innerHeight)),
+        keyboardHeight: Math.max(0, Math.round(virtualKeyboard?.boundingRect?.height ?? 0)),
+      };
+    };
+
+    const updateBaseline = (metrics: ViewportMetrics) => {
+      baseline = {
+        visualTop: metrics.visualTop,
+        visualHeight: metrics.visualHeight,
+        innerHeight: metrics.innerHeight,
+        clientHeight: metrics.clientHeight,
+      };
+    };
+
+    const reconcileVisibleBottom = (
+      metrics: ViewportMetrics,
+      focused: boolean,
+    ): { visibleBottom: number; geometry: string } => {
+      if (!focused) {
+        resetFocusedGeometry();
+        return { visibleBottom: metrics.visualBottom, geometry: 'visual-viewport' };
+      }
+
+      if (!focusedLastFrame) {
+        focusedLastFrame = true;
+        focusStartedAt = Date.now();
+        stableVisibleBottom = null;
+        pendingDownwardBottom = null;
+        pendingDownwardCount = 0;
+      }
+
+      const baselineVisualBottom = baseline.visualTop + baseline.visualHeight;
+      const baselineLayoutBottom = Math.max(
+        baselineVisualBottom,
+        baseline.innerHeight,
+        baseline.clientHeight,
+      );
+      const innerBottom = Math.max(metrics.visualTop + 1, metrics.innerHeight);
+      const clientBottom = Math.max(metrics.visualTop + 1, metrics.clientHeight);
+      const candidates: Array<{ bottom: number; source: string }> = [];
+
+      if (baselineVisualBottom - metrics.visualBottom >= KEYBOARD_DELTA_PX) {
+        candidates.push({ bottom: metrics.visualBottom, source: 'visual-viewport' });
+      }
+      if (baseline.innerHeight - metrics.innerHeight >= KEYBOARD_DELTA_PX) {
+        candidates.push({ bottom: innerBottom, source: 'window-inner-height' });
+      }
+      if (baseline.clientHeight - metrics.clientHeight >= KEYBOARD_DELTA_PX) {
+        candidates.push({ bottom: clientBottom, source: 'document-client-height' });
+      }
+
+      let candidate = candidates.length
+        ? Math.max(...candidates.map(({ bottom }) => bottom))
+        : metrics.visualBottom;
+      let geometry = candidates.length
+        ? candidates.map(({ source }) => source).join('+')
+        : 'visual-viewport';
+
+      if (metrics.keyboardHeight > 0) {
+        const keyboardTopFromHeight = Math.max(
+          metrics.visualTop + 1,
+          baselineLayoutBottom - metrics.keyboardHeight,
+        );
+        candidate = Math.min(candidate, keyboardTopFromHeight);
+        geometry = `${geometry}+keyboard-height`;
+      }
+
+      candidate = Math.max(
+        metrics.visualTop + 1,
+        Math.min(candidate, baselineLayoutBottom),
+      );
+
+      const withinOpeningAnimation = Date.now() - focusStartedAt <= FOCUS_SETTLE_GRACE_MS;
+      if (stableVisibleBottom === null || withinOpeningAnimation) {
+        stableVisibleBottom = candidate;
+        pendingDownwardBottom = null;
+        pendingDownwardCount = 0;
+      } else if (candidate >= stableVisibleBottom - DOWNWARD_GUARD_PX) {
+        stableVisibleBottom = candidate;
+        pendingDownwardBottom = null;
+        pendingDownwardCount = 0;
+      } else {
+        const sameDownwardSample = pendingDownwardBottom !== null
+          && Math.abs(pendingDownwardBottom - candidate) <= DOWNWARD_SAMPLE_EPSILON_PX;
+        pendingDownwardBottom = candidate;
+        pendingDownwardCount = sameDownwardSample ? pendingDownwardCount + 1 : 1;
+
+        if (pendingDownwardCount >= DOWNWARD_CONFIRMATION_COUNT) {
+          stableVisibleBottom = candidate;
+          pendingDownwardBottom = null;
+          pendingDownwardCount = 0;
+        }
+      }
+
+      return {
+        visibleBottom: Math.max(metrics.visualTop + 1, stableVisibleBottom ?? candidate),
+        geometry,
+      };
+    };
+
     const layout = () => {
       frame = 0;
       const panel = document.querySelector<HTMLElement>(PANEL_SELECTOR);
@@ -212,6 +384,8 @@ export function PublicAssistantMobileLayoutAuthority() {
 
       if (!panel || !media.matches) {
         stopPolling();
+        resetFocusedGeometry();
+        clearRootViewport();
         if (panel) clearMobileAuthority(panel);
         unlockPage();
         return;
@@ -221,30 +395,48 @@ export function PublicAssistantMobileLayoutAuthority() {
       const composer = panel.querySelector<HTMLElement>(COMPOSER_SELECTOR);
       if (!messages || !composer) return;
 
+      const metrics = readMetrics();
+      const focused = isComposerFocused();
+      if (!focused) updateBaseline(metrics);
+      const { visibleBottom, geometry } = reconcileVisibleBottom(metrics, focused);
+      const visibleHeight = Math.max(1, Math.round(visibleBottom - metrics.visualTop));
+      const layoutBottom = Math.max(
+        baseline.visualTop + baseline.visualHeight,
+        baseline.innerHeight,
+        baseline.clientHeight,
+      );
+      const hiddenBottom = Math.max(0, Math.round(layoutBottom - visibleBottom));
+
       lockPage();
       startPolling();
 
-      const referenceScrollY = scrollLock?.y ?? window.scrollY;
-      const visualOffsetTop = Math.max(0, viewport?.offsetTop ?? 0);
-      const pageRelativeTop = Math.max(0, (viewport?.pageTop ?? referenceScrollY) - referenceScrollY);
-      const visualTop = Math.round(Math.max(visualOffsetTop, pageRelativeTop));
-      const visualLeft = Math.max(0, Math.round(viewport?.offsetLeft ?? 0));
-      const rawHeight = Math.round(viewport?.height ?? window.innerHeight);
-      if (rawHeight >= 120) lastGoodHeight = rawHeight;
-      const visualHeight = Math.max(1, lastGoodHeight);
-      const visualWidth = Math.max(1, Math.round(viewport?.width ?? window.innerWidth));
+      root.style.setProperty('--pc-visual-viewport-height', `${visibleHeight}px`);
+      root.style.setProperty('--pc-visual-viewport-top', `${metrics.visualTop}px`);
+      root.style.setProperty('--pc-visual-viewport-bottom', `${hiddenBottom}px`);
 
       panel.dataset.pcMobileViewportAuthority = 'true';
-      panel.dataset.pcMobileViewportHeight = String(visualHeight);
+      panel.dataset.pcMobileViewportHeight = String(visibleHeight);
+      panel.dataset.pcKeyboardGeometry = geometry;
+      panel.style.setProperty('--pc-ai-visible-top', `${metrics.visualTop}px`);
+      panel.style.setProperty('--pc-ai-visible-height', `${visibleHeight}px`);
+
+      if (focused) {
+        panel.dataset.pcKeyboardFocus = 'true';
+        panel.dataset.pcKeyboardViewport = 'true';
+      } else {
+        delete panel.dataset.pcKeyboardFocus;
+        delete panel.dataset.pcKeyboardViewport;
+      }
+
       setImportant(panel, 'position', 'fixed');
-      setImportant(panel, 'top', `${visualTop}px`);
+      setImportant(panel, 'top', `${metrics.visualTop}px`);
       setImportant(panel, 'right', 'auto');
       setImportant(panel, 'bottom', 'auto');
-      setImportant(panel, 'left', `${visualLeft}px`);
-      setImportant(panel, 'width', `${visualWidth}px`);
-      setImportant(panel, 'height', `${visualHeight}px`);
+      setImportant(panel, 'left', `${metrics.visualLeft}px`);
+      setImportant(panel, 'width', `${metrics.visualWidth}px`);
+      setImportant(panel, 'height', `${visibleHeight}px`);
       setImportant(panel, 'min-height', '0');
-      setImportant(panel, 'max-height', `${visualHeight}px`);
+      setImportant(panel, 'max-height', `${visibleHeight}px`);
       setImportant(panel, 'padding-bottom', '0');
       setImportant(panel, 'box-sizing', 'border-box');
       setImportant(panel, 'display', 'flex');
@@ -261,9 +453,8 @@ export function PublicAssistantMobileLayoutAuthority() {
       setImportant(messages, 'overflow-y', 'auto');
       setImportant(messages, 'background', '#ffffff');
 
-      // Header, messages and composer must be one flex column. Moving the
-      // composer into an absolute footer creates a second coordinate system and
-      // is the direct cause of the exposed scrolling page shown on iOS.
+      // Header, messages and composer remain one flex column. No absolute footer,
+      // translated clone or CSS keyboard edge may establish another coordinate system.
       for (const node of panel.querySelectorAll<HTMLElement>(FOOTER_SELECTOR)) {
         setImportant(node, 'position', 'relative');
         setImportant(node, 'top', 'auto');
@@ -280,14 +471,14 @@ export function PublicAssistantMobileLayoutAuthority() {
       const backdrop = document.querySelector<HTMLElement>(BACKDROP_SELECTOR);
       if (backdrop) {
         setImportant(backdrop, 'position', 'fixed');
-        setImportant(backdrop, 'top', `${visualTop}px`);
+        setImportant(backdrop, 'top', `${metrics.visualTop}px`);
         setImportant(backdrop, 'right', 'auto');
         setImportant(backdrop, 'bottom', 'auto');
-        setImportant(backdrop, 'left', `${visualLeft}px`);
-        setImportant(backdrop, 'width', `${visualWidth}px`);
-        setImportant(backdrop, 'height', `${visualHeight}px`);
+        setImportant(backdrop, 'left', `${metrics.visualLeft}px`);
+        setImportant(backdrop, 'width', `${metrics.visualWidth}px`);
+        setImportant(backdrop, 'height', `${visibleHeight}px`);
         setImportant(backdrop, 'min-height', '0');
-        setImportant(backdrop, 'max-height', `${visualHeight}px`);
+        setImportant(backdrop, 'max-height', `${visibleHeight}px`);
         setImportant(backdrop, 'transform', 'none');
       }
     };
@@ -298,6 +489,7 @@ export function PublicAssistantMobileLayoutAuthority() {
     viewport?.addEventListener('resize', schedule);
     viewport?.addEventListener('scroll', schedule);
     viewport?.addEventListener('scrollend', schedule);
+    virtualKeyboard?.addEventListener('geometrychange', schedule);
     window.addEventListener('resize', schedule);
     window.addEventListener('orientationchange', schedule);
     window.addEventListener('pageshow', schedule);
@@ -315,6 +507,7 @@ export function PublicAssistantMobileLayoutAuthority() {
       viewport?.removeEventListener('resize', schedule);
       viewport?.removeEventListener('scroll', schedule);
       viewport?.removeEventListener('scrollend', schedule);
+      virtualKeyboard?.removeEventListener('geometrychange', schedule);
       window.removeEventListener('resize', schedule);
       window.removeEventListener('orientationchange', schedule);
       window.removeEventListener('pageshow', schedule);
@@ -325,6 +518,7 @@ export function PublicAssistantMobileLayoutAuthority() {
       if (observedPanel) clearMobileAuthority(observedPanel);
       const backdrop = document.querySelector<HTMLElement>(BACKDROP_SELECTOR);
       if (backdrop) removeProperties(backdrop, BACKDROP_STYLE_PROPERTIES);
+      clearRootViewport();
       unlockPage();
     };
   }, []);
