@@ -1,6 +1,6 @@
 # TAI Agro OS — canonical runtime image authority
 
-**Baseline:** `1c61ddd3c8de368ec321d9afde8eac89f5752488`  
+**Baseline:** `76736d52802d85555b7209874ea47e3b842d5bdb`  
 **Hosting boundary:** existing REG.RU infrastructure only  
 **New recurring cost:** 0 RUB  
 **Operational status:** `NOT_DEPLOYED` until exact-main REG.RU acceptance
@@ -27,9 +27,19 @@ the full source SHA.
 - governed SQL migration files and `manifest.json` are packaged with the application;
 - `/health/live` is a process liveness endpoint;
 - `/health/ready` remains fail-closed until PostgreSQL, knowledge, model routing, model
-  admission and production configuration are all valid;
+  admission, protected model access and production configuration are all valid;
 - production command is the explicit ASGI entrypoint
   `tai.production_entrypoint:app` on port `8080`.
+
+## Protected local-model access
+
+The private Qwen endpoint requires `TAI_MODEL_BEARER_TOKEN` from protected REG.RU operations
+storage. The token is validated before production composition and is sent only through the
+HTTP `Authorization: Bearer ...` header for both user inference and supervisor warm-up.
+
+The runtime rejects a missing, short, whitespace-bearing or oversized credential and returns
+only the canonical sanitized configuration failure. The credential must never appear in the
+endpoint URL, request body, container image, browser environment, health output or logs.
 
 ## Acceptance gate
 
@@ -56,9 +66,9 @@ is admitted.
 Production deployment remains a separate scope requiring:
 
 - exact-main image pull and revision verification;
-- protected production environment materialization;
+- protected production environment materialization, including the model Bearer credential;
 - PostgreSQL schema and least-privilege principal acceptance;
 - accepted model artifact, licence and benchmark evidence;
 - active governed knowledge generation;
-- startup warm-up and `/health/runtime` evidence;
+- authenticated startup warm-up and `/health/runtime` evidence;
 - RU/EN/ZH live inference, overload, recovery and rollback checks.
