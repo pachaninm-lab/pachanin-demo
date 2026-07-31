@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reg-ru-local-runner-authority-20260731",
+  "status": "active",
+  "purpose": "Replace the confirmed unreachable GitHub-hosted-to-REG.RU inbound SSH transport with an outbound-only self-hosted production runner while preserving exact-main, read-only and fail-closed preflight authority.",
+  "approvedBy": "owner-direct-do-it-correctly-2026-07-31",
+  "authorityBaseExactMain": "551ab5bf087ed710baca6483d70da11dc311a68a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    "scripts/check-tai-reg-ru-preflight.mjs",
+    "scripts/install-pc-prod-actions-runner.sh",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-local-runner-authority-20260731.json"
+  ],
+  "requiredBehavior": [
+    "route live REG.RU preflight only to a local self-hosted Linux x64 runner with pc-prod and tai-readonly labels",
+    "remove production SSH host, port, private-key and fingerprint transport from the live preflight workflow",
+    "preserve hosted pull-request contract validation",
+    "preserve exact current-main admission and successful canonical main-push workflow_run authority",
+    "execute the existing read-only preflight script locally without sudo or production mutation",
+    "emit a minimal redacted fail-closed report when execution fails before evidence",
+    "provide a checksum-pinned zero-recurring-cost REG.RU runner installer",
+    "preserve redacted artifact and exact-SHA commit status"
+  ],
+  "forbiddenCapabilities": [
+    "production deployment",
+    "production container, Compose, database, systemd, model-host, DNS, proxy or public-network mutation by the preflight workflow",
+    "pull-request execution on the production runner",
+    "pull_request_target",
+    "sudo or privilege escalation in the live workflow",
+    "inbound SSH, VPN or third-party tunnel dependency",
+    "credential disclosure or persistence of the short-lived runner registration token",
+    "model admission creation or bypass",
+    "knowledge generation creation or activation",
+    "new server, provider, paid API, SaaS subscription or recurring cost",
+    "production PASS claim without exact-main live evidence"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 5,
+    "requiredChecks": [
+      "Workflow Syntax Guard",
+      "CI",
+      "Node CI",
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatus": "RUNNER_INSTALLATION_REQUIRED_BEFORE_LIVE_PREFLIGHT"
+  }
+}
