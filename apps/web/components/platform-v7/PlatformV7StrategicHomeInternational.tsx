@@ -40,8 +40,8 @@ type LocalizedCopy = Readonly<{
     lead: string;
     cards: ReadonlyArray<Readonly<{ title: string; text: string }>>;
     details: string;
-    status: string;
-    privacy: string;
+    deal: string;
+    connect: string;
   }>;
   connection: Readonly<{
     eyebrow: string;
@@ -55,163 +55,163 @@ const SUPPORT_PHONE_HREF = 'tel:+79162778989';
 
 const COPY: Record<Locale, LocalizedCopy> = {
   ru: {
-    navTrust: 'Доверие',
+    navTrust: 'Контроль',
     support: 'Поддержка',
     call: 'Позвонить',
     stepsMore: 'Показать шаги 5–7',
     trust: {
-      eyebrow: 'Доверие и контроль',
-      title: 'Проверяемые правила работы платформы',
-      lead: 'Крупная организация должна понимать не только возможности продукта, но и границы полномочий, происхождение фактов и порядок принятия решений.',
+      eyebrow: 'Единый контроль',
+      title: 'Сделка управляется по одной версии фактов',
+      lead: 'Платформа связывает участников, события, документы, решения и денежные последствия. Для каждой роли видны ответственность, основание и следующий шаг.',
       cards: [
         {
-          title: 'Роли и полномочия',
-          text: 'Доступные данные и действия определяются организационным контуром и ролью участника. Критические операции требуют подтверждения уполномоченного лица.',
+          title: 'Ролевой рабочий контур',
+          text: 'Каждый участник видит свою часть Сделки, доступные действия и ожидаемый результат.',
         },
         {
-          title: 'История и доказательства',
-          text: 'События, версии документов, основания и решения сохраняются в истории Сделки и связываются с ответственным участником.',
+          title: 'Единая история',
+          text: 'Условия, события, документы, отклонения и решения сохраняются в хронологии одной Сделки.',
         },
         {
-          title: 'Граница TAI',
-          text: 'TAI сопоставляет факты, объясняет риск и предлагает допустимые действия, но не подменяет решение участника и не получает самостоятельных полномочий.',
+          title: 'TAI в процессе',
+          text: 'ИИ сопоставляет факты, объясняет влияние на риск и расчёт и готовит допустимый следующий шаг.',
         },
         {
-          title: 'Честный статус контуров',
-          text: 'Внутренняя доступность и внешние подключения показываются раздельно. Неподтверждённый обмен не обозначается как работающая интеграция.',
+          title: 'Контроль результата',
+          text: 'Отклонение связано с ответственным, сроком, основанием и денежным последствием.',
         },
       ],
-      details: 'Открыть Trust Center',
-      status: 'Состояние системы',
-      privacy: 'Обработка данных',
+      details: 'Посмотреть правила контроля',
+      deal: 'Посмотреть Сделку',
+      connect: 'Начать работу',
     },
     connection: {
-      eyebrow: 'Подключение организации',
-      title: 'От заявки до первой управляемой Сделки',
-      lead: 'До формы показан полный следующий путь: что определяет организация, что подтверждается при подключении и какой результат она получает.',
+      eyebrow: 'Следующий шаг',
+      title: 'Начните работу с платформой',
+      lead: 'Укажите организацию, роль и рабочую задачу. Платформа зарегистрирует заявку и вернёт номер обращения с конкретным следующим действием.',
       steps: [
         {
           index: '01',
-          title: 'Определяем контур работы',
-          text: 'Фиксируем организацию, участников, роли, товары и бизнес-задачу, с которой начинается работа.',
+          title: 'Выберите рабочий сценарий',
+          text: 'Определите, с чего начать: полный цикл Сделки, логистика, качество, документы, расчёты или обмен данными.',
         },
         {
           index: '02',
-          title: 'Подтверждаем данные и полномочия',
-          text: 'Согласуем ответственных, необходимые документы, источники данных и системы, участвующие в процессе.',
+          title: 'Укажите организацию и ответственного',
+          text: 'Передайте только данные, необходимые для регистрации заявки и связи с вашей командой.',
         },
         {
           index: '03',
-          title: 'Запускаем Сделки',
-          text: 'Организация получает номер заявки, подтверждённый следующий шаг и начинает работу в едином контуре исполнения.',
+          title: 'Получите зафиксированный следующий шаг',
+          text: 'Система выдаёт номер заявки, а команда платформы продолжает работу по выбранному сценарию.',
         },
       ],
     },
   },
   en: {
-    navTrust: 'Trust',
+    navTrust: 'Control',
     support: 'Support',
     call: 'Call',
     stepsMore: 'Show steps 5–7',
     trust: {
-      eyebrow: 'Trust and control',
-      title: 'Verifiable operating rules',
-      lead: 'An enterprise buyer needs to understand not only product capability, but also authority boundaries, fact provenance and the decision process.',
+      eyebrow: 'Unified control',
+      title: 'The Deal is managed from one version of facts',
+      lead: 'The platform connects participants, events, documents, decisions and monetary consequences. Every role sees its responsibility, evidence and next step.',
       cards: [
         {
-          title: 'Roles and authority',
-          text: 'Available data and actions are determined by the organisation context and participant role. Critical operations require confirmation by an authorised person.',
+          title: 'Role-based workspace',
+          text: 'Each participant sees their part of the Deal, permitted actions and expected outcome.',
         },
         {
-          title: 'History and evidence',
-          text: 'Events, document versions, evidence and decisions remain connected to the Deal and the responsible participant.',
+          title: 'One Deal history',
+          text: 'Terms, events, documents, deviations and decisions remain in one Deal timeline.',
         },
         {
-          title: 'TAI boundary',
-          text: 'TAI matches facts, explains risk and presents permitted actions, but does not replace participant judgement or gain independent authority.',
+          title: 'TAI in the workflow',
+          text: 'AI matches facts, explains the impact on risk and settlement and prepares a permitted next step.',
         },
         {
-          title: 'Honest system status',
-          text: 'Internal availability and external connections are reported separately. Unconfirmed exchange is never presented as a live integration.',
+          title: 'Outcome control',
+          text: 'Every deviation is linked to an owner, deadline, evidence and monetary consequence.',
         },
       ],
-      details: 'Open Trust Center',
-      status: 'System status',
-      privacy: 'Data processing',
+      details: 'See control rules',
+      deal: 'See the Deal',
+      connect: 'Get started',
     },
     connection: {
-      eyebrow: 'Organisation connection',
-      title: 'From request to the first controlled Deal',
-      lead: 'The complete next path is visible before the form: what the organisation defines, what is confirmed during connection and what outcome it receives.',
+      eyebrow: 'Next step',
+      title: 'Start working with the platform',
+      lead: 'Provide the organisation, role and operating task. The platform registers the request and returns a reference number with a concrete next action.',
       steps: [
         {
           index: '01',
-          title: 'Define the operating scope',
-          text: 'Identify the organisation, participants, roles, products and the first business task.',
+          title: 'Choose an operating scenario',
+          text: 'Start with the complete Deal lifecycle, logistics, quality, documents, settlement or data exchange.',
         },
         {
           index: '02',
-          title: 'Confirm data and authority',
-          text: 'Confirm owners, required documents, data sources and systems involved in the process.',
+          title: 'Provide the organisation and owner',
+          text: 'Submit only the information required to register the request and contact your team.',
         },
         {
           index: '03',
-          title: 'Start operating Deals',
-          text: 'The organisation receives a request number, a confirmed next step and starts work in one execution workflow.',
+          title: 'Receive a recorded next step',
+          text: 'The system returns a request number and the platform team continues with the selected scenario.',
         },
       ],
     },
   },
   zh: {
-    navTrust: '信任',
+    navTrust: '控制',
     support: '支持',
     call: '致电',
     stepsMore: '显示第 5–7 步',
     trust: {
-      eyebrow: '信任与控制',
-      title: '可验证的平台运行规则',
-      lead: '企业客户不仅需要了解产品能力，还需要了解权限边界、事实来源和决策流程。',
+      eyebrow: '统一控制',
+      title: '交易基于同一版本事实进行管理',
+      lead: '平台连接参与方、事件、文件、决定与资金后果。每个角色都能看到自己的责任、依据和下一步。',
       cards: [
         {
-          title: '角色与权限',
-          text: '可用数据和操作由机构范围与参与方角色决定，关键操作必须由获授权人员确认。',
+          title: '按角色工作',
+          text: '每个参与方只看到自己的交易范围、允许的操作和预期结果。',
         },
         {
-          title: '历史与证据',
-          text: '事件、文件版本、依据和决定都保存在交易历史中，并与责任参与方关联。',
+          title: '统一交易历史',
+          text: '条件、事件、文件、偏差和决定保存在同一笔交易时间线中。',
         },
         {
-          title: 'TAI 边界',
-          text: 'TAI 对照事实、解释风险并提供允许的操作，但不会替代参与方决定，也不会获得独立权限。',
+          title: '流程内的 TAI',
+          text: 'AI 对照事实，说明对风险和结算的影响，并准备允许的下一步。',
         },
         {
-          title: '真实系统状态',
-          text: '内部可用性与外部连接分别展示，未经确认的数据交换不会被标记为已上线集成。',
+          title: '结果控制',
+          text: '每项偏差都关联责任方、期限、依据和资金后果。',
         },
       ],
-      details: '打开信任中心',
-      status: '系统状态',
-      privacy: '数据处理',
+      details: '查看控制规则',
+      deal: '查看交易',
+      connect: '开始使用',
     },
     connection: {
-      eyebrow: '机构接入',
-      title: '从申请到第一笔受控交易',
-      lead: '表单前明确展示完整下一步：机构需要确定什么、接入时确认什么，以及最终获得什么。',
+      eyebrow: '下一步',
+      title: '开始使用平台',
+      lead: '填写机构、角色和工作任务。平台会登记申请，并返回申请编号和明确的下一步。',
       steps: [
         {
           index: '01',
-          title: '确定工作范围',
-          text: '确定机构、参与方、角色、商品以及首先启动的业务任务。',
+          title: '选择工作场景',
+          text: '可从完整交易周期、物流、质量、文件、结算或数据交换开始。',
         },
         {
           index: '02',
-          title: '确认数据与权限',
-          text: '确认责任方、所需文件、数据来源以及参与流程的系统。',
+          title: '填写机构与负责人',
+          text: '仅提交登记申请和联系团队所需的信息。',
         },
         {
           index: '03',
-          title: '开始运行交易',
-          text: '机构获得申请编号、明确的下一步，并在统一执行流程中开始工作。',
+          title: '获得已记录的下一步',
+          text: '系统生成申请编号，平台团队按所选场景继续推进。',
         },
       ],
     },
@@ -249,8 +249,8 @@ function TrustSection({ locale, copy }: { locale: Locale; copy: LocalizedCopy['t
         <a className='pc-home-trust-primary' href={`/platform-v7/trust?lang=${locale}`}>
           {copy.details}<ArrowRight aria-hidden='true' size={17} />
         </a>
-        <a href={`/platform-v7/status?lang=${locale}`}>{copy.status}</a>
-        <a href={`/platform-v7/privacy?lang=${locale}`}>{copy.privacy}</a>
+        <a href='#live'>{copy.deal}</a>
+        <a href='#connect-organization'>{copy.connect}</a>
       </div>
     </section>
   );
