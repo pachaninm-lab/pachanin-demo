@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-production-runtime-20260731",
+  "status": "active",
+  "purpose": "Add protected local-model authentication, a rootless canonical TAI image and exact-SHA image publication without claiming or mutating REG.RU production deployment.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "1c61ddd3c8de368ec321d9afde8eac89f5752488",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    "apps/tai/TAI_PRODUCTION_RUNTIME_STAGE1.md",
+    "apps/tai/tai/production_authenticated_runtime.py",
+    "apps/tai/tai/production_entrypoint.py",
+    "apps/tai/tai/secure_model_transport.py",
+    "apps/tai/tests/test_production_authenticated_runtime.py",
+    "apps/tai/tests/test_production_entrypoint.py",
+    "apps/tai/tests/test_secure_model_transport.py",
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-production-runtime-20260731.json",
+    "infra/docker/Dockerfile.tai"
+  ],
+  "requiredBehavior": [
+    "require a protected bearer token for production local-model access",
+    "send the model credential only in the Authorization header",
+    "reject malformed model credentials without disclosing their value",
+    "use authenticated transport for inference and supervisor warm-up",
+    "build a rootless single-worker TAI image",
+    "label the image with the exact source revision",
+    "publish the TAI image through the existing GHCR authority",
+    "keep all production deployment claims separate from image publication",
+    "add focused tests and preserve at least 90 percent TAI coverage"
+  ],
+  "forbiddenCapabilities": [
+    "REG.RU compose mutation",
+    "production deployment claim",
+    "production live acceptance claim",
+    "database migration execution",
+    "invented model artifact digest",
+    "invented model admission evidence",
+    "credential logging or image embedding",
+    "new paid dependency or recurring cost",
+    "autonomous platform or financial writes",
+    "client-selected tenant or role"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "requiredChecks": [
+      "TAI Foundation",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}
