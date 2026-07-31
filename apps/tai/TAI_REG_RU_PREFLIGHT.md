@@ -1,6 +1,6 @@
 # TAI Agro OS — REG.RU read-only preflight
 
-**Baseline:** `6bbff3549be8eee81c248d53c2e8e93a0bab9d81`  
+**Authority baseline:** `7eca90f2a684a5ba16ee4728f3f936948e774d3e`  
 **Hosting:** existing REG.RU infrastructure only  
 **New recurring cost:** 0 RUB  
 **Mode:** `READ_ONLY_PREFLIGHT`  
@@ -10,7 +10,15 @@
 
 The preflight inventories whether the independent TAI runtime can be introduced into the current REG.RU production contour without changing the running platform. It is an evidence step, not a deployment step.
 
-The workflow runs automatically after a successful exact-main canonical image publication and can also be started manually by the repository owner with the phrase `PREFLIGHT-TAI-REG-RU`. Automatic blocked inventory is preserved as a failed `TAI REG.RU Preflight` commit status but does not make the evidence workflow itself masquerade as a deployment. Manual strict execution fails when any blocker remains.
+The exact-main trigger chain is source-controlled and sequential:
+
+1. a main push that changes the TAI runtime or any REG.RU preflight authority path triggers `Build & Publish Canonical Docker Images`;
+2. that workflow publishes canonical API, web, TAI and migration images bound to the exact main SHA;
+3. only a successful main-push publication triggers `TAI REG.RU Preflight` through `workflow_run`;
+4. the preflight checks that the workflow-run SHA still equals current exact main before connecting to REG.RU;
+5. the result is emitted as redacted evidence and the commit status `TAI REG.RU Preflight`.
+
+The workflow can also be started manually by the repository owner with the phrase `PREFLIGHT-TAI-REG-RU`. Automatic blocked inventory is preserved as a failed commit status but does not make the evidence workflow masquerade as a deployment. Manual strict execution fails when any blocker remains.
 
 ## Evidence collected
 
