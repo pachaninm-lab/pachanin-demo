@@ -20,7 +20,7 @@ jobs:
         with:
           ref: agent/tai-agro-os-v4-stage1-always-on-core-20260731
           fetch-depth: 0
-      - name: Format exact long lines and self-remove
+      - name: Format remaining exact long lines and self-remove
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -33,11 +33,6 @@ jobs:
               '            raise AlwaysOnConfigurationError("warm-up timeout must be between 1 and 120 seconds")': (
                   '            raise AlwaysOnConfigurationError(\n'
                   '                "warm-up timeout must be between 1 and 120 seconds"\n'
-                  '            )'
-              ),
-              '            raise AlwaysOnConfigurationError("circuit open period must be between 5 and 600 seconds")': (
-                  '            raise AlwaysOnConfigurationError(\n'
-                  '                "circuit open period must be between 5 and 600 seconds"\n'
                   '            )'
               ),
               '            raise AlwaysOnConfigurationError("latency window must be between 5 and 500")': (
