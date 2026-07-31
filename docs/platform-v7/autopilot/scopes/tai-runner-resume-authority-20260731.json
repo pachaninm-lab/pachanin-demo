@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-runner-resume-authority-20260731",
+  "status": "active",
+  "purpose": "Resume a GitHub Actions runner that was successfully registered on REG.RU but whose bootstrap stopped before systemd, sudo-controller and authority-file materialization. Do not re-register the runner or require another token.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "73574d194b53d71103f733553296820f023615a5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/resume-pc-prod-actions-runner.sh",
+    "scripts/check-resume-pc-prod-actions-runner.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-runner-resume-authority-20260731.json"
+  ],
+  "requiredBehavior": [
+    "operate only on an already configured runner directory",
+    "never require or consume a runner registration token",
+    "decode the runner identity safely across BOM and UTF encodings",
+    "require the configured runner identity to match the production hostname-derived identity",
+    "pin the private model host by the owner-confirmed SHA256 host-key fingerprint",
+    "materialize only the restricted root controller sudo authority",
+    "install and harden the runner systemd service as pcactions",
+    "prove the running runner has no Docker supplementary group",
+    "write the redacted runner authority evidence atomically"
+  ],
+  "forbiddenCapabilities": [
+    "runner re-registration or token consumption",
+    "direct Docker authority for pcactions",
+    "production inbound SSH restoration",
+    "arbitrary sudo commands",
+    "credential output",
+    "new infrastructure or recurring cost",
+    "production deployment before exact-main merge and live evidence"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 3,
+    "productionMutationAllowedBeforeMerge": false,
+    "requiredChecks": [
+      "platform-v7 autopilot guard",
+      "Workflow Syntax Guard",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ]
+  }
+}
