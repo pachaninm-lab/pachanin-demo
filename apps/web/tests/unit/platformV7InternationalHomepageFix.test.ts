@@ -33,13 +33,21 @@ describe('platform-v7 international homepage completion', () => {
     expect(strategicAcceptance).toContain("page.locator('#deal-path')).toHaveCount(0)");
   });
 
-  it('adds enterprise trust and a concrete connection process before the form', () => {
+  it('uses business-first copy and a concrete next action without internal integration commentary', () => {
     expect(wrapper).toContain("id='trust'");
     expect(wrapper).toContain("id='connection-process'");
     expect(wrapper).toContain('element.type === OrganizationConnectForm');
     expect(wrapper).toContain('ConnectionProcess');
     expect(wrapper).toContain('TrustSection');
-    expect(wrapper).toContain('От заявки до первой управляемой Сделки');
+    expect(wrapper).toContain('Сделка управляется по одной версии фактов');
+    expect(wrapper).toContain('Начните работу с платформой');
+    expect(wrapper).toContain('Получите зафиксированный следующий шаг');
+    expect(wrapper).toContain("<a href='#live'>{copy.deal}</a>");
+    expect(wrapper).toContain("<a href='#connect-organization'>{copy.connect}</a>");
+    expect(wrapper).not.toContain('Честный статус контуров');
+    expect(wrapper).not.toContain('Неподтверждённый обмен');
+    expect(wrapper).not.toContain('Internal availability and external connections');
+    expect(wrapper).not.toContain('未经确认的数据交换');
   });
 
   it('publishes a canonical public RU EN ZH Trust Center without unsupported certification claims', () => {
@@ -60,10 +68,10 @@ describe('platform-v7 international homepage completion', () => {
   });
 
   it('keeps support and phone in the mobile menu while reducing the mobile dock to AI only', () => {
-    expect(wrapper).toContain("pc-home-mobile-contact-link");
-    expect(wrapper).toContain("href={SUPPORT_PHONE_HREF}");
-    expect(css).toContain(".pc-site-mobile-nav .pc-home-mobile-contact-link");
-    expect(css).toContain(".pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)");
+    expect(wrapper).toContain('pc-home-mobile-contact-link');
+    expect(wrapper).toContain('href={SUPPORT_PHONE_HREF}');
+    expect(css).toContain('.pc-site-mobile-nav .pc-home-mobile-contact-link');
+    expect(css).toContain('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
     expect(css).toContain('display: none !important');
     expect(css).toContain('width: 56px !important');
     expect(css).toContain('left: auto !important');
