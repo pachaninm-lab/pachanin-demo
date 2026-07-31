@@ -1,6 +1,6 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "agent/tai-agro-os-v4-stage1-protected-qwen-auth-20260731",
+  "branch": "agent/tai-agro-os-v4-stage1-token-repr-redaction-20260731",
   "status": "active",
   "purpose": "Prevent protected Qwen Bearer credentials from being disclosed through object representations after canonical model authentication was merged by PR #3547.",
   "approvedBy": "owner-direct-continue-2026-07-31",
