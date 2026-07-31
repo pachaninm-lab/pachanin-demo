@@ -4,7 +4,7 @@ const operatingCopy = {
   ru: {
     nav: { connect: 'Начать работу', status: 'Доверие и контроль' },
     hero: {
-      primary: 'Посмотреть 7 шагов Сделки',
+      primary: 'Посмотреть Сделку в работе',
       secondary: 'Начать работу с платформой',
       tertiary: 'Посмотреть ИИ в работе',
       proofLabel: '12 ролей · 19 этапов · RU/EN/ZH · TAI',
@@ -25,7 +25,7 @@ const operatingCopy = {
   en: {
     nav: { connect: 'Get started', status: 'Trust and control' },
     hero: {
-      primary: 'See the 7 Deal steps',
+      primary: 'See a Deal in action',
       secondary: 'Start using the platform',
       tertiary: 'See AI in action',
       proofLabel: '12 roles · 19 stages · RU/EN/ZH · TAI',
@@ -46,7 +46,7 @@ const operatingCopy = {
   zh: {
     nav: { connect: '开始使用', status: '信任与控制' },
     hero: {
-      primary: '查看交易七步',
+      primary: '查看交易运行',
       secondary: '开始使用平台',
       tertiary: '查看 AI 如何工作',
       proofLabel: '12 个角色 · 19 个阶段 · RU/EN/ZH · TAI',
