@@ -8,6 +8,7 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "scripts/pc-tai-release-controller-core.sh",
     "scripts/check-tai-local-model-key-authority.mjs",
     "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
