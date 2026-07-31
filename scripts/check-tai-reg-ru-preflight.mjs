@@ -16,6 +16,10 @@ function forbid(source, pattern, label) {
 }
 
 for (const fragment of [
+  'workflow_run:',
+  'workflows: ["Build & Publish Canonical Docker Images"]',
+  'github.event.workflow_run.conclusion == \'success\'',
+  'github.event.workflow_run.head_branch == \'main\'',
   'workflow_dispatch:',
   "inputs.confirmation == 'PREFLIGHT-TAI-REG-RU'",
   'github.actor == github.repository_owner',
@@ -24,12 +28,15 @@ for (const fragment of [
   'permissions:',
   'contents: read',
   'packages: read',
+  'statuses: write',
   'ghcr.io/pachaninm-lab/grainflow-tai:sha-${SHORT_SHA}',
   '"$user" == \'65532:65532\'',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'StrictHostKeyChecking=yes',
   'Upload redacted preflight evidence',
-  'Enforce preflight result',
+  'Publish exact-main preflight commit status',
+  "context='TAI REG.RU Preflight'",
+  "if: github.event_name == 'workflow_dispatch'",
 ]) requireFragment(workflow, fragment, workflowPath);
 
 for (const fragment of [
@@ -44,14 +51,19 @@ for (const fragment of [
   'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
   'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
   'API_TO_PRIVATE_MODEL_HEALTHY',
+  'API_WEB_EXACT_MAIN',
+  'SET TRANSACTION READ ONLY',
+  "namespace.nspname = 'public'",
+  'admission.artifact_sha256 = profile.artifact_sha256',
+  'ACTIVE_MODEL_IDENTITY_MATCHED',
   'MODEL_ADMISSION_ACCEPTED',
   'ACTIVE_KNOWLEDGE_READY',
 ]) requireFragment(script, fragment, scriptPath);
 
 forbid(
   workflow,
-  /^\s*(?:actions|checks|deployments|id-token|issues|pull-requests|security-events|statuses):\s*write\s*$/mu,
-  `${workflowPath}: write permission is forbidden`,
+  /^\s*(?:actions|checks|deployments|id-token|issues|pull-requests|security-events):\s*write\s*$/mu,
+  `${workflowPath}: unapproved write permission is forbidden`,
 );
 forbid(
   workflow,
@@ -120,4 +132,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('TAI REG.RU preflight contract PASS: exact-main, read-only, redacted and fail-closed.');
+console.log('TAI REG.RU preflight contract PASS: exact-main, read-only, redacted, automatic and fail-closed.');
