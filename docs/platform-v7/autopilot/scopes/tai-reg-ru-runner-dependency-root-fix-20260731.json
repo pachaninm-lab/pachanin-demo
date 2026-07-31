@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "agent/tai-reg-ru-runner-dependency-root-fix-20260731",
   "status": "active",
-  "purpose": "Correct the confirmed REG.RU self-hosted runner bootstrap defect: the official dependency installer requires root authority and must execute before the checksum-verified runner directory is transferred to the unprivileged service account.",
+  "purpose": "Correct the confirmed REG.RU self-hosted runner bootstrap defects: the official dependency installer requires root authority before ownership transfer, while repeated execution must preserve the configured runner directory under the unprivileged service account.",
   "approvedBy": "owner-direct-continue-correctly-2026-07-31",
   "authorityBaseExactMain": "e1bf3d643db7248f604eea237004b9b20de9d4ec",
   "productionHosting": "REG_RU_VPS_ONLY",
@@ -14,8 +14,10 @@
   ],
   "requiredBehavior": [
     "execute the checksum-verified official runner dependency installer with UID 0",
-    "retain root ownership of the extracted runner directory until dependency installation completes",
-    "transfer the runner directory to the dedicated pcactions account only after dependency installation",
+    "retain root ownership of a new extracted runner directory until dependency installation completes",
+    "transfer the new runner directory to the dedicated pcactions account only after dependency installation",
+    "preserve pcactions ownership when the already configured installer is executed again",
+    "reject a non-empty unconfigured runner directory instead of overwriting partial or untrusted contents",
     "configure and run the GitHub Actions runner as the unprivileged pcactions account",
     "fail contract validation when dependency installation is delegated through sudo -u to the runner user",
     "preserve outbound-only transport labels and all read-only preflight boundaries"
