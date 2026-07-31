@@ -1,0 +1,72 @@
+name: P0 Membership Authority Bounded Assembler
+
+on:
+  push:
+    branches:
+      - p0/first-customer-access-foundation-3563
+    paths:
+      - .github/workflows/p0-membership-authority-assembler-3564.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-membership-authority-assembler-3564
+  cancel-in-progress: false
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout bounded branch
+        uses: actions/checkout@v4
+        with:
+          ref: p0/first-customer-access-foundation-3563
+          fetch-depth: 0
+
+      - name: Verify exact immutable inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 34046f8e87568ff76a9c6b09366838c898b98e95 HEAD
+          test "$(git hash-object apps/api/src/modules/auth/auth.service.ts)" = "d1da5c971fcd28d67e89111aa3c80cd24221aa61"
+          test "$(git hash-object apps/api/src/modules/auth/persistent-auth.repository.ts)" = "6a5978ba6353b210d09c820852a29209bd63e43b"
+          test "$(git hash-object apps/api/test/auth/persistent-auth.e2e-spec.ts)" = "01d021ee4ecacba093c7d1c2a87a784c90d14ede"
+          test "$(git hash-object docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json)" = "12100eb54518b8ca0d7008f88c20636c304f936c"
+          mapfile -t transport_paths < <(git diff --name-only 34046f8e87568ff76a9c6b09366838c898b98e95..HEAD | sort)
+          test "${#transport_paths[@]}" -eq 2
+          test "${transport_paths[0]}" = ".github/workflows/p0-membership-authority-assembler-3564.yml"
+          test "${transport_paths[1]}" = ".p0-repair-3564-membership/apply.py"
+
+      - name: Assemble exact membership guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .p0-repair-3564-membership/apply.py
+          mapfile -t changed < <(git diff --name-only | sort)
+          test "${#changed[@]}" -eq 4
+          test "${changed[0]}" = "apps/api/src/modules/auth/auth.service.ts"
+          test "${changed[1]}" = "apps/api/src/modules/auth/persistent-auth.repository.ts"
+          test "${changed[2]}" = "apps/api/test/auth/persistent-auth.e2e-spec.ts"
+          test "${changed[3]}" = "docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json"
+          git diff --check
+          grep -F 'membership_status: string;' apps/api/src/modules/auth/persistent-auth.repository.ts
+          test "$(grep -c 'uo.status AS membership_status' apps/api/src/modules/auth/persistent-auth.repository.ts)" -eq 5
+          test "$(grep -c "MEMBERSHIP_NOT_ACTIVE" apps/api/src/modules/auth/auth.service.ts)" -eq 2
+          grep -F "denies non-active membership at login, refresh and access resolution" apps/api/test/auth/persistent-auth.e2e-spec.ts
+
+      - name: Remove transport and publish one bounded commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/p0-membership-authority-assembler-3564.yml .p0-repair-3564-membership/apply.py
+          git add apps/api/src/modules/auth/auth.service.ts \
+            apps/api/src/modules/auth/persistent-auth.repository.ts \
+            apps/api/test/auth/persistent-auth.e2e-spec.ts \
+            docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(auth): enforce active membership across sessions"
+          git push origin HEAD:p0/first-customer-access-foundation-3563
