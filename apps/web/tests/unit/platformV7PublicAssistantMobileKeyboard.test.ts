@@ -21,12 +21,26 @@ describe('platform-v7 public assistant mobile keyboard contract', () => {
     expect(controller).toContain('[40, 100, 180, 300, 480, 700, 1_000, 1_400, 1_900]');
   });
 
-  it('uses the earlier reliable visible edge instead of exposing a strip above an overlay keyboard', () => {
+  it('uses VirtualKeyboard as a hard upper bound instead of exposing or crossing an overlay keyboard', () => {
     expect(controller).toContain('const keyboardTopFromHeight = Math.max(visualTop + 1, layoutBottom - keyboardHeight)');
-    expect(controller).toContain('Math.min(visualBottom, keyboardTopFromHeight)');
-    expect(controller).not.toContain('Math.max(visualBottom, keyboardTopFromHeight)');
+    expect(controller).toContain('Math.min(keyboardAwareBottom, keyboardTopFromHeight)');
+    expect(controller).not.toContain('Math.max(keyboardAwareBottom, keyboardTopFromHeight)');
     expect(controller).not.toContain('keyboardRect?.top');
     expect(controller).toContain("panel.dataset.pcKeyboardGeometry = geometry");
+  });
+
+  it('reconciles Yandex iOS browser chrome without trusting a non-resized layout viewport', () => {
+    expect(controller).toContain('const KEYBOARD_DELTA_PX = 120');
+    expect(controller).toContain('let unfocusedVisualHeight');
+    expect(controller).toContain('let unfocusedInnerHeight');
+    expect(controller).toContain('let unfocusedVisualTop');
+    expect(controller).toContain('const visualKeyboardDelta = Math.max(0, unfocusedVisualHeight - visualHeight)');
+    expect(controller).toContain('const innerKeyboardDelta = Math.max(0, unfocusedInnerHeight - innerHeight)');
+    expect(controller).toContain('keyboardAwareBottoms.push(visualBottom)');
+    expect(controller).toContain('keyboardAwareBottoms.push(innerBottom)');
+    expect(controller).toContain('Math.max(...keyboardAwareBottoms)');
+    expect(controller).toContain("'visual-viewport+window-inner-height'");
+    expect(controller).toContain("'window-inner-height'");
   });
 
   it('binds the mobile panel to exact visual top and height before and during keyboard focus', () => {
