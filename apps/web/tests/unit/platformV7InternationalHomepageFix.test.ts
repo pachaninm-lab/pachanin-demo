@@ -8,8 +8,10 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 const wrapper = read('apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx');
 const css = read('apps/web/styles/platform-v7-international-home-fix.css');
 const tsconfig = read('apps/web/tsconfig.json');
-const trust = read('apps/web/app/trust/page.tsx');
+const trustContent = read('apps/web/app/trust/page.tsx');
+const trustRoute = read('apps/web/app/platform-v7/trust/page.tsx');
 const browserAcceptance = read('apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts');
+const strategicAcceptance = read('apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts');
 
 describe('platform-v7 international homepage completion', () => {
   it('routes the canonical homepage through the additive completion layer', () => {
@@ -25,6 +27,8 @@ describe('platform-v7 international homepage completion', () => {
     expect(wrapper).toContain("stepsMore: 'Показать шаги 5–7'");
     expect(browserAcceptance).toContain("page.locator('#functions article')).toHaveCount(7)");
     expect(browserAcceptance).toContain("page.locator('#deal-path')).toHaveCount(0)");
+    expect(strategicAcceptance).toContain("page.locator('#functions article')).toHaveCount(7)");
+    expect(strategicAcceptance).toContain("page.locator('#deal-path')).toHaveCount(0)");
   });
 
   it('adds enterprise trust and a concrete connection process before the form', () => {
@@ -36,12 +40,14 @@ describe('platform-v7 international homepage completion', () => {
     expect(wrapper).toContain('От заявки до первой управляемой Сделки');
   });
 
-  it('publishes a public RU EN ZH Trust Center without unsupported certification claims', () => {
-    expect(trust).toContain("type Locale = 'ru' | 'en' | 'zh'");
-    expect(trust).toContain("canonical: '/trust'");
-    expect(trust).toContain('Что платформа не заявляет без доказательств');
-    expect(trust).toContain('ISO, SOC 2 или иная сертификация — без опубликованного подтверждения');
-    expect(trust).toContain('TAI не получает самостоятельного права менять Сделку');
+  it('publishes a canonical RU EN ZH Trust Center without unsupported certification claims', () => {
+    expect(trustContent).toContain("type Locale = 'ru' | 'en' | 'zh'");
+    expect(trustRoute).toContain("export { default } from '../../trust/page'");
+    expect(trustRoute).toContain("canonical: '/platform-v7/trust'");
+    expect(trustContent).toContain('Что платформа не заявляет без доказательств');
+    expect(trustContent).toContain('ISO, SOC 2 или иная сертификация — без опубликованного подтверждения');
+    expect(trustContent).toContain('TAI не получает самостоятельного права менять Сделку');
+    expect(browserAcceptance).toContain("page.goto('/platform-v7/trust?lang=ru'");
   });
 
   it('keeps support and phone in the mobile menu while reducing the mobile dock to AI only', () => {
@@ -51,13 +57,14 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).toContain(".pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)");
     expect(css).toContain('display: none !important');
     expect(css).toContain('width: 56px !important');
+    expect(css).toContain('left: auto !important');
     expect(css).toContain('padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px))');
   });
 
   it('retains accessibility, reduced-motion and forced-colors contracts', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (forced-colors: active)');
-    expect(trust).toContain("aria-labelledby='pc-trust-title'");
-    expect(trust).toContain("aria-hidden='true'");
+    expect(trustContent).toContain("aria-labelledby='pc-trust-title'");
+    expect(trustContent).toContain("aria-hidden='true'");
   });
 });
