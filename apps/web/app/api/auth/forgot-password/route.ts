@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 
     const delivery = payload.delivery;
     if (delivery?.email && delivery.token) {
-      const resetUrl = new URL('/platform-v7/reset-password', normalizeOrigin(request));
+      const resetUrl = new URL('/platform-v7/forgot-password', normalizeOrigin(request));
       resetUrl.searchParams.set('token', delivery.token);
       resetUrl.searchParams.set('lang', locale);
       const copy = mailCopy[locale];
