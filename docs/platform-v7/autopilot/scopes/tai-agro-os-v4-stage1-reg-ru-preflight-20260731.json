@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-reg-ru-preflight-20260731",
+  "status": "active",
+  "purpose": "Add a protected exact-main REG.RU preflight for the independent TAI service that inventories production readiness and emits redacted evidence without changing containers, Compose files, PostgreSQL, model services, secrets or network topology.",
+  "approvedBy": "owner-continue-implementation-2026-07-31",
+  "authorityBaseExactMain": "76736d52802d85555b7209874ea47e3b842d5bdb",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowed": false,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-reg-ru-preflight-20260731.json",
+    "scripts/check-tai-reg-ru-preflight.mjs",
+    "scripts/tai-reg-ru-preflight.sh"
+  ],
+  "requiredBehavior": [
+    "accept only an exact current main SHA and the owner confirmation phrase",
+    "verify the canonical TAI image tag digest revision label and rootless identity before SSH",
+    "pin the REG.RU production SSH host key to the protected fingerprint",
+    "discover production Compose authority from running container labels without exposing protected paths",
+    "inventory service topology host resources current revisions environment variable names PostgreSQL TAI relations active knowledge and model admission",
+    "verify existing API to private local model health without printing model endpoint or credentials",
+    "snapshot containers and protected Compose file hashes before and after inspection",
+    "emit only redacted machine-readable evidence and explicit blockers",
+    "fail closed when a required deployment prerequisite is absent",
+    "run a pull-request contract gate without using production secrets"
+  ],
+  "forbiddenCapabilities": [
+    "docker compose up down restart pull create or rm on the production host",
+    "container start stop restart kill remove or update",
+    "production file write edit copy install chmod chown or deletion",
+    "PostgreSQL DDL DML migration grant revoke or role mutation",
+    "systemctl start stop restart enable disable or daemon reload",
+    "secret generation rotation disclosure or persistence",
+    "model service mutation",
+    "production deployment or live acceptance claim",
+    "public TAI port exposure",
+    "autonomous platform financial veterinary agronomic or repair action",
+    "new paid service or recurring expense",
+    "Netlify Vercel or cloud LLM dependency"
+  ]
+}
