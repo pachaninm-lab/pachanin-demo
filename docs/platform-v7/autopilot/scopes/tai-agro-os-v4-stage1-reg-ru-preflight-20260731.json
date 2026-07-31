@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "agent/tai-agro-os-v4-stage1-reg-ru-preflight-20260731",
   "status": "active",
-  "purpose": "Add a protected exact-main REG.RU preflight for the independent TAI service that inventories production readiness and emits redacted evidence without changing containers, Compose files, PostgreSQL, model services, secrets or network topology.",
+  "purpose": "Add a protected exact-main REG.RU preflight for the independent TAI service that runs automatically after canonical image publication, inventories production readiness, publishes a redacted exact-SHA status and evidence, and never changes containers, Compose files, PostgreSQL, model services, secrets or network topology.",
   "approvedBy": "owner-continue-implementation-2026-07-31",
-  "authorityBaseExactMain": "76736d52802d85555b7209874ea47e3b842d5bdb",
+  "authorityBaseExactMain": "6bbff3549be8eee81c248d53c2e8e93a0bab9d81",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "productionMutationAllowed": false,
@@ -16,20 +16,30 @@
     "scripts/tai-reg-ru-preflight.sh"
   ],
   "requiredBehavior": [
-    "accept only an exact current main SHA and the owner confirmation phrase",
+    "run automatically only after a successful canonical image workflow for an exact current main push",
+    "allow a separate owner-only manual strict run with the confirmation phrase",
     "verify the canonical TAI image tag digest revision label and rootless identity before SSH",
-    "pin the REG.RU production SSH host key to the protected fingerprint",
+    "pin the REG.RU production SSH host key to the protected fingerprint and require the protected production principal",
     "discover production Compose authority from running container labels without exposing protected paths",
-    "inventory service topology host resources current revisions environment variable names PostgreSQL TAI relations active knowledge and model admission",
+    "require running API and web OCI revisions to equal the exact target main SHA",
+    "inventory service topology host resources and stable runtime state without changing production",
     "verify existing API to private local model health without printing model endpoint or credentials",
-    "snapshot containers and protected Compose file hashes before and after inspection",
-    "emit only redacted machine-readable evidence and explicit blockers",
+    "inspect only relations in the public PostgreSQL schema inside an explicit read-only transaction",
+    "require exactly one active governed knowledge generation",
+    "bind active model profiles to the configured model identity",
+    "bind every current accepted admission to each active profile exact artifact digest",
+    "snapshot stable container state and protected Compose file hashes before and after inspection",
+    "emit only redacted machine-readable evidence explicit blockers and a bounded exact-main commit status",
     "fail closed when a required deployment prerequisite is absent",
     "run a pull-request contract gate without using production secrets"
   ],
+  "narrowWriteAuthority": [
+    "GitHub commit status write only for the context TAI REG.RU Preflight",
+    "no production write authority"
+  ],
   "forbiddenCapabilities": [
     "docker compose up down restart pull create or rm on the production host",
-    "container start stop restart kill remove or update",
+    "container start stop restart kill remove run or update",
     "production file write edit copy install chmod chown or deletion",
     "PostgreSQL DDL DML migration grant revoke or role mutation",
     "systemctl start stop restart enable disable or daemon reload",
@@ -40,5 +50,14 @@
     "autonomous platform financial veterinary agronomic or repair action",
     "new paid service or recurring expense",
     "Netlify Vercel or cloud LLM dependency"
-  ]
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 5,
+    "productionMutationAllowed": false,
+    "operationalStatus": "PREFLIGHT_ONLY_NOT_DEPLOYED"
+  }
 }
