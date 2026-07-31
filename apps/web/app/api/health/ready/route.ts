@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // Exact-SHA REG.RU release trigger for centered comparison markers and locked mobile public-AI viewport.
+// Release refresh 2026-07-31: publish the merged one-viewport mobile assistant to the canonical REG.RU runtime.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
