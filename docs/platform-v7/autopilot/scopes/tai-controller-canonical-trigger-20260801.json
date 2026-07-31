@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-controller-canonical-trigger-20260801",
+  "status": "active",
+  "purpose": "Ensure every exact-main TAI REG.RU release-authority change automatically publishes canonical exact-SHA images and enters the protected preflight, activation and deployment chain.",
+  "approvedBy": "owner-direct-continue-2026-08-01",
+  "authorityBaseExactMain": "54845ae49a226100299034a363194cdb2737ee3f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    "docs/platform-v7/autopilot/scopes/tai-controller-canonical-trigger-20260801.json"
+  ],
+  "requiredBehavior": [
+    "watch the exact-main TAI release controller wrapper and protected core",
+    "watch the runner install and tokenless resume authority",
+    "watch preflight, restricted-Qwen activation and standalone deployment workflows and scripts",
+    "publish canonical API, web, TAI and migration images for the resulting exact main SHA",
+    "preserve workflow_run chaining from canonical image publication to preflight, activation and deployment",
+    "keep production jobs skipped on pull requests",
+    "retain existing REG.RU infrastructure and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "production deployment from a pull request",
+    "production inbound SSH restoration",
+    "direct Docker authority for the non-root runner",
+    "runner registration token consumption",
+    "credential output",
+    "new infrastructure or recurring cost"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 2,
+    "productionMutationAllowedBeforeMerge": false,
+    "requiredChecks": [
+      "platform-v7 autopilot guard",
+      "Workflow Syntax Guard",
+      "TAI REG.RU Preflight",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ]
+  }
+}
