@@ -47,9 +47,20 @@ for (const fragment of [
   'compose-hash.before',
   'compose-hash.after',
   'NO_PRODUCTION_MUTATION_DETECTED',
+  'compose.tai-agro-os.override.yml',
+  'TAI_OVERRIDE_PROTECTED',
+  'TAI_OVERRIDE_PROTECTION_INVALID',
   'TAI_SERVICE_NOT_MATERIALIZED',
+  'TAI_SERVICE_DECLARED',
+  'TAI_RUNTIME_HEALTHY',
+  'TAI_RUNTIME_EXACT_MAIN',
+  'TAI_RUNTIME_ISOLATED',
   'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
+  'TAI_DEDICATED_ENV_MATERIALIZED',
   'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
+  'TAI_DEDICATED_DB_PRINCIPAL_ATTESTED',
+  'TAI_READINESS_READY',
+  'TAI_READINESS_BLOCKED',
   'API_TO_PRIVATE_MODEL_HEALTHY',
   'API_WEB_EXACT_MAIN',
   'SET TRANSACTION READ ONLY',
@@ -58,6 +69,15 @@ for (const fragment of [
   'ACTIVE_MODEL_IDENTITY_MATCHED',
   'MODEL_ADMISSION_ACCEPTED',
   'ACTIVE_KNOWLEDGE_READY',
+  'expected_image_id=',
+  'expected_repo_digest=',
+  '"$tai_container_image_id" == "$expected_image_id"',
+  '"$tai_config_image" == "$TAI_IMAGE_DIGEST"',
+  'docker port "$tai_id"',
+  'rolinherit',
+  'has_table_privilege',
+  "relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'",
+  "components.get('tools') == 'disabled-safe'",
 ]) requireFragment(script, fragment, scriptPath);
 
 forbid(
@@ -65,22 +85,14 @@ forbid(
   /^\s*(?:actions|checks|deployments|id-token|issues|pull-requests|security-events):\s*write\s*$/mu,
   `${workflowPath}: unapproved write permission is forbidden`,
 );
-forbid(
-  workflow,
-  /continue-on-error:\s*true/mu,
-  `${workflowPath}: continue-on-error is forbidden`,
-);
+forbid(workflow, /continue-on-error:\s*true/mu, `${workflowPath}: continue-on-error is forbidden`);
 
 for (const line of workflow.split('\n')) {
   if (!/\|\|\s*true/u.test(line)) continue;
   const approvedAlternativeDecode = line.includes('base64 --decode > "$c"');
   const approvedFingerprintParse = line.includes('ssh-keygen -lf - -E sha256');
   const approvedHostKeyMatchCount = line.includes('grep -c . "$match"');
-  if (
-    !approvedAlternativeDecode
-    && !approvedFingerprintParse
-    && !approvedHostKeyMatchCount
-  ) {
+  if (!approvedAlternativeDecode && !approvedFingerprintParse && !approvedHostKeyMatchCount) {
     violations.push(`${workflowPath}: unapproved suppressed failure: ${line.trim()}`);
   }
 }
@@ -88,43 +100,23 @@ for (const line of workflow.split('\n')) {
 const allowedTemporaryCleanup = 'trap \'rm -rf "$work"\' EXIT';
 const normalizedScript = script
   .replace(/^\s*#.*$/gmu, '')
-  .replace(allowedTemporaryCleanup, '');
+  .replace(allowedTemporaryCleanup, '')
+  .replaceAll("'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'", "'EFFECTIVE_TABLE_PRIVILEGES'")
+  .replaceAll("'USAGE,SELECT,UPDATE'", "'EFFECTIVE_SEQUENCE_PRIVILEGES'");
 
 for (const [pattern, label] of [
-  [
-    /\bdocker\s+compose\b[^\n]*(?:\bup\b|\bdown\b|\brestart\b|\bpull\b|\bcreate\b|\brm\b)/iu,
-    'production Docker Compose mutation',
-  ],
-  [
-    /\bdocker\s+(?:start|stop|restart|kill|rm|update|run|pull)\b/iu,
-    'production container or image mutation',
-  ],
-  [
-    /\bsystemctl\s+(?:start|stop|restart|enable|disable|daemon-reload)\b/iu,
-    'systemd mutation',
-  ],
-  [
-    /\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)\b/iu,
-    'PostgreSQL mutation statement',
-  ],
-  [
-    /\b(?:install|cp|mv|chmod|chown|truncate)\s+[^\n]*\/(?:etc|srv|opt|var|home|root)\b/iu,
-    'production filesystem mutation',
-  ],
+  [/\bdocker\s+compose\b[^\n]*(?:\bup\b|\bdown\b|\brestart\b|\bpull\b|\bcreate\b|\brm\b)/iu, 'production Docker Compose mutation'],
+  [/\bdocker\s+(?:start|stop|restart|kill|rm|update|run|pull)\b/iu, 'production container or image mutation'],
+  [/\bsystemctl\s+(?:start|stop|restart|enable|disable|daemon-reload)\b/iu, 'systemd mutation'],
+  [/\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)\b/iu, 'PostgreSQL mutation statement'],
+  [/\b(?:install|cp|mv|chmod|chown|truncate)\s+[^\n]*\/(?:etc|srv|opt|var|home|root)\b/iu, 'production filesystem mutation'],
   [/\b(?:kill|pkill|killall)\b/iu, 'process mutation'],
 ]) forbid(normalizedScript, pattern, `${scriptPath}: forbidden ${label}`);
 
-forbid(
-  script,
-  /docker\s+inspect[^\n]*\.Config\.Env[^\n]*>\s*\/dev\/stdout/iu,
-  `${scriptPath}: container environment must not be printed`,
-);
+forbid(script, /docker\s+inspect[^\n]*\.Config\.Env[^\n]*>\s*\/dev\/stdout/iu, `${scriptPath}: container environment must not be printed`);
 forbid(script, /set\s+-[^\n]*x/iu, `${scriptPath}: shell tracing is forbidden`);
-forbid(
-  script,
-  /(?:password|secret|api_key|database_url)\s*=.*(?:echo|printf)/iu,
-  `${scriptPath}: secret-like values must not be printed`,
-);
+forbid(script, /(?:password|secret|api_key|database_url)\s*=.*(?:echo|printf)/iu, `${scriptPath}: secret-like values must not be printed`);
+forbid(script, /^\s*ports\s*:/mu, `${scriptPath}: preflight must not define public ports`);
 
 if (violations.length > 0) {
   console.error('TAI REG.RU preflight contract failed:');
@@ -132,4 +124,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('TAI REG.RU preflight contract PASS: exact-main, read-only, redacted, automatic and fail-closed.');
+console.log('TAI REG.RU preflight contract PASS: exact-main, read-only, override-aware, digest-bound, effective-least-privilege and fail-closed.');
