@@ -13,6 +13,7 @@ export type IdentityRow = {
   user_status: string;
   membership_id: string;
   role: string;
+  membership_status: string;
   organization_id: string;
   organization_status: string;
   tenant_id: string;
@@ -126,6 +127,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
         o."tenantId" AS tenant_id
@@ -154,6 +156,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
         o."tenantId" AS tenant_id
@@ -389,6 +392,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
         o."tenantId" AS tenant_id,
@@ -430,6 +434,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
         o."tenantId" AS tenant_id,
@@ -479,6 +484,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
         o."tenantId" AS tenant_id,

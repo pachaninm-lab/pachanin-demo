@@ -119,8 +119,8 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
           organizationId,
         },
       },
-      update: { role, isDefault: true },
-      create: { userId, organizationId, role, isDefault: true },
+      update: { role, status: 'ACTIVE', isDefault: true },
+      create: { userId, organizationId, role, status: 'ACTIVE', isDefault: true },
     });
     return { user, organization, membership, email, userId, organizationId, tenantId };
   }
@@ -337,6 +337,69 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       data: { status: 'SUSPENDED' },
     });
     await expect(second.auth.verifyAccessToken(suspendedLogin.accessToken)).rejects.toThrow(/revoked|not active/i);
+  });
+
+  it('denies non-active membership at login, refresh and access resolution', async () => {
+    const pendingIdentity = await seedIdentity('pending-membership', Role.BUYER);
+    await first.prisma.userOrg.update({
+      where: { id: pendingIdentity.membership.id },
+      data: { status: 'PENDING' },
+    });
+    await expect(
+      first.auth.login({ email: pendingIdentity.email, password: PASSWORD }),
+    ).rejects.toThrow(/MEMBERSHIP_NOT_ACTIVE/);
+    const [pendingSessionCount] = await first.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count
+      FROM auth.sessions
+      WHERE user_id = ${pendingIdentity.userId}
+    `;
+    expect(Number(pendingSessionCount.count)).toBe(0);
+
+    const refreshIdentity = await seedIdentity('suspended-membership-refresh', Role.FARMER);
+    const refreshLogin = await first.auth.login({
+      email: refreshIdentity.email,
+      password: PASSWORD,
+    }) as any;
+    await first.prisma.userOrg.update({
+      where: { id: refreshIdentity.membership.id },
+      data: { status: 'SUSPENDED' },
+    });
+    await expect(
+      second.auth.refresh({ refreshToken: refreshLogin.refreshToken }),
+    ).rejects.toThrow(/invalid|expired/i);
+    const refreshSessions = await first.prisma.$queryRaw<Array<{
+      status: string;
+      revocation_reason: string | null;
+    }>>`
+      SELECT status, revocation_reason
+      FROM auth.sessions
+      WHERE user_id = ${refreshIdentity.userId}
+    `;
+    expect(refreshSessions).toEqual([
+      expect.objectContaining({ status: 'REVOKED', revocation_reason: 'MEMBERSHIP_NOT_ACTIVE' }),
+    ]);
+
+    const accessIdentity = await seedIdentity('revoked-membership-access', Role.LOGISTICIAN);
+    const accessLogin = await first.auth.login({
+      email: accessIdentity.email,
+      password: PASSWORD,
+    }) as any;
+    await first.prisma.userOrg.update({
+      where: { id: accessIdentity.membership.id },
+      data: { status: 'REVOKED', revokedAt: new Date() },
+    });
+    await expect(second.auth.verifyAccessToken(accessLogin.accessToken)).rejects.toThrow(/not active/i);
+    const accessSessions = await first.prisma.$queryRaw<Array<{
+      status: string;
+      revocation_reason: string | null;
+    }>>`
+      SELECT status, revocation_reason
+      FROM auth.sessions
+      WHERE user_id = ${accessIdentity.userId}
+    `;
+    expect(accessSessions).toEqual([
+      expect.objectContaining({ status: 'REVOKED', revocation_reason: 'MEMBERSHIP_NOT_ACTIVE' }),
+    ]);
   });
 
   it('ignores client orgId during self-registration and creates a pending organization', async () => {

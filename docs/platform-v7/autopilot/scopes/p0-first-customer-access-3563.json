@@ -13,20 +13,25 @@
     "repairHead": "82453ae20a7b5f04202a974aa0b312c80934825c",
     "confirmedDefects": [
       "Prisma schema drift for organization and membership admission columns",
-      "duplicate registration approval authority with divergent organization status semantics"
+      "duplicate registration approval authority with divergent organization status semantics",
+      "non-active membership remained usable during login, refresh and access-token session resolution"
     ],
     "repair": [
       "align Prisma schema with forward-only PostgreSQL migrations",
-      "retain RegistrationDecisionService as the single approval authority"
-    ]
+      "retain RegistrationDecisionService as the single approval authority",
+      "require ACTIVE membership in every identity and session authority projection"
+    ],
+    "membershipGuardSourceHead": "34046f8e87568ff76a9c6b09366838c898b98e95",
+    "membershipGuardHead": "PENDING_EXACT_HEAD"
   },
   "allowedPaths": [
-    "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260731195000_p0_password_reset_challenges/migration.sql",
     "apps/api/prisma/migrations/20260731201000_p0_registration_applications/migration.sql",
     "apps/api/prisma/migrations/20260731201100_p0_registration_idempotency_payload/migration.sql",
+    "apps/api/prisma/schema.prisma",
     "apps/api/src/modules/auth/auth.controller.ts",
     "apps/api/src/modules/auth/auth.module.ts",
+    "apps/api/src/modules/auth/auth.service.ts",
     "apps/api/src/modules/auth/dto/password-reset.dto.ts",
     "apps/api/src/modules/auth/dto/register.dto.ts",
     "apps/api/src/modules/auth/dto/registration-application.dto.ts",
@@ -35,10 +40,12 @@
     "apps/api/src/modules/auth/password-reset.repository.ts",
     "apps/api/src/modules/auth/password-reset.service.spec.ts",
     "apps/api/src/modules/auth/password-reset.service.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
     "apps/api/src/modules/auth/registration-application.service.ts",
     "apps/api/src/modules/auth/registration-decision.service.ts",
     "apps/api/src/modules/auth/registration-token.spec.ts",
     "apps/api/src/modules/auth/registration-token.ts",
+    "apps/api/test/auth/persistent-auth.e2e-spec.ts",
     "apps/web/app/api/auth/forgot-password/route.ts",
     "apps/web/app/api/auth/login/route.ts",
     "apps/web/app/api/auth/register/route.ts",
@@ -82,7 +89,7 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 35,
+    "changedPathCount": 38,
     "requiredChecks": [
       "CI",
       "Node CI",

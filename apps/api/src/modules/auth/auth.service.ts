@@ -910,6 +910,7 @@ export class AuthService {
   ): Promise<void> {
     let reason: string | null = null;
     if (identity.user_status !== 'ACTIVE') reason = 'USER_NOT_ACTIVE';
+    else if (identity.membership_status !== 'ACTIVE') reason = 'MEMBERSHIP_NOT_ACTIVE';
     else if (identity.organization_status !== 'VERIFIED') reason = 'ORGANIZATION_NOT_VERIFIED';
     else if (!KNOWN_ROLES.has(identity.role) || identity.role === Role.BANK_CALLBACK) reason = 'MEMBERSHIP_ROLE_INVALID';
     if (!reason) return;
@@ -932,6 +933,7 @@ export class AuthService {
       return 'SESSION_NOT_ACTIVE';
     }
     if (context.user_status !== 'ACTIVE') return 'USER_NOT_ACTIVE';
+    if (context.membership_status !== 'ACTIVE') return 'MEMBERSHIP_NOT_ACTIVE';
     if (context.organization_status !== 'VERIFIED') return 'ORGANIZATION_NOT_VERIFIED';
     if (context.session_credential_version !== context.current_credential_version) return 'CREDENTIAL_VERSION_CHANGED';
     if (!KNOWN_ROLES.has(context.role) || context.role === Role.BANK_CALLBACK) return 'MEMBERSHIP_ROLE_INVALID';
