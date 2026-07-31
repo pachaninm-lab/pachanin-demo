@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from tai.agent_runtime import (
@@ -61,7 +61,7 @@ class ProductionModelAccessError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class ProductionModelAccess:
-    bearer_token: str
+    bearer_token: str = field(repr=False)
 
     def __post_init__(self) -> None:
         try:
