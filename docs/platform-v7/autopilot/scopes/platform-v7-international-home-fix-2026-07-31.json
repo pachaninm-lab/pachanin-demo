@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-INTERNATIONAL-HOME-FIX-2026-07-31",
+  "branch": "agent/platform-v7-international-home-fix",
+  "status": "active",
+  "maturityBoundary": "public-homepage-trust-connection-and-mobile-dock-only",
+  "globalProgramStateUnchanged": "This scope changes only the public homepage composition, its public Trust Center, homepage-specific presentation, acceptance contracts and the exact-SHA web release trigger. It does not change Deal authority, database state, API behavior, financial execution, tenant or role derivation, TAI tool permissions, external integration status or production topology.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/platform-v7-international-home-fix-2026-07-31.json",
+    "apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx",
+    "apps/web/styles/platform-v7-international-home-fix.css",
+    "apps/web/app/trust/page.tsx",
+    "apps/web/tsconfig.json",
+    "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/app/api/health/ready/route.ts"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "prisma/**",
+    "packages/domain-core/**",
+    ".github/workflows/**",
+    "infra/compose/**",
+    "infra/helm/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The canonical homepage renders exactly seven numbered Deal steps and no duplicate deal-path section",
+    "The public homepage contains a four-domain Trust Center summary and a three-step organisation connection process in RU, EN and ZH",
+    "The Trust Center is reachable as a public root route and contains no unsupported certification, customer, partner, SLA or external-connection claim",
+    "On mobile, support and phone move to the public menu while the fixed dock is reduced to the single AI action",
+    "The public footer reserves safe-area space and the homepage has no horizontal overflow at 320, 375, 390, 430, 768, 1024 and 1440 CSS pixels",
+    "Unit, TypeScript, browser, accessibility, security and exact-head acceptance pass",
+    "The exact merge SHA is published and deployed with matching OCI revision, healthy state and live acceptance PASS"
+  ]
+}
