@@ -8,6 +8,9 @@ on:
       - "scripts/check-tai-reg-ru-preflight.mjs"
       - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
       - "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-reg-ru-preflight-20260731.json"
+  workflow_run:
+    workflows: ["Build & Publish Canonical Docker Images"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       target_sha:
@@ -22,9 +25,10 @@ on:
 permissions:
   contents: read
   packages: read
+  statuses: write
 
 concurrency:
-  group: tai-reg-ru-preflight-${{ github.event.pull_request.number || github.ref }}
+  group: tai-reg-ru-preflight-${{ github.event.workflow_run.head_sha || github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -44,14 +48,22 @@ jobs:
   live-preflight:
     name: Exact-main REG.RU inventory only
     if: >-
-      github.event_name == 'workflow_dispatch' &&
-      github.ref == 'refs/heads/main' &&
-      github.actor == github.repository_owner &&
-      github.triggering_actor == github.repository_owner &&
-      inputs.confirmation == 'PREFLIGHT-TAI-REG-RU'
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'push'
+      ) ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main' &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        inputs.confirmation == 'PREFLIGHT-TAI-REG-RU'
+      )
     needs: contract
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       DEFAULT_PROD_HOST: 195.19.12.120
       PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
@@ -74,7 +86,14 @@ jobs:
         run: |
           set -Eeuo pipefail
           git fetch --no-tags origin main
-          target='${{ inputs.target_sha }}'
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
+            target='${{ github.event.workflow_run.head_sha }}'
+            [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
+            [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
+            [[ '${{ github.event.workflow_run.event }}' == push ]]
+          else
+            target='${{ inputs.target_sha }}'
+          fi
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           [[ "$target" == "$(git rev-parse origin/main)" ]]
           git checkout --detach "$target"
@@ -116,34 +135,40 @@ jobs:
         run: |
           set -Eeuo pipefail
           trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          write_key(){
+          validate_key(){
+            local source="$1" target="$2" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 0600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_key(){
             local raw="$1" target="$2" a b c
             [[ -n "$raw" ]] || return 1
             a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
             printf '%s\n' "$raw" > "$a"
+            validate_key "$a" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
             printf '%s' "${raw//\\n/$'\n'}" > "$b"
-            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
-            for candidate in "$a" "$b" "$c"; do
-              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
-                install -m 0600 "$candidate" "$target"
-                rm -f "$a" "$b" "$c"
-                return 0
-              fi
-            done
+            validate_key "$b" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" "$target" && { rm -f "$a" "$b" "$c"; return 0; }
             rm -f "$a" "$b" "$c"
             return 1
           }
           host="$(trim "${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}")"
-          user="$(trim "${PROD_USER_SECRET:-root}")"
+          user="$(trim "${PROD_USER_SECRET:-}")"
           port="$(trim "${PROD_PORT_SECRET:-22}")"
           [[ "$host" == "$DEFAULT_PROD_HOST" ]]
-          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ -n "$user" && "$user" == "${PROD_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
           [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
           [[ "$PROD_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-          key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
-          write_key "$key" "$HOME/.ssh/id_pc_prod" || { echo 'Protected production private key is unavailable.' >&2; exit 10; }
+          try_key "${PROD_KEY_PRIMARY:-}" "$HOME/.ssh/id_pc_prod" \
+            || try_key "${PROD_KEY_SECONDARY:-}" "$HOME/.ssh/id_pc_prod" \
+            || try_key "${PROD_KEY_FALLBACK:-}" "$HOME/.ssh/id_pc_prod" \
+            || { echo 'Protected production private key is unavailable.' >&2; exit 10; }
           scan="$(mktemp)"; match="$(mktemp)"
           ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
           while IFS= read -r line; do
@@ -200,7 +225,39 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Enforce preflight result
+      - name: Publish exact-main preflight commit status
+        if: always() && steps.target.outputs.sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          report="$RUNNER_TEMP/tai-reg-ru-preflight.json"
+          state=error
+          description='Preflight execution failed before evidence'
+          if [[ -s "$report" ]]; then
+            read -r state description < <(python3 - "$report" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding='utf-8'))
+          blockers = report.get('blockers') or []
+          if report.get('passed') is True and not blockers:
+              print('success TAI REG.RU preflight PASS')
+          else:
+              print(f"failure BLOCKED: {len(blockers)} prerequisite(s)")
+          PY
+            )
+          fi
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state="$state" \
+            -f context='TAI REG.RU Preflight' \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Enforce manual preflight result
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -208,16 +265,28 @@ jobs:
           import json, sys
           report = json.load(open(sys.argv[1], encoding='utf-8'))
           blockers = report.get('blockers') or []
-          with open('/tmp/tai-summary.md', 'w', encoding='utf-8') as out:
-              out.write('## TAI REG.RU preflight\n\n')
-              out.write(f"- Status: {'PASS' if report.get('passed') else 'BLOCKED'}\n")
-              out.write(f"- Blockers: {len(blockers)}\n")
-              for code in blockers:
-                  out.write(f"  - `{code}`\n")
           if blockers or report.get('passed') is not True:
               raise SystemExit('REG.RU preflight is blocked; inspect redacted evidence artifact')
           PY
-          cat /tmp/tai-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write preflight summary
+        if: always() && steps.target.outputs.sha != ''
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          report="$RUNNER_TEMP/tai-reg-ru-preflight.json"
+          [[ -s "$report" ]] || exit 0
+          python3 - "$report" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding='utf-8'))
+          blockers = report.get('blockers') or []
+          print('## TAI REG.RU preflight')
+          print()
+          print(f"- Status: {'PASS' if report.get('passed') else 'BLOCKED'}")
+          print(f"- Blockers: {len(blockers)}")
+          for code in blockers:
+              print(f"  - `{code}`")
+          PY
 
       - name: Remove transient SSH material
         if: always()

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reg-ru-preflight-hardening-20260731",
+  "status": "active",
+  "purpose": "Harden the merged read-only REG.RU preflight with automatic exact-main evidence, exact API/web revision checks, stable no-mutation snapshots, public-schema read-only PostgreSQL inspection and artifact-bound model admission without changing production.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "ba4bbd89a3802b54aa9221781d9261052561ad05",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowed": false,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-preflight-hardening-20260731.json",
+    "scripts/check-tai-reg-ru-preflight.mjs",
+    "scripts/tai-reg-ru-preflight.sh"
+  ],
+  "requiredBehavior": [
+    "run automatically only after a successful canonical image workflow for an exact current main push",
+    "retain separate owner-only manual strict execution",
+    "publish a bounded redacted exact-main commit status",
+    "require running API and web OCI revisions to equal the exact target SHA",
+    "compare stable container state rather than human uptime strings",
+    "inspect only public-schema PostgreSQL relations inside an explicit read-only transaction",
+    "require exactly one active governed knowledge generation",
+    "bind active profiles to the configured model identity",
+    "bind accepted admission to every active profile exact artifact digest",
+    "preserve pinned SSH image authority evidence upload and no-mutation proof"
+  ],
+  "narrowWriteAuthority": [
+    "GitHub commit status write only for TAI REG.RU Preflight",
+    "no production write authority"
+  ],
+  "forbiddenCapabilities": [
+    "production Compose container systemd filesystem PostgreSQL model or network mutation",
+    "secret generation rotation disclosure or persistence",
+    "production deployment or live acceptance claim",
+    "public TAI exposure",
+    "new paid service or recurring expense",
+    "Netlify Vercel or cloud LLM dependency"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 5,
+    "productionMutationAllowed": false,
+    "operationalStatus": "PREFLIGHT_ONLY_NOT_DEPLOYED"
+  }
+}

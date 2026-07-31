@@ -24,12 +24,16 @@ record() {
 }
 
 snapshot_containers() {
-  docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Status}}|{{.Labels}}' | sort
+  local container_id
+  while IFS= read -r container_id; do
+    [[ -n "$container_id" ]] || continue
+    docker inspect --format '{{.Id}}|{{.Image}}|{{.State.Status}}|{{.RestartCount}}|{{json .Config.Labels}}' "$container_id"
+  done < <(docker ps -q | sort)
 }
 
 before_containers="$work/containers.before"
 after_containers="$work/containers.after"
-snapshot_containers > "$before_containers"
+snapshot_containers | sort > "$before_containers"
 
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 if (( ${#web_ids[@]} != 1 )); then
@@ -134,6 +138,9 @@ if [[ -n "$api_id" && -n "$web_id" ]]; then
   [[ "$api_revision" =~ ^[0-9a-f]{40}$ && "$web_revision" =~ ^[0-9a-f]{40}$ ]] \
     && record rollback_baseline PASS ROLLBACK_BASELINE_IDENTIFIED \
     || record rollback_baseline BLOCKED ROLLBACK_BASELINE_UNAVAILABLE
+  [[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" ]] \
+    && record exact_runtime PASS API_WEB_EXACT_MAIN \
+    || record exact_runtime BLOCKED API_WEB_NOT_EXACT_MAIN
 fi
 
 available_kb="$(df -Pk /var/lib/docker 2>/dev/null | awk 'NR==2 {print $4}' || true)"
@@ -181,43 +188,66 @@ const required = [
   'tai_tool_confirmation_uses','tai_orchestration_idempotency','tai_prepared_actions',
   'tai_orchestration_traces','tai_runtime_evaluation_observations',
   'tai_model_artifact_evidence','tai_model_license_reviews',
-  'tai_model_benchmark_evidence','tai_model_admission_decisions'
+  'tai_model_benchmark_evidence','tai_model_admission_decisions',
+  'tai_current_model_admission_v1'
 ];
 (async () => {
-  const relationRows = await prisma.$queryRawUnsafe(`
-    SELECT relname
-    FROM pg_catalog.pg_class
-    WHERE relname = ANY($1::text[])
-      AND relkind IN ('r','v','m','p')
-  `, required);
-  const present = new Set(relationRows.map((row) => row.relname));
-  let activeGeneration = false;
-  let activeProfile = false;
-  let acceptedAdmission = false;
-  if (required.slice(0, 11).every((name) => present.has(name))) {
-    const rows = await prisma.$queryRawUnsafe(`
-      SELECT
-        EXISTS (SELECT 1 FROM tai_retrieval_generations WHERE status = 'ACTIVE') AS active_generation,
-        EXISTS (SELECT 1 FROM tai_local_model_profiles WHERE status = 'ACTIVE') AS active_profile
-    `);
-    activeGeneration = rows[0]?.active_generation === true;
-    activeProfile = rows[0]?.active_profile === true;
-  }
-  if (present.has('tai_model_admission_decisions')) {
-    const rows = await prisma.$queryRawUnsafe(`
-      SELECT EXISTS (
-        SELECT 1 FROM tai_current_model_admission_v1 WHERE accepted = TRUE
-      ) AS accepted_admission
-    `);
-    acceptedAdmission = rows[0]?.accepted_admission === true;
-  }
-  process.stdout.write(JSON.stringify({
-    requiredCount: required.length,
-    presentCount: present.size,
-    activeGeneration,
-    activeProfile,
-    acceptedAdmission,
-  }));
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+    const relationRows = await tx.$queryRawUnsafe(`
+      SELECT relation.relname
+      FROM pg_catalog.pg_class AS relation
+      JOIN pg_catalog.pg_namespace AS namespace
+        ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = 'public'
+        AND relation.relname = ANY($1::text[])
+        AND relation.relkind IN ('r','v','m','p')
+    `, required);
+    const present = new Set(relationRows.map((row) => row.relname));
+    let activeGenerationCount = 0;
+    let activeProfileCount = 0;
+    let admittedActiveProfileCount = 0;
+    let expectedIdentityCount = 0;
+    if (present.has('tai_retrieval_generations')) {
+      const rows = await tx.$queryRawUnsafe(`
+        SELECT COUNT(*)::int AS active_count
+        FROM public.tai_retrieval_generations
+        WHERE status = 'ACTIVE'
+      `);
+      activeGenerationCount = Number(rows[0]?.active_count || 0);
+    }
+    if (present.has('tai_local_model_profiles') && present.has('tai_current_model_admission_v1')) {
+      const expectedModel = process.env.AI_ASSISTANT_MODEL || '';
+      const rows = await tx.$queryRawUnsafe(`
+        SELECT
+          COUNT(*) FILTER (WHERE profile.status = 'ACTIVE')::int AS active_count,
+          COUNT(*) FILTER (
+            WHERE profile.status = 'ACTIVE'
+              AND admission.accepted IS TRUE
+              AND admission.artifact_sha256 = profile.artifact_sha256
+          )::int AS admitted_count,
+          COUNT(*) FILTER (
+            WHERE profile.status = 'ACTIVE' AND profile.model_id = $1
+          )::int AS expected_identity_count
+        FROM public.tai_local_model_profiles AS profile
+        LEFT JOIN public.tai_current_model_admission_v1 AS admission
+          ON admission.model_id = profile.model_id
+         AND admission.revision = profile.revision
+      `, expectedModel);
+      activeProfileCount = Number(rows[0]?.active_count || 0);
+      admittedActiveProfileCount = Number(rows[0]?.admitted_count || 0);
+      expectedIdentityCount = Number(rows[0]?.expected_identity_count || 0);
+    }
+    return {
+      requiredCount: required.length,
+      presentCount: present.size,
+      activeGenerationCount,
+      activeProfileCount,
+      admittedActiveProfileCount,
+      expectedIdentityCount,
+    };
+  });
+  process.stdout.write(JSON.stringify(result));
 })().catch(() => process.exit(5)).finally(() => prisma.$disconnect());
 NODE
   then
@@ -234,14 +264,16 @@ def record(name, ok, code_ok, code_bad, value=''):
         with open(blockers, 'a', encoding='utf-8') as out:
             out.write(f'{code}\n')
 record('tai_relations', row['presentCount'] == row['requiredCount'], 'TAI_RELATIONS_READY', 'TAI_RELATIONS_INCOMPLETE', f"{row['presentCount']}/{row['requiredCount']}")
-record('knowledge_generation', row['activeGeneration'], 'ACTIVE_KNOWLEDGE_READY', 'ACTIVE_KNOWLEDGE_MISSING')
-record('model_profile', row['activeProfile'], 'ACTIVE_MODEL_PROFILE_READY', 'ACTIVE_MODEL_PROFILE_MISSING')
-record('model_admission', row['acceptedAdmission'], 'MODEL_ADMISSION_ACCEPTED', 'MODEL_ADMISSION_NOT_ACCEPTED')
+record('knowledge_generation', row['activeGenerationCount'] == 1, 'ACTIVE_KNOWLEDGE_READY', 'ACTIVE_KNOWLEDGE_MISSING', str(row['activeGenerationCount']))
+record('model_profile', row['activeProfileCount'] > 0, 'ACTIVE_MODEL_PROFILE_READY', 'ACTIVE_MODEL_PROFILE_MISSING', str(row['activeProfileCount']))
+record('model_identity', row['activeProfileCount'] > 0 and row['expectedIdentityCount'] == row['activeProfileCount'], 'ACTIVE_MODEL_IDENTITY_MATCHED', 'ACTIVE_MODEL_IDENTITY_MISMATCH', f"{row['expectedIdentityCount']}/{row['activeProfileCount']}")
+record('model_admission', row['activeProfileCount'] > 0 and row['admittedActiveProfileCount'] == row['activeProfileCount'], 'MODEL_ADMISSION_ACCEPTED', 'MODEL_ADMISSION_NOT_ACCEPTED', f"{row['admittedActiveProfileCount']}/{row['activeProfileCount']}")
 PY
   else
     record tai_relations BLOCKED TAI_DATABASE_INSPECTION_UNAVAILABLE
     record knowledge_generation BLOCKED ACTIVE_KNOWLEDGE_UNVERIFIED
     record model_profile BLOCKED ACTIVE_MODEL_PROFILE_UNVERIFIED
+    record model_identity BLOCKED ACTIVE_MODEL_IDENTITY_UNVERIFIED
     record model_admission BLOCKED MODEL_ADMISSION_UNVERIFIED
   fi
 fi
@@ -252,7 +284,7 @@ record tai_database_principal BLOCKED TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED
 if (( compose_ready == 1 )); then
   sha256sum "${compose_files[@]}" | sort > "$compose_hash_after"
 fi
-snapshot_containers > "$after_containers"
+snapshot_containers | sort > "$after_containers"
 if cmp -s "$before_containers" "$after_containers" && cmp -s "$compose_hash_before" "$compose_hash_after"; then
   record mutation_guard PASS NO_PRODUCTION_MUTATION_DETECTED
 else
