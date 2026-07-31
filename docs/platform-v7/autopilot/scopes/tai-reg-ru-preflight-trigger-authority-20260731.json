@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reg-ru-preflight-trigger-authority-20260731",
+  "status": "active",
+  "purpose": "Close the confirmed trigger gap that prevents the merged exact-main REG.RU preflight from running automatically after changes to its source-controlled authority files.",
+  "approvedBy": "owner-direct-continue-and-deploy-2026-07-31",
+  "authorityBaseExactMain": "7eca90f2a684a5ba16ee4728f3f936948e774d3e",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-preflight-trigger-authority-20260731.json"
+  ],
+  "requiredBehavior": [
+    "include the REG.RU preflight workflow, probe, contract and authority documentation paths in the canonical image publication trigger",
+    "preserve canonical API, web, TAI and migration image build logic unchanged",
+    "preserve the workflow_run handoff from successful exact-main canonical publication to read-only REG.RU preflight",
+    "cause this exact-main merge to publish canonical images and execute the automatic preflight",
+    "preserve redacted evidence and fail-closed blocker status"
+  ],
+  "forbiddenCapabilities": [
+    "production deployment",
+    "production container, Compose, database, systemd, model-host, network, DNS or proxy mutation",
+    "image build or tag semantics change",
+    "credential handling change",
+    "model admission creation or bypass",
+    "knowledge generation creation or activation",
+    "new server, provider, paid API, SaaS subscription or recurring cost",
+    "tenant, role, financial, veterinary, repair or write-authority expansion",
+    "production PASS claim without exact-main live evidence"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 2,
+    "requiredChecks": [
+      "Workflow Syntax Guard",
+      "CI",
+      "Node CI",
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}
