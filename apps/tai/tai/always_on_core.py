@@ -408,15 +408,14 @@ class AlwaysOnModelSupervisor:
         now = self._clock()
         identity = (binding.model_id, binding.revision)
         pressure = await self._gate.snapshot()
+        health_without_probe: ModelRuntimeHealth | None = None
         async with self._state_lock:
             state = self._states[identity]
             if state.circuit_open_until is not None and state.circuit_open_until > now:
                 state.status = ModelRuntimeStatus.UNAVAILABLE
                 state.last_probe_at = now
-                health = self._health(binding, state, pressure, now)
-                await self._record_health(health)
-                return
-            if pressure.active > 0 or pressure.queued > 0:
+                health_without_probe = self._health(binding, state, pressure, now)
+            elif pressure.active > 0 or pressure.queued > 0:
                 state.last_probe_at = now
                 if state.last_success_at is None:
                     state.status = ModelRuntimeStatus.WARMING
@@ -424,9 +423,10 @@ class AlwaysOnModelSupervisor:
                     state.status = ModelRuntimeStatus.DEGRADED
                 else:
                     state.status = ModelRuntimeStatus.READY
-                health = self._health(binding, state, pressure, now)
-                await self._record_health(health)
-                return
+                health_without_probe = self._health(binding, state, pressure, now)
+        if health_without_probe is not None:
+            await self._record_health(health_without_probe)
+            return
 
         started = time.perf_counter()
         self._warmup_total += 1
@@ -519,7 +519,7 @@ class AlwaysOnModelSupervisor:
                 self._repository_failure_total += 1
 
 
-async def install_always_on_core(
+def install_always_on_core(
     app: FastAPI,
     *,
     gate: AsyncModelAdmissionGate,
