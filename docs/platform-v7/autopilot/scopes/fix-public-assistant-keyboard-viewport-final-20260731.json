@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-keyboard-viewport-final-20260731",
+  "status": "active",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileKeyboard.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-keyboard-viewport-final-20260731.json"
+  ]
+}
