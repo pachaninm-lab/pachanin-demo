@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-mobile-footer-anchor-20260731",
+  "status": "active",
+  "purpose": "Eliminate the remaining blank strip between the public AI composer and the actual mobile viewport or software keyboard edge by giving the panel and its footer one deterministic runtime authority.",
+  "approvedBy": "owner-live-screenshot-2026-07-31",
+  "authorityBaseExactMain": "f6c99cf3c00c62cde5e763c611f6ed35db7245cd",
+  "allowedPaths": [
+    "apps/web/app/api/health/ready/route.ts",
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/components/platform-v7/PublicAssistantMobileLayoutAuthority.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileLayoutAuthority.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-mobile-footer-anchor-20260731.json"
+  ],
+  "requiredBehavior": [
+    "the public AI panel is bounded by exact mobile viewport top and bottom edges rather than inferred content height",
+    "the composer is physically anchored to the panel bottom with no blank strip in focused and unfocused states",
+    "visible error and reset controls stack above the composer without overlap",
+    "message content reserves the measured footer height and remains independently scrollable",
+    "late panel insertion, viewport animation, browser chrome changes and silent Yandex iOS geometry changes are remeasured",
+    "desktop behavior, AI answers, API, RBAC, Deal data and model routing remain unchanged",
+    "merge triggers an exact-SHA REG.RU web release and live acceptance"
+  ],
+  "forbiddenCapabilities": [
+    "private account tenant Deal document payment or personal-data access",
+    "write authority or autonomous actions",
+    "model prompt routing or provider changes",
+    "credential or infrastructure topology changes",
+    "acceptance weakening",
+    "Netlify or Vercel deployment"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
