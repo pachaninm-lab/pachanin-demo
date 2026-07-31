@@ -32,21 +32,32 @@ for (const fragment of [
   'contents: read',
   'packages: read',
   'statuses: write',
+  'image-authority:',
+  'Verify canonical exact-SHA TAI image outside production',
+  'needs: [contract, image-authority]',
+  'Initialize fail-closed evidence',
+  'PREFLIGHT_NOT_EXECUTED',
   'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
   'Verify local production runner authority',
   '[[ "${RUNNER_NAME:-}" == pc-prod-* ]]',
   '[[ "$(id -u)" -ne 0 ]]',
   'clean: true',
   'ghcr.io/pachaninm-lab/grainflow-tai:sha-${SHORT_SHA}',
+  'TAI_IMAGE: ${{ needs.image-authority.outputs.reference }}',
+  'TAI_DIGEST: ${{ needs.image-authority.outputs.digest }}',
   '"$user" == \'65532:65532\'',
   'Execute local read-only production preflight',
   'bash scripts/tai-reg-ru-preflight.sh',
   'PREFLIGHT_EXECUTION_FAILED',
   'Upload redacted preflight evidence',
+  'publish-status:',
   'Publish exact-main preflight commit status',
+  'actions/download-artifact@v4',
   "context='TAI REG.RU Preflight'",
-  "if: github.event_name == 'workflow_dispatch'",
+  "if: always() && github.event_name == 'workflow_dispatch'",
   'Remove transient runner material',
+  'rm -f "$RUNNER_TEMP/tai-reg-ru-preflight.json"',
+  'statuses: none',
 ]) requireFragment(workflow, fragment, workflowPath);
 
 for (const fragment of [
@@ -74,7 +85,7 @@ for (const fragment of [
   'RUNNER_VERSION="2.336.0"',
   'RUNNER_PACKAGE_SHA256="04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d"',
   'RUNNER_REGISTRATION_TOKEN',
-  "--labels 'pc-prod,tai-readonly'",
+  '--labels "pc-prod,tai-readonly"',
   './svc.sh install "$RUNNER_USER"',
   'sudo -u "$RUNNER_USER" -H docker version',
   'NoNewPrivileges=true',
@@ -110,12 +121,22 @@ forbid(
 );
 
 for (const line of workflow.split('\n')) {
-  if (!/\|\|\s*true/u.test(line)) continue;
-  const approvedDockerLogout = line.includes('docker logout ghcr.io');
-  if (!approvedDockerLogout) {
-    violations.push(`${workflowPath}: unapproved suppressed failure: ${line.trim()}`);
+  if (/\|\|\s*true/u.test(line)) {
+    violations.push(`${workflowPath}: suppressed failure is forbidden: ${line.trim()}`);
   }
 }
+
+const liveWorkflow = (workflow.split('\n  live-preflight:\n')[1] || '').split('\n  publish-status:\n')[0];
+forbid(
+  liveWorkflow,
+  /\bdocker\s+(?:login|pull|run|start|stop|restart|kill|rm|update)\b/iu,
+  `${workflowPath}: production runner must not mutate Docker state`,
+);
+forbid(
+  liveWorkflow,
+  /GH_TOKEN|DOCKER_CONFIG|github\.token/u,
+  `${workflowPath}: production runner must not receive registry credentials`,
+);
 
 const allowedTemporaryCleanup = 'trap \'rm -rf "$work"\' EXIT';
 const normalizedScript = script
