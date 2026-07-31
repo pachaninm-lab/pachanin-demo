@@ -5,52 +5,59 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
-const controller = read('apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx');
+const authority = read('apps/web/components/platform-v7/PublicAssistantMobileLayoutAuthority.tsx');
+const contextual = read('apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx');
 const hotfixCss = read('apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css');
 const polishCss = read('apps/web/styles/platform-v7-public-assistant-polish.css');
 
 describe('platform-v7 public assistant mobile keyboard contract', () => {
   it('tracks visual viewport and optional VirtualKeyboard geometry through the full animation', () => {
-    expect(controller).toContain('window.visualViewport');
-    expect(controller).toContain('NavigatorWithVirtualKeyboard');
-    expect(controller).toContain("virtualKeyboard?.addEventListener('geometrychange', scheduleMeasure)");
-    expect(controller).not.toContain('overlaysContent = true');
-    expect(controller).toContain("document.addEventListener('focusin', handleFocusIn)");
-    expect(controller).toContain("document.addEventListener('focusout', handleFocusOut)");
-    expect(controller).toContain("target.closest('.pc-public-assistant-composer')");
-    expect(controller).toContain('[40, 100, 180, 300, 480, 700, 1_000, 1_400, 1_900]');
+    expect(authority).toContain('window.visualViewport');
+    expect(authority).toContain('NavigatorWithVirtualKeyboard');
+    expect(authority).toContain("virtualKeyboard?.addEventListener('geometrychange', schedule)");
+    expect(authority).not.toContain('overlaysContent = true');
+    expect(authority).toContain("document.addEventListener('focusin', schedule)");
+    expect(authority).toContain("document.addEventListener('focusout', schedule)");
+    expect(authority).toContain("active.closest(COMPOSER_SELECTOR)");
+    expect(authority).toContain('window.setInterval(schedule, 120)');
   });
 
-  it('uses VirtualKeyboard as a hard upper bound instead of exposing or crossing an overlay keyboard', () => {
-    expect(controller).toContain('const keyboardTopFromHeight = Math.max(visualTop + 1, layoutBottom - keyboardHeight)');
-    expect(controller).toContain('Math.min(keyboardAwareBottom, keyboardTopFromHeight)');
-    expect(controller).not.toContain('Math.max(keyboardAwareBottom, keyboardTopFromHeight)');
-    expect(controller).not.toContain('keyboardRect?.top');
-    expect(controller).toContain("panel.dataset.pcKeyboardGeometry = geometry");
+  it('uses VirtualKeyboard as a hard upper bound instead of crossing an overlay keyboard', () => {
+    expect(authority).toContain('const keyboardTopFromHeight = Math.max(');
+    expect(authority).toContain('baselineLayoutBottom - metrics.keyboardHeight');
+    expect(authority).toContain('candidate = Math.min(candidate, keyboardTopFromHeight)');
+    expect(authority).not.toContain('Math.max(candidate, keyboardTopFromHeight)');
+    expect(authority).not.toContain('boundingRect?.top');
+    expect(authority).toContain('panel.dataset.pcKeyboardGeometry = geometry');
   });
 
-  it('reconciles Yandex iOS browser chrome without trusting a non-resized layout viewport', () => {
-    expect(controller).toContain('const KEYBOARD_DELTA_PX = 120');
-    expect(controller).toContain('let unfocusedVisualHeight');
-    expect(controller).toContain('let unfocusedInnerHeight');
-    expect(controller).toContain('let unfocusedVisualTop');
-    expect(controller).toContain('const visualKeyboardDelta = Math.max(0, unfocusedVisualHeight - visualHeight)');
-    expect(controller).toContain('const innerKeyboardDelta = Math.max(0, unfocusedInnerHeight - innerHeight)');
-    expect(controller).toContain('keyboardAwareBottoms.push(visualBottom)');
-    expect(controller).toContain('keyboardAwareBottoms.push(innerBottom)');
-    expect(controller).toContain('Math.max(...keyboardAwareBottoms)');
-    expect(controller).toContain("'visual-viewport+window-inner-height'");
-    expect(controller).toContain("'window-inner-height'");
+  it('reconciles Yandex iOS browser chrome from independently contracted metrics', () => {
+    expect(authority).toContain('const KEYBOARD_DELTA_PX = 120');
+    expect(authority).toContain('visualBottom: visualTop + visualHeight');
+    expect(authority).toContain('baseline.innerHeight - metrics.innerHeight >= KEYBOARD_DELTA_PX');
+    expect(authority).toContain('baseline.clientHeight - metrics.clientHeight >= KEYBOARD_DELTA_PX');
+    expect(authority).toContain('candidates.push({ bottom: metrics.visualBottom');
+    expect(authority).toContain('candidates.push({ bottom: innerBottom');
+    expect(authority).toContain('candidates.push({ bottom: clientBottom');
+    expect(authority).toContain('Math.max(...candidates.map(({ bottom }) => bottom))');
   });
 
-  it('binds the mobile panel to exact visual top and height before and during keyboard focus', () => {
-    expect(controller).toContain("panel.style.setProperty('--pc-ai-visible-top', `${visualTop}px`)");
-    expect(controller).toContain("panel.style.setProperty('--pc-ai-visible-height', `${activeHeight}px`)");
-    expect(polishCss).toContain(".pc-public-assistant-panel[data-pc-keyboard-focus='true']");
-    expect(polishCss).toContain('top: var(--pc-ai-visible-top, var(--pc-visual-viewport-top, 0px)) !important');
-    expect(polishCss).toContain('height: var(--pc-ai-visible-height, var(--pc-visual-viewport-height, 100dvh)) !important');
-    expect(polishCss).toContain('bottom: auto !important');
+  it('binds the panel to the exact reconciled visual top and height', () => {
+    expect(authority).toContain("panel.style.setProperty('--pc-ai-visible-top', `${metrics.visualTop}px`)");
+    expect(authority).toContain("panel.style.setProperty('--pc-ai-visible-height', `${visibleHeight}px`)");
+    expect(authority).toContain("setImportant(panel, 'top', `${metrics.visualTop}px`)");
+    expect(authority).toContain("setImportant(panel, 'height', `${visibleHeight}px`)");
+    expect(authority).toContain("setImportant(panel, 'bottom', 'auto')");
     expect(polishCss).toContain('border-radius: 0 !important');
+  });
+
+  it('keeps runtime geometry out of the contextual component and CSS hotfix', () => {
+    expect(contextual).not.toContain('useVisualViewportMetrics');
+    expect(contextual).not.toContain('window.visualViewport');
+    expect(hotfixCss).toContain('Runtime viewport geometry is owned exclusively');
+    expect(hotfixCss).not.toContain('--pc-ai-keyboard-top');
+    expect(hotfixCss).not.toContain('--pc-ai-keyboard-bottom');
+    expect(hotfixCss).not.toContain("data-pc-keyboard-focus='true'");
   });
 
   it('keeps implementation labels, wait copy and feedback controls off the public surface', () => {
@@ -80,10 +87,12 @@ describe('platform-v7 public assistant mobile keyboard contract', () => {
     expect(polishCss).toContain('grid-column: 1 / -1 !important');
   });
 
-  it('keeps the composer at the visible bottom and removes nonessential typing-time gaps', () => {
+  it('keeps the composer in normal flex flow at the visible bottom', () => {
+    expect(authority).toContain("setImportant(node, 'position', 'relative')");
+    expect(authority).toContain("setImportant(node, 'bottom', 'auto')");
+    expect(authority).toContain("setImportant(node, 'flex', '0 0 auto')");
     expect(polishCss).toContain('flex: 0 0 auto !important');
     expect(polishCss).toContain('padding-bottom: 8px !important');
-    expect(polishCss).toContain('height: var(--pc-ai-visible-height');
     expect(polishCss).toContain('overflow: hidden !important');
     expect(polishCss).toContain('.pc-public-assistant-privacy');
     expect(polishCss).toContain('align-content: center !important');
