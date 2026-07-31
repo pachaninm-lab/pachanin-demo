@@ -27,6 +27,9 @@
       "@/components/platform-v7/GrainExecutionPage": [
         "./components/platform-v7/GrainExecutionPageFixed.tsx"
       ],
+      "@/components/platform-v7/PlatformV7StrategicHome": [
+        "./components/platform-v7/PlatformV7StrategicHomeInternational.tsx"
+      ],
       "@/i18n/platform-v7-home-v3": [
         "./i18n/platform-v7-home-v3-product.ts"
       ],
