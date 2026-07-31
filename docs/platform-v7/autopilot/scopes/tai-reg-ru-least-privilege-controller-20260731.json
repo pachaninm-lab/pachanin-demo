@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reg-ru-least-privilege-controller-20260731",
+  "status": "active",
+  "purpose": "Complete the TAI REG.RU activation, preflight and standalone deployment chain through a non-root outbound-only runner and one fixed root-owned exact-main release controller, without direct Docker or general sudo authority.",
+  "approvedBy": "owner-direct-do-it-correctly-2026-07-31",
+  "authorityBaseExactMain": "e1bf3d643db7248f604eea237004b9b20de9d4ec",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowed": true,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/pc-tai-release-controller.sh",
+    "scripts/install-pc-prod-actions-runner.sh",
+    "scripts/tai-restricted-qwen-reg-ru-activate.sh",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "scripts/check-pc-tai-release-controller.mjs",
+    "scripts/check-tai-reg-ru-preflight.mjs",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/tai-reg-ru-preflight.sh",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/production-full-stack-exact-sha.sh",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
+    "apps/tai/TAI_REG_RU_DEPLOY.md",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
+  ],
+  "requiredBehavior": [
+    "remove pcactions from the docker group and prove direct Docker access is absent",
+    "grant only the fixed root-owned pc-tai-release-controller through sudoers",
+    "make the controller fetch and execute exact current main from a root-owned protected checkout",
+    "reject arbitrary paths, commands, SHAs, environments and runner-workspace execution",
+    "keep pull-request validation and image verification on GitHub-hosted runners",
+    "run production preflight, activation, finalization and deployment only through the controller",
+    "preserve rollback before any failed activation or deployment result",
+    "keep private model transport server-side and public model ports forbidden",
+    "publish statuses and issue comments only from hosted jobs"
+  ],
+  "forbiddenCapabilities": [
+    "runner membership in docker group",
+    "runner direct Docker socket access",
+    "root self-hosted runner",
+    "general sudo or arbitrary root command execution",
+    "production execution from pull_request or pull_request_target",
+    "production inbound SSH",
+    "execution of production scripts from the runner workspace",
+    "public model port publication",
+    "credential output or client exposure",
+    "new server, provider, VPN, tunnel, SaaS, paid API or recurring payment",
+    "production PASS without exact-main live evidence"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 13,
+    "requiredChecks": [
+      "Workflow Syntax Guard",
+      "CI",
+      "Node CI",
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatusBeforeControllerInstallation": "LEAST_PRIVILEGE_CONTROLLER_INSTALLATION_REQUIRED"
+  }
+}
