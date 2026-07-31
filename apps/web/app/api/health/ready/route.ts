@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Exact-SHA REG.RU release trigger for centered comparison markers and locked mobile public-AI viewport.
+// Exact-SHA REG.RU release trigger for the single-authority iOS public-AI keyboard layout.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
