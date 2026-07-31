@@ -23,7 +23,11 @@ dev = [
 packages = ["tai"]
 
 [tool.setuptools.package-data]
-tai = ["trust/*.pem"]
+tai = [
+  "migrations/*.sql",
+  "migrations/manifest.json",
+  "trust/*.pem",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q --strict-markers --disable-warnings"
