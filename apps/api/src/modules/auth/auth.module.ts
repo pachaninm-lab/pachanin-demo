@@ -3,6 +3,7 @@ import { BusinessReputationModule } from '../business-reputation/business-reputa
 import { AuthController } from './auth.controller';
 import { AuthPrismaService } from './auth-prisma.service';
 import { AuthService } from './auth.service';
+import './legacy-admin-identity-boundary';
 import { OrganizationTeamService } from './organization-team.service';
 import { PasswordResetRepository } from './password-reset.repository';
 import { PasswordResetService } from './password-reset.service';
