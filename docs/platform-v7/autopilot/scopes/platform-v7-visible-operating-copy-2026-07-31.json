@@ -5,6 +5,7 @@
   "purpose": "Complete the visible homepage copy audit so every rendered block presents one operating agricultural Deal product, shows the seven-step Deal scenario, removes residual example/demo and hidden integration language, and gives one direct next step without changing the approved visual system.",
   "approvedBy": "user-correction-nothing-visible-2026-07-31",
   "allowedPaths": [
+    "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
     "apps/web/i18n/platform-v7-home-story-operating.ts",
     "apps/web/i18n/platform-v7-home-story-product.ts",
     "apps/web/i18n/platform-v7-home-v3-operating.ts",
@@ -17,7 +18,8 @@
     "docs/platform-v7/autopilot/scopes/platform-v7-visible-operating-copy-2026-07-31.json"
   ],
   "forbiddenChanges": [
-    "layout, components, CSS, fonts, spacing, breakpoints or animations",
+    "layout, CSS, fonts, spacing, breakpoints or animations",
+    "component behavior beyond visible role-scenario wording",
     "API behavior, database, RBAC, protected routes or TAI runtime",
     "invented customers, metrics, certificates or named live-provider claims",
     "pilot, roadmap, development-stage, example-interface or hidden integration-status wording"
@@ -26,6 +28,7 @@
     "RU EN ZH hero names the participants and complete Deal outcome",
     "the eight visible capability cards contain the seven requested Deal steps plus evidence and analytics",
     "proof strip exposes 12 roles, 19 stages, RU EN ZH and TAI",
+    "role scenario contains no example-interface or permission-explanation residue",
     "organization form uses business tasks rather than technical integration wording",
     "all copy remains inside the approved design and responsive behavior",
     "exact-main production release and live mobile acceptance pass"
