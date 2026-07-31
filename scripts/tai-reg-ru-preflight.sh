@@ -31,9 +31,29 @@ snapshot_containers() {
   done < <(docker ps -q | sort)
 }
 
+runtime_state() {
+  local id="$1"
+  docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true
+}
+
 before_containers="$work/containers.before"
 after_containers="$work/containers.after"
+compose_hash_before="$work/compose-hash.before"
+compose_hash_after="$work/compose-hash.after"
 snapshot_containers | sort > "$before_containers"
+: > "$compose_hash_before"
+: > "$compose_hash_after"
+
+prod_dir=""
+prod_files=""
+prod_project=""
+compose_ready=0
+api_id=""
+web_id=""
+tai_id=""
+HAS_TAI=0
+override=""
+compose_files=()
 
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 if (( ${#web_ids[@]} != 1 )); then
@@ -50,26 +70,31 @@ else
   fi
 fi
 
-compose_ready=0
-compose_hash_before="$work/compose-hash.before"
-compose_hash_after="$work/compose-hash.after"
-: > "$compose_hash_before"
-: > "$compose_hash_after"
-
-if [[ "${prod_dir:-}" && "${prod_files:-}" && "${prod_project:-}" ]]; then
+if [[ -n "$prod_dir" && -n "$prod_files" && -n "$prod_project" ]]; then
+  override="$prod_dir/compose.tai-agro-os.override.yml"
   IFS=',' read -r -a raw_files <<< "$prod_files"
-  compose_files=()
   for raw in "${raw_files[@]}"; do
     file="${raw#"${raw%%[![:space:]]*}"}"
     file="${file%"${file##*[![:space:]]}"}"
     [[ -n "$file" ]] || continue
     [[ "$file" == /* ]] || file="$prod_dir/$file"
+    [[ "$file" == "$override" ]] || compose_files+=("$file")
+  done
+  if [[ -e "$override" ]]; then
+    override_mode="$(stat -c '%u:%g:%a' "$override" 2>/dev/null || true)"
+    if [[ -f "$override" && "$override_mode" == 0:0:600 ]]; then
+      compose_files+=("$override")
+      record tai_override PASS TAI_OVERRIDE_PROTECTED
+    else
+      record tai_override BLOCKED TAI_OVERRIDE_PROTECTION_INVALID
+    fi
+  fi
+  for file in "${compose_files[@]}"; do
     if [[ ! -f "$file" ]]; then
       record compose_files BLOCKED PROTECTED_COMPOSE_FILE_MISSING
       compose_files=()
       break
     fi
-    compose_files+=("$file")
   done
   if (( ${#compose_files[@]} > 0 )); then
     sha256sum "${compose_files[@]}" | sort > "$compose_hash_before"
@@ -84,8 +109,6 @@ if [[ "${prod_dir:-}" && "${prod_files:-}" && "${prod_project:-}" ]]; then
   fi
 fi
 
-api_id=""
-web_id=""
 if (( compose_ready == 1 )); then
   python3 - "$work/compose.json" "$work/topology.env" <<'PY'
 import json, re, sys
@@ -111,21 +134,20 @@ PY
   [[ "$HAS_API" == 1 && "$HAS_WEB" == 1 && "$MIGRATION_COUNT" == 1 ]] \
     && record topology PASS CORE_TOPOLOGY_READY "$SERVICE_COUNT" \
     || record topology BLOCKED CORE_TOPOLOGY_INCOMPLETE "$SERVICE_COUNT"
-  [[ "$HAS_TAI" == 0 ]] \
-    && record tai_topology BLOCKED TAI_SERVICE_NOT_MATERIALIZED \
-    || record tai_topology PASS TAI_SERVICE_DECLARED
+  [[ "$HAS_TAI" == 1 ]] \
+    && record tai_topology PASS TAI_SERVICE_DECLARED \
+    || record tai_topology BLOCKED TAI_SERVICE_NOT_MATERIALIZED
 
   api_id="$("${dc[@]}" ps -q api | head -1)"
   web_id="$("${dc[@]}" ps -q web | head -1)"
   [[ -n "$api_id" && -n "$web_id" ]] \
     && record runtime_presence PASS API_WEB_RUNTIME_PRESENT \
     || record runtime_presence BLOCKED API_WEB_RUNTIME_MISSING
+  if [[ "$HAS_TAI" == 1 ]]; then
+    tai_id="$("${dc[@]}" ps -q tai | head -1)"
+  fi
 fi
 
-runtime_state() {
-  local id="$1"
-  docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true
-}
 if [[ -n "$api_id" && -n "$web_id" ]]; then
   api_state="$(runtime_state "$api_id")"
   web_state="$(runtime_state "$web_id")"
@@ -238,14 +260,7 @@ const required = [
       admittedActiveProfileCount = Number(rows[0]?.admitted_count || 0);
       expectedIdentityCount = Number(rows[0]?.expected_identity_count || 0);
     }
-    return {
-      requiredCount: required.length,
-      presentCount: present.size,
-      activeGenerationCount,
-      activeProfileCount,
-      admittedActiveProfileCount,
-      expectedIdentityCount,
-    };
+    return {requiredCount: required.length, presentCount: present.size, activeGenerationCount, activeProfileCount, admittedActiveProfileCount, expectedIdentityCount};
   });
   process.stdout.write(JSON.stringify(result));
 })().catch(() => process.exit(5)).finally(() => prisma.$disconnect());
@@ -255,7 +270,7 @@ NODE
 import json, sys
 row = json.load(open(sys.argv[1], encoding='utf-8'))
 checks, blockers = sys.argv[2], sys.argv[3]
-def record(name, ok, code_ok, code_bad, value=''):
+def emit(name, ok, code_ok, code_bad, value=''):
     status = 'PASS' if ok else 'BLOCKED'
     code = code_ok if ok else code_bad
     with open(checks, 'a', encoding='utf-8') as out:
@@ -263,11 +278,11 @@ def record(name, ok, code_ok, code_bad, value=''):
     if not ok:
         with open(blockers, 'a', encoding='utf-8') as out:
             out.write(f'{code}\n')
-record('tai_relations', row['presentCount'] == row['requiredCount'], 'TAI_RELATIONS_READY', 'TAI_RELATIONS_INCOMPLETE', f"{row['presentCount']}/{row['requiredCount']}")
-record('knowledge_generation', row['activeGenerationCount'] == 1, 'ACTIVE_KNOWLEDGE_READY', 'ACTIVE_KNOWLEDGE_MISSING', str(row['activeGenerationCount']))
-record('model_profile', row['activeProfileCount'] > 0, 'ACTIVE_MODEL_PROFILE_READY', 'ACTIVE_MODEL_PROFILE_MISSING', str(row['activeProfileCount']))
-record('model_identity', row['activeProfileCount'] > 0 and row['expectedIdentityCount'] == row['activeProfileCount'], 'ACTIVE_MODEL_IDENTITY_MATCHED', 'ACTIVE_MODEL_IDENTITY_MISMATCH', f"{row['expectedIdentityCount']}/{row['activeProfileCount']}")
-record('model_admission', row['activeProfileCount'] > 0 and row['admittedActiveProfileCount'] == row['activeProfileCount'], 'MODEL_ADMISSION_ACCEPTED', 'MODEL_ADMISSION_NOT_ACCEPTED', f"{row['admittedActiveProfileCount']}/{row['activeProfileCount']}")
+emit('tai_relations', row['presentCount'] == row['requiredCount'], 'TAI_RELATIONS_READY', 'TAI_RELATIONS_INCOMPLETE', f"{row['presentCount']}/{row['requiredCount']}")
+emit('knowledge_generation', row['activeGenerationCount'] == 1, 'ACTIVE_KNOWLEDGE_READY', 'ACTIVE_KNOWLEDGE_MISSING', str(row['activeGenerationCount']))
+emit('model_profile', row['activeProfileCount'] > 0, 'ACTIVE_MODEL_PROFILE_READY', 'ACTIVE_MODEL_PROFILE_MISSING', str(row['activeProfileCount']))
+emit('model_identity', row['activeProfileCount'] > 0 and row['expectedIdentityCount'] == row['activeProfileCount'], 'ACTIVE_MODEL_IDENTITY_MATCHED', 'ACTIVE_MODEL_IDENTITY_MISMATCH', f"{row['expectedIdentityCount']}/{row['activeProfileCount']}")
+emit('model_admission', row['activeProfileCount'] > 0 and row['admittedActiveProfileCount'] == row['activeProfileCount'], 'MODEL_ADMISSION_ACCEPTED', 'MODEL_ADMISSION_NOT_ACCEPTED', f"{row['admittedActiveProfileCount']}/{row['activeProfileCount']}")
 PY
   else
     record tai_relations BLOCKED TAI_DATABASE_INSPECTION_UNAVAILABLE
@@ -278,8 +293,131 @@ PY
   fi
 fi
 
-record tai_environment BLOCKED TAI_DEDICATED_ENV_NOT_MATERIALIZED
-record tai_database_principal BLOCKED TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED
+if [[ "$HAS_TAI" != 1 ]]; then
+  record tai_environment BLOCKED TAI_DEDICATED_ENV_NOT_MATERIALIZED
+  record tai_database_principal BLOCKED TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED
+elif [[ -z "$tai_id" ]]; then
+  record tai_runtime BLOCKED TAI_SERVICE_RUNTIME_MISSING
+  record tai_environment BLOCKED TAI_DEDICATED_ENV_NOT_MATERIALIZED
+  record tai_database_principal BLOCKED TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED
+else
+  tai_state="$(runtime_state "$tai_id")"
+  [[ "$tai_state" == healthy ]] \
+    && record tai_runtime PASS TAI_RUNTIME_HEALTHY \
+    || record tai_runtime BLOCKED TAI_RUNTIME_UNHEALTHY
+  tai_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$tai_id" 2>/dev/null || true)"
+  tai_user="$(docker inspect --format '{{.Config.User}}' "$tai_id" 2>/dev/null || true)"
+  tai_container_image_id="$(docker inspect --format '{{.Image}}' "$tai_id" 2>/dev/null || true)"
+  tai_config_image="$(docker inspect --format '{{.Config.Image}}' "$tai_id" 2>/dev/null || true)"
+  expected_image_id="$(docker image inspect --format '{{.Id}}' "$TAI_IMAGE_DIGEST" 2>/dev/null || true)"
+  expected_repo_digest="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$TAI_IMAGE_DIGEST" 2>/dev/null | grep -Fx "$TAI_IMAGE_DIGEST" || true)"
+  tai_read_only="$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$tai_id" 2>/dev/null || true)"
+  tai_security="$(docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$tai_id" 2>/dev/null || true)"
+  tai_ports="$(docker port "$tai_id" 2>/dev/null || true)"
+  [[ "$tai_revision" == "$TARGET_SHA" && "$tai_container_image_id" == "$expected_image_id" && "$tai_config_image" == "$TAI_IMAGE_DIGEST" && "$expected_repo_digest" == "$TAI_IMAGE_DIGEST" ]] \
+    && record tai_exact_runtime PASS TAI_RUNTIME_EXACT_MAIN \
+    || record tai_exact_runtime BLOCKED TAI_RUNTIME_NOT_EXACT_MAIN
+  [[ "$tai_user" == 65532:65532 && "$tai_read_only" == true && "$tai_security" == *no-new-privileges:true* && -z "$tai_ports" ]] \
+    && record tai_isolation PASS TAI_RUNTIME_ISOLATED \
+    || record tai_isolation BLOCKED TAI_RUNTIME_ISOLATION_INVALID
+
+  env_file="/etc/transparent-price/tai-agro-os.env"
+  env_mode="$(stat -c '%u:%g:%a' "$env_file" 2>/dev/null || true)"
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$tai_id" \
+    | sed 's/=.*//' | sort -u > "$work/tai-env-names"
+  required_tai_env=(
+    TAI_RUNTIME_MODE TAI_DATABASE_URL TAI_IDENTITY_HMAC_SECRET_B64
+    TAI_CONFIRMATION_HMAC_SECRET_B64 TAI_MODEL_ENDPOINTS_JSON
+    TAI_ALLOWED_MODEL_HOSTS_JSON TAI_MODEL_BEARER_TOKEN
+  )
+  missing_tai_env=0
+  for name in "${required_tai_env[@]}"; do
+    grep -Fxq "$name" "$work/tai-env-names" || missing_tai_env=$((missing_tai_env + 1))
+  done
+  [[ "$env_mode" == 0:0:600 && "$missing_tai_env" == 0 ]] \
+    && record tai_environment PASS TAI_DEDICATED_ENV_MATERIALIZED \
+    || record tai_environment BLOCKED TAI_DEDICATED_ENV_NOT_MATERIALIZED "$missing_tai_env"
+
+  if docker exec -i "$tai_id" python - <<'PY' > "$work/tai-principal.json" 2>/dev/null
+import json, os
+import psycopg
+with psycopg.connect(os.environ['TAI_DATABASE_URL']) as connection:
+    connection.execute('SET TRANSACTION READ ONLY')
+    role = connection.execute('''
+      SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolinherit,
+             rolreplication, rolbypassrls
+      FROM pg_catalog.pg_roles WHERE rolname = current_user
+    ''').fetchone()
+    membership = connection.execute('''
+      SELECT COUNT(*)::int FROM pg_catalog.pg_auth_members
+      WHERE member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_user)
+    ''').fetchone()[0]
+    non_tai = connection.execute('''
+      SELECT COUNT(*)::int
+      FROM pg_catalog.pg_class AS relation
+      JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = 'public'
+        AND relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'
+        AND relation.relkind IN ('r','v','m','p','f')
+        AND has_table_privilege(current_user, format('%I.%I', namespace.nspname, relation.relname),
+          'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+    ''').fetchone()[0]
+if role is None:
+    raise SystemExit(2)
+result = {
+  'currentUser': role[0], 'superuser': role[1], 'createdb': role[2],
+  'createrole': role[3], 'inherit': role[4], 'replication': role[5],
+  'bypassrls': role[6], 'membershipCount': membership,
+  'nonTaiTableGrantCount': non_tai,
+}
+print(json.dumps(result, sort_keys=True))
+PY
+  then
+    python3 - "$work/tai-principal.json" "$checks" "$blockers" <<'PY'
+import json, sys
+row = json.load(open(sys.argv[1], encoding='utf-8'))
+ok = (
+    row.get('currentUser') == 'tai_runtime'
+    and not any(row.get(key) for key in ('superuser','createdb','createrole','inherit','replication','bypassrls'))
+    and row.get('membershipCount') == 0
+    and row.get('nonTaiTableGrantCount') == 0
+)
+status = 'PASS' if ok else 'BLOCKED'
+code = 'TAI_DEDICATED_DB_PRINCIPAL_ATTESTED' if ok else 'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED'
+with open(sys.argv[2], 'a', encoding='utf-8') as out:
+    out.write(f"tai_database_principal\t{status}\t{code}\t{row.get('nonTaiTableGrantCount', -1)}\n")
+if not ok:
+    with open(sys.argv[3], 'a', encoding='utf-8') as out:
+        out.write(code + '\n')
+PY
+  else
+    record tai_database_principal BLOCKED TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED
+  fi
+
+  if docker exec -i "$tai_id" python - <<'PY' > "$work/tai-ready.json" 2>/dev/null
+import json, urllib.request
+with urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=5) as response:
+    payload = json.loads(response.read())
+print(json.dumps(payload, sort_keys=True))
+PY
+  then
+    python3 - "$work/tai-ready.json" "$checks" "$blockers" <<'PY'
+import json, sys
+row = json.load(open(sys.argv[1], encoding='utf-8'))
+components = row.get('components') or {}
+ok = row.get('status') == 'ready' and components.get('tools') == 'disabled-safe' and not row.get('reasons')
+status = 'PASS' if ok else 'BLOCKED'
+code = 'TAI_READINESS_READY' if ok else 'TAI_READINESS_BLOCKED'
+with open(sys.argv[2], 'a', encoding='utf-8') as out:
+    out.write(f'tai_readiness\t{status}\t{code}\t\n')
+if not ok:
+    with open(sys.argv[3], 'a', encoding='utf-8') as out:
+        out.write(code + '\n')
+PY
+  else
+    record tai_readiness BLOCKED TAI_READINESS_BLOCKED
+  fi
+fi
 
 if (( compose_ready == 1 )); then
   sha256sum "${compose_files[@]}" | sort > "$compose_hash_after"
