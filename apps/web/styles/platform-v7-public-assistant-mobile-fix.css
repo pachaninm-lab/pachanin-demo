@@ -240,3 +240,37 @@
     padding-top: 8px !important;
   }
 }
+
+/*
+ * Comparison marker geometry.
+ * The previous typographic × depended on font metrics and appeared low inside
+ * the circle on iOS. Draw both strokes as centered gradients instead.
+ */
+.pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type::before {
+  content: '' !important;
+  box-sizing: border-box;
+  position: relative;
+  display: inline-block !important;
+  background:
+    linear-gradient(45deg,
+      transparent calc(50% - 1.5px),
+      #d92d2d calc(50% - 1.5px),
+      #d92d2d calc(50% + 1.5px),
+      transparent calc(50% + 1.5px)),
+    linear-gradient(-45deg,
+      transparent calc(50% - 1.5px),
+      #d92d2d calc(50% - 1.5px),
+      #d92d2d calc(50% + 1.5px),
+      transparent calc(50% + 1.5px));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 11px 11px;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+@media (max-width: 767px) {
+  .pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type::before {
+    background-size: 10px 10px;
+  }
+}
