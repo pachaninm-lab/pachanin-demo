@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-protected-qwen-auth-20260731",
+  "status": "active",
+  "purpose": "Prevent protected Qwen Bearer credentials from being disclosed through object representations after canonical model authentication was merged by PR #3547.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "6bbff3549be8eee81c248d53c2e8e93a0bab9d81",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/tai/tai/production_authenticated_runtime.py",
+    "apps/tai/tests/test_production_authenticated_runtime.py",
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-model-token-repr-redaction-20260731.json"
+  ],
+  "requiredBehavior": [
+    "exclude TAI_MODEL_BEARER_TOKEN from ProductionModelAccess repr output",
+    "preserve strict token validation and authenticated model transport",
+    "preserve fail-closed production composition",
+    "preserve tenant, role, financial, veterinary and write-authority boundaries",
+    "add a deterministic regression test for secret non-disclosure"
+  ],
+  "forbiddenCapabilities": [
+    "REG.RU compose mutation",
+    "production deployment claim",
+    "production live acceptance claim",
+    "Dockerfile or GHCR workflow duplication",
+    "database migration execution",
+    "model admission bypass",
+    "credential logging, URL embedding or request-body embedding",
+    "browser exposure of the model credential",
+    "new paid dependency or recurring cost",
+    "autonomous platform, financial, veterinary or repair action",
+    "client-selected tenant or role"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 3,
+    "requiredChecks": [
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}
