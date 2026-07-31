@@ -7,11 +7,14 @@ on:
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
       - "scripts/pc-tai-release-controller.sh"
+      - "scripts/pc-tai-release-controller-core.sh"
       - "scripts/tai-restricted-qwen-reg-ru-activate.sh"
       - "scripts/tai-live-public-ai-acceptance.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-tai-local-model-key-authority.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
+      - "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
   workflow_run:
     workflows: ["TAI REG.RU Preflight"]
     types: [completed]
@@ -50,10 +53,12 @@ jobs:
       - name: Validate activation authority
         run: |
           bash -n scripts/pc-tai-release-controller.sh
+          bash -n scripts/pc-tai-release-controller-core.sh
           bash -n scripts/tai-restricted-qwen-reg-ru-activate.sh
           bash -n scripts/install-pc-prod-actions-runner.sh
           node --check scripts/tai-live-public-ai-acceptance.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-local-model-key-authority.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority
@@ -148,7 +153,6 @@ jobs:
       WEB_DIGEST: ${{ needs.image_authority.outputs.web_digest }}
       MIGRATION_IMAGE: ${{ needs.image_authority.outputs.migration_image }}
       MIGRATION_DIGEST: ${{ needs.image_authority.outputs.migration_digest }}
-      MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
       MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
       MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
     steps:
@@ -163,10 +167,6 @@ jobs:
           rm -rf "$input"
           install -d -m 0700 "$input"
           [[ "$(stat -c '%U:%G:%a' "$input")" == pcactions:pcactions:700 ]]
-          if [[ -n "${MODEL_KEY_SECRET:-}" ]]; then
-            printf '%s' "$MODEL_KEY_SECRET" > "$input/model-key"
-            chmod 0600 "$input/model-key"
-          fi
           printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
           printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
           chmod 0600 "$input/model-user" "$input/model-port"
@@ -246,7 +246,7 @@ jobs:
   finalize:
     name: Finalize or roll back activation
     needs: [image_authority, activate, acceptance]
-    if: always() && needs.image_authority.result == 'success'
+    if: always() && needs.image_authority.result == 'success' && needs.activate.result == 'success'
     runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
     permissions:
       contents: read
@@ -256,14 +256,13 @@ jobs:
     env:
       TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
       TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
-      ACTIVATE_RESULT: ${{ needs.activate.result }}
       ACCEPTANCE_RESULT: ${{ needs.acceptance.result }}
     steps:
       - name: Apply final acceptance decision
         run: |
           set -Eeuo pipefail
           decision=rollback
-          if [[ "$ACTIVATE_RESULT" == success && "$ACCEPTANCE_RESULT" == success ]]; then decision=accept; fi
+          if [[ "$ACCEPTANCE_RESULT" == success ]]; then decision=accept; fi
           sudo -n /usr/local/sbin/pc-tai-release-controller finalize-activation "$TARGET_SHA" "$GITHUB_RUN_ID" "$decision"
       - name: Upload finalization evidence
         if: always()

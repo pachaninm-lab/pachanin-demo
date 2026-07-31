@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-local-model-key-authority-20260801",
+  "status": "active",
+  "purpose": "Keep the model-host SSH private key permanently root-only on the existing REG.RU production host instead of transporting it through GitHub Actions, and prevent finalization from running when activation did not create release state.",
+  "approvedBy": "owner-direct-continue-2026-08-01",
+  "authorityBaseExactMain": "56d3f2211870985b8dfe37d2ed247b3d9939de0f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-tai-local-model-key-authority.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
+  ],
+  "requiredBehavior": [
+    "store the dedicated model-host private key only at /etc/pc-release-authority/model_id on production",
+    "keep the key root-owned, mode 0600 and outside the runner workspace",
+    "retain pinned model_known_hosts and StrictHostKeyChecking",
+    "send only non-secret model user and port metadata through runner input",
+    "never reference or materialize a private model SSH key in GitHub Actions",
+    "run finalization only after activation successfully created release state",
+    "preserve activation trap rollback for failures after mutation begins",
+    "retain the non-root runner and restricted controller-only sudo authority"
+  ],
+  "forbiddenCapabilities": [
+    "private SSH key transport through GitHub Actions or repository secrets",
+    "private key output",
+    "direct Docker authority for pcactions",
+    "production inbound SSH",
+    "arbitrary sudo commands",
+    "new infrastructure or recurring cost"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 3,
+    "productionMutationAllowedBeforeMerge": false,
+    "requiredChecks": [
+      "platform-v7 autopilot guard",
+      "Workflow Syntax Guard",
+      "TAI REG.RU Preflight",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ]
+  }
+}
