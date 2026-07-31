@@ -33,8 +33,17 @@ for (const name of ['preflight','activation','deploy']) {
   forbid(source,/pull_request_target:/u,`${paths[name]}: pull_request_target is forbidden`);
 }
 
+requireFragment(text.preflight, 'workflows: ["Build & Publish Canonical Docker Images"]', paths.preflight);
+requireFragment(text.activation, 'workflows: ["TAI REG.RU Preflight"]', paths.activation);
+requireFragment(text.deploy, 'workflows: ["TAI Restricted Qwen REG.RU Activation"]', paths.deploy);
+for (const fragment of ['api_digest:', 'web_digest:', 'migration_digest:', '$API_DIGEST', '$WEB_DIGEST', '$MIGRATION_DIGEST']) {
+  requireFragment(text.activation, fragment, paths.activation);
+}
+requireFragment(text.preflight, "REG.RU controller execution failed before evidence", paths.preflight);
+
 for (const fragment of [
   'RUNNER_VERSION="2.336.0"',
+  'RUNNER_REGISTRATION_TOKEN is required and normalized for first registration',
   'RUNNER_PACKAGE_SHA256="04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d"',
   'gpasswd -d "$RUNNER_USER" docker',
   'runner user must not retain docker group',
@@ -72,7 +81,15 @@ for (const fragment of [
   "git -C \"$REPOSITORY_ROOT\" fetch --force --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main'",
   'TARGET_IS_NOT_CURRENT_MAIN',
   'PROTECTED_CHECKOUT_DIRTY',
+  'INSTALLED_CONTROLLER_NOT_EXACT_TARGET',
   'ghcr.io/pachaninm-lab/grainflow-${component}:sha-${short}',
+  'validate_digest_ref',
+  'verify_pinned_image',
+  'PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest"',
+  'trap activation_exit EXIT',
+  'trap deploy_exit EXIT',
+  'ACTIVATION_ROLLED_BACK',
+  'refs/remotes/origin/main)" != "$TARGET_SHA',
   'MODEL_KEY_NOT_PROVISIONED',
   'UserKnownHostsFile="$MODEL_KNOWN_HOSTS"',
   'rollback_activation',
