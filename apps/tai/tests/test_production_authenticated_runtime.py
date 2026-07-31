@@ -33,8 +33,11 @@ class _NoConnectFactory:
 
 
 def test_production_model_access_requires_protected_token() -> None:
-    access = ProductionModelAccess.from_environment(_environment())
+    environment = _environment()
+    token = environment["TAI_MODEL_BEARER_TOKEN"]
+    access = ProductionModelAccess.from_environment(environment)
     assert isinstance(access.transport(), BearerHTTPClientJSONTransport)
+    assert token not in repr(access)
 
     missing = _environment()
     del missing["TAI_MODEL_BEARER_TOKEN"]
