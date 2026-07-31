@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Exact-SHA production release trigger for the verified operating Deal and mobile acceptance contract.
+// Exact-SHA REG.RU release trigger for the deterministic mobile public AI footer anchor.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
