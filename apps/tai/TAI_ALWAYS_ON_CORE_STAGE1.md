@@ -12,6 +12,7 @@
 - fail-closed overload response with `Retry-After` and the canonical `tai.error.v1` envelope;
 - queue timeout and cancellation cleanup without leaked permits;
 - local-model warm-up on application startup;
+- supervisor start and stop bound to the production application lifecycle;
 - periodic local inference health probe;
 - consecutive-failure tracking;
 - circuit opening after a configured failure threshold;
