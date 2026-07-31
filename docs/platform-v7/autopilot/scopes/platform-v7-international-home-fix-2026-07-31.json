@@ -4,7 +4,7 @@
   "branch": "agent/platform-v7-international-home-fix",
   "status": "active",
   "maturityBoundary": "public-homepage-trust-connection-and-mobile-dock-only",
-  "globalProgramStateUnchanged": "This scope changes only the public homepage composition, its public Trust Center, homepage-specific presentation, acceptance contracts and the exact-SHA web release trigger. It does not change Deal authority, database state, API behavior, financial execution, tenant or role derivation, TAI tool permissions, external integration status or production topology.",
+  "globalProgramStateUnchanged": "This scope changes only the public homepage composition, its public Trust Center, homepage-specific presentation, acceptance contracts and a comment-only exact-SHA web release trigger. It does not change Deal authority, database state, API behavior, financial execution, tenant or role derivation, TAI tool permissions, external integration status or production topology.",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/platform-v7-international-home-fix-2026-07-31.json",
     "apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx",
@@ -14,7 +14,7 @@
     "apps/web/tsconfig.json",
     "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
-    "apps/web/app/api/health/ready/route.ts"
+    "infra/docker/Dockerfile.web"
   ],
   "forbiddenPaths": [
     "apps/api/**",
