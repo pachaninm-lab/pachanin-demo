@@ -1,0 +1,74 @@
+name: P0 First Customer Access Bounded Assembler
+
+on:
+  push:
+    branches:
+      - p0/first-customer-access-foundation-3563
+    paths:
+      - .github/workflows/p0-first-customer-access-assembler-3564.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-first-customer-access-assembler-3564
+  cancel-in-progress: false
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout bounded branch
+        uses: actions/checkout@v4
+        with:
+          ref: p0/first-customer-access-foundation-3563
+          fetch-depth: 0
+
+      - name: Verify exact immutable inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor d5de50c673b75660d578c26cc0c54dd39881548c HEAD
+          test "$(git hash-object apps/api/prisma/schema.prisma)" = "7925903d1fd511f3c496eb1a318e2c0bd26ddb38"
+          test "$(git hash-object apps/api/src/modules/auth/registration-application.service.ts)" = "b2bfb8e05cc6fd4995d924794b710d8dc7f09754"
+          test "$(git hash-object apps/api/src/modules/auth/registration-decision.service.ts)" = "6e3921efa3121981e7bfa68dadaaa54735db21d3"
+          test "$(git hash-object apps/api/src/modules/auth/dto/registration-application.dto.ts)" = "dabe1f96f072288d9d7440233c8c45a81bc4aec8"
+          test "$(git hash-object docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json)" = "bd568ca1f8289f73cdfa8f7a9c37780fd0fb3269"
+          mapfile -t transport_paths < <(git diff --name-only d5de50c673b75660d578c26cc0c54dd39881548c..HEAD | sort)
+          test "${#transport_paths[@]}" -eq 2
+          test "${transport_paths[0]}" = ".github/workflows/p0-first-customer-access-assembler-3564.yml"
+          test "${transport_paths[1]}" = ".p0-repair-3564/apply.py"
+
+      - name: Assemble exact repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .p0-repair-3564/apply.py
+          mapfile -t changed < <(git diff --name-only | sort)
+          test "${#changed[@]}" -eq 5
+          test "${changed[0]}" = "apps/api/prisma/schema.prisma"
+          test "${changed[1]}" = "apps/api/src/modules/auth/dto/registration-application.dto.ts"
+          test "${changed[2]}" = "apps/api/src/modules/auth/registration-application.service.ts"
+          test "${changed[3]}" = "apps/api/src/modules/auth/registration-decision.service.ts"
+          test "${changed[4]}" = "docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json"
+          git diff --check
+          grep -F 'requestedWorkspace String?   @map("requested_workspace")' apps/api/prisma/schema.prisma
+          ! grep -F 'async decide(' apps/api/src/modules/auth/registration-application.service.ts
+          grep -F "export type RegistrationDecision = 'APPROVE' | 'REJECT' | 'REQUEST_INFORMATION' | 'SUSPEND';" apps/api/src/modules/auth/registration-decision.service.ts
+
+      - name: Remove transport and publish one bounded commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/p0-first-customer-access-assembler-3564.yml .p0-repair-3564/apply.py
+          git add apps/api/prisma/schema.prisma \
+            apps/api/src/modules/auth/dto/registration-application.dto.ts \
+            apps/api/src/modules/auth/registration-application.service.ts \
+            apps/api/src/modules/auth/registration-decision.service.ts \
+            docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(auth): align admission schema and authority"
+          git push origin HEAD:p0/first-customer-access-foundation-3563
