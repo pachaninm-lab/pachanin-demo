@@ -1,0 +1,123 @@
+name: TAI Production Runtime Image
+
+on:
+  pull_request:
+    paths:
+      - "apps/tai/**"
+      - "infra/docker/Dockerfile.tai"
+      - ".github/workflows/tai-production-runtime-image.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/tai/**"
+      - "infra/docker/Dockerfile.tai"
+      - ".github/workflows/tai-production-runtime-image.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-production-runtime-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-prove:
+    name: Rootless image · read-only runtime · liveness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build exact-head TAI image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker build \
+            --file infra/docker/Dockerfile.tai \
+            --tag "tai-runtime:${GITHUB_SHA}" \
+            --build-arg "GIT_COMMIT=${GITHUB_SHA}" \
+            --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            .
+
+      - name: Verify immutable image metadata and rootless principal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image="tai-runtime:${GITHUB_SHA}"
+          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+          principal="$(docker image inspect --format '{{ .Config.User }}' "$image")"
+          test "$revision" = "$GITHUB_SHA"
+          test "$principal" = '10001:10001'
+          docker image inspect "$image" > tai-runtime-image-inspect.json
+
+      - name: Run read-only with no added Linux capability
+        id: runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image="tai-runtime:${GITHUB_SHA}"
+          cid="$(docker run -d \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --publish 127.0.0.1::8080 \
+            "$image")"
+          echo "cid=$cid" >> "$GITHUB_OUTPUT"
+          port="$(docker port "$cid" 8080/tcp | sed -n 's/.*://p' | head -1)"
+          test "$port" -ge 1
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          readonly="$(docker inspect --format '{{ .HostConfig.ReadonlyRootfs }}' "$cid")"
+          cap_drop="$(docker inspect --format '{{ json .HostConfig.CapDrop }}' "$cid")"
+          no_new_privileges="$(docker inspect --format '{{ json .HostConfig.SecurityOpt }}' "$cid")"
+          test "$readonly" = true
+          grep -q 'ALL' <<< "$cap_drop"
+          grep -q 'no-new-privileges' <<< "$no_new_privileges"
+
+      - name: Verify liveness and fail-closed readiness
+        env:
+          PORT: ${{ steps.runtime.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          live=''
+          for attempt in $(seq 1 30); do
+            live="$(curl -fsS --connect-timeout 2 --max-time 5 "http://127.0.0.1:${PORT}/health/live" || true)"
+            [[ "$live" == '{"status":"ok"}' ]] && break
+            sleep 1
+          done
+          test "$live" = '{"status":"ok"}'
+          code="$(curl -sS -o tai-runtime-ready.json -w '%{http_code}' \
+            --connect-timeout 2 --max-time 5 \
+            "http://127.0.0.1:${PORT}/health/ready")"
+          test "$code" = 503
+          python3 - <<'PY'
+          import json
+          payload = json.load(open('tai-runtime-ready.json', encoding='utf-8'))
+          assert payload['status'] == 'not_ready'
+          assert payload['policy'] == 'deny-by-default'
+          assert payload['reasons'] == ['TAI_RUNTIME_MODE_PRODUCTION_REQUIRED']
+          PY
+
+      - name: Capture container evidence
+        if: always() && steps.runtime.outputs.cid != ''
+        env:
+          CID: ${{ steps.runtime.outputs.cid }}
+        shell: bash
+        run: |
+          docker inspect "$CID" > tai-runtime-container-inspect.json || true
+          docker logs "$CID" > tai-runtime-container.log 2>&1 || true
+          docker rm -f "$CID" >/dev/null 2>&1 || true
+
+      - name: Upload image acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-production-runtime-image-${{ github.sha }}
+          path: |
+            tai-runtime-image-inspect.json
+            tai-runtime-container-inspect.json
+            tai-runtime-container.log
+            tai-runtime-ready.json
+          if-no-files-found: warn
+          retention-days: 14
