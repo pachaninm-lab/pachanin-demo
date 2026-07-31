@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 
 const workflowPath = '.github/workflows/tai-reg-ru-preflight.yml';
 const scriptPath = 'scripts/tai-reg-ru-preflight.sh';
+const bootstrapPath = 'scripts/install-pc-prod-actions-runner.sh';
 const workflow = readFileSync(workflowPath, 'utf8');
 const script = readFileSync(scriptPath, 'utf8');
+const bootstrap = readFileSync(bootstrapPath, 'utf8');
 const violations = [];
 
 function requireFragment(source, fragment, label) {
@@ -20,6 +22,7 @@ for (const fragment of [
   'workflows: ["Build & Publish Canonical Docker Images"]',
   'github.event.workflow_run.conclusion == \'success\'',
   'github.event.workflow_run.head_branch == \'main\'',
+  "github.event.workflow_run.event == 'push'",
   'workflow_dispatch:',
   "inputs.confirmation == 'PREFLIGHT-TAI-REG-RU'",
   'github.actor == github.repository_owner',
@@ -29,14 +32,25 @@ for (const fragment of [
   'contents: read',
   'packages: read',
   'statuses: write',
+  'image_authority:',
+  'Verify canonical exact-SHA TAI image outside production',
+  'Publish local-runner pending status',
+  'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+  'packages: none',
+  'statuses: none',
+  'Verify local production runner authority',
+  '[[ "${RUNNER_NAME:-}" == pc-prod-* ]]',
+  '[[ "$(id -u)" -ne 0 ]]',
+  '/etc/pc-release-authority/actions-runner.json',
+  'PREFLIGHT_NOT_EXECUTED',
+  'PREFLIGHT_EXECUTION_FAILED',
   'ghcr.io/pachaninm-lab/grainflow-tai:sha-${SHORT_SHA}',
   '"$user" == \'65532:65532\'',
-  'PC_PROD_SSH_HOST_FINGERPRINT',
-  'StrictHostKeyChecking=yes',
+  'Execute local read-only production preflight',
   'Upload redacted preflight evidence',
   'Publish exact-main preflight commit status',
   "context='TAI REG.RU Preflight'",
-  "if: github.event_name == 'workflow_dispatch'",
+  "if: always() && github.event_name == 'workflow_dispatch'",
 ]) requireFragment(workflow, fragment, workflowPath);
 
 for (const fragment of [
@@ -80,20 +94,49 @@ for (const fragment of [
   "components.get('tools') == 'disabled-safe'",
 ]) requireFragment(script, fragment, scriptPath);
 
+for (const fragment of [
+  'RUNNER_VERSION="2.336.0"',
+  'RUNNER_PACKAGE_SHA256="04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d"',
+  'RUNNER_REGISTRATION_TOKEN',
+  '--labels "pc-prod,tai-readonly"',
+  'bin/installdependencies.sh',
+  './svc.sh install "$RUNNER_USER"',
+  'NoNewPrivileges=true',
+  'ProtectKernelTunables=true',
+  'ProtectKernelModules=true',
+  'ProtectControlGroups=true',
+  'TRANSPORT=OUTBOUND_ONLY',
+]) requireFragment(bootstrap, fragment, bootstrapPath);
+
 forbid(
   workflow,
-  /^\s*(?:actions|checks|deployments|id-token|issues|pull-requests|security-events):\s*write\s*$/mu,
+  /^\s*(?:checks|deployments|id-token|issues|pull-requests|security-events):\s*write\s*$/mu,
   `${workflowPath}: unapproved write permission is forbidden`,
 );
 forbid(workflow, /continue-on-error:\s*true/mu, `${workflowPath}: continue-on-error is forbidden`);
+forbid(
+  workflow,
+  /PC_PROD_SSH_|ssh-keyscan|StrictHostKeyChecking|id_pc_prod|\bscp\b|\bssh\s+-/u,
+  `${workflowPath}: inbound SSH transport is forbidden`,
+);
+forbid(workflow, /pull_request_target:/u, `${workflowPath}: pull_request_target is forbidden`);
+
+const liveWorkflow = (workflow.split('\n  live_preflight:\n')[1] || '').split('\n  publish_status:\n')[0];
+forbid(liveWorkflow, /\bsudo\b/u, `${workflowPath}: live preflight must not escalate privileges`);
+forbid(
+  liveWorkflow,
+  /\bdocker\s+(?:login|pull|run|start|stop|restart|kill|rm|update)\b/iu,
+  `${workflowPath}: production runner must not mutate Docker state`,
+);
+forbid(
+  liveWorkflow,
+  /GH_TOKEN|DOCKER_CONFIG|github\.token/u,
+  `${workflowPath}: production runner must not receive registry credentials`,
+);
 
 for (const line of workflow.split('\n')) {
-  if (!/\|\|\s*true/u.test(line)) continue;
-  const approvedAlternativeDecode = line.includes('base64 --decode > "$c"');
-  const approvedFingerprintParse = line.includes('ssh-keygen -lf - -E sha256');
-  const approvedHostKeyMatchCount = line.includes('grep -c . "$match"');
-  if (!approvedAlternativeDecode && !approvedFingerprintParse && !approvedHostKeyMatchCount) {
-    violations.push(`${workflowPath}: unapproved suppressed failure: ${line.trim()}`);
+  if (/\|\|\s*true/u.test(line)) {
+    violations.push(`${workflowPath}: suppressed failure is forbidden: ${line.trim()}`);
   }
 }
 
@@ -117,6 +160,8 @@ forbid(script, /docker\s+inspect[^\n]*\.Config\.Env[^\n]*>\s*\/dev\/stdout/iu, `
 forbid(script, /set\s+-[^\n]*x/iu, `${scriptPath}: shell tracing is forbidden`);
 forbid(script, /(?:password|secret|api_key|database_url)\s*=.*(?:echo|printf)/iu, `${scriptPath}: secret-like values must not be printed`);
 forbid(script, /^\s*ports\s*:/mu, `${scriptPath}: preflight must not define public ports`);
+forbid(bootstrap, /set\s+-[^\n]*x/iu, `${bootstrapPath}: shell tracing is forbidden`);
+forbid(bootstrap, /echo[^\n]*(?:RUNNER_REGISTRATION_TOKEN|registration_token|token=)/iu, `${bootstrapPath}: registration token must not be printed`);
 
 if (violations.length > 0) {
   console.error('TAI REG.RU preflight contract failed:');
@@ -124,4 +169,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('TAI REG.RU preflight contract PASS: exact-main, read-only, override-aware, digest-bound, effective-least-privilege and fail-closed.');
+console.log('TAI REG.RU preflight contract PASS: exact-main, local outbound-only runner, read-only, override-aware, digest-bound, effective-least-privilege and fail-closed.');
