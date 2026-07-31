@@ -7,6 +7,7 @@ import { OrganizationTeamService } from './organization-team.service';
 import { PasswordResetRepository } from './password-reset.repository';
 import { PasswordResetService } from './password-reset.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
+import { RegistrationApplicationService } from './registration-application.service';
 
 @Module({
   imports: [BusinessReputationModule],
@@ -20,6 +21,7 @@ import { PersistentAuthRepository } from './persistent-auth.repository';
     },
     PasswordResetRepository,
     PasswordResetService,
+    RegistrationApplicationService,
     AuthService,
     OrganizationTeamService,
   ],
@@ -27,6 +29,7 @@ import { PersistentAuthRepository } from './persistent-auth.repository';
     AuthService,
     OrganizationTeamService,
     PasswordResetService,
+    RegistrationApplicationService,
     PersistentAuthRepository,
     AuthPrismaService,
   ],
