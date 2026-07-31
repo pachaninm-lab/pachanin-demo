@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-protected-qwen-auth-20260731",
+  "status": "active",
+  "purpose": "Require protected Bearer authentication for the private Qwen endpoint in the canonical TAI runtime without duplicating image authority or claiming REG.RU deployment.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "76736d52802d85555b7209874ea47e3b842d5bdb",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/tai/TAI_RUNTIME_IMAGE_AUTHORITY.md",
+    "apps/tai/tai/production_authenticated_runtime.py",
+    "apps/tai/tai/production_entrypoint.py",
+    "apps/tai/tai/secure_model_transport.py",
+    "apps/tai/tests/test_production_authenticated_runtime.py",
+    "apps/tai/tests/test_production_entrypoint.py",
+    "apps/tai/tests/test_secure_model_transport.py",
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-protected-qwen-auth-20260731.json"
+  ],
+  "requiredBehavior": [
+    "require TAI_MODEL_BEARER_TOKEN for production local-model access",
+    "validate the credential before production composition",
+    "send the credential only in the HTTP Authorization header",
+    "use the authenticated transport for user inference and supervisor warm-up",
+    "reject malformed credentials without disclosing their value",
+    "preserve endpoint allowlisting, response budgets and connection closure",
+    "preserve informational-only and confirmation-gated authority",
+    "preserve the already merged canonical TAI image and GHCR publication authority",
+    "add deterministic tests and maintain at least 90 percent TAI coverage"
+  ],
+  "forbiddenCapabilities": [
+    "REG.RU compose mutation",
+    "production deployment claim",
+    "production live acceptance claim",
+    "Dockerfile or GHCR workflow duplication",
+    "database migration execution",
+    "model admission bypass",
+    "credential logging, URL embedding or request-body embedding",
+    "browser exposure of the model credential",
+    "new paid dependency or recurring cost",
+    "autonomous platform, financial, veterinary or repair action",
+    "client-selected tenant or role"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 8,
+    "requiredChecks": [
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}
