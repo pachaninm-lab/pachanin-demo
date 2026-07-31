@@ -8,11 +8,12 @@ const viewports = [
 const currentPublicAnchorIds = [
   'difference',
   'functions',
-  'deal-path',
   'live',
   'participants',
   'tai',
+  'trust',
   'faq',
+  'connection-process',
   'connect-organization',
 ] as const;
 
