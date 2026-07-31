@@ -1,0 +1,90 @@
+name: P0 Registration Enumeration Bounded Assembler
+
+on:
+  push:
+    branches:
+      - p0/first-customer-access-foundation-3563
+    paths:
+      - .github/workflows/p0-registration-enumeration-assembler-3564.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-registration-enumeration-assembler-3564
+  cancel-in-progress: false
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout bounded branch
+        uses: actions/checkout@v4
+        with:
+          ref: p0/first-customer-access-foundation-3563
+          fetch-depth: 0
+
+      - name: Verify exact immutable inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 783d61131d94c3d147c3782f6d53f8126dfd0314 HEAD
+          test "$(git hash-object apps/api/src/modules/auth/auth.service.ts)" = "d170dbba1b8a1099e0f5128135c9d0e9b2c485c9"
+          test "$(git hash-object apps/api/src/modules/auth/auth.service.spec.ts)" = "8609172889e1fdc70293edf9474cfee3bcf00779"
+          test "$(git hash-object apps/api/src/modules/auth/registration-application.service.ts)" = "0cd41dc8a8b4379e5e6ef605f3ac33c0230450ef"
+          test "$(git hash-object apps/api/test/auth/persistent-auth.e2e-spec.ts)" = "6601c3844271b154ae6934312cb483f7d7e7eafd"
+          test "$(git hash-object apps/web/app/api/auth/register/route.ts)" = "5df374c3141e02b648b733afa6c66b8e7b1118dd"
+          test "$(git hash-object apps/web/app/platform-v7/register/RegisterFormClient.tsx)" = "fa4e6634807ff4cdee837a8af236ea950c1d4cd9"
+          test "$(git hash-object apps/web/tests/unit/platformV7FirstCustomerRegistrationBoundary.test.ts)" = "8e52a3c93415f04b2413abeb04f2997e698829bb"
+          test "$(git hash-object docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json)" = "fc6c1e15cb69e8f198dcaa0458e016f2fee22251"
+          mapfile -t transport_paths < <(git diff --name-only 783d61131d94c3d147c3782f6d53f8126dfd0314..HEAD | sort)
+          test "${#transport_paths[@]}" -eq 2
+          test "${transport_paths[0]}" = ".github/workflows/p0-registration-enumeration-assembler-3564.yml"
+          test "${transport_paths[1]}" = ".p0-repair-3564-enumeration/apply.py"
+
+      - name: Assemble exact authority and anti-enumeration repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .p0-repair-3564-enumeration/apply.py
+          mapfile -t changed < <(git diff --name-only | sort)
+          test "${#changed[@]}" -eq 9
+          test "${changed[0]}" = "apps/api/prisma/migrations/20260731201200_p0_registration_enumeration_guard/migration.sql"
+          test "${changed[1]}" = "apps/api/src/modules/auth/auth.service.spec.ts"
+          test "${changed[2]}" = "apps/api/src/modules/auth/auth.service.ts"
+          test "${changed[3]}" = "apps/api/src/modules/auth/registration-application.service.ts"
+          test "${changed[4]}" = "apps/api/test/auth/persistent-auth.e2e-spec.ts"
+          test "${changed[5]}" = "apps/web/app/api/auth/register/route.ts"
+          test "${changed[6]}" = "apps/web/app/platform-v7/register/RegisterFormClient.tsx"
+          test "${changed[7]}" = "apps/web/tests/unit/platformV7FirstCustomerRegistrationBoundary.test.ts"
+          test "${changed[8]}" = "docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json"
+          git diff --check
+          grep -F 'CREATE TABLE auth.registration_public_attempts' apps/api/prisma/migrations/20260731201200_p0_registration_enumeration_guard/migration.sql
+          ! grep -F 'async register(' apps/api/src/modules/auth/auth.service.ts
+          ! grep -F 'SEED_CANONICAL_TEST_DEAL' apps/api/src/modules/auth/auth.service.ts
+          ! grep -F 'REGISTRATION_ACCOUNT_ALREADY_EXISTS' apps/api/src/modules/auth/registration-application.service.ts
+          grep -F 'SUPPRESSED_EXISTING_ACCOUNT' apps/api/src/modules/auth/registration-application.service.ts
+          ! grep -F 'kind: payload.kind' apps/web/app/api/auth/register/route.ts
+          ! grep -F 'statusToken: payload.statusToken' apps/web/app/api/auth/register/route.ts
+          grep -F 'submissionAccepted' apps/web/app/platform-v7/register/RegisterFormClient.tsx
+
+      - name: Remove transport and publish one bounded commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/p0-registration-enumeration-assembler-3564.yml .p0-repair-3564-enumeration/apply.py
+          git add apps/api/prisma/migrations/20260731201200_p0_registration_enumeration_guard/migration.sql \
+            apps/api/src/modules/auth/auth.service.ts \
+            apps/api/src/modules/auth/auth.service.spec.ts \
+            apps/api/src/modules/auth/registration-application.service.ts \
+            apps/api/test/auth/persistent-auth.e2e-spec.ts \
+            apps/web/app/api/auth/register/route.ts \
+            apps/web/app/platform-v7/register/RegisterFormClient.tsx \
+            apps/web/tests/unit/platformV7FirstCustomerRegistrationBoundary.test.ts \
+            docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(auth): remove registration bypass and enumeration leaks"
+          git push origin HEAD:p0/first-customer-access-foundation-3563
