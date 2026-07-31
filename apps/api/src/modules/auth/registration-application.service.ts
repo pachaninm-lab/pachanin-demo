@@ -36,16 +36,16 @@ const WORKSPACE_ROLE: Readonly<Record<PublicWorkspaceClass, Role>> = {
 
 const TERMINAL_STATUSES = new Set(['ACTIVATED', 'REJECTED', 'CANCELLED', 'EXPIRED']);
 
-type ExistingApplicationRow = {
-  id: string;
+type RegistrationAttemptOutcome = 'APPLICATION_CREATED' | 'SUPPRESSED_EXISTING_ACCOUNT';
+
+type ExistingSubmissionRow = {
+  id: string | null;
   request_hash: string;
   status: string;
   correlation_id: string;
   idempotency_key: string;
-  requested_workspace: PublicWorkspaceClass;
-  kind: string;
+  outcome: RegistrationAttemptOutcome;
 };
-
 type EmailChallengeRow = {
   id: string;
   application_id: string;
@@ -62,10 +62,8 @@ type EmailChallengeRow = {
 
 type ApplicationStatusRow = {
   id: string;
-  kind: string;
   status: string;
   correlation_id: string;
-  requested_workspace: PublicWorkspaceClass;
   submitted_at: Date;
   updated_at: Date;
   expires_at: Date;
@@ -155,7 +153,7 @@ export class RegistrationApplicationService {
       if (!registrationTokenHashMatches(existing.request_hash, requestHash)) {
         throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD' });
       }
-      return this.submissionResponse(existing, undefined);
+      return this.submissionResponse(existing);
     }
 
     const requestedRole = roleForWorkspace(normalized.workspace);
@@ -171,6 +169,12 @@ export class RegistrationApplicationService {
     const statusTokenHash = hashRegistrationStatusToken(statusToken);
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await this.lockRegistrationKeys(tx, [
+        `registration-idempotency:${idempotencyKey}`,
+        `registration-email:${normalized.email}`,
+        `registration-inn:${normalized.orgInn}`,
+      ]);
+
       const concurrent = await this.findByIdempotency(idempotencyKey, tx);
       if (concurrent) {
         if (!registrationTokenHashMatches(concurrent.request_hash, requestHash)) {
@@ -179,12 +183,34 @@ export class RegistrationApplicationService {
         return { existing: concurrent } as const;
       }
 
-      const existingUser = await tx.user.findUnique({ where: { email: normalized.email }, select: { id: true } });
+      const existingUser = await tx.user.findUnique({
+        where: { email: normalized.email },
+        select: { id: true },
+      });
       if (existingUser) {
-        throw new ConflictException({
-          code: 'REGISTRATION_ACCOUNT_ALREADY_EXISTS',
-          message: 'Use sign in or access recovery.',
+        const suppressed = {
+          id: null,
+          request_hash: requestHash,
+          status: 'EMAIL_VERIFICATION_REQUIRED',
+          correlation_id: context.correlationId,
+          idempotency_key: idempotencyKey,
+          outcome: 'SUPPRESSED_EXISTING_ACCOUNT',
+        } satisfies ExistingSubmissionRow;
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO auth.registration_public_attempts (
+            id, idempotency_key, request_hash, correlation_id, outcome, application_id
+          ) VALUES (
+            ${`reg_attempt_${randomUUID()}`}, ${idempotencyKey}, ${requestHash},
+            ${context.correlationId}, 'SUPPRESSED_EXISTING_ACCOUNT', NULL
+          )
+        `);
+        await this.audit(tx, {
+          action: 'auth.registration.submit',
+          outcome: 'SUCCESS',
+          reason: 'PUBLIC_REQUEST_ACCEPTED',
+          metadata: { correlationId: context.correlationId, requestHash },
         });
+        return { existing: suppressed } as const;
       }
 
       const existingOrganization = await tx.organization.findUnique({
@@ -232,14 +258,11 @@ export class RegistrationApplicationService {
           userId,
           organizationId,
           role: Role.GUEST,
+          status: 'PENDING',
+          requestedWorkspace: normalized.workspace,
           isDefault: true,
         },
       });
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE public.user_orgs
-        SET status = 'PENDING', requested_workspace = ${normalized.workspace}
-        WHERE id = ${membershipId}
-      `);
       await this.authRepository.ensureCredentialState(
         tx,
         userId,
@@ -275,6 +298,14 @@ export class RegistrationApplicationService {
           ${emailToken.id}, ${applicationId}, ${userId}, ${emailToken.hash}, ${emailExpiresAt}
         )
       `);
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO auth.registration_public_attempts (
+          id, idempotency_key, request_hash, correlation_id, outcome, application_id
+        ) VALUES (
+          ${`reg_attempt_${randomUUID()}`}, ${idempotencyKey}, ${requestHash},
+          ${context.correlationId}, 'APPLICATION_CREATED', ${applicationId}
+        )
+      `);
       await this.insertEvent(tx, {
         applicationId,
         actorUserId: userId,
@@ -294,13 +325,8 @@ export class RegistrationApplicationService {
         tenantId,
         action: 'auth.registration.submit',
         outcome: 'SUCCESS',
-        reason: kind,
-        metadata: {
-          applicationId,
-          requestedWorkspace: normalized.workspace,
-          requestedRole,
-          correlationId: context.correlationId,
-        },
+        reason: 'PUBLIC_REQUEST_ACCEPTED',
+        metadata: { applicationId, correlationId: context.correlationId },
       });
 
       return {
@@ -310,9 +336,8 @@ export class RegistrationApplicationService {
           status: 'EMAIL_VERIFICATION_REQUIRED',
           correlation_id: context.correlationId,
           idempotency_key: idempotencyKey,
-          requested_workspace: normalized.workspace,
-          kind,
-        } satisfies ExistingApplicationRow,
+          outcome: 'APPLICATION_CREATED',
+        } satisfies ExistingSubmissionRow,
         emailDelivery: deliveryAuthorized(context.deliveryKey)
           ? { email: normalized.email, token: emailToken.token, expiresInSeconds: Math.floor(REGISTRATION_EMAIL_TTL_MS / 1000) }
           : undefined,
@@ -422,7 +447,7 @@ export class RegistrationApplicationService {
     const tokenHash = hashRegistrationStatusToken(normalizedToken);
     const rows = await this.prisma.$queryRaw<ApplicationStatusRow[]>(Prisma.sql`
       SELECT
-        id, kind, status, correlation_id, requested_workspace,
+        id, status, correlation_id,
         submitted_at, updated_at, expires_at, decision_reason, version
       FROM auth.registration_applications
       WHERE status_token_hash = ${tokenHash}
@@ -436,9 +461,7 @@ export class RegistrationApplicationService {
       : application.status;
     return {
       applicationId: application.id,
-      kind: application.kind,
       status: effectiveStatus,
-      requestedWorkspace: application.requested_workspace,
       nextAction: nextAction(effectiveStatus),
       submittedAt: application.submitted_at.toISOString(),
       updatedAt: application.updated_at.toISOString(),
@@ -451,33 +474,56 @@ export class RegistrationApplicationService {
   }
 
 
+  private async lockRegistrationKeys(client: AuthSqlClient, keys: string[]): Promise<void> {
+    for (const key of [...new Set(keys)].sort()) {
+      await client.$queryRaw<Array<{ acquired: number }>>(Prisma.sql`
+        SELECT 1::int AS acquired
+        FROM (
+          SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))
+        ) AS registration_lock
+      `);
+    }
+  }
+
   private async findByIdempotency(
     idempotencyKey: string,
     client: AuthSqlClient = this.prisma,
-  ): Promise<ExistingApplicationRow | null> {
-    const rows = await client.$queryRaw<ExistingApplicationRow[]>(Prisma.sql`
-      SELECT id, request_hash, status, correlation_id, idempotency_key, requested_workspace, kind
-      FROM auth.registration_applications
-      WHERE idempotency_key = ${idempotencyKey}
+  ): Promise<ExistingSubmissionRow | null> {
+    const rows = await client.$queryRaw<ExistingSubmissionRow[]>(Prisma.sql`
+      SELECT
+        application.id,
+        attempt.request_hash,
+        COALESCE(application.status, 'EMAIL_VERIFICATION_REQUIRED') AS status,
+        attempt.correlation_id,
+        attempt.idempotency_key,
+        attempt.outcome
+      FROM auth.registration_public_attempts attempt
+      LEFT JOIN auth.registration_applications application
+        ON application.id = attempt.application_id
+      WHERE attempt.idempotency_key = ${idempotencyKey}
       LIMIT 1
     `);
     return rows[0] ?? null;
   }
 
   private submissionResponse(
-    application: ExistingApplicationRow,
+    submission: ExistingSubmissionRow,
     emailDelivery?: { email: string; token: string; expiresInSeconds: number },
   ) {
-    return {
+    const publicResponse = {
       accepted: true,
-      applicationId: application.id,
-      kind: application.kind,
-      status: application.status,
-      requestedWorkspace: application.requested_workspace,
-      nextAction: nextAction(application.status),
-      statusToken: deriveRegistrationStatusToken(application.id, application.idempotency_key),
-      correlationId: application.correlation_id,
-      ...(emailDelivery ? { emailDelivery } : {}),
+      status: 'EMAIL_VERIFICATION_REQUIRED',
+      nextAction: 'VERIFY_EMAIL',
+      correlationId: submission.correlation_id,
+    };
+    if (!emailDelivery || submission.outcome !== 'APPLICATION_CREATED' || !submission.id) {
+      return publicResponse;
+    }
+    return {
+      ...publicResponse,
+      applicationId: submission.id,
+      statusToken: deriveRegistrationStatusToken(submission.id, submission.idempotency_key),
+      emailDelivery,
     };
   }
 

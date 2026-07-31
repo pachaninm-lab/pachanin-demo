@@ -36,10 +36,15 @@ describe('P0 first-customer registration boundary', () => {
     expect(registerClient).not.toContain('/platform-v7/onboarding');
   });
 
-  it('does not create a session after registration and routes to application status', () => {
+  it('does not create a session and does not expose registration authority on public submission', () => {
     expect(registerRoute).not.toContain('applyAuthenticatedSession');
     expect(registerRoute).not.toContain('cookies()');
-    expect(registerClient).toContain('statusToken');
+    expect(registerRoute).not.toContain('kind: payload.kind');
+    expect(registerRoute).not.toContain('statusToken: payload.statusToken');
+    expect(registerRoute).not.toContain('applicationId: payload.applicationId');
+    expect(registerRoute).toContain("status: 'EMAIL_VERIFICATION_REQUIRED'");
+    expect(registerClient).toContain('submissionAccepted');
+    expect(registerClient).not.toContain('REGISTRATION_ACCOUNT_ALREADY_EXISTS');
     expect(registerClient).toContain('/api/auth/registration/status');
     expect(registerClient).toContain('/api/auth/registration/verify');
   });

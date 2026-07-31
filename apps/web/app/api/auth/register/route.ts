@@ -43,9 +43,7 @@ type Locale = keyof typeof mailCopy;
 type RegistrationApiPayload = {
   accepted?: boolean;
   applicationId?: string;
-  kind?: string;
   status?: string;
-  requestedWorkspace?: string;
   nextAction?: string;
   statusToken?: string;
   correlationId?: string;
@@ -181,12 +179,8 @@ export async function POST(request: Request) {
 
     return json({
       accepted: true,
-      applicationId: payload.applicationId,
-      kind: payload.kind,
-      status: payload.status,
-      requestedWorkspace: payload.requestedWorkspace,
-      nextAction: payload.nextAction,
-      statusToken: payload.statusToken,
+      status: 'EMAIL_VERIFICATION_REQUIRED',
+      nextAction: 'VERIFY_EMAIL',
       correlationId: payload.correlationId || correlationId,
     }, 202);
   } catch (error) {

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -18,7 +17,6 @@ import {
 } from '../../common/types/request-user';
 import { requireSecret } from '../../common/config/secrets';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
 import {
   buildOtpAuthUri,
   decryptMfaSecret,
@@ -56,22 +54,8 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', 10);
 const ACCESS_ISSUER = 'transparent-price-api';
 const ACCESS_AUDIENCE = 'transparent-price-platform';
 
-const SELF_REGISTERABLE_ROLES: ReadonlySet<Role> = new Set<Role>([
-  Role.FARMER,
-  Role.BUYER,
-  Role.LOGISTICIAN,
-  Role.DRIVER,
-  Role.LAB,
-  Role.ELEVATOR,
-  Role.ACCOUNTING,
-]);
 const KNOWN_ROLES = new Set<string>(Object.values(Role));
 const PRIVILEGED_MFA_ROLES = new Set<string>(ROLES_REQUIRING_MFA);
-const SYNTHETIC_SEED_ENABLED = String(process.env.SEED_CANONICAL_TEST_DEAL ?? '').toLowerCase() === 'true';
-
-export function canSelfRegisterRole(role: Role): boolean {
-  return SELF_REGISTERABLE_ROLES.has(role);
-}
 
 export function requiresRoleMfa(role: Role): boolean {
   return PRIVILEGED_MFA_ROLES.has(role);
@@ -80,14 +64,6 @@ export function requiresRoleMfa(role: Role): boolean {
 export function requiresRecentFinancialMfa(amountKopecks: number): boolean {
   return Number.isFinite(amountKopecks) && amountKopecks >= FINANCIAL_MFA_THRESHOLD_KOPECKS;
 }
-
-type SeedCompatibilityUser = {
-  id: string;
-  email: string;
-  role: Role;
-  orgId: string;
-  fullName: string;
-};
 
 type AuthUserProjection = {
   id: string;
@@ -113,8 +89,6 @@ type MfaVerifyInput = {
 
 @Injectable()
 export class AuthService {
-  private readonly seedCompatibilityUsers: SeedCompatibilityUser[] = [];
-
   constructor(private readonly repository: PersistentAuthRepository) {}
 
   async login(dto: LoginDto, userAgent?: string, ip?: string) {
@@ -259,94 +233,6 @@ export class AuthService {
     return { mfaRequired: false, ...result };
   }
 
-  async register(dto: RegisterDto | any) {
-    const requestedRole = (dto.role as Role) || Role.GUEST;
-    if (!canSelfRegisterRole(requestedRole)) {
-      throw new ForbiddenException(
-        'The selected role cannot be self-registered. Contact an administrator for access.',
-      );
-    }
-
-    if (SYNTHETIC_SEED_ENABLED && dto.orgId && String(dto.email).endsWith('@demo.ru')) {
-      return this.registerSyntheticSeedUser(dto, requestedRole);
-    }
-
-    const email = String(dto.email ?? '').trim().toLowerCase();
-    const fullName = String(dto.fullName ?? '').trim();
-    const orgInn = String(dto.orgInn ?? '').trim();
-    const orgLegalName = String(dto.orgLegalName ?? '').trim();
-    if (!email || !fullName || !orgInn || !orgLegalName) {
-      throw new BadRequestException('Email, full name, organization name and INN are required.');
-    }
-
-    return this.repository.transaction(async (tx) => {
-      const existing = await tx.user.findUnique({ where: { email } });
-      if (existing) throw new ConflictException('Email already registered');
-      const existingOrganization = await tx.organization.findUnique({ where: { inn: orgInn } });
-      if (existingOrganization) {
-        throw new ConflictException('Organization already exists. Request an administrator invitation.');
-      }
-
-      const organization = await tx.organization.create({
-        data: {
-          id: `org_${randomUUID()}`,
-          inn: orgInn,
-          name: orgLegalName,
-          type: String(dto.orgType ?? 'LEGAL'),
-          status: 'PENDING',
-          tenantId: `tenant_${randomUUID()}`,
-          kycStatus: 'PENDING',
-          amlStatus: 'CLEAR',
-        },
-      });
-      const user = await tx.user.create({
-        data: {
-          id: `user_${randomUUID()}`,
-          email,
-          phone: dto.phone ? String(dto.phone) : null,
-          passwordHash: await bcrypt.hash(String(dto.password), 12),
-          fullName,
-          status: 'ACTIVE',
-        },
-      });
-      const membership = await tx.userOrg.create({
-        data: {
-          userId: user.id,
-          organizationId: organization.id,
-          role: requestedRole,
-          isDefault: true,
-        },
-      });
-      await this.repository.ensureCredentialState(
-        tx,
-        user.id,
-        dto.consentVersion || CURRENT_CONSENT_VERSION,
-        new Date(),
-      );
-      await this.audit(tx, {
-        userId: user.id,
-        membershipId: membership.id,
-        organizationId: organization.id,
-        tenantId: organization.tenantId,
-        action: 'auth.register',
-        outcome: 'SUCCESS',
-        reason: 'ORGANIZATION_VERIFICATION_REQUIRED',
-        metadata: { requestedRole },
-      });
-      return {
-        status: 'PENDING_ORGANIZATION_VERIFICATION',
-        user: {
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
-          role: requestedRole,
-          orgId: organization.id,
-          tenantId: organization.tenantId,
-          membershipId: membership.id,
-        },
-      };
-    });
-  }
 
   async refresh(dto: { refreshToken: string }, userAgent?: string, ip?: string) {
     const parsed = parseOpaqueToken(dto.refreshToken, 'rt');
@@ -775,66 +661,6 @@ export class AuthService {
 
   oidcAuthorizationUrl() {
     return { url: null, message: 'No OIDC provider configured' };
-  }
-
-  /** Synthetic E2E compatibility only. Runtime authorization never reads this cache. */
-  listUsers() {
-    return [...this.seedCompatibilityUsers];
-  }
-
-  /** Synthetic E2E compatibility only. Membership authority remains PostgreSQL UserOrg. */
-  updateUserRole(userId: string, role: Role) {
-    this.assertSyntheticSeedCompatibility();
-    const user = this.seedCompatibilityUsers.find((item) => item.id === userId);
-    if (!user) throw new Error(`Synthetic seed user ${userId} not found`);
-    user.role = role;
-    return { id: user.id, role };
-  }
-
-  /** Synthetic E2E compatibility only. Organization authority remains PostgreSQL UserOrg. */
-  updateUserOrg(userId: string, orgId: string) {
-    this.assertSyntheticSeedCompatibility();
-    const user = this.seedCompatibilityUsers.find((item) => item.id === userId);
-    if (!user) throw new Error(`Synthetic seed user ${userId} not found`);
-    user.orgId = orgId;
-    return { id: user.id, orgId };
-  }
-
-  private async registerSyntheticSeedUser(dto: any, role: Role) {
-    this.assertSyntheticSeedCompatibility();
-    const email = String(dto.email).trim().toLowerCase();
-    const user = await this.repository.prisma.user.upsert({
-      where: { email },
-      update: {
-        passwordHash: await bcrypt.hash(String(dto.password), 10),
-        fullName: String(dto.fullName ?? email),
-        status: 'ACTIVE',
-      },
-      create: {
-        id: `user_${randomUUID()}`,
-        email,
-        passwordHash: await bcrypt.hash(String(dto.password), 10),
-        fullName: String(dto.fullName ?? email),
-        status: 'ACTIVE',
-      },
-    });
-    const projection: SeedCompatibilityUser = {
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      role,
-      orgId: String(dto.orgId),
-    };
-    const index = this.seedCompatibilityUsers.findIndex((item) => item.id === user.id);
-    if (index >= 0) this.seedCompatibilityUsers[index] = projection;
-    else this.seedCompatibilityUsers.push(projection);
-    return { user: projection };
-  }
-
-  private assertSyntheticSeedCompatibility(): void {
-    if (!SYNTHETIC_SEED_ENABLED || String(process.env.NODE_ENV).toLowerCase() === 'production') {
-      throw new ForbiddenException('Synthetic identity compatibility is disabled.');
-    }
   }
 
   private async issueActiveTokens(

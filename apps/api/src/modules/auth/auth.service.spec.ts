@@ -1,5 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import {
-  canSelfRegisterRole,
   requiresRecentFinancialMfa,
   requiresRoleMfa,
 } from './auth.service';
@@ -8,29 +9,14 @@ import {
   Role,
 } from '../../common/types/request-user';
 
-describe('persistent auth policy', () => {
-  it.each([
-    Role.ADMIN,
-    Role.SUPPORT_MANAGER,
-    Role.EXECUTIVE,
-    Role.COMPLIANCE_OFFICER,
-    Role.ARBITRATOR,
-    Role.GUEST,
-    Role.BANK_CALLBACK,
-  ])('refuses self-registration as privileged/system role %s', (role) => {
-    expect(canSelfRegisterRole(role)).toBe(false);
-  });
+const authSource = fs.readFileSync(path.join(process.cwd(), 'src/modules/auth/auth.service.ts'), 'utf8');
 
-  it.each([
-    Role.FARMER,
-    Role.BUYER,
-    Role.LOGISTICIAN,
-    Role.DRIVER,
-    Role.LAB,
-    Role.ELEVATOR,
-    Role.ACCOUNTING,
-  ])('allows self-registration request for operational role %s', (role) => {
-    expect(canSelfRegisterRole(role)).toBe(true);
+describe('persistent auth policy', () => {
+  it('contains no direct registration or synthetic identity authority', () => {
+    expect(authSource).not.toContain('async register(');
+    expect(authSource).not.toContain('registerSyntheticSeedUser');
+    expect(authSource).not.toContain('SEED_CANONICAL_TEST_DEAL');
+    expect(authSource).not.toContain('seedCompatibilityUsers');
   });
 
   it.each([

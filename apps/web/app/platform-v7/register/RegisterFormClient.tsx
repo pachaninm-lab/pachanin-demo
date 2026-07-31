@@ -7,9 +7,7 @@ type Locale = 'ru' | 'en' | 'zh';
 
 type RegistrationStatus = {
   applicationId?: string;
-  kind?: string;
   status?: string;
-  requestedWorkspace?: string;
   nextAction?: string;
   submittedAt?: string;
   updatedAt?: string;
@@ -41,7 +39,7 @@ type Copy = {
   submitting: string;
   unavailable: string;
   invalid: string;
-  existingAccount: string;
+  submissionAccepted: string;
   verifyTitle: string;
   verifyLead: string;
   verifyButton: string;
@@ -84,7 +82,7 @@ const COPY: Record<Locale, Copy> = {
     submitting: 'Отправляем…',
     unavailable: 'Сервис регистрации недоступен. Доступ не создан. Повтори позже.',
     invalid: 'Проверь введённые данные и обязательные согласия.',
-    existingAccount: 'Учётная запись уже существует. Используй вход или восстановление доступа.',
+    submissionAccepted: 'Если адрес можно использовать для новой заявки, письмо отправлено. Если учётная запись уже существует, используй вход или восстановление доступа.',
     verifyTitle: 'Подтверждение email',
     verifyLead: 'Подтверждение не открывает личный кабинет. После него заявка поступит на проверку организации.',
     verifyButton: 'Подтвердить email',
@@ -137,14 +135,14 @@ const COPY: Record<Locale, Copy> = {
     ],
   },
   en: {
-    workspace: 'Workspace', orgType: 'Organization type', legalName: 'Legal name', inn: 'Tax ID', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: 'Region', fullName: 'Applicant full name', position: 'Position', phone: 'Phone', email: 'Work email', password: 'Password', passwordHint: 'At least 12 characters with lowercase, uppercase, digits and symbols.', terms: 'user agreement', privacy: 'data processing policy', acceptTerms: 'I accept the', acceptPrivacy: 'I accept the', submit: 'Submit application for review', submitting: 'Submitting…', unavailable: 'Registration service is unavailable. No access was created. Try again later.', invalid: 'Check the entered data and required consents.', existingAccount: 'The account already exists. Use sign in or access recovery.', verifyTitle: 'Email confirmation', verifyLead: 'Confirmation does not open a workspace. The organization review begins after confirmation.', verifyButton: 'Confirm email', verifying: 'Confirming…', verifyInvalid: 'The link is invalid, expired or already used.', statusTitle: 'Application status', refresh: 'Refresh status', nextAction: 'Next action', applicationId: 'Application', status: 'Status', reason: 'Reason', login: 'Sign in', recovery: 'Restore access',
+    workspace: 'Workspace', orgType: 'Organization type', legalName: 'Legal name', inn: 'Tax ID', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: 'Region', fullName: 'Applicant full name', position: 'Position', phone: 'Phone', email: 'Work email', password: 'Password', passwordHint: 'At least 12 characters with lowercase, uppercase, digits and symbols.', terms: 'user agreement', privacy: 'data processing policy', acceptTerms: 'I accept the', acceptPrivacy: 'I accept the', submit: 'Submit application for review', submitting: 'Submitting…', unavailable: 'Registration service is unavailable. No access was created. Try again later.', invalid: 'Check the entered data and required consents.', submissionAccepted: 'If the address can be used for a new application, an email has been sent. If an account already exists, use sign in or access recovery.', verifyTitle: 'Email confirmation', verifyLead: 'Confirmation does not open a workspace. The organization review begins after confirmation.', verifyButton: 'Confirm email', verifying: 'Confirming…', verifyInvalid: 'The link is invalid, expired or already used.', statusTitle: 'Application status', refresh: 'Refresh status', nextAction: 'Next action', applicationId: 'Application', status: 'Status', reason: 'Reason', login: 'Sign in', recovery: 'Restore access',
     statusLabels: { EMAIL_VERIFICATION_REQUIRED: 'Email confirmation required', ORGANIZATION_VERIFICATION_PENDING: 'Organization review pending', ADDITIONAL_INFORMATION_REQUIRED: 'Additional information required', APPROVED: 'Approved; activation pending', ACTIVATED: 'Access activated', REJECTED: 'Application rejected', SUSPENDED: 'Application suspended', EXPIRED: 'Application expired', CANCELLED: 'Application cancelled' },
     nextLabels: { VERIFY_EMAIL: 'Open the email and confirm your address.', WAIT_FOR_REVIEW: 'Wait for the reviewer decision. Workspace access remains closed.', PROVIDE_ADDITIONAL_INFORMATION: 'Provide the requested information.', WAIT_FOR_ACTIVATION: 'Wait for activation to finish.', LOGIN: 'Sign in with the confirmed account.', CONTACT_SUPPORT: 'Use the correlation ID when contacting support.', START_NEW_APPLICATION: 'Create a new application.', WAIT: 'Wait for the next status change.' },
     workspaces: [{ value: 'seller', label: 'Seller' }, { value: 'buyer', label: 'Buyer' }, { value: 'logistics', label: 'Logistics organization' }, { value: 'driver', label: 'Driver' }, { value: 'elevator', label: 'Elevator or warehouse' }, { value: 'lab', label: 'Laboratory' }, { value: 'surveyor', label: 'Surveyor' }, { value: 'bank', label: 'Bank user' }, { value: 'employee', label: 'Employee of an existing organization' }],
     orgTypes: [{ value: 'LEGAL', label: 'Legal entity' }, { value: 'INDIVIDUAL', label: 'Sole proprietor' }, { value: 'SELF_EMPLOYED', label: 'Self-employed' }],
   },
   zh: {
-    workspace: '工作空间', orgType: '组织类型', legalName: '法定名称', inn: '税号', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: '地区', fullName: '申请人姓名', position: '职位', phone: '电话', email: '工作邮箱', password: '密码', passwordHint: '至少12个字符，并包含小写字母、大写字母、数字和特殊符号。', terms: '用户协议', privacy: '数据处理政策', acceptTerms: '我接受', acceptPrivacy: '我接受', submit: '提交审核申请', submitting: '正在提交…', unavailable: '注册服务不可用。未创建任何访问权限。请稍后重试。', invalid: '请检查输入内容和必选同意项。', existingAccount: '该账户已存在。请登录或恢复访问权限。', verifyTitle: '确认电子邮箱', verifyLead: '确认邮箱不会直接开放工作空间。确认后将开始组织审核。', verifyButton: '确认电子邮箱', verifying: '正在确认…', verifyInvalid: '链接无效、已过期或已被使用。', statusTitle: '申请状态', refresh: '更新状态', nextAction: '下一步', applicationId: '申请', status: '状态', reason: '原因', login: '登录', recovery: '恢复访问权限',
+    workspace: '工作空间', orgType: '组织类型', legalName: '法定名称', inn: '税号', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: '地区', fullName: '申请人姓名', position: '职位', phone: '电话', email: '工作邮箱', password: '密码', passwordHint: '至少12个字符，并包含小写字母、大写字母、数字和特殊符号。', terms: '用户协议', privacy: '数据处理政策', acceptTerms: '我接受', acceptPrivacy: '我接受', submit: '提交审核申请', submitting: '正在提交…', unavailable: '注册服务不可用。未创建任何访问权限。请稍后重试。', invalid: '请检查输入内容和必选同意项。', submissionAccepted: '如果该地址可用于新申请，我们已发送邮件。如果账户已存在，请登录或恢复访问权限。', verifyTitle: '确认电子邮箱', verifyLead: '确认邮箱不会直接开放工作空间。确认后将开始组织审核。', verifyButton: '确认电子邮箱', verifying: '正在确认…', verifyInvalid: '链接无效、已过期或已被使用。', statusTitle: '申请状态', refresh: '更新状态', nextAction: '下一步', applicationId: '申请', status: '状态', reason: '原因', login: '登录', recovery: '恢复访问权限',
     statusLabels: { EMAIL_VERIFICATION_REQUIRED: '需要确认电子邮箱', ORGANIZATION_VERIFICATION_PENDING: '等待组织审核', ADDITIONAL_INFORMATION_REQUIRED: '需要补充信息', APPROVED: '已批准，等待激活', ACTIVATED: '访问权限已激活', REJECTED: '申请已拒绝', SUSPENDED: '申请已暂停', EXPIRED: '申请已过期', CANCELLED: '申请已取消' },
     nextLabels: { VERIFY_EMAIL: '打开邮件并确认电子邮箱。', WAIT_FOR_REVIEW: '等待审核决定。工作空间访问仍处于关闭状态。', PROVIDE_ADDITIONAL_INFORMATION: '提交所需补充信息。', WAIT_FOR_ACTIVATION: '等待激活完成。', LOGIN: '使用已确认的账户登录。', CONTACT_SUPPORT: '联系支持时请提供 correlation ID。', START_NEW_APPLICATION: '创建新申请。', WAIT: '等待下一次状态更新。' },
     workspaces: [{ value: 'seller', label: '卖方' }, { value: 'buyer', label: '买方' }, { value: 'logistics', label: '物流组织' }, { value: 'driver', label: '司机' }, { value: 'elevator', label: '粮库或仓库' }, { value: 'lab', label: '实验室' }, { value: 'surveyor', label: '检验员' }, { value: 'bank', label: '银行用户' }, { value: 'employee', label: '现有组织员工' }],
@@ -174,6 +172,7 @@ export function RegisterFormClient({
   const [status, setStatus] = React.useState<RegistrationStatus | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(Boolean(initialStatusToken));
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
+  const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
 
   const loadStatus = React.useCallback(async (token: string) => {
     if (!token) return;
@@ -252,17 +251,14 @@ export function RegisterFormClient({
       }
       const result = await response.json().catch(() => ({} as RegistrationStatus & { accepted?: boolean; code?: string }));
       setCorrelationId(String(result.correlationId || ''));
-      if (!response.ok || result.accepted !== true || !result.statusToken) {
-        if (result.code === 'REGISTRATION_ACCOUNT_ALREADY_EXISTS') throw new Error('existing');
+      if (!response.ok || result.accepted !== true) {
         if (response.status === 400) throw new Error('invalid');
         throw new Error('unavailable');
       }
-      setStatusToken(result.statusToken);
-      setStatus(result);
-      window.history.replaceState(null, '', `/platform-v7/register?statusToken=${encodeURIComponent(result.statusToken)}&lang=${locale}`);
+      setSubmissionAccepted(true);
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : 'unavailable';
-      setError(reason === 'existing' ? copy.existingAccount : reason === 'invalid' ? copy.invalid : copy.unavailable);
+      setError(reason === 'invalid' ? copy.invalid : copy.unavailable);
     } finally {
       setSubmitting(false);
     }
@@ -304,6 +300,21 @@ export function RegisterFormClient({
         <button type='button' className='p0-register-primary' onClick={verifyEmail} disabled={submitting} aria-busy={submitting}>
           {submitting ? copy.verifying : copy.verifyButton}
         </button>
+      </section>
+    );
+  }
+
+  if (submissionAccepted) {
+    return (
+      <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
+        <ShieldCheck size={40} aria-hidden='true' />
+        <h2 id='p0-register-status-title'>{copy.statusTitle}</h2>
+        <p>{copy.submissionAccepted}</p>
+        {correlationId ? <p className='p0-register-correlation'>ID: {correlationId}</p> : null}
+        <div className='p0-register-actions'>
+          <a className='p0-register-secondary' href='/platform-v7/login'>{copy.login}</a>
+          <a className='p0-register-primary' href='/platform-v7/forgot-password'>{copy.recovery}</a>
+        </div>
       </section>
     );
   }

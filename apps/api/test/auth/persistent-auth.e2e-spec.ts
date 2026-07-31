@@ -7,20 +7,31 @@ import {
   Role,
 } from '../../src/common/types/request-user';
 import { AuthService } from '../../src/modules/auth/auth.service';
+import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
+import { RegistrationApplicationService } from '../../src/modules/auth/registration-application.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 
 const PASSWORD = 'Correct-Horse-9!';
 
 type Runtime = {
   prisma: PrismaService;
+  authPrisma: AuthPrismaService;
   repository: PersistentAuthRepository;
   auth: AuthService;
+  registration: RegistrationApplicationService;
 };
 
 function runtime(): Runtime {
   const prisma = new PrismaService();
+  const authPrisma = new AuthPrismaService();
   const repository = new PersistentAuthRepository(prisma);
-  return { prisma, repository, auth: new AuthService(repository) };
+  return {
+    prisma,
+    authPrisma,
+    repository,
+    auth: new AuthService(repository),
+    registration: new RegistrationApplicationService(authPrisma, repository),
+  };
 }
 
 function base32Decode(input: string): Buffer {
@@ -58,11 +69,21 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
   const second = runtime();
 
   beforeAll(async () => {
-    await Promise.all([first.prisma.$connect(), second.prisma.$connect()]);
+    await Promise.all([
+      first.prisma.$connect(),
+      second.prisma.$connect(),
+      first.authPrisma.$connect(),
+      second.authPrisma.$connect(),
+    ]);
   });
 
   afterAll(async () => {
-    await Promise.all([first.prisma.$disconnect(), second.prisma.$disconnect()]);
+    await Promise.all([
+      first.prisma.$disconnect(),
+      second.prisma.$disconnect(),
+      first.authPrisma.$disconnect(),
+      second.authPrisma.$disconnect(),
+    ]);
   });
 
   async function seedIdentity(
@@ -388,7 +409,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       where: { id: accessIdentity.membership.id },
       data: { status: 'REVOKED', revokedAt: new Date() },
     });
-    await expect(second.auth.verifyAccessToken(accessLogin.accessToken)).rejects.toThrow(/not active/i);
+    await expect(second.auth.verifyAccessToken(accessLogin.accessToken)).rejects.toThrow(/revoked|not active/i);
     const accessSessions = await first.prisma.$queryRaw<Array<{
       status: string;
       revocation_reason: string | null;
@@ -402,25 +423,122 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     ]);
   });
 
-  it('ignores client orgId during self-registration and creates a pending organization', async () => {
-    const result = await first.auth.register({
-      email: 'pending-registration@auth.test',
-      fullName: 'Pending Registration',
-      role: Role.BUYER,
+  it('prevents public email and organization enumeration with durable idempotency', async () => {
+    const dto = (email: string, orgInn: string, orgLegalName: string) => ({
+      email,
+      phone: '+79990001122',
+      fullName: 'Registration Applicant',
+      position: 'Director',
+      orgLegalName,
+      orgInn,
+      orgType: 'LEGAL' as const,
+      region: 'Moscow',
+      workspace: 'buyer' as const,
       password: PASSWORD,
-      orgId: 'org-attacker-selected',
-      orgInn: '781234567890',
-      orgLegalName: 'Pending Registration LLC',
-      consentVersion: '1.2',
-    } as any) as any;
+      termsVersion: '2026-07-31',
+      privacyVersion: '2026-07-31',
+      acceptTerms: true as const,
+      acceptPrivacy: true as const,
+    });
+    const publicKeys = ['accepted', 'correlationId', 'nextAction', 'status'];
 
-    expect(result.status).toBe('PENDING_ORGANIZATION_VERIFICATION');
-    expect(result.user.orgId).not.toBe('org-attacker-selected');
-    const organization = await first.prisma.organization.findUnique({ where: { id: result.user.orgId } });
-    expect(organization?.status).toBe('PENDING');
-    await expect(
-      second.auth.login({ email: 'pending-registration@auth.test', password: PASSWORD }),
-    ).rejects.toThrow(/ORGANIZATION_NOT_VERIFIED/);
+    const existingAccount = await seedIdentity('enumeration-existing-account', Role.BUYER);
+    const existingAccountDto = dto(
+      existingAccount.email,
+      '780000000011',
+      'Enumeration Existing Account Probe',
+    );
+    const suppressed = await first.registration.submit(existingAccountDto, {
+      idempotencyKey: 'registration-enumeration-existing-0001',
+      correlationId: 'registration-enumeration-existing-correlation',
+    });
+    const suppressedReplay = await second.registration.submit(existingAccountDto, {
+      idempotencyKey: 'registration-enumeration-existing-0001',
+      correlationId: 'ignored-replay-correlation',
+    });
+    expect(Object.keys(suppressed).sort()).toEqual(publicKeys);
+    expect(suppressedReplay).toEqual(suppressed);
+    await expect(second.registration.submit({ ...existingAccountDto, phone: '+79990001123' }, {
+      idempotencyKey: 'registration-enumeration-existing-0001',
+      correlationId: 'registration-enumeration-conflict',
+    })).rejects.toThrow(/IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD/);
+
+    const newOrganizationEmail = 'enumeration-new-org@auth.test';
+    const newOrganization = await first.registration.submit(
+      dto(newOrganizationEmail, '780000000012', 'Enumeration New Organization'),
+      {
+        idempotencyKey: 'registration-enumeration-new-org-0001',
+        correlationId: 'registration-enumeration-new-org-correlation',
+      },
+    );
+    expect(Object.keys(newOrganization).sort()).toEqual(publicKeys);
+    await expect(first.auth.login({ email: newOrganizationEmail, password: PASSWORD }))
+      .rejects.toThrow(/USER_NOT_ACTIVE|ORGANIZATION_NOT_VERIFIED/);
+
+    const existingOrganization = await seedIdentity('enumeration-existing-org', Role.FARMER);
+    const joinOrganization = await first.registration.submit(
+      dto('enumeration-join-org@auth.test', existingOrganization.organization.inn, 'Probe Legal Name'),
+      {
+        idempotencyKey: 'registration-enumeration-join-org-0001',
+        correlationId: 'registration-enumeration-join-org-correlation',
+      },
+    );
+    expect(Object.keys(joinOrganization).sort()).toEqual(publicKeys);
+
+    const attempts = await first.prisma.$queryRaw<Array<{
+      idempotency_key: string;
+      outcome: string;
+      application_id: string | null;
+    }>>`
+      SELECT idempotency_key, outcome, application_id
+      FROM auth.registration_public_attempts
+      WHERE idempotency_key IN (
+        'registration-enumeration-existing-0001',
+        'registration-enumeration-new-org-0001',
+        'registration-enumeration-join-org-0001'
+      )
+      ORDER BY idempotency_key
+    `;
+    expect(attempts).toEqual([
+      expect.objectContaining({
+        idempotency_key: 'registration-enumeration-existing-0001',
+        outcome: 'SUPPRESSED_EXISTING_ACCOUNT',
+        application_id: null,
+      }),
+      expect.objectContaining({
+        idempotency_key: 'registration-enumeration-join-org-0001',
+        outcome: 'APPLICATION_CREATED',
+        application_id: expect.any(String),
+      }),
+      expect.objectContaining({
+        idempotency_key: 'registration-enumeration-new-org-0001',
+        outcome: 'APPLICATION_CREATED',
+        application_id: expect.any(String),
+      }),
+    ]);
+
+    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
+    process.env.REGISTRATION_DELIVERY_KEY = 'registration-delivery-key-32-characters-minimum';
+    try {
+      const internal = await first.registration.submit(
+        dto('enumeration-delivery@auth.test', '780000000013', 'Enumeration Delivery Organization'),
+        {
+          idempotencyKey: 'registration-enumeration-delivery-0001',
+          correlationId: 'registration-enumeration-delivery-correlation',
+          deliveryKey: process.env.REGISTRATION_DELIVERY_KEY,
+        },
+      ) as any;
+      expect(internal.emailDelivery).toMatchObject({ email: 'enumeration-delivery@auth.test' });
+      expect(internal.statusToken).toMatch(/^rst_reg_/);
+      expect(internal).not.toHaveProperty('kind');
+      expect(internal).not.toHaveProperty('requestedWorkspace');
+      const publicStatus = await first.registration.status(internal.statusToken);
+      expect(publicStatus).not.toHaveProperty('kind');
+      expect(publicStatus).not.toHaveProperty('requestedWorkspace');
+    } finally {
+      if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
+      else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
+    }
   });
 
   it('writes chained auth audit evidence', async () => {
