@@ -114,8 +114,8 @@ test.describe('Platform V7 exact production mobile acceptance', () => {
       expect(headings.every((heading) => heading.fontSize >= 32 && heading.fontSize <= 38), JSON.stringify(headings, null, 2)).toBe(true);
       expect(headings.every((heading) => heading.ratio <= 1.11), JSON.stringify(headings, null, 2)).toBe(true);
 
-      await expect(page.getByRole('region', { name: 'Пример интерфейса · данные сценария' })).toBeVisible();
-      await expect(page.getByRole('list', { name: 'Этапы исполнения сценария' })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Рабочее пространство Сделки' })).toBeVisible();
+      await expect(page.getByRole('list', { name: 'Этапы исполнения Сделки' })).toBeVisible();
       await expect(page.getByRole('tablist', { name: 'Что видит каждый участник' })).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Банк' })).toBeVisible();
       await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
