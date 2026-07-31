@@ -10,6 +10,8 @@ const css = read('apps/web/styles/platform-v7-international-home-fix.css');
 const tsconfig = read('apps/web/tsconfig.json');
 const trustContent = read('apps/web/app/trust/page.tsx');
 const trustRoute = read('apps/web/app/platform-v7/trust/page.tsx');
+const platformLayout = read('apps/web/app/platform-v7/layout.tsx');
+const publicSeoRegistry = read('apps/web/lib/platform-v7/public-seo-routes.json');
 const browserAcceptance = read('apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts');
 const strategicAcceptance = read('apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts');
 
@@ -40,10 +42,17 @@ describe('platform-v7 international homepage completion', () => {
     expect(wrapper).toContain('От заявки до первой управляемой Сделки');
   });
 
-  it('publishes a canonical RU EN ZH Trust Center without unsupported certification claims', () => {
+  it('publishes a canonical public RU EN ZH Trust Center without unsupported certification claims', () => {
     expect(trustContent).toContain("type Locale = 'ru' | 'en' | 'zh'");
     expect(trustRoute).toContain("export { default } from '../../trust/page'");
     expect(trustRoute).toContain("canonical: '/platform-v7/trust'");
+    expect(platformLayout).toContain("'/platform-v7/trust',");
+    const publicStart = platformLayout.indexOf('const PUBLIC_EXACT_PATHS');
+    const aliasStart = platformLayout.indexOf('const ALIAS_EXACT_PATHS');
+    const dynamicStart = platformLayout.indexOf('const ALIAS_DYNAMIC_PATHS');
+    expect(platformLayout.slice(publicStart, aliasStart)).toContain("'/platform-v7/trust'");
+    expect(platformLayout.slice(aliasStart, dynamicStart)).not.toContain("'/platform-v7/trust'");
+    expect(publicSeoRegistry).toContain('"path": "/platform-v7/trust"');
     expect(trustContent).toContain('Что платформа не заявляет без доказательств');
     expect(trustContent).toContain('ISO, SOC 2 или иная сертификация — без опубликованного подтверждения');
     expect(trustContent).toContain('TAI не получает самостоятельного права менять Сделку');
