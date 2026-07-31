@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-always-on-core-20260731",
+  "status": "active",
+  "purpose": "Implement the first TAI Agro OS v4 Always-On Core slice from exact main with bounded FIFO model admission, explicit backpressure, local inference warm-up, durable health observation, circuit recovery and operational status without expanding write authority or claiming REG.RU production acceptance.",
+  "approvedBy": "owner-direct-implement-2026-07-31",
+  "authorityBaseExactMain": "0fd66be4bb758ed4c986a028c8c26890fd28ec41",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-always-on-core-20260731.json",
+    "apps/tai/TAI_ALWAYS_ON_CORE_STAGE1.md",
+    "apps/tai/tai/always_on_core.py",
+    "apps/tai/tai/production_entrypoint.py",
+    "apps/tai/tests/test_always_on_core.py"
+  ],
+  "requiredBehavior": [
+    "reuse the existing REG.RU local model and PostgreSQL authority",
+    "introduce no paid dependency or recurring expense",
+    "bound model inflight work and queued work independently",
+    "preserve FIFO order for admitted queued requests",
+    "fail closed with a generic retryable overload response",
+    "clean up timed out and cancelled queue entries",
+    "perform local inference warm-up at startup and periodically while idle",
+    "record model health through the existing PostgreSQL model runtime repository",
+    "open a circuit after repeated health failures and automatically retry after cooldown",
+    "publish only non-secret pressure and supervisor status",
+    "preserve informational-only and read-only TAI authority",
+    "state exact remaining live and distributed acceptance gaps"
+  ],
+  "forbiddenCapabilities": [
+    "autonomous platform writes",
+    "financial execution",
+    "client-selected tenant role or membership",
+    "direct browser access to model host",
+    "exposing model endpoint secrets prompts users tenants or infrastructure diagnostics",
+    "bypassing model artifact licence benchmark or admission authority",
+    "claiming distributed queue HA DR load soak streaming or REG.RU live acceptance",
+    "new server paid API SaaS subscription or recurring cost"
+  ]
+}
