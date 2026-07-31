@@ -53,3 +53,4 @@ CMD ["node_modules/next/dist/bin/next", "start", "-p", "3000"]
 # Operational release trigger: publish the unified Deal plus TAI homepage accepted in PR #3220.
 # Operational release trigger: publish the final governed unified-home authority after PRs #3226 and #3227.
 # Operational release trigger: publish the exact SHA carrying the corrected current-home mobile acceptance contract.
+# Operational release trigger: publish the seven-step homepage, public Trust Center and compact mobile AI dock.
