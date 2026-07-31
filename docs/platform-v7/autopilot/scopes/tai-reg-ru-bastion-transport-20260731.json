@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-reg-ru-bastion-transport-20260731",
+  "status": "active",
+  "purpose": "Replace the unreachable direct GitHub-hosted-runner to REG.RU production SSH path and the root-equivalent persistent production runner with an ephemeral ProxyJump transport through the already reachable existing REG.RU model host for exact-main preflight, restricted-Qwen activation and standalone TAI deployment.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "e1bf3d643db7248f604eea237004b9b20de9d4ec",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/tai/TAI_REG_RU_DEPLOY.md",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-bastion-transport-20260731.json",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-local-runner-authority-v2-20260731.json",
+    "scripts/check-reg-ru-bastion-transport.mjs",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/check-tai-reg-ru-preflight.mjs",
+    "scripts/install-pc-prod-actions-runner.sh",
+    "scripts/prepare-reg-ru-bastion-ssh.sh"
+  ],
+  "requiredBehavior": [
+    "delete the persistent production self-hosted runner installer and its superseded authority scope",
+    "use the existing reachable REG.RU model host only as an ephemeral SSH ProxyJump bastion",
+    "keep the production private key exclusively on the GitHub-hosted runner",
+    "scan the production SSH host key from the model host and match exactly one key to PC_PROD_SSH_HOST_FINGERPRINT",
+    "use StrictHostKeyChecking yes IdentitiesOnly yes BatchMode yes and a generated mode-0600 SSH configuration",
+    "apply the same transport authority to read-only preflight restricted-Qwen activation and standalone TAI deployment",
+    "remove all transient keys known-hosts and SSH configuration after every run",
+    "preserve exact-main image model admission rollback tenant and write-authority gates",
+    "retain existing REG.RU infrastructure and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "direct production ssh-keyscan from a GitHub-hosted runner",
+    "persistent self-hosted GitHub Actions runner on the production VPS or model host",
+    "production user membership in the Docker group for CI execution",
+    "repository-controlled code execution with access to the production Docker socket",
+    "manual serial or VNC bootstrap as a release prerequisite",
+    "copying the production private key to the model host",
+    "agent forwarding to the model host",
+    "host key checking disablement accept-new or unpinned production host trust",
+    "new server VPN tunnel proxy SaaS paid API or recurring expense",
+    "public TAI or Qwen port exposure",
+    "tenant role financial veterinary agronomic machinery or platform write-authority expansion",
+    "production PASS claim without exact-main live evidence"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "requiredChecks": [
+      "Workflow Syntax Guard",
+      "TAI REG.RU Preflight",
+      "TAI REG.RU Deployment",
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatusBeforeLiveAcceptance": "NOT_DEPLOYED"
+  }
+}

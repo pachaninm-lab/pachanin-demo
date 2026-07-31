@@ -34,6 +34,8 @@ for (const fragment of [
   '"$digest" =~ @sha256:[0-9a-f]{64}$',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'StrictHostKeyChecking=yes',
+  'bash scripts/prepare-reg-ru-bastion-ssh.sh prepare',
+  'node scripts/check-reg-ru-bastion-transport.mjs',
   'Execute strict read-only pre-deployment inventory',
   'not blockers.issubset(allowed)',
   'unexpected pre-deployment blockers',
@@ -52,9 +54,9 @@ for (const fragment of [
 ]) requireFragment(workflow, fragment, `${workflowPath}: pre-deployment allowlist`);
 
 const remoteCleanup = workflow.indexOf("rm -f '/tmp/tai-reg-ru-deploy-${GITHUB_RUN_ID}.sh'");
-const localKeyCleanup = workflow.indexOf('rm -f "$HOME/.ssh/id_tai_model"');
-if (remoteCleanup < 0 || localKeyCleanup < 0 || remoteCleanup > localKeyCleanup) {
-  violations.push(`${workflowPath}: remote token/script cleanup must precede local SSH key cleanup`);
+const transportCleanup = workflow.indexOf('bash scripts/prepare-reg-ru-bastion-ssh.sh cleanup');
+if (remoteCleanup < 0 || transportCleanup < 0 || remoteCleanup > transportCleanup) {
+  violations.push(`${workflowPath}: remote token/script cleanup must precede bastion transport cleanup`);
 }
 
 for (const fragment of [
@@ -146,4 +148,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('TAI REG.RU deployment contract PASS: exact-main, immutable-digest, rootless, internal-only, effective-least-privilege, rollback-bound and zero-cost.');
+console.log('TAI REG.RU deployment contract PASS: exact-main, immutable-digest, rootless, internal-only, effective-least-privilege, rollback-bound and bastion-routed at zero cost.');

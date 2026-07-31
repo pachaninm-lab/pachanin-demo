@@ -1,6 +1,6 @@
 # TAI Agro OS — exact-main REG.RU deployment
 
-**Authority baseline:** `551ab5bf087ed710baca6483d70da11dc311a68a`  
+**Authority baseline:** `30eec47491be42db1964a46aa0e7342c0b2eec2f`  
 **Hosting:** existing REG.RU infrastructure only  
 **New recurring cost:** 0 RUB  
 **Service:** internal Compose service `tai`  
@@ -11,6 +11,20 @@
 This release authority materializes the independent TAI Agro OS runtime on the existing REG.RU production host. It reuses the current PostgreSQL service, the current private Bearer-authenticated Qwen3-8B model host, the current protected Compose project and the canonical exact-SHA rootless TAI image.
 
 It does not replace the public API/web Qwen contour. The new service is the governed orchestration runtime for subsequent server-authoritative platform integration.
+
+## Network transport authority
+
+Direct inbound SSH from GitHub-hosted runners to the production endpoint is unavailable. Exact-main preflight, restricted-Qwen activation and standalone deployment therefore share one ephemeral OpenSSH transport through the already reachable REG.RU model host.
+
+- The model host acts only as `ProxyJump`; no runner, daemon, reverse tunnel or proxy product is installed.
+- The production private key remains only on the GitHub-hosted runner and is never copied or forwarded to the model host.
+- Agent forwarding is disabled.
+- The production host key is scanned from the model host and accepted only when exactly one key matches the protected production fingerprint.
+- The final production SSH session remains `StrictHostKeyChecking=yes`, `BatchMode=yes` and `IdentitiesOnly=yes`.
+- Transient keys, known-hosts files and SSH config are removed at the end of every run.
+- The network change introduces no new server, license, SaaS or recurring cost.
+
+The bastion provides reachability only. Production trust remains anchored to `PC_PROD_SSH_HOST_FINGERPRINT`.
 
 ## Trigger and exactness
 
@@ -78,9 +92,9 @@ Only the existing TAI tables, views, materialized views and sequences in schema 
 
 ## Model and secret boundary
 
-The model credential is recovered from the already running private Qwen service process without logging it. It is masked in GitHub Actions, transferred through the pinned SSH transport, written only to the root-owned server environment file and removed from transient files.
+The model credential is recovered from the already running private Qwen service process without logging it. It is masked in GitHub Actions, transferred through the pinned end-to-end SSH transport, written only to the root-owned server environment file and removed from transient files.
 
-Remote `/tmp` token and deployment-script files are deleted while the pinned production SSH authority still exists. Local SSH keys are removed only after that remote cleanup attempt.
+Remote `/tmp` token and deployment-script files are deleted while the production SSH authority still exists. The shared bastion helper deletes all local SSH material only after remote cleanup is attempted.
 
 The model endpoint remains private. It is not exposed to the browser and no public TAI listener is created.
 
@@ -106,7 +120,7 @@ Acceptance requires all of the following on the exact target SHA:
 
 Before mutation, the workflow snapshots the previous TAI environment and override. A fresh runtime role is removed on rollback. The TAI container is removed without stopping API, web, PostgreSQL or the private model service. A previous TAI container is detected independently from web Compose labels; if it existed, its protected files and service state are restored.
 
-A failed live check triggers rollback. Production PASS is recorded only after deployment evidence and post-deployment preflight both pass.
+A failed live check triggers rollback through the same pinned bastion transport. Production PASS is recorded only after deployment evidence and post-deployment preflight both pass.
 
 ## Operational boundary
 

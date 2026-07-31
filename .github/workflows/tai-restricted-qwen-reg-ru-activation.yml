@@ -119,70 +119,10 @@ jobs:
             echo "${component}_image=$image" >> "$GITHUB_OUTPUT"
           done
 
-      - name: Resolve protected SSH transports
+      - name: Resolve protected SSH through existing model-host bastion
         id: ssh
         shell: bash
-        run: |
-          set -euo pipefail
-          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          write_key(){
-            local raw="$1" target="$2" a b c
-            [[ -n "$raw" ]] || return 1
-            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
-            printf '%s\n' "$raw" > "$a"
-            printf '%s' "${raw//\\n/$'\n'}" > "$b"
-            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
-            for candidate in "$a" "$b" "$c"; do
-              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
-                install -m 0600 "$candidate" "$target"
-                rm -f "$a" "$b" "$c"
-                return 0
-              fi
-            done
-            rm -f "$a" "$b" "$c"
-            return 1
-          }
-
-          model_host="$(trim "${MODEL_HOST_SECRET:-}")"
-          model_user="$(trim "${MODEL_USER_SECRET:-root}")"
-          model_port="$(trim "${MODEL_PORT_SECRET:-22}")"
-          prod_host="$(trim "${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}")"
-          prod_user="$(trim "${PROD_USER_SECRET:-root}")"
-          prod_port="$(trim "${PROD_PORT_SECRET:-22}")"
-          [[ -n "$model_host" && "$model_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$model_port" =~ ^[0-9]+$ ]] && ((model_port>=1 && model_port<=65535))
-          [[ "$prod_host" == "$DEFAULT_PROD_HOST" && "$prod_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$prod_port" =~ ^[0-9]+$ ]] && ((prod_port>=1 && prod_port<=65535))
-          [[ "$PROD_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
-          model_key="${MODEL_KEY_SECRET:-${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}}"
-          prod_key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
-          write_key "$model_key" "$HOME/.ssh/id_tai_model" || { echo 'Protected model-host private key is unavailable.' >&2; exit 10; }
-          write_key "$prod_key" "$HOME/.ssh/id_pc_prod" || { echo 'Protected production private key is unavailable.' >&2; exit 11; }
-
-          ssh-keyscan -T 10 -p "$model_port" "$model_host" 2>/dev/null | sort -u > "$HOME/.ssh/model_known_hosts"
-          [[ -s "$HOME/.ssh/model_known_hosts" ]]
-          scan="$(mktemp)"; match="$(mktemp)"
-          ssh-keyscan -T 10 -p "$prod_port" "$prod_host" 2>/dev/null | sort -u > "$scan"
-          while IFS= read -r line; do
-            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-            [[ "$fp" != "$PROD_HOST_FINGERPRINT" ]] || printf '%s\n' "$line" >> "$match"
-          done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]]
-          mv "$match" "$HOME/.ssh/prod_known_hosts"
-          rm -f "$scan"
-          chmod 600 "$HOME/.ssh/"*known_hosts
-
-          {
-            echo "model_host=$model_host"
-            echo "model_user=$model_user"
-            echo "model_port=$model_port"
-            echo "prod_host=$prod_host"
-            echo "prod_user=$prod_user"
-            echo "prod_port=$prod_port"
-          } >> "$GITHUB_OUTPUT"
+        run: bash scripts/prepare-reg-ru-bastion-ssh.sh prepare
 
       - name: Verify private model service and recover API key from service process without disclosure
         id: model
@@ -216,6 +156,7 @@ jobs:
           chmod 0600 "$RUNNER_TEMP/tai-model-api-key"
           echo 'model_service_verified=1' >> "$GITHUB_OUTPUT"
           echo 'model_key_source=PROC_ENV' >> "$GITHUB_OUTPUT"
+
       - name: Prepare restricted activation payload
         id: payload
         shell: bash
@@ -682,7 +623,7 @@ jobs:
           retention-days: 30
 
       - name: Roll back production after failed activation acceptance
-        if: failure()
+        if: failure() && steps.ssh.outputs.prod_host != ''
         env:
           PROD_HOST: ${{ steps.ssh.outputs.prod_host }}
           PROD_USER: ${{ steps.ssh.outputs.prod_user }}
@@ -744,3 +685,9 @@ jobs:
           set -euo pipefail
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/prod_known_hosts" -o StrictHostKeyChecking=yes \
             "$PROD_USER@$PROD_HOST" "rm -rf '/var/lib/pc-release-authority/tai-qwen-${GITHUB_RUN_ID}'"
+
+      - name: Remove transient SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/tai-qwen-api.env" "$RUNNER_TEMP/tai-qwen-web.env" "$RUNNER_TEMP/tai-model-api-key"
+          bash scripts/prepare-reg-ru-bastion-ssh.sh cleanup

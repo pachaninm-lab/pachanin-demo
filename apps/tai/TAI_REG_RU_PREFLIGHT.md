@@ -10,31 +10,31 @@
 
 The preflight inventories whether the independent TAI runtime can be introduced into the current REG.RU production contour without changing the running platform. It is an evidence step, not a deployment step.
 
+## Network transport authority
+
+GitHub-hosted runners cannot reach the production SSH endpoint directly. The preflight therefore uses the already reachable existing REG.RU model host as an ephemeral OpenSSH `ProxyJump` bastion.
+
+The transport boundary is fail-closed:
+
+- the model host is not converted into a runner, proxy service or persistent tunnel;
+- no new server, VPN, SaaS or recurring cost is introduced;
+- the production private key remains only on the ephemeral GitHub-hosted runner;
+- agent forwarding is disabled and the production key is never copied to the model host;
+- the production host key is scanned from the model host, then matched locally to exactly one protected `PC_PROD_SSH_HOST_FINGERPRINT` value;
+- the final production connection uses `StrictHostKeyChecking=yes`, `BatchMode=yes`, `IdentitiesOnly=yes`, `ForwardAgent=no` and `ProxyJump`;
+- the generated keys, known-hosts files and SSH config are deleted after the run.
+
+The model host changes only network reachability. It is not a trust substitute for the pinned production host fingerprint and receives no production credential.
+
 The exact-main trigger chain is source-controlled and sequential:
 
 1. a main push that changes the TAI runtime or any REG.RU preflight authority path triggers `Build & Publish Canonical Docker Images`;
 2. that workflow publishes canonical API, web, TAI and migration images bound to the exact main SHA;
 3. only a successful main-push publication triggers `TAI REG.RU Preflight` through `workflow_run`;
-4. a GitHub-hosted image-authority job proves the canonical TAI image revision, rootless identity and immutable digest;
-5. the live inventory runs locally on the existing REG.RU VPS through the dedicated labels `self-hosted`, `linux`, `x64`, `pc-prod`, `tai-readonly`;
-6. the production runner uses outbound-only GitHub connectivity and does not require an inbound SSH port, production SSH key or host fingerprint in the workflow;
-7. redacted evidence is uploaded, then a separate GitHub-hosted job publishes the exact-SHA status `TAI REG.RU Preflight`.
+4. the preflight checks that the workflow-run SHA still equals current exact main before connecting to REG.RU;
+5. the result is emitted as redacted evidence and the commit status `TAI REG.RU Preflight`.
 
-The workflow can also be started manually by the repository owner with the phrase `PREFLIGHT-TAI-REG-RU`. Automatic blocked inventory is preserved as a failed commit status. Manual strict execution fails when any blocker remains.
-
-## Local runner authority
-
-The production runner is installed once from the REG.RU serial/VNC console with `scripts/install-pc-prod-actions-runner.sh` and a short-lived repository registration token. The installer:
-
-- pins GitHub Actions Runner `2.336.0` and verifies the official Linux x64 SHA-256 checksum;
-- creates the dedicated non-root user `pcactions`;
-- assigns only the labels `pc-prod` and `tai-readonly` in addition to the standard self-hosted labels;
-- installs the runner as a hardened systemd service;
-- verifies Docker and Docker Compose access for the non-root runner user;
-- records a non-secret local authority marker at `/etc/pc-release-authority/actions-runner.json`;
-- does not open a new port, create a tunnel, add a server, or create a recurring cost.
-
-The live job receives no GHCR credential and no commit-status write authority. It cannot execute from a pull request because the live condition admits only a successful main-push image publication or a repository-owner manual dispatch on `main`.
+The workflow can also be started manually by the repository owner with the phrase `PREFLIGHT-TAI-REG-RU`. Automatic blocked inventory is preserved as a failed commit status but does not make the evidence workflow masquerade as a deployment. Manual strict execution fails when any blocker remains.
 
 ## Evidence collected
 
@@ -73,7 +73,7 @@ Before the independent service is materialized, deployment may proceed only when
 - `TAI_DEDICATED_ENV_NOT_MATERIALIZED`;
 - `TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED`.
 
-The list may be empty or contain any subset of these materialization blockers. Any additional blocker—stale API/web revisions, insufficient resources, missing relations, absent knowledge, model mismatch, admission failure, private-model failure, invalid override protection or detected mutation—stops deployment.
+The list may be empty or contain any subset of these materialization blockers. Any additional blocker—stale API/web revisions, insufficient resources, missing relations, absent knowledge, model mismatch, admission failure, private-model failure, SSH ambiguity, invalid override protection or detected mutation—stops deployment.
 
 ## Post-deployment result
 
@@ -118,7 +118,7 @@ The artifact schema is `tai.reg-ru.preflight.v1` and contains:
 - deduplicated blocker codes;
 - final `passed` boolean.
 
-The live runner initializes a fail-closed evidence file before production inspection. A crash or script failure therefore emits `PREFLIGHT_NOT_EXECUTED` or `PREFLIGHT_EXECUTION_FAILED` instead of losing evidence. The separate hosted status job has write authority; the production runner does not.
+The workflow uploads the artifact before enforcing a manual strict result. It also writes a redacted exact-SHA commit status named `TAI REG.RU Preflight`, allowing the current blocker count to be checked without retrieving secrets or production logs.
 
 ## Separation from deployment
 
