@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Exact-SHA REG.RU release trigger after merge e5351357: Yandex iOS public AI keyboard-gap fix.
+// Exact-SHA REG.RU release trigger for the deterministic mobile public AI footer anchor.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
