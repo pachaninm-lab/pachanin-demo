@@ -30,6 +30,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/grainflow
+  TAI_IMAGE: ghcr.io/${{ github.repository_owner }}/grainflow-tai
 
 jobs:
   build-api:
@@ -140,7 +141,7 @@ jobs:
         id: meta-tai
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_PREFIX }}-tai
+          images: ${{ env.TAI_IMAGE }}
           tags: |
             type=sha,format=short
 
