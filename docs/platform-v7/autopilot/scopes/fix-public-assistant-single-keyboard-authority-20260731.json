@@ -6,6 +6,7 @@
   "approvedBy": "owner-live-screenshots-2026-07-31T13:12+03:00",
   "authorityBaseExactMain": "10e0c5576d67fbeeb95b9cc6d881628800a52da5",
   "allowedPaths": [
+    "apps/web/app/platform-v7/template.tsx",
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/components/platform-v7/PublicAssistantMobileLayoutAuthority.tsx",
     "apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css",
@@ -21,6 +22,7 @@
     "isolated delayed WebKit viewport drops cannot move the composer upward after keyboard animation settles",
     "the composer remains in normal flex flow directly beneath the independently scrollable message region",
     "background scroll locking does not fix or translate body and therefore does not perturb viewport measurements",
+    "the route template contains no emergency inline color or important override that violates Design System v8",
     "desktop behavior AI answers API RBAC Deal data model routing and REG.RU-only production remain unchanged"
   ],
   "forbiddenCapabilities": [
