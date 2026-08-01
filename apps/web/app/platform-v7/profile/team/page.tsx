@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import '@/styles/platform-v7-organization-team-admin.css';
 import Link from 'next/link';
 import { getLocale } from 'next-intl/server';
 import { InlineNotice, StatusChip } from '@pc/design-system-v8';

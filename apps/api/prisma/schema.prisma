@@ -45,6 +45,7 @@ model Organization {
   fgisGrainExchanges                FgisGrainExchange[]
   fgisGrainAcknowledgements         FgisGrainAcknowledgement[]
 
+  @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
   @@index([inn])
   @@map("organizations")
@@ -97,6 +98,7 @@ model UserOrg {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([userId, organizationId])
+  @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
   @@index([organizationId])
   @@map("user_orgs")
 }

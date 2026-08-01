@@ -69,7 +69,7 @@ export class StaffAccessController {
   @Get('registration/applications')
   @RateLimit({ name: 'staff_registration_application_list', scope: 'user', limit: 60, windowSeconds: 60 })
   async registrationApplications(@Req() request: StaffRequest) {
-    await this.access.requirePermission(request.user, StaffPermission.REGISTRATION_REVIEW_READ);
+    await this.access.requirePermission(request.user, StaffPermission.STAFF_REQUEST_READ);
     return this.registrationDecisions.listPlatformReviewQueue(request.user);
   }
 
@@ -83,7 +83,7 @@ export class StaffAccessController {
     @Headers('x-correlation-id') correlationId?: string,
     @Headers('x-registration-delivery-key') deliveryKey?: string,
   ) {
-    await this.access.requirePermission(request.user, StaffPermission.REGISTRATION_REVIEW_DECIDE);
+    await this.access.requirePermission(request.user, StaffPermission.STAFF_REQUEST_APPROVE);
     return this.registrationDecisions.decide(
       applicationId,
       body.decision,

@@ -119,8 +119,8 @@ describe('P0 first-customer completion boundaries', () => {
     const proxy = read('apps/web/app/api/staff/[...path]/route.ts');
     expect(authController).not.toContain("@Post('registration/:applicationId/decision')");
     expect(staffController).toContain("@Post('registration/applications/:applicationId/decision')");
-    expect(staffController).toContain('StaffPermission.REGISTRATION_REVIEW_DECIDE');
-    expect(permissions).toContain("REGISTRATION_REVIEW_DECIDE: 'registration-review:decide'");
+    expect(staffController).toContain('StaffPermission.STAFF_REQUEST_APPROVE');
+    expect(permissions).toContain("STAFF_REQUEST_APPROVE: 'staff-request:approve'");
     expect(decisions).toContain('this.requirePlatformReviewer(reviewer)');
     expect(decisions).toContain("'PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF'");
     expect(proxy).toContain('/^registration\\/applications\\/[^/]+\\/decision$/');

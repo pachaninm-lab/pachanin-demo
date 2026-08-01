@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { applyCsrfHeader } from '@/lib/csrf';
 import type { OrganizationTeamMember } from '@/lib/organization-team-server';
+import styles from './OrganizationTeamAdminClient.module.css';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Invitation = {
@@ -262,14 +263,14 @@ export function OrganizationTeamAdminClient({
     } finally { setBusy(''); }
   }
 
-  if (!freshMfa) return <section className='team-admin-panel' aria-labelledby='team-step-up-title'>
+  if (!freshMfa) return <section className={styles.panel} aria-labelledby='team-step-up-title'>
     <h2 id='team-step-up-title'>{copy.stepUpTitle}</h2>
     <p>{copy.mfa} {copy.stepUpLead}</p>
-    {error ? <p className='team-admin-error' role='alert'>{error}</p> : null}
+    {error ? <p className={styles.error} role='alert'>{error}</p> : null}
     {!stepUpStarted ? <button type='button' onClick={() => void beginStepUp()} disabled={Boolean(busy)}>{copy.stepUpStart}</button> : (
-      <form className='team-admin-form' onSubmit={verifyStepUp}>
+      <form className={styles.form} onSubmit={verifyStepUp}>
         <label><span>{copy.stepUpCode}</span><input value={stepUpCode} onChange={(event) => setStepUpCode(event.target.value)} required autoComplete='one-time-code' inputMode='text' maxLength={32} autoFocus /></label>
-        <div className='team-admin-actions'>
+        <div className={styles.actions}>
           <button type='submit' disabled={Boolean(busy)}>{copy.stepUpVerify}</button>
           <button type='button' onClick={() => void beginStepUp()} disabled={Boolean(busy)}>{copy.stepUpRestart}</button>
         </div>
@@ -278,52 +279,52 @@ export function OrganizationTeamAdminClient({
   </section>;
 
   return (
-    <section className='team-admin-panel' aria-labelledby='team-admin-title'>
+    <section className={styles.panel} aria-labelledby='team-admin-title'>
       <h2 id='team-admin-title'>{copy.title}</h2>
-      {error ? <p className='team-admin-error' role='alert'>{error}</p> : null}
-      {message ? <p className='team-admin-success' role='status'>{message}</p> : null}
+      {error ? <p className={styles.error} role='alert'>{error}</p> : null}
+      {message ? <p className={styles.success} role='status'>{message}</p> : null}
 
-      <form className='team-admin-form' onSubmit={invite}>
+      <form className={styles.form} onSubmit={invite}>
         <h3>{copy.inviteTitle}</h3>
         <label><span>{copy.email}</span><input name='email' type='email' required maxLength={254} autoComplete='email' /></label>
         <label><span>{copy.role}</span><select name='role' defaultValue={roles[0]}>{roles.map((role) => <option key={role} value={role}>{ROLE_LABELS[locale][role] || role}</option>)}</select></label>
         <button type='submit' disabled={Boolean(busy)}>{busy === 'invite' ? copy.sending : copy.invite}</button>
       </form>
 
-      <div className='team-admin-section'>
+      <div className={styles.section}>
         <h3>{copy.invitations}</h3>
-        {loading ? <p aria-live='polite'>…</p> : invitations.length ? <ul className='team-admin-list'>{invitations.map((item) => <li key={item.invitationId}>
+        {loading ? <p aria-live='polite'>…</p> : invitations.length ? <ul className={styles.list}>{invitations.map((item) => <li key={item.invitationId}>
           <div><strong>{item.email}</strong><span>{ROLE_LABELS[locale][item.role] || item.role} · {copy.status}: {item.status} · {copy.expires}: {new Date(item.expiresAt).toLocaleString()}</span></div>
-          {item.status === 'PENDING' ? <div className='team-admin-actions'>
+          {item.status === 'PENDING' ? <div className={styles.actions}>
             <button type='button' onClick={() => void invitationCommand(item.invitationId, 'resend')} disabled={Boolean(busy)}>{copy.resend}</button>
-            <button type='button' className='danger' onClick={() => void invitationCommand(item.invitationId, 'revoke')} disabled={Boolean(busy)}>{copy.revokeInvitation}</button>
+            <button type='button' className={styles.danger} onClick={() => void invitationCommand(item.invitationId, 'revoke')} disabled={Boolean(busy)}>{copy.revokeInvitation}</button>
           </div> : null}
         </li>)}</ul> : <p>{copy.emptyInvitations}</p>}
       </div>
 
-      <div className='team-admin-section'>
+      <div className={styles.section}>
         <h3>{copy.joins}</h3>
-        {loading ? <p aria-live='polite'>…</p> : joins.length ? <ul className='team-admin-list'>{joins.map((item) => <li key={item.applicationId}>
+        {loading ? <p aria-live='polite'>…</p> : joins.length ? <ul className={styles.list}>{joins.map((item) => <li key={item.applicationId}>
           <div><strong>{item.applicant.fullName} · {item.applicant.email}</strong><span>{item.applicant.position} · {item.requestedWorkspace} / {ROLE_LABELS[locale][item.requestedRole] || item.requestedRole}</span></div>
-          <label className='team-admin-reason'><span>{copy.reason}</span><textarea value={joinReasons[item.applicationId] || ''} minLength={8} maxLength={500} onChange={(event) => setJoinReasons((current) => ({ ...current, [item.applicationId]: event.target.value }))} /></label>
-          <div className='team-admin-actions'>
+          <label className={styles.reason}><span>{copy.reason}</span><textarea value={joinReasons[item.applicationId] || ''} minLength={8} maxLength={500} onChange={(event) => setJoinReasons((current) => ({ ...current, [item.applicationId]: event.target.value }))} /></label>
+          <div className={styles.actions}>
             <button type='button' onClick={() => void decideJoin(item.applicationId, 'APPROVE')} disabled={Boolean(busy)}>{copy.approve}</button>
-            <button type='button' className='danger' onClick={() => void decideJoin(item.applicationId, 'REJECT')} disabled={Boolean(busy)}>{copy.reject}</button>
+            <button type='button' className={styles.danger} onClick={() => void decideJoin(item.applicationId, 'REJECT')} disabled={Boolean(busy)}>{copy.reject}</button>
           </div>
         </li>)}</ul> : <p>{copy.emptyJoins}</p>}
       </div>
 
-      <div className='team-admin-section'>
+      <div className={styles.section}>
         <h3>{copy.members}</h3>
-        <ul className='team-admin-list'>{members.map((member) => <li key={member.membershipId}>
+        <ul className={styles.list}>{members.map((member) => <li key={member.membershipId}>
           <div><strong>{member.fullName} · {member.email}</strong><span>{member.membershipStatus}{member.isOrgAdmin ? ` · ${copy.admin}` : ''}{member.activeSessionCount !== null ? ` · ${copy.activeSessions}: ${member.activeSessionCount}${member.lastSessionSeenAt ? ` · ${copy.lastSeen}: ${new Date(member.lastSessionSeenAt).toLocaleString(locale)}` : ''}` : ''}</span></div>
-          {member.membershipId !== currentMembershipId && member.membershipStatus === 'ACTIVE' ? <div className='team-admin-member-controls'>
+          {member.membershipId !== currentMembershipId && member.membershipStatus === 'ACTIVE' ? <div className={styles.memberControls}>
             <select aria-label={`${copy.role}: ${member.fullName}`} value={memberRoles[member.membershipId] || member.role} onChange={(event) => setMemberRoles((current) => ({ ...current, [member.membershipId]: event.target.value }))}>
               {roles.map((role) => <option key={role} value={role}>{ROLE_LABELS[locale][role] || role}</option>)}
             </select>
             <button type='button' onClick={() => void memberCommand(member, 'role')} disabled={Boolean(busy)}>{copy.changeRole}</button>
             <button type='button' onClick={() => void memberCommand(member, 'mfa-reset')} disabled={Boolean(busy)}>{copy.resetMfa}</button>
-            <button type='button' className='danger' onClick={() => void memberCommand(member, 'revoke')} disabled={Boolean(busy)}>{copy.revokeMember}</button>
+            <button type='button' className={styles.danger} onClick={() => void memberCommand(member, 'revoke')} disabled={Boolean(busy)}>{copy.revokeMember}</button>
           </div> : null}
         </li>)}</ul>
       </div>
