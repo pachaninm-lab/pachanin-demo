@@ -44,7 +44,7 @@ const PUBLIC_ASSISTANT_RESET_COPY: Record<Locale, string> = {
   zh: '新对话',
 };
 
-const PUBLIC_ASSISTANT_TIMEOUT_MS = 45_000;
+const PUBLIC_ASSISTANT_TIMEOUT_MS = 145_000;
 const PUBLIC_ASSISTANT_IDENTITY_STYLE_ID = 'pc-public-assistant-identity-branding-v2';
 const INTERNAL_ARTIFACT_PATTERN = /(?:<\/?(?:think|analysis|reasoning)\b|tool[_ -]?calls?|tool[_ -]?trace|think-state|reasoning[_ -]?state|"(?:arguments|tool_call_id)"\s*:)/iu;
 

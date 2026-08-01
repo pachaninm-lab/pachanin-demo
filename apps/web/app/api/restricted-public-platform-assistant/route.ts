@@ -16,8 +16,7 @@ export const runtime = 'nodejs';
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const INTERNAL_PATH = '/internal/tai/public-generate';
 const MAX_API_RESPONSE_BYTES = 1_048_576;
-const DEFAULT_TIMEOUT_MS = 90_000;
-const FAST_FALLBACK_TIMEOUT_MS = 8_000;
+const DEFAULT_TIMEOUT_MS = 130_000;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
 const MAX_HISTORY_TOTAL_CHARS = 12_000;
@@ -205,7 +204,11 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
         }
 
         if (!runtimeConfig.enabled || !runtimeConfig.endpoint) {
-          emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_RUNTIME_UNAVAILABLE');
+          if (answerMode === 'verified_platform') {
+            emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_RUNTIME_UNAVAILABLE');
+          } else {
+            writer.fail('UPSTREAM_ERROR', modelUnavailableCopy(locale));
+          }
           return;
         }
 
@@ -234,11 +237,15 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
             runtimeConfig,
             payload,
             request.signal,
-            Math.min(runtimeConfig.timeoutMs, FAST_FALLBACK_TIMEOUT_MS),
+            runtimeConfig.timeoutMs,
           );
         } catch {
           if (request.signal.aborted) return;
-          emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_FAST_FALLBACK');
+          if (answerMode === 'verified_platform') {
+            emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_RUNTIME_FALLBACK');
+          } else {
+            writer.fail('UPSTREAM_ERROR', modelUnavailableCopy(locale));
+          }
           return;
         }
 
@@ -370,7 +377,7 @@ async function callInternalModel(
       || typeof decoded.answer !== 'string'
       || !decoded.answer.trim()
       || typeof decoded.modelIdentity !== 'string'
-      || !decoded.modelIdentity.trim()
+      || decoded.modelIdentity.trim() !== config.identity
     ) throw new Error('restricted_runtime_contract_invalid');
     return decoded as ModelResponse;
   } finally {
@@ -384,7 +391,7 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   const secret = (environment.TAI_PUBLIC_GATEWAY_HMAC_SECRET || '').trim();
   const identity = (environment.TAI_RESTRICTED_QWEN_MODEL_IDENTITY || '').trim();
   const rawBase = (environment.TAI_INTERNAL_API_BASE_URL || environment.NEXT_PUBLIC_API_URL || '').trim();
-  const timeoutMs = boundedInteger(environment.TAI_PUBLIC_MODEL_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 5_000, 90_000);
+  const timeoutMs = boundedInteger(environment.TAI_PUBLIC_MODEL_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 5_000, 150_000);
   if (!enabled) return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
   if (secret.length < 32 || !identity || !rawBase) {
     return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
@@ -481,6 +488,12 @@ function containsSensitiveInput(question: string, history: readonly HistoryTurn[
 function resolveLocale(grounding: PublicKnowledgeAnswer, requested: PublicLocale): PublicLocale {
   const detected = grounding.understanding?.detectedLocale;
   return detected === 'en' || detected === 'zh' ? detected : requested;
+}
+
+function modelUnavailableCopy(locale: PublicLocale): string {
+  if (locale === 'en') return 'The local agricultural AI did not finish the answer. Retry the request.';
+  if (locale === 'zh') return '本地农业人工智能未能完成回答。请重试该问题。';
+  return 'Локальный ИИ для агробизнеса не завершил ответ. Повтори запрос.';
 }
 
 function sensitiveInputCopy(locale: PublicLocale): string {

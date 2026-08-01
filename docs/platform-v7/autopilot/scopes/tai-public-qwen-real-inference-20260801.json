@@ -19,6 +19,9 @@
     "apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+    "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
     "scripts/tai-live-public-ai-acceptance.mjs",
     "apps/web/tests/unit/taiLivePublicQwenInferenceAcceptance.test.ts",
     "docs/platform-v7/autopilot/scopes/tai-public-qwen-real-inference-20260801.json"
@@ -43,5 +46,11 @@
     "production mutation before merge"
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
-  "newRecurringCostRub": 0
+  "newRecurringCostRub": 0,
+  "deadlineHierarchyMs": {
+    "apiToModel": 120000,
+    "webToApi": 130000,
+    "browserStreamAndWatchdog": 145000,
+    "hostedAcceptanceRequest": 240000
+  }
 }
