@@ -12,7 +12,23 @@ fs.mkdirSync(evidenceDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: 'ru-RU' });
 const pageErrors = [];
-page.on('pageerror', error => pageErrors.push(String(error)));
+let manifestSha = null;
+let title = '';
+let subtitle = '';
+let fullscreenInitialState = null;
+let fullscreenInitialLabel = '';
+let fullscreenToggledLabel = '';
+
+const sanitizeEvidenceText = value => String(value)
+  .replaceAll(liveBase, '[LIVE_BASE]')
+  .replace(/[\r\n\t]+/gu, ' ')
+  .slice(0, 1000);
+
+const writeJson = (fileName, payload) => {
+  fs.writeFileSync(path.join(evidenceDir, fileName), `${JSON.stringify(payload, null, 2)}\n`);
+};
+
+page.on('pageerror', error => pageErrors.push(sanitizeEvidenceText(error)));
 try {
   const response = await page.goto(`${liveBase}/platform-v7?lang=ru&release=${targetSha}`, {
     waitUntil: 'domcontentloaded', timeout: 120000,
@@ -23,7 +39,8 @@ try {
     if (!response.ok) throw new Error(`manifest_http_${response.status}`);
     return response.json();
   }, targetSha);
-  if (manifest.commitSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifest.commitSha}`);
+  manifestSha = manifest.commitSha;
+  if (manifestSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifestSha}`);
 
   const hidden = page.locator('.pc-public-assistant-shortcut');
   await hidden.waitFor({ state: 'attached', timeout: 30000 });
@@ -36,12 +53,47 @@ try {
   catch { await hidden.evaluate(node => node.click()); }
   await dialog.waitFor({ state: 'visible', timeout: 30000 });
 
-  const title = ((await page.locator('#pc-public-assistant-title').textContent()) || '').trim();
-  const subtitle = ((await dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible').textContent()) || '').trim();
+  title = ((await page.locator('#pc-public-assistant-title').textContent()) || '').trim();
+  subtitle = ((await dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible').textContent()) || '').trim();
   if (title !== 'ИИ для агробизнеса') throw new Error('approved_title_missing');
   if (subtitle !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');
   if (await dialog.locator('.pc-modal-sheet-fullscreen-button').count()) throw new Error('duplicate_fullscreen_control_present');
-  if (await dialog.getByRole('button', { name: 'Развернуть на весь экран' }).count() !== 1) throw new Error('fullscreen_control_count_invalid');
+
+  const fullscreenControl = dialog.locator('[data-pc-public-assistant-fullscreen="native"]');
+  await fullscreenControl.waitFor({ state: 'attached', timeout: 30000 });
+  if (await fullscreenControl.count() !== 1) throw new Error('native_fullscreen_control_count_invalid');
+
+  const initialStateValue = await dialog.getAttribute('data-fullscreen');
+  if (initialStateValue !== 'true' && initialStateValue !== 'false') throw new Error('fullscreen_state_missing');
+  fullscreenInitialState = initialStateValue === 'true';
+  fullscreenInitialLabel = ((await fullscreenControl.getAttribute('aria-label')) || '').trim();
+  const expectedInitialLabel = fullscreenInitialState ? 'Вернуть компактный режим' : 'Развернуть на весь экран';
+  if (fullscreenInitialLabel !== expectedInitialLabel) {
+    throw new Error(`fullscreen_initial_label_invalid:${fullscreenInitialLabel}`);
+  }
+
+  await fullscreenControl.click();
+  await page.waitForFunction(initialState => {
+    const panel = document.querySelector('#pc-public-assistant-panel');
+    return panel?.getAttribute('data-fullscreen') !== initialState;
+  }, initialStateValue, { timeout: 30000 });
+
+  const toggledStateValue = await dialog.getAttribute('data-fullscreen');
+  const expectedToggledState = fullscreenInitialState ? 'false' : 'true';
+  if (toggledStateValue !== expectedToggledState) throw new Error('fullscreen_toggle_state_invalid');
+  fullscreenToggledLabel = ((await fullscreenControl.getAttribute('aria-label')) || '').trim();
+  const expectedToggledLabel = fullscreenInitialState ? 'Развернуть на весь экран' : 'Вернуть компактный режим';
+  if (fullscreenToggledLabel !== expectedToggledLabel) {
+    throw new Error(`fullscreen_toggled_label_invalid:${fullscreenToggledLabel}`);
+  }
+
+  await fullscreenControl.click();
+  await page.waitForFunction(initialState => {
+    const panel = document.querySelector('#pc-public-assistant-panel');
+    return panel?.getAttribute('data-fullscreen') === initialState;
+  }, initialStateValue, { timeout: 30000 });
+  const restoredLabel = ((await fullscreenControl.getAttribute('aria-label')) || '').trim();
+  if (restoredLabel !== expectedInitialLabel) throw new Error('fullscreen_restore_label_invalid');
 
   const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
   await composer.fill('Что влияет на цену зерна?');
@@ -59,10 +111,51 @@ try {
   if (pageErrors.length) throw new Error(`page_errors:${pageErrors.join('|')}`);
 
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-390x844.png'), fullPage: true });
-  fs.writeFileSync(path.join(evidenceDir, 'public-ai-window.json'), JSON.stringify({
-    schemaVersion: 'tai.public-ai-ui.acceptance.v1', targetSha, manifestSha: manifest.commitSha,
-    title, subtitle, answerCharacters: answer.length, viewport: '390x844', status: 'PASS',
-  }, null, 2));
+  writeJson('public-ai-window.json', {
+    schemaVersion: 'tai.public-ai-ui.acceptance.v2',
+    targetSha,
+    manifestSha,
+    title,
+    subtitle,
+    answerCharacters: answer.length,
+    viewport: '390x844',
+    fullscreen: {
+      initialState: fullscreenInitialState,
+      initialLabel: fullscreenInitialLabel,
+      toggledLabel: fullscreenToggledLabel,
+      restored: true,
+      nativeControlCount: 1,
+      legacyControlCount: 0,
+    },
+    status: 'PASS',
+  });
+} catch (error) {
+  const message = sanitizeEvidenceText(error instanceof Error ? error.message : error);
+  let screenshotCaptured = false;
+  try {
+    await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-failure-390x844.png'), fullPage: true });
+    screenshotCaptured = true;
+  } catch {
+    screenshotCaptured = false;
+  }
+  writeJson('public-ai-window-failure.json', {
+    schemaVersion: 'tai.public-ai-ui.failure.v1',
+    targetSha,
+    manifestSha,
+    title,
+    subtitle,
+    viewport: '390x844',
+    fullscreen: {
+      initialState: fullscreenInitialState,
+      initialLabel: fullscreenInitialLabel,
+      toggledLabel: fullscreenToggledLabel,
+    },
+    error: message,
+    pageErrors: pageErrors.slice(0, 20),
+    screenshotCaptured,
+    status: 'FAIL',
+  });
+  throw error;
 } finally {
   await browser.close();
 }
