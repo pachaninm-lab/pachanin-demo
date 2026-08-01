@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-public-qwen-real-inference-20260801",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "914f87b556ac95d469085b68053675a00696c793",
+  "purpose": "Eliminate the confirmed false-positive public Qwen activation in which RU, EN and ZH SSE completed through MODEL_FAST_FALLBACK with irrelevant deterministic platform answers instead of the activated local model.",
+  "confirmedEvidence": {
+    "activationRunId": 30678795319,
+    "infrastructureActivation": "PASS",
+    "chromiumUi": "PASS",
+    "finalization": "ACCEPT",
+    "publicSseSource": "verified_knowledge",
+    "publicSseSafetyFlag": "MODEL_FAST_FALLBACK",
+    "semanticRelevance": "FAIL"
+  },
+  "allowedPaths": [
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "apps/web/tests/unit/taiLivePublicQwenInferenceAcceptance.test.ts",
+    "docs/platform-v7/autopilot/scopes/tai-public-qwen-real-inference-20260801.json"
+  ],
+  "requiredBehavior": [
+    "honor the protected 130 second web-to-API timeout instead of forcing an 8 second fallback",
+    "honor the protected 120 second API-to-model timeout without truncating it to 90 seconds",
+    "permit verified public knowledge fallback only for verified platform questions",
+    "fail closed with localized retry guidance when general agricultural generation cannot reach the local model",
+    "require RU EN and ZH live SSE assessment source local_qwen and the approved model identity",
+    "reject MODEL_FAST_FALLBACK MODEL_RUNTIME_UNAVAILABLE and every non-model source in live acceptance",
+    "verify language and grain-price semantic relevance without relying only on response length",
+    "retain exact-main manifest mobile viewport branding overflow page-error and screenshot evidence",
+    "preserve read-only HMAC private-network tenant RBAC and rollback boundaries"
+  ],
+  "forbiddenCapabilities": [
+    "claiming Qwen PASS from token and done frames alone",
+    "using unrelated platform grounding as a general agriculture answer",
+    "exposing model host credentials or internal addresses",
+    "weakening refusal cross-tenant or write boundaries",
+    "Netlify Vercel Railway or new paid infrastructure",
+    "production mutation before merge"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
