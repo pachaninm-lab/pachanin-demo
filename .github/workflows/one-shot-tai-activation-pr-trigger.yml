@@ -32,14 +32,12 @@ jobs:
           run_line = next(i for i in range(start + 1, len(source)) if source[i] == '        run: |')
           body = []
           for line in source[run_line + 1:]:
-              if line.startswith('      - name: '):
+              if line and not line.startswith('          '):
                   break
               if line.startswith('          '):
                   body.append(line[10:])
-              elif line == '':
-                  body.append('')
               else:
-                  raise SystemExit(f'unexpected indentation in bounded repair workflow: {line!r}')
+                  body.append('')
           if not body or body[0] != 'set -Eeuo pipefail':
               raise SystemExit('bounded repair body was not extracted')
           Path('/tmp/apply-bounded-tai-repair.sh').write_text('\n'.join(body) + '\n', encoding='utf-8')
