@@ -12,7 +12,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: tai-reg-ru-bounded-docker-reclaim
+  group: tai-reg-ru-bounded-unused-image-reclaim
   cancel-in-progress: false
 
 env:
@@ -29,15 +29,15 @@ jobs:
   reclaim:
     runs-on: ubuntu-24.04
     if: github.actor == github.repository_owner
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - name: Reclaim only unused Docker cache and verify runtime invariance
+      - name: Reclaim unused images older than 24h and prove active runtime unchanged
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
           state=failure
-          description='Bounded Docker cache reclaim failed'
+          description='Bounded unused-image reclaim failed'
           publish() {
             gh api --method POST -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
@@ -48,7 +48,7 @@ jobs:
           }
           trap publish EXIT
           state=pending
-          description='Reclaiming unused Docker cache without runtime mutation'
+          description='Pruning only unused images older than 24 hours'
           publish
           state=failure
 
@@ -98,36 +98,47 @@ jobs:
             "$user@$host" 'bash -se' <<'REMOTE'
           set -Eeuo pipefail
           [[ "$(id -u)" -eq 0 ]]
-          command -v docker >/dev/null
-          docker version >/dev/null
           work="$(mktemp -d)"
           trap 'rm -rf "$work"' EXIT
-          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Status}}|{{.Names}}' | sort > "$work/running.before"
+
+          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Names}}' | sort > "$work/running.before"
+          docker ps -q | sort > "$work/container-ids.before"
+          while IFS= read -r id; do
+            [[ -n "$id" ]] || continue
+            docker inspect --format '{{.Image}}' "$id"
+          done < "$work/container-ids.before" | sort -u > "$work/active-image-ids.before"
           before_kb="$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')"
           echo "DOCKER_AVAILABLE_KB_BEFORE=$before_kb"
+          echo "ACTIVE_IMAGE_COUNT=$(wc -l < "$work/active-image-ids.before")"
           docker system df
 
-          docker container prune --force
-          docker image prune --force
-          docker network prune --force
-          docker builder prune --all --force
+          docker image prune --all --force --filter until=24h
 
-          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Status}}|{{.Names}}' | sort > "$work/running.after"
+          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Names}}' | sort > "$work/running.after"
           cmp -s "$work/running.before" "$work/running.after" || {
-            echo RUNTIME_CONTAINER_SET_CHANGED >&2
+            echo ACTIVE_RUNTIME_CHANGED >&2
             diff -u "$work/running.before" "$work/running.after" >&2 || true
             exit 41
           }
+          while IFS= read -r image_id; do
+            [[ -n "$image_id" ]] || continue
+            docker image inspect "$image_id" >/dev/null || {
+              echo ACTIVE_IMAGE_REMOVED >&2
+              exit 42
+            }
+          done < "$work/active-image-ids.before"
+
           after_kb="$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')"
           echo "DOCKER_AVAILABLE_KB_AFTER=$after_kb"
           (( after_kb >= 5242880 )) || {
             echo DOCKER_CAPACITY_STILL_LOW >&2
             docker system df >&2
-            exit 42
+            exit 43
           }
           docker ps --format '{{.Names}}|{{.Status}}' | sort
-          echo DOCKER_CAPACITY_RECOVERY_PASS
+          docker system df
+          echo UNUSED_IMAGE_RECLAIM_PASS
           REMOTE
 
           state=success
-          description='Docker capacity recovered; running containers unchanged'
+          description='Docker capacity PASS; active runtime unchanged'
