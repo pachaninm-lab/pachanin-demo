@@ -1,0 +1,132 @@
+name: P0.2 FGIS First Confirmed Lot Audit
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/p0-fgis-first-confirmed-lot-audit.yml'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json'
+      - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-audit.md'
+      - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json'
+      - 'scripts/p0-fgis-first-confirmed-lot/verify-audit.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/p0-fgis-first-confirmed-lot-audit.yml'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json'
+      - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-audit.md'
+      - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json'
+      - 'scripts/p0-fgis-first-confirmed-lot/verify-audit.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-fgis-first-confirmed-lot-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_MAIN: 758f55b89ff677d6bcd5e820887d519fb41271d1
+  EVIDENCE_DIR: artifacts/p0-fgis-first-confirmed-lot-audit
+
+jobs:
+  exact-main-audit:
+    name: Exact main · 17 areas · official SOAP · unsafe quarantine boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact revision and full ancestry
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enforce exact main and audit-only paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          printf '%s\n' "$EXPECTED_MAIN" > "$EVIDENCE_DIR/expected-main.txt"
+
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            actual_main="$(git rev-parse "origin/${{ github.base_ref }}")"
+            if [[ "$actual_main" != "$EXPECTED_MAIN" ]]; then
+              echo "Audit base is stale: expected $EXPECTED_MAIN, actual $actual_main" >&2
+              exit 1
+            fi
+            GITHUB_HEAD_REF='${{ github.head_ref }}' node scripts/p7-source-controlled-scope.mjs \
+              | tee "$EVIDENCE_DIR/source-controlled-scope.log"
+          elif [[ "${{ github.event_name }}" == 'push' ]]; then
+            if [[ "${{ github.event.before }}" != "$EXPECTED_MAIN" ]]; then
+              echo "Merged audit did not land immediately after exact audited main." >&2
+              exit 1
+            fi
+          fi
+
+          git diff --name-only "$EXPECTED_MAIN...$EXACT_HEAD" | sort \
+            | tee "$EVIDENCE_DIR/changed-files.txt"
+          node --check scripts/p0-fgis-first-confirmed-lot/verify-audit.mjs
+          node scripts/p0-fgis-first-confirmed-lot/verify-audit.mjs \
+            | tee "$EVIDENCE_DIR/audit-verification.json"
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Re-run audited contract, XML, tenant and auction tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/api exec prisma generate \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+          pnpm --filter @pc/api exec jest --runInBand \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.contract.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.spec.ts \
+            src/modules/auctions/auction-postgresql-authority.spec.ts \
+            src/modules/auctions/auction-command.service.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/targeted-tests.log"
+
+      - name: Publish audit summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## P0.2 FGIS first confirmed lot · Stage 1 audit'
+            echo "- Exact audited main: \`$EXPECTED_MAIN\`"
+            echo "- Exact head: \`$EXACT_HEAD\`"
+            echo '- Operational status: `NOT_ATTESTED`'
+            echo '- `LIVE_CONFIRMED`: `0`'
+            echo '- Required audit areas: `17`'
+            echo '- Next slice: `P0.2-1A-LEGACY-FGIS-QUARANTINE`'
+            if [[ -f "$EVIDENCE_DIR/audit-verification.json" ]]; then
+              echo '- Audit verifier: `PASS`'
+            else
+              echo '- Audit verifier: `NO_EVIDENCE`'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-fgis-first-confirmed-lot-audit-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90

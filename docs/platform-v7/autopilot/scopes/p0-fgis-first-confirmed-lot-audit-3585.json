@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "P0-FGIS-FIRST-CONFIRMED-LOT-AUDIT-3585",
+  "branch": "p0/fgis-first-confirmed-lot-audit-3585",
+  "status": "active",
+  "issue": 3585,
+  "activeSlice": "P0.2-STAGE-1-AUDIT",
+  "baseCommit": "758f55b89ff677d6bcd5e820887d519fb41271d1",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "exact-main-audit-and-governed-implementation-plan-only",
+  "allowedPaths": [
+    ".github/workflows/p0-fgis-first-confirmed-lot-audit.yml",
+    "docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json",
+    "docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-audit.md",
+    "docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json",
+    "scripts/p0-fgis-first-confirmed-lot/verify-audit.mjs"
+  ],
+  "boundaries": {
+    "auditOnly": true,
+    "applicationCodeChange": false,
+    "databaseOrMigrationChange": false,
+    "productionActivation": false,
+    "providerCall": false,
+    "credentialOrCertificateMaterial": false,
+    "externalLiveClaim": false,
+    "firstCustomerAccessChange": false
+  },
+  "requiredBehavior": [
+    "audit exact origin/main and record the exact commit",
+    "classify every discovered FGIS path with the specification status taxonomy",
+    "identify the canonical module and prohibit a parallel FGIS contour",
+    "identify unsafe production-reachable emulator or conditional REST paths",
+    "separate technically ready code from real provider and production evidence",
+    "record exact external blockers without generic unsupported escalation language",
+    "define narrow implementation slices after the audit"
+  ],
+  "forbiddenCapabilities": [
+    "live connected or production-attested claim",
+    "provider credentials certificates tokens endpoints or private payloads",
+    "application runtime database migration UI or deployment mutation",
+    "First Customer Access or authentication changes",
+    "Netlify Vercel or non-REG.RU production work"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

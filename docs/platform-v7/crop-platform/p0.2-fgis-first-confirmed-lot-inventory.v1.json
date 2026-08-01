@@ -1,0 +1,822 @@
+{
+  "schemaVersion": "p0.2.fgis-first-confirmed-lot-audit.v1",
+  "generatedAt": "2026-08-01T13:44:16Z",
+  "issue": {
+    "number": 3585,
+    "url": "https://github.com/pachaninm-lab/pachanin-demo/issues/3585",
+    "title": "P0.2: ФГИС «Зерно» → первый подтверждённый лот"
+  },
+  "audit": {
+    "repository": "pachaninm-lab/pachanin-demo",
+    "branch": "p0/fgis-first-confirmed-lot-audit-3585",
+    "exactMainSha": "758f55b89ff677d6bcd5e820887d519fb41271d1",
+    "exactMainVerifiedBy": [
+      "git fetch origin main",
+      "git ls-remote origin refs/heads/main",
+      "git rev-parse HEAD"
+    ],
+    "operationalStatus": "NOT_ATTESTED",
+    "productionHosting": "REG_RU_VPS_ONLY",
+    "liveConfirmedCount": 0
+  },
+  "statusTaxonomy": [
+    "LIVE_CONFIRMED",
+    "TECHNICALLY_READY",
+    "PARTIAL",
+    "UI_ONLY",
+    "API_ONLY",
+    "TEST_ONLY",
+    "EMULATOR",
+    "FIXTURE",
+    "DOCUMENT_ONLY",
+    "UNSAFE",
+    "DUPLICATE",
+    "ABSENT",
+    "EXTERNAL_BLOCKER"
+  ],
+  "verdict": {
+    "status": "PARTIAL",
+    "p0_2CommercialPathReady": false,
+    "reason": "The repository contains a strong, fail-closed canonical FGIS Grain regulatory authority, but no live provider transport and no PostgreSQL party snapshot, current projection, sync run, commodity reservation, persistent lot passport or party-to-lot reconciliation authority. Production-reachable legacy mock, invented REST and self-verifying auction paths must be quarantined before product expansion.",
+    "canonicalModule": "apps/api/src/modules/regulatory-integration/fgis-grain",
+    "parallelFgisContourAllowed": false,
+    "nextSlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
+  },
+  "prerequisites": [
+    {
+      "id": "FIRST_CUSTOMER_ACCESS",
+      "status": "EXTERNAL_BLOCKER",
+      "evidence": {
+        "pullRequest": 3564,
+        "pullRequestUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/3564",
+        "observedState": "OPEN_DRAFT_NOT_MERGED",
+        "presentOnExactMain": false
+      },
+      "effect": "Real admitted-seller browser acceptance cannot pass until the separately governed First Customer Access work is merged and re-audited. P0.2 implementation may proceed on separate branches and PRs without changing authentication."
+    }
+  ],
+  "canonicalAuthority": {
+    "status": "TECHNICALLY_READY",
+    "module": "apps/api/src/modules/regulatory-integration/fgis-grain",
+    "moduleBinding": "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "postgresqlAuthority": [
+      "RegulatoryIntegrationInboxEntry",
+      "RegulatoryIntegrationInboxConflict",
+      "FgisGrainProviderConfiguration",
+      "FgisGrainProviderAttestation",
+      "FgisGrainExchange",
+      "FgisGrainExchangeReceipt",
+      "FgisGrainAcknowledgement",
+      "FgisGrainSdizProjectionBatch",
+      "FgisGrainSdizProjection"
+    ],
+    "tenantRead": {
+      "status": "API_ONLY",
+      "allowedReadOperations": 19,
+      "rejectedMutationOperations": 38,
+      "transportAvailable": false,
+      "disabledCode": "FGIS_GRAIN_READ_TRANSPORT_DISABLED"
+    },
+    "outboundPorts": {
+      "status": "EXTERNAL_BLOCKER",
+      "binding": "apps/api/src/outbox-worker.module.ts",
+      "providerConfiguration": "FAIL_CLOSED",
+      "immutablePayloadStore": "FAIL_CLOSED",
+      "canonicalization": "FAIL_CLOSED",
+      "signingProvider": "FAIL_CLOSED",
+      "signedEnvelopeAssembler": "FAIL_CLOSED",
+      "soapTransport": "FAIL_CLOSED"
+    }
+  },
+  "officialContract": {
+    "status": "TECHNICALLY_READY",
+    "sourcePageUrl": "https://specagro.ru/fgis/api",
+    "pinnedVersion": "1.0.23",
+    "publishedVersions": [
+      "1.0.9",
+      "1.0.16",
+      "1.0.19",
+      "1.0.23"
+    ],
+    "packageSha256": "085e22c50b6564219585c96e814b0793d906f4c5e401cbb7446a949c26f0bcd7",
+    "sourceLock": "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json",
+    "operationCatalog": "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json",
+    "transport": {
+      "protocol": "SOAP_1_1",
+      "style": "DOCUMENT",
+      "operations": [
+        "SendRequest",
+        "SendResponse",
+        "Ack"
+      ],
+      "businessProcessing": "ASYNCHRONOUS_QUEUE",
+      "responseCodes": [
+        "success",
+        "accepted",
+        "queue-is-empty",
+        "ignored"
+      ],
+      "documentationEndpoint": "http://localhost/api/ws/1.0.23",
+      "documentationEndpointRuntimeAllowed": false,
+      "attachments": "MTOM_XOP"
+    },
+    "operationCounts": {
+      "total": 57,
+      "read": 19,
+      "mutation": 38
+    },
+    "p0_2ReadOperations": [
+      {
+        "code": "GET_LIST_LOT",
+        "request": "RequestGetListLot",
+        "response": "ResponseGetListLot"
+      },
+      {
+        "code": "GET_LIST_SDIZ",
+        "request": "RequestGetListSDIZ",
+        "response": "ResponseGetListSDIZ"
+      }
+    ],
+    "deltaSync": {
+      "field": "recordsModifiedFrom",
+      "paging": "Paging with hasMore",
+      "pageSizeLimit": 100,
+      "pageNumberBase": "REQUIRES_PREPROD_CONFORMANCE_TEST"
+    },
+    "recordLotMapping": {
+      "confirmedFields": [
+        "id",
+        "number",
+        "Owner",
+        "Agent",
+        "Repository",
+        "Crop.OKPD2",
+        "Crop.TNVED",
+        "Target",
+        "Purpose",
+        "HarvestYear",
+        "StoragePlace",
+        "quality indicator code and string value",
+        "status",
+        "amountOriginal",
+        "amountAvailable",
+        "dateRegistration",
+        "lastModified",
+        "organic product flag",
+        "quarantine zone flag"
+      ],
+      "externalStatuses": [
+        "SUBSCRIBED",
+        "CANCELED",
+        "BLOCKED",
+        "IN_ARCHIVE"
+      ],
+      "sourceUpdatedAt": "lastModified",
+      "fetchedAt": "PLATFORM_GENERATED",
+      "sourceVersion": "ADAPTER_VERSION_NOT_RECORD_FIELD",
+      "notPresentAsGenericFields": [
+        "unit",
+        "generic related documents list",
+        "per-quality-value evidence source"
+      ]
+    },
+    "signature": {
+      "requiredElement": "InformationSystemSignature",
+      "certificateIdentifiesInitiator": true,
+      "algorithms": [
+        "GOST_R_34_11_2012_256",
+        "GOST_R_34_10_2012_256",
+        "EXCLUSIVE_C14N",
+        "SMEV_TRANSFORM"
+      ],
+      "contractConflict": "XSD requires XMLDSigSignatureType while package prose also references PKCS#7 1.5; production PASS requires preprod conformance evidence or an official clarification."
+    },
+    "notOfficiallyConfirmed": [
+      "mTLS requirement",
+      "IP allowlist requirement",
+      "OAuth",
+      "bearer token",
+      "client_secret",
+      "API login and password"
+    ]
+  },
+  "requiredAuditAreas": [
+    {
+      "order": 1,
+      "key": "fgis_modules",
+      "label": "Все существующие ФГИС-модули",
+      "status": "DUPLICATE",
+      "items": [
+        {
+          "id": "CANONICAL_REGULATORY_MODULE",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts"
+          ]
+        },
+        {
+          "id": "LEGACY_SDK_MOCK_LIVE_AND_REGISTRY",
+          "status": "DUPLICATE",
+          "paths": [
+            "packages/integration-sdk/src/adapters/fgis-zerno.adapter.ts",
+            "packages/integration-sdk/src/live/live-fgis-zerno.adapter.ts",
+            "packages/integration-sdk/src/registry.ts"
+          ]
+        },
+        {
+          "id": "LEGACY_API_INTEGRATIONS_AND_SAGA",
+          "status": "UNSAFE",
+          "paths": [
+            "apps/api/src/modules/integrations",
+            "apps/api/src/modules/saga/fgis-step.service.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "key": "party_models",
+      "label": "Модели партий",
+      "status": "ABSENT",
+      "items": [
+        {
+          "id": "FGIS_PARTY_SNAPSHOT",
+          "status": "ABSENT",
+          "paths": []
+        },
+        {
+          "id": "FGIS_PARTY_CURRENT",
+          "status": "ABSENT",
+          "paths": []
+        },
+        {
+          "id": "FGIS_SYNC_RUN",
+          "status": "ABSENT",
+          "paths": []
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "key": "fgis_lot_passport",
+      "label": "fgis-lot-passport",
+      "status": "FIXTURE",
+      "items": [
+        {
+          "id": "WEB_FGIS_LOT_PASSPORT",
+          "status": "FIXTURE",
+          "paths": [
+            "apps/web/lib/platform-v7/fgis-lot-passport.ts"
+          ],
+          "finding": "Contains SANDBOX_FGIS_PARTIES and SANDBOX_LOT_PASSPORTS; manual_mode is treated as creatable and publication is not bound to PostgreSQL source evidence."
+        },
+        {
+          "id": "POSTGRES_LOT_PASSPORT",
+          "status": "ABSENT",
+          "paths": []
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "key": "live_adapter",
+      "label": "Live-адаптер",
+      "status": "UNSAFE",
+      "items": [
+        {
+          "id": "LEGACY_LIVE_FGIS_REST_ADAPTER",
+          "status": "UNSAFE",
+          "paths": [
+            "packages/integration-sdk/src/live/live-fgis-zerno.adapter.ts"
+          ],
+          "finding": "Uses unconfirmed REST paths /lots, /lots/:id/status, /shipment, /acceptance, /certificate and /dictionaries/crops with VENDOR MAPPING markers; the official transport is SOAP 1.1."
+        },
+        {
+          "id": "CANONICAL_SOAP_PROVIDER_TRANSPORT",
+          "status": "EXTERNAL_BLOCKER",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.fail-closed.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.transport.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "key": "emulator_and_fixtures",
+      "label": "Emulator и fixtures",
+      "status": "EMULATOR",
+      "items": [
+        {
+          "id": "SDK_MOCK_FGIS_ADAPTER",
+          "status": "EMULATOR",
+          "paths": [
+            "packages/integration-sdk/src/adapters/fgis-zerno.adapter.ts",
+            "packages/integration-sdk/src/registry.ts"
+          ]
+        },
+        {
+          "id": "WEB_FGIS_EMULATOR",
+          "status": "EMULATOR",
+          "paths": [
+            "apps/web/lib/platform-v7/fgis-adapter-emulator.ts",
+            "apps/web/lib/v7r/fgisSoapSandbox.ts"
+          ]
+        },
+        {
+          "id": "FGIS_SYNC_FIXTURE",
+          "status": "FIXTURE",
+          "paths": [
+            "integrations/sandbox-fixtures/fgis-sync.json"
+          ]
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "key": "regulatory_integration",
+      "label": "Regulatory integration",
+      "status": "TECHNICALLY_READY",
+      "items": [
+        {
+          "id": "DURABLE_INBOX_EXCHANGE_RECEIPT_SDIZ",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration",
+            "apps/api/src/modules/regulatory-integration/fgis-grain"
+          ],
+          "finding": "Provides contract, inbox, conflict, exchange correlation, receipt, acknowledgment, SDIZ projection, tenant authorization, audit and outbox primitives; it is not a commodity-party or reservation authority."
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "key": "contract_versions",
+      "label": "Версии контрактов",
+      "status": "TECHNICALLY_READY",
+      "items": [
+        {
+          "id": "OFFICIAL_1_0_23_SOURCE_LOCK",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json",
+            "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.json"
+          ]
+        },
+        {
+          "id": "PRODUCTION_ENABLED_VERSION",
+          "status": "EXTERNAL_BLOCKER",
+          "paths": [],
+          "finding": "The operator publishes several packages, but the version enabled on production and the new preproduction endpoint is not published in the packages."
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "key": "xml_policies",
+      "label": "XML policies",
+      "status": "PARTIAL",
+      "items": [
+        {
+          "id": "XML_CODEC_AND_SECURITY_POLICY",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.ts"
+          ],
+          "finding": "SOAP 1.1 and bounded XML parsing are tested; DTD, entities, CDATA, processing instructions and XInclude are rejected."
+        },
+        {
+          "id": "PRODUCTION_CANONICALIZATION_AND_GOST_SIGNING",
+          "status": "EXTERNAL_BLOCKER",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.signing-policy.generated.ts"
+          ],
+          "finding": "Policy is PORTS_ONLY; canonicalization, signing and signature verification implementations are not bound."
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "key": "acknowledgment_processing",
+      "label": "Acknowledgment processing",
+      "status": "TECHNICALLY_READY",
+      "items": [
+        {
+          "id": "DURABLE_ACK_AUTHORITY",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.repository.ts",
+            "apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql"
+          ],
+          "finding": "Durable and idempotent authority exists; a real operator acknowledgment has not been received."
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "key": "seller_fgis_routes",
+      "label": "Seller FGIS routes",
+      "status": "UI_ONLY",
+      "items": [
+        {
+          "id": "SELLER_FGIS_REDIRECT",
+          "status": "UI_ONLY",
+          "paths": [
+            "apps/web/app/platform-v7/seller/fgis-parties/page.tsx",
+            "apps/web/app/platform-v7/fgis-access/page.tsx"
+          ],
+          "finding": "The seller path redirects to a pre-integration access page."
+        },
+        {
+          "id": "REQUIRED_SELLER_FGIS_ROUTES",
+          "status": "ABSENT",
+          "paths": [],
+          "finding": "The required connect wizard, canonical parties list/detail and seller lot creation wizard routes do not exist."
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "key": "auction_import_routes",
+      "label": "Auction import routes",
+      "status": "UNSAFE",
+      "items": [
+        {
+          "id": "AUCTION_IMPORT_UI",
+          "status": "UI_ONLY",
+          "paths": [
+            "apps/web/app/platform-v7/auction/import/page.tsx",
+            "apps/web/app/platform-v7/fgis-to-lot/page.tsx"
+          ],
+          "finding": "Read-only PostgreSQL workspace; it does not import a provider-confirmed party."
+        },
+        {
+          "id": "AUCTION_FGIS_SOURCE_SELF_VERIFICATION",
+          "status": "UNSAFE",
+          "paths": [
+            "apps/api/src/modules/auctions/auction-command.service.ts",
+            "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql"
+          ],
+          "finding": "The client supplies sourceType/sourceExternalId; SQL records source_verified_at=now, status=BIDDING and admission_status=ADMITTED without a party snapshot, refresh, reservation or source FK."
+        },
+        {
+          "id": "LEGACY_IN_MEMORY_LOTS",
+          "status": "UNSAFE",
+          "paths": [
+            "apps/api/src/modules/lots/lots.controller.ts",
+            "apps/api/src/modules/lots/lots.service.ts",
+            "apps/web/app/api/lots/route.ts"
+          ],
+          "finding": "Demo and in-memory create/publish paths are not bound to tenant PostgreSQL party and reservation authority."
+        }
+      ]
+    },
+    {
+      "order": 12,
+      "key": "postgresql_authority",
+      "label": "PostgreSQL authority",
+      "status": "PARTIAL",
+      "items": [
+        {
+          "id": "REGULATORY_AND_AUCTION_POSTGRES_AUTHORITY",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "apps/api/prisma/schema.prisma",
+            "apps/api/prisma/migrations/20260713210000_auction_postgresql_authority/migration.sql",
+            "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql"
+          ],
+          "finding": "Existing authorities provide forced RLS, tenant context, idempotency, audit and outbox primitives."
+        },
+        {
+          "id": "P0_2_COMMODITY_POSTGRES_AUTHORITY",
+          "status": "ABSENT",
+          "paths": [],
+          "finding": "No immutable party snapshot/current projection/sync run/reservation/passport/reconciliation case or atomic confirmed-lot publication command exists."
+        }
+      ]
+    },
+    {
+      "order": 13,
+      "key": "integration_credentials",
+      "label": "Интеграционные credentials",
+      "status": "EXTERNAL_BLOCKER",
+      "items": [
+        {
+          "id": "SAFE_PROVIDER_REFERENCE_MODEL",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.repository.ts",
+            "apps/api/prisma/schema.prisma"
+          ],
+          "finding": "Safe references and attestation authority exist and inline secrets are forbidden."
+        },
+        {
+          "id": "REAL_PROVIDER_IDENTITY_AND_CERTIFICATE",
+          "status": "EXTERNAL_BLOCKER",
+          "paths": [],
+          "finding": "No registered initiator, organization-bound X.509 certificate reference, real endpoint or production credential reference is present."
+        }
+      ]
+    },
+    {
+      "order": 14,
+      "key": "queues_and_workers",
+      "label": "Очереди и workers",
+      "status": "PARTIAL",
+      "items": [
+        {
+          "id": "EXISTING_POSTGRES_OUTBOX_WORKER",
+          "status": "TECHNICALLY_READY",
+          "paths": [
+            "apps/api/src/outbox-worker.module.ts",
+            "apps/api/src/modules/integration-events/durable-outbox.worker.ts"
+          ],
+          "finding": "The existing PostgreSQL outbox is the required zero-new-cost queue authority."
+        },
+        {
+          "id": "FGIS_PROVIDER_DELIVERY_BINDINGS",
+          "status": "EXTERNAL_BLOCKER",
+          "paths": [
+            "apps/api/src/outbox-worker.module.ts"
+          ],
+          "finding": "All provider delivery ports are fail-closed."
+        },
+        {
+          "id": "PARTY_DELTA_SYNC_WORKER",
+          "status": "ABSENT",
+          "paths": []
+        }
+      ]
+    },
+    {
+      "order": 15,
+      "key": "current_ui_surfaces",
+      "label": "Текущие UI-поверхности",
+      "status": "UI_ONLY",
+      "items": [
+        {
+          "id": "PREINTEGRATION_FGIS_UI",
+          "status": "UI_ONLY",
+          "paths": [
+            "apps/web/app/platform-v7/fgis-access/page.tsx",
+            "apps/web/app/platform-v7/fgis-zerno/page.tsx",
+            "apps/web/app/platform-v7/auction/import/page.tsx"
+          ],
+          "finding": "Current screens describe access or show fixtures/read-only auction authority; they do not prove a connection or provider data."
+        },
+        {
+          "id": "P0_2_SELLER_UX",
+          "status": "ABSENT",
+          "paths": [],
+          "finding": "No RU/EN/ZH connection, parties, reserves, reconciliation or five-step lot wizard UX exists."
+        }
+      ]
+    },
+    {
+      "order": 16,
+      "key": "tests",
+      "label": "Тесты",
+      "status": "TEST_ONLY",
+      "items": [
+        {
+          "id": "TARGETED_CONTRACT_XML_TENANT_AUCTION_TESTS",
+          "status": "TEST_ONLY",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.spec.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-policy.spec.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.contract.spec.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.spec.ts",
+            "apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts",
+            "apps/api/src/modules/auctions/auction-command.service.spec.ts"
+          ],
+          "result": "7/7 suites and 63/63 tests passed on the exact-main audit worktree"
+        },
+        {
+          "id": "P0_2_PRODUCT_AND_REAL_PROVIDER_ACCEPTANCE",
+          "status": "ABSENT",
+          "paths": [],
+          "finding": "No party snapshot → reserve → passport → publish → external mutation → freeze scenario and no real-provider acceptance exists."
+        }
+      ]
+    },
+    {
+      "order": 17,
+      "key": "production_evidence",
+      "label": "Production evidence",
+      "status": "ABSENT",
+      "items": [
+        {
+          "id": "PRODUCTION_TRUTH",
+          "status": "DOCUMENT_ONLY",
+          "paths": [
+            "docs/platform-v7/crop-platform/agricultural-government-systems.final-truth.v1.json",
+            "docs/platform-v7/crop-platform/agricultural-government-systems.readiness.v2.json",
+            "infra/kind/production-like/acceptance-values.yaml"
+          ],
+          "finding": "The repository records platformReadEnabled=false, platformWriteEnabled=false, externalProviderE2E=ABSENT, productionAttestation=ABSENT and FGIS_ZERNO_MODE=disabled."
+        },
+        {
+          "id": "REAL_PARTY_TO_CONFIRMED_LOT_EVIDENCE",
+          "status": "ABSENT",
+          "paths": []
+        }
+      ]
+    }
+  ],
+  "unsafeFindings": [
+    {
+      "id": "P0_UNSAFE_LEGACY_REST_ADAPTER",
+      "status": "UNSAFE",
+      "path": "packages/integration-sdk/src/live/live-fgis-zerno.adapter.ts",
+      "requiredDisposition": "Remove from production factory bindings or make every FGIS command fail closed; do not map it into the canonical adapter."
+    },
+    {
+      "id": "P0_UNSAFE_MOCK_API_PUSH",
+      "status": "UNSAFE",
+      "paths": [
+        "apps/api/src/modules/integrations/integrations.controller.ts",
+        "apps/api/src/modules/integrations/integrations.service.ts"
+      ],
+      "requiredDisposition": "Disable the FGIS push command and remove MOCK_OK from any production-reachable response."
+    },
+    {
+      "id": "P0_UNSAFE_MOCK_SAGA",
+      "status": "UNSAFE",
+      "path": "apps/api/src/modules/saga/fgis-step.service.ts",
+      "requiredDisposition": "Fail closed for register/shipment/acceptance/certificate operations; platform staff must not act as seller or signer."
+    },
+    {
+      "id": "P0_UNSAFE_LEGACY_WEBHOOKS",
+      "status": "UNSAFE",
+      "paths": [
+        "apps/api/src/modules/integrations/integrations.controller.ts",
+        "apps/api/src/modules/integrations/edo-webhook.controller.ts"
+      ],
+      "requiredDisposition": "Disable invented public JSON/HMAC FGIS callbacks; official polling, signed SOAP, durable inbox and Ack are the canonical inbound path."
+    },
+    {
+      "id": "P0_UNSAFE_FALSE_LIVE_CLAIM",
+      "status": "UNSAFE",
+      "path": "apps/api/src/modules/admin/admin.controller.ts",
+      "requiredDisposition": "Replace the FGIS Saga live claim with disabled/not-attested truth."
+    },
+    {
+      "id": "P0_UNSAFE_AUCTION_SOURCE_SELF_VERIFICATION",
+      "status": "UNSAFE",
+      "paths": [
+        "apps/api/src/modules/auctions/auction-command.service.ts",
+        "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql"
+      ],
+      "requiredDisposition": "FGIS source evidence must be server-derived from a current snapshot and active reservation; browser input may not set verification."
+    },
+    {
+      "id": "P0_UNSAFE_IN_MEMORY_LOT_WRITES",
+      "status": "UNSAFE",
+      "paths": [
+        "apps/api/src/modules/lots/lots.controller.ts",
+        "apps/api/src/modules/lots/lots.service.ts",
+        "apps/web/app/api/lots/route.ts"
+      ],
+      "requiredDisposition": "Disable grain publication until the PostgreSQL reservation/passport/publication authority is available."
+    }
+  ],
+  "missingCapabilities": [
+    {
+      "id": "FGIS_CONNECTION_SELLER_LIFECYCLE",
+      "status": "ABSENT"
+    },
+    {
+      "id": "FGIS_PARTY_SNAPSHOT",
+      "status": "ABSENT"
+    },
+    {
+      "id": "FGIS_PARTY_CURRENT",
+      "status": "ABSENT"
+    },
+    {
+      "id": "FGIS_SYNC_RUN",
+      "status": "ABSENT"
+    },
+    {
+      "id": "COMMODITY_RESERVATION_LEDGER",
+      "status": "ABSENT"
+    },
+    {
+      "id": "PERSISTENT_LOT_PASSPORT",
+      "status": "ABSENT"
+    },
+    {
+      "id": "FGIS_RECONCILIATION_CASE",
+      "status": "ABSENT"
+    },
+    {
+      "id": "ATOMIC_CONFIRMED_LOT_PUBLICATION",
+      "status": "ABSENT"
+    }
+  ],
+  "externalBlockers": [
+    {
+      "id": "FGIS_RUNTIME_SOAP_ENDPOINTS",
+      "status": "EXTERNAL_BLOCKER",
+      "requiredEvidence": "Exact production and new preproduction SOAP URLs. WSDL packages contain only localhost placeholders."
+    },
+    {
+      "id": "FGIS_ENABLED_API_VERSION",
+      "status": "EXTERNAL_BLOCKER",
+      "requiredEvidence": "API version enabled on each real production/preproduction SOAP URL."
+    },
+    {
+      "id": "FGIS_REGISTERED_INITIATOR_CERTIFICATE",
+      "status": "EXTERNAL_BLOCKER",
+      "requiredEvidence": "Registered information-system initiator and organization-bound X.509 certificate reference; no private key or certificate material in browser, database or repository."
+    },
+    {
+      "id": "FGIS_ORGANIZATION_DATA_SCOPE",
+      "status": "EXTERNAL_BLOCKER",
+      "requiredEvidence": "Successful safe read that proves the initiator is bound to the seller organization's INN/KPP/OGRN and allowed party scope."
+    },
+    {
+      "id": "FGIS_SIGNATURE_CONFORMANCE",
+      "status": "EXTERNAL_BLOCKER",
+      "requiredEvidence": "Operator-accepted signed SendRequest and Ack resolving the XMLDSig versus PKCS#7 prose conflict."
+    },
+    {
+      "id": "FGIS_ADDITIONAL_NETWORK_AUTH",
+      "status": "EXTERNAL_BLOCKER",
+      "requiredEvidence": "Confirmation whether mTLS, IP allowlist or other network credentials are additionally required; current status is UNKNOWN, not REQUIRED."
+    }
+  ],
+  "implementationSlices": [
+    {
+      "order": 1,
+      "id": "P0.2-1A-LEGACY-FGIS-QUARANTINE",
+      "goal": "Fail closed every production-reachable mock, invented REST, JSON webhook, false live claim, self-verifying FGIS auction and in-memory grain publication path.",
+      "databaseChange": false,
+      "externalProviderCall": false
+    },
+    {
+      "order": 2,
+      "id": "P0.2-2A-COMMODITY-AUTHORITY",
+      "goal": "Add forced-RLS connection lifecycle, immutable party snapshot, current projection, sync run, reservation ledger, persistent passport and reconciliation case using existing PostgreSQL and audit/outbox primitives.",
+      "databaseChange": true,
+      "externalProviderCall": false
+    },
+    {
+      "order": 3,
+      "id": "P0.2-3A-OFFICIAL-READ-NORMALIZATION",
+      "goal": "Implement exact GET_LIST_LOT and GET_LIST_SDIZ mapping, bounded schema validation, paging/cursor recovery and immutable snapshot normalization behind the canonical module.",
+      "databaseChange": true,
+      "externalProviderCall": false
+    },
+    {
+      "order": 4,
+      "id": "P0.2-4A-CONNECTION-FIRST-SYNC",
+      "goal": "Expose the server-authoritative organization connection lifecycle and first synchronization; only modes proven by provider evidence may be selectable.",
+      "databaseChange": true,
+      "externalProviderCall": "BLOCKED_UNTIL_PROVIDER_BINDING"
+    },
+    {
+      "order": 5,
+      "id": "P0.2-5A-SELLER-PARTIES",
+      "goal": "Implement RU/EN/ZH seller parties list/detail, freshness, history, filters, mobile and accessible states.",
+      "databaseChange": false,
+      "externalProviderCall": false
+    },
+    {
+      "order": 6,
+      "id": "P0.2-6A-ATOMIC-LOT-PUBLICATION",
+      "goal": "Implement five-step lot flow and one SERIALIZABLE PostgreSQL transaction: lock current party, freshness, availability, reservation, passport, lot, audit and outbox.",
+      "databaseChange": true,
+      "externalProviderCall": "SAFE_REFRESH_ONLY_WHEN_BOUND"
+    },
+    {
+      "order": 7,
+      "id": "P0.2-7A-RECONCILIATION-FREEZE",
+      "goal": "Detect critical external changes, open a case, freeze publication/offers and preserve seller/operator audit without allowing operator commercial actions.",
+      "databaseChange": true,
+      "externalProviderCall": false
+    },
+    {
+      "order": 8,
+      "id": "P0.2-8A-REAL-ACCEPTANCE",
+      "goal": "After First Customer Access and provider binding, execute exact-head CI, REG.RU deployment and the real seller → party → reservation → passport → lot → oversell rejection → reconciliation scenario.",
+      "databaseChange": false,
+      "externalProviderCall": true
+    }
+  ],
+  "boundaries": {
+    "auditOnly": true,
+    "applicationCodeChanged": false,
+    "databaseChanged": false,
+    "providerCalled": false,
+    "credentialsReadOrStored": false,
+    "firstCustomerAccessChanged": false,
+    "productionDeployed": false,
+    "liveClaimAllowed": false,
+    "newMandatoryCostRub": 0
+  }
+}
