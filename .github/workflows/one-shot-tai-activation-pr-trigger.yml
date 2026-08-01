@@ -1,0 +1,65 @@
+name: Trigger bounded TAI activation repair
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'agent/tai-activation-exit-state-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-activation-exit-state-20260801
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Extract and execute bounded repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/one-shot-tai-activation-exit-state.yml').read_text(encoding='utf-8').splitlines()
+          step = '      - name: Apply exact bounded repair'
+          start = source.index(step)
+          run_line = next(i for i in range(start + 1, len(source)) if source[i] == '        run: |')
+          body = []
+          for line in source[run_line + 1:]:
+              if line.startswith('      - name: '):
+                  break
+              if line.startswith('          '):
+                  body.append(line[10:])
+              elif line == '':
+                  body.append('')
+              else:
+                  raise SystemExit(f'unexpected indentation in bounded repair workflow: {line!r}')
+          if not body or body[0] != 'set -Eeuo pipefail':
+              raise SystemExit('bounded repair body was not extracted')
+          Path('/tmp/apply-bounded-tai-repair.sh').write_text('\n'.join(body) + '\n', encoding='utf-8')
+          PY
+          bash /tmp/apply-bounded-tai-repair.sh
+
+      - name: Commit bounded repair and remove temporary workflows
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git rm \
+            .github/workflows/one-shot-tai-activation-exit-state.yml \
+            .github/workflows/one-shot-tai-activation-pr-trigger.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/tai-restricted-qwen-reg-ru-activation.yml \
+            scripts/pc-tai-release-controller-core.sh \
+            scripts/check-tai-local-model-key-authority.mjs \
+            docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json
+          git diff --cached --check
+          git commit -m 'fix: persist TAI activation rollback and backup authority'
+          git push origin HEAD:agent/tai-activation-exit-state-20260801
