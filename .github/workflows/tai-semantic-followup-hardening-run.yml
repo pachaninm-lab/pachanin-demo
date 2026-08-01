@@ -1,0 +1,244 @@
+name: TAI Semantic Follow-up Hardening Run
+
+on:
+  push:
+    branches:
+      - claude/tai-agro-os-v4-production-izow8x
+    paths:
+      - .github/workflows/tai-semantic-followup-hardening-run.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-semantic-followup-hardening-run
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/tai-agro-os-v4-production-izow8x
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply focused fixes
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path: str, text: str) -> None:
+              Path(path).write_text(text, encoding='utf-8')
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if old in text:
+                  return text.replace(old, new, 1)
+              if new in text:
+                  return text
+              raise SystemExit(f'missing source fragment: {label}')
+
+          public_path = 'apps/web/app/api/public-platform-assistant/route.ts'
+          public = read(public_path)
+          public = replace_once(public, 'const MAX_BODY_BYTES = 8_192;', 'const MAX_BODY_BYTES = 20_480;', 'body limit')
+          history_pattern = re.compile(r"function readHistory\(value: unknown\): readonly AssistantConversationTurn\[\] \{.*?\n\}\n\nfunction forbiddenCopy", re.S)
+          history_replacement = '''function readHistory(value: unknown): readonly AssistantConversationTurn[] {
+            if (!Array.isArray(value)) return [];
+            const turns: AssistantConversationTurn[] = [];
+            let total = 0;
+            // Keep the newest valid turns when the bounded envelope is full. A long
+            // older turn must never evict the latest subject that a short follow-up
+            // depends on.
+            for (const item of [...value.slice(-MAX_HISTORY_TURNS)].reverse()) {
+              const row = item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : null;
+              const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
+              const text = typeof row?.text === 'string'
+                ? row.text.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
+                : '';
+              if (!role || !text) continue;
+              if (total + text.length > MAX_HISTORY_TOTAL_CHARS) continue;
+              turns.unshift({ role, text });
+              total += text.length;
+            }
+            return turns;
+          }
+
+          function forbiddenCopy'''
+          public, changed = history_pattern.subn(history_replacement, public, count=1)
+          if changed != 1 and 'for (const item of [...value.slice(-MAX_HISTORY_TURNS)].reverse())' not in public:
+              raise SystemExit('history function replacement failed')
+          public = public.replace(
+              'routeAssistantQuestion(message, { ...context, locale })',
+              'routeAssistantQuestion(correctedQuestion, { ...context, locale })',
+          )
+          write(public_path, public)
+
+          router_path = 'apps/web/lib/platform-v7/assistant-relevance-router.ts'
+          router = read(router_path)
+          insertion_point = '''  // Short question shaped by the surface or the previous turn. Inside the
+          // platform, "Кто это увидит?" is about the platform — the reader should not
+          // have to repeat the subject they are literally looking at.
+          if (shapeSection) {'''
+          unrelated_guard = '''  // A named off-topic subject outranks a contextual sentence shape.
+          if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
+            return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+          }
+
+'''
+          if unrelated_guard not in router:
+              router = replace_once(router, insertion_point, unrelated_guard + insertion_point, 'unrelated guard insertion')
+          duplicate_pattern = re.compile(
+              r"\n  // An explicit off-topic marker outranks sentence shape\..*?\n  if \(containsAny\(normalized, UNRELATED_TERMS\) && context\.semanticHint !== 'related'\) \{\n    return outcome\('REDIRECT_UNRELATED', \{ domain: 'none', signals \}\);\n  \}\n",
+              re.S,
+          )
+          router = duplicate_pattern.sub('', router, count=1)
+          write(router_path, router)
+
+          restricted_path = 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
+          restricted = read(restricted_path)
+          restricted = replace_once(
+              restricted,
+              "const outcome = routeAssistantQuestion(envelope.question, { ...routingContext, locale });",
+              "const routedQuestion = grounding.understanding?.normalizedQuestion || envelope.question;\n        const outcome = routeAssistantQuestion(routedQuestion, { ...routingContext, locale });",
+              'restricted corrected routing',
+          )
+          restricted = replace_once(
+              restricted,
+              ': classifyAnswerMode(envelope.question, envelope.context, envelope.history);',
+              ': classifyAnswerMode(routedQuestion, envelope.context, envelope.history);',
+              'restricted answer mode',
+          )
+          write(restricted_path, restricted)
+
+          component_path = 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+          component = read(component_path)
+          component = replace_once(
+              component,
+              '''  const knowledgeFallback = async (
+            question: string,
+            controller: AbortController,
+          ): Promise<boolean> => {''',
+              '''  const knowledgeFallback = async (
+            question: string,
+            history: readonly HistoryTurn[],
+            controller: AbortController,
+          ): Promise<boolean> => {''',
+              'fallback signature',
+          )
+          component = replace_once(
+              component,
+              'body: JSON.stringify({ message: question, locale }),',
+              'body: JSON.stringify({ message: question, locale, context: contextName, history }),',
+              'fallback body',
+          )
+          component = replace_once(
+              component,
+              "knowledgeFallback(normalized, controller)",
+              "knowledgeFallback(normalized, history, controller)",
+              'fallback call',
+          )
+          component = re.sub(r"\n\s*data-stream-refusal=\{message\.stream\?\.refusal \?\? undefined\}", '', component, count=1)
+          component = re.sub(r"\n\s*data-model-identity=\{message\.stream\?\.modelIdentity \?\? undefined\}", '', component, count=1)
+          component = re.sub(r"\n\s*data-origin=\{origin\}", '', component, count=1)
+          write(component_path, component)
+
+          router_test_path = 'apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts'
+          test = read(router_test_path)
+          test = replace_once(
+              test,
+              "import { describe, expect, it } from 'vitest';",
+              "import { readFileSync } from 'node:fs';\nimport { fileURLToPath } from 'node:url';\nimport { describe, expect, it } from 'vitest';",
+              'test imports',
+          )
+          test = replace_once(
+              test,
+              "    'Какой смартфон купить?',\n    'Tell me a joke',",
+              "    'Какой смартфон купить?',\n    'Кто увидит этот фильм?',\n    'Где хранится сериал?',\n    'Tell me a joke',",
+              'shaped unrelated cases',
+          )
+          contract = '''describe('public assistant fallback and DOM privacy contract', () => {
+            const componentSource = readFileSync(
+              fileURLToPath(new URL('../../components/platform-v7/PublicPlatformAssistant.tsx', import.meta.url)),
+              'utf8',
+            );
+
+            it('preserves conversation history when streaming falls back to verified knowledge', () => {
+              expect(componentSource).toContain('knowledgeFallback(normalized, history, controller)');
+              expect(componentSource).toContain('JSON.stringify({ message: question, locale, context: contextName, history })');
+            });
+
+            it('does not expose internal model, route or refusal metadata as DOM attributes', () => {
+              for (const attribute of ['data-model-identity', 'data-origin={origin}', 'data-stream-refusal']) {
+                expect(componentSource).not.toContain(attribute);
+              }
+            });
+          });
+
+'''
+          marker = "describe('capability registry is the source of platform claims', () => {"
+          if contract not in test:
+              test = replace_once(test, marker, contract + marker, 'UI contract insertion')
+          write(router_test_path, test)
+
+          stream_test_path = 'apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts'
+          stream_test = read(stream_test_path)
+          history_test = '''  it('keeps the newest topic when bounded history is larger than the old request envelope', async () => {
+            const history = [
+              ...Array.from({ length: 7 }, (_, index) => ({ role: 'user', text: `${index}-` + 'x'.repeat(1_800) })),
+              { role: 'user', text: 'Кто видит мои документы?' },
+            ];
+            const body = JSON.stringify({ message: 'А подробнее?', locale: 'ru', history });
+            const response = await POST(new NextRequest(ENDPOINT, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'content-length': String(Buffer.byteLength(body)),
+              },
+              body,
+            }));
+
+            expect(response.status).toBe(200);
+            const payload = await response.json();
+            expect(payload).toMatchObject({ resolution: 'answered', topic: 'documents' });
+          });
+
+'''
+          marker = "  it('refuses a malformed request before opening a stream, where an error can still be read', async () => {"
+          if history_test not in stream_test:
+              stream_test = replace_once(stream_test, marker, history_test + marker, 'history regression insertion')
+          write(stream_test_path, stream_test)
+
+          for transient in (
+              '.github/workflows/tai-semantic-followup-hardening-materialize.yml',
+              '.github/workflows/tai-semantic-followup-hardening-run.yml',
+          ):
+              path = Path(transient)
+              if path.exists():
+                  path.unlink()
+          PY
+      - name: Validate focused fixes
+        run: |
+          set -Eeuo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/web exec tsc --noEmit
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/taiSemanticRelevanceRouter.test.ts \
+            tests/unit/taiSemanticAcceptanceCorpus.test.ts \
+            tests/unit/platformV7PublicAssistantStreamContract.test.ts
+          git diff --check
+      - name: Publish source-only commit
+        run: |
+          set -Eeuo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(tai): preserve semantic context across fallback paths'
+          git push origin HEAD:claude/tai-agro-os-v4-production-izow8x
