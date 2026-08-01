@@ -1,0 +1,107 @@
+name: public entry postdeploy c520 smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      TARGET_BASE_URL: https://6a5160af69a1500008f31813--vermillion-kitsune-0e7b97.netlify.app
+      PRIMARY_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      ARTIFACT_DIR: ../../artifacts/public-entry-postdeploy-c520
+    steps:
+      - name: Checkout production source plus one-shot verification
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run browser matrix, locale, SEO, runtime and Axe checks
+        working-directory: apps/web
+        run: node scripts/public-entry-postdeploy-c520-smoke.mjs
+
+      - name: Collect Lighthouse reports
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-entry-postdeploy-c520/lighthouse
+          CHROME_BIN="$(find "$HOME/.cache/ms-playwright" -type f -path '*/chrome-linux*/chrome' -print -quit 2>/dev/null || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          fi
+          if [ -z "$CHROME_BIN" ]; then
+            printf '{"status":"skipped","reason":"Chrome executable not found"}\n' > artifacts/public-entry-postdeploy-c520/lighthouse/summary.json
+            exit 0
+          fi
+          export CHROME_PATH="$CHROME_BIN"
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "${TARGET_BASE_URL}/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="artifacts/public-entry-postdeploy-c520/lighthouse/${safe_name}.json"
+          done
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = 'artifacts/public-entry-postdeploy-c520/lighthouse';
+          const reports = fs.readdirSync(dir)
+            .filter((name) => name.endsWith('.json') && name !== 'summary.json')
+            .map((name) => {
+              const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+              return {
+                file: name,
+                requestedUrl: report.requestedUrl,
+                finalUrl: report.finalUrl,
+                scores: Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)])),
+                metrics: {
+                  firstContentfulPaintMs: report.audits['first-contentful-paint']?.numericValue,
+                  largestContentfulPaintMs: report.audits['largest-contentful-paint']?.numericValue,
+                  totalBlockingTimeMs: report.audits['total-blocking-time']?.numericValue,
+                  cumulativeLayoutShift: report.audits['cumulative-layout-shift']?.numericValue,
+                  speedIndexMs: report.audits['speed-index']?.numericValue,
+                },
+                diagnostics: {
+                  consoleErrors: report.audits['errors-in-console']?.details?.items || [],
+                  unminifiedJavascript: report.audits['unminified-javascript']?.numericValue,
+                  unusedJavascriptBytes: report.audits['unused-javascript']?.details?.overallSavingsBytes,
+                },
+              };
+            });
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', reports }, null, 2));
+          console.log(JSON.stringify(reports, null, 2));
+          NODE
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-postdeploy-c520
+          path: artifacts/public-entry-postdeploy-c520
+          if-no-files-found: error
+          retention-days: 7
