@@ -6,6 +6,11 @@ on:
       - agent/tai-reg-ru-bootstrap-repair-20260801
     paths:
       - .github/workflows/tai-bootstrap-repair-trigger.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/tai-bootstrap-repair-trigger.yml
 
 permissions:
   contents: write
