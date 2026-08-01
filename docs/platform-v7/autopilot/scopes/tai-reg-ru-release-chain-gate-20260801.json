@@ -42,6 +42,11 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "productionMutationAllowedBeforeMerge": false
+    "productionMutationAllowedBeforeMerge": false,
+    "requiredPullRequestContractWorkflows": [
+      "TAI REG.RU Preflight",
+      "TAI Restricted Qwen REG.RU Activation",
+      "TAI REG.RU Deployment"
+    ]
   }
 }
