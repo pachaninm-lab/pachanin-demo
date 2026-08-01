@@ -1,0 +1,151 @@
+name: One-shot TAI backup authority bridge
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'agent/tai-backup-authority-bridge-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-backup-authority-bridge-20260801
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply bounded production repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, got {count}')
+              return text.replace(old, new, 1)
+
+          core_path = Path('scripts/pc-tai-release-controller-core.sh')
+          core = core_path.read_text(encoding='utf-8')
+          core = replace_once(core,
+              '    [[ "$name" =~ ^(model-key|model-user|model-port)$ ]] || fail RUNNER_INPUT_NAME_INVALID 16',
+              '    [[ "$name" =~ ^(model-key|model-user|model-port|backup-evidence-path)$ ]] || fail RUNNER_INPUT_NAME_INVALID 16',
+              'input allowlist')
+          core = replace_once(core,
+              '  local api_key hmac_secret evidence',
+              '  local api_key hmac_secret backup_evidence evidence',
+              'activation locals')
+          core = replace_once(core,
+              '  rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"\n  api_key="$(recover_local_model_token)"',
+              '  rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"\n  backup_evidence="$(recover_backup_evidence)"\n  api_key="$(recover_local_model_token)"',
+              'backup recovery')
+          core = replace_once(core,
+              '  PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \\\n    bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1',
+              '  PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \\\n  PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf \'%s\' "$backup_evidence" | base64 -w0)" \\\n    bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1',
+              'backup propagation')
+          sentinel = '''  printf '%s' "$key"
+}
+
+run_deploy() {'''
+          recovery = '''  printf '%s' "$key"
+}
+
+recover_backup_evidence() {
+  local input="$job_input/backup-evidence-path" path canonical owner mode links
+  [[ -s "$input" && ! -L "$input" ]] || fail BACKUP_EVIDENCE_INPUT_MISSING 83
+  path="$(tr -d '\\r\\n' < "$input")"
+  rm -f "$input"
+  [[ "$path" == /* ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
+  canonical="$(readlink -f -- "$path")"
+  [[ -n "$canonical" && "$canonical" == "$path" ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
+  [[ -f "$path" && ! -L "$path" ]] || fail BACKUP_EVIDENCE_FILE_INVALID 85
+  owner="$(stat -c '%U:%G' "$path")"; mode="$(stat -c '%a' "$path")"; links="$(stat -c '%h' "$path")"
+  [[ "$owner" == root:root && "$links" == 1 && "$mode" =~ ^(400|440|600|640)$ ]] || fail BACKUP_EVIDENCE_PERMISSIONS_INVALID 86
+  grep -Fxq 'STATUS=PASS' "$path" || fail BACKUP_EVIDENCE_STATUS_INVALID 87
+  printf '%s' "$path"
+}
+
+run_deploy() {'''
+          core = replace_once(core, sentinel, recovery, 'backup validator')
+          core_path.write_text(core, encoding='utf-8')
+
+          wf_path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          wf = wf_path.read_text(encoding='utf-8')
+          opener = '$' + '{{'
+          marker = f'      MODEL_PORT_SECRET: {opener} secrets.TAI_MODEL_SSH_PORT }}'
+          binding = f'      BACKUP_EVIDENCE_FILE_SECRET: {opener} secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}'
+          wf = replace_once(wf, marker, marker + '\n' + binding, 'backup secret binding')
+          wf = replace_once(wf,
+              '          printf \'%s\' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"\n          chmod 0600 "$input/model-user" "$input/model-port"',
+              '          printf \'%s\' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"\n          [[ -n "${BACKUP_EVIDENCE_FILE_SECRET:-}" ]] || { echo \'Protected backup evidence path is missing.\' >&2; exit 22; }\n          printf \'%s\' "$BACKUP_EVIDENCE_FILE_SECRET" > "$input/backup-evidence-path"\n          chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"',
+              'runner backup input')
+          wf_path.write_text(wf, encoding='utf-8')
+
+          check_path = Path('scripts/check-tai-local-model-key-authority.mjs')
+          check = check_path.read_text(encoding='utf-8')
+          check = replace_once(check,
+              "  'MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}',",
+              "  'MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}',\n  'BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}',\n  'backup-evidence-path',",
+              'checker workflow contracts')
+          check = replace_once(check,
+              "  'api_key=\"$(recover_local_model_token)\"',",
+              "  'backup_evidence=\"$(recover_backup_evidence)\"',\n  'api_key=\"$(recover_local_model_token)\"',\n  'PC_PROD_BACKUP_EVIDENCE_FILE_B64=\"$(printf \\\'%s\\\' \"$backup_evidence\" | base64 -w0)\"',\n  'BACKUP_EVIDENCE_STATUS_INVALID',",
+              'checker core contracts')
+          check = replace_once(check,
+              "if (scope.branch !== 'agent/tai-controller-trap-rollback-evidence-20260801') violations.push(`${scopePath}: branch mismatch`);",
+              "if (scope.branch !== 'agent/tai-backup-authority-bridge-20260801') violations.push(`${scopePath}: branch mismatch`);",
+              'checker branch')
+          check = replace_once(check,
+              "console.log('TAI controller trap and rollback-evidence contract PASS: activation and deployment trap state survives function unwinding, rollback is explicit, redacted failure evidence is published, private keys never transit GitHub Actions, and the validated active local model token remains server-only.');",
+              "console.log('TAI backup-authority bridge PASS: exact-main activation validates and reuses the protected backup evidence path, preserves explicit rollback, keeps model credentials server-only, and widens no production authority.');",
+              'checker summary')
+          check_path.write_text(check, encoding='utf-8')
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          scope['branch'] = 'agent/tai-backup-authority-bridge-20260801'
+          scope['purpose'] = 'Bridge the already configured protected production backup evidence path into the root-only exact-main activation controller, eliminating confirmed BACKUP_AUTHORITY_UNAVAILABLE while preserving rollback, secret boundaries, REG.RU-only hosting and zero recurring cost.'
+          scope['authorityBaseExactMain'] = '58da2137c3722b7d257b9958d027c9efc21c7cb5'
+          scope['requiredBehavior'] = [
+              'materialize only the protected backup evidence path as bounded runner input',
+              'validate canonical path, root ownership, restrictive mode, single link and STATUS=PASS before mutation',
+              'pass the validated path only to the root-owned full-stack release script',
+              'reuse the active local model token without publishing it',
+              'preserve explicit rollback and redacted failure evidence',
+              'preserve exact-main, restricted sudo, REG.RU-only hosting and zero recurring cost'
+          ]
+          scope['forbiddenCapabilities'] = [
+              'backup evidence contents in logs or artifacts',
+              'model token or private key transport through GitHub Actions',
+              'production mutation before backup validation',
+              'direct Docker authority for pcactions',
+              'production inbound SSH',
+              'arbitrary sudo commands',
+              'new infrastructure or recurring cost'
+          ]
+          scope['acceptance']['changedPathCount'] = 4
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          bash -n scripts/pc-tai-release-controller-core.sh
+          node --check scripts/check-tai-local-model-key-authority.mjs
+          node scripts/check-tai-local-model-key-authority.mjs
+
+      - name: Commit repair and remove one-shot workflow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git rm .github/workflows/one-shot-tai-backup-authority-bridge.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tai-restricted-qwen-reg-ru-activation.yml scripts/pc-tai-release-controller-core.sh scripts/check-tai-local-model-key-authority.mjs docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json
+          git diff --cached --check
+          git commit -m 'fix: bridge protected backup authority into TAI activation'
+          git push origin HEAD:agent/tai-backup-authority-bridge-20260801
