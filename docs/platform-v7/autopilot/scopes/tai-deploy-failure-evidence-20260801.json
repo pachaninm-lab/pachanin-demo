@@ -10,8 +10,6 @@
   "newRecurringCostRub": 0,
   "productionMutationAllowedBeforeMerge": false,
   "allowedPaths": [
-    ".github/workflows/apply-tai-deploy-failure-evidence.yml",
-    "scripts/apply-tai-deploy-failure-evidence.py",
     "scripts/pc-tai-release-controller-core.sh",
     "scripts/check-pc-tai-release-controller.mjs",
     "docs/platform-v7/autopilot/scopes/tai-deploy-failure-evidence-20260801.json"
