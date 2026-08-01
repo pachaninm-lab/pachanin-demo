@@ -26,6 +26,16 @@ function assert(condition, message) {
   }
 }
 
+function readJson(relativePath) {
+  const absolutePath = resolve(repositoryRoot, relativePath);
+  assert(existsSync(absolutePath), `JSON authority is missing: ${relativePath}`);
+  try {
+    return JSON.parse(readFileSync(absolutePath, 'utf8'));
+  } catch {
+    fail(`JSON authority is invalid: ${relativePath}`);
+  }
+}
+
 function assertExactKeys(value, expected, context) {
   assert(value !== null && typeof value === 'object' && !Array.isArray(value), `${context} must be an object`);
   const actual = Object.keys(value).sort();
@@ -672,10 +682,42 @@ if (scopeGuardIndex >= 0) {
     'docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json',
     'scripts/pc-crop-10a/verify.mjs',
   ]);
-  const outside = changed.filter((path) => !allowed.has(path));
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = readJson(statePath);
+  const mappings = state.approvedConcurrentScopes;
+  assert(mappings && typeof mappings === 'object' && !Array.isArray(mappings), 'approved concurrent scope map is invalid');
+  const headBranch = String(process.env.GITHUB_HEAD_REF || '').trim();
+  const candidateBranches = new Set();
+  if (headBranch && Object.hasOwn(mappings, headBranch)) candidateBranches.add(headBranch);
+  for (const [branch, mappedPaths] of Object.entries(mappings)) {
+    if (!Array.isArray(mappedPaths)) continue;
+    if (mappedPaths.some((path) => changed.includes(path) && /^docs\/platform-v7\/autopilot\/scopes\/[^/]+[.]json$/u.test(path))) {
+      candidateBranches.add(branch);
+    }
+  }
+  const approved = new Set();
+  for (const branch of candidateBranches) {
+    const mappedPaths = mappings[branch];
+    assert(Array.isArray(mappedPaths) && mappedPaths.length > 0, `concurrent scope mapping is invalid for ${branch}`);
+    assertUnique(mappedPaths, `concurrent scope paths for ${branch}`);
+    const scopePaths = mappedPaths.filter((path) => /^docs\/platform-v7\/autopilot\/scopes\/[^/]+[.]json$/u.test(path));
+    const matchingScopes = scopePaths
+      .map((path) => ({ path, scope: readJson(path) }))
+      .filter(({ scope }) => scope.schemaVersion === 'platform-v7.concurrent-scope.v1' && scope.branch === branch);
+    assert(matchingScopes.length === 1, `exact concurrent scope authority is missing for ${branch}`);
+    const declaredPaths = matchingScopes[0].scope.allowedPaths;
+    assert(Array.isArray(declaredPaths), `concurrent scope allowedPaths are invalid for ${branch}`);
+    assertUnique(declaredPaths, `concurrent scope allowedPaths for ${branch}`);
+    assert(
+      JSON.stringify([...declaredPaths].sort()) === JSON.stringify([...mappedPaths].sort()),
+      `concurrent scope map differs from scope authority for ${branch}`,
+    );
+    for (const path of mappedPaths) approved.add(path);
+  }
+  const outside = changed.filter((path) => !allowed.has(path) && !approved.has(path));
   assert(outside.length === 0, `scope guard rejected paths: ${outside.join(', ')}`);
   pass('EXACT_MAIN_ANCESTRY', `${baseRef} is an ancestor of the verified head.`);
-  pass('SCOPE_GUARD', `${changed.length} changed paths are inside PC-CROP-10A.`);
+  pass('SCOPE_GUARD', `${changed.length} changed paths are inside PC-CROP-10A or an exact approved concurrent scope.`);
 }
 
 const result = {
