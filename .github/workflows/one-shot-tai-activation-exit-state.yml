@@ -12,7 +12,6 @@ permissions:
 
 jobs:
   patch:
-    if: github.actor == github.repository_owner
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -48,278 +47,289 @@ jobs:
           core = replace_once(
               core,
               '''rollback_activation() {
-            set +e
-            local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID"
-            [[ ! -x "$qwen_state/rollback-qwen-env.sh" ]] || "$qwen_state/rollback-qwen-env.sh"
-            [[ ! -f "$STATE_ROOT/full-stack-$RUN_ID.state" ]] || bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" rollback "$TARGET_SHA" "$RUN_ID"
-            touch "$job_state/ROLLED_BACK"
-          }'''.replace('          ', ''),
+  set +e
+  local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID"
+  [[ ! -x "$qwen_state/rollback-qwen-env.sh" ]] || "$qwen_state/rollback-qwen-env.sh"
+  [[ ! -f "$STATE_ROOT/full-stack-$RUN_ID.state" ]] || bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" rollback "$TARGET_SHA" "$RUN_ID"
+  touch "$job_state/ROLLED_BACK"
+}''',
               '''rollback_activation() {
-            local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID" rollback_failed=0
-            if [[ -x "$qwen_state/rollback-qwen-env.sh" ]]; then
-              "$qwen_state/rollback-qwen-env.sh" || rollback_failed=1
-            fi
-            if [[ -f "$STATE_ROOT/full-stack-$RUN_ID.state" ]]; then
-              bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" rollback "$TARGET_SHA" "$RUN_ID" || rollback_failed=1
-            fi
-            if (( rollback_failed == 0 )); then
-              rm -f "$job_state/ROLLBACK_FAILED"
-              touch "$job_state/ROLLED_BACK"
-              return 0
-            fi
-            rm -f "$job_state/ROLLED_BACK"
-            touch "$job_state/ROLLBACK_FAILED"
-            return 1
-          }'''.replace('          ', ''),
+  local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID" rollback_failed=0
+  if [[ -x "$qwen_state/rollback-qwen-env.sh" ]]; then
+    "$qwen_state/rollback-qwen-env.sh" || rollback_failed=1
+  fi
+  if [[ -f "$STATE_ROOT/full-stack-$RUN_ID.state" ]]; then
+    bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" rollback "$TARGET_SHA" "$RUN_ID" || rollback_failed=1
+  fi
+  if (( rollback_failed == 0 )); then
+    rm -f "$job_state/ROLLBACK_FAILED"
+    touch "$job_state/ROLLED_BACK"
+    return 0
+  fi
+  rm -f "$job_state/ROLLED_BACK"
+  touch "$job_state/ROLLBACK_FAILED"
+  return 1
+}''',
               'rollback state authority',
           )
 
           core = replace_once(
               core,
               '''  local api_key hmac_secret activation_mutation_started=0 activation_complete=0
-            local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env" evidence'''.replace('          ', ''),
+  local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env" evidence''',
               '''  local api_key hmac_secret backup_evidence
-            local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env" evidence
-            rm -f "$job_state/ACTIVATION_MUTATION_STARTED" "$job_state/ACTIVATION_COMPLETE" "$job_state/ROLLED_BACK" "$job_state/ROLLBACK_FAILED"'''.replace('          ', ''),
+  local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env" evidence
+  rm -f "$job_state/ACTIVATION_MUTATION_STARTED" "$job_state/ACTIVATION_COMPLETE" "$job_state/ROLLED_BACK" "$job_state/ROLLBACK_FAILED"''',
               'activation persistent state setup',
           )
 
           core = replace_once(
               core,
               '''  rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"
-            api_key="$(recover_local_model_token)"'''.replace('          ', ''),
+  api_key="$(recover_local_model_token)"''',
               '''  rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"
-            backup_evidence="$(recover_backup_evidence)"
-            api_key="$(recover_local_model_token)"'''.replace('          ', ''),
+  backup_evidence="$(recover_backup_evidence)"
+  api_key="$(recover_local_model_token)"''',
               'protected backup recovery',
           )
 
           core = replace_once(
               core,
               '''  activation_exit() {
-            local rc="$?"
-            trap - EXIT INT TERM
-            if (( rc != 0 && activation_mutation_started == 1 && activation_complete == 0 )); then rollback_activation; fi
-            rm -f "$api_env" "$web_env"
-            exit "$rc"
-          }
-            trap activation_exit EXIT
-            trap 'exit 130' INT
-            trap 'exit 143' TERM
-            activation_mutation_started=1
-            PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \\
-              bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1'''.replace('          ', ''),
+    local rc="$?"
+    trap - EXIT INT TERM
+    if (( rc != 0 && activation_mutation_started == 1 && activation_complete == 0 )); then rollback_activation; fi
+    rm -f "$api_env" "$web_env"
+    exit "$rc"
+  }
+  trap activation_exit EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  activation_mutation_started=1
+  PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \\
+    bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1''',
               '''  activation_exit() {
-            local rc="$?" rolled_back=false
-            local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env"
-            trap - EXIT INT TERM
-            if (( rc != 0 )) && [[ -f "$job_state/ACTIVATION_MUTATION_STARTED" && ! -f "$job_state/ACTIVATION_COMPLETE" ]]; then
-              if rollback_activation; then rolled_back=true; fi
-            fi
-            if (( rc != 0 )); then
-              printf '{"schemaVersion":"tai.restricted-qwen.activation-failure.v1","targetSha":"%s","exitCode":%s,"rolledBack":%s,"passed":false}\\n' \\
-                "$TARGET_SHA" "$rc" "$rolled_back" > "$job_state/activation-failure.json"
-              publish_file "$job_state/activation-failure.json" activation.json
-            fi
-            rm -f "$api_env" "$web_env"
-            exit "$rc"
-          }
-            trap activation_exit EXIT
-            trap 'exit 130' INT
-            trap 'exit 143' TERM
-            touch "$job_state/ACTIVATION_MUTATION_STARTED"
-            PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \\
-            PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf '%s' "$backup_evidence" | base64 -w0)" \\
-              bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1'''.replace('          ', ''),
+    local rc="$?" rolled_back=false phase=PRE_MUTATION failure_code=UNKNOWN
+    local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env"
+    trap - EXIT INT TERM
+    if [[ -f "$job_state/ACTIVATION_MUTATION_STARTED" ]]; then phase=FULL_STACK; fi
+    if [[ -s "$job_state/full-stack.log" ]]; then
+      failure_code="$(sed -n 's/^ERROR_CODE=\([A-Z0-9_]*\)$/\1/p' "$job_state/full-stack.log" | tail -1)"
+      [[ "$failure_code" =~ ^[A-Z0-9_]+$ ]] || failure_code=UNKNOWN
+    fi
+    if grep -Fxq 'DEPLOYMENT_COMPLETE=1' "$job_state/full-stack.log" 2>/dev/null; then
+      phase=QWEN_ACTIVATION
+      if [[ -s "$job_state/activation.log" ]]; then
+        failure_code="$(sed -n 's/^ERROR_CODE=\([A-Z0-9_]*\)$/\1/p' "$job_state/activation.log" | tail -1)"
+        [[ "$failure_code" =~ ^[A-Z0-9_]+$ ]] || failure_code=UNKNOWN
+      fi
+    fi
+    if (( rc != 0 )) && [[ -f "$job_state/ACTIVATION_MUTATION_STARTED" && ! -f "$job_state/ACTIVATION_COMPLETE" ]]; then
+      if rollback_activation; then rolled_back=true; fi
+    fi
+    if (( rc != 0 )); then
+      printf '{"schemaVersion":"tai.restricted-qwen.activation-failure.v1","targetSha":"%s","phase":"%s","failureCode":"%s","exitCode":%s,"rolledBack":%s,"passed":false}\n' \\
+        "$TARGET_SHA" "$phase" "$failure_code" "$rc" "$rolled_back" > "$job_state/activation-failure.json"
+      publish_file "$job_state/activation-failure.json" activation.json
+    fi
+    rm -f "$api_env" "$web_env"
+    exit "$rc"
+  }
+  trap activation_exit EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  touch "$job_state/ACTIVATION_MUTATION_STARTED"
+  PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \\
+  PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf '%s' "$backup_evidence" | base64 -w0)" \\
+    bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1''',
               'activation EXIT rollback and backup authority',
           )
 
-          core = replace_once(
-              core,
-              '  activation_complete=1',
-              '  touch "$job_state/ACTIVATION_COMPLETE"',
-              'activation completion marker',
+          core = replace_once(core, '  activation_complete=1', '  touch "$job_state/ACTIVATION_COMPLETE"', 'activation completion marker')
+
+          sentinel = '''recover_local_model_token() {
+  local api_id key base model
+  mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+  (( ${#api_ids[@]} == 1 )) || fail API_RUNTIME_AMBIGUOUS 80
+  api_id="${api_ids[0]}"
+  key="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_API_KEY=//p')"
+  base="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_BASE_URL=//p')"
+  model="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_MODEL=//p')"
+  [[ ${#key} -ge 32 && "$key" != *[[:space:]]* ]] || fail ACTIVE_MODEL_TOKEN_INVALID 81
+  [[ "$base" == "$MODEL_BASE_URL" && "$model" == "$MODEL_IDENTITY" ]] || fail ACTIVE_MODEL_IDENTITY_INVALID 82
+  curl -fsS --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $key" "http://$MODEL_HOST:$MODEL_PORT/health" >/dev/null
+  printf '%s' "$key"
+}
+
+run_deploy() {'''
+          replacement = sentinel.replace(
+              '\n\nrun_deploy() {',
+              '''
+
+recover_backup_evidence() {
+  local input_path="$job_input/backup-evidence-path" path canonical owner mode links
+  [[ -s "$input_path" && ! -L "$input_path" ]] || fail BACKUP_EVIDENCE_INPUT_MISSING 83
+  path="$(tr -d '\\r\\n' < "$input_path")"
+  rm -f "$input_path"
+  [[ "$path" == /* ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
+  canonical="$(readlink -f -- "$path")"
+  [[ -n "$canonical" && "$canonical" == "$path" ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
+  [[ -f "$path" && ! -L "$path" ]] || fail BACKUP_EVIDENCE_FILE_INVALID 85
+  owner="$(stat -c '%U:%G' "$path")"
+  mode="$(stat -c '%a' "$path")"
+  links="$(stat -c '%h' "$path")"
+  [[ "$owner" == root:root && "$links" == 1 && "$mode" =~ ^(400|440|600|640)$ ]] || fail BACKUP_EVIDENCE_PERMISSIONS_INVALID 86
+  grep -Fxq 'STATUS=PASS' "$path" || fail BACKUP_EVIDENCE_STATUS_INVALID 87
+  printf '%s' "$path"
+}
+
+run_deploy() {''',
           )
-
-          core = replace_once(
-              core,
-              '''recover_local_model_token() {
-            local api_id key base model
-            mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
-            (( ${#api_ids[@]} == 1 )) || fail API_RUNTIME_AMBIGUOUS 80
-            api_id="${api_ids[0]}"
-            key="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_API_KEY=//p')"
-            base="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_BASE_URL=//p')"
-            model="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_MODEL=//p')"
-            [[ ${#key} -ge 32 && "$key" != *[[:space:]]* ]] || fail ACTIVE_MODEL_TOKEN_INVALID 81
-            [[ "$base" == "$MODEL_BASE_URL" && "$model" == "$MODEL_IDENTITY" ]] || fail ACTIVE_MODEL_IDENTITY_INVALID 82
-            curl -fsS --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $key" "http://$MODEL_HOST:$MODEL_PORT/health" >/dev/null
-            printf '%s' "$key"
-          }
-
-          run_deploy() {'''.replace('          ', ''),
-              '''recover_local_model_token() {
-            local api_id key base model
-            mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
-            (( ${#api_ids[@]} == 1 )) || fail API_RUNTIME_AMBIGUOUS 80
-            api_id="${api_ids[0]}"
-            key="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_API_KEY=//p')"
-            base="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_BASE_URL=//p')"
-            model="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AI_ASSISTANT_MODEL=//p')"
-            [[ ${#key} -ge 32 && "$key" != *[[:space:]]* ]] || fail ACTIVE_MODEL_TOKEN_INVALID 81
-            [[ "$base" == "$MODEL_BASE_URL" && "$model" == "$MODEL_IDENTITY" ]] || fail ACTIVE_MODEL_IDENTITY_INVALID 82
-            curl -fsS --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $key" "http://$MODEL_HOST:$MODEL_PORT/health" >/dev/null
-            printf '%s' "$key"
-          }
-
-          recover_backup_evidence() {
-            local input_path="$job_input/backup-evidence-path" path canonical owner mode links
-            [[ -s "$input_path" && ! -L "$input_path" ]] || fail BACKUP_EVIDENCE_INPUT_MISSING 83
-            path="$(tr -d '\\r\\n' < "$input_path")"
-            rm -f "$input_path"
-            [[ "$path" == /* ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
-            canonical="$(readlink -f -- "$path")"
-            [[ -n "$canonical" && "$canonical" == "$path" ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
-            [[ -f "$path" && ! -L "$path" ]] || fail BACKUP_EVIDENCE_FILE_INVALID 85
-            owner="$(stat -c '%U:%G' "$path")"
-            mode="$(stat -c '%a' "$path")"
-            links="$(stat -c '%h' "$path")"
-            [[ "$owner" == root:root && "$links" == 1 && "$mode" =~ ^(400|440|600|640)$ ]] || fail BACKUP_EVIDENCE_PERMISSIONS_INVALID 86
-            grep -Fxq 'STATUS=PASS' "$path" || fail BACKUP_EVIDENCE_STATUS_INVALID 87
-            printf '%s' "$path"
-          }
-
-          run_deploy() {'''.replace('          ', ''),
-              'backup evidence validator',
-          )
+          core = replace_once(core, sentinel, replacement, 'backup evidence validator')
 
           core = replace_once(
               core,
               '''  local image="$1" digest="$2" pre="$job_state/predeploy.json" post="$job_state/postdeploy.json" token_file="/tmp/tai-model-token-$RUN_ID" evidence
-            local deploy_mutation_started=0 deploy_complete=0
-            verify_pinned_image "$image" "$digest" tai '65532:65532'
-            deploy_exit() {
-              local rc="$?" state="$STATE_ROOT/tai-agro-os-$RUN_ID"
-              trap - EXIT INT TERM
-              if (( rc != 0 && deploy_mutation_started == 1 && deploy_complete == 0 )); then
-                if [[ ! -f "$state/ROLLED_BACK" && -x "$state/rollback.sh" ]]; then "$state/rollback.sh"; fi
-                if [[ -f "$state/MUTATION_STARTED" && ! -f "$state/ROLLED_BACK" ]]; then
-                  printf 'ERROR_CODE=INCOMPLETE_DEPLOYMENT_ROLLBACK_AUTHORITY\\n' >&2
-                fi
-              fi
-              rm -f "$token_file"
-              exit "$rc"
-            }'''.replace('          ', ''),
+  local deploy_mutation_started=0 deploy_complete=0
+  verify_pinned_image "$image" "$digest" tai '65532:65532'
+  deploy_exit() {
+    local rc="$?" state="$STATE_ROOT/tai-agro-os-$RUN_ID"
+    trap - EXIT INT TERM
+    if (( rc != 0 && deploy_mutation_started == 1 && deploy_complete == 0 )); then
+      if [[ ! -f "$state/ROLLED_BACK" && -x "$state/rollback.sh" ]]; then "$state/rollback.sh"; fi
+      if [[ -f "$state/MUTATION_STARTED" && ! -f "$state/ROLLED_BACK" ]]; then
+        printf 'ERROR_CODE=INCOMPLETE_DEPLOYMENT_ROLLBACK_AUTHORITY\n' >&2
+      fi
+    fi
+    rm -f "$token_file"
+    exit "$rc"
+  }''',
               '''  local image="$1" digest="$2" pre="$job_state/predeploy.json" post="$job_state/postdeploy.json" token_file="/tmp/tai-model-token-$RUN_ID" evidence
-            rm -f "$job_state/DEPLOY_MUTATION_STARTED" "$job_state/DEPLOY_COMPLETE"
-            verify_pinned_image "$image" "$digest" tai '65532:65532'
-            deploy_exit() {
-              local rc="$?" state="$STATE_ROOT/tai-agro-os-$RUN_ID" token_file="/tmp/tai-model-token-$RUN_ID" rolled_back=false
-              trap - EXIT INT TERM
-              if (( rc != 0 )) && [[ -f "$job_state/DEPLOY_MUTATION_STARTED" && ! -f "$job_state/DEPLOY_COMPLETE" ]]; then
-                if [[ ! -f "$state/ROLLED_BACK" && -x "$state/rollback.sh" ]]; then "$state/rollback.sh" || true; fi
-                [[ -f "$state/ROLLED_BACK" ]] && rolled_back=true
-                if [[ -f "$state/MUTATION_STARTED" && ! -f "$state/ROLLED_BACK" ]]; then
-                  printf 'ERROR_CODE=INCOMPLETE_DEPLOYMENT_ROLLBACK_AUTHORITY\\n' >&2
-                fi
-              fi
-              if (( rc != 0 )); then
-                printf '{"schemaVersion":"tai.reg-ru.deployment-failure.v1","targetSha":"%s","exitCode":%s,"rolledBack":%s,"passed":false}\\n' \\
-                  "$TARGET_SHA" "$rc" "$rolled_back" > "$job_state/deployment-failure.json"
-                publish_file "$job_state/deployment-failure.json" deployment.json
-              fi
-              rm -f "$token_file"
-              exit "$rc"
-            }'''.replace('          ', ''),
+  rm -f "$job_state/DEPLOY_MUTATION_STARTED" "$job_state/DEPLOY_COMPLETE"
+  verify_pinned_image "$image" "$digest" tai '65532:65532'
+  deploy_exit() {
+    local rc="$?" state="$STATE_ROOT/tai-agro-os-$RUN_ID" token_file="/tmp/tai-model-token-$RUN_ID" rolled_back=false failure_code=UNKNOWN
+    trap - EXIT INT TERM
+    if [[ -s "$job_state/deploy.log" ]]; then
+      failure_code="$(sed -n 's/^ERROR_CODE=\([A-Z0-9_]*\)$/\1/p' "$job_state/deploy.log" | tail -1)"
+      [[ "$failure_code" =~ ^[A-Z0-9_]+$ ]] || failure_code=UNKNOWN
+    fi
+    if (( rc != 0 )) && [[ -f "$job_state/DEPLOY_MUTATION_STARTED" && ! -f "$job_state/DEPLOY_COMPLETE" ]]; then
+      if [[ ! -f "$state/ROLLED_BACK" && -x "$state/rollback.sh" ]]; then "$state/rollback.sh" || true; fi
+      [[ -f "$state/ROLLED_BACK" ]] && rolled_back=true
+      if [[ -f "$state/MUTATION_STARTED" && ! -f "$state/ROLLED_BACK" ]]; then
+        printf 'ERROR_CODE=INCOMPLETE_DEPLOYMENT_ROLLBACK_AUTHORITY\n' >&2
+      fi
+    fi
+    if (( rc != 0 )); then
+      printf '{"schemaVersion":"tai.reg-ru.deployment-failure.v1","targetSha":"%s","failureCode":"%s","exitCode":%s,"rolledBack":%s,"passed":false}\n' \\
+        "$TARGET_SHA" "$failure_code" "$rc" "$rolled_back" > "$job_state/deployment-failure.json"
+      publish_file "$job_state/deployment-failure.json" deployment.json
+    fi
+    rm -f "$token_file"
+    exit "$rc"
+  }''',
               'standalone deployment EXIT state',
           )
-
           core = replace_once(core, '  deploy_mutation_started=1', '  touch "$job_state/DEPLOY_MUTATION_STARTED"', 'deploy mutation marker')
           core = replace_once(core, '  deploy_complete=1', '  touch "$job_state/DEPLOY_COMPLETE"', 'deploy completion marker')
           core_path.write_text(core, encoding='utf-8')
 
           workflow_path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
           workflow = workflow_path.read_text(encoding='utf-8')
-          workflow = replace_once(
-              workflow,
-              '      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}',
-              '      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}\n      BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}',
-              'activation backup secret binding',
-          )
+          gh_open = '$' + '{{'
+          gh_close = '}}'
+          backup_binding = f'      BACKUP_EVIDENCE_FILE_SECRET: {gh_open} secrets.PC_PROD_BACKUP_EVIDENCE_FILE {gh_close}'
+          marker = f'      MODEL_PORT_SECRET: {gh_open} secrets.TAI_MODEL_SSH_PORT {gh_close}'
+          workflow = replace_once(workflow, marker, marker + '\n' + backup_binding, 'activation backup secret binding')
           workflow = replace_once(
               workflow,
               '''          printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
-            printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
-            chmod 0600 "$input/model-user" "$input/model-port"'''.replace('          ', ''),
+          printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
+          chmod 0600 "$input/model-user" "$input/model-port"''',
               '''          printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
-            printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
-            [[ -n "${BACKUP_EVIDENCE_FILE_SECRET:-}" ]] || { echo 'Protected backup evidence path is not configured.' >&2; exit 22; }
-            printf '%s' "$BACKUP_EVIDENCE_FILE_SECRET" > "$input/backup-evidence-path"
-            chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"'''.replace('          ', ''),
+          printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
+          [[ -n "${BACKUP_EVIDENCE_FILE_SECRET:-}" ]] || { echo 'Protected backup evidence path is not configured.' >&2; exit 22; }
+          printf '%s' "$BACKUP_EVIDENCE_FILE_SECRET" > "$input/backup-evidence-path"
+          chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"''',
               'bounded backup input materialization',
           )
           workflow_path.write_text(workflow, encoding='utf-8')
 
           checker_path = Path('scripts/check-tai-local-model-key-authority.mjs')
-          checker = checker_path.read_text(encoding='utf-8')
-          checker = replace_once(
-              checker,
-              '''  'MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}',
-            "printf '%s' \\\"${MODEL_USER_SECRET:-root}\\\" > \\\"$input/model-user\\\"",'''.replace('          ', ''),
-              '''  'MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}',
-            'BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}',
-            "printf '%s' \\\"${MODEL_USER_SECRET:-root}\\\" > \\\"$input/model-user\\\"",'''.replace('          ', ''),
-              'checker workflow backup binding',
-          )
-          checker = replace_once(
-              checker,
-              '''  "printf '%s' \\\"${MODEL_PORT_SECRET:-22}\\\" > \\\"$input/model-port\\\"",
-            "if: always() && needs.image_authority.result == 'success' && needs.activate.result == 'success'",'''.replace('          ', ''),
-              '''  "printf '%s' \\\"${MODEL_PORT_SECRET:-22}\\\" > \\\"$input/model-port\\\"",
-            'printf \'%s\' "$BACKUP_EVIDENCE_FILE_SECRET" > "$input/backup-evidence-path"',
-            'chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"',
-            "if: always() && needs.image_authority.result == 'success' && needs.activate.result == 'success'",'''.replace('          ', ''),
-              'checker workflow backup input',
-          )
-          checker = replace_once(
-              checker,
-              '''  'rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"',
-            'api_key="$(recover_local_model_token)"',
-            'if (( rc != 0 && activation_mutation_started == 1 && activation_complete == 0 )); then rollback_activation; fi','''.replace('          ', ''),
-              '''  'rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"',
-            'backup_evidence="$(recover_backup_evidence)"',
-            'api_key="$(recover_local_model_token)"',
-            'PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf \'%s\' "$backup_evidence" | base64 -w0)"',
-            'touch "$job_state/ACTIVATION_MUTATION_STARTED"',
-            'touch "$job_state/ACTIVATION_COMPLETE"',
-            '[[ -f "$job_state/ACTIVATION_MUTATION_STARTED" && ! -f "$job_state/ACTIVATION_COMPLETE" ]]',
-            'tai.restricted-qwen.activation-failure.v1',
-            'touch "$job_state/DEPLOY_MUTATION_STARTED"',
-            'touch "$job_state/DEPLOY_COMPLETE"','''.replace('          ', ''),
-              'checker persistent rollback contracts',
-          )
-          checker = replace_once(
-              checker,
-              '''forbid(core, /api_key="\\$\\(recover_model_api_key\\s+"\\$model_user"\\s+"\\$model_ssh_port"\\)"/u, `${corePath}: activation must reuse the already validated local runtime token`);
-            forbid(core, /echo[^\\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY)/iu, `${corePath}: secret output is forbidden`);'''.replace('          ', ''),
-              '''forbid(core, /api_key="\\$\\(recover_model_api_key\\s+"\\$model_user"\\s+"\\$model_ssh_port"\\)"/u, `${corePath}: activation must reuse the already validated local runtime token`);
-            forbid(core, /activation_mutation_started|activation_complete|deploy_mutation_started|deploy_complete/u, `${corePath}: EXIT rollback state must not depend on function-local variables`);
-            forbid(core, /echo[^\\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY)/iu, `${corePath}: secret output is forbidden`);'''.replace('          ', ''),
-              'checker forbids trap-local state',
-          )
-          checker = replace_once(
-              checker,
-              "if (scope.branch !== 'agent/tai-reuse-active-model-token-20260801') violations.push(`${scopePath}: branch mismatch`);",
-              "if (scope.branch !== 'agent/tai-activation-exit-state-20260801') violations.push(`${scopePath}: branch mismatch`);",
-              'checker branch authority',
-          )
-          checker = replace_once(
-              checker,
-              "console.log('TAI local model-token authority contract PASS: activation reuses the validated active API token, private SSH keys never transit GitHub Actions, rollback remains fail-closed, and no unprovisioned model key can abort the release before mutation.');",
-              "console.log('TAI activation authority contract PASS: protected backup evidence is validated before mutation, EXIT rollback uses persistent markers, failure evidence is published, model tokens stay server-side, and production authority remains fail-closed.');",
-              'checker PASS summary',
-          )
-          checker_path.write_text(checker, encoding='utf-8')
+          checker_template = r'''#!/usr/bin/env node
+import { readFileSync } from 'node:fs';
+
+const workflowPath = '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml';
+const corePath = 'scripts/pc-tai-release-controller-core.sh';
+const scopePath = 'docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json';
+
+const workflow = readFileSync(workflowPath, 'utf8');
+const core = readFileSync(corePath, 'utf8');
+const scope = JSON.parse(readFileSync(scopePath, 'utf8'));
+const violations = [];
+
+const requireFragment = (source, fragment, label) => {
+  if (!source.includes(fragment)) violations.push(`${label}: missing ${JSON.stringify(fragment)}`);
+};
+const forbid = (source, pattern, label) => {
+  if (pattern.test(source)) violations.push(label);
+};
+
+for (const fragment of [
+  'node scripts/check-tai-local-model-key-authority.mjs',
+  'MODEL_USER_SECRET: @@GH@@ secrets.TAI_MODEL_SSH_USER }}',
+  'MODEL_PORT_SECRET: @@GH@@ secrets.TAI_MODEL_SSH_PORT }}',
+  'BACKUP_EVIDENCE_FILE_SECRET: @@GH@@ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}',
+  "printf '%s' \"${MODEL_USER_SECRET:-root}\" > \"$input/model-user\"",
+  "printf '%s' \"${MODEL_PORT_SECRET:-22}\" > \"$input/model-port\"",
+  'printf \'%s\' "$BACKUP_EVIDENCE_FILE_SECRET" > "$input/backup-evidence-path"',
+  'chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"',
+  "if: always() && needs.image_authority.result == 'success' && needs.activate.result == 'success'",
+  'decision=rollback',
+  'if [[ "$ACCEPTANCE_RESULT" == success ]]; then decision=accept; fi',
+]) requireFragment(workflow, fragment, workflowPath);
+
+for (const fragment of [
+  '[[ "$name" =~ ^(model-key|model-user|model-port|backup-evidence-path)$ ]]',
+  'backup_evidence="$(recover_backup_evidence)"',
+  'api_key="$(recover_local_model_token)"',
+  'PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf \'%s\' "$backup_evidence" | base64 -w0)"',
+  'touch "$job_state/ACTIVATION_MUTATION_STARTED"',
+  'touch "$job_state/ACTIVATION_COMPLETE"',
+  '[[ -f "$job_state/ACTIVATION_MUTATION_STARTED" && ! -f "$job_state/ACTIVATION_COMPLETE" ]]',
+  'tai.restricted-qwen.activation-failure.v1',
+  'BACKUP_EVIDENCE_STATUS_INVALID',
+  'touch "$job_state/DEPLOY_MUTATION_STARTED"',
+  'touch "$job_state/DEPLOY_COMPLETE"',
+  'tai.reg-ru.deployment-failure.v1',
+  'local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID" rollback_failed=0',
+]) requireFragment(core, fragment, corePath);
+
+forbid(workflow, /TAI_MODEL_SSH_KEY|MODEL_KEY_SECRET|\/model-key\b/u, `${workflowPath}: private model SSH key must not transit GitHub Actions`);
+forbid(workflow, /secrets\.[A-Za-z0-9_]*(?:PRIVATE|SSH_KEY|MODEL_KEY)/u, `${workflowPath}: private-key secret reference is forbidden`);
+forbid(workflow, /if:\s*always\(\)\s*&&\s*needs[.]image_authority[.]result\s*==\s*'success'\s*$/mu, `${workflowPath}: finalization must require successful activation`);
+forbid(core, /readarray\s+-t\s+transport\s+<\s*<\(import_model_transport\)/u, `${corePath}: activation must not depend on a separately provisioned model-host SSH key`);
+forbid(core, /api_key="\$\(recover_model_api_key\s+"\$model_user"\s+"\$model_ssh_port"\)"/u, `${corePath}: activation must reuse the already validated local runtime token`);
+forbid(core, /activation_mutation_started|activation_complete|deploy_mutation_started|deploy_complete/u, `${corePath}: EXIT rollback state must not depend on function-local variables`);
+forbid(core, /echo[^\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY)/iu, `${corePath}: secret output is forbidden`);
+
+if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${scopePath}: invalid schemaVersion`);
+if (scope.branch !== 'agent/tai-activation-exit-state-20260801') violations.push(`${scopePath}: branch mismatch`);
+if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) violations.push(`${scopePath}: hosting or cost boundary changed`);
+for (const path of [workflowPath, corePath, 'scripts/check-tai-local-model-key-authority.mjs', scopePath]) {
+  if (!scope.allowedPaths.includes(path)) violations.push(`${scopePath}: ${path} outside allowedPaths`);
+}
+
+if (violations.length) {
+  console.error('TAI activation authority contract failed:');
+  for (const violation of violations) console.error(`- ${violation}`);
+  process.exit(1);
+}
+
+console.log('TAI activation authority contract PASS: protected backup evidence is validated before mutation, EXIT rollback uses persistent markers, failure evidence is published, model tokens stay server-side, and production authority remains fail-closed.');
+'''
+          checker_path.write_text(checker_template.replace('@@GH@@', '$' + '{{'), encoding='utf-8')
 
           scope_path = Path('docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json')
           scope = json.loads(scope_path.read_text(encoding='utf-8'))
