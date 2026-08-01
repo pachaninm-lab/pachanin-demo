@@ -103,14 +103,9 @@ jobs:
 
           path = Path('apps/web/lib/platform-v7/assistant-relevance-router.ts')
           text = path.read_text(encoding='utf-8')
-          late_block = '''  // An explicit off-topic marker outranks sentence shape. "How do I choose a
-            // tattoo?" opens like a follow-up and is asked from inside the platform, and
-            // reading it as a continuation was how entertainment questions slipped into
-            // the contextual branch.
-            if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
+          condition_block = '''  if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
               return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
             }
-
           '''
           insertion_anchor = "  if (context.semanticHint === 'related') signals.push('semantic_hint');\n\n"
           early_block = '''  const hasUnrelatedSubject = containsAny(normalized, UNRELATED_TERMS);
@@ -132,9 +127,16 @@ jobs:
 
           '''
 
-          if late_block not in text:
-              raise SystemExit('late unrelated block missing after source repair')
-          text = text.replace(late_block, '', 1)
+          condition_index = text.find(condition_block)
+          if condition_index < 0:
+              raise SystemExit('unrelated decision condition missing after source repair')
+          comment_index = text.rfind('  // An explicit off-topic marker', 0, condition_index)
+          start = comment_index if comment_index >= 0 and condition_index - comment_index < 700 else condition_index
+          end = condition_index + len(condition_block)
+          while end < len(text) and text[end] == '\n':
+              end += 1
+          text = text[:start] + text[end:]
+
           if early_block not in text:
               if insertion_anchor not in text:
                   raise SystemExit('unrelated decision insertion anchor missing')
