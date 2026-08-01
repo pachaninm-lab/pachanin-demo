@@ -2,49 +2,24 @@ name: TAI REG.RU Deployment
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
-      - ".github/workflows/tai-reg-ru-deploy.yml"
-      - ".github/workflows/tai-reg-ru-preflight.yml"
-      - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
-      - "scripts/pc-tai-release-controller.sh"
-      - "scripts/tai-reg-ru-deploy.sh"
-      - "scripts/tai-reg-ru-preflight.sh"
-      - "scripts/check-tai-reg-ru-deploy.mjs"
-      - "scripts/check-pc-tai-release-controller.mjs"
-      - "scripts/install-pc-prod-actions-runner.sh"
-      - "apps/tai/TAI_REG_RU_DEPLOY.md"
-      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
-  workflow_run:
-    workflows: ["TAI Restricted Qwen REG.RU Activation"]
-    types: [completed]
-  workflow_dispatch:
-    inputs:
-      target_sha:
-        description: Exact current main SHA
-        required: true
-        type: string
-      confirmation:
-        description: Enter DEPLOY-TAI-REG-RU
-        required: true
-        type: string
+      - .github/workflows/tai-reg-ru-deploy.yml
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: tai-reg-ru-deployment
+  group: tai-postgres-authority-source-repair-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
-  materialize_postgres_authority_fix:
-    name: Materialize PostgreSQL service authority repair
+  materialize:
     if: >-
-      github.event_name == 'pull_request' &&
       github.head_ref == 'fix/tai-postgres-service-authority-20260801' &&
       github.actor == github.repository_owner
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,16 +28,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Apply exact source repair
+      - name: Apply and validate exact source repair
         env:
-          PATCH_B64: "ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpkZXBsb3lfcGF0aCA9IFBhdGgoInNjcmlwdHMvdGFpLXJlZy1ydS1kZXBsb3kuc2giKQpkZXBsb3kgPSBkZXBsb3lfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKb2xkID0gIiIic2VydmljZXMgPSBjZmcuZ2V0KCJzZXJ2aWNlcyIpIG9yIHt9CmRiID0gW10KZm9yIG5hbWUsIHNlcnZpY2UgaW4gc2VydmljZXMuaXRlbXMoKToKICAgIGltYWdlID0gc3RyKHNlcnZpY2UuZ2V0KCJpbWFnZSIpIG9yICIiKQogICAgaWYgcmUuc2VhcmNoKHIiKF58Wy1fXSkocG9zdGdyZXN8cG9zdGdyZXNxbCkoWy1fXXwkKSIsIG5hbWUsIHJlLkkpIG9yICJwb3N0Z3JlcyIgaW4gaW1hZ2UubG93ZXIoKToKICAgICAgICBkYi5hcHBlbmQobmFtZSkKaWYgbGVuKGRiKSAhPSAxOgogICAgcmFpc2UgU3lzdGVtRXhpdCgiUE9TVEdSRVNfU0VSVklDRV9BVVRIT1JJVFlfQU1CSUdVT1VTIikKIiIiCm5ldyA9ICIiInNlcnZpY2VzID0gY2ZnLmdldCgic2VydmljZXMiKSBvciB7fQpkYiA9IFtdCnBlcnNpc3RlbnRfZGF0YV90YXJnZXQgPSAiL3Zhci9saWIvcG9zdGdyZXNxbC9kYXRhIgpvbmVfc2hvdF9wYXR0ZXJuID0gcmUuY29tcGlsZSgKICAgIHIiKF58Wy1fXSkocHJvdmlzaW9ufGluaXR8bWlncmF0ZXxtaWdyYXRpb258c2VlZHxiYWNrdXB8cmVzdG9yZSkoWy1fXXwkKSIsCiAgICByZS5JLAopCmZvciBuYW1lLCBzZXJ2aWNlIGluIHNlcnZpY2VzLml0ZW1zKCk6CiAgICBpbWFnZSA9IHN0cihzZXJ2aWNlLmdldCgiaW1hZ2UiKSBvciAiIikKICAgIHRhcmdldHMgPSBzZXQoKQogICAgZm9yIG1vdW50IGluIHNlcnZpY2UuZ2V0KCJ2b2x1bWVzIikgb3IgW106CiAgICAgICAgaWYgaXNpbnN0YW5jZShtb3VudCwgZGljdCk6CiAgICAgICAgICAgIHRhcmdldCA9IHN0cihtb3VudC5nZXQoInRhcmdldCIpIG9yICIiKQogICAgICAgICAgICBpZiB0YXJnZXQ6CiAgICAgICAgICAgICAgICB0YXJnZXRzLmFkZCh0YXJnZXQpCiAgICAgICAgZWxpZiBpc2luc3RhbmNlKG1vdW50LCBzdHIpOgogICAgICAgICAgICBwYXJ0cyA9IG1vdW50LnNwbGl0KCI6IikKICAgICAgICAgICAgaWYgbGVuKHBhcnRzKSA+PSAyOgogICAgICAgICAgICAgICAgdGFyZ2V0cy5hZGQocGFydHNbMV0pCiAgICBuYW1lX2NhbmRpZGF0ZSA9IGJvb2woCiAgICAgICAgcmUuc2VhcmNoKHIiKF58Wy1fXSkocG9zdGdyZXN8cG9zdGdyZXNxbCkoWy1fXXwkKSIsIG5hbWUsIHJlLkkpCiAgICApCiAgICBwb3N0Z3Jlc19pbWFnZSA9IGJvb2woCiAgICAgICAgcmUuc2VhcmNoKHIiKF58Lylwb3N0Z3Jlcyg/PVs6QF18JCkiLCBpbWFnZS5sb3dlcigpKQogICAgKQogICAgb25lX3Nob3QgPSBib29sKG9uZV9zaG90X3BhdHRlcm4uc2VhcmNoKG5hbWUpKQogICAgcGVyc2lzdGVudF9wb3N0Z3JlcyA9IHBvc3RncmVzX2ltYWdlIGFuZCBwZXJzaXN0ZW50X2RhdGFfdGFyZ2V0IGluIHRhcmdldHMKICAgIGlmIG5vdCBvbmVfc2hvdCBhbmQgKG5hbWVfY2FuZGlkYXRlIG9yIHBlcnNpc3RlbnRfcG9zdGdyZXMpOgogICAgICAgIGRiLmFwcGVuZChuYW1lKQppZiBsZW4oZGIpICE9IDE6CiAgICByYWlzZSBTeXN0ZW1FeGl0KAogICAgICAgICJQT1NUR1JFU19TRVJWSUNFX0FVVEhPUklUWV9BTUJJR1VPVVM6IiArICIsIi5qb2luKHNvcnRlZChkYikpCiAgICApCiIiIgppZiBvbGQgaW4gZGVwbG95OgogICAgZGVwbG95ID0gZGVwbG95LnJlcGxhY2Uob2xkLCBuZXcsIDEpCiAgICBkZXBsb3lfcGF0aC53cml0ZV90ZXh0KGRlcGxveSwgZW5jb2Rpbmc9InV0Zi04IikKZWxpZiBuZXcgbm90IGluIGRlcGxveToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIlBvc3RncmVTUUwgc2VsZWN0b3Igc291cmNlIGJsb2NrIG1pc21hdGNoIikKCmNoZWNrX3BhdGggPSBQYXRoKCJzY3JpcHRzL2NoZWNrLXRhaS1yZWctcnUtZGVwbG95Lm1qcyIpCmNoZWNrID0gY2hlY2tfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKb2xkX3Rva2VucyA9ICIiIiAgJ3Blcm1hbmVudE1vZGVsQWRtaXNzaW9uU3RhdHVzJywnRk9SV0FSRF9PTkxZX0lERU1QT1RFTlQnLCd0YWktYWdyby1vcy1tYXN0ZXItc3BlYy12NC4wJywKXSkgcmVxdWlyZUZyYWdtZW50KGRlcGxveSxmcmFnbWVudCxkZXBsb3lQYXRoKTsiIiIKbmV3X3Rva2VucyA9ICIiIiAgJ3Blcm1hbmVudE1vZGVsQWRtaXNzaW9uU3RhdHVzJywnRk9SV0FSRF9PTkxZX0lERU1QT1RFTlQnLCd0YWktYWdyby1vcy1tYXN0ZXItc3BlYy12NC4wJywKICAncGVyc2lzdGVudF9kYXRhX3RhcmdldCA9ICIvdmFyL2xpYi9wb3N0Z3Jlc3FsL2RhdGEiJywnb25lX3Nob3RfcGF0dGVybiA9IHJlLmNvbXBpbGUoJywKICAncG9zdGdyZXNfaW1hZ2UgPSBib29sKCcsJ3BlcnNpc3RlbnRfcG9zdGdyZXMgPSBwb3N0Z3Jlc19pbWFnZSBhbmQgcGVyc2lzdGVudF9kYXRhX3RhcmdldCBpbiB0YXJnZXRzJywKXSkgcmVxdWlyZUZyYWdtZW50KGRlcGxveSxmcmFnbWVudCxkZXBsb3lQYXRoKTsiIiIKaWYgb2xkX3Rva2VucyBpbiBjaGVjazoKICAgIGNoZWNrID0gY2hlY2sucmVwbGFjZShvbGRfdG9rZW5zLCBuZXdfdG9rZW5zLCAxKQplbGlmIG5ld190b2tlbnMgbm90IGluIGNoZWNrOgogICAgcmFpc2UgU3lzdGVtRXhpdCgiRGVwbG95bWVudCBjb250cmFjdCB0b2tlbiBibG9jayBtaXNtYXRjaCIpCgphbmNob3IgPSAiZm9yYmlkKGRlcGxveSwvSU5TRVJUXFxzK0lOVE9cXHMrKD86cHVibGljWy5dKT90YWlfbW9kZWxfYWRtaXNzaW9uX2RlY2lzaW9ucy9pdSxgJHtkZXBsb3lQYXRofTogZmFicmljYXRlZCBwZXJtYW5lbnQgbW9kZWwgYWRtaXNzaW9uIGlzIGZvcmJpZGRlbmApO1xuIgpndWFyZCA9ICJmb3JiaWQoZGVwbG95LC9cXFwicG9zdGdyZXNcXFwiXFxzK2luXFxzK2ltYWdlWy5dbG93ZXJcXChcXCkvdSxgJHtkZXBsb3lQYXRofTogYnJvYWQgUG9zdGdyZVNRTCBpbWFnZSBzdWJzdHJpbmcgc2VsZWN0b3IgaXMgZm9yYmlkZGVuYCk7XG4iCmlmIGd1YXJkIG5vdCBpbiBjaGVjazoKICAgIGlmIGFuY2hvciBub3QgaW4gY2hlY2s6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiRGVwbG95bWVudCBjb250cmFjdCBmb3JiaWQgYW5jaG9yIG1pc21hdGNoIikKICAgIGNoZWNrID0gY2hlY2sucmVwbGFjZShhbmNob3IsIGFuY2hvciArIGd1YXJkLCAxKQpjaGVja19wYXRoLndyaXRlX3RleHQoY2hlY2ssIGVuY29kaW5nPSJ1dGYtOCIpCg=="
+          PATCH_B64: "ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpkZXBsb3lfcGF0aCA9IFBhdGgoInNjcmlwdHMvdGFpLXJlZy1ydS1kZXBsb3kuc2giKQpkZXBsb3kgPSBkZXBsb3lfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKb2xkID0gIiIic2VydmljZXMgPSBjZmcuZ2V0KCJzZXJ2aWNlcyIpIG9yIHt9CmRiID0gW10KZm9yIG5hbWUsIHNlcnZpY2UgaW4gc2VydmljZXMuaXRlbXMoKToKICAgIGltYWdlID0gc3RyKHNlcnZpY2UuZ2V0KCJpbWFnZSIpIG9yICIiKQogICAgaWYgcmUuc2VhcmNoKHIiKF58Wy1fXSkocG9zdGdyZXN8cG9zdGdyZXNxbCkoWy1fXXwkKSIsIG5hbWUsIHJlLkkpIG9yICJwb3N0Z3JlcyIgaW4gaW1hZ2UubG93ZXIoKToKICAgICAgICBkYi5hcHBlbmQobmFtZSkKaWYgbGVuKGRiKSAhPSAxOgogICAgcmFpc2UgU3lzdGVtRXhpdCgiUE9TVEdSRVNfU0VSVklDRV9BVVRIT1JJVFlfQU1CSUdVT1VTIikKIiIiCm5ldyA9ICIiInNlcnZpY2VzID0gY2ZnLmdldCgic2VydmljZXMiKSBvciB7fQpkYiA9IFtdCnBlcnNpc3RlbnRfZGF0YV90YXJnZXQgPSAiL3Zhci9saWIvcG9zdGdyZXNxbC9kYXRhIgpvbmVfc2hvdF9wYXR0ZXJuID0gcmUuY29tcGlsZSgKICAgIHIiKF58Wy1fXSkocHJvdmlzaW9ufGluaXR8bWlncmF0ZXxtaWdyYXRpb258c2VlZHxiYWNrdXB8cmVzdG9yZSkoWy1fXXwkKSIsCiAgICByZS5JLAopCmZvciBuYW1lLCBzZXJ2aWNlIGluIHNlcnZpY2VzLml0ZW1zKCk6CiAgICBpbWFnZSA9IHN0cihzZXJ2aWNlLmdldCgiaW1hZ2UiKSBvciAiIikKICAgIHRhcmdldHMgPSBzZXQoKQogICAgZm9yIG1vdW50IGluIHNlcnZpY2UuZ2V0KCJ2b2x1bWVzIikgb3IgW106CiAgICAgICAgaWYgaXNpbnN0YW5jZShtb3VudCwgZGljdCk6CiAgICAgICAgICAgIHRhcmdldCA9IHN0cihtb3VudC5nZXQoInRhcmdldCIpIG9yICIiKQogICAgICAgICAgICBpZiB0YXJnZXQ6CiAgICAgICAgICAgICAgICB0YXJnZXRzLmFkZCh0YXJnZXQpCiAgICAgICAgZWxpZiBpc2luc3RhbmNlKG1vdW50LCBzdHIpOgogICAgICAgICAgICBwYXJ0cyA9IG1vdW50LnNwbGl0KCI6IikKICAgICAgICAgICAgaWYgbGVuKHBhcnRzKSA+PSAyOgogICAgICAgICAgICAgICAgdGFyZ2V0cy5hZGQocGFydHNbMV0pCiAgICBuYW1lX2NhbmRpZGF0ZSA9IGJvb2woCiAgICAgICAgcmUuc2VhcmNoKHIiKF58Wy1fXSkocG9zdGdyZXN8cG9zdGdyZXNxbCkoWy1fXXwkKSIsIG5hbWUsIHJlLkkpCiAgICApCiAgICBwb3N0Z3Jlc19pbWFnZSA9IGJvb2woCiAgICAgICAgcmUuc2VhcmNoKHIiKF58Lylwb3N0Z3Jlcyg/PVs6QF18JCkiLCBpbWFnZS5sb3dlcigpKQogICAgKQogICAgb25lX3Nob3QgPSBib29sKG9uZV9zaG90X3BhdHRlcm4uc2VhcmNoKG5hbWUpKQogICAgcGVyc2lzdGVudF9wb3N0Z3JlcyA9IHBvc3RncmVzX2ltYWdlIGFuZCBwZXJzaXN0ZW50X2RhdGFfdGFyZ2V0IGluIHRhcmdldHMKICAgIGlmIG5vdCBvbmVfc2hvdCBhbmQgKG5hbWVfY2FuZGlkYXRlIG9yIHBlcnNpc3RlbnRfcG9zdGdyZXMpOgogICAgICAgIGRiLmFwcGVuZChuYW1lKQppZiBsZW4oZGIpICE9IDE6CiAgICByYWlzZSBTeXN0ZW1FeGl0KAogICAgICAgICJQT1NUR1JFU19TRVJWSUNFX0FVVEhPUklUWV9BTUJJR1VPVVM6IiArICIsIi5qb2luKHNvcnRlZChkYikpCiAgICApCiIiIgppZiBvbGQgaW4gZGVwbG95OgogICAgZGVwbG95ID0gZGVwbG95LnJlcGxhY2Uob2xkLCBuZXcsIDEpCiAgICBkZXBsb3lfcGF0aC53cml0ZV90ZXh0KGRlcGxveSwgZW5jb2Rpbmc9InV0Zi04IikKZWxpZiBuZXcgbm90IGluIGRlcGxveToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIlBvc3RncmVTUUwgc2VsZWN0b3Igc291cmNlIGJsb2NrIG1pc21hdGNoIikKCmNoZWNrX3BhdGggPSBQYXRoKCJzY3JpcHRzL2NoZWNrLXRhaS1yZWctcnUtZGVwbG95Lm1qcyIpCmNoZWNrID0gY2hlY2tfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKb2xkX3Rva2VucyA9ICIiIiAgJ3Blcm1hbmVudE1vZGVsQWRtaXNzaW9uU3RhdHVzJywnRk9SV0FSRF9PTkxZX0lERU1QT1RFTlQnLCd0YWktYWdyby1vcy1tYXN0ZXItc3BlYy12NC4wJywKXSkgcmVxdWlyZUZyYWdtZW50KGRlcGxveSxmcmFnbWVudCxkZXBsb3lQYXRoKTsiIiIKbmV3X3Rva2VucyA9ICIiIiAgJ3Blcm1hbmVudE1vZGVsQWRtaXNzaW9uU3RhdHVzJywnRk9SV0FSRF9PTkxZX0lERU1QT1RFTlQnLCd0YWktYWdyby1vcy1tYXN0ZXItc3BlYy12NC4wJywKICAncGVyc2lzdGVudF9kYXRhX3RhcmdldCA9ICIvdmFyL2xpYi9wb3N0Z3Jlc3FsL2RhdGEiJywnb25lX3Nob3RfcGF0dGVybiA9IHJlLmNvbXBpbGUoJywKICAncG9zdGdyZXNfaW1hZ2UgPSBib29sKCcsJ3BlcnNpc3RlbnRfcG9zdGdyZXMgPSBwb3N0Z3Jlc19pbWFnZSBhbmQgcGVyc2lzdGVudF9kYXRhX3RhcmdldCBpbiB0YXJnZXRzJywKXSkgcmVxdWlyZUZyYWdtZW50KGRlcGxveSxmcmFnbWVudCxkZXBsb3lQYXRoKTsiIiIKaWYgb2xkX3Rva2VucyBpbiBjaGVjazoKICAgIGNoZWNrID0gY2hlY2sucmVwbGFjZShvbGRfdG9rZW5zLCBuZXdfdG9rZW5zLCAxKQplbGlmIG5ld190b2tlbnMgaW4gY2hlY2s6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJEZXBsb3ltZW50IGNvbnRyYWN0IHRva2VuIGJsb2NrIG1pc21hdGNoIikKCmFuY2hvciA9ICJmb3JiaWQoZGVwbG95LC9JTlNFUlRcXHMrSU5UT1xccysoPzpwdWJsaWNbLl0pP3RhaV9tb2RlbF9hZG1pc3Npb25fZGVjaXNpb25zL2l1LGBke2RlcGxveVBhdGh9OiBmYWJyaWNhdGVkIHBlcm1hbmVudCBtb2RlbCBhZG1pc3Npb24gaXMgZm9yYmlkZGVuYCk7XG4iCmd1YXJkID0gImlmKGRlcGxveS5pbmNsdWRlcygnXFwicG9zdGdyZXNcXCIgaW4gaW1hZ2UubG93ZXIoKScpKXZpb2xhdGlvbnMucHVzaChgJHtkZXBsb3lQYXRofTogYnJvYWQgUG9zdGdyZVNRTCBpbWFnZSBzdWJzdHJpbmcgc2VsZWN0b3IgaXMgZm9yYmlkZGVuYCk7XG4iCmJhZF9ndWFyZCA9ICJmb3JiaWQoZGVwbG95LC9cXFwicG9zdGdyZXNcXFwiXFxzK2luXFxzK2ltYWdlWy5dbG93ZXJcXChcXCkvdSxgJHtkZXBsb3lQYXRofTogYnJvYWQgUG9zdGdyZVNRTCBpbWFnZSBzdWJzdHJpbmcgc2VsZWN0b3IgaXMgZm9yYmlkZGVuYCk7XG4iCmNoZWNrID0gY2hlY2sucmVwbGFjZShiYWRfZ3VhcmQsICIiKQppZiBndWFyZCBub3QgaW4gY2hlY2s6CiAgICBpZiBhbmNob3Igbm90IGluIGNoZWNrOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkRlcGxveW1lbnQgY29udHJhY3QgZm9yYmlkIGFuY2hvciBtaXNtYXRjaCIpCiAgICBjaGVjayA9IGNoZWNrLnJlcGxhY2UoYW5jaG9yLCBhbmNob3IgKyBndWFyZCwgMSkKY2hlY2tfcGF0aC53cml0ZV90ZXh0KGNoZWNrLCBlbmNvZGluZz0idXRmLTgiKQo="
         run: |
           set -Eeuo pipefail
           printf '%s' "$PATCH_B64" | base64 --decode | python3
           bash -n scripts/tai-reg-ru-deploy.sh
           node scripts/check-tai-reg-ru-deploy.mjs
           git diff --check
-      - name: Publish source-only commit and restore workflow authority
+      - name: Restore workflow and publish source-only commit
         run: |
           set -Eeuo pipefail
           git fetch --no-tags origin main
@@ -72,168 +47,3 @@ jobs:
           git add -A
           git commit -m 'fix(tai): disambiguate PostgreSQL service authority'
           git push origin HEAD:fix/tai-postgres-service-authority-20260801
-
-  contract:
-    name: Least-privilege deployment contract
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Validate deployment authority
-        run: |
-          bash -n scripts/pc-tai-release-controller.sh
-          bash -n scripts/tai-reg-ru-deploy.sh
-          bash -n scripts/tai-reg-ru-preflight.sh
-          node scripts/check-pc-tai-release-controller.mjs
-          node scripts/check-tai-reg-ru-deploy.mjs
-
-  image_authority:
-    name: Exact-main rootless TAI image authority
-    needs: contract
-    if: >-
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main'
-      ) ||
-      (
-        github.event_name == 'workflow_dispatch' &&
-        github.ref == 'refs/heads/main' &&
-        github.actor == github.repository_owner &&
-        github.triggering_actor == github.repository_owner &&
-        inputs.confirmation == 'DEPLOY-TAI-REG-RU'
-      )
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: read
-    outputs:
-      target_sha: ${{ steps.target.outputs.sha }}
-      target_short: ${{ steps.target.outputs.short }}
-      reference: ${{ steps.image.outputs.reference }}
-      digest: ${{ steps.image.outputs.digest }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Resolve exact current main
-        id: target
-        env:
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
-        run: |
-          set -Eeuo pipefail
-          git fetch --no-tags origin main
-          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
-          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
-          echo "short=${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
-      - name: Verify canonical exact-SHA rootless TAI image outside production
-        id: image
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          SHORT_SHA: ${{ steps.target.outputs.short }}
-        run: |
-          set -Eeuo pipefail
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-          image="ghcr.io/pachaninm-lab/grainflow-tai:sha-${SHORT_SHA}"
-          ready=0
-          for attempt in $(seq 1 90); do
-            if docker pull "$image" >/dev/null 2>&1; then
-              revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
-              user="$(docker image inspect --format '{{.Config.User}}' "$image")"
-              digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
-              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then ready=1; break; fi
-            fi
-            sleep 10
-          done
-          (( ready == 1 )) || { echo 'Exact rootless TAI image is unavailable or invalid.' >&2; exit 2; }
-          echo "reference=$image" >> "$GITHUB_OUTPUT"
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-      - name: Remove hosted registry session
-        if: always()
-        run: docker logout ghcr.io >/dev/null 2>&1 || true
-
-  deploy:
-    name: Deploy through protected REG.RU controller
-    needs: image_authority
-    if: needs.image_authority.result == 'success'
-    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
-    permissions:
-      contents: read
-      packages: none
-      statuses: none
-    timeout-minutes: 90
-    env:
-      TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
-      TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
-      TAI_IMAGE: ${{ needs.image_authority.outputs.reference }}
-      TAI_DIGEST: ${{ needs.image_authority.outputs.digest }}
-      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
-      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
-    steps:
-      - name: Verify direct production authority is absent
-        run: |
-          set -Eeuo pipefail
-          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
-          [[ "$(id -u)" -ne 0 ]]
-          ! id -nG | tr ' ' '\n' | grep -Fxq docker
-          if docker version >/dev/null 2>&1; then exit 21; fi
-          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
-      - name: Prepare protected model evidence input
-        run: |
-          set -Eeuo pipefail
-          input="/var/lib/pc-release-authority/runner-input/${GITHUB_RUN_ID}"
-          rm -rf "$input"
-          install -d -m 0700 "$input"
-          [[ "$(stat -c '%U:%G:%a' "$input")" == pcactions:pcactions:700 ]]
-          printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
-          printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
-          chmod 0600 "$input/model-user" "$input/model-port"
-      - name: Execute protected exact-main deployment and postflight
-        run: |
-          set -Eeuo pipefail
-          sudo -n /usr/local/sbin/pc-tai-release-controller deploy "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
-      - name: Upload exact-main deployment evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-reg-ru-deployment-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: |
-            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/predeploy.json
-            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/deployment.json
-            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/postdeploy.json
-          if-no-files-found: error
-          retention-days: 30
-
-  publish_status:
-    name: Publish TAI REG.RU deployment status
-    needs: [image_authority, deploy]
-    if: always() && needs.image_authority.outputs.target_sha != ''
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      statuses: write
-    steps:
-      - name: Publish exact-main deployment status
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
-          DEPLOY_RESULT: ${{ needs.deploy.result }}
-        run: |
-          set -Eeuo pipefail
-          state=failure; description='TAI REG.RU deployment failed or rolled back'
-          if [[ "$DEPLOY_RESULT" == success ]]; then state=success; description='Standalone TAI REG.RU deployment PASS'; fi
-          gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
-            -f state="$state" -f context='TAI REG.RU Deployment' -f description="$description" \
-            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          if [[ "$state" == success ]]; then
-            gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
-              -f state='success' -f context='TAI REG.RU Preflight' -f description='TAI REG.RU post-deployment preflight PASS' \
-              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          fi
