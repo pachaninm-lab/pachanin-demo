@@ -8,6 +8,7 @@ import {
 } from '../../src/common/types/request-user';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
+import { CURRENT_CONSENT_VERSION } from '../../src/modules/auth/consent-policy';
 import { RegistrationApplicationService } from '../../src/modules/auth/registration-application.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 
@@ -435,8 +436,8 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       region: 'Moscow',
       workspace: 'buyer' as const,
       password: PASSWORD,
-      termsVersion: '2026-07-31',
-      privacyVersion: '2026-07-31',
+      termsVersion: CURRENT_CONSENT_VERSION,
+      privacyVersion: CURRENT_CONSENT_VERSION,
       acceptTerms: true as const,
       acceptPrivacy: true as const,
     });
@@ -560,8 +561,8 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       region: 'Moscow',
       workspace: 'seller' as const,
       password: PASSWORD,
-      termsVersion: '2026-08-01',
-      privacyVersion: '2026-08-01',
+      termsVersion: CURRENT_CONSENT_VERSION,
+      privacyVersion: CURRENT_CONSENT_VERSION,
       acceptTerms: true as const,
       acceptPrivacy: true as const,
     };

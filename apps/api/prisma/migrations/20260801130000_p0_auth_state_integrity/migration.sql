@@ -1,6 +1,9 @@
 -- P0 identity state integrity and tenant binding.
 -- Forward-only: security/audit evidence is retained during application rollback.
 
+ALTER TABLE auth.mfa_challenges
+  ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 -- Reconcile legacy rows before adding stricter checks. A corrupt/non-positive TTL
 -- must not block deployment; it is collapsed to the smallest already-expired
 -- interval and remains visible in the immutable application/audit history.
