@@ -1,0 +1,30 @@
+name: TAI Model Evidence Sync
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-model-evidence-sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.head_ref == 'fix/tai-reg-ru-model-artifact-evidence-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/tai-reg-ru-model-artifact-evidence-20260801
+          fetch-depth: 0
+      - name: Merge current main
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin main
+          git merge --no-edit origin/main
+          rm -f .github/workflows/tai-model-evidence-sync.yml
+          git add -A
+          git commit --amend --no-edit
+          git push origin HEAD:fix/tai-reg-ru-model-artifact-evidence-20260801
