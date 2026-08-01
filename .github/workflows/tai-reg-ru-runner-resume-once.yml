@@ -1,0 +1,61 @@
+name: TAI REG.RU Runner Resume Once
+
+on:
+  push:
+    branches:
+      - agent/tai-reg-ru-bootstrap-repair-20260801
+    paths:
+      - .github/workflows/tai-reg-ru-runner-resume-once.yml
+
+permissions:
+  actions: read
+  contents: read
+  statuses: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    if: github.actor == github.repository_owner
+    env:
+      TARGET_SHA: 0a4d5c854485d3b51db0144bdeb2bbe4ce4c7830
+    steps:
+      - name: Inspect exact-main chain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          latest() {
+            local workflow="$1"
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?branch=main&per_page=30" \
+              --jq '.workflow_runs[] | select(.head_sha == env.TARGET_SHA) | [.id,.status,(.conclusion // "-"),.html_url] | @tsv' \
+              | head -n 1
+          }
+          preflight="$(latest tai-reg-ru-preflight.yml || true)"
+          activation="$(latest tai-restricted-qwen-reg-ru-activation.yml || true)"
+          deployment="$(latest tai-reg-ru-deploy.yml || true)"
+          printf 'preflight\t%s\nactivation\t%s\ndeployment\t%s\n' "$preflight" "$activation" "$deployment" > "$RUNNER_TEMP/chain.tsv"
+          cat "$RUNNER_TEMP/chain.tsv"
+          description="$(python3 - "$RUNNER_TEMP/chain.tsv" <<'PY'
+          import sys
+          parts=[]
+          for line in open(sys.argv[1],encoding='utf-8'):
+              cols=line.rstrip('\n').split('\t')
+              name=cols[0]
+              state='missing' if len(cols)<4 else f'{cols[2]}:{cols[3]}'
+              parts.append(f'{name}={state}')
+          print('; '.join(parts)[:140])
+          PY
+          )"
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state=success \
+            -f context='TAI Exact-Main Chain Inspect' \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tai-exact-main-chain-${{ github.run_id }}
+          path: ${{ runner.temp }}/chain.tsv
+          if-no-files-found: error
+          retention-days: 1
