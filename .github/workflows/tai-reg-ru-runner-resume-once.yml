@@ -1,4 +1,4 @@
-name: TAI REG.RU Deployment Diagnostic Once
+name: TAI REG.RU PostgreSQL Authority Inspect Once
 
 on:
   push:
@@ -12,12 +12,10 @@ permissions:
   statuses: write
 
 concurrency:
-  group: tai-reg-ru-controller-diagnostic-once
+  group: tai-reg-ru-postgres-authority-inspect-once
   cancel-in-progress: false
 
 env:
-  TARGET_SHA: 0a4d5c854485d3b51db0144bdeb2bbe4ce4c7830
-  TARGET_RUN: '30694093424'
   CANONICAL_PROD_HOST: 195.19.12.120
   PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -27,37 +25,31 @@ env:
   PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: ubuntu-24.04
     if: github.actor == github.repository_owner
     timeout-minutes: 10
     steps:
-      - name: Extract redacted root-controller failure evidence
+      - name: Inspect active API database authority without secrets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
           state=failure
-          description='TAI deployment diagnostic failed'
+          description='PostgreSQL authority inspection failed'
           publish() {
             gh api --method POST -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-              -f state="$state" \
-              -f context='TAI Deployment Diagnostic' \
+              -f state="$state" -f context='TAI PostgreSQL Authority Inspect' \
               -f description="$description" \
               -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
           }
           trap publish EXIT
-          state=pending; description='Reading redacted REG.RU controller evidence'; publish
-          state=failure; description='TAI deployment diagnostic failed'
+          state=pending; description='Inspecting production Compose database authority'; publish
+          state=failure
 
-          trim() {
-            local value="$1"
-            value="${value#"${value%%[![:space:]]*}"}"
-            value="${value%"${value##*[![:space:]]}"}"
-            printf '%s' "$value"
-          }
-          write_key() {
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
             local raw="$1" target="$2" a b c
             [[ -n "$raw" ]] || return 1
             a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
@@ -66,20 +58,15 @@ jobs:
             printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
             for candidate in "$a" "$b" "$c"; do
               if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
-                install -m 0600 "$candidate" "$target"
-                rm -f "$a" "$b" "$c"
-                return 0
+                install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0
               fi
             done
-            rm -f "$a" "$b" "$c"
-            return 1
+            rm -f "$a" "$b" "$c"; return 1
           }
-
           host="$(trim "${PROD_HOST_SECRET:-$CANONICAL_PROD_HOST}")"
           user="$(trim "${PROD_USER_SECRET:-}")"
           port="$(trim "${PROD_PORT_SECRET:-22}")"
           [[ "$host" == "$CANONICAL_PROD_HOST" && -n "$user" ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
           install -d -m 0700 "$HOME/.ssh"
           key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
           write_key "$key" "$HOME/.ssh/id_pc_prod"
@@ -88,35 +75,48 @@ jobs:
 
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
             -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes "$user@$host" \
-            "TARGET_RUN='$TARGET_RUN' python3 -" <<'PY'
-          from __future__ import annotations
-          import os, pathlib, re, subprocess
+            -o StrictHostKeyChecking=yes "$user@$host" 'python3 -' <<'PY'
+          import json, re, subprocess
+          from urllib.parse import urlparse
 
-          run_id = os.environ['TARGET_RUN']
-          root = pathlib.Path('/var/lib/pc-release-authority/controller-jobs') / run_id
-          print(f'JOB_STATE_EXISTS={root.is_dir()}')
-          print(subprocess.check_output(['df','-Pk','/var/lib/docker'], text=True).strip())
-          print(subprocess.check_output(['docker','system','df'], text=True).strip())
-          if not root.is_dir():
-              raise SystemExit(2)
-          for path in sorted(root.iterdir()):
-              kind = 'file' if path.is_file() else 'dir'
-              size = path.stat().st_size if path.is_file() else 0
-              print(f'STATE_ENTRY={path.name}|{kind}|{size}')
-          sensitive = re.compile(r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+')
-          long_hex = re.compile(r'(?<![0-9a-f])[0-9a-f]{64,}(?![0-9a-f])', re.I)
-          for name in ('deploy.log','deploy-rollback.log','full-stack.log','activation.log','rollback.log'):
-              path = root / name
-              if not path.is_file():
-                  continue
-              raw = path.read_text(encoding='utf-8', errors='replace').splitlines()
-              print(f'--- {name} LAST {min(len(raw), 240)} LINES ---')
-              for line in raw[-240:]:
-                  line = sensitive.sub(lambda m: m.group(1) + '=[REDACTED]', line)
-                  line = long_hex.sub('[LONG_HEX_REDACTED]', line)
-                  print(line[:3000])
+          web_ids = subprocess.check_output([
+              'docker','ps','-q','--filter','label=com.docker.compose.service=web'
+          ], text=True).split()
+          if len(web_ids) != 1:
+              raise SystemExit('web authority ambiguous')
+          web_id = web_ids[0]
+          def inspect(template):
+              return subprocess.check_output(['docker','inspect','--format',template,web_id],text=True).strip()
+          prod_dir=inspect('{{ index .Config.Labels "com.docker.compose.project.working_dir" }}')
+          prod_files=inspect('{{ index .Config.Labels "com.docker.compose.project.config_files" }}')
+          prod_project=inspect('{{ index .Config.Labels "com.docker.compose.project" }}')
+          cmd=['docker','compose','--project-directory',prod_dir,'--project-name',prod_project]
+          for raw in prod_files.split(','):
+              path=raw.strip()
+              if not path: continue
+              if not path.startswith('/'): path=f'{prod_dir}/{path}'
+              if not path.endswith('/compose.tai-agro-os.override.yml'):
+                  cmd.extend(['-f',path])
+          cfg=json.loads(subprocess.check_output(cmd+['config','--format','json'],text=True))
+          api_id=subprocess.check_output(cmd+['ps','-q','api'],text=True).strip().splitlines()[0]
+          env_lines=subprocess.check_output([
+              'docker','inspect','--format','{{range .Config.Env}}{{println .}}{{end}}',api_id
+          ],text=True).splitlines()
+          dsn=next((line.split('=',1)[1] for line in env_lines if line.startswith('DATABASE_URL=')), '')
+          parsed=urlparse(dsn)
+          print(f'API_DATABASE_SCHEME={parsed.scheme}')
+          print(f'API_DATABASE_HOST={parsed.hostname or ""}')
+          print(f'API_DATABASE_NAME={parsed.path.lstrip("/")}')
+          services=cfg.get('services') or {}
+          old=[]
+          for name,service in sorted(services.items()):
+              image=str(service.get('image') or '')
+              matches=bool(re.search(r'(^|[-_])(postgres|postgresql)([-_]|$)',name,re.I) or 'postgres' in image.lower())
+              if matches: old.append(name)
+              print(f'SERVICE={name}|IMAGE={image}|OLD_MATCH={str(matches).lower()}')
+          print('OLD_MATCHES=' + ','.join(old))
+          print('DATABASE_HOST_IS_SERVICE=' + str((parsed.hostname or '') in services).lower())
           PY
 
           state=success
-          description='Redacted REG.RU deployment evidence collected'
+          description='Production PostgreSQL authority inspected'
