@@ -43,7 +43,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tai-reg-ru-deployment
+  group: tai-reg-ru-deployment-${{ github.event.pull_request.number || 'production' }}
   cancel-in-progress: false
 
 jobs:
