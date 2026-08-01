@@ -20,6 +20,7 @@
     "require protected permissions, bounded size and exact STATUS=PASS",
     "fail closed when multiple valid evidence files are discovered",
     "export only a base64 encoded local path to the existing protected core process",
+    "retain the existing full-stack script as the final backup evidence validator",
     "never publish the evidence path, contents, model token or private key",
     "preserve exact-main checkout and installed-wrapper hash authority",
     "preserve explicit rollback and redacted failure evidence",
