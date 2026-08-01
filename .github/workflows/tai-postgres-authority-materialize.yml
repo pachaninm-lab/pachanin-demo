@@ -1,0 +1,222 @@
+name: TAI PostgreSQL Authority Materializer
+
+on:
+  push:
+    branches:
+      - agent/tai-postgres-authority-20260801
+    paths:
+      - .github/workflows/tai-postgres-authority-materialize.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-postgres-authority-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    if: github.actor == github.repository_owner
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-postgres-authority-20260801
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply fail-closed PostgreSQL authority repair
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          deploy_path = Path('scripts/tai-reg-ru-deploy.sh')
+          deploy = deploy_path.read_text(encoding='utf-8')
+          old = '''"${DC_BASE[@]}" config --format json > "$COMPOSE_JSON"
+          python3 - "$COMPOSE_JSON" "$TOPOLOGY_ENV" <<'PY'
+          import json, re, sys
+          cfg = json.load(open(sys.argv[1], encoding="utf-8"))
+          services = cfg.get("services") or {}
+          db = []
+          for name, service in services.items():
+              image = str(service.get("image") or "")
+              if re.search(r"(^|[-_])(postgres|postgresql)([-_]|$)", name, re.I) or "postgres" in image.lower():
+                  db.append(name)
+          if len(db) != 1:
+              raise SystemExit("POSTGRES_SERVICE_AUTHORITY_AMBIGUOUS")
+          if "tai" in services:
+              raise SystemExit("TAI_BASE_COMPOSE_AUTHORITY_UNEXPECTED")
+          with open(sys.argv[2], "w", encoding="utf-8") as out:
+              out.write(f"DB_SERVICE={db[0]}\\n")
+          PY
+          '''
+          new = '''"${DC_BASE[@]}" config --format json > "$COMPOSE_JSON"
+          api_id="$("${DC_BASE[@]}" ps -q api | head -1)"
+          test -n "$api_id"
+          api_database_url="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" \\
+            | awk -F= '$1 == "DATABASE_URL" {sub(/^[^=]*=/, ""); print; exit}')"
+          [[ -n "$api_database_url" ]] || { echo "API_DATABASE_URL_MISSING" >&2; exit 14; }
+          python3 - "$COMPOSE_JSON" "$TOPOLOGY_ENV" "$api_database_url" <<'PY'
+          import json, re, sys
+          from urllib.parse import urlparse
+
+          cfg = json.load(open(sys.argv[1], encoding="utf-8"))
+          services = cfg.get("services") or {}
+          parsed = urlparse(sys.argv[3])
+          if parsed.scheme not in {"postgres", "postgresql"}:
+              raise SystemExit("API_DATABASE_SCHEME_INVALID")
+          db_service = parsed.hostname or ""
+          db_name = parsed.path.lstrip("/")
+          if re.fullmatch(r"[A-Za-z0-9._-]+", db_service) is None or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", db_name) is None:
+              raise SystemExit("API_DATABASE_AUTHORITY_INVALID")
+          if db_service not in services:
+              raise SystemExit("POSTGRES_SERVICE_NOT_IN_COMPOSE")
+          image = str((services[db_service] or {}).get("image") or "")
+          if "postgres" not in image.lower():
+              raise SystemExit("POSTGRES_SERVICE_IMAGE_INVALID")
+          if "tai" in services:
+              raise SystemExit("TAI_BASE_COMPOSE_AUTHORITY_UNEXPECTED")
+          with open(sys.argv[2], "w", encoding="utf-8") as out:
+              out.write(f"DB_SERVICE={db_service}\\n")
+              out.write(f"DB_NAME_FROM_API={db_name}\\n")
+          PY
+          '''
+          if old not in deploy:
+              raise SystemExit('legacy PostgreSQL authority block not found')
+          deploy = deploy.replace(old, new, 1)
+
+          old_runtime = '''api_id="$("${DC_BASE[@]}" ps -q api | head -1)"
+          web_id="$("${DC_BASE[@]}" ps -q web | head -1)"
+          DB_ID="$("${DC_BASE[@]}" ps -q "$DB_SERVICE" | head -1)"
+          test -n "$api_id"
+          test -n "$web_id"
+          test -n "$DB_ID"
+          '''
+          new_runtime = '''api_id="$("${DC_BASE[@]}" ps -q api | head -1)"
+          web_id="$("${DC_BASE[@]}" ps -q web | head -1)"
+          mapfile -t db_ids < <("${DC_BASE[@]}" ps -q "$DB_SERVICE")
+          (( ${#db_ids[@]} == 1 )) || { echo "POSTGRES_RUNTIME_AUTHORITY_AMBIGUOUS" >&2; exit 15; }
+          DB_ID="${db_ids[0]}"
+          test -n "$api_id"
+          test -n "$web_id"
+          test -n "$DB_ID"
+          '''
+          if old_runtime not in deploy:
+              raise SystemExit('runtime PostgreSQL authority block not found')
+          deploy = deploy.replace(old_runtime, new_runtime, 1)
+
+          old_name = '''DB_NAME="$(env_value_from_container "$DB_ID" POSTGRES_DB)"
+          [[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+          [[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+          '''
+          new_name = '''DB_NAME="$(env_value_from_container "$DB_ID" POSTGRES_DB)"
+          [[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+          [[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+          [[ "$DB_NAME" == "$DB_NAME_FROM_API" ]] || { echo "POSTGRES_DATABASE_NAME_MISMATCH" >&2; exit 16; }
+          '''
+          if old_name not in deploy:
+              raise SystemExit('database-name authority block not found')
+          deploy = deploy.replace(old_name, new_name, 1)
+          deploy_path.write_text(deploy, encoding='utf-8')
+
+          check_path = Path('scripts/check-tai-reg-ru-deploy.mjs')
+          check = check_path.read_text(encoding='utf-8')
+          check = check.replace(
+              "const scopePath='docs/platform-v7/autopilot/scopes/tai-reg-ru-bootstrap-repair-20260801.json';",
+              "const scopePath='docs/platform-v7/autopilot/scopes/tai-postgres-authority-20260801.json';",
+              1,
+          )
+          marker = "  'permanentModelAdmissionStatus','FORWARD_ONLY_IDEMPOTENT','tai-agro-os-master-spec-v4.0',\n"
+          addition = "  'api_database_url=',\"from urllib.parse import urlparse\",'db_service = parsed.hostname or \\\"\\\"','POSTGRES_SERVICE_NOT_IN_COMPOSE','POSTGRES_SERVICE_IMAGE_INVALID','DB_NAME_FROM_API=','POSTGRES_RUNTIME_AUTHORITY_AMBIGUOUS','POSTGRES_DATABASE_NAME_MISMATCH',\n"
+          if marker not in check:
+              raise SystemExit('deployment check fragment marker not found')
+          check = check.replace(marker, marker + addition, 1)
+          check = check.replace(
+              "if(scope.branch!=='agent/tai-reg-ru-bootstrap-repair-20260801')",
+              "if(scope.branch!=='agent/tai-postgres-authority-20260801')",
+              1,
+          )
+          check_path.write_text(check, encoding='utf-8')
+
+          scope = {
+              'schemaVersion': 'platform-v7.concurrent-scope.v1',
+              'branch': 'agent/tai-postgres-authority-20260801',
+              'status': 'active',
+              'purpose': 'Repair the confirmed exact-main standalone TAI deployment PostgreSQL authority ambiguity by binding the database service to the active exact-main API DATABASE_URL host and proving one running Compose PostgreSQL container without weakening bootstrap or postflight acceptance.',
+              'approvedBy': 'owner-direct-finish-2026-08-01',
+              'authorityBaseExactMain': '0a4d5c854485d3b51db0144bdeb2bbe4ce4c7830',
+              'productionHosting': 'REG_RU_VPS_ONLY',
+              'newRecurringCostRub': 0,
+              'productionMutationAllowed': True,
+              'allowedPaths': [
+                  '.github/workflows/tai-postgres-authority-materialize.yml',
+                  '.github/workflows/tai-reg-ru-deploy.yml',
+                  'apps/tai/tai/bootstrap_authority.py',
+                  'apps/tai/tai/restricted_model_authority.py',
+                  'docs/platform-v7/autopilot/scopes/tai-postgres-authority-20260801.json',
+                  'scripts/check-tai-reg-ru-deploy.mjs',
+                  'scripts/tai-reg-ru-deploy.sh',
+                  'scripts/tai-reg-ru-preflight.sh',
+              ],
+              'requiredBehavior': [
+                  'derive the PostgreSQL Compose service from the DATABASE_URL of the active exact-main API container',
+                  'require the DATABASE_URL scheme host and database name to be syntactically valid',
+                  'require the selected host to name an existing Compose service backed by a PostgreSQL image',
+                  'require exactly one running container for the selected Compose service',
+                  'require POSTGRES_DB to equal the database name in the active API DATABASE_URL',
+                  'preserve exact-main immutable-image rootless runtime rollback and postflight acceptance',
+                  'preserve REG.RU-only hosting and zero new recurring expense',
+              ],
+              'forbiddenCapabilities': [
+                  'selecting a database by broad image-name scanning',
+                  'accepting multiple running containers for the selected database service',
+                  'accepting a database service not used by the active API',
+                  'continue-on-error acceptance masking',
+                  'new paid API SaaS server database network or recurring expense',
+                  'production PASS without exact-main deployment and postflight evidence',
+              ],
+              'acceptance': {
+                  'exactHeadRequired': True,
+                  'exactMainRequired': True,
+                  'behindByRequired': 0,
+                  'reviewThreadsRequired': 0,
+                  'requiredChecks': [
+                      'CI','Node CI','TAI Foundation','TAI Runtime Image',
+                      'Security Quality Gate','Runtime Context Security Gate',
+                      'Security Abuse and Evidence Acceptance','Production-like Kubernetes Acceptance',
+                  ],
+                  'productionSequence': [
+                      'canonical images','REG.RU preflight','restricted Qwen activation',
+                      'RU EN ZH SSE','hosted Chromium acceptance','activation finalization accept',
+                      'standalone TAI REG.RU deployment','post-deployment preflight and grounded inference evidence',
+                  ],
+                  'operationalStatusBeforeLiveAcceptance': 'NOT_DEPLOYED',
+              },
+          }
+          scope_path = Path('docs/platform-v7/autopilot/scopes/tai-postgres-authority-20260801.json')
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          Path('.github/workflows/tai-postgres-authority-materialize.yml').unlink()
+          PY
+      - name: Validate repair
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-reg-ru-deploy.mjs
+          git diff --check
+          grep -Fq 'API_DATABASE_HOST' /dev/null || true
+          ! grep -Fq 'db.append(name)' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'DB_SERVICE=${db_service}' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'POSTGRES_RUNTIME_AUTHORITY_AMBIGUOUS' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'POSTGRES_DATABASE_NAME_MISMATCH' scripts/tai-reg-ru-deploy.sh
+      - name: Publish source commit
+        run: |
+          set -Eeuo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/tai-reg-ru-deploy.sh scripts/check-tai-reg-ru-deploy.mjs docs/platform-v7/autopilot/scopes/tai-postgres-authority-20260801.json .github/workflows/tai-postgres-authority-materialize.yml
+          git commit -m 'fix(tai): bind PostgreSQL authority to active API'
+          git push origin HEAD:agent/tai-postgres-authority-20260801
