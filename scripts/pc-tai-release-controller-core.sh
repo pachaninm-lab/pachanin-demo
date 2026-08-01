@@ -107,6 +107,7 @@ sync_target() {
   for path in \
     scripts/tai-reg-ru-preflight.sh \
     scripts/tai-reg-ru-deploy.sh \
+    scripts/tai_model_artifact_evidence.py \
     scripts/production-full-stack-exact-sha.sh \
     scripts/tai-restricted-qwen-reg-ru-activate.sh; do
     [[ -f "$REPOSITORY_ROOT/$path" && ! -L "$REPOSITORY_ROOT/$path" ]] || fail PROTECTED_SCRIPT_INVALID 24
@@ -175,7 +176,8 @@ PY
 write_failure_evidence() {
   local action="$1" rc="$2" rollback_status="$3" path="$4" error_code
   error_code="$(grep -hE '^ERROR_CODE=[A-Z0-9_]+' \
-    "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" "$job_state/rollback.log" \
+    "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" \
+    "$job_state/model-artifact.log" "$job_state/rollback.log" \
     2>/dev/null | tail -1 | cut -d= -f2- || true)"
   [[ -n "$error_code" ]] || error_code="${action^^}_CONTROLLER_FAILED"
   python3 - "$path" "$TARGET_SHA" "$RUN_ID" "$action" "$rc" "$error_code" "$rollback_status" <<'PY'
@@ -246,64 +248,35 @@ printf %s "$key"'
 
 recover_model_artifact_evidence() {
   local model_user="$1" model_ssh_port="$2" output="$3"
+  local error_log="$job_state/model-artifact.log" remote
   [[ -s "$MODEL_KEY" && ! -L "$MODEL_KEY" ]] || fail MODEL_KEY_NOT_PROVISIONED 41
   [[ -s "$MODEL_KNOWN_HOSTS" && ! -L "$MODEL_KNOWN_HOSTS" ]] || fail MODEL_KNOWN_HOSTS_MISSING 45
-  ssh -i "$MODEL_KEY" -p "$model_ssh_port" -o BatchMode=yes -o IdentitiesOnly=yes \
-    -o UserKnownHostsFile="$MODEL_KNOWN_HOSTS" -o StrictHostKeyChecking=yes \
-    "$model_user@$MODEL_HOST" 'python3 -' > "$output" <<'PY_REMOTE'
-import hashlib
-import json
-import pathlib
-import stat
-import subprocess
+  [[ -f "$REPOSITORY_ROOT/scripts/tai_model_artifact_evidence.py" \
+    && ! -L "$REPOSITORY_ROOT/scripts/tai_model_artifact_evidence.py" ]] \
+    || fail MODEL_ARTIFACT_EVIDENCE_RESOLVER_INVALID 47
 
-subprocess.run(["systemctl", "is-active", "--quiet", "tai-qwen3-8b.service"], check=True)
-pid_text = subprocess.check_output(
-    ["systemctl", "show", "tai-qwen3-8b.service", "--property=MainPID", "--value"],
-    text=True,
-).strip()
-if not pid_text.isdigit() or int(pid_text) < 1:
-    raise SystemExit("invalid model process")
-pid = int(pid_text)
-args = [item.decode(errors="strict") for item in pathlib.Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0") if item]
-candidates = []
-context_tokens = 8192
-for index, argument in enumerate(args):
-    if argument in {"-m", "--model"} and index + 1 < len(args):
-        candidates.append(args[index + 1])
-    elif argument.startswith("--model="):
-        candidates.append(argument.split("=", 1)[1])
-    elif argument.lower().endswith(".gguf"):
-        candidates.append(argument)
-    if argument in {"-c", "--ctx-size"} and index + 1 < len(args) and args[index + 1].isdigit():
-        context_tokens = int(args[index + 1])
-    elif argument.startswith("--ctx-size=") and argument.split("=", 1)[1].isdigit():
-        context_tokens = int(argument.split("=", 1)[1])
-paths = sorted({str(pathlib.Path(item).resolve(strict=True)) for item in candidates})
-if len(paths) != 1:
-    raise SystemExit("model artifact authority is ambiguous")
-path = pathlib.Path(paths[0])
-metadata = path.stat()
-if not stat.S_ISREG(metadata.st_mode) or metadata.st_size < 1:
-    raise SystemExit("model artifact is invalid")
-if not 512 <= context_tokens <= 262144:
-    raise SystemExit("model context authority is invalid")
-digest = hashlib.sha256()
-with path.open("rb") as stream:
-    while block := stream.read(8 * 1024 * 1024):
-        digest.update(block)
-print(json.dumps({
-    "schemaVersion": "tai.restricted-model-artifact.v1",
-    "modelIdentity": "tai-qwen3-8b-q4km",
-    "modelHost": "192.168.0.206",
-    "artifactPath": str(path),
-    "artifactSha256": digest.hexdigest(),
-    "artifactSizeBytes": metadata.st_size,
-    "maximumContextTokens": context_tokens,
-}, sort_keys=True, separators=(",", ":")))
-PY_REMOTE
+  # The restricted model-host login shell recognizes these exact authority markers
+  # and performs its own non-interactive privilege transition. The controller only
+  # streams the reviewed resolver to Python and gains no direct host authority.
+  remote='set -Eeuo pipefail
+service=tai-qwen3-8b.service
+env_file=/etc/tai/qwen3-8b.env
+private_listener=192.168.0.206:18080
+exec python3 -'
+
+  : > "$error_log"
+  chmod 0600 "$error_log"
+  if ! ssh -i "$MODEL_KEY" -p "$model_ssh_port" -o BatchMode=yes -o IdentitiesOnly=yes \
+    -o UserKnownHostsFile="$MODEL_KNOWN_HOSTS" -o StrictHostKeyChecking=yes \
+    "$model_user@$MODEL_HOST" "$remote" \
+    < "$REPOSITORY_ROOT/scripts/tai_model_artifact_evidence.py" \
+    > "$output" 2> "$error_log"; then
+    printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_UNAVAILABLE
+' >> "$error_log"
+    fail MODEL_ARTIFACT_EVIDENCE_UNAVAILABLE 48
+  fi
   chmod 0600 "$output"
-  python3 - "$output" <<'PY_VALIDATE'
+  if ! python3 - "$output" 2>> "$error_log" <<'PY_VALIDATE'
 import json, re, sys
 value=json.load(open(sys.argv[1],encoding='utf-8'))
 assert value.get('schemaVersion') == 'tai.restricted-model-artifact.v1'
@@ -314,6 +287,11 @@ assert re.fullmatch(r'[0-9a-f]{64}', value.get('artifactSha256',''))
 assert isinstance(value.get('artifactSizeBytes'), int) and value['artifactSizeBytes'] > 0
 assert isinstance(value.get('maximumContextTokens'), int) and 512 <= value['maximumContextTokens'] <= 262144
 PY_VALIDATE
+  then
+    printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_INVALID
+' >> "$error_log"
+    fail MODEL_ARTIFACT_EVIDENCE_INVALID 49
+  fi
 }
 
 rollback_activation() {

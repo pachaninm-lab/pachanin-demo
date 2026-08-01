@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import './check-tai-model-artifact-evidence.mjs';
 
 const paths = {
   wrapper: 'scripts/pc-tai-release-controller.sh',
