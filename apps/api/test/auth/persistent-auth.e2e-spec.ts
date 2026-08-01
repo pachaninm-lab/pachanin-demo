@@ -518,6 +518,9 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         application_id: expect.any(String),
       }),
     ]);
+    await expect(first.prisma.$executeRaw`
+      TRUNCATE TABLE auth.registration_public_attempts
+    `).rejects.toThrow(/append-only/i);
 
     const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
     process.env.REGISTRATION_DELIVERY_KEY = 'registration-delivery-key-32-characters-minimum';

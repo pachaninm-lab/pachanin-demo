@@ -30,6 +30,14 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog
 AS $$
 BEGIN
+  -- PostgreSQL includes empty referencing tables in `TRUNCATE ... CASCADE`.
+  -- Permit that no-op so isolated acceptance suites can reset unrelated
+  -- aggregates, but never permit durable registration attempt evidence to be
+  -- truncated once a row exists.
+  IF TG_OP = 'TRUNCATE'
+     AND NOT EXISTS (SELECT 1 FROM auth.registration_public_attempts) THEN
+    RETURN NULL;
+  END IF;
   RAISE EXCEPTION 'auth.registration_public_attempts is append-only';
 END;
 $$;
