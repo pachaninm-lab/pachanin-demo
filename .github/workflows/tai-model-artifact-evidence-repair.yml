@@ -1,0 +1,147 @@
+name: TAI Model Artifact Evidence Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-model-artifact-evidence-repair.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-model-artifact-evidence-repair-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.head_ref == 'fix/tai-reg-ru-model-artifact-evidence-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/tai-reg-ru-model-artifact-evidence-20260801
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Materialize protected controller repair
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import re
+          from pathlib import Path
+
+          core_path = Path('scripts/pc-tai-release-controller-core.sh')
+          core = core_path.read_text(encoding='utf-8')
+
+          scripts_anchor = '''    scripts/tai-reg-ru-preflight.sh \\
+              scripts/tai-reg-ru-deploy.sh \\
+              scripts/production-full-stack-exact-sha.sh \\
+          '''
+          scripts_replacement = '''    scripts/tai-reg-ru-preflight.sh \\
+              scripts/tai-reg-ru-deploy.sh \\
+              scripts/tai_model_artifact_evidence.py \\
+              scripts/production-full-stack-exact-sha.sh \\
+          '''
+          if scripts_replacement not in core:
+              if core.count(scripts_anchor) != 1:
+                  raise SystemExit(f'protected script anchor count: {core.count(scripts_anchor)}')
+              core = core.replace(scripts_anchor, scripts_replacement, 1)
+
+          log_anchor = '''    "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" "$job_state/rollback.log" \\
+          '''
+          log_replacement = '''    "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" \\
+              "$job_state/model-artifact.log" "$job_state/rollback.log" \\
+          '''
+          if log_replacement not in core:
+              if core.count(log_anchor) != 1:
+                  raise SystemExit(f'failure log anchor count: {core.count(log_anchor)}')
+              core = core.replace(log_anchor, log_replacement, 1)
+
+          replacement = r'''recover_model_artifact_evidence() {
+            local model_user="$1" model_ssh_port="$2" output="$3"
+            local error_log="$job_state/model-artifact.log" remote
+            [[ -s "$MODEL_KEY" && ! -L "$MODEL_KEY" ]] || fail MODEL_KEY_NOT_PROVISIONED 41
+            [[ -s "$MODEL_KNOWN_HOSTS" && ! -L "$MODEL_KNOWN_HOSTS" ]] || fail MODEL_KNOWN_HOSTS_MISSING 45
+            [[ -f "$REPOSITORY_ROOT/scripts/tai_model_artifact_evidence.py" \
+              && ! -L "$REPOSITORY_ROOT/scripts/tai_model_artifact_evidence.py" ]] \
+              || fail MODEL_ARTIFACT_EVIDENCE_RESOLVER_INVALID 47
+
+            remote='set -Eeuo pipefail
+          service=tai-qwen3-8b.service
+          env_file=/etc/tai/qwen3-8b.env
+          private_listener=192.168.0.206:18080
+          if [ "$(id -u)" -eq 0 ]; then exec python3 -; fi
+          command -v sudo >/dev/null 2>&1 || { echo MODEL_ARTIFACT_EVIDENCE_ERROR=sudo_unavailable >&2; exit 126; }
+          sudo -n true >/dev/null 2>&1 || { echo MODEL_ARTIFACT_EVIDENCE_ERROR=sudo_password_required >&2; exit 126; }
+          exec sudo -n python3 -'
+
+            : > "$error_log"
+            chmod 0600 "$error_log"
+            if ! ssh -i "$MODEL_KEY" -p "$model_ssh_port" -o BatchMode=yes -o IdentitiesOnly=yes \
+              -o UserKnownHostsFile="$MODEL_KNOWN_HOSTS" -o StrictHostKeyChecking=yes \
+              "$model_user@$MODEL_HOST" "$remote" \
+              < "$REPOSITORY_ROOT/scripts/tai_model_artifact_evidence.py" \
+              > "$output" 2> "$error_log"; then
+              printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_UNAVAILABLE\n' >> "$error_log"
+              fail MODEL_ARTIFACT_EVIDENCE_UNAVAILABLE 48
+            fi
+            chmod 0600 "$output"
+            if ! python3 - "$output" 2>> "$error_log" <<'PY_VALIDATE'
+          import json, re, sys
+          value=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert value.get('schemaVersion') == 'tai.restricted-model-artifact.v1'
+          assert value.get('modelIdentity') == 'tai-qwen3-8b-q4km'
+          assert value.get('modelHost') == '192.168.0.206'
+          assert isinstance(value.get('artifactPath'), str) and value['artifactPath'].startswith('/')
+          assert re.fullmatch(r'[0-9a-f]{64}', value.get('artifactSha256',''))
+          assert isinstance(value.get('artifactSizeBytes'), int) and value['artifactSizeBytes'] > 0
+          assert isinstance(value.get('maximumContextTokens'), int) and 512 <= value['maximumContextTokens'] <= 262144
+          PY_VALIDATE
+            then
+              printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_INVALID\n' >> "$error_log"
+              fail MODEL_ARTIFACT_EVIDENCE_INVALID 49
+            fi
+          }'''
+
+          pattern = re.compile(
+              r'recover_model_artifact_evidence\(\) \{.*?\n\}\n\nrollback_activation\(\) \{',
+              re.S,
+          )
+          core, changed = pattern.subn(replacement + '\n\nrollback_activation() {', core, count=1)
+          if changed != 1:
+              raise SystemExit(f'model evidence function replacement count: {changed}')
+          core_path.write_text(core, encoding='utf-8')
+
+          checker_path = Path('scripts/check-pc-tai-release-controller.mjs')
+          checker = checker_path.read_text(encoding='utf-8')
+          import_line = "import './check-tai-model-artifact-evidence.mjs';\n"
+          if import_line not in checker:
+              anchor = "import { readFileSync } from 'node:fs';\n"
+              if checker.count(anchor) != 1:
+                  raise SystemExit('controller checker import anchor missing')
+              checker = checker.replace(anchor, anchor + import_line, 1)
+          checker_path.write_text(checker, encoding='utf-8')
+          PY
+      - name: Validate focused repair
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/pc-tai-release-controller-core.sh
+          python3 -m py_compile scripts/tai_model_artifact_evidence.py
+          node scripts/check-tai-model-artifact-evidence.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
+          git diff --check
+      - name: Publish source-only commit
+        run: |
+          set -Eeuo pipefail
+          rm -f .github/workflows/tai-model-artifact-evidence-repair.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(tai): bind REG.RU model evidence to live service'
+          git push origin HEAD:fix/tai-reg-ru-model-artifact-evidence-20260801
