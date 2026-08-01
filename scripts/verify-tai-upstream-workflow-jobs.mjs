@@ -27,15 +27,22 @@ export function verifyWorkflowJobs(report, requiredNames) {
   return true;
 }
 
-export function verifyWorkflowRun(report, expectedSha, expectedAttempt, expectedName) {
+export function verifyWorkflowRun(report, expectedSha, expectedAttempt, expectedName, expectedRepository) {
   if (!report || typeof report !== 'object' || Array.isArray(report)) {
     throw new Error('workflow run response must be an object');
   }
   const attempt = Number(expectedAttempt);
-  if (!/^[0-9a-f]{40}$/.test(expectedSha) || !Number.isInteger(attempt) || attempt < 1 || !expectedName) {
+  if (
+    !/^[0-9a-f]{40}$/.test(expectedSha)
+    || !Number.isInteger(attempt)
+    || attempt < 1
+    || !expectedName
+    || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(expectedRepository)
+  ) {
     throw new Error('expected workflow run authority is invalid');
   }
   if (report.name !== expectedName) throw new Error('workflow name mismatch');
+  if (report.head_repository?.full_name !== expectedRepository) throw new Error('workflow repository mismatch');
   if (report.head_sha !== expectedSha) throw new Error('workflow target SHA mismatch');
   if (report.head_branch !== 'main') throw new Error('workflow branch mismatch');
   if (report.run_attempt !== attempt) throw new Error('workflow run attempt mismatch');
@@ -48,14 +55,14 @@ export function verifyWorkflowRun(report, expectedSha, expectedAttempt, expected
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [, , mode, reportPath, ...authority] = process.argv;
   if (!['--run', '--jobs'].includes(mode) || !reportPath || authority.length < 1) {
-    console.error('usage: verify-tai-upstream-workflow-jobs.mjs --run REPORT SHA ATTEMPT NAME | --jobs REPORT JOB_NAME...');
+    console.error('usage: verify-tai-upstream-workflow-jobs.mjs --run REPORT SHA ATTEMPT NAME REPOSITORY | --jobs REPORT JOB_NAME...');
     process.exit(2);
   }
   try {
     const report = JSON.parse(readFileSync(reportPath, 'utf8'));
     if (mode === '--run') {
-      if (authority.length !== 3) throw new Error('workflow run authority argument count is invalid');
-      verifyWorkflowRun(report, authority[0], authority[1], authority[2]);
+      if (authority.length !== 4) throw new Error('workflow run authority argument count is invalid');
+      verifyWorkflowRun(report, authority[0], authority[1], authority[2], authority[3]);
       console.log(`Upstream workflow run PASS: ${authority[2]} exact attempt is successful.`);
     } else {
       verifyWorkflowJobs(report, authority);
