@@ -4,7 +4,7 @@
   "status": "active",
   "purpose": "Deliver the bounded P0 first-customer access vertical: fail-closed registration and login, controlled organization admission and joins, versioned consent evidence, email verification, password and MFA recovery, server-authoritative role/workspace routing, organization team invitations and tenant-isolated first actions without product-scope expansion.",
   "approvedBy": "owner-direct-p0-first-customer-access-2026-07-31",
-  "authorityBaseExactMain": "758f55b89ff677d6bcd5e820887d519fb41271d1",
+  "authorityBaseExactMain": "35cc81e9deb275ea372aa9abbfa27bfd49b43a57",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "repairEvidence": {
