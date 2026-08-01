@@ -13,7 +13,8 @@ const requireFragment=(source,fragment,label)=>{if(!source.includes(fragment))vi
 const forbid=(source,pattern,label)=>{if(pattern.test(source))violations.push(label)};
 
 for(const fragment of [
-  'workflows: ["TAI Restricted Qwen REG.RU Activation"]',"inputs.confirmation == 'DEPLOY-TAI-REG-RU'",
+  'Permanent model admission is required',"inputs.confirmation == 'DEPLOY-TAI-REG-RU'",
+  'github.event_name == \'workflow_dispatch\'','github.ref == \'refs/heads/main\'',
   'github.actor == github.repository_owner','github.triggering_actor == github.repository_owner',
   '[[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]','runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
   'Verify canonical exact-SHA rootless TAI image outside production','Verify direct production authority is absent',
@@ -34,6 +35,11 @@ for(const fragment of [
 ]) requireFragment(deploy,fragment,deployPath);
 for(const fragment of ['TAI_SERVICE_NOT_MATERIALIZED','TAI_DEDICATED_ENV_NOT_MATERIALIZED','TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED','NO_PRODUCTION_MUTATION_DETECTED','compose.tai-agro-os.override.yml','TAI_OVERRIDE_PROTECTED','expected_image_id=','has_table_privilege']) requireFragment(preflight,fragment,preflightPath);
 
+forbid(
+  workflow,
+  /workflow_run:\s*[\s\S]*TAI Restricted Qwen REG[.]RU Activation/u,
+  `${workflowPath}: restricted activation must not auto-deploy standalone TAI`,
+);
 forbid(workflow,/PC_PROD_SSH_|PROD_HOST_SECRET|PROD_KEY_|PROD_HOST_FINGERPRINT|id_pc_prod|prod_known_hosts|\bscp\b/u,`${workflowPath}: production SSH transport is forbidden`);
 forbid(workflow,/continue-on-error:\s*true/mu,`${workflowPath}: continue-on-error is forbidden`);
 forbid(deploy,/set\s+-[^\n]*x/iu,`${deployPath}: shell tracing is forbidden`);
@@ -52,4 +58,4 @@ if(scope.productionMutationAllowed!==true)violations.push(`${scopePath}: deploym
 for(const p of [workflowPath,deployPath,preflightPath,'scripts/check-tai-reg-ru-deploy.mjs'])if(!scope.allowedPaths.includes(p))violations.push(`${scopePath}: ${p} outside allowedPaths`);
 
 if(violations.length){console.error('TAI REG.RU deployment contract failed:');for(const v of violations)console.error(`- ${v}`);process.exit(1)}
-console.log('TAI REG.RU deployment contract PASS: protected exact-main controller, immutable digest, rootless runtime, rollback-bound and zero-cost.');
+console.log('TAI REG.RU deployment contract PASS: protected exact-main manual owner authority, immutable digest, rootless runtime, rollback-bound and zero-cost.');
