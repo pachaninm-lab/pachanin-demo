@@ -65,7 +65,7 @@ jobs:
           rm -f .github/workflows/apply-tai-deploy-failure-evidence.yml
           git add -A
           git diff --cached --name-only | sort | tee /tmp/tai-deploy-evidence-files.txt
-          if grep -Ev '^(docs/platform-v7/autopilot/scopes/tai-deploy-failure-evidence-20260801[.]json|scripts/check-pc-tai-release-controller[.]mjs|scripts/pc-tai-release-controller-core[.]sh)$' /tmp/tai-deploy-evidence-files.txt; then
+          if grep -Ev '^([.]github/workflows/apply-tai-deploy-failure-evidence[.]yml|docs/platform-v7/autopilot/scopes/tai-deploy-failure-evidence-20260801[.]json|scripts/apply-tai-deploy-failure-evidence[.]py|scripts/check-pc-tai-release-controller[.]mjs|scripts/pc-tai-release-controller-core[.]sh)$' /tmp/tai-deploy-evidence-files.txt; then
             echo 'Final diff exceeds registered failure-evidence scope.' >&2
             exit 31
           fi
