@@ -1,0 +1,72 @@
+name: TAI Semantic Source Repair Finalize
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/tai-semantic-repair-finalize.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-semantic-source-repair-finalize-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.head_ref == 'claude/tai-agro-os-v4-production-izow8x'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/tai-agro-os-v4-production-izow8x
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Execute corrected focused source patch
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+          import base64
+          import re
+          from pathlib import Path
+
+          source = Path('.github/workflows/tai-semantic-followup-pr-run.yml').read_text(encoding='utf-8')
+          match = re.search(r'PATCH_B64: "([A-Za-z0-9+/=]+)"', source)
+          if match is None:
+              raise SystemExit('source patch payload missing')
+          script = base64.b64decode(match.group(1), validate=True).decode('utf-8')
+          old = 'public, changed = history_pattern.subn(history_replacement, public, count=1)'
+          new = 'public, changed = history_pattern.subn(lambda _match: history_replacement, public, count=1)'
+          if old not in script:
+              raise SystemExit('regex replacement defect marker missing')
+          script = script.replace(old, new, 1)
+          exec(compile(script, '<tai-semantic-source-repair>', 'exec'), {'__name__': '__main__'})
+          finalizer = Path('.github/workflows/tai-semantic-repair-finalize.yml')
+          if finalizer.exists():
+              finalizer.unlink()
+          PY
+      - name: Validate focused source repair
+        run: |
+          set -Eeuo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/web exec tsc --noEmit
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/taiSemanticRelevanceRouter.test.ts \
+            tests/unit/taiSemanticAcceptanceCorpus.test.ts \
+            tests/unit/platformV7PublicAssistantStreamContract.test.ts
+          git diff --check
+          ! git diff --name-only | grep -E '^\.github/workflows/tai-semantic-(followup|repair)'
+      - name: Publish source-only commit
+        run: |
+          set -Eeuo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(tai): preserve semantic context across fallback paths'
+          git push origin HEAD:claude/tai-agro-os-v4-production-izow8x
