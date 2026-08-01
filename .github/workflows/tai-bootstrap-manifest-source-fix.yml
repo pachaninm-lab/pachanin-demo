@@ -1,0 +1,80 @@
+name: TAI Bootstrap Migration Source Fix
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/tai-bootstrap-manifest-source-fix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-bootstrap-migration-source-fix
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    if: github.actor == github.repository_owner
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-reg-ru-bootstrap-repair-20260801
+          fetch-depth: 0
+      - name: Apply exact source fix
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/tai-reg-ru-deploy.sh')
+          text = path.read_text(encoding='utf-8')
+          old = """for item in manifest.get('migrations') or []:
+              version=item.get('version'); path=item.get('path'); expected=item.get('sha256')
+              if not isinstance(version,int) or version < 1 or version in seen_versions: raise SystemExit('migration version authority invalid')
+              if not isinstance(path,str) or not path.startswith('migrations/') or path in seen_paths: raise SystemExit('migration path authority invalid')
+              raw=root.joinpath(path.split('/',1)[1]).read_bytes(); digest=hashlib.sha256(raw).hexdigest()
+              if digest != expected: raise SystemExit(f'migration hash mismatch: {path}')
+              seen_versions.add(version); seen_paths.add(path)
+          """
+          new = """for item in manifest.get('migrations') or []:
+              version=item.get('version'); path=item.get('path')
+              if not isinstance(version,int) or isinstance(version,bool) or version < 1 or version in seen_versions: raise SystemExit('migration version authority invalid')
+              if not isinstance(path,str) or not path.endswith('.sql') or '/' in path or path in seen_paths: raise SystemExit('migration path authority invalid')
+              raw=root.joinpath(path).read_bytes(); digest=hashlib.sha256(raw).hexdigest()
+              seen_versions.add(version); seen_paths.add(path)
+          """
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('migration authority source block mismatch')
+          path.write_text(text, encoding='utf-8')
+          PY
+          git cat-file -e "${BASE_SHA}^{commit}"
+          git checkout "$BASE_SHA" -- apps/tai/tai/migrations/manifest.json
+      - name: Validate source fix
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-reg-ru-deploy.mjs
+          git diff --check
+          git diff --exit-code "${{ github.event.pull_request.base.sha || github.sha }}" -- apps/tai/tai/migrations/manifest.json
+          grep -Fq "raw=root.joinpath(path).read_bytes(); digest=hashlib.sha256(raw).hexdigest()" scripts/tai-reg-ru-deploy.sh
+          ! grep -Fq "expected=item.get('sha256')" scripts/tai-reg-ru-deploy.sh
+      - name: Publish source-only commit
+        run: |
+          set -Eeuo pipefail
+          if git diff --quiet -- scripts/tai-reg-ru-deploy.sh apps/tai/tai/migrations/manifest.json; then
+            echo 'Source fix already materialized.'
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/tai-reg-ru-deploy.sh apps/tai/tai/migrations/manifest.json
+          git commit -m 'fix(tai): bind migration hashes to immutable image'
+          git push origin HEAD:agent/tai-reg-ru-bootstrap-repair-20260801
