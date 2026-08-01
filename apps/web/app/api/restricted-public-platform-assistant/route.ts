@@ -9,6 +9,12 @@ import {
   GET as knowledgeGet,
   POST as knowledgePost,
 } from '../public-platform-assistant/route';
+import {
+  resolvePreviousTopic,
+  routeAssistantQuestion,
+  type AssistantRoutingContext,
+} from '@/lib/platform-v7/assistant-relevance-router';
+import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -31,7 +37,7 @@ type PublicKnowledgeAnswer = Readonly<{
   knowledgeVersion: string;
   dataMode: 'public_knowledge';
   mode: 'read_only';
-  resolution: 'answered' | 'refused' | 'clarification_required';
+  resolution: 'answered' | 'refused' | 'redirected';
   topic: string;
   title: string;
   answer: string;
@@ -126,6 +132,16 @@ export async function POST(request: NextRequest) {
 
   const rawBody = await request.text();
   const envelope = readPublicEnvelope(rawBody);
+  // Role and page are resolved from the request, not from the envelope: the
+  // exact cabinet role reaches the model unchanged, while organization, tenant
+  // and object identifiers never enter the payload at all.
+  const routingContext = await buildAssistantRoutingContext(request, {
+    locale: envelope.locale,
+    recentMessages: envelope.history,
+    previousTopic: resolvePreviousTopic(envelope.history),
+    hasAttachment: false,
+    semanticHint: null,
+  });
   const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody));
   if (!groundingResponse.ok) return groundingResponse;
 
@@ -138,10 +154,15 @@ export async function POST(request: NextRequest) {
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
-  return streamRestrictedAnswer(request, grounding, envelope);
+  return streamRestrictedAnswer(request, grounding, envelope, routingContext);
 }
 
-function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledgeAnswer, envelope: PublicEnvelope) {
+function streamRestrictedAnswer(
+  request: NextRequest,
+  grounding: PublicKnowledgeAnswer,
+  envelope: PublicEnvelope,
+  routingContext: AssistantRoutingContext,
+) {
   const encoder = new TextEncoder();
   const streamId = crypto.randomUUID();
   const runtimeConfig = readRuntimeConfig();
@@ -174,7 +195,13 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
 
       const run = async () => {
         const locale = resolveLocale(grounding, envelope.locale);
-        const answerMode = classifyAnswerMode(envelope.question, envelope.context, envelope.history);
+        const outcome = routeAssistantQuestion(envelope.question, { ...routingContext, locale });
+        // The router sees the page, the exact role and the conversation, so a
+        // short follow-up keeps its platform subject instead of falling back to
+        // general agriculture once the reader stops repeating the noun.
+        const answerMode: PublicAnswerMode = outcome.section
+          ? 'verified_platform'
+          : classifyAnswerMode(envelope.question, envelope.context, envelope.history);
         const currentDataRequired = answerMode === 'general_agro' && requiresCurrentEvidence(envelope.question);
 
         if (containsSensitiveInput(envelope.question, envelope.history)) {
@@ -193,12 +220,13 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
           return;
         }
 
-        if (answerMode === 'verified_platform' && grounding.resolution !== 'answered') {
-          emitSources(writer, grounding.sources);
+        // A redirected question is served verbatim from verified knowledge: the
+        // text already says what this assistant covers, and sending it through
+        // the model would only invite it to improvise a topic it does not have.
+        if (grounding.resolution === 'redirected') {
           emitDirectAnswer(writer, grounding.answer, {
             source: 'verified_knowledge', answerMode, currentDataRequired: false,
-            modelIdentity: null, truncated: false,
-            safetyFlags: ['PLATFORM_GROUNDING_CLARIFICATION'],
+            modelIdentity: null, truncated: false, safetyFlags: [],
           });
           return;
         }
@@ -219,6 +247,12 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
           answerMode,
           currentDataRequired,
           history: envelope.history,
+          // The exact cabinet role, never folded into a coarse class: twelve
+          // cabinets collapsed into a handful of buckets is what made
+          // role-specific answers disappear before the model ever saw them.
+          cabinetRole: routingContext.role,
+          page: routingContext.page,
+          selectedObject: routingContext.selectedObject,
           grounding: {
             knowledgeVersion: grounding.knowledgeVersion,
             topic: grounding.topic,

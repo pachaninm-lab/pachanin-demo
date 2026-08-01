@@ -40,7 +40,6 @@ type Catalog = {
 };
 type Answer = {
   requestId: string;
-  escalationId?: string;
   generatedAt: string;
   knowledgeVersion: string;
   dataMode: 'public_knowledge';
@@ -103,10 +102,6 @@ type Copy = {
   error: string;
   sources: string;
   details: string;
-  model: string;
-  confidence: string;
-  high: string;
-  medium: string;
   privacy: string;
   processing: string;
   copy: string;
@@ -114,13 +109,8 @@ type Copy = {
   retry: string;
   useful: string;
   inaccurate: string;
-  originQwen: string;
-  originKnowledge: string;
-  originFallback: string;
-  originPolicy: string;
   truncated: string;
   currentLimited: string;
-  escalation: string;
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -142,10 +132,6 @@ const COPY: Record<Locale, Copy> = {
     error: 'Ответ не получен. Проверь соединение и повтори запрос.',
     sources: 'Источники',
     details: 'Основание ответа',
-    model: 'Модель',
-    confidence: 'Уверенность',
-    high: 'высокая',
-    medium: 'средняя',
     privacy: 'Публичный режим · без доступа к данным личных кабинетов · не вводи пароли, токены и персональные данные',
     processing: 'Формирую ответ…',
     copy: 'Копировать ответ',
@@ -153,13 +139,8 @@ const COPY: Record<Locale, Copy> = {
     retry: 'Повторить запрос',
     useful: 'Ответ полезен',
     inaccurate: 'Сообщить об ошибке',
-    originQwen: 'Ответ локального ИИ',
-    originKnowledge: 'Подтверждённая база платформы',
-    originFallback: 'База знаний · ИИ временно недоступен',
-    originPolicy: 'Защитное ограничение',
     truncated: 'Ответ ограничен по длине',
     currentLimited: 'Нет подтверждённых актуальных данных',
-    escalation: 'Код обращения',
   },
   en: {
     open: 'Ask AI',
@@ -179,10 +160,6 @@ const COPY: Record<Locale, Copy> = {
     error: 'No answer was received. Check the connection and try again.',
     sources: 'Sources',
     details: 'Basis of the answer',
-    model: 'Model',
-    confidence: 'Confidence',
-    high: 'high',
-    medium: 'medium',
     privacy: 'Public mode · no access to workspace data · do not enter passwords, tokens or personal data',
     processing: 'Preparing the answer…',
     copy: 'Copy answer',
@@ -190,13 +167,8 @@ const COPY: Record<Locale, Copy> = {
     retry: 'Retry request',
     useful: 'Useful answer',
     inaccurate: 'Report an error',
-    originQwen: 'Local AI answer',
-    originKnowledge: 'Verified platform knowledge',
-    originFallback: 'Knowledge base · AI temporarily unavailable',
-    originPolicy: 'Safety boundary',
     truncated: 'Length-limited response',
     currentLimited: 'No verified current data',
-    escalation: 'Reference code',
   },
   zh: {
     open: '询问 AI',
@@ -216,10 +188,6 @@ const COPY: Record<Locale, Copy> = {
     error: '未收到回答。请检查连接后重试。',
     sources: '来源',
     details: '回答依据',
-    model: '模型',
-    confidence: '置信度',
-    high: '高',
-    medium: '中',
     privacy: '公共模式 · 无法访问工作区数据 · 请勿输入密码、令牌或个人数据',
     processing: '正在生成回答…',
     copy: '复制回答',
@@ -227,13 +195,8 @@ const COPY: Record<Locale, Copy> = {
     retry: '重试问题',
     useful: '回答有用',
     inaccurate: '报告错误',
-    originQwen: '本地 AI 回答',
-    originKnowledge: '已验证的平台知识',
-    originFallback: '知识库 · AI 暂时不可用',
-    originPolicy: '安全限制',
     truncated: '回答受长度限制',
     currentLimited: '没有经过验证的当前数据',
-    escalation: '参考编号',
   },
 };
 
@@ -350,13 +313,6 @@ function parseAssessment(value: string | null): StreamAssessment {
   } catch {
     return { ...defaultAssessment(), safetyFlags: ['ASSESSMENT_UNPARSEABLE'] };
   }
-}
-
-function originLabel(origin: AnswerOrigin, ui: Copy): string {
-  if (origin === 'verified_knowledge') return ui.originKnowledge;
-  if (origin === 'knowledge_fallback') return ui.originFallback;
-  if (origin === 'policy') return ui.originPolicy;
-  return ui.originQwen;
 }
 
 function sessionKey(locale: Locale) {
@@ -853,8 +809,9 @@ export function PublicPlatformAssistant() {
 
                     {message.role === 'assistant' && message.stream?.status !== 'streaming' ? (
                       <div className='pc-public-assistant-answer'>
+                        {/* Which internal route produced the answer is not the
+                            reader's business; what the answer cannot cover is. */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {origin ? <span style={badgeStyle}>{originLabel(origin, ui)}</span> : null}
                           {assessment?.currentDataRequired ? <span style={badgeStyle}>{ui.currentLimited}</span> : null}
                           {assessment?.truncated ? <span style={badgeStyle}>{ui.truncated}</span> : null}
                         </div>
@@ -879,11 +836,7 @@ export function PublicPlatformAssistant() {
                             {message.answer?.limitations.length ? (
                               <ul>{message.answer.limitations.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul>
                             ) : null}
-                            {message.answer?.escalationId ? <p>{ui.escalation}: {message.answer.escalationId}</p> : null}
-                            {message.stream?.modelIdentity ? <p className='pc-public-assistant-model'>{ui.model}: {message.stream.modelIdentity}</p> : null}
-                            {assessment?.safetyFlags.length ? <p>{assessment.safetyFlags.join(' · ')}</p> : null}
                             <div className='pc-public-assistant-answer-meta'>
-                              {message.answer ? <span>{ui.confidence}: {message.answer.confidence === 'high' ? ui.high : ui.medium}</span> : <span>{origin ? originLabel(origin, ui) : ''}</span>}
                               <time dateTime={message.createdAt}>{formatTime(message.createdAt, locale)}</time>
                             </div>
                           </div>
