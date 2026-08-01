@@ -68,16 +68,79 @@ jobs:
           new_import = "import { resolve } from 'node:path';"
           old_path = "fileURLToPath(new URL('../../components/platform-v7/PublicPlatformAssistant.tsx', import.meta.url))"
           new_path = "resolve(process.cwd(), 'components/platform-v7/PublicPlatformAssistant.tsx')"
+          old_helper = '''def replace_once(path: str, old: str, new: str, label: str) -> None:
+              text = read(path)
+              if new in text:
+                  return
+              if old not in text:
+                  raise SystemExit(f"missing source fragment: {label} ({path})")
+              write(path, text.replace(old, new, 1))
+          '''
+          new_helper = '''def replace_once(path: str, old: str, new: str, label: str) -> None:
+              text = read(path)
+              if old in text:
+                  write(path, text.replace(old, new, 1))
+                  return
+              if new in text:
+                  return
+              raise SystemExit(f"missing source fragment: {label} ({path})")
+          '''
 
-          if patch.count(old_import) != 1:
-              raise SystemExit(f'unexpected fileURLToPath import count: {patch.count(old_import)}')
-          if patch.count(old_path) != 1:
-              raise SystemExit(f'unexpected import.meta.url path count: {patch.count(old_path)}')
+          for old, new, label in (
+              (old_import, new_import, 'router test path import'),
+              (old_path, new_path, 'router test component path'),
+              (old_helper, new_helper, 'old-first replace helper'),
+          ):
+              if patch.count(old) != 1:
+                  raise SystemExit(f'unexpected {label} count: {patch.count(old)}')
+              patch = patch.replace(old, new, 1)
 
-          patch = patch.replace(old_import, new_import, 1).replace(old_path, new_path, 1)
           Path('/tmp/tai-semantic-source-repair.py').write_text(patch, encoding='utf-8')
           PY
           python3 /tmp/tai-semantic-source-repair.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/web/lib/platform-v7/assistant-relevance-router.ts')
+          text = path.read_text(encoding='utf-8')
+          late_block = '''  // An explicit off-topic marker outranks sentence shape. "How do I choose a
+            // tattoo?" opens like a follow-up and is asked from inside the platform, and
+            // reading it as a continuation was how entertainment questions slipped into
+            // the contextual branch.
+            if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
+              return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+            }
+
+          '''
+          insertion_anchor = "  if (context.semanticHint === 'related') signals.push('semantic_hint');\n\n"
+          early_block = '''  const hasUnrelatedSubject = containsAny(normalized, UNRELATED_TERMS);
+
+            // A named off-topic subject outranks generic section vocabulary and sentence
+            // shape, but never an explicit platform, agriculture or business subject.
+            // This redirects "Кто увидит этот фильм?" while keeping "фильм о платформе"
+            // and "видео о пшенице" answerable.
+            if (
+              hasUnrelatedSubject
+              && !hasAgroObject
+              && !hasPlatformSubject
+              && !hasAgroBusiness
+              && !hasAdjacent
+              && context.semanticHint !== 'related'
+            ) {
+              return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+            }
+
+          '''
+
+          if late_block not in text:
+              raise SystemExit('late unrelated block missing after source repair')
+          text = text.replace(late_block, '', 1)
+          if early_block not in text:
+              if insertion_anchor not in text:
+                  raise SystemExit('unrelated decision insertion anchor missing')
+              text = text.replace(insertion_anchor, insertion_anchor + early_block, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
       - name: Install dependencies
         run: |
           set -Eeuo pipefail
