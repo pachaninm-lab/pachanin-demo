@@ -174,10 +174,17 @@ PY
 
 write_failure_evidence() {
   local action="$1" rc="$2" rollback_status="$3" path="$4" error_code
-  error_code="$(grep -hE '^ERROR_CODE=[A-Z0-9_]+' \
-    "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" "$job_state/rollback.log" \
-    2>/dev/null | tail -1 | cut -d= -f2- || true)"
-  [[ -n "$error_code" ]] || error_code="${action^^}_CONTROLLER_FAILED"
+  error_code="$(
+    {
+      grep -hE '^ERROR_CODE=[A-Z][A-Z0-9]*_[A-Z0-9_]+$' \
+        "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" \
+        "$job_state/rollback.log" "$job_state/deploy-rollback.log" 2>/dev/null \
+        | sed -E 's/^ERROR_CODE=//' || true
+      grep -hE '^[A-Z][A-Z0-9]*_[A-Z0-9_]+$' \
+        "$job_state/deploy.log" "$job_state/deploy-rollback.log" 2>/dev/null || true
+    } | tail -1
+  )"
+  [[ "$error_code" =~ ^[A-Z][A-Z0-9]*_[A-Z0-9_]+$ ]] || error_code="${action^^}_CONTROLLER_FAILED"
   python3 - "$path" "$TARGET_SHA" "$RUN_ID" "$action" "$rc" "$error_code" "$rollback_status" <<'PY'
 import json, os, sys
 path, sha, run_id, action, rc, code, rollback = sys.argv[1:]
