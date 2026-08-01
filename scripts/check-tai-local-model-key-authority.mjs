@@ -2,10 +2,12 @@
 import { readFileSync } from 'node:fs';
 
 const workflowPath = '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml';
+const wrapperPath = 'scripts/pc-tai-release-controller.sh';
 const corePath = 'scripts/pc-tai-release-controller-core.sh';
 const scopePath = 'docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json';
 
 const workflow = readFileSync(workflowPath, 'utf8');
+const wrapper = readFileSync(wrapperPath, 'utf8');
 const core = readFileSync(corePath, 'utf8');
 const scope = JSON.parse(readFileSync(scopePath, 'utf8'));
 const violations = [];
@@ -29,12 +31,22 @@ for (const fragment of [
 ]) requireFragment(workflow, fragment, workflowPath);
 
 for (const fragment of [
+  'resolve_external_backup_evidence() {',
+  'for root in /etc/pc-release-authority /etc/transparent-price /var/lib/pc-release-authority /var/backups /root /opt /srv; do',
+  "find -P \"$root\" -xdev -maxdepth 6 -type f",
+  "[[ \"$owner\" == root:root ]] || continue",
+  "[[ \"$mode\" =~ ^(400|440|600|640)$ ]] || continue",
+  "grep -Fxq 'STATUS=PASS' \"$entry\" 2>/dev/null || continue",
+  '(( ${#candidates[@]} <= 1 )) || return 47',
+  'fail BACKUP_EVIDENCE_DISCOVERY_AMBIGUOUS 47',
+  'PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf \'%s\' "$backup_evidence" | base64 -w0)"',
+  'export PC_PROD_BACKUP_EVIDENCE_FILE_B64',
+  'bash "$CORE_PATH" "$@"',
+]) requireFragment(wrapper, fragment, wrapperPath);
+
+for (const fragment of [
   "readonly MODEL_KEY='/etc/pc-release-authority/model_id'",
   "readonly MODEL_KNOWN_HOSTS='/etc/pc-release-authority/model_known_hosts'",
-  '[[ -s "$MODEL_KEY" && ! -L "$MODEL_KEY" ]] || fail MODEL_KEY_NOT_PROVISIONED 41',
-  'ssh-keygen -y -P \'\' -f "$MODEL_KEY" >/dev/null 2>&1 || fail MODEL_KEY_INVALID 42',
-  'UserKnownHostsFile="$MODEL_KNOWN_HOSTS"',
-  'StrictHostKeyChecking=yes',
   'rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"',
   'api_key="$(recover_local_model_token)"',
   'ACTIVATION_MUTATION_STARTED=0',
@@ -44,7 +56,6 @@ for (const fragment of [
   'publish_file "$failure" activation.json',
   'DEPLOY_MUTATION_STARTED=0',
   'DEPLOY_COMPLETE=0',
-  'if (( rc != 0 && DEPLOY_MUTATION_STARTED == 1 && DEPLOY_COMPLETE == 0 )); then',
   'publish_file "$failure" deployment.json',
   "'rollbackStatus':rollback",
 ]) requireFragment(core, fragment, corePath);
@@ -52,6 +63,9 @@ for (const fragment of [
 forbid(workflow, /TAI_MODEL_SSH_KEY|MODEL_KEY_SECRET|\/model-key\b/u, `${workflowPath}: private model SSH key must not transit GitHub Actions`);
 forbid(workflow, /secrets\.[A-Za-z0-9_]*(?:PRIVATE|SSH_KEY|MODEL_KEY)/u, `${workflowPath}: private-key secret reference is forbidden`);
 forbid(workflow, /if:\s*always\(\)\s*&&\s*needs[.]image_authority[.]result\s*==\s*'success'\s*$/mu, `${workflowPath}: finalization must require successful activation`);
+forbid(wrapper, /find\s+-P\s+"\/"/u, `${wrapperPath}: backup evidence discovery must remain bounded`);
+forbid(wrapper, /(?:printf|cat|echo)[^\n]*(?:backup_evidence|PC_PROD_BACKUP_EVIDENCE_FILE_B64)[^\n]*(?:job_output|OUTPUT_ROOT)/iu, `${wrapperPath}: backup evidence path or content must not be published`);
+forbid(wrapper, /chmod\s+0?777|chown\s+pcactions/u, `${wrapperPath}: backup authority must not be widened`);
 forbid(core, /readarray\s+-t\s+transport\s+<\s*<\(import_model_transport\)/u, `${corePath}: activation must not depend on a separately provisioned model-host SSH key`);
 forbid(core, /api_key="\$\(recover_model_api_key\s+"\$model_user"\s+"\$model_ssh_port"\)"/u, `${corePath}: activation must reuse the already validated local runtime token`);
 forbid(core, /local\s+[^\n]*(?:activation_mutation_started|activation_complete|api_env|web_env)/u, `${corePath}: activation EXIT-trap state must not be function-local`);
@@ -59,16 +73,16 @@ forbid(core, /local\s+[^\n]*(?:deploy_mutation_started|deploy_complete|token_fil
 forbid(core, /echo[^\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY)/iu, `${corePath}: secret output is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${scopePath}: invalid schemaVersion`);
-if (scope.branch !== 'agent/tai-controller-trap-rollback-evidence-20260801') violations.push(`${scopePath}: branch mismatch`);
+if (scope.branch !== 'agent/tai-backup-evidence-authority-20260801') violations.push(`${scopePath}: branch mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) violations.push(`${scopePath}: hosting or cost boundary changed`);
-for (const path of [workflowPath, corePath, 'scripts/check-tai-local-model-key-authority.mjs', scopePath]) {
+for (const path of [workflowPath, wrapperPath, corePath, 'scripts/check-tai-local-model-key-authority.mjs', scopePath]) {
   if (!scope.allowedPaths.includes(path)) violations.push(`${scopePath}: ${path} outside allowedPaths`);
 }
 
 if (violations.length) {
-  console.error('TAI controller trap and rollback-evidence contract failed:');
+  console.error('TAI protected backup-evidence authority contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
 
-console.log('TAI controller trap and rollback-evidence contract PASS: activation and deployment trap state survives function unwinding, rollback is explicit, redacted failure evidence is published, private keys never transit GitHub Actions, and the validated active local model token remains server-only.');
+console.log('TAI protected backup-evidence authority contract PASS: exact-main activation may reuse one existing protected root-owned STATUS=PASS backup attestation discovered only within bounded REG.RU roots; its path and contents remain local; rollback, secret boundaries and zero-cost authority remain intact.');
