@@ -17,6 +17,7 @@ concurrency:
 
 env:
   CANONICAL_HOST: 195.19.12.120
+  PUBLIC_HOST: xn----8sbjf4befbjgs9b.xn--p1ai
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -30,7 +31,7 @@ jobs:
     if: github.actor == github.repository_owner
     timeout-minutes: 10
     steps:
-      - name: Resume existing least-privilege production runner
+      - name: Diagnose transport and resume existing least-privilege runner
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -47,7 +48,7 @@ jobs:
           }
           trap publish EXIT
           state=pending
-          description='Resuming existing least-privilege REG.RU runner'
+          description='Diagnosing REG.RU transport and resuming runner'
           publish
           state=failure
 
@@ -60,34 +61,54 @@ jobs:
 
           host="$(trim "${SSH_HOST_SECRET:-$CANONICAL_HOST}")"
           user="$(trim "${SSH_USER_SECRET:-}")"
-          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          configured_port="$(trim "${SSH_PORT_SECRET:-22}")"
           key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
           [[ "$host" == "$CANONICAL_HOST" ]]
           [[ -n "$user" && -n "$key" ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$configured_port" =~ ^[0-9]+$ ]] && (( configured_port >= 1 && configured_port <= 65535 ))
+
+          https_state=unreachable
+          if curl --silent --show-error --insecure --head \
+            --connect-timeout 10 --max-time 20 \
+            -H "Host: ${PUBLIC_HOST}" "https://${host}/" >/dev/null; then
+            https_state=reachable
+          fi
+          echo "REG.RU HTTPS: ${https_state}"
 
           install -d -m 0700 "$HOME/.ssh"
           printf '%s\n' "$key" | tr -d '\r' > "$HOME/.ssh/id_pc_prod"
           chmod 0600 "$HOME/.ssh/id_pc_prod"
           ssh-keygen -y -f "$HOME/.ssh/id_pc_prod" >/dev/null
 
+          ports=("$configured_port")
+          [[ "$configured_port" == 22 ]] || ports+=(22)
+          selected_port=''
           : > "$HOME/.ssh/known_hosts"
-          for attempt in 1 2 3 4 5 6; do
-            echo "SSH host-key attempt ${attempt}/6"
-            if ssh-keyscan -T 15 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts" 2>/dev/null && [[ -s "$HOME/.ssh/known_hosts" ]]; then
-              break
-            fi
-            : > "$HOME/.ssh/known_hosts"
-            sleep 5
+          for candidate_index in "${!ports[@]}"; do
+            candidate="${ports[$candidate_index]}"
+            for attempt in 1 2 3; do
+              echo "SSH candidate $((candidate_index + 1)) attempt ${attempt}/3"
+              if ssh-keyscan -T 12 -p "$candidate" -H "$host" > "$HOME/.ssh/known_hosts" 2>/dev/null && [[ -s "$HOME/.ssh/known_hosts" ]]; then
+                selected_port="$candidate"
+                break 2
+              fi
+              : > "$HOME/.ssh/known_hosts"
+              sleep 4
+            done
           done
-          [[ -s "$HOME/.ssh/known_hosts" ]] || {
-            description='REG.RU SSH endpoint unreachable'
-            echo SSH_HOST_UNREACHABLE >&2
+          [[ -n "$selected_port" ]] || {
+            if [[ "$https_state" == reachable ]]; then
+              description='REG.RU online; SSH endpoint unreachable'
+              echo REG_RU_HTTPS_ONLY_SSH_UNREACHABLE >&2
+            else
+              description='REG.RU production host unreachable'
+              echo REG_RU_HOST_UNREACHABLE >&2
+            fi
             exit 31
           }
           chmod 0600 "$HOME/.ssh/known_hosts"
 
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$selected_port" \
             -o BatchMode=yes \
             -o ConnectTimeout=20 \
             -o ConnectionAttempts=3 \
