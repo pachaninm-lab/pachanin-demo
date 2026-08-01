@@ -1,0 +1,107 @@
+name: TAI Migration Stdin Authority Materializer
+
+on:
+  push:
+    branches:
+      - agent/tai-migration-stdin-authority-20260801
+    paths:
+      - .github/workflows/tai-migration-stdin-authority-materialize.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-migration-stdin-authority-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-migration-stdin-authority-20260801
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply exact source repair
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          deploy_path = Path('scripts/tai-reg-ru-deploy.sh')
+          deploy = deploy_path.read_text(encoding='utf-8')
+          old_run = 'docker run --rm --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE"'
+          new_run = 'docker run --rm -i --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE"'
+          if deploy.count(old_run) != 1:
+              raise SystemExit(f'unexpected migration stdin invocation count: {deploy.count(old_run)}')
+          deploy = deploy.replace(old_run, new_run, 1)
+
+          bundle_anchor = "PY_MIGRATIONS\n  chmod 0600 \"$MIGRATION_BUNDLE\""
+          bundle_guard = "PY_MIGRATIONS\n  [[ -s \"$MIGRATION_BUNDLE\" ]] || { echo \"TAI_MIGRATION_BUNDLE_EMPTY\" >&2; exit 19; }\n  chmod 0600 \"$MIGRATION_BUNDLE\""
+          if deploy.count(bundle_anchor) != 1:
+              raise SystemExit('migration bundle guard anchor mismatch')
+          deploy = deploy.replace(bundle_anchor, bundle_guard, 1)
+
+          escape_pairs = (
+              (r'" AS applied \gset " + prefix', r'" AS applied \\gset " + prefix'),
+              (r'"\if :" + prefix', r'"\\if :" + prefix'),
+              (r'"\echo verified existing TAI migration "', r'"\\echo verified existing TAI migration "'),
+              (r'"\else"', r'"\\else"'),
+              (r'"\endif"', r'"\\endif"'),
+          )
+          for old, new in escape_pairs:
+              if deploy.count(old) != 1:
+                  raise SystemExit(f'psql meta-command escape mismatch for {old!r}: {deploy.count(old)}')
+              deploy = deploy.replace(old, new, 1)
+          deploy_path.write_text(deploy, encoding='utf-8')
+
+          check_path = Path('scripts/check-tai-reg-ru-deploy.mjs')
+          check = check_path.read_text(encoding='utf-8')
+          old_scope = "const scopePath = 'docs/platform-v7/autopilot/scopes/tai-postgres-authority-20260801.json';"
+          new_scope = "const scopePath = 'docs/platform-v7/autopilot/scopes/tai-migration-stdin-authority-20260801.json';"
+          if check.count(old_scope) != 1:
+              raise SystemExit('checker scope path mismatch')
+          check = check.replace(old_scope, new_scope, 1)
+
+          old_branch = "if (scope.branch !== 'fix/tai-postgres-service-authority-20260801')"
+          new_branch = "if (scope.branch !== 'agent/tai-migration-stdin-authority-20260801')"
+          if check.count(old_branch) != 1:
+              raise SystemExit('checker branch authority mismatch')
+          check = check.replace(old_branch, new_branch, 1)
+
+          fragment_anchor = "  'tai-agro-os-master-spec-v4.0',\n]) requireFragment(deploy, fragment, deployPath);"
+          fragment_replacement = "  'tai-agro-os-master-spec-v4.0',\n  'docker run --rm -i --read-only --network none --entrypoint python',\n  'TAI_MIGRATION_BUNDLE_EMPTY',\n  '\\\\gset',\n  '\\\\if :',\n  '\\\\endif',\n]) requireFragment(deploy, fragment, deployPath);"
+          if check.count(fragment_anchor) != 1:
+              raise SystemExit('checker deployment fragment anchor mismatch')
+          check = check.replace(fragment_anchor, fragment_replacement, 1)
+
+          checker_anchor = "for (const fragment of [\n  \"set -Eeuo pipefail\","
+          checker_guard = "if (deploy.includes('docker run --rm --read-only --network none --entrypoint python \\\"$TAI_IMAGE_DIGEST\\\" -')) {\n  violations.push(deployPath + ': migration extractor does not attach stdin');\n}\nif (/\\bpython -[^\\n]*<<'PY_MIGRATIONS'/u.test(deploy) && !deploy.includes('docker run --rm -i --read-only --network none --entrypoint python')) {\n  violations.push(deployPath + ': stdin-driven immutable-image Python must use docker run -i');\n}\n\nfor (const fragment of [\n  \"set -Eeuo pipefail\","
+          if check.count(checker_anchor) != 1:
+              raise SystemExit('checker stdin guard anchor mismatch')
+          check = check.replace(checker_anchor, checker_guard, 1)
+          check_path.write_text(check, encoding='utf-8')
+
+          Path('.github/workflows/tai-migration-stdin-authority-materialize.yml').unlink()
+          PY
+      - name: Validate exact repair
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-reg-ru-deploy.mjs
+          git diff --check
+          grep -Fq 'docker run --rm -i --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" -' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_MIGRATION_BUNDLE_EMPTY' scripts/tai-reg-ru-deploy.sh
+          ! grep -Fq 'docker run --rm --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" -' scripts/tai-reg-ru-deploy.sh
+      - name: Publish source-only commit
+        run: |
+          set -Eeuo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(tai): attach immutable migration stdin'
+          git push origin HEAD:agent/tai-migration-stdin-authority-20260801
