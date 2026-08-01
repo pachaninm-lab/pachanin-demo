@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-live-fullscreen-acceptance-20260801",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "c7aa878818749d6fecf2c2b7bbd031cfb94095b1",
+  "operationalStatus": "LIVE_QWEN_ACCEPTANCE_ROLLED_BACK_PENDING_UI_CONTRACT_REPAIR",
+  "confirmedFailure": {
+    "workflowRunId": 30676683335,
+    "jobId": 91305668874,
+    "error": "fullscreen_control_count_invalid",
+    "activationBeforeUiAcceptance": "PASS",
+    "ruEnZhSse": "PASS",
+    "rollback": "CONFIRMED"
+  },
+  "allowedPaths": [
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "apps/web/tests/unit/taiLivePublicAiAcceptance.test.ts",
+    "docs/platform-v7/autopilot/scopes/tai-live-fullscreen-acceptance-20260801.json"
+  ],
+  "boundaries": {
+    "productionBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionMutationBeforeMerge": false,
+    "newRecurringCostRub": 0
+  },
+  "requiredBehavior": [
+    "assert exactly one native public-assistant fullscreen control",
+    "reject every legacy modal-sheet fullscreen duplicate",
+    "validate the native control aria-label against the actual data-fullscreen state",
+    "exercise the fullscreen toggle and verify state and label transition",
+    "restore the initial fullscreen state before continuing live inference acceptance",
+    "write redacted failure JSON and a best-effort screenshot for every Chromium failure",
+    "preserve title, subtitle, streaming, no-alert, no-overflow and no-pageerror acceptance"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
