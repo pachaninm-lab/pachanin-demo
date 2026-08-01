@@ -55,6 +55,34 @@ on_exit() {
 }
 trap on_exit EXIT
 
+resolve_external_backup_evidence() {
+  local root entry owner mode size resolved
+  local -a candidates=()
+  for root in /etc/pc-release-authority /etc/transparent-price /var/lib/pc-release-authority /var/backups /root /opt /srv; do
+    [[ -d "$root" ]] || continue
+    while IFS= read -r -d '' entry; do
+      [[ -f "$entry" && ! -L "$entry" ]] || continue
+      owner="$(stat -c '%U:%G' "$entry" 2>/dev/null || true)"
+      mode="$(stat -c '%a' "$entry" 2>/dev/null || true)"
+      size="$(stat -c '%s' "$entry" 2>/dev/null || true)"
+      [[ "$owner" == root:root ]] || continue
+      [[ "$mode" =~ ^(400|440|600|640)$ ]] || continue
+      [[ "$size" =~ ^[0-9]+$ ]] && (( size >= 1 && size <= 65536 )) || continue
+      grep -Fxq 'STATUS=PASS' "$entry" 2>/dev/null || continue
+      resolved="$(realpath -e -- "$entry" 2>/dev/null || true)"
+      [[ -n "$resolved" && "$resolved" == "$entry" ]] || continue
+      candidates+=("$resolved")
+    done < <(find -P "$root" -xdev -maxdepth 6 -type f \
+      \( -iname '*backup*' -o -iname '*evidence*' -o -iname '*attestation*' \) \
+      ! -path "$OUTPUT_ROOT/*" ! -path "$STATE_ROOT/controller-jobs/*" ! -path "$REPOSITORY_ROOT/*" \
+      -print0 2>/dev/null)
+  done
+  mapfile -t candidates < <(printf '%s\n' "${candidates[@]:-}" | sed '/^$/d' | sort -u)
+  (( ${#candidates[@]} <= 1 )) || return 47
+  (( ${#candidates[@]} == 1 )) || return 1
+  printf '%s' "${candidates[0]}"
+}
+
 install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
 if [[ ! -d "$REPOSITORY_ROOT/.git" ]]; then
   rm -rf "$REPOSITORY_ROOT"
@@ -77,5 +105,24 @@ readonly WRAPPER_PATH="$REPOSITORY_ROOT/$WRAPPER_RELATIVE"
 [[ -f "$CORE_PATH" && ! -L "$CORE_PATH" ]] || fail PROTECTED_CORE_INVALID 25
 [[ -f "$WRAPPER_PATH" && ! -L "$WRAPPER_PATH" ]] || fail PROTECTED_WRAPPER_INVALID 26
 [[ "$(sha256sum "$INSTALLED_CONTROLLER" | awk '{print $1}')" == "$(sha256sum "$WRAPPER_PATH" | awk '{print $1}')" ]] || fail INSTALLED_CONTROLLER_NOT_EXACT_TARGET 27
+
+if [[ "$ACTION" == activate ]]; then
+  backup_evidence=''
+  backup_rc=0
+  set +e
+  backup_evidence="$(resolve_external_backup_evidence)"
+  backup_rc="$?"
+  set -e
+  if (( backup_rc == 47 )); then
+    fail BACKUP_EVIDENCE_DISCOVERY_AMBIGUOUS 47
+  fi
+  if (( backup_rc != 0 && backup_rc != 1 )); then
+    fail BACKUP_EVIDENCE_DISCOVERY_FAILED 48
+  fi
+  if [[ -n "$backup_evidence" ]]; then
+    PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf '%s' "$backup_evidence" | base64 -w0)"
+    export PC_PROD_BACKUP_EVIDENCE_FILE_B64
+  fi
+fi
 
 bash "$CORE_PATH" "$@"
