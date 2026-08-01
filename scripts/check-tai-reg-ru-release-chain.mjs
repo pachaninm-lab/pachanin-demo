@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
-import { verifyWorkflowJobs } from './verify-tai-upstream-workflow-jobs.mjs';
+import { verifyWorkflowJobs, verifyWorkflowRun } from './verify-tai-upstream-workflow-jobs.mjs';
 
 const paths = {
   preflight: '.github/workflows/tai-reg-ru-preflight.yml',
@@ -49,6 +49,7 @@ for (const fragment of [
   '[[ "$UPSTREAM_CONCLUSION" == success ]]',
   '[[ "$UPSTREAM_BRANCH" == main ]]',
   '[[ "$UPSTREAM_EVENT" == push ]]',
+  '[[ "$CONFIRMATION" == PREFLIGHT-TAI-REG-RU ]]',
   'needs: upstream_build_gate',
   "if: needs.upstream_build_gate.result == 'success'",
   'sudo -n /usr/local/sbin/pc-tai-release-controller preflight',
@@ -66,10 +67,15 @@ for (const fragment of [
   'needs: upstream_preflight_gate',
   "if: needs.upstream_preflight_gate.result == 'success'",
   'actions: read',
+  'inputs.upstream_run_id',
+  'inputs.upstream_run_attempt',
+  "[[ \"$CONFIRMATION\" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]",
+  'node scripts/verify-tai-upstream-workflow-jobs.mjs --run',
   '/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100',
-  'node scripts/verify-tai-upstream-workflow-jobs.mjs',
+  'node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs',
   "'Exact-main REG.RU controller inventory'",
   "'Publish REG.RU preflight status'",
+  "'Confirm REG.RU preflight chain result'",
 ]) requireFragment('activation', fragment);
 
 for (const fragment of [
@@ -77,13 +83,24 @@ for (const fragment of [
   'needs: upstream_activation_gate',
   "if: needs.upstream_activation_gate.result == 'success'",
   'actions: read',
+  'inputs.upstream_run_id',
+  'inputs.upstream_run_attempt',
+  "[[ \"$CONFIRMATION\" == DEPLOY-TAI-REG-RU ]]",
+  'node scripts/verify-tai-upstream-workflow-jobs.mjs --run',
   '/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100',
-  'node scripts/verify-tai-upstream-workflow-jobs.mjs',
+  'node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs',
   "'Activate through protected REG.RU controller'",
   "'Hosted live public AI acceptance'",
   "'Finalize or roll back activation'",
   "'Publish restricted Qwen activation result'",
+  "'Confirm restricted Qwen activation chain result'",
 ]) requireFragment('deployment', fragment);
+
+for (const [name, fragment] of [
+  ['preflight', 'name: Confirm REG.RU preflight chain result'],
+  ['activation', 'name: Confirm restricted Qwen activation chain result'],
+  ['deployment', 'name: Confirm standalone TAI deployment chain result'],
+]) requireFragment(name, fragment);
 
 for (const name of Object.keys(paths)) {
   requireFragment(name, 'node scripts/check-tai-reg-ru-release-chain.mjs');
@@ -114,10 +131,34 @@ expectBlocked('duplicate', { total_count: successfulJobs.length + 1, jobs: [...s
 expectBlocked('malformed', []);
 expectBlocked('truncated', { total_count: 101, jobs: successfulJobs });
 expectBlocked('count-mismatch', { total_count: successfulJobs.length + 1, jobs: successfulJobs });
+const successfulRun = {
+  name: 'TAI REG.RU Preflight',
+  head_sha: '1'.repeat(40),
+  head_branch: 'main',
+  run_attempt: 2,
+  status: 'completed',
+  conclusion: 'success',
+};
+verifyWorkflowRun(successfulRun, '1'.repeat(40), '2', 'TAI REG.RU Preflight');
+const expectRunBlocked = (label, report, sha = '1'.repeat(40), attempt = '2', name = 'TAI REG.RU Preflight') => {
+  try {
+    verifyWorkflowRun(report, sha, attempt, name);
+    violations.push(`workflow run fixture ${label} unexpectedly passed`);
+  } catch {
+    // Expected fail-closed result.
+  }
+};
+expectRunBlocked('wrong-name', { ...successfulRun, name: 'Other' });
+expectRunBlocked('wrong-sha', { ...successfulRun, head_sha: '2'.repeat(40) });
+expectRunBlocked('wrong-branch', { ...successfulRun, head_branch: 'feature' });
+expectRunBlocked('wrong-attempt', { ...successfulRun, run_attempt: 1 });
+expectRunBlocked('incomplete', { ...successfulRun, status: 'in_progress', conclusion: null });
+expectRunBlocked('failed', { ...successfulRun, conclusion: 'failure' });
+expectRunBlocked('malformed-run', []);
 
 if (violations.length) {
   console.error('TAI REG.RU release-chain contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI REG.RU release-chain contract PASS: exact-run preflight and activation statuses are fail-closed before production jobs.');
+console.log('TAI REG.RU release-chain contract PASS: exact workflow attempts and critical jobs are fail-closed before production jobs.');
