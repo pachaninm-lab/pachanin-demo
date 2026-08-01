@@ -30,6 +30,14 @@ on:
         description: Enter DEPLOY-TAI-REG-RU
         required: true
         type: string
+      upstream_run_id:
+        description: Exact successful restricted Qwen activation run ID
+        required: true
+        type: string
+      upstream_run_attempt:
+        description: Exact successful restricted Qwen activation run attempt
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -46,7 +54,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      statuses: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,12 +63,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
+          CURRENT_REF: ${{ github.ref }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+          CONFIRMATION: ${{ inputs.confirmation }}
           TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
-          UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
-          UPSTREAM_WORKFLOW: ${{ github.event.workflow_run.name }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id || inputs.upstream_run_id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || inputs.upstream_run_attempt }}
         run: |
           set -Eeuo pipefail
           if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
@@ -69,35 +80,31 @@ jobs:
           if [[ "$EVENT_NAME" == workflow_run ]]; then
             [[ "$UPSTREAM_CONCLUSION" == success ]]
             [[ "$UPSTREAM_BRANCH" == main ]]
-            [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
-            [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-            [[ "$UPSTREAM_WORKFLOW" == 'TAI Restricted Qwen REG.RU Activation' ]]
-            gh api -H 'Accept: application/vnd.github+json' \
-              "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
-              > "$RUNNER_TEMP/activation-jobs.json"
-            node scripts/verify-tai-upstream-workflow-jobs.mjs "$RUNNER_TEMP/activation-jobs.json" \
-              'Require exact-run REG.RU preflight PASS' \
-              'Least-privilege activation contract' \
-              'Exact-main API, web and migration image authority' \
-              'Activate through protected REG.RU controller' \
-              'Hosted live public AI acceptance' \
-              'Finalize or roll back activation' \
-              'Publish restricted Qwen activation result'
-            exit 0
+          else
+            [[ "$EVENT_NAME" == workflow_dispatch ]]
+            [[ "$CURRENT_REF" == refs/heads/main ]]
+            [[ "$ACTOR" == "$OWNER" ]]
+            [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+            [[ "$CONFIRMATION" == DEPLOY-TAI-REG-RU ]]
           fi
-          if [[ "$EVENT_NAME" != workflow_dispatch ]]; then
-            exit 31
-          fi
-          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}/status" > "$RUNNER_TEMP/activation-status.json"
-          python3 - "$RUNNER_TEMP/activation-status.json" <<'PY'
-          import json, sys
-          report=json.load(open(sys.argv[1], encoding='utf-8'))
-          matches=[item for item in report.get('statuses', [])
-                   if item.get('context') == 'TAI Restricted Qwen REG.RU Activation'
-                   and item.get('state') == 'success']
-          if not matches:
-              raise SystemExit('Exact-SHA restricted Qwen activation PASS status is absent')
-          PY
+          [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/activation-run.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/activation-run.json" \
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Restricted Qwen REG.RU Activation'
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/activation-jobs.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs "$RUNNER_TEMP/activation-jobs.json" \
+            'Require exact-run REG.RU preflight completion' \
+            'Least-privilege activation contract' \
+            'Exact-main API, web and migration image authority' \
+            'Activate through protected REG.RU controller' \
+            'Hosted live public AI acceptance' \
+            'Finalize or roll back activation' \
+            'Publish restricted Qwen activation result' \
+            'Confirm restricted Qwen activation chain result'
 
   contract:
     name: Least-privilege deployment contract
@@ -266,3 +273,26 @@ jobs:
               -f state='success' -f context='TAI REG.RU Preflight' -f description='TAI REG.RU post-deployment preflight PASS' \
               -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           fi
+
+  result_gate:
+    name: Confirm standalone TAI deployment chain result
+    needs: [upstream_activation_gate, contract, image_authority, deploy, publish_status]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped deployment jobs
+        env:
+          UPSTREAM_RESULT: ${{ needs.upstream_activation_gate.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PUBLISH_RESULT: ${{ needs.publish_status.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$UPSTREAM_RESULT" == success ]]
+          [[ "$CONTRACT_RESULT" == success ]]
+          [[ "$IMAGE_RESULT" == success ]]
+          [[ "$DEPLOY_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]
