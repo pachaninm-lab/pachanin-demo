@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-real-qwen-production-truth-20260801",
+  "status": "active",
+  "purpose": "Eliminate false restricted-Qwen production PASS caused by an eight-second model timeout, require exact local-Qwen evidence in RU/EN/ZH, and prevent restricted activation from automatically invoking the permanently admitted standalone TAI deployment contour.",
+  "approvedBy": "owner-continue-tai-agro-os-production-2026-08-01",
+  "authorityBaseExactMain": "914f87b556ac95d469085b68053675a00696c793",
+  "evidenceRuns": {
+    "restrictedActivation": 30678795319,
+    "standaloneDeployment": 30678944425
+  },
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/tests/unit/taiRestrictedQwenProductionTruthContract.test.ts",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-real-qwen-production-truth-20260801.json"
+  ],
+  "requiredBehavior": [
+    "public restricted-Qwen generation uses the configured bounded model timeout rather than an eight-second hard cap",
+    "RU EN and ZH activation evidence must contain source local_qwen and modelIdentity tai-qwen3-8b-q4km",
+    "activation must fail and roll back when MODEL_FAST_FALLBACK or MODEL_RUNTIME_UNAVAILABLE is observed",
+    "verified public grounding remains the input safety boundary and no private context is exposed",
+    "restricted activation must not automatically invoke full standalone TAI deployment while permanent model admission remains not attested",
+    "standalone deployment remains owner-only manual exact-main and fail-closed"
+  ],
+  "forbiddenCapabilities": [
+    "marking deterministic verified knowledge as model inference",
+    "accepting fallback SSE as restricted Qwen PASS",
+    "changing permanent AP-13D admission to accepted",
+    "weakening tenant role write money or secret boundaries",
+    "publishing the model host or model token",
+    "Netlify Vercel Railway or new paid infrastructure"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
