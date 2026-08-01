@@ -1,7 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/tai-reg-ru-model-artifact-evidence-20260801",
-  "status": "active",
+  "status": "source_validated",
   "purpose": "Repair exact-main REG.RU standalone TAI deployment model artifact evidence without weakening fail-closed authority.",
   "approvedBy": "owner-direct-continuation-20260801",
   "authorityBaseExactMain": "ede0914a8f2705b5e1bcb2ba4bf8658c10318ecf",
@@ -29,5 +29,10 @@
     "artifact path, SHA-256, size and context are validated",
     "controller publishes a specific model evidence error code",
     "REG.RU deployment and live RU/EN/ZH acceptance pass on exact-main"
-  ]
+  ],
+  "sourceFinalization": {
+    "validatedHead": "80d305dc11ba4293fd61137e67cd92a9fe579b42",
+    "focusedContracts": "PASS",
+    "temporaryWorkflowFilesPresent": false
+  }
 }
