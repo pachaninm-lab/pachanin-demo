@@ -1,0 +1,42 @@
+name: TAI Model Evidence Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-model-evidence-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.head_ref == 'fix/tai-reg-ru-model-artifact-evidence-v2-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/tai-reg-ru-model-artifact-evidence-v2-20260801
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Materialize combined repair
+        run: |
+          set -Eeuo pipefail
+          git fetch origin fix/tai-reg-ru-model-artifact-evidence-20260801
+          python3 scripts/materialize-tai-model-evidence-repair.py
+      - name: Shell syntax
+        run: bash -n scripts/pc-tai-release-controller-core.sh
+      - name: Python syntax
+        run: python3 -m py_compile scripts/tai_model_artifact_evidence.py
+      - name: Model evidence contract
+        run: node scripts/check-tai-model-artifact-evidence.mjs
+      - name: Controller contract
+        run: node scripts/check-pc-tai-release-controller.mjs
+      - name: REG.RU deploy contract
+        run: node scripts/check-tai-reg-ru-deploy.mjs
+      - name: Release chain contract
+        run: node scripts/check-tai-reg-ru-release-chain.mjs
+      - name: Diff integrity
+        run: git diff --check
