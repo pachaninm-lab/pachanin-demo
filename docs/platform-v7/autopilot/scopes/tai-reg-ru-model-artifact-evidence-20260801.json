@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-reg-ru-model-artifact-evidence-20260801",
+  "status": "active",
+  "purpose": "Repair exact-main REG.RU standalone TAI deployment model artifact evidence without weakening fail-closed authority.",
+  "approvedBy": "owner-direct-continuation-20260801",
+  "authorityBaseExactMain": "ede0914a8f2705b5e1bcb2ba4bf8658c10318ecf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-pc-tai-release-controller.mjs",
+    "scripts/tai_model_artifact_evidence.py",
+    "scripts/check-tai-model-artifact-evidence.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-model-artifact-evidence-20260801.json"
+  ],
+  "forbiddenChanges": [
+    "production credentials",
+    "public model port",
+    "direct Docker authority for the Actions runner",
+    "host-wide GGUF scanning",
+    "client-selected role or tenant",
+    "new recurring infrastructure cost"
+  ],
+  "acceptance": [
+    "resolver binds evidence only to the active systemd service cgroup",
+    "wrapper environment, process memory maps and open file descriptors are supported",
+    "multiple or missing model artifacts fail closed",
+    "artifact path, SHA-256, size and context are validated",
+    "controller publishes a specific model evidence error code",
+    "REG.RU deployment and live RU/EN/ZH acceptance pass on exact-main"
+  ]
+}
