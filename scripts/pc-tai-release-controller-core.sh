@@ -73,7 +73,7 @@ validate_job_input() {
   local entry name
   while IFS= read -r -d '' entry; do
     name="${entry##*/}"
-    [[ "$name" =~ ^(model-key|model-user|model-port)$ ]] || fail RUNNER_INPUT_NAME_INVALID 16
+    [[ "$name" =~ ^(model-key|model-user|model-port|backup-evidence-path)$ ]] || fail RUNNER_INPUT_NAME_INVALID 16
     [[ -f "$entry" && ! -L "$entry" ]] || fail RUNNER_INPUT_FILE_INVALID 17
     [[ "$(stat -c '%U:%G:%a:%h' "$entry")" == pcactions:pcactions:600:1 ]] || fail RUNNER_INPUT_FILE_PERMISSIONS_INVALID 18
     [[ "$(stat -c '%s' "$entry")" -le 16384 ]] || fail RUNNER_INPUT_FILE_TOO_LARGE 19
@@ -278,7 +278,7 @@ run_activate() {
   [[ $# -eq 6 ]] || fail INVALID_ARGUMENT_COUNT 60
   validate_job_input
   local api_image="$1" api_digest="$2" web_image="$3" web_digest="$4" migration_image="$5" migration_digest="$6"
-  local api_key hmac_secret evidence
+  local api_key hmac_secret backup_evidence evidence
   ACTIVATION_MUTATION_STARTED=0
   ACTIVATION_COMPLETE=0
   ACTIVATION_API_ENV="/tmp/tai-qwen-api-$RUN_ID.env"
@@ -287,6 +287,7 @@ run_activate() {
   verify_pinned_image "$web_image" "$web_digest" web
   verify_pinned_image "$migration_image" "$migration_digest" migration
   rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"
+  backup_evidence="$(recover_backup_evidence)"
   api_key="$(recover_local_model_token)"
   hmac_secret="$(openssl rand -hex 32)"
   cat > "$ACTIVATION_API_ENV" <<ENV
@@ -331,6 +332,7 @@ ENV
   trap 'exit 143' TERM
   ACTIVATION_MUTATION_STARTED=1
   PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \
+  PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf '%s' "$backup_evidence" | base64 -w0)" \
     bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1
   grep -Fxq 'DEPLOYMENT_COMPLETE=1' "$job_state/full-stack.log" || fail FULL_STACK_DEPLOYMENT_INCOMPLETE 61
   bash "$REPOSITORY_ROOT/scripts/tai-restricted-qwen-reg-ru-activate.sh" "$TARGET_SHA" "$RUN_ID" "$ACTIVATION_API_ENV" "$ACTIVATION_WEB_ENV" > "$job_state/activation.log" 2>&1
@@ -387,6 +389,21 @@ recover_local_model_token() {
   [[ "$base" == "$MODEL_BASE_URL" && "$model" == "$MODEL_IDENTITY" ]] || fail ACTIVE_MODEL_IDENTITY_INVALID 82
   curl -fsS --connect-timeout 3 --max-time 15 -H "Authorization: Bearer $key" "http://$MODEL_HOST:$MODEL_PORT/health" >/dev/null
   printf '%s' "$key"
+}
+
+recover_backup_evidence() {
+  local input_path="$job_input/backup-evidence-path" path canonical mode
+  [[ -s "$input_path" && ! -L "$input_path" ]] || fail BACKUP_EVIDENCE_INPUT_MISSING 83
+  path="$(tr -d '\r\n' < "$input_path")"
+  rm -f "$input_path"
+  [[ "$path" == /* ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
+  canonical="$(readlink -f -- "$path")"
+  [[ -n "$canonical" && "$canonical" == "$path" ]] || fail BACKUP_EVIDENCE_PATH_INVALID 84
+  [[ -f "$path" && ! -L "$path" ]] || fail BACKUP_EVIDENCE_FILE_INVALID 85
+  mode="$(stat -c '%a' "$path")"
+  [[ "$mode" =~ ^(400|440|600|640)$ ]] || fail BACKUP_EVIDENCE_PERMISSIONS_INVALID 86
+  grep -Fq 'STATUS=PASS' "$path" || fail BACKUP_EVIDENCE_STATUS_INVALID 87
+  printf '%s' "$path"
 }
 
 run_deploy() {

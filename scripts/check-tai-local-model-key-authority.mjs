@@ -21,8 +21,11 @@ for (const fragment of [
   'node scripts/check-tai-local-model-key-authority.mjs',
   'MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}',
   'MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}',
-  "printf '%s' \"${MODEL_USER_SECRET:-root}\" > \"$input/model-user\"",
-  "printf '%s' \"${MODEL_PORT_SECRET:-22}\" > \"$input/model-port\"",
+  'BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}',
+  `printf '%s' "\${MODEL_USER_SECRET:-root}" > "$input/model-user"`,
+  `printf '%s' "\${MODEL_PORT_SECRET:-22}" > "$input/model-port"`,
+  `printf '%s' "$BACKUP_EVIDENCE_FILE_SECRET" > "$input/backup-evidence-path"`,
+  'chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"',
   "if: always() && needs.image_authority.result == 'success' && needs.activate.result == 'success'",
   'decision=rollback',
   'if [[ "$ACCEPTANCE_RESULT" == success ]]; then decision=accept; fi',
@@ -35,8 +38,13 @@ for (const fragment of [
   'ssh-keygen -y -P \'\' -f "$MODEL_KEY" >/dev/null 2>&1 || fail MODEL_KEY_INVALID 42',
   'UserKnownHostsFile="$MODEL_KNOWN_HOSTS"',
   'StrictHostKeyChecking=yes',
+  '[[ "$name" =~ ^(model-key|model-user|model-port|backup-evidence-path)$ ]]',
   'rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"',
+  'backup_evidence="$(recover_backup_evidence)"',
   'api_key="$(recover_local_model_token)"',
+  `PC_PROD_BACKUP_EVIDENCE_FILE_B64="$(printf '%s' "$backup_evidence" | base64 -w0)"`,
+  'BACKUP_EVIDENCE_INPUT_MISSING',
+  'BACKUP_EVIDENCE_STATUS_INVALID',
   'ACTIVATION_MUTATION_STARTED=0',
   'ACTIVATION_COMPLETE=0',
   'if (( rc != 0 && ACTIVATION_MUTATION_STARTED == 1 && ACTIVATION_COMPLETE == 0 )); then',
@@ -56,19 +64,19 @@ forbid(core, /readarray\s+-t\s+transport\s+<\s*<\(import_model_transport\)/u, `$
 forbid(core, /api_key="\$\(recover_model_api_key\s+"\$model_user"\s+"\$model_ssh_port"\)"/u, `${corePath}: activation must reuse the already validated local runtime token`);
 forbid(core, /local\s+[^\n]*(?:activation_mutation_started|activation_complete|api_env|web_env)/u, `${corePath}: activation EXIT-trap state must not be function-local`);
 forbid(core, /local\s+[^\n]*(?:deploy_mutation_started|deploy_complete|token_file)/u, `${corePath}: deployment EXIT-trap state must not be function-local`);
-forbid(core, /echo[^\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY)/iu, `${corePath}: secret output is forbidden`);
+forbid(core, /echo[^\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY|BACKUP_EVIDENCE_FILE_SECRET)/iu, `${corePath}: secret output is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${scopePath}: invalid schemaVersion`);
-if (scope.branch !== 'agent/tai-controller-trap-rollback-evidence-20260801') violations.push(`${scopePath}: branch mismatch`);
+if (scope.branch !== 'agent/tai-backup-authority-propagation-20260801') violations.push(`${scopePath}: branch mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) violations.push(`${scopePath}: hosting or cost boundary changed`);
 for (const path of [workflowPath, corePath, 'scripts/check-tai-local-model-key-authority.mjs', scopePath]) {
   if (!scope.allowedPaths.includes(path)) violations.push(`${scopePath}: ${path} outside allowedPaths`);
 }
 
 if (violations.length) {
-  console.error('TAI controller trap and rollback-evidence contract failed:');
+  console.error('TAI backup-authority propagation contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
 
-console.log('TAI controller trap and rollback-evidence contract PASS: activation and deployment trap state survives function unwinding, rollback is explicit, redacted failure evidence is published, private keys never transit GitHub Actions, and the validated active local model token remains server-only.');
+console.log('TAI backup-authority propagation contract PASS: the existing protected external backup evidence is validated before mutation and passed only to the root-only exact-main deployment controller; trap rollback evidence and server-only model-token authority remain intact.');

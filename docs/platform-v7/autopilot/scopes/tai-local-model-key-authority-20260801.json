@@ -1,10 +1,10 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "agent/tai-controller-trap-rollback-evidence-20260801",
+  "branch": "agent/tai-backup-authority-propagation-20260801",
   "status": "active",
-  "purpose": "Repair the confirmed exact-main activation and deployment EXIT-trap scope failure, make rollback outcomes explicit, and publish redacted failure evidence without exposing model credentials or widening production authority.",
+  "purpose": "Resolve the confirmed exact-main BACKUP_AUTHORITY_UNAVAILABLE blocker by propagating the existing protected external backup evidence path through bounded runner input into the root-only full-stack controller, without exposing file contents or widening production authority.",
   "approvedBy": "owner-direct-make-sure-2026-08-01",
-  "authorityBaseExactMain": "35ecfe5654a8d94e8bc09815b2228a36e66b2bdd",
+  "authorityBaseExactMain": "58da2137c3722b7d257b9958d027c9efc21c7cb5",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -14,16 +14,18 @@
     "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
   ],
   "requiredBehavior": [
-    "keep activation and deployment EXIT-trap state outside function-local scope",
-    "attempt rollback only after the corresponding mutation boundary begins",
-    "treat rollback failure as a distinct terminal failure",
-    "publish only redacted structured failure evidence to runner-output",
+    "materialize only the existing protected backup evidence path as bounded runner input",
+    "validate absolute canonical path, regular-file type, protected mode and STATUS=PASS before mutation",
+    "pass only the base64-encoded path to the existing full-stack deployment script",
+    "remove the bounded runner input immediately after root-only validation",
+    "preserve activation and deployment EXIT-trap state outside function-local scope",
+    "preserve explicit rollback outcome and redacted failure evidence",
     "reuse the already validated model token from the single active API container",
-    "never require or transmit a private model-host SSH key through GitHub Actions",
-    "preserve exact-main, root-only controller and non-root runner authority",
-    "preserve zero new recurring cost"
+    "preserve exact-main, root-only controller, non-root runner and zero new recurring cost"
   ],
   "forbiddenCapabilities": [
+    "backup file contents in logs, environment artifacts or GitHub artifacts",
+    "production mutation without validated backup authority",
     "secret values in logs or artifacts",
     "private SSH key transport through GitHub Actions or repository secrets",
     "direct Docker authority for pcactions",
@@ -37,7 +39,7 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 3,
+    "changedPathCount": 4,
     "productionMutationAllowedBeforeMerge": false,
     "requiredChecks": [
       "platform-v7 autopilot guard",

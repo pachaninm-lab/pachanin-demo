@@ -155,6 +155,7 @@ jobs:
       MIGRATION_DIGEST: ${{ needs.image_authority.outputs.migration_digest }}
       MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
       MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}
     steps:
       - name: Prepare fixed model transport input
         run: |
@@ -169,7 +170,9 @@ jobs:
           [[ "$(stat -c '%U:%G:%a' "$input")" == pcactions:pcactions:700 ]]
           printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
           printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
-          chmod 0600 "$input/model-user" "$input/model-port"
+          [[ -n "${BACKUP_EVIDENCE_FILE_SECRET:-}" ]] || { echo 'Protected backup evidence path is not configured.' >&2; exit 22; }
+          printf '%s' "$BACKUP_EVIDENCE_FILE_SECRET" > "$input/backup-evidence-path"
+          chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"
       - name: Execute protected exact-main activation
         run: |
           set -Eeuo pipefail
