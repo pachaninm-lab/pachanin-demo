@@ -19,7 +19,7 @@ RUN pnpm --filter @pc/web build
 RUN rm -rf /workspace/apps/web/.next/cache
 RUN pnpm --filter @pc/web --prod deploy --legacy /prod/web
 
-FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
+FROM node:24-bookworm-slim AS runtime
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 ARG APP_VERSION=3.0.0
@@ -32,7 +32,21 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV APP_REVISION=$GIT_COMMIT
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
 WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    imagemagick \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-chi-sim \
+    tesseract-ocr-eng \
+    tesseract-ocr-rus \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --gid 65532 nonroot \
+  && useradd --uid 65532 --gid 65532 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin nonroot
 
 COPY --from=build --chown=nonroot:nonroot /prod/web/ ./
 COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/.next ./.next
@@ -41,12 +55,12 @@ COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/public ./public
 EXPOSE 3000
 USER nonroot
 HEALTHCHECK --interval=30s --timeout=7s --start-period=45s --retries=3 \
-  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready',{signal:AbortSignal.timeout(5000)}).then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready',{signal:AbortSignal.timeout(5000)}).then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node_modules/next/dist/bin/next", "start", "-p", "3000"]
 
 # Operational release trigger: publish and deploy the platform-v7 home from PR #3206.
 # Operational release trigger: publish and deploy the compact mobile homepage from PR #3207.
-# Operational release trigger: publish and deploy the final mobile authority from PRs #3208 and #3210.
+# Operational release trigger: publish the final mobile authority from PRs #3208 and #3210.
 # Operational release trigger: publish the image, then dispatch the bounded exact-SHA release through the image gate.
 # Operational release trigger: publish and verify the exact 390x844 and 430x932 production mobile release.
 # Operational release trigger: publish the compact mobile hero accepted in PR #3214.
