@@ -8,12 +8,11 @@ on:
       - .github/workflows/tai-reg-ru-runner-resume-once.yml
 
 permissions:
-  actions: write
   contents: read
   statuses: write
 
 concurrency:
-  group: tai-model-transport-provision-once
+  group: tai-reg-ru-bounded-docker-reclaim
   cancel-in-progress: false
 
 env:
@@ -25,37 +24,33 @@ env:
   PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
   PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
   PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
 
 jobs:
-  provision-and-dispatch:
+  reclaim:
     runs-on: ubuntu-24.04
     if: github.actor == github.repository_owner
     timeout-minutes: 15
     steps:
-      - name: Provision protected model key on REG.RU controller
+      - name: Reclaim only unused Docker cache and verify runtime invariance
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
           state=failure
-          description='Protected model transport provisioning failed'
+          description='Bounded Docker cache reclaim failed'
           publish() {
             gh api --method POST -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
               -f state="$state" \
-              -f context='TAI Model Transport Provisioning' \
+              -f context='TAI REG.RU Docker Capacity' \
               -f description="$description" \
               -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
           }
           trap publish EXIT
           state=pending
-          description='Installing protected model transport authority'
+          description='Reclaiming unused Docker cache without runtime mutation'
           publish
           state=failure
-
-          current_main="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
-          [[ "$current_main" == "$TARGET_SHA" ]]
 
           trim() {
             local value="$1"
@@ -84,89 +79,55 @@ jobs:
           host="$(trim "${PROD_HOST_SECRET:-$CANONICAL_PROD_HOST}")"
           user="$(trim "${PROD_USER_SECRET:-}")"
           port="$(trim "${PROD_PORT_SECRET:-22}")"
-          [[ "$host" == "$CANONICAL_PROD_HOST" ]]
-          [[ -n "$user" ]]
+          [[ "$host" == "$CANONICAL_PROD_HOST" && -n "$user" ]]
           [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
-
           install -d -m 0700 "$HOME/.ssh"
           prod_key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
-          write_key "$prod_key" "$HOME/.ssh/id_pc_prod" || {
-            description='Protected production SSH key is invalid'
-            exit 21
-          }
-          write_key "${MODEL_KEY_SECRET:-}" "$HOME/.ssh/id_tai_model" || {
-            description='Protected model SSH key is absent or invalid'
-            exit 22
-          }
-
+          write_key "$prod_key" "$HOME/.ssh/id_pc_prod"
           : > "$HOME/.ssh/known_hosts"
           for attempt in 1 2 3 4 5; do
-            if ssh-keyscan -T 12 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts" 2>/dev/null && [[ -s "$HOME/.ssh/known_hosts" ]]; then
-              break
-            fi
-            : > "$HOME/.ssh/known_hosts"
-            sleep 4
+            if ssh-keyscan -T 12 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts" 2>/dev/null && [[ -s "$HOME/.ssh/known_hosts" ]]; then break; fi
+            : > "$HOME/.ssh/known_hosts"; sleep 4
           done
-          [[ -s "$HOME/.ssh/known_hosts" ]] || {
-            description='REG.RU production SSH endpoint is unreachable'
-            exit 23
-          }
+          [[ -s "$HOME/.ssh/known_hosts" ]]
           chmod 0600 "$HOME/.ssh/known_hosts"
 
-          remote_tmp="/tmp/pc-tai-model-id-${GITHUB_RUN_ID}"
-          scp -q \
-            -i "$HOME/.ssh/id_pc_prod" -P "$port" \
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
             -o BatchMode=yes -o ConnectTimeout=20 -o ConnectionAttempts=3 \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$HOME/.ssh/id_tai_model" "$user@$host:$remote_tmp"
-          ssh \
-            -i "$HOME/.ssh/id_pc_prod" -p "$port" \
-            -o BatchMode=yes -o ConnectTimeout=20 -o ConnectionAttempts=3 \
-            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$user@$host" "REMOTE_TMP='$remote_tmp' bash -se" <<'REMOTE'
+            "$user@$host" 'bash -se' <<'REMOTE'
           set -Eeuo pipefail
           [[ "$(id -u)" -eq 0 ]]
-          [[ "$REMOTE_TMP" == /tmp/pc-tai-model-id-* ]]
-          [[ -f "$REMOTE_TMP" && ! -L "$REMOTE_TMP" ]]
-          trap 'rm -f "$REMOTE_TMP"' EXIT
-          chmod 0600 "$REMOTE_TMP"
-          ssh-keygen -y -P '' -f "$REMOTE_TMP" >/dev/null
-          install -d -m 0700 -o root -g root /etc/pc-release-authority
-          install -m 0600 -o root -g root "$REMOTE_TMP" /etc/pc-release-authority/model_id
-          [[ "$(stat -c '%U:%G:%a:%h' /etc/pc-release-authority/model_id)" == root:root:600:1 ]]
-          [[ -s /etc/pc-release-authority/model_known_hosts && ! -L /etc/pc-release-authority/model_known_hosts ]]
-          ssh-keygen -y -P '' -f /etc/pc-release-authority/model_id >/dev/null
+          command -v docker >/dev/null
+          docker version >/dev/null
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Status}}|{{.Names}}' | sort > "$work/running.before"
+          before_kb="$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')"
+          echo "DOCKER_AVAILABLE_KB_BEFORE=$before_kb"
+          docker system df
+
+          docker container prune --force
+          docker image prune --force
+          docker network prune --force
+          docker builder prune --all --force
+
+          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Status}}|{{.Names}}' | sort > "$work/running.after"
+          cmp -s "$work/running.before" "$work/running.after" || {
+            echo RUNTIME_CONTAINER_SET_CHANGED >&2
+            diff -u "$work/running.before" "$work/running.after" >&2 || true
+            exit 41
+          }
+          after_kb="$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')"
+          echo "DOCKER_AVAILABLE_KB_AFTER=$after_kb"
+          (( after_kb >= 5242880 )) || {
+            echo DOCKER_CAPACITY_STILL_LOW >&2
+            docker system df >&2
+            exit 42
+          }
+          docker ps --format '{{.Names}}|{{.Status}}' | sort
+          echo DOCKER_CAPACITY_RECOVERY_PASS
           REMOTE
 
           state=success
-          description='Protected model transport authority installed'
-
-      - name: Dispatch exact-main standalone TAI deployment
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -Eeuo pipefail
-          before="$(gh api -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-deploy.yml/runs?branch=main&event=workflow_dispatch&per_page=1" \
-            --jq '.workflow_runs[0].id // 0')"
-          gh workflow run tai-reg-ru-deploy.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f target_sha="$TARGET_SHA" \
-            -f confirmation=DEPLOY-TAI-REG-RU
-          run_id=''
-          for attempt in $(seq 1 30); do
-            candidate="$(gh api -H 'Accept: application/vnd.github+json' \
-              "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-deploy.yml/runs?branch=main&event=workflow_dispatch&per_page=20" \
-              --jq '.workflow_runs[] | select(.head_sha == env.TARGET_SHA) | .id' | head -n 1)"
-            if [[ -n "$candidate" && "$candidate" != "$before" ]]; then run_id="$candidate"; break; fi
-            sleep 2
-          done
-          [[ -n "$run_id" ]]
-          gh api --method POST -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
-            -f state=pending \
-            -f context='TAI REG.RU Deployment' \
-            -f description='Standalone TAI deployment redispatched after transport repair' \
-            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >/dev/null
-          echo "DEPLOYMENT_RUN_ID=$run_id"
+          description='Docker capacity recovered; running containers unchanged'
