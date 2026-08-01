@@ -117,6 +117,26 @@ describe('the public boundary validates through the API contract module', () => 
     expect(body).toMatchObject({ mode: 'read_only', dataMode: 'public_knowledge', resolution: 'answered' });
   });
 
+  it('keeps the newest topic when bounded history is larger than the old request envelope', async () => {
+    const history = [
+      ...Array.from({ length: 7 }, (_, index) => ({ role: 'user', text: `${index}-` + 'x'.repeat(1_800) })),
+      { role: 'user', text: 'Кто видит мои документы?' },
+    ];
+    const body = JSON.stringify({ message: 'А подробнее?', locale: 'ru', history });
+    const response = await POST(new NextRequest(ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': String(Buffer.byteLength(body)),
+      },
+      body,
+    }));
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toMatchObject({ resolution: 'answered', topic: 'documents' });
+  });
+
   it('refuses a malformed request before opening a stream, where an error can still be read', async () => {
     const response = await POST(new NextRequest(`${ENDPOINT}?stream=1`, {
       method: 'POST',
@@ -229,12 +249,17 @@ describe('the public boundary validates through the API contract module', () => 
       }
     });
 
-    it('abstains rather than guessing when the question is not something it can ground', async () => {
+    it('answers a one-word question instead of refusing it for being short', async () => {
+      // A single word is an incomplete question, not an off-topic one. The
+      // previous boundary refused it outright, which is how a reader typing
+      // "банк" got a dead end instead of the part of the answer that is the
+      // same for everyone plus one question to narrow it down.
       const frames = await readFrames(await POST(streamRequest('банк')));
+      const text = frames.filter((frame) => frame.event === 'token').map((frame) => frame.text).join('');
 
-      expect(frames.some((frame) => frame.event === 'token')).toBe(false);
-      expect(frames.find((frame) => frame.event === 'error')).toMatchObject({ refusal: 'ABSTAINED_NO_DATA' });
-      expect(frames[frames.length - 1]).toMatchObject({ complete: false });
+      expect(text.length).toBeGreaterThan(80);
+      expect(frames.some((frame) => frame.event === 'error')).toBe(false);
+      expect(frames[frames.length - 1]).toMatchObject({ complete: true });
     });
 
     it('abstains on a request for other users’ data instead of implying it is merely withheld', async () => {

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/tai-agro-os-v4-production-izow8x",
+  "status": "active",
+  "purpose": "Replace the binary relevance gate in the public TAI contour with multi-level semantic admission, bind every platform claim to a verifiable capability registry, and remove internal routing vocabulary from the reader-facing interface.",
+  "approvedBy": "owner-direct-tz-tai-agro-os-v4-20260801",
+  "authorityBaseExactMain": "35cc81e9deb275ea372aa9abbfa27bfd49b43a57",
+  "defect": {
+    "report": "Как защищаются данные?",
+    "observed": "Refused with \"Я не смог с достаточной уверенностью связать вопрос с подтверждённой темой\" — a question the platform itself offers as a starter prompt.",
+    "rootCause": "The knowledge route treated a medium-confidence topic match as unresolved and served the clarification copy, so any question without a literal keyword hit became a refusal regardless of how clearly it belonged to the domain.",
+    "severity": "P0"
+  },
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-semantic-relevance-20260801.json",
+    "apps/web/lib/platform-v7/assistant-capability-registry.ts",
+    "apps/web/lib/platform-v7/platform-knowledge-sections.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/lib/platform-v7/assistant-answer-composer.ts",
+    "apps/web/lib/platform-v7/assistant-server-context.ts",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/tests/fixtures/tai-semantic-acceptance-corpus.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "apps/web/tests/unit/taiSemanticAcceptanceCorpus.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts",
+    "apps/web/tests/unit/platformV7ProspectAssistantKnowledge.test.ts",
+    "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts"
+  ],
+  "forbiddenCapabilities": [
+    "private data access from the public contour",
+    "role, tenant or organization identity taken from the request body",
+    "write authority",
+    "weakening of safety boundaries",
+    "claiming an integration, backup schedule, SLA or certification that is not attested",
+    "new recurring infrastructure cost"
+  ],
+  "admissionModel": {
+    "decisions": [
+      "ALLOW_DIRECT",
+      "ALLOW_CONTEXTUAL",
+      "ALLOW_ADJACENT",
+      "CLARIFY_WITH_PARTIAL_ANSWER",
+      "REDIRECT_UNRELATED",
+      "BLOCK_SAFETY"
+    ],
+    "admitOnAnyOf": ["domain term", "conversation link", "surface (page, role, selected object)", "model relatedness judgement"],
+    "refuseOnlyWhenAllAbsent": true,
+    "safetyIndependentOfRelevance": true,
+    "serverDerivedContext": ["exact cabinet role from the verified session", "page from the referrer"],
+    "neverDerived": ["organization id", "tenant id", "object id", "another conversation"]
+  },
+  "acceptanceCorpus": {
+    "direct": 200,
+    "indirect": 200,
+    "shortContextualFollowUp": 200,
+    "adjacentBusiness": 100,
+    "dataProtectionAndRights": 100,
+    "genuinelyUnrelated": 100,
+    "safety": 100,
+    "languages": ["ru", "en", "zh"],
+    "surfaces": "12 cabinet roles plus the anonymous public surface",
+    "falseRefusalBudget": 0
+  },
+  "sourceFinalization": {
+    "verifiedHeadBeforeAttestation": "c72475acc7e6e73f3f35aa71b562c808490b0b60",
+    "behindBy": 0,
+    "changedFiles": 15,
+    "temporaryWorkflowFilesInFinalDiff": 0,
+    "checks": {
+      "webTypecheck": "pass",
+      "semanticRelevanceRouter": "pass",
+      "semanticAcceptanceCorpus": "pass",
+      "publicAssistantStreamContract": "pass",
+      "diffIntegrity": "pass"
+    },
+    "confirmedRegressions": [
+      "newest bounded-history topic is preserved for short follow-ups",
+      "explicit unrelated subjects outrank generic contextual sentence shape",
+      "internal model, route and refusal metadata is absent from public DOM attributes",
+      "verified-knowledge fallback receives bounded conversation history"
+    ]
+  },
+  "liveAcceptancePending": [
+    "REG.RU activation on the new exact-main",
+    "RU/EN/ZH streaming against the deployed revision",
+    "mobile viewport and iOS keyboard acceptance",
+    "strict postflight and rollback evidence"
+  ]
+}

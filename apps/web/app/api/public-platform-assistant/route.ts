@@ -17,12 +17,30 @@ import {
 } from '@/lib/platform-v7/public-assistant-knowledge';
 import { understandAssistantQuestion } from '@/lib/platform-v7/assistant-question-understanding';
 import { answerProspectQuestion, prospectTopics } from '@/lib/platform-v7/prospect-assistant-knowledge';
+import {
+  resolvePreviousTopic,
+  routeAssistantQuestion,
+  type AssistantConversationTurn,
+  type AssistantRelevanceOutcome,
+  type AssistantRoutingContext,
+} from '@/lib/platform-v7/assistant-relevance-router';
+import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
+import {
+  composePlatformSectionAnswer,
+  composeRedirectAnswer,
+  composeSafetyAnswer,
+  type ComposedAssistantAnswer,
+} from '@/lib/platform-v7/assistant-answer-composer';
+import { PLATFORM_KNOWLEDGE_VERSION } from '@/lib/platform-v7/platform-knowledge-sections';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const MAX_MESSAGE_LENGTH = 1_200;
-const MAX_BODY_BYTES = 8_192;
+const MAX_BODY_BYTES = 20_480;
+const MAX_HISTORY_TURNS = 12;
+const MAX_HISTORY_TURN_CHARS = 2_000;
+const MAX_HISTORY_TOTAL_CHARS = 12_000;
 
 const SOURCE_LABELS: Readonly<Record<PublicAssistantLocale, Readonly<Record<string, string>>>> = {
   ru: {
@@ -50,19 +68,6 @@ const SOURCE_LABELS: Readonly<Record<PublicAssistantLocale, Readonly<Record<stri
     '/platform-v7/contact': '联系项目',
   },
 };
-
-const ROLE_ONLY_WORDS = new Set([
-  'банк', 'покупатель', 'продавец', 'фермер', 'трейдер', 'элеватор', 'логист', 'водитель',
-  'bank', 'buyer', 'seller', 'farmer', 'trader', 'elevator', 'logistics', 'driver',
-  '银行', '买方', '卖方', '农户', '贸易商', '粮库', '物流', '司机',
-]);
-
-const ACTION_OR_TOPIC_WORDS = [
-  'как', 'что', 'почему', 'зачем', 'сколько', 'стоимость', 'цена', 'внедрение', 'сделк', 'аукцион',
-  'логист', 'прием', 'приём', 'документ', 'деньг', 'выплат', 'спор', 'фгис', 'интеграц', 'безопас',
-  'how', 'what', 'why', 'cost', 'price', 'implementation', 'deal', 'auction', 'payment', 'document',
-  'dispute', 'integration', 'security', '如何', '什么', '为什么', '价格', '实施', '交易', '竞价', '付款', '文件', '争议', '集成', '安全',
-] as const;
 
 const FORBIDDEN_COMMAND_PATTERNS = [
   /(?:покажи|открой|удали|измени|переведи|выплати).{0,40}(?:чуж|все|любые).{0,30}(?:сделк|данн|деньг)/iu,
@@ -98,41 +103,36 @@ function hashQuestion(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function normalizeIntent(value: string): string {
-  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е').replace(/[^\p{L}\p{N}\s]+/gu, ' ').replace(/\s+/gu, ' ').trim();
-}
-
-function hasSubstantiveIntent(value: string): boolean {
-  const normalized = normalizeIntent(value);
-  const tokens = normalized.split(' ').filter(Boolean);
-  if (tokens.length === 0) return false;
-  if (tokens.every((token) => ROLE_ONLY_WORDS.has(token))) return false;
-  return ACTION_OR_TOPIC_WORDS.some((word) => normalized.includes(word));
-}
-
 function isForbiddenCommand(value: string): boolean {
   return FORBIDDEN_COMMAND_PATTERNS.some((pattern) => pattern.test(value));
 }
 
-function fallbackCopy(locale: PublicAssistantLocale) {
-  if (locale === 'en') return {
-    title: 'I need one clarification',
-    answer: 'I could not map the question to a verified platform or agribusiness topic with sufficient confidence. Rephrase it in a few words or choose one of the suggested areas. The question has been registered as a knowledge gap without storing its full text.',
-    maturity: 'I will not invent an answer when the verified knowledge base has no basis.',
-    suggestions: ['How does a Deal work?', 'What does a bank gain?', 'How much does implementation cost?'],
-  };
-  if (locale === 'zh') return {
-    title: '需要进一步说明',
-    answer: '我无法以足够置信度将问题映射到已验证的平台或农业业务主题。请简要改写或选择建议主题。系统已登记知识缺口，但不会保存完整问题文本。',
-    maturity: '没有可靠依据时，助手不会编造答案。',
-    suggestions: ['交易如何运作？', '银行能获得什么？', '实施成本是多少？'],
-  };
-  return {
-    title: 'Нужно одно уточнение',
-    answer: 'Я не смог с достаточной уверенностью связать вопрос с подтверждённой темой платформы или агробизнеса. Сформулируйте его ещё раз в нескольких словах или выберите направление ниже. Вопрос зарегистрирован как пробел знаний без сохранения полного текста.',
-    maturity: 'Если подтверждённого основания нет, помощник не придумывает ответ.',
-    suggestions: ['Как работает Сделка?', 'Что получит банк?', 'Сколько стоит внедрение?'],
-  };
+/**
+ * Reads the conversation the client sent.
+ *
+ * History is the reader's own words and carries no authority: it shapes what the
+ * question means, never what the reader is allowed to see. Bounds are the same
+ * ones the streaming contour applies, so both paths read one envelope shape.
+ */
+function readHistory(value: unknown): readonly AssistantConversationTurn[] {
+  if (!Array.isArray(value)) return [];
+  const turns: AssistantConversationTurn[] = [];
+  let total = 0;
+  // Keep the newest valid turns when the bounded envelope is full. A long
+  // older turn must never evict the latest subject that a short follow-up
+  // depends on.
+  for (const item of [...value.slice(-MAX_HISTORY_TURNS)].reverse()) {
+    const row = item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : null;
+    const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
+    const text = typeof row?.text === 'string'
+      ? row.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
+      : '';
+    if (!role || !text) continue;
+    if (total + text.length > MAX_HISTORY_TOTAL_CHARS) continue;
+    turns.unshift({ role, text });
+    total += text.length;
+  }
+  return turns;
 }
 
 function forbiddenCopy(locale: PublicAssistantLocale) {
@@ -172,6 +172,101 @@ function limitations(locale: PublicAssistantLocale) {
     'Юридические, налоговые, кредитные и коммерческие ответы носят общий информационный характер.',
     'Помощник не выполняет действия и не подтверждает неподключённые интеграции.',
   ];
+}
+
+type ResolvedAnswer = Readonly<{
+  resolution: 'answered' | 'redirected' | 'refused';
+  knowledgeVersion: string;
+  topic: string;
+  title: string;
+  answer: string;
+  facts: readonly string[];
+  maturity: string;
+  confidence: 'high' | 'medium';
+  actionAllowed: false;
+  sources: readonly Readonly<{ label: string; href: string }>[];
+  suggestions: readonly string[];
+}>;
+
+/**
+ * Turns a routing decision into the answer both contours serve.
+ *
+ * The old gate lived here as a single boolean: anything that did not match a
+ * narrow topic became a refusal, which is how a question the platform itself
+ * suggests — "Как защищаются данные?" — came back as "I could not map the
+ * question". Admission is now the router's decision, and this function only
+ * chooses which body of knowledge answers it.
+ *
+ * A clarifying question never replaces an answer. When the question genuinely
+ * has two readings, the useful general part is served first and the narrowing
+ * question follows it.
+ */
+function resolveAnswer(
+  question: string,
+  locale: PublicAssistantLocale,
+  outcome: AssistantRelevanceOutcome,
+  role: string | null,
+): ResolvedAnswer {
+  if (outcome.decision === 'BLOCK_SAFETY' && outcome.safetyReason) {
+    return fromComposed(composeSafetyAnswer(locale, outcome.safetyReason), 'refused', 'security', locale, 'high');
+  }
+
+  if (outcome.decision === 'REDIRECT_UNRELATED') {
+    return fromComposed(composeRedirectAnswer(locale), 'redirected', 'overview', locale, 'high');
+  }
+
+  const clarify = outcome.decision === 'CLARIFY_WITH_PARTIAL_ANSWER';
+  const section = outcome.section ?? (clarify ? outcome.clarifySection : null);
+  if (section) {
+    const composed = composePlatformSectionAnswer(section, locale, { clarify, role });
+    if (composed) return fromComposed(composed, 'answered', section, locale, clarify ? 'medium' : 'high');
+  }
+
+  // No platform section owns the question: the prospect and public knowledge
+  // bases answer it, exactly as they did before — but now they are reached
+  // instead of being skipped in favour of a refusal.
+  const prospectAnswer = answerProspectQuestion(question, locale);
+  const platformAnswer = answerPublicPlatformQuestion(question, locale);
+  const answer = prospectAnswer ?? platformAnswer;
+  const trailing = clarify && outcome.clarifySection
+    ? composePlatformSectionAnswer(outcome.clarifySection, locale, { clarify: true })
+    : null;
+
+  return Object.freeze({
+    resolution: 'answered',
+    knowledgeVersion: answer.knowledgeVersion,
+    topic: answer.topic,
+    title: answer.title,
+    answer: trailing ? `${answer.answer}\n\n${trailing.answer}` : answer.answer,
+    facts: answer.facts,
+    maturity: answer.maturity,
+    confidence: outcome.decision === 'ALLOW_DIRECT' ? answer.confidence : 'medium',
+    actionAllowed: false,
+    sources: localizedSources(answer.sources, locale),
+    suggestions: answer.suggestions,
+  });
+}
+
+function fromComposed(
+  composed: ComposedAssistantAnswer,
+  resolution: ResolvedAnswer['resolution'],
+  topic: string,
+  locale: PublicAssistantLocale,
+  confidence: 'high' | 'medium',
+): ResolvedAnswer {
+  return Object.freeze({
+    resolution,
+    knowledgeVersion: PLATFORM_KNOWLEDGE_VERSION,
+    topic,
+    title: composed.title,
+    answer: composed.answer,
+    facts: composed.facts,
+    maturity: composed.maturity,
+    confidence,
+    actionAllowed: false,
+    sources: localizedSources(composed.sources, locale),
+    suggestions: composed.suggestions,
+  });
 }
 
 /**
@@ -228,7 +323,12 @@ function sse(body: ReadableStream<Uint8Array>) {
  * checked against `'public'`, so a private identity key is refused here even if
  * something upstream ever put one in.
  */
-function streamPublicAnswer(request: NextRequest, message: string, requestedLocale: PublicAssistantLocale) {
+function streamPublicAnswer(
+  request: NextRequest,
+  message: string,
+  requestedLocale: PublicAssistantLocale,
+  context: AssistantRoutingContext,
+) {
   const streamId = randomUUID();
   const encoder = new TextEncoder();
 
@@ -285,31 +385,26 @@ function streamPublicAnswer(request: NextRequest, message: string, requestedLoca
       const understanding = understandAssistantQuestion(message, requestedLocale);
       const locale = understanding.detectedLocale;
       const correctedQuestion = understanding.corrected || message;
+      const outcome = routeAssistantQuestion(correctedQuestion, { ...context, locale });
 
-      if (isForbiddenCommand(correctedQuestion)) {
+      if (isForbiddenCommand(correctedQuestion) || outcome.decision === 'BLOCK_SAFETY') {
         // The public contour holds no user, account or Deal data at all, so the
         // honest refusal is that there is nothing to answer from — not a denial
-        // that would imply the data exists here and is merely withheld.
+        // that would imply the data exists here and is merely withheld. The
+        // stream carries no tokens here on purpose: a safety block must not
+        // produce anything that reads like the beginning of an answer.
         stream.fail('ABSTAINED_NO_DATA', 'Public mode has no access to accounts, Deals or other users’ data.');
         finish();
         return;
       }
 
-      const prospectAnswer = hasSubstantiveIntent(correctedQuestion) ? answerProspectQuestion(correctedQuestion, locale) : null;
-      const platformAnswer = answerPublicPlatformQuestion(correctedQuestion, locale);
-      const answer = prospectAnswer ?? platformAnswer;
-      const unresolved = understanding.ambiguous
-        || !hasSubstantiveIntent(correctedQuestion)
-        || (!prospectAnswer && platformAnswer.confidence === 'medium' && understanding.corrections.length === 0);
-
-      if (unresolved) {
-        stream.fail('ABSTAINED_NO_DATA', fallbackCopy(locale).answer);
-        finish();
-        return;
-      }
+      // Everything else is answered. A question that only earned a redirect
+      // still gets text a reader can use — what this assistant covers and how to
+      // rephrase — instead of a refusal frame carrying nothing.
+      const answer = resolveAnswer(correctedQuestion, locale, outcome, context.role);
 
       const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
-      for (const source of localizedSources(answer.sources, locale)) {
+      for (const source of answer.sources) {
         const uri = absoluteCitationUri(source.href, base);
         if (!uri) continue;
         if (!stream.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) break;
@@ -349,11 +444,22 @@ export async function POST(request: NextRequest) {
   if (!message) return json({ code: 'PUBLIC_ASSISTANT_MESSAGE_REQUIRED', message: 'Message is required.' }, 400);
   if (message.length > MAX_MESSAGE_LENGTH) return json({ code: 'PUBLIC_ASSISTANT_MESSAGE_TOO_LONG', message: `Maximum length is ${MAX_MESSAGE_LENGTH} characters.` }, 400);
 
+  const history = readHistory(body?.history);
+  // Role and page come from the request itself — a signed session cookie and the
+  // referrer. A body that claims a role is answered as an anonymous visitor.
+  const context = await buildAssistantRoutingContext(request, {
+    locale: requestedLocale,
+    recentMessages: history,
+    previousTopic: resolvePreviousTopic(history),
+    hasAttachment: body?.attachment === true,
+    semanticHint: null,
+  });
+
   // Malformed requests are refused before the stream opens: once the response is
   // an event stream the only channel left is a frame, and a frame is a poor way
   // to say "your Content-Type was wrong".
   if (request.nextUrl.searchParams.get('stream') === '1') {
-    return streamPublicAnswer(request, message, requestedLocale);
+    return streamPublicAnswer(request, message, requestedLocale, context);
   }
 
   const generatedAt = new Date().toISOString();
@@ -361,6 +467,7 @@ export async function POST(request: NextRequest) {
   const understanding = understandAssistantQuestion(message, requestedLocale);
   const locale = understanding.detectedLocale;
   const correctedQuestion = understanding.corrected || message;
+  const outcome = routeAssistantQuestion(correctedQuestion, { ...context, locale });
 
   if (isForbiddenCommand(correctedQuestion)) {
     const denied = forbiddenCopy(locale);
@@ -376,37 +483,23 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const prospectAnswer = hasSubstantiveIntent(correctedQuestion) ? answerProspectQuestion(correctedQuestion, locale) : null;
-  const platformAnswer = answerPublicPlatformQuestion(correctedQuestion, locale);
-  const answer = prospectAnswer ?? platformAnswer;
-  const unresolved = understanding.ambiguous
-    || !hasSubstantiveIntent(correctedQuestion)
-    || (!prospectAnswer && platformAnswer.confidence === 'medium' && understanding.corrections.length === 0);
+  const answer = resolveAnswer(correctedQuestion, locale, outcome, context.role);
 
-  if (unresolved) {
-    const fallback = fallbackCopy(locale);
-    const escalationId = `UK-${requestId.slice(0, 8).toUpperCase()}`;
+  // A redirected question is still a signal about what readers expect from this
+  // assistant. It is recorded as a hash and a length, never as text, and never
+  // shown back to the reader: a person who asked something off-topic needs a
+  // useful direction, not a notice that their question was filed.
+  if (answer.resolution === 'redirected') {
     console.warn(JSON.stringify({
-      event: 'PUBLIC_ASSISTANT_UNANSWERED', requestId, escalationId,
+      event: 'PUBLIC_ASSISTANT_REDIRECTED', requestId,
       questionHash: hashQuestion(message), messageLength: message.length,
-      locale, detectedLocale: understanding.detectedLocale,
-      correctionCount: understanding.corrections.length, generatedAt,
+      locale, detectedLocale: understanding.detectedLocale, generatedAt,
     }));
-    return json({
-      requestId, escalationId, generatedAt, dataMode: 'public_knowledge', mode: 'read_only',
-      resolution: 'clarification_required', knowledgeVersion: answer.knowledgeVersion,
-      topic: 'overview', title: fallback.title, answer: fallback.answer, facts: [],
-      maturity: fallback.maturity, confidence: 'medium', actionAllowed: false,
-      sources: localizedSources([{ label: '', href: '/platform-v7/contact' }], locale),
-      suggestions: fallback.suggestions,
-      understanding: { normalizedQuestion: correctedQuestion, corrections: understanding.corrections, detectedLocale: understanding.detectedLocale },
-      limitations: limitations(locale),
-    });
   }
 
   return json({
-    requestId, generatedAt, dataMode: 'public_knowledge', mode: 'read_only', resolution: 'answered',
-    ...answer, sources: localizedSources(answer.sources, locale),
+    requestId, generatedAt, dataMode: 'public_knowledge', mode: 'read_only',
+    ...answer,
     understanding: { normalizedQuestion: correctedQuestion, corrections: understanding.corrections, detectedLocale: understanding.detectedLocale },
     limitations: limitations(locale),
   });
