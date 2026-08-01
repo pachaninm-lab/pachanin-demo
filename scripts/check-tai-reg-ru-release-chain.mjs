@@ -62,6 +62,7 @@ for (const fragment of [
   '[[ "$UPSTREAM_CONCLUSION" == success ]]',
   '[[ "$UPSTREAM_BRANCH" == main ]]',
   '[[ "$UPSTREAM_EVENT" == push ]]',
+  '[[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]',
   '[[ "$CONFIRMATION" == PREFLIGHT-TAI-REG-RU ]]',
   'needs: upstream_build_gate',
   "if: needs.upstream_build_gate.result == 'success'",
@@ -80,6 +81,9 @@ for (const fragment of [
   'needs: upstream_preflight_gate',
   "if: needs.upstream_preflight_gate.result == 'success'",
   'actions: read',
+  "if: github.event_name == 'workflow_run'",
+  'ref: ${{ github.event_name == \'pull_request\' && github.sha || github.event.repository.default_branch }}',
+  '[[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]',
   'inputs.upstream_run_id',
   'inputs.upstream_run_attempt',
   "[[ \"$CONFIRMATION\" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]",
@@ -90,12 +94,20 @@ for (const fragment of [
   "'Publish REG.RU preflight status'",
   "'Confirm REG.RU preflight chain result'",
 ]) requireFragment('activation', fragment);
+forbid(
+  'activation',
+  /ref:\s*\$\{\{\s*github[.]event[.]workflow_run[.]head_sha/u,
+  'workflow_run code must execute from the trusted default branch, not the upstream head SHA',
+);
 
 for (const fragment of [
   'upstream_activation_gate:',
   'needs: upstream_activation_gate',
   "if: needs.upstream_activation_gate.result == 'success'",
   'actions: read',
+  "if: github.event_name == 'workflow_run'",
+  'ref: ${{ github.event_name == \'pull_request\' && github.sha || github.event.repository.default_branch }}',
+  '[[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]',
   'inputs.upstream_run_id',
   'inputs.upstream_run_attempt',
   "[[ \"$CONFIRMATION\" == DEPLOY-TAI-REG-RU ]]",
@@ -108,6 +120,19 @@ for (const fragment of [
   "'Publish restricted Qwen activation result'",
   "'Confirm restricted Qwen activation chain result'",
 ]) requireFragment('deployment', fragment);
+forbid(
+  'deployment',
+  /ref:\s*\$\{\{\s*github[.]event[.]workflow_run[.]head_sha/u,
+  'workflow_run code must execute from the trusted default branch, not the upstream head SHA',
+);
+
+for (const name of ['activation', 'deployment']) {
+  const repositoryGate = sources[name].indexOf('Reject an untrusted upstream repository before checkout');
+  const firstCheckout = sources[name].indexOf('- uses: actions/checkout@v4');
+  if (repositoryGate < 0 || firstCheckout < 0 || repositoryGate > firstCheckout) {
+    violations.push(`${paths[name]}: upstream repository authority must be validated before checkout`);
+  }
+}
 
 for (const [name, fragment] of [
   ['preflight', 'name: Confirm REG.RU preflight chain result'],
@@ -146,22 +171,31 @@ expectBlocked('truncated', { total_count: 101, jobs: successfulJobs });
 expectBlocked('count-mismatch', { total_count: successfulJobs.length + 1, jobs: successfulJobs });
 const successfulRun = {
   name: 'TAI REG.RU Preflight',
+  head_repository: { full_name: 'pachaninm-lab/pachanin-demo' },
   head_sha: '1'.repeat(40),
   head_branch: 'main',
   run_attempt: 2,
   status: 'completed',
   conclusion: 'success',
 };
-verifyWorkflowRun(successfulRun, '1'.repeat(40), '2', 'TAI REG.RU Preflight');
-const expectRunBlocked = (label, report, sha = '1'.repeat(40), attempt = '2', name = 'TAI REG.RU Preflight') => {
+verifyWorkflowRun(successfulRun, '1'.repeat(40), '2', 'TAI REG.RU Preflight', 'pachaninm-lab/pachanin-demo');
+const expectRunBlocked = (
+  label,
+  report,
+  sha = '1'.repeat(40),
+  attempt = '2',
+  name = 'TAI REG.RU Preflight',
+  repository = 'pachaninm-lab/pachanin-demo',
+) => {
   try {
-    verifyWorkflowRun(report, sha, attempt, name);
+    verifyWorkflowRun(report, sha, attempt, name, repository);
     violations.push(`workflow run fixture ${label} unexpectedly passed`);
   } catch {
     // Expected fail-closed result.
   }
 };
 expectRunBlocked('wrong-name', { ...successfulRun, name: 'Other' });
+expectRunBlocked('wrong-repository', { ...successfulRun, head_repository: { full_name: 'attacker/fork' } });
 expectRunBlocked('wrong-sha', { ...successfulRun, head_sha: '2'.repeat(40) });
 expectRunBlocked('wrong-branch', { ...successfulRun, head_branch: 'feature' });
 expectRunBlocked('wrong-attempt', { ...successfulRun, run_attempt: 1 });
