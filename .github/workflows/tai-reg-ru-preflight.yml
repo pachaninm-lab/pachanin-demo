@@ -50,15 +50,28 @@ jobs:
       - name: Reject incomplete or non-main upstream runs
         env:
           EVENT_NAME: ${{ github.event_name }}
+          CURRENT_REF: ${{ github.ref }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+          CONFIRMATION: ${{ inputs.confirmation }}
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
           UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
         run: |
           set -Eeuo pipefail
-          if [[ "$EVENT_NAME" != workflow_run ]]; then exit 0; fi
-          [[ "$UPSTREAM_CONCLUSION" == success ]]
-          [[ "$UPSTREAM_BRANCH" == main ]]
-          [[ "$UPSTREAM_EVENT" == push ]]
+          if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$UPSTREAM_CONCLUSION" == success ]]
+            [[ "$UPSTREAM_BRANCH" == main ]]
+            [[ "$UPSTREAM_EVENT" == push ]]
+            exit 0
+          fi
+          [[ "$EVENT_NAME" == workflow_dispatch ]]
+          [[ "$CURRENT_REF" == refs/heads/main ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          [[ "$CONFIRMATION" == PREFLIGHT-TAI-REG-RU ]]
 
   contract:
     name: Least-privilege preflight contract
@@ -243,3 +256,26 @@ jobs:
           gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
             -f state="$state" -f context='TAI REG.RU Preflight' -f description="$description" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+  result_gate:
+    name: Confirm REG.RU preflight chain result
+    needs: [upstream_build_gate, contract, image_authority, live_preflight, publish_status]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped preflight jobs
+        env:
+          UPSTREAM_RESULT: ${{ needs.upstream_build_gate.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          PREFLIGHT_RESULT: ${{ needs.live_preflight.result }}
+          PUBLISH_RESULT: ${{ needs.publish_status.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$UPSTREAM_RESULT" == success ]]
+          [[ "$CONTRACT_RESULT" == success ]]
+          [[ "$IMAGE_RESULT" == success ]]
+          [[ "$PREFLIGHT_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]
