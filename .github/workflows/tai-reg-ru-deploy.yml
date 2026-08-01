@@ -55,9 +55,16 @@ jobs:
       actions: read
       contents: read
     steps:
+      - name: Reject an untrusted upstream repository before checkout
+        if: github.event_name == 'workflow_run'
+        env:
+          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
           persist-credentials: false
       - name: Verify exact-attempt activation job authority
         env:
@@ -71,6 +78,7 @@ jobs:
           TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id || inputs.upstream_run_id }}
           UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || inputs.upstream_run_attempt }}
         run: |
@@ -78,6 +86,7 @@ jobs:
           if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           if [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
             [[ "$UPSTREAM_CONCLUSION" == success ]]
             [[ "$UPSTREAM_BRANCH" == main ]]
           else
@@ -92,7 +101,7 @@ jobs:
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/activation-run.json"
           node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/activation-run.json" \
-            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Restricted Qwen REG.RU Activation'
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Restricted Qwen REG.RU Activation' "$GITHUB_REPOSITORY"
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
             > "$RUNNER_TEMP/activation-jobs.json"
