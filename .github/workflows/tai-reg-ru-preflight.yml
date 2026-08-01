@@ -12,9 +12,12 @@ on:
       - "scripts/check-resume-pc-prod-actions-runner.mjs"
       - "scripts/check-pc-tai-release-controller.mjs"
       - "scripts/check-tai-reg-ru-preflight.mjs"
+      - "scripts/check-tai-reg-ru-release-chain.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
       - "docs/platform-v7/autopilot/scopes/tai-runner-resume-authority-20260731.json"
+      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
   workflow_run:
     workflows: ["Build & Publish Canonical Docker Images"]
     types: [completed]
@@ -37,8 +40,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  upstream_build_gate:
+    name: Require successful canonical image build
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject incomplete or non-main upstream runs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$EVENT_NAME" != workflow_run ]]; then exit 0; fi
+          [[ "$UPSTREAM_CONCLUSION" == success ]]
+          [[ "$UPSTREAM_BRANCH" == main ]]
+          [[ "$UPSTREAM_EVENT" == push ]]
+
   contract:
     name: Least-privilege preflight contract
+    needs: upstream_build_gate
+    if: needs.upstream_build_gate.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -55,6 +80,7 @@ jobs:
           node scripts/check-resume-pc-prod-actions-runner.mjs
           node scripts/check-pc-tai-release-controller.mjs
           node scripts/check-tai-reg-ru-preflight.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
 
   image_authority:
     name: Exact-main canonical TAI image authority
@@ -157,19 +183,8 @@ jobs:
           [[ "$(id -u)" -ne 0 ]]
           ! id -nG | tr ' ' '\n' | grep -Fxq docker
           if docker version >/dev/null 2>&1; then exit 21; fi
-          python3 - <<'PY'
-          import hashlib,json,os
-          marker=json.load(open('/etc/pc-release-authority/actions-runner.json',encoding='utf-8'))
-          assert marker['schemaVersion']=='pc.actions-runner-authority.v3'
-          assert marker['transport']=='OUTBOUND_ONLY_HTTPS'
-          assert marker['executionUser']=='pcactions'
-          assert marker['dockerSocketAccess'] is False
-          assert marker['productionInboundSshRequired'] is False
-          controller=marker['sudoController']
-          assert controller=='/usr/local/sbin/pc-tai-release-controller'
-          assert hashlib.sha256(open(controller,'rb').read()).hexdigest()==marker['sudoControllerSha256']
-          assert os.stat(controller).st_uid==0 and os.stat(controller).st_mode & 0o022 == 0
-          PY
+          [[ ! -r /etc/pc-release-authority/actions-runner.json ]]
+          [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/pc-tai-release-controller)" == root:pcactions:750 ]]
           sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
       - name: Execute protected read-only preflight
         run: |
