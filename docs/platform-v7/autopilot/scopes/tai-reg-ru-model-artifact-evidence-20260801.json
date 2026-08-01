@@ -1,7 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/tai-reg-ru-model-artifact-evidence-20260801",
-  "status": "source_validated",
+  "status": "active",
   "purpose": "Repair exact-main REG.RU standalone TAI deployment model artifact evidence without weakening fail-closed authority.",
   "approvedBy": "owner-direct-continuation-20260801",
   "authorityBaseExactMain": "ede0914a8f2705b5e1bcb2ba4bf8658c10318ecf",
