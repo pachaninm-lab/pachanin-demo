@@ -113,20 +113,26 @@ jobs:
           }
           chmod 0600 "$HOME/.ssh/known_hosts"
 
-          cat "$HOME/.ssh/id_tai_model" | ssh \
+          remote_tmp="/tmp/pc-tai-model-id-${GITHUB_RUN_ID}"
+          scp -q \
+            -i "$HOME/.ssh/id_pc_prod" -P "$port" \
+            -o BatchMode=yes -o ConnectTimeout=20 -o ConnectionAttempts=3 \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$HOME/.ssh/id_tai_model" "$user@$host:$remote_tmp"
+          ssh \
             -i "$HOME/.ssh/id_pc_prod" -p "$port" \
             -o BatchMode=yes -o ConnectTimeout=20 -o ConnectionAttempts=3 \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$user@$host" 'bash -se' <<'REMOTE'
+            "$user@$host" "REMOTE_TMP='$remote_tmp' bash -se" <<'REMOTE'
           set -Eeuo pipefail
           [[ "$(id -u)" -eq 0 ]]
+          [[ "$REMOTE_TMP" == /tmp/pc-tai-model-id-* ]]
+          [[ -f "$REMOTE_TMP" && ! -L "$REMOTE_TMP" ]]
+          trap 'rm -f "$REMOTE_TMP"' EXIT
+          chmod 0600 "$REMOTE_TMP"
+          ssh-keygen -y -P '' -f "$REMOTE_TMP" >/dev/null
           install -d -m 0700 -o root -g root /etc/pc-release-authority
-          tmp="$(mktemp /etc/pc-release-authority/.model-id.XXXXXX)"
-          trap 'rm -f "$tmp"' EXIT
-          cat > "$tmp"
-          chmod 0600 "$tmp"
-          ssh-keygen -y -P '' -f "$tmp" >/dev/null
-          install -m 0600 -o root -g root "$tmp" /etc/pc-release-authority/model_id
+          install -m 0600 -o root -g root "$REMOTE_TMP" /etc/pc-release-authority/model_id
           [[ "$(stat -c '%U:%G:%a:%h' /etc/pc-release-authority/model_id)" == root:root:600:1 ]]
           [[ -s /etc/pc-release-authority/model_known_hosts && ! -L /etc/pc-release-authority/model_known_hosts ]]
           ssh-keygen -y -P '' -f /etc/pc-release-authority/model_id >/dev/null
@@ -140,6 +146,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
+          before="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-deploy.yml/runs?branch=main&event=workflow_dispatch&per_page=1" \
+            --jq '.workflow_runs[0].id // 0')"
           gh workflow run tai-reg-ru-deploy.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
@@ -147,10 +156,10 @@ jobs:
             -f confirmation=DEPLOY-TAI-REG-RU
           run_id=''
           for attempt in $(seq 1 30); do
-            run_id="$(gh api -H 'Accept: application/vnd.github+json' \
+            candidate="$(gh api -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-deploy.yml/runs?branch=main&event=workflow_dispatch&per_page=20" \
               --jq '.workflow_runs[] | select(.head_sha == env.TARGET_SHA) | .id' | head -n 1)"
-            [[ -n "$run_id" ]] && break
+            if [[ -n "$candidate" && "$candidate" != "$before" ]]; then run_id="$candidate"; break; fi
             sleep 2
           done
           [[ -n "$run_id" ]]
