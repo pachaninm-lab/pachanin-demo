@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: claude/tai-agro-os-v4-production-izow8x
-          fetch-depth: 0
+          fetch-depth: 3
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -65,7 +65,36 @@ jobs:
       - name: Web typecheck
         run: pnpm --filter @pc/web exec tsc --noEmit
       - name: Semantic relevance router tests
-        run: pnpm --filter @pc/web exec vitest run tests/unit/taiSemanticRelevanceRouter.test.ts --reporter=verbose
+        run: |
+          set +e
+          pnpm --filter @pc/web exec vitest run tests/unit/taiSemanticRelevanceRouter.test.ts \
+            --reporter=json --outputFile=/tmp/router.json >/tmp/router-command.log 2>&1
+          status=$?
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import json
+          from pathlib import Path
+
+          report_path = Path('/tmp/router.json')
+          if not report_path.exists():
+              print(Path('/tmp/router-command.log').read_text(encoding='utf-8', errors='replace')[-4000:])
+              raise SystemExit(0)
+
+          report = json.loads(report_path.read_text(encoding='utf-8'))
+          failures = 0
+          for test_file in report.get('testResults', []):
+              for assertion in test_file.get('assertionResults', []):
+                  if assertion.get('status') != 'failed':
+                      continue
+                  failures += 1
+                  title = ' > '.join([*assertion.get('ancestorTitles', []), assertion.get('title', '')])
+                  print(f'FAILED: {title}')
+                  for message in assertion.get('failureMessages', []):
+                      print(message[-3500:])
+          print(f'router_failed_assertions={failures}')
+          PY
+          exit "$status"
       - name: Semantic acceptance corpus tests
         run: pnpm --filter @pc/web exec vitest run tests/unit/taiSemanticAcceptanceCorpus.test.ts --reporter=verbose
       - name: Public assistant stream contract tests
