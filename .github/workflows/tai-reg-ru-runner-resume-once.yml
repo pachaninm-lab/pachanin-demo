@@ -1,4 +1,4 @@
-name: TAI REG.RU Runner Resume Once
+name: TAI REG.RU Deployment Diagnostic Once
 
 on:
   push:
@@ -9,12 +9,15 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: tai-reg-ru-controller-diagnostic-once
   cancel-in-progress: false
 
 env:
+  TARGET_SHA: 0a4d5c854485d3b51db0144bdeb2bbe4ce4c7830
+  TARGET_RUN: '30694093424'
   CANONICAL_PROD_HOST: 195.19.12.120
   PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -30,8 +33,24 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Extract redacted root-controller failure evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
+          state=failure
+          description='TAI deployment diagnostic failed'
+          publish() {
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+              -f state="$state" \
+              -f context='TAI Deployment Diagnostic' \
+              -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+          }
+          trap publish EXIT
+          state=pending; description='Reading redacted REG.RU controller evidence'; publish
+          state=failure; description='TAI deployment diagnostic failed'
+
           trim() {
             local value="$1"
             value="${value#"${value%%[![:space:]]*}"}"
@@ -55,47 +74,49 @@ jobs:
             rm -f "$a" "$b" "$c"
             return 1
           }
+
           host="$(trim "${PROD_HOST_SECRET:-$CANONICAL_PROD_HOST}")"
           user="$(trim "${PROD_USER_SECRET:-}")"
           port="$(trim "${PROD_PORT_SECRET:-22}")"
           [[ "$host" == "$CANONICAL_PROD_HOST" && -n "$user" ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
           install -d -m 0700 "$HOME/.ssh"
           key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
           write_key "$key" "$HOME/.ssh/id_pc_prod"
           ssh-keyscan -T 15 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/known_hosts"
+
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
             -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes "$user@$host" 'python3 -' <<'PY'
+            -o StrictHostKeyChecking=yes "$user@$host" \
+            "TARGET_RUN='$TARGET_RUN' python3 -" <<'PY'
           from __future__ import annotations
-          import pathlib, re
+          import os, pathlib, re, subprocess
 
-          root = pathlib.Path('/var/lib/pc-release-authority/controller-jobs/30694093424')
+          run_id = os.environ['TARGET_RUN']
+          root = pathlib.Path('/var/lib/pc-release-authority/controller-jobs') / run_id
           print(f'JOB_STATE_EXISTS={root.is_dir()}')
+          print(subprocess.check_output(['df','-Pk','/var/lib/docker'], text=True).strip())
+          print(subprocess.check_output(['docker','system','df'], text=True).strip())
           if not root.is_dir():
               raise SystemExit(2)
           for path in sorted(root.iterdir()):
               kind = 'file' if path.is_file() else 'dir'
               size = path.stat().st_size if path.is_file() else 0
               print(f'STATE_ENTRY={path.name}|{kind}|{size}')
-          sensitive = re.compile(
-              r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+'
-          )
-          hex_secret = re.compile(r'(?<![0-9a-f])[0-9a-f]{64,}(?![0-9a-f])', re.I)
+          sensitive = re.compile(r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+')
+          long_hex = re.compile(r'(?<![0-9a-f])[0-9a-f]{64,}(?![0-9a-f])', re.I)
           for name in ('deploy.log','deploy-rollback.log','full-stack.log','activation.log','rollback.log'):
               path = root / name
               if not path.is_file():
                   continue
               raw = path.read_text(encoding='utf-8', errors='replace').splitlines()
-              print(f'--- {name} LAST {min(len(raw), 160)} LINES ---')
-              for line in raw[-160:]:
+              print(f'--- {name} LAST {min(len(raw), 240)} LINES ---')
+              for line in raw[-240:]:
                   line = sensitive.sub(lambda m: m.group(1) + '=[REDACTED]', line)
-                  if not any(marker in line.lower() for marker in (
-                      'error', 'fail', 'exception', 'traceback', 'invalid', 'mismatch',
-                      'denied', 'missing', 'duplicate', 'syntax', 'relation', 'migration',
-                      'rollback', 'permission', 'fatal', 'panic', 'constraint', 'already exists'
-                  )):
-                      continue
-                  line = hex_secret.sub('[SHA256_OR_SECRET_REDACTED]', line)
-                  print(line[:2000])
+                  line = long_hex.sub('[LONG_HEX_REDACTED]', line)
+                  print(line[:3000])
           PY
+
+          state=success
+          description='Redacted REG.RU deployment evidence collected'
