@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-deploy-failure-evidence-20260801",
+  "status": "active",
+  "purpose": "Replace the generic standalone TAI deployment failure with a redacted deterministic error code extracted from protected controller logs, without publishing raw logs, secrets or expanding production authority.",
+  "approvedBy": "owner-continue-tai-agro-os-production-2026-08-01",
+  "authorityBaseExactMain": "ede0914a8f2705b5e1bcb2ba4bf8658c10318ecf",
+  "failureRun": 30712709942,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/apply-tai-deploy-failure-evidence.yml",
+    "scripts/apply-tai-deploy-failure-evidence.py",
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-pc-tai-release-controller.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-deploy-failure-evidence-20260801.json"
+  ],
+  "requiredBehavior": [
+    "retain the root-only protected controller and non-root runner boundary",
+    "extract only strict uppercase underscore-delimited error codes from protected logs",
+    "prefer explicit ERROR_CODE records and accept existing deploy-script terminal codes",
+    "never publish raw deployment logs environment values tokens model paths or credentials",
+    "preserve rollback status and fail closed when no specific safe code exists",
+    "keep REG.RU-only hosting and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "raw protected log publication",
+    "secret or environment disclosure",
+    "new sudo Docker SSH or production mutation authority",
+    "acceptance weakening continue-on-error or fabricated production PASS",
+    "new hosting paid service credential or recurring expense"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "productionMutationAllowedBeforeMerge": false
+  }
+}
