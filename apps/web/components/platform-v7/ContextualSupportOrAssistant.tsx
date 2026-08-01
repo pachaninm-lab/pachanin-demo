@@ -16,6 +16,7 @@ import '@/styles/platform-v7-public-assistant-mobile-fix.css';
 import '@/styles/platform-v7-unified-modal-fullscreen.css';
 import '@/styles/platform-v7-public-assistant-mobile-hotfix.css';
 import '@/styles/platform-v7-public-assistant-polish.css';
+import '@/styles/platform-v7-public-assistant-attachments.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const AI_IN_ACTION = '/platform-v7/ai-in-action';
