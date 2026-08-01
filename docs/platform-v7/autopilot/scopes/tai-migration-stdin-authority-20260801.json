@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-migration-stdin-authority-20260801",
+  "status": "active",
+  "purpose": "Repair the confirmed exact-main standalone REG.RU deployment failure where docker run invoked python stdin mode without an interactive stdin attachment, producing an empty immutable-image migration bundle before any production mutation.",
+  "approvedBy": "owner-direct-finish-2026-08-01",
+  "authorityBaseExactMain": "ede0914a8f2705b5e1bcb2ba4bf8658c10318ecf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "confirmedFailure": {
+    "runId": "30712709942",
+    "jobId": "91403065377",
+    "error": "migration-bundle.json was empty because docker run did not keep stdin open for python -",
+    "mutationStarted": false,
+    "rollback": "PASS"
+  },
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-migration-stdin-authority-20260801.json",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/tai-reg-ru-deploy.sh"
+  ],
+  "requiredBehavior": [
+    "attach stdin explicitly for the immutable exact-image migration bundle extractor",
+    "require non-empty valid JSON migration authority before generating SQL",
+    "preserve exact-main immutable-image rootless deployment authority",
+    "preserve fail-closed behavior before production mutation",
+    "preserve strict postflight rollback and evidence",
+    "preserve REG.RU-only hosting and zero new recurring expense"
+  ],
+  "forbiddenCapabilities": [
+    "masking an empty migration bundle",
+    "continue-on-error acceptance",
+    "weakening PostgreSQL authority",
+    "fabricating model admission",
+    "new paid API SaaS server database network or recurring expense",
+    "production PASS without exact-main deployment and postflight evidence"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "requiredChecks": [
+      "CI",
+      "Node CI",
+      "web-unit",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance",
+      "Production-like Kubernetes Acceptance"
+    ],
+    "productionSequence": [
+      "canonical images",
+      "REG.RU preflight",
+      "restricted Qwen activation",
+      "RU EN ZH SSE",
+      "hosted Chromium acceptance",
+      "activation finalization accept",
+      "standalone TAI REG.RU deployment",
+      "strict post-deployment preflight and grounded inference evidence"
+    ],
+    "operationalStatusBeforeLiveAcceptance": "NOT_DEPLOYED"
+  }
+}
