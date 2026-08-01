@@ -169,7 +169,37 @@ brief anticipates, would either return empty result sets or require loosening th
 Additionally, the `PublishedLot → AuctionLot` bridge cannot be written until #3585 defines
 `PublishedLot`.
 
-Verification note: no PostgreSQL instance was reachable in this audit session
-(`pg_isready` → no response, `DATABASE_URL` unset), so the E2E/RLS/race proofs required by brief
-item 7 were **not** executed. Every finding above is derived from migration, schema and test
-source, and is cited to `file:line` so it can be re-checked independently.
+---
+
+## 6. Empirical confirmation
+
+The findings above were derived from source, then executed against a PostgreSQL 16 instance built
+by replaying all 93 migrations, with assertions run as a **non-superuser** (a superuser holds
+`BYPASSRLS`, which makes every policy silently pass).
+
+Confirmed by execution:
+
+- **Three independent layers**, not one, enforce same-tenant trade. Beyond the RLS policies and the
+  `WHERE tenant_id = current_setting(...)` lookups, `record_admission` additionally requires
+  `organization."tenantId" = lot.tenant_id` (`013100:314`) and rejects a cross-tenant buyer with
+  `AUCTION_BUYER_AUTHORITY_INVALID`. A cross-tenant buyer could not even be *admitted*, let alone bid.
+- RLS behaves as read: under a non-privileged role, a buyer in its own tenant sees `0` lots; the
+  same role with the seller's tenant in context sees `1`.
+- `place_bid` raises `AUCTION_LOT_NOT_FOUND` for a cross-tenant buyer regardless of RLS, because the
+  lookup is tenant-scoped inside the function.
+
+One correction to §3 item 4, found only by executing it: it is not enough to add a column-filtered
+showcase view. RLS filters **rows, not columns**, so a policy extended to honour a cross-tenant
+grant hands the counterparty the whole base row — `source_external_id`, `source_certificate_id`,
+`seller_user_id` and the pickup address included. This was observed directly before being fixed. The
+base lot policy must stay tenant-local, with the showcase view running under the owner's rights and
+carrying the authorization in its own `WHERE` clause.
+
+A second issue surfaced the same way: `lock_lot()` derives its advisory lock from
+`app.current_tenant_id`. Once bidders arrive from their own tenants, two buyers bidding on the same
+lot take two *different* locks and serialize against nothing.
+
+Both are addressed in `20260801120000_auction_cross_tenant_participation`; the executable proof is
+`apps/api/test/sql/auction-cross-tenant-participation.acceptance.sql`.
+
+Every finding is cited to `file:line` so it can be re-checked independently.
