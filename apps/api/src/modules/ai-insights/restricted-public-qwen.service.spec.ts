@@ -115,7 +115,7 @@ describe('RestrictedPublicQwenService', () => {
     }
   });
 
-  it('uses the bounded 80-second default when no provider timeout is configured', async () => {
+  it('uses the bounded 120-second default when no provider timeout is configured', async () => {
     jest.useFakeTimers();
     delete process.env.AI_ASSISTANT_TIMEOUT_MS;
 
@@ -136,7 +136,7 @@ describe('RestrictedPublicQwenService', () => {
     await Promise.resolve();
     const signal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal;
 
-    await jest.advanceTimersByTimeAsync(79_999);
+    await jest.advanceTimersByTimeAsync(119_999);
     expect(signal.aborted).toBe(false);
     await jest.advanceTimersByTimeAsync(1);
     expect(signal.aborted).toBe(true);
