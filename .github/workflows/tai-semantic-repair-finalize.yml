@@ -29,7 +29,7 @@ jobs:
       - name: Apply deterministic source repair
         run: |
           set -Eeuo pipefail
-          git show HEAD^:.github/workflows/tai-semantic-repair-finalize.yml > /tmp/previous-finalizer.yml
+          git show 87fd984b4d88ca942cb834a05333301c24bea670:.github/workflows/tai-semantic-repair-finalize.yml > /tmp/source-finalizer.yml
           python3 - <<'PY'
           from __future__ import annotations
 
@@ -37,10 +37,10 @@ jobs:
           import re
           from pathlib import Path
 
-          previous = Path('/tmp/previous-finalizer.yml').read_text(encoding='utf-8')
-          match = re.search(r'^\s*PATCH_B64:\s*"([A-Za-z0-9+/=]+)"\s*$', previous, re.MULTILINE)
+          source = Path('/tmp/source-finalizer.yml').read_text(encoding='utf-8')
+          match = re.search(r'^\s*PATCH_B64:\s*"([A-Za-z0-9+/=]+)"\s*$', source, re.MULTILINE)
           if not match:
-              raise SystemExit('PATCH_B64 not found in previous finalizer')
+              raise SystemExit('PATCH_B64 not found in source finalizer')
 
           patch = base64.b64decode(match.group(1)).decode('utf-8')
           old_import = "import { fileURLToPath } from 'node:url';"
@@ -57,17 +57,21 @@ jobs:
           Path('/tmp/tai-semantic-source-repair.py').write_text(patch, encoding='utf-8')
           PY
           python3 /tmp/tai-semantic-source-repair.py
-      - name: Validate focused fixes
+      - name: Install dependencies
         run: |
           set -Eeuo pipefail
           corepack enable
-          pnpm install --frozen-lockfile
-          pnpm --filter @pc/web exec tsc --noEmit
-          pnpm --filter @pc/web exec vitest run \
-            tests/unit/taiSemanticRelevanceRouter.test.ts \
-            tests/unit/taiSemanticAcceptanceCorpus.test.ts \
-            tests/unit/platformV7PublicAssistantStreamContract.test.ts
-          git diff --check
+          pnpm install --frozen-lockfile --reporter=silent
+      - name: Web typecheck
+        run: pnpm --filter @pc/web exec tsc --noEmit
+      - name: Semantic relevance router tests
+        run: pnpm --filter @pc/web exec vitest run tests/unit/taiSemanticRelevanceRouter.test.ts --reporter=verbose
+      - name: Semantic acceptance corpus tests
+        run: pnpm --filter @pc/web exec vitest run tests/unit/taiSemanticAcceptanceCorpus.test.ts --reporter=verbose
+      - name: Public assistant stream contract tests
+        run: pnpm --filter @pc/web exec vitest run tests/unit/platformV7PublicAssistantStreamContract.test.ts --reporter=verbose
+      - name: Diff integrity
+        run: git diff --check
       - name: Publish source-only commit
         run: |
           set -Eeuo pipefail
