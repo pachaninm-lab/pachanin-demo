@@ -9,14 +9,12 @@ on:
 
 permissions:
   contents: read
-  statuses: write
 
 concurrency:
-  group: tai-reg-ru-bounded-unused-image-reclaim
+  group: tai-reg-ru-controller-diagnostic-once
   cancel-in-progress: false
 
 env:
-  TARGET_SHA: 0a4d5c854485d3b51db0144bdeb2bbe4ce4c7830
   CANONICAL_PROD_HOST: 195.19.12.120
   PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -26,32 +24,14 @@ env:
   PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
 
 jobs:
-  reclaim:
+  diagnose:
     runs-on: ubuntu-24.04
     if: github.actor == github.repository_owner
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
-      - name: Reclaim unused images older than 24h and prove active runtime unchanged
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Extract redacted root-controller failure evidence
         run: |
           set -Eeuo pipefail
-          state=failure
-          description='Bounded unused-image reclaim failed'
-          publish() {
-            gh api --method POST -H 'Accept: application/vnd.github+json' \
-              "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
-              -f state="$state" \
-              -f context='TAI REG.RU Docker Capacity' \
-              -f description="$description" \
-              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
-          }
-          trap publish EXIT
-          state=pending
-          description='Pruning only unused images older than 24 hours'
-          publish
-          state=failure
-
           trim() {
             local value="$1"
             value="${value#"${value%%[![:space:]]*}"}"
@@ -75,70 +55,47 @@ jobs:
             rm -f "$a" "$b" "$c"
             return 1
           }
-
           host="$(trim "${PROD_HOST_SECRET:-$CANONICAL_PROD_HOST}")"
           user="$(trim "${PROD_USER_SECRET:-}")"
           port="$(trim "${PROD_PORT_SECRET:-22}")"
           [[ "$host" == "$CANONICAL_PROD_HOST" && -n "$user" ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
           install -d -m 0700 "$HOME/.ssh"
-          prod_key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
-          write_key "$prod_key" "$HOME/.ssh/id_pc_prod"
-          : > "$HOME/.ssh/known_hosts"
-          for attempt in 1 2 3 4 5; do
-            if ssh-keyscan -T 12 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts" 2>/dev/null && [[ -s "$HOME/.ssh/known_hosts" ]]; then break; fi
-            : > "$HOME/.ssh/known_hosts"; sleep 4
-          done
-          [[ -s "$HOME/.ssh/known_hosts" ]]
+          key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
+          write_key "$key" "$HOME/.ssh/id_pc_prod"
+          ssh-keyscan -T 15 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/known_hosts"
-
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
-            -o BatchMode=yes -o ConnectTimeout=20 -o ConnectionAttempts=3 \
-            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$user@$host" 'bash -se' <<'REMOTE'
-          set -Eeuo pipefail
-          [[ "$(id -u)" -eq 0 ]]
-          work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
+            -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes "$user@$host" 'python3 -' <<'PY'
+          from __future__ import annotations
+          import pathlib, re
 
-          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Names}}' | sort > "$work/running.before"
-          docker ps -q | sort > "$work/container-ids.before"
-          while IFS= read -r id; do
-            [[ -n "$id" ]] || continue
-            docker inspect --format '{{.Image}}' "$id"
-          done < "$work/container-ids.before" | sort -u > "$work/active-image-ids.before"
-          before_kb="$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')"
-          echo "DOCKER_AVAILABLE_KB_BEFORE=$before_kb"
-          echo "ACTIVE_IMAGE_COUNT=$(wc -l < "$work/active-image-ids.before")"
-          docker system df
-
-          docker image prune --all --force --filter until=24h
-
-          docker ps --no-trunc --format '{{.ID}}|{{.Image}}|{{.Names}}' | sort > "$work/running.after"
-          cmp -s "$work/running.before" "$work/running.after" || {
-            echo ACTIVE_RUNTIME_CHANGED >&2
-            diff -u "$work/running.before" "$work/running.after" >&2 || true
-            exit 41
-          }
-          while IFS= read -r image_id; do
-            [[ -n "$image_id" ]] || continue
-            docker image inspect "$image_id" >/dev/null || {
-              echo ACTIVE_IMAGE_REMOVED >&2
-              exit 42
-            }
-          done < "$work/active-image-ids.before"
-
-          after_kb="$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}')"
-          echo "DOCKER_AVAILABLE_KB_AFTER=$after_kb"
-          (( after_kb >= 5242880 )) || {
-            echo DOCKER_CAPACITY_STILL_LOW >&2
-            docker system df >&2
-            exit 43
-          }
-          docker ps --format '{{.Names}}|{{.Status}}' | sort
-          docker system df
-          echo UNUSED_IMAGE_RECLAIM_PASS
-          REMOTE
-
-          state=success
-          description='Docker capacity PASS; active runtime unchanged'
+          root = pathlib.Path('/var/lib/pc-release-authority/controller-jobs/30694093424')
+          print(f'JOB_STATE_EXISTS={root.is_dir()}')
+          if not root.is_dir():
+              raise SystemExit(2)
+          for path in sorted(root.iterdir()):
+              kind = 'file' if path.is_file() else 'dir'
+              size = path.stat().st_size if path.is_file() else 0
+              print(f'STATE_ENTRY={path.name}|{kind}|{size}')
+          sensitive = re.compile(
+              r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+'
+          )
+          hex_secret = re.compile(r'(?<![0-9a-f])[0-9a-f]{64,}(?![0-9a-f])', re.I)
+          for name in ('deploy.log','deploy-rollback.log','full-stack.log','activation.log','rollback.log'):
+              path = root / name
+              if not path.is_file():
+                  continue
+              raw = path.read_text(encoding='utf-8', errors='replace').splitlines()
+              print(f'--- {name} LAST {min(len(raw), 160)} LINES ---')
+              for line in raw[-160:]:
+                  line = sensitive.sub(lambda m: m.group(1) + '=[REDACTED]', line)
+                  if not any(marker in line.lower() for marker in (
+                      'error', 'fail', 'exception', 'traceback', 'invalid', 'mismatch',
+                      'denied', 'missing', 'duplicate', 'syntax', 'relation', 'migration',
+                      'rollback', 'permission', 'fatal', 'panic', 'constraint', 'already exists'
+                  )):
+                      continue
+                  line = hex_secret.sub('[SHA256_OR_SECRET_REDACTED]', line)
+                  print(line[:2000])
+          PY
