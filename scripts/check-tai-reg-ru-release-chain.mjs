@@ -78,6 +78,7 @@ forbid(
 
 for (const fragment of [
   'upstream_preflight_gate:',
+  "group: tai-restricted-qwen-reg-ru-activation-${{ github.event.pull_request.number || 'production' }}",
   'needs: upstream_preflight_gate',
   "if: needs.upstream_preflight_gate.result == 'success'",
   'actions: read',
@@ -102,6 +103,7 @@ forbid(
 
 for (const fragment of [
   'upstream_activation_gate:',
+  "group: tai-reg-ru-deployment-${{ github.event.pull_request.number || 'production' }}",
   'needs: upstream_activation_gate',
   "if: needs.upstream_activation_gate.result == 'success'",
   'actions: read',
