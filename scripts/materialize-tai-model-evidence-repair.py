@@ -63,29 +63,40 @@ core, changed = function_pattern.subn(
 if changed != 1:
     raise SystemExit(f'main model evidence replacement count: {changed}')
 
-script_anchor = '''    scripts/tai-reg-ru-deploy.sh \\
-    scripts/production-full-stack-exact-sha.sh \\
-'''
-script_replacement = '''    scripts/tai-reg-ru-deploy.sh \\
-    scripts/tai_model_artifact_evidence.py \\
-    scripts/production-full-stack-exact-sha.sh \\
-'''
-if script_replacement not in core:
-    if core.count(script_anchor) != 1:
-        raise SystemExit(f'protected resolver anchor count: {core.count(script_anchor)}')
-    core = core.replace(script_anchor, script_replacement, 1)
+# Insert the resolver next to the protected deploy script without depending on
+# whitespace or surrounding-list formatting that may change between exact-main revisions.
+protected_line = 'scripts/tai-reg-ru-deploy.sh \\'
+resolver_line = 'scripts/tai_model_artifact_evidence.py \\'
+lines = core.splitlines(keepends=True)
+if not any(line.strip() == resolver_line for line in lines):
+    matches = [index for index, line in enumerate(lines) if line.strip() == protected_line]
+    if len(matches) != 1:
+        raise SystemExit(f'protected resolver anchor count: {len(matches)}')
+    index = matches[0]
+    indent = lines[index][:len(lines[index]) - len(lines[index].lstrip())]
+    lines.insert(index + 1, f'{indent}{resolver_line}\n')
+    core = ''.join(lines)
 
-failure_anchor = '''        "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" \\
-        "$job_state/rollback.log" "$job_state/deploy-rollback.log" 2>/dev/null \\
-'''
-failure_replacement = '''        "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" \\
-        "$job_state/model-artifact.log" "$job_state/rollback.log" \\
-        "$job_state/deploy-rollback.log" 2>/dev/null \\
-'''
-if failure_replacement not in core:
-    if core.count(failure_anchor) != 1:
-        raise SystemExit(f'failure evidence anchor count: {core.count(failure_anchor)}')
-    core = core.replace(failure_anchor, failure_replacement, 1)
+# Preserve current-main deterministic redacted error extraction and add the new
+# model evidence log as one more trusted input to the same strict allowlist.
+if '"$job_state/model-artifact.log"' not in core:
+    failure_pattern = re.compile(
+        r'(?P<indent>^[ \t]*)"\$job_state/full-stack[.]log" "\$job_state/activation[.]log" '
+        r'"\$job_state/deploy[.]log" \\\n'
+        r'(?P=indent)"\$job_state/rollback[.]log" "\$job_state/deploy-rollback[.]log" 2>/dev/null \\\n',
+        re.M,
+    )
+    match = failure_pattern.search(core)
+    if not match:
+        raise SystemExit('failure evidence anchor missing')
+    indent = match.group('indent')
+    replacement = (
+        f'{indent}"$job_state/full-stack.log" "$job_state/activation.log" '
+        f'"$job_state/deploy.log" \\\n'
+        f'{indent}"$job_state/model-artifact.log" "$job_state/rollback.log" \\\n'
+        f'{indent}"$job_state/deploy-rollback.log" 2>/dev/null \\\n'
+    )
+    core = core[:match.start()] + replacement + core[match.end():]
 
 for required in (
     "grep -hE '^ERROR_CODE=[A-Z][A-Z0-9]*_[A-Z0-9_]+$'",
