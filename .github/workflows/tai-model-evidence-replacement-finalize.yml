@@ -1,0 +1,48 @@
+name: TAI Model Evidence Replacement Finalize
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-model-evidence-replacement-finalize.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.head_ref == 'fix/tai-reg-ru-model-artifact-evidence-v2-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/tai-reg-ru-model-artifact-evidence-v2-20260801
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Materialize combined source repair
+        run: |
+          git fetch origin fix/tai-reg-ru-model-artifact-evidence-20260801
+          python3 scripts/materialize-tai-model-evidence-repair.py
+      - name: Validate combined contracts
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/pc-tai-release-controller-core.sh
+          python3 -m py_compile scripts/tai_model_artifact_evidence.py
+          node scripts/check-tai-model-artifact-evidence.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
+          git diff --check
+      - name: Publish source-only commit
+        run: |
+          set -Eeuo pipefail
+          rm -f \
+            .github/workflows/tai-model-evidence-replacement-finalize.yml \
+            scripts/materialize-tai-model-evidence-repair.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(tai): bind REG.RU model evidence to live service'
+          git push origin HEAD:fix/tai-reg-ru-model-artifact-evidence-v2-20260801
