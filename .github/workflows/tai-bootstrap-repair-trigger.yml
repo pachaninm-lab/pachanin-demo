@@ -45,6 +45,20 @@ jobs:
               line[10:] if line.startswith('          ') else line
               for line in lines[start:end]
           ) + '\n'
+
+          marker = "def main() -> None:\n    _rewrite_manifest()\n"
+          replacement = (
+              "def main() -> None:\n"
+              "    _write_file(\n"
+              "        'apps/tai/tai/migrations/0022_restricted_live_bootstrap.sql',\n"
+              "        _migration_sql(),\n"
+              "    )\n"
+              "    _rewrite_manifest()\n"
+          )
+          if script.count(marker) != 1:
+              raise SystemExit('materializer main ordering marker mismatch')
+          script = script.replace(marker, replacement, 1)
+
           exec(compile(script, str(source), 'exec'), {'__name__': '__main__'})
           Path('.github/workflows/tai-bootstrap-repair-trigger.yml').unlink()
           PY
