@@ -101,8 +101,8 @@ describe('public assistant production-safe UI', () => {
   });
 
   it('stops a public request that exceeds the bounded deadline and exposes a real retry action', () => {
-    expect(PUBLIC_STREAM_TIMEOUT_MS).toBe(45_000);
-    expect(controllerSource).toContain('PUBLIC_ASSISTANT_TIMEOUT_MS = 45_000');
+    expect(PUBLIC_STREAM_TIMEOUT_MS).toBe(145_000);
+    expect(controllerSource).toContain('PUBLIC_ASSISTANT_TIMEOUT_MS = 145_000');
     expect(controllerSource).toContain(".pc-public-assistant-composer-button[data-kind='stop']");
     expect(controllerSource).toContain('form.requestSubmit()');
   });
