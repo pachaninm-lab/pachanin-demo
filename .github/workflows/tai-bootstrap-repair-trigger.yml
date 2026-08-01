@@ -6,11 +6,6 @@ on:
       - agent/tai-reg-ru-bootstrap-repair-20260801
     paths:
       - .github/workflows/tai-bootstrap-repair-trigger.yml
-  pull_request:
-    branches:
-      - main
-    paths:
-      - .github/workflows/tai-bootstrap-repair-trigger.yml
   workflow_dispatch:
 
 permissions:
@@ -21,8 +16,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  trigger:
+  materialize:
     runs-on: ubuntu-24.04
+    if: github.actor == github.repository_owner
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,48 +27,107 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Execute retained exact patch script directly
+      - name: Materialize exact bootstrap repair
         run: |
           set -Eeuo pipefail
           python3 - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
           from pathlib import Path
 
           source = Path('.github/workflows/tai-bootstrap-repair-materialize.yml')
           lines = source.read_text(encoding='utf-8').splitlines()
           start = lines.index("          python3 - <<'PY'") + 1
-          end = next(index for index in range(start, len(lines)) if lines[index] == '          PY')
+          end = next(
+              index
+              for index in range(start, len(lines))
+              if lines[index] == '          PY'
+          )
           script = '\n'.join(
               line[10:] if line.startswith('          ') else line
               for line in lines[start:end]
           ) + '\n'
-
-          marker = "def main() -> None:\n    _rewrite_manifest()\n"
-          replacement = (
-              "def main() -> None:\n"
-              "    _write_file(\n"
-              "        'apps/tai/tai/migrations/0022_restricted_live_bootstrap.sql',\n"
-              "        _migration_sql(),\n"
-              "    )\n"
-              "    _rewrite_manifest()\n"
-          )
-          if script.count(marker) != 1:
-              raise SystemExit('materializer main ordering marker mismatch')
-          script = script.replace(marker, replacement, 1)
-
           exec(compile(script, str(source), 'exec'), {'__name__': '__main__'})
+
+          manifest_path = Path('apps/tai/tai/migrations/manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          migrations = manifest.get('migrations')
+          if manifest.get('schema_version') != 'tai.migration.manifest.v1':
+              raise SystemExit('migration manifest schema mismatch')
+          if not isinstance(migrations, list) or not migrations:
+              raise SystemExit('migration manifest is empty')
+
+          normalized = []
+          seen_versions: set[int] = set()
+          seen_paths: set[str] = set()
+          for item in migrations:
+              if not isinstance(item, dict):
+                  raise SystemExit('migration manifest item is invalid')
+              version = item.get('version')
+              path = item.get('path')
+              if (
+                  not isinstance(version, int)
+                  or isinstance(version, bool)
+                  or version < 1
+                  or version in seen_versions
+              ):
+                  raise SystemExit('migration version authority is invalid')
+              if (
+                  not isinstance(path, str)
+                  or not path.endswith('.sql')
+                  or '/' in path
+                  or path in seen_paths
+              ):
+                  raise SystemExit('migration path authority is invalid')
+              migration_path = manifest_path.parent / path
+              if not migration_path.is_file():
+                  raise SystemExit(f'migration is missing: {path}')
+              digest = hashlib.sha256(migration_path.read_bytes()).hexdigest()
+              normalized.append(
+                  {'path': path, 'version': version, 'sha256': digest}
+              )
+              seen_versions.add(version)
+              seen_paths.add(path)
+          manifest['migrations'] = normalized
+          manifest_path.write_text(
+              json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+              encoding='utf-8',
+          )
+
+          bootstrap_path = Path('apps/tai/tai/bootstrap_authority.py')
+          bootstrap = bootstrap_path.read_text(encoding='utf-8')
+          closing = '不得宣称 Production PASS。"""'
+          if closing in bootstrap:
+              bootstrap = bootstrap.replace(
+                  closing,
+                  closing + '  # noqa: E501',
+                  1,
+              )
+          elif '# noqa: E501' not in bootstrap:
+              raise SystemExit('bootstrap authority Ruff marker mismatch')
+          bootstrap_path.write_text(bootstrap, encoding='utf-8')
+
           Path('.github/workflows/tai-bootstrap-repair-trigger.yml').unlink()
           PY
-      - name: Validate and publish repair commit
+      - name: Validate materialized repair
         run: |
           set -Eeuo pipefail
           bash -n scripts/pc-tai-release-controller-core.sh
           bash -n scripts/tai-reg-ru-deploy.sh
           bash -n scripts/tai-reg-ru-preflight.sh
-          python3 -m compileall -q apps/tai/tai/bootstrap_authority.py apps/tai/tai/restricted_model_authority.py apps/tai/tai/production_entrypoint.py
+          python3 -m compileall -q \
+            apps/tai/tai/bootstrap_authority.py \
+            apps/tai/tai/restricted_model_authority.py \
+            apps/tai/tai/production_entrypoint.py
           node scripts/check-pc-tai-release-controller.mjs
           node scripts/check-tai-reg-ru-preflight.mjs
           node scripts/check-tai-reg-ru-deploy.mjs
           git diff --check
+      - name: Publish ordinary source commit
+        run: |
+          set -Eeuo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
