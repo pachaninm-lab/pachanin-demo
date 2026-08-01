@@ -1,0 +1,60 @@
+name: TAI Bootstrap Repair Trigger
+
+on:
+  push:
+    branches:
+      - agent/tai-reg-ru-bootstrap-repair-20260801
+    paths:
+      - .github/workflows/tai-bootstrap-repair-trigger.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-bootstrap-repair-trigger
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-reg-ru-bootstrap-repair-20260801
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Execute retained exact patch script
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/tai-bootstrap-repair-materialize.yml')
+          lines = source.read_text(encoding='utf-8').splitlines()
+          start = lines.index("          python3 - <<'PY'") + 1
+          end = next(index for index in range(start, len(lines)) if lines[index] == '          PY')
+          script = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in lines[start:end]
+          ) + '\n'
+          exec(compile(script, str(source), 'exec'), {'__name__': '__main__'})
+          Path('.github/workflows/tai-bootstrap-repair-trigger.yml').unlink()
+          PY
+      - name: Validate and publish repair commit
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/pc-tai-release-controller-core.sh
+          bash -n scripts/tai-reg-ru-deploy.sh
+          bash -n scripts/tai-reg-ru-preflight.sh
+          python3 -m compileall -q apps/tai/tai/bootstrap_authority.py apps/tai/tai/restricted_model_authority.py apps/tai/tai/production_entrypoint.py
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-preflight.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(tai): bootstrap exact REG.RU standalone authority'
+          git push origin HEAD:agent/tai-reg-ru-bootstrap-repair-20260801
