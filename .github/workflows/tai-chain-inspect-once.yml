@@ -26,55 +26,45 @@ jobs:
     if: github.actor == github.repository_owner
     timeout-minutes: 10
     steps:
-      - name: Extract and publish redacted root-controller failure evidence
+      - name: Print bounded redacted deployment log
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          state=failure
-          description='Controller diagnostic failed'
           publish() {
             gh api --method POST -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-              -f state="$state" -f context='TAI Controller Diagnostic' \
-              -f description="$description" \
+              -f state="$1" -f context='TAI Controller Diagnostic' \
+              -f description="$2" \
               -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
           }
-          trap publish EXIT
-          state=pending; description='Extracting redacted controller evidence'; publish; state=failure
-          trim() { local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          trap 'publish failure "Bounded deploy-log diagnostic failed"' EXIT
+          publish pending 'Reading bounded redacted deploy log'
+          trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
           write_key() {
-            local raw="$1" target="$2" a b c
-            [[ -n "$raw" ]] || return 1
-            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
-            printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
-            for candidate in "$a" "$b" "$c"; do
-              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0; fi
-            done
+            local raw="$1" target="$2" a b c; [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for x in "$a" "$b" "$c"; do if [[ -s "$x" ]] && ssh-keygen -y -P '' -f "$x" >/dev/null 2>&1; then install -m 0600 "$x" "$target"; rm -f "$a" "$b" "$c"; return 0; fi; done
             rm -f "$a" "$b" "$c"; return 1
           }
           host="$(trim "${PROD_HOST_SECRET:-$CANONICAL_PROD_HOST}")"; user="$(trim "${PROD_USER_SECRET:-}")"; port="$(trim "${PROD_PORT_SECRET:-22}")"
-          [[ "$host" == "$CANONICAL_PROD_HOST" && -n "$user" ]]
-          install -d -m 0700 "$HOME/.ssh"
-          key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
-          write_key "$key" "$HOME/.ssh/id_pc_prod"
+          install -d -m 0700 "$HOME/.ssh"; key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"; write_key "$key" "$HOME/.ssh/id_pc_prod"
           ssh-keyscan -T 15 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"; chmod 0600 "$HOME/.ssh/known_hosts"
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'python3 -' <<'PY'
-          import pathlib, re
-          root=pathlib.Path('/var/lib/pc-release-authority/controller-jobs/30694093424')
-          print(f'JOB_STATE_EXISTS={root.is_dir()}')
-          if not root.is_dir(): raise SystemExit(2)
-          for p in sorted(root.iterdir()): print(f'STATE_ENTRY={p.name}|{p.stat().st_size if p.is_file() else 0}')
-          sensitive=re.compile(r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+')
-          for name in ('deploy.log','deploy-rollback.log','full-stack.log','activation.log','rollback.log'):
-              p=root/name
+          import pathlib,re
+          job=pathlib.Path('/var/lib/pc-release-authority/controller-jobs/30694093424')
+          state=pathlib.Path('/var/lib/pc-release-authority/tai-agro-os-30694093424')
+          print(f'DEPLOY_STATE_EXISTS={state.exists()}')
+          for name in ('deploy.log','deployment-failure.json'):
+              p=job/name
+              print(f'--- {name} exists={p.is_file()} size={p.stat().st_size if p.is_file() else 0} ---')
               if not p.is_file(): continue
-              lines=p.read_text(encoding='utf-8',errors='replace').splitlines()
-              print(f'--- {name} ---')
-              selected=[]
-              for line in lines[-240:]:
-                  if any(x in line.lower() for x in ('error','fail','exception','traceback','invalid','mismatch','denied','missing','duplicate','syntax','relation','migration','rollback','permission','fatal','panic','constraint','already exists','psql')):
-                      selected.append(sensitive.sub(lambda m:m.group(1)+'=[REDACTED]',line)[:2000])
-              for line in selected[-100:]: print(line)
+              text=p.read_text(encoding='utf-8',errors='replace')
+              text=re.sub(r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+',r'\1=[REDACTED]',text)
+              print(text[:10000])
+          if state.is_dir():
+              for p in sorted(state.iterdir()):
+                  print(f'STATE={p.name}|{p.stat().st_size if p.is_file() else 0}')
           PY
-          state=success; description='Redacted controller diagnostic extracted'
+          trap - EXIT
+          publish success 'Bounded deploy log extracted'
