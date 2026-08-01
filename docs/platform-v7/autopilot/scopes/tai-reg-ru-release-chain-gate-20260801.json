@@ -14,6 +14,7 @@
     ".github/workflows/tai-reg-ru-deploy.yml",
     "scripts/check-tai-reg-ru-release-chain.mjs",
     "scripts/verify-tai-upstream-workflow-jobs.mjs",
+    "scripts/pc-crop-10a/verify.mjs",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
   ],
@@ -25,6 +26,7 @@
     "require successful completion of the exact upstream activation workflow attempt and every critical job before standalone deployment",
     "bind manual activation and deployment to explicit exact upstream run IDs and attempts instead of reusable commit statuses",
     "make every non-PR workflow fail when any production-chain job is failed or skipped",
+    "make the PC-CROP scope guard honor only exact branch mappings backed by a matching concurrent scope authority on PR and main push events",
     "register the merged PostgreSQL authority branch and its exact three source paths",
     "stop before every production mutation when an upstream authority check is absent or mismatched"
   ],
