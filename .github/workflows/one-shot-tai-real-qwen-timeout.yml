@@ -1,0 +1,37 @@
+name: One-shot TAI real Qwen timeout repair
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix/tai-real-qwen-production-truth-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/tai-real-qwen-production-truth-20260801
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Apply bounded timeout repair
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/one-shot-tai-real-qwen-timeout-20260801.py
+          python3 scripts/one-shot-tai-real-qwen-timeout-20260801.py
+          git diff --check
+          git diff --name-only | grep -Fxq 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
+          test "$(git diff --name-only | wc -l)" -eq 1
+      - name: Commit route repair
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/app/api/restricted-public-platform-assistant/route.ts
+          git diff --cached --check
+          git commit -m 'fix: allow configured Qwen production timeout'
+          git push origin HEAD:fix/tai-real-qwen-production-truth-20260801
