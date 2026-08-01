@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-reg-ru-release-chain-gate-20260801",
+  "status": "active",
+  "purpose": "Restore the REG.RU release chain after the non-root preflight runner was denied access to a protected root marker, prevent skipped preflight or activation jobs from being treated as production authority, and register the merged PostgreSQL authority source scope in the branch-to-path governance map.",
+  "approvedBy": "owner-direct-tai-agro-os-v4-production-completion-2026-08-01",
+  "authorityBaseExactMain": "758f55b89ff677d6bcd5e820887d519fb41271d1",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    "scripts/check-tai-reg-ru-release-chain.mjs",
+    "scripts/verify-tai-upstream-workflow-jobs.mjs",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
+  ],
+  "requiredBehavior": [
+    "keep the self-hosted runner non-root without Docker socket authority",
+    "delegate protected marker and exact-main wrapper verification to the root-owned restricted controller",
+    "fail preflight when the upstream canonical image build is not a successful main push",
+    "require every critical preflight job from the exact triggering run attempt to succeed before activation",
+    "require every critical activation job from the exact triggering run attempt to succeed before standalone deployment",
+    "register the merged PostgreSQL authority branch and its exact three source paths",
+    "stop before every production mutation when an upstream authority check is absent or mismatched"
+  ],
+  "forbiddenCapabilities": [
+    "non-root access to root-only authority files",
+    "workflow conclusion as standalone production authority",
+    "activation after skipped or failed preflight",
+    "deployment after skipped failed or rolled-back activation",
+    "new hosting paid service credential or recurring expense"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "productionMutationAllowedBeforeMerge": false
+  }
+}
