@@ -10,6 +10,7 @@
   "productionMutationAllowed": true,
   "allowedPaths": [
     ".github/workflows/tai-bootstrap-repair-materialize.yml",
+    ".github/workflows/tai-bootstrap-repair-trigger.yml",
     ".github/workflows/tai-reg-ru-deploy.yml",
     "apps/tai/TAI_REG_RU_DEPLOY.md",
     "apps/tai/tai/bootstrap_authority.py",
