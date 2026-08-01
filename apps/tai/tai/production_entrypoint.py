@@ -30,6 +30,11 @@ from tai.production_runtime import (
     ProductionConfigurationError,
     ProductionRuntimeConfig,
 )
+from tai.restricted_model_authority import (
+    RestrictedModelAuthorityError,
+    RestrictedModelOperationalAuthority,
+    RestrictedModelOperationalReadinessProbe,
+)
 from tai.tool_planner import GovernedToolPlanner
 
 
@@ -40,6 +45,7 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
     try:
         config = ProductionRuntimeConfig.from_environment(source)
         model_access = ProductionModelAccess.from_environment(source)
+        restricted_authority = RestrictedModelOperationalAuthority.from_environment(source)
         always_on_config = AlwaysOnConfig.from_environment(
             source,
             maximum_inflight=config.model_maximum_inflight,
@@ -69,9 +75,17 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
             connection_factory=database,
             planner_required=bool(tool_handlers),
         )
-        readiness_probe = ModelAdmissionAwareReadinessProbe(
-            delegate=planner_readiness,
-            connection_factory=database,
+        readiness_probe = (
+            ModelAdmissionAwareReadinessProbe(
+                delegate=planner_readiness,
+                connection_factory=database,
+            )
+            if restricted_authority is None
+            else RestrictedModelOperationalReadinessProbe(
+                delegate=planner_readiness,
+                connection_factory=database,
+                authority=restricted_authority,
+            )
         )
         always_on_gate = AsyncModelAdmissionGate(always_on_config)
         always_on_supervisor = AlwaysOnModelSupervisor(
@@ -88,6 +102,7 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
         ProductionConfigurationError,
         ProductionModelAccessError,
         AlwaysOnConfigurationError,
+        RestrictedModelAuthorityError,
     ):
         return create_app(configuration_error="TAI_PRODUCTION_CONFIGURATION_INVALID")
     except Exception:

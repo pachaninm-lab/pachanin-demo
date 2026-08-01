@@ -26,6 +26,7 @@ ACTIVATION_WEB_ENV=''
 DEPLOY_MUTATION_STARTED=0
 DEPLOY_COMPLETE=0
 DEPLOY_TOKEN_FILE=''
+DEPLOY_MODEL_EVIDENCE=''
 DEPLOY_STATE=''
 
 fail() {
@@ -243,6 +244,78 @@ printf %s "$key"'
   printf '%s' "$key"
 }
 
+recover_model_artifact_evidence() {
+  local model_user="$1" model_ssh_port="$2" output="$3"
+  [[ -s "$MODEL_KEY" && ! -L "$MODEL_KEY" ]] || fail MODEL_KEY_NOT_PROVISIONED 41
+  [[ -s "$MODEL_KNOWN_HOSTS" && ! -L "$MODEL_KNOWN_HOSTS" ]] || fail MODEL_KNOWN_HOSTS_MISSING 45
+  ssh -i "$MODEL_KEY" -p "$model_ssh_port" -o BatchMode=yes -o IdentitiesOnly=yes \
+    -o UserKnownHostsFile="$MODEL_KNOWN_HOSTS" -o StrictHostKeyChecking=yes \
+    "$model_user@$MODEL_HOST" 'python3 -' > "$output" <<'PY_REMOTE'
+import hashlib
+import json
+import pathlib
+import stat
+import subprocess
+
+subprocess.run(["systemctl", "is-active", "--quiet", "tai-qwen3-8b.service"], check=True)
+pid_text = subprocess.check_output(
+    ["systemctl", "show", "tai-qwen3-8b.service", "--property=MainPID", "--value"],
+    text=True,
+).strip()
+if not pid_text.isdigit() or int(pid_text) < 1:
+    raise SystemExit("invalid model process")
+pid = int(pid_text)
+args = [item.decode(errors="strict") for item in pathlib.Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0") if item]
+candidates = []
+context_tokens = 8192
+for index, argument in enumerate(args):
+    if argument in {"-m", "--model"} and index + 1 < len(args):
+        candidates.append(args[index + 1])
+    elif argument.startswith("--model="):
+        candidates.append(argument.split("=", 1)[1])
+    elif argument.lower().endswith(".gguf"):
+        candidates.append(argument)
+    if argument in {"-c", "--ctx-size"} and index + 1 < len(args) and args[index + 1].isdigit():
+        context_tokens = int(args[index + 1])
+    elif argument.startswith("--ctx-size=") and argument.split("=", 1)[1].isdigit():
+        context_tokens = int(argument.split("=", 1)[1])
+paths = sorted({str(pathlib.Path(item).resolve(strict=True)) for item in candidates})
+if len(paths) != 1:
+    raise SystemExit("model artifact authority is ambiguous")
+path = pathlib.Path(paths[0])
+metadata = path.stat()
+if not stat.S_ISREG(metadata.st_mode) or metadata.st_size < 1:
+    raise SystemExit("model artifact is invalid")
+if not 512 <= context_tokens <= 262144:
+    raise SystemExit("model context authority is invalid")
+digest = hashlib.sha256()
+with path.open("rb") as stream:
+    while block := stream.read(8 * 1024 * 1024):
+        digest.update(block)
+print(json.dumps({
+    "schemaVersion": "tai.restricted-model-artifact.v1",
+    "modelIdentity": "tai-qwen3-8b-q4km",
+    "modelHost": "192.168.0.206",
+    "artifactPath": str(path),
+    "artifactSha256": digest.hexdigest(),
+    "artifactSizeBytes": metadata.st_size,
+    "maximumContextTokens": context_tokens,
+}, sort_keys=True, separators=(",", ":")))
+PY_REMOTE
+  chmod 0600 "$output"
+  python3 - "$output" <<'PY_VALIDATE'
+import json, re, sys
+value=json.load(open(sys.argv[1],encoding='utf-8'))
+assert value.get('schemaVersion') == 'tai.restricted-model-artifact.v1'
+assert value.get('modelIdentity') == 'tai-qwen3-8b-q4km'
+assert value.get('modelHost') == '192.168.0.206'
+assert isinstance(value.get('artifactPath'), str) and value['artifactPath'].startswith('/')
+assert re.fullmatch(r'[0-9a-f]{64}', value.get('artifactSha256',''))
+assert isinstance(value.get('artifactSizeBytes'), int) and value['artifactSizeBytes'] > 0
+assert isinstance(value.get('maximumContextTokens'), int) and 512 <= value['maximumContextTokens'] <= 262144
+PY_VALIDATE
+}
+
 rollback_activation() {
   local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID" rc=0 attempted=0
   if [[ -x "$qwen_state/rollback-qwen-env.sh" ]]; then
@@ -409,11 +482,18 @@ recover_backup_evidence() {
 run_deploy() {
   [[ $# -eq 2 ]] || fail INVALID_ARGUMENT_COUNT 90
   local image="$1" digest="$2" pre="$job_state/predeploy.json" post="$job_state/postdeploy.json" evidence
+  local model_user model_ssh_port
   DEPLOY_TOKEN_FILE="/tmp/tai-model-token-$RUN_ID"
   DEPLOY_STATE="$STATE_ROOT/tai-agro-os-$RUN_ID"
   DEPLOY_MUTATION_STARTED=0
   DEPLOY_COMPLETE=0
   verify_pinned_image "$image" "$digest" tai '65532:65532'
+  validate_job_input
+  mapfile -t model_transport < <(import_model_transport)
+  (( ${#model_transport[@]} == 2 )) || fail MODEL_TRANSPORT_INVALID 95
+  model_user="${model_transport[0]}"
+  model_ssh_port="${model_transport[1]}"
+  DEPLOY_MODEL_EVIDENCE="$job_state/model-artifact.json"
   deploy_exit() {
     local rc="$?" rollback_status='NOT_REQUIRED' failure="$job_state/deployment-failure.json"
     trap - EXIT INT TERM
@@ -433,7 +513,7 @@ run_deploy() {
       write_failure_evidence deploy "$rc" "$rollback_status" "$failure"
       publish_file "$failure" deployment.json
     fi
-    rm -f "$DEPLOY_TOKEN_FILE"
+    rm -f "$DEPLOY_TOKEN_FILE" "$DEPLOY_MODEL_EVIDENCE"
     exit "$rc"
   }
   trap deploy_exit EXIT
@@ -443,16 +523,25 @@ run_deploy() {
   python3 - "$pre" <<'PY'
 import json,sys
 r=json.load(open(sys.argv[1],encoding='utf-8'))
-allowed={'TAI_SERVICE_NOT_MATERIALIZED','TAI_DEDICATED_ENV_NOT_MATERIALIZED','TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED'}
+allowed={
+  'TAI_SERVICE_NOT_MATERIALIZED',
+  'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
+  'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
+  'TAI_RELATIONS_INCOMPLETE',
+  'ACTIVE_KNOWLEDGE_MISSING',
+  'ACTIVE_MODEL_PROFILE_MISSING',
+  'ACTIVE_MODEL_IDENTITY_MISMATCH',
+}
 blockers=set(r.get('blockers') or [])
 if not blockers.issubset(allowed): raise SystemExit(f'unexpected blockers: {sorted(blockers)}')
 if not blockers and r.get('passed') is not True: raise SystemExit('predeployment report is inconsistent')
 PY
+  recover_model_artifact_evidence "$model_user" "$model_ssh_port" "$DEPLOY_MODEL_EVIDENCE"
   recover_local_model_token > "$DEPLOY_TOKEN_FILE"; chmod 0600 "$DEPLOY_TOKEN_FILE"
   DEPLOY_MUTATION_STARTED=1
-  bash "$REPOSITORY_ROOT/scripts/tai-reg-ru-deploy.sh" "$TARGET_SHA" "$image" "$digest" "$RUN_ID" "$DEPLOY_TOKEN_FILE" > "$job_state/deploy.log" 2>&1
+  bash "$REPOSITORY_ROOT/scripts/tai-reg-ru-deploy.sh" "$TARGET_SHA" "$image" "$digest" "$RUN_ID" "$DEPLOY_TOKEN_FILE" "$DEPLOY_MODEL_EVIDENCE" > "$job_state/deploy.log" 2>&1
   grep -Fxq 'TAI_REG_RU_DEPLOYMENT_COMPLETE=1' "$job_state/deploy.log" || fail TAI_DEPLOYMENT_INCOMPLETE 91
-  rm -f "$DEPLOY_TOKEN_FILE"
+  rm -f "$DEPLOY_TOKEN_FILE" "$DEPLOY_MODEL_EVIDENCE"
   evidence="$STATE_ROOT/tai-agro-os-$RUN_ID/evidence.json"
   [[ -s "$evidence" ]] || fail TAI_DEPLOYMENT_EVIDENCE_MISSING 92
   bash "$REPOSITORY_ROOT/scripts/tai-reg-ru-preflight.sh" "$TARGET_SHA" "$image" "$digest" > "$post"

@@ -21,3 +21,11 @@ The runner has no Docker-group membership, no Docker socket, no general root she
 ## Rollback
 
 Activation and deployment both create root-owned rollback state before mutation. Controller traps execute rollback on failure. Hosted UI failure triggers a separate controller rollback before the activation status is published.
+
+## Restricted operational bootstrap authority
+
+The standalone REG.RU deployment applies only the migration manifest packaged in the immutable exact-SHA TAI image, records every migration path and SHA-256 in `tai_schema_migrations`, and materializes a source-backed foundation chunk from TAI Agro OS Master Specification v4.0.
+
+The protected controller derives the Qwen GGUF path, size, context bound and SHA-256 from the active private REG.RU model process through pinned SSH host authority. The resulting profile is authorized as `restricted operational`; permanent model admission remains explicitly `NOT_ATTESTED` unless a real accepted admission record exists. No admission decision is synthesized by deployment.
+
+Postflight remains blocking on exact image digest, rootless read-only isolation, dedicated PostgreSQL principal, active source-backed knowledge, supervisor-refreshed model health, grounded local Qwen inference with citations, disabled tools, rollback evidence, REG.RU-only hosting and zero new recurring expense. Schema migrations are forward-only and idempotent; service, environment, role and Compose authority retain rollback.
