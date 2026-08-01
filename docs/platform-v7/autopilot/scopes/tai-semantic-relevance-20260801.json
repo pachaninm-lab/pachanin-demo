@@ -63,6 +63,25 @@
     "surfaces": "12 cabinet roles plus the anonymous public surface",
     "falseRefusalBudget": 0
   },
+  "sourceFinalization": {
+    "verifiedHeadBeforeAttestation": "c72475acc7e6e73f3f35aa71b562c808490b0b60",
+    "behindBy": 0,
+    "changedFiles": 15,
+    "temporaryWorkflowFilesInFinalDiff": 0,
+    "checks": {
+      "webTypecheck": "pass",
+      "semanticRelevanceRouter": "pass",
+      "semanticAcceptanceCorpus": "pass",
+      "publicAssistantStreamContract": "pass",
+      "diffIntegrity": "pass"
+    },
+    "confirmedRegressions": [
+      "newest bounded-history topic is preserved for short follow-ups",
+      "explicit unrelated subjects outrank generic contextual sentence shape",
+      "internal model, route and refusal metadata is absent from public DOM attributes",
+      "verified-knowledge fallback receives bounded conversation history"
+    ]
+  },
   "liveAcceptancePending": [
     "REG.RU activation on the new exact-main",
     "RU/EN/ZH streaming against the deployed revision",
