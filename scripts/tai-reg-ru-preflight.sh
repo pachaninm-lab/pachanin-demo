@@ -23,6 +23,12 @@ record() {
   [[ "$status" == PASS ]] || printf '%s\n' "$code" >> "$blockers"
 }
 
+record_maturity() {
+  local name="$1" code="$2" value="${3:-}"
+  value="$(printf '%s' "$value" | tr -cd 'A-Za-z0-9._:/,+-')"
+  printf '%s\tDEFERRED\t%s\t%s\n' "$name" "$code" "$value" >> "$checks"
+}
+
 snapshot_containers() {
   local container_id
   while IFS= read -r container_id; do
@@ -282,14 +288,16 @@ emit('tai_relations', row['presentCount'] == row['requiredCount'], 'TAI_RELATION
 emit('knowledge_generation', row['activeGenerationCount'] == 1, 'ACTIVE_KNOWLEDGE_READY', 'ACTIVE_KNOWLEDGE_MISSING', str(row['activeGenerationCount']))
 emit('model_profile', row['activeProfileCount'] > 0, 'ACTIVE_MODEL_PROFILE_READY', 'ACTIVE_MODEL_PROFILE_MISSING', str(row['activeProfileCount']))
 emit('model_identity', row['activeProfileCount'] > 0 and row['expectedIdentityCount'] == row['activeProfileCount'], 'ACTIVE_MODEL_IDENTITY_MATCHED', 'ACTIVE_MODEL_IDENTITY_MISMATCH', f"{row['expectedIdentityCount']}/{row['activeProfileCount']}")
-emit('model_admission', row['activeProfileCount'] > 0 and row['admittedActiveProfileCount'] == row['activeProfileCount'], 'MODEL_ADMISSION_ACCEPTED', 'MODEL_ADMISSION_NOT_ACCEPTED', f"{row['admittedActiveProfileCount']}/{row['activeProfileCount']}")
+admitted = row['activeProfileCount'] > 0 and row['admittedActiveProfileCount'] == row['activeProfileCount']
+with open(checks, 'a', encoding='utf-8') as out:
+    out.write(f"model_admission\t{'PASS' if admitted else 'DEFERRED'}\t{'MODEL_ADMISSION_ACCEPTED' if admitted else 'MODEL_ADMISSION_NOT_ATTESTED'}\t{row['admittedActiveProfileCount']}/{row['activeProfileCount']}\n")
 PY
   else
     record tai_relations BLOCKED TAI_DATABASE_INSPECTION_UNAVAILABLE
     record knowledge_generation BLOCKED ACTIVE_KNOWLEDGE_UNVERIFIED
     record model_profile BLOCKED ACTIVE_MODEL_PROFILE_UNVERIFIED
     record model_identity BLOCKED ACTIVE_MODEL_IDENTITY_UNVERIFIED
-    record model_admission BLOCKED MODEL_ADMISSION_UNVERIFIED
+    record_maturity model_admission MODEL_ADMISSION_UNVERIFIED
   fi
 fi
 
@@ -329,6 +337,9 @@ else
     TAI_RUNTIME_MODE TAI_DATABASE_URL TAI_IDENTITY_HMAC_SECRET_B64
     TAI_CONFIRMATION_HMAC_SECRET_B64 TAI_MODEL_ENDPOINTS_JSON
     TAI_ALLOWED_MODEL_HOSTS_JSON TAI_MODEL_BEARER_TOKEN
+    TAI_RESTRICTED_MODEL_OPERATIONAL TAI_RESTRICTED_MODEL_ID
+    TAI_RESTRICTED_MODEL_REVISION TAI_RESTRICTED_MODEL_ARTIFACT_SHA256
+    TAI_RESTRICTED_ACTIVATION_SHA
   )
   missing_tai_env=0
   for name in "${required_tai_env[@]}"; do
@@ -405,7 +416,13 @@ PY
 import json, sys
 row = json.load(open(sys.argv[1], encoding='utf-8'))
 components = row.get('components') or {}
-ok = row.get('status') == 'ready' and components.get('tools') == 'disabled-safe' and not row.get('reasons')
+ok = (
+    row.get('status') == 'ready'
+    and components.get('tools') == 'disabled-safe'
+    and components.get('restricted_model') == 'authorized'
+    and components.get('model_admission') in {'not_attested', 'accepted'}
+    and not row.get('reasons')
+)
 status = 'PASS' if ok else 'BLOCKED'
 code = 'TAI_READINESS_READY' if ok else 'TAI_READINESS_BLOCKED'
 with open(sys.argv[2], 'a', encoding='utf-8') as out:
@@ -441,6 +458,7 @@ for line in open(checks_path, encoding='utf-8'):
         item['value'] = value
     checks.append(item)
 blockers = sorted(set(line.strip() for line in open(blockers_path, encoding='utf-8') if line.strip()))
+maturity = [item for item in checks if item.get('status') == 'DEFERRED']
 report = {
     'schemaVersion': 'tai.reg-ru.preflight.v1',
     'targetSha': sha,
@@ -449,6 +467,7 @@ report = {
     'mode': 'READ_ONLY_PREFLIGHT',
     'productionMutationAllowed': False,
     'checks': checks,
+    'maturity': maturity,
     'blockers': blockers,
     'passed': not blockers,
 }

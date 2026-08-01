@@ -137,6 +137,8 @@ jobs:
       TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
       TAI_IMAGE: ${{ needs.image_authority.outputs.reference }}
       TAI_DIGEST: ${{ needs.image_authority.outputs.digest }}
+      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
     steps:
       - name: Verify direct production authority is absent
         run: |
@@ -146,6 +148,16 @@ jobs:
           ! id -nG | tr ' ' '\n' | grep -Fxq docker
           if docker version >/dev/null 2>&1; then exit 21; fi
           sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Prepare protected model evidence input
+        run: |
+          set -Eeuo pipefail
+          input="/var/lib/pc-release-authority/runner-input/${GITHUB_RUN_ID}"
+          rm -rf "$input"
+          install -d -m 0700 "$input"
+          [[ "$(stat -c '%U:%G:%a' "$input")" == pcactions:pcactions:700 ]]
+          printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
+          printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
+          chmod 0600 "$input/model-user" "$input/model-port"
       - name: Execute protected exact-main deployment and postflight
         run: |
           set -Eeuo pipefail

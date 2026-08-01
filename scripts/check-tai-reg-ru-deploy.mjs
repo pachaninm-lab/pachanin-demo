@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 const workflowPath='.github/workflows/tai-reg-ru-deploy.yml';
 const deployPath='scripts/tai-reg-ru-deploy.sh';
 const preflightPath='scripts/tai-reg-ru-preflight.sh';
-const scopePath='docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json';
+const scopePath='docs/platform-v7/autopilot/scopes/tai-reg-ru-bootstrap-repair-20260801.json';
 const workflow=readFileSync(workflowPath,'utf8');
 const deploy=readFileSync(deployPath,'utf8');
 const preflight=readFileSync(preflightPath,'utf8');
@@ -31,6 +31,8 @@ for(const fragment of [
   "relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'",'nonTaiTableGrantCount','membershipCount','docker port "$tai_id"',
   'TAI_MODEL_BEARER_TOKEN=${model_token}','HMACPlatformIdentityAuthority','canonical_api_request_sha256','preparedActionCount','toolExecution',
   'TAI_REG_RU_DEPLOY_ROLLBACK=PASS','TAI_REG_RU_DEPLOYMENT_COMPLETE=1','tai.reg-ru.deployment.v1','newRecurringCostRub',
+  'MODEL_EVIDENCE_FILE','tai_schema_migrations','tai.production-bootstrap-authority.v1','TAI_RESTRICTED_MODEL_OPERATIONAL=true',
+  'permanentModelAdmissionStatus','FORWARD_ONLY_IDEMPOTENT','tai-agro-os-master-spec-v4.0',
 ]) requireFragment(deploy,fragment,deployPath);
 for(const fragment of ['TAI_SERVICE_NOT_MATERIALIZED','TAI_DEDICATED_ENV_NOT_MATERIALIZED','TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED','NO_PRODUCTION_MUTATION_DETECTED','compose.tai-agro-os.override.yml','TAI_OVERRIDE_PROTECTED','expected_image_id=','has_table_privilege']) requireFragment(preflight,fragment,preflightPath);
 
@@ -46,10 +48,11 @@ forbid(deploy,/docker\s+compose[^\n]+\bdown\b/iu,`${deployPath}: full Compose sh
 forbid(deploy,/(?:AI_ASSISTANT_API_KEY|TAI_MODEL_BEARER_TOKEN)[^\n]*(?:echo|printf)/iu,`${deployPath}: model credential output is forbidden`);
 
 if(scope.schemaVersion!=='platform-v7.concurrent-scope.v1')violations.push(`${scopePath}: invalid schemaVersion`);
-if(scope.branch!=='agent/tai-reg-ru-least-privilege-controller-20260731')violations.push(`${scopePath}: branch mismatch`);
+if(scope.branch!=='agent/tai-reg-ru-bootstrap-repair-20260801')violations.push(`${scopePath}: branch mismatch`);
 if(scope.productionHosting!=='REG_RU_VPS_ONLY'||scope.newRecurringCostRub!==0)violations.push(`${scopePath}: hosting or cost boundary changed`);
 if(scope.productionMutationAllowed!==true)violations.push(`${scopePath}: deployment mutation authority is absent`);
-for(const p of [workflowPath,deployPath,preflightPath,'scripts/check-tai-reg-ru-deploy.mjs'])if(!scope.allowedPaths.includes(p))violations.push(`${scopePath}: ${p} outside allowedPaths`);
+for(const p of [workflowPath,deployPath,preflightPath,'scripts/check-tai-reg-ru-deploy.mjs','apps/tai/tai/bootstrap_authority.py','apps/tai/tai/restricted_model_authority.py'])if(!scope.allowedPaths.includes(p))violations.push(`${scopePath}: ${p} outside allowedPaths`);
+forbid(deploy,/INSERT\s+INTO\s+(?:public[.])?tai_model_admission_decisions/iu,`${deployPath}: fabricated permanent model admission is forbidden`);
 
 if(violations.length){console.error('TAI REG.RU deployment contract failed:');for(const v of violations)console.error(`- ${v}`);process.exit(1)}
 console.log('TAI REG.RU deployment contract PASS: protected exact-main controller, immutable digest, rootless runtime, rollback-bound and zero-cost.');

@@ -2,95 +2,118 @@
   "migrations": [
     {
       "path": "0001_loader_state.sql",
-      "version": 1
+      "version": 1,
+      "sha256": "2e9ec42868014859ff6331c73daa3fe64b70eb03dd564aab1e34edb62ffb6711"
     },
     {
       "path": "0002_materialization_claims.sql",
-      "version": 2
+      "version": 2,
+      "sha256": "1aa4b98081109b81f2e87022b1e236e8077ef63c7b7550d773a819aab1851ea6"
     },
     {
       "path": "0003_loader_recovery.sql",
-      "version": 3
+      "version": 3,
+      "sha256": "096b35cba7897779625a9e71fed33c62b6f4edf32e5808eb111750c7a98e14e6"
     },
     {
       "path": "0004_loader_checkpoints.sql",
-      "version": 4
+      "version": 4,
+      "sha256": "39db57020db0211a4d8c5fe40e855128833f31c1d8ff2c9c21d7b435b4908171"
     },
     {
       "path": "0005_retrieval_index.sql",
-      "version": 5
+      "version": 5,
+      "sha256": "8bce542f98b266d49fa6adc71f852df1c13f194578c150f949b1f1a18561ed74"
     },
     {
       "path": "0006_rag_trace.sql",
-      "version": 6
+      "version": 6,
+      "sha256": "de22d9e32d6cef671615ddeb9699c03e510bccb1b02accfa022099e2d8258531"
     },
     {
       "path": "0007_local_model_runtime.sql",
-      "version": 7
+      "version": 7,
+      "sha256": "55d90414456a1d9c0d3323ee8c718b2f60e313a6a2761a2992b07dfda3d1dc7a"
     },
     {
       "path": "0008_agent_tool_runtime.sql",
-      "version": 8
+      "version": 8,
+      "sha256": "062818e119c4d9cf819836a021e902476492c64d8f442a77351710f98de4b8e0"
     },
     {
       "path": "0009_evaluation_authority.sql",
-      "version": 9
+      "version": 9,
+      "sha256": "553f0524b3f10fdd35d31accba07f2523f56cf6febdc4a40e623e44fa4ad396e"
     },
     {
       "path": "0010_operational_authority.sql",
-      "version": 10
+      "version": 10,
+      "sha256": "d28c4e71230f904be34402b0ee4e407c1bfd664deceeea624687e21847c9de71"
     },
     {
       "path": "0010_orchestration_runtime.sql",
-      "version": 11
+      "version": 11,
+      "sha256": "3c82e765642ec0b559eb2422060e629a46280c048bc30e5222e5688d1febaf51"
     },
     {
       "path": "0011_release_attestation.sql",
-      "version": 12
+      "version": 12,
+      "sha256": "78f1b9ab3dd127ebb9b738d28e737b641c9e9e31597402889830b8f1561d5078"
     },
     {
       "path": "0012_git_object_id_contract.sql",
-      "version": 13
+      "version": 13,
+      "sha256": "3e98eb7c0abcc36618a3ecdcb1865fe75fbb85b22848d69b7bf62694bbaf7970"
     },
     {
       "path": "0013_production_composition.sql",
-      "version": 14
+      "version": 14,
+      "sha256": "fff851080a2a1bc33af11b4a5d9706789572ca78512e3bb9ac46a31e5deebaea"
     },
     {
       "path": "0014_governed_tool_planner.sql",
-      "version": 15
+      "version": 15,
+      "sha256": "5af3dd0a90600215197c2459e2963191f6fcedbc3a0883d13b9764a891d9e465"
     },
     {
       "path": "0015_model_admission_authority.sql",
-      "version": 16
+      "version": 16,
+      "sha256": "bb41a7d30f24517a032587a4f1c5fb6eea4aca397b38de84f685394f4b9e0b3b"
     },
     {
       "path": "0016_official_source_coverage.sql",
-      "version": 17
+      "version": 17,
+      "sha256": "9874e643ff0aa255eba61e411058448dbb86b64d8aeba744118326b448020fb7"
     },
     {
       "path": "0017_official_source_run_evidence.sql",
-      "version": 18
+      "version": 18,
+      "sha256": "afaebb338cc46dfcf1d631daae947cccda990b6ab7bb82c27b4ba17075b435c6"
     },
     {
       "path": "0018_confirmation_denial_audit.sql",
-      "version": 19
+      "version": 19,
+      "sha256": "9de3d016d223fc0fd71078540d611bff38383c6effa7ea050af4d8e993d91b50"
     },
     {
       "path": "0019_public_official_corpus.sql",
-      "version": 20
+      "version": 20,
+      "sha256": "cbf9405df66b539ab5099ca23246c6e2ac4c080bbe486e269ed4a03146f3d28b"
     },
     {
       "path": "0020_public_official_corpus_audit_authority.sql",
-      "version": 21
+      "version": 21,
+      "sha256": "76a141425dd78ca8637dc638a08126392e24554a1ab842e1fc353ffb4ed256ba"
     },
     {
       "path": "0021_public_official_acquisition_authority.sql",
-      "version": 22
+      "version": 22,
+      "sha256": "c0bf8c1bd70a8b6f5411e85a635149d6ff1c6992cd95de38030e08ae8418910c"
     },
     {
       "path": "0021_retrieval_activation_serialization.sql",
-      "version": 23
+      "version": 23,
+      "sha256": "be9437984f15b5eca433c016ac9542b27a9eb5b2a6cbc29bd3fa125ea6d7d79a"
     }
   ],
   "schema_version": "tai.migration.manifest.v1"

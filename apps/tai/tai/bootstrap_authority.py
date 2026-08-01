@@ -23,7 +23,7 @@ RU: TAI Agro OS — самостоятельная коммерческая ИИ
 
 EN: TAI Agro OS is a standalone commercial AI platform for crop production, livestock, agricultural machinery and agribusiness. Production deployment uses only the existing REG.RU infrastructure, creates no new recurring expenses, uses the local Qwen3-8B model, and supports Russian, English and Chinese. Production PASS must not be claimed without exact-main deployment and live acceptance.
 
-ZH: TAI Agro OS 是面向种植业、畜牧业、农业机械和农业经营的独立商业人工智能平台。生产部署仅使用现有 REG.RU 基础设施，不新增经常性费用，采用本地 Qwen3-8B 模型，并支持俄语、英语和中文。未完成 exact-main 部署和在线验收时，不得宣称 Production PASS。"""
+ZH: TAI Agro OS 是面向种植业、畜牧业、农业机械和农业经营的独立商业人工智能平台。生产部署仅使用现有 REG.RU 基础设施，不新增经常性费用，采用本地 Qwen3-8B 模型，并支持俄语、英语和中文。未完成 exact-main 部署和在线验收时，不得宣称 Production PASS。"""  # noqa: E501
 
 
 class ProductionBootstrapAuthorityError(ValueError):
