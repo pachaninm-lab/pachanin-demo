@@ -1,0 +1,121 @@
+name: TAI PostgreSQL Authority Repair Once
+
+on:
+  push:
+    branches:
+      - fix/tai-postgres-service-authority-20260801
+    paths:
+      - .github/workflows/tai-reg-ru-runner-resume-once.yml
+
+permissions:
+  contents: write
+  statuses: write
+
+concurrency:
+  group: tai-postgres-authority-repair-once
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/tai-postgres-service-authority-20260801
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Materialize and validate source repair
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          state=failure
+          description='PostgreSQL authority repair failed'
+          publish() {
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+              -f state="$state" -f context='TAI PostgreSQL Authority Repair' \
+              -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+          }
+          trap publish EXIT
+          state=pending; description='Materializing PostgreSQL authority repair'; publish; state=failure
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/tai-reg-ru-deploy.sh')
+          s=p.read_text(encoding='utf-8')
+          old='''services = cfg.get("services") or {}
+db = []
+for name, service in services.items():
+    image = str(service.get("image") or "")
+    if re.search(r"(^|[-_])(postgres|postgresql)([-_]|$)", name, re.I) or "postgres" in image.lower():
+        db.append(name)
+if len(db) != 1:
+    raise SystemExit("POSTGRES_SERVICE_AUTHORITY_AMBIGUOUS")
+'''
+          new='''services = cfg.get("services") or {}
+db = []
+persistent_data_target = "/var/lib/postgresql/data"
+one_shot_pattern = re.compile(
+    r"(^|[-_])(provision|init|migrate|migration|seed|backup|restore)([-_]|$)",
+    re.I,
+)
+for name, service in services.items():
+    image = str(service.get("image") or "")
+    targets = set()
+    for mount in service.get("volumes") or []:
+        if isinstance(mount, dict):
+            target = str(mount.get("target") or "")
+            if target:
+                targets.add(target)
+        elif isinstance(mount, str):
+            parts = mount.split(":")
+            if len(parts) >= 2:
+                targets.add(parts[1])
+    name_candidate = bool(
+        re.search(r"(^|[-_])(postgres|postgresql)([-_]|$)", name, re.I)
+    )
+    postgres_image = bool(
+        re.search(r"(^|/)postgres(?=[:@]|$)", image.lower())
+    )
+    one_shot = bool(one_shot_pattern.search(name))
+    persistent_postgres = postgres_image and persistent_data_target in targets
+    if not one_shot and (name_candidate or persistent_postgres):
+        db.append(name)
+if len(db) != 1:
+    raise SystemExit(
+        "POSTGRES_SERVICE_AUTHORITY_AMBIGUOUS:" + ",".join(sorted(db))
+    )
+'''
+          if old not in s:
+              raise SystemExit('selector source mismatch')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          p=Path('scripts/check-tai-reg-ru-deploy.mjs')
+          s=p.read_text(encoding='utf-8')
+          old="""  'permanentModelAdmissionStatus','FORWARD_ONLY_IDEMPOTENT','tai-agro-os-master-spec-v4.0',
+]) requireFragment(deploy,fragment,deployPath);"""
+          new="""  'permanentModelAdmissionStatus','FORWARD_ONLY_IDEMPOTENT','tai-agro-os-master-spec-v4.0',
+  'persistent_data_target = "/var/lib/postgresql/data"','one_shot_pattern = re.compile(',
+  'postgres_image = bool(','persistent_postgres = postgres_image and persistent_data_target in targets',
+]) requireFragment(deploy,fragment,deployPath);"""
+          if old not in s:
+              raise SystemExit('contract token anchor mismatch')
+          s=s.replace(old,new,1)
+          anchor="forbid(deploy,/INSERT\\s+INTO\\s+(?:public[.])?tai_model_admission_decisions/iu,`${deployPath}: fabricated permanent model admission is forbidden`);\n"
+          if anchor not in s:
+              raise SystemExit('contract forbid anchor mismatch')
+          s=s.replace(anchor,anchor+"forbid(deploy,/\\\"postgres\\\"\\s+in\\s+image[.]lower\\(\\)/u,`${deployPath}: broad PostgreSQL image substring selector is forbidden`);\n",1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-reg-ru-deploy.mjs
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/tai-reg-ru-deploy.sh scripts/check-tai-reg-ru-deploy.mjs
+          git commit -m 'fix(tai): disambiguate PostgreSQL service authority'
+          git push origin HEAD:fix/tai-postgres-service-authority-20260801
+          state=success; description='PostgreSQL authority repair materialized'
