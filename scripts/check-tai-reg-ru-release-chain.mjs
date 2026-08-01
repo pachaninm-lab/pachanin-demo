@@ -33,6 +33,7 @@ const expectedScopeMappings = {
     '.github/workflows/tai-reg-ru-deploy.yml',
     'scripts/check-tai-reg-ru-release-chain.mjs',
     'scripts/verify-tai-upstream-workflow-jobs.mjs',
+    'scripts/pc-crop-10a/verify.mjs',
     'docs/platform-v7/autopilot/autopilot-state.json',
     'docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json',
   ],
@@ -41,6 +42,18 @@ for (const [branch, expectedPaths] of Object.entries(expectedScopeMappings)) {
   const actualPaths = autopilotState?.approvedConcurrentScopes?.[branch];
   if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
     violations.push(`docs/platform-v7/autopilot/autopilot-state.json: exact scope mapping missing for ${branch}`);
+  }
+}
+const pcCropScopeGuard = readFileSync('scripts/pc-crop-10a/verify.mjs', 'utf8');
+for (const fragment of [
+  'approvedConcurrentScopes',
+  'GITHUB_HEAD_REF',
+  'exact concurrent scope authority is missing',
+  'concurrent scope map differs from scope authority',
+  'PC-CROP-10A or an exact approved concurrent scope',
+]) {
+  if (!pcCropScopeGuard.includes(fragment)) {
+    violations.push(`scripts/pc-crop-10a/verify.mjs: missing ${JSON.stringify(fragment)}`);
   }
 }
 
