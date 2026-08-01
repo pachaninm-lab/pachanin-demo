@@ -19,38 +19,24 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Extract and execute bounded repair
+      - name: Apply and validate bounded repair
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
+          python3 -m py_compile scripts/one-shot-tai-activation-repair-20260801.py
+          python3 scripts/one-shot-tai-activation-repair-20260801.py
+          bash -n scripts/pc-tai-release-controller-core.sh
+          node --check scripts/check-tai-local-model-key-authority.mjs
+          node scripts/check-tai-local-model-key-authority.mjs
 
-          source = Path('.github/workflows/one-shot-tai-activation-exit-state.yml').read_text(encoding='utf-8').splitlines()
-          step = '      - name: Apply exact bounded repair'
-          start = source.index(step)
-          run_line = next(i for i in range(start + 1, len(source)) if source[i] == '        run: |')
-          body = []
-          for line in source[run_line + 1:]:
-              if line and not line.startswith('          '):
-                  break
-              if line.startswith('          '):
-                  body.append(line[10:])
-              else:
-                  body.append('')
-          if not body or body[0] != 'set -Eeuo pipefail':
-              raise SystemExit('bounded repair body was not extracted')
-          Path('/tmp/apply-bounded-tai-repair.sh').write_text('\n'.join(body) + '\n', encoding='utf-8')
-          PY
-          bash /tmp/apply-bounded-tai-repair.sh
-
-      - name: Commit bounded repair and remove temporary workflows
+      - name: Commit bounded repair and remove temporary files
         shell: bash
         run: |
           set -Eeuo pipefail
           git rm \
             .github/workflows/one-shot-tai-activation-exit-state.yml \
-            .github/workflows/one-shot-tai-activation-pr-trigger.yml
+            .github/workflows/one-shot-tai-activation-pr-trigger.yml \
+            scripts/one-shot-tai-activation-repair-20260801.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
@@ -59,5 +45,16 @@ jobs:
             scripts/check-tai-local-model-key-authority.mjs \
             docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json
           git diff --cached --check
+          git diff --cached --name-only | sort > /tmp/changed-paths
+          cat > /tmp/expected-paths <<'EOF'
+          .github/workflows/one-shot-tai-activation-exit-state.yml
+          .github/workflows/one-shot-tai-activation-pr-trigger.yml
+          .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json
+          scripts/check-tai-local-model-key-authority.mjs
+          scripts/one-shot-tai-activation-repair-20260801.py
+          scripts/pc-tai-release-controller-core.sh
+          EOF
+          diff -u /tmp/expected-paths /tmp/changed-paths
           git commit -m 'fix: persist TAI activation rollback and backup authority'
           git push origin HEAD:agent/tai-activation-exit-state-20260801
