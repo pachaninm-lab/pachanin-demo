@@ -19,6 +19,15 @@ readonly MODEL_KNOWN_HOSTS='/etc/pc-release-authority/model_known_hosts'
 readonly CONTROLLER_LOCK='/run/lock/pc-tai-release-controller.lock'
 readonly INSTALLED_CONTROLLER='/usr/local/sbin/pc-tai-release-controller'
 
+ACTIVATION_MUTATION_STARTED=0
+ACTIVATION_COMPLETE=0
+ACTIVATION_API_ENV=''
+ACTIVATION_WEB_ENV=''
+DEPLOY_MUTATION_STARTED=0
+DEPLOY_COMPLETE=0
+DEPLOY_TOKEN_FILE=''
+DEPLOY_STATE=''
+
 fail() {
   printf 'ERROR_CODE=%s\n' "$1" >&2
   exit "${2:-1}"
@@ -162,6 +171,31 @@ os.chmod(path,0o600)
 PY
 }
 
+write_failure_evidence() {
+  local action="$1" rc="$2" rollback_status="$3" path="$4" error_code
+  error_code="$(grep -hE '^ERROR_CODE=[A-Z0-9_]+' \
+    "$job_state/full-stack.log" "$job_state/activation.log" "$job_state/deploy.log" "$job_state/rollback.log" \
+    2>/dev/null | tail -1 | cut -d= -f2- || true)"
+  [[ -n "$error_code" ]] || error_code="${action^^}_CONTROLLER_FAILED"
+  python3 - "$path" "$TARGET_SHA" "$RUN_ID" "$action" "$rc" "$error_code" "$rollback_status" <<'PY'
+import json, os, sys
+path, sha, run_id, action, rc, code, rollback = sys.argv[1:]
+payload = {
+  'schemaVersion':'tai.reg-ru.controller-failure.v1',
+  'targetSha':sha,
+  'runId':run_id,
+  'action':action,
+  'exitCode':int(rc),
+  'errorCode':code,
+  'rollbackStatus':rollback,
+  'passed':False,
+}
+with open(path,'w',encoding='utf-8') as h:
+    json.dump(payload,h,ensure_ascii=True,separators=(',',':')); h.write('\n')
+os.chmod(path,0o600)
+PY
+}
+
 import_model_transport() {
   local input_key="$job_input/model-key" model_user_file="$job_input/model-user" model_port_file="$job_input/model-port"
   local model_user model_ssh_port candidate pub
@@ -210,11 +244,21 @@ printf %s "$key"'
 }
 
 rollback_activation() {
-  set +e
-  local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID"
-  [[ ! -x "$qwen_state/rollback-qwen-env.sh" ]] || "$qwen_state/rollback-qwen-env.sh"
-  [[ ! -f "$STATE_ROOT/full-stack-$RUN_ID.state" ]] || bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" rollback "$TARGET_SHA" "$RUN_ID"
-  touch "$job_state/ROLLED_BACK"
+  local qwen_state="$STATE_ROOT/tai-qwen-$RUN_ID" rc=0 attempted=0
+  if [[ -x "$qwen_state/rollback-qwen-env.sh" ]]; then
+    attempted=1
+    "$qwen_state/rollback-qwen-env.sh" > "$job_state/rollback-qwen.log" 2>&1 || rc=1
+  fi
+  if [[ -f "$STATE_ROOT/full-stack-$RUN_ID.state" ]]; then
+    attempted=1
+    bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" rollback "$TARGET_SHA" "$RUN_ID" > "$job_state/rollback.log" 2>&1 || rc=1
+  fi
+  rm -f "$job_state/ROLLED_BACK" "$job_state/ROLLBACK_FAILED" "$job_state/ROLLBACK_NOT_REQUIRED"
+  if (( rc != 0 )); then
+    touch "$job_state/ROLLBACK_FAILED"
+    return 1
+  fi
+  if (( attempted == 1 )); then touch "$job_state/ROLLED_BACK"; else touch "$job_state/ROLLBACK_NOT_REQUIRED"; fi
 }
 
 run_preflight() {
@@ -234,15 +278,18 @@ run_activate() {
   [[ $# -eq 6 ]] || fail INVALID_ARGUMENT_COUNT 60
   validate_job_input
   local api_image="$1" api_digest="$2" web_image="$3" web_digest="$4" migration_image="$5" migration_digest="$6"
-  local api_key hmac_secret activation_mutation_started=0 activation_complete=0
-  local api_env="/tmp/tai-qwen-api-$RUN_ID.env" web_env="/tmp/tai-qwen-web-$RUN_ID.env" evidence
+  local api_key hmac_secret evidence
+  ACTIVATION_MUTATION_STARTED=0
+  ACTIVATION_COMPLETE=0
+  ACTIVATION_API_ENV="/tmp/tai-qwen-api-$RUN_ID.env"
+  ACTIVATION_WEB_ENV="/tmp/tai-qwen-web-$RUN_ID.env"
   verify_pinned_image "$api_image" "$api_digest" api
   verify_pinned_image "$web_image" "$web_digest" web
   verify_pinned_image "$migration_image" "$migration_digest" migration
   rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"
   api_key="$(recover_local_model_token)"
   hmac_secret="$(openssl rand -hex 32)"
-  cat > "$api_env" <<ENV
+  cat > "$ACTIVATION_API_ENV" <<ENV
 AI_ASSISTANT_PROVIDER=openai-compatible
 AI_ASSISTANT_BASE_URL=$MODEL_BASE_URL
 AI_ASSISTANT_MODEL=$MODEL_IDENTITY
@@ -251,7 +298,7 @@ AI_ASSISTANT_ALLOWED_HOSTS=$MODEL_HOST
 TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true
 TAI_PUBLIC_GATEWAY_HMAC_SECRET=$hmac_secret
 ENV
-  cat > "$web_env" <<ENV
+  cat > "$ACTIVATION_WEB_ENV" <<ENV
 TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true
 TAI_RESTRICTED_QWEN_MODEL_IDENTITY=$MODEL_IDENTITY
 TAI_PUBLIC_GATEWAY_HMAC_SECRET=$hmac_secret
@@ -260,30 +307,41 @@ TAI_INTERNAL_API_ALLOWED_HOSTS=api
 TAI_PUBLIC_MODEL_TIMEOUT_MS=130000
 NEXT_PUBLIC_SITE_URL=https://процент-агро.рф
 ENV
-  chmod 0600 "$api_env" "$web_env"
+  chmod 0600 "$ACTIVATION_API_ENV" "$ACTIVATION_WEB_ENV"
   activation_exit() {
-    local rc="$?"
+    local rc="$?" rollback_status='NOT_REQUIRED' failure="$job_state/activation-failure.json"
     trap - EXIT INT TERM
-    if (( rc != 0 && activation_mutation_started == 1 && activation_complete == 0 )); then rollback_activation; fi
-    rm -f "$api_env" "$web_env"
+    if (( rc != 0 && ACTIVATION_MUTATION_STARTED == 1 && ACTIVATION_COMPLETE == 0 )); then
+      if rollback_activation; then
+        if [[ -f "$job_state/ROLLED_BACK" ]]; then rollback_status='CONFIRMED'; else rollback_status='NOT_REQUIRED'; fi
+      else
+        rollback_status='FAILED'
+        rc=74
+      fi
+    fi
+    if (( rc != 0 )); then
+      write_failure_evidence activate "$rc" "$rollback_status" "$failure"
+      publish_file "$failure" activation.json
+    fi
+    rm -f "$ACTIVATION_API_ENV" "$ACTIVATION_WEB_ENV"
     exit "$rc"
   }
   trap activation_exit EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  activation_mutation_started=1
+  ACTIVATION_MUTATION_STARTED=1
   PC_API_IMAGE="$api_digest" PC_WEB_IMAGE="$web_digest" PC_MIGRATION_IMAGE="$migration_digest" \
     bash "$REPOSITORY_ROOT/scripts/production-full-stack-exact-sha.sh" deploy "$TARGET_SHA" "$RUN_ID" > "$job_state/full-stack.log" 2>&1
   grep -Fxq 'DEPLOYMENT_COMPLETE=1' "$job_state/full-stack.log" || fail FULL_STACK_DEPLOYMENT_INCOMPLETE 61
-  bash "$REPOSITORY_ROOT/scripts/tai-restricted-qwen-reg-ru-activate.sh" "$TARGET_SHA" "$RUN_ID" "$api_env" "$web_env" > "$job_state/activation.log" 2>&1
+  bash "$REPOSITORY_ROOT/scripts/tai-restricted-qwen-reg-ru-activate.sh" "$TARGET_SHA" "$RUN_ID" "$ACTIVATION_API_ENV" "$ACTIVATION_WEB_ENV" > "$job_state/activation.log" 2>&1
   grep -Fxq 'RESTRICTED_QWEN_PRODUCTION_ENV=ACTIVE' "$job_state/activation.log" || fail QWEN_ACTIVATION_INCOMPLETE 62
   evidence="$STATE_ROOT/tai-qwen-$RUN_ID/evidence.json"
   [[ -s "$evidence" ]] || fail ACTIVATION_EVIDENCE_MISSING 63
   publish_file "$evidence" activation.json
   printf '%s\n' "$TARGET_SHA" > "$job_state/target-sha"
   printf '%s\n' "$TARGET_SHA" > "$job_state/PENDING_UI_ACCEPTANCE"
-  activation_complete=1
-  rm -f "$api_env" "$web_env"
+  ACTIVATION_COMPLETE=1
+  rm -f "$ACTIVATION_API_ENV" "$ACTIVATION_WEB_ENV"
   trap - EXIT INT TERM
 }
 
@@ -295,7 +353,11 @@ finalize_activation() {
     decision=rollback
   fi
   if [[ "$decision" == rollback ]]; then
-    rollback_activation
+    if ! rollback_activation; then
+      printf '{"schemaVersion":"tai.restricted-qwen.finalization.v1","targetSha":"%s","decision":"ROLLBACK_FAILED","passed":false}\n' "$TARGET_SHA" > "$job_state/finalization.json"
+      publish_file "$job_state/finalization.json" finalization.json
+      fail ACTIVATION_ROLLBACK_FAILED 74
+    fi
     printf '{"schemaVersion":"tai.restricted-qwen.finalization.v1","targetSha":"%s","decision":"ROLLBACK","passed":false}\n' "$TARGET_SHA" > "$job_state/finalization.json"
     publish_file "$job_state/finalization.json" finalization.json
     fail ACTIVATION_ROLLED_BACK 73
@@ -329,19 +391,32 @@ recover_local_model_token() {
 
 run_deploy() {
   [[ $# -eq 2 ]] || fail INVALID_ARGUMENT_COUNT 90
-  local image="$1" digest="$2" pre="$job_state/predeploy.json" post="$job_state/postdeploy.json" token_file="/tmp/tai-model-token-$RUN_ID" evidence
-  local deploy_mutation_started=0 deploy_complete=0
+  local image="$1" digest="$2" pre="$job_state/predeploy.json" post="$job_state/postdeploy.json" evidence
+  DEPLOY_TOKEN_FILE="/tmp/tai-model-token-$RUN_ID"
+  DEPLOY_STATE="$STATE_ROOT/tai-agro-os-$RUN_ID"
+  DEPLOY_MUTATION_STARTED=0
+  DEPLOY_COMPLETE=0
   verify_pinned_image "$image" "$digest" tai '65532:65532'
   deploy_exit() {
-    local rc="$?" state="$STATE_ROOT/tai-agro-os-$RUN_ID"
+    local rc="$?" rollback_status='NOT_REQUIRED' failure="$job_state/deployment-failure.json"
     trap - EXIT INT TERM
-    if (( rc != 0 && deploy_mutation_started == 1 && deploy_complete == 0 )); then
-      if [[ ! -f "$state/ROLLED_BACK" && -x "$state/rollback.sh" ]]; then "$state/rollback.sh"; fi
-      if [[ -f "$state/MUTATION_STARTED" && ! -f "$state/ROLLED_BACK" ]]; then
-        printf 'ERROR_CODE=INCOMPLETE_DEPLOYMENT_ROLLBACK_AUTHORITY\n' >&2
+    if (( rc != 0 && DEPLOY_MUTATION_STARTED == 1 && DEPLOY_COMPLETE == 0 )); then
+      if [[ ! -f "$DEPLOY_STATE/ROLLED_BACK" && -x "$DEPLOY_STATE/rollback.sh" ]]; then
+        if "$DEPLOY_STATE/rollback.sh" > "$job_state/deploy-rollback.log" 2>&1; then rollback_status='CONFIRMED'; else rollback_status='FAILED'; rc=93; fi
+      fi
+      if [[ -f "$DEPLOY_STATE/MUTATION_STARTED" && ! -f "$DEPLOY_STATE/ROLLED_BACK" ]]; then
+        rollback_status='FAILED'
+        rc=94
+        printf 'ERROR_CODE=INCOMPLETE_DEPLOYMENT_ROLLBACK_AUTHORITY\n' >> "$job_state/deploy.log"
+      elif [[ -f "$DEPLOY_STATE/ROLLED_BACK" ]]; then
+        rollback_status='CONFIRMED'
       fi
     fi
-    rm -f "$token_file"
+    if (( rc != 0 )); then
+      write_failure_evidence deploy "$rc" "$rollback_status" "$failure"
+      publish_file "$failure" deployment.json
+    fi
+    rm -f "$DEPLOY_TOKEN_FILE"
     exit "$rc"
   }
   trap deploy_exit EXIT
@@ -356,11 +431,11 @@ blockers=set(r.get('blockers') or [])
 if not blockers.issubset(allowed): raise SystemExit(f'unexpected blockers: {sorted(blockers)}')
 if not blockers and r.get('passed') is not True: raise SystemExit('predeployment report is inconsistent')
 PY
-  recover_local_model_token > "$token_file"; chmod 0600 "$token_file"
-  deploy_mutation_started=1
-  bash "$REPOSITORY_ROOT/scripts/tai-reg-ru-deploy.sh" "$TARGET_SHA" "$image" "$digest" "$RUN_ID" "$token_file" > "$job_state/deploy.log" 2>&1
+  recover_local_model_token > "$DEPLOY_TOKEN_FILE"; chmod 0600 "$DEPLOY_TOKEN_FILE"
+  DEPLOY_MUTATION_STARTED=1
+  bash "$REPOSITORY_ROOT/scripts/tai-reg-ru-deploy.sh" "$TARGET_SHA" "$image" "$digest" "$RUN_ID" "$DEPLOY_TOKEN_FILE" > "$job_state/deploy.log" 2>&1
   grep -Fxq 'TAI_REG_RU_DEPLOYMENT_COMPLETE=1' "$job_state/deploy.log" || fail TAI_DEPLOYMENT_INCOMPLETE 91
-  rm -f "$token_file"
+  rm -f "$DEPLOY_TOKEN_FILE"
   evidence="$STATE_ROOT/tai-agro-os-$RUN_ID/evidence.json"
   [[ -s "$evidence" ]] || fail TAI_DEPLOYMENT_EVIDENCE_MISSING 92
   bash "$REPOSITORY_ROOT/scripts/tai-reg-ru-preflight.sh" "$TARGET_SHA" "$image" "$digest" > "$post"
@@ -372,7 +447,7 @@ PY
   publish_file "$pre" predeploy.json
   publish_file "$evidence" deployment.json
   publish_file "$post" postdeploy.json
-  deploy_complete=1
+  DEPLOY_COMPLETE=1
   trap - EXIT INT TERM
 }
 

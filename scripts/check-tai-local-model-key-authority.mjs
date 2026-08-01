@@ -37,7 +37,16 @@ for (const fragment of [
   'StrictHostKeyChecking=yes',
   'rm -f "$job_input/model-key" "$job_input/model-user" "$job_input/model-port"',
   'api_key="$(recover_local_model_token)"',
-  'if (( rc != 0 && activation_mutation_started == 1 && activation_complete == 0 )); then rollback_activation; fi',
+  'ACTIVATION_MUTATION_STARTED=0',
+  'ACTIVATION_COMPLETE=0',
+  'if (( rc != 0 && ACTIVATION_MUTATION_STARTED == 1 && ACTIVATION_COMPLETE == 0 )); then',
+  'write_failure_evidence activate "$rc" "$rollback_status" "$failure"',
+  'publish_file "$failure" activation.json',
+  'DEPLOY_MUTATION_STARTED=0',
+  'DEPLOY_COMPLETE=0',
+  'if (( rc != 0 && DEPLOY_MUTATION_STARTED == 1 && DEPLOY_COMPLETE == 0 )); then',
+  'publish_file "$failure" deployment.json',
+  "'rollbackStatus':rollback",
 ]) requireFragment(core, fragment, corePath);
 
 forbid(workflow, /TAI_MODEL_SSH_KEY|MODEL_KEY_SECRET|\/model-key\b/u, `${workflowPath}: private model SSH key must not transit GitHub Actions`);
@@ -45,19 +54,21 @@ forbid(workflow, /secrets\.[A-Za-z0-9_]*(?:PRIVATE|SSH_KEY|MODEL_KEY)/u, `${work
 forbid(workflow, /if:\s*always\(\)\s*&&\s*needs[.]image_authority[.]result\s*==\s*'success'\s*$/mu, `${workflowPath}: finalization must require successful activation`);
 forbid(core, /readarray\s+-t\s+transport\s+<\s*<\(import_model_transport\)/u, `${corePath}: activation must not depend on a separately provisioned model-host SSH key`);
 forbid(core, /api_key="\$\(recover_model_api_key\s+"\$model_user"\s+"\$model_ssh_port"\)"/u, `${corePath}: activation must reuse the already validated local runtime token`);
+forbid(core, /local\s+[^\n]*(?:activation_mutation_started|activation_complete|api_env|web_env)/u, `${corePath}: activation EXIT-trap state must not be function-local`);
+forbid(core, /local\s+[^\n]*(?:deploy_mutation_started|deploy_complete|token_file)/u, `${corePath}: deployment EXIT-trap state must not be function-local`);
 forbid(core, /echo[^\n]*(?:MODEL_KEY|PRIVATE_KEY|API_KEY)/iu, `${corePath}: secret output is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${scopePath}: invalid schemaVersion`);
-if (scope.branch !== 'agent/tai-reuse-active-model-token-20260801') violations.push(`${scopePath}: branch mismatch`);
+if (scope.branch !== 'agent/tai-controller-trap-rollback-evidence-20260801') violations.push(`${scopePath}: branch mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) violations.push(`${scopePath}: hosting or cost boundary changed`);
 for (const path of [workflowPath, corePath, 'scripts/check-tai-local-model-key-authority.mjs', scopePath]) {
   if (!scope.allowedPaths.includes(path)) violations.push(`${scopePath}: ${path} outside allowedPaths`);
 }
 
 if (violations.length) {
-  console.error('TAI local model-token authority contract failed:');
+  console.error('TAI controller trap and rollback-evidence contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
 
-console.log('TAI local model-token authority contract PASS: activation reuses the validated active API token, private SSH keys never transit GitHub Actions, rollback remains fail-closed, and no unprovisioned model key can abort the release before mutation.');
+console.log('TAI controller trap and rollback-evidence contract PASS: activation and deployment trap state survives function unwinding, rollback is explicit, redacted failure evidence is published, private keys never transit GitHub Actions, and the validated active local model token remains server-only.');
