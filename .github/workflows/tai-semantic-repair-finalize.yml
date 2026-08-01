@@ -26,29 +26,258 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Execute corrected focused source patch
+      - name: Apply deterministic source repair
         run: |
           set -Eeuo pipefail
           python3 - <<'PY'
           from __future__ import annotations
-          import base64
+
           import re
           from pathlib import Path
 
-          source = Path('.github/workflows/tai-semantic-followup-pr-run.yml').read_text(encoding='utf-8')
-          match = re.search(r'PATCH_B64: "([A-Za-z0-9+/=]+)"', source)
-          if match is None:
-              raise SystemExit('source patch payload missing')
-          script = base64.b64decode(match.group(1), validate=True).decode('utf-8')
-          old = 'public, changed = history_pattern.subn(history_replacement, public, count=1)'
-          new = 'public, changed = history_pattern.subn(lambda _match: history_replacement, public, count=1)'
-          if old not in script:
-              raise SystemExit('regex replacement defect marker missing')
-          script = script.replace(old, new, 1)
-          exec(compile(script, '<tai-semantic-source-repair>', 'exec'), {'__name__': '__main__'})
-          finalizer = Path('.github/workflows/tai-semantic-repair-finalize.yml')
-          if finalizer.exists():
-              finalizer.unlink()
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path: str, text: str) -> None:
+              Path(path).write_text(text, encoding='utf-8')
+
+          def replace_once(path: str, old: str, new: str, label: str) -> None:
+              text = read(path)
+              if new in text:
+                  return
+              if old not in text:
+                  raise SystemExit(f'missing source fragment: {label} ({path})')
+              write(path, text.replace(old, new, 1))
+
+          public_path = 'apps/web/app/api/public-platform-assistant/route.ts'
+          replace_once(public_path, 'const MAX_BODY_BYTES = 8_192;', 'const MAX_BODY_BYTES = 20_480;', 'public body limit')
+          public = read(public_path)
+          history_pattern = re.compile(
+              r"function readHistory\(value: unknown\): readonly AssistantConversationTurn\[\] \{.*?\n\}\n\nfunction forbiddenCopy",
+              re.S,
+          )
+          history_replacement = r"""function readHistory(value: unknown): readonly AssistantConversationTurn[] {
+            if (!Array.isArray(value)) return [];
+            const turns: AssistantConversationTurn[] = [];
+            let total = 0;
+            // Keep the newest valid turns when the bounded envelope is full. A long
+            // older turn must never evict the latest subject that a short follow-up
+            // depends on.
+            for (const item of [...value.slice(-MAX_HISTORY_TURNS)].reverse()) {
+              const row = item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : null;
+              const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
+              const text = typeof row?.text === 'string'
+                ? row.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
+                : '';
+              if (!role || !text) continue;
+              if (total + text.length > MAX_HISTORY_TOTAL_CHARS) continue;
+              turns.unshift({ role, text });
+              total += text.length;
+            }
+            return turns;
+          }
+
+          function forbiddenCopy"""
+          if 'for (const item of [...value.slice(-MAX_HISTORY_TURNS)].reverse())' not in public:
+              public, changed = history_pattern.subn(lambda _match: history_replacement, public, count=1)
+              if changed != 1:
+                  raise SystemExit('history function replacement failed')
+          raw_call = 'routeAssistantQuestion(message, { ...context, locale })'
+          corrected_call = 'routeAssistantQuestion(correctedQuestion, { ...context, locale })'
+          if raw_call in public:
+              count = public.count(raw_call)
+              if count != 2:
+                  raise SystemExit(f'unexpected raw routing call count: {count}')
+              public = public.replace(raw_call, corrected_call)
+          elif public.count(corrected_call) != 2:
+              raise SystemExit('corrected public routing calls missing')
+          write(public_path, public)
+
+          router_path = 'apps/web/lib/platform-v7/assistant-relevance-router.ts'
+          old_router_block = '''  // Short question shaped by the surface or the previous turn. Inside the
+            // platform, "Кто это увидит?" is about the platform — the reader should not
+            // have to repeat the subject they are literally looking at.
+            if (shapeSection) {
+              return outcome('ALLOW_CONTEXTUAL', {
+                domain: 'platform',
+                signals,
+                section: shapeSection,
+                platformFirst: !hasPlatformSubject,
+              });
+            }
+
+            // An explicit off-topic marker outranks sentence shape. "How do I choose a
+            // tattoo?" opens like a follow-up and is asked from inside the platform, and
+            // reading it as a continuation was how entertainment questions slipped into
+            // the contextual branch.
+            if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
+              return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+            }
+          '''
+          new_router_block = '''  // An explicit off-topic marker outranks sentence shape. "Who can see
+            // this movie?" has the same grammar as an access question, but its named
+            // subject makes the intended domain unambiguous.
+            if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
+              return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+            }
+
+            // Short question shaped by the surface or the previous turn. Inside the
+            // platform, "Кто это увидит?" is about the platform — the reader should not
+            // have to repeat the subject they are literally looking at.
+            if (shapeSection) {
+              return outcome('ALLOW_CONTEXTUAL', {
+                domain: 'platform',
+                signals,
+                section: shapeSection,
+                platformFirst: !hasPlatformSubject,
+              });
+            }
+          '''
+          replace_once(router_path, old_router_block, new_router_block, 'off-topic precedence')
+
+          restricted_path = 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
+          replace_once(
+              restricted_path,
+              """        const outcome = routeAssistantQuestion(envelope.question, { ...routingContext, locale });
++        // The router sees the page, the exact role and the conversation, so a
++""".replace('+', ''),
+              """        const routedQuestion = grounding.understanding?.normalizedQuestion || envelope.question;
++        const outcome = routeAssistantQuestion(routedQuestion, { ...routingContext, locale });
++        // The router sees the page, the exact role and the conversation, so a
++""".replace('+', ''),
+              'restricted normalized routing',
+          )
+          replace_once(
+              restricted_path,
+              "          : classifyAnswerMode(envelope.question, envelope.context, envelope.history);",
+              "          : classifyAnswerMode(routedQuestion, envelope.context, envelope.history);",
+              'restricted normalized mode',
+          )
+
+          component_path = 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+          replace_once(
+              component_path,
+              """  const knowledgeFallback = async (
++    question: string,
++    controller: AbortController,
++  ): Promise<boolean> => {
++""".replace('+', ''),
+              """  const knowledgeFallback = async (
++    question: string,
++    history: readonly HistoryTurn[],
++    controller: AbortController,
++  ): Promise<boolean> => {
++""".replace('+', ''),
+              'fallback history signature',
+          )
+          replace_once(
+              component_path,
+              "body: JSON.stringify({ message: question, locale }),",
+              "body: JSON.stringify({ message: question, locale, context: contextName, history }),",
+              'fallback history payload',
+          )
+          replace_once(
+              component_path,
+              "if (!await knowledgeFallback(normalized, controller)) throw new Error('knowledge_fallback_failed');",
+              "if (!await knowledgeFallback(normalized, history, controller)) throw new Error('knowledge_fallback_failed');",
+              'fallback history call',
+          )
+          replace_once(
+              component_path,
+              """                    data-stream-status={message.stream?.status}
++                    data-stream-refusal={message.stream?.refusal ?? undefined}
++                    data-model-identity={message.stream?.modelIdentity ?? undefined}
++                    data-origin={origin}
++""".replace('+', ''),
+              """                    data-stream-status={message.stream?.status}
++""".replace('+', ''),
+              'DOM internal metadata',
+          )
+
+          router_test_path = 'apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts'
+          replace_once(
+              router_test_path,
+              "import { describe, expect, it } from 'vitest';",
+              "import { readFileSync } from 'node:fs';\nimport { fileURLToPath } from 'node:url';\nimport { describe, expect, it } from 'vitest';",
+              'router test imports',
+          )
+          replace_once(
+              router_test_path,
+              """    'Какой смартфон купить?',
++    'Tell me a joke',
++""".replace('+', ''),
+              """    'Какой смартфон купить?',
++    'Кто увидит этот фильм?',
++    'Где хранится сериал?',
++    'Tell me a joke',
++""".replace('+', ''),
+              'off-topic regression cases',
+          )
+          privacy_test = """describe('public assistant fallback and DOM privacy contract', () => {
++  const componentSource = readFileSync(
++    fileURLToPath(new URL('../../components/platform-v7/PublicPlatformAssistant.tsx', import.meta.url)),
++    'utf8',
++  );
++
++  it('preserves conversation history when streaming falls back to verified knowledge', () => {
++    expect(componentSource).toContain('knowledgeFallback(normalized, history, controller)');
++    expect(componentSource).toContain('JSON.stringify({ message: question, locale, context: contextName, history })');
++  });
++
++  it('does not expose internal model, route or refusal metadata as DOM attributes', () => {
++    for (const attribute of ['data-model-identity', 'data-origin={origin}', 'data-stream-refusal']) {
++      expect(componentSource).not.toContain(attribute);
++    }
++  });
++});
++
++""".replace('+', '')
+          router_test = read(router_test_path)
+          marker = "describe('capability registry is the source of platform claims', () => {"
+          if privacy_test not in router_test:
+              if marker not in router_test:
+                  raise SystemExit('router test insertion marker missing')
+              router_test = router_test.replace(marker, privacy_test + marker, 1)
+              write(router_test_path, router_test)
+
+          stream_test_path = 'apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts'
+          newest_history_test = """  it('keeps the newest topic when bounded history is larger than the old request envelope', async () => {
++    const history = [
++      ...Array.from({ length: 7 }, (_, index) => ({ role: 'user', text: `${index}-` + 'x'.repeat(1_800) })),
++      { role: 'user', text: 'Кто видит мои документы?' },
++    ];
++    const body = JSON.stringify({ message: 'А подробнее?', locale: 'ru', history });
++    const response = await POST(new NextRequest(ENDPOINT, {
++      method: 'POST',
++      headers: {
++        'content-type': 'application/json',
++        'content-length': String(Buffer.byteLength(body)),
++      },
++      body,
++    }));
++
++    expect(response.status).toBe(200);
++    const payload = await response.json();
++    expect(payload).toMatchObject({ resolution: 'answered', topic: 'documents' });
++  });
++
++""".replace('+', '')
+          stream_test = read(stream_test_path)
+          malformed_marker = "  it('refuses a malformed request before opening a stream, where an error can still be read', async () => {"
+          if newest_history_test not in stream_test:
+              if malformed_marker not in stream_test:
+                  raise SystemExit('stream test insertion marker missing')
+              write(stream_test_path, stream_test.replace(malformed_marker, newest_history_test + malformed_marker, 1))
+
+          for workflow in (
+              '.github/workflows/tai-semantic-followup-hardening-materialize.yml',
+              '.github/workflows/tai-semantic-followup-hardening-run.yml',
+              '.github/workflows/tai-semantic-followup-pr-run.yml',
+              '.github/workflows/tai-semantic-repair-finalize.yml',
+          ):
+              path = Path(workflow)
+              if path.exists():
+                  path.unlink()
           PY
       - name: Validate focused source repair
         run: |
@@ -61,12 +290,13 @@ jobs:
             tests/unit/taiSemanticAcceptanceCorpus.test.ts \
             tests/unit/platformV7PublicAssistantStreamContract.test.ts
           git diff --check
-          ! git diff --name-only | grep -E '^\.github/workflows/tai-semantic-(followup|repair)'
-      - name: Publish source-only commit
+      - name: Publish verified source-only commit
         run: |
           set -Eeuo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git commit -m 'fix(tai): preserve semantic context across fallback paths'
+          ! git diff --name-only origin/main...HEAD | grep -E '^\.github/workflows/tai-semantic-(followup|repair)'
+          test -z "$(git status --porcelain)"
           git push origin HEAD:claude/tai-agro-os-v4-production-izow8x
