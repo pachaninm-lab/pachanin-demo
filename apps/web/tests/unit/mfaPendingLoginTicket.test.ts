@@ -34,7 +34,7 @@ describe('MFA pending login ticket', () => {
 
   it('rejects tampering, expiry and a different secret', () => {
     const sealed = sealMfaLoginTicket(pending, 1_000, env);
-    const tampered = `${sealed.slice(0, -1)}A`;
+    const tampered = `${sealed.slice(0, -1)}${sealed.endsWith('A') ? 'B' : 'A'}`;
 
     expect(openMfaLoginTicket(tampered, 1_001, env)).toBeNull();
     expect(openMfaLoginTicket(sealed, 1_000 + MFA_PENDING_TTL_SECONDS, env)).toBeNull();

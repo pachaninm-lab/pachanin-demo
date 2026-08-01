@@ -22,6 +22,14 @@ function key(env: NodeJS.ProcessEnv = process.env) {
   return createHash('sha256').update(secret, 'utf8').digest();
 }
 
+function decodeCanonicalBase64Url(value: string, expectedBytes?: number): Buffer | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+  const decoded = Buffer.from(value, 'base64url');
+  if (decoded.toString('base64url') !== value) return null;
+  if (expectedBytes !== undefined && decoded.length !== expectedBytes) return null;
+  return decoded;
+}
+
 export function sealMfaLoginTicket(
   input: Omit<MfaLoginTicket, 'v' | 'exp'>,
   nowSeconds = Math.floor(Date.now() / 1000),
@@ -50,10 +58,15 @@ export function openMfaLoginTicket(
   try {
     const [version, ivRaw, tagRaw, payloadRaw, extra] = String(value || '').split('.');
     if (version !== 'v1' || !ivRaw || !tagRaw || !payloadRaw || extra) return null;
-    const decipher = createDecipheriv('aes-256-gcm', key(env), Buffer.from(ivRaw, 'base64url'));
-    decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
+    if (payloadRaw.length > 4_096) return null;
+    const iv = decodeCanonicalBase64Url(ivRaw, 12);
+    const tag = decodeCanonicalBase64Url(tagRaw, 16);
+    const ciphertext = decodeCanonicalBase64Url(payloadRaw);
+    if (!iv || !tag || !ciphertext || ciphertext.length === 0) return null;
+    const decipher = createDecipheriv('aes-256-gcm', key(env), iv);
+    decipher.setAuthTag(tag);
     const payload = JSON.parse(Buffer.concat([
-      decipher.update(Buffer.from(payloadRaw, 'base64url')),
+      decipher.update(ciphertext),
       decipher.final(),
     ]).toString('utf8')) as Partial<MfaLoginTicket>;
 
