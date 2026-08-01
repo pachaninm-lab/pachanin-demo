@@ -142,8 +142,12 @@ export class PasswordResetService {
     };
   }
 
-  async confirm(tokenInput: string, newPassword: string, ip?: string) {
+  async confirm(tokenInput: string, newPassword: string, ip?: string, deliveryKey?: string) {
     assertPasswordPolicy(newPassword);
+    // Confirmation is a server-to-server delivery boundary: otherwise a caller
+    // holding a leaked reset URL could bypass the mandatory password-change
+    // notification by calling the API directly.
+    if (!deliveryAuthorized(deliveryKey)) throw this.invalidReset();
     const parsed = parsePasswordResetToken(tokenInput);
     if (!parsed) throw this.invalidReset();
 
@@ -178,7 +182,11 @@ export class PasswordResetService {
           reason: 'PASSWORD_REPLACED_SESSIONS_REVOKED',
           metadata: { ipHash, challengeIdHash: hashAuthMaterial(challenge.id) },
         });
-        return { success: true, sessionsRevoked: true };
+        return {
+          success: true,
+          sessionsRevoked: true,
+          notificationDelivery: { email: challenge.email },
+        };
       });
     } catch (error) {
       if (error instanceof BadRequestException) throw error;

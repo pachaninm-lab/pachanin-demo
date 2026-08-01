@@ -258,6 +258,29 @@
 .p0-register-status-list dt { color: #687a70; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
 .p0-register-status-list dd { margin: 0; color: #173526; font-weight: 700; overflow-wrap: anywhere; }
 .p0-register-correlation { font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 12px; }
+.p0-register-additional-form {
+  display: grid;
+  width: 100%;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #d9e6df;
+  border-radius: 14px;
+  background: #f5faf7;
+}
+.p0-register-additional-form label { display: grid; gap: 7px; color: #244737; font-weight: 800; }
+.p0-register-additional-form textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid #a9bdb4;
+  border-radius: 12px;
+  background: #fff;
+  color: #173526;
+  font: inherit;
+  font-weight: 500;
+  resize: vertical;
+}
+.p0-register-additional-form .p0-register-primary { justify-self: start; }
 .p0-register-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 @media (max-width: 680px) {
   .p0-register-page { padding-inline: 10px; }

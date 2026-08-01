@@ -50,7 +50,7 @@ describe('MFA pending login ticket', () => {
   });
 
   it('uses a short-lived HttpOnly strict cookie', () => {
-    const options = mfaPendingCookieOptions();
+    const options = mfaPendingCookieOptions(env);
     expect(options).toMatchObject({
       httpOnly: true,
       secure: true,

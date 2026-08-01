@@ -7,6 +7,7 @@ const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relat
 
 const page = read('apps/web/app/platform-v7/profile/team/page.tsx');
 const reader = read('apps/web/lib/organization-team-server.ts');
+const adminClient = read('apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
 const governance = JSON.parse(read('design-governance-v8.json'));
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
@@ -58,13 +59,13 @@ describe('platform-v7 profile team authority', () => {
     }
   });
 
-  it('states the administration boundary in RU EN and ZH', () => {
-    expect(page).toContain('Клиент не создаёт участников и не меняет права');
-    expect(page).toContain('The client cannot create members or change authority');
-    expect(page).toContain('客户端不能创建成员或更改权限');
-    expect(page).toContain('отзыв сессий должны выполняться отдельными серверными командами');
-    expect(page).toContain('revoking sessions require separate server commands');
-    expect(page).toContain('撤销会话必须通过具有 RBAC、MFA、幂等性和审计轨迹的独立服务器命令完成');
+  it('states and implements the administration boundary in RU EN and ZH', () => {
+    expect(page).toContain('URL и клиентское состояние не выдают полномочия');
+    expect(page).toContain('URLs and client state do not grant authority');
+    expect(page).toContain('URL 和客户端状态不会授予权限');
+    expect(adminClient).toContain("fetch('/api/auth/mfa-step-up/start'");
+    expect(adminClient).toContain("fetch('/api/auth/mfa-step-up/verify'");
+    expect(adminClient).toContain('idempotency-key');
   });
 
   it('runs on the minimal v8 runtime and remains governed', () => {

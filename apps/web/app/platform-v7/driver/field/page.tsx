@@ -1,4 +1,6 @@
 import { NextActionCard, StatusChip, Surface } from '@pc/design-system-v8';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { firstCustomerWorkspaceRequired } from '@/lib/first-customer-workspace-server';
 import { FieldTaskTemplate, KeyFact, KeyFactGrid } from '@/components/transaction-ux/FieldTaskTemplate';
 import workspace from '@/components/transaction-ux/FieldRoleWorkspace.module.css';
 import { RoleRouteHint } from '@/components/platform-v7/RoleRouteHint';
@@ -15,6 +17,10 @@ import { RouteMapStub } from '@/components/platform-v7/RouteMapStub';
 import { DriverCameraCapture } from '@/components/platform-v7/DriverCameraCapture';
 
 export default async function DriverFieldPage() {
+  if (firstCustomerWorkspaceRequired()) {
+    return <FirstCustomerWorkspace surface='driver' />;
+  }
+
   const mission = getPlatformV7DriverCockpitState();
   const shipments = await getShipments();
   const shipmentCount = activeShipmentCount(shipments);

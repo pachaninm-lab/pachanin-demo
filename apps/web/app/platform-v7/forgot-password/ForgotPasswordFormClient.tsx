@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { CheckCircle2, Mail } from 'lucide-react';
+import { applyCsrfHeader } from '@/lib/csrf';
 
 export type ForgotPasswordCopy = {
   error: string;
@@ -54,7 +55,7 @@ export function ForgotPasswordFormClient({ copy }: { copy: ForgotPasswordCopy })
       try {
         response = await fetch('/api/auth/forgot-password', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ email: normalizedEmail, locale: currentLocale() }),
           cache: 'no-store',
           credentials: 'same-origin',

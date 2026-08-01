@@ -41,7 +41,7 @@ describe('platform-v7 password recovery boundary', () => {
 
   it('keeps the token in the server page contract and out of client URL parsing', () => {
     expect(forgotPage).toContain('const tokenValue = Array.isArray(params.token)');
-    expect(forgotPage).toContain('<ResetPasswordFormClient token={token} copy={copy} />');
+    expect(forgotPage).toContain('<ResetPasswordFormClient token={token} copy={copy} locale={locale} />');
     expect(resetClient).not.toContain('useSearchParams');
     expect(resetClient).toContain("fetch('/api/auth/reset-password'");
     expect(resetClient).toContain("autoComplete='new-password'");

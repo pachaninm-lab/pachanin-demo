@@ -10,7 +10,11 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { RegistrationDecisionService } from '../auth/registration-decision.service';
+import { RegistrationDecisionDto } from '../auth/dto/registration-application.dto';
 import {
   ActivateBreakGlassDto,
   ConsumeCriticalActionDto,
@@ -54,11 +58,41 @@ export class StaffAccessController {
     private readonly audit: StaffAuditService,
     private readonly emergency: StaffEmergencyService,
     private readonly projection: StaffProjectionService,
+    private readonly registrationDecisions: RegistrationDecisionService,
   ) {}
 
   @Get('assignments/me')
   myAssignments(@Req() request: StaffRequest) {
     return this.access.listMyAssignments(request.user);
+  }
+
+  @Get('registration/applications')
+  @RateLimit({ name: 'staff_registration_application_list', scope: 'user', limit: 60, windowSeconds: 60 })
+  async registrationApplications(@Req() request: StaffRequest) {
+    await this.access.requirePermission(request.user, StaffPermission.REGISTRATION_REVIEW_READ);
+    return this.registrationDecisions.listPlatformReviewQueue(request.user);
+  }
+
+  @Post('registration/applications/:applicationId/decision')
+  @RateLimit({ name: 'staff_registration_application_decision', scope: 'user', limit: 20, windowSeconds: 900, includeParams: ['applicationId'] })
+  async registrationApplicationDecision(
+    @Req() request: StaffRequest,
+    @Param('applicationId') applicationId: string,
+    @Body() body: RegistrationDecisionDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
+    @Headers('x-registration-delivery-key') deliveryKey?: string,
+  ) {
+    await this.access.requirePermission(request.user, StaffPermission.REGISTRATION_REVIEW_DECIDE);
+    return this.registrationDecisions.decide(
+      applicationId,
+      body.decision,
+      body.reason,
+      request.user,
+      String(idempotencyKey || ''),
+      correlationId || randomUUID(),
+      deliveryKey,
+    );
   }
 
   @Get('assignments')

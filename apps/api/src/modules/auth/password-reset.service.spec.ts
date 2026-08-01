@@ -120,14 +120,19 @@ describe('PasswordResetService', () => {
       expires_at: new Date(Date.now() + 60_000),
       consumed_at: null,
       created_at: new Date(),
+      email: 'known@example.com',
     });
     repository.replacePassword.mockResolvedValue(true);
     repository.consumeChallenge.mockResolvedValue(true);
     const service = new PasswordResetService(repository as never);
 
-    const result = await service.confirm(issued.token, 'New-Secure-Password-2026', '203.0.113.5');
+    const result = await service.confirm(issued.token, 'New-Secure-Password-2026', '203.0.113.5', deliveryKey);
 
-    expect(result).toEqual({ success: true, sessionsRevoked: true });
+    expect(result).toEqual({
+      success: true,
+      sessionsRevoked: true,
+      notificationDelivery: { email: 'known@example.com' },
+    });
     expect(repository.replacePassword).toHaveBeenCalledWith(repository.tx, 'user-1', expect.any(String), expect.any(Date));
     expect(repository.consumeChallenge).toHaveBeenCalledWith(repository.tx, issued.id, expect.any(Date));
     expect(repository.revokeAllUserSessions).toHaveBeenCalledWith(repository.tx, 'user-1', 'PASSWORD_RESET');
@@ -146,8 +151,19 @@ describe('PasswordResetService', () => {
     });
     const service = new PasswordResetService(repository as never);
 
-    await expect(service.confirm(issued.token, 'New-Secure-Password-2026')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.confirm(issued.token, 'New-Secure-Password-2026', undefined, deliveryKey)).rejects.toBeInstanceOf(BadRequestException);
     expect(repository.replacePassword).not.toHaveBeenCalled();
     expect(repository.revokeAllUserSessions).not.toHaveBeenCalled();
+  });
+
+  it('does not consume a valid token outside the server notification boundary', async () => {
+    const repository = repositoryMock();
+    const issued = issuePasswordResetToken();
+    const service = new PasswordResetService(repository as never);
+
+    await expect(service.confirm(issued.token, 'New-Secure-Password-2026'))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.getChallengeForUpdate).not.toHaveBeenCalled();
+    expect(repository.replacePassword).not.toHaveBeenCalled();
   });
 });

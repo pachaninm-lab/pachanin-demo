@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+const repositoryRoot = process.cwd().endsWith(path.join('apps', 'web'))
+  ? path.resolve(process.cwd(), '..', '..')
+  : process.cwd();
+const read = (relativePath: string) => fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8');
 const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
 const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 const loginRoute = read('apps/web/app/api/auth/login/route.ts');
@@ -69,7 +72,7 @@ describe('platform-v7 server-authoritative login boundary', () => {
   });
 
   it('keeps password, MFA and one-time backup-code disclosure as separate UI states', () => {
-    expect(loginClient).toContain("type LoginStep = 'password' | 'mfa' | 'backup-codes'");
+    expect(loginClient).toContain("type LoginStep = 'password' | 'membership' | 'mfa' | 'backup-codes'");
     expect(loginClient).toContain("type MfaMethod = 'totp' | 'backup_code'");
     expect(loginClient).toContain("requestJson('/api/auth/mfa-login'");
     expect(loginClient).toContain("autoComplete={method === 'totp' ? 'one-time-code' : 'off'}");

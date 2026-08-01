@@ -72,20 +72,20 @@ export function openMfaLoginTicket(
   }
 }
 
-export function mfaPendingCookieOptions() {
+export function mfaPendingCookieOptions(env: NodeJS.ProcessEnv = process.env) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     sameSite: 'strict' as const,
     path: '/api/auth',
     maxAge: MFA_PENDING_TTL_SECONDS,
   };
 }
 
-export function clearMfaPendingCookieOptions() {
+export function clearMfaPendingCookieOptions(env: NodeJS.ProcessEnv = process.env) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     sameSite: 'strict' as const,
     path: '/api/auth',
     expires: new Date(0),

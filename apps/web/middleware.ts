@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE } from '@/i18n/locale';
-import { observeServerCabinetAccess, serverCabinetRbacMode } from '@/lib/platform-v7/server-cabinet-access';
-import { readVerifiedCabinetRole, readVerifiedCabinetSessionRole } from '@/lib/platform-v7/verified-session';
+import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
+import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
 import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
 
-// The verified-JWT role is the ONLY server-trusted identity for cabinet RBAC observation.
-// Prefer the dedicated platform-v7 cabinet session (pc_v7_cabinet, `cab` claim); fall back
-// to a real API JWT in pc_access_token (real-backend logins). Never path/pc-role/query.
+// The signed cabinet session is the only middleware role authority. The platform
+// layout additionally revalidates its user, tenant and membership through /auth/me.
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
-const ACCESS_TOKEN_COOKIE = 'pc_access_token';
+const CSRF_COOKIE = 'pc_csrf_token';
 
 const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
 const PUBLIC_PREFIX = [
@@ -51,7 +50,21 @@ const VALID_ROLES = new Set([
   'arbitrator',
   'compliance',
   'executive',
+  'organization',
 ]);
+
+const ORGANIZATION_CABINET_PREFIXES = [
+  '/platform-v7/profile',
+  '/platform-v7/onboarding',
+  '/platform-v7/status',
+  '/platform-v7/notifications',
+] as const;
+
+function isOrganizationCabinetPath(pathname: string): boolean {
+  return ORGANIZATION_CABINET_PREFIXES.some((prefix) => (
+    pathname === prefix || pathname.startsWith(`${prefix}/`)
+  ));
+}
 
 const VALID_LOCALES = new Set(['ru', 'en', 'zh']);
 const SESSION_COOKIE = 'pc_session_present';
@@ -68,9 +81,17 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
+  '/platform-v7/forgot-password',
+  '/platform-v7/invitation',
+  '/platform-v7/mfa-recovery',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
+  '/platform-v7/demo',
+  '/platform-v7/oferta',
+  '/platform-v7/privacy',
+  '/platform-v7/roles',
+  '/platform-v7/terms',
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
@@ -105,6 +126,10 @@ function isTokenAuthenticatedInternalPath(p: string): boolean {
 
 function isPlatformV7PublicPath(p: string): boolean {
   return PLATFORM_V7_PUBLIC_EXACT.has(p) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => p.startsWith(x));
+}
+
+function isPlatformV7StaffPath(p: string): boolean {
+  return p === '/platform-v7/staff' || p.startsWith('/platform-v7/staff/');
 }
 
 function isProtectedPath(p: string): boolean {
@@ -255,7 +280,19 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
   if (queryLocale) persistLocaleCookie(req, response, queryLocale);
+  ensureCsrfCookie(req, response);
   return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale), indexable);
+}
+
+function ensureCsrfCookie(req: NextRequest, response: NextResponse) {
+  if (req.cookies.get(CSRF_COOKIE)?.value) return;
+  response.cookies.set(CSRF_COOKIE, crypto.randomUUID().replaceAll('-', ''), {
+    httpOnly: false,
+    path: '/',
+    maxAge: 60 * 60 * 8,
+    sameSite: 'lax',
+    secure: req.nextUrl.protocol === 'https:' || process.env.NODE_ENV === 'production',
+  });
 }
 
 function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
@@ -310,6 +347,13 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(u, 308), true);
   }
 
+  if (p === '/platform-v7/open') {
+    const target = req.nextUrl.clone();
+    target.pathname = '/platform-v7/login';
+    target.search = '';
+    return applySecurityHeaders(NextResponse.redirect(target, 308), true);
+  }
+
   if (p === '/platform-v7r' || p.startsWith('/platform-v7r/')) {
     const u = req.nextUrl.clone();
     u.pathname = p.replace('/platform-v7r', '/platform-v7');
@@ -334,25 +378,49 @@ export async function middleware(req: NextRequest) {
   }
 
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
-  const resolvedRole = resolveRole(req, session?.role ?? null);
+  const presentationRole = resolveRole(req, session?.role ?? null);
 
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
-    const isIndexable = PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, isIndexable);
-    persistRoleCookie(req, response, resolvedRole);
-    if (isEntry) markPlatformV7Entry(response);
-    try {
-      if (serverCabinetRbacMode() === 'report') {
-        const secret = process.env.JWT_SECRET ?? '';
-        const nowSeconds = Math.floor(Date.now() / 1000);
-        const verifiedRole =
-          (await readVerifiedCabinetSessionRole(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds))
-          ?? (await readVerifiedCabinetRole(req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null, secret, nowSeconds));
-        observeServerCabinetAccess({ pathname: p, verifiedRole });
-      }
-    } catch {
+    const isIndexable = isEntry && PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
+    if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
+      const response = withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath, isIndexable);
+      persistRoleCookie(req, response, presentationRole);
+      if (isEntry) markPlatformV7Entry(response);
+      return response;
     }
+
+    // Protected platform-v7 routes must stay inside the app shell and can only
+    // inherit a role from a verified HttpOnly cabinet session.
+    const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+    const context = secret
+      ? await readVerifiedCabinetSessionContext(
+        req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null,
+        secret,
+        Math.floor(Date.now() / 1000),
+      )
+      : null;
+    if (context?.role === 'organization') {
+      if (!isOrganizationCabinetPath(p)) {
+        const target = req.nextUrl.clone();
+        target.pathname = '/platform-v7/profile';
+        target.search = '';
+        return applySecurityHeaders(NextResponse.redirect(target), true);
+      }
+      const response = withRoleHeaders(req, context.role, true, false);
+      persistRoleCookie(req, response, context.role);
+      return response;
+    }
+    const access = observeServerCabinetAccess({ pathname: p, verifiedRole: context?.role ?? null });
+    if (access.status === 'denied') {
+      const target = req.nextUrl.clone();
+      target.pathname = access.redirectTo || '/platform-v7/login';
+      target.search = '';
+      if (!context) target.searchParams.set('next', `${p}${req.nextUrl.search}`);
+      return applySecurityHeaders(NextResponse.redirect(target), true);
+    }
+    const response = withRoleHeaders(req, context!.role, true, false);
+    persistRoleCookie(req, response, context!.role);
     return response;
   }
 
@@ -364,8 +432,8 @@ export async function middleware(req: NextRequest) {
     || isTokenAuthenticatedInternalPath(p)
   ) {
     const isIndexable = p === '/' && !privateModeEnabled;
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, isIndexable);
-    persistRoleCookie(req, response, resolvedRole);
+    const response = withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath, isIndexable);
+    persistRoleCookie(req, response, presentationRole);
     return response;
   }
 
@@ -378,7 +446,7 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(u), privateModeEnabled);
   }
 
-  return withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+  return withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath);
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };

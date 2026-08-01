@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { applyCsrfHeader } from '@/lib/csrf';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -18,7 +19,7 @@ export function LoginForm() {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email: email.trim(), password }),
       });
       if (!response.ok) {

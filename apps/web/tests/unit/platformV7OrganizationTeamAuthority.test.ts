@@ -9,6 +9,7 @@ const page = read('apps/web/app/platform-v7/profile/team/page.tsx');
 const reader = read('apps/web/lib/organization-team-server.ts');
 const apiController = read('apps/api/src/modules/auth/auth.controller.ts');
 const apiService = read('apps/api/src/modules/auth/organization-team.service.ts');
+const adminClient = read('apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
 const governance = JSON.parse(read('design-governance-v8.json'));
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
@@ -57,16 +58,19 @@ describe('platform-v7 organization team authority', () => {
       'setTimeout',
       'Приглашение отправлено',
     ]) expect(page).not.toContain(forbidden);
-    expect(page).toContain('нет фиктивных приглашений');
-    expect(page).toContain('no fake invitations');
-    expect(page).toContain('没有虚假邀请');
+    expect(page).toContain('без фиктивных приглашений');
+    expect(page).toContain('without fake invitations');
+    expect(page).toContain('不使用虚假邀请');
   });
 
-  it('keeps mutations outside the read screen until audited commands exist', () => {
-    expect(page).toContain('RBAC, MFA, идемпотентностью и audit trail');
-    expect(page).toContain('RBAC, MFA, idempotency and an audit trail');
-    expect(page).toContain('RBAC、MFA、幂等性和审计轨迹');
-    expect(page).toContain('read-only');
+  it('mounts the audited administration surface only for a confirmed organization administrator', () => {
+    expect(page).toContain('team.isOrganizationAdmin');
+    expect(page).toContain('OrganizationTeamAdminClient');
+    expect(page).toContain('tenant-проверкой, свежей MFA, optimistic concurrency и audit trail');
+    expect(page).toContain('tenant-scoped server commands with fresh MFA, optimistic concurrency and an audit trail');
+    expect(page).toContain('tenant 范围的服务器命令执行，并要求最新 MFA、乐观并发和审计');
+    expect(adminClient).toContain('applyCsrfHeader');
+    expect(adminClient).toContain("fetch('/api/auth/organization-invitations'");
   });
 
   it('remains registered in the minimal v8 runtime and governance', () => {

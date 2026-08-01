@@ -9,6 +9,7 @@ import * as bcrypt from 'bcryptjs';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { Role } from '../../common/types/request-user';
 import { AuthPrismaService } from './auth-prisma.service';
+import { CURRENT_CONSENT_EVIDENCE, isCurrentConsent } from './consent-policy';
 import { hashAuthMaterial, hashClientValue, sha256, stableJson } from './auth-crypto';
 import { type PublicWorkspaceClass, RegisterDto } from './dto/register.dto';
 import { PersistentAuthRepository, type AuthSqlClient } from './persistent-auth.repository';
@@ -58,10 +59,17 @@ type EmailChallengeRow = {
   idempotency_key: string;
   organization_id: string;
   membership_id: string;
+  application_kind: 'NEW_ORGANIZATION' | 'JOIN_EXISTING_ORGANIZATION';
+  requested_workspace: string;
+  applicant_email: string;
+  applicant_name: string;
 };
 
 type ApplicationStatusRow = {
   id: string;
+  user_id: string;
+  membership_id: string;
+  organization_id: string;
   status: string;
   correlation_id: string;
   submitted_at: Date;
@@ -69,6 +77,23 @@ type ApplicationStatusRow = {
   expires_at: Date;
   decision_reason: string | null;
   version: bigint;
+};
+
+type PreviousApplicationRow = {
+  id: string;
+  kind: 'NEW_ORGANIZATION' | 'JOIN_EXISTING_ORGANIZATION';
+  user_id: string;
+  membership_id: string;
+  organization_id: string;
+  tenant_id: string;
+  inn: string;
+  status: string;
+  version: bigint;
+  expires_at: Date;
+  user_status: string;
+  user_deleted_at: Date | null;
+  membership_status: string;
+  organization_status: string;
 };
 
 function safeSecretEqual(leftValue: string, rightValue: string): boolean {
@@ -145,7 +170,14 @@ export class RegistrationApplicationService {
       workspace: dto.workspace,
       termsVersion: dto.termsVersion.trim(),
       privacyVersion: dto.privacyVersion.trim(),
+      // The plaintext password never enters request/audit metadata. Its keyed
+      // fingerprint does, so an idempotency key cannot silently accept a retry
+      // that asks to install a different credential.
+      passwordFingerprint: hashAuthMaterial(`registration-password:${dto.password}`),
     };
+    if (!isCurrentConsent(normalized.termsVersion, normalized.privacyVersion)) {
+      throw new BadRequestException({ code: 'CONSENT_VERSION_NOT_CURRENT' });
+    }
     const requestHash = hashAuthMaterial(stableJson(normalized));
 
     const existing = await this.findByIdempotency(idempotencyKey);
@@ -183,11 +215,56 @@ export class RegistrationApplicationService {
         return { existing: concurrent } as const;
       }
 
-      const existingUser = await tx.user.findUnique({
-        where: { email: normalized.email },
-        select: { id: true },
-      });
+      let effectiveUserId = userId;
+      let effectiveMembershipId = membershipId;
+      let reusableApplication: PreviousApplicationRow | null = null;
+      const existingUser = await tx.user.findUnique({ where: { email: normalized.email }, select: { id: true } });
       if (existingUser) {
+        const priorRows = await tx.$queryRaw<PreviousApplicationRow[]>(Prisma.sql`
+          SELECT
+            application.id,
+            application.kind,
+            application.user_id,
+            application.membership_id,
+            application.organization_id,
+            organization."tenantId" AS tenant_id,
+            application.inn,
+            application.status,
+            application.version,
+            application.expires_at,
+            subject.status AS user_status,
+            subject."deletedAt" AS user_deleted_at,
+            membership.status AS membership_status,
+            organization.status AS organization_status
+          FROM auth.registration_applications application
+          JOIN public.users subject ON subject.id = application.user_id
+          JOIN public.user_orgs membership ON membership.id = application.membership_id
+          JOIN public.organizations organization ON organization.id = application.organization_id
+          WHERE application.user_id = ${existingUser.id}
+          ORDER BY application.created_at DESC, application.id DESC
+          LIMIT 1
+          FOR UPDATE OF application, subject, membership, organization
+        `);
+        const prior = priorRows[0] ?? null;
+        if (prior && prior.expires_at <= now && !TERMINAL_STATUSES.has(prior.status)) {
+          prior.version = await this.expireApplication(tx, prior, context.correlationId);
+          prior.status = 'EXPIRED';
+        }
+        if (
+          prior
+          && ['EXPIRED', 'CANCELLED'].includes(prior.status)
+          && prior.inn === normalized.orgInn
+          && prior.user_deleted_at === null
+          && ['PENDING_EMAIL_VERIFICATION', 'PENDING_APPROVAL'].includes(prior.user_status)
+          && prior.membership_status === 'PENDING'
+          && ['PENDING', 'VERIFIED'].includes(prior.organization_status)
+        ) {
+          reusableApplication = prior;
+          effectiveUserId = prior.user_id;
+          effectiveMembershipId = prior.membership_id;
+        }
+      }
+      if (existingUser && !reusableApplication) {
         const suppressed = {
           id: null,
           request_hash: requestHash,
@@ -213,15 +290,21 @@ export class RegistrationApplicationService {
         return { existing: suppressed } as const;
       }
 
-      const existingOrganization = await tx.organization.findUnique({
-        where: { inn: normalized.orgInn },
-        select: { id: true, tenantId: true },
-      });
-      const kind = existingOrganization ? 'JOIN_EXISTING_ORGANIZATION' : 'NEW_ORGANIZATION';
-      const organizationId = existingOrganization?.id ?? `org_${randomUUID()}`;
-      const tenantId = existingOrganization?.tenantId ?? `tenant_${randomUUID()}`;
-
-      if (!existingOrganization) {
+      const existingOrganization = reusableApplication
+        ? null
+        : await tx.organization.findUnique({
+            where: { inn: normalized.orgInn },
+            select: { id: true, tenantId: true },
+          });
+      const kind = reusableApplication?.kind
+        ?? (existingOrganization ? 'JOIN_EXISTING_ORGANIZATION' : 'NEW_ORGANIZATION');
+      const organizationId = reusableApplication?.organization_id
+        ?? existingOrganization?.id
+        ?? `org_${randomUUID()}`;
+      const tenantId = reusableApplication?.tenant_id
+        ?? existingOrganization?.tenantId
+        ?? `tenant_${randomUUID()}`;
+      if (!existingOrganization && !reusableApplication) {
         await tx.organization.create({
           data: {
             id: organizationId,
@@ -242,33 +325,82 @@ export class RegistrationApplicationService {
         `);
       }
 
-      await tx.user.create({
-        data: {
-          id: userId,
-          email: normalized.email,
-          phone: normalized.phone,
-          passwordHash,
-          fullName: normalized.fullName,
-          status: 'PENDING_EMAIL_VERIFICATION',
-        },
-      });
-      await tx.userOrg.create({
-        data: {
-          id: membershipId,
-          userId,
-          organizationId,
-          role: Role.GUEST,
-          status: 'PENDING',
-          requestedWorkspace: normalized.workspace,
-          isDefault: true,
-        },
-      });
+      if (reusableApplication) {
+        await tx.user.update({
+          where: { id: effectiveUserId },
+          data: {
+            phone: normalized.phone,
+            passwordHash,
+            fullName: normalized.fullName,
+            status: 'PENDING_EMAIL_VERIFICATION',
+          },
+        });
+        await tx.userOrg.update({
+          where: { id: effectiveMembershipId },
+          data: {
+            role: Role.GUEST,
+            status: 'PENDING',
+            requestedWorkspace: normalized.workspace,
+            isDefault: true,
+            version: { increment: 1 },
+          },
+        });
+        if (kind === 'NEW_ORGANIZATION') {
+          await tx.$executeRaw(Prisma.sql`
+            UPDATE public.organizations
+            SET name = ${normalized.orgLegalName},
+                type = ${normalized.orgType},
+                ogrn = ${normalized.orgOgrn},
+                kpp = ${normalized.orgKpp},
+                region = ${normalized.region},
+                version = version + 1,
+                "updatedAt" = NOW()
+            WHERE id = ${organizationId} AND status = 'PENDING'
+          `);
+        }
+        await this.authRepository.revokeAllUserSessions(tx, effectiveUserId, 'REGISTRATION_RESTARTED');
+      } else {
+        await tx.user.create({
+          data: {
+            id: effectiveUserId,
+            email: normalized.email,
+            phone: normalized.phone,
+            passwordHash,
+            fullName: normalized.fullName,
+            status: 'PENDING_EMAIL_VERIFICATION',
+          },
+        });
+        await tx.userOrg.create({
+          data: {
+            id: effectiveMembershipId,
+            userId: effectiveUserId,
+            organizationId,
+            role: Role.GUEST,
+            status: 'PENDING',
+            requestedWorkspace: normalized.workspace,
+            isDefault: true,
+          },
+        });
+      }
       await this.authRepository.ensureCredentialState(
         tx,
-        userId,
+        effectiveUserId,
         `${normalized.termsVersion}|${normalized.privacyVersion}`,
         now,
       );
+      if (reusableApplication) {
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE auth.credential_states
+          SET credential_version = credential_version + 1,
+              password_changed_at = ${now},
+              failed_login_count = 0,
+              locked_until = NULL,
+              consent_version = ${`${normalized.termsVersion}|${normalized.privacyVersion}`},
+              consent_at = ${now},
+              updated_at = NOW()
+          WHERE user_id = ${effectiveUserId}
+        `);
+      }
 
       await tx.$executeRaw(Prisma.sql`
         INSERT INTO auth.registration_applications (
@@ -277,16 +409,19 @@ export class RegistrationApplicationService {
           correlation_id, idempotency_key, request_hash,
           legal_name, inn, kpp, ogrn, region, applicant_position,
           email, phone, terms_version, privacy_version,
+          terms_content_hash, privacy_content_hash,
           terms_accepted_at, privacy_accepted_at,
           consent_ip_hash, consent_user_agent_hash,
           status_token_hash, expires_at
         ) VALUES (
-          ${applicationId}, ${kind}, ${userId}, ${organizationId}, ${membershipId},
+          ${applicationId}, ${kind}, ${effectiveUserId}, ${organizationId}, ${effectiveMembershipId},
           ${normalized.workspace}, ${requestedRole}, 'EMAIL_VERIFICATION_REQUIRED',
           ${context.correlationId}, ${idempotencyKey}, ${requestHash},
           ${normalized.orgLegalName}, ${normalized.orgInn}, ${normalized.orgKpp}, ${normalized.orgOgrn},
           ${normalized.region}, ${normalized.position}, ${normalized.email}, ${normalized.phone},
-          ${normalized.termsVersion}, ${normalized.privacyVersion}, ${now}, ${now},
+          ${normalized.termsVersion}, ${normalized.privacyVersion},
+          ${CURRENT_CONSENT_EVIDENCE.terms.contentHash}, ${CURRENT_CONSENT_EVIDENCE.privacy.contentHash},
+          ${now}, ${now},
           ${hashClientValue(context.ip)}, ${hashClientValue(context.userAgent)},
           ${statusTokenHash}, ${applicationExpiresAt}
         )
@@ -295,7 +430,7 @@ export class RegistrationApplicationService {
         INSERT INTO auth.registration_email_challenges (
           id, application_id, user_id, token_hash, expires_at
         ) VALUES (
-          ${emailToken.id}, ${applicationId}, ${userId}, ${emailToken.hash}, ${emailExpiresAt}
+          ${emailToken.id}, ${applicationId}, ${effectiveUserId}, ${emailToken.hash}, ${emailExpiresAt}
         )
       `);
       await tx.$executeRaw(Prisma.sql`
@@ -308,7 +443,7 @@ export class RegistrationApplicationService {
       `);
       await this.insertEvent(tx, {
         applicationId,
-        actorUserId: userId,
+        actorUserId: effectiveUserId,
         actorKind: 'APPLICANT',
         previousStatus: null,
         newStatus: 'EMAIL_VERIFICATION_REQUIRED',
@@ -316,17 +451,22 @@ export class RegistrationApplicationService {
         correlationId: context.correlationId,
         idempotencyKey: `submit:${idempotencyKey}`,
         applicationVersion: 0n,
-        metadata: { workspace: normalized.workspace, requestedRole },
+        metadata: {
+          workspace: normalized.workspace,
+          requestedRole,
+          restarted: Boolean(reusableApplication),
+          consent: CURRENT_CONSENT_EVIDENCE,
+        },
       });
       await this.audit(tx, {
-        userId,
-        membershipId,
+        userId: effectiveUserId,
+        membershipId: effectiveMembershipId,
         organizationId,
         tenantId,
         action: 'auth.registration.submit',
         outcome: 'SUCCESS',
         reason: 'PUBLIC_REQUEST_ACCEPTED',
-        metadata: { applicationId, correlationId: context.correlationId },
+        metadata: { applicationId, correlationId: context.correlationId, consent: CURRENT_CONSENT_EVIDENCE },
       });
 
       return {
@@ -347,7 +487,7 @@ export class RegistrationApplicationService {
     return this.submissionResponse(result.existing, result.emailDelivery);
   }
 
-  async verifyEmail(tokenInput: string, correlationId: string) {
+  async verifyEmail(tokenInput: string, correlationId: string, deliveryKey?: string) {
     const parsed = parseRegistrationEmailToken(tokenInput);
     if (!parsed) throw new BadRequestException({ code: 'REGISTRATION_EMAIL_TOKEN_INVALID' });
     const now = new Date();
@@ -365,10 +505,15 @@ export class RegistrationApplicationService {
           application.version AS application_version,
           application.idempotency_key,
           application.organization_id,
-          application.membership_id
+          application.membership_id,
+          application.kind AS application_kind,
+          application.requested_workspace,
+          application.email AS applicant_email,
+          applicant."fullName" AS applicant_name
         FROM auth.registration_email_challenges challenge
         JOIN auth.registration_applications application
           ON application.id = challenge.application_id
+        JOIN public.users applicant ON applicant.id = challenge.user_id
         WHERE challenge.id = ${parsed.id}
         FOR UPDATE OF challenge, application
       `);
@@ -387,12 +532,15 @@ export class RegistrationApplicationService {
       }
 
       const nextVersion = challenge.application_version + 1n;
-      await tx.$executeRaw(Prisma.sql`
+      const challengeUpdated = await tx.$executeRaw(Prisma.sql`
         UPDATE auth.registration_email_challenges
         SET status = 'CONSUMED', consumed_at = ${now}, updated_at = NOW()
         WHERE id = ${challenge.id} AND status = 'PENDING'
       `);
-      await tx.$executeRaw(Prisma.sql`
+      if (challengeUpdated !== 1) {
+        throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
+      }
+      const applicationUpdated = await tx.$executeRaw(Prisma.sql`
         UPDATE auth.registration_applications
         SET status = 'ORGANIZATION_VERIFICATION_PENDING',
             email_verified_at = ${now},
@@ -402,6 +550,9 @@ export class RegistrationApplicationService {
           AND status = 'EMAIL_VERIFICATION_REQUIRED'
           AND version = ${challenge.application_version}
       `);
+      if (applicationUpdated !== 1) {
+        throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
+      }
       await tx.$executeRaw(Prisma.sql`
         UPDATE public.users
         SET status = 'PENDING_APPROVAL', "updatedAt" = NOW()
@@ -428,15 +579,140 @@ export class RegistrationApplicationService {
         metadata: { applicationId: challenge.application_id, correlationId },
       });
 
+      const joinNotificationDelivery = challenge.application_kind === 'JOIN_EXISTING_ORGANIZATION'
+        && deliveryAuthorized(deliveryKey)
+        ? {
+            recipients: (await tx.userOrg.findMany({
+              where: {
+                organizationId: challenge.organization_id,
+                status: 'ACTIVE',
+                isOrgAdmin: true,
+                user: { status: 'ACTIVE', deletedAt: null },
+              },
+              select: { user: { select: { email: true } } },
+              take: 20,
+            })).map(({ user }) => user.email),
+            applicantName: challenge.applicant_name,
+            applicantEmail: challenge.applicant_email,
+            requestedWorkspace: challenge.requested_workspace,
+          }
+        : undefined;
+
       return {
         ok: true,
         applicationId: challenge.application_id,
         status: 'ORGANIZATION_VERIFICATION_PENDING',
         nextAction: nextAction('ORGANIZATION_VERIFICATION_PENDING'),
         statusToken: deriveRegistrationStatusToken(challenge.application_id, challenge.idempotency_key),
+        joinNotificationDelivery,
         correlationId,
       };
     });
+  }
+
+  async resendEmail(emailInput: string, correlationId: string, deliveryKey?: string) {
+    const email = String(emailInput || '').trim().toLowerCase();
+    const emailToken = issueRegistrationEmailToken();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + REGISTRATION_EMAIL_TTL_MS);
+    const result = await this.prisma.$transaction(async (tx) => {
+      await this.lockRegistrationKeys(tx, [`registration-email:${email}`]);
+      const applications = await tx.$queryRaw<Array<{
+        id: string;
+        user_id: string;
+        membership_id: string;
+        organization_id: string;
+        version: bigint;
+        latest_challenge_at: Date | null;
+      }>>(Prisma.sql`
+        SELECT
+          application.id,
+          application.user_id,
+          application.membership_id,
+          application.organization_id,
+          application.version,
+          challenge.created_at AS latest_challenge_at
+        FROM auth.registration_applications application
+        LEFT JOIN LATERAL (
+          SELECT created_at
+          FROM auth.registration_email_challenges
+          WHERE application_id = application.id
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1
+        ) challenge ON TRUE
+        WHERE application.email = ${email}
+          AND application.status = 'EMAIL_VERIFICATION_REQUIRED'
+          AND application.expires_at > NOW()
+        ORDER BY application.created_at DESC
+        LIMIT 1
+        FOR UPDATE OF application
+      `);
+      const application = applications[0];
+      if (!application) {
+        await this.audit(tx, {
+          action: 'auth.registration.email_resend',
+          outcome: 'SUCCESS',
+          reason: 'PUBLIC_REQUEST_ACCEPTED',
+          metadata: { correlationId, accountHash: hashAuthMaterial(`account:${email}`) },
+        });
+        return { deliver: false as const };
+      }
+      if (application.latest_challenge_at && now.getTime() - application.latest_challenge_at.getTime() < 60_000) {
+        return { deliver: false as const };
+      }
+
+      await tx.$executeRaw(Prisma.sql`
+        UPDATE auth.registration_email_challenges
+        SET status = 'REVOKED', updated_at = NOW()
+        WHERE application_id = ${application.id} AND status = 'PENDING'
+      `);
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO auth.registration_email_challenges (
+          id, application_id, user_id, token_hash, expires_at
+        ) VALUES (
+          ${emailToken.id}, ${application.id}, ${application.user_id}, ${emailToken.hash}, ${expiresAt}
+        )
+      `);
+      const nextVersion = application.version + 1n;
+      const updated = await tx.$executeRaw(Prisma.sql`
+        UPDATE auth.registration_applications
+        SET version = ${nextVersion}, updated_at = NOW()
+        WHERE id = ${application.id}
+          AND status = 'EMAIL_VERIFICATION_REQUIRED'
+          AND version = ${application.version}
+      `);
+      if (updated !== 1) throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
+      await this.insertEvent(tx, {
+        applicationId: application.id,
+        actorUserId: application.user_id,
+        actorKind: 'APPLICANT',
+        previousStatus: 'EMAIL_VERIFICATION_REQUIRED',
+        newStatus: 'EMAIL_VERIFICATION_REQUIRED',
+        reason: 'EMAIL_VERIFICATION_RESENT',
+        correlationId,
+        idempotencyKey: `email-resend:${emailToken.id}`,
+        applicationVersion: nextVersion,
+      });
+      await this.audit(tx, {
+        userId: application.user_id,
+        membershipId: application.membership_id,
+        organizationId: application.organization_id,
+        action: 'auth.registration.email_resend',
+        outcome: 'SUCCESS',
+        reason: 'EMAIL_VERIFICATION_RESENT',
+        metadata: { applicationId: application.id, correlationId },
+      });
+      return { deliver: true as const };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
+
+    return {
+      accepted: true,
+      cooldownSeconds: 60,
+      correlationId,
+      emailDelivery: result.deliver && deliveryAuthorized(deliveryKey)
+        ? { email, token: emailToken.token, expiresInSeconds: Math.floor(REGISTRATION_EMAIL_TTL_MS / 1000) }
+        : undefined,
+    };
   }
 
   async status(statusToken: string) {
@@ -445,32 +721,114 @@ export class RegistrationApplicationService {
       throw new NotFoundException({ code: 'REGISTRATION_APPLICATION_NOT_FOUND' });
     }
     const tokenHash = hashRegistrationStatusToken(normalizedToken);
-    const rows = await this.prisma.$queryRaw<ApplicationStatusRow[]>(Prisma.sql`
-      SELECT
-        id, status, correlation_id,
-        submitted_at, updated_at, expires_at, decision_reason, version
-      FROM auth.registration_applications
-      WHERE status_token_hash = ${tokenHash}
-      LIMIT 1
-    `);
-    const application = rows[0];
-    if (!application) throw new NotFoundException({ code: 'REGISTRATION_APPLICATION_NOT_FOUND' });
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<ApplicationStatusRow[]>(Prisma.sql`
+        SELECT
+          id, user_id, membership_id, organization_id, status, correlation_id,
+          submitted_at, updated_at, expires_at, decision_reason, version
+        FROM auth.registration_applications
+        WHERE status_token_hash = ${tokenHash}
+        LIMIT 1
+        FOR UPDATE
+      `);
+      const application = rows[0];
+      if (!application) throw new NotFoundException({ code: 'REGISTRATION_APPLICATION_NOT_FOUND' });
 
-    const effectiveStatus = application.expires_at <= new Date() && !TERMINAL_STATUSES.has(application.status)
-      ? 'EXPIRED'
-      : application.status;
-    return {
-      applicationId: application.id,
-      status: effectiveStatus,
-      nextAction: nextAction(effectiveStatus),
-      submittedAt: application.submitted_at.toISOString(),
-      updatedAt: application.updated_at.toISOString(),
-      reason: ['REJECTED', 'SUSPENDED', 'ADDITIONAL_INFORMATION_REQUIRED'].includes(effectiveStatus)
-        ? application.decision_reason
-        : null,
-      version: application.version.toString(),
-      correlationId: application.correlation_id,
-    };
+      if (application.expires_at <= new Date() && !TERMINAL_STATUSES.has(application.status)) {
+        application.version = await this.expireApplication(tx, application, application.correlation_id);
+        application.status = 'EXPIRED';
+        application.updated_at = new Date();
+      }
+      return {
+        applicationId: application.id,
+        status: application.status,
+        nextAction: nextAction(application.status),
+        submittedAt: application.submitted_at.toISOString(),
+        updatedAt: application.updated_at.toISOString(),
+        reason: ['REJECTED', 'SUSPENDED', 'ADDITIONAL_INFORMATION_REQUIRED'].includes(application.status)
+          ? application.decision_reason
+          : null,
+        version: application.version.toString(),
+        correlationId: application.correlation_id,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
+  }
+
+  async provideAdditionalInformation(statusTokenInput: string, responseInput: string, correlationId: string) {
+    const statusToken = String(statusTokenInput || '').trim();
+    const response = String(responseInput || '').trim();
+    if (!statusToken.startsWith('rst_reg_') || statusToken.length > 512 || response.length < 8 || response.length > 4000) {
+      throw new BadRequestException({ code: 'REGISTRATION_INFORMATION_INVALID' });
+    }
+    const tokenHash = hashRegistrationStatusToken(statusToken);
+
+    return this.prisma.$transaction(async (tx) => {
+      const applications = await tx.$queryRaw<Array<{
+        id: string;
+        user_id: string;
+        membership_id: string;
+        organization_id: string;
+        status: string;
+        version: bigint;
+        expires_at: Date;
+      }>>(Prisma.sql`
+        SELECT id, user_id, membership_id, organization_id, status, version, expires_at
+        FROM auth.registration_applications
+        WHERE status_token_hash = ${tokenHash}
+        FOR UPDATE
+      `);
+      const application = applications[0];
+      if (
+        !application
+        || application.status !== 'ADDITIONAL_INFORMATION_REQUIRED'
+        || application.expires_at <= new Date()
+      ) {
+        throw new BadRequestException({ code: 'REGISTRATION_INFORMATION_INVALID' });
+      }
+
+      const nextVersion = application.version + 1n;
+      const updated = await tx.$executeRaw(Prisma.sql`
+        UPDATE auth.registration_applications
+        SET status = 'ORGANIZATION_VERIFICATION_PENDING',
+            version = ${nextVersion},
+            updated_at = NOW()
+        WHERE id = ${application.id}
+          AND status = 'ADDITIONAL_INFORMATION_REQUIRED'
+          AND version = ${application.version}
+      `);
+      if (updated !== 1) throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
+
+      await this.insertEvent(tx, {
+        applicationId: application.id,
+        actorUserId: application.user_id,
+        actorKind: 'APPLICANT',
+        previousStatus: 'ADDITIONAL_INFORMATION_REQUIRED',
+        newStatus: 'ORGANIZATION_VERIFICATION_PENDING',
+        reason: 'APPLICANT_INFORMATION_PROVIDED',
+        correlationId,
+        idempotencyKey: `additional-information:${application.id}:${nextVersion}`,
+        applicationVersion: nextVersion,
+        metadata: { response },
+      });
+      await this.audit(tx, {
+        userId: application.user_id,
+        membershipId: application.membership_id,
+        organizationId: application.organization_id,
+        action: 'auth.registration.additional_information',
+        outcome: 'SUCCESS',
+        reason: 'APPLICANT_INFORMATION_PROVIDED',
+        metadata: { applicationId: application.id, correlationId, responseHash: sha256(response) },
+      });
+
+      return {
+        ok: true,
+        applicationId: application.id,
+        status: 'ORGANIZATION_VERIFICATION_PENDING',
+        nextAction: nextAction('ORGANIZATION_VERIFICATION_PENDING'),
+        version: nextVersion.toString(),
+        correlationId,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
   }
 
 
@@ -483,6 +841,51 @@ export class RegistrationApplicationService {
         ) AS registration_lock
       `);
     }
+  }
+
+  private async expireApplication(
+    tx: AuthSqlClient,
+    application: Pick<PreviousApplicationRow, 'id' | 'user_id' | 'membership_id' | 'organization_id' | 'status' | 'version'>,
+    correlationId: string,
+  ): Promise<bigint> {
+    if (TERMINAL_STATUSES.has(application.status)) return application.version;
+    const nextVersion = application.version + 1n;
+    const updated = await tx.$executeRaw(Prisma.sql`
+      UPDATE auth.registration_applications
+      SET status = 'EXPIRED',
+          version = ${nextVersion},
+          updated_at = NOW()
+      WHERE id = ${application.id}
+        AND status = ${application.status}
+        AND version = ${application.version}
+        AND expires_at <= NOW()
+    `);
+    if (updated !== 1) throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE auth.registration_email_challenges
+      SET status = 'EXPIRED', updated_at = NOW()
+      WHERE application_id = ${application.id} AND status = 'PENDING'
+    `);
+    await this.insertEvent(tx, {
+      applicationId: application.id,
+      actorKind: 'SYSTEM',
+      previousStatus: application.status,
+      newStatus: 'EXPIRED',
+      reason: 'APPLICATION_TTL_EXPIRED',
+      correlationId,
+      idempotencyKey: `expired:${application.id}:${nextVersion}`,
+      applicationVersion: nextVersion,
+    });
+    await this.audit(tx, {
+      userId: application.user_id,
+      membershipId: application.membership_id,
+      organizationId: application.organization_id,
+      action: 'auth.registration.expired',
+      outcome: 'SUCCESS',
+      reason: 'APPLICATION_TTL_EXPIRED',
+      metadata: { applicationId: application.id, correlationId },
+    });
+    return nextVersion;
   }
 
   private async findByIdempotency(
@@ -571,7 +974,7 @@ export class RegistrationApplicationService {
     },
   ) {
     const id = `auth_evt_${randomUUID()}`;
-    const prevHash = await this.authRepository.latestAuditHash(tx, input.userId, input.organizationId);
+    const prevHash = await this.authRepository.latestAuditHash(tx, input.userId);
     const hash = sha256(stableJson({ id, ...input, prevHash }));
     await this.authRepository.insertAudit(tx, {
       id,

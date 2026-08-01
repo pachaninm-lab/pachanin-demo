@@ -19,6 +19,18 @@ describe('persistent auth policy', () => {
     expect(authSource).not.toContain('seedCompatibilityUsers');
   });
 
+  it('re-reads and locks the password authority inside the login transaction', () => {
+    expect(authSource).toContain('findIdentityByEmail(tx, email, true)');
+    expect(authSource).not.toContain('findIdentityByEmail(this.repository.prisma, email)');
+  });
+
+  it('keeps admission and membership state out of the public login error while retaining an audit reason', () => {
+    expect(authSource).toContain("const reason = this.identityInvalidReason(identity) ?? 'NO_ACTIVE_MEMBERSHIP'");
+    expect(authSource).toContain("outcome: 'DENIED'");
+    expect(authSource).toContain("if (result.kind === 'invalid') throw new UnauthorizedException('Invalid credentials')");
+    expect(authSource).not.toContain('throw new ForbiddenException(reason)');
+  });
+
   it.each([
     Role.ADMIN,
     Role.COMPLIANCE_OFFICER,

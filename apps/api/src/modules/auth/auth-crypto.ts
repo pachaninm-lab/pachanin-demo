@@ -57,7 +57,9 @@ export function hashClientValue(value?: string | null): string | null {
   return normalized ? hashAuthMaterial(normalized) : null;
 }
 
-export function makeOpaqueToken(prefix: 'rt' | 'mc'): {
+type OpaqueTokenPrefix = 'rt' | 'mc' | 'iv' | 'ms' | 'mr';
+
+export function makeOpaqueToken(prefix: OpaqueTokenPrefix): {
   id: string;
   secret: string;
   token: string;
@@ -69,7 +71,7 @@ export function makeOpaqueToken(prefix: 'rt' | 'mc'): {
   return { id, secret, token, hash: hashAuthMaterial(token) };
 }
 
-export function parseOpaqueToken(token: string, prefix: 'rt' | 'mc'): {
+export function parseOpaqueToken(token: string, prefix: OpaqueTokenPrefix): {
   id: string;
   hash: string;
 } | null {

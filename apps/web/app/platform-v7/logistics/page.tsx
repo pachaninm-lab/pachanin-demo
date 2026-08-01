@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { firstCustomerWorkspaceRequired } from '@/lib/first-customer-workspace-server';
 import { WeatherWidget } from '@/components/platform-v7/WeatherWidget';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
@@ -42,6 +44,10 @@ const logisticsHandoff: HandoffItem[] = [
 ];
 
 export default async function LogisticsPage() {
+  if (firstCustomerWorkspaceRequired()) {
+    return <FirstCustomerWorkspace surface='logistics' />;
+  }
+
   const shipments = await getShipments();
   const shipmentCount = activeShipmentCount(shipments);
   const blockedShipments = shipmentsWithBlockers(shipments);

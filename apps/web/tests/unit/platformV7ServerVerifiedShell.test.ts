@@ -18,10 +18,12 @@ const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx
 
  describe('platform-v7 server-verified shell role', () => {
   it('verifies a signed cabinet or access JWT before protected rendering', () => {
-    expect(layout).toContain('readVerifiedCabinetSessionRole');
-    expect(layout).toContain('readVerifiedCabinetRole');
+    expect(layout).toContain('readVerifiedCabinetSessionContext');
+    expect(layout).toContain('getAuthProfile()');
     expect(layout).toContain("cookieStore.get(CABINET_SESSION_COOKIE)");
-    expect(layout).toContain('cookieStore.get(ACCESS_COOKIE)');
+    expect(layout).toContain('context.membershipId !== profile.membershipId');
+    expect(layout).toContain('context.organizationId !== profile.orgId');
+    expect(layout).toContain('context.tenantId !== profile.tenantId');
     expect(layout).toContain('if (!role) redirect(loginHref(pathname))');
   });
 

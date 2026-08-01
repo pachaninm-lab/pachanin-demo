@@ -12,6 +12,7 @@ import {
   clearMfaPendingCookieOptions,
   openMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
+import { assertCsrf } from '../../../../lib/server-request-security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,8 @@ function requestIp(request: Request) {
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const code = String(body.code || '').trim();
   const jar = await cookies();
@@ -75,7 +78,17 @@ export async function POST(request: Request) {
       backupCodes?: string[];
     };
 
-    if (!apiResponse.ok || !payload.accessToken || !payload.refreshToken || !payload.user?.email || !payload.user?.role) {
+    if (
+      !apiResponse.ok
+      || !payload.accessToken
+      || !payload.refreshToken
+      || !payload.user?.id
+      || !payload.user.email
+      || !payload.user.role
+      || !payload.user.orgId
+      || !payload.user.tenantId
+      || !payload.user.membershipId
+    ) {
       const terminal = apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 410;
       const response = json({
         ok: false,
@@ -88,9 +101,12 @@ export async function POST(request: Request) {
     }
 
     const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
+    if (!role) {
+      return json({ ok: false, code: 'AUTH_SERVICE_INVALID_ROLE', message: UNIVERSAL_ERROR, correlationId }, 403);
+    }
     const response = json({
       ok: true,
-      redirectTo: platformHome(role),
+      redirectTo: platformHome(role, payload.user.isOrgAdmin === true),
       backupCodes: Array.isArray(payload.backupCodes) ? payload.backupCodes : undefined,
       correlationId,
     });

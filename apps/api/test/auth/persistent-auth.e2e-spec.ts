@@ -368,7 +368,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     });
     await expect(
       first.auth.login({ email: pendingIdentity.email, password: PASSWORD }),
-    ).rejects.toThrow(/MEMBERSHIP_NOT_ACTIVE/);
+    ).rejects.toThrow(/Invalid credentials/i);
     const [pendingSessionCount] = await first.prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count
       FROM auth.sessions
@@ -387,7 +387,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     });
     await expect(
       second.auth.refresh({ refreshToken: refreshLogin.refreshToken }),
-    ).rejects.toThrow(/invalid|expired/i);
+    ).rejects.toThrow(/reuse|invalid|expired/i);
     const refreshSessions = await first.prisma.$queryRaw<Array<{
       status: string;
       revocation_reason: string | null;
@@ -461,7 +461,9 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     await expect(second.registration.submit({ ...existingAccountDto, phone: '+79990001123' }, {
       idempotencyKey: 'registration-enumeration-existing-0001',
       correlationId: 'registration-enumeration-conflict',
-    })).rejects.toThrow(/IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD/);
+    })).rejects.toMatchObject({
+      response: { code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD' },
+    });
 
     const newOrganizationEmail = 'enumeration-new-org@auth.test';
     const newOrganization = await first.registration.submit(
@@ -473,7 +475,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     );
     expect(Object.keys(newOrganization).sort()).toEqual(publicKeys);
     await expect(first.auth.login({ email: newOrganizationEmail, password: PASSWORD }))
-      .rejects.toThrow(/USER_NOT_ACTIVE|ORGANIZATION_NOT_VERIFIED/);
+      .rejects.toThrow(/Invalid credentials/i);
 
     const existingOrganization = await seedIdentity('enumeration-existing-org', Role.FARMER);
     const joinOrganization = await first.registration.submit(
@@ -539,6 +541,81 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
       else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
     }
+  });
+
+  it('persists expiration and safely restarts an abandoned application without duplicate identity rows', async () => {
+    const email = 'registration-restart@auth.test';
+    const inn = '780000000014';
+    const registrationDto = {
+      email,
+      phone: '+79990001414',
+      fullName: 'Restart Applicant',
+      position: 'Director',
+      orgLegalName: 'Restart Organization',
+      orgInn: inn,
+      orgType: 'LEGAL' as const,
+      region: 'Moscow',
+      workspace: 'seller' as const,
+      password: PASSWORD,
+      termsVersion: '2026-08-01',
+      privacyVersion: '2026-08-01',
+      acceptTerms: true as const,
+      acceptPrivacy: true as const,
+    };
+    await first.registration.submit(registrationDto, {
+      idempotencyKey: 'registration-restart-first-0001',
+      correlationId: 'registration-restart-first-correlation',
+    });
+    const [before] = await first.prisma.$queryRaw<Array<{
+      id: string; user_id: string; organization_id: string; membership_id: string;
+    }>>`
+      SELECT id, user_id, organization_id, membership_id
+      FROM auth.registration_applications
+      WHERE email = ${email}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    await first.prisma.$executeRaw`
+      UPDATE auth.registration_applications
+      SET created_at = NOW() - INTERVAL '2 days',
+          expires_at = NOW() - INTERVAL '1 day'
+      WHERE id = ${before.id}
+    `;
+
+    await second.registration.submit({ ...registrationDto, password: 'New-Correct-Horse-10!' }, {
+      idempotencyKey: 'registration-restart-second-0001',
+      correlationId: 'registration-restart-second-correlation',
+    });
+
+    const applications = await first.prisma.$queryRaw<Array<{
+      id: string; user_id: string; organization_id: string; membership_id: string; status: string;
+    }>>`
+      SELECT id, user_id, organization_id, membership_id, status
+      FROM auth.registration_applications
+      WHERE email = ${email}
+      ORDER BY created_at ASC, id ASC
+    `;
+    expect(applications).toHaveLength(2);
+    expect(applications[0]).toMatchObject({
+      id: before.id, status: 'EXPIRED', user_id: before.user_id,
+      organization_id: before.organization_id, membership_id: before.membership_id,
+    });
+    expect(applications[1]).toMatchObject({
+      status: 'EMAIL_VERIFICATION_REQUIRED', user_id: before.user_id,
+      organization_id: before.organization_id, membership_id: before.membership_id,
+    });
+    const [{ users, organizations, memberships, expiry_events: expiryEvents }] = await first.prisma.$queryRaw<Array<{
+      users: bigint; organizations: bigint; memberships: bigint; expiry_events: bigint;
+    }>>`
+      SELECT
+        (SELECT COUNT(*) FROM public.users WHERE email = ${email})::bigint AS users,
+        (SELECT COUNT(*) FROM public.organizations WHERE inn = ${inn})::bigint AS organizations,
+        (SELECT COUNT(*) FROM public.user_orgs WHERE id = ${before.membership_id})::bigint AS memberships,
+        (SELECT COUNT(*) FROM auth.registration_application_events
+          WHERE application_id = ${before.id} AND new_status = 'EXPIRED')::bigint AS expiry_events
+    `;
+    expect({ users: Number(users), organizations: Number(organizations), memberships: Number(memberships), expiryEvents: Number(expiryEvents) })
+      .toEqual({ users: 1, organizations: 1, memberships: 1, expiryEvents: 1 });
   });
 
   it('writes chained auth audit evidence', async () => {

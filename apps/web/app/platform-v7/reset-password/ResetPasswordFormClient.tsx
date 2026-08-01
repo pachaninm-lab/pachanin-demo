@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { applyCsrfHeader } from '@/lib/csrf';
 
 export type ResetPasswordCopy = {
   newPassword: string;
@@ -28,7 +29,7 @@ function meetsPolicy(password: string) {
   return password.length >= 12 && password.length <= 128 && classes >= 3;
 }
 
-export function ResetPasswordFormClient({ token, copy }: { token: string; copy: ResetPasswordCopy }) {
+export function ResetPasswordFormClient({ token, copy, locale }: { token: string; copy: ResetPasswordCopy; locale: 'ru' | 'en' | 'zh' }) {
   const [password, setPassword] = React.useState('');
   const [confirm, setConfirm] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -64,8 +65,8 @@ export function ResetPasswordFormClient({ token, copy }: { token: string; copy: 
       try {
         response = await fetch('/api/auth/reset-password', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, newPassword: password }),
+          headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ token, newPassword: password, locale }),
           cache: 'no-store',
           credentials: 'same-origin',
           signal: controller.signal,

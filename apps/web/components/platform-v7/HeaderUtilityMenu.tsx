@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   Bell,
   Calculator,
@@ -18,7 +18,7 @@ import {
 import { createPortal } from 'react-dom';
 import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
-import { SESSION_COOKIE } from '@/lib/auth-cookies';
+import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './HeaderUtilityMenu.module.css';
 
 const PUBLIC_PATHS = new Set([
@@ -91,7 +91,6 @@ function ActionCard({ icon, title, description, onClick }: ActionCardProps) {
 
 export function HeaderUtilityMenu() {
   const pathname = usePathname();
-  const router = useRouter();
   const path = normalize(pathname);
   const clearRoleSelection = usePlatformV7RStore((state) => state.clearRoleSelection);
   const headerMount = useMount('.pc-v4-actions');
@@ -100,6 +99,7 @@ export function HeaderUtilityMenu() {
   const [note, setNote] = React.useState('');
   const [noteReady, setNoteReady] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState('');
+  const [loggingOut, setLoggingOut] = React.useState(false);
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
@@ -151,18 +151,24 @@ export function HeaderUtilityMenu() {
     window.requestAnimationFrame(() => activateNativeAction(selector));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
     setPanel(null);
-    clearRoleSelection();
-    window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
-    window.localStorage.removeItem(STORE_KEY);
-    clearCookie('pc-role');
-    clearCookie(SESSION_COOKIE);
-    router.replace(LOGOUT_TARGET, { scroll: true });
-    window.requestAnimationFrame(() => {
-      window.scrollTo(0, 0);
-      if (!window.location.pathname.startsWith('/platform-v7/login')) window.location.assign(LOGOUT_TARGET);
-    });
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: applyCsrfHeader(),
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+    } finally {
+      clearRoleSelection();
+      window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+      window.localStorage.removeItem(STORE_KEY);
+      clearCookie('pc-role');
+      window.location.assign(LOGOUT_TARGET);
+    }
   };
 
   const trigger = (
@@ -232,8 +238,8 @@ export function HeaderUtilityMenu() {
               </div>
             </section>
 
-            <button className={styles.logout} type='button' onClick={logout}>
-              <LogOut size={18} aria-hidden='true' />Выйти из платформы
+            <button className={styles.logout} type='button' onClick={() => void logout()} disabled={loggingOut} aria-busy={loggingOut}>
+              <LogOut size={18} aria-hidden='true' />{loggingOut ? 'Завершаем сессию…' : 'Выйти из платформы'}
             </button>
           </>
         ) : (

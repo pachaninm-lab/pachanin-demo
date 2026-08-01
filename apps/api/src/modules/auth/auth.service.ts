@@ -32,6 +32,7 @@ import {
   stableJson,
   verifyTotp,
 } from './auth-crypto';
+import { CURRENT_CONSENT_VERSION } from './consent-policy';
 import {
   AuthSqlClient,
   CredentialStateRow,
@@ -46,8 +47,8 @@ const ACCESS_TOKEN_TTL = '15m';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
+const MEMBERSHIP_SELECTION_TTL_MS = 5 * 60 * 1000;
 const MFA_FRESHNESS_MS = 15 * 60 * 1000;
-const CURRENT_CONSENT_VERSION = '1.2';
 const MAX_FAILED_LOGINS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', 10);
@@ -73,6 +74,7 @@ type AuthUserProjection = {
   orgId: string;
   tenantId: string;
   membershipId: string;
+  isOrgAdmin: boolean;
   mfaVerified: boolean;
 };
 
@@ -94,12 +96,19 @@ export class AuthService {
   async login(dto: LoginDto, userAgent?: string, ip?: string) {
     const email = dto.email.trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
-    const identity = await this.repository.findIdentityByEmail(this.repository.prisma, email);
-    const validPassword = await bcrypt.compare(dto.password, identity?.password_hash ?? DUMMY_PASSWORD_HASH);
 
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
       const throttle = await this.repository.getLoginThrottle(tx, accountHash, true);
+      // The user row must remain locked from password verification through session
+      // creation. Otherwise a concurrent password reset can commit a new hash and
+      // session revocation between the compare and this transaction, allowing the
+      // old password to create a fresh session after the reset.
+      const identity = await this.repository.findIdentityByEmail(tx, email, true);
+      const validPassword = await bcrypt.compare(
+        dto.password,
+        identity?.password_hash ?? DUMMY_PASSWORD_HASH,
+      );
       const now = new Date();
       if (throttle?.locked_until && throttle.locked_until > now) {
         await this.audit(tx, {
@@ -134,85 +143,59 @@ export class AuthService {
         return { kind: 'invalid' as const };
       }
 
-      await this.assertIdentityUsable(tx, identity, 'auth.login');
+      const memberships = await this.repository.findIdentitiesByUser(tx, identity.user_id);
+      const usableMemberships = memberships.filter((membership) => this.identityUsable(membership));
+      if (usableMemberships.length === 0) {
+        const reason = this.identityInvalidReason(identity) ?? 'NO_ACTIVE_MEMBERSHIP';
+        await this.audit(tx, {
+          userId: identity.user_id,
+          membershipId: identity.membership_id,
+          organizationId: identity.organization_id,
+          tenantId: identity.tenant_id,
+          action: 'auth.login',
+          outcome: 'DENIED',
+          reason,
+          metadata: this.clientMetadata(userAgent, ip, { accountHash }),
+        });
+        return { kind: 'invalid' as const };
+      }
+      const selectedIdentity = usableMemberships[0];
       await this.repository.ensureCredentialState(tx, identity.user_id);
       const credential = await this.requireCredentialState(tx, identity.user_id, true);
       await this.repository.clearLoginThrottle(tx, accountHash);
       await this.repository.markLoginSuccess(tx, identity.user_id);
 
-      const sessionId = `ses_${randomUUID()}`;
-      const familyId = `rf_${randomUUID()}`;
-      const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-      const mfaRequired = requiresRoleMfa(this.role(identity.role)) || credential.mfa_enabled;
-      await this.repository.createSession(tx, {
-        id: sessionId,
-        userId: identity.user_id,
-        membershipId: identity.membership_id,
-        organizationId: identity.organization_id,
-        tenantId: identity.tenant_id,
-        status: mfaRequired ? 'MFA_PENDING' : 'ACTIVE',
-        refreshFamilyId: familyId,
-        credentialVersion: credential.credential_version,
-        userAgentHash: hashClientValue(userAgent),
-        ipHash: hashClientValue(ip),
-        expiresAt,
-      });
-
-      if (mfaRequired) {
-        const enrollment = !credential.mfa_enabled || !credential.mfa_secret_ciphertext;
-        let setupSecret: string | undefined;
-        if (enrollment) {
-          setupSecret = generateTotpSecret();
-          const encrypted = encryptMfaSecret(setupSecret);
-          await this.repository.setMfaSecret(tx, identity.user_id, encrypted.ciphertext, encrypted.keyVersion);
-        }
-        const challenge = makeOpaqueToken('mc');
-        await this.repository.createMfaChallenge(tx, {
-          id: challenge.id,
-          sessionId,
+      if (usableMemberships.length > 1) {
+        const selection = makeOpaqueToken('ms');
+        const expiresAt = new Date(Date.now() + MEMBERSHIP_SELECTION_TTL_MS);
+        await this.repository.createMembershipSelectionChallenge(tx, {
+          id: selection.id,
           userId: identity.user_id,
-          challengeTokenHash: challenge.hash,
-          type: enrollment ? 'TOTP_ENROLL' : 'TOTP_VERIFY',
-          expiresAt: new Date(Date.now() + MFA_CHALLENGE_TTL_MS),
+          tokenHash: selection.hash,
+          credentialVersion: credential.credential_version,
+          expiresAt,
         });
         await this.audit(tx, {
           userId: identity.user_id,
-          sessionId,
-          membershipId: identity.membership_id,
-          organizationId: identity.organization_id,
-          tenantId: identity.tenant_id,
-          action: 'auth.login.mfa_required',
+          action: 'auth.login.membership_selection_required',
           outcome: 'SUCCESS',
-          metadata: this.clientMetadata(userAgent, ip, { enrollment }),
+          metadata: this.clientMetadata(userAgent, ip, { membershipCount: usableMemberships.length }),
         });
         return {
-          kind: 'mfa' as const,
-          challengeToken: challenge.token,
-          expiresAt: new Date(Date.now() + MFA_CHALLENGE_TTL_MS).toISOString(),
-          setupSecret,
-          otpAuthUri: setupSecret ? buildOtpAuthUri(identity.email, setupSecret) : undefined,
-          user: this.userProjection(identity, false),
+          kind: 'membership' as const,
+          challengeToken: selection.token,
+          expiresAt: expiresAt.toISOString(),
+          memberships: usableMemberships.map((membership) => ({
+            membershipId: membership.membership_id,
+            organizationId: membership.organization_id,
+            organizationName: membership.organization_name,
+            role: this.role(membership.role),
+            isOrgAdmin: membership.is_org_admin,
+          })),
         };
       }
 
-      const tokens = await this.issueActiveTokens(tx, identity, {
-        id: sessionId,
-        familyId,
-        credentialVersion: credential.credential_version,
-        userAgent,
-        ip,
-      });
-      await this.audit(tx, {
-        userId: identity.user_id,
-        sessionId,
-        membershipId: identity.membership_id,
-        organizationId: identity.organization_id,
-        tenantId: identity.tenant_id,
-        action: 'auth.login',
-        outcome: 'SUCCESS',
-        metadata: this.clientMetadata(userAgent, ip),
-      });
-      return { kind: 'active' as const, ...tokens };
+      return this.createLoginSession(tx, selectedIdentity, credential, userAgent, ip);
     });
 
     if (result.kind === 'locked') {
@@ -220,6 +203,80 @@ export class AuthService {
       throw new UnauthorizedException(`Account temporarily locked. Try again in ${retryAfterSec}s.`);
     }
     if (result.kind === 'invalid') throw new UnauthorizedException('Invalid credentials');
+    if (result.kind === 'membership') {
+      return {
+        membershipSelectionRequired: true,
+        challengeToken: result.challengeToken,
+        challengeExpiresAt: result.expiresAt,
+        memberships: result.memberships,
+      };
+    }
+    if (result.kind === 'mfa') {
+      return {
+        mfaRequired: true,
+        challengeToken: result.challengeToken,
+        challengeExpiresAt: result.expiresAt,
+        setupSecret: result.setupSecret,
+        otpAuthUri: result.otpAuthUri,
+        user: result.user,
+      };
+    }
+    return { mfaRequired: false, ...result };
+  }
+
+  async selectMembership(
+    dto: { challengeToken: string; membershipId: string },
+    userAgent?: string,
+    ip?: string,
+  ) {
+    const parsed = parseOpaqueToken(dto.challengeToken, 'ms');
+    if (!parsed) throw new UnauthorizedException('Invalid membership selection');
+    const result = await this.repository.transaction(async (tx) => {
+      const challenge = await this.repository.getMembershipSelectionChallengeForUpdate(tx, parsed.id);
+      if (!challenge || !secureEqual(challenge.token_hash, parsed.hash)) return { kind: 'invalid' as const };
+      if (
+        challenge.status !== 'PENDING'
+        || challenge.expires_at <= new Date()
+        || challenge.user_status !== 'ACTIVE'
+        || challenge.credential_version !== challenge.current_credential_version
+      ) {
+        await this.repository.recordMembershipSelectionFailure(tx, challenge.id, true);
+        return { kind: 'invalid' as const };
+      }
+
+      const identity = await this.repository.findIdentityByUserAndMembership(
+        tx,
+        challenge.user_id,
+        dto.membershipId,
+      );
+      if (!identity || !this.identityUsable(identity)) {
+        const terminal = challenge.attempts + 1 >= challenge.max_attempts;
+        await this.repository.recordMembershipSelectionFailure(tx, challenge.id, terminal);
+        await this.audit(tx, {
+          userId: challenge.user_id,
+          action: 'auth.login.membership_selection',
+          outcome: 'DENIED',
+          reason: 'MEMBERSHIP_SELECTION_INVALID',
+          metadata: this.clientMetadata(userAgent, ip, { attempts: challenge.attempts + 1 }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      await this.repository.consumeMembershipSelectionChallenge(tx, challenge.id);
+      const credential = await this.requireCredentialState(tx, identity.user_id, true);
+      await this.audit(tx, {
+        userId: identity.user_id,
+        membershipId: identity.membership_id,
+        organizationId: identity.organization_id,
+        tenantId: identity.tenant_id,
+        action: 'auth.login.membership_selection',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip),
+      });
+      return this.createLoginSession(tx, identity, credential, userAgent, ip);
+    });
+
+    if (result.kind === 'invalid') throw new UnauthorizedException('Invalid or expired membership selection');
     if (result.kind === 'mfa') {
       return {
         mfaRequired: true,
@@ -345,13 +402,25 @@ export class AuthService {
         return { kind: 'invalid' as const };
       }
       const invalidReason = this.sessionInvalidReason(challenge, true);
+      const loginChallengeType = ['TOTP_ENROLL', 'TOTP_VERIFY'].includes(challenge.challenge_type);
+      const challengeReason = !loginChallengeType
+        ? 'MFA_CHALLENGE_FLOW_MISMATCH'
+        : challenge.challenge_status !== 'PENDING'
+          ? 'MFA_CHALLENGE_NOT_PENDING'
+          : challenge.challenge_expires_at <= new Date()
+            ? 'MFA_CHALLENGE_EXPIRED'
+            : challenge.session_status !== 'MFA_PENDING'
+              ? 'MFA_SESSION_NOT_PENDING'
+              : invalidReason;
       if (
-        invalidReason
-        || challenge.challenge_status !== 'PENDING'
-        || challenge.challenge_expires_at <= new Date()
-        || challenge.session_status !== 'MFA_PENDING'
+        challengeReason
       ) {
-        await this.repository.revokeSession(tx, challenge.session_id, invalidReason ?? 'MFA_CHALLENGE_INVALID');
+        // A consumed login challenge or a STEP_UP challenge can be replayed after
+        // its session became ACTIVE. Such a replay must fail, but must never become
+        // an unauthenticated session-revocation primitive.
+        if (challenge.session_status === 'MFA_PENDING') {
+          await this.repository.revokeSession(tx, challenge.session_id, challengeReason);
+        }
         await this.audit(tx, {
           userId: challenge.user_id,
           sessionId: challenge.session_id,
@@ -360,7 +429,7 @@ export class AuthService {
           tenantId: challenge.tenant_id,
           action: 'auth.mfa.verify',
           outcome: 'DENIED',
-          reason: invalidReason ?? 'MFA_CHALLENGE_INVALID',
+          reason: challengeReason,
           metadata: this.clientMetadata(userAgent, ip),
         });
         return { kind: 'invalid' as const };
@@ -440,14 +509,156 @@ export class AuthService {
     return result;
   }
 
+  async startMfaStepUp(user: RequestUser, userAgent?: string, ip?: string) {
+    if (!user.sessionId) throw new UnauthorizedException('Active session is required');
+
+    return this.repository.transaction(async (tx) => {
+      const context = await this.repository.getSessionContext(tx, user.sessionId as string, user.id, true);
+      const invalidReason = context ? this.sessionInvalidReason(context) : 'SESSION_NOT_FOUND';
+      if (!context || invalidReason) throw new UnauthorizedException('Session is not active');
+
+      const credential = await this.requireCredentialState(tx, context.user_id, true);
+      if (!credential.mfa_enabled || !credential.mfa_secret_ciphertext) {
+        throw new ForbiddenException('MFA enrollment is required before step-up verification');
+      }
+
+      await this.repository.expirePendingMfaChallenges(tx, context.session_id, 'STEP_UP');
+      const challenge = makeOpaqueToken('mc');
+      const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
+      await this.repository.createMfaChallenge(tx, {
+        id: challenge.id,
+        sessionId: context.session_id,
+        userId: context.user_id,
+        challengeTokenHash: challenge.hash,
+        type: 'STEP_UP',
+        expiresAt,
+      });
+      await this.audit(tx, {
+        userId: context.user_id,
+        sessionId: context.session_id,
+        membershipId: context.membership_id,
+        organizationId: context.organization_id,
+        tenantId: context.tenant_id,
+        action: 'auth.mfa.step_up.start',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip),
+      });
+      return {
+        ok: true,
+        challengeToken: challenge.token,
+        expiresAt: expiresAt.toISOString(),
+        methods: ['totp', 'backup_code'] as const,
+      };
+    });
+  }
+
+  async verifyMfaStepUp(
+    user: RequestUser,
+    dto: MfaVerifyInput,
+    userAgent?: string,
+    ip?: string,
+  ) {
+    if (!user.sessionId) throw new UnauthorizedException('Active session is required');
+    const parsed = parseOpaqueToken(dto.challengeToken, 'mc');
+    if (!parsed) throw new UnauthorizedException('Invalid MFA step-up challenge');
+
+    const result = await this.repository.transaction(async (tx) => {
+      const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.id);
+      if (
+        !challenge
+        || !secureEqual(challenge.challenge_token_hash, parsed.hash)
+        || challenge.challenge_type !== 'STEP_UP'
+        || challenge.session_id !== user.sessionId
+        || challenge.user_id !== user.id
+      ) {
+        return { kind: 'invalid' as const };
+      }
+      const invalidReason = this.sessionInvalidReason(challenge);
+      if (
+        invalidReason
+        || challenge.challenge_status !== 'PENDING'
+        || challenge.challenge_expires_at <= new Date()
+      ) {
+        if (challenge.challenge_status === 'PENDING') {
+          await this.repository.recordMfaFailure(tx, challenge.challenge_id, true);
+        }
+        await this.audit(tx, {
+          userId: challenge.user_id,
+          sessionId: challenge.session_id,
+          membershipId: challenge.membership_id,
+          organizationId: challenge.organization_id,
+          tenantId: challenge.tenant_id,
+          action: 'auth.mfa.step_up.verify',
+          outcome: 'DENIED',
+          reason: invalidReason ?? 'MFA_STEP_UP_CHALLENGE_INVALID',
+          metadata: this.clientMetadata(userAgent, ip),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      const credential = await this.requireCredentialState(tx, challenge.user_id, true);
+      if (!credential.mfa_enabled || !credential.mfa_secret_ciphertext) {
+        return { kind: 'invalid' as const };
+      }
+      const verification = this.verifyMfaCode(credential, dto.code);
+      if (!verification) {
+        const terminal = challenge.challenge_attempts + 1 >= challenge.challenge_max_attempts;
+        await this.repository.recordMfaFailure(tx, challenge.challenge_id, terminal);
+        await this.audit(tx, {
+          userId: challenge.user_id,
+          sessionId: challenge.session_id,
+          membershipId: challenge.membership_id,
+          organizationId: challenge.organization_id,
+          tenantId: challenge.tenant_id,
+          action: 'auth.mfa.step_up.verify',
+          outcome: 'FAILURE',
+          reason: terminal ? 'MFA_STEP_UP_ATTEMPTS_EXHAUSTED' : 'MFA_STEP_UP_CODE_INVALID',
+          metadata: this.clientMetadata(userAgent, ip, { attempts: challenge.challenge_attempts + 1 }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      const verifiedAt = await this.repository.activateMfaStepUp(tx, {
+        challengeId: challenge.challenge_id,
+        sessionId: challenge.session_id,
+        userId: challenge.user_id,
+        method: verification.method,
+        backupHashes: verification.method === 'BACKUP' ? verification.remainingBackupHashes : undefined,
+      });
+      await this.audit(tx, {
+        userId: challenge.user_id,
+        sessionId: challenge.session_id,
+        membershipId: challenge.membership_id,
+        organizationId: challenge.organization_id,
+        tenantId: challenge.tenant_id,
+        action: 'auth.mfa.step_up.verify',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip, { method: verification.method }),
+      });
+      return { kind: 'success' as const, verifiedAt };
+    });
+
+    if (result.kind === 'invalid') throw new UnauthorizedException('Invalid or expired MFA step-up challenge');
+    return { ok: true, mfaVerified: true, mfaVerifiedAt: result.verifiedAt.toISOString() };
+  }
+
   async logout(dto: { refreshToken?: string }, sessionId?: string) {
-    if (!sessionId) return { success: true };
+    const parsedRefresh = dto.refreshToken ? parseOpaqueToken(dto.refreshToken, 'rt') : null;
     await this.repository.transaction(async (tx) => {
-      const context = await this.repository.getSessionContext(tx, sessionId, undefined, true);
-      await this.repository.revokeSession(tx, sessionId, 'USER_LOGOUT');
+      let context: SessionContextRow | null = sessionId
+        ? await this.repository.getSessionContext(tx, sessionId, undefined, true)
+        : null;
+      if (!context && parsedRefresh) {
+        const refreshContext = await this.repository.getRefreshContextForUpdate(tx, parsedRefresh.id);
+        if (refreshContext && secureEqual(refreshContext.refresh_token_hash, parsedRefresh.hash)) {
+          context = refreshContext;
+        }
+      }
+      if (!context) return;
+      await this.repository.revokeSession(tx, context.session_id, 'USER_LOGOUT');
       await this.audit(tx, {
         userId: context?.user_id,
-        sessionId,
+        sessionId: context.session_id,
         membershipId: context?.membership_id,
         organizationId: context?.organization_id,
         tenantId: context?.tenant_id,
@@ -467,6 +678,7 @@ export class AuthService {
       orgId: user.orgId,
       tenantId: user.tenantId,
       membershipId: user.membershipId,
+      isOrgAdmin: user.isOrgAdmin,
       fullName: user.fullName,
       surfaceRole: user.surfaceRole,
       mfaVerified: user.mfaVerified,
@@ -520,7 +732,7 @@ export class AuthService {
     }
 
     const role = this.role(context.role);
-    if (requiresRoleMfa(role) && !context.mfa_verified_at) {
+    if ((requiresRoleMfa(role) || context.is_org_admin) && !context.mfa_verified_at) {
       throw new UnauthorizedException('MFA verification is required for this role');
     }
     await this.repository.touchSession(this.repository.prisma, context.session_id);
@@ -532,6 +744,7 @@ export class AuthService {
       orgId: context.organization_id,
       tenantId: context.tenant_id,
       membershipId: context.membership_id,
+      isOrgAdmin: context.is_org_admin,
       sessionId: context.session_id,
       credentialVersion: context.current_credential_version,
       mfaVerified: Boolean(context.mfa_verified_at),
@@ -663,6 +876,89 @@ export class AuthService {
     return { url: null, message: 'No OIDC provider configured' };
   }
 
+  private async createLoginSession(
+    tx: AuthSqlClient,
+    identity: IdentityRow,
+    credential: CredentialStateRow,
+    userAgent?: string,
+    ip?: string,
+  ) {
+    const sessionId = `ses_${randomUUID()}`;
+    const familyId = `rf_${randomUUID()}`;
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+    const mfaRequired = requiresRoleMfa(this.role(identity.role)) || identity.is_org_admin || credential.mfa_enabled;
+    await this.repository.createSession(tx, {
+      id: sessionId,
+      userId: identity.user_id,
+      membershipId: identity.membership_id,
+      organizationId: identity.organization_id,
+      tenantId: identity.tenant_id,
+      status: mfaRequired ? 'MFA_PENDING' : 'ACTIVE',
+      refreshFamilyId: familyId,
+      credentialVersion: credential.credential_version,
+      userAgentHash: hashClientValue(userAgent),
+      ipHash: hashClientValue(ip),
+      expiresAt,
+    });
+
+    if (mfaRequired) {
+      const enrollment = !credential.mfa_enabled || !credential.mfa_secret_ciphertext;
+      let setupSecret: string | undefined;
+      if (enrollment) {
+        setupSecret = generateTotpSecret();
+        const encrypted = encryptMfaSecret(setupSecret);
+        await this.repository.setMfaSecret(tx, identity.user_id, encrypted.ciphertext, encrypted.keyVersion);
+      }
+      const challenge = makeOpaqueToken('mc');
+      const challengeExpiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
+      await this.repository.createMfaChallenge(tx, {
+        id: challenge.id,
+        sessionId,
+        userId: identity.user_id,
+        challengeTokenHash: challenge.hash,
+        type: enrollment ? 'TOTP_ENROLL' : 'TOTP_VERIFY',
+        expiresAt: challengeExpiresAt,
+      });
+      await this.audit(tx, {
+        userId: identity.user_id,
+        sessionId,
+        membershipId: identity.membership_id,
+        organizationId: identity.organization_id,
+        tenantId: identity.tenant_id,
+        action: 'auth.login.mfa_required',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip, { enrollment }),
+      });
+      return {
+        kind: 'mfa' as const,
+        challengeToken: challenge.token,
+        expiresAt: challengeExpiresAt.toISOString(),
+        setupSecret,
+        otpAuthUri: setupSecret ? buildOtpAuthUri(identity.email, setupSecret) : undefined,
+        user: this.userProjection(identity, false),
+      };
+    }
+
+    const tokens = await this.issueActiveTokens(tx, identity, {
+      id: sessionId,
+      familyId,
+      credentialVersion: credential.credential_version,
+      userAgent,
+      ip,
+    });
+    await this.audit(tx, {
+      userId: identity.user_id,
+      sessionId,
+      membershipId: identity.membership_id,
+      organizationId: identity.organization_id,
+      tenantId: identity.tenant_id,
+      action: 'auth.login',
+      outcome: 'SUCCESS',
+      metadata: this.clientMetadata(userAgent, ip),
+    });
+    return { kind: 'active' as const, ...tokens };
+  }
+
   private async issueActiveTokens(
     tx: AuthSqlClient,
     identity: IdentityRow,
@@ -718,6 +1014,7 @@ export class AuthService {
       orgId: identity.organization_id,
       tenantId: identity.tenant_id,
       membershipId: identity.membership_id,
+      isOrgAdmin: identity.is_org_admin,
       mfaVerified,
     };
   }
@@ -729,27 +1026,21 @@ export class AuthService {
     return value as Role;
   }
 
-  private async assertIdentityUsable(
-    tx: AuthSqlClient,
-    identity: IdentityRow,
-    action: string,
-  ): Promise<void> {
+  private identityInvalidReason(identity: IdentityRow): string | null {
     let reason: string | null = null;
     if (identity.user_status !== 'ACTIVE') reason = 'USER_NOT_ACTIVE';
     else if (identity.membership_status !== 'ACTIVE') reason = 'MEMBERSHIP_NOT_ACTIVE';
     else if (identity.organization_status !== 'VERIFIED') reason = 'ORGANIZATION_NOT_VERIFIED';
     else if (!KNOWN_ROLES.has(identity.role) || identity.role === Role.BANK_CALLBACK) reason = 'MEMBERSHIP_ROLE_INVALID';
-    if (!reason) return;
-    await this.audit(tx, {
-      userId: identity.user_id,
-      membershipId: identity.membership_id,
-      organizationId: identity.organization_id,
-      tenantId: identity.tenant_id,
-      action,
-      outcome: 'DENIED',
-      reason,
-    });
-    throw new ForbiddenException(reason);
+    return reason;
+  }
+
+  private identityUsable(identity: IdentityRow): boolean {
+    return identity.user_status === 'ACTIVE'
+      && identity.membership_status === 'ACTIVE'
+      && identity.organization_status === 'VERIFIED'
+      && KNOWN_ROLES.has(identity.role)
+      && identity.role !== Role.BANK_CALLBACK;
   }
 
   private sessionInvalidReason(context: SessionContextRow, allowMfaPending = false): string | null {

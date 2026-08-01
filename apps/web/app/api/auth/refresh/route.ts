@@ -1,43 +1,83 @@
+import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, cookieSecurity, sessionMarkerCookie } from '../../../../lib/auth-cookies';
+import { REFRESH_COOKIE } from '../../../../lib/auth-cookies';
+import { assertCsrf } from '../../../../lib/server-request-security';
+import {
+  applyAuthenticatedSession,
+  clearAuthenticatedSession,
+  type AuthenticatedSessionPayload,
+} from '../../../../lib/server/auth-session-response';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-export async function POST() {
-  const jar = await cookies();
-  const refreshToken = jar.get(REFRESH_COOKIE)?.value || '';
+const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 
-  if (API_URL && refreshToken && !refreshToken.startsWith('demo-refresh.')) {
-    try {
-      const response = await fetch(`${API_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-        cache: 'no-store',
-        signal: AbortSignal.timeout(4000),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) return NextResponse.json(payload, { status: response.status });
-      jar.set(ACCESS_COOKIE, payload.accessToken || '', cookieSecurity());
-      if (payload.refreshToken) jar.set(REFRESH_COOKIE, payload.refreshToken, cookieSecurity());
-      return NextResponse.json({ ok: true });
-    } catch {
-      // Fall through to demo refresh
-    }
+function json(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      Pragma: 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
+
+export async function POST(request: Request) {
+  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) {
+    return json({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
   }
 
-  // Demo refresh: extend session by 8h
-  const role = refreshToken.replace('demo-refresh.', '') || 'FARMER';
-  const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
-  const currentSession = jar.get(SESSION_COOKIE)?.value;
-  let email = 'demo@demo.ru';
-  try {
-    const parsed = JSON.parse(decodeURIComponent(currentSession || '{}'));
-    if (parsed.email) email = parsed.email;
-  } catch { /* ignore */ }
+  const jar = await cookies();
+  const refreshToken = jar.get(REFRESH_COOKIE)?.value || '';
+  if (!refreshToken || refreshToken.startsWith('demo-refresh.')) {
+    const response = json({ ok: false, code: 'SESSION_NOT_REFRESHABLE', correlationId }, 401);
+    clearAuthenticatedSession(response);
+    return response;
+  }
+  if (!API_URL) {
+    return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', correlationId }, 503);
+  }
 
-  jar.set(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role, exp })).toString('base64')}`, cookieSecurity());
-  jar.set(SESSION_COOKIE, encodeURIComponent(JSON.stringify({ role, exp, email })), sessionMarkerCookie());
-  return NextResponse.json({ ok: true, demo: true });
+  try {
+    const upstream = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-correlation-id': correlationId,
+        ...(request.headers.get('user-agent') ? { 'user-agent': request.headers.get('user-agent') as string } : {}),
+      },
+      body: JSON.stringify({ refreshToken }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5_000),
+    });
+    const payload = await upstream.json().catch(() => ({})) as Partial<AuthenticatedSessionPayload>;
+    if (!upstream.ok) {
+      const response = json({ ok: false, code: 'SESSION_NOT_REFRESHABLE', correlationId }, 401);
+      clearAuthenticatedSession(response);
+      return response;
+    }
+    if (!payload.accessToken || !payload.refreshToken || !payload.user) {
+      return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', correlationId }, 502);
+    }
+
+    const response = json({ ok: true, correlationId });
+    const session = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
+    if (!session) {
+      const failed = json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', correlationId }, 502);
+      clearAuthenticatedSession(failed);
+      return failed;
+    }
+    return response;
+  } catch (error) {
+    console.error('auth_refresh_transport_failure', JSON.stringify({
+      correlationId,
+      reason: error instanceof Error ? error.name : 'unknown',
+    }));
+    return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', correlationId }, 503);
+  }
 }

@@ -5,6 +5,7 @@ import { AuthPrismaService } from './auth-prisma.service';
 import { AuthService } from './auth.service';
 import './legacy-admin-identity-boundary';
 import { OrganizationTeamService } from './organization-team.service';
+import { OrganizationInvitationService } from './organization-invitation.service';
 import { PasswordResetRepository } from './password-reset.repository';
 import { PasswordResetService } from './password-reset.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
@@ -27,10 +28,12 @@ import { RegistrationDecisionService } from './registration-decision.service';
     RegistrationDecisionService,
     AuthService,
     OrganizationTeamService,
+    OrganizationInvitationService,
   ],
   exports: [
     AuthService,
     OrganizationTeamService,
+    OrganizationInvitationService,
     PasswordResetService,
     RegistrationApplicationService,
     RegistrationDecisionService,

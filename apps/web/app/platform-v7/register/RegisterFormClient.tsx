@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { applyCsrfHeader } from '@/lib/csrf';
 
 type Locale = 'ru' | 'en' | 'zh';
 
@@ -53,6 +54,14 @@ type Copy = {
   reason: string;
   login: string;
   recovery: string;
+  resend: string;
+  resending: string;
+  resendAccepted: string;
+  additionalInformation: string;
+  additionalPlaceholder: string;
+  sendInformation: string;
+  sendingInformation: string;
+  informationSent: string;
   statusLabels: Record<string, string>;
   nextLabels: Record<string, string>;
   workspaces: Array<{ value: string; label: string }>;
@@ -96,6 +105,14 @@ const COPY: Record<Locale, Copy> = {
     reason: 'Основание',
     login: 'Войти',
     recovery: 'Восстановить доступ',
+    resend: 'Отправить письмо повторно',
+    resending: 'Отправляем повторно…',
+    resendAccepted: 'Если заявка ожидает подтверждения, новое письмо будет отправлено.',
+    additionalInformation: 'Ответ на запрос проверяющего',
+    additionalPlaceholder: 'Укажи запрошенные сведения и основание. Не передавай пароли или одноразовые коды.',
+    sendInformation: 'Отправить уточнение',
+    sendingInformation: 'Отправляем уточнение…',
+    informationSent: 'Уточнение сохранено. Заявка возвращена в очередь проверки.',
     statusLabels: {
       EMAIL_VERIFICATION_REQUIRED: 'Требуется подтверждение email',
       ORGANIZATION_VERIFICATION_PENDING: 'Организация ожидает проверки',
@@ -135,14 +152,14 @@ const COPY: Record<Locale, Copy> = {
     ],
   },
   en: {
-    workspace: 'Workspace', orgType: 'Organization type', legalName: 'Legal name', inn: 'Tax ID', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: 'Region', fullName: 'Applicant full name', position: 'Position', phone: 'Phone', email: 'Work email', password: 'Password', passwordHint: 'At least 12 characters with lowercase, uppercase, digits and symbols.', terms: 'user agreement', privacy: 'data processing policy', acceptTerms: 'I accept the', acceptPrivacy: 'I accept the', submit: 'Submit application for review', submitting: 'Submitting…', unavailable: 'Registration service is unavailable. No access was created. Try again later.', invalid: 'Check the entered data and required consents.', submissionAccepted: 'If the address can be used for a new application, an email has been sent. If an account already exists, use sign in or access recovery.', verifyTitle: 'Email confirmation', verifyLead: 'Confirmation does not open a workspace. The organization review begins after confirmation.', verifyButton: 'Confirm email', verifying: 'Confirming…', verifyInvalid: 'The link is invalid, expired or already used.', statusTitle: 'Application status', refresh: 'Refresh status', nextAction: 'Next action', applicationId: 'Application', status: 'Status', reason: 'Reason', login: 'Sign in', recovery: 'Restore access',
+    workspace: 'Workspace', orgType: 'Organization type', legalName: 'Legal name', inn: 'Tax ID', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: 'Region', fullName: 'Applicant full name', position: 'Position', phone: 'Phone', email: 'Work email', password: 'Password', passwordHint: 'At least 12 characters with lowercase, uppercase, digits and symbols.', terms: 'user agreement', privacy: 'data processing policy', acceptTerms: 'I accept the', acceptPrivacy: 'I accept the', submit: 'Submit application for review', submitting: 'Submitting…', unavailable: 'Registration service is unavailable. No access was created. Try again later.', invalid: 'Check the entered data and required consents.', submissionAccepted: 'If the address can be used for a new application, an email has been sent. If an account already exists, use sign in or access recovery.', verifyTitle: 'Email confirmation', verifyLead: 'Confirmation does not open a workspace. The organization review begins after confirmation.', verifyButton: 'Confirm email', verifying: 'Confirming…', verifyInvalid: 'The link is invalid, expired or already used.', statusTitle: 'Application status', refresh: 'Refresh status', nextAction: 'Next action', applicationId: 'Application', status: 'Status', reason: 'Reason', login: 'Sign in', recovery: 'Restore access', resend: 'Resend confirmation email', resending: 'Resending…', resendAccepted: 'If an application is awaiting confirmation, a new email will be sent.', additionalInformation: 'Response to the reviewer', additionalPlaceholder: 'Provide the requested details and basis. Never include passwords or one-time codes.', sendInformation: 'Send information', sendingInformation: 'Sending information…', informationSent: 'The information was saved and the application returned to the review queue.',
     statusLabels: { EMAIL_VERIFICATION_REQUIRED: 'Email confirmation required', ORGANIZATION_VERIFICATION_PENDING: 'Organization review pending', ADDITIONAL_INFORMATION_REQUIRED: 'Additional information required', APPROVED: 'Approved; activation pending', ACTIVATED: 'Access activated', REJECTED: 'Application rejected', SUSPENDED: 'Application suspended', EXPIRED: 'Application expired', CANCELLED: 'Application cancelled' },
     nextLabels: { VERIFY_EMAIL: 'Open the email and confirm your address.', WAIT_FOR_REVIEW: 'Wait for the reviewer decision. Workspace access remains closed.', PROVIDE_ADDITIONAL_INFORMATION: 'Provide the requested information.', WAIT_FOR_ACTIVATION: 'Wait for activation to finish.', LOGIN: 'Sign in with the confirmed account.', CONTACT_SUPPORT: 'Use the correlation ID when contacting support.', START_NEW_APPLICATION: 'Create a new application.', WAIT: 'Wait for the next status change.' },
     workspaces: [{ value: 'seller', label: 'Seller' }, { value: 'buyer', label: 'Buyer' }, { value: 'logistics', label: 'Logistics organization' }, { value: 'driver', label: 'Driver' }, { value: 'elevator', label: 'Elevator or warehouse' }, { value: 'lab', label: 'Laboratory' }, { value: 'surveyor', label: 'Surveyor' }, { value: 'bank', label: 'Bank user' }, { value: 'employee', label: 'Employee of an existing organization' }],
     orgTypes: [{ value: 'LEGAL', label: 'Legal entity' }, { value: 'INDIVIDUAL', label: 'Sole proprietor' }, { value: 'SELF_EMPLOYED', label: 'Self-employed' }],
   },
   zh: {
-    workspace: '工作空间', orgType: '组织类型', legalName: '法定名称', inn: '税号', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: '地区', fullName: '申请人姓名', position: '职位', phone: '电话', email: '工作邮箱', password: '密码', passwordHint: '至少12个字符，并包含小写字母、大写字母、数字和特殊符号。', terms: '用户协议', privacy: '数据处理政策', acceptTerms: '我接受', acceptPrivacy: '我接受', submit: '提交审核申请', submitting: '正在提交…', unavailable: '注册服务不可用。未创建任何访问权限。请稍后重试。', invalid: '请检查输入内容和必选同意项。', submissionAccepted: '如果该地址可用于新申请，我们已发送邮件。如果账户已存在，请登录或恢复访问权限。', verifyTitle: '确认电子邮箱', verifyLead: '确认邮箱不会直接开放工作空间。确认后将开始组织审核。', verifyButton: '确认电子邮箱', verifying: '正在确认…', verifyInvalid: '链接无效、已过期或已被使用。', statusTitle: '申请状态', refresh: '更新状态', nextAction: '下一步', applicationId: '申请', status: '状态', reason: '原因', login: '登录', recovery: '恢复访问权限',
+    workspace: '工作空间', orgType: '组织类型', legalName: '法定名称', inn: '税号', kpp: 'KPP', ogrn: 'OGRN / OGRNIP', region: '地区', fullName: '申请人姓名', position: '职位', phone: '电话', email: '工作邮箱', password: '密码', passwordHint: '至少12个字符，并包含小写字母、大写字母、数字和特殊符号。', terms: '用户协议', privacy: '数据处理政策', acceptTerms: '我接受', acceptPrivacy: '我接受', submit: '提交审核申请', submitting: '正在提交…', unavailable: '注册服务不可用。未创建任何访问权限。请稍后重试。', invalid: '请检查输入内容和必选同意项。', submissionAccepted: '如果该地址可用于新申请，我们已发送邮件。如果账户已存在，请登录或恢复访问权限。', verifyTitle: '确认电子邮箱', verifyLead: '确认邮箱不会直接开放工作空间。确认后将开始组织审核。', verifyButton: '确认电子邮箱', verifying: '正在确认…', verifyInvalid: '链接无效、已过期或已被使用。', statusTitle: '申请状态', refresh: '更新状态', nextAction: '下一步', applicationId: '申请', status: '状态', reason: '原因', login: '登录', recovery: '恢复访问权限', resend: '重新发送确认邮件', resending: '正在重新发送…', resendAccepted: '如果申请正在等待确认，我们会发送一封新邮件。', additionalInformation: '回复审核员请求', additionalPlaceholder: '请提供所需信息和依据。不要填写密码或一次性验证码。', sendInformation: '提交补充信息', sendingInformation: '正在提交补充信息…', informationSent: '补充信息已保存，申请已返回审核队列。',
     statusLabels: { EMAIL_VERIFICATION_REQUIRED: '需要确认电子邮箱', ORGANIZATION_VERIFICATION_PENDING: '等待组织审核', ADDITIONAL_INFORMATION_REQUIRED: '需要补充信息', APPROVED: '已批准，等待激活', ACTIVATED: '访问权限已激活', REJECTED: '申请已拒绝', SUSPENDED: '申请已暂停', EXPIRED: '申请已过期', CANCELLED: '申请已取消' },
     nextLabels: { VERIFY_EMAIL: '打开邮件并确认电子邮箱。', WAIT_FOR_REVIEW: '等待审核决定。工作空间访问仍处于关闭状态。', PROVIDE_ADDITIONAL_INFORMATION: '提交所需补充信息。', WAIT_FOR_ACTIVATION: '等待激活完成。', LOGIN: '使用已确认的账户登录。', CONTACT_SUPPORT: '联系支持时请提供 correlation ID。', START_NEW_APPLICATION: '创建新申请。', WAIT: '等待下一次状态更新。' },
     workspaces: [{ value: 'seller', label: '卖方' }, { value: 'buyer', label: '买方' }, { value: 'logistics', label: '物流组织' }, { value: 'driver', label: '司机' }, { value: 'elevator', label: '粮库或仓库' }, { value: 'lab', label: '实验室' }, { value: 'surveyor', label: '检验员' }, { value: 'bank', label: '银行用户' }, { value: 'employee', label: '现有组织员工' }],
@@ -173,6 +190,11 @@ export function RegisterFormClient({
   const [statusLoading, setStatusLoading] = React.useState(Boolean(initialStatusToken));
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
+  const [submittedEmail, setSubmittedEmail] = React.useState('');
+  const [resendMessage, setResendMessage] = React.useState('');
+  const [additionalInformation, setAdditionalInformation] = React.useState('');
+  const [informationSubmitting, setInformationSubmitting] = React.useState(false);
+  const [informationMessage, setInformationMessage] = React.useState('');
 
   const loadStatus = React.useCallback(async (token: string) => {
     if (!token) return;
@@ -237,10 +259,10 @@ export function RegisterFormClient({
       try {
         response = await fetch('/api/auth/register', {
           method: 'POST',
-          headers: {
+          headers: applyCsrfHeader({
             'Content-Type': 'application/json',
             'idempotency-key': idempotencyKey.current,
-          },
+          }),
           body: JSON.stringify(payload),
           cache: 'no-store',
           credentials: 'same-origin',
@@ -255,10 +277,36 @@ export function RegisterFormClient({
         if (response.status === 400) throw new Error('invalid');
         throw new Error('unavailable');
       }
+      setSubmittedEmail(payload.email);
       setSubmissionAccepted(true);
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : 'unavailable';
       setError(reason === 'invalid' ? copy.invalid : copy.unavailable);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function resendEmail() {
+    if (!submittedEmail || submitting) return;
+    setSubmitting(true);
+    setError('');
+    setResendMessage('');
+    try {
+      const response = await fetch('/api/auth/registration/resend', {
+        method: 'POST',
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ email: submittedEmail, locale }),
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout(15_000),
+      });
+      const result = await response.json().catch(() => ({} as { accepted?: boolean; correlationId?: string }));
+      setCorrelationId(String(result.correlationId || ''));
+      if (!response.ok || result.accepted !== true) throw new Error('resend_failed');
+      setResendMessage(copy.resendAccepted);
+    } catch {
+      setError(copy.unavailable);
     } finally {
       setSubmitting(false);
     }
@@ -271,8 +319,8 @@ export function RegisterFormClient({
     try {
       const response = await fetch('/api/auth/registration/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: verifyToken }),
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ token: verifyToken, locale }),
         cache: 'no-store',
         credentials: 'same-origin',
       });
@@ -287,6 +335,38 @@ export function RegisterFormClient({
       setError(copy.verifyInvalid);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function submitAdditionalInformation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const responseText = additionalInformation.trim();
+    if (!statusToken || informationSubmitting || responseText.length < 8) {
+      setError(copy.invalid);
+      return;
+    }
+    setInformationSubmitting(true);
+    setError('');
+    setInformationMessage('');
+    try {
+      const response = await fetch('/api/auth/registration/additional-information', {
+        method: 'POST',
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ statusToken, response: responseText }),
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout(15_000),
+      });
+      const result = await response.json().catch(() => ({} as RegistrationStatus & { ok?: boolean }));
+      setCorrelationId(String(result.correlationId || ''));
+      if (!response.ok || result.ok !== true) throw new Error('information_failed');
+      setAdditionalInformation('');
+      setInformationMessage(copy.informationSent);
+      setStatus((current) => ({ ...current, ...result, reason: null }));
+    } catch {
+      setError(copy.unavailable);
+    } finally {
+      setInformationSubmitting(false);
     }
   }
 
@@ -310,8 +390,13 @@ export function RegisterFormClient({
         <ShieldCheck size={40} aria-hidden='true' />
         <h2 id='p0-register-status-title'>{copy.statusTitle}</h2>
         <p>{copy.submissionAccepted}</p>
+        {resendMessage ? <p role='status'>{resendMessage}</p> : null}
+        {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
         {correlationId ? <p className='p0-register-correlation'>ID: {correlationId}</p> : null}
         <div className='p0-register-actions'>
+          <button type='button' className='p0-register-secondary' onClick={() => void resendEmail()} disabled={submitting}>
+            {submitting ? copy.resending : copy.resend}
+          </button>
           <a className='p0-register-secondary' href='/platform-v7/login'>{copy.login}</a>
           <a className='p0-register-primary' href='/platform-v7/forgot-password'>{copy.recovery}</a>
         </div>
@@ -333,7 +418,27 @@ export function RegisterFormClient({
           {status?.reason ? <div><dt>{copy.reason}</dt><dd>{status.reason}</dd></div> : null}
         </dl>
         {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
+        {informationMessage ? <p role='status'>{informationMessage}</p> : null}
         {correlationId || status?.correlationId ? <p className='p0-register-correlation'>ID: {correlationId || status?.correlationId}</p> : null}
+        {statusCode === 'ADDITIONAL_INFORMATION_REQUIRED' ? (
+          <form className='p0-register-additional-form' onSubmit={submitAdditionalInformation}>
+            <label>
+              <span>{copy.additionalInformation}</span>
+              <textarea
+                value={additionalInformation}
+                onChange={(event) => setAdditionalInformation(event.target.value)}
+                minLength={8}
+                maxLength={4000}
+                placeholder={copy.additionalPlaceholder}
+                required
+                disabled={informationSubmitting}
+              />
+            </label>
+            <button type='submit' className='p0-register-primary' disabled={informationSubmitting || additionalInformation.trim().length < 8}>
+              {informationSubmitting ? copy.sendingInformation : copy.sendInformation}
+            </button>
+          </form>
+        ) : null}
         <div className='p0-register-actions'>
           <button type='button' className='p0-register-secondary' onClick={() => void loadStatus(statusToken)} disabled={statusLoading || !statusToken}>
             <RefreshCw size={17} aria-hidden='true' />{statusLoading ? '…' : copy.refresh}

@@ -12,6 +12,12 @@ import {
   mfaPendingCookieOptions,
   sealMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
+import { assertCsrf } from '../../../../lib/server-request-security';
+import {
+  MEMBERSHIP_SELECTION_COOKIE,
+  clearMembershipSelectionCookieOptions,
+  membershipSelectionCookieOptions,
+} from '../../../../lib/server/membership-selection-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +27,14 @@ const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL ||
 const UNIVERSAL_ERROR = 'Не удалось войти. Проверь данные или восстанови доступ.';
 
 type ApiLoginPayload = Partial<AuthenticatedSessionPayload> & {
+  membershipSelectionRequired?: boolean;
+  memberships?: Array<{
+    membershipId?: string;
+    organizationId?: string;
+    organizationName?: string;
+    role?: string;
+    isOrgAdmin?: boolean;
+  }>;
   mfaRequired?: boolean;
   challengeToken?: string;
   challengeExpiresAt?: string;
@@ -63,16 +77,31 @@ function forwardedHeaders(request: Request, correlationId: string) {
 }
 
 async function completeSession(payload: ApiLoginPayload, correlationId: string) {
-  if (!payload.accessToken || !payload.refreshToken || !payload.user?.email || !payload.user?.role) {
+  if (
+    !payload.accessToken
+    || !payload.refreshToken
+    || !payload.user?.id
+    || !payload.user.email
+    || !payload.user.role
+    || !payload.user.orgId
+    || !payload.user.tenantId
+    || !payload.user.membershipId
+  ) {
     console.error('auth_service_incomplete_session', JSON.stringify({ correlationId }));
     return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
   }
 
   const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
+  if (!role) {
+    console.error('auth_service_unauthorized_role', JSON.stringify({ correlationId }));
+    return json({ ok: false, code: 'AUTH_SERVICE_INVALID_ROLE', message: UNIVERSAL_ERROR, correlationId }, 403);
+  }
   const response = json({
     ok: true,
     mfaRequired: false,
-    redirectTo: payload.staffOwner ? '/platform-v7/staff' : platformHome(role),
+    redirectTo: payload.staffOwner
+      ? '/platform-v7/staff'
+      : platformHome(role, payload.user.isOrgAdmin === true),
     correlationId,
   });
   const session = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
@@ -81,11 +110,14 @@ async function completeSession(payload: ApiLoginPayload, correlationId: string) 
     return json({ ok: false, code: 'SESSION_CONFIGURATION_ERROR', message: UNIVERSAL_ERROR, correlationId }, 503);
   }
   response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
+  response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, '', clearMembershipSelectionCookieOptions());
   return response;
 }
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
@@ -119,8 +151,34 @@ export async function POST(request: Request) {
       }, rateLimited ? 429 : 401);
     }
 
+    if (payload.membershipSelectionRequired) {
+      const memberships = Array.isArray(payload.memberships)
+        ? payload.memberships.filter((membership) => (
+          Boolean(membership?.membershipId)
+          && Boolean(membership?.organizationId)
+          && Boolean(membership?.organizationName)
+          && Boolean(normalizeSurfaceRole(String(membership?.role || '')))
+          && typeof membership?.isOrgAdmin === 'boolean'
+        ))
+        : [];
+      if (!payload.challengeToken || memberships.length < 2 || memberships.length > 50) {
+        console.error('auth_service_invalid_membership_selection', JSON.stringify({ correlationId }));
+        return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
+      }
+      const response = json({
+        ok: true,
+        membershipSelectionRequired: true,
+        memberships,
+        expiresAt: payload.challengeExpiresAt || null,
+        correlationId,
+      });
+      response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, payload.challengeToken, membershipSelectionCookieOptions());
+      response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
+      return response;
+    }
+
     if (payload.mfaRequired) {
-      if (!payload.challengeToken || !payload.user?.email || !payload.user?.role) {
+      if (!payload.challengeToken || !payload.user?.id || !payload.user.email || !payload.user.role) {
         console.error('auth_service_incomplete_mfa_challenge', JSON.stringify({ correlationId }));
         return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
       }
@@ -144,6 +202,7 @@ export async function POST(request: Request) {
         correlationId,
       });
       response.cookies.set(MFA_PENDING_COOKIE, ticket, mfaPendingCookieOptions());
+      response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, '', clearMembershipSelectionCookieOptions());
       return response;
     }
 

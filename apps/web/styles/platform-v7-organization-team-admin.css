@@ -1,0 +1,70 @@
+.team-admin-panel {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--pc-border, #d8dee8);
+  border-radius: 1rem;
+  background: var(--pc-surface, #fff);
+}
+
+.team-admin-panel h2,
+.team-admin-panel h3,
+.team-admin-panel p { margin: 0; }
+
+.team-admin-form {
+  display: grid;
+  grid-template-columns: minmax(14rem, 2fr) minmax(11rem, 1fr) auto;
+  gap: .75rem;
+  align-items: end;
+}
+
+.team-admin-form h3 { grid-column: 1 / -1; }
+.team-admin-form label,
+.team-admin-reason { display: grid; gap: .35rem; font-weight: 650; }
+.team-admin-form input,
+.team-admin-form select,
+.team-admin-member-controls select,
+.team-admin-reason textarea {
+  min-height: 2.75rem;
+  padding: .65rem .75rem;
+  border: 1px solid #b6c0ce;
+  border-radius: .65rem;
+  background: #fff;
+  color: #162033;
+  font: inherit;
+}
+.team-admin-reason textarea { min-height: 5rem; resize: vertical; }
+.team-admin-form button,
+.team-admin-actions button,
+.team-admin-member-controls button {
+  min-height: 2.75rem;
+  padding: .65rem .9rem;
+  border: 0;
+  border-radius: .65rem;
+  background: #155eef;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.team-admin-form button:disabled,
+.team-admin-actions button:disabled,
+.team-admin-member-controls button:disabled { cursor: wait; opacity: .55; }
+.team-admin-actions .danger,
+.team-admin-member-controls .danger { background: #b42318; }
+.team-admin-error { padding: .75rem; border-radius: .65rem; background: #fee4e2; color: #912018; }
+.team-admin-success { padding: .75rem; border-radius: .65rem; background: #dcfae6; color: #085d3a; }
+.team-admin-section { display: grid; gap: .75rem; }
+.team-admin-list { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.team-admin-list > li { display: grid; gap: .75rem; padding: .9rem; border: 1px solid #e1e6ee; border-radius: .75rem; }
+.team-admin-list > li > div:first-child { display: grid; gap: .25rem; }
+.team-admin-list span { color: #526071; font-size: .9rem; overflow-wrap: anywhere; }
+.team-admin-actions,
+.team-admin-member-controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+
+@media (max-width: 760px) {
+  .team-admin-form { grid-template-columns: 1fr; }
+  .team-admin-form h3 { grid-column: auto; }
+  .team-admin-member-controls { display: grid; grid-template-columns: 1fr; }
+}

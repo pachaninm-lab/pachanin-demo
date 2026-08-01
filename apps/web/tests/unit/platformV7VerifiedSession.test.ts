@@ -32,7 +32,7 @@ describe('mapApiRoleToCabinetRole', () => {
     expect(mapApiRoleToCabinetRole('COMPLIANCE_OFFICER')).toBe('compliance');
     expect(mapApiRoleToCabinetRole('ARBITRATOR')).toBe('arbitrator');
     expect(mapApiRoleToCabinetRole('SURVEYOR')).toBe('surveyor');
-    expect(mapApiRoleToCabinetRole('GUEST')).toBeNull();
+    expect(mapApiRoleToCabinetRole('GUEST')).toBe('organization');
     expect(mapApiRoleToCabinetRole('nonsense')).toBeNull();
     expect(mapApiRoleToCabinetRole(undefined)).toBeNull();
   });
@@ -69,7 +69,7 @@ describe('readVerifiedCabinetRole', () => {
   it('ignores URL-style role spoofing — only the token is read', async () => {
     const verifiedRole = await readVerifiedCabinetRole(mintJwt({ role: 'BUYER', exp: NOW + 3600 }), SECRET, NOW);
     expect(verifiedRole).toBe('buyer');
-    expect(resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole, mode: 'report' }).status).toBe('would-deny');
+    expect(resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole }).status).toBe('denied');
   });
 
   it('rejects a raw/spoofed role string', async () => {
@@ -82,15 +82,15 @@ describe('readVerifiedCabinetRole', () => {
     expect(await readVerifiedCabinetRole(null, SECRET, NOW)).toBeNull();
     expect(await readVerifiedCabinetRole(undefined, SECRET, NOW)).toBeNull();
     expect(await readVerifiedCabinetRole(mintJwt({ role: 'BUYER', exp: NOW - 10 }), SECRET, NOW)).toBeNull();
-    const result = resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: null, mode: 'report' });
-    expect(result.status).toBe('unknown');
-    expect(result.enforced).toBe(false);
+    const result = resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: null });
+    expect(result.status).toBe('denied');
+    expect(result.enforced).toBe(true);
   });
 });
 
 describe('dedicated cabinet session', () => {
   it('signs a cabinet session that verifies back to the same cabinet role', async () => {
-    for (const role of ['bank', 'surveyor', 'arbitrator', 'compliance', 'seller', 'operator'] as const) {
+    for (const role of ['bank', 'surveyor', 'arbitrator', 'compliance', 'seller', 'operator', 'organization'] as const) {
       const token = await signCabinetSession(role, SECRET, { nowSeconds: NOW, ttlSeconds: 3600 });
       expect(token).toBeTruthy();
       expect(await readVerifiedCabinetSessionRole(token, SECRET, NOW)).toBe(role);

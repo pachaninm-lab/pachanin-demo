@@ -4,12 +4,14 @@ import { redirect } from 'next/navigation';
 import { OwnerAccessCenter } from '@/components/platform-v7/staff/OwnerAccessCenter';
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
+import { RegistrationReviewQueue } from '@/components/platform-v7/staff/RegistrationReviewQueue';
 import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
 import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from '@/i18n/locale';
 import { ownerAccessCenterMessages } from '@/i18n/owner-access-center-messages';
 import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
+import { normalizeSurfaceRole, platformHome } from '@/lib/server/auth-session-response';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -57,13 +59,24 @@ type VerifiedIdentity = {
   role?: string;
   organizationId?: string;
   tenantId?: string;
+  membershipId?: string;
+  isOrgAdmin?: boolean;
+  mfaVerified?: boolean;
+  mfaVerifiedAt?: string;
+  staffRoles?: string[];
   staffOwner?: boolean;
 };
 
 type Verification =
   | { status: 'verified'; identity: VerifiedIdentity }
+  | { status: 'forbidden'; identity: VerifiedIdentity }
   | { status: 'unauthenticated' }
   | { status: 'unavailable' };
+
+type StaffAssignment = {
+  role?: string;
+  status?: string;
+};
 
 async function verifyControlledIdentity(accessToken: string): Promise<Verification | null> {
   if (!controlledFixtureEnabled()) return null;
@@ -83,6 +96,16 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
   }
 
   const owner = claims.owner === true;
+  if (!owner) {
+    return {
+      status: 'forbidden',
+      identity: {
+        id: claims.sub,
+        email: claims.email,
+        role: claims.role,
+      },
+    };
+  }
   return {
     status: 'verified',
     identity: {
@@ -126,7 +149,32 @@ async function verifyIdentity(accessToken: string): Promise<Verification> {
     if (!identity || typeof identity !== 'object' || typeof identity.id !== 'string') {
       return { status: 'unauthenticated' };
     }
-    return { status: 'verified', identity };
+    const assignmentResponse = await fetch(`${API_ORIGIN}/staff/assignments/me`, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(6_000),
+    });
+    if (assignmentResponse.status === 401) return { status: 'unauthenticated' };
+    if (assignmentResponse.status === 403) return { status: 'forbidden', identity };
+    if (!assignmentResponse.ok) return { status: 'unavailable' };
+    const assignments = await assignmentResponse.json().catch(() => null) as StaffAssignment[] | null;
+    if (!Array.isArray(assignments)) return { status: 'unavailable' };
+    const staffRoles = assignments
+      .filter((assignment) => ['ACTIVE', 'ELIGIBLE'].includes(String(assignment?.status || '')))
+      .map((assignment) => String(assignment?.role || ''))
+      .filter(Boolean);
+    if (staffRoles.length === 0 || identity.mfaVerified !== true) {
+      return { status: 'forbidden', identity };
+    }
+    return {
+      status: 'verified',
+      identity: {
+        ...identity,
+        staffRoles,
+        staffOwner: staffRoles.includes('PLATFORM_OWNER'),
+      },
+    };
   } catch {
     return { status: 'unavailable' };
   }
@@ -143,6 +191,12 @@ export default async function StaffControlCenterPage() {
   if (verification.status === 'unauthenticated') {
     redirect('/platform-v7/login?next=%2Fplatform-v7%2Fstaff');
   }
+  if (verification.status === 'forbidden') {
+    const role = normalizeSurfaceRole(verification.identity.role);
+    redirect(role
+      ? platformHome(role, verification.identity.isOrgAdmin === true)
+      : '/platform-v7/login');
+  }
   if (verification.status === 'verified' && !csrfToken) {
     redirect('/platform-v7/staff/prepare');
   }
@@ -157,6 +211,9 @@ export default async function StaffControlCenterPage() {
         accessCatalog={staffAccessTaskCatalog()}
         csrfToken={csrfToken}
       />
+      {verification.status === 'verified' ? (
+        <RegistrationReviewQueue locale={locale} csrfToken={csrfToken} />
+      ) : null}
       {verification.status === 'verified' ? (
         <StaffOperationalWorkspacesDeferred
           locale={locale}

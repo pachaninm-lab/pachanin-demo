@@ -48,24 +48,26 @@ function escapeRegExp(value) {
 
 function findUnsafeNotNullChanges(sql) {
   const unsafe = [];
-  const matcher = /\bALTER\s+TABLE\s+(?:public\.)?"?([\w]+)"?[\s\S]{0,200}?\bALTER\s+COLUMN\s+"?([\w]+)"?\s+SET\s+NOT\s+NULL\b/gi;
+  const matcher = /\bALTER\s+TABLE\s+(?:"?([\w]+)"?\.)?"?([\w]+)"?[\s\S]{0,250}?\bALTER\s+COLUMN\s+"?([\w]+)"?\s+SET\s+NOT\s+NULL\b/gi;
   for (const match of sql.matchAll(matcher)) {
-    const table = escapeRegExp(match[1]);
-    const column = escapeRegExp(match[2]);
+    const schema = match[1] ? `${escapeRegExp(match[1])}\\.` : '(?:public\\.)?';
+    const table = escapeRegExp(match[2]);
+    const column = escapeRegExp(match[3]);
+    const qualifiedTable = `${schema}"?${table}"?`;
     const addedInMigration = new RegExp(
       `\\bADD\\s+COLUMN\\s+IF\\s+NOT\\s+EXISTS\\s+"?${column}"?`,
       'i',
     ).test(sql);
     const backfilled = new RegExp(
-      `\\bUPDATE\\s+(?:public\\.)?"?${table}"?[\\s\\S]{0,500}?\\bSET\\s+"?${column}"?\\s*=`,
+      `\\bUPDATE\\s+${qualifiedTable}[\\s\\S]{0,500}?\\bSET\\s+"?${column}"?\\s*=`,
       'i',
     ).test(sql);
     const guarded = new RegExp(
-      `\\bIF\\s+EXISTS\\s*\\([\\s\\S]{0,300}?\\bFROM\\s+(?:public\\.)?"?${table}"?[\\s\\S]{0,200}?"?${column}"?\\s+IS\\s+NULL`,
+      `\\bIF\\s+EXISTS\\s*\\([\\s\\S]{0,300}?\\bFROM\\s+${qualifiedTable}[\\s\\S]{0,200}?"?${column}"?\\s+IS\\s+NULL`,
       'i',
     ).test(sql);
     if (!addedInMigration || !backfilled || !guarded) {
-      unsafe.push(`${match[1]}.${match[2]}`);
+      unsafe.push(`${match[1] ? `${match[1]}.` : ''}${match[2]}.${match[3]}`);
     }
   }
   return unsafe;
@@ -74,7 +76,9 @@ function findUnsafeNotNullChanges(sql) {
 const destructivePatterns = [
   { name: 'DROP TABLE', pattern: /\bDROP\s+TABLE\b/i },
   { name: 'DROP COLUMN', pattern: /\bDROP\s+COLUMN\b/i },
-  { name: 'TRUNCATE', pattern: /\bTRUNCATE\b/i },
+  // Match a destructive statement target, but not the safe trigger event in
+  // `BEFORE TRUNCATE ON ...` append-only guards.
+  { name: 'TRUNCATE', pattern: /\bTRUNCATE\s+(?!ON\b)(?:TABLE\s+)?(?:ONLY\s+)?(?:[A-Za-z_][\w$]*\.)?"?[A-Za-z_][\w$]*"?/i },
   { name: 'mass DELETE', pattern: /\bDELETE\s+FROM\b/i },
   { name: 'column rename', pattern: /\bRENAME\s+COLUMN\b/i },
   { name: 'table rename', pattern: /\bRENAME\s+TO\b/i },

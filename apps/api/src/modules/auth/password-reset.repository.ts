@@ -19,6 +19,7 @@ export type PasswordResetChallengeRow = {
   expires_at: Date;
   consumed_at: Date | null;
   created_at: Date;
+  email: string;
 };
 
 @Injectable()
@@ -97,11 +98,13 @@ export class PasswordResetRepository {
   ): Promise<PasswordResetChallengeRow | null> {
     const rows = await client.$queryRaw<PasswordResetChallengeRow[]>(Prisma.sql`
       SELECT
-        id, user_id, token_hash, status, requested_ip_hash,
-        expires_at, consumed_at, created_at
-      FROM auth.password_reset_challenges
-      WHERE id = ${challengeId}
-      FOR UPDATE
+        challenge.id, challenge.user_id, challenge.token_hash, challenge.status,
+        challenge.requested_ip_hash, challenge.expires_at, challenge.consumed_at,
+        challenge.created_at, subject.email
+      FROM auth.password_reset_challenges challenge
+      JOIN public.users subject ON subject.id = challenge.user_id
+      WHERE challenge.id = ${challengeId}
+      FOR UPDATE OF challenge
     `);
     return rows[0] ?? null;
   }

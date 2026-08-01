@@ -6,12 +6,15 @@ TAI_IMAGE="${2:-}"
 TAI_IMAGE_DIGEST="${3:-}"
 RUN_ID="${4:-}"
 TOKEN_FILE="${5:-}"
+MODEL_EVIDENCE_FILE="${6:-}"
 
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "INVALID_TARGET_SHA" >&2; exit 2; }
 [[ "$TAI_IMAGE" =~ ^ghcr[.]io/pachaninm-lab/grainflow-tai:sha-[0-9a-f]{7}$ ]] || { echo "INVALID_TAI_IMAGE" >&2; exit 2; }
 [[ "$TAI_IMAGE_DIGEST" =~ ^ghcr[.]io/pachaninm-lab/grainflow-tai@sha256:[0-9a-f]{64}$ ]] || { echo "INVALID_TAI_IMAGE_DIGEST" >&2; exit 2; }
 [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "INVALID_RUN_ID" >&2; exit 2; }
 [[ "$TOKEN_FILE" == "/tmp/tai-model-token-${RUN_ID}" && -s "$TOKEN_FILE" ]] || { echo "MODEL_TOKEN_FILE_INVALID" >&2; exit 2; }
+[[ "$MODEL_EVIDENCE_FILE" == "/var/lib/pc-release-authority/controller-jobs/${RUN_ID}/model-artifact.json" && -s "$MODEL_EVIDENCE_FILE" && ! -L "$MODEL_EVIDENCE_FILE" ]] || { echo "MODEL_EVIDENCE_FILE_INVALID" >&2; exit 2; }
+[[ "$(stat -c '%U:%G:%a' "$MODEL_EVIDENCE_FILE")" == root:root:600 ]] || { echo "MODEL_EVIDENCE_FILE_PERMISSIONS_INVALID" >&2; exit 2; }
 test "$(id -u)" -eq 0
 umask 077
 
@@ -20,6 +23,7 @@ ENV_FILE="/etc/transparent-price/tai-agro-os.env"
 ROLE_NAME="tai_runtime"
 OVERRIDE=""
 MUTATION_STARTED=0
+STATE_ROOT_CREATED_THIS_ATTEMPT=0
 ROLE_CREATED=0
 PREVIOUS_TAI=0
 DC_BASE=()
@@ -29,10 +33,14 @@ DB_ADMIN=""
 DB_NAME=""
 DB_SERVICE=""
 COMPOSE_JSON=""
+CONTAINERS_JSON=""
 TOPOLOGY_ENV=""
-
-mkdir -p "$STATE_ROOT" /etc/transparent-price
-chmod 0700 "$STATE_ROOT" /etc/transparent-price
+MIGRATION_BUNDLE=""
+MIGRATION_SQL=""
+BOOTSTRAP_AUTHORITY=""
+BOOTSTRAP_SQL=""
+MIGRATION_COUNT=0
+PERMANENT_MODEL_ADMISSION_STATUS="NOT_ATTESTED"
 
 restore_file() {
   local target="$1" base
@@ -62,6 +70,83 @@ psql_admin() {
   docker exec -i "$DB_ID" psql -X --set ON_ERROR_STOP=1 -U "$DB_ADMIN" -d "$DB_NAME" "$@"
 }
 
+apply_tai_migrations() {
+  MIGRATION_BUNDLE="$STATE_ROOT/migration-bundle.json"
+  MIGRATION_SQL="$STATE_ROOT/migration-apply.sql"
+  docker run --rm --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE" <<'PY_MIGRATIONS'
+import base64, hashlib, json
+from importlib import resources
+root=resources.files('tai.migrations')
+manifest=json.loads(root.joinpath('manifest.json').read_text(encoding='utf-8'))
+if manifest.get('schema_version') != 'tai.migration.manifest.v1': raise SystemExit('migration manifest schema mismatch')
+rows=[]; seen_versions=set(); seen_paths=set()
+for item in manifest.get('migrations') or []:
+    version=item.get('version'); path=item.get('path')
+    if not isinstance(version,int) or isinstance(version,bool) or version < 1 or version in seen_versions: raise SystemExit('migration version authority invalid')
+    if not isinstance(path,str) or not path.endswith('.sql') or '/' in path or path in seen_paths: raise SystemExit('migration path authority invalid')
+    raw=root.joinpath(path).read_bytes(); digest=hashlib.sha256(raw).hexdigest()
+    seen_versions.add(version); seen_paths.add(path)
+    rows.append({'version':version,'path':path,'sha256':digest,'contentBase64':base64.b64encode(raw).decode()})
+print(json.dumps({'schemaVersion':'tai.exact-image-migration-bundle.v1','migrations':rows},sort_keys=True,separators=(',',':')))
+PY_MIGRATIONS
+  chmod 0600 "$MIGRATION_BUNDLE"
+  python3 - "$MIGRATION_BUNDLE" "$MIGRATION_SQL" "$TARGET_SHA" <<'PY_MIGRATION_SQL'
+import base64,json,re,sys
+bundle_path,output_path,target_sha=sys.argv[1:]
+bundle=json.load(open(bundle_path,encoding='utf-8'))
+if bundle.get('schemaVersion') != 'tai.exact-image-migration-bundle.v1': raise SystemExit('migration bundle schema mismatch')
+def literal(value):
+    if '\x00' in value: raise SystemExit('NUL in migration authority')
+    return "'" + value.replace("'", "''") + "'"
+lines=["CREATE TABLE IF NOT EXISTS public.tai_schema_migrations (version INTEGER PRIMARY KEY CHECK (version > 0), path TEXT NOT NULL UNIQUE, sha256 TEXT NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'), target_sha TEXT NOT NULL CHECK (target_sha ~ '^[0-9a-f]{40}$'), applied_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp());"]
+for item in bundle.get('migrations') or []:
+    version=item['version']; path=item['path']; digest=item['sha256']; raw=base64.b64decode(item['contentBase64'],validate=True).decode('utf-8')
+    match=re.fullmatch(r'\s*BEGIN;\s*(.*?)\s*COMMIT;\s*',raw,re.S|re.I)
+    if not match: raise SystemExit(f'migration transaction boundary invalid: {path}')
+    body=match.group(1).strip(); prefix=f'tai_m{version}_'
+    lines.extend(["DO $tai_guard$ BEGIN IF EXISTS (SELECT 1 FROM public.tai_schema_migrations WHERE version = " + str(version) + " AND (path <> " + literal(path) + " OR sha256 <> " + literal(digest) + ")) THEN RAISE EXCEPTION 'TAI migration ledger mismatch for version " + str(version) + "'; END IF; END $tai_guard$;", "SELECT EXISTS (SELECT 1 FROM public.tai_schema_migrations WHERE version = " + str(version) + " AND path = " + literal(path) + " AND sha256 = " + literal(digest) + ") AS applied \gset " + prefix, "\if :" + prefix + "applied", "\echo verified existing TAI migration " + str(version), "\else", "BEGIN;", body, "INSERT INTO public.tai_schema_migrations(version,path,sha256,target_sha) VALUES (" + str(version) + "," + literal(path) + "," + literal(digest) + "," + literal(target_sha) + ");", "COMMIT;", "\endif"])
+open(output_path,'w',encoding='utf-8').write('\n'.join(lines)+'\n')
+PY_MIGRATION_SQL
+  chmod 0600 "$MIGRATION_SQL"
+  psql_admin -f "$MIGRATION_SQL"
+  expected_count="$(python3 - "$MIGRATION_BUNDLE" <<'PY_COUNT'
+import json,sys
+print(len(json.load(open(sys.argv[1],encoding='utf-8'))['migrations']))
+PY_COUNT
+)"
+  MIGRATION_COUNT="$(psql_admin -Atc 'SELECT COUNT(*) FROM public.tai_schema_migrations;')"
+  [[ "$MIGRATION_COUNT" == "$expected_count" ]] || { echo "TAI_MIGRATION_LEDGER_INCOMPLETE" >&2; exit 20; }
+}
+
+build_bootstrap_authority() {
+  BOOTSTRAP_AUTHORITY="$STATE_ROOT/bootstrap-authority.json"
+  docker run --rm --read-only --network none -v "$MODEL_EVIDENCE_FILE:/run/model-artifact.json:ro" --entrypoint python "$TAI_IMAGE_DIGEST" -m tai.bootstrap_authority --activation-sha "$TARGET_SHA" --model-evidence /run/model-artifact.json > "$BOOTSTRAP_AUTHORITY"
+  chmod 0600 "$BOOTSTRAP_AUTHORITY"
+  python3 - "$BOOTSTRAP_AUTHORITY" "$TARGET_SHA" <<'PY_BOOTSTRAP_VALIDATE'
+import hashlib,json,re,sys
+value=json.load(open(sys.argv[1],encoding='utf-8')); assert value.get('schemaVersion') == 'tai.production-bootstrap-authority.v1'; assert value.get('activationSha') == sys.argv[2]; assert value.get('productionHosting') == 'REG_RU_VPS_ONLY'; assert value.get('newRecurringCostRub') == 0
+model=value.get('model') or {}; knowledge=value.get('knowledge') or {}; assert model.get('modelId') == 'tai-qwen3-8b-q4km'; assert re.fullmatch(r'artifact-[0-9a-f]{64}',model.get('revision','')); assert re.fullmatch(r'[0-9a-f]{64}',model.get('artifactSha256','')); assert model.get('permanentAdmissionStatus') == 'NOT_ATTESTED'; assert model.get('restrictedOperational') is True; assert knowledge.get('sourceId') == 'tai-agro-os-master-spec-v4.0'; assert hashlib.sha256(knowledge.get('text','').encode()).hexdigest() == knowledge.get('documentChecksumSha256')
+authority=value.pop('authoritySha256'); assert authority == hashlib.sha256(json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+PY_BOOTSTRAP_VALIDATE
+}
+
+apply_bootstrap_authority() {
+  BOOTSTRAP_SQL="$STATE_ROOT/bootstrap-authority.sql"
+  python3 - "$BOOTSTRAP_AUTHORITY" "$BOOTSTRAP_SQL" <<'PY_BOOTSTRAP_SQL'
+import json,sys
+value=json.load(open(sys.argv[1],encoding='utf-8')); model=value['model']; knowledge=value['knowledge']
+def literal(item):
+    text=str(item)
+    if '\x00' in text: raise SystemExit('NUL in bootstrap authority')
+    return "'" + text.replace("'", "''") + "'"
+capabilities='ARRAY[' + ','.join(literal(item) for item in model['capabilities']) + ']::TEXT[]'; model_id=literal(model['modelId']); revision=literal(model['revision']); artifact=literal(model['artifactSha256']); source_id=literal(knowledge['sourceId']); checksum=literal(knowledge['documentChecksumSha256']); chunk_id=literal(knowledge['chunkId']); text=literal(knowledge['text'])
+lines=['BEGIN;', "UPDATE public.tai_local_model_profiles SET status='DISABLED', updated_at=clock_timestamp(), version=version+1 WHERE status='ACTIVE' AND (model_id <> " + model_id + " OR revision <> " + revision + " OR artifact_sha256 <> " + artifact + ");", "INSERT INTO public.tai_local_model_profiles(model_id,revision,artifact_locator,artifact_sha256,license_ref,capabilities,maximum_context_tokens,maximum_output_tokens,runtime_class,quantization,routing_priority,status) VALUES (" + ','.join([model_id,revision,literal(model['artifactLocator']),artifact,literal(model['licenseRef']),capabilities,str(model['maximumContextTokens']),str(model['maximumOutputTokens']),literal(model['runtimeClass']),literal(model['quantization']),'10',"'ACTIVE'"]) + ") ON CONFLICT (model_id,revision) DO UPDATE SET artifact_locator=EXCLUDED.artifact_locator, artifact_sha256=EXCLUDED.artifact_sha256, license_ref=EXCLUDED.license_ref, capabilities=EXCLUDED.capabilities, maximum_context_tokens=EXCLUDED.maximum_context_tokens, maximum_output_tokens=EXCLUDED.maximum_output_tokens, runtime_class=EXCLUDED.runtime_class, quantization=EXCLUDED.quantization, routing_priority=EXCLUDED.routing_priority, status='ACTIVE', updated_at=clock_timestamp(), version=public.tai_local_model_profiles.version+1;", "INSERT INTO public.tai_local_model_health(model_id,revision,status,available_slots,queue_depth,p95_latency_ms,observed_at,circuit_open_until) VALUES (" + model_id + ',' + revision + ",'WARMING',1,0,0,clock_timestamp(),NULL) ON CONFLICT (model_id,revision) DO UPDATE SET status='WARMING', available_slots=1, queue_depth=0, p95_latency_ms=0, observed_at=clock_timestamp(), circuit_open_until=NULL, updated_at=clock_timestamp();", "DO $tai_knowledge$ DECLARE active_generation BIGINT; next_generation BIGINT; BEGIN SELECT generation INTO active_generation FROM public.tai_retrieval_generations WHERE status='ACTIVE' ORDER BY generation DESC LIMIT 1 FOR UPDATE; IF active_generation IS NULL OR NOT EXISTS (SELECT 1 FROM public.tai_retrieval_chunks WHERE generation=active_generation AND source_id=" + source_id + " AND document_checksum_sha256=" + checksum + " AND revoked IS FALSE) THEN INSERT INTO public.tai_retrieval_generations(status) VALUES ('BUILDING') RETURNING generation INTO next_generation; IF active_generation IS NOT NULL THEN INSERT INTO public.tai_retrieval_chunks(generation,chunk_id,source_id,document_checksum_sha256,ordinal,tenant_id,trust_score,valid_until,revoked,chunk_text) SELECT next_generation,chunk_id,source_id,document_checksum_sha256,ordinal,tenant_id,trust_score,valid_until,revoked,chunk_text FROM public.tai_retrieval_chunks WHERE generation=active_generation; END IF; INSERT INTO public.tai_retrieval_chunks(generation,chunk_id,source_id,document_checksum_sha256,ordinal,tenant_id,trust_score,valid_until,revoked,chunk_text) VALUES (next_generation," + chunk_id + ',' + source_id + ',' + checksum + ",0,NULL,1.0,NULL,FALSE," + text + ") ON CONFLICT (generation,chunk_id) DO UPDATE SET source_id=EXCLUDED.source_id, document_checksum_sha256=EXCLUDED.document_checksum_sha256, ordinal=EXCLUDED.ordinal, tenant_id=NULL, trust_score=1.0, valid_until=NULL, revoked=FALSE, chunk_text=EXCLUDED.chunk_text; PERFORM public.tai_activate_retrieval_generation(next_generation); END IF; END $tai_knowledge$;", 'COMMIT;']
+open(sys.argv[2],'w',encoding='utf-8').write('\n'.join(lines)+'\n')
+PY_BOOTSTRAP_SQL
+  chmod 0600 "$BOOTSTRAP_SQL"
+  psql_admin -f "$BOOTSTRAP_SQL"
+}
+
 rollback_now() {
   local rc="${1:-1}"
   set +e
@@ -85,10 +170,10 @@ SQL
       fi
     fi
     touch "$STATE_ROOT/ROLLED_BACK"
-  else
-    rm -rf "$STATE_ROOT"
+  elif (( STATE_ROOT_CREATED_THIS_ATTEMPT == 1 )); then
+    rm -rf -- "$STATE_ROOT"
   fi
-  rm -f "$TOKEN_FILE" "$COMPOSE_JSON" "$TOPOLOGY_ENV"
+  rm -f "$TOKEN_FILE" "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV" "$MIGRATION_BUNDLE" "$MIGRATION_SQL" "$BOOTSTRAP_AUTHORITY" "$BOOTSTRAP_SQL"
   echo "TAI_REG_RU_DEPLOY_ROLLBACK=PASS" >&2
   exit "$rc"
 }
@@ -120,30 +205,268 @@ for file in "${compose_files[@]}"; do test -f "$file"; done
 DC_BASE=(docker compose --project-directory "$prod_dir" --project-name "$prod_project")
 for file in "${compose_files[@]}"; do DC_BASE+=(-f "$file"); done
 COMPOSE_JSON="$(mktemp)"
+CONTAINERS_JSON="$(mktemp)"
 TOPOLOGY_ENV="$(mktemp)"
 "${DC_BASE[@]}" config --format json > "$COMPOSE_JSON"
-python3 - "$COMPOSE_JSON" "$TOPOLOGY_ENV" <<'PY'
-import json, re, sys
-cfg = json.load(open(sys.argv[1], encoding="utf-8"))
+mapfile -t project_container_ids < <(
+  docker ps -q --filter "label=com.docker.compose.project=$prod_project"
+)
+(( ${#project_container_ids[@]} >= 1 )) || { echo "COMPOSE_PROJECT_HAS_NO_RUNNING_CONTAINERS" >&2; exit 10; }
+docker inspect "${project_container_ids[@]}" > "$CONTAINERS_JSON"
+python3 - "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV" "$TARGET_SHA" "$prod_project" <<'PY_POSTGRES_AUTHORITY'
+import json
+import posixpath
+import re
+import shlex
+import sys
+from urllib.parse import parse_qsl, unquote, urlsplit
+
+compose_path, containers_path, output_path, target_sha, project_name = sys.argv[1:]
+
+def fail(code):
+    raise SystemExit(code)
+
+def read_json(path, expected_type, code):
+    try:
+        value = json.load(open(path, encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        fail(code)
+    if not isinstance(value, expected_type):
+        fail(code)
+    return value
+
+def labels(container):
+    value = (container.get("Config") or {}).get("Labels") or {}
+    return value if isinstance(value, dict) else {}
+
+def env_map(items, code):
+    result = {}
+    for item in items or []:
+        if not isinstance(item, str) or "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        if key in result:
+            fail(code)
+        result[key] = value
+    return result
+
+def service_env(service):
+    value = service.get("environment") or {}
+    if isinstance(value, dict):
+        return {str(key): "" if item is None else str(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return env_map(value, "POSTGRES_SERVICE_ENVIRONMENT_AMBIGUOUS")
+    fail("POSTGRES_SERVICE_ENVIRONMENT_INVALID")
+
+def image_repository(image):
+    if not isinstance(image, str) or not image.strip():
+        return ""
+    without_digest = image.strip().split("@", 1)[0]
+    basename = without_digest.rsplit("/", 1)[-1]
+    return basename.split(":", 1)[0].lower()
+
+def is_postgres_image(image):
+    return image_repository(image) in {"postgres", "postgresql"}
+
+helper_pattern = re.compile(
+    r"(^|[-_.])(provision(?:er|ing)?|init(?:db)?|migrat(?:e|ion|ions|or)?|seed(?:er|ing)?|backup|restore)(?:[0-9]+)?(?=$|[-_.])",
+    re.I,
+)
+
+def is_helper(name):
+    return bool(helper_pattern.search(name))
+
+def normalized_path(value):
+    if not isinstance(value, str) or not value.startswith("/"):
+        return ""
+    return posixpath.normpath(value)
+
+def mount_covers(mount_target, data_path):
+    target = normalized_path(mount_target)
+    data = normalized_path(data_path)
+    return bool(target and data and (data == target or data.startswith(target.rstrip("/") + "/")))
+
+def compose_has_durable_storage(service):
+    pgdata = service_env(service).get("PGDATA") or "/var/lib/postgresql/data"
+    for mount in service.get("volumes") or []:
+        if not isinstance(mount, dict):
+            continue
+        if mount.get("type") not in {"volume", "bind"}:
+            continue
+        if not str(mount.get("source") or "").strip():
+            continue
+        if mount_covers(mount.get("target"), pgdata):
+            return True
+    return False
+
+def container_has_durable_storage(container, pgdata):
+    for mount in container.get("Mounts") or []:
+        if not isinstance(mount, dict):
+            continue
+        if mount.get("Type") not in {"volume", "bind"}:
+            continue
+        if not str(mount.get("Source") or mount.get("Name") or "").strip():
+            continue
+        if mount_covers(mount.get("Destination"), pgdata):
+            return True
+    return False
+
+cfg = read_json(compose_path, dict, "COMPOSE_CONFIG_INVALID")
+containers = read_json(containers_path, list, "COMPOSE_CONTAINER_INSPECT_INVALID")
 services = cfg.get("services") or {}
-db = []
-for name, service in services.items():
-    image = str(service.get("image") or "")
-    if re.search(r"(^|[-_])(postgres|postgresql)([-_]|$)", name, re.I) or "postgres" in image.lower():
-        db.append(name)
-if len(db) != 1:
-    raise SystemExit("POSTGRES_SERVICE_AUTHORITY_AMBIGUOUS")
+if not isinstance(services, dict) or "api" not in services:
+    fail("COMPOSE_API_SERVICE_MISSING")
 if "tai" in services:
-    raise SystemExit("TAI_BASE_COMPOSE_AUTHORITY_UNEXPECTED")
-with open(sys.argv[2], "w", encoding="utf-8") as out:
-    out.write(f"DB_SERVICE={db[0]}\n")
-PY
+    fail("TAI_BASE_COMPOSE_AUTHORITY_UNEXPECTED")
+
+project_containers = [
+    container for container in containers
+    if isinstance(container, dict)
+    and labels(container).get("com.docker.compose.project") == project_name
+    and (container.get("State") or {}).get("Status") == "running"
+]
+api_containers = [
+    container for container in project_containers
+    if labels(container).get("com.docker.compose.service") == "api"
+]
+if len(api_containers) != 1:
+    fail("API_CONTAINER_AUTHORITY_AMBIGUOUS")
+api = api_containers[0]
+if labels(api).get("org.opencontainers.image.revision") != target_sha:
+    fail("API_EXACT_MAIN_MISMATCH")
+api_env = env_map((api.get("Config") or {}).get("Env"), "API_ENVIRONMENT_AMBIGUOUS")
+database_url = api_env.get("DATABASE_URL", "")
+if not database_url:
+    fail("DATABASE_URL_MISSING")
+if database_url != database_url.strip() or re.search(r"[\x00-\x20\x7f]", database_url):
+    fail("DATABASE_URL_INVALID")
+if re.search(r"%(?![0-9A-Fa-f]{2})", database_url):
+    fail("DATABASE_URL_INVALID")
+try:
+    parsed = urlsplit(database_url)
+except ValueError:
+    fail("DATABASE_URL_INVALID")
+if parsed.scheme not in {"postgres", "postgresql"}:
+    fail("DATABASE_URL_SCHEME_INVALID")
+try:
+    database_host = parsed.hostname or ""
+    database_port = parsed.port
+    database_username = parsed.username
+except ValueError:
+    fail("DATABASE_URL_INVALID")
+if (
+    not parsed.netloc
+    or parsed.netloc.count("@") > 1
+    or ("@" in parsed.netloc and not database_username)
+    or parsed.fragment
+    or (database_port is not None and not 1 <= database_port <= 65535)
+):
+    fail("DATABASE_URL_INVALID")
+try:
+    query_pairs = parse_qsl(
+        parsed.query,
+        keep_blank_values=True,
+        strict_parsing=True,
+        max_num_fields=32,
+    )
+except ValueError:
+    fail("DATABASE_URL_QUERY_INVALID")
+query_keys = []
+for raw_key, _ in query_pairs:
+    key = raw_key.strip().lower()
+    if not key or key in query_keys:
+        fail("DATABASE_URL_QUERY_INVALID")
+    query_keys.append(key)
+authority_query_keys = {
+    "database",
+    "dbname",
+    "host",
+    "hostaddr",
+    "port",
+    "service",
+    "socket",
+    "unix_socket",
+}
+if authority_query_keys.intersection(query_keys):
+    fail("DATABASE_URL_AUTHORITY_OVERRIDE_FORBIDDEN")
+database_name = unquote(parsed.path[1:]) if parsed.path.startswith("/") else ""
+if (
+    not database_host
+    or not database_name
+    or "/" in database_name
+    or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", database_name)
+):
+    fail("DATABASE_URL_INVALID")
+if database_host not in services:
+    fail("DATABASE_HOST_SERVICE_MISSING")
+
+authority_service = services[database_host]
+if not isinstance(authority_service, dict):
+    fail("DATABASE_HOST_SERVICE_INVALID")
+if is_helper(database_host):
+    fail("POSTGRES_HELPER_SERVICE_FORBIDDEN")
+if not is_postgres_image(authority_service.get("image")):
+    fail("POSTGRES_SERVICE_IMAGE_INVALID")
+if not compose_has_durable_storage(authority_service):
+    fail("POSTGRES_SERVICE_STORAGE_INVALID")
+
+persistent_postgres = sorted(
+    name for name, service in services.items()
+    if isinstance(name, str)
+    and isinstance(service, dict)
+    and not is_helper(name)
+    and is_postgres_image(service.get("image"))
+    and compose_has_durable_storage(service)
+)
+if persistent_postgres != [database_host]:
+    fail("POSTGRES_PERSISTENT_AUTHORITY_AMBIGUOUS")
+
+database_containers = [
+    container for container in project_containers
+    if labels(container).get("com.docker.compose.service") == database_host
+]
+if len(database_containers) != 1:
+    fail("POSTGRES_RUNNING_CONTAINER_AUTHORITY_AMBIGUOUS")
+database = database_containers[0]
+database_config = database.get("Config") or {}
+if not is_postgres_image(database_config.get("Image")):
+    fail("POSTGRES_RUNNING_IMAGE_INVALID")
+database_env = env_map(database_config.get("Env"), "POSTGRES_CONTAINER_ENVIRONMENT_AMBIGUOUS")
+postgres_db = database_env.get("POSTGRES_DB", "")
+postgres_user = database_env.get("POSTGRES_USER", "")
+pgdata = database_env.get("PGDATA") or service_env(authority_service).get("PGDATA") or "/var/lib/postgresql/data"
+if postgres_db != database_name:
+    fail("POSTGRES_DB_MISMATCH")
+if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", postgres_user):
+    fail("POSTGRES_USER_INVALID")
+if not container_has_durable_storage(database, pgdata):
+    fail("POSTGRES_RUNNING_STORAGE_INVALID")
+
+api_id = str(api.get("Id") or "")
+database_id = str(database.get("Id") or "")
+if not re.fullmatch(r"[0-9a-f]{12,64}", api_id):
+    fail("API_CONTAINER_ID_INVALID")
+if not re.fullmatch(r"[0-9a-f]{12,64}", database_id):
+    fail("POSTGRES_CONTAINER_ID_INVALID")
+
+with open(output_path, "w", encoding="utf-8") as output:
+    output.write(f"API_ID={shlex.quote(api_id)}\n")
+    output.write(f"DB_ID={shlex.quote(database_id)}\n")
+    output.write(f"DB_SERVICE={shlex.quote(database_host)}\n")
+    output.write(f"DB_NAME={shlex.quote(database_name)}\n")
+    output.write(f"DB_ADMIN={shlex.quote(postgres_user)}\n")
+PY_POSTGRES_AUTHORITY
 # shellcheck disable=SC1090
 source "$TOPOLOGY_ENV"
-rm -f "$COMPOSE_JSON" "$TOPOLOGY_ENV"
+rm -f "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV"
 COMPOSE_JSON=""
+CONTAINERS_JSON=""
 TOPOLOGY_ENV=""
+[[ "$API_ID" =~ ^[0-9a-f]{12,64}$ ]]
+[[ "$DB_ID" =~ ^[0-9a-f]{12,64}$ ]]
 [[ "$DB_SERVICE" =~ ^[A-Za-z0-9._-]+$ ]]
+[[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+[[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
 
 mapfile -t previous_tai_ids < <(
   docker ps -aq \
@@ -159,13 +482,11 @@ elif [[ -f "$OVERRIDE" || -f "$ENV_FILE" ]]; then
   exit 13
 fi
 
-api_id="$("${DC_BASE[@]}" ps -q api | head -1)"
 web_id="$("${DC_BASE[@]}" ps -q web | head -1)"
-DB_ID="$("${DC_BASE[@]}" ps -q "$DB_SERVICE" | head -1)"
-test -n "$api_id"
 test -n "$web_id"
-test -n "$DB_ID"
-test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" = "$TARGET_SHA"
+test "$API_ID" = "$(docker inspect --format '{{.Id}}' "$API_ID")"
+test "$DB_ID" = "$(docker inspect --format '{{.Id}}' "$DB_ID")"
+test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$API_ID")" = "$TARGET_SHA"
 test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" = "$TARGET_SHA"
 test "$(docker inspect --format '{{.State.Status}}' "$DB_ID")" = running
 
@@ -174,31 +495,41 @@ env_value_from_container() {
   docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$id" \
     | awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}'
 }
-DB_ADMIN="$(env_value_from_container "$DB_ID" POSTGRES_USER)"
-DB_NAME="$(env_value_from_container "$DB_ID" POSTGRES_DB)"
-[[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
-[[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+test "$(env_value_from_container "$DB_ID" POSTGRES_USER)" = "$DB_ADMIN"
+test "$(env_value_from_container "$DB_ID" POSTGRES_DB)" = "$DB_NAME"
 docker exec "$DB_ID" psql --version >/dev/null
+
+mkdir -- "$STATE_ROOT" || { echo "STATE_ROOT_ALREADY_EXISTS_OR_UNAVAILABLE" >&2; exit 14; }
+STATE_ROOT_CREATED_THIS_ATTEMPT=1
+mkdir -p /etc/transparent-price
+chmod 0700 "$STATE_ROOT" /etc/transparent-price
+
+apply_tai_migrations
+build_bootstrap_authority
+apply_bootstrap_authority
 
 authority_row="$(psql_admin -AtF $'\t' <<'SQL'
 SELECT p.model_id, p.revision, p.artifact_sha256
 FROM public.tai_local_model_profiles AS p
-JOIN public.tai_current_model_admission_v1 AS a
-  ON a.model_id = p.model_id
- AND a.revision = p.revision
- AND a.artifact_sha256 = p.artifact_sha256
- AND a.accepted IS TRUE
 WHERE p.status = 'ACTIVE'
 ORDER BY p.routing_priority, p.model_id, p.revision;
 SQL
 )"
 [[ "$(printf '%s\n' "$authority_row" | grep -c .)" == 1 ]]
 IFS=$'\t' read -r model_id model_revision model_artifact_sha <<< "$authority_row"
-[[ "$model_id" == "tai-qwen3-8b-q4km" ]]
-[[ "$model_revision" =~ ^[A-Za-z0-9._:-]{1,128}$ ]]
-[[ "$model_artifact_sha" =~ ^[0-9a-f]{64}$ ]]
+readarray -t bootstrap_model < <(python3 - "$BOOTSTRAP_AUTHORITY" <<'PY_BOOTSTRAP_MODEL'
+import json,sys
+model=json.load(open(sys.argv[1],encoding='utf-8'))['model']; print(model['modelId']); print(model['revision']); print(model['artifactSha256'])
+PY_BOOTSTRAP_MODEL
+)
+(( ${#bootstrap_model[@]} == 3 ))
+[[ "$model_id" == "${bootstrap_model[0]}" && "$model_revision" == "${bootstrap_model[1]}" && "$model_artifact_sha" == "${bootstrap_model[2]}" ]]
+accepted_count="$(psql_admin -Atc "SELECT COUNT(*) FROM public.tai_current_model_admission_v1 WHERE model_id='${model_id}' AND revision='${model_revision}' AND artifact_sha256='${model_artifact_sha}' AND accepted IS TRUE;")"
+[[ "$accepted_count" == 0 || "$accepted_count" == 1 ]]
+if [[ "$accepted_count" == 1 ]]; then PERMANENT_MODEL_ADMISSION_STATUS='ACCEPTED'; fi
 active_generation_count="$(psql_admin -Atc "SELECT COUNT(*) FROM public.tai_retrieval_generations WHERE status = 'ACTIVE';")"
-[[ "$active_generation_count" == 1 ]]
+active_source_count="$(psql_admin -Atc "SELECT COUNT(*) FROM public.tai_retrieval_chunks AS c JOIN public.tai_retrieval_generations AS g ON g.generation=c.generation AND g.status='ACTIVE' WHERE c.source_id='tai-agro-os-master-spec-v4.0' AND c.revoked IS FALSE;")"
+[[ "$active_generation_count" == 1 && "$active_source_count" -ge 1 ]]
 
 env_value() {
   local key="$1"
@@ -379,6 +710,11 @@ TAI_CONFIRMATION_HMAC_SECRET_B64=${confirmation_secret}
 TAI_MODEL_ENDPOINTS_JSON={"${model_id}@${model_revision}":"http://192.168.0.206:18080/v1/chat/completions"}
 TAI_ALLOWED_MODEL_HOSTS_JSON=["192.168.0.206"]
 TAI_MODEL_BEARER_TOKEN=${model_token}
+TAI_RESTRICTED_MODEL_OPERATIONAL=true
+TAI_RESTRICTED_MODEL_ID=${model_id}
+TAI_RESTRICTED_MODEL_REVISION=${model_revision}
+TAI_RESTRICTED_MODEL_ARTIFACT_SHA256=${model_artifact_sha}
+TAI_RESTRICTED_ACTIVATION_SHA=${TARGET_SHA}
 TAI_MODEL_MAX_INFLIGHT=1
 TAI_MODEL_MAX_QUEUE=16
 TAI_MODEL_QUEUE_TIMEOUT_SECONDS=10
@@ -663,12 +999,12 @@ echo "TAI_REG_RU_ROLLBACK=PASS"
 ROLLBACK
 chmod 0700 "$STATE_ROOT/rollback.sh"
 
-python3 - "$TARGET_SHA" "$TAI_IMAGE" "$TAI_IMAGE_DIGEST" "$STATE_ROOT/runtime-proof.json" "$STATE_ROOT/inference-proof.json" > "$STATE_ROOT/evidence.json" <<'PY'
+python3 - "$TARGET_SHA" "$TAI_IMAGE" "$TAI_IMAGE_DIGEST" "$STATE_ROOT/runtime-proof.json" "$STATE_ROOT/inference-proof.json" "$BOOTSTRAP_AUTHORITY" "$MIGRATION_COUNT" "$PERMANENT_MODEL_ADMISSION_STATUS" > "$STATE_ROOT/evidence.json" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
 
-sha, image, digest, runtime_path, inference_path = sys.argv[1:]
+sha, image, digest, runtime_path, inference_path, bootstrap_path, migration_count, admission_status = sys.argv[1:]
 report = {
     "schemaVersion": "tai.reg-ru.deployment.v1",
     "targetSha": sha,
@@ -683,6 +1019,11 @@ report = {
     "tools": "disabled-safe",
     "databasePrincipal": json.load(open(runtime_path, encoding="utf-8")),
     "inference": json.load(open(inference_path, encoding="utf-8")),
+    "bootstrapAuthority": json.load(open(bootstrap_path, encoding="utf-8")),
+    "migrationLedgerCount": int(migration_count),
+    "restrictedModelOperational": True,
+    "permanentModelAdmissionStatus": admission_status,
+    "schemaRollback": "FORWARD_ONLY_IDEMPOTENT",
     "rollbackAuthority": True,
     "passed": True,
 }
@@ -691,7 +1032,7 @@ PY
 chmod 0600 "$STATE_ROOT/evidence.json"
 rm -f "$STATE_ROOT/MUTATION_STARTED"
 touch "$STATE_ROOT/ACCEPTED"
-rm -f "$COMPOSE_JSON" "$TOPOLOGY_ENV"
+rm -f "$COMPOSE_JSON" "$TOPOLOGY_ENV" "$MIGRATION_BUNDLE" "$MIGRATION_SQL" "$BOOTSTRAP_AUTHORITY" "$BOOTSTRAP_SQL"
 trap - ERR INT TERM
 
 echo "TAI_REG_RU_DEPLOYMENT_COMPLETE=1"

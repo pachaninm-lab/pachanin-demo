@@ -73,6 +73,7 @@ describe('restricted public Qwen route', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     process.env = { ...originalEnv };
     Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: originalFetch });
     vi.restoreAllMocks();
@@ -310,7 +311,7 @@ describe('restricted public Qwen route', () => {
     expect(String(frames[2].text)).toContain('Сделка');
     expect(JSON.parse(String(frames[3].summary))).toMatchObject({
       source: 'verified_knowledge',
-      safetyFlags: ['MODEL_FAST_FALLBACK'],
+      safetyFlags: ['MODEL_RUNTIME_FALLBACK'],
     });
     expect(frames[4]).toMatchObject({ complete: true });
   });
@@ -330,4 +331,55 @@ describe('restricted public Qwen route', () => {
     expect(response.status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('fails closed instead of using unrelated platform grounding for a general-agro model failure', async () => {
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(async () => new Response(JSON.stringify({ error: 'down' }), { status: 503 })),
+    });
+
+    const { POST } = await loadRoute();
+    const frames = parseFrames(await (await POST(request('Что влияет на цену зерна?'))).text());
+
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'error', 'done']);
+    expect(JSON.stringify(frames[1])).toContain('UPSTREAM_ERROR');
+    expect(JSON.stringify(frames[1])).toContain('Повтори запрос');
+    expect(frames[2]).toMatchObject({ complete: false });
+    expect(JSON.stringify(frames)).not.toContain('MODEL_RUNTIME_FALLBACK');
+  });
+
+  it('waits beyond the removed eight-second cutoff for a healthy local Qwen answer', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((_url: unknown, init: RequestInit) => new Promise<Response>((resolve, reject) => {
+      const timer = setTimeout(() => resolve(modelResponse(
+        'На цену зерна влияют качество, базис поставки, логистика, сезонность, спрос и предложение.',
+      )), 9_000);
+      const signal = init.signal as AbortSignal;
+      signal.addEventListener('abort', () => {
+        clearTimeout(timer);
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      }, { once: true });
+    }));
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock });
+
+    const { POST } = await loadRoute();
+    const response = await POST(request('Что влияет на цену зерна?'));
+    const body = response.text();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(9_001);
+    const frames = parseFrames(await body);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'token', 'assessment', 'done']);
+    expect(JSON.parse(String(frames[2].summary))).toMatchObject({
+      source: 'local_qwen',
+      modelIdentity: 'tai-qwen3-8b-q4km',
+      answerMode: 'general_agro',
+    });
+    expect(frames[3]).toMatchObject({ complete: true });
+  });
+
 });

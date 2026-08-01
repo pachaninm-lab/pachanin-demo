@@ -151,7 +151,7 @@ export default async function ForgotPasswordPage({
             <h1 id='pc-reset-title'>{copy.title}</h1>
             <p>{copy.lead}</p>
           </div>
-          <ResetPasswordFormClient token={token} copy={copy} />
+          <ResetPasswordFormClient token={token} copy={copy} locale={locale} />
         </section>
       </main>
     );

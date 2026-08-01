@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { sendTransactionalMail } from '../../../../lib/server/transactional-mail';
+import { assertCsrf } from '../../../../lib/server-request-security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,6 +88,8 @@ function accountHash(email: string) {
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) return json({ accepted: false, code: 'CSRF_REJECTED', correlationId }, 403);
   const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
@@ -166,14 +169,18 @@ export async function POST(request: Request) {
       });
       console.info('registration_email_delivery_result', JSON.stringify({
         correlationId,
-        applicationId: payload.applicationId,
+        registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
         delivered: deliveryResult.delivered,
         provider: deliveryResult.provider,
         reason: deliveryResult.reason,
       }));
       if (!deliveryResult.delivered) {
-        return json({ accepted: false, code: 'REGISTRATION_EMAIL_UNAVAILABLE', correlationId }, 503);
+        console.warn('registration_email_delivery_deferred', JSON.stringify({
+          correlationId,
+          registrationApplicationRef: payload.applicationId,
+          accountHash: accountHash(email),
+        }));
       }
     }
 

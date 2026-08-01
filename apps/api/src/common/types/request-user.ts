@@ -29,6 +29,7 @@ export type RequestUser = {
   sessionId?: string;
   tenantId?: string;
   membershipId?: string;
+  isOrgAdmin?: boolean;
   credentialVersion?: number;
   mfaVerified?: boolean;
   mfaVerifiedAt?: string;

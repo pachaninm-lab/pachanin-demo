@@ -5,6 +5,7 @@
 // and periodically validates the token via /api/auth/refresh
 
 import { setOn401Handler } from './api-client';
+import { applyCsrfHeader } from './csrf';
 
 const SESSION_COOKIE = 'pc_session_present';
 const CHECK_INTERVAL_MS = 3 * 60 * 1000; // check every 3 min
@@ -73,7 +74,12 @@ function broadcast() {
 
 async function attemptRefresh(): Promise<boolean> {
   try {
-    const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'same-origin' });
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: applyCsrfHeader(),
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
     return res.ok;
   } catch {
     return false;
@@ -121,7 +127,7 @@ export function stopSessionWatcher() {
 function redirectToLogin() {
   if (typeof window === 'undefined') return;
   const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-  window.location.href = `/login?returnTo=${returnTo}&reason=session_expired`;
+  window.location.href = `/platform-v7/login?next=${returnTo}&reason=session_expired`;
 }
 
 export function getSessionState(): SessionState {

@@ -13,10 +13,26 @@ export type IdentityRow = {
   user_status: string;
   membership_id: string;
   role: string;
+  is_org_admin: boolean;
   membership_status: string;
   organization_id: string;
   organization_status: string;
   tenant_id: string;
+};
+
+export type MembershipIdentityRow = IdentityRow & { organization_name: string };
+
+export type MembershipSelectionChallengeRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  status: string;
+  credential_version: number;
+  current_credential_version: number;
+  user_status: string;
+  attempts: number;
+  max_attempts: number;
+  expires_at: Date;
 };
 
 export type CredentialStateRow = {
@@ -116,7 +132,12 @@ export class PersistentAuthRepository {
       || /could not serialize access|write conflict|deadlock detected/i.test(String(candidate?.message ?? ''));
   }
 
-  async findIdentityByEmail(client: AuthSqlClient, email: string): Promise<IdentityRow | null> {
+  async findIdentityByEmail(
+    client: AuthSqlClient,
+    email: string,
+    lockUser = false,
+  ): Promise<IdentityRow | null> {
+    const lock = lockUser ? Prisma.sql` FOR UPDATE OF u` : Prisma.empty;
     const rows = await client.$queryRaw<IdentityRow[]>(Prisma.sql`
       SELECT
         u.id AS user_id,
@@ -127,6 +148,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.is_org_admin AS is_org_admin,
         uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
@@ -137,8 +159,37 @@ export class PersistentAuthRepository {
       WHERE LOWER(u.email) = LOWER(${email})
       ORDER BY uo."isDefault" DESC, uo."joinedAt" ASC, uo.id ASC
       LIMIT 1
+      ${lock}
     `);
     return rows[0] ?? null;
+  }
+
+  async findIdentitiesByUser(
+    client: AuthSqlClient,
+    userId: string,
+  ): Promise<MembershipIdentityRow[]> {
+    return client.$queryRaw<MembershipIdentityRow[]>(Prisma.sql`
+      SELECT
+        u.id AS user_id,
+        u.email,
+        u."passwordHash" AS password_hash,
+        u."fullName" AS full_name,
+        u.phone,
+        u.status AS user_status,
+        uo.id AS membership_id,
+        uo.role,
+        uo.is_org_admin AS is_org_admin,
+        uo.status AS membership_status,
+        o.id AS organization_id,
+        o.name AS organization_name,
+        o.status AS organization_status,
+        o."tenantId" AS tenant_id
+      FROM public.users u
+      JOIN public.user_orgs uo ON uo."userId" = u.id
+      JOIN public.organizations o ON o.id = uo."organizationId"
+      WHERE u.id = ${userId}
+      ORDER BY uo."isDefault" DESC, uo."joinedAt" ASC, uo.id ASC
+    `);
   }
 
   async findIdentityByUserAndMembership(
@@ -156,6 +207,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.is_org_admin AS is_org_admin,
         uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
@@ -186,7 +238,19 @@ export class PersistentAuthRepository {
         ${consentVersion ?? null},
         ${consentAt ?? null}
       )
-      ON CONFLICT (user_id) DO NOTHING
+      ON CONFLICT (user_id) DO UPDATE
+      SET consent_version = CASE
+            WHEN EXCLUDED.consent_version IS NULL THEN auth.credential_states.consent_version
+            ELSE EXCLUDED.consent_version
+          END,
+          consent_at = CASE
+            WHEN EXCLUDED.consent_version IS NULL THEN auth.credential_states.consent_at
+            ELSE EXCLUDED.consent_at
+          END,
+          updated_at = CASE
+            WHEN EXCLUDED.consent_version IS NULL THEN auth.credential_states.updated_at
+            ELSE NOW()
+          END
     `);
   }
 
@@ -351,7 +415,7 @@ export class PersistentAuthRepository {
       sessionId: string;
       userId: string;
       challengeTokenHash: string;
-      type: 'TOTP_ENROLL' | 'TOTP_VERIFY';
+      type: 'TOTP_ENROLL' | 'TOTP_VERIFY' | 'STEP_UP';
       expiresAt: Date;
     },
   ): Promise<void> {
@@ -374,6 +438,92 @@ export class PersistentAuthRepository {
     `);
   }
 
+  async expirePendingMfaChallenges(
+    client: AuthSqlClient,
+    sessionId: string,
+    type: 'STEP_UP',
+  ): Promise<void> {
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.mfa_challenges
+      SET status = 'EXPIRED'
+      WHERE session_id = ${sessionId}
+        AND type = ${type}
+        AND status = 'PENDING'
+    `);
+  }
+
+  async createMembershipSelectionChallenge(
+    client: AuthSqlClient,
+    input: {
+      id: string;
+      userId: string;
+      tokenHash: string;
+      credentialVersion: number;
+      expiresAt: Date;
+    },
+  ) {
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.membership_selection_challenges
+      SET status = 'REVOKED', updated_at = NOW()
+      WHERE user_id = ${input.userId} AND status = 'PENDING'
+    `);
+    await client.$executeRaw(Prisma.sql`
+      INSERT INTO auth.membership_selection_challenges (
+        id, user_id, token_hash, credential_version, expires_at
+      ) VALUES (
+        ${input.id}, ${input.userId}, ${input.tokenHash}, ${input.credentialVersion}, ${input.expiresAt}
+      )
+    `);
+  }
+
+  async getMembershipSelectionChallengeForUpdate(
+    client: AuthSqlClient,
+    challengeId: string,
+  ): Promise<MembershipSelectionChallengeRow | null> {
+    const rows = await client.$queryRaw<MembershipSelectionChallengeRow[]>(Prisma.sql`
+      SELECT
+        challenge.id,
+        challenge.user_id,
+        challenge.token_hash,
+        challenge.status,
+        challenge.credential_version,
+        credential.credential_version AS current_credential_version,
+        subject.status AS user_status,
+        challenge.attempts,
+        challenge.max_attempts,
+        challenge.expires_at
+      FROM auth.membership_selection_challenges challenge
+      JOIN public.users subject ON subject.id = challenge.user_id
+      JOIN auth.credential_states credential ON credential.user_id = challenge.user_id
+      WHERE challenge.id = ${challengeId}
+      FOR UPDATE OF challenge, credential
+    `);
+    return rows[0] ?? null;
+  }
+
+  async recordMembershipSelectionFailure(
+    client: AuthSqlClient,
+    challengeId: string,
+    terminal: boolean,
+  ) {
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.membership_selection_challenges
+      SET attempts = LEAST(attempts + 1, max_attempts),
+          status = CASE WHEN ${terminal} THEN 'REVOKED' ELSE status END,
+          updated_at = NOW()
+      WHERE id = ${challengeId} AND status = 'PENDING'
+    `);
+  }
+
+  async consumeMembershipSelectionChallenge(client: AuthSqlClient, challengeId: string) {
+    const updated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.membership_selection_challenges
+      SET status = 'CONSUMED', consumed_at = NOW(), updated_at = NOW()
+      WHERE id = ${challengeId} AND status = 'PENDING'
+    `);
+    if (updated !== 1) throw new Error('Membership selection challenge conflict');
+  }
+
   async getSessionContext(
     client: AuthSqlClient,
     sessionId: string,
@@ -392,6 +542,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.is_org_admin AS is_org_admin,
         uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
@@ -434,6 +585,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.is_org_admin AS is_org_admin,
         uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
@@ -484,6 +636,7 @@ export class PersistentAuthRepository {
         u.status AS user_status,
         uo.id AS membership_id,
         uo.role,
+        uo.is_org_admin AS is_org_admin,
         uo.status AS membership_status,
         o.id AS organization_id,
         o.status AS organization_status,
@@ -648,12 +801,16 @@ export class PersistentAuthRepository {
       backupHashes?: string[] | null;
     },
   ): Promise<void> {
-    await client.$executeRaw(Prisma.sql`
+    const challengeUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
       SET status = 'VERIFIED', verified_at = NOW()
       WHERE id = ${input.challengeId}
+        AND status = 'PENDING'
+        AND type IN ('TOTP_ENROLL', 'TOTP_VERIFY')
     `);
-    await client.$executeRaw(Prisma.sql`
+    if (challengeUpdated !== 1) throw new Error('MFA login challenge conflict');
+
+    const sessionUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.sessions
       SET status = 'ACTIVE',
           mfa_level = ${input.method},
@@ -662,9 +819,12 @@ export class PersistentAuthRepository {
           last_seen_at = NOW(),
           updated_at = NOW()
       WHERE id = ${input.sessionId}
+        AND user_id = ${input.userId}
         AND status = 'MFA_PENDING'
     `);
-    await client.$executeRaw(Prisma.sql`
+    if (sessionUpdated !== 1) throw new Error('MFA login session conflict');
+
+    const credentialUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.credential_states
       SET mfa_enabled = CASE WHEN ${input.enableMfa} THEN TRUE ELSE mfa_enabled END,
           mfa_backup_hashes = CASE
@@ -677,11 +837,57 @@ export class PersistentAuthRepository {
           updated_at = NOW()
       WHERE user_id = ${input.userId}
     `);
+    if (credentialUpdated !== 1) throw new Error('MFA credential state conflict');
     if (input.enableMfa) {
-      await client.$executeRaw(Prisma.sql`
+      const userUpdated = await client.$executeRaw(Prisma.sql`
         UPDATE public.users SET "mfaEnabled" = TRUE WHERE id = ${input.userId}
       `);
+      if (userUpdated !== 1) throw new Error('MFA user state conflict');
     }
+  }
+
+  async activateMfaStepUp(
+    client: AuthSqlClient,
+    input: {
+      challengeId: string;
+      sessionId: string;
+      userId: string;
+      method: 'TOTP' | 'BACKUP';
+      backupHashes?: string[];
+    },
+  ): Promise<Date> {
+    const verifiedAt = new Date();
+    const challengeUpdated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.mfa_challenges
+      SET status = 'VERIFIED', verified_at = ${verifiedAt}
+      WHERE id = ${input.challengeId}
+        AND status = 'PENDING'
+        AND type = 'STEP_UP'
+    `);
+    if (challengeUpdated !== 1) throw new Error('MFA step-up challenge conflict');
+
+    const sessionUpdated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.sessions
+      SET mfa_level = ${input.method},
+          mfa_verified_at = ${verifiedAt},
+          mfa_verified_method = ${input.method},
+          last_seen_at = ${verifiedAt},
+          updated_at = ${verifiedAt}
+      WHERE id = ${input.sessionId}
+        AND user_id = ${input.userId}
+        AND status = 'ACTIVE'
+    `);
+    if (sessionUpdated !== 1) throw new Error('MFA step-up session conflict');
+
+    if (input.backupHashes) {
+      await client.$executeRaw(Prisma.sql`
+        UPDATE auth.credential_states
+        SET mfa_backup_hashes = ${JSON.stringify(input.backupHashes)}::jsonb,
+            updated_at = ${verifiedAt}
+        WHERE user_id = ${input.userId}
+      `);
+    }
+    return verifiedAt;
   }
 
   async recordMfaFailure(
@@ -691,9 +897,11 @@ export class PersistentAuthRepository {
   ): Promise<void> {
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
-      SET attempts = attempts + 1,
-          status = CASE WHEN ${terminal} THEN 'FAILED' ELSE status END
+      SET attempts = LEAST(attempts + 1, max_attempts),
+          status = CASE WHEN ${terminal} THEN 'FAILED' ELSE status END,
+          updated_at = NOW()
       WHERE id = ${challengeId}
+        AND status = 'PENDING'
     `);
   }
 
