@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { inflateRawSync, inflateSync } from 'node:zlib';
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 
@@ -11,7 +12,7 @@ const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
 const MAX_EXTRACTED_CHARS = 18_000;
 
 const TEXT_EXTENSIONS = new Set(['txt', 'md', 'csv', 'json', 'xml']);
-const RECOGNIZED_BUT_NOT_CONNECTED = new Set(['pdf', 'docx', 'doc', 'png', 'jpg', 'jpeg', 'heic']);
+const RECOGNIZED_BUT_NOT_CONNECTED = new Set(['doc', 'png', 'jpg', 'jpeg', 'heic']);
 
 type ExtractedDocument = Readonly<{
   id: string;
@@ -44,12 +45,118 @@ function cleanText(value: string): { text: string; truncated: boolean } {
   const normalized = value
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
     .replace(/[ \t]+/gu, ' ')
+    .replace(/ *\n */gu, '\n')
     .replace(/\n{4,}/gu, '\n\n\n')
     .trim();
   return {
     text: normalized.slice(0, MAX_EXTRACTED_CHARS),
     truncated: normalized.length > MAX_EXTRACTED_CHARS,
   };
+}
+
+function decodeXml(value: string): string {
+  return value
+    .replace(/&lt;/gu, '<')
+    .replace(/&gt;/gu, '>')
+    .replace(/&quot;/gu, '"')
+    .replace(/&apos;/gu, "'")
+    .replace(/&amp;/gu, '&');
+}
+
+function zipEntry(buffer: Buffer, wanted: string): Buffer {
+  let eocd = -1;
+  for (let offset = Math.max(0, buffer.length - 65_557); offset <= buffer.length - 22; offset += 1) {
+    if (buffer.readUInt32LE(offset) === 0x06054b50) eocd = offset;
+  }
+  if (eocd < 0) throw new Error('INVALID_ZIP_DOCUMENT');
+  const entries = buffer.readUInt16LE(eocd + 10);
+  let cursor = buffer.readUInt32LE(eocd + 16);
+  for (let index = 0; index < entries; index += 1) {
+    if (buffer.readUInt32LE(cursor) !== 0x02014b50) throw new Error('INVALID_ZIP_DIRECTORY');
+    const method = buffer.readUInt16LE(cursor + 10);
+    const compressedSize = buffer.readUInt32LE(cursor + 20);
+    const nameLength = buffer.readUInt16LE(cursor + 28);
+    const extraLength = buffer.readUInt16LE(cursor + 30);
+    const commentLength = buffer.readUInt16LE(cursor + 32);
+    const localOffset = buffer.readUInt32LE(cursor + 42);
+    const name = buffer.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
+    if (name === wanted) {
+      if (buffer.readUInt32LE(localOffset) !== 0x04034b50) throw new Error('INVALID_ZIP_LOCAL_HEADER');
+      const localNameLength = buffer.readUInt16LE(localOffset + 26);
+      const localExtraLength = buffer.readUInt16LE(localOffset + 28);
+      const start = localOffset + 30 + localNameLength + localExtraLength;
+      const compressed = buffer.subarray(start, start + compressedSize);
+      if (method === 0) return compressed;
+      if (method === 8) return inflateRawSync(compressed);
+      throw new Error('UNSUPPORTED_ZIP_COMPRESSION');
+    }
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  throw new Error('DOCUMENT_CONTENT_NOT_FOUND');
+}
+
+function extractDocx(bytes: Buffer): { text: string; truncated: boolean } {
+  const xml = zipEntry(bytes, 'word/document.xml').toString('utf8');
+  const text = decodeXml(xml)
+    .replace(/<w:tab\b[^>]*\/>/gu, '\t')
+    .replace(/<w:br\b[^>]*\/>/gu, '\n')
+    .replace(/<\/w:p>/gu, '\n')
+    .replace(/<[^>]+>/gu, ' ');
+  return cleanText(text);
+}
+
+function decodePdfLiteral(value: string): string {
+  return value
+    .replace(/\\([0-7]{1,3})/gu, (_, octal: string) => String.fromCharCode(Number.parseInt(octal, 8)))
+    .replace(/\\n/gu, '\n')
+    .replace(/\\r/gu, '\r')
+    .replace(/\\t/gu, '\t')
+    .replace(/\\b/gu, '\b')
+    .replace(/\\f/gu, '\f')
+    .replace(/\\([()\\])/gu, '$1');
+}
+
+function decodePdfHex(value: string): string {
+  const normalized = value.replace(/\s+/gu, '');
+  if (!normalized || !/^[0-9a-f]+$/iu.test(normalized)) return '';
+  const bytes = Buffer.from(normalized.length % 2 ? `${normalized}0` : normalized, 'hex');
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    let output = '';
+    for (let offset = 2; offset + 1 < bytes.length; offset += 2) output += String.fromCharCode(bytes.readUInt16BE(offset));
+    return output;
+  }
+  return bytes.toString('latin1');
+}
+
+function pdfTextOperators(content: string): string[] {
+  const values: string[] = [];
+  for (const match of content.matchAll(/\((?:\\.|[^\\)])*\)\s*Tj/gu)) {
+    const literal = match[0].replace(/\s*Tj$/u, '').slice(1, -1);
+    values.push(decodePdfLiteral(literal));
+  }
+  for (const match of content.matchAll(/<([0-9a-f\s]+)>\s*Tj/giu)) values.push(decodePdfHex(match[1]));
+  for (const match of content.matchAll(/\[([\s\S]*?)\]\s*TJ/gu)) {
+    const body = match[1];
+    for (const literal of body.matchAll(/\((?:\\.|[^\\)])*\)/gu)) values.push(decodePdfLiteral(literal[0].slice(1, -1)));
+    for (const hex of body.matchAll(/<([0-9a-f\s]+)>/giu)) values.push(decodePdfHex(hex[1]));
+  }
+  return values;
+}
+
+function extractPdf(bytes: Buffer): { text: string; truncated: boolean } {
+  const source = bytes.toString('latin1');
+  const values = pdfTextOperators(source);
+  const streamPattern = /stream\r?\n([\s\S]*?)\r?\nendstream/gu;
+  for (const match of source.matchAll(streamPattern)) {
+    const start = match.index ?? 0;
+    const dictionary = source.slice(Math.max(0, start - 500), start);
+    let stream = Buffer.from(match[1], 'latin1');
+    if (/\/FlateDecode\b/u.test(dictionary)) {
+      try { stream = inflateSync(stream); } catch { continue; }
+    }
+    values.push(...pdfTextOperators(stream.toString('latin1')));
+  }
+  return cleanText(values.join('\n'));
 }
 
 async function extractWorkbook(file: File): Promise<{ text: string; truncated: boolean }> {
@@ -85,6 +192,10 @@ async function extract(file: File): Promise<ExtractedDocument> {
     extracted = cleanText(bytes.toString('utf8'));
   } else if (ext === 'xlsx') {
     extracted = await extractWorkbook(file);
+  } else if (ext === 'docx') {
+    extracted = extractDocx(bytes);
+  } else if (ext === 'pdf') {
+    extracted = extractPdf(bytes);
   } else if (RECOGNIZED_BUT_NOT_CONNECTED.has(ext)) {
     throw new Error(`PROCESSOR_NOT_CONNECTED:${ext}`);
   } else {
