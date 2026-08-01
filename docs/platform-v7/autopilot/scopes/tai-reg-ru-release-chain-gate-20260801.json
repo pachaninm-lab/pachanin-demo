@@ -21,8 +21,10 @@
     "keep the self-hosted runner non-root without Docker socket authority",
     "delegate protected marker and exact-main wrapper verification to the root-owned restricted controller",
     "fail preflight when the upstream canonical image build is not a successful main push",
-    "require every critical preflight job from the exact triggering run attempt to succeed before activation",
-    "require every critical activation job from the exact triggering run attempt to succeed before standalone deployment",
+    "require successful completion of the exact upstream preflight workflow attempt and every critical job before activation without mislabelling inventory completion as readiness PASS",
+    "require successful completion of the exact upstream activation workflow attempt and every critical job before standalone deployment",
+    "bind manual activation and deployment to explicit exact upstream run IDs and attempts instead of reusable commit statuses",
+    "make every non-PR workflow fail when any production-chain job is failed or skipped",
     "register the merged PostgreSQL authority branch and its exact three source paths",
     "stop before every production mutation when an upstream authority check is absent or mismatched"
   ],
