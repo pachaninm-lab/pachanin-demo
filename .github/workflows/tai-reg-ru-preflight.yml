@@ -58,10 +58,12 @@ jobs:
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
           UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
         run: |
           set -Eeuo pipefail
           if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
           if [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
             [[ "$UPSTREAM_CONCLUSION" == success ]]
             [[ "$UPSTREAM_BRANCH" == main ]]
             [[ "$UPSTREAM_EVENT" == push ]]
