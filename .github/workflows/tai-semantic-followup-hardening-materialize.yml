@@ -1,0 +1,284 @@
+name: TAI Semantic Follow-up Hardening Materializer
+
+on:
+  push:
+    branches:
+      - claude/tai-agro-os-v4-production-izow8x
+    paths:
+      - .github/workflows/tai-semantic-followup-hardening-materialize.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-semantic-followup-hardening-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    if: github.actor == github.repository_owner
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/tai-agro-os-v4-production-izow8x
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply focused semantic follow-up fixes
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              if old not in text:
+                  if new in text:
+                      return
+                  raise SystemExit(f'expected source block missing: {path}')
+              target.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          public_route = 'apps/web/app/api/public-platform-assistant/route.ts'
+          replace_once(public_route, 'const MAX_BODY_BYTES = 8_192;', 'const MAX_BODY_BYTES = 20_480;')
+          replace_once(
+              public_route,
+              '''function readHistory(value: unknown): readonly AssistantConversationTurn[] {
+            if (!Array.isArray(value)) return [];
+            const turns: AssistantConversationTurn[] = [];
+            let total = 0;
+            for (const item of value.slice(-MAX_HISTORY_TURNS)) {
+              const row = item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : null;
+              const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
+              const text = typeof row?.text === 'string'
+                ? row.text.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
+                : '';
+              if (!role || !text) continue;
+              if (total + text.length > MAX_HISTORY_TOTAL_CHARS) break;
+              turns.push({ role, text });
+              total += text.length;
+            }
+            return turns;
+          }''',
+              '''function readHistory(value: unknown): readonly AssistantConversationTurn[] {
+            if (!Array.isArray(value)) return [];
+            const turns: AssistantConversationTurn[] = [];
+            let total = 0;
+            // Keep the newest valid turns when the bounded envelope is full. A long
+            // older turn must never evict the latest subject that a short follow-up
+            // depends on.
+            for (const item of [...value.slice(-MAX_HISTORY_TURNS)].reverse()) {
+              const row = item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : null;
+              const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
+              const text = typeof row?.text === 'string'
+                ? row.text.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
+                : '';
+              if (!role || !text) continue;
+              if (total + text.length > MAX_HISTORY_TOTAL_CHARS) continue;
+              turns.unshift({ role, text });
+              total += text.length;
+            }
+            return turns;
+          }''',
+          )
+          # Route the corrected/normalized question rather than repeating the typo-sensitive raw input.
+          path = Path(public_route)
+          text = path.read_text(encoding='utf-8')
+          count = text.count("routeAssistantQuestion(message, { ...context, locale })")
+          if count not in (0, 2):
+              raise SystemExit(f'unexpected raw routing call count: {count}')
+          text = text.replace(
+              "routeAssistantQuestion(message, { ...context, locale })",
+              "routeAssistantQuestion(correctedQuestion, { ...context, locale })",
+          )
+          path.write_text(text, encoding='utf-8')
+
+          router = 'apps/web/lib/platform-v7/assistant-relevance-router.ts'
+          replace_once(
+              router,
+              '''  // Short question shaped by the surface or the previous turn. Inside the
+            // platform, "Кто это увидит?" is about the platform — the reader should not
+            // have to repeat the subject they are literally looking at.
+            if (shapeSection) {
+              return outcome('ALLOW_CONTEXTUAL', {
+                domain: 'platform',
+                signals,
+                section: shapeSection,
+                platformFirst: !hasPlatformSubject,
+              });
+            }
+
+            // An explicit off-topic marker outranks sentence shape. "How do I choose a
+            // tattoo?" opens like a follow-up and is asked from inside the platform, and
+            // reading it as a continuation was how entertainment questions slipped into
+            // the contextual branch.
+            if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
+              return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+            }
+''',
+              '''  // An explicit off-topic marker outranks sentence shape. "Who can see
+            // this movie?" has the same grammar as an access question, but its named
+            // subject makes the intended domain unambiguous.
+            if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
+              return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+            }
+
+            // Short question shaped by the surface or the previous turn. Inside the
+            // platform, "Кто это увидит?" is about the platform — the reader should not
+            // have to repeat the subject they are literally looking at.
+            if (shapeSection) {
+              return outcome('ALLOW_CONTEXTUAL', {
+                domain: 'platform',
+                signals,
+                section: shapeSection,
+                platformFirst: !hasPlatformSubject,
+              });
+            }
+''',
+          )
+
+          restricted = 'apps/web/app/api/restricted-public-platform-assistant/route.ts'
+          replace_once(
+              restricted,
+              """        const outcome = routeAssistantQuestion(envelope.question, { ...routingContext, locale });
+                // The router sees the page, the exact role and the conversation, so a
+""",
+              """        const routedQuestion = grounding.understanding?.normalizedQuestion || envelope.question;
+                const outcome = routeAssistantQuestion(routedQuestion, { ...routingContext, locale });
+                // The router sees the page, the exact role and the conversation, so a
+""",
+          )
+          replace_once(
+              restricted,
+              """          : classifyAnswerMode(envelope.question, envelope.context, envelope.history);
+""",
+              """          : classifyAnswerMode(routedQuestion, envelope.context, envelope.history);
+""",
+          )
+
+          component = 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'
+          replace_once(
+              component,
+              '''  const knowledgeFallback = async (
+            question: string,
+            controller: AbortController,
+          ): Promise<boolean> => {''',
+              '''  const knowledgeFallback = async (
+            question: string,
+            history: readonly HistoryTurn[],
+            controller: AbortController,
+          ): Promise<boolean> => {''',
+          )
+          replace_once(
+              component,
+              "body: JSON.stringify({ message: question, locale }),",
+              "body: JSON.stringify({ message: question, locale, context: contextName, history }),",
+          )
+          replace_once(
+              component,
+              "if (!await knowledgeFallback(normalized, controller)) throw new Error('knowledge_fallback_failed');",
+              "if (!await knowledgeFallback(normalized, history, controller)) throw new Error('knowledge_fallback_failed');",
+          )
+          replace_once(
+              component,
+              '''                    data-stream-status={message.stream?.status}
+                    data-stream-refusal={message.stream?.refusal ?? undefined}
+                    data-model-identity={message.stream?.modelIdentity ?? undefined}
+                    data-origin={origin}
+''',
+              '''                    data-stream-status={message.stream?.status}
+''',
+          )
+
+          router_test = 'apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts'
+          replace_once(
+              router_test,
+              "import { describe, expect, it } from 'vitest';",
+              "import { readFileSync } from 'node:fs';\nimport { fileURLToPath } from 'node:url';\nimport { describe, expect, it } from 'vitest';",
+          )
+          replace_once(
+              router_test,
+              """    'Какой смартфон купить?',
+            'Tell me a joke',
+""",
+              """    'Какой смартфон купить?',
+            'Кто увидит этот фильм?',
+            'Где хранится сериал?',
+            'Tell me a joke',
+""",
+          )
+          append_marker = """describe('capability registry is the source of platform claims', () => {
+"""
+          insert = """describe('public assistant fallback and DOM privacy contract', () => {
+            const componentSource = readFileSync(
+              fileURLToPath(new URL('../../components/platform-v7/PublicPlatformAssistant.tsx', import.meta.url)),
+              'utf8',
+            );
+
+            it('preserves conversation history when streaming falls back to verified knowledge', () => {
+              expect(componentSource).toContain('knowledgeFallback(normalized, history, controller)');
+              expect(componentSource).toContain('JSON.stringify({ message: question, locale, context: contextName, history })');
+            });
+
+            it('does not expose internal model, route or refusal metadata as DOM attributes', () => {
+              for (const attribute of ['data-model-identity', 'data-origin={origin}', 'data-stream-refusal']) {
+                expect(componentSource).not.toContain(attribute);
+              }
+            });
+          });
+
+"""
+          replace_once(router_test, append_marker, insert + append_marker)
+
+          stream_test = 'apps/web/tests/unit/platformV7PublicAssistantStreamContract.test.ts'
+          replace_once(
+              stream_test,
+              """  it('refuses a malformed request before opening a stream, where an error can still be read', async () => {
+""",
+              """  it('keeps the newest topic when bounded history is larger than the old request envelope', async () => {
+            const history = [
+              ...Array.from({ length: 7 }, (_, index) => ({ role: 'user', text: `${index}-` + 'x'.repeat(1_800) })),
+              { role: 'user', text: 'Кто видит мои документы?' },
+            ];
+            const body = JSON.stringify({ message: 'А подробнее?', locale: 'ru', history });
+            const response = await POST(new NextRequest(ENDPOINT, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'content-length': String(Buffer.byteLength(body)),
+              },
+              body,
+            }));
+
+            expect(response.status).toBe(200);
+            const payload = await response.json();
+            expect(payload).toMatchObject({ resolution: 'answered', topic: 'documents' });
+          });
+
+          it('refuses a malformed request before opening a stream, where an error can still be read', async () => {
+""",
+          )
+
+          Path('.github/workflows/tai-semantic-followup-hardening-materialize.yml').unlink()
+          PY
+      - name: Validate focused fixes
+        run: |
+          set -Eeuo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/web exec tsc --noEmit
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/taiSemanticRelevanceRouter.test.ts \
+            tests/unit/taiSemanticAcceptanceCorpus.test.ts \
+            tests/unit/platformV7PublicAssistantStreamContract.test.ts
+          git diff --check
+      - name: Publish source-only commit
+        run: |
+          set -Eeuo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(tai): preserve semantic context across fallback paths'
+          git push origin HEAD:claude/tai-agro-os-v4-production-izow8x
