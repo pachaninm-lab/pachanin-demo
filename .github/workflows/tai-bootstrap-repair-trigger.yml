@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: tai-bootstrap-repair-trigger
@@ -129,11 +129,18 @@ jobs:
           node scripts/check-tai-reg-ru-preflight.mjs
           node scripts/check-tai-reg-ru-deploy.mjs
           git diff --check
-      - name: Publish ordinary source commit
+      - name: Package materialized source tree
         run: |
           set -Eeuo pipefail
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
-          git commit -m 'fix(tai): bootstrap exact REG.RU standalone authority'
-          git push origin HEAD:agent/tai-reg-ru-bootstrap-repair-20260801
+          out="$RUNNER_TEMP/tai-bootstrap-materialized"
+          mkdir -p "$out"
+          git diff --name-status > "$out/name-status.txt"
+          git diff --name-only --diff-filter=D > "$out/deleted-files.txt"
+          git diff --binary > "$out/materialized.patch"
+          git diff --name-only --diff-filter=ACMRT -z | tar --null -T - -cf "$out/materialized-tree.tar"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tai-bootstrap-materialized-${{ github.run_id }}
+          path: ${{ runner.temp }}/tai-bootstrap-materialized
+          if-no-files-found: error
+          retention-days: 1
