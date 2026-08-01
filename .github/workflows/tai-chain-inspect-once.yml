@@ -21,12 +21,12 @@ env:
   PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: ubuntu-24.04
     if: github.actor == github.repository_owner
     timeout-minutes: 10
     steps:
-      - name: Print bounded redacted deployment log
+      - name: Inspect production Compose PostgreSQL candidates
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -34,12 +34,12 @@ jobs:
           publish() {
             gh api --method POST -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-              -f state="$1" -f context='TAI Controller Diagnostic' \
+              -f state="$1" -f context='TAI PostgreSQL Authority Inspect' \
               -f description="$2" \
               -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
           }
-          trap 'publish failure "Bounded deploy-log diagnostic failed"' EXIT
-          publish pending 'Reading bounded redacted deploy log'
+          trap 'publish failure "PostgreSQL authority inspection failed"' EXIT
+          publish pending 'Inspecting production PostgreSQL service candidates'
           trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
           write_key() {
             local raw="$1" target="$2" a b c; [[ -n "$raw" ]] || return 1
@@ -50,21 +50,32 @@ jobs:
           host="$(trim "${PROD_HOST_SECRET:-$CANONICAL_PROD_HOST}")"; user="$(trim "${PROD_USER_SECRET:-}")"; port="$(trim "${PROD_PORT_SECRET:-22}")"
           install -d -m 0700 "$HOME/.ssh"; key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"; write_key "$key" "$HOME/.ssh/id_pc_prod"
           ssh-keyscan -T 15 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"; chmod 0600 "$HOME/.ssh/known_hosts"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'python3 -' <<'PY'
-          import pathlib,re
-          job=pathlib.Path('/var/lib/pc-release-authority/controller-jobs/30694093424')
-          state=pathlib.Path('/var/lib/pc-release-authority/tai-agro-os-30694093424')
-          print(f'DEPLOY_STATE_EXISTS={state.exists()}')
-          for name in ('deploy.log','deployment-failure.json'):
-              p=job/name
-              print(f'--- {name} exists={p.is_file()} size={p.stat().st_size if p.is_file() else 0} ---')
-              if not p.is_file(): continue
-              text=p.read_text(encoding='utf-8',errors='replace')
-              text=re.sub(r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+',r'\1=[REDACTED]',text)
-              print(text[:10000])
-          if state.is_dir():
-              for p in sorted(state.iterdir()):
-                  print(f'STATE={p.name}|{p.stat().st_size if p.is_file() else 0}')
-          PY
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'bash -se' <<'REMOTE'
+          set -Eeuo pipefail
+          web_id="$(docker ps -q --filter 'label=com.docker.compose.service=web' | head -1)"
+          [[ -n "$web_id" ]]
+          prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+          prod_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+          prod_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ -n "$prod_dir" && -n "$prod_files" && -n "$prod_project" ]]
+          dc=(docker compose --project-directory "$prod_dir" --project-name "$prod_project")
+          IFS=',' read -r -a raw_files <<< "$prod_files"
+          for raw in "${raw_files[@]}"; do
+            file="${raw#"${raw%%[![:space:]]*}"}"; file="${file%"${file##*[![:space:]]}"}"
+            [[ "$file" == /* ]] || file="$prod_dir/$file"
+            [[ -f "$file" ]] && dc+=(-f "$file")
+          done
+          "${dc[@]}" config --format json | python3 -c '
+          import json,re,sys
+          cfg=json.load(sys.stdin); services=cfg.get("services") or {}; candidates=[]
+          for name,svc in sorted(services.items()):
+              image=str(svc.get("image") or "")
+              match=bool(re.search(r"(^|[-_])(postgres|postgresql)([-_]|$)",name,re.I) or "postgres" in image.lower())
+              print(f"SERVICE={name}|IMAGE={image}|POSTGRES_CANDIDATE={str(match).lower()}")
+              if match: candidates.append(name)
+          print(f"CANDIDATE_COUNT={len(candidates)}")
+          print("CANDIDATES="+",".join(candidates))
+          '
+          REMOTE
           trap - EXIT
-          publish success 'Bounded deploy log extracted'
+          publish success 'Production PostgreSQL candidates inspected'
