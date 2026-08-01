@@ -44,7 +44,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tai-restricted-qwen-reg-ru-activation
+  group: tai-restricted-qwen-reg-ru-activation-${{ github.event.pull_request.number || 'production' }}
   cancel-in-progress: false
 
 env:
