@@ -593,6 +593,7 @@ export function PublicPlatformAssistant() {
 
   const knowledgeFallback = async (
     question: string,
+    history: readonly HistoryTurn[],
     controller: AbortController,
   ): Promise<boolean> => {
     const response = await fetch('/api/public-platform-assistant', {
@@ -600,7 +601,7 @@ export function PublicPlatformAssistant() {
       cache: 'no-store',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       signal: controller.signal,
-      body: JSON.stringify({ message: question, locale }),
+      body: JSON.stringify({ message: question, locale, context: contextName, history }),
     });
     const payload = await response.json().catch(() => null) as Answer | null;
     if (!response.ok || !payload || payload.dataMode !== 'public_knowledge' || typeof payload.answer !== 'string') {
@@ -642,7 +643,7 @@ export function PublicPlatformAssistant() {
     try {
       const result = await streamAnswer(normalized, history, controller);
       if (result === 'answered' || result === 'handled') return;
-      if (!await knowledgeFallback(normalized, controller)) throw new Error('knowledge_fallback_failed');
+      if (!await knowledgeFallback(normalized, history, controller)) throw new Error('knowledge_fallback_failed');
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') return;
       setError(ui.error);
@@ -789,9 +790,6 @@ export function PublicPlatformAssistant() {
                     className='pc-public-assistant-message'
                     data-role={message.role}
                     data-stream-status={message.stream?.status}
-                    data-stream-refusal={message.stream?.refusal ?? undefined}
-                    data-model-identity={message.stream?.modelIdentity ?? undefined}
-                    data-origin={origin}
                   >
                     {message.text || message.answer?.title ? (
                       <div className='pc-public-assistant-bubble'>

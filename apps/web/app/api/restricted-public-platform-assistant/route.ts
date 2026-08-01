@@ -195,13 +195,14 @@ function streamRestrictedAnswer(
 
       const run = async () => {
         const locale = resolveLocale(grounding, envelope.locale);
-        const outcome = routeAssistantQuestion(envelope.question, { ...routingContext, locale });
+        const routedQuestion = grounding.understanding?.normalizedQuestion || envelope.question;
+        const outcome = routeAssistantQuestion(routedQuestion, { ...routingContext, locale });
         // The router sees the page, the exact role and the conversation, so a
         // short follow-up keeps its platform subject instead of falling back to
         // general agriculture once the reader stops repeating the noun.
         const answerMode: PublicAnswerMode = outcome.section
           ? 'verified_platform'
-          : classifyAnswerMode(envelope.question, envelope.context, envelope.history);
+          : classifyAnswerMode(routedQuestion, envelope.context, envelope.history);
         const currentDataRequired = answerMode === 'general_agro' && requiresCurrentEvidence(envelope.question);
 
         if (containsSensitiveInput(envelope.question, envelope.history)) {

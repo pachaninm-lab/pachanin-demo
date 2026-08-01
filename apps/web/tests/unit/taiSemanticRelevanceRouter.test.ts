@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   emptyRoutingContext,
@@ -190,6 +192,8 @@ describe('unrelated questions are redirected, not shamed', () => {
     'Кто выиграл чемпионат по футболу?',
     'Напиши стих про любовь',
     'Какой смартфон купить?',
+    'Кто увидит этот фильм?',
+    'Где хранится сериал?',
     'Tell me a joke',
   ];
 
@@ -278,6 +282,24 @@ describe('answers are readable, complete and honest', () => {
         expect(answer.answer.length).toBeGreaterThan(60);
         expect(answer.answer).not.toContain(reason);
       }
+    }
+  });
+});
+
+describe('public assistant fallback and DOM privacy contract', () => {
+  const componentSource = readFileSync(
+    resolve(process.cwd(), 'components/platform-v7/PublicPlatformAssistant.tsx'),
+    'utf8',
+  );
+
+  it('preserves conversation history when streaming falls back to verified knowledge', () => {
+    expect(componentSource).toContain('knowledgeFallback(normalized, history, controller)');
+    expect(componentSource).toContain('JSON.stringify({ message: question, locale, context: contextName, history })');
+  });
+
+  it('does not expose internal model, route or refusal metadata as DOM attributes', () => {
+    for (const attribute of ['data-model-identity', 'data-origin={origin}', 'data-stream-refusal']) {
+      expect(componentSource).not.toContain(attribute);
     }
   });
 });

@@ -468,6 +468,23 @@ export function routeAssistantQuestion(
 
   if (context.semanticHint === 'related') signals.push('semantic_hint');
 
+  const hasUnrelatedSubject = containsAny(normalized, UNRELATED_TERMS);
+
+  // A named off-topic subject outranks generic section vocabulary and sentence
+  // shape, but never an explicit platform, agriculture or business subject.
+  // This redirects "Кто увидит этот фильм?" while keeping "фильм о платформе"
+  // and "видео о пшенице" answerable.
+  if (
+    hasUnrelatedSubject
+    && !hasAgroObject
+    && !hasPlatformSubject
+    && !hasAgroBusiness
+    && !hasAdjacent
+    && context.semanticHint !== 'related'
+  ) {
+    return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+  }
+
   const shapeSection = contextualSection(normalized);
   const short = isShortQuestion(normalized);
   const deictic = DEIXIS_PATTERN.test(normalized) || FOLLOW_UP_OPENER.test(normalized);
@@ -502,14 +519,6 @@ export function routeAssistantQuestion(
       section: shapeSection,
       platformFirst: !hasPlatformSubject,
     });
-  }
-
-  // An explicit off-topic marker outranks sentence shape. "How do I choose a
-  // tattoo?" opens like a follow-up and is asked from inside the platform, and
-  // reading it as a continuation was how entertainment questions slipped into
-  // the contextual branch.
-  if (containsAny(normalized, UNRELATED_TERMS) && context.semanticHint !== 'related') {
-    return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
   }
 
   if (short && deictic && (conversationRelated || surface)) {

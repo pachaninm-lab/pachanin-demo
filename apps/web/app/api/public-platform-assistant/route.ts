@@ -37,7 +37,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const MAX_MESSAGE_LENGTH = 1_200;
-const MAX_BODY_BYTES = 8_192;
+const MAX_BODY_BYTES = 20_480;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
 const MAX_HISTORY_TOTAL_CHARS = 12_000;
@@ -118,15 +118,18 @@ function readHistory(value: unknown): readonly AssistantConversationTurn[] {
   if (!Array.isArray(value)) return [];
   const turns: AssistantConversationTurn[] = [];
   let total = 0;
-  for (const item of value.slice(-MAX_HISTORY_TURNS)) {
+  // Keep the newest valid turns when the bounded envelope is full. A long
+  // older turn must never evict the latest subject that a short follow-up
+  // depends on.
+  for (const item of [...value.slice(-MAX_HISTORY_TURNS)].reverse()) {
     const row = item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : null;
     const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
     const text = typeof row?.text === 'string'
       ? row.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
       : '';
     if (!role || !text) continue;
-    if (total + text.length > MAX_HISTORY_TOTAL_CHARS) break;
-    turns.push({ role, text });
+    if (total + text.length > MAX_HISTORY_TOTAL_CHARS) continue;
+    turns.unshift({ role, text });
     total += text.length;
   }
   return turns;
@@ -382,7 +385,7 @@ function streamPublicAnswer(
       const understanding = understandAssistantQuestion(message, requestedLocale);
       const locale = understanding.detectedLocale;
       const correctedQuestion = understanding.corrected || message;
-      const outcome = routeAssistantQuestion(message, { ...context, locale });
+      const outcome = routeAssistantQuestion(correctedQuestion, { ...context, locale });
 
       if (isForbiddenCommand(correctedQuestion) || outcome.decision === 'BLOCK_SAFETY') {
         // The public contour holds no user, account or Deal data at all, so the
@@ -464,7 +467,7 @@ export async function POST(request: NextRequest) {
   const understanding = understandAssistantQuestion(message, requestedLocale);
   const locale = understanding.detectedLocale;
   const correctedQuestion = understanding.corrected || message;
-  const outcome = routeAssistantQuestion(message, { ...context, locale });
+  const outcome = routeAssistantQuestion(correctedQuestion, { ...context, locale });
 
   if (isForbiddenCommand(correctedQuestion)) {
     const denied = forbiddenCopy(locale);

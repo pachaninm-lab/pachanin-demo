@@ -117,6 +117,26 @@ describe('the public boundary validates through the API contract module', () => 
     expect(body).toMatchObject({ mode: 'read_only', dataMode: 'public_knowledge', resolution: 'answered' });
   });
 
+  it('keeps the newest topic when bounded history is larger than the old request envelope', async () => {
+    const history = [
+      ...Array.from({ length: 7 }, (_, index) => ({ role: 'user', text: `${index}-` + 'x'.repeat(1_800) })),
+      { role: 'user', text: 'Кто видит мои документы?' },
+    ];
+    const body = JSON.stringify({ message: 'А подробнее?', locale: 'ru', history });
+    const response = await POST(new NextRequest(ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': String(Buffer.byteLength(body)),
+      },
+      body,
+    }));
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toMatchObject({ resolution: 'answered', topic: 'documents' });
+  });
+
   it('refuses a malformed request before opening a stream, where an error can still be read', async () => {
     const response = await POST(new NextRequest(`${ENDPOINT}?stream=1`, {
       method: 'POST',
