@@ -82,6 +82,12 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog
 AS $$
 BEGIN
+  -- Keep unrelated `TRUNCATE ... CASCADE` test resets compatible only while
+  -- there is no MFA recovery evidence to lose.
+  IF TG_OP = 'TRUNCATE'
+     AND NOT EXISTS (SELECT 1 FROM auth.mfa_recovery_events) THEN
+    RETURN NULL;
+  END IF;
   RAISE EXCEPTION 'auth.mfa_recovery_events is append-only';
 END;
 $$;

@@ -616,6 +616,10 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     `;
     expect({ users: Number(users), organizations: Number(organizations), memberships: Number(memberships), expiryEvents: Number(expiryEvents) })
       .toEqual({ users: 1, organizations: 1, memberships: 1, expiryEvents: 1 });
+
+    await expect(first.prisma.$executeRaw`
+      TRUNCATE TABLE auth.registration_application_events
+    `).rejects.toThrow(/append-only/i);
   });
 
   it('writes chained auth audit evidence', async () => {

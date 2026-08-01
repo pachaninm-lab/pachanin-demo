@@ -255,6 +255,9 @@ describe('controlled PostgreSQL MFA recovery', () => {
     await expect(prisma.$executeRaw`
       UPDATE auth.mfa_recovery_events SET reason = 'TAMPERED' WHERE id = ${event.id}
     `).rejects.toThrow(/append-only/i);
+    await expect(prisma.$executeRaw`
+      TRUNCATE TABLE auth.mfa_recovery_events
+    `).rejects.toThrow(/append-only/i);
   });
 
   it('requires platform review when the credential is shared with another organization or staff plane', async () => {

@@ -112,7 +112,19 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog
 AS $$
 BEGIN
-  RAISE EXCEPTION 'auth.organization_invitation_events is append-only';
+  -- A cascaded truncate of an empty event relation destroys no evidence. Once
+  -- either relation contains history, the same statement remains fail-closed.
+  IF TG_OP = 'TRUNCATE' THEN
+    IF TG_TABLE_NAME = 'organization_invitation_events'
+       AND NOT EXISTS (SELECT 1 FROM auth.organization_invitation_events) THEN
+      RETURN NULL;
+    END IF;
+    IF TG_TABLE_NAME = 'organization_membership_command_events'
+       AND NOT EXISTS (SELECT 1 FROM auth.organization_membership_command_events) THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  RAISE EXCEPTION 'auth.% is append-only', TG_TABLE_NAME;
 END;
 $$;
 

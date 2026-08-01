@@ -103,6 +103,13 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog
 AS $$
 BEGIN
+  -- PostgreSQL includes empty referencing tables in `TRUNCATE ... CASCADE`.
+  -- Allowing that no-op keeps isolated database acceptance suites composable,
+  -- while any table that contains durable history remains non-truncatable.
+  IF TG_OP = 'TRUNCATE'
+     AND NOT EXISTS (SELECT 1 FROM auth.registration_application_events) THEN
+    RETURN NULL;
+  END IF;
   RAISE EXCEPTION 'auth.registration_application_events is append-only';
 END;
 $$;
