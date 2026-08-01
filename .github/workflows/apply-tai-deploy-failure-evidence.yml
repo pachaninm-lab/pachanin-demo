@@ -7,6 +7,12 @@ on:
     paths:
       - scripts/apply-tai-deploy-failure-evidence.py
       - .github/workflows/apply-tai-deploy-failure-evidence.yml
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - scripts/apply-tai-deploy-failure-evidence.py
+      - .github/workflows/apply-tai-deploy-failure-evidence.yml
   workflow_dispatch:
 
 permissions:
@@ -18,6 +24,7 @@ concurrency:
 
 jobs:
   apply:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.ref == 'fix/tai-deploy-failure-evidence-20260801'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
