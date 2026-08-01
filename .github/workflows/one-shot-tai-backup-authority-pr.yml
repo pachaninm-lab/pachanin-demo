@@ -1,0 +1,59 @@
+name: One-shot TAI backup-authority repair
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'agent/tai-backup-authority-propagation-20260801'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-backup-authority-propagation-20260801
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply and validate bounded repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/one-shot-tai-backup-authority-20260801.py
+          python3 scripts/one-shot-tai-backup-authority-20260801.py
+          bash -n scripts/pc-tai-release-controller-core.sh
+          node --check scripts/check-tai-local-model-key-authority.mjs
+          node scripts/check-tai-local-model-key-authority.mjs
+          git diff --check
+
+      - name: Commit repair and remove temporary files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git rm \
+            .github/workflows/one-shot-tai-backup-authority-pr.yml \
+            scripts/one-shot-tai-backup-authority-20260801.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/tai-restricted-qwen-reg-ru-activation.yml \
+            scripts/pc-tai-release-controller-core.sh \
+            scripts/check-tai-local-model-key-authority.mjs \
+            docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json
+          git diff --cached --check
+          git diff --cached --name-only | sort > /tmp/changed-paths
+          cat > /tmp/expected-paths <<'EOF'
+          .github/workflows/one-shot-tai-backup-authority-pr.yml
+          .github/workflows/tai-restricted-qwen-reg-ru-activation.yml
+          docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json
+          scripts/check-tai-local-model-key-authority.mjs
+          scripts/one-shot-tai-backup-authority-20260801.py
+          scripts/pc-tai-release-controller-core.sh
+          EOF
+          diff -u /tmp/expected-paths /tmp/changed-paths
+          git commit -m 'fix: propagate protected backup authority into TAI activation'
+          git push origin HEAD:agent/tai-backup-authority-propagation-20260801
