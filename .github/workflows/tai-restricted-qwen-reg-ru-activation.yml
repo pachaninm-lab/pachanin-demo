@@ -13,8 +13,11 @@ on:
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
       - "scripts/check-tai-local-model-key-authority.mjs"
+      - "scripts/check-tai-reg-ru-release-chain.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
       - "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
+      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
   workflow_run:
     workflows: ["TAI REG.RU Preflight"]
     types: [completed]
@@ -40,8 +43,68 @@ env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
 
 jobs:
+  upstream_preflight_gate:
+    name: Require exact-run REG.RU preflight PASS
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact-attempt preflight job authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          UPSTREAM_WORKFLOW: ${{ github.event.workflow_run.name }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$UPSTREAM_CONCLUSION" == success ]]
+            [[ "$UPSTREAM_BRANCH" == main ]]
+            [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
+            [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ "$UPSTREAM_WORKFLOW" == 'TAI REG.RU Preflight' ]]
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
+              > "$RUNNER_TEMP/preflight-jobs.json"
+            node scripts/verify-tai-upstream-workflow-jobs.mjs "$RUNNER_TEMP/preflight-jobs.json" \
+              'Require successful canonical image build' \
+              'Least-privilege preflight contract' \
+              'Exact-main canonical TAI image authority' \
+              'Exact-main REG.RU controller inventory' \
+              'Publish REG.RU preflight status'
+            exit 0
+          fi
+          if [[ "$EVENT_NAME" != workflow_dispatch ]]; then
+            exit 31
+          fi
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}/status" > "$RUNNER_TEMP/preflight-status.json"
+          python3 - "$RUNNER_TEMP/preflight-status.json" <<'PY'
+          import json, sys
+          report=json.load(open(sys.argv[1], encoding='utf-8'))
+          matches=[item for item in report.get('statuses', [])
+                   if item.get('context') == 'TAI REG.RU Preflight'
+                   and item.get('state') == 'success']
+          if not matches:
+              raise SystemExit('Exact-SHA TAI REG.RU Preflight PASS status is absent')
+          PY
+
   contract:
     name: Least-privilege activation contract
+    needs: upstream_preflight_gate
+    if: needs.upstream_preflight_gate.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -59,6 +122,7 @@ jobs:
           node --check scripts/tai-live-public-ai-acceptance.mjs
           node scripts/check-pc-tai-release-controller.mjs
           node scripts/check-tai-local-model-key-authority.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority
