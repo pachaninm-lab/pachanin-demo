@@ -23,6 +23,7 @@ ENV_FILE="/etc/transparent-price/tai-agro-os.env"
 ROLE_NAME="tai_runtime"
 OVERRIDE=""
 MUTATION_STARTED=0
+STATE_ROOT_CREATED_THIS_ATTEMPT=0
 ROLE_CREATED=0
 PREVIOUS_TAI=0
 DC_BASE=()
@@ -32,6 +33,7 @@ DB_ADMIN=""
 DB_NAME=""
 DB_SERVICE=""
 COMPOSE_JSON=""
+CONTAINERS_JSON=""
 TOPOLOGY_ENV=""
 MIGRATION_BUNDLE=""
 MIGRATION_SQL=""
@@ -39,9 +41,6 @@ BOOTSTRAP_AUTHORITY=""
 BOOTSTRAP_SQL=""
 MIGRATION_COUNT=0
 PERMANENT_MODEL_ADMISSION_STATUS="NOT_ATTESTED"
-
-mkdir -p "$STATE_ROOT" /etc/transparent-price
-chmod 0700 "$STATE_ROOT" /etc/transparent-price
 
 restore_file() {
   local target="$1" base
@@ -171,10 +170,10 @@ SQL
       fi
     fi
     touch "$STATE_ROOT/ROLLED_BACK"
-  else
-    rm -rf "$STATE_ROOT"
+  elif (( STATE_ROOT_CREATED_THIS_ATTEMPT == 1 )); then
+    rm -rf -- "$STATE_ROOT"
   fi
-  rm -f "$TOKEN_FILE" "$COMPOSE_JSON" "$TOPOLOGY_ENV" "$MIGRATION_BUNDLE" "$MIGRATION_SQL" "$BOOTSTRAP_AUTHORITY" "$BOOTSTRAP_SQL"
+  rm -f "$TOKEN_FILE" "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV" "$MIGRATION_BUNDLE" "$MIGRATION_SQL" "$BOOTSTRAP_AUTHORITY" "$BOOTSTRAP_SQL"
   echo "TAI_REG_RU_DEPLOY_ROLLBACK=PASS" >&2
   exit "$rc"
 }
@@ -206,30 +205,268 @@ for file in "${compose_files[@]}"; do test -f "$file"; done
 DC_BASE=(docker compose --project-directory "$prod_dir" --project-name "$prod_project")
 for file in "${compose_files[@]}"; do DC_BASE+=(-f "$file"); done
 COMPOSE_JSON="$(mktemp)"
+CONTAINERS_JSON="$(mktemp)"
 TOPOLOGY_ENV="$(mktemp)"
 "${DC_BASE[@]}" config --format json > "$COMPOSE_JSON"
-python3 - "$COMPOSE_JSON" "$TOPOLOGY_ENV" <<'PY'
-import json, re, sys
-cfg = json.load(open(sys.argv[1], encoding="utf-8"))
+mapfile -t project_container_ids < <(
+  docker ps -q --filter "label=com.docker.compose.project=$prod_project"
+)
+(( ${#project_container_ids[@]} >= 1 )) || { echo "COMPOSE_PROJECT_HAS_NO_RUNNING_CONTAINERS" >&2; exit 10; }
+docker inspect "${project_container_ids[@]}" > "$CONTAINERS_JSON"
+python3 - "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV" "$TARGET_SHA" "$prod_project" <<'PY_POSTGRES_AUTHORITY'
+import json
+import posixpath
+import re
+import shlex
+import sys
+from urllib.parse import parse_qsl, unquote, urlsplit
+
+compose_path, containers_path, output_path, target_sha, project_name = sys.argv[1:]
+
+def fail(code):
+    raise SystemExit(code)
+
+def read_json(path, expected_type, code):
+    try:
+        value = json.load(open(path, encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        fail(code)
+    if not isinstance(value, expected_type):
+        fail(code)
+    return value
+
+def labels(container):
+    value = (container.get("Config") or {}).get("Labels") or {}
+    return value if isinstance(value, dict) else {}
+
+def env_map(items, code):
+    result = {}
+    for item in items or []:
+        if not isinstance(item, str) or "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        if key in result:
+            fail(code)
+        result[key] = value
+    return result
+
+def service_env(service):
+    value = service.get("environment") or {}
+    if isinstance(value, dict):
+        return {str(key): "" if item is None else str(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return env_map(value, "POSTGRES_SERVICE_ENVIRONMENT_AMBIGUOUS")
+    fail("POSTGRES_SERVICE_ENVIRONMENT_INVALID")
+
+def image_repository(image):
+    if not isinstance(image, str) or not image.strip():
+        return ""
+    without_digest = image.strip().split("@", 1)[0]
+    basename = without_digest.rsplit("/", 1)[-1]
+    return basename.split(":", 1)[0].lower()
+
+def is_postgres_image(image):
+    return image_repository(image) in {"postgres", "postgresql"}
+
+helper_pattern = re.compile(
+    r"(^|[-_.])(provision(?:er|ing)?|init(?:db)?|migrat(?:e|ion|ions|or)?|seed(?:er|ing)?|backup|restore)(?:[0-9]+)?(?=$|[-_.])",
+    re.I,
+)
+
+def is_helper(name):
+    return bool(helper_pattern.search(name))
+
+def normalized_path(value):
+    if not isinstance(value, str) or not value.startswith("/"):
+        return ""
+    return posixpath.normpath(value)
+
+def mount_covers(mount_target, data_path):
+    target = normalized_path(mount_target)
+    data = normalized_path(data_path)
+    return bool(target and data and (data == target or data.startswith(target.rstrip("/") + "/")))
+
+def compose_has_durable_storage(service):
+    pgdata = service_env(service).get("PGDATA") or "/var/lib/postgresql/data"
+    for mount in service.get("volumes") or []:
+        if not isinstance(mount, dict):
+            continue
+        if mount.get("type") not in {"volume", "bind"}:
+            continue
+        if not str(mount.get("source") or "").strip():
+            continue
+        if mount_covers(mount.get("target"), pgdata):
+            return True
+    return False
+
+def container_has_durable_storage(container, pgdata):
+    for mount in container.get("Mounts") or []:
+        if not isinstance(mount, dict):
+            continue
+        if mount.get("Type") not in {"volume", "bind"}:
+            continue
+        if not str(mount.get("Source") or mount.get("Name") or "").strip():
+            continue
+        if mount_covers(mount.get("Destination"), pgdata):
+            return True
+    return False
+
+cfg = read_json(compose_path, dict, "COMPOSE_CONFIG_INVALID")
+containers = read_json(containers_path, list, "COMPOSE_CONTAINER_INSPECT_INVALID")
 services = cfg.get("services") or {}
-db = []
-for name, service in services.items():
-    image = str(service.get("image") or "")
-    if re.search(r"(^|[-_])(postgres|postgresql)([-_]|$)", name, re.I) or "postgres" in image.lower():
-        db.append(name)
-if len(db) != 1:
-    raise SystemExit("POSTGRES_SERVICE_AUTHORITY_AMBIGUOUS")
+if not isinstance(services, dict) or "api" not in services:
+    fail("COMPOSE_API_SERVICE_MISSING")
 if "tai" in services:
-    raise SystemExit("TAI_BASE_COMPOSE_AUTHORITY_UNEXPECTED")
-with open(sys.argv[2], "w", encoding="utf-8") as out:
-    out.write(f"DB_SERVICE={db[0]}\n")
-PY
+    fail("TAI_BASE_COMPOSE_AUTHORITY_UNEXPECTED")
+
+project_containers = [
+    container for container in containers
+    if isinstance(container, dict)
+    and labels(container).get("com.docker.compose.project") == project_name
+    and (container.get("State") or {}).get("Status") == "running"
+]
+api_containers = [
+    container for container in project_containers
+    if labels(container).get("com.docker.compose.service") == "api"
+]
+if len(api_containers) != 1:
+    fail("API_CONTAINER_AUTHORITY_AMBIGUOUS")
+api = api_containers[0]
+if labels(api).get("org.opencontainers.image.revision") != target_sha:
+    fail("API_EXACT_MAIN_MISMATCH")
+api_env = env_map((api.get("Config") or {}).get("Env"), "API_ENVIRONMENT_AMBIGUOUS")
+database_url = api_env.get("DATABASE_URL", "")
+if not database_url:
+    fail("DATABASE_URL_MISSING")
+if database_url != database_url.strip() or re.search(r"[\x00-\x20\x7f]", database_url):
+    fail("DATABASE_URL_INVALID")
+if re.search(r"%(?![0-9A-Fa-f]{2})", database_url):
+    fail("DATABASE_URL_INVALID")
+try:
+    parsed = urlsplit(database_url)
+except ValueError:
+    fail("DATABASE_URL_INVALID")
+if parsed.scheme not in {"postgres", "postgresql"}:
+    fail("DATABASE_URL_SCHEME_INVALID")
+try:
+    database_host = parsed.hostname or ""
+    database_port = parsed.port
+    database_username = parsed.username
+except ValueError:
+    fail("DATABASE_URL_INVALID")
+if (
+    not parsed.netloc
+    or parsed.netloc.count("@") > 1
+    or ("@" in parsed.netloc and not database_username)
+    or parsed.fragment
+    or (database_port is not None and not 1 <= database_port <= 65535)
+):
+    fail("DATABASE_URL_INVALID")
+try:
+    query_pairs = parse_qsl(
+        parsed.query,
+        keep_blank_values=True,
+        strict_parsing=True,
+        max_num_fields=32,
+    )
+except ValueError:
+    fail("DATABASE_URL_QUERY_INVALID")
+query_keys = []
+for raw_key, _ in query_pairs:
+    key = raw_key.strip().lower()
+    if not key or key in query_keys:
+        fail("DATABASE_URL_QUERY_INVALID")
+    query_keys.append(key)
+authority_query_keys = {
+    "database",
+    "dbname",
+    "host",
+    "hostaddr",
+    "port",
+    "service",
+    "socket",
+    "unix_socket",
+}
+if authority_query_keys.intersection(query_keys):
+    fail("DATABASE_URL_AUTHORITY_OVERRIDE_FORBIDDEN")
+database_name = unquote(parsed.path[1:]) if parsed.path.startswith("/") else ""
+if (
+    not database_host
+    or not database_name
+    or "/" in database_name
+    or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", database_name)
+):
+    fail("DATABASE_URL_INVALID")
+if database_host not in services:
+    fail("DATABASE_HOST_SERVICE_MISSING")
+
+authority_service = services[database_host]
+if not isinstance(authority_service, dict):
+    fail("DATABASE_HOST_SERVICE_INVALID")
+if is_helper(database_host):
+    fail("POSTGRES_HELPER_SERVICE_FORBIDDEN")
+if not is_postgres_image(authority_service.get("image")):
+    fail("POSTGRES_SERVICE_IMAGE_INVALID")
+if not compose_has_durable_storage(authority_service):
+    fail("POSTGRES_SERVICE_STORAGE_INVALID")
+
+persistent_postgres = sorted(
+    name for name, service in services.items()
+    if isinstance(name, str)
+    and isinstance(service, dict)
+    and not is_helper(name)
+    and is_postgres_image(service.get("image"))
+    and compose_has_durable_storage(service)
+)
+if persistent_postgres != [database_host]:
+    fail("POSTGRES_PERSISTENT_AUTHORITY_AMBIGUOUS")
+
+database_containers = [
+    container for container in project_containers
+    if labels(container).get("com.docker.compose.service") == database_host
+]
+if len(database_containers) != 1:
+    fail("POSTGRES_RUNNING_CONTAINER_AUTHORITY_AMBIGUOUS")
+database = database_containers[0]
+database_config = database.get("Config") or {}
+if not is_postgres_image(database_config.get("Image")):
+    fail("POSTGRES_RUNNING_IMAGE_INVALID")
+database_env = env_map(database_config.get("Env"), "POSTGRES_CONTAINER_ENVIRONMENT_AMBIGUOUS")
+postgres_db = database_env.get("POSTGRES_DB", "")
+postgres_user = database_env.get("POSTGRES_USER", "")
+pgdata = database_env.get("PGDATA") or service_env(authority_service).get("PGDATA") or "/var/lib/postgresql/data"
+if postgres_db != database_name:
+    fail("POSTGRES_DB_MISMATCH")
+if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", postgres_user):
+    fail("POSTGRES_USER_INVALID")
+if not container_has_durable_storage(database, pgdata):
+    fail("POSTGRES_RUNNING_STORAGE_INVALID")
+
+api_id = str(api.get("Id") or "")
+database_id = str(database.get("Id") or "")
+if not re.fullmatch(r"[0-9a-f]{12,64}", api_id):
+    fail("API_CONTAINER_ID_INVALID")
+if not re.fullmatch(r"[0-9a-f]{12,64}", database_id):
+    fail("POSTGRES_CONTAINER_ID_INVALID")
+
+with open(output_path, "w", encoding="utf-8") as output:
+    output.write(f"API_ID={shlex.quote(api_id)}\n")
+    output.write(f"DB_ID={shlex.quote(database_id)}\n")
+    output.write(f"DB_SERVICE={shlex.quote(database_host)}\n")
+    output.write(f"DB_NAME={shlex.quote(database_name)}\n")
+    output.write(f"DB_ADMIN={shlex.quote(postgres_user)}\n")
+PY_POSTGRES_AUTHORITY
 # shellcheck disable=SC1090
 source "$TOPOLOGY_ENV"
-rm -f "$COMPOSE_JSON" "$TOPOLOGY_ENV"
+rm -f "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV"
 COMPOSE_JSON=""
+CONTAINERS_JSON=""
 TOPOLOGY_ENV=""
+[[ "$API_ID" =~ ^[0-9a-f]{12,64}$ ]]
+[[ "$DB_ID" =~ ^[0-9a-f]{12,64}$ ]]
 [[ "$DB_SERVICE" =~ ^[A-Za-z0-9._-]+$ ]]
+[[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+[[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
 
 mapfile -t previous_tai_ids < <(
   docker ps -aq \
@@ -245,13 +482,11 @@ elif [[ -f "$OVERRIDE" || -f "$ENV_FILE" ]]; then
   exit 13
 fi
 
-api_id="$("${DC_BASE[@]}" ps -q api | head -1)"
 web_id="$("${DC_BASE[@]}" ps -q web | head -1)"
-DB_ID="$("${DC_BASE[@]}" ps -q "$DB_SERVICE" | head -1)"
-test -n "$api_id"
 test -n "$web_id"
-test -n "$DB_ID"
-test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" = "$TARGET_SHA"
+test "$API_ID" = "$(docker inspect --format '{{.Id}}' "$API_ID")"
+test "$DB_ID" = "$(docker inspect --format '{{.Id}}' "$DB_ID")"
+test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$API_ID")" = "$TARGET_SHA"
 test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" = "$TARGET_SHA"
 test "$(docker inspect --format '{{.State.Status}}' "$DB_ID")" = running
 
@@ -260,11 +495,14 @@ env_value_from_container() {
   docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$id" \
     | awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}'
 }
-DB_ADMIN="$(env_value_from_container "$DB_ID" POSTGRES_USER)"
-DB_NAME="$(env_value_from_container "$DB_ID" POSTGRES_DB)"
-[[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
-[[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
+test "$(env_value_from_container "$DB_ID" POSTGRES_USER)" = "$DB_ADMIN"
+test "$(env_value_from_container "$DB_ID" POSTGRES_DB)" = "$DB_NAME"
 docker exec "$DB_ID" psql --version >/dev/null
+
+mkdir -- "$STATE_ROOT" || { echo "STATE_ROOT_ALREADY_EXISTS_OR_UNAVAILABLE" >&2; exit 14; }
+STATE_ROOT_CREATED_THIS_ATTEMPT=1
+mkdir -p /etc/transparent-price
+chmod 0700 "$STATE_ROOT" /etc/transparent-price
 
 apply_tai_migrations
 build_bootstrap_authority
