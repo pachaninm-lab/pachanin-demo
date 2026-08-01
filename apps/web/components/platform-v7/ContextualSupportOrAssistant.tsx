@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { CabinetContactDock } from './CabinetContactDock';
 import { ChatSupportWidget } from './ChatSupportWidget';
+import { PublicAssistantAttachmentBridge } from './PublicAssistantAttachmentBridge';
 import { PublicContactDock } from './PublicContactDock';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
@@ -116,6 +117,7 @@ export function ContextualSupportOrAssistant({
     <>
       <UnifiedModalSheetFullscreenController />
       <PublicPlatformAssistant />
+      <PublicAssistantAttachmentBridge />
       <ChatSupportWidget />
       {renderDock ? <PublicContactDock /> : null}
     </>
