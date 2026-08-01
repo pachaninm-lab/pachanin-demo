@@ -1,0 +1,59 @@
+name: Apply public assistant OCR typefix
+
+on:
+  push:
+    branches:
+      - feat/public-assistant-document-upload-20260801
+    paths:
+      - scripts/apply-public-assistant-ocr-typefix.py
+      - .github/workflows/apply-public-assistant-ocr-typefix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-public-assistant-ocr-typefix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/public-assistant-document-upload-20260801
+          fetch-depth: 0
+
+      - name: Capture exact head
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin feat/public-assistant-document-upload-20260801
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Apply bounded fix
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-public-assistant-ocr-typefix.py
+          grep -Fq '...process.env' apps/web/app/api/public-platform-assistant/attachments/route.ts
+          grep -Fq 'const bytes: Buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()));' apps/web/app/api/public-platform-assistant/attachments/route.ts
+          git diff --check
+
+      - name: Commit source-only result
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin feat/public-assistant-document-upload-20260801
+          test "$(git rev-parse origin/feat/public-assistant-document-upload-20260801)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-public-assistant-ocr-typefix.py
+          rm -f .github/workflows/apply-public-assistant-ocr-typefix.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/changed.txt
+          test "$(cat /tmp/changed.txt)" = "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(tai): satisfy OCR runtime type contract'
+          git push --force-with-lease="refs/heads/feat/public-assistant-document-upload-20260801:${EXPECTED_HEAD}" origin HEAD:refs/heads/feat/public-assistant-document-upload-20260801
