@@ -177,7 +177,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo -n /usr/local/sbin/pc-tai-release-controller activate "$TARGET_SHA" "$GITHUB_RUN_ID" "$API_IMAGE" "$API_DIGEST" "$WEB_IMAGE" "$WEB_DIGEST" "$MIGRATION_IMAGE" "$MIGRATION_DIGEST"
-      - name: Verify public RU, EN and ZH SSE answers
+      - name: Verify real public Qwen RU, EN and ZH SSE answers
         run: |
           set -Eeuo pipefail
           out="$RUNNER_TEMP/tai-live"; mkdir -p "$out"
@@ -200,6 +200,17 @@ jobs:
                 if line.startswith('data: '): frames.append(json.loads(line[6:]))
             assert 'token' in [f.get('event') for f in frames]
             assert frames[-1].get('event')=='done' and frames[-1].get('complete') is True
+            assessments=[f for f in frames if f.get('event')=='assessment']
+            assert len(assessments)==1
+            assessment=assessments[0]
+            summary=json.loads(assessment.get('summary') or '{}')
+            safety_flags=summary.get('safetyFlags') or []
+            assert summary.get('source') == 'local_qwen'
+            assert summary.get('modelIdentity') == 'tai-qwen3-8b-q4km'
+            assert assessment.get('operationalStatus') == 'NOT_ATTESTED'
+            assert 'MODEL_FAST_FALLBACK' not in safety_flags
+            assert 'MODEL_RUNTIME_UNAVAILABLE' not in safety_flags
+            assert sum(len(str(f.get('text') or '')) for f in frames if f.get('event')=='token') >= 20
             for forbidden in ('192.168.0.206','tenantId','membershipId','subjectId','AI_ASSISTANT_API_KEY','TAI_PUBLIC_GATEWAY_HMAC_SECRET'):
               assert forbidden not in text
           PY
@@ -303,5 +314,5 @@ jobs:
             -f state="$state" -f context='TAI Restricted Qwen REG.RU Activation' -f description="$description" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [[ "$state" == success ]]; then
-            gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Restricted Qwen accepted on REG.RU for exact main \`$TARGET_SHA\`: least-privilege controller, no production inbound SSH, private model transport, RU/EN/ZH SSE PASS and hosted Chromium UI PASS."
+            gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Restricted Qwen accepted on REG.RU for exact main \`$TARGET_SHA\`: least-privilege controller, no production inbound SSH, private model transport, real local-Qwen RU/EN/ZH SSE PASS and hosted Chromium UI PASS."
           fi

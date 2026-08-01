@@ -17,7 +17,6 @@ const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const INTERNAL_PATH = '/internal/tai/public-generate';
 const MAX_API_RESPONSE_BYTES = 1_048_576;
 const DEFAULT_TIMEOUT_MS = 90_000;
-const FAST_FALLBACK_TIMEOUT_MS = 8_000;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
 const MAX_HISTORY_TOTAL_CHARS = 12_000;
@@ -234,7 +233,7 @@ function streamRestrictedAnswer(request: NextRequest, grounding: PublicKnowledge
             runtimeConfig,
             payload,
             request.signal,
-            Math.min(runtimeConfig.timeoutMs, FAST_FALLBACK_TIMEOUT_MS),
+            runtimeConfig.timeoutMs,
           );
         } catch {
           if (request.signal.aborted) return;
