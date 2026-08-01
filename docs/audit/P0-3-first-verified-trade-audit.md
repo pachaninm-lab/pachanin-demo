@@ -203,3 +203,33 @@ Both are addressed in `20260801120000_auction_cross_tenant_participation`; the e
 `apps/api/test/sql/auction-cross-tenant-participation.acceptance.sql`.
 
 Every finding is cited to `file:line` so it can be re-checked independently.
+
+---
+
+## 7. The next blocker, confirmed by execution
+
+Cross-organization **bidding** now works end to end, but the canonical **Deal** does not yet reach
+the buyer. With `infra/sql/production-rls-policies.sql` applied, a Deal created in the seller's
+tenant and naming the cross-tenant winner as `buyerOrgId` is visible to that winner **0** times:
+`deals_select` requires `"tenantId" = current_setting('app.current_tenant_id')`, and its fallback
+path through `deal_participants` is tenant-scoped in the same way
+(`20260712193000_postgresql_deal_authority:156-178`).
+
+So brief item 5 is complete up to the award and the emitted deal basis — which now carries both
+`sellerTenantId` and `buyerTenantId` — but the Deal itself still needs a cross-tenant counterparty
+path before "ровно одна каноническая Сделка между продавцом и покупателем" is true for real
+organizations. The participation grant established here is the natural predicate to reuse.
+
+### A deployment-ordering hazard found on the way
+
+`0001_postgresql_initial:689` creates `deals_app_access` — a **permissive** policy, for **PUBLIC**,
+on **ALL** commands, with qualifier `true`. PostgreSQL OR's permissive policies together, so while
+it exists it fully neutralizes the carefully scoped `deals_select`. It is dropped only by
+`infra/sql/production-rls-policies.sql:94`, which is **not** part of the Prisma migration chain; it
+is applied out of band (mounted as `99-rls.sql` by `docker-compose.yml:18`).
+
+Any environment built by replaying migrations alone therefore has effectively no tenant isolation on
+`public.deals`. That was observed directly: the same query returned 1 row before the ops file was
+applied and 0 after. Worth confirming that every environment — including REG.RU production — applies
+that file, and worth folding it into the migration chain so the guarantee cannot depend on
+provisioning order.
