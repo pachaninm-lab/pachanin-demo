@@ -8,62 +8,73 @@ on:
       - .github/workflows/tai-chain-inspect-once.yml
 
 permissions:
-  actions: read
   contents: read
   statuses: write
 
+env:
+  CANONICAL_PROD_HOST: 195.19.12.120
+  PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  PROD_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+
 jobs:
-  inspect:
+  diagnose:
     runs-on: ubuntu-24.04
     if: github.actor == github.repository_owner
-    env:
-      TARGET_SHA: 0a4d5c854485d3b51db0144bdeb2bbe4ce4c7830
+    timeout-minutes: 10
     steps:
-      - name: Inspect exact-main workflow chain
+      - name: Extract and publish redacted root-controller failure evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          inspect_workflow() {
-            local workflow="$1"
-            gh api -H 'Accept: application/vnd.github+json' \
-              "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?branch=main&per_page=20" \
-              --jq --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha) | {id,name,status,conclusion,event,head_sha,created_at,updated_at,html_url}]'
+          state=failure
+          description='Controller diagnostic failed'
+          publish() {
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+              -f state="$state" -f context='TAI Controller Diagnostic' \
+              -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
           }
-          mkdir -p "$RUNNER_TEMP/tai-chain"
-          inspect_workflow tai-reg-ru-preflight.yml > "$RUNNER_TEMP/tai-chain/preflight.json"
-          inspect_workflow tai-restricted-qwen-reg-ru-activation.yml > "$RUNNER_TEMP/tai-chain/activation.json"
-          inspect_workflow tai-reg-ru-deploy.yml > "$RUNNER_TEMP/tai-chain/deployment.json"
-          python3 - "$RUNNER_TEMP/tai-chain" > "$RUNNER_TEMP/tai-chain/summary.json" <<'PY'
-          import json, pathlib, sys
-          root = pathlib.Path(sys.argv[1])
-          result = {}
-          for name in ('preflight','activation','deployment'):
-              runs = json.loads((root / f'{name}.json').read_text())
-              result[name] = runs[0] if runs else None
-          print(json.dumps(result, sort_keys=True, separators=(',',':')))
+          trap publish EXIT
+          state=pending; description='Extracting redacted controller evidence'; publish; state=failure
+          trim() { local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          write_key() {
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0; fi
+            done
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          host="$(trim "${PROD_HOST_SECRET:-$CANONICAL_PROD_HOST}")"; user="$(trim "${PROD_USER_SECRET:-}")"; port="$(trim "${PROD_PORT_SECRET:-22}")"
+          [[ "$host" == "$CANONICAL_PROD_HOST" && -n "$user" ]]
+          install -d -m 0700 "$HOME/.ssh"
+          key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
+          write_key "$key" "$HOME/.ssh/id_pc_prod"
+          ssh-keyscan -T 15 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"; chmod 0600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'python3 -' <<'PY'
+          import pathlib, re
+          root=pathlib.Path('/var/lib/pc-release-authority/controller-jobs/30694093424')
+          print(f'JOB_STATE_EXISTS={root.is_dir()}')
+          if not root.is_dir(): raise SystemExit(2)
+          for p in sorted(root.iterdir()): print(f'STATE_ENTRY={p.name}|{p.stat().st_size if p.is_file() else 0}')
+          sensitive=re.compile(r'(?i)(authorization|bearer|api[_-]?key|private[_-]?key|password|token|secret)\s*[:=]\s*\S+')
+          for name in ('deploy.log','deploy-rollback.log','full-stack.log','activation.log','rollback.log'):
+              p=root/name
+              if not p.is_file(): continue
+              lines=p.read_text(encoding='utf-8',errors='replace').splitlines()
+              print(f'--- {name} ---')
+              selected=[]
+              for line in lines[-240:]:
+                  if any(x in line.lower() for x in ('error','fail','exception','traceback','invalid','mismatch','denied','missing','duplicate','syntax','relation','migration','rollback','permission','fatal','panic','constraint','already exists','psql')):
+                      selected.append(sensitive.sub(lambda m:m.group(1)+'=[REDACTED]',line)[:2000])
+              for line in selected[-100:]: print(line)
           PY
-          summary="$(cat "$RUNNER_TEMP/tai-chain/summary.json")"
-          description="$(python3 - "$RUNNER_TEMP/tai-chain/summary.json" <<'PY'
-          import json,sys
-          data=json.load(open(sys.argv[1]))
-          parts=[]
-          for key in ('preflight','activation','deployment'):
-              run=data.get(key)
-              value='missing' if run is None else f"{run.get('status')}:{run.get('conclusion') or '-'}"
-              parts.append(f"{key}={value}")
-          print('; '.join(parts)[:140])
-          PY
-          )"
-          gh api --method POST -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -f state=success \
-            -f context='TAI Exact-Main Chain Inspect' \
-            -f description="$description" \
-            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tai-exact-main-chain-${{ github.run_id }}
-          path: ${{ runner.temp }}/tai-chain
-          if-no-files-found: error
-          retention-days: 1
+          state=success; description='Redacted controller diagnostic extracted'
