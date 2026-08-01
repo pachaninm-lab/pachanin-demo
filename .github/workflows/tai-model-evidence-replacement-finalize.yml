@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/tai-model-evidence-replacement-finalize.yml'
+      - 'scripts/materialize-tai-model-evidence-repair.py'
 
 permissions:
   contents: write
@@ -23,6 +24,7 @@ jobs:
           node-version: 22
       - name: Materialize combined source repair
         run: |
+          set -Eeuo pipefail
           git fetch origin fix/tai-reg-ru-model-artifact-evidence-20260801
           python3 scripts/materialize-tai-model-evidence-repair.py
       - name: Validate combined contracts
