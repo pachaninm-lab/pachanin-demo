@@ -41,7 +41,27 @@ try {
   if (title !== 'ИИ для агробизнеса') throw new Error('approved_title_missing');
   if (subtitle !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');
   if (await dialog.locator('.pc-modal-sheet-fullscreen-button').count()) throw new Error('duplicate_fullscreen_control_present');
-  if (await dialog.getByRole('button', { name: 'Развернуть на весь экран' }).count() !== 1) throw new Error('fullscreen_control_count_invalid');
+
+  const fullscreenControl = dialog.locator('button[aria-label="Развернуть на весь экран"]');
+  if (await fullscreenControl.count() !== 1) throw new Error('fullscreen_control_dom_count_invalid');
+  if (await fullscreenControl.isVisible()) throw new Error('mobile_fullscreen_control_visible');
+  const closeControl = dialog.getByRole('button', { name: 'Закрыть ИИ-помощника' });
+  if (await closeControl.count() !== 1 || !await closeControl.isVisible()) throw new Error('mobile_close_control_invalid');
+
+  const mobileFrame = await dialog.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    return {
+      top: rect.top,
+      left: rect.left,
+      rightGap: window.innerWidth - rect.right,
+      bottomGap: window.innerHeight - rect.bottom,
+      widthGap: window.innerWidth - rect.width,
+      heightGap: window.innerHeight - rect.height,
+    };
+  });
+  if (Object.values(mobileFrame).some(value => Math.abs(value) > 2)) {
+    throw new Error(`mobile_application_viewport_invalid:${JSON.stringify(mobileFrame)}`);
+  }
 
   const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
   await composer.fill('Что влияет на цену зерна?');
@@ -63,6 +83,18 @@ try {
     schemaVersion: 'tai.public-ai-ui.acceptance.v1', targetSha, manifestSha: manifest.commitSha,
     title, subtitle, answerCharacters: answer.length, viewport: '390x844', status: 'PASS',
   }, null, 2));
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  try {
+    await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-failure-390x844.png'), fullPage: true });
+  } catch {
+    // The structured failure record remains authoritative if screenshot capture is unavailable.
+  }
+  fs.writeFileSync(path.join(evidenceDir, 'public-ai-window-failure.json'), JSON.stringify({
+    schemaVersion: 'tai.public-ai-ui.acceptance-failure.v1', targetSha, viewport: '390x844',
+    errorCode: message, pageErrors, status: 'FAIL',
+  }, null, 2));
+  throw error;
 } finally {
   await browser.close();
 }
