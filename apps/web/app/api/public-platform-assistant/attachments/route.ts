@@ -1,4 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { inflateRawSync, inflateSync } from 'node:zlib';
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
@@ -6,13 +11,19 @@ import ExcelJS from 'exceljs';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const execFileAsync = promisify(execFile);
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
 const MAX_EXTRACTED_CHARS = 18_000;
+const MAX_OCR_PDF_PAGES = 4;
+const OCR_TIMEOUT_MS = 30_000;
+const MIN_NATIVE_PDF_TEXT = 80;
+const OCR_LANGUAGES = 'rus+eng+chi_sim';
 
 const TEXT_EXTENSIONS = new Set(['txt', 'md', 'csv', 'json', 'xml']);
-const RECOGNIZED_BUT_NOT_CONNECTED = new Set(['doc', 'png', 'jpg', 'jpeg', 'heic']);
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'heic']);
+const RECOGNIZED_BUT_NOT_CONNECTED = new Set(['doc']);
 
 type ExtractedDocument = Readonly<{
   id: string;
@@ -159,6 +170,82 @@ function extractPdf(bytes: Buffer): { text: string; truncated: boolean } {
   return cleanText(values.join('\n'));
 }
 
+async function runBinary(command: string, args: string[]): Promise<void> {
+  try {
+    await execFileAsync(command, args, {
+      timeout: OCR_TIMEOUT_MS,
+      maxBuffer: 2 * 1024 * 1024,
+      windowsHide: true,
+      env: {
+        PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+        TESSDATA_PREFIX: process.env.TESSDATA_PREFIX || '/usr/share/tesseract-ocr/5/tessdata',
+        LANG: 'C.UTF-8',
+      },
+    });
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+    if (code === 'ETIMEDOUT') throw new Error('OCR_TIMEOUT');
+    throw new Error('OCR_PROCESSING_FAILED');
+  }
+}
+
+async function ocrImage(bytes: Buffer, ext: string): Promise<{ text: string; truncated: boolean }> {
+  const workdir = await mkdtemp(join(tmpdir(), 'tai-ocr-'));
+  try {
+    const source = join(workdir, `source.${ext === 'jpeg' ? 'jpg' : ext}`);
+    const normalized = join(workdir, 'normalized.png');
+    const outputBase = join(workdir, 'result');
+    await writeFile(source, bytes, { mode: 0o600 });
+
+    const input = ext === 'heic' ? normalized : source;
+    if (ext === 'heic') {
+      await runBinary('/usr/bin/convert', [source, '-auto-orient', '-strip', normalized]);
+    }
+
+    await runBinary('/usr/bin/tesseract', [input, outputBase, '-l', OCR_LANGUAGES, '--oem', '1', '--psm', '3']);
+    return cleanText(await readFile(`${outputBase}.txt`, 'utf8'));
+  } finally {
+    await rm(workdir, { recursive: true, force: true });
+  }
+}
+
+async function ocrPdf(bytes: Buffer): Promise<{ text: string; truncated: boolean }> {
+  const workdir = await mkdtemp(join(tmpdir(), 'tai-ocr-pdf-'));
+  try {
+    const source = join(workdir, 'source.pdf');
+    const pagePrefix = join(workdir, 'page');
+    await writeFile(source, bytes, { mode: 0o600 });
+    await runBinary('/usr/bin/pdftoppm', [
+      '-f', '1', '-l', String(MAX_OCR_PDF_PAGES), '-r', '180', '-png', '-singlefile', source, pagePrefix,
+    ]);
+
+    let pages = (await readdir(workdir))
+      .filter((name) => name.startsWith('page') && name.endsWith('.png'))
+      .sort()
+      .slice(0, MAX_OCR_PDF_PAGES);
+
+    if (!pages.length) {
+      await runBinary('/usr/bin/pdftoppm', [
+        '-f', '1', '-l', String(MAX_OCR_PDF_PAGES), '-r', '180', '-png', source, pagePrefix,
+      ]);
+      pages = (await readdir(workdir))
+        .filter((name) => name.startsWith('page') && name.endsWith('.png'))
+        .sort()
+        .slice(0, MAX_OCR_PDF_PAGES);
+    }
+
+    const chunks: string[] = [];
+    for (const [index, page] of pages.entries()) {
+      const outputBase = join(workdir, `ocr-${index + 1}`);
+      await runBinary('/usr/bin/tesseract', [join(workdir, page), outputBase, '-l', OCR_LANGUAGES, '--oem', '1', '--psm', '3']);
+      chunks.push(await readFile(`${outputBase}.txt`, 'utf8'));
+    }
+    return cleanText(chunks.join('\n\n'));
+  } finally {
+    await rm(workdir, { recursive: true, force: true });
+  }
+}
+
 async function extractWorkbook(file: File): Promise<{ text: string; truncated: boolean }> {
   const workbook = new ExcelJS.Workbook();
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -195,7 +282,10 @@ async function extract(file: File): Promise<ExtractedDocument> {
   } else if (ext === 'docx') {
     extracted = extractDocx(bytes);
   } else if (ext === 'pdf') {
-    extracted = extractPdf(bytes);
+    const native = extractPdf(bytes);
+    extracted = native.text.length >= MIN_NATIVE_PDF_TEXT ? native : await ocrPdf(bytes);
+  } else if (IMAGE_EXTENSIONS.has(ext)) {
+    extracted = await ocrImage(bytes, ext);
   } else if (RECOGNIZED_BUT_NOT_CONNECTED.has(ext)) {
     throw new Error(`PROCESSOR_NOT_CONNECTED:${ext}`);
   } else {
@@ -252,5 +342,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (!documents.length) return json({ error: 'NO_DOCUMENTS_EXTRACTED', rejected }, 422);
-  return json({ documents, rejected, limits: { maxFiles: MAX_FILES, maxFileBytes: MAX_FILE_BYTES } });
+  return json({
+    documents,
+    rejected,
+    limits: {
+      maxFiles: MAX_FILES,
+      maxFileBytes: MAX_FILE_BYTES,
+      maxOcrPdfPages: MAX_OCR_PDF_PAGES,
+    },
+  });
 }
