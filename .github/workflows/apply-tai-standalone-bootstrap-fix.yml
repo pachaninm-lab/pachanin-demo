@@ -1,0 +1,92 @@
+name: Apply TAI standalone bootstrap fix
+
+on:
+  push:
+    branches:
+      - agent/tai-standalone-bootstrap-20260801
+    paths:
+      - scripts/apply-tai-standalone-bootstrap-fix.py
+      - .github/workflows/apply-tai-standalone-bootstrap-fix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-tai-standalone-bootstrap-fix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: agent/tai-standalone-bootstrap-20260801
+          fetch-depth: 0
+
+      - name: Capture exact authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main agent/tai-standalone-bootstrap-20260801
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+
+      - name: Apply bounded bootstrap repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-standalone-bootstrap-fix.py
+          bash -n scripts/pc-tai-release-controller-core.sh
+          bash -n scripts/tai-reg-ru-deploy.sh
+          bash -n scripts/tai-reg-ru-preflight.sh
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-tai-reg-ru-preflight.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/tai/pyproject.toml
+
+      - name: Verify Python contracts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -e 'apps/tai[dev]'
+          ruff check \
+            apps/tai/tai/model_admission.py \
+            apps/tai/tai/production_entrypoint.py \
+            apps/tai/tests/test_model_admission.py \
+            apps/tai/tests/test_production_entrypoint.py
+          mypy apps/tai/tai/model_admission.py apps/tai/tai/production_entrypoint.py
+          pytest -q \
+            apps/tai/tests/test_model_admission.py \
+            apps/tai/tests/test_production_entrypoint.py
+
+      - name: Publish one reviewed branch commit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main agent/tai-standalone-bootstrap-20260801
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/agent/tai-standalone-bootstrap-20260801)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-tai-standalone-bootstrap-fix.py
+          rm -f .github/workflows/apply-tai-standalone-bootstrap-fix.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/tai-bootstrap-files.txt
+          if grep -Ev '^(\.github/workflows/tai-reg-ru-deploy\.yml|apps/tai/TAI_REG_RU_DEPLOY\.md|apps/tai/tai/migrations/0022_restricted_live_model_authority\.sql|apps/tai/tai/migrations/manifest\.json|apps/tai/tai/model_admission\.py|apps/tai/tai/production_entrypoint\.py|apps/tai/tests/test_model_admission\.py|apps/tai/tests/test_production_entrypoint\.py|docs/platform-v7/autopilot/scopes/tai-standalone-bootstrap-20260801\.json|scripts/check-tai-reg-ru-deploy\.mjs|scripts/check-tai-reg-ru-preflight\.mjs|scripts/pc-tai-release-controller-core\.sh|scripts/tai-reg-ru-deploy\.sh|scripts/tai-reg-ru-preflight\.sh)$' /tmp/tai-bootstrap-files.txt; then
+            echo 'Final diff exceeds registered TAI bootstrap scope.' >&2
+            exit 31
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'TAI: bootstrap standalone runtime without fabricating admission'
+          git push --force-with-lease="refs/heads/agent/tai-standalone-bootstrap-20260801:${EXPECTED_HEAD}" \
+            origin HEAD:refs/heads/agent/tai-standalone-bootstrap-20260801
