@@ -4,6 +4,7 @@ import { UnprocessableEntityException } from '@nestjs/common';
 import { AuctionCommandService } from './auction-command.service';
 import type { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
+import { RecordingFgisQuarantineAudit } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.test-double';
 import { FGIS_LEGACY_ERROR_CODES } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
 
 /**
@@ -46,9 +47,11 @@ function registerInput(sourceType: string) {
 
 describe('auction lot registration — ФГИС source cannot be self-verified', () => {
   const withTrustedContext = jest.fn();
-  const service = new AuctionCommandService({
-    withTrustedContext,
-  } as unknown as RlsTransactionService);
+  const audit = new RecordingFgisQuarantineAudit();
+  const service = new AuctionCommandService(
+    { withTrustedContext } as unknown as RlsTransactionService,
+    audit.asService(),
+  );
 
   beforeEach(() => withTrustedContext.mockReset());
 

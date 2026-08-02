@@ -15,6 +15,7 @@ import {
   FGIS_LEGACY_ERROR_CODES,
   denyRetiredLegacyFgisRoute,
 } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+import { FgisLegacyQuarantineAuditService } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
 
 /**
  * Incoming ЭДО webhook endpoint per ТЗ 10.4.
@@ -38,7 +39,7 @@ export class EdoWebhookController {
   private readonly processedEventIds = new Map<string, number>();
   private readonly cleanupInterval: NodeJS.Timeout;
 
-  constructor() {
+  constructor(private readonly quarantineAudit: FgisLegacyQuarantineAuditService) {
     // Purge old event IDs older than 24h to prevent unbounded growth
     this.cleanupInterval = setInterval(() => {
       const cutoff = Date.now() - 86_400_000;
@@ -88,7 +89,7 @@ export class EdoWebhookController {
    * body to authenticate and no event to deduplicate.
    */
   @Post('fgis')
-  fgisCallback(): never {
+  fgisCallback(): Promise<never> {
     return denyRetiredLegacyFgisRoute({
       code: FGIS_LEGACY_ERROR_CODES.WEBHOOK_RETIRED,
       message:
@@ -97,7 +98,9 @@ export class EdoWebhookController {
       nextStep:
         'Настройте канонический обмен ФГИС «Зерно» (SendRequest/SendResponse/Ack).',
       route: 'POST /api/webhooks/fgis',
-      logger: this.logger,
+      // Anonymous by design: the route is public and the body is never read.
+      actor: null,
+      audit: this.quarantineAudit,
     });
   }
 

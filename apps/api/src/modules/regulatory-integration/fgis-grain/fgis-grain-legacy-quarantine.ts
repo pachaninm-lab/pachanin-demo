@@ -1,18 +1,24 @@
-import { ForbiddenException, GoneException, Logger } from '@nestjs/common';
+import { ForbiddenException, GoneException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import type { RequestUser } from '../../../common/types/request-user';
+import type {
+  FgisLegacyQuarantineAuditService,
+  FgisQuarantineAuditFact,
+} from './fgis-grain-legacy-quarantine.audit';
 
 /**
  * P0.2-1A — one denial shape for every retired legacy ФГИС «Зерно» path.
  *
  * Before this slice the platform exposed several routes that looked like a
  * working ФГИС integration but could not produce a regulatory result: a REST
- * adapter over invented paths, a mock deal push, staff-driven saga steps, and
- * two JSON webhooks that no official contract defines. Each of them could move
- * platform state — or report success — on evidence that never came from the
- * external register.
+ * adapter over invented paths, a mock deal push, staff-driven saga steps, two
+ * JSON webhooks that no official contract defines, and an in-memory lot store.
+ * Each of them could move platform state — or report success — on evidence that
+ * never came from the external register.
  *
  * They now fail closed through the helpers below. A denial:
  *   - changes no business state;
+ *   - is committed to `public.audit_events` before the refusal is returned;
  *   - carries a stable machine-readable code;
  *   - carries a correlation code the caller can quote to support;
  *   - never carries a credential, endpoint, certificate or request payload.
@@ -31,10 +37,14 @@ export const FGIS_LEGACY_ERROR_CODES = {
   ROUTE_RETIRED: 'FGIS_LEGACY_ROUTE_RETIRED',
   /** Confirmed-grain publication before the canonical passport path exists. */
   VERIFIED_LOT_PATH_NOT_READY: 'FGIS_VERIFIED_LOT_PATH_NOT_READY',
+  /** Legacy in-memory lot contour, withdrawn in production. */
+  LEGACY_LOT_CONTOUR_RETIRED: 'LEGACY_FGIS_LOT_CONTOUR_RETIRED',
 } as const;
 
 export type FgisLegacyErrorCode =
   (typeof FGIS_LEGACY_ERROR_CODES)[keyof typeof FGIS_LEGACY_ERROR_CODES];
+
+export const FGIS_QUARANTINE_BOUNDARY = 'LEGACY_FGIS_QUARANTINE';
 
 export const FGIS_CANONICAL_CONTOUR =
   'apps/api/src/modules/regulatory-integration/fgis-grain';
@@ -54,6 +64,7 @@ export interface FgisLegacyDenial {
   readonly stateChanged: false;
   readonly nextStep: string;
   readonly attestation: 'NOT_ATTESTED';
+  readonly boundary: typeof FGIS_QUARANTINE_BOUNDARY;
 }
 
 export interface DenyLegacyFgisParams {
@@ -62,32 +73,38 @@ export interface DenyLegacyFgisParams {
   readonly message: string;
   /** What the caller should do instead. */
   readonly nextStep: string;
-  /** Route or command being refused, for the audit line only. */
+  /** Route or command being refused. Stored as the audited object id. */
   readonly route: string;
-  /** Server-derived actor id, if the request was authenticated. Never a name. */
-  readonly actorUserId?: string | null;
-  readonly logger?: Logger;
+  /**
+   * Authenticated principal, as the server resolved it. Never a browser-supplied
+   * tenant, organization or role. Absent for anonymous routes.
+   */
+  readonly actor?: Partial<RequestUser> | null;
+  /** Durable audit authority. Required — a denial that cannot be recorded fails. */
+  readonly audit: FgisLegacyQuarantineAuditService;
 }
 
-const auditLogger = new Logger('FgisLegacyQuarantine');
+function auditFactFrom(
+  params: DenyLegacyFgisParams,
+  correlationId: string,
+): FgisQuarantineAuditFact {
+  const actor = params.actor ?? null;
+  return {
+    tenantId: actor?.tenantId ?? null,
+    organizationId: actor?.orgId ?? null,
+    actorUserId: actor?.id ?? null,
+    actorRole: actor?.role ?? null,
+    sessionId: actor?.sessionId ?? null,
+    route: params.route,
+    denialCode: params.code,
+    correlationId,
+  };
+}
 
-/**
- * Builds the denial body and writes one audit line. Kept separate from the
- * throwing helpers so a caller that must return a body (rather than raise) gets
- * exactly the same shape and the same audit trail.
- */
-export function recordLegacyFgisDenial(params: DenyLegacyFgisParams): FgisLegacyDenial {
-  const correlationCode = newFgisCorrelationCode();
-  const log = params.logger ?? auditLogger;
-
-  // Deliberately minimal: code, route, actor id and correlation code. No body,
-  // no headers, no signature, no provider endpoint — a denial must not become a
-  // new leak channel.
-  log.warn(
-    `FGIS legacy path denied: code=${params.code} route=${params.route} ` +
-      `actor=${params.actorUserId ?? 'anonymous'} correlation=${correlationCode}`,
-  );
-
+function denialBody(
+  params: DenyLegacyFgisParams,
+  correlationCode: string,
+): FgisLegacyDenial {
   return {
     code: params.code,
     message: params.message,
@@ -95,15 +112,33 @@ export function recordLegacyFgisDenial(params: DenyLegacyFgisParams): FgisLegacy
     stateChanged: false,
     nextStep: params.nextStep,
     attestation: 'NOT_ATTESTED',
+    boundary: FGIS_QUARANTINE_BOUNDARY,
   };
+}
+
+/**
+ * Commits the attempt, then builds the denial body. Separate from the throwing
+ * helpers so a caller that must return a body rather than raise gets the same
+ * shape and the same durable trail.
+ */
+export async function recordLegacyFgisDenial(
+  params: DenyLegacyFgisParams,
+): Promise<FgisLegacyDenial> {
+  const correlationCode = newFgisCorrelationCode();
+  // Throws FgisQuarantineAuditUnavailableError when PostgreSQL is unreachable.
+  // That is the intended outcome: no unrecorded refusal, no business mutation.
+  await params.audit.recordDenial(auditFactFrom(params, correlationCode));
+  return denialBody(params, correlationCode);
 }
 
 /**
  * Refuses a retired legacy route with `410 Gone`: the endpoint existed, was
  * withdrawn, and no equivalent request will be accepted on it again.
  */
-export function denyRetiredLegacyFgisRoute(params: DenyLegacyFgisParams): never {
-  throw new GoneException(recordLegacyFgisDenial(params));
+export async function denyRetiredLegacyFgisRoute(
+  params: DenyLegacyFgisParams,
+): Promise<never> {
+  throw new GoneException(await recordLegacyFgisDenial(params));
 }
 
 /**
@@ -111,8 +146,8 @@ export function denyRetiredLegacyFgisRoute(params: DenyLegacyFgisParams): never 
  * a client's behalf. `403` rather than `410`: the operation is not withdrawn,
  * the caller is simply not the party entitled to perform it.
  */
-export function denyLegacyFgisActionOnBehalfOfClient(
+export async function denyLegacyFgisActionOnBehalfOfClient(
   params: DenyLegacyFgisParams,
-): never {
-  throw new ForbiddenException(recordLegacyFgisDenial(params));
+): Promise<never> {
+  throw new ForbiddenException(await recordLegacyFgisDenial(params));
 }

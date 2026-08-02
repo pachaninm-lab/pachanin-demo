@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   FGIS_LEGACY_ERROR_CODES,
   denyLegacyFgisActionOnBehalfOfClient,
 } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+import { FgisLegacyQuarantineAuditService } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
+import type { RequestUser } from '../../common/types/request-user';
 
 /**
  * P0.2-1A — the ФГИС «Зерно» saga steps are retired.
@@ -19,10 +21,11 @@ import {
  *     provider, platform staff are not the party entitled to perform them, and
  *     the platform's transport signature does not grant that right.
  *
- * Every step now fails closed. The saga step id stays in the lifecycle so
- * existing deals keep a readable history; only the write path is withdrawn.
- * The `integrationRegistry` import is gone on purpose — the mock ФГИС adapter
- * must not be reachable from the production module graph at all.
+ * Every step now fails closed and the attempt is committed to the durable audit
+ * trail against the staff member who made it. The saga step id stays in the
+ * lifecycle so existing deals keep a readable history; only the write path is
+ * withdrawn. The `integrationRegistry` import is gone on purpose — the mock
+ * ФГИС adapter must not be reachable from the production module graph at all.
  */
 
 export interface FgisRegisterParams {
@@ -52,13 +55,20 @@ const REGISTRATION_NEXT_STEP =
 
 @Injectable()
 export class FgisStepService {
-  private readonly logger = new Logger(FgisStepService.name);
+  constructor(private readonly quarantineAudit: FgisLegacyQuarantineAuditService) {}
 
   /**
    * Denied before the saga is touched: a refused command must not advance,
    * complete or fail a step, because each of those writes deal history.
+   *
+   * `actor` is required rather than optional. These routes are staff-only, and
+   * recording a staff attempt as `anonymous` would defeat the reason for
+   * auditing it at all.
    */
-  async executeFgisRegister(params: FgisRegisterParams): Promise<FgisRegisterResult> {
+  async executeFgisRegister(
+    params: FgisRegisterParams,
+    actor: RequestUser,
+  ): Promise<FgisRegisterResult> {
     return denyLegacyFgisActionOnBehalfOfClient({
       code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
       message:
@@ -66,19 +76,23 @@ export class FgisStepService {
         'Это юридически значимое действие организации-участника.',
       nextStep: REGISTRATION_NEXT_STEP,
       route: `POST /saga/deals/${params.dealId}/execute/fgis_register`,
-      logger: this.logger,
+      actor,
+      audit: this.quarantineAudit,
     });
   }
 
-  async confirmShipment(params: {
-    dealId: string;
-    fgisLotId: string;
-    vehicleNumber: string;
-    driverName: string;
-    routeFrom: string;
-    routeTo: string;
-    loadedTons: number;
-  }): Promise<{ confirmed: boolean; fgisLotId: string }> {
+  async confirmShipment(
+    params: {
+      dealId: string;
+      fgisLotId: string;
+      vehicleNumber: string;
+      driverName: string;
+      routeFrom: string;
+      routeTo: string;
+      loadedTons: number;
+    },
+    actor: RequestUser,
+  ): Promise<{ confirmed: boolean; fgisLotId: string }> {
     return denyLegacyFgisActionOnBehalfOfClient({
       code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
       message:
@@ -86,17 +100,21 @@ export class FgisStepService {
         'СДИЗ подписывает участник сделки, а не платформа.',
       nextStep: REGISTRATION_NEXT_STEP,
       route: `POST /saga/deals/${params.dealId}/fgis/confirm-shipment`,
-      logger: this.logger,
+      actor,
+      audit: this.quarantineAudit,
     });
   }
 
-  async confirmAcceptance(params: {
-    dealId: string;
-    fgisLotId: string;
-    receiverInn: string;
-    acceptedTons: number;
-    quality: Record<string, number>;
-  }): Promise<{ confirmed: boolean; fgisLotId: string }> {
+  async confirmAcceptance(
+    params: {
+      dealId: string;
+      fgisLotId: string;
+      receiverInn: string;
+      acceptedTons: number;
+      quality: Record<string, number>;
+    },
+    actor: RequestUser,
+  ): Promise<{ confirmed: boolean; fgisLotId: string }> {
     return denyLegacyFgisActionOnBehalfOfClient({
       code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
       message:
@@ -104,7 +122,8 @@ export class FgisStepService {
         'Это юридически значимое действие организации-получателя.',
       nextStep: REGISTRATION_NEXT_STEP,
       route: `POST /saga/deals/${params.dealId}/fgis/confirm-acceptance`,
-      logger: this.logger,
+      actor,
+      audit: this.quarantineAudit,
     });
   }
 
@@ -113,7 +132,7 @@ export class FgisStepService {
    * invented codes. Presenting them as ФГИС reference data would put synthetic
    * values into a seller's lot.
    */
-  async getCrops(): Promise<never> {
+  async getCrops(actor: RequestUser | null): Promise<never> {
     return denyLegacyFgisActionOnBehalfOfClient({
       code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
       message:
@@ -122,7 +141,8 @@ export class FgisStepService {
       nextStep:
         'Справочники читаются каноническими операциями официального контракта после подключения организации.',
       route: 'GET /saga/fgis/crops',
-      logger: this.logger,
+      actor,
+      audit: this.quarantineAudit,
     });
   }
 }

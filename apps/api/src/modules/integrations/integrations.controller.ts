@@ -5,6 +5,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { IntegrationsService } from './integrations.service';
+import type { RequestUser } from '../../common/types/request-user';
 
 // `FGIS_WEBHOOK_SECRET` is no longer required to boot: the JSON webhook it
 // authenticated was retired in P0.2-1A, and a shared HMAC secret was never the
@@ -37,7 +38,7 @@ export class IntegrationsController {
   }
 
   @Post('fgis-zerno/deals/:dealId/push')
-  pushFgis(@Param('dealId') dealId: string, @CurrentUser() user: any) {
+  pushFgis(@Param('dealId') dealId: string, @CurrentUser() user: RequestUser) {
     return this.integrations.pushFgis(dealId, user);
   }
 
@@ -65,7 +66,7 @@ export class IntegrationsController {
    */
   @Public()
   @Post('fgis/webhook')
-  fgisWebhook(): never {
+  fgisWebhook(): Promise<never> {
     return this.integrations.handleFgisWebhook({});
   }
 

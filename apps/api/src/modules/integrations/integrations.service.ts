@@ -1,16 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+import { FgisLegacyQuarantineAuditService } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
 import {
   FGIS_LEGACY_ERROR_CODES,
   denyRetiredLegacyFgisRoute,
 } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+import type { RequestUser } from '../../common/types/request-user';
 
 @Injectable()
 export class IntegrationsService {
   private readonly logger = new Logger(IntegrationsService.name);
 
-  constructor(private readonly runtime: RuntimeCoreService) {}
+  constructor(
+    private readonly runtime: RuntimeCoreService,
+    private readonly quarantineAudit: FgisLegacyQuarantineAuditService,
+  ) {}
 
   jobs(_user: any) {
     return {
@@ -68,7 +73,7 @@ export class IntegrationsService {
    * contract, not a staff-triggered push. The route now denies without touching
    * deal, document or job state.
    */
-  pushFgis(dealId: string, user: any): never {
+  async pushFgis(dealId: string, user: Partial<RequestUser> | null): Promise<never> {
     return denyRetiredLegacyFgisRoute({
       code: FGIS_LEGACY_ERROR_CODES.PUSH_RETIRED,
       message:
@@ -77,8 +82,8 @@ export class IntegrationsService {
       nextStep:
         'Подключите организацию к ФГИС «Зерно» и создайте лот из подтверждённой партии.',
       route: `POST /integrations/fgis-zerno/deals/${dealId}/push`,
-      actorUserId: user?.sub ?? user?.id ?? null,
-      logger: this.logger,
+      actor: user,
+      audit: this.quarantineAudit,
     });
   }
 
@@ -107,7 +112,7 @@ export class IntegrationsService {
    * response. It is refused without reading the body — an attacker-supplied
    * `status` must not reach any projection, not even a log line.
    */
-  handleFgisWebhook(_body: Record<string, unknown>): never {
+  async handleFgisWebhook(_body: Record<string, unknown>): Promise<never> {
     return denyRetiredLegacyFgisRoute({
       code: FGIS_LEGACY_ERROR_CODES.WEBHOOK_RETIRED,
       message:
@@ -116,7 +121,10 @@ export class IntegrationsService {
       nextStep:
         'Настройте канонический обмен ФГИС «Зерно» (SendRequest/SendResponse/Ack).',
       route: 'POST /integrations/fgis/webhook',
-      logger: this.logger,
+      // Anonymous by design: the route is public and the body is never read,
+      // so there is no authenticated principal to attribute the attempt to.
+      actor: null,
+      audit: this.quarantineAudit,
     });
   }
 

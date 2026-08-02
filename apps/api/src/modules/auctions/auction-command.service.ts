@@ -11,7 +11,11 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
-import { FGIS_LEGACY_ERROR_CODES } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+import {
+  FGIS_LEGACY_ERROR_CODES,
+  recordLegacyFgisDenial,
+} from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+import { FgisLegacyQuarantineAuditService } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
 
 const SAFE_ID = /^[A-Za-z0-9:_.-]{1,240}$/;
 const DECIMAL_6 = /^(?:0|[1-9]\d{0,19})(?:\.\d{1,6})?$/;
@@ -63,7 +67,10 @@ export type CloseAuctionLotInput = Readonly<{
 
 @Injectable()
 export class AuctionCommandService {
-  constructor(private readonly rls: RlsTransactionService) {}
+  constructor(
+    private readonly rls: RlsTransactionService,
+    private readonly quarantineAudit: FgisLegacyQuarantineAuditService,
+  ) {}
 
   async registerLot(input: RegisterAuctionLotInput, user: RequestUser) {
     const commandId = `auction-command:${randomUUID()}`;
@@ -77,7 +84,7 @@ export class AuctionCommandService {
     const region = requiredText(input.region, 'region');
     const address = optionalText(input.address, 'address');
     const auctionEndsAt = isoDate(input.auctionEndsAt, 'auctionEndsAt');
-    const sourceType = sourceTypeValue(input.sourceType);
+    const sourceType = await this.assertPublishableSourceType(input.sourceType, user);
     const sourceExternalId = safeId(input.sourceExternalId, 'sourceExternalId');
     const sourceCertificateId = optionalSafeId(input.sourceCertificateId, 'sourceCertificateId');
     const autoExtendEnabled = input.autoExtendEnabled ?? true;
@@ -216,6 +223,42 @@ export class AuctionCommandService {
     });
   }
 
+  /**
+   * P0.2-1A. `sourceType` and `sourceExternalId` arrive from the browser, and
+   * `auction.register_verified_lot` then stamps `source_verified_at` and
+   * `admission_status = ADMITTED` on the strength of them. That is the client
+   * verifying its own source.
+   *
+   * Publishing a confirmed grain lot requires a server-held party snapshot, a
+   * reservation against its available volume and an immutable passport — none
+   * of which exist yet — so a ФГИС claim is refused rather than recorded
+   * unproven. The attempt is committed to the audit trail before the refusal:
+   * a client asserting regulatory backing it cannot have is worth keeping.
+   *
+   * `auction.fgis_verified_lot_guard` repeats the refusal at the row level for
+   * any caller that bypasses this service.
+   */
+  private async assertPublishableSourceType(
+    value: unknown,
+    user: RequestUser,
+  ): Promise<RegisterAuctionLotInput['sourceType']> {
+    const sourceType = sourceTypeValue(value);
+    if (sourceType !== 'FGIS') return sourceType;
+
+    const denial = await recordLegacyFgisDenial({
+      code: FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
+      message:
+        'Публикация лота, подтверждённого ФГИС «Зерно», пока недоступна: ' +
+        'подтверждение источника выполняет сервер по данным партии, а не клиент.',
+      nextStep:
+        'Создайте лот из подтверждённой партии ФГИС «Зерно» после подключения организации.',
+      route: 'POST /auctions/lots (sourceType=FGIS)',
+      actor: user,
+      audit: this.quarantineAudit,
+    });
+    throw new UnprocessableEntityException({ ...denial, field: 'sourceType' });
+  }
+
   private async execute<T>(
     user: RequestUser,
     work: Parameters<RlsTransactionService['withTrustedContext']>[1],
@@ -314,25 +357,7 @@ function isoDate(value: unknown, field: string): Date {
 }
 
 function sourceTypeValue(value: unknown): RegisterAuctionLotInput['sourceType'] {
-  if (value === 'FGIS') {
-    // P0.2-1A. `sourceType` and `sourceExternalId` arrive from the browser, and
-    // the command then stamps `source_verified_at` and `admission_status =
-    // ADMITTED` on the strength of them. That is the client verifying its own
-    // source. Publishing a confirmed grain lot requires a server-held party
-    // snapshot, a reservation against its available volume and an immutable
-    // passport — none of which exist yet — so the claim is refused rather than
-    // recorded unproven. `auction.fgis_verified_lot_guard` repeats the refusal
-    // at the row level for any caller that bypasses this service.
-    throw new UnprocessableEntityException({
-      code: FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
-      field: 'sourceType',
-      message:
-        'Публикация лота, подтверждённого ФГИС «Зерно», пока недоступна: ' +
-        'подтверждение источника выполняет сервер по данным партии, а не клиент.',
-      stateChanged: false,
-    });
-  }
-  if (value === 'ERP' || value === 'MANUAL_VERIFIED' || value === 'OTHER') return value;
+  if (value === 'FGIS' || value === 'ERP' || value === 'MANUAL_VERIFIED' || value === 'OTHER') return value;
   throw fieldError('sourceType', 'sourceType не поддерживается.');
 }
 
