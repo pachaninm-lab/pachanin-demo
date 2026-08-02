@@ -1,0 +1,153 @@
+name: Temporary Owner Child Authority Fix
+
+on:
+  push:
+    branches: [fix/tai-owner-child-authority-20260802]
+    paths:
+      - '.github/workflows/temporary-owner-child-authority-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/tai-owner-child-authority-20260802
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply exact authority patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one occurrence, found {count}: {old[:100]!r}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          owner = '.github/workflows/tai-reg-ru-preflight-owner-command.yml'
+          full = '.github/workflows/production-full-stack-exact-sha.yml'
+          preflight = '.github/workflows/tai-reg-ru-preflight.yml'
+          production_check = 'scripts/check-production-full-stack-release.mjs'
+          release_check = 'scripts/check-tai-reg-ru-release-chain.mjs'
+
+          replace_once(owner,
+          """          grep -Fq 'DEPLOY-FULL-STACK-EXACT-SHA' \"$source\"\n          grep -Fq 'PREFLIGHT-TAI-REG-RU' \"$source\"\n""",
+          """          grep -Fq 'DEPLOY-FULL-STACK-EXACT-SHA' \"$source\"\n          grep -Fq 'PREFLIGHT-TAI-REG-RU' \"$source\"\n          grep -Fq 'inputs[authority_run_id]' \"$source\"\n          grep -Fq 'inputs[authority_run_attempt]' \"$source\"\n          grep -Fq 'inputs[authority_comment_id]' \"$source\"\n""")
+
+          replace_once(owner,
+          """        env:\n          GH_TOKEN: ${{ github.token }}\n          TARGET_SHA: ${{ steps.target.outputs.sha }}\n        run: |\n          set -Eeuo pipefail\n          gh api --method POST -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/actions/workflows/production-full-stack-exact-sha.yml/dispatches\" \\\n            -f ref='main' \\\n            -f \"inputs[target_sha]=$TARGET_SHA\" \\\n            -f 'inputs[confirmation]=DEPLOY-FULL-STACK-EXACT-SHA'\n""",
+          """        env:\n          GH_TOKEN: ${{ github.token }}\n          TARGET_SHA: ${{ steps.target.outputs.sha }}\n          AUTHORITY_RUN_ID: ${{ github.run_id }}\n          AUTHORITY_RUN_ATTEMPT: ${{ github.run_attempt }}\n          AUTHORITY_COMMENT_ID: ${{ github.event.comment.id }}\n        run: |\n          set -Eeuo pipefail\n          gh api --method POST -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/actions/workflows/production-full-stack-exact-sha.yml/dispatches\" \\\n            -f ref='main' \\\n            -f \"inputs[target_sha]=$TARGET_SHA\" \\\n            -f 'inputs[confirmation]=DEPLOY-FULL-STACK-EXACT-SHA' \\\n            -f \"inputs[authority_run_id]=$AUTHORITY_RUN_ID\" \\\n            -f \"inputs[authority_run_attempt]=$AUTHORITY_RUN_ATTEMPT\" \\\n            -f \"inputs[authority_comment_id]=$AUTHORITY_COMMENT_ID\"\n""")
+
+          replace_once(owner,
+          """        env:\n          GH_TOKEN: ${{ github.token }}\n          TARGET_SHA: ${{ steps.target.outputs.sha }}\n        run: |\n          set -Eeuo pipefail\n          gh api --method POST -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-preflight.yml/dispatches\" \\\n            -f ref='main' \\\n            -f \"inputs[target_sha]=$TARGET_SHA\" \\\n            -f 'inputs[confirmation]=PREFLIGHT-TAI-REG-RU'\n""",
+          """        env:\n          GH_TOKEN: ${{ github.token }}\n          TARGET_SHA: ${{ steps.target.outputs.sha }}\n          AUTHORITY_RUN_ID: ${{ github.run_id }}\n          AUTHORITY_RUN_ATTEMPT: ${{ github.run_attempt }}\n          AUTHORITY_COMMENT_ID: ${{ github.event.comment.id }}\n        run: |\n          set -Eeuo pipefail\n          gh api --method POST -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-preflight.yml/dispatches\" \\\n            -f ref='main' \\\n            -f \"inputs[target_sha]=$TARGET_SHA\" \\\n            -f 'inputs[confirmation]=PREFLIGHT-TAI-REG-RU' \\\n            -f \"inputs[authority_run_id]=$AUTHORITY_RUN_ID\" \\\n            -f \"inputs[authority_run_attempt]=$AUTHORITY_RUN_ATTEMPT\" \\\n            -f \"inputs[authority_comment_id]=$AUTHORITY_COMMENT_ID\"\n""")
+
+          replace_once(owner,
+          """            \"TAI exact-release chain dispatched for \\`$TARGET_SHA\\`: canonical images, exact-SHA platform release and fail-closed TAI preflight. Each downstream workflow retains independent exact-main, confirmation and rollback authority.\"\n""",
+          """            \"TAI exact-release chain dispatched for \\`$TARGET_SHA\\` under owner-command run \\`$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT\\`: canonical images, exact-SHA platform release and fail-closed TAI preflight. Child workflows must verify this exact run and comment before any protected action.\"\n""")
+
+          replace_once(full,
+          """      confirmation:\n        description: 'Enter DEPLOY-FULL-STACK-EXACT-SHA'\n        required: true\n        type: string\n""",
+          """      confirmation:\n        description: 'Enter DEPLOY-FULL-STACK-EXACT-SHA'\n        required: true\n        type: string\n      authority_run_id:\n        description: 'Exact successful TAI owner-command run ID'\n        required: false\n        type: string\n      authority_run_attempt:\n        description: 'Exact successful TAI owner-command run attempt'\n        required: false\n        type: string\n      authority_comment_id:\n        description: 'Exact owner command comment ID on issue 3365'\n        required: false\n        type: string\n""")
+
+          replace_once(full,
+          """permissions:\n  contents: read\n  packages: read\n  issues: write\n""",
+          """permissions:\n  actions: read\n  contents: read\n  packages: read\n  issues: write\n""")
+
+          replace_once(full,
+          """      - run: node scripts/check-production-full-stack-release.mjs\n\n  deploy:\n""",
+          """      - run: node scripts/check-production-full-stack-release.mjs\n      - name: Verify owner-command child authority\n        if: github.event_name == 'workflow_dispatch' && github.actor != github.repository_owner\n        env:\n          GH_TOKEN: ${{ github.token }}\n          TARGET_SHA: ${{ inputs.target_sha }}\n          CONFIRMATION: ${{ inputs.confirmation }}\n          AUTHORITY_RUN_ID: ${{ inputs.authority_run_id }}\n          AUTHORITY_RUN_ATTEMPT: ${{ inputs.authority_run_attempt }}\n          AUTHORITY_COMMENT_ID: ${{ inputs.authority_comment_id }}\n          OWNER: ${{ github.repository_owner }}\n        run: |\n          set -Eeuo pipefail\n          [[ \"$GITHUB_REF\" == refs/heads/main ]]\n          [[ \"$CONFIRMATION\" == DEPLOY-FULL-STACK-EXACT-SHA ]]\n          [[ \"$TARGET_SHA\" =~ ^[0-9a-f]{40}$ ]]\n          [[ \"$AUTHORITY_RUN_ID\" =~ ^[1-9][0-9]*$ ]]\n          [[ \"$AUTHORITY_RUN_ATTEMPT\" =~ ^[1-9][0-9]*$ ]]\n          [[ \"$AUTHORITY_COMMENT_ID\" =~ ^[1-9][0-9]*$ ]]\n          run_report=\"$RUNNER_TEMP/owner-command-run.json\"\n          jobs_report=\"$RUNNER_TEMP/owner-command-jobs.json\"\n          comment_report=\"$RUNNER_TEMP/owner-command-comment.json\"\n          completed=0\n          for poll in $(seq 1 60); do\n            gh api -H 'Accept: application/vnd.github+json' \\\n              \"repos/${GITHUB_REPOSITORY}/actions/runs/${AUTHORITY_RUN_ID}\" > \"$run_report\"\n            if [[ \"$(jq -r '.status' \"$run_report\")\" == completed ]]; then completed=1; break; fi\n            sleep 2\n          done\n          (( completed == 1 ))\n          gh api -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/actions/runs/${AUTHORITY_RUN_ID}/attempts/${AUTHORITY_RUN_ATTEMPT}/jobs?per_page=100\" > \"$jobs_report\"\n          gh api -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/issues/comments/${AUTHORITY_COMMENT_ID}\" > \"$comment_report\"\n          node scripts/verify-owner-command-authority.mjs \\\n            \"$run_report\" \"$jobs_report\" \"$comment_report\" \\\n            \"$TARGET_SHA\" \"$AUTHORITY_RUN_ATTEMPT\" \"$GITHUB_REPOSITORY\" \"$OWNER\" \"$AUTHORITY_COMMENT_ID\"\n\n  deploy:\n""")
+
+          replace_once(full,
+          """      (github.event_name == 'workflow_dispatch' &&\n       github.actor == github.repository_owner &&\n       inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA') ||\n""",
+          """      (github.event_name == 'workflow_dispatch' &&\n       inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA' &&\n       (\n         github.actor == github.repository_owner ||\n         (inputs.authority_run_id != '' &&\n          inputs.authority_run_attempt != '' &&\n          inputs.authority_comment_id != '')\n       )) ||\n""")
+
+          replace_once(preflight,
+          """      confirmation:\n        description: Enter PREFLIGHT-TAI-REG-RU\n        required: true\n        type: string\n""",
+          """      confirmation:\n        description: Enter PREFLIGHT-TAI-REG-RU\n        required: true\n        type: string\n      authority_run_id:\n        description: Exact successful TAI owner-command run ID\n        required: false\n        type: string\n      authority_run_attempt:\n        description: Exact successful TAI owner-command run attempt\n        required: false\n        type: string\n      authority_comment_id:\n        description: Exact owner command comment ID on issue 3365\n        required: false\n        type: string\n""")
+
+          replace_once(preflight,
+          """permissions:\n  contents: read\n""",
+          """permissions:\n  actions: read\n  contents: read\n  issues: read\n""")
+
+          replace_once(preflight,
+          """  upstream_build_gate:\n    name: Require successful canonical image build\n    if: always()\n    runs-on: ubuntu-24.04\n    permissions:\n      contents: read\n""",
+          """  upstream_build_gate:\n    name: Require successful canonical image build\n    if: >-\n      always() &&\n      (github.event_name != 'workflow_run' || github.event.workflow_run.event == 'push')\n    runs-on: ubuntu-24.04\n    permissions:\n      actions: read\n      contents: read\n      issues: read\n""")
+
+          replace_once(preflight,
+          """          CONFIRMATION: ${{ inputs.confirmation }}\n          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}\n""",
+          """          CONFIRMATION: ${{ inputs.confirmation }}\n          TARGET_SHA: ${{ inputs.target_sha }}\n          AUTHORITY_RUN_ID: ${{ inputs.authority_run_id }}\n          AUTHORITY_RUN_ATTEMPT: ${{ inputs.authority_run_attempt }}\n          AUTHORITY_COMMENT_ID: ${{ inputs.authority_comment_id }}\n          GH_TOKEN: ${{ github.token }}\n          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}\n""")
+
+          replace_once(preflight,
+          """          [[ \"$EVENT_NAME\" == workflow_dispatch ]]\n          [[ \"$CURRENT_REF\" == refs/heads/main ]]\n          [[ \"$ACTOR\" == \"$OWNER\" ]]\n          [[ \"$TRIGGERING_ACTOR\" == \"$OWNER\" ]]\n          [[ \"$CONFIRMATION\" == PREFLIGHT-TAI-REG-RU ]]\n""",
+          """          [[ \"$EVENT_NAME\" == workflow_dispatch ]]\n          [[ \"$CURRENT_REF\" == refs/heads/main ]]\n          [[ \"$CONFIRMATION\" == PREFLIGHT-TAI-REG-RU ]]\n          if [[ \"$ACTOR\" == \"$OWNER\" && \"$TRIGGERING_ACTOR\" == \"$OWNER\" ]]; then exit 0; fi\n          [[ \"$TARGET_SHA\" =~ ^[0-9a-f]{40}$ ]]\n          [[ \"$AUTHORITY_RUN_ID\" =~ ^[1-9][0-9]*$ ]]\n          [[ \"$AUTHORITY_RUN_ATTEMPT\" =~ ^[1-9][0-9]*$ ]]\n          [[ \"$AUTHORITY_COMMENT_ID\" =~ ^[1-9][0-9]*$ ]]\n          run_report=\"$RUNNER_TEMP/owner-command-run.json\"\n          jobs_report=\"$RUNNER_TEMP/owner-command-jobs.json\"\n          comment_report=\"$RUNNER_TEMP/owner-command-comment.json\"\n          completed=0\n          for poll in $(seq 1 60); do\n            gh api -H 'Accept: application/vnd.github+json' \\\n              \"repos/${GITHUB_REPOSITORY}/actions/runs/${AUTHORITY_RUN_ID}\" > \"$run_report\"\n            if [[ \"$(jq -r '.status' \"$run_report\")\" == completed ]]; then completed=1; break; fi\n            sleep 2\n          done\n          (( completed == 1 ))\n          gh api -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/actions/runs/${AUTHORITY_RUN_ID}/attempts/${AUTHORITY_RUN_ATTEMPT}/jobs?per_page=100\" > \"$jobs_report\"\n          gh api -H 'Accept: application/vnd.github+json' \\\n            \"repos/${GITHUB_REPOSITORY}/issues/comments/${AUTHORITY_COMMENT_ID}\" > \"$comment_report\"\n          node scripts/verify-owner-command-authority.mjs \\\n            \"$run_report\" \"$jobs_report\" \"$comment_report\" \\\n            \"$TARGET_SHA\" \"$AUTHORITY_RUN_ATTEMPT\" \"$GITHUB_REPOSITORY\" \"$OWNER\" \"$AUTHORITY_COMMENT_ID\"\n""")
+
+          replace_once(preflight,
+          """        github.event_name == 'workflow_dispatch' &&\n        github.ref == 'refs/heads/main' &&\n        github.actor == github.repository_owner &&\n        github.triggering_actor == github.repository_owner &&\n        inputs.confirmation == 'PREFLIGHT-TAI-REG-RU'\n""",
+          """        github.event_name == 'workflow_dispatch' &&\n        github.ref == 'refs/heads/main' &&\n        inputs.confirmation == 'PREFLIGHT-TAI-REG-RU'\n""")
+
+          replace_once(preflight,
+          """    if: always() && github.event_name != 'pull_request'\n""",
+          """    if: >-\n      always() &&\n      github.event_name != 'pull_request' &&\n      (github.event_name != 'workflow_run' || github.event.workflow_run.event == 'push')\n""")
+
+          replace_once(production_check,
+          """  'DEPLOY-FULL-STACK-EXACT-SHA',\n  'github.actor == github.repository_owner',\n""",
+          """  'DEPLOY-FULL-STACK-EXACT-SHA',\n  'github.actor == github.repository_owner',\n  'actions: read',\n  'authority_run_id',\n  'authority_run_attempt',\n  'authority_comment_id',\n  'Verify owner-command child authority',\n  'scripts/verify-owner-command-authority.mjs',\n  '/attempts/${AUTHORITY_RUN_ATTEMPT}/jobs?per_page=100',\n  '/issues/comments/${AUTHORITY_COMMENT_ID}',\n""")
+
+          replace_once(release_check,
+          """import { verifyWorkflowJobs, verifyWorkflowRun } from './verify-tai-upstream-workflow-jobs.mjs';\n""",
+          """import { verifyWorkflowJobs, verifyWorkflowRun } from './verify-tai-upstream-workflow-jobs.mjs';\nimport { verifyOwnerCommandAuthority } from './verify-owner-command-authority.mjs';\n""")
+
+          replace_once(release_check,
+          """  '[[ \"$CONFIRMATION\" == PREFLIGHT-TAI-REG-RU ]]',\n  'needs: upstream_build_gate',\n""",
+          """  '[[ \"$CONFIRMATION\" == PREFLIGHT-TAI-REG-RU ]]',\n  'authority_run_id',\n  'authority_run_attempt',\n  'authority_comment_id',\n  'scripts/verify-owner-command-authority.mjs',\n  '/attempts/${AUTHORITY_RUN_ATTEMPT}/jobs?per_page=100',\n  '/issues/comments/${AUTHORITY_COMMENT_ID}',\n  'needs: upstream_build_gate',\n""")
+
+          marker = """expectRunBlocked('malformed-run', []);\n\nif (violations.length) {\n"""
+          owner_fixture = """expectRunBlocked('malformed-run', []);\n\nconst ownerRun = {\n  ...successfulRun,\n  name: 'TAI Exact-Release Owner Command',\n  event: 'issue_comment',\n  path: '.github/workflows/tai-reg-ru-preflight-owner-command.yml',\n  actor: { login: 'pachaninm-lab' },\n  triggering_actor: { login: 'pachaninm-lab' },\n};\nconst ownerJobs = {\n  total_count: 1,\n  jobs: [{\n    id: 1,\n    name: 'Dispatch exact-current-main images, platform and TAI preflight',\n    status: 'completed',\n    conclusion: 'success',\n  }],\n};\nconst ownerComment = {\n  id: 3365001,\n  issue_url: 'https://api.github.com/repos/pachaninm-lab/pachanin-demo/issues/3365',\n  user: { login: 'pachaninm-lab' },\n  body: '/tai release current-main',\n};\nverifyOwnerCommandAuthority(\n  ownerRun, ownerJobs, ownerComment, '1'.repeat(40), '2',\n  'pachaninm-lab/pachanin-demo', 'pachaninm-lab', '3365001',\n);\nfor (const [label, run, jobs, comment] of [\n  ['wrong-actor', { ...ownerRun, actor: { login: 'attacker' } }, ownerJobs, ownerComment],\n  ['wrong-event', { ...ownerRun, event: 'workflow_dispatch' }, ownerJobs, ownerComment],\n  ['failed-job', ownerRun, { ...ownerJobs, jobs: [{ ...ownerJobs.jobs[0], conclusion: 'failure' }] }, ownerComment],\n  ['wrong-comment', ownerRun, ownerJobs, { ...ownerComment, body: '/tai release other' }],\n]) {\n  try {\n    verifyOwnerCommandAuthority(\n      run, jobs, comment, '1'.repeat(40), '2',\n      'pachaninm-lab/pachanin-demo', 'pachaninm-lab', '3365001',\n    );\n    violations.push(`owner command fixture ${label} unexpectedly passed`);\n  } catch {\n    // Expected fail-closed result.\n  }\n}\n\nif (violations.length) {\n"""
+          replace_once(release_check, marker, owner_fixture)
+          PY
+      - name: Validate modified contracts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-production-full-stack-release.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
+          node scripts/verify-owner-command-authority.mjs 2>/dev/null && exit 1 || [[ $? -eq 2 ]]
+          python3 - <<'PY'
+          import yaml
+          from pathlib import Path
+          for path in [
+            '.github/workflows/tai-reg-ru-preflight-owner-command.yml',
+            '.github/workflows/production-full-stack-exact-sha.yml',
+            '.github/workflows/tai-reg-ru-preflight.yml',
+          ]:
+            yaml.safe_load(Path(path).read_text(encoding='utf-8'))
+          PY
+      - name: Commit bounded patch and delete temporary workflow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm .github/workflows/temporary-owner-child-authority-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tai-reg-ru-preflight-owner-command.yml \
+                  .github/workflows/production-full-stack-exact-sha.yml \
+                  .github/workflows/tai-reg-ru-preflight.yml \
+                  scripts/verify-owner-command-authority.mjs \
+                  scripts/check-production-full-stack-release.mjs \
+                  scripts/check-tai-reg-ru-release-chain.mjs \
+                  .github/workflows/temporary-owner-child-authority-fix.yml
+          git diff --cached --check
+          git commit -m 'fix(release): verify owner authority across child workflows'
+          git push origin HEAD:fix/tai-owner-child-authority-20260802
