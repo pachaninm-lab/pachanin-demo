@@ -17,6 +17,7 @@ on:
       - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
       - 'docs/platform-v7/crop-platform/p0.2-2a-fgis-commodity-authority.md'
       - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json'
+      - 'scripts/p0-fgis-commodity-authority/harden-generated.mjs'
       - 'scripts/p0-fgis-commodity-authority/verify.mjs'
   workflow_dispatch:
 
@@ -28,128 +29,62 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prepare-and-verify:
-    name: Prepare Prisma authority and verify invariants
+  postgresql-authority:
+    name: PostgreSQL 16 · RLS · concurrency · audit/outbox
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 55
     env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://commodity_admin:commodity_admin@127.0.0.1:5432/commodity_e2e?schema=public
       EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-commodity-authority
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_DB: commodity_e2e
+          POSTGRES_USER: commodity_admin
+          POSTGRES_PASSWORD: commodity_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U commodity_admin -d commodity_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
     steps:
       - name: Checkout exact branch head
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Synchronize migration and Prisma schema
-        run: node scripts/p0-fgis-commodity-authority/verify.mjs --prepare
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Bind generated relations to exact database foreign keys
-        shell: bash
+      - name: Generate migration and Prisma authority
         run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const migrationPath = 'apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql';
-          const schemaPath = 'apps/api/prisma/schema.prisma';
-          let migration = fs.readFileSync(migrationPath, 'utf8');
-          let schema = fs.readFileSync(schemaPath, 'utf8');
-
-          const fkMarker = 'CONSTRAINT "fgis_grain_sync_run_org_fk"';
-          if (!migration.includes(fkMarker)) {
-            const anchor = '-- ── Scope and immutability triggers ───────────────────────────────────────────';
-            const foreignKeys = `-- ── Actor and organization foreign-key authority ────────────────────────────
-
-ALTER TABLE public."fgis_grain_organization_connections"
-  ADD CONSTRAINT "fgis_grain_org_connection_created_user_fk"
-    FOREIGN KEY ("createdByUserId") REFERENCES public."users"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  ADD CONSTRAINT "fgis_grain_org_connection_updated_user_fk"
-    FOREIGN KEY ("updatedByUserId") REFERENCES public."users"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE public."fgis_grain_sync_runs"
-  ADD CONSTRAINT "fgis_grain_sync_run_org_fk"
-    FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  ADD CONSTRAINT "fgis_grain_sync_run_initiated_user_fk"
-    FOREIGN KEY ("initiatedByUserId") REFERENCES public."users"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE public."fgis_grain_party_snapshots"
-  ADD CONSTRAINT "fgis_grain_party_snapshot_org_fk"
-    FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE public."fgis_grain_party_current"
-  ADD CONSTRAINT "fgis_grain_party_current_org_fk"
-    FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE public."commodity_reservations"
-  ADD CONSTRAINT "commodity_reservation_org_fk"
-    FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  ADD CONSTRAINT "commodity_reservation_created_user_fk"
-    FOREIGN KEY ("createdByUserId") REFERENCES public."users"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE public."fgis_grain_lot_passports"
-  ADD CONSTRAINT "fgis_grain_lot_passport_org_fk"
-    FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  ADD CONSTRAINT "fgis_grain_lot_passport_created_user_fk"
-    FOREIGN KEY ("createdByUserId") REFERENCES public."users"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE public."fgis_grain_reconciliation_cases"
-  ADD CONSTRAINT "fgis_grain_reconciliation_org_fk"
-    FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  ADD CONSTRAINT "fgis_grain_reconciliation_owner_user_fk"
-    FOREIGN KEY ("ownerUserId") REFERENCES public."users"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE public."fgis_grain_commodity_commands"
-  ADD CONSTRAINT "fgis_grain_commodity_command_org_fk"
-    FOREIGN KEY ("organizationId") REFERENCES public."organizations"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  ADD CONSTRAINT "fgis_grain_commodity_command_actor_user_fk"
-    FOREIGN KEY ("actorUserId") REFERENCES public."users"("id")
-    ON UPDATE RESTRICT ON DELETE RESTRICT;
-
-`;
-            if (!migration.includes(anchor)) throw new Error('FGIS_FK_INSERTION_ANCHOR_MISSING');
-            migration = migration.replace(anchor, foreignKeys + anchor);
-          }
-
-          const replacements = new Map([
-            ['@relation("FgisCommodityConnectionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)', '@relation("FgisCommodityConnectionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_org_connection_created_user_fk")'],
-            ['@relation("FgisCommodityConnectionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)', '@relation("FgisCommodityConnectionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_org_connection_updated_user_fk")'],
-            ['Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)\n  connection      FgisGrainOrganizationConnection', 'Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sync_run_org_fk")\n  connection      FgisGrainOrganizationConnection'],
-            ['@relation("FgisCommoditySyncInitiatedBy", fields: [initiatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)', '@relation("FgisCommoditySyncInitiatedBy", fields: [initiatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_sync_run_initiated_user_fk")'],
-            ['Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)\n  connection            FgisGrainOrganizationConnection', 'Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_party_snapshot_org_fk")\n  connection            FgisGrainOrganizationConnection'],
-            ['Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)\n  connection      FgisGrainOrganizationConnection @relation(fields: [connectionId]', 'Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_party_current_org_fk")\n  connection      FgisGrainOrganizationConnection @relation(fields: [connectionId]'],
-            ['Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)\n  partyCurrent', 'Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "commodity_reservation_org_fk")\n  partyCurrent'],
-            ['@relation("FgisCommodityReservationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)', '@relation("FgisCommodityReservationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "commodity_reservation_created_user_fk")'],
-            ['Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)\n  partyCurrent   FgisGrainPartyCurrent  @relation(fields: [partyCurrentId]', 'Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_lot_passport_org_fk")\n  partyCurrent   FgisGrainPartyCurrent  @relation(fields: [partyCurrentId]'],
-            ['@relation("FgisCommodityPassportCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)', '@relation("FgisCommodityPassportCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_lot_passport_created_user_fk")'],
-            ['Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)\n  partyCurrent     FgisGrainPartyCurrent', 'Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_reconciliation_org_fk")\n  partyCurrent     FgisGrainPartyCurrent'],
-            ['@relation("FgisCommodityReconciliationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)', '@relation("FgisCommodityReconciliationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_reconciliation_owner_user_fk")'],
-            ['Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)\n  actorUser', 'Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_commodity_command_org_fk")\n  actorUser'],
-            ['@relation("FgisCommodityCommandActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)', '@relation("FgisCommodityCommandActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_commodity_command_actor_user_fk")'],
-          ]);
-          for (const [from, to] of replacements) {
-            if (schema.includes(to)) continue;
-            if (!schema.includes(from)) throw new Error(`PRISMA_FK_ANCHOR_MISSING:${from.slice(0, 80)}`);
-            schema = schema.replace(from, to);
-          }
-
-          fs.writeFileSync(migrationPath, migration);
-          fs.writeFileSync(schemaPath, schema);
-          NODE
-
-      - name: Enforce clean generated diff
-        run: git diff --check
+          mkdir -p "$EVIDENCE_DIR"
+          node scripts/p0-fgis-commodity-authority/verify.mjs --prepare \
+            2>&1 | tee "$EVIDENCE_DIR/prepare.log"
+          node scripts/p0-fgis-commodity-authority/harden-generated.mjs \
+            2>&1 | tee "$EVIDENCE_DIR/harden-generated.log"
+          git diff --check
 
       - name: Commit generated authority files
-        id: commit
+        id: generated
         shell: bash
         run: |
           set -euo pipefail
@@ -164,18 +99,69 @@ ALTER TABLE public."fgis_grain_commodity_commands"
           git add \
             apps/api/prisma/schema.prisma \
             apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql
-          git commit -m 'build(fgis): synchronize 2A migration and Prisma authority'
+          git commit -m 'build(fgis): synchronize P0.2-2A migration and Prisma authority'
           git push origin "HEAD:${GITHUB_REF_NAME}"
           echo 'changed=true' >> "$GITHUB_OUTPUT"
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git rev-parse HEAD | tee "$EVIDENCE_DIR/generated-head.txt"
 
-      - name: Re-run verifier on committed tree
-        run: node scripts/p0-fgis-commodity-authority/verify.mjs
+      - name: Verify committed invariants
+        if: steps.generated.outputs.changed == 'false'
+        run: node scripts/p0-fgis-commodity-authority/verify.mjs \
+          2>&1 | tee "$EVIDENCE_DIR/verifier.log"
 
-      - name: Upload machine-readable evidence
+      - name: Enforce forward-only migration policy
+        if: steps.generated.outputs.changed == 'false'
+        run: node scripts/platform-v7-forward-only-migration-check.mjs \
+          2>&1 | tee "$EVIDENCE_DIR/forward-only.log"
+
+      - name: Apply complete migration chain
+        if: steps.generated.outputs.changed == 'false'
+        run: |
+          pnpm --filter @pc/api exec prisma migrate deploy \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Prove Prisma schema is drift-free
+        if: steps.generated.outputs.changed == 'false'
+        run: |
+          pnpm --filter @pc/api exec prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-drift.log"
+
+      - name: Typecheck API authority
+        if: steps.generated.outputs.changed == 'false'
+        run: pnpm --filter @pc/api typecheck \
+          2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
+
+      - name: Run commodity authority unit tests
+        if: steps.generated.outputs.changed == 'false'
+        run: |
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.service.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.repository.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+
+      - name: Run PostgreSQL commodity authority acceptance
+        if: steps.generated.outputs.changed == 'false'
+        env:
+          P0_FGIS_COMMODITY_POSTGRESQL: '1'
+        run: |
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            --runInBand \
+            --runTestsByPath test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-e2e.log"
+
+      - name: Upload exact-head evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: p0-fgis-commodity-authority-foundation-${{ github.sha }}
-          path: ${{ runner.temp }}/p0-fgis-commodity-authority/p0-fgis-commodity-authority.json
+          name: p0-fgis-commodity-authority-${{ github.sha }}
+          path: ${{ runner.temp }}/p0-fgis-commodity-authority
           if-no-files-found: error
           retention-days: 30
