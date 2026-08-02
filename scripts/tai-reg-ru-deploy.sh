@@ -791,7 +791,7 @@ BEGIN
   LOOP
     EXECUTE 'GRANT USAGE, SELECT, UPDATE ON SEQUENCE ' || item.relation_name || ' TO ${ROLE_NAME}';
   END LOOP;
-END
+END;
 \$grant\$;
 SQL
   ROLE_CREATED=1
