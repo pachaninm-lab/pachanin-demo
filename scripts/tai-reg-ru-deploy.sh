@@ -91,6 +91,21 @@ psql_admin() {
   docker exec -i "$DB_ID" psql -X --set ON_ERROR_STOP=1 -U "$DB_ADMIN" -d "$DB_NAME" "$@"
 }
 
+psql_admin_file() {
+  local path="$1" authority
+  case "$path" in
+    "$MIGRATION_SQL") authority='migration' ;;
+    "$BOOTSTRAP_SQL") authority='bootstrap' ;;
+    *) echo "TAI_SQL_INPUT_AUTHORITY_INVALID" >&2; return 24 ;;
+  esac
+  [[ -f "$path" && ! -L "$path" ]] || { echo "TAI_SQL_INPUT_FILE_INVALID_${authority^^}" >&2; return 25; }
+  [[ "$(stat -c '%U:%G:%a' "$path")" == root:root:600 ]] || {
+    echo "TAI_SQL_INPUT_PERMISSIONS_INVALID_${authority^^}" >&2
+    return 26
+  }
+  docker exec -i "$DB_ID" psql -X --set ON_ERROR_STOP=1 -U "$DB_ADMIN" -d "$DB_NAME" < "$path"
+}
+
 apply_tai_migrations() {
   MIGRATION_BUNDLE="$STATE_ROOT/migration-bundle.json"
   MIGRATION_SQL="$STATE_ROOT/migration-apply.sql"
@@ -129,7 +144,7 @@ for item in bundle.get('migrations') or []:
 open(output_path,'w',encoding='utf-8').write('\n'.join(lines)+'\n')
 PY_MIGRATION_SQL
   chmod 0600 "$MIGRATION_SQL"
-  psql_admin -f "$MIGRATION_SQL"
+  psql_admin_file "$MIGRATION_SQL"
   expected_count="$(python3 - "$MIGRATION_BUNDLE" <<'PY_COUNT'
 import json,sys
 print(len(json.load(open(sys.argv[1],encoding='utf-8'))['migrations']))
@@ -165,7 +180,7 @@ lines=['BEGIN;', "UPDATE public.tai_local_model_profiles SET status='DISABLED', 
 open(sys.argv[2],'w',encoding='utf-8').write('\n'.join(lines)+'\n')
 PY_BOOTSTRAP_SQL
   chmod 0600 "$BOOTSTRAP_SQL"
-  psql_admin -f "$BOOTSTRAP_SQL"
+  psql_admin_file "$BOOTSTRAP_SQL"
 }
 
 rollback_now() {
