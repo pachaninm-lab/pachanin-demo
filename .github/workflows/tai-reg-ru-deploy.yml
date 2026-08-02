@@ -89,16 +89,16 @@ jobs:
           set -Eeuo pipefail
           if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
             [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
-            [[ "$UPSTREAM_CONCLUSION" == "success" ]]
-            [[ "$UPSTREAM_BRANCH" == "main" ]]
+            [[ "$UPSTREAM_CONCLUSION" == success ]]
+            [[ "$UPSTREAM_BRANCH" == main ]]
           else
-            [[ "$EVENT_NAME" == "workflow_dispatch" ]]
-            [[ "$CURRENT_REF" == "refs/heads/main" ]]
+            [[ "$EVENT_NAME" == workflow_dispatch ]]
+            [[ "$CURRENT_REF" == refs/heads/main ]]
             [[ "$ACTOR" == "$OWNER" ]]
             [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
-            [[ "$CONFIRMATION" == "DEPLOY-TAI-REG-RU" ]]
+            [[ "$CONFIRMATION" == DEPLOY-TAI-REG-RU ]]
           fi
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
