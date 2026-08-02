@@ -217,23 +217,14 @@ async function ocrPdf(bytes: Buffer): Promise<{ text: string; truncated: boolean
     const pagePrefix = join(workdir, 'page');
     await writeFile(source, bytes, { mode: 0o600 });
     await runBinary('/usr/bin/pdftoppm', [
-      '-f', '1', '-l', String(MAX_OCR_PDF_PAGES), '-r', '180', '-png', '-singlefile', source, pagePrefix,
+      '-f', '1', '-l', String(MAX_OCR_PDF_PAGES), '-r', '180', '-png', source, pagePrefix,
     ]);
 
-    let pages = (await readdir(workdir))
+    const pages = (await readdir(workdir))
       .filter((name) => name.startsWith('page') && name.endsWith('.png'))
       .sort()
       .slice(0, MAX_OCR_PDF_PAGES);
-
-    if (!pages.length) {
-      await runBinary('/usr/bin/pdftoppm', [
-        '-f', '1', '-l', String(MAX_OCR_PDF_PAGES), '-r', '180', '-png', source, pagePrefix,
-      ]);
-      pages = (await readdir(workdir))
-        .filter((name) => name.startsWith('page') && name.endsWith('.png'))
-        .sort()
-        .slice(0, MAX_OCR_PDF_PAGES);
-    }
+    if (!pages.length) throw new Error('OCR_PROCESSING_FAILED');
 
     const chunks: string[] = [];
     for (const [index, page] of pages.entries()) {
@@ -249,8 +240,8 @@ async function ocrPdf(bytes: Buffer): Promise<{ text: string; truncated: boolean
 
 async function extractWorkbook(file: File): Promise<{ text: string; truncated: boolean }> {
   const workbook = new ExcelJS.Workbook();
-  const bytes = Buffer.from(await file.arrayBuffer());
-  await workbook.xlsx.load(bytes);
+  const bytes = Buffer.from(new Uint8Array(await file.arrayBuffer()));
+  await workbook.xlsx.load(bytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
   const lines: string[] = [];
   workbook.eachSheet((sheet) => {
     lines.push(`# ${sheet.name}`);
