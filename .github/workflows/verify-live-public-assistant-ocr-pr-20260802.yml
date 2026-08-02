@@ -1,0 +1,92 @@
+name: Live public assistant OCR acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/verify-live-public-assistant-ocr-pr-20260802.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-public-assistant-ocr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  EXPECTED_REVISION: 62f3a26c2b8aeae9fed8b27777087a5badc45f86
+  EVIDENCE_DIR: artifacts/live-public-assistant-ocr
+
+jobs:
+  live:
+    name: Exact revision · text · PNG OCR · scanned PDF OCR
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Generate bounded fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends imagemagick img2pdf fonts-dejavu-core jq
+          mkdir -p "$EVIDENCE_DIR"
+          printf 'TAI LIVE DOCUMENT 42017\n' > "$EVIDENCE_DIR/live-document.txt"
+          convert -size 1600x500 xc:white -font DejaVu-Sans -pointsize 126 \
+            -fill black -gravity center -annotate +0+0 'WHEAT OCR 42017' "$EVIDENCE_DIR/ocr.png"
+          img2pdf "$EVIDENCE_DIR/ocr.png" -o "$EVIDENCE_DIR/scanned.pdf"
+
+      - name: Prove exact live revision
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --location --connect-timeout 15 --max-time 30 \
+            -D "$EVIDENCE_DIR/health.headers" "$LIVE_BASE/api/health/ready" \
+            -o "$EVIDENCE_DIR/health.json"
+          grep -Eq 'HTTP/[0-9.]+ 200' "$EVIDENCE_DIR/health.headers"
+          { cat "$EVIDENCE_DIR/health.headers"; cat "$EVIDENCE_DIR/health.json"; } | grep -Fq "$EXPECTED_REVISION"
+
+      - name: Prove live text extraction
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          status="$(curl --silent --show-error --location --connect-timeout 15 --max-time 60 \
+            -o "$EVIDENCE_DIR/text-response.json" -w '%{http_code}' \
+            -F "files=@$EVIDENCE_DIR/live-document.txt;type=text/plain" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments")"
+          test "$status" = 200
+          jq -e '.documents | length == 1' "$EVIDENCE_DIR/text-response.json" >/dev/null
+          jq -e '.rejected | length == 0' "$EVIDENCE_DIR/text-response.json" >/dev/null
+          jq -e '.documents[0].text | contains("TAI LIVE DOCUMENT 42017")' "$EVIDENCE_DIR/text-response.json" >/dev/null
+
+      - name: Prove live PNG and scanned-PDF OCR
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          status="$(curl --silent --show-error --location --connect-timeout 15 --max-time 120 \
+            -o "$EVIDENCE_DIR/ocr-response.json" -w '%{http_code}' \
+            -F "files=@$EVIDENCE_DIR/ocr.png;type=image/png" \
+            -F "files=@$EVIDENCE_DIR/scanned.pdf;type=application/pdf" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments")"
+          test "$status" = 200
+          jq -e '.documents | length == 2' "$EVIDENCE_DIR/ocr-response.json" >/dev/null
+          jq -e '.rejected | length == 0' "$EVIDENCE_DIR/ocr-response.json" >/dev/null
+          jq -e 'all(.documents[]; ((.text | ascii_upcase) | contains("WHEAT")) and (.text | contains("42017")))' \
+            "$EVIDENCE_DIR/ocr-response.json" >/dev/null
+          printf '%s\n' 'LIVE_PUBLIC_ASSISTANT_OCR=PASS' | tee "$EVIDENCE_DIR/result.txt"
+
+      - name: Upload live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-public-assistant-ocr-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
