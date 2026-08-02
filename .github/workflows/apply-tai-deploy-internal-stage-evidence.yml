@@ -1,11 +1,12 @@
-name: Apply TAI deploy internal stage evidence
+name: Apply TAI deploy internal stage evidence v2
 
 on:
   push:
     branches:
-      - fix/tai-deploy-internal-stage-evidence-20260802
+      - fix/tai-deploy-internal-stage-evidence-v2-20260802
     paths:
       - scripts/apply-tai-deploy-internal-stage-evidence.py
+      - docs/platform-v7/autopilot/scopes/tai-deploy-internal-stage-evidence-20260802.json
       - .github/workflows/apply-tai-deploy-internal-stage-evidence.yml
   workflow_dispatch:
 
@@ -13,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: apply-tai-deploy-internal-stage-evidence
+  group: apply-tai-deploy-internal-stage-evidence-v2
   cancel-in-progress: false
 
 jobs:
@@ -24,14 +25,14 @@ jobs:
       - name: Checkout exact branch head
         uses: actions/checkout@v4
         with:
-          ref: fix/tai-deploy-internal-stage-evidence-20260802
+          ref: fix/tai-deploy-internal-stage-evidence-v2-20260802
           fetch-depth: 0
 
       - name: Capture exact authority
         shell: bash
         run: |
           set -Eeuo pipefail
-          git fetch --no-tags origin main fix/tai-deploy-internal-stage-evidence-20260802
+          git fetch --no-tags origin main fix/tai-deploy-internal-stage-evidence-v2-20260802
           echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
           test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
@@ -44,18 +45,22 @@ jobs:
           bash -n scripts/tai-reg-ru-deploy.sh
           node scripts/check-tai-reg-ru-deploy.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
           git diff --check
+          grep -Fq 'set_internal_deploy_stage TAI_DEPLOY_EXACT_MAIN_CONVERGENCE_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'set_internal_deploy_stage TAI_DEPLOY_POSTGRES_AUTHORITY_RESOLUTION_FAILED' scripts/tai-reg-ru-deploy.sh
           grep -Fq 'set_internal_deploy_stage TAI_DEPLOY_MIGRATIONS_FAILED' scripts/tai-reg-ru-deploy.sh
           grep -Fq 'set_internal_deploy_stage TAI_DEPLOY_RUNTIME_HEALTHCHECK_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'set_internal_deploy_stage TAI_DEPLOY_GROUNDED_INFERENCE_PROOF_FAILED' scripts/tai-reg-ru-deploy.sh
           ! grep -Eq 'publish_file .*deploy-stage-error|runner-output/.+deploy-stage-error' scripts/tai-reg-ru-deploy.sh scripts/pc-tai-release-controller-core.sh
 
       - name: Publish reviewed source changes only
         shell: bash
         run: |
           set -Eeuo pipefail
-          git fetch --no-tags origin main fix/tai-deploy-internal-stage-evidence-20260802
+          git fetch --no-tags origin main fix/tai-deploy-internal-stage-evidence-v2-20260802
           test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
-          test "$(git rev-parse origin/fix/tai-deploy-internal-stage-evidence-20260802)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse origin/fix/tai-deploy-internal-stage-evidence-v2-20260802)" = "$EXPECTED_HEAD"
           rm -f scripts/apply-tai-deploy-internal-stage-evidence.py
           rm -f .github/workflows/apply-tai-deploy-internal-stage-evidence.yml
           git add -A
@@ -66,6 +71,6 @@ jobs:
           fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git commit -m 'fix(tai): expose exact internal deploy stage'
-          git push --force-with-lease="refs/heads/fix/tai-deploy-internal-stage-evidence-20260802:${EXPECTED_HEAD}" \
-            origin HEAD:refs/heads/fix/tai-deploy-internal-stage-evidence-20260802
+          git commit -m 'fix(tai): materialize exact internal deploy stages'
+          git push --force-with-lease="refs/heads/fix/tai-deploy-internal-stage-evidence-v2-20260802:${EXPECTED_HEAD}" \
+            origin HEAD:refs/heads/fix/tai-deploy-internal-stage-evidence-v2-20260802
