@@ -1,5 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
+// Source-controlled one-shot synchronizer. The workflow commits the resulting
+// test delta, then the next exact-head run verifies that this script is a no-op.
 const path = 'apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts';
 let source = readFileSync(path, 'utf8');
 
