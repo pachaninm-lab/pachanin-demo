@@ -168,6 +168,16 @@ forbid(
   /psql_admin\s+-f\s+["']\$(?:MIGRATION|BOOTSTRAP)_SQL["']/u,
   deployPath + ': a host SQL path may not be passed to psql inside the database container',
 );
+requireFragment(
+  deploy,
+  'END;\n\\$grant\\$;',
+  deployPath + ': PL/pgSQL runtime role grant block',
+);
+forbid(
+  deploy,
+  /END\n\\[$]grant\\[$];/u,
+  deployPath + ': PL/pgSQL runtime role grant block must terminate END with a semicolon',
+);
 
 for (const fragment of [
   "set -Eeuo pipefail",
