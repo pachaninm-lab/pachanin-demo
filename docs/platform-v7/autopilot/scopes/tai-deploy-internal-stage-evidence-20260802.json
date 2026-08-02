@@ -1,27 +1,29 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/tai-deploy-internal-stage-evidence-20260802",
+  "branch": "fix/tai-deploy-internal-stage-evidence-v3-20260802",
   "status": "active",
-  "purpose": "Localize the confirmed exact-main TAI standalone deployment failure inside the protected deploy script with deterministic root-only stage evidence, without exposing raw logs, credentials, model paths or expanding production authority.",
+  "purpose": "Apply the internal standalone deployment stage evidence that PR #3597 intended but did not materialize, so the protected REG.RU controller publishes the exact safe failing stage instead of the coarse TAI_STANDALONE_DEPLOY_EXECUTION_FAILED code.",
   "approvedBy": "owner-continue-tai-production-now-2026-08-02",
-  "authorityBaseExactMain": "061c02c5238048a0bbc44de997935c2a4b188546",
-  "failureRun": 30738303049,
+  "authorityBaseExactMain": "65037850e463fbb2b74edf34cc6f98506eac0c12",
+  "failureRun": 30746507765,
   "confirmedControllerCode": "TAI_STANDALONE_DEPLOY_EXECUTION_FAILED",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "productionMutationAllowedBeforeMerge": false,
   "allowedPaths": [
+    ".github/workflows/apply-tai-deploy-internal-stage-evidence.yml",
+    "scripts/apply-tai-deploy-internal-stage-evidence.py",
     "scripts/tai-reg-ru-deploy.sh",
     "scripts/check-tai-reg-ru-deploy.mjs",
     "docs/platform-v7/autopilot/scopes/tai-deploy-internal-stage-evidence-20260802.json"
   ],
   "requiredBehavior": [
-    "retain the existing server-authoritative PostgreSQL and least-privilege boundaries",
+    "remove the merged self-modifying helper and temporary workflow from the final source diff",
     "record only strict uppercase underscore-delimited stage codes in root-only controller state",
-    "cover every material pre-mutation deployment stage and the post-mutation rollback-sensitive stages",
-    "allow a later explicit deploy or rollback error code to override the current stage marker",
-    "never publish raw deploy logs environment values model paths tokens credentials or SQL contents",
-    "preserve fail-closed rollback and exact-main release authority",
+    "cover exact-main convergence, Compose discovery, PostgreSQL authority, migrations, bootstrap, runtime role, materialization, health and inference proof",
+    "allow explicit deploy or rollback errors to override the current stage marker",
+    "never publish raw deploy logs, SQL, model paths, environment values, tokens or credentials",
+    "preserve fail-closed rollback, least privilege and exact-main authority",
     "keep REG.RU-only hosting and zero new recurring cost"
   ],
   "forbiddenCapabilities": [
@@ -38,6 +40,7 @@
     "reviewThreadsRequired": 0,
     "productionMutationAllowedBeforeMerge": false,
     "deterministicInternalStageCodeRequired": true,
+    "temporaryMaterializerRemovedFromFinalDiff": true,
     "rerunExactMainReleaseChainRequired": true
   }
 }
