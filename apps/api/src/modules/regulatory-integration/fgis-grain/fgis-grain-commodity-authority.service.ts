@@ -14,6 +14,15 @@ import {
 } from './fgis-grain-commodity-authority.contract';
 import { FgisGrainCommodityAuthorityRepository } from './fgis-grain-commodity-authority.repository';
 
+/**
+ * Reservation receipts are PostgreSQL-owned JSON objects whose accepted and
+ * denied variants expose different command-specific fields. The repository
+ * still validates the common durable boundary (`ok`, `auditId`, `duplicate`)
+ * before returning. Widening only this service return avoids pretending every
+ * reservation outcome contains the same optional domain properties.
+ */
+type ReservationCommandReceipt = Readonly<Record<string, unknown>>;
+
 function requireAdminMfa(user: RequestUser): void {
   if (user.role !== Role.ADMIN) {
     throw new ForbiddenException('FGIS commodity connection management requires organization admin');
@@ -81,7 +90,7 @@ export class FgisGrainCommodityAuthorityService {
     );
   }
 
-  async reserveVolume(user: RequestUser, raw: unknown): Promise<FgisCommodityCommandReceipt> {
+  async reserveVolume(user: RequestUser, raw: unknown): Promise<ReservationCommandReceipt> {
     requireSeller(user);
     return this.repository.reserveVolume(user, assertReserveFgisCommodityVolumeInput(raw));
   }
