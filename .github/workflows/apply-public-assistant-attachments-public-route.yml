@@ -1,0 +1,66 @@
+name: Apply public assistant attachment route repair
+
+on:
+  push:
+    branches:
+      - fix/public-assistant-attachments-public-route-20260802
+    paths:
+      - scripts/apply-public-assistant-attachments-public-route.py
+      - .github/workflows/apply-public-assistant-attachments-public-route.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-public-assistant-attachments-public-route
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/public-assistant-attachments-public-route-20260802
+          fetch-depth: 0
+
+      - name: Capture exact branch head and main authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/public-assistant-attachments-public-route-20260802
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+
+      - name: Apply bounded repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-public-assistant-attachments-public-route.py
+          grep -Fq "'/api/public-platform-assistant/attachments'" apps/web/middleware.ts
+          git diff --check
+
+      - name: Commit reviewed source result only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin fix/public-assistant-attachments-public-route-20260802
+          test "$(git rev-parse origin/fix/public-assistant-attachments-public-route-20260802)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-public-assistant-attachments-public-route.py
+          rm -f .github/workflows/apply-public-assistant-attachments-public-route.yml
+          git add -A
+          git diff --cached --name-only | sort > /tmp/changed.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/apply-public-assistant-attachments-public-route.yml
+          apps/web/middleware.ts
+          apps/web/tests/unit/platformV7PublicAssistantAttachmentMiddleware.test.ts
+          scripts/apply-public-assistant-attachments-public-route.py
+          EOF
+          diff -u /tmp/expected.txt /tmp/changed.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(tai): expose bounded attachment endpoint publicly'
+          git push --force-with-lease="refs/heads/fix/public-assistant-attachments-public-route-20260802:${EXPECTED_HEAD}" \
+            origin HEAD:refs/heads/fix/public-assistant-attachments-public-route-20260802
