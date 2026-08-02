@@ -63,10 +63,10 @@ insert_before(
     '  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_LEDGER_VERIFICATION_FAILED\n',
 )
 
-replace_once(
+insert_before(
     checker,
-    "import { readFileSync } from 'node:fs';\n",
-    "import { readFileSync } from 'node:fs';\nimport './check-tai-migration-sql-normalization.mjs';\n",
+    "import { join } from 'node:path';\n",
+    "import './check-tai-migration-sql-normalization.mjs';\n",
 )
 
 for marker in [
