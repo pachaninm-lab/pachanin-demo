@@ -16,7 +16,7 @@ concurrency:
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
-  EXPECTED_REVISION: 62f3a26c2b8aeae9fed8b27777087a5badc45f86
+  EXPECTED_REVISION: 1d9e9bca171c97ed35c2e5ac19c3436912c269c5
   EVIDENCE_DIR: artifacts/live-public-assistant-ocr
 
 jobs:
