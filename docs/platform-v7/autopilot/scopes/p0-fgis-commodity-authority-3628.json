@@ -29,6 +29,7 @@
     "docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json",
     "docs/platform-v7/crop-platform/p0.2-2a-fgis-commodity-authority.md",
     "docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json",
+    "scripts/p0-fgis-commodity-authority/fix-e2e.mjs",
     "scripts/p0-fgis-commodity-authority/harden-generated.mjs",
     "scripts/p0-fgis-commodity-authority/verify.mjs"
   ],
