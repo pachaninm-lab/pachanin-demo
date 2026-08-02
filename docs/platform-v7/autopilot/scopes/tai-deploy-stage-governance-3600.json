@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/tai-deploy-stage-evidence-3600",
+  "status": "active",
+  "purpose": "Register a separate governance-only authorization for the TAI REG.RU internal deployment stage evidence repair before rebasing and merging the implementation.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "eae723d57243b514b9911d9ae42ade4e8ccf200a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/apply-tai-deploy-stage-governance-3600.yml",
+    "scripts/apply-tai-deploy-stage-governance-3600.py",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/scopes/tai-deploy-stage-governance-3600.json"
+  ],
+  "targetAuthorization": {
+    "branch": "fix/tai-deploy-internal-stage-evidence-v5-20260802",
+    "paths": [
+      ".github/workflows/apply-tai-deploy-internal-stage-evidence.yml",
+      "docs/platform-v7/autopilot/scopes/tai-deploy-internal-stage-evidence-20260802.json",
+      "scripts/apply-tai-deploy-internal-stage-evidence.py",
+      "scripts/check-tai-reg-ru-deploy.mjs",
+      "scripts/tai-reg-ru-deploy.sh"
+    ]
+  },
+  "forbiddenChanges": [
+    "application runtime behavior",
+    "production mutation",
+    "credentials or secret material",
+    "tenant RBAC financial or public-port authority",
+    "new recurring cost"
+  ]
+}
