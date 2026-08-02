@@ -13,6 +13,7 @@
   "allowedPaths": [
     "scripts/check-tai-migration-sql-normalization.mjs",
     "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/check-pc-tai-release-controller.mjs",
     "docs/platform-v7/autopilot/scopes/tai-all-manifest-migration-contract-20260802.json"
   ],
   "requiredBehavior": [
