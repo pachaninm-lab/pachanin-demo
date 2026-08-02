@@ -10,7 +10,8 @@
     ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
     ".github/workflows/production-full-stack-exact-sha.yml",
     ".github/workflows/tai-reg-ru-preflight.yml",
-    "scripts/verify-tai-upstream-workflow-jobs.mjs",
+    ".github/workflows/temporary-owner-child-authority-fix.yml",
+    "scripts/verify-owner-command-authority.mjs",
     "scripts/check-production-full-stack-release.mjs",
     "scripts/check-tai-reg-ru-release-chain.mjs",
     "docs/platform-v7/autopilot/scopes/tai-owner-child-authority-20260802.json"
@@ -22,6 +23,7 @@
     "Child target SHA must still equal current origin/main",
     "Canonical image revision, immutable digest, protected REG.RU controller, rollback and live acceptance remain mandatory",
     "No direct production mutation is added to the owner-command bridge",
+    "Temporary patch workflow is branch-bound and deletes itself in its only commit",
     "Zero new recurring cost"
   ]
 }
