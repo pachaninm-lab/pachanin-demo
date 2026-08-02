@@ -9,7 +9,7 @@
   "audit": {
     "repository": "pachaninm-lab/pachanin-demo",
     "branch": "p0/fgis-first-confirmed-lot-audit-3585",
-    "exactMainSha": "758f55b89ff677d6bcd5e820887d519fb41271d1",
+    "exactMainSha": "0abbe80dc1478206b36490af7a905de82191bac5",
     "exactMainVerifiedBy": [
       "git fetch origin main",
       "git ls-remote origin refs/heads/main",
