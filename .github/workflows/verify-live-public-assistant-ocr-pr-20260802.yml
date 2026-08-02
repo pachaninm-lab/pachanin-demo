@@ -21,26 +21,30 @@ env:
 
 jobs:
   live:
-    name: Exact revision · text · PNG OCR · scanned PDF OCR
+    name: Exact revision · text · PNG OCR · scanned PDF OCR · paperclip UI
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      - name: Generate bounded fixtures
+      - name: Generate bounded fixtures and browser runtime
         shell: bash
         run: |
           set -Eeuo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends imagemagick img2pdf fonts-dejavu-core jq
-          mkdir -p "$EVIDENCE_DIR"
+          mkdir -p "$EVIDENCE_DIR" /tmp/live-ocr-browser
           printf 'TAI LIVE DOCUMENT 42017\n' > "$EVIDENCE_DIR/live-document.txt"
           convert -size 1600x500 xc:white -font DejaVu-Sans -pointsize 126 \
             -fill black -gravity center -annotate +0+0 'WHEAT OCR 42017' "$EVIDENCE_DIR/ocr.png"
           img2pdf "$EVIDENCE_DIR/ocr.png" -o "$EVIDENCE_DIR/scanned.pdf"
+          cd /tmp/live-ocr-browser
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
 
       - name: Prove exact live revision
         shell: bash
@@ -79,7 +83,49 @@ jobs:
           jq -e '.rejected | length == 0' "$EVIDENCE_DIR/ocr-response.json" >/dev/null
           jq -e 'all(.documents[]; ((.text | ascii_upcase) | contains("WHEAT")) and (.text | contains("42017")))' \
             "$EVIDENCE_DIR/ocr-response.json" >/dev/null
-          printf '%s\n' 'LIVE_PUBLIC_ASSISTANT_OCR=PASS' | tee "$EVIDENCE_DIR/result.txt"
+
+      - name: Prove live mobile paperclip and browser upload path
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > /tmp/live-ocr-browser/verify.mjs <<'NODE'
+          import { chromium } from 'playwright';
+          import { writeFile } from 'node:fs/promises';
+          const base = process.env.LIVE_BASE;
+          const evidence = process.env.GITHUB_WORKSPACE + '/' + process.env.EVIDENCE_DIR;
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+            await page.goto(`${base}/platform-v7?lang=ru`, { waitUntil: 'networkidle', timeout: 90000 });
+            const open = page.getByRole('button', { name: 'Спросить ИИ' }).first();
+            await open.waitFor({ state: 'visible', timeout: 30000 });
+            await open.click();
+            const attach = page.getByRole('button', { name: 'Прикрепить документы' });
+            await attach.waitFor({ state: 'visible', timeout: 30000 });
+            const root = page.locator('[data-public-assistant-attachments="true"]');
+            await root.waitFor({ state: 'visible', timeout: 30000 });
+            const input = root.locator('input[type="file"]');
+            await input.setInputFiles(`${evidence}/live-document.txt`);
+            const chip = page.getByText('live-document.txt', { exact: true });
+            await chip.waitFor({ state: 'visible', timeout: 60000 });
+            const snapshot = {
+              url: page.url(),
+              paperclipVisible: await attach.isVisible(),
+              attachmentRootVisible: await root.isVisible(),
+              chipVisible: await chip.isVisible(),
+            };
+            await writeFile(`${evidence}/browser-result.json`, JSON.stringify(snapshot, null, 2));
+            await page.screenshot({ path: `${evidence}/live-paperclip-upload.png`, fullPage: true });
+            if (!snapshot.paperclipVisible || !snapshot.attachmentRootVisible || !snapshot.chipVisible) process.exitCode = 31;
+          } finally {
+            await browser.close();
+          }
+          NODE
+          cd /tmp/live-ocr-browser
+          node verify.mjs
+          jq -e '.paperclipVisible and .attachmentRootVisible and .chipVisible' \
+            "$GITHUB_WORKSPACE/$EVIDENCE_DIR/browser-result.json" >/dev/null
+          printf '%s\n' 'LIVE_PUBLIC_ASSISTANT_OCR=PASS' | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/result.txt"
 
       - name: Upload live evidence
         if: always()
