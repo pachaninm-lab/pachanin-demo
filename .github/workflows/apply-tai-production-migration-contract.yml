@@ -1,0 +1,69 @@
+name: Apply TAI production migration contract
+
+on:
+  push:
+    branches:
+      - fix/tai-production-migration-apply-20260802
+    paths:
+      - scripts/apply-tai-production-migration-contract.py
+      - .github/workflows/apply-tai-production-migration-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-tai-production-migration-contract-20260802
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-production-migration-apply-20260802
+          fetch-depth: 0
+
+      - name: Capture exact authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-production-migration-apply-20260802
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+          test "$(git rev-parse origin/main)" = '111a360175ba1eb1a58fb37ddf46d04bd4977f77'
+
+      - name: Materialize and validate source contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-production-migration-contract.py
+          bash -n scripts/check-tai-production-migrations.sh
+          node scripts/check-workflow-syntax.mjs
+          git diff --check
+          grep -Fq 'bash scripts/check-tai-production-migrations.sh' .github/workflows/tai-reg-ru-deploy.yml
+          grep -Fq 'apps/tai/tai/migrations/**' .github/workflows/tai-reg-ru-deploy.yml
+
+      - name: Publish ordinary reviewable source diff
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-production-migration-apply-20260802
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/fix/tai-production-migration-apply-20260802)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-tai-production-migration-contract.py
+          rm -f .github/workflows/apply-tai-production-migration-contract.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/tai-migration-contract-files.txt
+          if grep -Ev '^([.]github/workflows/tai-reg-ru-deploy[.]yml|docs/platform-v7/autopilot/scopes/tai-production-migration-apply-20260802[.]json|scripts/check-tai-production-migrations[.]sh|scripts/apply-tai-production-migration-contract[.]py|[.]github/workflows/apply-tai-production-migration-contract[.]yml)$' /tmp/tai-migration-contract-files.txt; then
+            echo 'Final diff exceeds the registered migration contract scope.' >&2
+            exit 31
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'test(tai): execute production migration program on PostgreSQL 16'
+          git push origin HEAD:refs/heads/fix/tai-production-migration-apply-20260802
