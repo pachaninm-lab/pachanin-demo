@@ -20,17 +20,11 @@
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.module.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.service.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.service.spec.ts",
-    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reservation.contract.ts",
-    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reservation.repository.ts",
-    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reservation.repository.spec.ts",
-    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-lot-passport.contract.ts",
-    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reconciliation.contract.ts",
     "apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts",
+    "docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json",
     "docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json",
     "docs/platform-v7/crop-platform/p0.2-2a-fgis-commodity-authority.md",
     "docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json",
-    "scripts/p0-fgis-commodity-authority/fix-e2e.mjs",
-    "scripts/p0-fgis-commodity-authority/harden-generated.mjs",
     "scripts/p0-fgis-commodity-authority/verify.mjs"
   ],
   "boundaries": {
@@ -56,7 +50,8 @@
     "write immutable audit and the existing canonical outbox atomically for accepted mutations",
     "fail closed without PostgreSQL and provide no memory fallback",
     "prove tenant and organization isolation under non-superuser NOBYPASSRLS production-equivalent roles",
-    "preserve the P0.2-1A temporary FGIS lot publication quarantine"
+    "preserve the P0.2-1A temporary FGIS lot publication quarantine",
+    "retire the completed audit scope so exactly one P0.2 implementation scope remains active"
   ],
   "forbiddenCapabilities": [
     "new FGIS adapter inbox outbox relay queue or worker topology",
@@ -68,7 +63,8 @@
     "manual grain lot publication",
     "First Customer Access authentication or role assignment changes",
     "Netlify Vercel or non-REG.RU production work",
-    "LIVE CONNECTED CONFIRMED_LIVE or production-attested claim"
+    "LIVE CONNECTED CONFIRMED_LIVE or production-attested claim",
+    "CI source mutation commit or push"
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "dependencies": {
