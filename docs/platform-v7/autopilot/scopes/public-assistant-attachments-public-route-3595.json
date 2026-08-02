@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-attachments-public-route-20260802",
+  "status": "active",
+  "purpose": "Authorize the minimal production repair that exposes only the bounded public TAI attachment endpoint after live exact-main acceptance proved middleware returned 401 before the handler could enforce its own upload and OCR limits.",
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantAttachmentMiddleware.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-assistant-attachments-public-route-3595.json"
+  ],
+  "acceptanceEvidence": {
+    "exactRouteBoundary": "apps/web/middleware.ts",
+    "regressionCoverage": "apps/web/tests/unit/platformV7PublicAssistantAttachmentMiddleware.test.ts",
+    "productionAcceptance": "Live text, PNG and scanned-PDF upload acceptance after exact-main REG.RU deployment"
+  },
+  "constraints": [
+    "Only /api/public-platform-assistant/attachments is added to the exact public API set",
+    "No public prefix wildcard is permitted",
+    "Every other unauthenticated API path remains fail-closed with HTTP 401",
+    "Handler-level cross-site, file-count, byte, OCR-page, timeout and extraction limits remain unchanged",
+    "No write authority, tenant authority, financial authority or external integration claim is expanded",
+    "No new infrastructure or recurring expense"
+  ]
+}
