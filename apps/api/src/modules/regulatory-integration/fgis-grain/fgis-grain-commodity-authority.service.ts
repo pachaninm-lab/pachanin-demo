@@ -30,11 +30,21 @@ function requireSeller(user: RequestUser): void {
 }
 
 function requireInternalSnapshotAuthority(user: RequestUser): void {
-  // P0.2-2A does not expose a provider endpoint. Until the official normalizer
-  // lands in 3A, only an MFA-backed organization administrator may exercise the
-  // persistence command in controlled tests or operations. The future worker
-  // receives its own server principal instead of borrowing a human session.
-  requireAdminMfa(user);
+  // A human administrator can initiate synchronization, but cannot manufacture
+  // provider evidence or persist an FGIS-backed party. Only the canonical
+  // server-side normalizer may call this command after the verified provider
+  // response has been durably accepted. The role is server-derived and must
+  // never be assigned through a user membership or client-controlled claim.
+  if (user.role !== Role.FGIS_GRAIN_PROVIDER) {
+    throw new ForbiddenException(
+      'FGIS party snapshot ingestion requires the server-side verified provider principal',
+    );
+  }
+  if (user.sessionId || user.membershipId) {
+    throw new ForbiddenException(
+      'FGIS provider principal cannot use a human session or organization membership',
+    );
+  }
 }
 
 @Injectable()
