@@ -99,6 +99,7 @@ jobs:
             await page.goto(`${base}/platform-v7?lang=ru`, { waitUntil: 'networkidle', timeout: 90000 });
             const open = page.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' });
             await open.waitFor({ state: 'visible', timeout: 30000 });
+            const contactDockAiVisibleBeforeOpen = await open.isVisible();
             await open.click();
             const attach = page.getByRole('button', { name: 'Прикрепить документы' });
             await attach.waitFor({ state: 'visible', timeout: 30000 });
@@ -110,21 +111,22 @@ jobs:
             await chip.waitFor({ state: 'visible', timeout: 60000 });
             const snapshot = {
               url: page.url(),
-              contactDockAiVisible: await open.isVisible(),
+              contactDockAiVisibleBeforeOpen,
+              contactDockHiddenAfterOpen: !(await open.isVisible()),
               paperclipVisible: await attach.isVisible(),
               attachmentRootVisible: await root.isVisible(),
               chipVisible: await chip.isVisible(),
             };
             await writeFile(`${evidence}/browser-result.json`, JSON.stringify(snapshot, null, 2));
             await page.screenshot({ path: `${evidence}/live-paperclip-upload.png`, fullPage: true });
-            if (!snapshot.contactDockAiVisible || !snapshot.paperclipVisible || !snapshot.attachmentRootVisible || !snapshot.chipVisible) process.exitCode = 31;
+            if (!snapshot.contactDockAiVisibleBeforeOpen || !snapshot.contactDockHiddenAfterOpen || !snapshot.paperclipVisible || !snapshot.attachmentRootVisible || !snapshot.chipVisible) process.exitCode = 31;
           } finally {
             await browser.close();
           }
           NODE
           cd /tmp/live-ocr-browser
           node verify.mjs
-          jq -e '.contactDockAiVisible and .paperclipVisible and .attachmentRootVisible and .chipVisible' \
+          jq -e '.contactDockAiVisibleBeforeOpen and .contactDockHiddenAfterOpen and .paperclipVisible and .attachmentRootVisible and .chipVisible' \
             "$GITHUB_WORKSPACE/$EVIDENCE_DIR/browser-result.json" >/dev/null
           printf '%s\n' 'LIVE_PUBLIC_ASSISTANT_OCR=PASS' | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/result.txt"
 
