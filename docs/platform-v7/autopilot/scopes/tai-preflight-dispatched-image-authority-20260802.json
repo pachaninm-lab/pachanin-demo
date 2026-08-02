@@ -2,21 +2,20 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/tai-preflight-dispatched-image-authority-20260802",
   "status": "active",
-  "title": "TAI preflight authority for owner-controlled dispatched images",
+  "title": "TAI exact-main preflight owner command",
   "priority": "P0",
   "baselineExactMain": "942c6f756ce313472ac6c60418239d165f3f400f",
-  "objective": "Allow the canonical owner-controlled full-stack image workflow_dispatch to enter the TAI REG.RU preflight chain while preserving exact-current-main, repository, branch, actor, image-revision and fail-closed authority checks.",
+  "objective": "Provide an owner-only exact-current-main command that dispatches the existing fail-closed TAI REG.RU preflight with its canonical target SHA and confirmation inputs.",
   "allowedPaths": [
-    ".github/workflows/tai-reg-ru-preflight.yml",
-    "scripts/check-tai-reg-ru-release-chain.mjs",
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
     "docs/platform-v7/autopilot/scopes/tai-preflight-dispatched-image-authority-20260802.json"
   ],
   "boundaries": [
-    "Only successful canonical image runs from this repository and main",
-    "workflow_dispatch requires repository-owner actor or triggering actor",
-    "Target SHA must equal current origin/main before image inspection",
-    "TAI image revision, non-root user and immutable digest remain mandatory",
-    "No production mutation before protected REG.RU preflight PASS",
+    "Command is accepted only on issue 3365",
+    "Comment author, workflow actor and triggering actor must be the repository owner",
+    "Target SHA is read from the current main ref immediately before dispatch",
+    "The existing TAI preflight retains exact-main, image revision, non-root user, immutable digest and protected REG.RU controller checks",
+    "No direct production mutation is performed by the command bridge",
     "Zero new recurring cost"
   ]
 }
