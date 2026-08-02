@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "TAI-DATABASE-ROLE-STAGE-AUTHORITY-20260802",
+  "branch": "fix/tai-database-role-stage-authority-20260802",
+  "status": "active",
+  "issue": 3589,
+  "activeSlice": "TAI-REG-RU-DATABASE-ROLE-STAGE-AUTHORITY",
+  "baseCommit": "93f58abd0e7ac810f9d2dbb60bbaec5f54a15692",
+  "allowedPaths": [
+    ".github/workflows/apply-tai-database-role-stages.yml",
+    "docs/platform-v7/autopilot/scopes/tai-database-role-stage-authority-20260802.json",
+    "scripts/apply-tai-database-role-stages.py"
+  ],
+  "sourceOutputPaths": [
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/tai-reg-ru-deploy.sh"
+  ],
+  "requiredBehavior": [
+    "split ambiguous database role materialization into stable non-secret stages",
+    "attest database administrator role-creation authority before production mutation",
+    "arm deterministic role rollback before the first CREATE ROLE attempt",
+    "attest least-privilege attributes and complete TAI-only relation privileges",
+    "refuse any effective privilege on non-TAI relations",
+    "publish a clean source-only branch based on exact current main"
+  ],
+  "forbiddenCapabilities": [
+    "production mutation before exact-head merge",
+    "broad database grants",
+    "cross-tenant or financial authority expansion",
+    "permanent model admission fabrication",
+    "raw protected log or secret publication",
+    "new hosting or recurring cost"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false
+}
