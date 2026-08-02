@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { CabinetContactDock } from './CabinetContactDock';
 import { ChatSupportWidget } from './ChatSupportWidget';
+import { PublicAssistantAttachmentBridge } from './PublicAssistantAttachmentBridge';
 import { PublicContactDock } from './PublicContactDock';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
@@ -15,6 +16,7 @@ import '@/styles/platform-v7-public-assistant-mobile-fix.css';
 import '@/styles/platform-v7-unified-modal-fullscreen.css';
 import '@/styles/platform-v7-public-assistant-mobile-hotfix.css';
 import '@/styles/platform-v7-public-assistant-polish.css';
+import '@/styles/platform-v7-public-assistant-attachments.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const AI_IN_ACTION = '/platform-v7/ai-in-action';
@@ -116,6 +118,7 @@ export function ContextualSupportOrAssistant({
     <>
       <UnifiedModalSheetFullscreenController />
       <PublicPlatformAssistant />
+      <PublicAssistantAttachmentBridge />
       <ChatSupportWidget />
       {renderDock ? <PublicContactDock /> : null}
     </>
