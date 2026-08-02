@@ -4,13 +4,16 @@
   "status": "active",
   "purpose": "Localize the confirmed exact-main TAI standalone deployment failure inside the protected deploy script with deterministic root-only stage evidence, without exposing raw logs, credentials, model paths or expanding production authority.",
   "approvedBy": "owner-continue-tai-production-now-2026-08-02",
-  "authorityBaseExactMain": "061c02c5238048a0bbc44de997935c2a4b188546",
-  "failureRun": 30738303049,
+  "authorityBaseExactMain": "eae723d57243b514b9911d9ae42ade4e8ccf200a",
+  "failureRun": 30746507765,
+  "failureArtifact": 8833061100,
   "confirmedControllerCode": "TAI_STANDALONE_DEPLOY_EXECUTION_FAILED",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "productionMutationAllowedBeforeMerge": false,
   "allowedPaths": [
+    ".github/workflows/apply-tai-deploy-internal-stage-evidence.yml",
+    "scripts/apply-tai-deploy-internal-stage-evidence.py",
     "scripts/tai-reg-ru-deploy.sh",
     "scripts/check-tai-reg-ru-deploy.mjs",
     "docs/platform-v7/autopilot/scopes/tai-deploy-internal-stage-evidence-20260802.json"
@@ -22,6 +25,7 @@
     "allow a later explicit deploy or rollback error code to override the current stage marker",
     "never publish raw deploy logs environment values model paths tokens credentials or SQL contents",
     "preserve fail-closed rollback and exact-main release authority",
+    "remove the temporary materializer workflow and patch script from the final source tree",
     "keep REG.RU-only hosting and zero new recurring cost"
   ],
   "forbiddenCapabilities": [
@@ -38,6 +42,7 @@
     "reviewThreadsRequired": 0,
     "productionMutationAllowedBeforeMerge": false,
     "deterministicInternalStageCodeRequired": true,
+    "temporaryMaterializerAbsentFromFinalTree": true,
     "rerunExactMainReleaseChainRequired": true
   }
 }
