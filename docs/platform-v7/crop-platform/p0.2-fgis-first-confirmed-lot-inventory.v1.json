@@ -9,7 +9,7 @@
   "audit": {
     "repository": "pachaninm-lab/pachanin-demo",
     "branch": "p0/fgis-first-confirmed-lot-audit-3585",
-    "exactMainSha": "b9827fca93451f5452f4fa4c688aef73a0b09d39",
+    "exactMainSha": "aad390e160a5ed5335d2a99d16519ca0e025279c",
     "exactMainVerifiedBy": [
       "git fetch origin main",
       "git ls-remote origin refs/heads/main",
@@ -32,7 +32,8 @@
     "UNSAFE",
     "DUPLICATE",
     "ABSENT",
-    "EXTERNAL_BLOCKER"
+    "EXTERNAL_BLOCKER",
+    "QUARANTINED"
   ],
   "verdict": {
     "status": "PARTIAL",
@@ -40,7 +41,7 @@
     "reason": "The repository contains a strong, fail-closed canonical FGIS Grain regulatory authority, but no live provider transport and no PostgreSQL party snapshot, current projection, sync run, commodity reservation, persistent lot passport or party-to-lot reconciliation authority. Production-reachable legacy mock, invented REST and self-verifying auction paths must be quarantined before product expansion.",
     "canonicalModule": "apps/api/src/modules/regulatory-integration/fgis-grain",
     "parallelFgisContourAllowed": false,
-    "nextSlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
+    "nextSlice": "P0.2-2A-COMMODITY-AUTHORITY"
   },
   "prerequisites": [
     {
@@ -630,58 +631,65 @@
   "unsafeFindings": [
     {
       "id": "P0_UNSAFE_LEGACY_REST_ADAPTER",
-      "status": "UNSAFE",
+      "status": "QUARANTINED",
       "path": "packages/integration-sdk/src/live/live-fgis-zerno.adapter.ts",
-      "requiredDisposition": "Remove from production factory bindings or make every FGIS command fail closed; do not map it into the canonical adapter."
+      "requiredDisposition": "Remove from production factory bindings or make every FGIS command fail closed; do not map it into the canonical adapter.",
+      "closedBySlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
     },
     {
       "id": "P0_UNSAFE_MOCK_API_PUSH",
-      "status": "UNSAFE",
+      "status": "QUARANTINED",
       "paths": [
         "apps/api/src/modules/integrations/integrations.controller.ts",
         "apps/api/src/modules/integrations/integrations.service.ts"
       ],
-      "requiredDisposition": "Disable the FGIS push command and remove MOCK_OK from any production-reachable response."
+      "requiredDisposition": "Disable the FGIS push command and remove MOCK_OK from any production-reachable response.",
+      "closedBySlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
     },
     {
       "id": "P0_UNSAFE_MOCK_SAGA",
-      "status": "UNSAFE",
+      "status": "QUARANTINED",
       "path": "apps/api/src/modules/saga/fgis-step.service.ts",
-      "requiredDisposition": "Fail closed for register/shipment/acceptance/certificate operations; platform staff must not act as seller or signer."
+      "requiredDisposition": "Fail closed for register/shipment/acceptance/certificate operations; platform staff must not act as seller or signer.",
+      "closedBySlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
     },
     {
       "id": "P0_UNSAFE_LEGACY_WEBHOOKS",
-      "status": "UNSAFE",
+      "status": "QUARANTINED",
       "paths": [
         "apps/api/src/modules/integrations/integrations.controller.ts",
         "apps/api/src/modules/integrations/edo-webhook.controller.ts"
       ],
-      "requiredDisposition": "Disable invented public JSON/HMAC FGIS callbacks; official polling, signed SOAP, durable inbox and Ack are the canonical inbound path."
+      "requiredDisposition": "Disable invented public JSON/HMAC FGIS callbacks; official polling, signed SOAP, durable inbox and Ack are the canonical inbound path.",
+      "closedBySlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
     },
     {
       "id": "P0_UNSAFE_FALSE_LIVE_CLAIM",
-      "status": "UNSAFE",
+      "status": "QUARANTINED",
       "path": "apps/api/src/modules/admin/admin.controller.ts",
-      "requiredDisposition": "Replace the FGIS Saga live claim with disabled/not-attested truth."
+      "requiredDisposition": "Replace the FGIS Saga live claim with disabled/not-attested truth.",
+      "closedBySlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
     },
     {
       "id": "P0_UNSAFE_AUCTION_SOURCE_SELF_VERIFICATION",
-      "status": "UNSAFE",
+      "status": "QUARANTINED",
       "paths": [
         "apps/api/src/modules/auctions/auction-command.service.ts",
         "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql"
       ],
-      "requiredDisposition": "FGIS source evidence must be server-derived from a current snapshot and active reservation; browser input may not set verification."
+      "requiredDisposition": "FGIS source evidence must be server-derived from a current snapshot and active reservation; browser input may not set verification.",
+      "closedBySlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
     },
     {
       "id": "P0_UNSAFE_IN_MEMORY_LOT_WRITES",
-      "status": "UNSAFE",
+      "status": "QUARANTINED",
       "paths": [
         "apps/api/src/modules/lots/lots.controller.ts",
         "apps/api/src/modules/lots/lots.service.ts",
         "apps/web/app/api/lots/route.ts"
       ],
-      "requiredDisposition": "Disable grain publication until the PostgreSQL reservation/passport/publication authority is available."
+      "requiredDisposition": "Disable grain publication until the PostgreSQL reservation/passport/publication authority is available.",
+      "closedBySlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE"
     }
   ],
   "missingCapabilities": [

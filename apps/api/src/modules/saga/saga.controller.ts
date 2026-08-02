@@ -71,7 +71,7 @@ export class SagaController {
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
-    return this.fgis.executeFgisRegister({ dealId, ...body });
+    return this.fgis.executeFgisRegister({ dealId, ...body }, user);
   }
 
   @Post('deals/:dealId/fgis/confirm-shipment')
@@ -81,7 +81,7 @@ export class SagaController {
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
-    return this.fgis.confirmShipment({ dealId, ...body });
+    return this.fgis.confirmShipment({ dealId, ...body }, user);
   }
 
   @Post('deals/:dealId/fgis/confirm-acceptance')
@@ -91,12 +91,12 @@ export class SagaController {
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
-    return this.fgis.confirmAcceptance({ dealId, ...body });
+    return this.fgis.confirmAcceptance({ dealId, ...body }, user);
   }
 
   @Get('fgis/crops')
-  getFgisCrops() {
-    return this.fgis.getCrops();
+  getFgisCrops(@CurrentUser() user: RequestUser) {
+    return this.fgis.getCrops(user ?? null);
   }
 
   private assertAdmin(user: RequestUser): void {
