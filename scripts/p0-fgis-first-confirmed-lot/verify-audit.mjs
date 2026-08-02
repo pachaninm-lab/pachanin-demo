@@ -9,7 +9,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const INVENTORY_PATH = 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json';
 const REPORT_PATH = 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-audit.md';
 const SCOPE_PATH = 'docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json';
-const EXPECTED_BASE = '5be1cdac6760bfdfc5546d9c76c64467840d9d0e';
+const EXPECTED_BASE = 'aad390e160a5ed5335d2a99d16519ca0e025279c';
 const EXPECTED_ALLOWED_PATHS = [
   '.github/workflows/p0-fgis-first-confirmed-lot-audit.yml',
   SCOPE_PATH,

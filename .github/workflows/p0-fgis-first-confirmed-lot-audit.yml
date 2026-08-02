@@ -25,16 +25,22 @@ concurrency:
   group: p0-fgis-first-confirmed-lot-audit-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# `runner` is a job-scoped context and is not available in a workflow-level
+# `env:` block. Referencing it here made GitHub reject the whole workflow at
+# parse time, so every run since it was introduced ended as a startup failure
+# with zero jobs — the gate looked red but had never actually executed.
+# EVIDENCE_DIR therefore lives on the job, where `runner.temp` resolves.
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-  EXPECTED_MAIN: 5be1cdac6760bfdfc5546d9c76c64467840d9d0e
-  EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-first-confirmed-lot-audit
+  EXPECTED_MAIN: aad390e160a5ed5335d2a99d16519ca0e025279c
 
 jobs:
   exact-main-audit:
     name: Exact main · 17 areas · official SOAP · unsafe quarantine boundary
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-first-confirmed-lot-audit
 
     steps:
       - name: Checkout exact revision and full ancestry
