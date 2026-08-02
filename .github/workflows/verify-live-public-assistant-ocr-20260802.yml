@@ -17,7 +17,7 @@ concurrency:
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
-  EXPECTED_REVISION: 62f3a26c2b8aeae9fed8b27777087a5badc45f86
+  EXPECTED_REVISION: 1d9e9bca171c97ed35c2e5ac19c3436912c269c5
   EVIDENCE_DIR: artifacts/live-public-assistant-ocr
 
 jobs:
@@ -32,6 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Prepare bounded fixtures and browser runtime
+        id: fixtures
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -49,6 +50,7 @@ jobs:
           npx playwright install --with-deps chromium >/dev/null
 
       - name: Verify exact live revision and health
+        id: health
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -62,6 +64,7 @@ jobs:
             | grep -Fq "$EXPECTED_REVISION"
 
       - name: Verify text-document extraction on production
+        id: text
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -78,6 +81,7 @@ jobs:
             "$EVIDENCE_DIR/text-response.json" >/dev/null
 
       - name: Verify PNG and scanned-PDF OCR on production
+        id: ocr
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -95,6 +99,7 @@ jobs:
             "$EVIDENCE_DIR/ocr-response.json" >/dev/null
 
       - name: Verify live paperclip UI and browser upload path
+        id: browser
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -137,19 +142,41 @@ jobs:
 
       - name: Publish machine-readable result
         if: always()
+        env:
+          FIXTURES_OUTCOME: ${{ steps.fixtures.outcome }}
+          HEALTH_OUTCOME: ${{ steps.health.outcome }}
+          TEXT_OUTCOME: ${{ steps.text.outcome }}
+          OCR_OUTCOME: ${{ steps.ocr.outcome }}
+          BROWSER_OUTCOME: ${{ steps.browser.outcome }}
         shell: bash
         run: |
           set -Eeuo pipefail
           mkdir -p "$EVIDENCE_DIR"
+          to_result() {
+            if [[ "$1" == success ]]; then printf 'PASS'; else printf 'FAIL'; fi
+          }
+          fixtures="$(to_result "$FIXTURES_OUTCOME")"
+          health="$(to_result "$HEALTH_OUTCOME")"
+          text="$(to_result "$TEXT_OUTCOME")"
+          ocr="$(to_result "$OCR_OUTCOME")"
+          browser="$(to_result "$BROWSER_OUTCOME")"
           cat > "$EVIDENCE_DIR/result.json" <<EOF
           {
             "expectedRevision": "$EXPECTED_REVISION",
-            "health": "PASS",
-            "textDocumentExtraction": "PASS",
-            "imageOcr": "PASS",
-            "scannedPdfOcr": "PASS",
-            "paperclipUi": "PASS",
-            "browserUpload": "PASS"
+            "fixtures": "$fixtures",
+            "health": "$health",
+            "textDocumentExtraction": "$text",
+            "imageOcr": "$ocr",
+            "scannedPdfOcr": "$ocr",
+            "paperclipUi": "$browser",
+            "browserUpload": "$browser",
+            "rawOutcomes": {
+              "fixtures": "$FIXTURES_OUTCOME",
+              "health": "$HEALTH_OUTCOME",
+              "text": "$TEXT_OUTCOME",
+              "ocr": "$OCR_OUTCOME",
+              "browser": "$BROWSER_OUTCOME"
+            }
           }
           EOF
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
