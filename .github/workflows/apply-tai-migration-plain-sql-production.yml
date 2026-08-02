@@ -1,0 +1,77 @@
+name: Apply TAI plain-SQL migration production repair
+
+on:
+  push:
+    branches:
+      - fix/tai-migration-plain-sql-production-20260802
+    paths:
+      - scripts/apply-tai-migration-plain-sql-production.py
+      - scripts/check-tai-migration-sql-normalization.mjs
+      - docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-20260802.json
+      - .github/workflows/apply-tai-migration-plain-sql-production.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-tai-migration-plain-sql-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-migration-plain-sql-production-20260802
+          fetch-depth: 0
+
+      - name: Capture exact authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-migration-plain-sql-production-20260802
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+
+      - name: Apply and verify migration repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-migration-plain-sql-production.py
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-migration-sql-normalization.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
+          git diff --check
+          grep -Fq 'body=(wrapped.group(1) if wrapped else raw).strip()' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_MIGRATION_APPLICATION_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_MIGRATION_LEDGER_VERIFICATION_FAILED' scripts/tai-reg-ru-deploy.sh
+
+      - name: Publish reviewed source changes only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-migration-plain-sql-production-20260802
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/fix/tai-migration-plain-sql-production-20260802)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-tai-migration-plain-sql-production.py
+          rm -f .github/workflows/apply-tai-migration-plain-sql-production.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/tai-migration-files.txt
+          if grep -Ev '^(docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-20260802[.]json|scripts/check-tai-migration-sql-normalization[.]mjs|scripts/check-tai-reg-ru-deploy[.]mjs|scripts/tai-reg-ru-deploy[.]sh)$' /tmp/tai-migration-files.txt; then
+            echo 'Final migration repair diff exceeds registered scope.' >&2
+            exit 31
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(tai): accept plain SQL production migrations'
+          git push --force-with-lease="refs/heads/fix/tai-migration-plain-sql-production-20260802:${EXPECTED_HEAD}" \
+            origin HEAD:refs/heads/fix/tai-migration-plain-sql-production-20260802
