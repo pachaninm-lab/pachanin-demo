@@ -164,7 +164,7 @@ PY_COUNT
 
 build_bootstrap_authority() {
   BOOTSTRAP_AUTHORITY="$STATE_ROOT/bootstrap-authority.json"
-  docker run --rm --read-only --network none -v "$MODEL_EVIDENCE_FILE:/run/model-artifact.json:ro" --entrypoint python "$TAI_IMAGE_DIGEST" -m tai.bootstrap_authority --activation-sha "$TARGET_SHA" --model-evidence /run/model-artifact.json > "$BOOTSTRAP_AUTHORITY"
+  docker run --rm --interactive --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" -m tai.bootstrap_authority --activation-sha "$TARGET_SHA" --model-evidence - < "$MODEL_EVIDENCE_FILE" > "$BOOTSTRAP_AUTHORITY"
   chmod 0600 "$BOOTSTRAP_AUTHORITY"
   python3 - "$BOOTSTRAP_AUTHORITY" "$TARGET_SHA" <<'PY_BOOTSTRAP_VALIDATE'
 import hashlib,json,re,sys

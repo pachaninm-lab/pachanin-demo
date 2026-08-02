@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-bootstrap-authority-stdin-20260802",
+  "status": "active",
+  "purpose": "Repair the confirmed exact-main REG.RU TAI bootstrap-authority build failure by streaming the root-owned mode-0600 model evidence through container stdin to the existing rootless TAI image instead of bind-mounting an unreadable root-owned file.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "0abbe80dc1478206b36490af7a905de82191bac5",
+  "failureRun": 30751059338,
+  "failureArtifact": 8834463562,
+  "confirmedFailureCode": "TAI_DEPLOY_BOOTSTRAP_AUTHORITY_BUILD_FAILED",
+  "confirmedRootCause": "The exact TAI image runs as UID/GID 65532, while /run/model-artifact.json was bind-mounted from a root-owned mode-0600 host file and was therefore unreadable inside the rootless container.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/apply-tai-bootstrap-authority-stdin.yml",
+    ".github/workflows/tai-runtime-image.yml",
+    "scripts/apply-tai-bootstrap-authority-stdin.py",
+    "apps/tai/tai/bootstrap_authority.py",
+    "apps/tai/tests/test_production_bootstrap_authority.py",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-bootstrap-authority-stdin-20260802.json"
+  ],
+  "requiredBehavior": [
+    "keep the exact TAI production image rootless as UID/GID 65532",
+    "read the protected root-owned model evidence on the host and stream it through interactive container stdin",
+    "support --model-evidence - as a bounded JSON stdin source",
+    "remove the model-evidence bind mount from the bootstrap command",
+    "verify the real exact-head image boundary in CI",
+    "preserve model evidence schema validation authority digest validation fail-closed rollback and exact-main authority",
+    "remove the temporary source materializer from the final diff",
+    "rerun exact-main REG.RU deployment and strict postflight"
+  ],
+  "forbiddenCapabilities": [
+    "running the TAI production image as root",
+    "weakening root-owned mode-0600 model evidence permissions",
+    "copying model evidence into container storage",
+    "publishing model paths raw evidence production logs tokens or credentials",
+    "new sudo Docker SSH tenant financial or public-port authority",
+    "new hosting paid service or recurring expense"
+  ],
+  "acceptance": {
+    "rootlessImageRequired": true,
+    "interactiveStdinEvidenceRequired": true,
+    "modelEvidenceBindMountForbidden": true,
+    "exactHeadImageContractRequired": true,
+    "exactHeadRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "productionDeploymentAndPostflightRequired": true
+  }
+}

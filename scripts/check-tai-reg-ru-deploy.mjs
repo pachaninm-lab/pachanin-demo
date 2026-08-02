@@ -58,6 +58,8 @@ for (const fragment of [
   'TAI_DEPLOY_POSTGRES_AUTHORITY_RESOLUTION_FAILED',
   'TAI_DEPLOY_MIGRATIONS_FAILED',
   'TAI_DEPLOY_BOOTSTRAP_AUTHORITY_BUILD_FAILED',
+  'docker run --rm --interactive --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" -m tai.bootstrap_authority',
+  '--model-evidence - < "$MODEL_EVIDENCE_FILE"',
   'TAI_DEPLOY_BOOTSTRAP_AUTHORITY_APPLY_FAILED',
   'TAI_DEPLOY_BOOTSTRAP_VERIFICATION_FAILED',
   'TAI_DEPLOY_RUNTIME_ROLE_BOUNDARY_FAILED',
@@ -156,6 +158,11 @@ forbid(deploy, /docker\s+compose[^\n]+\bdown\b/iu, deployPath + ': full Compose 
 forbid(deploy, /(?:AI_ASSISTANT_API_KEY|TAI_MODEL_BEARER_TOKEN)[^\n]*(?:echo|printf)/iu, deployPath + ': model credential output is forbidden');
 forbid(deploy, /["']postgres["']\s+in\s+image[.]lower[(][)]/u, deployPath + ': broad PostgreSQL image substring selector is forbidden');
 forbid(deploy, /INSERT\s+INTO\s+(?:public[.])?tai_model_admission_decisions/iu, deployPath + ': fabricated permanent model admission is forbidden');
+forbid(
+  deploy,
+  /-v\s+["']?\$MODEL_EVIDENCE_FILE:[^\s]+/u,
+  deployPath + ': root-owned model evidence may not be bind-mounted into the rootless TAI image',
+);
 forbid(
   deploy,
   /psql_admin\s+-f\s+["']\$(?:MIGRATION|BOOTSTRAP)_SQL["']/u,
