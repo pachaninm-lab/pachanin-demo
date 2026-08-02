@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-attachments-public-route-20260802-v2",
+  "status": "active",
+  "purpose": "Restore public reachability of the exact bounded TAI attachment extraction endpoint after live production acceptance returned HTTP 401, while preserving authentication for every other API route.",
+  "approvedBy": "owner-require-all-tai-document-work-in-production-2026-08-02",
+  "authorityBaseExactMain": "061c02c5238048a0bbc44de997935c2a4b188546",
+  "failureRun": 30738262116,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantAttachmentMiddleware.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-assistant-attachments-public-route-20260802-v2.json"
+  ],
+  "requiredBehavior": [
+    "make only /api/public-platform-assistant/attachments public in middleware",
+    "preserve authentication on every other API route",
+    "preserve handler-level cross-site size count timeout OCR and extraction controls",
+    "add regression coverage proving exact membership in PUBLIC_API_EXACT",
+    "repeat live text image OCR scanned PDF and abuse-boundary acceptance",
+    "keep REG.RU-only hosting and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "public API prefix wildcard",
+    "session gate weakening outside the exact attachment endpoint",
+    "tenant role or write-authority expansion",
+    "external OCR storage or LLM service",
+    "acceptance weakening continue-on-error or fabricated production PASS"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "liveTextUploadRequired": true,
+    "livePngOcrRequired": true,
+    "liveScannedPdfOcrRequired": true,
+    "crossSiteBoundaryRequired": true
+  }
+}
