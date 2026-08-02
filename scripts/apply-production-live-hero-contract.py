@@ -14,7 +14,7 @@ old_cases = """    ru)
       retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
       ;;
     en)
-      expected_kicker='Crop Deal execution platform'
+      expected_kicker='Crop Deal management platform'
       expected_title='Manage an agricultural Deal'
       expected_accent='from price to settlement'
       retired_title='The price is agreed. Now the Deal must be executed.'
@@ -66,7 +66,7 @@ live = live.replace(old_grep, new_grep, 1)
 old_checker = """  'Платформа управления агросделками в растениеводстве',
   'Управляйте агросделкой',
   'от цены до расчёта',
-  'Crop Deal execution platform',
+  'Crop Deal management platform',
   'Manage an agricultural Deal',
   '种植业农业交易管理平台',
 """
