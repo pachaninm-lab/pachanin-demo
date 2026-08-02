@@ -1,0 +1,97 @@
+name: Diagnose exact TAI migration image bundle
+
+on:
+  push:
+    branches:
+      - fix/tai-all-manifest-migration-contract-20260802
+    paths:
+      - ".github/workflows/diagnose-tai-migration-image.yml"
+      - "scripts/check-tai-migration-sql-normalization.mjs"
+      - "scripts/tai-reg-ru-deploy.sh"
+      - "apps/tai/tai/migrations/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: diagnose-tai-migration-image-20260802
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TARGET_SHA: 885225c55ff6c526b82209cea9eb8f0db0fd9638
+      TAI_DIGEST: ghcr.io/pachaninm-lab/grainflow-tai@sha256:4cec9d41ce5be59a81513171b55bc8148ac7ac92ca00fd7070edefdb0572284c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pull exact failed canonical image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          docker pull "$TAI_DIGEST" >/dev/null
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$TAI_DIGEST")" = "$TARGET_SHA"
+      - name: Extract exact image migration bundle
+        run: |
+          set -Eeuo pipefail
+          docker run --rm --read-only --network none --entrypoint python "$TAI_DIGEST" - > "$RUNNER_TEMP/image-bundle.json" <<'PY'
+          import base64, hashlib, json
+          from importlib import resources
+          root=resources.files('tai.migrations')
+          manifest=json.loads(root.joinpath('manifest.json').read_text(encoding='utf-8'))
+          if manifest.get('schema_version') != 'tai.migration.manifest.v1': raise SystemExit('migration manifest schema mismatch')
+          rows=[]; seen_versions=set(); seen_paths=set()
+          for item in manifest.get('migrations') or []:
+              version=item.get('version'); path=item.get('path')
+              if not isinstance(version,int) or isinstance(version,bool) or version < 1 or version in seen_versions: raise SystemExit('migration version authority invalid')
+              if not isinstance(path,str) or not path.endswith('.sql') or '/' in path or path in seen_paths: raise SystemExit('migration path authority invalid')
+              raw=root.joinpath(path).read_bytes(); digest=hashlib.sha256(raw).hexdigest()
+              seen_versions.add(version); seen_paths.add(path)
+              rows.append({'version':version,'path':path,'sha256':digest,'contentBase64':base64.b64encode(raw).decode()})
+          print(json.dumps({'schemaVersion':'tai.exact-image-migration-bundle.v1','migrations':rows},sort_keys=True,separators=(',',':')))
+          PY
+      - name: Verify packaged migration parity with source
+        run: |
+          set -Eeuo pipefail
+          python3 - "$RUNNER_TEMP/image-bundle.json" <<'PY'
+          import base64, hashlib, json, pathlib, sys
+          bundle=json.load(open(sys.argv[1],encoding='utf-8'))
+          manifest=json.load(open('apps/tai/tai/migrations/manifest.json',encoding='utf-8'))
+          expected={(item['version'],item['path']) for item in manifest['migrations']}
+          actual={(item['version'],item['path']) for item in bundle['migrations']}
+          if actual != expected:
+              raise SystemExit(f'IMAGE_MANIFEST_SET_MISMATCH missing={sorted(expected-actual)} extra={sorted(actual-expected)}')
+          for item in bundle['migrations']:
+              raw=base64.b64decode(item['contentBase64'],validate=True)
+              source=pathlib.Path('apps/tai/tai/migrations',item['path']).read_bytes()
+              image_sha=hashlib.sha256(raw).hexdigest()
+              source_sha=hashlib.sha256(source).hexdigest()
+              if item['sha256'] != image_sha or image_sha != source_sha:
+                  raise SystemExit(f'IMAGE_SOURCE_SHA_MISMATCH version={item["version"]} path={item["path"]}')
+          print(f'IMAGE_SOURCE_MIGRATION_PARITY=PASS count={len(actual)}')
+          PY
+      - name: Execute exact production SQL generator against image bundle
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('scripts/tai-reg-ru-deploy.sh').read_text(encoding='utf-8')
+          start_marker="<<'PY_MIGRATION_SQL'\n"
+          end_marker='\nPY_MIGRATION_SQL\n'
+          start=source.index(start_marker)+len(start_marker)
+          end=source.index(end_marker,start)
+          Path('/tmp/generator.py').write_text(source[start:end],encoding='utf-8')
+          PY
+          python3 /tmp/generator.py "$RUNNER_TEMP/image-bundle.json" "$RUNNER_TEMP/migration-apply.sql" "$TARGET_SHA"
+          test -s "$RUNNER_TEMP/migration-apply.sql"
+          echo TAI_EXACT_IMAGE_MIGRATION_SQL_GENERATION=PASS
+      - name: Remove registry session
+        if: always()
+        run: docker logout ghcr.io >/dev/null 2>&1 || true
