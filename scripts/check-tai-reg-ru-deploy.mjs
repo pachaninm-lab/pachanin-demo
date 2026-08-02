@@ -63,6 +63,14 @@ for (const fragment of [
   'TAI_DEPLOY_BOOTSTRAP_AUTHORITY_APPLY_FAILED',
   'TAI_DEPLOY_BOOTSTRAP_VERIFICATION_FAILED',
   'TAI_DEPLOY_RUNTIME_ROLE_BOUNDARY_FAILED',
+  'TAI_DEPLOY_DATABASE_ADMIN_AUTHORITY_FAILED',
+  'TAI_DEPLOY_DATABASE_ROLE_CREATE_FAILED',
+  'TAI_DEPLOY_DATABASE_CONNECT_GRANT_FAILED',
+  'TAI_DEPLOY_DATABASE_SCHEMA_GRANT_FAILED',
+  'TAI_DEPLOY_DATABASE_RELATION_GRANTS_FAILED',
+  'TAI_DEPLOY_DATABASE_SEQUENCE_GRANTS_FAILED',
+  'TAI_DEPLOY_DATABASE_ROLE_ATTESTATION_FAILED',
+  'TAI_DEPLOY_DATABASE_ROLE_NON_TAI_PRIVILEGE_FAILED',
   'TAI_DEPLOY_COMPOSE_VALIDATION_FAILED',
   'TAI_DEPLOY_RUNTIME_HEALTHCHECK_FAILED',
   'TAI_DEPLOY_GROUNDED_INFERENCE_PROOF_FAILED',
@@ -155,6 +163,7 @@ forbid(deploy, /TAI_PLATFORM_TOOL_(?:BASE_URL|HMAC_SECRET)/u, deployPath + ': pl
 forbid(deploy, /\b(?:netlify|vercel|railway|openai[.]com|anthropic[.]com)\b/iu, deployPath + ': external hosting or cloud LLM dependency is forbidden');
 forbid(deploy, /GRANT\s+ALL\b|GRANT[^\n]+ON\s+ALL\s+TABLES/iu, deployPath + ': broad database grant is forbidden');
 forbid(deploy, /docker\s+compose[^\n]+\bdown\b/iu, deployPath + ': full Compose shutdown is forbidden');
+forbid(deploy, /TAI_DEPLOY_DATABASE_ROLE_MATERIALIZATION_FAILED/u, deployPath + ': ambiguous database role materialization stage is forbidden');
 forbid(deploy, /(?:AI_ASSISTANT_API_KEY|TAI_MODEL_BEARER_TOKEN)[^\n]*(?:echo|printf)/iu, deployPath + ': model credential output is forbidden');
 forbid(deploy, /["']postgres["']\s+in\s+image[.]lower[(][)]/u, deployPath + ': broad PostgreSQL image substring selector is forbidden');
 forbid(deploy, /INSERT\s+INTO\s+(?:public[.])?tai_model_admission_decisions/iu, deployPath + ': fabricated permanent model admission is forbidden');
@@ -170,14 +179,15 @@ forbid(
 );
 requireFragment(
   deploy,
-  'END;\n\\$grant\\$;',
-  deployPath + ': PL/pgSQL runtime role grant block',
+  '\n\\gexec\n',
+  deployPath + ': generated least-privilege grants must execute through psql gexec',
 );
 forbid(
   deploy,
-  /END\n\\[$]grant\\[$];/u,
-  deployPath + ': PL/pgSQL runtime role grant block must terminate END with a semicolon',
+  /DO\s+\\[$]grant\\[$]/u,
+  deployPath + ': opaque PL/pgSQL grant loop is forbidden',
 );
+
 
 for (const fragment of [
   "set -Eeuo pipefail",
@@ -202,6 +212,19 @@ const authoritySlice = resolverEnd >= 0
 if (/\bps\s+-q\s+(?:api|"\$DB_SERVICE")[^\n]*head\s+-1/u.test(authoritySlice)) {
   violations.push(deployPath + ': API or database authority may not use head -1');
 }
+const roleCreateMarker = deploy.indexOf('\nCREATE ROLE ${ROLE_NAME}\n');
+const roleCreatedMarker = deploy.indexOf('\n  ROLE_CREATED=1\n', roleCreateMarker);
+const firstRoleGrantMarker = deploy.indexOf('TAI_DEPLOY_DATABASE_CONNECT_GRANT_FAILED', roleCreateMarker);
+if (
+  roleCreateMarker < 0 ||
+  roleCreatedMarker < 0 ||
+  firstRoleGrantMarker < 0 ||
+  roleCreatedMarker <= roleCreateMarker ||
+  roleCreatedMarker >= firstRoleGrantMarker
+) {
+  violations.push(deployPath + ': rollback ownership must be armed immediately after CREATE ROLE and before grants');
+}
+
 const mutationCalls = [
   '\nmkdir -- "$STATE_ROOT"',
   '\nmkdir -p /etc/transparent-price\n',
