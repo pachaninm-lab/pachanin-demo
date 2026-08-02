@@ -22,6 +22,7 @@ if (start < 0 || end < 0) {
 const generator = deploy.slice(start + startMarker.length, end);
 
 for (const marker of [
+  'docker run --rm --interactive --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE"',
   'TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED',
   'TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED',
   'TAI_DEPLOY_MIGRATION_APPLICATION_FAILED',
@@ -138,4 +139,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('TAI migration SQL normalization contract PASS: every manifest migration, historical plain SQL and wrapped SQL normalize into controller-owned transactions; empty and unbalanced boundaries fail closed.');
+console.log('TAI migration SQL normalization contract PASS: packaged extraction keeps stdin open; every manifest migration, historical plain SQL and wrapped SQL normalize into controller-owned transactions; empty and unbalanced boundaries fail closed.');
