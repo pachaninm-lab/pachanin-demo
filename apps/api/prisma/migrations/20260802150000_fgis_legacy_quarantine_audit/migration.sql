@@ -45,10 +45,20 @@ CREATE TRIGGER public_audit_events_append_only
 BEFORE UPDATE OR DELETE ON public."audit_events"
 FOR EACH ROW EXECUTE FUNCTION public.reject_public_audit_event_mutation();
 
-DROP TRIGGER IF EXISTS public_audit_events_no_truncate ON public."audit_events";
-CREATE TRIGGER public_audit_events_no_truncate
-BEFORE TRUNCATE ON public."audit_events"
-FOR EACH STATEMENT EXECUTE FUNCTION public.reject_public_audit_event_mutation();
+-- TRUNCATE is deliberately NOT blocked here, unlike on auth.audit_events.
+--
+-- The tampering that matters is a row being quietly changed or removed, and
+-- UPDATE/DELETE above cover that. TRUNCATE is a different shape of risk: it
+-- requires table ownership or an explicit TRUNCATE grant, and the application
+-- roles (app_deal, app_service, app_runtime) have neither, so nothing reachable
+-- from the running platform can call it.
+--
+-- Blocking it for the owner too would buy very little and cost a lot: five
+-- industrial e2e suites reset state with `TRUNCATE TABLE public."audit_events"`,
+-- and the alternative is teaching each of them to disable and re-enable this
+-- trigger — spreading knowledge of the guard across the test suite and giving
+-- every future author a documented way to switch it off. A guard with a
+-- published bypass is weaker than an honest, narrower guard.
 
 -- ── 2. Quarantine denial append command ──────────────────────────────────────
 

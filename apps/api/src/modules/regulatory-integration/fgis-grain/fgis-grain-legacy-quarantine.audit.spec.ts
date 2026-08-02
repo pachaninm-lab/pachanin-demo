@@ -201,14 +201,22 @@ describe('retired ФГИС path denials are committed to the audit trail', () =>
 describe('quarantine audit PostgreSQL authority', () => {
   const migration = readFileSync(resolve(REPO_ROOT, MIGRATION), 'utf8');
 
-  it('makes public.audit_events append-only with a loud trigger', () => {
+  it('makes public.audit_events append-only against UPDATE and DELETE', () => {
     // Migration 20260712090000 dropped the no_update/no_delete RULES on this
     // table and pointed at a trigger that lives on auth.audit_events instead,
     // leaving public.audit_events rewritable by the owner.
     expect(migration).toContain('CREATE TRIGGER public_audit_events_append_only');
     expect(migration).toContain('BEFORE UPDATE OR DELETE ON public."audit_events"');
-    expect(migration).toContain('CREATE TRIGGER public_audit_events_no_truncate');
     expect(migration).toContain('public.audit_events is append-only');
+  });
+
+  it('does not block TRUNCATE, and says why', () => {
+    // TRUNCATE needs ownership or an explicit grant that no application role
+    // holds, and blocking it for the owner would break the reset used by five
+    // e2e suites — whose only workaround is a documented way to switch the
+    // guard off. The reasoning has to stay next to the decision.
+    expect(migration).not.toContain('CREATE TRIGGER public_audit_events_no_truncate');
+    expect(migration).toContain('TRUNCATE is deliberately NOT blocked here');
   });
 
   it('appends the denial through a hash-chained SECURITY DEFINER command', () => {
