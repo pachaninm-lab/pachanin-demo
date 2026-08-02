@@ -8,6 +8,7 @@ const paths = {
   middleware: 'apps/web/middleware.ts',
   executor: 'scripts/production-full-stack-exact-sha.sh',
   live: 'scripts/production-full-stack-live-acceptance.sh',
+  hero: 'apps/web/i18n/platform-v7-hero-message.ts',
   scope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
 };
 const failures = [];
@@ -166,11 +167,14 @@ requireAll('live', [
   '?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID',
   'Cache-Control: no-cache, no-store, max-age=0',
   'Платформа управления агросделками в растениеводстве',
+  'с собственным искусственным интеллектом',
   'Управляйте агросделкой',
   'от цены до расчёта',
   'Crop Deal management platform',
+  'with proprietary artificial intelligence',
   'Manage an agricultural Deal',
   '种植业农业交易管理平台',
+  '配备自主人工智能',
   'Цена согласована. Теперь нужно исполнить Сделку.',
   'if grep -Fq "$retired_title"',
   '/api/health/ready?release=$TARGET_SHA&run=$RELEASE_RUN_ID',
@@ -183,6 +187,21 @@ requireAll('live', [
   'LIVE_CONFLICT_REPLAY=PASS',
   'LIVE_ACCEPTANCE=PASS',
 ]);
+requireAll('hero', [
+  'Платформа управления агросделками в растениеводстве',
+  'с собственным искусственным интеллектом',
+  'Управляйте агросделкой',
+  'от цены до расчёта',
+  'Crop Deal management platform',
+  'with proprietary artificial intelligence',
+  'Manage an agricultural Deal',
+  'from price to settlement',
+  '种植业农业交易管理平台',
+  '配备自主人工智能',
+  '管理农业交易',
+  '从价格到结算',
+]);
+forbid('hero', [/Crop Deal execution platform/]);
 
 forbid('workflow', [
   /github\.actor\s*==\s*['"]github-actions\[bot\]['"]/,
