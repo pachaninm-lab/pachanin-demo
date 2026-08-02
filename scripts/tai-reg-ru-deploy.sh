@@ -594,6 +594,12 @@ test "$(env_value_from_container "$DB_ID" POSTGRES_USER)" = "$DB_ADMIN"
 test "$(env_value_from_container "$DB_ID" POSTGRES_DB)" = "$DB_NAME"
 docker exec "$DB_ID" psql --version >/dev/null
 
+set_internal_deploy_stage TAI_DEPLOY_DATABASE_ADMIN_AUTHORITY_FAILED
+db_admin_authority="$(psql_admin -AtF $'\t' -c "SELECT rolsuper, rolcreaterole FROM pg_catalog.pg_roles WHERE rolname = '${DB_ADMIN}';")"
+[[ "$(printf '%s\n' "$db_admin_authority" | grep -c .)" == 1 ]]
+IFS=$'\t' read -r db_admin_super db_admin_createrole <<< "$db_admin_authority"
+[[ "$db_admin_super" == t || "$db_admin_createrole" == t ]]
+
 set_internal_deploy_stage TAI_DEPLOY_STATE_AUTHORITY_PREPARATION_FAILED
 mkdir -- "$STATE_ROOT" || { echo "STATE_ROOT_ALREADY_EXISTS_OR_UNAVAILABLE" >&2; exit 14; }
 STATE_ROOT_CREATED_THIS_ATTEMPT=1
@@ -745,8 +751,8 @@ set_internal_deploy_stage TAI_DEPLOY_RUNTIME_MATERIALIZATION_FAILED
 MUTATION_STARTED=1
 touch "$STATE_ROOT/MUTATION_STARTED"
 
-set_internal_deploy_stage TAI_DEPLOY_DATABASE_ROLE_MATERIALIZATION_FAILED
 if [[ "$role_exists" == 0 ]]; then
+  set_internal_deploy_stage TAI_DEPLOY_DATABASE_ROLE_CREATE_FAILED
   psql_admin <<SQL
 CREATE ROLE ${ROLE_NAME}
   LOGIN
@@ -758,53 +764,110 @@ CREATE ROLE ${ROLE_NAME}
   NOREPLICATION
   NOBYPASSRLS
   CONNECTION LIMIT 20;
-GRANT CONNECT ON DATABASE ${DB_NAME} TO ${ROLE_NAME};
-GRANT USAGE ON SCHEMA public TO ${ROLE_NAME};
-DO \$grant\$
-DECLARE item record;
-BEGIN
-  FOR item IN
-    SELECT format('%I.%I', schemaname, tablename) AS relation_name
-    FROM pg_catalog.pg_tables
-    WHERE schemaname = 'public' AND tablename LIKE 'tai\\_%' ESCAPE '\\'
-  LOOP
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ' || item.relation_name || ' TO ${ROLE_NAME}';
-  END LOOP;
-  FOR item IN
-    SELECT format('%I.%I', schemaname, viewname) AS relation_name
-    FROM pg_catalog.pg_views
-    WHERE schemaname = 'public' AND viewname LIKE 'tai\\_%' ESCAPE '\\'
-  LOOP
-    EXECUTE 'GRANT SELECT ON TABLE ' || item.relation_name || ' TO ${ROLE_NAME}';
-  END LOOP;
-  FOR item IN
-    SELECT format('%I.%I', schemaname, matviewname) AS relation_name
-    FROM pg_catalog.pg_matviews
-    WHERE schemaname = 'public' AND matviewname LIKE 'tai\\_%' ESCAPE '\\'
-  LOOP
-    EXECUTE 'GRANT SELECT ON TABLE ' || item.relation_name || ' TO ${ROLE_NAME}';
-  END LOOP;
-  FOR item IN
-    SELECT format('%I.%I', sequence_schema, sequence_name) AS relation_name
-    FROM information_schema.sequences
-    WHERE sequence_schema = 'public' AND sequence_name LIKE 'tai\\_%' ESCAPE '\\'
-  LOOP
-    EXECUTE 'GRANT USAGE, SELECT, UPDATE ON SEQUENCE ' || item.relation_name || ' TO ${ROLE_NAME}';
-  END LOOP;
-END;
-\$grant\$;
 SQL
+  # CREATE ROLE is isolated from every grant. Once it succeeds, every later
+  # failure deterministically reaches DROP OWNED / DROP ROLE rollback.
   ROLE_CREATED=1
-  effective_non_tai="$(psql_admin -Atc "
-    SELECT COUNT(*)::int
-    FROM pg_catalog.pg_class AS relation
-    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
-    WHERE namespace.nspname = 'public'
-      AND relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'
-      AND relation.relkind IN ('r','v','m','p','f')
-      AND has_table_privilege('${ROLE_NAME}', format('%I.%I', namespace.nspname, relation.relname),
-        'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER');")"
-  [[ "$effective_non_tai" == 0 ]]
+
+  set_internal_deploy_stage TAI_DEPLOY_DATABASE_CONNECT_GRANT_FAILED
+  psql_admin -c "GRANT CONNECT ON DATABASE ${DB_NAME} TO ${ROLE_NAME};"
+
+  set_internal_deploy_stage TAI_DEPLOY_DATABASE_SCHEMA_GRANT_FAILED
+  psql_admin -c "GRANT USAGE ON SCHEMA public TO ${ROLE_NAME};"
+
+  set_internal_deploy_stage TAI_DEPLOY_DATABASE_RELATION_GRANTS_FAILED
+  psql_admin <<SQL
+SELECT format(
+  'GRANT %s ON TABLE %I.%I TO %I;',
+  CASE
+    WHEN relation.relkind IN ('v','m') THEN 'SELECT'
+    ELSE 'SELECT, INSERT, UPDATE, DELETE'
+  END,
+  namespace.nspname,
+  relation.relname,
+  '${ROLE_NAME}'
+)
+FROM pg_catalog.pg_class AS relation
+JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+WHERE namespace.nspname = 'public'
+  AND relation.relname LIKE 'tai\\_%' ESCAPE '\\'
+  AND relation.relkind IN ('r','v','m','p','f')
+ORDER BY relation.relname
+\gexec
+SQL
+
+  set_internal_deploy_stage TAI_DEPLOY_DATABASE_SEQUENCE_GRANTS_FAILED
+  psql_admin <<SQL
+SELECT format(
+  'GRANT USAGE, SELECT, UPDATE ON SEQUENCE %I.%I TO %I;',
+  namespace.nspname,
+  relation.relname,
+  '${ROLE_NAME}'
+)
+FROM pg_catalog.pg_class AS relation
+JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+WHERE namespace.nspname = 'public'
+  AND relation.relname LIKE 'tai\\_%' ESCAPE '\\'
+  AND relation.relkind = 'S'
+ORDER BY relation.relname
+\gexec
+SQL
+
+  set_internal_deploy_stage TAI_DEPLOY_DATABASE_ROLE_ATTESTATION_FAILED
+  created_role_boundary="$(psql_admin -AtF $'\t' <<SQL
+WITH role_row AS (
+  SELECT oid, rolsuper, rolcreatedb, rolcreaterole, rolinherit,
+         rolreplication, rolbypassrls, rolconnlimit
+  FROM pg_catalog.pg_roles
+  WHERE rolname = '${ROLE_NAME}'
+), non_tai AS (
+  SELECT COUNT(*)::int AS count
+  FROM pg_catalog.pg_class AS relation
+  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname = 'public'
+    AND relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'
+    AND relation.relkind IN ('r','v','m','p','f')
+    AND has_table_privilege('${ROLE_NAME}', format('%I.%I', namespace.nspname, relation.relname),
+      'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+), missing_relations AS (
+  SELECT COUNT(*)::int AS count
+  FROM pg_catalog.pg_class AS relation
+  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname = 'public'
+    AND relation.relname LIKE 'tai\\_%' ESCAPE '\\'
+    AND relation.relkind IN ('r','v','m','p','f')
+    AND NOT CASE
+      WHEN relation.relkind IN ('v','m') THEN
+        has_table_privilege('${ROLE_NAME}', format('%I.%I', namespace.nspname, relation.relname), 'SELECT')
+      ELSE
+        has_table_privilege('${ROLE_NAME}', format('%I.%I', namespace.nspname, relation.relname), 'SELECT,INSERT,UPDATE,DELETE')
+    END
+), missing_sequences AS (
+  SELECT COUNT(*)::int AS count
+  FROM pg_catalog.pg_class AS relation
+  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname = 'public'
+    AND relation.relname LIKE 'tai\\_%' ESCAPE '\\'
+    AND relation.relkind = 'S'
+    AND NOT has_sequence_privilege('${ROLE_NAME}', format('%I.%I', namespace.nspname, relation.relname), 'USAGE,SELECT,UPDATE')
+)
+SELECT role_row.rolsuper, role_row.rolcreatedb, role_row.rolcreaterole,
+       role_row.rolinherit, role_row.rolreplication, role_row.rolbypassrls,
+       role_row.rolconnlimit,
+       (SELECT COUNT(*) FROM pg_catalog.pg_auth_members WHERE member = role_row.oid),
+       non_tai.count, missing_relations.count, missing_sequences.count
+FROM role_row, non_tai, missing_relations, missing_sequences;
+SQL
+)"
+  IFS=$'\t' read -r created_super created_db created_createrole created_inherit created_replication created_bypass created_connlimit created_memberships created_non_tai created_missing_relations created_missing_sequences <<< "$created_role_boundary"
+  [[ "$created_super" == f && "$created_db" == f && "$created_createrole" == f ]]
+  [[ "$created_inherit" == f && "$created_replication" == f && "$created_bypass" == f ]]
+  [[ "$created_connlimit" == 20 && "$created_memberships" == 0 ]]
+  [[ "$created_missing_relations" == 0 && "$created_missing_sequences" == 0 ]]
+  if [[ "$created_non_tai" != 0 ]]; then
+    set_internal_deploy_stage TAI_DEPLOY_DATABASE_ROLE_NON_TAI_PRIVILEGE_FAILED
+    exit 17
+  fi
 fi
 
 set_internal_deploy_stage TAI_DEPLOY_ENVIRONMENT_MATERIALIZATION_FAILED
