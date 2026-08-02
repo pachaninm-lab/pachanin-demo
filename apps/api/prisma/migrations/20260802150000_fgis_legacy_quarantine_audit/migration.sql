@@ -5,62 +5,45 @@
 -- and it disappears with log rotation. An attempt to reach a withdrawn
 -- regulatory path is exactly the kind of fact that must survive.
 --
--- This migration does two things.
---
--- 1. Closes a gap in the append-only guarantee of `public.audit_events`.
---    Migration 20260712090000 dropped the `no_update_audit_events` and
---    `no_delete_audit_events` RULES, noting that the table "keeps its existing
---    auth_audit_events_append_only trigger" — but that trigger is attached to
---    `auth.audit_events`, a different table. Since then `public.audit_events`
---    has been protected only by RLS policies that grant INSERT and SELECT and
---    simply omit UPDATE and DELETE, which leaves the table owner and any
---    BYPASSRLS role free to rewrite history. The trigger below makes the
---    guarantee structural and loud.
---
--- 2. Adds the append command used by the quarantine boundary. It follows the
---    same pattern as `public.create_fgis_grain_acknowledgement`: advisory lock
---    on the audit head, hash chained onto the previous row, SECURITY DEFINER
---    with a fixed search_path.
+-- This migration adds the append command used by the quarantine boundary. It
+-- follows the same pattern as `public.create_fgis_grain_acknowledgement`:
+-- advisory lock on the audit head, hash chained onto the previous row,
+-- SECURITY DEFINER with a fixed search_path.
 --
 -- The recorded fact is deliberately narrow: who tried, from which tenant and
 -- organization, which route, which denial code, which correlation code, and
 -- when. No request body, XML, header, certificate, token or credential is
 -- accepted by the function signature at all, so none can be stored by mistake.
 
--- ── 1. Append-only enforcement for public.audit_events ───────────────────────
-
-CREATE OR REPLACE FUNCTION public.reject_public_audit_event_mutation()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path = pg_catalog
-AS $function$
-BEGIN
-  RAISE EXCEPTION 'public.audit_events is append-only'
-    USING ERRCODE = '55000';
-END;
-$function$;
-
-DROP TRIGGER IF EXISTS public_audit_events_append_only ON public."audit_events";
-CREATE TRIGGER public_audit_events_append_only
-BEFORE UPDATE OR DELETE ON public."audit_events"
-FOR EACH ROW EXECUTE FUNCTION public.reject_public_audit_event_mutation();
-
--- TRUNCATE is deliberately NOT blocked here, unlike on auth.audit_events.
+-- Note on append-only, deliberately NOT changed here.
 --
--- The tampering that matters is a row being quietly changed or removed, and
--- UPDATE/DELETE above cover that. TRUNCATE is a different shape of risk: it
--- requires table ownership or an explicit TRUNCATE grant, and the application
--- roles (app_deal, app_service, app_runtime) have neither, so nothing reachable
--- from the running platform can call it.
+-- While building this slice I found that `public.audit_events` lost its
+-- `no_update_audit_events` / `no_delete_audit_events` RULES in migration
+-- 20260712090000, whose comment says the table "keeps its existing
+-- auth_audit_events_append_only trigger" — but that trigger is attached to
+-- `auth.audit_events`, a different table. So at owner level the public table is
+-- rewritable today.
 --
--- Blocking it for the owner too would buy very little and cost a lot: five
--- industrial e2e suites reset state with `TRUNCATE TABLE public."audit_events"`,
--- and the alternative is teaching each of them to disable and re-enable this
--- trigger — spreading knowledge of the guard across the test suite and giving
--- every future author a documented way to switch it off. A guard with a
--- published bypass is weaker than an honest, narrower guard.
+-- For the application it is not: RLS is enabled and the only policies are
+-- `audit_insert_only` (FOR INSERT) and `audit_select_all` (FOR SELECT). With no
+-- UPDATE or DELETE policy, RLS denies both to every non-BYPASSRLS role, which
+-- covers app_deal, app_service and app_runtime — the roles the running platform
+-- actually uses. That is the guarantee this slice depends on and it already
+-- holds.
+--
+-- I first added a table-wide BEFORE UPDATE OR DELETE OR TRUNCATE trigger here.
+-- It broke six industrial suites: five reset with
+-- `TRUNCATE TABLE public."audit_events"`, and two more delete their own rows by
+-- RUN_ID to stay isolated in a shared test database. Closing the owner-level
+-- gap properly means giving those suites a different isolation mechanism, which
+-- is a cross-cutting change with its own blast radius and no connection to the
+-- ФГИС quarantine. Widening a narrow slice to carry it would be the wrong
+-- trade, and shipping a trigger with a documented `DISABLE TRIGGER` bypass
+-- would be worse than shipping none.
+--
+-- Raised for the owner as separate work rather than fixed silently here.
 
--- ── 2. Quarantine denial append command ──────────────────────────────────────
+-- ── Quarantine denial append command ─────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.record_fgis_legacy_quarantine_denial(
   p_tenant_id text,

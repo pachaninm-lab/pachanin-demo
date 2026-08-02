@@ -201,22 +201,26 @@ describe('retired ФГИС path denials are committed to the audit trail', () =>
 describe('quarantine audit PostgreSQL authority', () => {
   const migration = readFileSync(resolve(REPO_ROOT, MIGRATION), 'utf8');
 
-  it('makes public.audit_events append-only against UPDATE and DELETE', () => {
-    // Migration 20260712090000 dropped the no_update/no_delete RULES on this
-    // table and pointed at a trigger that lives on auth.audit_events instead,
-    // leaving public.audit_events rewritable by the owner.
-    expect(migration).toContain('CREATE TRIGGER public_audit_events_append_only');
-    expect(migration).toContain('BEFORE UPDATE OR DELETE ON public."audit_events"');
-    expect(migration).toContain('public.audit_events is append-only');
-  });
+  it('relies on RLS for append-only rather than adding a table-wide trigger', () => {
+    // The append-only guarantee the platform depends on is that no application
+    // role can rewrite audit history. RLS already delivers it: audit_events has
+    // RLS enabled with an INSERT policy and a SELECT policy and no UPDATE or
+    // DELETE policy, so both are denied to every non-BYPASSRLS role.
+    const baseline = readFileSync(
+      resolve(REPO_ROOT, 'apps/api/prisma/migrations/0001_postgresql_initial/migration.sql'),
+      'utf8',
+    );
+    expect(baseline).toContain('ALTER TABLE "audit_events" ENABLE ROW LEVEL SECURITY');
+    expect(baseline).toContain('CREATE POLICY "audit_insert_only" ON "audit_events"');
+    expect(baseline).toMatch(/CREATE POLICY "audit_insert_only" ON "audit_events"\s*\n\s*FOR INSERT/);
+    expect(baseline).not.toMatch(/CREATE POLICY[^;]*ON "audit_events"\s*\n\s*FOR (UPDATE|DELETE|ALL)/);
 
-  it('does not block TRUNCATE, and says why', () => {
-    // TRUNCATE needs ownership or an explicit grant that no application role
-    // holds, and blocking it for the owner would break the reset used by five
-    // e2e suites — whose only workaround is a documented way to switch the
-    // guard off. The reasoning has to stay next to the decision.
-    expect(migration).not.toContain('CREATE TRIGGER public_audit_events_no_truncate');
-    expect(migration).toContain('TRUNCATE is deliberately NOT blocked here');
+    // This slice adds no trigger of its own: a table-wide one broke six
+    // industrial suites, and the owner-level gap it would have closed is
+    // recorded as separate work instead of being smuggled into this slice.
+    expect(migration).not.toContain('CREATE TRIGGER');
+    expect(migration).toContain('Note on append-only, deliberately NOT changed here');
+    expect(migration).toContain('Raised for the owner as separate work');
   });
 
   it('appends the denial through a hash-chained SECURITY DEFINER command', () => {
