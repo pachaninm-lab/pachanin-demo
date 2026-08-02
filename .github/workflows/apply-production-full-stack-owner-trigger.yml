@@ -40,7 +40,7 @@ jobs:
           git clean -fdx
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
 
-      - name: Apply and verify owner-only source repair
+      - name: Apply and capture verified source repair
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -51,6 +51,11 @@ jobs:
           grep -Fq 'github.event.comment.user.login == github.repository_owner' .github/workflows/production-full-stack-exact-sha.yml
           grep -Fq 'github.event.issue.number == 3072' .github/workflows/production-full-stack-exact-sha.yml
           ! grep -Eq "github\.actor[[:space:]]*==[[:space:]]*['\"]github-actions\[bot\]['\"]" .github/workflows/production-full-stack-exact-sha.yml
+          git diff --binary -- \
+            .github/workflows/production-full-stack-exact-sha.yml \
+            scripts/check-production-full-stack-release.mjs \
+            > "$RUNNER_TEMP/production-full-stack-owner-trigger.patch"
+          test -s "$RUNNER_TEMP/production-full-stack-owner-trigger.patch"
 
       - name: Publish clean source-only branch
         shell: bash
@@ -60,9 +65,12 @@ jobs:
           set -Eeuo pipefail
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
-          git add .github/workflows/production-full-stack-exact-sha.yml scripts/check-production-full-stack-release.mjs
+          git reset --hard origin/main
+          git clean -fdx
+          git apply --index "$RUNNER_TEMP/production-full-stack-owner-trigger.patch"
           files=$(git diff --cached --name-only | sort)
           test "$files" = $'.github/workflows/production-full-stack-exact-sha.yml\nscripts/check-production-full-stack-release.mjs'
+          node scripts/check-production-full-stack-release.mjs
           git diff --cached --check
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
