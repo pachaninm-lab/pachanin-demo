@@ -12,6 +12,10 @@ on:
       - "scripts/check-tai-reg-ru-deploy.mjs"
       - "scripts/check-pc-tai-release-controller.mjs"
       - "scripts/check-tai-reg-ru-release-chain.mjs"
+      - "scripts/check-tai-model-artifact-evidence.mjs"
+      - "scripts/check-tai-exact-main-convergence.mjs"
+      - "scripts/tai_model_artifact_evidence.py"
+      - "scripts/pc-tai-release-controller-core.sh"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
       - "apps/tai/TAI_REG_RU_DEPLOY.md"
@@ -135,6 +139,8 @@ jobs:
           node scripts/check-pc-tai-release-controller.mjs
           node scripts/check-tai-reg-ru-deploy.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
+          node scripts/check-tai-model-artifact-evidence.mjs
+          node scripts/check-tai-exact-main-convergence.mjs
 
   image_authority:
     name: Exact-main rootless TAI image authority

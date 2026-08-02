@@ -40,6 +40,11 @@ MIGRATION_SQL=""
 BOOTSTRAP_AUTHORITY=""
 BOOTSTRAP_SQL=""
 MIGRATION_COUNT=0
+# Bounded convergence window for the production web and API containers.
+# Long enough for an ordinary rolling restart, short enough that a release
+# that is genuinely stuck fails inside the job rather than holding the lock.
+EXACT_MAIN_CONVERGENCE_TIMEOUT_SECONDS=300
+EXACT_MAIN_CONVERGENCE_POLL_SECONDS=5
 PERMANENT_MODEL_ADMISSION_STATUS="NOT_ATTESTED"
 
 restore_file() {
@@ -179,9 +184,44 @@ SQL
 }
 trap 'rollback_now $?' ERR INT TERM
 
-mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-(( ${#web_ids[@]} == 1 )) || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
-web_id="${web_ids[0]}"
+# Wait for the production web and API containers to reach TARGET_SHA before
+# anything else is inspected.
+#
+# The standalone TAI deployment is triggered by the activation workflow
+# finishing, which happens while the web and API containers may still be rolling
+# to the new revision. Reading the topology at that moment produced an immediate
+# exact-main mismatch and failed the release for a reason that would have
+# resolved itself seconds later. The wait is bounded and fail-closed: a revision
+# that never converges is still a failure, with a code that says which container
+# never arrived — it is a race that is being removed, not a check.
+wait_for_exact_main_container() {
+  local service="$1" deadline id revision last='none'
+  deadline=$(( SECONDS + EXACT_MAIN_CONVERGENCE_TIMEOUT_SECONDS ))
+  while :; do
+    mapfile -t ids < <(docker ps -q --filter "label=com.docker.compose.service=$service")
+    if (( ${#ids[@]} == 1 )); then
+      id="${ids[0]}"
+      revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id" 2>/dev/null || true)"
+      if [[ "$revision" == "$TARGET_SHA" ]]; then
+        printf '%s' "$id"
+        return 0
+      fi
+      last="${revision:-missing}"
+    else
+      last="${#ids[@]}_running"
+    fi
+    (( SECONDS < deadline )) || {
+      echo "EXACT_MAIN_${service^^}_CONVERGENCE_TIMEOUT last=${last}" >&2
+      return 1
+    }
+    sleep "$EXACT_MAIN_CONVERGENCE_POLL_SECONDS"
+  done
+}
+
+web_id="$(wait_for_exact_main_container web)" || exit 10
+api_wait_id="$(wait_for_exact_main_container api)" || exit 10
+[[ "$web_id" =~ ^[0-9a-f]{12,64}$ ]] || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
+[[ "$api_wait_id" =~ ^[0-9a-f]{12,64}$ ]] || { echo "COMPOSE_API_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
 prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
 prod_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
 prod_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
@@ -482,12 +522,20 @@ elif [[ -f "$OVERRIDE" || -f "$ENV_FILE" ]]; then
   exit 13
 fi
 
-web_id="$("${DC_BASE[@]}" ps -q web | head -1)"
-test -n "$web_id"
+# Re-resolve inside the compose project rather than reusing the earlier id, but
+# keep the exactly-one requirement: `head -1` would silently pick a winner if a
+# second web container ever existed, which is precisely the ambiguity the
+# authority checks exist to refuse.
+mapfile -t project_web_ids < <("${DC_BASE[@]}" ps -q web)
+(( ${#project_web_ids[@]} == 1 )) || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
+web_id="${project_web_ids[0]}"
+[[ "$web_id" =~ ^[0-9a-f]{12,64}$ ]] || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
 test "$API_ID" = "$(docker inspect --format '{{.Id}}' "$API_ID")"
 test "$DB_ID" = "$(docker inspect --format '{{.Id}}' "$DB_ID")"
-test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$API_ID")" = "$TARGET_SHA"
-test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" = "$TARGET_SHA"
+[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$API_ID")" == "$TARGET_SHA" ]] \
+  || { echo "API_EXACT_MAIN_MISMATCH" >&2; exit 10; }
+[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$TARGET_SHA" ]] \
+  || { echo "WEB_EXACT_MAIN_MISMATCH" >&2; exit 10; }
 test "$(docker inspect --format '{{.State.Status}}' "$DB_ID")" = running
 
 env_value_from_container() {

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/tai-agro-os-v4-production-izow8x",
+  "status": "active",
+  "purpose": "Repair exact-main REG.RU standalone TAI deployment: bind model artifact evidence to the active service cgroup, and remove the release race that failed the deployment while the production web and API containers were still rolling to the target revision.",
+  "approvedBy": "owner-direct-continuation-20260801",
+  "authorityBaseExactMain": "1d9e9bca171c97ed35c2e5ac19c3436912c269c5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-pc-tai-release-controller.mjs",
+    "scripts/tai_model_artifact_evidence.py",
+    "scripts/check-tai-model-artifact-evidence.mjs",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-exact-main-convergence.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-model-artifact-evidence-20260801.json"
+  ],
+  "forbiddenChanges": [
+    "production credentials",
+    "public model port",
+    "direct Docker authority for the Actions runner",
+    "host-wide GGUF scanning",
+    "client-selected role or tenant",
+    "new recurring infrastructure cost"
+  ],
+  "acceptance": [
+    "resolver binds evidence only to the active systemd service cgroup",
+    "wrapper environment, process memory maps and open file descriptors are supported",
+    "multiple or missing model artifacts fail closed",
+    "artifact path, SHA-256, size and context are validated",
+    "controller publishes a specific model evidence error code",
+    "standalone deployment waits a bounded window for exactly one web and API container at the target revision",
+    "a revision that never converges fails closed with a named per-container timeout code",
+    "web authority is never resolved with head -1",
+    "REG.RU deployment and live RU/EN/ZH acceptance pass on exact-main (pending: requires production egress)"
+  ],
+  "sourceFinalization": {
+    "rebasedOntoExactMain": "1d9e9bca171c97ed35c2e5ac19c3436912c269c5",
+    "behindBy": 0,
+    "temporaryWorkflowFilesPresent": false,
+    "supersedesPullRequests": [
+      3591,
+      3592
+    ],
+    "failureEvidenceResolverMerged": "union of exact-main staged-error resolver and model-artifact log source",
+    "contractsRun": [
+      "check-tai-reg-ru-deploy",
+      "check-tai-reg-ru-preflight",
+      "check-tai-reg-ru-release-chain",
+      "check-pc-tai-release-controller",
+      "check-tai-model-artifact-evidence",
+      "check-tai-exact-main-convergence",
+      "check-workflow-syntax"
+    ]
+  },
+  "observedFailure": {
+    "run": 30742446654,
+    "exactMain": "1d9e9bca171c97ed35c2e5ac19c3436912c269c5",
+    "job": "Deploy through protected REG.RU controller",
+    "stage": "Execute protected exact-main deployment and postflight",
+    "durationSeconds": 10,
+    "publishedCode": "DEPLOY_CONTROLLER_FAILED (generic — the specific cause was not surfaced in the job log)"
+  }
+}
