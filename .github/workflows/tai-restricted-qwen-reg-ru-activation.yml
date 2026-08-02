@@ -19,7 +19,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
   workflow_run:
-    workflows: ["TAI REG.RU Preflight"]
+    workflows: ["TAI Owner REG.RU Preflight"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -105,7 +105,7 @@ jobs:
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/preflight-run.json"
           node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
-            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI REG.RU Preflight' "$GITHUB_REPOSITORY"
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Owner REG.RU Preflight' "$GITHUB_REPOSITORY"
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
             > "$RUNNER_TEMP/preflight-jobs.json"

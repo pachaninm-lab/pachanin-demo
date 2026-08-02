@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-preflight-workflow-id-20260802",
+  "status": "active",
+  "title": "TAI owner preflight workflow identity",
+  "priority": "P0",
+  "baselineExactMain": "3989336587a24eff71921d360fd05b066849acaf",
+  "objective": "Give the owner-authorized six-job REG.RU preflight a unique workflow identity and bind restricted Qwen activation exclusively to that exact successful workflow, eliminating collisions with the legacy canonical-image preflight workflow ID.",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/check-tai-reg-ru-release-chain.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-owner-preflight-workflow-id-20260802.json"
+  ],
+  "boundaries": [
+    "Owner preflight retains exact issue 3365 and exact command authority",
+    "Activation accepts only a successful exact-main run of TAI Owner REG.RU Preflight",
+    "All six required preflight jobs remain mandatory and fail-closed",
+    "Legacy preflight failures and skipped runs can no longer trigger production activation",
+    "No activation, deployment or model runtime logic is weakened",
+    "Zero new recurring cost"
+  ]
+}
