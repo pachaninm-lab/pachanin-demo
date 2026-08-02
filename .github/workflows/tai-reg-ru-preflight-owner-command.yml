@@ -1,10 +1,10 @@
-name: TAI REG.RU Preflight Owner Command
+name: TAI Exact-Release Owner Command
 
 on:
   pull_request:
     paths:
       - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
-      - "docs/platform-v7/autopilot/scopes/tai-preflight-dispatched-image-authority-20260802.json"
+      - "docs/platform-v7/autopilot/scopes/tai-owner-command-exact-release-20260802.json"
   issue_comment:
     types: [created]
 
@@ -12,38 +12,39 @@ permissions:
   contents: read
 
 concurrency:
-  group: tai-reg-ru-preflight-owner-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  group: tai-exact-release-owner-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   contract:
-    name: Validate owner command contract
+    name: Validate owner exact-release command contract
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Validate exact command and authority boundary
+      - name: Validate exact command and downstream authority
         run: |
           set -Eeuo pipefail
           source=.github/workflows/tai-reg-ru-preflight-owner-command.yml
           grep -Fq "github.event.issue.number == 3365" "$source"
-          grep -Fq "github.event.comment.body == '/tai preflight current-main'" "$source"
+          grep -Fq "github.event.comment.body == '/tai release current-main'" "$source"
           grep -Fq '[[ "$COMMENTER" == "$OWNER" ]]' "$source"
           grep -Fq '[[ "$ACTOR" == "$OWNER" ]]' "$source"
           grep -Fq '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]' "$source"
+          grep -Fq 'actions/workflows/docker-publish.yml/dispatches' "$source"
+          grep -Fq 'actions/workflows/production-full-stack-exact-sha.yml/dispatches' "$source"
           grep -Fq 'actions/workflows/tai-reg-ru-preflight.yml/dispatches' "$source"
-          grep -Fq 'inputs[target_sha]' "$source"
-          grep -Fq 'inputs[confirmation]' "$source"
+          grep -Fq 'DEPLOY-FULL-STACK-EXACT-SHA' "$source"
           grep -Fq 'PREFLIGHT-TAI-REG-RU' "$source"
 
   dispatch:
-    name: Dispatch exact-current-main TAI preflight
+    name: Dispatch exact-current-main images, platform and TAI preflight
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 3365 &&
-      github.event.comment.body == '/tai preflight current-main'
+      github.event.comment.body == '/tai release current-main'
     runs-on: ubuntu-24.04
     permissions:
       actions: write
@@ -72,7 +73,29 @@ jobs:
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
           echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch canonical fail-closed preflight
+      - name: Dispatch canonical exact-SHA images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/docker-publish.yml/dispatches" \
+            -f ref='main' \
+            -f 'inputs[services]=all'
+
+      - name: Dispatch canonical exact-SHA full-stack release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/production-full-stack-exact-sha.yml/dispatches" \
+            -f ref='main' \
+            -f "inputs[target_sha]=$TARGET_SHA" \
+            -f 'inputs[confirmation]=DEPLOY-FULL-STACK-EXACT-SHA'
+
+      - name: Dispatch canonical fail-closed TAI preflight
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
@@ -92,4 +115,4 @@ jobs:
         run: |
           set -Eeuo pipefail
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
-            "TAI exact-current-main preflight dispatched for \`$TARGET_SHA\` by owner-authorized command. Production mutation remains blocked until the existing preflight, activation and live acceptance chain passes."
+            "TAI exact-release chain dispatched for \`$TARGET_SHA\`: canonical images, exact-SHA platform release and fail-closed TAI preflight. Each downstream workflow retains independent exact-main, confirmation and rollback authority."
