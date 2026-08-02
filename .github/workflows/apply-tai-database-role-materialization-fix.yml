@@ -1,0 +1,71 @@
+name: Apply TAI database role materialization fix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/apply-tai-database-role-materialization-fix.py"
+      - ".github/workflows/apply-tai-database-role-materialization-fix.yml"
+      - "docs/platform-v7/autopilot/scopes/tai-database-role-materialization-20260802.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-database-role-materialization-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Capture exact authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          HEAD_REF='${{ github.event.pull_request.head.ref || github.ref_name }}'
+          git fetch --no-tags origin main "$HEAD_REF"
+          echo "HEAD_REF=$HEAD_REF" >> "$GITHUB_ENV"
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+
+      - name: Apply and verify exact source repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-database-role-materialization-fix.py
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-reg-ru-deploy.mjs
+          git diff --check
+          grep -Fq 'END;' scripts/tai-reg-ru-deploy.sh
+          ! python3 - <<'PY'
+          from pathlib import Path
+          text = Path('scripts/tai-reg-ru-deploy.sh').read_text(encoding='utf-8')
+          raise SystemExit(0 if "END\n\\$grant\\$;" in text else 1)
+          PY
+
+      - name: Publish reviewable source diff
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main "$HEAD_REF"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse "origin/$HEAD_REF")" = "$EXPECTED_HEAD"
+          git add scripts/tai-reg-ru-deploy.sh scripts/check-tai-reg-ru-deploy.mjs
+          files=$(git diff --cached --name-only | sort)
+          test "$files" = $'scripts/check-tai-reg-ru-deploy.mjs\nscripts/tai-reg-ru-deploy.sh'
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(tai): terminate runtime role grant block'
+          git push --force-with-lease="refs/heads/$HEAD_REF:$EXPECTED_HEAD" \
+            origin HEAD:"refs/heads/$HEAD_REF"
