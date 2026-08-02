@@ -5,7 +5,7 @@
   "status": "active",
   "issue": 3585,
   "activeSlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE",
-  "baseCommit": "aad390e160a5ed5335d2a99d16519ca0e025279c",
+  "baseCommit": "96698227a970f7efea8a5142ed36e7a7885536f1",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "fail-close-legacy-paths-and-durable-denial-audit-only",
   "allowedPaths": [
