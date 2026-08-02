@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-database-role-materialization-20260802",
+  "status": "active",
+  "purpose": "Repair the confirmed exact-main REG.RU standalone TAI deployment failure caused by an unterminated PL/pgSQL runtime-role grant block.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "b9827fca93451f5452f4fa4c688aef73a0b09d39",
+  "failureRun": 30754088993,
+  "confirmedFailureCode": "TAI_DEPLOY_DATABASE_ROLE_MATERIALIZATION_FAILED",
+  "confirmedRollbackStatus": "CONFIRMED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/apply-tai-database-role-materialization-fix.yml",
+    "docs/platform-v7/autopilot/scopes/tai-database-role-materialization-20260802.json",
+    "scripts/apply-tai-database-role-materialization-fix.py",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/tai-reg-ru-deploy.sh"
+  ],
+  "requiredBehavior": [
+    "terminate the PL/pgSQL DO block with END semicolon before the dollar-quote delimiter",
+    "preserve least-privilege tai_runtime role attributes and TAI-only grants",
+    "preserve PostgreSQL authority, exact-main checks, rollback and fail-closed behavior",
+    "add a deterministic source gate that rejects the unterminated role grant block",
+    "remove temporary materializer files from the final source diff",
+    "rerun the full exact-main REG.RU release chain and strict postflight"
+  ],
+  "forbiddenCapabilities": [
+    "broad database grants",
+    "superuser, createdb, createrole, inherit, replication or bypassrls authority",
+    "grants on non-TAI relations",
+    "database down-migration",
+    "new hosting, paid service or recurring expense",
+    "production mutation before exact-head merge"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "roleMaterializationRegressionGateRequired": true,
+    "rollbackEvidenceRequired": true,
+    "productionDeploymentAndPostflightRequired": true
+  }
+}
