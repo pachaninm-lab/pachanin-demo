@@ -11,6 +11,7 @@
     ".github/workflows/production-full-stack-exact-sha.yml",
     ".github/workflows/tai-reg-ru-preflight.yml",
     ".github/workflows/temporary-owner-child-authority-fix.yml",
+    ".github/workflows/temporary-owner-child-authority-fix-v2.yml",
     "scripts/verify-owner-command-authority.mjs",
     "scripts/check-production-full-stack-release.mjs",
     "scripts/check-tai-reg-ru-release-chain.mjs",
@@ -23,7 +24,7 @@
     "Child target SHA must still equal current origin/main",
     "Canonical image revision, immutable digest, protected REG.RU controller, rollback and live acceptance remain mandatory",
     "No direct production mutation is added to the owner-command bridge",
-    "Temporary patch workflow is branch-bound and deletes itself in its only commit",
+    "Temporary patch workflows are branch-bound and delete themselves in the resulting implementation commit",
     "Zero new recurring cost"
   ]
 }
