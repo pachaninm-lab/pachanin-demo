@@ -1,0 +1,65 @@
+name: Apply TAI migration container stdin fix
+
+on:
+  push:
+    branches:
+      - fix/tai-all-manifest-migration-contract-20260802
+    paths:
+      - ".github/workflows/apply-tai-migration-stdin-fix.yml"
+      - "scripts/apply-tai-migration-stdin-fix.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-tai-migration-container-stdin-20260802
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-all-manifest-migration-contract-20260802
+          fetch-depth: 0
+      - name: Capture exact source authority
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-all-manifest-migration-contract-20260802
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+          test "$(git rev-parse origin/main)" = '885225c55ff6c526b82209cea9eb8f0db0fd9638'
+      - name: Apply and validate bounded repair
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-migration-stdin-fix.py
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-workflow-syntax.mjs
+          git diff --check
+          grep -Fq 'docker run --rm -i --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" -' scripts/tai-reg-ru-deploy.sh
+          ! grep -Fq 'docker run --rm --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" -' scripts/tai-reg-ru-deploy.sh
+      - name: Publish ordinary reviewable source diff
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-all-manifest-migration-contract-20260802
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/fix/tai-all-manifest-migration-contract-20260802)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-tai-migration-stdin-fix.py
+          rm -f .github/workflows/apply-tai-migration-stdin-fix.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/tai-migration-stdin-files.txt
+          if grep -Ev '^([.]github/workflows/apply-tai-migration-stdin-fix[.]yml|[.]github/workflows/diagnose-tai-migration-image[.]yml|docs/platform-v7/autopilot/scopes/tai-all-manifest-migration-contract-20260802[.]json|scripts/apply-tai-migration-stdin-fix[.]py|scripts/check-pc-tai-release-controller[.]mjs|scripts/check-tai-migration-sql-normalization[.]mjs|scripts/tai-reg-ru-deploy[.]sh)$' /tmp/tai-migration-stdin-files.txt; then
+            echo 'Final diff exceeds registered migration stdin scope.' >&2
+            exit 31
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(tai): attach stdin for exact-image migration extraction'
+          git push origin HEAD:refs/heads/fix/tai-all-manifest-migration-contract-20260802
