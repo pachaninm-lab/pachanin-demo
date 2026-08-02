@@ -5,7 +5,7 @@
   "status": "active",
   "issue": 3585,
   "activeSlice": "P0.2-1A-LEGACY-FGIS-QUARANTINE",
-  "baseCommit": "5be1cdac6760bfdfc5546d9c76c64467840d9d0e",
+  "baseCommit": "aad390e160a5ed5335d2a99d16519ca0e025279c",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "fail-close-legacy-paths-and-durable-denial-audit-only",
   "allowedPaths": [
@@ -30,6 +30,9 @@
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.module.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.test-double.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.inspection.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.spec.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.ts",
     "apps/api/src/modules/saga/fgis-step.service.spec.ts",
     "apps/api/src/modules/saga/fgis-step.service.ts",
     "apps/api/src/modules/saga/saga.controller.ts",

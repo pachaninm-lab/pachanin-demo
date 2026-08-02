@@ -4,6 +4,9 @@ import { AuctionCommandService } from '../../src/modules/auctions/auction-comman
 import { PrismaDealRepository } from '../../src/modules/deals/prisma-deal.repository';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { FgisLegacyQuarantineAuditService } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
+import { inspectFgisQuarantineAuditPrincipal } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.inspection';
+import { evaluateFgisQuarantineAuditPrincipal } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal';
+import { FGIS_LEGACY_ERROR_CODES } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import type { RequestUser } from '../../src/common/types/request-user';
 
@@ -338,6 +341,103 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     `);
     expect(finalState[0]).toMatchObject({ deals: '1', bound_awards: '1', basis_events: '1' });
   }, 120_000);
+
+  it('keeps public.audit_events append-only for the platform principal', async () => {
+    // P0.2-1A relies on a privilege boundary rather than a trigger. This runs
+    // the check against the real database as the role the platform connects
+    // as, so the claim is verified rather than asserted.
+    const snapshot = await inspectFgisQuarantineAuditPrincipal(app);
+    expect(evaluateFgisQuarantineAuditPrincipal(snapshot)).toEqual([]);
+
+    // Spelled out individually so a failure names the property that broke.
+    expect(snapshot.superuser).toBe(false);
+    expect(snapshot.bypassRls).toBe(false);
+    expect(snapshot.ownsAuditEvents).toBe(false);
+    expect(snapshot.auditEventsUpdate).toBe(false);
+    expect(snapshot.auditEventsDelete).toBe(false);
+    expect(snapshot.auditEventsTruncate).toBe(false);
+    expect(snapshot.auditEventsRlsEnabled).toBe(true);
+    expect([...snapshot.auditEventsPolicyCommands].sort()).toEqual(['INSERT', 'SELECT']);
+  }, 60_000);
+
+  it('records a durable denial when a client claims an FGIS-verified source', async () => {
+    const before = await auditDenialCount();
+
+    await expect(commands.registerLot({
+      title: 'Пшеница 3 класс',
+      culture: 'wheat',
+      volumeTons: '500.000000',
+      startPriceKopecksPerTon: '1250000',
+      stepPriceKopecksPerTon: '25000',
+      region: 'Тамбовская область',
+      auctionEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+      sourceType: 'FGIS',
+      sourceExternalId: 'FGIS-PARTY-CLAIMED-BY-CLIENT',
+      idempotencyKey: `register-fgis-${Date.now()}`,
+    }, seller)).rejects.toBeDefined();
+
+    const rows = await admin.$queryRawUnsafe<Array<Record<string, unknown>>>(`
+      SELECT "action", "outcome", "objectType", "tenantId", "orgId",
+             "actorUserId", "correlationId", "reason", "metadata", "hash", "prevHash"
+      FROM public."audit_events"
+      WHERE "objectType" = 'LEGACY_FGIS_QUARANTINE'
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `);
+
+    expect(await auditDenialCount()).toBe(before + 1);
+    const denial = rows[0];
+    expect(denial).toMatchObject({
+      action: 'FGIS_LEGACY_PATH_DENIED',
+      outcome: 'DENIED',
+      objectType: 'LEGACY_FGIS_QUARANTINE',
+      tenantId: TENANT,
+      reason: FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
+    });
+    expect(String(denial.correlationId)).toMatch(/^FGIS-[0-9A-F]{8}$/);
+    // Hash-chained onto the previous audit row.
+    expect(String(denial.hash)).toMatch(/^[0-9a-f]{64}$/);
+
+    // The claimed external id must not have been persisted anywhere in the fact.
+    expect(JSON.stringify(denial)).not.toContain('FGIS-PARTY-CLAIMED-BY-CLIENT');
+  }, 60_000);
+
+  it('refuses the lot even when the same claim is retried', async () => {
+    const before = await auditDenialCount();
+    const input = {
+      title: 'Пшеница 3 класс',
+      culture: 'wheat',
+      volumeTons: '500.000000',
+      startPriceKopecksPerTon: '1250000',
+      stepPriceKopecksPerTon: '25000',
+      region: 'Тамбовская область',
+      auctionEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+      sourceType: 'FGIS' as const,
+      sourceExternalId: 'FGIS-PARTY-RETRY',
+      idempotencyKey: `register-fgis-retry-${Date.now()}`,
+    };
+
+    await expect(commands.registerLot(input, seller)).rejects.toBeDefined();
+    await expect(commands.registerLot(input, seller)).rejects.toBeDefined();
+
+    // Two attempts are two facts: an idempotency key must not collapse the
+    // record that someone tried twice.
+    expect(await auditDenialCount()).toBe(before + 2);
+
+    const lots = await admin.$queryRawUnsafe<Array<{ count: string }>>(`
+      SELECT count(*)::text AS count FROM auction.lots WHERE source_type = 'FGIS'
+    `);
+    expect(lots[0].count).toBe('0');
+  }, 60_000);
+
+  async function auditDenialCount(): Promise<number> {
+    const rows = await admin.$queryRawUnsafe<Array<{ count: string }>>(`
+      SELECT count(*)::text AS count
+      FROM public."audit_events"
+      WHERE "objectType" = 'LEGACY_FGIS_QUARANTINE'
+    `);
+    return Number(rows[0].count);
+  }
 });
 
 async function resetDatabase(admin: PrismaClient): Promise<void> {
