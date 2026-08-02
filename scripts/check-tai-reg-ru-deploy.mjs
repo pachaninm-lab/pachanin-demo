@@ -38,6 +38,12 @@ for (const fragment of [
 
 for (const fragment of [
   'TAI_IMAGE_DIGEST',
+  'psql_admin_file()',
+  'psql_admin_file "$MIGRATION_SQL"',
+  'psql_admin_file "$BOOTSTRAP_SQL"',
+  'docker exec -i "$DB_ID" psql -X --set ON_ERROR_STOP=1 -U "$DB_ADMIN" -d "$DB_NAME" < "$path"',
+  'TAI_SQL_INPUT_AUTHORITY_INVALID',
+  'TAI_SQL_INPUT_PERMISSIONS_INVALID_',
   'set_internal_deploy_stage',
   'deploy-stage-error.log',
   'TAI_DEPLOY_WEB_API_CONVERGENCE_FAILED',
@@ -143,6 +149,11 @@ forbid(deploy, /docker\s+compose[^\n]+\bdown\b/iu, deployPath + ': full Compose 
 forbid(deploy, /(?:AI_ASSISTANT_API_KEY|TAI_MODEL_BEARER_TOKEN)[^\n]*(?:echo|printf)/iu, deployPath + ': model credential output is forbidden');
 forbid(deploy, /["']postgres["']\s+in\s+image[.]lower[(][)]/u, deployPath + ': broad PostgreSQL image substring selector is forbidden');
 forbid(deploy, /INSERT\s+INTO\s+(?:public[.])?tai_model_admission_decisions/iu, deployPath + ': fabricated permanent model admission is forbidden');
+forbid(
+  deploy,
+  /psql_admin\s+-f\s+["']\$(?:MIGRATION|BOOTSTRAP)_SQL["']/u,
+  deployPath + ': a host SQL path may not be passed to psql inside the database container',
+);
 
 for (const fragment of [
   "set -Eeuo pipefail",
