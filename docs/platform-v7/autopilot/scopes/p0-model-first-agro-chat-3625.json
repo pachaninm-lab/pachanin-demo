@@ -1,5 +1,7 @@
 {
-  "schemaVersion": "pc.autopilot.scope.v1",
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "tai/p0-agro-chat-model-first",
+  "status": "active",
   "title": "P0 model-first agricultural chat",
   "priority": "P0",
   "baselineExactMain": "96698227a970f7efea8a5142ed36e7a7885536f1",
@@ -8,8 +10,8 @@
     "apps/web/app/api/agro-chat/route.ts",
     "apps/web/next.config.js",
     "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
-    "scripts/tai-live-public-ai-acceptance.mjs",
-    "docs/platform-v7/autopilot/scopes/p0-model-first-agro-chat-3625.json"
+    "docs/platform-v7/autopilot/scopes/p0-model-first-agro-chat-3625.json",
+    "scripts/tai-live-public-ai-acceptance.mjs"
   ],
   "boundaries": [
     "No write authority",
