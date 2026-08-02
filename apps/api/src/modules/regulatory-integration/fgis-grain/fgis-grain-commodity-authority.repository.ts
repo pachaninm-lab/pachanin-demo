@@ -101,7 +101,7 @@ export class FgisGrainCommodityAuthorityRepository {
       async (tx) =>
         commandReceipt(
           await tx.$queryRaw<CommandRow[]>(Prisma.sql`
-            SELECT fgis_commodity.accept_party_snapshot(
+            SELECT fgis_commodity.accept_party_snapshot_verified(
               ${input.connectionId},
               ${input.syncRunId},
               ${snapshot}::jsonb,
