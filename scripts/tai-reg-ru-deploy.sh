@@ -110,7 +110,7 @@ apply_tai_migrations() {
   MIGRATION_BUNDLE="$STATE_ROOT/migration-bundle.json"
   MIGRATION_SQL="$STATE_ROOT/migration-apply.sql"
   set_internal_deploy_stage TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED
-  docker run --rm --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE" <<'PY_MIGRATIONS'
+  docker run --rm --interactive --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE" <<'PY_MIGRATIONS'
 import base64, hashlib, json
 from importlib import resources
 root=resources.files('tai.migrations')
