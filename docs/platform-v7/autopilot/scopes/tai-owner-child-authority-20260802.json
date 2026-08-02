@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-child-authority-20260802",
+  "status": "active",
+  "title": "TAI owner direct REG.RU preflight authority",
+  "priority": "P0",
+  "baselineExactMain": "fcc2ed1ff818de38c8ebf1463b0ec64c3b53f74f",
+  "objective": "Replace the lossy child workflow_dispatch with a direct owner-authorized TAI REG.RU preflight run that publishes the exact six-job authority expected by the existing restricted Qwen activation workflow.",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    "docs/platform-v7/autopilot/scopes/tai-owner-child-authority-20260802.json"
+  ],
+  "boundaries": [
+    "Command is accepted only on issue 3365",
+    "Exact command is /tai preflight current-main",
+    "Comment author, actor and triggering actor must equal the repository owner",
+    "Target SHA is resolved from current main and revalidated before image inspection",
+    "TAI image revision, non-root runtime user and immutable digest are mandatory",
+    "REG.RU preflight runs only through the existing least-privilege self-hosted controller",
+    "The workflow publishes the six exact job names required by restricted Qwen activation",
+    "No Qwen activation or production mutation occurs before preflight PASS",
+    "Zero new recurring cost"
+  ]
+}

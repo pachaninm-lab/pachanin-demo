@@ -1,10 +1,10 @@
-name: TAI Exact-Release Owner Command
+name: TAI REG.RU Preflight
 
 on:
   pull_request:
     paths:
       - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
-      - "docs/platform-v7/autopilot/scopes/tai-owner-command-exact-release-20260802.json"
+      - "docs/platform-v7/autopilot/scopes/tai-owner-child-authority-20260802.json"
   issue_comment:
     types: [created]
 
@@ -12,46 +12,52 @@ permissions:
   contents: read
 
 concurrency:
-  group: tai-exact-release-owner-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  group: tai-owner-direct-preflight-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  contract:
-    name: Validate owner exact-release command contract
-    if: github.event_name == 'pull_request'
+  upstream_build_gate:
+    name: Require successful canonical image build
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai preflight current-main'
+      )
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
     steps:
       - uses: actions/checkout@v4
-      - name: Validate exact command and downstream authority
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate owner command contract
+        if: github.event_name == 'pull_request'
         run: |
           set -Eeuo pipefail
           source=.github/workflows/tai-reg-ru-preflight-owner-command.yml
           grep -Fq "github.event.issue.number == 3365" "$source"
-          grep -Fq "github.event.comment.body == '/tai release current-main'" "$source"
+          grep -Fq "github.event.comment.body == '/tai preflight current-main'" "$source"
           grep -Fq '[[ "$COMMENTER" == "$OWNER" ]]' "$source"
           grep -Fq '[[ "$ACTOR" == "$OWNER" ]]' "$source"
           grep -Fq '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]' "$source"
-          grep -Fq 'actions/workflows/docker-publish.yml/dispatches' "$source"
-          grep -Fq 'actions/workflows/production-full-stack-exact-sha.yml/dispatches' "$source"
-          grep -Fq 'actions/workflows/tai-reg-ru-preflight.yml/dispatches' "$source"
-          grep -Fq 'DEPLOY-FULL-STACK-EXACT-SHA' "$source"
-          grep -Fq 'PREFLIGHT-TAI-REG-RU' "$source"
-
-  dispatch:
-    name: Dispatch exact-current-main images, platform and TAI preflight
-    if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3365 &&
-      github.event.comment.body == '/tai release current-main'
-    runs-on: ubuntu-24.04
-    permissions:
-      actions: write
-      contents: read
-      issues: write
-    steps:
+          for name in \
+            'Require successful canonical image build' \
+            'Least-privilege preflight contract' \
+            'Exact-main canonical TAI image authority' \
+            'Exact-main REG.RU controller inventory' \
+            'Publish REG.RU preflight status' \
+            'Confirm REG.RU preflight chain result'; do
+            grep -Fq "name: $name" "$source"
+          done
       - name: Enforce repository-owner command authority
+        if: github.event_name == 'issue_comment'
         env:
           COMMENTER: ${{ github.event.comment.user.login }}
           ACTOR: ${{ github.actor }}
@@ -62,8 +68,8 @@ jobs:
           [[ "$COMMENTER" == "$OWNER" ]]
           [[ "$ACTOR" == "$OWNER" ]]
           [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
-
       - name: Resolve exact current main
+        if: github.event_name == 'issue_comment'
         id: target
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,47 +78,230 @@ jobs:
           target_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
           echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "short=${target_sha:0:7}" >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch canonical exact-SHA images
-        env:
-          GH_TOKEN: ${{ github.token }}
+  contract:
+    name: Least-privilege preflight contract
+    needs: upstream_build_gate
+    if: >-
+      needs.upstream_build_gate.result == 'success' &&
+      (
+        github.event_name == 'pull_request' ||
+        github.event_name == 'issue_comment'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate controller and preflight authority
         run: |
           set -Eeuo pipefail
-          gh api --method POST -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/docker-publish.yml/dispatches" \
-            -f ref='main' \
-            -f 'inputs[services]=all'
+          bash -n scripts/pc-tai-release-controller.sh
+          bash -n scripts/install-pc-prod-actions-runner.sh
+          bash -n scripts/resume-pc-prod-actions-runner.sh
+          node scripts/check-resume-pc-prod-actions-runner.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-preflight.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
 
-      - name: Dispatch canonical exact-SHA full-stack release
+  image_authority:
+    name: Exact-main canonical TAI image authority
+    needs: [upstream_build_gate, contract]
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.upstream_build_gate.result == 'success' &&
+      needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
+      reference: ${{ steps.image.outputs.reference }}
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Revalidate exact current main
+        id: target
+        env:
+          TARGET_SHA: ${{ needs.upstream_build_gate.outputs.target_sha }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Verify canonical exact-SHA TAI image outside production
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        run: |
+          set -Eeuo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          image="ghcr.io/pachaninm-lab/grainflow-tai:sha-${SHORT_SHA}"
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker pull "$image" >/dev/null 2>&1; then
+              revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+              user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+              digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
+              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 10
+          done
+          (( ready == 1 )) || { echo 'Exact TAI image is unavailable or invalid.' >&2; exit 2; }
+          echo "reference=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Publish local-runner pending status
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         run: |
           set -Eeuo pipefail
           gh api --method POST -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/production-full-stack-exact-sha.yml/dispatches" \
-            -f ref='main' \
-            -f "inputs[target_sha]=$TARGET_SHA" \
-            -f 'inputs[confirmation]=DEPLOY-FULL-STACK-EXACT-SHA'
+            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state='pending' \
+            -f context='TAI REG.RU Preflight' \
+            -f description='Awaiting least-privilege REG.RU controller' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+      - name: Remove hosted registry session
+        if: always()
+        run: docker logout ghcr.io >/dev/null 2>&1 || true
 
-      - name: Dispatch canonical fail-closed TAI preflight
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
+  live_preflight:
+    name: Exact-main REG.RU controller inventory
+    needs: image_authority
+    if: needs.image_authority.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    permissions:
+      contents: read
+      packages: none
+      statuses: none
+    timeout-minutes: 35
+    env:
+      TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+      TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
+      TAI_IMAGE: ${{ needs.image_authority.outputs.reference }}
+      TAI_DIGEST: ${{ needs.image_authority.outputs.digest }}
+    steps:
+      - name: Verify non-root runner and restricted controller authority
         run: |
           set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          [[ ! -r /etc/pc-release-authority/actions-runner.json ]]
+          [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/pc-tai-release-controller)" == root:pcactions:750 ]]
+          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Execute protected read-only preflight
+        run: |
+          set -Eeuo pipefail
+          sudo -n /usr/local/sbin/pc-tai-release-controller \
+            preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
+      - name: Upload redacted preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-reg-ru-preflight-${{ env.TARGET_SHORT }}-${{ github.run_id }}
+          path: /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/preflight.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce preflight result
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          python3 - "/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/preflight.json" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          blockers=report.get('blockers') or []
+          if report.get('passed') is not True or blockers:
+              raise SystemExit(f'blocked: {blockers}')
+          PY
+
+  publish_status:
+    name: Publish REG.RU preflight status
+    if: always() && needs.image_authority.outputs.target_sha != ''
+    needs: [image_authority, live_preflight]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/download-artifact@v4
+        if: needs.live_preflight.result == 'success'
+        with:
+          name: tai-reg-ru-preflight-${{ needs.image_authority.outputs.target_short }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/preflight
+      - name: Publish exact-main preflight commit status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+          LIVE_RESULT: ${{ needs.live_preflight.result }}
+        run: |
+          set -Eeuo pipefail
+          report="$RUNNER_TEMP/preflight/preflight.json"
+          state=error
+          description='REG.RU controller execution failed before evidence'
+          if [[ "$LIVE_RESULT" == success && -s "$report" ]]; then
+            read -r state description < <(python3 - "$report" <<'PY'
+          import json,sys
+          result=json.load(open(sys.argv[1],encoding='utf-8'))
+          blockers=result.get('blockers') or []
+          if result.get('passed') is True and not blockers:
+              print('success TAI REG.RU preflight PASS')
+          else:
+              print(f'failure BLOCKED: {len(blockers)} prerequisite(s)')
+          PY
+            )
+          fi
           gh api --method POST -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-preflight.yml/dispatches" \
-            -f ref='main' \
-            -f "inputs[target_sha]=$TARGET_SHA" \
-            -f 'inputs[confirmation]=PREFLIGHT-TAI-REG-RU'
+            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state="$state" \
+            -f context='TAI REG.RU Preflight' \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
-      - name: Publish dispatch evidence
+  result_gate:
+    name: Confirm REG.RU preflight chain result
+    needs: [upstream_build_gate, contract, image_authority, live_preflight, publish_status]
+    if: always() && github.event_name == 'issue_comment'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped preflight jobs
         env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          UPSTREAM_RESULT: ${{ needs.upstream_build_gate.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          PREFLIGHT_RESULT: ${{ needs.live_preflight.result }}
+          PUBLISH_RESULT: ${{ needs.publish_status.result }}
         run: |
           set -Eeuo pipefail
-          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
-            "TAI exact-release chain dispatched for \`$TARGET_SHA\`: canonical images, exact-SHA platform release and fail-closed TAI preflight. Each downstream workflow retains independent exact-main, confirmation and rollback authority."
+          [[ "$UPSTREAM_RESULT" == success ]]
+          [[ "$CONTRACT_RESULT" == success ]]
+          [[ "$IMAGE_RESULT" == success ]]
+          [[ "$PREFLIGHT_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]
