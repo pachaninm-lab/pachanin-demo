@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-agro-chat-turn-binding",
+  "status": "active",
+  "purpose": "Eliminate one-turn answer bleed and make the public TAI behave as a conversational agricultural and agribusiness assistant while preserving verified platform grounding and read-only safety boundaries.",
+  "approvedBy": "owner-direct-implement-2026-08-02",
+  "authorityBaseExactMain": "96698227a970f7efea8a5142ed36e7a7885536f1",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-public-agro-chat-turn-binding-20260802.json",
+    "apps/web/next.config.js",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/lib/platform-v7/agro-chat-context.ts",
+    "apps/web/tests/unit/platformV7AgroChatTurnBinding.test.ts",
+    "apps/web/tests/unit/platformV7AgroChatRouteContract.test.ts"
+  ],
+  "requiredBehavior": [
+    "each complete new question is answered from the current turn rather than the previous topic",
+    "explicit follow-up questions retain bounded conversation context",
+    "general agriculture agribusiness livestock machinery and farm-management questions reach the local Qwen reasoning contour",
+    "explicit Transparent Price platform questions remain on verified governed grounding",
+    "RU EN and ZH remain supported",
+    "public mode remains read-only",
+    "sensitive values are blocked before model execution",
+    "current prices weather news laws rates and statistics are not invented without governed current evidence",
+    "local signed HMAC model authority is preserved",
+    "no new recurring cost and no paid external model API"
+  ],
+  "forbiddenCapabilities": [
+    "answering a prior question instead of the current question",
+    "treating all short questions as platform questions",
+    "client-selected role or tenant",
+    "private workspace or cross-tenant data access",
+    "autonomous platform financial veterinary agronomic or machinery write actions",
+    "fabricated integrations platform status prices weather laws regulations or statistics",
+    "external paid model calls",
+    "exposing model runtime errors secrets reasoning or tool calls to the user"
+  ]
+}
