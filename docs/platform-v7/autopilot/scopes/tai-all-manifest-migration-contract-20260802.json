@@ -12,6 +12,7 @@
   "productionMutationAllowedBeforeMerge": false,
   "allowedPaths": [
     "scripts/check-tai-migration-sql-normalization.mjs",
+    "scripts/check-tai-reg-ru-deploy.mjs",
     "docs/platform-v7/autopilot/scopes/tai-all-manifest-migration-contract-20260802.json"
   ],
   "requiredBehavior": [
@@ -19,6 +20,7 @@
     "validate every listed version path and SHA-256",
     "execute the exact production generator against the complete bundle",
     "identify the exact failing migration path in CI without REG.RU production access",
+    "run through the existing TAI deployment contract path-filter and checker import",
     "retain wrapped plain empty and unbalanced fixture coverage",
     "perform no production mutation",
     "preserve REG.RU-only hosting and zero new recurring cost"
@@ -34,6 +36,7 @@
   "acceptance": {
     "allManifestEntriesExercised": true,
     "exactProductionGeneratorUsed": true,
+    "deploymentContractTriggered": true,
     "exactHeadRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0
