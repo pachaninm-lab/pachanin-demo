@@ -13,8 +13,11 @@ on:
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
       - "scripts/check-tai-local-model-key-authority.mjs"
+      - "scripts/check-tai-reg-ru-release-chain.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
       - "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
+      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
   workflow_run:
     workflows: ["TAI REG.RU Preflight"]
     types: [completed]
@@ -28,20 +31,96 @@ on:
         description: Enter ACTIVATE-RESTRICTED-QWEN-REG-RU
         required: true
         type: string
+      upstream_run_id:
+        description: Exact successful TAI REG.RU Preflight run ID
+        required: true
+        type: string
+      upstream_run_attempt:
+        description: Exact successful TAI REG.RU Preflight run attempt
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: tai-restricted-qwen-reg-ru-activation
+  group: tai-restricted-qwen-reg-ru-activation-${{ github.event.pull_request.number || 'production' }}
   cancel-in-progress: false
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
 
 jobs:
+  upstream_preflight_gate:
+    name: Require exact-run REG.RU preflight completion
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Reject an untrusted upstream repository before checkout
+        if: github.event_name == 'workflow_run'
+        env:
+          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Verify exact-attempt preflight job authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          CURRENT_REF: ${{ github.ref }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id || inputs.upstream_run_id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || inputs.upstream_run_attempt }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
+            [[ "$UPSTREAM_CONCLUSION" == success ]]
+            [[ "$UPSTREAM_BRANCH" == main ]]
+          else
+            [[ "$EVENT_NAME" == workflow_dispatch ]]
+            [[ "$CURRENT_REF" == refs/heads/main ]]
+            [[ "$ACTOR" == "$OWNER" ]]
+            [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+            [[ "$CONFIRMATION" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]
+          fi
+          [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/preflight-run.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI REG.RU Preflight' "$GITHUB_REPOSITORY"
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/preflight-jobs.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs "$RUNNER_TEMP/preflight-jobs.json" \
+            'Require successful canonical image build' \
+            'Least-privilege preflight contract' \
+            'Exact-main canonical TAI image authority' \
+            'Exact-main REG.RU controller inventory' \
+            'Publish REG.RU preflight status' \
+            'Confirm REG.RU preflight chain result'
+
   contract:
     name: Least-privilege activation contract
+    needs: upstream_preflight_gate
+    if: needs.upstream_preflight_gate.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -59,6 +138,7 @@ jobs:
           node --check scripts/tai-live-public-ai-acceptance.mjs
           node scripts/check-pc-tai-release-controller.mjs
           node scripts/check-tai-local-model-key-authority.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority
@@ -305,3 +385,30 @@ jobs:
           if [[ "$state" == success ]]; then
             gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Restricted Qwen accepted on REG.RU for exact main \`$TARGET_SHA\`: least-privilege controller, no production inbound SSH, private model transport, RU/EN/ZH SSE PASS and hosted Chromium UI PASS."
           fi
+
+  result_gate:
+    name: Confirm restricted Qwen activation chain result
+    needs: [upstream_preflight_gate, contract, image_authority, activate, acceptance, finalize, publish]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped activation jobs
+        env:
+          UPSTREAM_RESULT: ${{ needs.upstream_preflight_gate.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          ACTIVATE_RESULT: ${{ needs.activate.result }}
+          ACCEPTANCE_RESULT: ${{ needs.acceptance.result }}
+          FINALIZE_RESULT: ${{ needs.finalize.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$UPSTREAM_RESULT" == success ]]
+          [[ "$CONTRACT_RESULT" == success ]]
+          [[ "$IMAGE_RESULT" == success ]]
+          [[ "$ACTIVATE_RESULT" == success ]]
+          [[ "$ACCEPTANCE_RESULT" == success ]]
+          [[ "$FINALIZE_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]

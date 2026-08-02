@@ -24,6 +24,22 @@ ROLE_NAME="tai_runtime"
 OVERRIDE=""
 MUTATION_STARTED=0
 STATE_ROOT_CREATED_THIS_ATTEMPT=0
+DEPLOY_STAGE_FILE="${MODEL_EVIDENCE_FILE%/*}/deploy-stage-error.log"
+[[ "$DEPLOY_STAGE_FILE" == "/var/lib/pc-release-authority/controller-jobs/$RUN_ID/deploy-stage-error.log" ]] || {
+  printf 'ERROR_CODE=TAI_DEPLOY_STAGE_PATH_INVALID\n' >&2
+  exit 15
+}
+
+set_internal_deploy_stage() {
+  local code="$1"
+  [[ "$code" =~ ^[A-Z][A-Z0-9]*_[A-Z0-9_]+$ ]] || {
+    printf 'ERROR_CODE=TAI_DEPLOY_STAGE_CODE_INVALID\n' >&2
+    exit 16
+  }
+  printf 'ERROR_CODE=%s\n' "$code" > "$DEPLOY_STAGE_FILE"
+  chmod 0600 "$DEPLOY_STAGE_FILE"
+}
+
 ROLE_CREATED=0
 PREVIOUS_TAI=0
 DC_BASE=()
@@ -40,6 +56,11 @@ MIGRATION_SQL=""
 BOOTSTRAP_AUTHORITY=""
 BOOTSTRAP_SQL=""
 MIGRATION_COUNT=0
+# Bounded convergence window for the production web and API containers.
+# Long enough for an ordinary rolling restart, short enough that a release
+# that is genuinely stuck fails inside the job rather than holding the lock.
+EXACT_MAIN_CONVERGENCE_TIMEOUT_SECONDS=300
+EXACT_MAIN_CONVERGENCE_POLL_SECONDS=5
 PERMANENT_MODEL_ADMISSION_STATUS="NOT_ATTESTED"
 
 restore_file() {
@@ -70,10 +91,26 @@ psql_admin() {
   docker exec -i "$DB_ID" psql -X --set ON_ERROR_STOP=1 -U "$DB_ADMIN" -d "$DB_NAME" "$@"
 }
 
+psql_admin_file() {
+  local path="$1" authority
+  case "$path" in
+    "$MIGRATION_SQL") authority='migration' ;;
+    "$BOOTSTRAP_SQL") authority='bootstrap' ;;
+    *) echo "TAI_SQL_INPUT_AUTHORITY_INVALID" >&2; return 24 ;;
+  esac
+  [[ -f "$path" && ! -L "$path" ]] || { echo "TAI_SQL_INPUT_FILE_INVALID_${authority^^}" >&2; return 25; }
+  [[ "$(stat -c '%U:%G:%a' "$path")" == root:root:600 ]] || {
+    echo "TAI_SQL_INPUT_PERMISSIONS_INVALID_${authority^^}" >&2
+    return 26
+  }
+  docker exec -i "$DB_ID" psql -X --set ON_ERROR_STOP=1 -U "$DB_ADMIN" -d "$DB_NAME" < "$path"
+}
+
 apply_tai_migrations() {
   MIGRATION_BUNDLE="$STATE_ROOT/migration-bundle.json"
   MIGRATION_SQL="$STATE_ROOT/migration-apply.sql"
-  docker run --rm --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE" <<'PY_MIGRATIONS'
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED
+  docker run --rm --interactive --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE" <<'PY_MIGRATIONS'
 import base64, hashlib, json
 from importlib import resources
 root=resources.files('tai.migrations')
@@ -90,6 +127,7 @@ for item in manifest.get('migrations') or []:
 print(json.dumps({'schemaVersion':'tai.exact-image-migration-bundle.v1','migrations':rows},sort_keys=True,separators=(',',':')))
 PY_MIGRATIONS
   chmod 0600 "$MIGRATION_BUNDLE"
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED
   python3 - "$MIGRATION_BUNDLE" "$MIGRATION_SQL" "$TARGET_SHA" <<'PY_MIGRATION_SQL'
 import base64,json,re,sys
 bundle_path,output_path,target_sha=sys.argv[1:]
@@ -101,14 +139,20 @@ def literal(value):
 lines=["CREATE TABLE IF NOT EXISTS public.tai_schema_migrations (version INTEGER PRIMARY KEY CHECK (version > 0), path TEXT NOT NULL UNIQUE, sha256 TEXT NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'), target_sha TEXT NOT NULL CHECK (target_sha ~ '^[0-9a-f]{40}$'), applied_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp());"]
 for item in bundle.get('migrations') or []:
     version=item['version']; path=item['path']; digest=item['sha256']; raw=base64.b64decode(item['contentBase64'],validate=True).decode('utf-8')
-    match=re.fullmatch(r'\s*BEGIN;\s*(.*?)\s*COMMIT;\s*',raw,re.S|re.I)
-    if not match: raise SystemExit(f'migration transaction boundary invalid: {path}')
-    body=match.group(1).strip(); prefix=f'tai_m{version}_'
+    wrapped=re.fullmatch(r'\s*BEGIN\s*;\s*(.*?)\s*COMMIT\s*;\s*',raw,re.S|re.I)
+    leading=bool(re.match(r'\s*BEGIN\s*;',raw,re.I))
+    trailing=bool(re.search(r'COMMIT\s*;\s*$',raw,re.I))
+    if leading != trailing: raise SystemExit(f'unbalanced outer migration transaction boundary: {path}')
+    body=(wrapped.group(1) if wrapped else raw).strip()
+    if not body: raise SystemExit(f'empty migration body: {path}')
+    prefix=f'tai_m{version}_'
     lines.extend(["DO $tai_guard$ BEGIN IF EXISTS (SELECT 1 FROM public.tai_schema_migrations WHERE version = " + str(version) + " AND (path <> " + literal(path) + " OR sha256 <> " + literal(digest) + ")) THEN RAISE EXCEPTION 'TAI migration ledger mismatch for version " + str(version) + "'; END IF; END $tai_guard$;", "SELECT EXISTS (SELECT 1 FROM public.tai_schema_migrations WHERE version = " + str(version) + " AND path = " + literal(path) + " AND sha256 = " + literal(digest) + ") AS applied \gset " + prefix, "\if :" + prefix + "applied", "\echo verified existing TAI migration " + str(version), "\else", "BEGIN;", body, "INSERT INTO public.tai_schema_migrations(version,path,sha256,target_sha) VALUES (" + str(version) + "," + literal(path) + "," + literal(digest) + "," + literal(target_sha) + ");", "COMMIT;", "\endif"])
 open(output_path,'w',encoding='utf-8').write('\n'.join(lines)+'\n')
 PY_MIGRATION_SQL
   chmod 0600 "$MIGRATION_SQL"
-  psql_admin -f "$MIGRATION_SQL"
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_APPLICATION_FAILED
+  psql_admin_file "$MIGRATION_SQL"
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_LEDGER_VERIFICATION_FAILED
   expected_count="$(python3 - "$MIGRATION_BUNDLE" <<'PY_COUNT'
 import json,sys
 print(len(json.load(open(sys.argv[1],encoding='utf-8'))['migrations']))
@@ -144,7 +188,7 @@ lines=['BEGIN;', "UPDATE public.tai_local_model_profiles SET status='DISABLED', 
 open(sys.argv[2],'w',encoding='utf-8').write('\n'.join(lines)+'\n')
 PY_BOOTSTRAP_SQL
   chmod 0600 "$BOOTSTRAP_SQL"
-  psql_admin -f "$BOOTSTRAP_SQL"
+  psql_admin_file "$BOOTSTRAP_SQL"
 }
 
 rollback_now() {
@@ -179,9 +223,46 @@ SQL
 }
 trap 'rollback_now $?' ERR INT TERM
 
-mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-(( ${#web_ids[@]} == 1 )) || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
-web_id="${web_ids[0]}"
+# Wait for the production web and API containers to reach TARGET_SHA before
+# anything else is inspected.
+#
+# The standalone TAI deployment is triggered by the activation workflow
+# finishing, which happens while the web and API containers may still be rolling
+# to the new revision. Reading the topology at that moment produced an immediate
+# exact-main mismatch and failed the release for a reason that would have
+# resolved itself seconds later. The wait is bounded and fail-closed: a revision
+# that never converges is still a failure, with a code that says which container
+# never arrived — it is a race that is being removed, not a check.
+wait_for_exact_main_container() {
+  local service="$1" deadline id revision last='none'
+  deadline=$(( SECONDS + EXACT_MAIN_CONVERGENCE_TIMEOUT_SECONDS ))
+  while :; do
+    mapfile -t ids < <(docker ps -q --filter "label=com.docker.compose.service=$service")
+    if (( ${#ids[@]} == 1 )); then
+      id="${ids[0]}"
+      revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id" 2>/dev/null || true)"
+      if [[ "$revision" == "$TARGET_SHA" ]]; then
+        printf '%s' "$id"
+        return 0
+      fi
+      last="${revision:-missing}"
+    else
+      last="${#ids[@]}_running"
+    fi
+    (( SECONDS < deadline )) || {
+      echo "EXACT_MAIN_${service^^}_CONVERGENCE_TIMEOUT last=${last}" >&2
+      return 1
+    }
+    sleep "$EXACT_MAIN_CONVERGENCE_POLL_SECONDS"
+  done
+}
+
+set_internal_deploy_stage TAI_DEPLOY_WEB_API_CONVERGENCE_FAILED
+web_id="$(wait_for_exact_main_container web)" || exit 10
+api_wait_id="$(wait_for_exact_main_container api)" || exit 10
+[[ "$web_id" =~ ^[0-9a-f]{12,64}$ ]] || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
+[[ "$api_wait_id" =~ ^[0-9a-f]{12,64}$ ]] || { echo "COMPOSE_API_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
+set_internal_deploy_stage TAI_DEPLOY_COMPOSE_METADATA_DISCOVERY_FAILED
 prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
 prod_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
 prod_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
@@ -204,15 +285,18 @@ for file in "${compose_files[@]}"; do test -f "$file"; done
 
 DC_BASE=(docker compose --project-directory "$prod_dir" --project-name "$prod_project")
 for file in "${compose_files[@]}"; do DC_BASE+=(-f "$file"); done
+set_internal_deploy_stage TAI_DEPLOY_COMPOSE_RENDER_FAILED
 COMPOSE_JSON="$(mktemp)"
 CONTAINERS_JSON="$(mktemp)"
 TOPOLOGY_ENV="$(mktemp)"
 "${DC_BASE[@]}" config --format json > "$COMPOSE_JSON"
+set_internal_deploy_stage TAI_DEPLOY_PROJECT_CONTAINER_INSPECTION_FAILED
 mapfile -t project_container_ids < <(
   docker ps -q --filter "label=com.docker.compose.project=$prod_project"
 )
 (( ${#project_container_ids[@]} >= 1 )) || { echo "COMPOSE_PROJECT_HAS_NO_RUNNING_CONTAINERS" >&2; exit 10; }
 docker inspect "${project_container_ids[@]}" > "$CONTAINERS_JSON"
+set_internal_deploy_stage TAI_DEPLOY_POSTGRES_AUTHORITY_RESOLUTION_FAILED
 python3 - "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV" "$TARGET_SHA" "$prod_project" <<'PY_POSTGRES_AUTHORITY'
 import json
 import posixpath
@@ -457,6 +541,7 @@ with open(output_path, "w", encoding="utf-8") as output:
     output.write(f"DB_ADMIN={shlex.quote(postgres_user)}\n")
 PY_POSTGRES_AUTHORITY
 # shellcheck disable=SC1090
+set_internal_deploy_stage TAI_DEPLOY_TOPOLOGY_ENV_IMPORT_FAILED
 source "$TOPOLOGY_ENV"
 rm -f "$COMPOSE_JSON" "$CONTAINERS_JSON" "$TOPOLOGY_ENV"
 COMPOSE_JSON=""
@@ -468,6 +553,7 @@ TOPOLOGY_ENV=""
 [[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
 [[ "$DB_ADMIN" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]]
 
+set_internal_deploy_stage TAI_DEPLOY_PREVIOUS_TAI_AUTHORITY_FAILED
 mapfile -t previous_tai_ids < <(
   docker ps -aq \
     --filter "label=com.docker.compose.project=$prod_project" \
@@ -482,12 +568,21 @@ elif [[ -f "$OVERRIDE" || -f "$ENV_FILE" ]]; then
   exit 13
 fi
 
-web_id="$("${DC_BASE[@]}" ps -q web | head -1)"
-test -n "$web_id"
+# Re-resolve inside the compose project rather than reusing the earlier id, but
+# keep the exactly-one requirement: `head -1` would silently pick a winner if a
+# second web container ever existed, which is precisely the ambiguity the
+# authority checks exist to refuse.
+set_internal_deploy_stage TAI_DEPLOY_EXACT_MAIN_RUNTIME_ASSERTION_FAILED
+mapfile -t project_web_ids < <("${DC_BASE[@]}" ps -q web)
+(( ${#project_web_ids[@]} == 1 )) || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
+web_id="${project_web_ids[0]}"
+[[ "$web_id" =~ ^[0-9a-f]{12,64}$ ]] || { echo "COMPOSE_WEB_AUTHORITY_AMBIGUOUS" >&2; exit 10; }
 test "$API_ID" = "$(docker inspect --format '{{.Id}}' "$API_ID")"
 test "$DB_ID" = "$(docker inspect --format '{{.Id}}' "$DB_ID")"
-test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$API_ID")" = "$TARGET_SHA"
-test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" = "$TARGET_SHA"
+[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$API_ID")" == "$TARGET_SHA" ]] \
+  || { echo "API_EXACT_MAIN_MISMATCH" >&2; exit 10; }
+[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$TARGET_SHA" ]] \
+  || { echo "WEB_EXACT_MAIN_MISMATCH" >&2; exit 10; }
 test "$(docker inspect --format '{{.State.Status}}' "$DB_ID")" = running
 
 env_value_from_container() {
@@ -499,15 +594,20 @@ test "$(env_value_from_container "$DB_ID" POSTGRES_USER)" = "$DB_ADMIN"
 test "$(env_value_from_container "$DB_ID" POSTGRES_DB)" = "$DB_NAME"
 docker exec "$DB_ID" psql --version >/dev/null
 
+set_internal_deploy_stage TAI_DEPLOY_STATE_AUTHORITY_PREPARATION_FAILED
 mkdir -- "$STATE_ROOT" || { echo "STATE_ROOT_ALREADY_EXISTS_OR_UNAVAILABLE" >&2; exit 14; }
 STATE_ROOT_CREATED_THIS_ATTEMPT=1
 mkdir -p /etc/transparent-price
 chmod 0700 "$STATE_ROOT" /etc/transparent-price
 
+set_internal_deploy_stage TAI_DEPLOY_MIGRATIONS_FAILED
 apply_tai_migrations
+set_internal_deploy_stage TAI_DEPLOY_BOOTSTRAP_AUTHORITY_BUILD_FAILED
 build_bootstrap_authority
+set_internal_deploy_stage TAI_DEPLOY_BOOTSTRAP_AUTHORITY_APPLY_FAILED
 apply_bootstrap_authority
 
+set_internal_deploy_stage TAI_DEPLOY_BOOTSTRAP_VERIFICATION_FAILED
 authority_row="$(psql_admin -AtF $'\t' <<'SQL'
 SELECT p.model_id, p.revision, p.artifact_sha256
 FROM public.tai_local_model_profiles AS p
@@ -537,6 +637,7 @@ env_value() {
   awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE"
 }
 
+set_internal_deploy_stage TAI_DEPLOY_RUNTIME_ROLE_BOUNDARY_FAILED
 role_exists="$(psql_admin -Atc "SELECT COUNT(*) FROM pg_roles WHERE rolname = '${ROLE_NAME}';")"
 [[ "$role_exists" == 0 || "$role_exists" == 1 ]]
 if [[ "$role_exists" == 1 ]]; then
@@ -617,10 +718,12 @@ else
   identity_secret="$(openssl rand -base64 48 | tr -d '\n')"
   confirmation_secret="$(openssl rand -base64 48 | tr -d '\n')"
 fi
+set_internal_deploy_stage TAI_DEPLOY_RUNTIME_SECRET_PREPARATION_FAILED
 model_token="$(cat "$TOKEN_FILE")"
 [[ "${#model_token}" -ge 32 ]]
 [[ "$model_token" != *[[:space:]]* ]]
 
+set_internal_deploy_stage TAI_DEPLOY_RUNTIME_CONFIGURATION_FAILED
 backup_file "$ENV_FILE"
 backup_file "$OVERRIDE"
 cat > "$STATE_ROOT/metadata.env" <<EOF
@@ -638,9 +741,11 @@ PREVIOUS_TAI=$PREVIOUS_TAI
 EOF
 chmod 0600 "$STATE_ROOT/metadata.env"
 
+set_internal_deploy_stage TAI_DEPLOY_RUNTIME_MATERIALIZATION_FAILED
 MUTATION_STARTED=1
 touch "$STATE_ROOT/MUTATION_STARTED"
 
+set_internal_deploy_stage TAI_DEPLOY_DATABASE_ROLE_MATERIALIZATION_FAILED
 if [[ "$role_exists" == 0 ]]; then
   psql_admin <<SQL
 CREATE ROLE ${ROLE_NAME}
@@ -702,6 +807,7 @@ SQL
   [[ "$effective_non_tai" == 0 ]]
 fi
 
+set_internal_deploy_stage TAI_DEPLOY_ENVIRONMENT_MATERIALIZATION_FAILED
 cat > "$ENV_FILE.tmp" <<EOF
 TAI_RUNTIME_MODE=production
 TAI_DATABASE_URL=postgresql://${ROLE_NAME}:${db_password}@${DB_SERVICE}:5432/${DB_NAME}
@@ -729,6 +835,7 @@ EOF
 install -m 0600 -o root -g root "$ENV_FILE.tmp" "$ENV_FILE"
 rm -f "$ENV_FILE.tmp" "$TOKEN_FILE"
 
+set_internal_deploy_stage TAI_DEPLOY_OVERRIDE_MATERIALIZATION_FAILED
 cat > "$OVERRIDE.tmp" <<YAML
 services:
   tai:
@@ -762,14 +869,18 @@ install -m 0600 -o root -g root "$OVERRIDE.tmp" "$OVERRIDE"
 rm -f "$OVERRIDE.tmp"
 
 DC_TAI=("${DC_BASE[@]}" -f "$OVERRIDE")
+set_internal_deploy_stage TAI_DEPLOY_COMPOSE_VALIDATION_FAILED
 "${DC_TAI[@]}" config --quiet
+set_internal_deploy_stage TAI_DEPLOY_IMAGE_MATERIALIZATION_FAILED
 docker pull "$TAI_IMAGE_DIGEST" >/dev/null
 expected_image_id="$(docker image inspect --format '{{.Id}}' "$TAI_IMAGE_DIGEST")"
 remote_digest_match="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$TAI_IMAGE_DIGEST" | grep -Fx "$TAI_IMAGE_DIGEST")"
 [[ "$expected_image_id" =~ ^sha256:[0-9a-f]{64}$ && "$remote_digest_match" == "$TAI_IMAGE_DIGEST" ]]
+set_internal_deploy_stage TAI_DEPLOY_CONTAINER_MATERIALIZATION_FAILED
 "${DC_TAI[@]}" up -d --no-deps --pull never tai
 
 tai_id=""
+set_internal_deploy_stage TAI_DEPLOY_RUNTIME_HEALTHCHECK_FAILED
 for _ in $(seq 1 60); do
   tai_id="$("${DC_TAI[@]}" ps -q tai | head -1)"
   if [[ -n "$tai_id" ]]; then
@@ -789,6 +900,7 @@ test "$(docker exec "$tai_id" id -u)" = 65532
 test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$tai_id")" = true
 [[ "$(docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$tai_id")" == *no-new-privileges:true* ]]
 
+set_internal_deploy_stage TAI_DEPLOY_RUNTIME_PRINCIPAL_PROOF_FAILED
 docker exec -i "$tai_id" python - <<'PY' > "$STATE_ROOT/runtime-proof.json"
 import json
 import os
@@ -847,6 +959,7 @@ if (
 print(json.dumps(proof, sort_keys=True))
 PY
 
+set_internal_deploy_stage TAI_DEPLOY_GROUNDED_INFERENCE_PROOF_FAILED
 docker exec -i "$tai_id" python - <<'PY' > "$STATE_ROOT/inference-proof.json"
 import base64
 import json
@@ -944,6 +1057,7 @@ if (
 print(json.dumps(proof, sort_keys=True))
 PY
 
+set_internal_deploy_stage TAI_DEPLOY_ROLLBACK_AUTHORITY_BUILD_FAILED
 cat > "$STATE_ROOT/rollback.sh" <<'ROLLBACK'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -999,6 +1113,7 @@ echo "TAI_REG_RU_ROLLBACK=PASS"
 ROLLBACK
 chmod 0700 "$STATE_ROOT/rollback.sh"
 
+set_internal_deploy_stage TAI_DEPLOY_EVIDENCE_GENERATION_FAILED
 python3 - "$TARGET_SHA" "$TAI_IMAGE" "$TAI_IMAGE_DIGEST" "$STATE_ROOT/runtime-proof.json" "$STATE_ROOT/inference-proof.json" "$BOOTSTRAP_AUTHORITY" "$MIGRATION_COUNT" "$PERMANENT_MODEL_ADMISSION_STATUS" > "$STATE_ROOT/evidence.json" <<'PY'
 import json
 import sys

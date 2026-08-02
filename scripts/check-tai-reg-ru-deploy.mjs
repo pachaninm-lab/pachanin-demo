@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import './check-tai-migration-sql-normalization.mjs';
 import { join } from 'node:path';
 
 const workflowPath = '.github/workflows/tai-reg-ru-deploy.yml';
@@ -37,7 +38,33 @@ for (const fragment of [
 ]) requireFragment(workflow, fragment, workflowPath);
 
 for (const fragment of [
+  'TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED',
+  'TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED',
+  'TAI_DEPLOY_MIGRATION_APPLICATION_FAILED',
+  'TAI_DEPLOY_MIGRATION_LEDGER_VERIFICATION_FAILED',
+  'unbalanced outer migration transaction boundary',
+  'empty migration body',
   'TAI_IMAGE_DIGEST',
+  'psql_admin_file()',
+  'psql_admin_file "$MIGRATION_SQL"',
+  'psql_admin_file "$BOOTSTRAP_SQL"',
+  'docker exec -i "$DB_ID" psql -X --set ON_ERROR_STOP=1 -U "$DB_ADMIN" -d "$DB_NAME" < "$path"',
+  'TAI_SQL_INPUT_AUTHORITY_INVALID',
+  'TAI_SQL_INPUT_PERMISSIONS_INVALID_',
+  'set_internal_deploy_stage',
+  'deploy-stage-error.log',
+  'TAI_DEPLOY_WEB_API_CONVERGENCE_FAILED',
+  'TAI_DEPLOY_COMPOSE_RENDER_FAILED',
+  'TAI_DEPLOY_POSTGRES_AUTHORITY_RESOLUTION_FAILED',
+  'TAI_DEPLOY_MIGRATIONS_FAILED',
+  'TAI_DEPLOY_BOOTSTRAP_AUTHORITY_BUILD_FAILED',
+  'TAI_DEPLOY_BOOTSTRAP_AUTHORITY_APPLY_FAILED',
+  'TAI_DEPLOY_BOOTSTRAP_VERIFICATION_FAILED',
+  'TAI_DEPLOY_RUNTIME_ROLE_BOUNDARY_FAILED',
+  'TAI_DEPLOY_COMPOSE_VALIDATION_FAILED',
+  'TAI_DEPLOY_RUNTIME_HEALTHCHECK_FAILED',
+  'TAI_DEPLOY_GROUNDED_INFERENCE_PROOF_FAILED',
+  'TAI_DEPLOY_EVIDENCE_GENERATION_FAILED',
   'image: ${TAI_IMAGE_DIGEST}',
   'docker pull "$TAI_IMAGE_DIGEST"',
   'remote_digest_match=',
@@ -129,6 +156,11 @@ forbid(deploy, /docker\s+compose[^\n]+\bdown\b/iu, deployPath + ': full Compose 
 forbid(deploy, /(?:AI_ASSISTANT_API_KEY|TAI_MODEL_BEARER_TOKEN)[^\n]*(?:echo|printf)/iu, deployPath + ': model credential output is forbidden');
 forbid(deploy, /["']postgres["']\s+in\s+image[.]lower[(][)]/u, deployPath + ': broad PostgreSQL image substring selector is forbidden');
 forbid(deploy, /INSERT\s+INTO\s+(?:public[.])?tai_model_admission_decisions/iu, deployPath + ': fabricated permanent model admission is forbidden');
+forbid(
+  deploy,
+  /psql_admin\s+-f\s+["']\$(?:MIGRATION|BOOTSTRAP)_SQL["']/u,
+  deployPath + ': a host SQL path may not be passed to psql inside the database container',
+);
 
 for (const fragment of [
   "set -Eeuo pipefail",

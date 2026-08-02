@@ -49,14 +49,19 @@ describe('platform-v7 assistant universal question understanding', () => {
     expect(helper).not.toContain('gigachat');
   });
 
-  it('returns a safe clarification and registers only a question hash when no answer is grounded', () => {
-    expect(route).toContain("resolution: 'clarification_required'");
-    expect(route).toContain("event: 'PUBLIC_ASSISTANT_UNANSWERED'");
+  it('records an off-topic question as a hash only, and never tells the reader it was filed', () => {
+    // A redirected question is a signal about what readers expect, so it is
+    // logged — as a hash and a length, never as text. What it must not do is
+    // come back to the reader as a notice that their question was registered:
+    // that sentence gave a person nothing to act on and read like a rejection.
+    expect(route).toContain("event: 'PUBLIC_ASSISTANT_REDIRECTED'");
     expect(route).toContain('questionHash: hashQuestion(message)');
     expect(route).toContain('messageLength: message.length');
     expect(route).not.toContain('questionText: message');
-    expect(route).toContain('escalationId');
-    expect(route).toContain('не придумывает ответ');
+    expect(route).not.toContain('escalationId');
+    expect(route).not.toContain('пробел знаний');
+    expect(route).not.toContain('не смог с достаточной уверенностью');
+    expect(route).not.toContain("resolution: 'clarification_required'");
   });
 
   it('preserves public read-only and no-account-data boundaries', () => {

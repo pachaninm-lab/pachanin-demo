@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import './check-tai-model-artifact-evidence.mjs';
 
 const paths = {
   wrapper: 'scripts/pc-tai-release-controller.sh',
@@ -46,6 +47,15 @@ for (const fragment of [
   'verify_pinned_image',
   'trap activation_exit EXIT',
   'trap deploy_exit EXIT',
+  "grep -hE '^ERROR_CODE=[A-Z][A-Z0-9]*_[A-Z0-9_]+$'",
+  "grep -hE '^[A-Z][A-Z0-9]*_[A-Z0-9_]+$'",
+  '"$job_state/deploy-rollback.log"',
+  '"$job_state/deploy-stage-error.log"',
+  'set_deploy_failure_stage DEPLOY_PREFLIGHT_EXECUTION_FAILED',
+  'set_deploy_failure_stage MODEL_ARTIFACT_EVIDENCE_RECOVERY_FAILED',
+  'set_deploy_failure_stage ACTIVE_MODEL_TOKEN_RECOVERY_FAILED',
+  'set_deploy_failure_stage TAI_STANDALONE_DEPLOY_EXECUTION_FAILED',
+  'clear_deploy_failure_stage',
   'MODEL_KEY_NOT_PROVISIONED',
   'UserKnownHostsFile="$MODEL_KNOWN_HOSTS"',
   'rollback_activation',

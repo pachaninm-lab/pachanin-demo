@@ -79,6 +79,7 @@ const PUBLIC_API_EXACT = new Set([
   // No-secret exact-SHA authority required by the production runbook and release gates.
   '/api/health/ready',
   '/api/public-platform-assistant',
+  '/api/public-platform-assistant/attachments',
   '/api/restricted-public-platform-assistant',
   '/api/platform-v7/organization-connect',
   '/api/platform-v7/inquiries',
