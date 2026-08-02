@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-migration-plain-sql-production-20260802",
+  "status": "active",
+  "purpose": "Repair the exact-main REG.RU standalone TAI migration path after run 30747960550 exposed TAI_DEPLOY_MIGRATIONS_FAILED: preserve immutable historical SQL while accepting both explicitly transaction-wrapped and plain migration files, and publish deterministic migration substage evidence.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "56e79fc35897488947c64dc8eb637c051766c01e",
+  "failureRun": 30747960550,
+  "failureArtifact": 8833496910,
+  "confirmedFailureCode": "TAI_DEPLOY_MIGRATIONS_FAILED",
+  "confirmedRootCause": "Migration version 2, apps/tai/tai/migrations/0002_materialization_claims.sql, is valid plain SQL without BEGIN/COMMIT while the production SQL generator rejected every non-wrapped migration before PostgreSQL application.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/apply-tai-migration-plain-sql-production.yml",
+    "scripts/apply-tai-migration-plain-sql-production.py",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/check-tai-migration-sql-normalization.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-20260802.json"
+  ],
+  "requiredBehavior": [
+    "do not alter historical migration SQL or its digest",
+    "accept fully wrapped BEGIN/COMMIT files and plain SQL files",
+    "reject an empty migration and an unbalanced outer transaction boundary",
+    "always apply each unapplied migration inside a controller-generated transaction",
+    "preserve version path and SHA-256 ledger mismatch fail-closed behavior",
+    "publish separate safe stages for bundle extraction, SQL generation, PostgreSQL application and ledger verification",
+    "remove the temporary source materializer from the final diff",
+    "rerun exact-main REG.RU deployment and strict postflight"
+  ],
+  "forbiddenChanges": [
+    "editing historical migration files",
+    "raw protected log or SQL publication",
+    "credentials model paths tokens or database URLs",
+    "tenant RBAC financial Docker SSH sudo or public-port authority expansion",
+    "new recurring infrastructure cost"
+  ]
+}
