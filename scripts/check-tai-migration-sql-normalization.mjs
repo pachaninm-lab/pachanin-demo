@@ -1,10 +1,13 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const deployPath = 'scripts/tai-reg-ru-deploy.sh';
+const migrationRoot = 'apps/tai/tai/migrations';
+const manifestPath = `${migrationRoot}/manifest.json`;
 const deploy = readFileSync(deployPath, 'utf8');
 const startMarker = "<<'PY_MIGRATION_SQL'\n";
 const endMarker = '\nPY_MIGRATION_SQL\n';
@@ -36,22 +39,20 @@ if (!generator.includes("body=(wrapped.group(1) if wrapped else raw).strip()")) 
 const targetSha = 'a'.repeat(40);
 const root = mkdtempSync(join(tmpdir(), 'tai-migration-normalization-'));
 
-function bundleFor(raw, { version = 1, path = '0001_fixture.sql', digest = 'b'.repeat(64) } = {}) {
+function migrationItem(raw, { version = 1, path = '0001_fixture.sql', digest } = {}) {
   return {
-    schemaVersion: 'tai.exact-image-migration-bundle.v1',
-    migrations: [{
-      version,
-      path,
-      sha256: digest,
-      contentBase64: Buffer.from(raw, 'utf8').toString('base64'),
-    }],
+    version,
+    path,
+    sha256: digest || createHash('sha256').update(raw, 'utf8').digest('hex'),
+    contentBase64: Buffer.from(raw, 'utf8').toString('base64'),
   };
 }
 
-function run(raw, options = {}) {
+function runBundle(migrations) {
   const bundlePath = join(root, `bundle-${Math.random().toString(16).slice(2)}.json`);
   const outputPath = `${bundlePath}.sql`;
-  writeFileSync(bundlePath, `${JSON.stringify(bundleFor(raw, options))}\n`, 'utf8');
+  const bundle = { schemaVersion: 'tai.exact-image-migration-bundle.v1', migrations };
+  writeFileSync(bundlePath, `${JSON.stringify(bundle)}\n`, 'utf8');
   const result = spawnSync('python3', ['-', bundlePath, outputPath, targetSha], {
     input: generator,
     encoding: 'utf8',
@@ -64,8 +65,51 @@ function run(raw, options = {}) {
   };
 }
 
+function run(raw, options = {}) {
+  return runBundle([migrationItem(raw, options)]);
+}
+
 try {
-  const historicalPlain = readFileSync('apps/tai/tai/migrations/0002_materialization_claims.sql', 'utf8');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (manifest.schema_version !== 'tai.migration.manifest.v1') {
+    failures.push('authoritative migration manifest schema mismatch');
+  }
+  const manifestItems = [];
+  const versions = new Set();
+  const paths = new Set();
+  for (const item of manifest.migrations || []) {
+    const version = item?.version;
+    const path = item?.path;
+    if (!Number.isInteger(version) || version < 1 || versions.has(version)) {
+      failures.push(`manifest version authority invalid: ${String(version)}`);
+      continue;
+    }
+    if (typeof path !== 'string' || !path.endsWith('.sql') || path.includes('/') || paths.has(path)) {
+      failures.push(`manifest path authority invalid: ${String(path)}`);
+      continue;
+    }
+    const raw = readFileSync(`${migrationRoot}/${path}`, 'utf8');
+    manifestItems.push(migrationItem(raw, { version, path }));
+    versions.add(version);
+    paths.add(path);
+  }
+  if (manifestItems.length !== (manifest.migrations || []).length || manifestItems.length < 1) {
+    failures.push('not every manifest migration was loaded');
+  } else {
+    const complete = runBundle(manifestItems);
+    if (complete.status !== 0) {
+      failures.push(`complete manifest bundle is rejected: ${complete.stderr.trim()}`);
+    } else {
+      for (const item of manifestItems) {
+        const ledgerNeedle = `INSERT INTO public.tai_schema_migrations(version,path,sha256,target_sha) VALUES (${item.version},'${item.path}'`;
+        if (!complete.sql.includes(ledgerNeedle)) {
+          failures.push(`generated program lost ledger authority for ${item.path}`);
+        }
+      }
+    }
+  }
+
+  const historicalPlain = readFileSync(`${migrationRoot}/0002_materialization_claims.sql`, 'utf8');
   const plain = run(historicalPlain, { version: 2, path: '0002_materialization_claims.sql' });
   if (plain.status !== 0) {
     failures.push(`historical plain SQL migration is still rejected: ${plain.stderr.trim()}`);
@@ -110,4 +154,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('TAI migration SQL normalization contract PASS: historical plain SQL and wrapped migrations are normalized into controller-owned transactions; empty and unbalanced boundaries fail closed.');
+console.log('TAI migration SQL normalization contract PASS: every governed manifest migration plus plain, wrapped, empty and unbalanced fixtures use the exact production generator.');
