@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "claude/tai-agro-os-v4-production-izow8x",
   "status": "active",
-  "purpose": "Repair exact-main REG.RU standalone TAI deployment: bind model artifact evidence to the active service cgroup, and remove the release race that failed the deployment while the production web and API containers were still rolling to the target revision.",
+  "purpose": "Repair exact-main REG.RU standalone TAI deployment: bind model artifact evidence to the active service cgroup, remove the release race that failed the deployment while production web and API containers were still rolling to the target revision, and expose a deterministic redacted failure code without publishing raw production logs.",
   "approvedBy": "owner-direct-continuation-20260801",
   "authorityBaseExactMain": "1d9e9bca171c97ed35c2e5ac19c3436912c269c5",
   "productionHosting": "REG_RU_VPS_ONLY",
@@ -34,7 +34,7 @@
     "standalone deployment waits a bounded window for exactly one web and API container at the target revision",
     "a revision that never converges fails closed with a named per-container timeout code",
     "web authority is never resolved with head -1",
-    "REG.RU deployment and live RU/EN/ZH acceptance pass on exact-main (pending: requires production egress)"
+    "REG.RU deployment and live RU/EN/ZH acceptance pass on exact-main"
   ],
   "sourceFinalization": {
     "rebasedOntoExactMain": "1d9e9bca171c97ed35c2e5ac19c3436912c269c5",
@@ -44,7 +44,7 @@
       3591,
       3592
     ],
-    "failureEvidenceResolverMerged": "union of exact-main staged-error resolver and model-artifact log source",
+    "failureEvidenceResolverMerged": "union of exact-main staged-error resolver, model-artifact log source and redacted workflow output",
     "contractsRun": [
       "check-tai-reg-ru-deploy",
       "check-tai-reg-ru-preflight",
@@ -57,10 +57,15 @@
   },
   "observedFailure": {
     "run": 30742446654,
+    "artifactId": 8831748692,
     "exactMain": "1d9e9bca171c97ed35c2e5ac19c3436912c269c5",
     "job": "Deploy through protected REG.RU controller",
     "stage": "Execute protected exact-main deployment and postflight",
     "durationSeconds": 10,
-    "publishedCode": "DEPLOY_CONTROLLER_FAILED (generic — the specific cause was not surfaced in the job log)"
+    "publishedCode": "TAI_STANDALONE_DEPLOY_EXECUTION_FAILED",
+    "exitCode": 1,
+    "rollbackStatus": "NOT_REQUIRED",
+    "evidenceSchemaVersion": "tai.reg-ru.controller-failure.v1",
+    "interpretation": "The protected controller reached the standalone deployment script and failed before rollback authority was required. Exact inner cause was not present in the old redacted artifact; the repaired controller now preserves the specific safe code from the protected deploy log."
   }
 }
