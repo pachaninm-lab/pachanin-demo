@@ -2,8 +2,8 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "feat/public-assistant-document-upload-20260801",
   "status": "active",
-  "purpose": "Expose bounded document upload in the public TAI assistant and pass extracted source text into the existing local Qwen conversation contour without persistence, tenant expansion, external services or new recurring cost.",
-  "approvedBy": "owner-continue-public-assistant-document-upload-2026-08-01",
+  "purpose": "Expose bounded document and image upload in the public TAI assistant, extract text locally including OCR for scanned PDF and supported images, and pass untrusted source text into the existing local Qwen conversation contour without persistence, tenant expansion, external services or new recurring cost.",
+  "approvedBy": "owner-require-document-upload-ocr-production-2026-08-02",
   "authorityBaseExactMain": "120539e1256b0c2455b87e6a9c8c00311b2a40b9",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -14,23 +14,29 @@
     "apps/web/components/platform-v7/PublicAssistantAttachmentBridge.tsx",
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/styles/platform-v7-public-assistant-attachments.css",
+    "infra/docker/Dockerfile.web",
     "docs/platform-v7/autopilot/scopes/public-assistant-document-upload-20260801.json"
   ],
   "requiredBehavior": [
     "expose a mobile-safe paperclip control and removable file chips in the existing public assistant composer",
-    "enforce bounded file count file size total size extracted text and conversation context",
+    "enforce bounded file count per-file size total size OCR page count process timeout extracted text and conversation context",
     "treat extracted document text as untrusted source material rather than instructions or authority",
     "support text-based PDF DOCX XLSX CSV TXT MD JSON and XML without a new paid service",
-    "state unsupported OCR image and legacy DOC limits instead of fabricating support",
+    "support local OCR for scanned PDF PNG JPG JPEG and HEIC using bounded Tesseract Poppler and ImageMagick execution",
+    "delete temporary files after each request and never persist public uploads",
+    "preserve the hardened distroless nonroot production web runtime without shell package manager or expanded production authority",
     "preserve the existing public assistant security boundary and local Qwen execution contour",
+    "state OCR quality and legacy DOC limits instead of fabricating certainty",
     "keep REG.RU-only hosting and zero new recurring cost"
   ],
   "forbiddenCapabilities": [
-    "persistent public document storage",
+    "persistent public document or image storage",
     "tenant role or write-authority expansion",
     "external paid OCR document or LLM service",
-    "raw secret credential or environment publication",
-    "claims of scanned PDF image OCR or legacy DOC support without acceptance evidence",
+    "raw upload protected log secret credential or environment publication",
+    "shell package manager or root execution in the final production web image",
+    "unbounded OCR pages process duration file count file size or extracted text",
+    "claims of handwriting certainty or legacy binary DOC support without acceptance evidence",
     "acceptance weakening continue-on-error or fabricated production PASS"
   ],
   "acceptance": {
@@ -38,6 +44,9 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "productionMutationAllowedBeforeMerge": false
+    "productionMutationAllowedBeforeMerge": false,
+    "distrolessNonrootRuntimeRequired": true,
+    "localOcrRuntimeEvidenceRequired": true,
+    "liveRegRuDocumentAndOcrAcceptanceRequired": true
   }
 }
