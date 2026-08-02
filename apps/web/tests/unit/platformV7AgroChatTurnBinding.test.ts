@@ -62,7 +62,11 @@ describe('public agricultural chat current-turn binding', () => {
     'Какая техника нужна для уборки пшеницы?',
     'Как кормить молочное стадо?',
     'Как работает система орошения?',
-  ])('sends general agricultural questions to the agricultural model: %s', (question) => {
+    'Как оформить сделку по зерну?',
+    'Какова роль азота в питании кукурузы?',
+    'Как интегрировать 1С с учётом фермы?',
+    'Что такое ФГИС «Зерно»?',
+  ])('sends general agricultural and agribusiness questions to the agricultural model: %s', (question) => {
     expect(isVerifiedPlatformQuestion(question)).toBe(false);
   });
 });
