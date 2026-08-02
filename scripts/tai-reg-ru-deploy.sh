@@ -109,6 +109,7 @@ psql_admin_file() {
 apply_tai_migrations() {
   MIGRATION_BUNDLE="$STATE_ROOT/migration-bundle.json"
   MIGRATION_SQL="$STATE_ROOT/migration-apply.sql"
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED
   docker run --rm --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE" <<'PY_MIGRATIONS'
 import base64, hashlib, json
 from importlib import resources
@@ -126,6 +127,7 @@ for item in manifest.get('migrations') or []:
 print(json.dumps({'schemaVersion':'tai.exact-image-migration-bundle.v1','migrations':rows},sort_keys=True,separators=(',',':')))
 PY_MIGRATIONS
   chmod 0600 "$MIGRATION_BUNDLE"
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED
   python3 - "$MIGRATION_BUNDLE" "$MIGRATION_SQL" "$TARGET_SHA" <<'PY_MIGRATION_SQL'
 import base64,json,re,sys
 bundle_path,output_path,target_sha=sys.argv[1:]
@@ -137,14 +139,20 @@ def literal(value):
 lines=["CREATE TABLE IF NOT EXISTS public.tai_schema_migrations (version INTEGER PRIMARY KEY CHECK (version > 0), path TEXT NOT NULL UNIQUE, sha256 TEXT NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'), target_sha TEXT NOT NULL CHECK (target_sha ~ '^[0-9a-f]{40}$'), applied_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp());"]
 for item in bundle.get('migrations') or []:
     version=item['version']; path=item['path']; digest=item['sha256']; raw=base64.b64decode(item['contentBase64'],validate=True).decode('utf-8')
-    match=re.fullmatch(r'\s*BEGIN;\s*(.*?)\s*COMMIT;\s*',raw,re.S|re.I)
-    if not match: raise SystemExit(f'migration transaction boundary invalid: {path}')
-    body=match.group(1).strip(); prefix=f'tai_m{version}_'
+    wrapped=re.fullmatch(r'\s*BEGIN\s*;\s*(.*?)\s*COMMIT\s*;\s*',raw,re.S|re.I)
+    leading=bool(re.match(r'\s*BEGIN\s*;',raw,re.I))
+    trailing=bool(re.search(r'COMMIT\s*;\s*$',raw,re.I))
+    if leading != trailing: raise SystemExit(f'unbalanced outer migration transaction boundary: {path}')
+    body=(wrapped.group(1) if wrapped else raw).strip()
+    if not body: raise SystemExit(f'empty migration body: {path}')
+    prefix=f'tai_m{version}_'
     lines.extend(["DO $tai_guard$ BEGIN IF EXISTS (SELECT 1 FROM public.tai_schema_migrations WHERE version = " + str(version) + " AND (path <> " + literal(path) + " OR sha256 <> " + literal(digest) + ")) THEN RAISE EXCEPTION 'TAI migration ledger mismatch for version " + str(version) + "'; END IF; END $tai_guard$;", "SELECT EXISTS (SELECT 1 FROM public.tai_schema_migrations WHERE version = " + str(version) + " AND path = " + literal(path) + " AND sha256 = " + literal(digest) + ") AS applied \gset " + prefix, "\if :" + prefix + "applied", "\echo verified existing TAI migration " + str(version), "\else", "BEGIN;", body, "INSERT INTO public.tai_schema_migrations(version,path,sha256,target_sha) VALUES (" + str(version) + "," + literal(path) + "," + literal(digest) + "," + literal(target_sha) + ");", "COMMIT;", "\endif"])
 open(output_path,'w',encoding='utf-8').write('\n'.join(lines)+'\n')
 PY_MIGRATION_SQL
   chmod 0600 "$MIGRATION_SQL"
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_APPLICATION_FAILED
   psql_admin_file "$MIGRATION_SQL"
+  set_internal_deploy_stage TAI_DEPLOY_MIGRATION_LEDGER_VERIFICATION_FAILED
   expected_count="$(python3 - "$MIGRATION_BUNDLE" <<'PY_COUNT'
 import json,sys
 print(len(json.load(open(sys.argv[1],encoding='utf-8'))['migrations']))

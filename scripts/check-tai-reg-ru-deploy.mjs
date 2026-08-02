@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import './check-tai-migration-sql-normalization.mjs';
 import { join } from 'node:path';
 
 const workflowPath = '.github/workflows/tai-reg-ru-deploy.yml';
@@ -37,6 +38,12 @@ for (const fragment of [
 ]) requireFragment(workflow, fragment, workflowPath);
 
 for (const fragment of [
+  'TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED',
+  'TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED',
+  'TAI_DEPLOY_MIGRATION_APPLICATION_FAILED',
+  'TAI_DEPLOY_MIGRATION_LEDGER_VERIFICATION_FAILED',
+  'unbalanced outer migration transaction boundary',
+  'empty migration body',
   'TAI_IMAGE_DIGEST',
   'psql_admin_file()',
   'psql_admin_file "$MIGRATION_SQL"',
