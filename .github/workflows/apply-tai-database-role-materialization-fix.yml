@@ -61,6 +61,9 @@ jobs:
           git fetch --no-tags origin main "$HEAD_REF"
           test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
           test "$(git rev-parse "origin/$HEAD_REF")" = "$EXPECTED_HEAD"
+
+          # Publish ordinary source only. Workflow/helper cleanup is performed
+          # separately through GitHub's authorized contents API.
           git add scripts/tai-reg-ru-deploy.sh scripts/check-tai-reg-ru-deploy.mjs
           files=$(git diff --cached --name-only | sort)
           test "$files" = $'scripts/check-tai-reg-ru-deploy.mjs\nscripts/tai-reg-ru-deploy.sh'
