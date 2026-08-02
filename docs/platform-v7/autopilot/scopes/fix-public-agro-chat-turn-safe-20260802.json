@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-agro-chat-turn-safe",
+  "status": "active",
+  "purpose": "Prevent complete new agricultural questions from inheriting the preceding answer topic while preserving bounded context for explicit follow-ups on top of the accepted model-first agricultural chat.",
+  "approvedBy": "owner-direct-implement-2026-08-02",
+  "authorityBaseExactMain": "a104b267c1b7c41fea5c03b1fa0eb5c3fedb95a5",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-public-agro-chat-turn-safe-20260802.json",
+    "apps/web/next.config.js",
+    "apps/web/app/api/agro-chat-turn-safe/route.ts",
+    "apps/web/lib/platform-v7/agro-chat-turn-context.ts",
+    "apps/web/tests/unit/platformV7AgroChatCurrentTurnBinding.test.ts",
+    "apps/web/tests/unit/platformV7AgroChatTurnSafeRouteContract.test.ts"
+  ],
+  "requiredBehavior": [
+    "each complete new question is answered from the current turn",
+    "explicit follow-up questions retain bounded recent conversation context",
+    "the accepted model-first Qwen agricultural route remains authoritative",
+    "explicit Transparent Price questions retain governed platform grounding",
+    "RU EN and ZH remain supported",
+    "public mode remains read-only",
+    "no new recurring cost or paid model API"
+  ],
+  "forbiddenCapabilities": [
+    "answering the preceding question instead of the current question",
+    "carrying prior platform context into an unrelated complete agricultural question",
+    "client-selected role or tenant",
+    "private workspace or cross-tenant access",
+    "autonomous write financial veterinary agronomic or machinery actions",
+    "external paid model calls"
+  ]
+}
