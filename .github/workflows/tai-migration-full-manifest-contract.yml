@@ -1,0 +1,34 @@
+name: TAI Migration Full Manifest Contract
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-migration-full-manifest-contract.yml"
+      - "scripts/check-tai-migration-sql-normalization.mjs"
+      - "scripts/tai-reg-ru-deploy.sh"
+      - "apps/tai/tai/migrations/**"
+      - "docs/platform-v7/autopilot/scopes/tai-migration-full-manifest-contract-20260802.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-migration-full-manifest-contract-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Every manifest migration through production generator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run exact production generator against complete manifest
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-tai-migration-sql-normalization.mjs
