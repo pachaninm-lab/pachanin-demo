@@ -1,0 +1,84 @@
+name: P0.2 FGIS Commodity Authority
+
+on:
+  push:
+    branches:
+      - p0/fgis-commodity-authority-3628
+    paths:
+      - '.github/workflows/p0-fgis-commodity-authority.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.*'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reservation.*'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-lot-passport.*'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reconciliation.*'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
+      - 'docs/platform-v7/crop-platform/p0.2-2a-fgis-commodity-authority.md'
+      - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json'
+      - 'scripts/p0-fgis-commodity-authority/verify.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-fgis-commodity-authority-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-and-verify:
+    name: Prepare Prisma authority and verify invariants
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-commodity-authority
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Synchronize migration and Prisma schema
+        run: node scripts/p0-fgis-commodity-authority/verify.mjs --prepare
+
+      - name: Enforce clean generated diff
+        run: git diff --check
+
+      - name: Commit generated authority files
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- \
+            apps/api/prisma/schema.prisma \
+            apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            apps/api/prisma/schema.prisma \
+            apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql
+          git commit -m 'build(fgis): synchronize 2A migration and Prisma authority'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Re-run verifier on committed tree
+        run: node scripts/p0-fgis-commodity-authority/verify.mjs
+
+      - name: Upload machine-readable evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-fgis-commodity-authority-foundation-${{ github.sha }}
+          path: ${{ runner.temp }}/p0-fgis-commodity-authority/p0-fgis-commodity-authority.json
+          if-no-files-found: error
+          retention-days: 30
