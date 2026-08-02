@@ -87,6 +87,38 @@ jobs:
                   raise SystemExit(f"packaged migration is missing: {item['path']}")
           PY
 
+      - name: Verify rootless bootstrap authority stdin contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          evidence="$RUNNER_TEMP/tai-model-evidence.json"
+          output="$RUNNER_TEMP/tai-bootstrap-authority.json"
+          cat > "$evidence" <<'JSON'
+          {"schemaVersion":"tai.restricted-model-artifact.v1","modelIdentity":"tai-qwen3-8b-q4km","modelHost":"192.168.0.206","artifactPath":"/srv/tai-models/qwen3-8b-q4-k-m.gguf","artifactSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","artifactSizeBytes":4967000000,"maximumContextTokens":8192}
+          JSON
+          chmod 0600 "$evidence"
+          test "$(docker image inspect --format '{{.Config.User}}' "$IMAGE")" = '65532:65532'
+          docker run --rm --interactive --read-only --network none \
+            --entrypoint python "$IMAGE" -m tai.bootstrap_authority \
+            --activation-sha "$SOURCE_SHA" --model-evidence - \
+            < "$evidence" > "$output"
+          python3 - "$output" "$SOURCE_SHA" <<'PY'
+          import json
+          import sys
+
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          if payload.get("schemaVersion") != "tai.production-bootstrap-authority.v1":
+              raise SystemExit("bootstrap authority schema mismatch")
+          if payload.get("activationSha") != sys.argv[2]:
+              raise SystemExit("bootstrap authority exact-head mismatch")
+          model = payload.get("model") or {}
+          if model.get("modelId") != "tai-qwen3-8b-q4km":
+              raise SystemExit("bootstrap authority model mismatch")
+          if model.get("permanentAdmissionStatus") != "NOT_ATTESTED":
+              raise SystemExit("bootstrap authority admission boundary changed")
+          PY
+          rm -f "$evidence" "$output"
+
       - name: Verify liveness and fail-closed readiness
         shell: bash
         run: |

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from tai.bootstrap_authority import (
     ProductionBootstrapAuthorityError,
     build_authority,
+    main,
 )
 
 ACTIVATION_SHA = "b" * 40
@@ -98,3 +100,26 @@ def test_bootstrap_authority_rejects_non_exact_activation_sha() -> None:
             activation_sha="bad",
             model_evidence=_evidence(),
         )
+
+
+def test_bootstrap_authority_cli_accepts_model_evidence_from_stdin(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "bootstrap_authority",
+            "--activation-sha",
+            ACTIVATION_SHA,
+            "--model-evidence",
+            "-",
+        ],
+    )
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(_evidence())))
+
+    assert main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["schemaVersion"] == "tai.production-bootstrap-authority.v1"
+    assert payload["activationSha"] == ACTIVATION_SHA
+    assert payload["model"]["modelId"] == "tai-qwen3-8b-q4km"

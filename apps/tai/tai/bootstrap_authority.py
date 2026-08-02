@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
@@ -145,8 +146,11 @@ def main() -> int:
     parser.add_argument("--activation-sha", required=True)
     parser.add_argument("--model-evidence", required=True)
     args = parser.parse_args()
-    with open(args.model_evidence, encoding="utf-8") as stream:
-        evidence = json.load(stream)
+    if args.model_evidence == "-":
+        evidence = json.load(sys.stdin)
+    else:
+        with open(args.model_evidence, encoding="utf-8") as stream:
+            evidence = json.load(stream)
     result = build_authority(
         activation_sha=args.activation_sha,
         model_evidence=evidence,
