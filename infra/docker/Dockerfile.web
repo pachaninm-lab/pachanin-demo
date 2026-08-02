@@ -19,7 +19,58 @@ RUN pnpm --filter @pc/web build
 RUN rm -rf /workspace/apps/web/.next/cache
 RUN pnpm --filter @pc/web --prod deploy --legacy /prod/web
 
-FROM node:24-bookworm-slim AS runtime
+FROM debian:trixie-slim AS ocr-runtime
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    imagemagick \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-chi-sim \
+    tesseract-ocr-eng \
+    tesseract-ocr-rus \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+  mkdir -p /ocr-root/usr/bin /ocr-root/tmp; \
+  chmod 1777 /ocr-root/tmp; \
+  for binary in /usr/bin/tesseract /usr/bin/pdftoppm /usr/bin/pdftotext; do \
+    test -x "$binary"; \
+    cp -L --parents "$binary" /ocr-root; \
+  done; \
+  if test -x /usr/bin/convert; then \
+    cp -L /usr/bin/convert /ocr-root/usr/bin/convert; \
+    imagemagick_binary=/usr/bin/convert; \
+  elif test -x /usr/bin/magick; then \
+    cp -L /usr/bin/magick /ocr-root/usr/bin/convert; \
+    imagemagick_binary=/usr/bin/magick; \
+  else \
+    echo 'ImageMagick executable is missing' >&2; \
+    exit 31; \
+  fi; \
+  for directory in /etc/ImageMagick-* /usr/share/ImageMagick-* /usr/share/tesseract-ocr; do \
+    if test -e "$directory"; then \
+      cp -a --parents "$directory" /ocr-root; \
+    fi; \
+  done; \
+  find /usr/lib \( -path '*/ImageMagick-*/*' -o -path '*/libheif/*' \) \( -type f -o -type l \) -print0 \
+    | xargs -0 -r cp -L --parents -t /ocr-root; \
+  { \
+    printf '%s\n' /usr/bin/tesseract /usr/bin/pdftoppm /usr/bin/pdftotext "$imagemagick_binary"; \
+    find /usr/lib \( -path '*/ImageMagick-*/*' -o -path '*/libheif/*' \) -type f -name '*.so*' -print; \
+  } \
+    | while IFS= read -r elf; do ldd "$elf" 2>/dev/null || true; done \
+    | awk '$3 ~ /^\// { print $3 } $1 ~ /^\// { print $1 }' \
+    | sort -u \
+    | while IFS= read -r library; do cp -L --parents "$library" /ocr-root; done; \
+  test -x /ocr-root/usr/bin/tesseract; \
+  test -x /ocr-root/usr/bin/pdftoppm; \
+  test -x /ocr-root/usr/bin/pdftotext; \
+  test -x /ocr-root/usr/bin/convert; \
+  test -f /ocr-root/usr/share/tesseract-ocr/5/tessdata/eng.traineddata; \
+  test -f /ocr-root/usr/share/tesseract-ocr/5/tessdata/rus.traineddata; \
+  test -f /ocr-root/usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata
+
+FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 ARG APP_VERSION=3.0.0
@@ -33,21 +84,10 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV APP_REVISION=$GIT_COMMIT
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
+ENV MAGICK_TEMPORARY_PATH=/tmp
 WORKDIR /app
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    imagemagick \
-    poppler-utils \
-    tesseract-ocr \
-    tesseract-ocr-chi-sim \
-    tesseract-ocr-eng \
-    tesseract-ocr-rus \
-  && rm -rf /var/lib/apt/lists/* \
-  && groupadd --gid 65532 nonroot \
-  && useradd --uid 65532 --gid 65532 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin nonroot
-
+COPY --from=ocr-runtime /ocr-root/ /
 COPY --from=build --chown=nonroot:nonroot /prod/web/ ./
 COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/.next ./.next
 COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/public ./public
@@ -55,12 +95,12 @@ COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/public ./public
 EXPOSE 3000
 USER nonroot
 HEALTHCHECK --interval=30s --timeout=7s --start-period=45s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready',{signal:AbortSignal.timeout(5000)}).then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready',{signal:AbortSignal.timeout(5000)}).then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node_modules/next/dist/bin/next", "start", "-p", "3000"]
 
 # Operational release trigger: publish and deploy the platform-v7 home from PR #3206.
 # Operational release trigger: publish and deploy the compact mobile homepage from PR #3207.
-# Operational release trigger: publish the final mobile authority from PRs #3208 and #3210.
+# Operational release trigger: publish and deploy the final mobile authority from PRs #3208 and #3210.
 # Operational release trigger: publish the image, then dispatch the bounded exact-SHA release through the image gate.
 # Operational release trigger: publish and verify the exact 390x844 and 430x932 production mobile release.
 # Operational release trigger: publish the compact mobile hero accepted in PR #3214.
