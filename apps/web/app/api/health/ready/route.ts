@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Exact-SHA REG.RU release trigger for the single-authority iOS public-AI keyboard layout.
+// Exact-SHA REG.RU release trigger for the bounded public TAI attachment and local OCR repair.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
