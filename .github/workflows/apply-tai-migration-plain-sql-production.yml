@@ -9,6 +9,14 @@ on:
       - scripts/check-tai-migration-sql-normalization.mjs
       - docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-20260802.json
       - .github/workflows/apply-tai-migration-plain-sql-production.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/apply-tai-migration-plain-sql-production.py
+      - scripts/check-tai-migration-sql-normalization.mjs
+      - docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-20260802.json
+      - .github/workflows/apply-tai-migration-plain-sql-production.yml
   workflow_dispatch:
 
 permissions:
