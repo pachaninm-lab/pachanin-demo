@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-migration-full-manifest-contract-20260802",
+  "status": "active",
+  "purpose": "Reproduce the confirmed exact-main REG.RU TAI migration SQL generation failure against every immutable migration declared by the production manifest, then repair the generator without publishing production SQL or changing historical migration digests.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "885225c55ff6c526b82209cea9eb8f0db0fd9638",
+  "failureRun": 30749748911,
+  "confirmedFailureCode": "TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    "scripts/check-tai-migration-sql-normalization.mjs",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/tai-reg-ru-deploy.sh",
+    "docs/platform-v7/autopilot/scopes/tai-migration-full-manifest-contract-20260802.json"
+  ],
+  "requiredBehavior": [
+    "run the exact production SQL generator against all manifest entries in version order",
+    "report only the bounded migration path and safe normalization error",
+    "preserve every historical migration file and SHA-256 digest",
+    "preserve protected stdin SQL transport and controller-generated transactions",
+    "preserve migration ledger mismatch fail-closed behavior",
+    "rerun exact-main REG.RU deployment after source correction"
+  ],
+  "forbiddenCapabilities": [
+    "publishing migration SQL contents or production logs",
+    "editing historical migration files solely to satisfy the generator",
+    "weakening ledger transaction or exact-main authority",
+    "new sudo Docker SSH tenant financial or public-port authority",
+    "new hosting paid service or recurring expense"
+  ],
+  "acceptance": {
+    "allManifestMigrationsNormalize": true,
+    "historicalMigrationDigestsUnchanged": true,
+    "exactHeadRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "productionDeploymentAndPostflightRequired": true
+  }
+}
