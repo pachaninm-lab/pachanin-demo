@@ -7,14 +7,15 @@ const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
 const MAX_HISTORY_TOTAL_CHARS = 12_000;
 
-const FOLLOW_UP_PREFIX = /^(?:а|и|но|тогда|ещ[её]|так|поэтому|при этом|а если|а для|а что|а как|а почему|а сколько|and|but|then|also|so|what about|how about|why exactly|那|那么|还有|如果|为什么)/iu;
-const FOLLOW_UP_REFERENCE = /(?:^|\s)(?:это|этот|эта|эти|он|она|они|там|такой|такая|такие|выше|предыдущ|последн|подробнее|продолжи|дальше|именно|в этом случае|для него|для неё|для них|it|this|that|they|them|there|above|previous|continue|more detail|这个|那个|它|他们|继续|详细)(?:\s|$|[?.!,])/iu;
+const FOLLOW_UP_PREFIX = /^(?:а|и|но|тогда|ещ[её]|так|поэтому|при этом|а если|а для|а что|а как|а почему|а сколько|and|but|then|also|so|what about|how about|why exactly|那|那么|还有|如果|为什么)(?:\s|$|[?.!,])/iu;
+const FOLLOW_UP_REFERENCE = /(?:^|\s)(?:это|этот|эта|эти|он|она|они|там|такой|такая|такие|выше|предыдущ\w*|последн\w*|подробнее|продолжи|дальше|именно|в этом случае|для него|для нее|для них|it|this|that|they|them|there|above|previous|continue|more detail|这个|那个|它|他们|继续|详细)(?:\s|$|[?.!,])/iu;
 const BARE_FOLLOW_UP = /^(?:почему|зачем|как|сколько|когда|где|подробнее|продолжи|дальше|why|how|when|where|more|continue|为什么|怎么|何时|哪里|继续|详细)[?.!]?$/iu;
 
 const PLATFORM_PATTERNS = [
   /(?:прозрачн\w*\s+цен\w*|transparent\s+price|透明价格)/iu,
   /(?:эта|данная|ваша|наша)\s+(?:платформа|система)|(?:this|your|our)\s+(?:platform|system)|(?:本|这个|你们的)(?:平台|系统)/iu,
-  /(?:платформ\w*|личн\w*\s+кабинет|аккаунт\w*|регистрац\w*|зарегистрир\w*|вход\w*|сесси\w*)/iu,
+  /(?:платформ\w*|личн\w*\s+кабинет|аккаунт\w*|сесси\w*|workspace\w*)/iu,
+  /\b(?:зарегистрироваться|авторизоваться|войти)\b|(?:регистрац\w*|вход\w*).{0,35}(?:платформ\w*|личн\w*\s+кабинет|аккаунт\w*)/iu,
   /(?:сделк\w*|аукцион\w*|лот\w*|ставк\w*|допуск\w*|при[её]мк\w*|спор\w*|арбитраж\w*)/iu,
   /(?:роль|роли|ролей|доступ\w*|tenant|rbac|mfa|аудит\w*|outbox)/iu,
   /(?:фгис\s*[«"']?зерно|эдо|интеграц\w*|api\b|1с\b|erp\b|tms\b|wms\b|lims\b)/iu,
