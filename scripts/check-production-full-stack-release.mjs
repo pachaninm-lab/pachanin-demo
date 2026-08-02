@@ -168,7 +168,7 @@ requireAll('live', [
   'Платформа управления агросделками в растениеводстве',
   'Управляйте агросделкой',
   'от цены до расчёта',
-  'Crop Deal execution platform',
+  'Crop Deal management platform',
   'Manage an agricultural Deal',
   '种植业农业交易管理平台',
   'Цена согласована. Теперь нужно исполнить Сделку.',
