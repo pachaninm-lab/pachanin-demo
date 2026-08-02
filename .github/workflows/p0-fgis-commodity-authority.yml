@@ -8,11 +8,15 @@ on:
       - '.github/workflows/p0-fgis-commodity-authority.yml'
       - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql'
+      - 'apps/api/prisma/migrations/20260802213000_fgis_commodity_authority_hardening/migration.sql'
+      - 'apps/api/src/common/types/request-user.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.*'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json'
       - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
-      - 'scripts/p0-fgis-commodity-authority/fix-e2e.mjs'
+      - 'docs/platform-v7/crop-platform/p0.2-2a-fgis-commodity-authority.md'
+      - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json'
       - 'scripts/p0-fgis-commodity-authority/verify.mjs'
   pull_request:
     branches:
@@ -21,16 +25,18 @@ on:
       - '.github/workflows/p0-fgis-commodity-authority.yml'
       - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql'
+      - 'apps/api/prisma/migrations/20260802213000_fgis_commodity_authority_hardening/migration.sql'
+      - 'apps/api/src/common/types/request-user.ts'
       - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.*'
       - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
       - 'apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json'
       - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
-      - 'scripts/p0-fgis-commodity-authority/fix-e2e.mjs'
       - 'scripts/p0-fgis-commodity-authority/verify.mjs'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: p0-fgis-commodity-authority-${{ github.event.pull_request.number || github.ref }}
@@ -66,7 +72,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -83,54 +89,23 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Apply deterministic source repair
+      - name: Verify committed authority source
         run: |
           mkdir -p "$EVIDENCE_DIR"
-          node scripts/p0-fgis-commodity-authority/fix-e2e.mjs \
-            2>&1 | tee "$EVIDENCE_DIR/fix-e2e.log"
-          git diff --check
-
-      - name: Commit deterministic source repair on branch push
-        id: generated
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- \
-            apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts; then
-            echo 'changed=false' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "$GITHUB_EVENT_NAME" != 'push' ]; then
-            git diff -- apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts
-            echo 'Generated E2E repair is not committed on the source branch.' >&2
-            exit 1
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts
-          git commit -m 'test(fgis): synchronize deterministic reservation race E2E'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-          echo 'changed=true' >> "$GITHUB_OUTPUT"
-          git rev-parse HEAD | tee "$EVIDENCE_DIR/generated-head.txt"
-
-      - name: Verify committed authority source
-        if: steps.generated.outputs.changed == 'false'
-        run: |
           node scripts/p0-fgis-commodity-authority/verify.mjs \
             2>&1 | tee "$EVIDENCE_DIR/verifier.log"
           git diff --check
           git diff --exit-code -- \
             apps/api/prisma/schema.prisma \
             apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql \
+            apps/api/prisma/migrations/20260802213000_fgis_commodity_authority_hardening/migration.sql \
             apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts
 
       - name: Enforce forward-only migration policy
-        if: steps.generated.outputs.changed == 'false'
         run: node scripts/platform-v7-forward-only-migration-check.mjs \
           2>&1 | tee "$EVIDENCE_DIR/forward-only.log"
 
       - name: Apply complete migration chain
-        if: steps.generated.outputs.changed == 'false'
         run: |
           pnpm --filter @pc/api exec prisma migrate deploy \
             2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
@@ -140,7 +115,6 @@ jobs:
             2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
 
       - name: Prove Prisma schema is drift-free
-        if: steps.generated.outputs.changed == 'false'
         run: |
           pnpm --filter @pc/api exec prisma migrate diff \
             --from-url "$DATABASE_URL" \
@@ -149,12 +123,10 @@ jobs:
             2>&1 | tee "$EVIDENCE_DIR/prisma-drift.log"
 
       - name: Typecheck API authority
-        if: steps.generated.outputs.changed == 'false'
         run: pnpm --filter @pc/api typecheck \
           2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
 
       - name: Run commodity authority unit tests
-        if: steps.generated.outputs.changed == 'false'
         run: |
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
             src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.service.spec.ts \
@@ -162,7 +134,6 @@ jobs:
             2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
 
       - name: Run PostgreSQL commodity authority acceptance
-        if: steps.generated.outputs.changed == 'false'
         env:
           P0_FGIS_COMMODITY_POSTGRESQL: '1'
         run: |
