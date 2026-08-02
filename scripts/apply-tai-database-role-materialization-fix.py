@@ -43,9 +43,9 @@ SQL
 
 insert_once(
     checker,
-    """forbid(
-  deploy,
-  /psql_admin\\s+-f\\s+[\"']?\\$(?:MIGRATION|BOOTSTRAP)_SQL[\"']/u,
+    """
+for (const fragment of [
+  "set -Eeuo pipefail",
 """,
     r"""requireFragment(
   deploy,
