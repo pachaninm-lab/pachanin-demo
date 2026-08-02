@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/k8s-outbox-final-log-race",
+  "status": "active",
+  "purpose": "Remove the Kubernetes deep-outbox acceptance race where label-selector log collection includes a pod deleted during worker scale-down and returns NotFound after all measured runtime thresholds already passed.",
+  "approvedBy": "owner-direct-implementation-2026-08-02",
+  "authorityBaseExactMain": "fcc2ed1ff818de38c8ebf1463b0ec64c3b53f74f",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-k8s-outbox-final-log-race-20260802.json",
+    "scripts/release/production-like-kubernetes-outbox-runtime.sh",
+    "apps/web/tests/unit/productionLikeKubernetesOutboxFinalLogs.test.ts"
+  ],
+  "requiredBehavior": [
+    "wait for terminating outbox-worker pods to disappear after scale-down",
+    "assert exactly two active final worker pods",
+    "collect logs from the exact stable pod names rather than a racing label selector",
+    "preserve all existing deep-runtime thresholds and fail-closed behavior",
+    "report final log collection and forbidden runtime log failures precisely"
+  ],
+  "forbiddenCapabilities": [
+    "weakening or skipping deep outbox runtime scenarios",
+    "ignoring kubectl log failures",
+    "tolerating fewer or more than two final worker replicas",
+    "changing production worker code database schema network policies or authority",
+    "marking failed evidence as PASS"
+  ]
+}
