@@ -32,19 +32,22 @@ curl_common=(
 for locale in ru en zh; do
   case "$locale" in
     ru)
-      expected_kicker='Платформа управления агросделками в растениеводстве'
+      expected_kicker_primary='Платформа управления агросделками в растениеводстве'
+      expected_kicker_secondary='с собственным искусственным интеллектом'
       expected_title='Управляйте агросделкой'
       expected_accent='от цены до расчёта'
       retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
       ;;
     en)
-      expected_kicker='Crop Deal execution platform'
+      expected_kicker_primary='Crop Deal management platform'
+      expected_kicker_secondary='with proprietary artificial intelligence'
       expected_title='Manage an agricultural Deal'
       expected_accent='from price to settlement'
       retired_title='The price is agreed. Now the Deal must be executed.'
       ;;
     zh)
-      expected_kicker='种植业农业交易管理平台'
+      expected_kicker_primary='种植业农业交易管理平台'
+      expected_kicker_secondary='配备自主人工智能'
       expected_title='管理农业交易'
       expected_accent='从价格到结算'
       retired_title='价格已经确定。现在需要完成交易履约。'
@@ -58,7 +61,8 @@ for locale in ru en zh; do
   grep -Fq 'data-testid="platform-v7-root-execution-cockpit"' "$EVIDENCE_DIR/platform-$locale.html"
 
   CURRENT_CHECK="approved-homepage-content-$locale"
-  grep -Fq "$expected_kicker" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_kicker_primary" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_kicker_secondary" "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq "$expected_title" "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq "$expected_accent" "$EVIDENCE_DIR/platform-$locale.html"
   if grep -Fq "$retired_title" "$EVIDENCE_DIR/platform-$locale.html"; then
