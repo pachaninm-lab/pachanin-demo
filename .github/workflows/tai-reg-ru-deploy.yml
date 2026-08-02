@@ -16,6 +16,10 @@ on:
       - "scripts/check-tai-exact-main-convergence.mjs"
       - "scripts/tai_model_artifact_evidence.py"
       - "scripts/pc-tai-release-controller-core.sh"
+      - "scripts/check-tai-model-artifact-evidence.mjs"
+      - "scripts/check-tai-exact-main-convergence.mjs"
+      - "scripts/tai_model_artifact_evidence.py"
+      - "scripts/pc-tai-release-controller-core.sh"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
       - "apps/tai/TAI_REG_RU_DEPLOY.md"
@@ -141,6 +145,8 @@ jobs:
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-model-artifact-evidence.mjs
           node scripts/check-tai-exact-main-convergence.mjs
+          node scripts/check-tai-model-artifact-evidence.mjs
+          node scripts/check-tai-exact-main-convergence.mjs
 
   image_authority:
     name: Exact-main rootless TAI image authority
@@ -247,9 +253,38 @@ jobs:
           printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
           chmod 0600 "$input/model-user" "$input/model-port"
       - name: Execute protected exact-main deployment and postflight
+        id: deploy
         run: |
           set -Eeuo pipefail
           sudo -n /usr/local/sbin/pc-tai-release-controller deploy "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
+      # The controller redacts its own output, so a failure reached the log as a
+      # bare exit code while the reason lived only inside an uploaded artifact.
+      # The published evidence already names the stage; printing it here is what
+      # makes the next failure diagnosable without downloading anything.
+      - name: Surface the published deployment failure code
+        if: always() && steps.deploy.outcome == 'failure'
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/deployment.json"
+          if [[ ! -f "$evidence" ]]; then
+            echo "TAI_DEPLOY_ERROR_CODE=EVIDENCE_NOT_PUBLISHED"
+            exit 0
+          fi
+          python3 - "$evidence" <<'PY'
+          import json, re, sys
+          try:
+              value = json.load(open(sys.argv[1], encoding='utf-8'))
+          except Exception:
+              print('TAI_DEPLOY_ERROR_CODE=EVIDENCE_UNREADABLE')
+              raise SystemExit(0)
+          code = str(value.get('errorCode') or '').strip()
+          if not re.fullmatch(r'[A-Z][A-Z0-9_]*', code):
+              code = 'EVIDENCE_WITHOUT_ERROR_CODE'
+          print(f'TAI_DEPLOY_ERROR_CODE={code}')
+          print(f"TAI_DEPLOY_STAGE={value.get('action') or 'unknown'}")
+          print(f"TAI_DEPLOY_EXIT_CODE={value.get('exitCode')}")
+          print(f"TAI_DEPLOY_ROLLBACK_STATUS={value.get('rollbackStatus') or 'UNKNOWN'}")
+          PY
       - name: Upload exact-main deployment evidence
         if: always()
         uses: actions/upload-artifact@v4
