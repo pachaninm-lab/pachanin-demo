@@ -47,7 +47,7 @@
       3592
     ],
     "failureEvidenceResolverMerged": "union of exact-main staged-error resolver, model-artifact log source and redacted workflow output",
-    "staleScopeRetirement": "tai-semantic-relevance-20260801.json is retained as closed historical evidence under an archive branch identity after PR 3588 merged",
+    "staleScopeRetirement": "tai-semantic-relevance-20260801.json was removed from the current tree because PR 3588 is already merged; its evidence remains in Git history and the merged PR",
     "contractsRun": [
       "check-tai-reg-ru-deploy",
       "check-tai-reg-ru-preflight",
