@@ -1,0 +1,95 @@
+name: TAI REG.RU Preflight Owner Command
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - "docs/platform-v7/autopilot/scopes/tai-preflight-dispatched-image-authority-20260802.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-reg-ru-preflight-owner-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate owner command contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate exact command and authority boundary
+        run: |
+          set -Eeuo pipefail
+          source=.github/workflows/tai-reg-ru-preflight-owner-command.yml
+          grep -Fq "github.event.issue.number == 3365" "$source"
+          grep -Fq "github.event.comment.body == '/tai preflight current-main'" "$source"
+          grep -Fq '[[ "$COMMENTER" == "$OWNER" ]]' "$source"
+          grep -Fq '[[ "$ACTOR" == "$OWNER" ]]' "$source"
+          grep -Fq '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]' "$source"
+          grep -Fq 'actions/workflows/tai-reg-ru-preflight.yml/dispatches' "$source"
+          grep -Fq 'inputs[target_sha]' "$source"
+          grep -Fq 'inputs[confirmation]' "$source"
+          grep -Fq 'PREFLIGHT-TAI-REG-RU' "$source"
+
+  dispatch:
+    name: Dispatch exact-current-main TAI preflight
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai preflight current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+    steps:
+      - name: Enforce repository-owner command authority
+        env:
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+
+      - name: Resolve exact current main
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch canonical fail-closed preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-preflight.yml/dispatches" \
+            -f ref='main' \
+            -f "inputs[target_sha]=$TARGET_SHA" \
+            -f 'inputs[confirmation]=PREFLIGHT-TAI-REG-RU'
+
+      - name: Publish dispatch evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -Eeuo pipefail
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
+            "TAI exact-current-main preflight dispatched for \`$TARGET_SHA\` by owner-authorized command. Production mutation remains blocked until the existing preflight, activation and live acceptance chain passes."
