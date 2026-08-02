@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-migration-plain-sql-production-v2-20260802",
+  "status": "active",
+  "purpose": "Complete the exact-main REG.RU standalone TAI migration repair after SQL transport was fixed in PR #3604: preserve immutable historical SQL while accepting both explicitly wrapped and plain migration files, and publish deterministic migration substages.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "111a360175ba1eb1a58fb37ddf46d04bd4977f77",
+  "failureRun": 30747960550,
+  "confirmedFailureCode": "TAI_DEPLOY_MIGRATIONS_FAILED",
+  "confirmedRemainingDefect": "The current production generator still rejects apps/tai/tai/migrations/0002_materialization_claims.sql because it is valid plain SQL without an outer BEGIN/COMMIT boundary.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/apply-tai-migration-plain-sql-production-v2.yml",
+    "scripts/apply-tai-migration-plain-sql-production.py",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/check-tai-migration-sql-normalization.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-v2-20260802.json"
+  ],
+  "requiredBehavior": [
+    "do not alter any historical migration SQL or digest",
+    "accept fully wrapped BEGIN/COMMIT files and plain SQL files",
+    "reject empty migrations and unbalanced outer transaction boundaries",
+    "always apply each unapplied migration inside a controller-generated transaction",
+    "preserve the new root-owned stdin SQL transport from PR 3604",
+    "preserve version path and SHA-256 ledger mismatch fail-closed behavior",
+    "publish separate safe stages for bundle extraction, SQL generation, PostgreSQL application and ledger verification",
+    "remove the temporary source materializer from the final diff",
+    "rerun exact-main REG.RU deployment and strict postflight"
+  ],
+  "forbiddenChanges": [
+    "editing historical migration files",
+    "reverting psql_admin_file stdin transport",
+    "raw protected log or SQL publication",
+    "credentials model paths tokens or database URLs",
+    "tenant RBAC financial Docker SSH sudo or public-port authority expansion",
+    "new recurring infrastructure cost"
+  ]
+}
