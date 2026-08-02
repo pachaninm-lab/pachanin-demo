@@ -10,10 +10,11 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: tai-live-document-ocr-061c02c
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   live-acceptance:
@@ -22,6 +23,19 @@ jobs:
     env:
       LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
     steps:
+      - name: Publish pending live acceptance status
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state='pending' \
+            -f context='TAI live document OCR acceptance' \
+            -f description='Running live text, OCR and abuse-boundary checks' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
       - name: Generate deterministic text and OCR fixtures
         shell: bash
         run: |
@@ -135,3 +149,24 @@ jobs:
             ${{ runner.temp }}/tai-live-document-ocr/text.headers
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Publish final live acceptance status
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -Eeuo pipefail
+          state=failure
+          description='Live document or OCR acceptance failed'
+          if [[ "$JOB_STATUS" == success ]]; then
+            state=success
+            description='Live text, OCR and abuse-boundary acceptance PASS'
+          fi
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="$state" \
+            -f context='TAI live document OCR acceptance' \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
