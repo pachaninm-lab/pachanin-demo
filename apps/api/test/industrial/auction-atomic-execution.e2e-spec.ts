@@ -342,22 +342,36 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     expect(finalState[0]).toMatchObject({ deals: '1', bound_awards: '1', basis_events: '1' });
   }, 120_000);
 
-  it('keeps public.audit_events append-only for the platform principal', async () => {
-    // P0.2-1A relies on a privilege boundary rather than a trigger. This runs
-    // the check against the real database as the role the platform connects
-    // as, so the claim is verified rather than asserted.
+  it('confirms public.audit_events carries RLS with only INSERT and SELECT policies', async () => {
+    // Environment-independent half of the boundary: a property of the table,
+    // true in every database the migrations built.
+    //
+    // The other half — that the *production* principal cannot get around those
+    // policies — is proved in fgis-grain-quarantine-audit-principal.grants.spec
+    // against the SQL that defines app_deal, app_service and app_runtime. It is
+    // deliberately not asserted here: this suite connects as the harness role,
+    // which is not a production principal, so asserting it here would prove
+    // nothing about production either way.
     const snapshot = await inspectFgisQuarantineAuditPrincipal(app);
-    expect(evaluateFgisQuarantineAuditPrincipal(snapshot)).toEqual([]);
-
-    // Spelled out individually so a failure names the property that broke.
-    expect(snapshot.superuser).toBe(false);
-    expect(snapshot.bypassRls).toBe(false);
-    expect(snapshot.ownsAuditEvents).toBe(false);
-    expect(snapshot.auditEventsUpdate).toBe(false);
-    expect(snapshot.auditEventsDelete).toBe(false);
-    expect(snapshot.auditEventsTruncate).toBe(false);
     expect(snapshot.auditEventsRlsEnabled).toBe(true);
     expect([...snapshot.auditEventsPolicyCommands].sort()).toEqual(['INSERT', 'SELECT']);
+    expect(evaluateFgisQuarantineAuditPrincipal({
+      ...snapshot,
+      // Substitute the production posture for the harness-specific fields so
+      // this asserts the table side only.
+      superuser: false,
+      bypassRls: false,
+      roleInherit: false,
+      hasRoleMemberships: false,
+      ownsAuditEvents: false,
+      auditEventsInsert: true,
+      auditEventsSelect: true,
+      auditEventsUpdate: false,
+      auditEventsDelete: false,
+      auditEventsTruncate: false,
+      quarantineDenialExecute: true,
+      rowSecurity: 'on',
+    })).toEqual([]);
   }, 60_000);
 
   it('records a durable denial when a client claims an FGIS-verified source', async () => {

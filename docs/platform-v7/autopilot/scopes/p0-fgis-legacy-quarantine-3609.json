@@ -30,6 +30,7 @@
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.module.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.test-double.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.ts",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.grants.spec.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.inspection.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.spec.ts",
     "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.ts",
