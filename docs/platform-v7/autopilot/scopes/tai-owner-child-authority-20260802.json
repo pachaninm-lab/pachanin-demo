@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-child-authority-20260802",
+  "status": "active",
+  "title": "TAI owner child-workflow authority",
+  "priority": "P0",
+  "baselineExactMain": "fcc2ed1ff818de38c8ebf1463b0ec64c3b53f74f",
+  "objective": "Allow the owner-authorized TAI exact-release command to start canonical child workflows without skipped production jobs by verifying the exact successful owner-command run, exact comment, exact main SHA and required authority job before any child production action.",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    "scripts/verify-tai-upstream-workflow-jobs.mjs",
+    "scripts/check-production-full-stack-release.mjs",
+    "scripts/check-tai-reg-ru-release-chain.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-owner-child-authority-20260802.json"
+  ],
+  "boundaries": [
+    "Issue 3365 and exact command /tai release current-main remain mandatory",
+    "Comment author, parent workflow actor and triggering actor must equal the repository owner",
+    "Parent workflow name, repository, branch, exact SHA, exact attempt and required authority job must be verified",
+    "Child target SHA must still equal current origin/main",
+    "Canonical image revision, immutable digest, protected REG.RU controller, rollback and live acceptance remain mandatory",
+    "No direct production mutation is added to the owner-command bridge",
+    "Zero new recurring cost"
+  ]
+}
