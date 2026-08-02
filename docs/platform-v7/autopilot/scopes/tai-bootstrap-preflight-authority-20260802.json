@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-bootstrap-preflight-authority-20260802",
+  "status": "active",
+  "title": "TAI bootstrap preflight authority",
+  "priority": "P0",
+  "baselineExactMain": "edeb99a11f82e8261e3021a2116b8e583cbd5a31",
+  "objective": "Break the circular TAI release dependency by accepting only the exact safe standalone-runtime materialization blockers as bootstrap-eligible after every infrastructure, model, PostgreSQL and mutation-guard prerequisite has passed; retain strict zero-blocker post-deployment authority.",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    "scripts/verify-tai-preflight-report.mjs",
+    "scripts/check-tai-bootstrap-preflight.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-bootstrap-preflight-authority-20260802.json"
+  ],
+  "boundaries": [
+    "Bootstrap eligibility requires exactly TAI_SERVICE_NOT_MATERIALIZED, TAI_DEDICATED_ENV_NOT_MATERIALIZED and TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED",
+    "All critical compose, exact-runtime, capacity, model-connectivity, TAI schema/profile and no-mutation checks must be PASS",
+    "Any additional, missing-authority, malformed or mutation-related blocker fails closed",
+    "Model admission remains a separately reported maturity state and is never fabricated",
+    "The owner command, exact-current-main image, immutable digest, non-root image user and protected REG.RU controller remain mandatory",
+    "Standalone deployment must still finish with a strict zero-blocker postflight",
+    "Zero new recurring cost"
+  ]
+}
