@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-command-orchestrates-exact-release-20260802",
+  "status": "active",
+  "title": "TAI owner command exact-release orchestration",
+  "priority": "P0",
+  "baselineExactMain": "8aef3b8a2ab6276b9f9570527b8888f194c4bab3",
+  "objective": "Make the owner-only TAI command dispatch canonical Docker images, the existing exact-SHA full-stack release and the existing fail-closed TAI preflight for one immediately resolved current-main SHA.",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    "docs/platform-v7/autopilot/scopes/tai-owner-command-exact-release-20260802.json"
+  ],
+  "boundaries": [
+    "Command is accepted only on issue 3365",
+    "Comment author, actor and triggering actor must equal the repository owner",
+    "All downstream workflows receive the same resolved current-main SHA",
+    "Bridge performs no deployment or production mutation itself",
+    "Canonical Docker, full-stack release and TAI preflight keep their own exact-SHA and confirmation gates",
+    "Any main movement causes downstream fail-closed rejection",
+    "Zero new recurring cost"
+  ]
+}
