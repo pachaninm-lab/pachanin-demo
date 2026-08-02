@@ -1,0 +1,137 @@
+name: TAI live document and OCR acceptance
+
+on:
+  push:
+    branches:
+      - qa/tai-live-document-ocr-061c02c
+    paths:
+      - .github/workflows/tai-live-document-ocr-acceptance.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-live-document-ocr-061c02c
+  cancel-in-progress: false
+
+jobs:
+  live-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+    steps:
+      - name: Generate deterministic text and OCR fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$RUNNER_TEMP/tai-live-document-ocr"
+          printf 'TAI_DOCUMENT_48217\nИсточник: live exact-main acceptance\n' > "$RUNNER_TEMP/tai-live-document-ocr/document.txt"
+          if command -v magick >/dev/null 2>&1; then
+            image_command=(magick)
+          elif command -v convert >/dev/null 2>&1; then
+            image_command=(convert)
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends imagemagick fonts-dejavu-core
+            image_command=(convert)
+          fi
+          "${image_command[@]}" -size 1800x500 xc:white -gravity center \
+            -font DejaVu-Sans-Bold -pointsize 150 -fill black \
+            -annotate 0 'TAI OCR 7429 GRAIN' \
+            "$RUNNER_TEMP/tai-live-document-ocr/ocr.png"
+          test -s "$RUNNER_TEMP/tai-live-document-ocr/document.txt"
+          test -s "$RUNNER_TEMP/tai-live-document-ocr/ocr.png"
+
+      - name: Verify live text document extraction
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          out="$RUNNER_TEMP/tai-live-document-ocr"
+          curl -fsS --retry 3 --retry-all-errors --connect-timeout 10 --max-time 180 \
+            -D "$out/text.headers" \
+            -H "Origin: $LIVE_BASE" \
+            -H 'Sec-Fetch-Site: same-origin' \
+            -H 'Accept: application/json' \
+            -F "files=@$out/document.txt;type=text/plain" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments" > "$out/text.json"
+          python3 - "$out/text.json" "$out/text.headers" <<'PY'
+          import json,re,sys
+          body=json.load(open(sys.argv[1],encoding='utf-8'))
+          headers=open(sys.argv[2],encoding='utf-8',errors='replace').read().lower()
+          documents=body.get('documents') or []
+          assert len(documents)==1, body
+          document=documents[0]
+          assert 'TAI_DOCUMENT_48217' in document.get('text',''), body
+          assert re.fullmatch(r'[0-9a-f]{64}',document.get('checksumSha256','')), body
+          assert document.get('name')=='document.txt', body
+          assert body.get('rejected')==[], body
+          assert 'cache-control: no-store' in headers, headers
+          assert 'x-content-type-options: nosniff' in headers, headers
+          PY
+
+      - name: Verify live image OCR
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          out="$RUNNER_TEMP/tai-live-document-ocr"
+          curl -fsS --retry 2 --retry-all-errors --connect-timeout 10 --max-time 240 \
+            -H "Origin: $LIVE_BASE" \
+            -H 'Sec-Fetch-Site: same-origin' \
+            -H 'Accept: application/json' \
+            -F "files=@$out/ocr.png;type=image/png" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments" > "$out/ocr.json"
+          python3 - "$out/ocr.json" <<'PY'
+          import json,re,sys
+          body=json.load(open(sys.argv[1],encoding='utf-8'))
+          documents=body.get('documents') or []
+          assert len(documents)==1, body
+          text=documents[0].get('text','')
+          normalized=re.sub(r'[^A-Z0-9]','',text.upper())
+          assert '7429' in normalized, {'text':text,'normalized':normalized}
+          assert 'OCR' in normalized, {'text':text,'normalized':normalized}
+          assert body.get('rejected')==[], body
+          PY
+
+      - name: Verify public upload abuse boundaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          out="$RUNNER_TEMP/tai-live-document-ocr"
+          status="$(curl -sS --connect-timeout 10 --max-time 60 -o "$out/cross-site.json" -w '%{http_code}' \
+            -H "Origin: https://example.invalid" \
+            -H 'Sec-Fetch-Site: cross-site' \
+            -F "files=@$out/document.txt;type=text/plain" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments")"
+          test "$status" = 403
+          python3 - "$out/cross-site.json" <<'PY'
+          import json,sys
+          assert json.load(open(sys.argv[1],encoding='utf-8')).get('error')=='CROSS_SITE_REQUEST_BLOCKED'
+          PY
+          for number in 1 2 3 4 5; do printf 'file %s\n' "$number" > "$out/file-$number.txt"; done
+          status="$(curl -sS --connect-timeout 10 --max-time 60 -o "$out/too-many.json" -w '%{http_code}' \
+            -H "Origin: $LIVE_BASE" -H 'Sec-Fetch-Site: same-origin' \
+            -F "files=@$out/file-1.txt" -F "files=@$out/file-2.txt" -F "files=@$out/file-3.txt" \
+            -F "files=@$out/file-4.txt" -F "files=@$out/file-5.txt" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments")"
+          test "$status" = 400
+          python3 - "$out/too-many.json" <<'PY'
+          import json,sys
+          body=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert body.get('error')=='TOO_MANY_FILES' and body.get('maxFiles')==4, body
+          PY
+
+      - name: Publish redacted live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-live-document-ocr-061c02c-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/tai-live-document-ocr/text.json
+            ${{ runner.temp }}/tai-live-document-ocr/ocr.json
+            ${{ runner.temp }}/tai-live-document-ocr/cross-site.json
+            ${{ runner.temp }}/tai-live-document-ocr/too-many.json
+            ${{ runner.temp }}/tai-live-document-ocr/text.headers
+          if-no-files-found: warn
+          retention-days: 30
