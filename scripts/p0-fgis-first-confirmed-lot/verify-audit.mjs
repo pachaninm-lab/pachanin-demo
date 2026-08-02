@@ -297,8 +297,16 @@ assertContains('apps/api/prisma/migrations/20260802120000_fgis_verified_lot_path
 ]);
 assertContains('apps/api/prisma/migrations/20260802150000_fgis_legacy_quarantine_audit/migration.sql', [
   'public.record_fgis_legacy_quarantine_denial',
-  'public_audit_events_append_only',
   "'LEGACY_FGIS_QUARANTINE'",
+  "'DENIED'",
+]);
+// The denial command must never grow a parameter that could carry a payload.
+assertAbsent('apps/api/prisma/migrations/20260802150000_fgis_legacy_quarantine_audit/migration.sql', [
+  'p_payload',
+  'p_body',
+  'p_headers',
+  'p_certificate',
+  'p_token',
 ]);
 assertContains('apps/api/src/modules/lots/lots.service.ts', ['LEGACY_LOT_CONTOUR_RETIRED']);
 assertAbsent('apps/api/src/modules/lots/lots.service.ts', ["|| 'demo-org'", "|| 'demo-user'"]);
