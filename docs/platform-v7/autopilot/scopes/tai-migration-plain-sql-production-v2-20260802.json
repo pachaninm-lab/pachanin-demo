@@ -37,5 +37,15 @@
     "credentials model paths tokens or database URLs",
     "tenant RBAC financial Docker SSH sudo or public-port authority expansion",
     "new recurring infrastructure cost"
-  ]
+  ],
+  "sourceFinalization": {
+    "materializerRun": 30748903845,
+    "materializerResult": "PASS",
+    "materializedHead": "ea1e314f99805c1511bb9a0f65009df6766cf46a",
+    "temporaryWorkflowPresentInFinalDiff": false,
+    "temporaryHelperPresentInFinalDiff": false,
+    "finalChangedFiles": 4,
+    "behindBy": 0,
+    "historicalPlainSqlContract": "PASS"
+  }
 }
