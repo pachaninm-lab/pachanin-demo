@@ -177,6 +177,7 @@ async function runBinary(command: string, args: string[]): Promise<void> {
       maxBuffer: 2 * 1024 * 1024,
       windowsHide: true,
       env: {
+        ...process.env,
         PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
         TESSDATA_PREFIX: process.env.TESSDATA_PREFIX || '/usr/share/tesseract-ocr/5/tessdata',
         LANG: 'C.UTF-8',
@@ -271,7 +272,7 @@ async function extractWorkbook(file: File): Promise<{ text: string; truncated: b
 
 async function extract(file: File): Promise<ExtractedDocument> {
   const ext = extension(file.name);
-  const bytes = Buffer.from(await file.arrayBuffer());
+  const bytes: Buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()));
   const checksumSha256 = createHash('sha256').update(bytes).digest('hex');
   let extracted: { text: string; truncated: boolean };
 
