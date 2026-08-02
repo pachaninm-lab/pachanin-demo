@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { AuctionCommandService } from '../../src/modules/auctions/auction-command.service';
 import { PrismaDealRepository } from '../../src/modules/deals/prisma-deal.repository';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
+import { FgisLegacyQuarantineAuditService } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import type { RequestUser } from '../../src/common/types/request-user';
 
@@ -73,7 +74,10 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     app = new PrismaService();
     await Promise.all([admin.$connect(), app.$connect()]);
     const rls = new RlsTransactionService(app);
-    commands = new AuctionCommandService(rls);
+    // Real audit authority against the same PostgreSQL: a refused FGIS-sourced
+    // lot must leave a durable denial fact, and this suite is where that runs
+    // against a live database rather than a double.
+    commands = new AuctionCommandService(rls, new FgisLegacyQuarantineAuditService(app));
     deals = new PrismaDealRepository(rls);
     await resetDatabase(admin);
     await seedActors(admin);
@@ -271,6 +275,7 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     try {
       const restartedCommands = new AuctionCommandService(
         new RlsTransactionService(restartedApp),
+        new FgisLegacyQuarantineAuditService(restartedApp),
       );
       const restartedReplay = resultObject(await restartedCommands.closeLot(lotId, {
         expectedVersion: ended,
