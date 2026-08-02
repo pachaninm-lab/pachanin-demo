@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-production-migration-apply-20260802",
+  "status": "active",
+  "purpose": "Reproduce and repair the confirmed TAI_DEPLOY_MIGRATIONS_FAILED production blocker with a PostgreSQL 16 production-like migration apply contract using the exact governed manifest, transaction wrapper and ledger semantics.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "111a360175ba1eb1a58fb37ddf46d04bd4977f77",
+  "failureRun": 30749123059,
+  "failureArtifact": 8833865509,
+  "confirmedFailureCode": "TAI_DEPLOY_MIGRATIONS_FAILED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    "scripts/check-tai-production-migrations.sh",
+    "docs/platform-v7/autopilot/scopes/tai-production-migration-apply-20260802.json"
+  ],
+  "requiredBehavior": [
+    "start an ephemeral PostgreSQL 16 authority only inside GitHub Actions",
+    "generate the same forward-only migration ledger program used by REG.RU deployment",
+    "apply all governed migrations in manifest version order",
+    "print only migration version/path and ephemeral PostgreSQL errors",
+    "rerun the program to prove ledger idempotency",
+    "perform no REG.RU production mutation before merge",
+    "preserve exact-main, rollback, least privilege and zero-cost boundaries"
+  ],
+  "forbiddenCapabilities": [
+    "production credentials or production database access",
+    "raw REG.RU protected logs",
+    "new sudo Docker SSH tenant or financial authority",
+    "migration skipping or ledger bypass",
+    "continue-on-error or fabricated production PASS",
+    "new hosting paid service or recurring expense"
+  ],
+  "acceptance": {
+    "postgresVersion": 16,
+    "allManifestMigrationsApplied": true,
+    "secondApplyIdempotent": true,
+    "exactHeadRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "rerunExactMainReleaseChainRequired": true
+  }
+}
