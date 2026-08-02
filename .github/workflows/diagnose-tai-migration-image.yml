@@ -1,6 +1,12 @@
 name: Diagnose exact TAI migration image bundle
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/diagnose-tai-migration-image.yml"
+      - "scripts/check-tai-migration-sql-normalization.mjs"
+      - "scripts/tai-reg-ru-deploy.sh"
+      - "apps/tai/tai/migrations/**"
   push:
     branches:
       - fix/tai-all-manifest-migration-contract-20260802
@@ -16,7 +22,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: diagnose-tai-migration-image-20260802
+  group: diagnose-tai-migration-image-20260802-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
