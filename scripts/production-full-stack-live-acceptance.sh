@@ -38,7 +38,7 @@ for locale in ru en zh; do
       retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
       ;;
     en)
-      expected_kicker='Crop Deal execution platform'
+      expected_kicker='Crop Deal management platform'
       expected_title='Manage an agricultural Deal'
       expected_accent='from price to settlement'
       retired_title='The price is agreed. Now the Deal must be executed.'
