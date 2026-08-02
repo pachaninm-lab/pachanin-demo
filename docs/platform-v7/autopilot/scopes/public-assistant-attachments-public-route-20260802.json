@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-attachments-public-route-20260802",
+  "status": "active",
+  "purpose": "Restore the intended public middleware reachability of the bounded TAI attachment extraction endpoint after live exact-main acceptance proved the handler was blocked by the session gate.",
+  "approvedBy": "owner-require-all-tai-document-work-in-production-2026-08-02",
+  "authorityBaseExactMain": "62f3a26c2b8aeae9fed8b27777087a5badc45f86",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantAttachmentMiddleware.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-assistant-attachments-public-route-20260802.json",
+    "scripts/apply-public-assistant-attachments-public-route.py",
+    ".github/workflows/apply-public-assistant-attachments-public-route.yml"
+  ],
+  "requiredBehavior": [
+    "make only the exact bounded attachment endpoint public in middleware",
+    "preserve authentication on every other API route",
+    "preserve handler-level cross-site size count timeout and extraction controls",
+    "add regression coverage proving exact membership in PUBLIC_API_EXACT",
+    "keep REG.RU-only hosting and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "public API prefix wildcard",
+    "session gate weakening outside the exact attachment endpoint",
+    "tenant role or write-authority expansion",
+    "external OCR or storage service",
+    "acceptance weakening or fabricated production PASS"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "liveTextUploadRequired": true,
+    "livePngOcrRequired": true,
+    "liveScannedPdfOcrRequired": true
+  }
+}
