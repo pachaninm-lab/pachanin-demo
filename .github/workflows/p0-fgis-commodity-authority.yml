@@ -20,13 +20,30 @@ on:
       - 'scripts/p0-fgis-commodity-authority/fix-e2e.mjs'
       - 'scripts/p0-fgis-commodity-authority/harden-generated.mjs'
       - 'scripts/p0-fgis-commodity-authority/verify.mjs'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/p0-fgis-commodity-authority.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.*'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reservation.*'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-lot-passport.*'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-reconciliation.*'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
+      - 'scripts/p0-fgis-commodity-authority/fix-e2e.mjs'
+      - 'scripts/p0-fgis-commodity-authority/harden-generated.mjs'
+      - 'scripts/p0-fgis-commodity-authority/verify.mjs'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: p0-fgis-commodity-authority-${{ github.ref }}
+  group: p0-fgis-commodity-authority-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -54,9 +71,10 @@ jobs:
           --health-retries 20
 
     steps:
-      - name: Checkout exact branch head
+      - name: Checkout exact source head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -86,7 +104,7 @@ jobs:
             2>&1 | tee "$EVIDENCE_DIR/fix-e2e.log"
           git diff --check
 
-      - name: Commit generated authority files
+      - name: Commit generated authority files on source-branch push
         id: generated
         shell: bash
         run: |
@@ -97,6 +115,14 @@ jobs:
             apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [ "$GITHUB_EVENT_NAME" != 'push' ]; then
+            git diff -- \
+              apps/api/prisma/schema.prisma \
+              apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql \
+              apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts
+            echo 'Generated authority is not committed on the source branch.' >&2
+            exit 1
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -166,7 +192,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: p0-fgis-commodity-authority-${{ github.sha }}
+          name: p0-fgis-commodity-authority-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/p0-fgis-commodity-authority
           if-no-files-found: error
           retention-days: 30
