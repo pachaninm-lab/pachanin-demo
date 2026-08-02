@@ -17,6 +17,7 @@ on:
       - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
       - 'docs/platform-v7/crop-platform/p0.2-2a-fgis-commodity-authority.md'
       - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json'
+      - 'scripts/p0-fgis-commodity-authority/fix-e2e.mjs'
       - 'scripts/p0-fgis-commodity-authority/harden-generated.mjs'
       - 'scripts/p0-fgis-commodity-authority/verify.mjs'
   workflow_dispatch:
@@ -74,13 +75,15 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate migration and Prisma authority
+      - name: Generate migration, Prisma and deterministic E2E authority
         run: |
           mkdir -p "$EVIDENCE_DIR"
           node scripts/p0-fgis-commodity-authority/verify.mjs --prepare \
             2>&1 | tee "$EVIDENCE_DIR/prepare.log"
           node scripts/p0-fgis-commodity-authority/harden-generated.mjs \
             2>&1 | tee "$EVIDENCE_DIR/harden-generated.log"
+          node scripts/p0-fgis-commodity-authority/fix-e2e.mjs \
+            2>&1 | tee "$EVIDENCE_DIR/fix-e2e.log"
           git diff --check
 
       - name: Commit generated authority files
@@ -90,7 +93,8 @@ jobs:
           set -euo pipefail
           if git diff --quiet -- \
             apps/api/prisma/schema.prisma \
-            apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql; then
+            apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql \
+            apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -98,8 +102,9 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
             apps/api/prisma/schema.prisma \
-            apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql
-          git commit -m 'build(fgis): synchronize P0.2-2A migration and Prisma authority'
+            apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql \
+            apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts
+          git commit -m 'build(fgis): synchronize P0.2-2A generated authority'
           git push origin "HEAD:${GITHUB_REF_NAME}"
           echo 'changed=true' >> "$GITHUB_OUTPUT"
           git rev-parse HEAD | tee "$EVIDENCE_DIR/generated-head.txt"
