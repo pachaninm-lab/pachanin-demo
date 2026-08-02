@@ -2,15 +2,17 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/tai-all-manifest-migration-contract-20260802",
   "status": "active",
-  "purpose": "Close the confirmed TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED gap by executing the exact production migration SQL generator against every migration in the governed manifest, not a single historical fixture.",
+  "purpose": "Close the confirmed TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED gap by executing the exact production migration SQL generator against every migration in the governed manifest and the exact canonical TAI image bundle.",
   "approvedBy": "owner-continue-tai-production-now-2026-08-02",
   "authorityBaseExactMain": "885225c55ff6c526b82209cea9eb8f0db0fd9638",
   "failureRun": 30749748911,
   "confirmedFailureCode": "TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED",
+  "failingImageDigest": "ghcr.io/pachaninm-lab/grainflow-tai@sha256:4cec9d41ce5be59a81513171b55bc8148ac7ac92ca00fd7070edefdb0572284c",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "productionMutationAllowedBeforeMerge": false,
   "allowedPaths": [
+    ".github/workflows/diagnose-tai-migration-image.yml",
     "scripts/check-tai-migration-sql-normalization.mjs",
     "scripts/check-tai-reg-ru-deploy.mjs",
     "scripts/check-pc-tai-release-controller.mjs",
@@ -19,9 +21,11 @@
   "requiredBehavior": [
     "load the authoritative migration manifest",
     "validate every listed version path and SHA-256",
-    "execute the exact production generator against the complete bundle",
-    "identify the exact failing migration path in CI without REG.RU production access",
-    "run through the existing TAI deployment contract path-filter and checker import",
+    "execute the exact production generator against the complete source bundle",
+    "pull the exact failed canonical TAI image by digest outside production",
+    "verify the image revision label and compare all packaged migration SHA-256 values with source",
+    "execute the exact production generator against the image-extracted bundle",
+    "identify the exact safe failure without REG.RU production access",
     "retain wrapped plain empty and unbalanced fixture coverage",
     "perform no production mutation",
     "preserve REG.RU-only hosting and zero new recurring cost"
@@ -29,7 +33,7 @@
   "forbiddenCapabilities": [
     "editing or skipping historical migrations in this diagnostic scope",
     "production database or credentials access",
-    "raw REG.RU logs or SQL publication",
+    "raw REG.RU logs or secrets publication",
     "new sudo Docker SSH tenant or financial authority",
     "continue-on-error or fabricated production PASS",
     "new hosting paid service or recurring expense"
@@ -37,7 +41,10 @@
   "acceptance": {
     "allManifestEntriesExercised": true,
     "exactProductionGeneratorUsed": true,
+    "exactImageDigestExercised": true,
+    "imageSourceDigestParityRequired": true,
     "deploymentContractTriggered": true,
+    "temporaryDiagnosticWorkflowRemovedBeforeMerge": true,
     "exactHeadRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0
