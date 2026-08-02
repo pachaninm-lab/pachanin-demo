@@ -8,6 +8,7 @@
     "apps/web/app/api/agro-chat/route.ts",
     "apps/web/next.config.js",
     "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "scripts/tai-live-public-ai-acceptance.mjs",
     "docs/platform-v7/autopilot/scopes/p0-model-first-agro-chat-3625.json"
   ],
   "boundaries": [
@@ -22,6 +23,7 @@
   "acceptance": [
     "General agricultural questions reach the model without requiring a lexical knowledge-base match",
     "Greetings and conversational follow-ups reach the model",
+    "Crop, livestock, machinery and agribusiness questions produce local-Qwen answers",
     "Explicit platform questions remain grounded by approved public platform knowledge",
     "Current-data questions retain the no-unverified-current-values boundary",
     "RU, EN and ZH stream contract remains unchanged",
