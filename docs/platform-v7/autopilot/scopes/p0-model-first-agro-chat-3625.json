@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "tai/p0-agro-chat-model-first",
+  "status": "active",
+  "title": "P0 model-first agricultural chat",
+  "priority": "P0",
+  "baselineExactMain": "96698227a970f7efea8a5142ed36e7a7885536f1",
+  "objective": "Make the public TAI assistant behave as a general conversational agricultural expert instead of a narrow FAQ router, while preserving verified grounding for Transparent Price platform facts.",
+  "allowedPaths": [
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/next.config.js",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "docs/platform-v7/autopilot/scopes/p0-model-first-agro-chat-3625.json",
+    "scripts/tai-live-public-ai-acceptance.mjs"
+  ],
+  "boundaries": [
+    "No write authority",
+    "No tenant or role expansion",
+    "No autonomous financial or platform action",
+    "Platform claims remain verified-grounding-only",
+    "General agriculture and agribusiness use the local Qwen runtime directly",
+    "Explicit safety and sensitive-input blocks remain fail-closed",
+    "Zero new recurring cost"
+  ],
+  "acceptance": [
+    "General agricultural questions reach the model without requiring a lexical knowledge-base match",
+    "Greetings and conversational follow-ups reach the model",
+    "Crop, livestock, machinery and agribusiness questions produce local-Qwen answers",
+    "Explicit platform questions remain grounded by approved public platform knowledge",
+    "Current-data questions retain the no-unverified-current-values boundary",
+    "RU, EN and ZH stream contract remains unchanged",
+    "Exact-main REG.RU live acceptance before DONE"
+  ]
+}

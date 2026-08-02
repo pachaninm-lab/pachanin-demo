@@ -21,6 +21,7 @@ let fullscreenDomCount = null;
 let fullscreenVisible = null;
 let answerCharacters = 0;
 let multilingualQwen = null;
+let conversationalBreadth = null;
 
 function parseSseFrames(text) {
   const frames = [];
@@ -51,6 +52,46 @@ function languageAndTopicEvidence(locale, answer) {
   return { languageCharacters, topicMatches };
 }
 
+async function requestPublicSse({ locale, question, history = [] }) {
+  const text = await page.evaluate(async ({ locale, question, history }) => {
+    const response = await fetch('/api/public-platform-assistant?stream=1', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify({ message: question, locale, history }),
+      signal: AbortSignal.timeout(240_000),
+    });
+    if (!response.ok) throw new Error(`sse_http_${response.status}`);
+    return response.text();
+  }, { locale, question, history });
+  const frames = parseSseFrames(text);
+  const assessmentFrame = frames.find(frame => frame.event === 'assessment');
+  const done = frames.at(-1);
+  const assessment = assessmentFrame?.summary ? JSON.parse(String(assessmentFrame.summary)) : null;
+  const answer = frames.filter(frame => frame.event === 'token').map(frame => String(frame.text || '')).join('').trim();
+  return { text, frames, assessment, done, answer };
+}
+
+function assertRealGeneralQwen({ id, locale, text, frames, assessment, done, answer, minimumAnswerCharacters }) {
+  if (!assessment) throw new Error(`sse_assessment_missing:${id}`);
+  if (assessment.source !== 'local_qwen') throw new Error(`sse_source_invalid:${id}:${assessment.source}`);
+  if (assessment.modelIdentity !== 'tai-qwen3-8b-q4km') throw new Error(`sse_model_identity_invalid:${id}`);
+  if (assessment.answerMode !== 'general_agro' || assessment.currentDataRequired !== false) {
+    throw new Error(`sse_answer_mode_invalid:${id}`);
+  }
+  const flags = Array.isArray(assessment.safetyFlags) ? assessment.safetyFlags.map(String) : [];
+  if (flags.some(flag => /FALLBACK|RUNTIME_UNAVAILABLE/iu.test(flag))) {
+    throw new Error(`sse_fallback_flag_present:${id}:${flags.join(',')}`);
+  }
+  if (frames.some(frame => frame.event === 'citation')) throw new Error(`sse_fake_general_agro_citation:${id}`);
+  if (done?.event !== 'done' || done.complete !== true) throw new Error(`sse_incomplete:${id}`);
+  if (answer.length < minimumAnswerCharacters) throw new Error(`sse_answer_too_short:${id}:${answer.length}`);
+  for (const forbidden of ['192.168.0.206', 'tenantId', 'membershipId', 'subjectId', 'AI_ASSISTANT_API_KEY', 'TAI_PUBLIC_GATEWAY_HMAC_SECRET']) {
+    if (text.includes(forbidden)) throw new Error(`sse_forbidden_material:${id}:${forbidden}`);
+  }
+  return { flags };
+}
+
 async function verifyRealQwenSse() {
   const cases = [
     ['ru', 'Что влияет на цену зерна?'],
@@ -59,47 +100,82 @@ async function verifyRealQwenSse() {
   ];
   const results = [];
   for (const [locale, question] of cases) {
-    const text = await page.evaluate(async ({ locale, question }) => {
-      const response = await fetch('/api/public-platform-assistant?stream=1', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-        body: JSON.stringify({ message: question, locale }),
-        signal: AbortSignal.timeout(240_000),
-      });
-      if (!response.ok) throw new Error(`sse_http_${response.status}`);
-      return response.text();
-    }, { locale, question });
-    const frames = parseSseFrames(text);
-    const assessmentFrame = frames.find(frame => frame.event === 'assessment');
-    const done = frames.at(-1);
-    const assessment = assessmentFrame?.summary ? JSON.parse(String(assessmentFrame.summary)) : null;
-    const answer = frames.filter(frame => frame.event === 'token').map(frame => String(frame.text || '')).join('').trim();
-    if (!assessment) throw new Error(`sse_assessment_missing:${locale}`);
-    if (assessment.source !== 'local_qwen') throw new Error(`sse_source_invalid:${locale}:${assessment.source}`);
-    if (assessment.modelIdentity !== 'tai-qwen3-8b-q4km') throw new Error(`sse_model_identity_invalid:${locale}`);
-    if (assessment.answerMode !== 'general_agro' || assessment.currentDataRequired !== false) {
-      throw new Error(`sse_answer_mode_invalid:${locale}`);
-    }
-    const flags = Array.isArray(assessment.safetyFlags) ? assessment.safetyFlags.map(String) : [];
-    if (flags.some(flag => /FALLBACK|RUNTIME_UNAVAILABLE/iu.test(flag))) {
-      throw new Error(`sse_fallback_flag_present:${locale}:${flags.join(',')}`);
-    }
-    if (frames.some(frame => frame.event === 'citation')) throw new Error(`sse_fake_general_agro_citation:${locale}`);
-    if (done?.event !== 'done' || done.complete !== true) throw new Error(`sse_incomplete:${locale}`);
-    if (answer.length < 80) throw new Error(`sse_answer_too_short:${locale}:${answer.length}`);
-    for (const forbidden of ['192.168.0.206', 'tenantId', 'membershipId', 'subjectId', 'AI_ASSISTANT_API_KEY', 'TAI_PUBLIC_GATEWAY_HMAC_SECRET']) {
-      if (text.includes(forbidden)) throw new Error(`sse_forbidden_material:${locale}:${forbidden}`);
-    }
-    const evidence = languageAndTopicEvidence(locale, answer);
+    const response = await requestPublicSse({ locale, question });
+    const { flags } = assertRealGeneralQwen({
+      id: locale,
+      locale,
+      ...response,
+      minimumAnswerCharacters: 80,
+    });
+    const evidence = languageAndTopicEvidence(locale, response.answer);
     results.push({
       locale,
-      answerCharacters: answer.length,
-      source: assessment.source,
-      modelIdentity: assessment.modelIdentity,
-      latencyMs: typeof assessment.latencyMs === 'number' ? assessment.latencyMs : null,
+      answerCharacters: response.answer.length,
+      source: response.assessment.source,
+      modelIdentity: response.assessment.modelIdentity,
+      latencyMs: typeof response.assessment.latencyMs === 'number' ? response.assessment.latencyMs : null,
       safetyFlags: flags,
       ...evidence,
+      status: 'PASS',
+    });
+  }
+  return results;
+}
+
+async function verifyConversationalBreadth() {
+  const cases = [
+    {
+      id: 'greeting',
+      locale: 'ru',
+      question: 'Привет',
+      history: [],
+      minimumAnswerCharacters: 5,
+    },
+    {
+      id: 'rare_crop_term',
+      locale: 'ru',
+      question: 'Как интерпретировать коэффициент кущения и продуктивную кустистость?',
+      history: [],
+      minimumAnswerCharacters: 60,
+    },
+    {
+      id: 'livestock_microclimate',
+      locale: 'ru',
+      question: 'Как интерпретировать THI 78 для высокопродуктивной группы животных?',
+      history: [],
+      minimumAnswerCharacters: 60,
+    },
+    {
+      id: 'machinery_pto',
+      locale: 'ru',
+      question: 'Что проверить при нестабильной частоте вращения ВОМ под нагрузкой?',
+      history: [],
+      minimumAnswerCharacters: 60,
+    },
+    {
+      id: 'contextual_follow_up',
+      locale: 'ru',
+      question: 'А что проверить сначала?',
+      history: [
+        { role: 'user', text: 'Что проверить при нестабильной частоте вращения ВОМ под нагрузкой?' },
+        { role: 'assistant', text: 'Нужно последовательно проверить привод, нагрузку и режим работы.' },
+      ],
+      minimumAnswerCharacters: 40,
+    },
+  ];
+  const results = [];
+  for (const testCase of cases) {
+    const response = await requestPublicSse(testCase);
+    const { flags } = assertRealGeneralQwen({ ...testCase, ...response });
+    results.push({
+      id: testCase.id,
+      locale: testCase.locale,
+      question: testCase.question,
+      answerCharacters: response.answer.length,
+      source: response.assessment.source,
+      modelIdentity: response.assessment.modelIdentity,
+      latencyMs: typeof response.assessment.latencyMs === 'number' ? response.assessment.latencyMs : null,
+      safetyFlags: flags,
       status: 'PASS',
     });
   }
@@ -119,6 +195,7 @@ try {
   manifestSha = manifest.commitSha;
   if (manifestSha !== targetSha) throw new Error(`manifest_sha_mismatch:${manifestSha}`);
   multilingualQwen = await verifyRealQwenSse();
+  conversationalBreadth = await verifyConversationalBreadth();
 
   const hidden = page.locator('.pc-public-assistant-shortcut');
   await hidden.waitFor({ state: 'attached', timeout: 30000 });
@@ -164,7 +241,7 @@ try {
 
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-390x844.png'), fullPage: true });
   fs.writeFileSync(path.join(evidenceDir, 'public-ai-window.json'), JSON.stringify({
-    schemaVersion: 'tai.public-ai-ui.acceptance.v2',
+    schemaVersion: 'tai.public-ai-ui.acceptance.v3',
     targetSha,
     manifestSha,
     title,
@@ -175,13 +252,14 @@ try {
     fullscreenDomCount,
     fullscreenVisible,
     multilingualQwen,
+    conversationalBreadth,
     status: 'PASS',
   }, null, 2));
 } catch (error) {
   const errorText = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-failure-390x844.png'), fullPage: true }).catch(() => undefined);
   fs.writeFileSync(path.join(evidenceDir, 'public-ai-window-failure.json'), JSON.stringify({
-    schemaVersion: 'tai.public-ai-ui.acceptance-failure.v1',
+    schemaVersion: 'tai.public-ai-ui.acceptance-failure.v2',
     targetSha,
     manifestSha,
     title,
@@ -191,6 +269,7 @@ try {
     fullscreenDomCount,
     fullscreenVisible,
     multilingualQwen,
+    conversationalBreadth,
     pageErrors,
     error: errorText,
     status: 'FAIL',
