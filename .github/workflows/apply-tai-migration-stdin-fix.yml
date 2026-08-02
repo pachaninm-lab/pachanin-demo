@@ -1,6 +1,10 @@
 name: Apply TAI migration container stdin fix
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/apply-tai-migration-stdin-fix.yml"
+      - "scripts/apply-tai-migration-stdin-fix.py"
   push:
     branches:
       - fix/tai-all-manifest-migration-contract-20260802
@@ -13,11 +17,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: apply-tai-migration-container-stdin-20260802
+  group: apply-tai-migration-container-stdin-20260802-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
   apply:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -26,6 +31,7 @@ jobs:
         with:
           ref: fix/tai-all-manifest-migration-contract-20260802
           fetch-depth: 0
+          persist-credentials: true
       - name: Capture exact source authority
         run: |
           set -Eeuo pipefail
