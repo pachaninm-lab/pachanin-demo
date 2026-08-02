@@ -1,0 +1,73 @@
+name: Apply production live hero contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/apply-production-live-hero-contract.py"
+      - ".github/workflows/apply-production-live-hero-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: production-live-hero-contract-source
+  cancel-in-progress: true
+
+jobs:
+  materialize:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout materializer authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Capture helper and exact current main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -m 0700 scripts/apply-production-live-hero-contract.py \
+            "$RUNNER_TEMP/apply-production-live-hero-contract.py"
+          git fetch --no-tags origin main
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          git reset --hard origin/main
+          git clean -fdx
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Apply and verify bounded source repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 "$RUNNER_TEMP/apply-production-live-hero-contract.py"
+          bash -n scripts/production-full-stack-live-acceptance.sh
+          node scripts/check-production-full-stack-release.mjs
+          git diff --check
+          grep -Fq "expected_kicker_primary='Crop Deal management platform'" scripts/production-full-stack-live-acceptance.sh
+          grep -Fq "expected_kicker_secondary='with proprietary artificial intelligence'" scripts/production-full-stack-live-acceptance.sh
+          grep -Fq "expected_kicker_secondary='с собственным искусственным интеллектом'" scripts/production-full-stack-live-acceptance.sh
+          grep -Fq "expected_kicker_secondary='配备自主人工智能'" scripts/production-full-stack-live-acceptance.sh
+          ! grep -Fq 'Crop Deal execution platform' scripts/production-full-stack-live-acceptance.sh
+
+      - name: Publish clean source-only branch
+        shell: bash
+        env:
+          CLEAN_BRANCH: fix/production-live-hero-contract-20260802
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          git add \
+            scripts/production-full-stack-live-acceptance.sh \
+            scripts/check-production-full-stack-release.mjs
+          files=$(git diff --cached --name-only | sort)
+          test "$files" = $'scripts/check-production-full-stack-release.mjs\nscripts/production-full-stack-live-acceptance.sh'
+          git diff --cached --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(release): align live hero acceptance with i18n authority'
+          git push --force origin HEAD:"refs/heads/$CLEAN_BRANCH"
