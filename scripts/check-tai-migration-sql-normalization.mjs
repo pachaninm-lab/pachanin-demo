@@ -1,10 +1,13 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const deployPath = 'scripts/tai-reg-ru-deploy.sh';
+const manifestPath = 'apps/tai/tai/migrations/manifest.json';
+const migrationRoot = 'apps/tai/tai/migrations';
 const deploy = readFileSync(deployPath, 'utf8');
 const startMarker = "<<'PY_MIGRATION_SQL'\n";
 const endMarker = '\nPY_MIGRATION_SQL\n';
@@ -19,6 +22,7 @@ if (start < 0 || end < 0) {
 const generator = deploy.slice(start + startMarker.length, end);
 
 for (const marker of [
+  'docker run --rm --interactive --read-only --network none --entrypoint python "$TAI_IMAGE_DIGEST" - > "$MIGRATION_BUNDLE"',
   'TAI_DEPLOY_MIGRATION_BUNDLE_EXTRACTION_FAILED',
   'TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED',
   'TAI_DEPLOY_MIGRATION_APPLICATION_FAILED',
@@ -65,6 +69,31 @@ function run(raw, options = {}) {
 }
 
 try {
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (manifest?.schema_version !== 'tai.migration.manifest.v1' || !Array.isArray(manifest?.migrations)) {
+    failures.push('repository migration manifest is invalid');
+  } else {
+    for (const item of manifest.migrations) {
+      const path = String(item?.path || '');
+      const version = item?.version;
+      if (!Number.isInteger(version) || version < 1 || !/^[0-9]{4}_[A-Za-z0-9_-]+[.]sql$/.test(path)) {
+        failures.push(`invalid bounded manifest entry: version=${String(version)} path=${JSON.stringify(path)}`);
+        continue;
+      }
+      const raw = readFileSync(join(migrationRoot, path), 'utf8');
+      const digest = createHash('sha256').update(raw, 'utf8').digest('hex');
+      const result = run(raw, { version, path, digest });
+      if (result.status !== 0) {
+        failures.push(`manifest migration rejected: version=${version} path=${path} reason=${result.stderr.trim() || 'generator exited without stderr'}`);
+        break;
+      }
+      if (!result.sql.includes(`INSERT INTO public.tai_schema_migrations(version,path,sha256,target_sha) VALUES (${version},`)) {
+        failures.push(`manifest migration lost ledger authority: version=${version} path=${path}`);
+        break;
+      }
+    }
+  }
+
   const historicalPlain = readFileSync('apps/tai/tai/migrations/0002_materialization_claims.sql', 'utf8');
   const plain = run(historicalPlain, { version: 2, path: '0002_materialization_claims.sql' });
   if (plain.status !== 0) {
@@ -110,4 +139,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('TAI migration SQL normalization contract PASS: historical plain SQL and wrapped migrations are normalized into controller-owned transactions; empty and unbalanced boundaries fail closed.');
+console.log('TAI migration SQL normalization contract PASS: packaged extraction keeps stdin open; every manifest migration, historical plain SQL and wrapped SQL normalize into controller-owned transactions; empty and unbalanced boundaries fail closed.');
