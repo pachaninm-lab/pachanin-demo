@@ -5,7 +5,7 @@
   "status": "active",
   "issue": 3585,
   "activeSlice": "P0.2-STAGE-1-AUDIT",
-  "baseCommit": "b9827fca93451f5452f4fa4c688aef73a0b09d39",
+  "baseCommit": "5be1cdac6760bfdfc5546d9c76c64467840d9d0e",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "exact-main-audit-and-governed-implementation-plan-only",
   "allowedPaths": [

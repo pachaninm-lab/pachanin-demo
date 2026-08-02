@@ -27,7 +27,7 @@ concurrency:
 
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-  EXPECTED_MAIN: b9827fca93451f5452f4fa4c688aef73a0b09d39
+  EXPECTED_MAIN: 5be1cdac6760bfdfc5546d9c76c64467840d9d0e
   EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-first-confirmed-lot-audit
 
 jobs:
