@@ -1,10 +1,10 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/tai-deploy-internal-stage-evidence-v3-20260802",
+  "branch": "fix/tai-deploy-internal-stage-evidence-clean-20260802",
   "status": "active",
   "purpose": "Apply the internal standalone deployment stage evidence that PR #3597 intended but did not materialize, so the protected REG.RU controller publishes the exact safe failing stage instead of the coarse TAI_STANDALONE_DEPLOY_EXECUTION_FAILED code.",
   "approvedBy": "owner-continue-tai-production-now-2026-08-02",
-  "authorityBaseExactMain": "65037850e463fbb2b74edf34cc6f98506eac0c12",
+  "authorityBaseExactMain": "eae723d57243b514b9911d9ae42ade4e8ccf200a",
   "failureRun": 30746507765,
   "confirmedControllerCode": "TAI_STANDALONE_DEPLOY_EXECUTION_FAILED",
   "productionHosting": "REG_RU_VPS_ONLY",
