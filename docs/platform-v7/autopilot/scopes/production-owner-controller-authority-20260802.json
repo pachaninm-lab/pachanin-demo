@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PRODUCTION-OWNER-CONTROLLER-AUTHORITY-20260802",
+  "branch": "fix/production-owner-controller-authority-20260802",
+  "status": "active",
+  "issue": 3072,
+  "baseCommit": "a0a22f29ec4a2540511a1d0133b2334e63d7a0ee",
+  "allowedPaths": [
+    ".github/workflows/apply-production-owner-controller-authority.yml",
+    "docs/platform-v7/autopilot/scopes/production-owner-controller-authority-20260802.json",
+    "scripts/apply-production-owner-controller-authority.py"
+  ],
+  "sourceOutputPaths": [
+    ".github/workflows/platform-v7-safe-merge.yml",
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    "scripts/check-production-full-stack-release.mjs"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false
+}
