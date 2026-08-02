@@ -96,6 +96,12 @@ requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
   'DEPLOY-FULL-STACK-EXACT-SHA',
   'github.actor == github.repository_owner',
+  'issue_comment:',
+  'github.event.issue.number == 3072',
+  'github.event.comment.user.login == github.repository_owner',
+  "github.event.comment.body == '/production full-stack current-main'",
+  "github.event_name == 'issue_comment' && github.event.repository.default_branch || github.ref_name",
+  "if [[ '${{ github.event_name }}' == issue_comment ]]; then",
   'RELEASE_ISSUE_NUMBER: 3072',
   'for component in api web migration',
   'grainflow-${component}:sha-${SHORT_SHA}',
@@ -179,6 +185,7 @@ requireAll('live', [
 ]);
 
 forbid('workflow', [
+  /github\.actor\s*==\s*['"]github-actions\[bot\]['"]/,
   /sshpass/i,
   /SSH_PASSWORD/i,
   /StrictHostKeyChecking=no/,
