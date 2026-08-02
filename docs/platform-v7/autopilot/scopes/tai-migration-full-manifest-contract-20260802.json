@@ -11,6 +11,7 @@
   "newRecurringCostRub": 0,
   "productionMutationAllowedBeforeMerge": false,
   "allowedPaths": [
+    ".github/workflows/tai-migration-full-manifest-contract.yml",
     "scripts/check-tai-migration-sql-normalization.mjs",
     "scripts/check-tai-reg-ru-deploy.mjs",
     "scripts/tai-reg-ru-deploy.sh",
