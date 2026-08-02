@@ -1,8 +1,8 @@
--- P0.2-2A hardening: provider-evidence binding, pre-mutation stale checks,
--- tenant-scoped command identity and database-enforced scope relations.
+-- P0.2-2A hardening: additive provider-evidence binding, pre-mutation
+-- stale checks, tenant-scoped command identity and database-enforced scope.
 -- No provider call, credential, raw XML, UI or lot publication is added here.
 
--- ── Composite scope keys used by database-enforced foreign keys ─────────────
+-- ── Composite scope keys and foreign keys ───────────────────────────────────
 
 CREATE UNIQUE INDEX IF NOT EXISTS "fgis_provider_config_scope_identity_key"
   ON public."fgis_grain_provider_configurations" ("id", "tenantId", "organizationId");
@@ -11,12 +11,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS "fgis_tenant_read_claim_scope_identity_key"
 CREATE UNIQUE INDEX IF NOT EXISTS "fgis_tenant_read_audit_scope_claim_key"
   ON public."fgis_grain_tenant_read_audits"
   ("id", "tenantId", "organizationId", "providerClaimId");
-
 CREATE UNIQUE INDEX IF NOT EXISTS "fgis_commodity_connection_scope_identity_key"
   ON public."fgis_grain_organization_connections" ("id", "tenantId", "organizationId");
-CREATE UNIQUE INDEX IF NOT EXISTS "fgis_commodity_connection_config_scope_key"
-  ON public."fgis_grain_organization_connections"
-  ("id", "tenantId", "organizationId", "providerConfigurationId");
 CREATE UNIQUE INDEX IF NOT EXISTS "fgis_commodity_sync_scope_identity_key"
   ON public."fgis_grain_sync_runs" ("id", "tenantId", "organizationId", "connectionId");
 CREATE UNIQUE INDEX IF NOT EXISTS "fgis_commodity_snapshot_scope_identity_key"
@@ -57,9 +53,8 @@ ALTER TABLE public."fgis_grain_party_current"
   REFERENCES public."fgis_grain_organization_connections"("id", "tenantId", "organizationId")
   ON UPDATE RESTRICT ON DELETE RESTRICT,
   ADD CONSTRAINT "fgis_commodity_current_snapshot_scope_fk"
-  FOREIGN KEY (
-    "currentSnapshotId", "tenantId", "organizationId", "connectionId", "externalPartyId"
-  ) REFERENCES public."fgis_grain_party_snapshots"
+  FOREIGN KEY ("currentSnapshotId", "tenantId", "organizationId", "connectionId", "externalPartyId")
+  REFERENCES public."fgis_grain_party_snapshots"
     ("id", "tenantId", "organizationId", "connectionId", "externalPartyId")
   ON UPDATE RESTRICT ON DELETE RESTRICT;
 
@@ -105,7 +100,7 @@ ALTER TABLE public."fgis_grain_reconciliation_cases"
   REFERENCES public."commodity_reservations"("id", "tenantId", "organizationId")
   ON UPDATE RESTRICT ON DELETE RESTRICT;
 
--- ── Provider evidence is mandatory and server-derived ────────────────────────
+-- ── Mandatory server-derived provider evidence ───────────────────────────────
 
 ALTER TABLE public."fgis_grain_party_snapshots"
   ADD COLUMN "providerClaimId" text,
@@ -125,16 +120,8 @@ DECLARE
   v_response_reference text;
   v_response_sha256 text;
 BEGIN
-  SELECT
-    audit."providerClaimId",
-    audit."id",
-    audit."responseReference",
-    audit."responseSha256"
-  INTO
-    v_claim_id,
-    v_audit_id,
-    v_response_reference,
-    v_response_sha256
+  SELECT audit."providerClaimId", audit."id", audit."responseReference", audit."responseSha256"
+  INTO v_claim_id, v_audit_id, v_response_reference, v_response_sha256
   FROM public."fgis_grain_sync_runs" run
   JOIN public."fgis_grain_organization_connections" connection
     ON connection."id" = run."connectionId"
@@ -166,10 +153,8 @@ BEGIN
   ORDER BY audit."createdAt" DESC, audit."id" DESC
   LIMIT 1;
 
-  IF v_audit_id IS NULL OR v_claim_id IS NULL THEN
-    RAISE EXCEPTION USING
-      ERRCODE = 'P0001',
-      MESSAGE = 'FGIS_PARTY_PROVIDER_EVIDENCE_REQUIRED';
+  IF v_claim_id IS NULL OR v_audit_id IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'FGIS_PARTY_PROVIDER_EVIDENCE_REQUIRED';
   END IF;
 
   NEW."providerClaimId" := v_claim_id;
@@ -185,30 +170,44 @@ BEFORE INSERT ON public."fgis_grain_party_snapshots"
 FOR EACH ROW EXECUTE FUNCTION fgis_commodity.bind_snapshot_provider_evidence();
 
 ALTER TABLE public."fgis_grain_party_snapshots"
-  ALTER COLUMN "providerClaimId" SET NOT NULL,
-  ALTER COLUMN "providerAuditId" SET NOT NULL,
-  ALTER COLUMN "providerResponseReference" SET NOT NULL,
-  ALTER COLUMN "providerResponseSha256" SET NOT NULL,
-  ADD CONSTRAINT "fgis_commodity_snapshot_provider_claim_scope_fk"
-  FOREIGN KEY ("providerClaimId", "tenantId", "organizationId")
-  REFERENCES public."fgis_grain_tenant_read_provider_claims"("id", "tenantId", "organizationId")
-  ON UPDATE RESTRICT ON DELETE RESTRICT,
-  ADD CONSTRAINT "fgis_commodity_snapshot_provider_audit_scope_fk"
-  FOREIGN KEY ("providerAuditId", "tenantId", "organizationId", "providerClaimId")
-  REFERENCES public."fgis_grain_tenant_read_audits"
-    ("id", "tenantId", "organizationId", "providerClaimId")
-  ON UPDATE RESTRICT ON DELETE RESTRICT,
+  ADD CONSTRAINT "fgis_commodity_snapshot_provider_evidence_required_ck"
+  CHECK (
+    "providerClaimId" IS NOT NULL
+    AND "providerAuditId" IS NOT NULL
+    AND "providerResponseReference" IS NOT NULL
+    AND "providerResponseSha256" IS NOT NULL
+  ) NOT VALID,
   ADD CONSTRAINT "fgis_commodity_snapshot_provider_response_hash_ck"
-  CHECK ("providerResponseSha256" ~ '^[a-f0-9]{64}$'),
+  CHECK ("providerResponseSha256" ~ '^[a-f0-9]{64}$') NOT VALID,
   ADD CONSTRAINT "fgis_commodity_snapshot_provider_response_reference_ck"
   CHECK (
     length("providerResponseReference") <= 522
     AND "providerResponseReference" ~ '^(provider-response|object-store)://[A-Za-z0-9][A-Za-z0-9:_.\/-]{2}[A-Za-z0-9:_.\/-]*$'
     AND position('@' IN "providerResponseReference") = 0
     AND "providerResponseReference" !~* '(-----BEGIN|<Signature|<soap:|password=|token=|secret=|privateKey|certificateBytes|Authorization:)'
-  );
+  ) NOT VALID,
+  ADD CONSTRAINT "fgis_commodity_snapshot_provider_claim_scope_fk"
+  FOREIGN KEY ("providerClaimId", "tenantId", "organizationId")
+  REFERENCES public."fgis_grain_tenant_read_provider_claims"("id", "tenantId", "organizationId")
+  ON UPDATE RESTRICT ON DELETE RESTRICT NOT VALID,
+  ADD CONSTRAINT "fgis_commodity_snapshot_provider_audit_scope_fk"
+  FOREIGN KEY ("providerAuditId", "tenantId", "organizationId", "providerClaimId")
+  REFERENCES public."fgis_grain_tenant_read_audits"
+    ("id", "tenantId", "organizationId", "providerClaimId")
+  ON UPDATE RESTRICT ON DELETE RESTRICT NOT VALID;
 
--- ── Command identity is scoped; no cross-tenant commandId collision ──────────
+ALTER TABLE public."fgis_grain_party_snapshots"
+  VALIDATE CONSTRAINT "fgis_commodity_snapshot_provider_evidence_required_ck";
+ALTER TABLE public."fgis_grain_party_snapshots"
+  VALIDATE CONSTRAINT "fgis_commodity_snapshot_provider_response_hash_ck";
+ALTER TABLE public."fgis_grain_party_snapshots"
+  VALIDATE CONSTRAINT "fgis_commodity_snapshot_provider_response_reference_ck";
+ALTER TABLE public."fgis_grain_party_snapshots"
+  VALIDATE CONSTRAINT "fgis_commodity_snapshot_provider_claim_scope_fk";
+ALTER TABLE public."fgis_grain_party_snapshots"
+  VALIDATE CONSTRAINT "fgis_commodity_snapshot_provider_audit_scope_fk";
+
+-- ── Tenant/org-scoped command identity ──────────────────────────────────────
 
 ALTER TABLE public."fgis_grain_commodity_commands"
   DROP CONSTRAINT IF EXISTS "fgis_grain_commodity_commands_commandId_key";
@@ -216,24 +215,19 @@ ALTER TABLE public."fgis_grain_commodity_commands"
   ADD CONSTRAINT "fgis_grain_commodity_command_scoped_command_key"
   UNIQUE ("tenantId", "organizationId", "commandType", "commandId");
 
--- ── Wrapper enforces replay, provider evidence and stale checks before insert ─
+-- ── Verified snapshot command; original command is revoked from app roles ───
 
-ALTER FUNCTION fgis_commodity.accept_party_snapshot(
-  text, text, jsonb, bigint, text, text, text
-) RENAME TO accept_party_snapshot_unverified;
-
-REVOKE ALL ON FUNCTION fgis_commodity.accept_party_snapshot_unverified(
+REVOKE ALL ON FUNCTION fgis_commodity.accept_party_snapshot(
   text, text, jsonb, bigint, text, text, text
 ) FROM PUBLIC;
 
 DO $revoke$
-DECLARE
-  role_name text;
+DECLARE role_name text;
 BEGIN
   FOREACH role_name IN ARRAY ARRAY['app_deal', 'app_service', 'app_runtime'] LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
       EXECUTE format(
-        'REVOKE ALL ON FUNCTION fgis_commodity.accept_party_snapshot_unverified(text,text,jsonb,bigint,text,text,text) FROM %I',
+        'REVOKE ALL ON FUNCTION fgis_commodity.accept_party_snapshot(text,text,jsonb,bigint,text,text,text) FROM %I',
         role_name
       );
     END IF;
@@ -241,7 +235,7 @@ BEGIN
 END
 $revoke$;
 
-CREATE OR REPLACE FUNCTION fgis_commodity.accept_party_snapshot(
+CREATE OR REPLACE FUNCTION fgis_commodity.accept_party_snapshot_verified(
   p_connection_id text,
   p_sync_run_id text,
   p_snapshot jsonb,
@@ -260,76 +254,46 @@ DECLARE
   v_org text := NULLIF(current_setting('app.current_org_id', true), '');
   v_user text := NULLIF(current_setting('app.current_user_id', true), '');
   v_role text := NULLIF(current_setting('app.current_role', true), '');
-  v_external_party_id text;
+  v_external_party_id text := NULLIF(btrim(p_snapshot->>'externalPartyId'), '');
   v_request_hash text;
   v_replay jsonb;
   v_current_version bigint;
-  v_run public."fgis_grain_sync_runs"%ROWTYPE;
   v_connection public."fgis_grain_organization_connections"%ROWTYPE;
+  v_run public."fgis_grain_sync_runs"%ROWTYPE;
   v_provider_audit_id text;
   v_original_role text;
   v_result jsonb;
 BEGIN
-  IF v_tenant IS NULL OR v_org IS NULL OR v_user IS NULL
-     OR v_role <> 'FGIS_GRAIN_PROVIDER'
-  THEN
-    RAISE EXCEPTION USING
-      ERRCODE = 'P0001',
-      MESSAGE = 'FGIS_PARTY_PROVIDER_PRINCIPAL_REQUIRED';
+  IF v_tenant IS NULL OR v_org IS NULL OR v_user IS NULL OR v_role <> 'FGIS_GRAIN_PROVIDER' THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'FGIS_PARTY_PROVIDER_PRINCIPAL_REQUIRED';
   END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM public."organizations" organization
-    WHERE organization."id" = v_org
-      AND organization."tenantId" = v_tenant
-      AND organization."status" IN ('VERIFIED', 'ACTIVE')
-      AND organization."kycStatus" = 'APPROVED'
-      AND organization."amlStatus" = 'CLEAR'
-      AND organization."sanctionHit" = false
-  ) THEN
-    RAISE EXCEPTION USING
-      ERRCODE = 'P0001',
-      MESSAGE = 'FGIS_COMMODITY_ORGANIZATION_NOT_ADMITTED';
-  END IF;
-
-  v_external_party_id := NULLIF(btrim(p_snapshot->>'externalPartyId'), '');
   IF v_external_party_id IS NULL THEN
-    RAISE EXCEPTION USING
-      ERRCODE = 'P0001',
-      MESSAGE = 'FGIS_PARTY_EXTERNAL_ID_REQUIRED';
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'FGIS_PARTY_EXTERNAL_ID_REQUIRED';
   END IF;
 
   v_request_hash := encode(digest(convert_to(concat_ws('|',
-    p_connection_id, p_sync_run_id, p_snapshot::text,
-    p_expected_current_version::text
+    p_connection_id, p_sync_run_id, p_snapshot::text, p_expected_current_version::text
   ), 'UTF8'), 'sha256'), 'hex');
-  v_replay := fgis_commodity.replay_command(
-    'ACCEPT_PARTY_SNAPSHOT', p_idempotency_key, v_request_hash
-  );
-  IF v_replay IS NOT NULL THEN
-    RETURN v_replay;
-  END IF;
+  v_replay := fgis_commodity.replay_command('ACCEPT_PARTY_SNAPSHOT', p_idempotency_key, v_request_hash);
+  IF v_replay IS NOT NULL THEN RETURN v_replay; END IF;
 
   PERFORM fgis_commodity.lock_key(v_tenant || ':party:' || v_external_party_id);
 
   SELECT * INTO v_connection
   FROM public."fgis_grain_organization_connections"
-  WHERE "id" = p_connection_id
-    AND "tenantId" = v_tenant
-    AND "organizationId" = v_org
+  WHERE "id" = p_connection_id AND "tenantId" = v_tenant AND "organizationId" = v_org
   FOR UPDATE;
   IF NOT FOUND OR v_connection."status" <> 'BOUND' THEN
     RETURN fgis_commodity.deny_command(
       'ACCEPT_PARTY_SNAPSHOT', p_command_id, p_idempotency_key, v_request_hash,
-      'FGIS_CONNECTION', p_connection_id, 'FGIS_CONNECTION_NOT_BOUND',
-      p_correlation_id, '{}'::jsonb
+      'FGIS_CONNECTION', p_connection_id, 'FGIS_CONNECTION_NOT_BOUND', p_correlation_id, '{}'::jsonb
     );
   END IF;
 
   SELECT * INTO v_run
   FROM public."fgis_grain_sync_runs"
   WHERE "id" = p_sync_run_id
-    AND "connectionId" = v_connection."id"
+    AND "connectionId" = p_connection_id
     AND "tenantId" = v_tenant
     AND "organizationId" = v_org
     AND "operationCode" = 'GET_LIST_LOT'
@@ -337,8 +301,7 @@ BEGIN
   IF NOT FOUND THEN
     RETURN fgis_commodity.deny_command(
       'ACCEPT_PARTY_SNAPSHOT', p_command_id, p_idempotency_key, v_request_hash,
-      'FGIS_SYNC_RUN', p_sync_run_id, 'FGIS_SYNC_RUN_NOT_PROCESSABLE',
-      p_correlation_id, '{}'::jsonb
+      'FGIS_SYNC_RUN', p_sync_run_id, 'FGIS_SYNC_RUN_NOT_PROCESSABLE', p_correlation_id, '{}'::jsonb
     );
   END IF;
 
@@ -359,80 +322,57 @@ BEGIN
     AND audit."responseReference" IS NOT NULL
     AND audit."responseSha256" IS NOT NULL
     AND audit."receivedAt" IS NOT NULL
-  ORDER BY audit."createdAt" DESC, audit."id" DESC
   LIMIT 1;
-
   IF v_provider_audit_id IS NULL THEN
     RETURN fgis_commodity.deny_command(
       'ACCEPT_PARTY_SNAPSHOT', p_command_id, p_idempotency_key, v_request_hash,
-      'FGIS_SYNC_RUN', p_sync_run_id, 'FGIS_PARTY_PROVIDER_EVIDENCE_REQUIRED',
-      p_correlation_id, '{}'::jsonb
+      'FGIS_SYNC_RUN', p_sync_run_id, 'FGIS_PARTY_PROVIDER_EVIDENCE_REQUIRED', p_correlation_id, '{}'::jsonb
     );
   END IF;
 
-  SELECT current_party."version" INTO v_current_version
-  FROM public."fgis_grain_party_current" current_party
-  WHERE current_party."tenantId" = v_tenant
-    AND current_party."organizationId" = v_org
-    AND current_party."externalPartyId" = v_external_party_id
+  SELECT "version" INTO v_current_version
+  FROM public."fgis_grain_party_current"
+  WHERE "tenantId" = v_tenant
+    AND "organizationId" = v_org
+    AND "externalPartyId" = v_external_party_id
   FOR UPDATE;
 
-  IF FOUND THEN
-    IF v_current_version <> p_expected_current_version THEN
-      RETURN fgis_commodity.deny_command(
-        'ACCEPT_PARTY_SNAPSHOT', p_command_id, p_idempotency_key, v_request_hash,
-        'FGIS_PARTY', v_external_party_id, 'FGIS_PARTY_CURRENT_STALE_VERSION',
-        p_correlation_id,
-        jsonb_build_object(
-          'actualVersion', v_current_version::text,
-          'expectedVersion', p_expected_current_version::text
-        )
-      );
-    END IF;
-  ELSIF p_expected_current_version <> 0 THEN
+  IF FOUND AND v_current_version <> p_expected_current_version THEN
     RETURN fgis_commodity.deny_command(
       'ACCEPT_PARTY_SNAPSHOT', p_command_id, p_idempotency_key, v_request_hash,
-      'FGIS_PARTY', v_external_party_id, 'FGIS_PARTY_CURRENT_STALE_VERSION',
-      p_correlation_id,
-      jsonb_build_object(
-        'actualVersion', '0',
-        'expectedVersion', p_expected_current_version::text
-      )
+      'FGIS_PARTY', v_external_party_id, 'FGIS_PARTY_CURRENT_STALE_VERSION', p_correlation_id,
+      jsonb_build_object('actualVersion', v_current_version::text, 'expectedVersion', p_expected_current_version::text)
+    );
+  ELSIF NOT FOUND AND p_expected_current_version <> 0 THEN
+    RETURN fgis_commodity.deny_command(
+      'ACCEPT_PARTY_SNAPSHOT', p_command_id, p_idempotency_key, v_request_hash,
+      'FGIS_PARTY', v_external_party_id, 'FGIS_PARTY_CURRENT_STALE_VERSION', p_correlation_id,
+      jsonb_build_object('actualVersion', '0', 'expectedVersion', p_expected_current_version::text)
     );
   END IF;
 
-  -- The legacy body remains internal to this migration chain. It is called
-  -- only after server-principal, provider-evidence and pre-mutation stale gates
-  -- have succeeded. SERVICE is used solely for the pre-existing database actor
-  -- assertion; client sessions cannot reach the unverified function directly.
   v_original_role := v_role;
   PERFORM set_config('app.current_role', 'SERVICE', true);
-  v_result := fgis_commodity.accept_party_snapshot_unverified(
-    p_connection_id,
-    p_sync_run_id,
-    p_snapshot,
-    p_expected_current_version,
-    p_command_id,
-    p_idempotency_key,
-    p_correlation_id
+  v_result := fgis_commodity.accept_party_snapshot(
+    p_connection_id, p_sync_run_id, p_snapshot, p_expected_current_version,
+    p_command_id, p_idempotency_key, p_correlation_id
   );
   PERFORM set_config('app.current_role', v_original_role, true);
   RETURN v_result;
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION fgis_commodity.accept_party_snapshot(
+REVOKE ALL ON FUNCTION fgis_commodity.accept_party_snapshot_verified(
   text, text, jsonb, bigint, text, text, text
 ) FROM PUBLIC;
 
 DO $grant$
-DECLARE
-  role_name text;
+DECLARE role_name text;
 BEGIN
   FOREACH role_name IN ARRAY ARRAY['app_deal', 'app_service', 'app_runtime'] LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
       EXECUTE format(
-        'GRANT EXECUTE ON FUNCTION fgis_commodity.accept_party_snapshot(text,text,jsonb,bigint,text,text,text) TO %I',
+        'GRANT EXECUTE ON FUNCTION fgis_commodity.accept_party_snapshot_verified(text,text,jsonb,bigint,text,text,text) TO %I',
         role_name
       );
     END IF;
