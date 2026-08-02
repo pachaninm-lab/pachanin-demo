@@ -84,9 +84,41 @@ if old_checker not in checker:
     raise SystemExit("checker hero authority block not found")
 checker = checker.replace(old_checker, new_checker, 1)
 
+path_anchor = "  live: 'scripts/production-full-stack-live-acceptance.sh',\n"
+path_addition = path_anchor + "  hero: 'apps/web/i18n/platform-v7-hero-message.ts',\n"
+if path_anchor not in checker:
+    raise SystemExit("checker hero path anchor not found")
+checker = checker.replace(path_anchor, path_addition, 1)
+
+live_end_anchor = """  'LIVE_ACCEPTANCE=PASS',
+]);
+
+forbid('workflow', [
+"""
+hero_contract = """  'LIVE_ACCEPTANCE=PASS',
+]);
+requireAll('hero', [
+  'Платформа управления агросделками в растениеводстве\\nс собственным искусственным интеллектом',
+  'Управляйте агросделкой',
+  'от цены до расчёта',
+  'Crop Deal management platform\\nwith proprietary artificial intelligence',
+  'Manage an agricultural Deal',
+  'from price to settlement',
+  '种植业农业交易管理平台\\n配备自主人工智能',
+  '管理农业交易',
+  '从价格到结算',
+]);
+forbid('hero', [/Crop Deal execution platform/]);
+
+forbid('workflow', [
+"""
+if live_end_anchor not in checker:
+    raise SystemExit("checker live contract terminator not found")
+checker = checker.replace(live_end_anchor, hero_contract, 1)
+
 for stale in ("Crop Deal execution platform", "expected_kicker="):
-    if stale in live or stale in checker:
-        raise SystemExit(f"stale hero contract remains: {stale}")
+    if stale in live:
+        raise SystemExit(f"stale live hero contract remains: {stale}")
 
 LIVE.write_text(live, encoding="utf-8")
 CHECKER.write_text(checker, encoding="utf-8")
