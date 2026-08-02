@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "claude/tai-agro-os-v4-production-izow8x",
   "status": "active",
-  "purpose": "Repair exact-main REG.RU standalone TAI deployment: bind model artifact evidence to the active service cgroup, remove the release race that failed the deployment while production web and API containers were still rolling to the target revision, and expose a deterministic redacted failure code without publishing raw production logs.",
+  "purpose": "Repair exact-main REG.RU standalone TAI deployment: bind model artifact evidence to the active service cgroup, remove the release race that failed the deployment while production web and API containers were still rolling to the target revision, expose a deterministic redacted failure code without publishing raw production logs, and retire the completed semantic-relevance authorization left on the reused branch.",
   "approvedBy": "owner-direct-continuation-20260801",
   "authorityBaseExactMain": "1d9e9bca171c97ed35c2e5ac19c3436912c269c5",
   "productionHosting": "REG_RU_VPS_ONLY",
@@ -15,7 +15,8 @@
     "scripts/check-tai-model-artifact-evidence.mjs",
     "scripts/tai-reg-ru-deploy.sh",
     "scripts/check-tai-exact-main-convergence.mjs",
-    "docs/platform-v7/autopilot/scopes/tai-reg-ru-model-artifact-evidence-20260801.json"
+    "docs/platform-v7/autopilot/scopes/tai-reg-ru-model-artifact-evidence-20260801.json",
+    "docs/platform-v7/autopilot/scopes/tai-semantic-relevance-20260801.json"
   ],
   "forbiddenChanges": [
     "production credentials",
@@ -34,6 +35,7 @@
     "standalone deployment waits a bounded window for exactly one web and API container at the target revision",
     "a revision that never converges fails closed with a named per-container timeout code",
     "web authority is never resolved with head -1",
+    "exactly one active source-controlled scope matches the current branch",
     "REG.RU deployment and live RU/EN/ZH acceptance pass on exact-main"
   ],
   "sourceFinalization": {
@@ -45,6 +47,7 @@
       3592
     ],
     "failureEvidenceResolverMerged": "union of exact-main staged-error resolver, model-artifact log source and redacted workflow output",
+    "staleScopeRetirement": "tai-semantic-relevance-20260801.json is retained as closed historical evidence under an archive branch identity after PR 3588 merged",
     "contractsRun": [
       "check-tai-reg-ru-deploy",
       "check-tai-reg-ru-preflight",
