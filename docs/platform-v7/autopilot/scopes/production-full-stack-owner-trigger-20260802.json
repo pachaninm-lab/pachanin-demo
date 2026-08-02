@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PRODUCTION-FULL-STACK-OWNER-TRIGGER-20260802",
+  "branch": "fix/production-full-stack-owner-trigger-20260802",
+  "status": "active",
+  "issue": 3072,
+  "baseCommit": "a0a22f29ec4a2540511a1d0133b2334e63d7a0ee",
+  "allowedPaths": [
+    ".github/workflows/apply-production-full-stack-owner-trigger.yml",
+    "docs/platform-v7/autopilot/scopes/production-full-stack-owner-trigger-20260802.json",
+    "scripts/apply-production-full-stack-owner-trigger.py"
+  ],
+  "sourceOutputPaths": [
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    "scripts/check-production-full-stack-release.mjs"
+  ],
+  "requiredBehavior": [
+    "allow direct production full-stack execution only from issue 3072 owner command",
+    "resolve the immutable target from exact current main",
+    "preserve direct owner workflow_dispatch authority",
+    "reject github-actions bot as direct production authority",
+    "publish a clean source-only branch based on exact current main"
+  ],
+  "forbiddenCapabilities": [
+    "bot-authorized production mutation",
+    "production mutation before exact-head merge",
+    "new production secrets",
+    "tenant or financial authority expansion",
+    "new hosting or recurring cost"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false
+}
