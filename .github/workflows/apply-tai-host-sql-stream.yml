@@ -1,0 +1,71 @@
+name: Apply TAI host SQL stdin transport
+
+on:
+  push:
+    branches:
+      - fix/tai-host-sql-stream-20260802
+    paths:
+      - scripts/apply-tai-host-sql-stream.py
+      - .github/workflows/apply-tai-host-sql-stream.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-tai-host-sql-stream-20260802
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-host-sql-stream-20260802
+          fetch-depth: 0
+
+      - name: Capture exact authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-host-sql-stream-20260802
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+          test "$(git rev-parse origin/main)" = '56e79fc35897488947c64dc8eb637c051766c01e'
+
+      - name: Apply and validate bounded repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-host-sql-stream.py
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          git diff --check
+          grep -Fq 'psql_admin_file "$MIGRATION_SQL"' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'psql_admin_file "$BOOTSTRAP_SQL"' scripts/tai-reg-ru-deploy.sh
+          ! grep -Eq 'psql_admin[[:space:]]+-f[[:space:]]+"\$(MIGRATION|BOOTSTRAP)_SQL"' scripts/tai-reg-ru-deploy.sh
+
+      - name: Publish ordinary reviewable source diff
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main fix/tai-host-sql-stream-20260802
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/fix/tai-host-sql-stream-20260802)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-tai-host-sql-stream.py
+          rm -f .github/workflows/apply-tai-host-sql-stream.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/tai-host-sql-stream-files.txt
+          if grep -Ev '^(docs/platform-v7/autopilot/scopes/tai-host-sql-stream-20260802[.]json|scripts/check-tai-reg-ru-deploy[.]mjs|scripts/tai-reg-ru-deploy[.]sh|scripts/apply-tai-host-sql-stream[.]py|[.]github/workflows/apply-tai-host-sql-stream[.]yml)$' /tmp/tai-host-sql-stream-files.txt; then
+            echo 'Final diff exceeds the registered host SQL stream scope.' >&2
+            exit 31
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(tai): stream protected SQL into PostgreSQL container'
+          git push origin HEAD:refs/heads/fix/tai-host-sql-stream-20260802
