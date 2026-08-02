@@ -52,7 +52,7 @@ jobs:
           bundle="$RUNNER_TEMP/tai-image-migration-bundle.json"
           output="$RUNNER_TEMP/tai-image-migration-apply.sql"
           generator="$RUNNER_TEMP/tai-production-migration-generator.py"
-          docker run --rm --read-only --network none --entrypoint python "$IMAGE" - > "$bundle" <<'PY_BUNDLE'
+          docker run --rm --interactive --read-only --network none --entrypoint python "$IMAGE" - > "$bundle" <<'PY_BUNDLE'
           import base64, hashlib, json
           from importlib import resources
           root=resources.files('tai.migrations')
@@ -68,6 +68,7 @@ jobs:
               rows.append({'version':version,'path':path,'sha256':digest,'contentBase64':base64.b64encode(raw).decode()})
           print(json.dumps({'schemaVersion':'tai.exact-image-migration-bundle.v1','migrations':rows},sort_keys=True,separators=(',',':')))
           PY_BUNDLE
+          test -s "$bundle"
           node - "$generator" <<'NODE_GENERATOR'
           const fs = require('node:fs');
           const [output] = process.argv.slice(2);
