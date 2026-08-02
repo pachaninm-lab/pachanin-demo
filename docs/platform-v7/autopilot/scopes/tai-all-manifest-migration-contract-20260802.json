@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-all-manifest-migration-contract-20260802",
+  "status": "active",
+  "purpose": "Close the confirmed TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED gap by executing the exact production migration SQL generator against every migration in the governed manifest, not a single historical fixture.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "885225c55ff6c526b82209cea9eb8f0db0fd9638",
+  "failureRun": 30749748911,
+  "confirmedFailureCode": "TAI_DEPLOY_MIGRATION_SQL_GENERATION_FAILED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    "scripts/check-tai-migration-sql-normalization.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-all-manifest-migration-contract-20260802.json"
+  ],
+  "requiredBehavior": [
+    "load the authoritative migration manifest",
+    "validate every listed version path and SHA-256",
+    "execute the exact production generator against the complete bundle",
+    "identify the exact failing migration path in CI without REG.RU production access",
+    "retain wrapped plain empty and unbalanced fixture coverage",
+    "perform no production mutation",
+    "preserve REG.RU-only hosting and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "editing or skipping historical migrations in this diagnostic scope",
+    "production database or credentials access",
+    "raw REG.RU logs or SQL publication",
+    "new sudo Docker SSH tenant or financial authority",
+    "continue-on-error or fabricated production PASS",
+    "new hosting paid service or recurring expense"
+  ],
+  "acceptance": {
+    "allManifestEntriesExercised": true,
+    "exactProductionGeneratorUsed": true,
+    "exactHeadRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0
+  }
+}
