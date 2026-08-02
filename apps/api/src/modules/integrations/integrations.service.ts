@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+import {
+  FGIS_LEGACY_ERROR_CODES,
+  denyRetiredLegacyFgisRoute,
+} from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
 
 @Injectable()
 export class IntegrationsService {
@@ -53,17 +57,29 @@ export class IntegrationsService {
     };
   }
 
-  async pushFgis(dealId: string, user: any) {
-    const jobId = `JOB-FGIS-${dealId}-${Date.now()}`;
-    try {
-      const fgis = integrationRegistry.get('FGIS_ZERNO') as any;
-      const result = await fgis.execute({ action: 'registerLot', dealId, culture: 'wheat', volumeTons: 100, ownerId: user.orgId ?? user.id });
-      this.logger.log(`FGIS lot registered: ${result.sdizNumber} for deal ${dealId}`);
-      return { dealId, connector: 'FGIS_ZERNO', status: 'MOCK_OK', jobId, sdizNumber: result.sdizNumber, initiatedAt: new Date().toISOString() };
-    } catch (err) {
-      this.logger.warn(`FGIS push failed for deal ${dealId}: ${(err as Error).message}`);
-      return { dealId, connector: 'FGIS_ZERNO', status: 'FAILED', jobId, error: (err as Error).message, initiatedAt: new Date().toISOString() };
-    }
+  /**
+   * Retired in P0.2-1A. This used to call the mock ФГИС adapter with a
+   * hardcoded `wheat` / `100 t` payload — regardless of what the deal actually
+   * contained — and answer `MOCK_OK` with a synthetic СДИЗ number. Nothing was
+   * ever sent to the external register, so any operator reading `MOCK_OK`
+   * believed a legal registration had happened when none had.
+   *
+   * Registration of a real lot is a client action against the official SOAP
+   * contract, not a staff-triggered push. The route now denies without touching
+   * deal, document or job state.
+   */
+  pushFgis(dealId: string, user: any): never {
+    return denyRetiredLegacyFgisRoute({
+      code: FGIS_LEGACY_ERROR_CODES.PUSH_RETIRED,
+      message:
+        'Отправка партии во ФГИС «Зерно» через этот маршрут отключена. ' +
+        'Он не выполнял реальную регистрацию.',
+      nextStep:
+        'Подключите организацию к ФГИС «Зерно» и создайте лот из подтверждённой партии.',
+      route: `POST /integrations/fgis-zerno/deals/${dealId}/push`,
+      actorUserId: user?.sub ?? user?.id ?? null,
+      logger: this.logger,
+    });
   }
 
   reservePrepayment(dealId: string, user: any) {
@@ -81,16 +97,27 @@ export class IntegrationsService {
     };
   }
 
-  handleFgisWebhook(body: Record<string, unknown>) {
-    const { sdizId, dealId, status, confirmedAt } = body as any;
-    return {
-      received: true,
-      sdizId,
-      dealId,
-      status,
-      confirmedAt: confirmedAt ?? new Date().toISOString(),
-      note: 'SDIZ status update recorded. Document matrix will re-evaluate release gate on next request.',
-    };
+  /**
+   * Retired in P0.2-1A. The official ФГИС «Зерно» contract has no JSON callback:
+   * a provider response arrives as a signed SOAP `SendResponse` and is accepted
+   * only through the canonical regulatory inbox, which validates schema and
+   * signature, commits durably, and only then acknowledges.
+   *
+   * This handler accepted an unsigned JSON body as if it were a provider
+   * response. It is refused without reading the body — an attacker-supplied
+   * `status` must not reach any projection, not even a log line.
+   */
+  handleFgisWebhook(_body: Record<string, unknown>): never {
+    return denyRetiredLegacyFgisRoute({
+      code: FGIS_LEGACY_ERROR_CODES.WEBHOOK_RETIRED,
+      message:
+        'JSON-webhook ФГИС «Зерно» отключён. Официальный ответ оператора ' +
+        'принимается только как подписанный SOAP через регуляторный inbox.',
+      nextStep:
+        'Настройте канонический обмен ФГИС «Зерно» (SendRequest/SendResponse/Ack).',
+      route: 'POST /integrations/fgis/webhook',
+      logger: this.logger,
+    });
   }
 
   handleEdoWebhook(body: Record<string, unknown>) {

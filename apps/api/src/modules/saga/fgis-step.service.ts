@@ -1,7 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DealSagaService } from './deal-saga.service';
-import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
-import type { MockFgisZernoAdapter } from '../../../../../packages/integration-sdk/src/adapters/fgis-zerno.adapter';
+import {
+  FGIS_LEGACY_ERROR_CODES,
+  denyLegacyFgisActionOnBehalfOfClient,
+} from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+
+/**
+ * P0.2-1A — the ФГИС «Зерно» saga steps are retired.
+ *
+ * These steps were reachable by `ADMIN` and `SUPPORT_MANAGER` and called the
+ * mock ФГИС adapter, so platform staff could produce a "registered lot",
+ * "confirmed shipment" or "issued certificate" for someone else's deal. Two
+ * things were wrong with that at once:
+ *
+ *   - the adapter was a mock, so the result was synthetic and no external
+ *     register ever saw the request;
+ *   - registering a lot and confirming shipment or acceptance are legally
+ *     significant acts of the participating organization. Even against a real
+ *     provider, platform staff are not the party entitled to perform them, and
+ *     the platform's transport signature does not grant that right.
+ *
+ * Every step now fails closed. The saga step id stays in the lifecycle so
+ * existing deals keep a readable history; only the write path is withdrawn.
+ * The `integrationRegistry` import is gone on purpose — the mock ФГИС adapter
+ * must not be reachable from the production module graph at all.
+ */
 
 export interface FgisRegisterParams {
   dealId: string;
@@ -25,60 +47,27 @@ export interface FgisRegisterResult {
   };
 }
 
+const REGISTRATION_NEXT_STEP =
+  'Продавец подключает организацию к ФГИС «Зерно» и создаёт лот из подтверждённой партии в своём кабинете.';
+
 @Injectable()
 export class FgisStepService {
   private readonly logger = new Logger(FgisStepService.name);
 
-  constructor(private readonly saga: DealSagaService) {}
-
+  /**
+   * Denied before the saga is touched: a refused command must not advance,
+   * complete or fail a step, because each of those writes deal history.
+   */
   async executeFgisRegister(params: FgisRegisterParams): Promise<FgisRegisterResult> {
-    const { dealId, culture, cropClass, volumeTons, producerInn, regionCode, gost } = params;
-
-    this.saga.advance(dealId, 'fgis_register', { culture, volumeTons, producerInn });
-
-    try {
-      const adapter = integrationRegistry.get<MockFgisZernoAdapter>('FGIS_ZERNO');
-
-      const { fgisLotId } = await adapter.registerLot({
-        id: dealId,
-        culture,
-        cropClass,
-        volumeTons,
-        producerInn,
-        regionCode,
-        gost,
-      });
-
-      this.logger.log(`FGIS lot registered: deal=${dealId} fgisLotId=${fgisLotId}`);
-
-      const status = await adapter.getLotStatus(fgisLotId);
-      const certificate = await adapter.getCertificate(fgisLotId);
-
-      const result: FgisRegisterResult = {
-        dealId,
-        fgisLotId,
-        fgisStatus: status.status,
-        registeredAt: new Date().toISOString(),
-        certificate: {
-          certificateNumber: certificate.certificateNumber,
-          issuedAt: certificate.issuedAt,
-          validUntil: certificate.validUntil,
-        },
-      };
-
-      this.saga.complete(dealId, 'fgis_register', {
-        fgisLotId,
-        fgisStatus: status.status,
-        certificateNumber: certificate.certificateNumber,
-      });
-
-      return result;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`FGIS registration failed: deal=${dealId} error=${message}`);
-      this.saga.fail(dealId, 'fgis_register', message);
-      throw err;
-    }
+    return denyLegacyFgisActionOnBehalfOfClient({
+      code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
+      message:
+        'Регистрация партии во ФГИС «Зерно» сотрудником платформы отключена. ' +
+        'Это юридически значимое действие организации-участника.',
+      nextStep: REGISTRATION_NEXT_STEP,
+      route: `POST /saga/deals/${params.dealId}/execute/fgis_register`,
+      logger: this.logger,
+    });
   }
 
   async confirmShipment(params: {
@@ -90,12 +79,15 @@ export class FgisStepService {
     routeTo: string;
     loadedTons: number;
   }): Promise<{ confirmed: boolean; fgisLotId: string }> {
-    const adapter = integrationRegistry.get<MockFgisZernoAdapter>('FGIS_ZERNO');
-    await adapter.confirmShipment({
-      ...params,
-      departedAt: new Date().toISOString(),
+    return denyLegacyFgisActionOnBehalfOfClient({
+      code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
+      message:
+        'Подтверждение отгрузки во ФГИС «Зерно» сотрудником платформы отключено. ' +
+        'СДИЗ подписывает участник сделки, а не платформа.',
+      nextStep: REGISTRATION_NEXT_STEP,
+      route: `POST /saga/deals/${params.dealId}/fgis/confirm-shipment`,
+      logger: this.logger,
     });
-    return { confirmed: true, fgisLotId: params.fgisLotId };
   }
 
   async confirmAcceptance(params: {
@@ -105,19 +97,32 @@ export class FgisStepService {
     acceptedTons: number;
     quality: Record<string, number>;
   }): Promise<{ confirmed: boolean; fgisLotId: string }> {
-    const adapter = integrationRegistry.get<MockFgisZernoAdapter>('FGIS_ZERNO');
-    await adapter.confirmAcceptance({
-      fgisLotId: params.fgisLotId,
-      receiverInn: params.receiverInn,
-      acceptedTons: params.acceptedTons,
-      quality: params.quality,
-      acceptedAt: new Date().toISOString(),
+    return denyLegacyFgisActionOnBehalfOfClient({
+      code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
+      message:
+        'Подтверждение приёмки во ФГИС «Зерно» сотрудником платформы отключено. ' +
+        'Это юридически значимое действие организации-получателя.',
+      nextStep: REGISTRATION_NEXT_STEP,
+      route: `POST /saga/deals/${params.dealId}/fgis/confirm-acceptance`,
+      logger: this.logger,
     });
-    return { confirmed: true, fgisLotId: params.fgisLotId };
   }
 
-  async getCrops() {
-    const adapter = integrationRegistry.get<MockFgisZernoAdapter>('FGIS_ZERNO');
-    return adapter.getCrops();
+  /**
+   * Also denied: the crop dictionary came from the same mock and returned
+   * invented codes. Presenting them as ФГИС reference data would put synthetic
+   * values into a seller's lot.
+   */
+  async getCrops(): Promise<never> {
+    return denyLegacyFgisActionOnBehalfOfClient({
+      code: FGIS_LEGACY_ERROR_CODES.SAGA_RETIRED,
+      message:
+        'Справочник культур ФГИС «Зерно» по этому маршруту недоступен: ' +
+        'прежние значения были синтетическими.',
+      nextStep:
+        'Справочники читаются каноническими операциями официального контракта после подключения организации.',
+      route: 'GET /saga/fgis/crops',
+      logger: this.logger,
+    });
   }
 }

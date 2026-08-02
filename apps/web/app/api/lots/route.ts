@@ -1,8 +1,24 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { SESSION_COOKIE } from '../../../lib/auth-cookies';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * P0.2-1A — demo lot route, quarantined in production.
+ *
+ * `GET` served three hardcoded lots to every caller, so a production seller or
+ * buyer saw offers nobody had made. `POST` created a lot directly in
+ * `AUCTION_OPEN` — immediately tradable — from a process array, defaulting
+ * missing fields to `wheat` / `100 t` / `14 000 ₽`, with the seller taken from
+ * a cookie. Nothing was persisted, nothing was authorized against an
+ * organization, and no volume was held against a confirmed party, so the same
+ * grain could be offered any number of times.
+ *
+ * Outside production both handlers behave as before, which keeps local demo
+ * flows working. In production the fixtures are withheld and the write is
+ * refused; the canonical path is the PostgreSQL auction authority in the API,
+ * and confirmed grain lots wait for the ФГИС «Зерно» snapshot, reservation and
+ * passport.
+ */
 
 const DEMO_LOTS = [
   { id: 'LOT-001', status: 'AUCTION_OPEN', crop: 'wheat', culture: 'wheat', volumeTon: 500, priceRubPerTon: 14200, region: 'Краснодарский край', sellerId: 'farmer@demo.ru', auctionType: 'OPEN_AUCTION', auctionEndsAt: new Date(Date.now() + 48 * 3600 * 1000).toISOString(), quality: { protein: 13.2, moisture: 12.5, gluten: 28 } },
@@ -13,11 +29,40 @@ const DEMO_LOTS = [
 // In-memory store for demo-created lots
 const createdLots: typeof DEMO_LOTS = [];
 
+function isProductionRuntime(): boolean {
+  return (process.env.NODE_ENV ?? 'development') === 'production';
+}
+
 export async function GET() {
+  // No fixture reaches a production projection. An empty list is the honest
+  // answer: this route has no authority over real lots.
+  if (isProductionRuntime()) {
+    return NextResponse.json([], {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
   return NextResponse.json([...DEMO_LOTS, ...createdLots]);
 }
 
 export async function POST(request: Request) {
+  if (isProductionRuntime()) {
+    return NextResponse.json(
+      {
+        code: 'FGIS_VERIFIED_LOT_PATH_NOT_READY',
+        message:
+          'Создание лота этим маршрутом отключено: он не подтверждает объём партии ' +
+          'и не удерживает его от повторной продажи.',
+        nextStep:
+          'Создайте лот из подтверждённой партии ФГИС «Зерно» после подключения организации.',
+        stateChanged: false,
+        attestation: 'NOT_ATTESTED',
+      },
+      { status: 410, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  const { cookies } = await import('next/headers');
+  const { SESSION_COOKIE } = await import('../../../lib/auth-cookies');
   const jar = await cookies();
   const raw = jar.get(SESSION_COOKIE)?.value;
   let sellerEmail = 'farmer@demo.ru';
@@ -41,6 +86,7 @@ export async function POST(request: Request) {
     quality: body.quality || {},
     description: body.description || null,
     createdAt: new Date().toISOString(),
+    sourceVerification: 'UNVERIFIED_MANUAL_DRAFT',
   };
   createdLots.push(newLot as never);
   return NextResponse.json(newLot, { status: 201 });

@@ -38,9 +38,9 @@ describe('configureIntegrationsFromEnv', () => {
     expect(() => configureIntegrationsFromEnv({ BANK_MODE: 'live', BANK_AUTH: 'bearer' }, deps)).toThrow(/BANK_BASE_URL/);
   });
 
-  it('swaps every adapter to live when fully configured', () => {
+  it('swaps every non-quarantined adapter to live when fully configured', () => {
     const names = [
-      'FGIS_ZERNO', 'FNS', 'DIADOK', 'CRYPTOPRO_DSS', 'BANK', 'GPS', 'FTS', 'RSHN',
+      'FNS', 'DIADOK', 'CRYPTOPRO_DSS', 'BANK', 'GPS', 'FTS', 'RSHN',
       'AML_ROSFINMONITORING', 'RZD_ETRAN', 'GIS_EPD', 'BKI_NBKI', 'TAKSKOM', 'MARINE_TRAFFIC', 'SMEV',
     ] as const;
     const env: Record<string, string> = {};
@@ -52,6 +52,7 @@ describe('configureIntegrationsFromEnv', () => {
     }
     const res = configureIntegrationsFromEnv(env, deps);
     expect(res.live).toHaveLength(names.length);
+    expect(res.live).not.toContain('FGIS_ZERNO');
     for (const n of names) {
       expect(integrationRegistry.get(n).mode).toBe('live');
       expect(integrationRegistry.get(n).name).toBe(n);

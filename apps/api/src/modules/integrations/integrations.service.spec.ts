@@ -1,5 +1,7 @@
 import * as crypto from 'crypto';
+import { GoneException } from '@nestjs/common';
 import { IntegrationsService } from './integrations.service';
+import { FGIS_LEGACY_ERROR_CODES } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
 
 function makeRuntime() {
   return {
@@ -16,24 +18,65 @@ describe('IntegrationsService', () => {
     svc = new IntegrationsService(makeRuntime());
   });
 
-  describe('handleFgisWebhook()', () => {
-    it('returns received:true with echoed fields', () => {
-      const result = svc.handleFgisWebhook({
-        sdizId: 'SDIZ-123',
-        dealId: 'D1',
-        status: 'CONFIRMED',
-        confirmedAt: '2026-05-20T10:00:00Z',
-      });
-      expect(result.received).toBe(true);
-      expect(result.sdizId).toBe('SDIZ-123');
-      expect(result.status).toBe('CONFIRMED');
-      expect(result.confirmedAt).toBe('2026-05-20T10:00:00Z');
+  describe('handleFgisWebhook() — retired in P0.2-1A', () => {
+    function denial(body: Record<string, unknown>) {
+      try {
+        svc.handleFgisWebhook(body);
+      } catch (error) {
+        return error as GoneException;
+      }
+      throw new Error('handleFgisWebhook must not return a success response');
+    }
+
+    it('refuses the JSON callback with 410 and a stable code', () => {
+      const error = denial({ sdizId: 'SDIZ-123', dealId: 'D1', status: 'CONFIRMED' });
+      expect(error).toBeInstanceOf(GoneException);
+      expect(error.getStatus()).toBe(410);
+      const body = error.getResponse() as Record<string, unknown>;
+      expect(body.code).toBe(FGIS_LEGACY_ERROR_CODES.WEBHOOK_RETIRED);
+      expect(body.stateChanged).toBe(false);
+      expect(body.attestation).toBe('NOT_ATTESTED');
     });
 
-    it('fills confirmedAt when not provided', () => {
-      const result = svc.handleFgisWebhook({ sdizId: 'S1', dealId: 'D1', status: 'REJECTED' });
-      expect(result.confirmedAt).toBeDefined();
-      expect(new Date(result.confirmedAt).getFullYear()).toBeGreaterThanOrEqual(2026);
+    it('does not echo caller-supplied fields back', () => {
+      // The old handler reflected sdizId/dealId/status. Echoing an unauthenticated
+      // body makes attacker-chosen values look like recorded ФГИС state.
+      const body = denial({
+        sdizId: 'SDIZ-ATTACKER',
+        dealId: 'DEAL-ATTACKER',
+        status: 'CONFIRMED',
+      }).getResponse() as Record<string, unknown>;
+      expect(JSON.stringify(body)).not.toContain('SDIZ-ATTACKER');
+      expect(JSON.stringify(body)).not.toContain('DEAL-ATTACKER');
+      expect(body).not.toHaveProperty('received');
+      expect(body).not.toHaveProperty('sdizId');
+      expect(body).not.toHaveProperty('status');
+    });
+
+    it('issues a fresh correlation code per denial and leaks no secret', () => {
+      const first = denial({}).getResponse() as { correlationCode: string };
+      const second = denial({}).getResponse() as { correlationCode: string };
+      expect(first.correlationCode).toMatch(/^FGIS-[0-9A-F]{8}$/);
+      expect(second.correlationCode).not.toBe(first.correlationCode);
+      expect(JSON.stringify(first)).not.toMatch(/secret|token|certificate|password/i);
+    });
+  });
+
+  describe('pushFgis() — retired in P0.2-1A', () => {
+    it('refuses without contacting any adapter or mutating the deal', () => {
+      let thrown: GoneException | undefined;
+      try {
+        svc.pushFgis('DEAL-1', { sub: 'user-1', orgId: 'org-1' });
+      } catch (error) {
+        thrown = error as GoneException;
+      }
+      expect(thrown).toBeInstanceOf(GoneException);
+      const body = thrown!.getResponse() as Record<string, unknown>;
+      expect(body.code).toBe(FGIS_LEGACY_ERROR_CODES.PUSH_RETIRED);
+      expect(body.stateChanged).toBe(false);
+      // The old path answered MOCK_OK with an invented СДИЗ number.
+      expect(JSON.stringify(body)).not.toContain('MOCK_OK');
+      expect(body).not.toHaveProperty('sdizNumber');
     });
   });
 

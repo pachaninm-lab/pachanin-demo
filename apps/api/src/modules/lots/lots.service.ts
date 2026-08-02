@@ -1,6 +1,26 @@
 import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { CreateLotDto } from './dto/create-lot.dto';
 import { SearchService } from '../search/search.service';
+import {
+  FGIS_LEGACY_ERROR_CODES,
+  denyRetiredLegacyFgisRoute,
+} from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+
+/**
+ * P0.2-1A. This service keeps lots in a process array. It has no PostgreSQL
+ * authority, no row locking, no reservation against a confirmed volume, no
+ * tenant isolation and no audit — so a lot it moves to a tradable status can be
+ * sold twice, survives no restart, and carries no evidence of the grain behind
+ * it. It also seeded three demo lots into every reader, production included.
+ *
+ * Draft capture stays available and is now marked honestly. Anything that would
+ * make a lot tradable is refused in production; the canonical path is the
+ * PostgreSQL auction authority, and confirmed grain lots wait for the ФГИС
+ * «Зерно» party snapshot, reservation and passport.
+ */
+function isProductionRuntime(): boolean {
+  return (process.env.NODE_ENV ?? 'development') === 'production';
+}
 
 export type LotStatus = 'DRAFT' | 'OPEN' | 'BIDDING' | 'MATCHED' | 'IN_DEAL' | 'CLOSED' | 'CANCELLED';
 
@@ -23,6 +43,12 @@ export interface Lot {
   auctionEndsAt: string;
   createdAt: string;
   updatedAt?: string;
+  /**
+   * Honest marking required by P0.2. A lot captured here is a manual draft
+   * whose grain has not been confirmed against any external register, and a
+   * reader must be able to tell that without inferring it from the status.
+   */
+  sourceVerification?: 'UNVERIFIED_MANUAL_DRAFT';
 }
 
 @Injectable()
@@ -30,6 +56,12 @@ export class LotsService {
   private readonly store: Lot[] = [];
 
   constructor(@Optional() private readonly searchService?: SearchService) {
+    // Demo lots are fixtures. They used to be returned to every reader, so a
+    // production seller saw three lots nobody had offered. They are seeded
+    // outside production only, which keeps existing local and test flows intact
+    // while removing fixtures from the production projection entirely.
+    if (isProductionRuntime()) return;
+
     this.store.push(
       {
         id: 'LOT-001',
@@ -109,6 +141,7 @@ export class LotsService {
       sellerOrgId: user?.orgId || 'demo-org',
       sellerUserId: user?.id || 'demo-user',
       createdAt: new Date().toISOString(),
+      sourceVerification: 'UNVERIFIED_MANUAL_DRAFT',
     };
     this.store.push(lot);
     this.searchService?.indexLot(lot).catch(() => undefined);
@@ -117,6 +150,7 @@ export class LotsService {
 
   submit(id: string, user: any): Lot {
     const lot = this.findOrThrow(id);
+    this.assertNotTradableInProduction(lot, 'PATCH /lots/:id/submit', user);
     if (lot.status !== 'DRAFT') {
       throw new BadRequestException(`Лот ${id} имеет статус ${lot.status}, ожидался DRAFT`);
     }
@@ -128,6 +162,7 @@ export class LotsService {
 
   publish(id: string, user: any): Lot {
     const lot = this.findOrThrow(id);
+    this.assertNotTradableInProduction(lot, 'PATCH /lots/:id/publish', user);
     if (lot.status !== 'OPEN') {
       throw new BadRequestException(`Лот ${id} имеет статус ${lot.status}, ожидался OPEN`);
     }
@@ -135,6 +170,28 @@ export class LotsService {
     lot.updatedAt = new Date().toISOString();
     this.searchService?.indexLot(lot).catch(() => undefined);
     return lot;
+  }
+
+  /**
+   * Refuses, in production, any transition that would offer grain for sale from
+   * this in-memory store. The check runs before the status precondition so a
+   * caller cannot learn the lot's current status from the error it gets back.
+   *
+   * Outside production the transitions still work, so local development and the
+   * existing test suites are unaffected.
+   */
+  private assertNotTradableInProduction(lot: Lot, route: string, user: any): void {
+    if (!isProductionRuntime()) return;
+    denyRetiredLegacyFgisRoute({
+      code: FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
+      message:
+        'Публикация зернового лота этим маршрутом отключена: он не подтверждает ' +
+        'объём партии и не удерживает его от повторной продажи.',
+      nextStep:
+        'Создайте лот из подтверждённой партии ФГИС «Зерно» после подключения организации.',
+      route: `${route} (${lot.culture})`,
+      actorUserId: user?.sub ?? user?.id ?? null,
+    });
   }
 
   private findOrThrow(id: string): Lot {

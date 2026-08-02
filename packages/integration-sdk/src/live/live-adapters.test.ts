@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { HttpIntegrationClient, type FetchLike } from './http-integration-client';
+import {
+  LEGACY_FGIS_QUARANTINE_CODE,
+  LegacyFgisQuarantineError,
+  QuarantinedFgisZernoAdapter,
+  isLegacyFgisQuarantineError,
+} from '../quarantine/fgis-zerno-legacy';
+import { LIVE_ADAPTER_FACTORIES } from './live-registry';
 import { LiveBankAdapter } from './live-bank.adapter';
-import { LiveFgisZernoAdapter } from './live-fgis-zerno.adapter';
 import { LiveDiadokAdapter } from './live-diadok.adapter';
 import { LiveCryptoproAdapter } from './live-cryptopro.adapter';
 import { LiveFnsAdapter } from './live-fns.adapter';
@@ -102,28 +110,49 @@ describe('LiveBankAdapter', () => {
   });
 });
 
-describe('LiveFgisZernoAdapter', () => {
-  it('registers a lot and reads status via the client', async () => {
-    const { http, calls } = recordingClient('FGIS', (r) =>
-      r.method === 'POST' ? { fgisLotId: 'FGIS-1' } : { fgisLotId: 'FGIS-1', status: 'REGISTERED', updatedAt: 'now' },
-    );
-    const fgis = new LiveFgisZernoAdapter(http);
-    const reg = await fgis.registerLot({
-      id: 'LOT-2403',
-      culture: 'wheat',
-      cropClass: '4',
-      volumeTons: 600,
-      producerInn: '7707083893',
-      regionCode: '61',
-      gost: 'ГОСТ 9353-2016',
-    });
-    expect(reg.fgisLotId).toBe('FGIS-1');
-    expect(calls[0].headers['idempotency-key']).toBe('fgis-lot:LOT-2403');
+describe('retired ФГИС «Зерно» REST adapter', () => {
+  it('is no longer part of the SDK source tree', () => {
+    expect(existsSync(join(__dirname, 'live-fgis-zerno.adapter.ts'))).toBe(false);
+  });
 
-    const status = await fgis.getLotStatus('FGIS-1');
-    expect(status.status).toBe('REGISTERED');
-    expect(calls[1].url).toBe('https://api.fgis.example/v1/lots/FGIS-1/status');
-    expect(calls[1].method).toBe('GET');
+  it('is no longer re-exported from the SDK entry point', () => {
+    const index = readFileSync(join(__dirname, '..', 'index.ts'), 'utf8');
+    expect(index).not.toMatch(/^\s*export \* from '\.\/live\/live-fgis-zerno\.adapter';/m);
+  });
+
+  it('has no live factory, so no HTTP client can be built for it', () => {
+    expect(LIVE_ADAPTER_FACTORIES.FGIS_ZERNO).toBeUndefined();
+  });
+
+  it('fails closed on every operation instead of calling an invented REST path', async () => {
+    const { calls } = recordingClient('FGIS', () => ({}));
+    const quarantined = new QuarantinedFgisZernoAdapter();
+
+    await expect(quarantined.registerLot()).rejects.toThrow(LegacyFgisQuarantineError);
+    await expect(quarantined.getLotStatus()).rejects.toThrow(LegacyFgisQuarantineError);
+    await expect(quarantined.confirmShipment()).rejects.toThrow(LegacyFgisQuarantineError);
+    await expect(quarantined.confirmAcceptance()).rejects.toThrow(LegacyFgisQuarantineError);
+    await expect(quarantined.getCertificate()).rejects.toThrow(LegacyFgisQuarantineError);
+    await expect(quarantined.getCrops()).rejects.toThrow(LegacyFgisQuarantineError);
+    await expect(quarantined.execute()).rejects.toThrow(LegacyFgisQuarantineError);
+
+    // The whole point: nothing reached the network.
+    expect(calls).toHaveLength(0);
+  });
+
+  it('reports down rather than presenting a healthy mock to an operator', async () => {
+    const health = await new QuarantinedFgisZernoAdapter().healthCheck();
+    expect(health.status).toBe('down');
+    expect(health.detail).toBe(LEGACY_FGIS_QUARANTINE_CODE);
+  });
+
+  it('denies with a secret-free code that names the canonical contour', async () => {
+    const error = await new QuarantinedFgisZernoAdapter().execute().catch((e: unknown) => e);
+    expect(isLegacyFgisQuarantineError(error)).toBe(true);
+    const message = (error as Error).message;
+    expect(message).toContain('apps/api/src/modules/regulatory-integration/fgis-grain');
+    expect(message).toContain('SendRequest/SendResponse/Ack');
+    expect(message).not.toMatch(/token|secret|certificate|password/i);
   });
 });
 

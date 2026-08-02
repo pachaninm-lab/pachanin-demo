@@ -11,6 +11,10 @@ import {
 import * as crypto from 'crypto';
 import { Public } from '../../common/decorators/public.decorator';
 import { requireSecret } from '../../common/config/secrets';
+import {
+  FGIS_LEGACY_ERROR_CODES,
+  denyRetiredLegacyFgisRoute,
+} from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
 
 /**
  * Incoming ЭДО webhook endpoint per ТЗ 10.4.
@@ -68,37 +72,43 @@ export class EdoWebhookController {
     return { status: 'accepted', eventType, eventId: eventId ?? null, processedAt: new Date().toISOString() };
   }
 
+  /**
+   * Retired in P0.2-1A.
+   *
+   * This route treated an unsigned-by-ФГИС JSON body as a provider response.
+   * Three separate defects made it unusable as regulatory evidence:
+   *   - the official contract defines no JSON callback at all, only signed SOAP
+   *     `SendResponse` accepted through the canonical regulatory inbox;
+   *   - it fell back to the ЭДО secret when `FGIS_WEBHOOK_SECRET` was unset, so
+   *     an ЭДО-scoped secret could sign a ФГИС «Зерно» message;
+   *   - `X-Timestamp` was optional and idempotency lived in process memory, so
+   *     a replay survived a restart and after a second instance was added.
+   *
+   * Nothing is read from the request: the route is withdrawn, so there is no
+   * body to authenticate and no event to deduplicate.
+   */
   @Post('fgis')
-  @HttpCode(200)
-  async fgisCallback(
-    @Body() body: Record<string, unknown>,
-    @Headers('x-signature') sig: string | undefined,
-    @Headers('x-timestamp') xTimestamp: string | undefined,
-    @Headers('x-event-id') eventId: string | undefined,
-  ) {
-    const bodyStr = JSON.stringify(body);
-    const fgisSecret = process.env.FGIS_WEBHOOK_SECRET ?? EDO_WEBHOOK_SECRET;
-    this.verifySignature(sig, xTimestamp, bodyStr, fgisSecret);
-    this.verifyTimestamp(xTimestamp);
-    const idempotent = this.checkIdempotency(eventId, 'fgis');
-    if (idempotent) return { status: 'already_processed', eventId };
-
-    const lotId = body['lotId'] ? String(body['lotId']) : undefined;
-    const status = body['status'] ? String(body['status']) : 'unknown';
-    this.logger.log(`ФГИС webhook received: status=${status} lotId=${lotId ?? '-'}`);
-
-    return { status: 'accepted', lotId, fgisStatus: status, processedAt: new Date().toISOString() };
+  fgisCallback(): never {
+    return denyRetiredLegacyFgisRoute({
+      code: FGIS_LEGACY_ERROR_CODES.WEBHOOK_RETIRED,
+      message:
+        'JSON-webhook ФГИС «Зерно» отключён. Официальный ответ оператора ' +
+        'принимается только как подписанный SOAP через регуляторный inbox.',
+      nextStep:
+        'Настройте канонический обмен ФГИС «Зерно» (SendRequest/SendResponse/Ack).',
+      route: 'POST /api/webhooks/fgis',
+      logger: this.logger,
+    });
   }
 
   private verifySignature(
     sig: string | undefined,
     xTimestamp: string | undefined,
     bodyStr: string,
-    secret = EDO_WEBHOOK_SECRET,
   ): void {
     if (!sig) throw new UnauthorizedException('Missing X-Signature header');
     const payload = xTimestamp ? `${xTimestamp}.${bodyStr}` : bodyStr;
-    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const expected = 'sha256=' + crypto.createHmac('sha256', EDO_WEBHOOK_SECRET).update(payload).digest('hex');
     if (sig.length !== expected.length) throw new UnauthorizedException('Invalid webhook signature');
     if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
       throw new UnauthorizedException('Invalid webhook signature');

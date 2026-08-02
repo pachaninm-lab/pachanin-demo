@@ -1,5 +1,5 @@
 import { IntegrationAdapter, HealthStatus } from './adapter.interface';
-import { MockFgisZernoAdapter } from './adapters/fgis-zerno.adapter';
+import { QuarantinedFgisZernoAdapter } from './quarantine/fgis-zerno-legacy';
 import { MockFnsAdapter } from './adapters/fns.adapter';
 import { MockDiadokAdapter } from './adapters/diadok.adapter';
 import { MockCryptoproAdapter } from './adapters/cryptopro.adapter';
@@ -52,11 +52,20 @@ class IntegrationRegistry {
     return results as Record<AdapterName, HealthStatus>;
   }
 
-  listAdapters(): Array<{ name: AdapterName; mode: string; version: string }> {
+  listAdapters(): Array<{
+    name: AdapterName;
+    mode: string;
+    version: string;
+    quarantined: boolean;
+  }> {
     return Array.from(this.adapters.entries()).map(([name, a]) => ({
       name,
       mode: a.mode,
       version: a.version,
+      // Surfaced so a status projection can tell "a mock stands in for this
+      // integration" apart from "this integration is withdrawn and fails
+      // closed". Rendering the second as sandbox would overstate readiness.
+      quarantined: (a as { isQuarantined?: boolean }).isQuarantined === true,
     }));
   }
 }
@@ -64,8 +73,14 @@ class IntegrationRegistry {
 // Singleton registry populated with mock adapters by default
 export const integrationRegistry = new IntegrationRegistry();
 
-// Register all mock adapters — replace with live adapters via env flag
-integrationRegistry.register('FGIS_ZERNO', new MockFgisZernoAdapter());
+// Register all mock adapters — replace with live adapters via env flag.
+//
+// ФГИС «Зерно» is the exception: it is bound fail-closed, never mocked. Its
+// official contract is SOAP 1.1 served by the canonical regulatory-integration
+// contour, so a mock registered here could only ever produce a synthetic lot
+// ID that no external register acknowledges. Tests that need the mock bind it
+// explicitly through `testing/fgis-zerno-test-binding`.
+integrationRegistry.register('FGIS_ZERNO', new QuarantinedFgisZernoAdapter());
 integrationRegistry.register('FNS', new MockFnsAdapter());
 integrationRegistry.register('DIADOK', new MockDiadokAdapter());
 integrationRegistry.register('CRYPTOPRO_DSS', new MockCryptoproAdapter());

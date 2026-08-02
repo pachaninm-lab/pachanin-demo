@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
+import { FGIS_LEGACY_ERROR_CODES } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
 
 const SAFE_ID = /^[A-Za-z0-9:_.-]{1,240}$/;
 const DECIMAL_6 = /^(?:0|[1-9]\d{0,19})(?:\.\d{1,6})?$/;
@@ -313,7 +314,25 @@ function isoDate(value: unknown, field: string): Date {
 }
 
 function sourceTypeValue(value: unknown): RegisterAuctionLotInput['sourceType'] {
-  if (value === 'FGIS' || value === 'ERP' || value === 'MANUAL_VERIFIED' || value === 'OTHER') return value;
+  if (value === 'FGIS') {
+    // P0.2-1A. `sourceType` and `sourceExternalId` arrive from the browser, and
+    // the command then stamps `source_verified_at` and `admission_status =
+    // ADMITTED` on the strength of them. That is the client verifying its own
+    // source. Publishing a confirmed grain lot requires a server-held party
+    // snapshot, a reservation against its available volume and an immutable
+    // passport — none of which exist yet — so the claim is refused rather than
+    // recorded unproven. `auction.fgis_verified_lot_guard` repeats the refusal
+    // at the row level for any caller that bypasses this service.
+    throw new UnprocessableEntityException({
+      code: FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
+      field: 'sourceType',
+      message:
+        'Публикация лота, подтверждённого ФГИС «Зерно», пока недоступна: ' +
+        'подтверждение источника выполняет сервер по данным партии, а не клиент.',
+      stateChanged: false,
+    });
+  }
+  if (value === 'ERP' || value === 'MANUAL_VERIFIED' || value === 'OTHER') return value;
   throw fieldError('sourceType', 'sourceType не поддерживается.');
 }
 
@@ -391,6 +410,10 @@ function errorMaterial(error: unknown): string {
 }
 
 const AUCTION_CODES = [
+  // Raised by `auction.fgis_verified_lot_guard` when a caller reaches the table
+  // without going through `sourceTypeValue` above. Listed first so it is matched
+  // before any substring-overlapping auction code.
+  FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
   'AUCTION_TRUSTED_CONTEXT_REQUIRED',
   'AUCTION_ROLE_DENIED',
   'AUCTION_ACTIVE_MEMBERSHIP_REQUIRED',

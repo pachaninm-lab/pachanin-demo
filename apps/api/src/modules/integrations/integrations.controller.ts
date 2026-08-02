@@ -1,14 +1,14 @@
-import { UseGuards, Body, HttpCode, UnauthorizedException, Headers } from '@nestjs/common';
+import { UseGuards, Body, HttpCode } from '@nestjs/common';
 import { Controller, Get, Param, Post } from '@nestjs/common';
-import * as crypto from 'crypto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { IntegrationsService } from './integrations.service';
-import { requireSecret } from '../../common/config/secrets';
 
-const FGIS_WEBHOOK_SECRET = requireSecret('FGIS_WEBHOOK_SECRET');
+// `FGIS_WEBHOOK_SECRET` is no longer required to boot: the JSON webhook it
+// authenticated was retired in P0.2-1A, and a shared HMAC secret was never the
+// provider's signature. The canonical contour verifies signed SOAP instead.
 
 @UseGuards(RolesGuard)
 @Roles('SUPPORT_MANAGER', 'ACCOUNTING', 'LOGISTICIAN', 'ADMIN')
@@ -52,23 +52,21 @@ export class IntegrationsController {
   }
 
   /**
-   * ФГИС «Зерно» inbound webhook — called by FGIS when СДИЗ status changes.
-   * Authenticated via HMAC-SHA256 on the raw body (X-Fgis-Signature header).
-   * Body: { sdizId, dealId, status: 'CONFIRMED'|'REJECTED'|'CANCELLED', confirmedAt? }
+   * Retired in P0.2-1A.
+   *
+   * This accepted an HMAC-signed JSON body as a ФГИС «Зерно» provider response.
+   * The official contract defines no such callback — a response is a signed
+   * SOAP `SendResponse` handled by the canonical regulatory inbox. A shared
+   * HMAC secret is not the provider's signature, so the route could authenticate
+   * only whoever held the secret, never ФГИС itself.
+   *
+   * The body is not read and no signature is computed: the route is gone, so
+   * there is nothing to authenticate against.
    */
   @Public()
   @Post('fgis/webhook')
-  @HttpCode(200)
-  fgisWebhook(
-    @Body() body: Record<string, unknown>,
-    @Headers('x-fgis-signature') sig: string | undefined,
-  ) {
-    const bodyStr = JSON.stringify(body);
-    const expected = 'sha256=' + crypto.createHmac('sha256', FGIS_WEBHOOK_SECRET).update(bodyStr).digest('hex');
-    if (!sig || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
-      throw new UnauthorizedException('Invalid FGIS signature');
-    }
-    return this.integrations.handleFgisWebhook(body);
+  fgisWebhook(): never {
+    return this.integrations.handleFgisWebhook({});
   }
 
   /**

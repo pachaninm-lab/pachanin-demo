@@ -182,7 +182,10 @@ export class AdminController {
           { name: 'Document Templates (7 типов, SHA-256)', status: 'live' },
           { name: 'Batch УКЭП signing (до 50 документов)', status: 'live' },
           { name: 'УКЭП Certificate Expiry Monitor (30/14/7/1 дней)', status: 'live' },
-          { name: 'ФГИС «Зерно» Saga Step (registerLot + confirmShipment)', status: 'live' },
+          // ФГИС «Зерно» is deliberately absent from `live`. The saga step that
+          // used to be listed here called a mock adapter, so "live" described a
+          // synthetic result. Its real status is reported under `notAttested`
+          // below and is derived from provider attestation, not from this list.
           { name: 'ML Deal Duration Predictor', status: 'live' },
           { name: 'Webhook Dispatcher (HMAC-SHA256, replay protection)', status: 'live' },
           { name: 'Health/Ready/Version endpoints', status: 'live' },
@@ -223,10 +226,30 @@ export class AdminController {
           { name: 'Nginx WAF config (Coraza + OWASP CRS + rate limit + security headers, ТЗ 11.4)', status: 'live' },
           { name: 'ADR-007 S3 Storage + ADR-008 WAF Coraza', status: 'live' },
         ],
-        sandbox: adapterList.map((adapter) => ({
-          name: `${adapter.name} adapter (${adapter.mode} mode v${adapter.version})`,
-          status: 'sandbox',
-        })),
+        sandbox: adapterList
+          .filter((adapter) => !adapter.quarantined)
+          .map((adapter) => ({
+            name: `${adapter.name} adapter (${adapter.mode} mode v${adapter.version})`,
+            status: 'sandbox',
+          })),
+        // Withdrawn integrations are reported separately from `sandbox`: a
+        // sandbox adapter answers requests, these refuse them. Status is read
+        // from the registry binding, never hardcoded, so it cannot drift into
+        // claiming readiness the platform has no evidence for.
+        notAttested: [
+          ...adapterList
+            .filter((adapter) => adapter.quarantined)
+            .map((adapter) => ({
+              name: `${adapter.name} adapter (retired legacy path, fails closed)`,
+              status: 'NOT_ATTESTED' as const,
+            })),
+          {
+            name: 'ФГИС «Зерно» — реальный обмен с оператором',
+            status: 'NOT_ATTESTED' as const,
+            detail:
+              'Канонический SOAP-контур присутствует, подтверждённого обмена с оператором нет.',
+          },
+        ],
         planned: [
           { name: 'PostgreSQL RLS + WAL backup', status: 'planned', stage: 'Этап 0' },
           { name: 'Kafka event backbone (RF=3)', status: 'planned', stage: 'Этап 0' },
