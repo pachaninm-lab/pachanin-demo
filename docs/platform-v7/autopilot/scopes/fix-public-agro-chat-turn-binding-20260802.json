@@ -11,7 +11,8 @@
     "apps/web/app/api/agro-chat/route.ts",
     "apps/web/lib/platform-v7/agro-chat-context.ts",
     "apps/web/tests/unit/platformV7AgroChatTurnBinding.test.ts",
-    "apps/web/tests/unit/platformV7AgroChatRouteContract.test.ts"
+    "apps/web/tests/unit/platformV7AgroChatRouteContract.test.ts",
+    "apps/web/tests/unit/platformV7AgroChatRoute.test.ts"
   ],
   "requiredBehavior": [
     "each complete new question is answered from the current turn rather than the previous topic",
