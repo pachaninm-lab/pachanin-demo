@@ -1,16 +1,4 @@
-#!/usr/bin/env python3
-from pathlib import Path
-
-middleware = Path('apps/web/middleware.ts')
-text = middleware.read_text(encoding='utf-8')
-old = "  '/api/public-platform-assistant',\n  '/api/restricted-public-platform-assistant',\n"
-new = "  '/api/public-platform-assistant',\n  '/api/public-platform-assistant/attachments',\n  '/api/restricted-public-platform-assistant',\n"
-if text.count(old) != 1:
-    raise SystemExit(f'middleware insertion anchor count={text.count(old)}')
-middleware.write_text(text.replace(old, new, 1), encoding='utf-8')
-
-test = Path('apps/web/tests/unit/platformV7PublicAssistantAttachmentMiddleware.test.ts')
-test.write_text("""import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -37,6 +25,3 @@ describe('public assistant attachment middleware boundary', () => {
     expect(source).toContain('{ status: 401 }');
   });
 });
-""", encoding='utf-8')
-
-print('PUBLIC_ASSISTANT_ATTACHMENTS_PUBLIC_ROUTE=APPLIED')
