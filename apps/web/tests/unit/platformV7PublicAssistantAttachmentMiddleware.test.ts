@@ -15,6 +15,7 @@ describe('public assistant attachment middleware boundary', () => {
   it('admits only the exact bounded attachment endpoint through the public API set', () => {
     const block = publicApiExactBlock();
     expect(block).toContain("'/api/public-platform-assistant/attachments'");
+    expect(block.split("'/api/public-platform-assistant/attachments'")).toHaveLength(2);
     expect(block).not.toContain("'/api/public-platform-assistant/'");
     expect(block).not.toContain("p.startsWith('/api/public-platform-assistant')");
   });
