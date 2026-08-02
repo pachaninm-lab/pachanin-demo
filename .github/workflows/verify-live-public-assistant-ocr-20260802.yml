@@ -1,0 +1,166 @@
+name: Verify live public assistant document OCR
+
+on:
+  push:
+    branches:
+      - verify/live-public-assistant-ocr-20260802
+    paths:
+      - .github/workflows/verify-live-public-assistant-ocr-20260802.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-live-public-assistant-ocr-20260802
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  EXPECTED_REVISION: 62f3a26c2b8aeae9fed8b27777087a5badc45f86
+  EVIDENCE_DIR: artifacts/live-public-assistant-ocr
+
+jobs:
+  live-acceptance:
+    name: Paperclip UI · document upload · image and scanned-PDF OCR
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: verify/live-public-assistant-ocr-20260802
+          persist-credentials: false
+
+      - name: Prepare bounded fixtures and browser runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends imagemagick img2pdf fonts-dejavu-core jq
+          mkdir -p "$EVIDENCE_DIR" /tmp/live-ocr-browser
+          printf 'TAI LIVE DOCUMENT 42017\n' > "$EVIDENCE_DIR/live-document.txt"
+          convert -size 1600x500 xc:white \
+            -font DejaVu-Sans -pointsize 126 -fill black -gravity center \
+            -annotate +0+0 'WHEAT OCR 42017' "$EVIDENCE_DIR/ocr.png"
+          img2pdf "$EVIDENCE_DIR/ocr.png" -o "$EVIDENCE_DIR/scanned.pdf"
+          cd /tmp/live-ocr-browser
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Verify exact live revision and health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --location \
+            --connect-timeout 15 --max-time 30 \
+            -D "$EVIDENCE_DIR/health.headers" \
+            "$LIVE_BASE/api/health/ready" \
+            -o "$EVIDENCE_DIR/health.json"
+          grep -Eq 'HTTP/[0-9.]+ 200' "$EVIDENCE_DIR/health.headers"
+          { cat "$EVIDENCE_DIR/health.headers"; cat "$EVIDENCE_DIR/health.json"; } \
+            | grep -Fq "$EXPECTED_REVISION"
+
+      - name: Verify text-document extraction on production
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          code="$(curl --silent --show-error --location \
+            --connect-timeout 15 --max-time 60 \
+            -o "$EVIDENCE_DIR/text-response.json" \
+            -w '%{http_code}' \
+            -F "files=@$EVIDENCE_DIR/live-document.txt;type=text/plain" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments")"
+          test "$code" = 200
+          jq -e '.documents | length == 1' "$EVIDENCE_DIR/text-response.json" >/dev/null
+          jq -e '.rejected | length == 0' "$EVIDENCE_DIR/text-response.json" >/dev/null
+          jq -e '.documents[0].text | contains("TAI LIVE DOCUMENT 42017")' \
+            "$EVIDENCE_DIR/text-response.json" >/dev/null
+
+      - name: Verify PNG and scanned-PDF OCR on production
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          code="$(curl --silent --show-error --location \
+            --connect-timeout 15 --max-time 120 \
+            -o "$EVIDENCE_DIR/ocr-response.json" \
+            -w '%{http_code}' \
+            -F "files=@$EVIDENCE_DIR/ocr.png;type=image/png" \
+            -F "files=@$EVIDENCE_DIR/scanned.pdf;type=application/pdf" \
+            "$LIVE_BASE/api/public-platform-assistant/attachments")"
+          test "$code" = 200
+          jq -e '.documents | length == 2' "$EVIDENCE_DIR/ocr-response.json" >/dev/null
+          jq -e '.rejected | length == 0' "$EVIDENCE_DIR/ocr-response.json" >/dev/null
+          jq -e 'all(.documents[]; ((.text | ascii_upcase) | contains("WHEAT")) and (.text | contains("42017")))' \
+            "$EVIDENCE_DIR/ocr-response.json" >/dev/null
+
+      - name: Verify live paperclip UI and browser upload path
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > /tmp/live-ocr-browser/verify.mjs <<'NODE'
+          import { chromium } from 'playwright';
+          import { writeFile } from 'node:fs/promises';
+          const base = process.env.LIVE_BASE;
+          const evidence = process.env.EVIDENCE_DIR;
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+            await page.goto(`${base}/platform-v7?lang=ru`, { waitUntil: 'networkidle', timeout: 90000 });
+            const open = page.getByRole('button', { name: 'Спросить ИИ' }).first();
+            await open.waitFor({ state: 'visible', timeout: 30000 });
+            await open.click();
+            const attach = page.getByRole('button', { name: 'Прикрепить документы' });
+            await attach.waitFor({ state: 'visible', timeout: 30000 });
+            const root = page.locator('[data-public-assistant-attachments="true"]');
+            await root.waitFor({ state: 'visible', timeout: 30000 });
+            const input = root.locator('input[type="file"]');
+            await input.setInputFiles(`${evidence}/live-document.txt`);
+            await page.getByText('live-document.txt', { exact: true }).waitFor({ state: 'visible', timeout: 60000 });
+            const snapshot = {
+              url: page.url(),
+              paperclipVisible: await attach.isVisible(),
+              attachmentRootVisible: await root.isVisible(),
+              chipVisible: await page.getByText('live-document.txt', { exact: true }).isVisible(),
+            };
+            await writeFile(`${evidence}/browser-result.json`, JSON.stringify(snapshot, null, 2));
+            await page.screenshot({ path: `${evidence}/live-paperclip-upload.png`, fullPage: true });
+            if (!snapshot.paperclipVisible || !snapshot.attachmentRootVisible || !snapshot.chipVisible) process.exitCode = 31;
+          } finally {
+            await browser.close();
+          }
+          NODE
+          cd /tmp/live-ocr-browser
+          node verify.mjs
+          jq -e '.paperclipVisible and .attachmentRootVisible and .chipVisible' \
+            "$GITHUB_WORKSPACE/$EVIDENCE_DIR/browser-result.json" >/dev/null
+
+      - name: Publish machine-readable result
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          cat > "$EVIDENCE_DIR/result.json" <<EOF
+          {
+            "expectedRevision": "$EXPECTED_REVISION",
+            "health": "PASS",
+            "textDocumentExtraction": "PASS",
+            "imageOcr": "PASS",
+            "scannedPdfOcr": "PASS",
+            "paperclipUi": "PASS",
+            "browserUpload": "PASS"
+          }
+          EOF
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Upload live acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-public-assistant-ocr-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
