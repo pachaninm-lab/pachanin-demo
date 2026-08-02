@@ -98,13 +98,16 @@ forbid('workflow', [
 hero_contract = """  'LIVE_ACCEPTANCE=PASS',
 ]);
 requireAll('hero', [
-  'Платформа управления агросделками в растениеводстве\\nс собственным искусственным интеллектом',
+  'Платформа управления агросделками в растениеводстве',
+  'с собственным искусственным интеллектом',
   'Управляйте агросделкой',
   'от цены до расчёта',
-  'Crop Deal management platform\\nwith proprietary artificial intelligence',
+  'Crop Deal management platform',
+  'with proprietary artificial intelligence',
   'Manage an agricultural Deal',
   'from price to settlement',
-  '种植业农业交易管理平台\\n配备自主人工智能',
+  '种植业农业交易管理平台',
+  '配备自主人工智能',
   '管理农业交易',
   '从价格到结算',
 ]);
