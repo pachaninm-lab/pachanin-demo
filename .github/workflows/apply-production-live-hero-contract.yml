@@ -43,7 +43,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 "$RUNNER_TEMP/apply-production-live-hero-contract.py"
+          if ! python3 "$RUNNER_TEMP/apply-production-live-hero-contract.py" >"$RUNNER_TEMP/apply.log" 2>&1; then
+            tail -n 20 "$RUNNER_TEMP/apply.log"
+            exit 1
+          fi
 
       - name: Validate shell syntax
         shell: bash
