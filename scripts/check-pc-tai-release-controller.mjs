@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import './check-tai-model-artifact-evidence.mjs';
+import './check-tai-migration-sql-normalization.mjs';
 
 const paths = {
   wrapper: 'scripts/pc-tai-release-controller.sh',
