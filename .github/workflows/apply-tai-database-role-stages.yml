@@ -1,0 +1,75 @@
+name: Apply TAI database role stage authority
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/apply-tai-database-role-stages.py"
+      - ".github/workflows/apply-tai-database-role-stages.yml"
+      - "docs/platform-v7/autopilot/scopes/tai-database-role-stage-authority-20260802.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-database-role-stage-authority-source
+  cancel-in-progress: true
+
+jobs:
+  materialize:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout materializer authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Capture helper and exact current main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -m 0700 scripts/apply-tai-database-role-stages.py \
+            "$RUNNER_TEMP/apply-tai-database-role-stages.py"
+          git fetch --no-tags origin main
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          git reset --hard origin/main
+          git clean -fdx
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Apply and verify bounded source repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 "$RUNNER_TEMP/apply-tai-database-role-stages.py"
+          bash -n scripts/tai-reg-ru-deploy.sh
+          node scripts/check-tai-reg-ru-deploy.mjs
+          git diff --check
+          grep -Fq 'TAI_DEPLOY_DATABASE_ADMIN_AUTHORITY_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_DATABASE_ROLE_CREATE_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_DATABASE_CONNECT_GRANT_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_DATABASE_SCHEMA_GRANT_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_DATABASE_RELATION_GRANTS_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_DATABASE_ROLE_ATTESTATION_FAILED' scripts/tai-reg-ru-deploy.sh
+          grep -Fq 'TAI_DEPLOY_DATABASE_ROLE_NON_TAI_PRIVILEGE_FAILED' scripts/tai-reg-ru-deploy.sh
+          ! grep -Fq 'TAI_DEPLOY_DATABASE_ROLE_MATERIALIZATION_FAILED' scripts/tai-reg-ru-deploy.sh
+
+      - name: Publish clean source-only branch
+        shell: bash
+        env:
+          CLEAN_BRANCH: fix/tai-database-role-stages-source-20260802
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          git add scripts/tai-reg-ru-deploy.sh scripts/check-tai-reg-ru-deploy.mjs
+          files=$(git diff --cached --name-only | sort)
+          test "$files" = $'scripts/check-tai-reg-ru-deploy.mjs\nscripts/tai-reg-ru-deploy.sh'
+          git diff --cached --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(tai): split database role materialization authority'
+          git push --force origin HEAD:"refs/heads/$CLEAN_BRANCH"
