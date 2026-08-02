@@ -1,0 +1,81 @@
+name: Apply TAI deploy stage governance 3600
+
+on:
+  push:
+    branches:
+      - governance/tai-deploy-stage-evidence-3600
+    paths:
+      - scripts/apply-tai-deploy-stage-governance-3600.py
+      - docs/platform-v7/autopilot/scopes/tai-deploy-stage-governance-3600.json
+      - .github/workflows/apply-tai-deploy-stage-governance-3600.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-tai-deploy-stage-governance-3600
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact governance branch
+        uses: actions/checkout@v4
+        with:
+          ref: governance/tai-deploy-stage-evidence-3600
+          fetch-depth: 0
+
+      - name: Capture exact authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main governance/tai-deploy-stage-evidence-3600
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+
+      - name: Apply governance-only registration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-deploy-stage-governance-3600.py
+          python3 - <<'PY'
+          import json
+          state=json.load(open('docs/platform-v7/autopilot/autopilot-state.json',encoding='utf-8'))
+          branch='fix/tai-deploy-internal-stage-evidence-v5-20260802'
+          expected=[
+            '.github/workflows/apply-tai-deploy-internal-stage-evidence.yml',
+            'docs/platform-v7/autopilot/scopes/tai-deploy-internal-stage-evidence-20260802.json',
+            'scripts/apply-tai-deploy-internal-stage-evidence.py',
+            'scripts/check-tai-reg-ru-deploy.mjs',
+            'scripts/tai-reg-ru-deploy.sh',
+          ]
+          assert state['approvedConcurrentScopes'][branch] == expected
+          queue=open('docs/platform-v7/execution-queue.md',encoding='utf-8').read()
+          assert 'CONCURRENT P0 AUTHORIZATION — TAI REG.RU INTERNAL DEPLOY STAGE EVIDENCE:' in queue
+          PY
+          git diff --check
+
+      - name: Publish governance source diff only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main governance/tai-deploy-stage-evidence-3600
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/governance/tai-deploy-stage-evidence-3600)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-tai-deploy-stage-governance-3600.py
+          rm -f .github/workflows/apply-tai-deploy-stage-governance-3600.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/governance-files.txt
+          if grep -Ev '^([.]github/workflows/apply-tai-deploy-stage-governance-3600[.]yml|docs/platform-v7/autopilot/autopilot-state[.]json|docs/platform-v7/autopilot/scopes/tai-deploy-stage-governance-3600[.]json|docs/platform-v7/execution-queue[.]md|scripts/apply-tai-deploy-stage-governance-3600[.]py)$' /tmp/governance-files.txt; then
+            echo 'Governance diff exceeds exact registered scope.' >&2
+            exit 31
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'chore(governance): authorize TAI internal deploy stage repair'
+          git push --force-with-lease="refs/heads/governance/tai-deploy-stage-evidence-3600:${EXPECTED_HEAD}" \
+            origin HEAD:refs/heads/governance/tai-deploy-stage-evidence-3600
