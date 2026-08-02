@@ -67,7 +67,7 @@ jobs:
           rm -f .github/workflows/apply-tai-migration-plain-sql-production-v2.yml
           git add -A
           git diff --cached --name-only | sort | tee /tmp/tai-migration-files.txt
-          if grep -Ev '^(docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-v2-20260802[.]json|scripts/check-tai-migration-sql-normalization[.]mjs|scripts/check-tai-reg-ru-deploy[.]mjs|scripts/tai-reg-ru-deploy[.]sh)$' /tmp/tai-migration-files.txt; then
+          if grep -Ev '^([.]github/workflows/apply-tai-migration-plain-sql-production-v2[.]yml|docs/platform-v7/autopilot/scopes/tai-migration-plain-sql-production-v2-20260802[.]json|scripts/apply-tai-migration-plain-sql-production[.]py|scripts/check-tai-migration-sql-normalization[.]mjs|scripts/check-tai-reg-ru-deploy[.]mjs|scripts/tai-reg-ru-deploy[.]sh)$' /tmp/tai-migration-files.txt; then
             echo 'Final migration repair diff exceeds registered scope.' >&2
             exit 31
           fi
