@@ -39,14 +39,36 @@ jobs:
           git clean -fdx
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
 
-      - name: Apply and verify bounded source repair
+      - name: Apply bounded source repair
         shell: bash
         run: |
           set -Eeuo pipefail
           python3 "$RUNNER_TEMP/apply-production-live-hero-contract.py"
+
+      - name: Validate shell syntax
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           bash -n scripts/production-full-stack-live-acceptance.sh
+
+      - name: Validate release static contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           node scripts/check-production-full-stack-release.mjs
+
+      - name: Validate exact source diff
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           git diff --check
+          files=$(git diff --name-only | sort)
+          test "$files" = $'scripts/check-production-full-stack-release.mjs\nscripts/production-full-stack-live-acceptance.sh'
+
+      - name: Validate hero literals
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           grep -Fq "expected_kicker_primary='Crop Deal management platform'" scripts/production-full-stack-live-acceptance.sh
           grep -Fq "expected_kicker_secondary='with proprietary artificial intelligence'" scripts/production-full-stack-live-acceptance.sh
           grep -Fq "expected_kicker_secondary='с собственным искусственным интеллектом'" scripts/production-full-stack-live-acceptance.sh
