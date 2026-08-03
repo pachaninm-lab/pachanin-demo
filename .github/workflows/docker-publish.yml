@@ -16,6 +16,7 @@ on:
       - ".github/workflows/tai-reg-ru-preflight.yml"
       - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
       - ".github/workflows/tai-reg-ru-deploy.yml"
+      - ".github/workflows/tai-owner-reg-ru-deployment-command.yml"
       - "scripts/production-full-stack-exact-sha.sh"
       - "scripts/production-full-stack-live-acceptance.sh"
       - "scripts/check-production-full-stack-release.mjs"
