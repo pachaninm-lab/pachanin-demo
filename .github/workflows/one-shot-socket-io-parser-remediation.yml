@@ -1,0 +1,77 @@
+name: One-shot socket.io-parser security remediation
+
+on:
+  push:
+    branches:
+      - security/socket-io-parser-4.2.7-20260803
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-socket-io-parser-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    if: github.event.head_commit.message != 'fix(security): pin socket.io-parser 4.2.7'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: security/socket-io-parser-4.2.7-20260803
+          fetch-depth: 0
+
+      - name: Setup repository pnpm pin
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Apply deterministic parser override
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = 'package.json';
+          const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+          pkg.pnpm ??= {};
+          pkg.pnpm.overrides ??= {};
+          pkg.pnpm.overrides['socket.io-parser@<4.2.7'] = '4.2.7';
+          fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+          pnpm install --lockfile-only
+
+      - name: Verify frozen install and resolved version
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          grep -Fq "socket.io-parser@<4.2.7: 4.2.7" pnpm-lock.yaml
+          grep -Fq "socket.io-parser@4.2.7:" pnpm-lock.yaml
+          grep -Fq "socket.io-parser: 4.2.7" pnpm-lock.yaml
+          if grep -Fq "socket.io-parser@4.2.6:" pnpm-lock.yaml; then
+            echo "Vulnerable socket.io-parser 4.2.6 remains in lockfile" >&2
+            exit 1
+          fi
+          git diff --check
+
+      - name: Commit final two-file remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/one-shot-socket-io-parser-remediation.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json pnpm-lock.yaml .github/workflows/one-shot-socket-io-parser-remediation.yml
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "package.json pnpm-lock.yaml "
+          git commit -m "fix(security): pin socket.io-parser 4.2.7"
+          git push origin HEAD:security/socket-io-parser-4.2.7-20260803
