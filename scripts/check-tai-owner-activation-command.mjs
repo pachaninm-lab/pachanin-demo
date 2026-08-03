@@ -22,8 +22,10 @@ for (const fragment of [
   '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
-  'actions/workflows/tai-reg-ru-preflight-owner-command.yml/runs?branch=main&status=success&per_page=100',
-  'node scripts/select-tai-owner-preflight-run.mjs',
+  'statuses: read',
+  'commits/${target_sha}/status',
+  'node scripts/select-tai-owner-preflight-status.mjs',
+  "'TAI Owner REG.RU Preflight'",
   "run.event !== 'issue_comment'",
   "run.actor?.login !== owner",
   "run.triggering_actor?.login !== owner",
@@ -36,6 +38,12 @@ for (const fragment of [
   'permissions:\n      actions: write',
   'actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches',
   "'confirmation':'ACTIVATE-RESTRICTED-QWEN-REG-RU'",
+  'event=workflow_dispatch&branch=main&per_page=30',
+  "run?.name === 'TAI Restricted Qwen REG.RU Activation'",
+  'activation_run_id=$activation_run_id',
+  'issues: write',
+  'name: Publish redacted terminal command evidence',
+  'result: \\`$state\\`',
   'name: Confirm owner activation dispatch',
 ]) requireFragment(command, commandPath, fragment);
 
@@ -62,6 +70,7 @@ for (const fragment of [
 forbid(command, commandPath, /pull_request_target:/u, 'pull_request_target is forbidden');
 forbid(command, commandPath, /continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(command, commandPath, /\/tai\s+activate\s+(?!current-main)/u, 'alternate activation command is forbidden');
+forbid(command, commandPath, /actions\/workflows\/tai-reg-ru-preflight-owner-command[.]yml\/runs\?/u, 'workflow-list discovery is forbidden; exact commit status is authoritative');
 forbid(activation, activationPath, /^\s{2}issue_comment:/mu, 'production activation must not listen to issue comments');
 forbid(activation, activationPath, /^\s{2}workflow_run:/mu, 'production activation must not listen to workflow_run');
 forbid(activation, activationPath, /continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
@@ -72,4 +81,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner activation dispatch contract PASS: exact owner command, exact preflight proof, dispatch-only activation and unchanged production gates.');
+console.log('TAI owner activation dispatch contract PASS: exact owner command, exact commit-status preflight proof, observed activation run and terminal redacted evidence.');
