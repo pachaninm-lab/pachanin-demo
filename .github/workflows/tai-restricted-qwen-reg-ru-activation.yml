@@ -21,6 +21,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-command-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-activation-neutral-gate-20260803.json"
   workflow_run:
     workflows: ["TAI Owner REG.RU Preflight"]
     types: [completed]
@@ -58,19 +59,7 @@ env:
 jobs:
   upstream_preflight_gate:
     name: Require exact-run REG.RU preflight completion
-    if: >-
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main'
-      ) ||
-      (
-        github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3365 &&
-        github.event.comment.body == '/tai activate current-main'
-      )
+    if: always()
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -115,8 +104,10 @@ jobs:
           if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
 
           if [[ "$EVENT_NAME" == issue_comment ]]; then
-            [[ "$ISSUE_NUMBER" == 3365 ]]
-            [[ "$COMMAND_BODY" == '/tai activate current-main' ]]
+            if [[ "$ISSUE_NUMBER" != 3365 || "$COMMAND_BODY" != '/tai activate current-main' ]]; then
+              echo 'Neutral issue comment: activation authority not requested.'
+              exit 0
+            fi
             [[ "$COMMENTER" == "$OWNER" ]]
             [[ "$ACTOR" == "$OWNER" ]]
             [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
@@ -150,9 +141,11 @@ jobs:
             UPSTREAM_BRANCH=main
             UPSTREAM_REPOSITORY="$GITHUB_REPOSITORY"
           elif [[ "$EVENT_NAME" == workflow_run ]]; then
+            if [[ "$UPSTREAM_CONCLUSION" != success || "$UPSTREAM_BRANCH" != main ]]; then
+              echo 'Neutral workflow_run: upstream preflight was not a successful main run.'
+              exit 0
+            fi
             [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
-            [[ "$UPSTREAM_CONCLUSION" == success ]]
-            [[ "$UPSTREAM_BRANCH" == main ]]
           else
             [[ "$EVENT_NAME" == workflow_dispatch ]]
             [[ "$CURRENT_REF" == refs/heads/main ]]
@@ -195,7 +188,12 @@ jobs:
   contract:
     name: Least-privilege activation contract
     needs: upstream_preflight_gate
-    if: needs.upstream_preflight_gate.result == 'success'
+    if: >-
+      needs.upstream_preflight_gate.result == 'success' &&
+      (
+        github.event_name == 'pull_request' ||
+        needs.upstream_preflight_gate.outputs.target_sha != ''
+      )
     runs-on: ubuntu-24.04
     permissions:
       contents: read
