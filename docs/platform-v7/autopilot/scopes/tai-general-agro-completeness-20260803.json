@@ -10,10 +10,14 @@
   "objective": "Repair the production activation failure where local Qwen recognized a drip-irrigation question but returned an answer without concrete design variables, while preserving model-first behavior and the existing broad live acceptance standard.",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/tai-pnpm-lock-remediation-20260803.yml",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts",
     "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "package.json",
+    "pnpm-lock.yaml",
+    "docs/platform-v7/autopilot/security-exceptions.json",
     "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json"
   ],
   "boundaries": [
@@ -26,6 +30,9 @@
     "Private model transport, HMAC authority, role and tenant boundaries, secret redaction, no-write guarantees and current-evidence controls remain unchanged",
     "Activation failure evidence must retain the actual failed public answer and completed-case metadata so the next failure is directly diagnosable",
     "The activation workflow must run when the restricted public Qwen service or its tests change",
+    "The fixed socket.io-parser 4.2.7 must replace every production resolution of 4.2.6; no security exception is permitted for GHSA-2m8v-j782-fhvr",
+    "The existing seven-day brace-expansion exception may only be rebound to the current numeric advisory identity for the same GHSA-rgw5-rvv9-x895; its owner, expiry, severity, rationale and prohibition on CRITICAL exceptions remain unchanged",
+    "The one-shot lockfile workflow may write only pnpm-lock.yaml on this exact branch, must verify the fixed resolution, must not modify dependencies outside package.json authority, and must be removed before merge",
     "No paid model, SaaS, hosting, database or recurring cost is added",
     "Production completion requires exact-head CI, exact-main merge, canonical images, full-stack REG.RU release, successful preflight, restricted Qwen activation, broad endpoint and mobile Chromium acceptance, finalization and post-deployment verification",
     "The failed activation must remain rolled back until a new exact-main activation reaches terminal PASS"
