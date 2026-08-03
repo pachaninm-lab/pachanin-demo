@@ -10,9 +10,11 @@
   "objective": "Repair the production activation failure where local Qwen recognized a drip-irrigation question but returned an answer without concrete design variables, while preserving model-first behavior and the existing broad live acceptance standard.",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/tai-one-shot-autopilot-guard-remediation.yml",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts",
+    "scripts/p7-autopilot-guard.sh",
     "scripts/tai-potato-mobile-live-acceptance.mjs",
     "package.json",
     "pnpm-lock.yaml",
@@ -31,6 +33,9 @@
     "The activation workflow must run when the restricted public Qwen service or its tests change",
     "The fixed socket.io-parser 4.2.7 must replace every production resolution of 4.2.6; no security exception is permitted for GHSA-2m8v-j782-fhvr",
     "brace-expansion 2.1.4 and 5.0.9 must replace the affected 2.1.2 and 5.0.8 resolutions; no exception is permitted for GHSA-rgw5-rvv9-x895",
+    "The autopilot guard may receive only one exact branch-specific lockfile remediation admission for this governed branch; the guard logic and all other branch admissions remain unchanged",
+    "The one-shot guard remediation workflow may modify only scripts/p7-autopilot-guard.sh, must verify an exact single replacement, and must be removed before merge",
+    "The branch-specific lockfile admission must be removed from final main by a dedicated governed cleanup before production acceptance",
     "No paid model, SaaS, hosting, database or recurring cost is added",
     "Production completion requires exact-head CI, exact-main merge, canonical images, full-stack REG.RU release, successful preflight, restricted Qwen activation, broad endpoint and mobile Chromium acceptance, finalization and post-deployment verification",
     "The failed activation must remain rolled back until a new exact-main activation reaches terminal PASS"
