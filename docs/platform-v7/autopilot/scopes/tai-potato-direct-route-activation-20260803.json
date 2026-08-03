@@ -12,6 +12,7 @@
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/middleware.ts",
     "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts",
+    "docs/platform-v7/autopilot/security-exceptions.json",
     "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json",
     "scripts/tai-potato-mobile-live-acceptance.mjs"
   ],
@@ -27,6 +28,7 @@
     "An unexpected attempt-id collision fails closed and does not delete or chmod an existing protected directory",
     "Private mode, signed sessions, role propagation, tenant isolation, secret handling, write authority and current-evidence controls remain unchanged",
     "No hard-coded agronomic dose is introduced without soil, crop, region and production inputs",
+    "The newly published brace-expansion advisory may be covered only by the formal seven-day HIGH exception SEC-2026-3665; CRITICAL exceptions remain prohibited and the lock must be upgraded before expiry",
     "No paid model, SaaS, database, hosting service or recurring cost is added",
     "Production completion requires exact-head CI, exact-main merge, canonical images, REG.RU deployment, preflight, restricted Qwen activation and finalization, direct SSE and 390x844 mobile Chromium acceptance",
     "PostgreSQL, audit and outbox authority must remain PASS"
