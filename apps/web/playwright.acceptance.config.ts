@@ -55,6 +55,12 @@ export default defineConfig({
     env: {
       JWT_SECRET: secret,
       PC_CABINET_SESSION_SECRET: secret,
+      // The acceptance run logs in for real, so the web server needs the same
+      // API and second-factor configuration production has. Without these the
+      // login route fails closed and no cabinet can open.
+      API_URL: process.env.API_URL || 'http://127.0.0.1:4000/api',
+      MFA_LOGIN_TICKET_SECRET:
+        process.env.MFA_LOGIN_TICKET_SECRET || 'pc-design-system-v8-acceptance-mfa-ticket-secret-2026',
       NEXT_TELEMETRY_DISABLED: '1',
     },
   },

@@ -58,7 +58,18 @@ describe('P0 production authentication fails closed', () => {
       session.indexOf('export function normalizeSurfaceRole'),
       session.indexOf('export function platformHome'),
     );
-    expect(functionBody).toContain('return null;');
-    expect(functionBody).not.toContain("return 'operator';");
+
+    // The defect this guards against is a *fallback* to operator, so assert the
+    // fallback rather than the word: every return must be guarded by an
+    // equality test on the normalized role, and the unguarded final return —
+    // the one an unrecognised role reaches — must be null.
+    const returns = [...functionBody.matchAll(/^\s*(?:if \(([^)]*)\) )?return ([^;]+);/gm)];
+    expect(returns.length).toBeGreaterThan(10);
+    for (const [, guard, value] of returns.slice(0, -1)) {
+      expect(guard, `"return ${value}" must be guarded by an explicit role test`).toBeTruthy();
+      expect(guard).toMatch(/normalized ===/);
+    }
+    expect(returns.at(-1)?.[1], 'the final return must be unguarded').toBeUndefined();
+    expect(returns.at(-1)?.[2], 'an unrecognised role must resolve to null').toBe('null');
   });
 });

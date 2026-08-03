@@ -57,6 +57,10 @@ export function normalizeSurfaceRole(apiRole: string | undefined, explicit?: str
   if (normalized === 'ARBITRATOR') return 'arbitrator';
   if (normalized === 'COMPLIANCE_OFFICER' || normalized === 'COMPLIANCE') return 'compliance';
   if (normalized === 'EXECUTIVE') return 'executive';
+  // Staff roles reach the operator cabinet. This is an explicit mapping, not
+  // the old catch-all that turned every unrecognised role into an operator:
+  // anything unknown still fails closed below.
+  if (normalized === 'ADMIN' || normalized === 'SUPPORT_MANAGER') return 'operator';
   if (normalized === 'GUEST' || normalized === 'EMPLOYEE') return 'organization';
   return null;
 }

@@ -111,8 +111,21 @@ function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
 }
 
+/**
+ * A static file served from public/ has an extension and no route behind it.
+ * Cabinet RBAC must never apply to one: a stylesheet or font is not a cabinet,
+ * and gating it only breaks the page for anonymous visitors.
+ */
+const STATIC_FILE = /\.(?:css|js|mjs|map|json|yaml|yml|txt|xml|webmanifest|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|otf|eot)$/i;
+
+function isStaticFileRequest(p: string): boolean {
+  // Route handlers under /api keep their own authentication regardless of the
+  // path's shape, so they are never treated as static files.
+  return !p.startsWith('/api/') && STATIC_FILE.test(p);
+}
+
 function isPublicAsset(p: string): boolean {
-  return PUBLIC_PREFIX.some((x) => p.startsWith(x));
+  return PUBLIC_PREFIX.some((x) => p.startsWith(x)) || isStaticFileRequest(p);
 }
 
 function isPublic(p: string): boolean {
@@ -381,9 +394,17 @@ export async function middleware(req: NextRequest) {
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const presentationRole = resolveRole(req, session?.role ?? null);
 
-  if (p.startsWith('/platform-v7')) {
+  // Match the route segment, not the string. `/platform-v7-density-fix.css` is
+  // a stylesheet in public/, not a cabinet, and a prefix test sent it to login.
+  if (p === '/platform-v7' || p.startsWith('/platform-v7/')) {
     const isEntry = p === '/platform-v7';
     const isIndexable = isEntry && PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
+    // public/platform-v7/ holds the hero artwork the public landing page
+    // renders. Those are files, not cabinets, and gating them redirected the
+    // anonymous homepage's own images to the login screen.
+    if (isStaticFileRequest(p)) {
+      return applySecurityHeaders(NextResponse.next(), false);
+    }
     if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
       const response = withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath, isIndexable);
       persistRoleCookie(req, response, presentationRole);
