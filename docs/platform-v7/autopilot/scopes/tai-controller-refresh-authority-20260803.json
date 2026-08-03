@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-controller-refresh-authority-20260803",
+  "status": "active",
+  "title": "TAI exact-main installed controller refresh authority",
+  "priority": "P0",
+  "baselineExactMain": "f1ba1f38dfde4d9041a5e0b9d272c14aef0dbc49",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Refresh only the root-installed TAI release-controller wrapper from exact current main through the existing pinned production SSH authority, atomically update its attested digest, and restore preflight execution without widening pcactions sudo or production authority.",
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    ".github/workflows/tai-owner-controller-refresh-command.yml",
+    "scripts/tai-reg-ru-controller-refresh.sh",
+    "scripts/check-tai-owner-controller-refresh.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-controller-refresh-authority-20260803.json"
+  ],
+  "boundaries": [
+    "The only production command is /tai refresh-controller current-main on issue 3365",
+    "Commenter, actor and triggering actor must equal the repository owner",
+    "The target must equal exact current main before transfer and again on the REG.RU host",
+    "The existing protected SSH host, root principal, private key and pinned host fingerprint authority are reused",
+    "Only /usr/local/sbin/pc-tai-release-controller and its sudoControllerSha256 attestation may change",
+    "The shared /run/lock/pc-tai-release-controller.lock must be held exclusively during refresh",
+    "The staged wrapper digest must equal the wrapper in the protected exact-main checkout",
+    "The existing authority digest must equal the installed pre-refresh controller digest",
+    "Controller and authority updates are rollback-protected and verified after replacement",
+    "No runner registration, runner service restart, Compose mutation, database mutation, model mutation or application deployment occurs",
+    "The pcactions sudoers rule remains restricted to the single installed controller path",
+    "No tenant, role, financial, veterinary, agronomic or autonomous write authority is widened",
+    "No new recurring cost"
+  ]
+}
