@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-public-acl-and-deploy-recovery-20260803",
+  "status": "active",
+  "title": "TAI public ACL isolation and deployment recovery",
+  "priority": "P0",
+  "baselineExactMain": "ba06e6067faebab23550db5f54d0f6eeab85550a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Eliminate the two effective non-TAI relation privileges inherited by tai_runtime through PUBLIC without breaking trusted application principals, and add a deterministic wrapper-level recovery for every failed standalone TAI deployment before terminal evidence is published.",
+  "allowedPaths": [
+    "apps/tai/tai/migrations/0023_public_relation_privilege_boundary.sql",
+    "apps/tai/tai/migrations/manifest.json",
+    "apps/tai/tests/test_migration_manifest.py",
+    "scripts/pc-tai-release-controller.sh",
+    "scripts/tai-deployment-failure-recovery.sh",
+    "scripts/check-tai-public-acl-and-deploy-recovery.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-public-acl-and-deploy-recovery-20260803.json"
+  ],
+  "boundaries": [
+    "The migration changes only table-like relations in schema public whose ACL explicitly grants a covered table privilege to PUBLIC and whose name is outside tai_*",
+    "A non-zero production correction is accepted only when exactly two distinct affected relations are present",
+    "Before PUBLIC revocation, each affected privilege is granted to every existing trusted runtime principal from the fixed set app_runtime and app_service",
+    "No tenant rows, business data, object definitions, RLS policies, ownership, application roles or secrets are changed",
+    "The migration is idempotent and returns without mutation when no affected PUBLIC relation ACL remains",
+    "Failed standalone deployment recovery is invoked only after the exact-main protected controller returns non-zero",
+    "Recovery is bounded to the exact run state root, exact Compose project, exact PostgreSQL authority and the dedicated tai_runtime principal",
+    "Recovery removes the partial TAI container, restores exact env and Compose snapshots and revokes only ACL entries whose grantee is tai_runtime",
+    "Recovery refuses role removal when memberships, active sessions, ownership or default ACL dependencies are present",
+    "DROP OWNED, REASSIGN OWNED, database object deletion, PUBLIC mutation during recovery, tenant mutation and financial authority expansion are forbidden",
+    "The original deployment exit code remains failure even after recovery; recovery only makes rollback status truthful and production state safe",
+    "Successful deployment remains responsible for exact-main TAI service materialization, live acceptance, durable evidence and rollback authority",
+    "REG.RU only and no new recurring cost"
+  ]
+}
