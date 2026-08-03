@@ -4,10 +4,10 @@
   "status": "active",
   "title": "TAI orphan runtime role repair",
   "priority": "P0",
-  "baselineExactMain": "f13c4186e132fbc45d089943690738ff41cae7b1",
+  "baselineExactMain": "4f54a7a350a0628aa3345a5d0d5f0063f419ba90",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
-  "objective": "Repair only a strictly attested orphan tai_runtime PostgreSQL role when the standalone TAI service, dedicated environment and Compose override are all absent, then allow the existing fail-closed deployment to recreate the principal with a fresh secret.",
+  "objective": "Repair only a strictly attested orphan tai_runtime PostgreSQL role when the standalone TAI service, dedicated environment and Compose override are all absent, preserving the exact-main bounded grant reconciliation migration and allowing the normal deployment to recreate the principal with a fresh secret.",
   "allowedPaths": [
     ".github/workflows/tai-owner-runtime-role-repair-command.yml",
     "scripts/pc-tai-release-controller.sh",
@@ -22,9 +22,11 @@
     "An existing role must be LOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOINHERIT, NOREPLICATION, NOBYPASSRLS with connection limit 20",
     "The role must have no memberships in either direction, no active sessions and no privileges on non-TAI relations",
     "Only CONNECT, public schema usage and privileges on tai_* relations and sequences are revoked",
+    "NOLOGIN, scoped revocations and DROP ROLE execute in one PostgreSQL transaction",
     "DROP OWNED and REASSIGN OWNED are forbidden; any unexpected dependency makes DROP ROLE fail and rolls back the PostgreSQL transaction",
     "Role absence is an idempotent PASS",
     "The normal deployment remains responsible for fresh role creation, grants, runtime proof and rollback",
+    "The exact-main runtime role grant reconciliation migration remains intact",
     "No model, tenant, role, financial or autonomous write authority is widened",
     "No new recurring cost"
   ]
