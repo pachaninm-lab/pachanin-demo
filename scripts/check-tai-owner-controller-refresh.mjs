@@ -62,9 +62,11 @@ for (const fragment of [
   'MUTATION_STARTED=1',
   'mv -Tf "${INSTALLED_CONTROLLER}.new-${RUN_ID}" "$INSTALLED_CONTROLLER"',
   'mv -Tf "${AUTHORITY_FILE}.new-${RUN_ID}" "$AUTHORITY_FILE"',
+  'os.fsync(fd)',
   "ROLLBACK_STATUS='APPLIED'",
   "STATUS='ALREADY_CURRENT'",
   "STATUS='REFRESHED'",
+  'rm -f "$BACKUP_CONTROLLER" "$BACKUP_AUTHORITY"',
   "'runnerRegistrationChanged': False",
   "'runnerServiceRestarted': False",
   "'composeMutationPerformed': False",
@@ -87,8 +89,10 @@ forbid(workflow, workflowPath, /StrictHostKeyChecking=(?:no|accept-new)/u, 'untr
 forbid(workflow, workflowPath, /sshpass|password-authentication/iu, 'password-based SSH is forbidden');
 forbid(workflow, workflowPath, /echo\s+['"]?\$\{\{\s*secrets[.]/u, 'secret output is forbidden');
 forbid(refresh, refreshPath, /\b(?:DROP|REASSIGN)\s+OWNED\b/iu, 'broad PostgreSQL ownership mutation is forbidden');
-forbid(refresh, refreshPath, /\b(?:psql|docker|systemctl|useradd|usermod|gpasswd)\b/u,
-  'controller refresh must not mutate database, containers, runner service or users');
+forbid(refresh, refreshPath, /\b(?:psql|systemctl|useradd|usermod|gpasswd)\b/u,
+  'controller refresh must not mutate database, runner service or users');
+forbid(refresh, refreshPath, /\bdocker\s+(?:run|rm|rmi|compose|pull|push|login|exec|stop|start|restart|create|network|volume|system|image\s+rm)\b/u,
+  'controller refresh must not mutate containers or images');
 forbid(refresh, refreshPath, /\/etc\/sudoers[.]d\/pc-tai-release-controller['"]?\s*>/u,
   'controller refresh must not rewrite sudoers');
 forbid(refresh, refreshPath, /chmod\s+0?777|chown\s+-R/u, 'broad filesystem authority is forbidden');
@@ -99,4 +103,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner controller refresh contract PASS: owner-only, exact-main, pinned SSH, shared lock, atomic attestation update and no production-service authority expansion.');
+console.log('TAI owner controller refresh contract PASS: owner-only, exact-main, pinned SSH, shared lock, rollback-protected controller/attestation update and no production-service authority expansion.');
