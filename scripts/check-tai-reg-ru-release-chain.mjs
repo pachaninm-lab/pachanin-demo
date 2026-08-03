@@ -64,11 +64,16 @@ for (const fragment of [
   'name: TAI Owner Qwen Activation Command', 'issue_comment:', 'github.event.issue.number == 3365',
   "github.event.comment.body == '/tai activate current-main'", '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]', '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
-  'node scripts/select-tai-owner-preflight-run.mjs', 'node scripts/verify-tai-upstream-workflow-jobs.mjs --run',
+  'commits/${target_sha}/status', 'node scripts/select-tai-owner-preflight-status.mjs',
+  'node scripts/verify-tai-upstream-workflow-jobs.mjs --run',
   'node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs', 'permissions:\n      actions: write',
   'actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches',
-  "'confirmation':'ACTIVATE-RESTRICTED-QWEN-REG-RU'", 'name: Confirm owner activation dispatch',
+  "'confirmation':'ACTIVATE-RESTRICTED-QWEN-REG-RU'", 'event=workflow_dispatch&branch=main&per_page=30',
+  'activation_run_id=$activation_run_id', 'issues: write', 'name: Publish redacted terminal command evidence',
+  'name: Confirm owner activation dispatch',
 ]) requireFragment('command', fragment);
+forbid('command', /actions\/workflows\/tai-reg-ru-preflight-owner-command[.]yml\/runs\?/u,
+  'owner activation must resolve preflight from exact commit status, not workflow-list discovery');
 
 for (const fragment of [
   'workflow_dispatch:', 'upstream_preflight_gate:',
@@ -161,4 +166,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI REG.RU release-chain contract PASS: owner command dispatch, exact activation inputs and downstream deployment are fail-closed.');
+console.log('TAI REG.RU release-chain contract PASS: exact commit-status owner command, observed activation dispatch and downstream deployment are fail-closed.');
