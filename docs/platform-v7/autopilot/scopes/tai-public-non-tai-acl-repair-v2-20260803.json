@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-public-non-tai-acl-repair-v2-20260803",
+  "status": "active",
+  "title": "TAI public non-TAI ACL repair v2",
+  "priority": "P0",
+  "baselineExactMain": "5149050eb7ea3c324e6698e05efb4bcf13bad07b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Replace the failed inventory query with a stable exact-current owner-only repair that removes only the two explicit PostgreSQL PUBLIC ACL sources responsible for tai_runtime effective access to non-TAI relations, performs live and durable acceptance, and restores the exact privileges on any failure.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-public-non-tai-acl-repair-v2.yml",
+    "scripts/tai-public-non-tai-acl-repair-v2.sh",
+    "docs/platform-v7/autopilot/scopes/tai-public-non-tai-acl-repair-v2-20260803.json"
+  ],
+  "boundaries": [
+    "The only production command is /tai repair-public-non-tai-acls-v2 current-main on issue 3365",
+    "Exact current main must already have successful TAI Controller Sync and TAI REG.RU Preflight statuses",
+    "Transport is pinned to the existing REG.RU root SSH authority and host fingerprint",
+    "The repair requires exactly two effective non-TAI relations and proves PUBLIC-only attribution with zero direct tai_runtime ACLs and zero ownership",
+    "Only explicit PUBLIC relation and column ACL entries on non-TAI relations in schema public may change",
+    "Rollback SQL is generated before mutation and restores privilege type and grant option",
+    "Any failed live, durable PostgreSQL, audit or outbox acceptance triggers rollback",
+    "No role deletion, object deletion, DROP OWNED, REASSIGN OWNED, tenant mutation, application deployment or model mutation",
+    "REG.RU only and zero new recurring cost"
+  ]
+}
