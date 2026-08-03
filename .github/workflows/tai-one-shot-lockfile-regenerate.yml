@@ -1,22 +1,28 @@
 name: TAI one-shot pnpm lockfile regeneration
 
 on:
-  push:
+  pull_request:
+    types: [opened, reopened, synchronize]
     branches:
-      - fix/tai-general-agro-completeness-20260803
+      - main
     paths:
+      - package.json
+      - pnpm-lock.yaml
       - .github/workflows/tai-one-shot-lockfile-regenerate.yml
 
 permissions:
   contents: write
 
 concurrency:
-  group: tai-one-shot-lockfile-regenerate
-  cancel-in-progress: false
+  group: tai-one-shot-lockfile-regenerate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   regenerate:
     name: Regenerate frozen pnpm lockfile
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/tai-general-agro-completeness-20260803'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
