@@ -337,6 +337,23 @@ export async function middleware(req: NextRequest) {
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const resolvedRole = resolveRole(req, session?.role ?? null);
 
+  // The public URL is a compatibility alias only. Every POST is rewritten here,
+  // before filesystem route resolution, to the model-first agro route. GET stays
+  // on the public catalog handler. This prevents a stale standalone bundle from
+  // answering a crop question with an unrelated platform knowledge article.
+  if (p === '/api/public-platform-assistant' && req.method === 'POST') {
+    const u = req.nextUrl.clone();
+    u.pathname = '/api/agro-chat';
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-pc-role', resolvedRole);
+    requestHeaders.set('x-pc-pathname', u.pathname);
+    const response = NextResponse.rewrite(u, { request: { headers: requestHeaders } });
+    response.headers.set('x-pc-role', resolvedRole);
+    response.headers.set('x-pc-pathname', u.pathname);
+    persistRoleCookie(req, response, resolvedRole);
+    return applySecurityHeaders(response, privateModeEnabled && protectedPath);
+  }
+
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
     const isIndexable = PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
