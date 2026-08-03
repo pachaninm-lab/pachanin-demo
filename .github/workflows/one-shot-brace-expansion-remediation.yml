@@ -59,7 +59,7 @@ jobs:
           NODE
           pnpm install --lockfile-only
 
-      - name: Verify frozen install and patched resolutions
+      - name: Verify frozen install and production dependency audit
         shell: bash
         run: |
           set -euo pipefail
@@ -78,16 +78,21 @@ jobs:
           if (!lock.includes('socket.io-parser@4.2.7:')) {
             throw new Error('socket.io-parser 4.2.7 snapshot missing');
           }
-          if (lock.includes('socket.io-parser@4.2.6:')) {
-            throw new Error('socket.io-parser 4.2.6 remains');
-          }
           if (!lock.includes('brace-expansion@5.0.9:')) {
             throw new Error('brace-expansion 5.0.9 snapshot missing');
           }
-          if (lock.includes('brace-expansion@5.0.8:')) {
-            throw new Error('brace-expansion 5.0.8 remains');
-          }
           NODE
+
+          mkdir -p /tmp/security
+          pnpm -r list --prod --json --depth Infinity > /tmp/security/production-dependencies.json
+          NPM_BULK_AUDIT_INPUT=/tmp/security/production-dependencies.json \
+          PNPM_AUDIT_JSON=/tmp/security/pnpm-audit.json \
+          NPM_REGISTRY_URL=https://registry.npmjs.org \
+          node docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs
+          SECURITY_EXACT_HEAD="$(git rev-parse HEAD)" \
+          PNPM_AUDIT_JSON=/tmp/security/pnpm-audit.json \
+          PNPM_AUDIT_REPORT=/tmp/security/pnpm-audit-evaluation.json \
+          node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
           git diff --check
 
       - name: Commit generated two-file result
