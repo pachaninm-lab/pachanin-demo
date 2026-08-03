@@ -7,9 +7,13 @@ const paths = {
   checker: 'scripts/check-tai-controller-sync.mjs',
   scope: 'docs/platform-v7/autopilot/scopes/tai-exact-controller-sync-20260803.json',
 };
+const dockerPublishPath = '.github/workflows/docker-publish.yml';
+const triggerScopePath = 'docs/platform-v7/autopilot/scopes/tai-controller-sync-canonical-images-20260803.json';
 const workflow = readFileSync(paths.workflow, 'utf8');
 const sync = readFileSync(paths.sync, 'utf8');
 const scope = JSON.parse(readFileSync(paths.scope, 'utf8'));
+const dockerPublish = readFileSync(dockerPublishPath, 'utf8');
+const triggerScope = JSON.parse(readFileSync(triggerScopePath, 'utf8'));
 const violations = [];
 const requireFragment = (source, fragment, label) => {
   if (!source.includes(fragment)) violations.push(`${label}: missing ${JSON.stringify(fragment)}`);
@@ -45,6 +49,14 @@ for (const fragment of [
   'TAI preflight started: \\`false\\`',
   'name: Confirm exact controller sync result',
 ]) requireFragment(workflow, fragment, paths.workflow);
+
+for (const fragment of [
+  '- ".github/workflows/tai-owner-controller-sync-command.yml"',
+  '- "scripts/pc-tai-controller-sync.sh"',
+  '- "scripts/check-tai-controller-sync.mjs"',
+  '- "docs/platform-v7/autopilot/scopes/*controller-sync*.json"',
+  '# Canonical API, web, TAI and migration images are published for the exact main SHA.',
+]) requireFragment(dockerPublish, fragment, dockerPublishPath);
 
 for (const fragment of [
   "readonly REPOSITORY_URL='https://github.com/pachaninm-lab/pachanin-demo.git'",
@@ -102,6 +114,15 @@ if (JSON.stringify(expectedPaths) !== JSON.stringify(allowedPaths)) {
   violations.push(`${paths.scope}: allowedPaths must exactly match the governed implementation`);
 }
 
+if (triggerScope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${triggerScopePath}: invalid schemaVersion`);
+if (triggerScope.branch !== 'fix/tai-controller-sync-canonical-images-20260803') violations.push(`${triggerScopePath}: branch mismatch`);
+if (triggerScope.baselineExactMain !== 'bb0cee5f01daf38827fd89468b1bcc62e62d71fb') violations.push(`${triggerScopePath}: baseline mismatch`);
+const expectedTriggerPaths = [dockerPublishPath, paths.checker, triggerScopePath].sort();
+const allowedTriggerPaths = Array.isArray(triggerScope.allowedPaths) ? [...triggerScope.allowedPaths].sort() : [];
+if (JSON.stringify(expectedTriggerPaths) !== JSON.stringify(allowedTriggerPaths)) {
+  violations.push(`${triggerScopePath}: allowedPaths must exactly match the canonical trigger implementation`);
+}
+
 const checkoutIndex = sync.indexOf("git -C \"$REPOSITORY_ROOT\" checkout --force --detach \"$TARGET_SHA\"");
 const sourceDigestIndex = sync.indexOf('uploaded_sha="$(sha256sum "$SOURCE_FILE"');
 const backupIndex = sync.indexOf('controller_backup="$backup_dir/controller"');
@@ -123,4 +144,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI exact controller sync contract PASS: owner-only exact-main full-stack authority, pinned REG.RU root transport, byte-identical atomic install, marker digest update, rollback and unchanged runner privilege.');
+console.log('TAI exact controller sync contract PASS: owner-only exact-main full-stack authority, pinned REG.RU root transport, byte-identical atomic install, canonical exact-main image trigger, marker digest update, rollback and unchanged runner privilege.');
