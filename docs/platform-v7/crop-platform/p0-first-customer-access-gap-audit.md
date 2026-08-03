@@ -105,22 +105,36 @@ forward-only migration chain (the same chain production applies).
 | 7.2 | Identity tables enforce tenant isolation in PostgreSQL | `public.users` — no RLS, no policies. `public.user_orgs` — no RLS, no policies. `public.organizations` — **RLS not enabled**, yet one policy (`organizations_select`) is defined and therefore inert | **FAIL** |
 | 7.3 | No policy is defined on a table without RLS | 7 inert policies found: `organizations_select`; `deal_participants_insert`; `outbox_entries` ×4; `integration_events_select`. Each reads as protection that is not in force | **FAIL** |
 | 7.4 | RLS verified with a restricted runtime role, not a superuser | 3 `public` tables have RLS without `FORCE`, so the table owner bypasses them | PARTIAL |
-| 7.5 | Cross-tenant read of A by B is denied | Not proved for identity data. Isolation of `users`/`user_orgs`/`organizations` currently rests on application query scoping alone | **FAIL** |
+| 7.5 | Cross-tenant read of A by B is denied | Not proved for identity data. Isolation of `users`/`user_orgs`/`organizations` currently rests on application query scoping alone, which the P0 specification does not accept as PostgreSQL tenant isolation | **FAIL — release blocker** |
 
-### Why 7.2–7.5 are reported rather than fixed here
+### 7.2–7.5 are a release blocker, not an accepted gap
 
-Enabling RLS on `users`, `user_orgs` and `organizations` changes the access
-path of every authenticated query in the platform, including the login
-transaction that must read an identity *before* any tenant context exists. That
-is a schema-authority change, not a first-customer-access change, and doing it
-inside this PR would be both out of scope and unsafe to land without a
-dedicated isolation test suite and a rehearsed rollback. It belongs with the
-owner/BYPASSRLS work already tracked in #3618.
+The P0 specification requires tenant isolation **in PostgreSQL**, with
+cross-tenant negative tests and no access to another organization. Application
+query scoping is not equivalent to that and does not satisfy it. These rows
+therefore block the P0 security PASS: they are not deferred risk and must not
+be described as merely audited.
 
 The honest statement of today's posture: **tenant isolation for identity data
 is enforced in application code, not in PostgreSQL.** Row 7.3 is the sharper
 finding — seven policies exist that never execute, which is worse than no
 policy, because reading the schema suggests a boundary that is not in force.
+
+**Blocking condition.** Identity RLS must land before this PR is merged and
+before any REG.RU deployment. Enabling it is a schema-authority change: the
+login transaction has to read an identity *before* any tenant context exists,
+so it needs a dedicated runtime identity role without BYPASSRLS, a separate
+bootstrap/login authority path, a transaction-scoped tenant and user context,
+FORCE RLS wherever the owner is not the runtime principal, policies on
+`users`, `user_orgs` and `organizations`, removal of the seven inert policies,
+and negative direct-SQL tests proving that tenant B cannot read tenant A —
+before login, after login, with multi-membership, for admin/reviewer, and for
+background and service principals.
+
+That work is tracked as #3618. Whether it lands inside this PR or as its own,
+it is a hard prerequisite: **PR #3564 stays in draft, is not merged and is not
+deployed until identity RLS is in force and this section reads PASS.** No
+PRODUCTION_PASS may be claimed before then.
 
 ## 8. Prohibitions
 
@@ -163,9 +177,9 @@ Disclosed rather than buried:
 
 | Item | Owner | Blocking |
 |---|---|---|
+| **Identity RLS on `users`, `user_orgs`, `organizations`; remove the 7 inert policies** | **#3618 — hard prerequisite for merge and deploy** | **7.2–7.5, and the P0 security PASS** |
 | Firefox and WebKit projects of the acceptance matrix | CI | 4.7 |
 | Real mail delivery | production | 1.9 |
-| RLS on `users`, `user_orgs`, `organizations`; remove the 7 inert policies | schema authority, #3618 | 7.2–7.5 |
 | REG.RU deployment of the merge SHA | owner — no credentials in this environment | 8–11 of the acceptance sequence |
 | Live production E2E with a new user | owner | 9 |
 | Second independent clean-room test | owner | 10 |
