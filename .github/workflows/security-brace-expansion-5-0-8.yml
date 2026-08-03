@@ -93,10 +93,20 @@ jobs:
         run: |
           set -euo pipefail
           pnpm install --lockfile-only
-          grep -Fq 'brace-expansion@>=5.0.0 <5.0.9: 5.0.9' pnpm-lock.yaml
-          grep -Fq 'brace-expansion@5.0.9:' pnpm-lock.yaml
-          ! grep -Fq 'brace-expansion@>=5.0.0 <5.0.8: 5.0.8' pnpm-lock.yaml
-          ! grep -Fq 'brace-expansion@5.0.8:' pnpm-lock.yaml
+          node <<'NODE'
+          const fs = require('node:fs');
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+
+          const requiredOverride = /['"]?brace-expansion@>=5\.0\.0 <5\.0\.9['"]?\s*:\s*5\.0\.9(?:\s|$)/m;
+          const requiredPackage = /['"]?brace-expansion@5\.0\.9['"]?\s*:/m;
+          const forbiddenOverride = /['"]?brace-expansion@>=5\.0\.0 <5\.0\.8['"]?\s*:\s*5\.0\.8(?:\s|$)/m;
+          const forbiddenPackage = /['"]?brace-expansion@5\.0\.8['"]?\s*:/m;
+
+          if (!requiredOverride.test(lock)) throw new Error('patched brace-expansion override is absent from lock authority');
+          if (!requiredPackage.test(lock)) throw new Error('brace-expansion 5.0.9 package entry is absent from lock authority');
+          if (forbiddenOverride.test(lock)) throw new Error('obsolete brace-expansion 5.0.8 override remains in lock authority');
+          if (forbiddenPackage.test(lock)) throw new Error('vulnerable brace-expansion 5.0.8 package entry remains in lock authority');
+          NODE
           pnpm install --frozen-lockfile
 
       - name: Verify production audit and exception retirement
