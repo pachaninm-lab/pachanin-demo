@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-controller-exact-main-sync-20260803",
+  "status": "active",
+  "title": "TAI exact-main protected controller synchronization",
+  "priority": "P0",
+  "baselineExactMain": "f1ba1f38dfde4d9041a5e0b9d272c14aef0dbc49",
+  "objective": "Remove the exact production blocker INSTALLED_CONTROLLER_NOT_EXACT_TARGET by adding an owner-only, pinned-SSH, live-revision-bound command that atomically synchronizes only the root-owned TAI release controller and its recorded SHA-256 before normal preflight, activation and deployment resume.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-controller-sync-command.yml",
+    "scripts/tai-controller-sync-reg-ru.sh",
+    "scripts/check-tai-controller-sync.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-controller-exact-main-sync-20260803.json"
+  ],
+  "boundaries": [
+    "The production command is exactly /tai sync-controller current-main on issue 3365 and only the repository owner may invoke it",
+    "The target SHA must equal both current main and the live REG.RU deployment manifest before SSH mutation",
+    "Production access reuses the protected root SSH principal, pinned host fingerprint and canonical VPS identity already required by the full-stack release authority",
+    "Only /usr/local/sbin/pc-tai-release-controller and sudoControllerSha256 in the existing root-owned runner authority manifest may change",
+    "The existing runner identity, service, no-Docker boundary, sudoers contract, repository identity and manifest schema must pass before mutation",
+    "Controller and manifest backups are restored automatically on any failure before terminal evidence",
+    "No role, tenant, model, database, tool, staff, financial or application data authority is widened",
+    "REG.RU only and zero new recurring cost"
+  ]
+}
