@@ -311,10 +311,6 @@ SQL
   IFS=$'\t' read -r can_login super createdb createrole inherit replication bypass connlimit memberships grants_to_others sessions non_tai <<< "$boundary"
   [[ "$can_login" == t && "$super" == f && "$createdb" == f && "$createrole" == f ]]
   [[ "$inherit" == f && "$replication" == f && "$bypass" == f && "$connlimit" == 20 ]]
-  [[ "$memberships" == 0 && "$grants_to_others" == 0 && "$sessions" == 0 && "$non_tai" == 0 ]] || {
-    echo 'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID' >&2
-    exit 18
-  }
 
   role_boundary_json="$(python3 - "$can_login" "$super" "$createdb" "$createrole" "$inherit" "$replication" "$bypass" "$connlimit" "$memberships" "$grants_to_others" "$sessions" "$non_tai" <<'PY_BOUNDARY'
 import json,sys
@@ -329,6 +325,40 @@ for index,value in enumerate(values):
 print(json.dumps(dict(zip(keys,parsed)),sort_keys=True,separators=(',',':')))
 PY_BOUNDARY
 )"
+
+  if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]; then
+    python3 - "$OUTPUT_FILE" "$TARGET_SHA" "$RUN_ID" "$prod_project" "$DB_SERVICE" "$DB_NAME" "$role_boundary_json" <<'PY_BLOCKED_EVIDENCE'
+import grp,json,os,sys
+path,sha,run_id,project,db_service,db_name,boundary=sys.argv[1:]
+report={
+  'schemaVersion':'tai.runtime-role-repair.v1',
+  'targetSha':sha,
+  'runId':run_id,
+  'hosting':'REG_RU_VPS_ONLY',
+  'newRecurringCostRub':0,
+  'status':'BLOCKED_BOUNDARY',
+  'errorCode':'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID',
+  'role':'tai_runtime',
+  'servicePresent':False,
+  'environmentPresent':False,
+  'overridePresent':False,
+  'composeProject':project,
+  'databaseService':db_service,
+  'databaseName':db_name,
+  'boundaryBefore':json.loads(boundary),
+  'mutationPerformed':False,
+  'dropOwnedUsed':False,
+  'reassignOwnedUsed':False,
+  'passed':False,
+}
+with open(path,'w',encoding='utf-8') as handle:
+    json.dump(report,handle,sort_keys=True,separators=(',',':')); handle.write('\n')
+os.chmod(path,0o640)
+os.chown(path,0,grp.getgrnam('pcactions').gr_gid)
+PY_BLOCKED_EVIDENCE
+    echo 'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID' >&2
+    exit 18
+  fi
 
   psql_admin <<SQL
 BEGIN;
@@ -366,7 +396,7 @@ SQL
 fi
 
 python3 - "$OUTPUT_FILE" "$TARGET_SHA" "$RUN_ID" "$status" "$prod_project" "$DB_SERVICE" "$DB_NAME" "$role_boundary_json" <<'PY_EVIDENCE'
-import json,os,sys
+import grp,json,os,sys
 path,sha,run_id,status,project,db_service,db_name,boundary=sys.argv[1:]
 report={
   'schemaVersion':'tai.runtime-role-repair.v1',
@@ -383,6 +413,7 @@ report={
   'databaseService':db_service,
   'databaseName':db_name,
   'boundaryBefore':json.loads(boundary),
+  'mutationPerformed': status == 'REMOVED_SAFE_ORPHAN',
   'dropOwnedUsed':False,
   'reassignOwnedUsed':False,
   'passed':True,
@@ -390,6 +421,7 @@ report={
 with open(path,'w',encoding='utf-8') as handle:
     json.dump(report,handle,sort_keys=True,separators=(',',':')); handle.write('\n')
 os.chmod(path,0o640)
+os.chown(path,0,grp.getgrnam('pcactions').gr_gid)
 PY_EVIDENCE
 
 echo "TAI_RUNTIME_ROLE_REPAIR_STATUS=$status"
