@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-exact-controller-sync-20260803",
+  "status": "active",
+  "title": "TAI exact-main root controller synchronization",
+  "priority": "P0",
+  "baselineExactMain": "f1ba1f38dfde4d9041a5e0b9d272c14aef0dbc49",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Synchronize /usr/local/sbin/pc-tai-release-controller to the exact current-main wrapper through the existing pinned REG.RU root SSH authority after a successful exact-main full-stack release, without granting the self-hosted runner any new privilege.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-controller-sync-command.yml",
+    "scripts/pc-tai-controller-sync.sh",
+    "scripts/check-tai-controller-sync.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-exact-controller-sync-20260803.json"
+  ],
+  "boundaries": [
+    "The only command is /tai sync-controller current-main on issue 3365",
+    "Commenter, actor and triggering actor must equal the repository owner",
+    "A successful exact-main Production Full-Stack Exact-SHA Release and its contract/deploy jobs are mandatory",
+    "Transport reuses the canonical REG.RU host, protected root SSH principal, normalized private key and pinned host fingerprint",
+    "The uploaded wrapper must be byte-identical to scripts/pc-tai-release-controller.sh in the protected production repository at exact current main",
+    "Only /usr/local/sbin/pc-tai-release-controller and sudoControllerSha256 in the existing runner authority marker may change",
+    "The installed controller remains root:pcactions mode 0750 and sudoers remains restricted to that single path",
+    "Previous controller and marker are restored on any failure after mutation begins",
+    "The self-hosted runner remains non-root, outside the docker group and without direct Docker access",
+    "No model, tenant, application role, financial or autonomous write authority is widened",
+    "No new recurring cost"
+  ]
+}
