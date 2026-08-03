@@ -242,24 +242,28 @@ describe('RestrictedPublicQwenService', () => {
     expect(result.safetyFlags).toContain('CURRENT_EVIDENCE_REQUIRED');
   });
 
-  it('instructs the model to redirect unrelated requests without solving them', async () => {
+  it('instructs the model to answer safe general requests without a thematic refusal', async () => {
     const fetchMock = jest.fn().mockResolvedValue(providerResponse(
-      'Я специализируюсь на агробизнесе и платформе. Для легкового автомобиля лучше воспользоваться профильным поиском.',
+      'Чтобы посчитать процент в Excel, разделите первое значение на второе и примените процентный формат.',
     ));
     global.fetch = fetchMock as typeof fetch;
 
-    await new RestrictedPublicQwenService().generate({
+    const result = await new RestrictedPublicQwenService().generate({
       ...GENERAL_AGRO_REQUEST,
-      question: 'Где купить машину?',
-      originalQuestion: 'Где купить машину?',
+      question: 'Как в Excel посчитать процент одного значения от другого?',
+      originalQuestion: 'Как в Excel посчитать процент одного значения от другого?',
     });
 
+    expect(result.answer).toContain('Excel');
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
     const prompt = String(body.messages[0].content);
-    expect(prompt).toContain('PATH 4 — outside the domain');
-    expect(prompt).toContain('do not solve the unrelated request in substance');
+    expect(prompt).toContain('agro-first, fail-open content policy');
+    expect(prompt).toContain('Safe general questions outside agriculture may be answered normally and concisely');
+    expect(prompt).toContain('Medium confidence, a missing keyword, or a missing platform module, button or integration is never a reason to refuse');
+    expect(prompt).toContain('Only a separate safety, privacy, authorization, tenant, write, financial-action or tool-execution policy may block content');
     expect(prompt).toContain('tractor, combine, farm truck, commercial fleet or agricultural logistics vehicle');
     expect(prompt).toContain('Never shame the user and never sound like a refusal template');
+    expect(prompt).not.toContain('do not solve the unrelated request in substance');
   });
 
   it('requires truthful conversion and verified roadmap wording', async () => {

@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
   });
   const routedQuestion = envelope.question;
   const outcome = routeAssistantQuestion(routedQuestion, routingContext);
-  const answerMode = resolveAnswerMode(routedQuestion, envelope.history, outcome, routingContext);
+  let answerMode = resolveAnswerMode(routedQuestion, envelope.history, outcome, routingContext);
   const locale = envelope.locale;
 
   if (containsSensitiveInput(envelope.question, envelope.history)) {
@@ -141,6 +141,17 @@ export async function POST(request: NextRequest) {
       modelIdentity: null,
       truncated: false,
       safetyFlags: ['SENSITIVE_INPUT_BLOCKED'],
+    });
+  }
+
+  if (outcome.decision === 'BLOCK_SAFETY') {
+    return streamDirectAnswer(safetyBoundaryCopy(locale), {
+      source: 'policy',
+      answerMode,
+      currentDataRequired: false,
+      modelIdentity: null,
+      truncated: false,
+      safetyFlags: ['SAFETY_BOUNDARY_BLOCKED'],
     });
   }
 
@@ -155,6 +166,10 @@ export async function POST(request: NextRequest) {
         { code: 'PUBLIC_ASSISTANT_GROUNDING_INVALID', message: 'Verified public grounding is unavailable.' },
         { status: 503, headers: { 'Cache-Control': 'no-store' } },
       );
+    }
+    if (grounding.resolution === 'redirected') {
+      answerMode = 'general_agro';
+      grounding = generalAgroGrounding(locale);
     }
   } else {
     grounding = generalAgroGrounding(locale);
@@ -182,10 +197,9 @@ function resolveAnswerMode(
   }
 
   // Model-first boundary: everything not explicitly identified as a platform
-  // fact is sent to the agricultural model. The model system prompt handles
-  // greetings, agriculture, agribusiness and polite redirection of unrelated
-  // subjects. A lexical miss must never prevent a legitimate domain question
-  // from reaching inference.
+  // fact is sent to the model. The model system prompt handles greetings,
+  // agriculture, agribusiness, adjacent operations and concise safe general help.
+  // A lexical miss must never prevent a legitimate domain question from inference.
   return 'general_agro';
 }
 
@@ -235,13 +249,6 @@ function streamModelFirstAnswer(
             'ABSTAINED_NO_DATA',
             grounding.answer || 'The requested private or write capability is unavailable in public mode.',
           );
-          return;
-        }
-        if (grounding.resolution === 'redirected' && answerMode === 'verified_platform') {
-          emitDirectAnswer(writer, grounding.answer, {
-            source: 'verified_knowledge', answerMode, currentDataRequired: false,
-            modelIdentity: null, truncated: false, safetyFlags: [],
-          });
           return;
         }
 
@@ -483,25 +490,25 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
 function generalAgroGrounding(locale: PublicLocale): PublicKnowledgeAnswer {
   const copy = locale === 'en'
     ? {
-        title: 'Agriculture and agribusiness',
-        answer: 'Answer the user directly as a practical agricultural and agribusiness expert. Use stable knowledge, identify missing inputs and do not invent current facts.',
-        maturity: 'General read-only expert assistance. Critical agronomic, veterinary, machinery and financial decisions require confirmed inputs and a qualified specialist.',
+        title: 'Agriculture, agribusiness and practical assistance',
+        answer: 'Prioritize agriculture and agribusiness, but answer safe general questions normally and concisely. Use stable knowledge, identify missing inputs and do not invent current facts.',
+        maturity: 'General read-only assistance. Critical agronomic, veterinary, machinery, legal and financial decisions require confirmed inputs and the appropriate qualified review.',
       }
     : locale === 'zh'
       ? {
-          title: '农业与农业商业',
-          answer: '作为实用的农业与农业商业专家直接回答用户。使用稳定知识，指出缺失信息，不得编造当前事实。',
-          maturity: '通用只读专家协助。关键农艺、兽医、机械和财务决策需要确认输入并由合格专家复核。',
+          title: '农业、农业商业与实用协助',
+          answer: '优先处理农业和农业商业问题，同时正常、简洁地回答安全的一般问题。使用稳定知识，指出缺失信息，不得编造当前事实。',
+          maturity: '通用只读协助。关键农艺、兽医、机械、法律和财务决策需要确认输入并由相应的合格专业人员复核。',
         }
       : {
-          title: 'Сельское хозяйство и агробизнес',
-          answer: 'Отвечай пользователю напрямую как практический эксперт по сельскому хозяйству и агробизнесу. Используй устойчивые знания, обозначай недостающие исходные данные и не выдумывай актуальные факты.',
-          maturity: 'Общая экспертная помощь в режиме только чтения. Критические агрономические, ветеринарные, технические и финансовые решения требуют подтверждённых исходных данных и проверки профильным специалистом.',
+          title: 'Сельское хозяйство, агробизнес и практическая помощь',
+          answer: 'Приоритет — сельское хозяйство и агробизнес, но на безопасные общие вопросы отвечай нормально и кратко. Используй устойчивые знания, обозначай недостающие исходные данные и не выдумывай актуальные факты.',
+          maturity: 'Общая помощь в режиме только чтения. Критические агрономические, ветеринарные, технические, юридические и финансовые решения требуют подтверждённых исходных данных и профильной проверки.',
         };
   return Object.freeze({
     requestId: `general-${randomUUID()}`,
     generatedAt: new Date().toISOString(),
-    knowledgeVersion: 'tai-agro-general-model-first.v1',
+    knowledgeVersion: 'tai-agro-general-model-first.v2',
     dataMode: 'public_knowledge',
     mode: 'read_only',
     resolution: 'answered',
@@ -576,6 +583,12 @@ function sensitiveInputCopy(locale: PublicLocale): string {
   if (locale === 'en') return 'Do not send passwords, API keys, tokens, banking credentials or personal data in this public chat. Remove the sensitive value and ask the question again.';
   if (locale === 'zh') return '请勿在公共聊天中发送密码、API 密钥、令牌、银行凭据或个人数据。删除敏感值后重新提问。';
   return 'Не отправляй в публичный чат пароли, API-ключи, токены, банковские реквизиты и персональные данные. Удали секретное значение и задай вопрос повторно.';
+}
+
+function safetyBoundaryCopy(locale: PublicLocale): string {
+  if (locale === 'en') return 'I cannot help bypass protection, access another party’s data, escalate privileges or perform an unauthorized action. I can explain the authorized process, safe diagnostics or the requirements for approved access.';
+  if (locale === 'zh') return '我不能协助绕过保护、访问他方数据、提升权限或执行未经授权的操作。我可以说明合规流程、安全诊断方法或获得授权访问所需的条件。';
+  return 'Не могу помогать обходить защиту, получать чужие данные, повышать права или выполнять действие без полномочий. Могу объяснить штатный порядок, безопасную диагностику или требования к разрешённому доступу.';
 }
 
 function normalizeIntent(value: string): string {
