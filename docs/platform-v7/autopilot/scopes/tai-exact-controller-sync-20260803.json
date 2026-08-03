@@ -4,12 +4,11 @@
   "status": "active",
   "title": "TAI exact-main root controller synchronization hardening",
   "priority": "P0",
-  "baselineExactMain": "bb0cee5f01daf38827fd89468b1bcc62e62d71fb",
+  "baselineExactMain": "c2f0aac662025eca80972e608eb94c8d61db3340",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
-  "objective": "Harden the canonical exact-main root controller synchronization with the shared production controller lock, mandatory pre-refresh controller/marker digest agreement, atomic replacements, fsync, rollback and canonical image triggering, without granting the self-hosted runner any new privilege.",
+  "objective": "Harden the canonical exact-main root controller synchronization with the shared production controller lock, mandatory pre-refresh controller/marker digest agreement, atomic replacements, fsync and rollback while preserving the separately accepted canonical-image trigger authority.",
   "allowedPaths": [
-    ".github/workflows/docker-publish.yml",
     ".github/workflows/tai-owner-controller-sync-command.yml",
     "scripts/pc-tai-controller-sync.sh",
     "scripts/check-tai-controller-sync.mjs",
@@ -31,7 +30,7 @@
     "The self-hosted runner remains non-root, outside the docker group and without direct Docker access",
     "No runner registration or service restart, Compose, database, model or application deployment mutation occurs",
     "No model, tenant, application role, financial or autonomous write authority is widened",
-    "Canonical image publication is triggered for every controller-sync authority change",
+    "The accepted canonical image trigger scope remains unchanged",
     "No new recurring cost"
   ]
 }
