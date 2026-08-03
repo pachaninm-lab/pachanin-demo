@@ -8,6 +8,7 @@ on:
       - "scripts/select-tai-owner-preflight-run.mjs"
       - "scripts/check-tai-owner-preflight-run-selection.mjs"
       - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/check-tai-reg-ru-release-chain.mjs"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
   issue_comment:
@@ -52,6 +53,7 @@ jobs:
           set -Eeuo pipefail
           node scripts/check-tai-owner-preflight-run-selection.mjs
           node scripts/check-tai-owner-activation-command.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
       - name: Verify owner command and exact preflight authority
         id: authority
         if: github.event_name == 'issue_comment'
