@@ -76,7 +76,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Resolve exact base and enforce active PC-CROP project lock
+      - name: Resolve exact base and enforce applicable PC-CROP project lock
         shell: bash
         run: |
           set -euo pipefail
@@ -85,11 +85,20 @@ jobs:
           if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
             git fetch --no-tags origin "${{ github.base_ref }}"
             base_ref="origin/${{ github.base_ref }}"
-            export PC_CROP_BRANCH="${{ github.head_ref }}"
-            export PC_CROP_TITLE="${{ github.event.pull_request.title }}"
-            export PC_CROP_ISSUE='3446'
-            export PC_CROP_SCOPE_PATH='docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
-            node scripts/verify-pc-crop-project-lock.mjs | tee "$EVIDENCE_DIR/project-lock.log"
+            case "${{ github.head_ref }}" in
+              agent/pc-crop-*|fix/pc-crop-*|governance/pc-crop-*|ops/pc-crop-*)
+                export PC_CROP_BRANCH="${{ github.head_ref }}"
+                export PC_CROP_TITLE="${{ github.event.pull_request.title }}"
+                export PC_CROP_ISSUE='3446'
+                export PC_CROP_SCOPE_PATH='docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
+                node scripts/verify-pc-crop-project-lock.mjs | tee "$EVIDENCE_DIR/project-lock.log"
+                ;;
+              *)
+                printf '%s\n' \
+                  '{"schemaVersion":"pc-crop-project-lock.applicability.v1","status":"NOT_APPLICABLE","reason":"unrelated PR branch; completed PC-CROP governance lock is not an authority for this change"}' \
+                  | tee "$EVIDENCE_DIR/project-lock.log"
+                ;;
+            esac
           elif [[ "${{ github.event_name }}" == 'push' ]]; then
             base_ref='${{ github.event.before }}'
             git cat-file -e "${base_ref}^{commit}"
