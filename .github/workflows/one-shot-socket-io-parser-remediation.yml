@@ -66,13 +66,24 @@ jobs:
         run: |
           set -euo pipefail
           pnpm install --frozen-lockfile
-          grep -Fq "socket.io-parser@<4.2.7: 4.2.7" pnpm-lock.yaml
-          grep -Fq "socket.io-parser@4.2.7:" pnpm-lock.yaml
-          grep -Fq "socket.io-parser: 4.2.7" pnpm-lock.yaml
-          if grep -Fq "socket.io-parser@4.2.6:" pnpm-lock.yaml; then
-            echo "Vulnerable socket.io-parser 4.2.6 remains in lockfile" >&2
-            exit 1
-          fi
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+
+          if (pkg.pnpm?.overrides?.['socket.io-parser@<4.2.7'] !== '4.2.7') {
+            throw new Error('missing socket.io-parser override');
+          }
+          if (!lock.includes('socket.io-parser@4.2.7:')) {
+            throw new Error('socket.io-parser 4.2.7 snapshot missing');
+          }
+          if (!lock.includes('socket.io-parser: 4.2.7')) {
+            throw new Error('socket.io-parser 4.2.7 resolution missing');
+          }
+          if (lock.includes('socket.io-parser@4.2.6:')) {
+            throw new Error('vulnerable socket.io-parser 4.2.6 remains');
+          }
+          NODE
           git diff --check
 
       - name: Commit final two-file remediation
@@ -83,6 +94,33 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json pnpm-lock.yaml .github/workflows/one-shot-socket-io-parser-remediation.yml
-          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "package.json pnpm-lock.yaml "
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const names = execFileSync('git', ['diff', '--cached', '--name-only'], { encoding: 'utf8' })
+            .trim()
+            .split('\n')
+            .filter(Boolean)
+            .sort();
+          const expected = [
+            '.github/workflows/one-shot-socket-io-parser-remediation.yml',
+            'package.json',
+            'pnpm-lock.yaml',
+          ];
+          if (JSON.stringify(names) !== JSON.stringify(expected)) {
+            throw new Error(`unexpected staged paths: ${names.join(', ')}`);
+          }
+          NODE
           git commit -m "fix(security): pin socket.io-parser 4.2.7"
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const names = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { encoding: 'utf8' })
+            .trim()
+            .split('\n')
+            .filter(Boolean)
+            .sort();
+          const expected = ['package.json', 'pnpm-lock.yaml'];
+          if (JSON.stringify(names) !== JSON.stringify(expected)) {
+            throw new Error(`unexpected final PR paths: ${names.join(', ')}`);
+          }
+          NODE
           git push origin HEAD:security/socket-io-parser-4.2.7-20260803
