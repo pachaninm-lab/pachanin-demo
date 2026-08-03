@@ -16,12 +16,15 @@ on:
       - "scripts/check-tai-local-model-key-authority.mjs"
       - "scripts/check-tai-reg-ru-release-chain.mjs"
       - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/select-tai-owner-preflight-run.mjs"
+      - "scripts/check-tai-owner-preflight-run-selection.mjs"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
       - "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-command-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-activation-neutral-gate-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-preflight-run-discovery-20260803.json"
   workflow_run:
     workflows: ["TAI Owner REG.RU Preflight"]
     types: [completed]
@@ -117,25 +120,9 @@ jobs:
             gh api -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-preflight-owner-command.yml/runs?branch=main&status=success&per_page=100" \
               > "$RUNNER_TEMP/preflight-candidates.json"
-            read -r UPSTREAM_RUN_ID UPSTREAM_RUN_ATTEMPT < <(node - "$RUNNER_TEMP/preflight-candidates.json" "$TARGET_SHA" "$GITHUB_REPOSITORY" <<'NODE'
-          const fs = require('node:fs');
-          const [path, sha, repository] = process.argv.slice(2);
-          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const run = (Array.isArray(report.workflow_runs) ? report.workflow_runs : []).find((item) =>
-            item?.name === 'TAI Owner REG.RU Preflight'
-            && item?.head_sha === sha
-            && item?.head_branch === 'main'
-            && item?.head_repository?.full_name === repository
-            && item?.event === 'issue_comment'
-            && item?.status === 'completed'
-            && item?.conclusion === 'success'
-            && Number.isInteger(item?.id)
-            && Number.isInteger(item?.run_attempt)
-            && item.run_attempt > 0
-          );
-          if (!run) process.exit(2);
-          process.stdout.write(`${run.id} ${run.run_attempt}`);
-          NODE
+            read -r UPSTREAM_RUN_ID UPSTREAM_RUN_ATTEMPT < <(
+              node scripts/select-tai-owner-preflight-run.mjs \
+                "$RUNNER_TEMP/preflight-candidates.json" "$TARGET_SHA"
             )
             UPSTREAM_CONCLUSION=success
             UPSTREAM_BRANCH=main
@@ -213,6 +200,7 @@ jobs:
           node scripts/check-tai-local-model-key-authority.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-owner-activation-command.mjs
+          node scripts/check-tai-owner-preflight-run-selection.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority

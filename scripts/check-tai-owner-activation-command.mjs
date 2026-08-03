@@ -26,6 +26,8 @@ for (const fragment of [
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
   'actions/workflows/tai-reg-ru-preflight-owner-command.yml/runs?branch=main&status=success&per_page=100',
+  'node scripts/select-tai-owner-preflight-run.mjs',
+  'node scripts/check-tai-owner-preflight-run-selection.mjs',
   "run.event !== 'issue_comment'",
   "run.actor?.login !== owner",
   "run.triggering_actor?.login !== owner",
@@ -48,10 +50,11 @@ forbid(/continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(/\/tai\s+activate\s+(?!current-main)/u, 'alternate activation command is forbidden');
 forbid(/upstream_preflight_gate:[\s\S]{0,500}github[.]event[.]comment[.]body\s*==/u, 'issue command must not be filtered out before the authority job is materialized');
 forbid(/upstream_preflight_gate:[\s\S]{0,500}github[.]event[.]workflow_run[.]conclusion\s*==/u, 'workflow_run conclusion must be classified inside the materialized authority job');
+forbid(/preflight-candidates[.]json[\s\S]{0,1800}head_repository/gu, 'initial candidate discovery must not depend on optional list metadata');
 
 if (violations.length) {
   console.error('TAI owner activation command contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner activation command contract PASS: materialized neutral gate, exact owner command and exact successful preflight authority.');
+console.log('TAI owner activation command contract PASS: materialized neutral gate, deterministic exact-SHA discovery and strict selected-run authority.');
