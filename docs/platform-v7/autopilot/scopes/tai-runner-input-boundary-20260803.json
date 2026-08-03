@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-runner-input-boundary-20260803",
+  "status": "active",
+  "title": "TAI runner input and evidence boundary restoration",
+  "priority": "P0",
+  "baselineExactMain": "9fb1ffcb2f018f345a8609f00bffc339c3b011ec",
+  "objective": "Restore deterministic pcactions access to the bounded runner-input parent after every protected controller execution, remove current-run secret inputs on activation or deployment exit, and preserve root-only state plus pcactions-readable redacted evidence without widening sudo or Docker authority.",
+  "allowedPaths": [
+    "scripts/pc-tai-release-controller.sh",
+    "scripts/check-pc-tai-release-controller.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-runner-input-boundary-20260803.json"
+  ],
+  "requiredBehavior": [
+    "keep /var/lib/pc-release-authority root:pcactions mode 0710 after every controller exit",
+    "keep runner-input root:pcactions mode 0730 so the non-root runner can create only bounded per-run input directories",
+    "remove the current activation or deployment input directory through the root controller on both success and failure",
+    "reject symlink or non-directory current-run input state during cleanup",
+    "keep protected repository and controller-jobs root:root mode 0700",
+    "keep runner-output root:pcactions mode 0750 and evidence files root:pcactions mode 0640",
+    "preserve the original controller result unless boundary restoration itself fails",
+    "retain exact-current-main, restricted sudo, no direct Docker authority and no production inbound SSH"
+  ],
+  "forbiddenCapabilities": [
+    "direct Docker authority for pcactions",
+    "arbitrary sudo or arbitrary filesystem cleanup",
+    "runner access to protected repository, controller state or model private key",
+    "credential or customer-data output",
+    "tenant, role, financial, veterinary, agronomic or autonomous write-authority expansion",
+    "new infrastructure or recurring cost"
+  ],
+  "acceptance": [
+    "wrapper and contract syntax PASS",
+    "static contract proves runner-input restoration and bounded current-run cleanup",
+    "exact head remains behind_by=0 with zero unresolved review threads",
+    "all required CI, security, runtime and Kubernetes gates PASS",
+    "exact-main controller synchronization on REG.RU",
+    "owner preflight PASS followed by a fresh activation run that can prepare its input directory",
+    "redacted activation evidence remains readable by the runner",
+    "zero new recurring cost"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
