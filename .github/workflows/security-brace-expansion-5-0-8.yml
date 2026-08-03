@@ -1,0 +1,173 @@
+name: Security dependency baseline materializer 5.0.9
+
+on:
+  push:
+    branches:
+      - fix/security-brace-expansion-5-0-8
+    paths:
+      - .github/workflows/security-brace-expansion-5-0-8.yml
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - .github/workflows/security-brace-expansion-5-0-8.yml
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: security-brace-expansion-5-0-9-materializer
+  cancel-in-progress: true
+
+env:
+  BRANCH: fix/security-brace-expansion-5-0-8
+  EXPECTED_BRANCH_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_MAIN_SHA: a8c9476cc7bf0e7c32318dadd8a263b9b1672bb7
+
+jobs:
+  materialize:
+    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'fix/security-brace-expansion-5-0-8'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact temporary head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_BRANCH_HEAD }}
+          fetch-depth: 0
+
+      - name: Verify exact baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch --no-tags origin main "$BRANCH"
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_BRANCH_HEAD" ]]
+          [[ "$(git rev-parse "origin/$BRANCH")" == "$EXPECTED_BRANCH_HEAD" ]]
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_MAIN_SHA" ]]
+
+      - name: Pin patched dependency path and retire temporary exception
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const packagePath = 'package.json';
+          const packageSource = fs.readFileSync(packagePath, 'utf8');
+          const oldLine = '      "brace-expansion@>=5.0.0 <5.0.8": "5.0.8",';
+          const newLine = '      "brace-expansion@>=5.0.0 <5.0.9": "5.0.9",';
+          const count = packageSource.split(oldLine).length - 1;
+          if (count !== 1) throw new Error(`unexpected dependency override authority: ${count}`);
+          if (packageSource.includes(newLine)) throw new Error('new dependency authority already exists');
+          fs.writeFileSync(packagePath, packageSource.replace(oldLine, newLine), 'utf8');
+
+          const exceptionPath = 'docs/platform-v7/autopilot/security-exceptions.json';
+          const exceptions = JSON.parse(fs.readFileSync(exceptionPath, 'utf8'));
+          const before = exceptions.exceptions.length;
+          exceptions.exceptions = exceptions.exceptions.filter((item) => !(
+            item.id === 'SEC-2026-3665' &&
+            item.scanner === 'pnpm-audit' &&
+            String(item.findingId) === '1130705'
+          ));
+          if (before - exceptions.exceptions.length !== 1) {
+            throw new Error(`expected exactly one temporary exception, removed ${before - exceptions.exceptions.length}`);
+          }
+          fs.writeFileSync(exceptionPath, `${JSON.stringify(exceptions, null, 2)}\n`, 'utf8');
+          NODE
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Regenerate frozen lock authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --lockfile-only
+          grep -Fq 'brace-expansion@>=5.0.0 <5.0.9: 5.0.9' pnpm-lock.yaml
+          grep -Fq 'brace-expansion@5.0.9:' pnpm-lock.yaml
+          ! grep -Fq 'brace-expansion@>=5.0.0 <5.0.8: 5.0.8' pnpm-lock.yaml
+          ! grep -Fq 'brace-expansion@5.0.8:' pnpm-lock.yaml
+          pnpm install --frozen-lockfile
+
+      - name: Verify production audit and exception retirement
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Fq '"findingId": "1130705"' docs/platform-v7/autopilot/security-exceptions.json
+          pnpm audit --prod --audit-level high
+
+      - name: Verify ExcelJS archive compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/web exec node - <<'NODE'
+          const ExcelJS = require('exceljs');
+          async function main() {
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('acceptance');
+            sheet.addRow(['deal', 'status']);
+            sheet.addRow(['P0-FIRST-CUSTOMER-ACCESS', 'PASS']);
+            const bytes = await workbook.xlsx.writeBuffer();
+            if (!bytes || bytes.length < 1000) throw new Error('ExcelJS archive output is unexpectedly small');
+            const readback = new ExcelJS.Workbook();
+            await readback.xlsx.load(bytes);
+            const value = readback.getWorksheet('acceptance')?.getCell('B2').value;
+            if (value !== 'PASS') throw new Error(`ExcelJS roundtrip mismatch: ${String(value)}`);
+            console.log(JSON.stringify({ bytes: bytes.length, value }));
+          }
+          main().catch((error) => { console.error(error); process.exit(1); });
+          NODE
+
+      - name: Verify affected workspace contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @pc/web typecheck
+          pnpm --filter @pc/api typecheck
+          pnpm --filter @pc/web test
+
+      - name: Upload dependency evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-dependency-5-0-9-${{ env.EXPECTED_BRANCH_HEAD }}
+          path: |
+            package.json
+            pnpm-lock.yaml
+            docs/platform-v7/autopilot/security-exceptions.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish clean three-file security baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main "$BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_MAIN_SHA" ]]
+          [[ "$(git rev-parse "origin/$BRANCH")" == "$EXPECTED_BRANCH_HEAD" ]]
+          rm -f .github/workflows/security-brace-expansion-5-0-8.yml
+          git add -A
+          git commit -m 'chore(security): materialize brace-expansion 5.0.9 lock'
+          git reset --soft origin/main
+          git add -A
+          git diff --cached --name-only | sort > /tmp/changed-files.txt
+          cat /tmp/changed-files.txt
+          printf '%s\n' \
+            package.json \
+            pnpm-lock.yaml \
+            docs/platform-v7/autopilot/security-exceptions.json \
+            | sort > /tmp/expected-files.txt
+          cmp -s /tmp/changed-files.txt /tmp/expected-files.txt
+          git commit -m 'fix(security): upgrade brace-expansion to 5.0.9 and retire waiver'
+          git push --force-with-lease="refs/heads/${BRANCH}:${EXPECTED_BRANCH_HEAD}" \
+            origin "HEAD:refs/heads/${BRANCH}"
