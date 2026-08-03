@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-deploy-image-trigger-20260803",
+  "status": "active",
+  "title": "TAI owner deployment canonical image trigger",
+  "priority": "P0",
+  "baselineExactMain": "55a141b1e5bc3d2f2588fe64e014af01321799f4",
+  "objective": "Ensure every change to the owner-only exact-main REG.RU deployment authority automatically publishes canonical API, web, TAI and migration images for the same merged main SHA before preflight, activation and deployment are attempted.",
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    "scripts/check-tai-owner-deployment-command.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-owner-deployment-controller-canonical-trigger-20260803.json"
+  ],
+  "boundaries": [
+    "No production mutation is performed from the pull request",
+    "The trigger only publishes exact-SHA canonical images after merge to main",
+    "The owner preflight, activation and deployment commands remain separately authorized and fail-closed",
+    "No tenant, role, model, financial or write authority is widened",
+    "No public model listener is added",
+    "Zero new recurring cost"
+  ]
+}
