@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 
 const paths = {
   workflow: '.github/workflows/tai-owner-controller-sync-command.yml',
+  dockerPublish: '.github/workflows/docker-publish.yml',
   sync: 'scripts/tai-controller-sync-reg-ru.sh',
   controller: 'scripts/pc-tai-release-controller.sh',
   scope: 'docs/platform-v7/autopilot/scopes/tai-controller-exact-main-sync-20260803.json',
@@ -50,6 +51,14 @@ requireAll('workflow', [
   'authority widened:',
   'Confirm exact controller synchronization result',
   'retention-days: 30',
+]);
+
+requireAll('dockerPublish', [
+  '- ".github/workflows/tai-owner-controller-sync-command.yml"',
+  '- "scripts/tai-controller-sync-reg-ru.sh"',
+  '- "scripts/check-tai-controller-sync.mjs"',
+  '- "docs/platform-v7/autopilot/scopes/tai-controller-exact-main-sync-20260803.json"',
+  '# Canonical API, web, TAI and migration images are published for the exact main SHA.',
 ]);
 
 requireAll('sync', [
@@ -121,4 +130,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('TAI exact controller synchronization contract PASS: exact deployed main, owner-only pinned SSH, bounded atomic replacement, manifest reconciliation, rollback and redacted evidence are enforced.');
+console.log('TAI exact controller synchronization contract PASS: exact deployed main, owner-only pinned SSH, bounded atomic replacement, canonical exact-main image publication, manifest reconciliation, rollback and redacted evidence are enforced.');
