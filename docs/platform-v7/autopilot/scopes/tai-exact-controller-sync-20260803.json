@@ -1,13 +1,13 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/tai-exact-controller-sync-20260803",
+  "branch": "fix/tai-controller-sync-hardening-20260803",
   "status": "active",
-  "title": "TAI exact-main root controller synchronization",
+  "title": "TAI exact-main root controller synchronization hardening",
   "priority": "P0",
-  "baselineExactMain": "f1ba1f38dfde4d9041a5e0b9d272c14aef0dbc49",
+  "baselineExactMain": "c2f0aac662025eca80972e608eb94c8d61db3340",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
-  "objective": "Synchronize /usr/local/sbin/pc-tai-release-controller to the exact current-main wrapper through the existing pinned REG.RU root SSH authority after a successful exact-main full-stack release, without granting the self-hosted runner any new privilege.",
+  "objective": "Harden the canonical exact-main root controller synchronization with the shared production controller lock, mandatory pre-refresh controller/marker digest agreement, atomic replacements, fsync and rollback while preserving the separately accepted canonical-image trigger authority.",
   "allowedPaths": [
     ".github/workflows/tai-owner-controller-sync-command.yml",
     "scripts/pc-tai-controller-sync.sh",
@@ -20,11 +20,17 @@
     "A successful exact-main Production Full-Stack Exact-SHA Release and its contract/deploy jobs are mandatory",
     "Transport reuses the canonical REG.RU host, protected root SSH principal, normalized private key and pinned host fingerprint",
     "The uploaded wrapper must be byte-identical to scripts/pc-tai-release-controller.sh in the protected production repository at exact current main",
+    "The shared /run/lock/pc-tai-release-controller.lock must be held before protected checkout and throughout synchronization",
+    "The existing sudoControllerSha256 marker must equal the installed controller digest before any mutation",
     "Only /usr/local/sbin/pc-tai-release-controller and sudoControllerSha256 in the existing runner authority marker may change",
+    "Controller and marker are replaced with atomic renames, fsynced and post-verified",
+    "Previous controller and marker are restored and fsynced on any failure after mutation begins",
+    "An already exact and correctly attested controller is an idempotent no-mutation PASS",
     "The installed controller remains root:pcactions mode 0750 and sudoers remains restricted to that single path",
-    "Previous controller and marker are restored on any failure after mutation begins",
     "The self-hosted runner remains non-root, outside the docker group and without direct Docker access",
+    "No runner registration or service restart, Compose, database, model or application deployment mutation occurs",
     "No model, tenant, application role, financial or autonomous write authority is widened",
+    "The accepted canonical image trigger scope remains unchanged",
     "No new recurring cost"
   ]
 }
