@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-prebuilt-rollback-recovery-20260803",
+  "status": "active",
+  "title": "TAI prebuilt rollback authority and incomplete deployment recovery",
+  "priority": "P0",
+  "baselineExactMain": "ba06e6067faebab23550db5f54d0f6eeab85550a",
+  "incompleteDeploymentSourceSha": "ba06e6067faebab23550db5f54d0f6eeab85550a",
+  "incompleteDeploymentRunId": 30813991271,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "objective": "Build and validate complete bounded rollback authority before any standalone TAI runtime mutation, recover only the explicitly attested incomplete deployment left by run 30813991271, and then allow one exact-current-main standalone TAI deployment to complete without widening database, model, tenant, financial or runner authority.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-incomplete-deployment-recovery.yml",
+    "scripts/tai-incomplete-deployment-recovery.sh",
+    "scripts/check-tai-incomplete-deployment-recovery.mjs",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-prebuilt-rollback-recovery-20260803.json"
+  ],
+  "boundaries": [
+    "The recovery command is owner-only: /tai recover-incomplete-deployment current-main on issue 3365",
+    "Recovery requires exact-current-main full-stack production evidence, successful TAI controller sync and successful TAI REG.RU preflight",
+    "Recovery is limited to source deployment run 30813991271 and source SHA ba06e6067faebab23550db5f54d0f6eeab85550a",
+    "The source SHA must be an ancestor of exact current main and the protected checkout must be clean",
+    "The recovery script must prove the source state root, metadata, snapshots and mutation marker before any mutation",
+    "An accepted source deployment must never be recovered",
+    "Only the exact Compose service tai from the attested project may be removed",
+    "Only the dedicated TAI env file and TAI Compose override may be restored from source-run snapshots",
+    "The existing bounded direct-grant repair is reused only after service, env and override absence is proven",
+    "No DROP OWNED, REASSIGN OWNED, broad revoke, object deletion or grant is permitted",
+    "The source state is marked ROLLED_BACK only after service, files and tai_runtime absence are verified",
+    "Standalone deployment must materialize and syntax-check rollback.sh before MUTATION_STARTED is written",
+    "Rollback must remove only the exact TAI service, restore exact file snapshots and transactionally revoke role-specific ACLs before dropping a role created by the same attempt",
+    "Rollback must preserve PUBLIC and every other database principal",
+    "Forward-only TAI migrations remain idempotent and are never down-migrated",
+    "No model, tenant, application role, financial or autonomous write authority is widened",
+    "The self-hosted runner remains non-root, outside the docker group and without direct Docker access",
+    "No Netlify, Vercel, Railway or paid LLM dependency is introduced",
+    "No new recurring cost"
+  ]
+}
