@@ -2,7 +2,9 @@
 import { readFileSync } from 'node:fs';
 
 const workflowPath = '.github/workflows/tai-owner-reg-ru-deployment-command.yml';
+const dockerPublishPath = '.github/workflows/docker-publish.yml';
 const workflow = readFileSync(workflowPath, 'utf8');
+const dockerPublish = readFileSync(dockerPublishPath, 'utf8');
 const violations = [];
 const requireFragment = (fragment) => {
   if (!workflow.includes(fragment)) violations.push(`missing ${JSON.stringify(fragment)}`);
@@ -50,6 +52,10 @@ for (const fragment of [
   'statuses: write',
 ]) requireFragment(fragment);
 
+if (!dockerPublish.includes('- ".github/workflows/tai-owner-reg-ru-deployment-command.yml"')) {
+  violations.push(`${dockerPublishPath}: owner deployment authority changes must publish exact canonical images`);
+}
+
 forbid(/pull_request_target:/u, 'pull_request_target is forbidden');
 forbid(/continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(/\/tai\s+deploy\s+(?!current-main)/u, 'alternate deployment command is forbidden');
@@ -71,4 +77,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner deployment command contract PASS: exact activation proof, rootless image, protected controller, rollback evidence and terminal status are fail-closed.');
+console.log('TAI owner deployment command contract PASS: exact activation proof, rootless image, canonical trigger, protected controller, rollback evidence and terminal status are fail-closed.');
