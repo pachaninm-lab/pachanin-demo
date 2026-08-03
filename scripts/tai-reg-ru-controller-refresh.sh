@@ -124,7 +124,7 @@ STATE_DIR="$REFRESH_ROOT/$RUN_ID"
 [[ "$STAGED_WRAPPER" == "$STATE_DIR/pc-tai-release-controller.sh" ]] || fail STAGED_WRAPPER_PATH_INVALID 12
 [[ "$EVIDENCE_PATH" == "$STATE_DIR/controller-refresh.json" ]] || fail EVIDENCE_PATH_INVALID 13
 
-for command in git sha256sum python3 install stat flock visudo sudo grep find chown chmod mv; do
+for command in bash git sha256sum python3 install stat flock visudo sudo grep find chown chmod mv rm awk tr id docker; do
   command -v "$command" >/dev/null 2>&1 || fail "REQUIRED_COMMAND_${command^^}_MISSING" 14
 done
 id pcactions >/dev/null 2>&1 || fail PCACTIONS_PRINCIPAL_MISSING 15
@@ -239,11 +239,29 @@ install -m 0750 -o root -g pcactions "$new_controller" "${INSTALLED_CONTROLLER}.
 mv -Tf "${INSTALLED_CONTROLLER}.new-${RUN_ID}" "$INSTALLED_CONTROLLER"
 install -m 0644 -o root -g root "$new_authority" "${AUTHORITY_FILE}.new-${RUN_ID}"
 mv -Tf "${AUTHORITY_FILE}.new-${RUN_ID}" "$AUTHORITY_FILE"
+python3 - "$INSTALLED_CONTROLLER" "$AUTHORITY_FILE" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+for raw in sys.argv[1:]:
+    path = Path(raw)
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+for parent in {str(Path(raw).parent) for raw in sys.argv[1:]}:
+    fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+PY
 
 [[ "$(stat -c '%U:%G:%a:%h' "$INSTALLED_CONTROLLER")" == root:pcactions:750:1 ]] || fail POST_REFRESH_CONTROLLER_PERMISSIONS_INVALID 46
 [[ "$(sha256sum "$INSTALLED_CONTROLLER" | awk '{print $1}')" == "$NEW_DIGEST" ]] || fail POST_REFRESH_CONTROLLER_DIGEST_MISMATCH 47
 [[ "$(stat -c '%U:%G:%a:%h' "$AUTHORITY_FILE")" == root:root:644:1 ]] || fail POST_REFRESH_AUTHORITY_PERMISSIONS_INVALID 48
-post_digest="$(python3 - "$AUTHORITY_FILE" -c '' 2>/dev/null || true)"
 post_digest="$(python3 - "$AUTHORITY_FILE" <<'PY'
 import json
 import sys
@@ -259,6 +277,7 @@ REFRESH_COMPLETE=1
 STATUS='REFRESHED'
 ROLLBACK_STATUS='NOT_REQUIRED'
 write_evidence true "$STATUS" '' "$ROLLBACK_STATUS"
+rm -f "$BACKUP_CONTROLLER" "$BACKUP_AUTHORITY" "$new_controller" "$new_authority" "$STAGED_WRAPPER"
 printf 'CONTROLLER_REFRESH=REFRESHED\n'
 printf 'TARGET_SHA=%s\n' "$TARGET_SHA"
 printf 'OLD_CONTROLLER_SHA256=%s\n' "$OLD_DIGEST"
