@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-public-schema-public-acl-hardening-20260803",
+  "status": "active",
+  "title": "TAI public-schema PUBLIC ACL hardening",
+  "priority": "P0",
+  "baselineExactMain": "ba06e6067faebab23550db5f54d0f6eeab85550a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Remove only explicit PUBLIC relation and column ACL entries from non-TAI relations in the public PostgreSQL schema so the dedicated tai_runtime principal cannot inherit cross-domain table access and the exact-main standalone TAI deployment can pass its effective-access boundary.",
+  "allowedPaths": [
+    "apps/tai/tai/migrations/manifest.json",
+    "apps/tai/tai/migrations/0023_public_schema_public_acl_hardening.sql",
+    "docs/platform-v7/autopilot/scopes/tai-public-schema-public-acl-hardening-20260803.json"
+  ],
+  "boundaries": [
+    "Only explicit ACL entries whose grantee is PostgreSQL PUBLIC are removed",
+    "Only relations and columns in schema public whose names do not start with tai_ are in scope",
+    "Object ownership, tenant data, rows, policies, functions, schemas, application-role ACLs and TAI relation ACLs are unchanged",
+    "No DROP OWNED, REASSIGN OWNED, object deletion, role creation, role deletion or broad schema mutation",
+    "The migration is forward-only, transactional, idempotent and fails closed if any scoped PUBLIC ACL remains",
+    "The existing application roles must continue to use explicit least-privilege grants; exact-main full-stack and durable-intake acceptance remain mandatory after merge",
+    "REG.RU only",
+    "No new recurring cost"
+  ]
+}
