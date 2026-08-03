@@ -8,6 +8,7 @@
   "objective": "Eliminate false thematic refusals across agriculture, agribusiness and safe general assistance while preserving fail-closed safety, privacy, authorization, tenant, write, financial and tool-execution boundaries.",
   "allowedPaths": [
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
     "apps/web/app/api/agro-chat/route.ts",
     "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
     "docs/platform-v7/ai/agro-first-fail-open-routing-policy.md",
