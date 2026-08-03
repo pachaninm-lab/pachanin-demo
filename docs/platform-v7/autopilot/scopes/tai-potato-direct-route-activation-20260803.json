@@ -1,44 +1,31 @@
 {
-  "schemaVersion": "platform-v7.autopilot.scope.v1",
-  "scopeId": "tai-potato-direct-route-activation-20260803",
-  "status": "ACTIVE",
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-potato-direct-route-activation-20260803",
+  "status": "active",
+  "title": "TAI potato model-first routing and REG.RU activation repair",
   "priority": "P0",
-  "repository": "pachaninm-lab/pachanin-demo",
-  "baselineSha": "9fb1ffcb2f018f345a8609f00bffc339c3b011ec",
+  "baselineExactMain": "9fb1ffcb2f018f345a8609f00bffc339c3b011ec",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
   "objective": "Ensure the exact public question 'Чем удобрять картошку' reaches local Qwen as general_agro, can never resolve to the legacy platform security article, and can be activated through the REG.RU controller without stale run-directory collisions.",
-  "production": {
-    "provider": "REG.RU",
-    "domain": "процент-агро.рф",
-    "newRecurringCostRub": 0
-  },
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/web/middleware.ts",
     "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts",
-    "scripts/tai-potato-mobile-live-acceptance.mjs",
-    "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json"
+    "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json",
+    "scripts/tai-potato-mobile-live-acceptance.mjs"
   ],
-  "requiredBehavior": [
-    "POST /api/public-platform-assistant is rewritten to /api/agro-chat before legacy filesystem route resolution.",
-    "GET /api/public-platform-assistant remains available for the starter-prompt catalog.",
-    "Activation controller input and output state use a numeric attempt-scoped id derived from github.run_id and github.run_attempt.",
-    "The exact potato question is answered by tai-qwen3-8b-q4km in general_agro mode.",
-    "The answer contains potato and fertilizer substance and excludes the platform data-protection article.",
-    "RU/EN/ZH, safety, tenant isolation, write authority and current-evidence boundaries remain fail-closed."
-  ],
-  "acceptance": [
-    "TypeScript, unit, build, security and production-like Kubernetes gates PASS.",
-    "Exact head merges into current main.",
-    "Exact main API and web deploy to REG.RU.",
-    "TAI preflight PASS.",
-    "Restricted Qwen activation and finalization PASS.",
-    "Direct SSE and 390x844 mobile UI answer 'Чем удобрять картошку' substantively with no platform-security misroute.",
-    "PostgreSQL, audit and outbox evidence remain PASS."
-  ],
-  "prohibited": [
-    "Hard-coded agronomic dose recommendations without user inputs.",
-    "Fallback to the legacy public knowledge answer for an admitted safe agricultural question.",
-    "Deletion or permission changes outside the bounded controller run directories.",
-    "New paid model, SaaS, database or hosting dependency."
+  "boundaries": [
+    "Every POST to /api/public-platform-assistant is rewritten to /api/agro-chat before legacy filesystem route resolution",
+    "GET /api/public-platform-assistant remains the read-only starter-prompt catalog",
+    "The exact potato question must be answered by tai-qwen3-8b-q4km in general_agro mode with potato and fertilizer substance",
+    "The response must not contain the platform data-protection article, RBAC, session, tenant-isolation or audit boilerplate unless the user actually asks about those subjects",
+    "Activation controller input, state and output use a numeric attempt-scoped identifier derived from github.run_id and github.run_attempt",
+    "An unexpected attempt-id collision fails closed and does not delete or chmod an existing protected directory",
+    "Private mode, signed sessions, role propagation, tenant isolation, secret handling, write authority and current-evidence controls remain unchanged",
+    "No hard-coded agronomic dose is introduced without soil, crop, region and production inputs",
+    "No paid model, SaaS, database, hosting service or recurring cost is added",
+    "Production completion requires exact-main merge, canonical images, REG.RU deployment, preflight, restricted Qwen activation and finalization, direct SSE and 390x844 mobile Chromium acceptance",
+    "PostgreSQL, audit and outbox authority must remain PASS"
   ]
 }
