@@ -13,8 +13,8 @@ const acceptance = fs.readFileSync(
   'utf8',
 );
 
-describe('TAI potato production regression', () => {
-  it('forces public assistant POST requests to the model-first agro route', () => {
+describe('TAI broad agricultural production regression', () => {
+  it('forces every public assistant POST request to the model-first agro route', () => {
     expect(middleware).toContain("p === '/api/public-platform-assistant' && req.method === 'POST'");
     expect(middleware).toContain("u.pathname = '/api/agro-chat'");
     expect(middleware).toContain('NextResponse.rewrite(u)');
@@ -28,11 +28,45 @@ describe('TAI potato production regression', () => {
     expect(workflow).not.toContain('runner-input/${GITHUB_RUN_ID}');
   });
 
-  it('proves the exact user question cannot resolve to the platform security article', () => {
-    expect(acceptance).toContain("const QUESTION = 'Чем удобрять картошку';");
-    expect(acceptance).toContain("'как защищаются данные'");
+  it('covers crops, gardens, livestock, machinery, storage, farm economics and village infrastructure', () => {
+    for (const id of [
+      'potato-fertilizer',
+      'cucumber-yellow-leaves',
+      'wheat-low-yield',
+      'tomato-blossom-drop',
+      'apple-scab',
+      'soil-acidity',
+      'drip-irrigation',
+      'cow-milk-drop',
+      'pig-feed-conversion',
+      'chicken-egg-drop',
+      'bee-wintering',
+      'tractor-overheat',
+      'combine-losses',
+      'mower-vibration',
+      'grain-storage',
+      'farm-costs',
+      'village-water',
+      'farm-excel',
+      'context-followup',
+    ]) {
+      expect(acceptance).toContain(`id: '${id}'`);
+    }
+  });
+
+  it('requires real local Qwen, general agro mode, subject relevance and no platform-security misroute', () => {
     expect(acceptance).toContain("assessment.source !== 'local_qwen'");
     expect(acceptance).toContain("assessment.answerMode !== 'general_agro'");
-    expect(acceptance).toContain('TAI_POTATO_MOBILE_LIVE=PASS');
+    expect(acceptance).toContain('assertAgriculturalAnswer');
+    expect(acceptance).toContain("'как защищаются данные'");
+    expect(acceptance).toContain("'доступ назначает сервер'");
+    expect(acceptance).toContain('TAI_AGRO_WIDE_MOBILE_LIVE=PASS');
+  });
+
+  it('checks RU plus representative EN and ZH questions and mobile UI cases', () => {
+    expect(acceptance).toContain("id: 'potato-en'");
+    expect(acceptance).toContain("id: 'cucumber-zh'");
+    expect(acceptance).toContain('UI_CASE_IDS');
+    expect(acceptance).toContain("viewport: '390x844'");
   });
 });
