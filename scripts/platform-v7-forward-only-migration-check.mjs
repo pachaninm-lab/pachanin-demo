@@ -76,9 +76,12 @@ function findUnsafeNotNullChanges(sql) {
 const destructivePatterns = [
   { name: 'DROP TABLE', pattern: /\bDROP\s+TABLE\b/i },
   { name: 'DROP COLUMN', pattern: /\bDROP\s+COLUMN\b/i },
-  // Match a destructive statement target, but not the safe trigger event in
-  // `BEFORE TRUNCATE ON ...` append-only guards.
-  { name: 'TRUNCATE', pattern: /\bTRUNCATE\s+(?!ON\b)(?:TABLE\s+)?(?:ONLY\s+)?(?:[A-Za-z_][\w$]*\.)?"?[A-Za-z_][\w$]*"?/i },
+  // A trigger event clause — `BEFORE TRUNCATE`, `AFTER TRUNCATE`,
+  // `... OR TRUNCATE` — is not a truncation. It is how a table declares that
+  // truncating it must fail, which is the opposite of the destructive statement
+  // this gate exists to block. `TRUNCATE <table>` in any other position still
+  // fails the gate.
+  { name: 'TRUNCATE', pattern: /(?<!\b(?:BEFORE|AFTER|OR)\s+)\bTRUNCATE\b/i },
   { name: 'mass DELETE', pattern: /\bDELETE\s+FROM\b/i },
   { name: 'column rename', pattern: /\bRENAME\s+COLUMN\b/i },
   { name: 'table rename', pattern: /\bRENAME\s+TO\b/i },
