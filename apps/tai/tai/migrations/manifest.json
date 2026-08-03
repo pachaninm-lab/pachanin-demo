@@ -91,6 +91,10 @@
     {
       "path": "0021_retrieval_activation_serialization.sql",
       "version": 23
+    },
+    {
+      "path": "0022_public_fact_pack_authority.sql",
+      "version": 24
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
