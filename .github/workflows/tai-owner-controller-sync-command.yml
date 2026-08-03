@@ -80,7 +80,7 @@ jobs:
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/workflows/production-full-stack-exact-sha.yml/runs?branch=main&status=success&per_page=100" \
             > "$RUNNER_TEMP/full-stack-runs.json"
-          full_stack_run_id="$(node - "$RUNNER_TEMP/full-stack-runs.json" "$target_sha" "$GITHUB_REPOSITORY" <<'NODE'
+          candidate_run_ids="$(node - "$RUNNER_TEMP/full-stack-runs.json" "$target_sha" "$GITHUB_REPOSITORY" <<'NODE'
           const fs = require('node:fs');
           const [path, sha, repository] = process.argv.slice(2);
           const report = JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -94,15 +94,19 @@ jobs:
               && ['push','workflow_dispatch','issue_comment'].includes(run?.event)
               && Number.isSafeInteger(run?.id) && run.id > 0)
             .sort((left, right) => Date.parse(right.updated_at || right.created_at || '') - Date.parse(left.updated_at || left.created_at || '') || right.id - left.id);
-          if (!runs[0]) process.exit(2);
-          process.stdout.write(String(runs[0].id));
+          if (!runs.length) process.exit(2);
+          process.stdout.write(runs.map((run) => String(run.id)).join('\n'));
           NODE
           )"
-          [[ "$full_stack_run_id" =~ ^[0-9]+$ ]]
-          gh api -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${full_stack_run_id}/jobs?per_page=100" \
-            > "$RUNNER_TEMP/full-stack-jobs.json"
-          node - "$RUNNER_TEMP/full-stack-jobs.json" <<'NODE'
+          [[ -n "$candidate_run_ids" ]]
+          full_stack_run_id=''
+          while IFS= read -r candidate_run_id; do
+            [[ "$candidate_run_id" =~ ^[0-9]+$ ]] || exit 2
+            jobs_path="$RUNNER_TEMP/full-stack-jobs-${candidate_run_id}.json"
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${candidate_run_id}/jobs?per_page=100" \
+              > "$jobs_path"
+            if node - "$jobs_path" <<'NODE'
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
           if (!report || !Array.isArray(report.jobs) || report.total_count !== report.jobs.length) process.exit(2);
@@ -112,6 +116,12 @@ jobs:
             if (matches.length !== 1 || matches[0].status !== 'completed' || matches[0].conclusion !== 'success') process.exit(3);
           }
           NODE
+            then
+              full_stack_run_id="$candidate_run_id"
+              break
+            fi
+          done <<< "$candidate_run_ids"
+          [[ "$full_stack_run_id" =~ ^[0-9]+$ ]]
           echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
           echo "full_stack_run_id=$full_stack_run_id" >> "$GITHUB_OUTPUT"
 
