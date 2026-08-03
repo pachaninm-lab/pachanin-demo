@@ -3,6 +3,7 @@ name: TAI Restricted Qwen REG.RU Activation
 on:
   pull_request:
     paths:
+      - ".github/workflows/tai-owner-qwen-activation-command.yml"
       - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
@@ -16,16 +17,16 @@ on:
       - "scripts/check-tai-local-model-key-authority.mjs"
       - "scripts/check-tai-reg-ru-release-chain.mjs"
       - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/select-tai-owner-preflight-run.mjs"
+      - "scripts/check-tai-owner-preflight-run-selection.mjs"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
       - "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
       - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-command-20260803.json"
-  workflow_run:
-    workflows: ["TAI Owner REG.RU Preflight"]
-    types: [completed]
-  issue_comment:
-    types: [created]
+      - "docs/platform-v7/autopilot/scopes/tai-activation-neutral-gate-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-preflight-run-discovery-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
   workflow_dispatch:
     inputs:
       target_sha:
@@ -37,11 +38,11 @@ on:
         required: true
         type: string
       upstream_run_id:
-        description: Exact successful TAI REG.RU Preflight run ID
+        description: Exact successful owner preflight run ID
         required: true
         type: string
       upstream_run_attempt:
-        description: Exact successful TAI REG.RU Preflight run attempt
+        description: Exact successful owner preflight run attempt
         required: true
         type: string
 
@@ -58,19 +59,7 @@ env:
 jobs:
   upstream_preflight_gate:
     name: Require exact-run REG.RU preflight completion
-    if: >-
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main'
-      ) ||
-      (
-        github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3365 &&
-        github.event.comment.body == '/tai activate current-main'
-      )
+    if: always()
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -80,13 +69,6 @@ jobs:
       upstream_run_id: ${{ steps.authority.outputs.upstream_run_id }}
       upstream_run_attempt: ${{ steps.authority.outputs.upstream_run_attempt }}
     steps:
-      - name: Reject an untrusted upstream repository before checkout
-        if: github.event_name == 'workflow_run'
-        env:
-          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-        run: |
-          set -Eeuo pipefail
-          [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
@@ -100,67 +82,18 @@ jobs:
           ACTOR: ${{ github.actor }}
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           OWNER: ${{ github.repository_owner }}
-          COMMENTER: ${{ github.event.comment.user.login }}
-          COMMAND_BODY: ${{ github.event.comment.body }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
           CONFIRMATION: ${{ inputs.confirmation }}
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
-          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id || inputs.upstream_run_id }}
-          UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || inputs.upstream_run_attempt }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+          UPSTREAM_RUN_ID: ${{ inputs.upstream_run_id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ inputs.upstream_run_attempt }}
         run: |
           set -Eeuo pipefail
           if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
-
-          if [[ "$EVENT_NAME" == issue_comment ]]; then
-            [[ "$ISSUE_NUMBER" == 3365 ]]
-            [[ "$COMMAND_BODY" == '/tai activate current-main' ]]
-            [[ "$COMMENTER" == "$OWNER" ]]
-            [[ "$ACTOR" == "$OWNER" ]]
-            [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
-            TARGET_SHA="$(gh api -H 'Accept: application/vnd.github+json' \
-              "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
-            [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-            gh api -H 'Accept: application/vnd.github+json' \
-              "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-preflight-owner-command.yml/runs?branch=main&status=success&per_page=100" \
-              > "$RUNNER_TEMP/preflight-candidates.json"
-            read -r UPSTREAM_RUN_ID UPSTREAM_RUN_ATTEMPT < <(node - "$RUNNER_TEMP/preflight-candidates.json" "$TARGET_SHA" "$GITHUB_REPOSITORY" <<'NODE'
-          const fs = require('node:fs');
-          const [path, sha, repository] = process.argv.slice(2);
-          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const run = (Array.isArray(report.workflow_runs) ? report.workflow_runs : []).find((item) =>
-            item?.name === 'TAI Owner REG.RU Preflight'
-            && item?.head_sha === sha
-            && item?.head_branch === 'main'
-            && item?.head_repository?.full_name === repository
-            && item?.event === 'issue_comment'
-            && item?.status === 'completed'
-            && item?.conclusion === 'success'
-            && Number.isInteger(item?.id)
-            && Number.isInteger(item?.run_attempt)
-            && item.run_attempt > 0
-          );
-          if (!run) process.exit(2);
-          process.stdout.write(`${run.id} ${run.run_attempt}`);
-          NODE
-            )
-            UPSTREAM_CONCLUSION=success
-            UPSTREAM_BRANCH=main
-            UPSTREAM_REPOSITORY="$GITHUB_REPOSITORY"
-          elif [[ "$EVENT_NAME" == workflow_run ]]; then
-            [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
-            [[ "$UPSTREAM_CONCLUSION" == success ]]
-            [[ "$UPSTREAM_BRANCH" == main ]]
-          else
-            [[ "$EVENT_NAME" == workflow_dispatch ]]
-            [[ "$CURRENT_REF" == refs/heads/main ]]
-            [[ "$ACTOR" == "$OWNER" ]]
-            [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
-            [[ "$CONFIRMATION" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]
-          fi
-
+          [[ "$EVENT_NAME" == workflow_dispatch ]]
+          [[ "$CURRENT_REF" == refs/heads/main ]]
+          [[ "$CONFIRMATION" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]
+          if [[ "$ACTOR" != "$OWNER" ]]; then [[ "$ACTOR" == 'github-actions[bot]' ]]; fi
+          if [[ "$TRIGGERING_ACTOR" != "$OWNER" ]]; then [[ "$TRIGGERING_ACTOR" == 'github-actions[bot]' ]]; fi
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
@@ -195,7 +128,12 @@ jobs:
   contract:
     name: Least-privilege activation contract
     needs: upstream_preflight_gate
-    if: needs.upstream_preflight_gate.result == 'success'
+    if: >-
+      needs.upstream_preflight_gate.result == 'success' &&
+      (
+        github.event_name == 'pull_request' ||
+        needs.upstream_preflight_gate.outputs.target_sha != ''
+      )
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -215,6 +153,7 @@ jobs:
           node scripts/check-tai-local-model-key-authority.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-owner-activation-command.mjs
+          node scripts/check-tai-owner-preflight-run-selection.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority

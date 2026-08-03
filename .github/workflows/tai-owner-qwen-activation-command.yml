@@ -1,0 +1,227 @@
+name: TAI Owner Qwen Activation Command
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-qwen-activation-command.yml"
+      - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
+      - "scripts/select-tai-owner-preflight-status.mjs"
+      - "scripts/check-tai-owner-preflight-status-selection.mjs"
+      - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/check-tai-reg-ru-release-chain.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-owner-activation-status-authority-20260803.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-qwen-activation-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  authority:
+    name: Resolve exact successful owner preflight
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai activate current-main'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: read
+    outputs:
+      target_sha: ${{ steps.authority.outputs.target_sha }}
+      upstream_run_id: ${{ steps.authority.outputs.upstream_run_id }}
+      upstream_run_attempt: ${{ steps.authority.outputs.upstream_run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate owner activation dispatch contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-tai-owner-preflight-status-selection.mjs
+          node scripts/check-tai-owner-activation-command.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
+      - name: Verify owner command and exact preflight authority
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status" \
+            > "$RUNNER_TEMP/preflight-status.json"
+          upstream_run_id="$(node scripts/select-tai-owner-preflight-status.mjs \
+            "$RUNNER_TEMP/preflight-status.json" "$target_sha" "$GITHUB_REPOSITORY")"
+          [[ "$upstream_run_id" =~ ^[0-9]+$ ]]
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${upstream_run_id}" \
+            > "$RUNNER_TEMP/preflight-run.json"
+          upstream_run_attempt="$(node - "$RUNNER_TEMP/preflight-run.json" <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (!Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1) process.exit(2);
+          process.stdout.write(String(run.run_attempt));
+          NODE
+          )"
+          [[ "$upstream_run_attempt" =~ ^[1-9][0-9]*$ ]]
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
+            "$target_sha" "$upstream_run_attempt" 'TAI Owner REG.RU Preflight' "$GITHUB_REPOSITORY"
+          node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
+          const fs = require('node:fs');
+          const [path, owner] = process.argv.slice(2);
+          const run = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (
+            run.event !== 'issue_comment'
+            || run.actor?.login !== owner
+            || run.triggering_actor?.login !== owner
+          ) process.exit(3);
+          NODE
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${upstream_run_id}/attempts/${upstream_run_attempt}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/preflight-jobs.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs "$RUNNER_TEMP/preflight-jobs.json" \
+            'Require successful canonical image build' \
+            'Least-privilege preflight contract' \
+            'Exact-main canonical TAI image authority' \
+            'Exact-main REG.RU controller inventory' \
+            'Publish REG.RU preflight status' \
+            'Confirm REG.RU preflight chain result'
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "upstream_run_id=$upstream_run_id" >> "$GITHUB_OUTPUT"
+          echo "upstream_run_attempt=$upstream_run_attempt" >> "$GITHUB_OUTPUT"
+
+  dispatch:
+    name: Dispatch protected restricted Qwen activation
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    outputs:
+      activation_run_id: ${{ steps.dispatch.outputs.activation_run_id }}
+    steps:
+      - name: Dispatch exact verified activation and observe run creation
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          UPSTREAM_RUN_ID: ${{ needs.authority.outputs.upstream_run_id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ needs.authority.outputs.upstream_run_attempt }}
+        run: |
+          set -Eeuo pipefail
+          dispatch_epoch="$(date -u +%s)"
+          python3 - "$TARGET_SHA" "$UPSTREAM_RUN_ID" "$UPSTREAM_RUN_ATTEMPT" > "$RUNNER_TEMP/dispatch.json" <<'PY'
+          import json,sys
+          sha,run_id,attempt=sys.argv[1:]
+          print(json.dumps({
+            'ref':'main',
+            'inputs':{
+              'target_sha':sha,
+              'confirmation':'ACTIVATE-RESTRICTED-QWEN-REG-RU',
+              'upstream_run_id':run_id,
+              'upstream_run_attempt':attempt,
+            },
+          },separators=(',',':')))
+          PY
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
+            --input "$RUNNER_TEMP/dispatch.json"
+
+          activation_run_id=''
+          for attempt in $(seq 1 60); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/runs?event=workflow_dispatch&branch=main&per_page=30" \
+              > "$RUNNER_TEMP/activation-runs.json"
+            activation_run_id="$(node - "$RUNNER_TEMP/activation-runs.json" "$TARGET_SHA" "$dispatch_epoch" <<'NODE'
+          const fs = require('node:fs');
+          const [path, sha, epochRaw] = process.argv.slice(2);
+          const epoch = Number(epochRaw);
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const matches = (Array.isArray(report.workflow_runs) ? report.workflow_runs : [])
+            .filter((run) => run?.name === 'TAI Restricted Qwen REG.RU Activation'
+              && run?.event === 'workflow_dispatch'
+              && run?.head_sha === sha
+              && run?.head_branch === 'main'
+              && Number.isSafeInteger(run?.id)
+              && Date.parse(run?.created_at || '') / 1000 >= epoch - 5)
+            .sort((left, right) => right.id - left.id);
+          if (matches[0]) process.stdout.write(String(matches[0].id));
+          NODE
+            )"
+            if [[ "$activation_run_id" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 5
+          done
+          [[ "$activation_run_id" =~ ^[0-9]+$ ]]
+          echo "activation_run_id=$activation_run_id" >> "$GITHUB_OUTPUT"
+
+  result:
+    name: Confirm owner activation dispatch
+    needs: [authority, dispatch]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai activate current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Publish redacted terminal command evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          DISPATCH_RESULT: ${{ needs.dispatch.result }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          PREFLIGHT_RUN_ID: ${{ needs.authority.outputs.upstream_run_id }}
+          ACTIVATION_RUN_ID: ${{ needs.dispatch.outputs.activation_run_id }}
+        run: |
+          set -Eeuo pipefail
+          state=FAILED_BEFORE_DISPATCH
+          if [[ "$AUTHORITY_RESULT" == success && "$DISPATCH_RESULT" == success && "$ACTIVATION_RUN_ID" =~ ^[0-9]+$ ]]; then
+            state=DISPATCHED
+          fi
+          cat > "$RUNNER_TEMP/comment.md" <<EOF
+          ## TAI owner activation command
+
+          - result: \`$state\`
+          - exact main: \`${TARGET_SHA:-unresolved}\`
+          - verified preflight run: \`${PREFLIGHT_RUN_ID:-none}\`
+          - activation run: ${ACTIVATION_RUN_ID:+https://github.com/${GITHUB_REPOSITORY}/actions/runs/${ACTIVATION_RUN_ID}}
+          - command run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$AUTHORITY_RESULT" == success ]]
+          [[ "$DISPATCH_RESULT" == success ]]
+          [[ "$ACTIVATION_RUN_ID" =~ ^[0-9]+$ ]]

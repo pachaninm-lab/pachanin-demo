@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-controller-sync-authority-selection-20260803",
+  "status": "active",
+  "title": "TAI exact-main controller authority selection repair",
+  "priority": "P0",
+  "baselineExactMain": "d9a74d2f59c8da15c5900d2c7389f1966c9b5a37",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Select the newest exact-main full-stack release whose contract and production deployment jobs both completed successfully, so a newer workflow-level success with a skipped deployment job cannot shadow valid deployment authority and block the bounded root controller synchronization.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-controller-sync-command.yml",
+    "scripts/pc-tai-controller-sync.sh",
+    "scripts/check-tai-controller-sync.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-exact-controller-sync-20260803.json"
+  ],
+  "boundaries": [
+    "The only command is /tai sync-controller current-main on issue 3365",
+    "Commenter, actor and triggering actor must equal the repository owner",
+    "Candidate runs must match exact current main, main branch, repository identity, allowed event, completed status and successful workflow conclusion",
+    "The selected authority must additionally contain exactly one successful Validate full-stack release contract job and exactly one successful Migrate, deploy API and web, verify live intake job",
+    "A newer workflow-level success with a skipped or failed deployment job must be rejected without shadowing an older exact-main run whose required jobs passed",
+    "No controller, VPS, runner, database, model or application mutation occurs until valid job-level full-stack authority is selected",
+    "Transport reuses the canonical REG.RU host, protected root SSH principal, normalized private key and pinned host fingerprint",
+    "The uploaded wrapper must be byte-identical to scripts/pc-tai-release-controller.sh in the protected production repository at exact current main",
+    "The shared /run/lock/pc-tai-release-controller.lock must be held before protected checkout and throughout synchronization",
+    "The existing sudoControllerSha256 marker must equal the installed controller digest before any mutation",
+    "Only /usr/local/sbin/pc-tai-release-controller and sudoControllerSha256 in the existing runner authority marker may change",
+    "Controller and marker are replaced with atomic renames, fsynced and post-verified",
+    "Previous controller and marker are restored and fsynced on any failure after mutation begins",
+    "An already exact and correctly attested controller is an idempotent no-mutation PASS",
+    "The installed controller remains root:pcactions mode 0750 and sudoers remains restricted to that single path",
+    "The self-hosted runner remains non-root, outside the docker group and without direct Docker access",
+    "No runner registration or service restart, Compose, database, model or application deployment mutation occurs",
+    "No model, tenant, application role, financial or autonomous write authority is widened",
+    "The accepted canonical image trigger scope remains unchanged",
+    "No new recurring cost"
+  ]
+}
