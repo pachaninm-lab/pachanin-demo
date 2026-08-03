@@ -189,6 +189,7 @@
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
     "apps/web/tests/unit/surfaceRoleMappingParity.test.ts",
     "docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json",
+    "docs/platform-v7/crop-platform/p0-first-customer-access-gap-audit.md",
     "scripts/pc-crop-10c/applicability.mjs",
     "scripts/platform-v7-forward-only-migration-check.mjs"
   ],
