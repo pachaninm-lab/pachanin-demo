@@ -1,0 +1,294 @@
+name: TAI Owner Exact Controller Sync Command
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-controller-sync-command.yml"
+      - "scripts/tai-controller-sync-reg-ru.sh"
+      - "scripts/check-tai-controller-sync.mjs"
+      - "scripts/pc-tai-release-controller.sh"
+      - "docs/platform-v7/autopilot/scopes/tai-controller-exact-main-sync-20260803.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-controller-sync-production
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  authority:
+    name: Resolve exact deployed current main
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai sync-controller current-main'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.authority.outputs.target_sha }}
+      target_short: ${{ steps.authority.outputs.target_short }}
+      controller_sha256: ${{ steps.authority.outputs.controller_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate controller synchronization contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/tai-controller-sync-reg-ru.sh
+          bash -n scripts/pc-tai-release-controller.sh
+          node scripts/check-tai-controller-sync.mjs
+      - name: Verify owner command, current main and live revision
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+          git checkout --force --detach "$target_sha"
+          controller_sha256="$(sha256sum scripts/pc-tai-release-controller.sh | awk '{print $1}')"
+          [[ "$controller_sha256" =~ ^[0-9a-f]{64}$ ]]
+          manifest="$(curl -fsS --connect-timeout 10 --max-time 30 \
+            "$LIVE_BASE/manifest-pc-deploy.json?controller=${target_sha}&ts=$(date -u +%s)")"
+          live_sha="$(python3 - "$target_sha" "$manifest" <<'PY'
+          import json,sys
+          target,payload=sys.argv[1:]
+          value=json.loads(payload).get('commitSha')
+          if value != target: raise SystemExit(2)
+          print(value)
+          PY
+          )"
+          [[ "$live_sha" == "$target_sha" ]]
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "target_short=${target_sha:0:7}" >> "$GITHUB_OUTPUT"
+          echo "controller_sha256=$controller_sha256" >> "$GITHUB_OUTPUT"
+
+  sync:
+    name: Synchronize protected exact-main controller
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+      TARGET_SHORT: ${{ needs.authority.outputs.target_short }}
+      CONTROLLER_SHA256: ${{ needs.authority.outputs.controller_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authority.outputs.target_sha }}
+          persist-credentials: false
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$RUNNER_TEMP/controller-sync"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$RUNNER_TEMP/controller-sync/ssh-key-fingerprint.txt"
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; test -S /var/run/docker.sock; echo SSH_ROOT_AUTH_OK' \
+            > "$RUNNER_TEMP/controller-sync/ssh-auth.txt"
+          grep -Fxq SSH_ROOT_AUTH_OK "$RUNNER_TEMP/controller-sync/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Copy bounded exact controller assets
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          scp "${scp_common[@]}" scripts/pc-tai-release-controller.sh "$USER@$HOST:/tmp/pc-tai-controller-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/tai-controller-sync-reg-ru.sh "$USER@$HOST:/tmp/pc-tai-controller-sync-${GITHUB_RUN_ID}.sh"
+      - name: Execute bounded exact controller synchronization
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "chmod 0700 /tmp/pc-tai-controller-sync-${GITHUB_RUN_ID}.sh && /tmp/pc-tai-controller-sync-${GITHUB_RUN_ID}.sh '$TARGET_SHA' '$GITHUB_RUN_ID' '$CONTROLLER_SHA256' '/tmp/pc-tai-controller-${GITHUB_RUN_ID}.sh'" \
+            | tee "$RUNNER_TEMP/controller-sync/controller-sync.log"
+          grep -Fxq TAI_CONTROLLER_SYNC=PASS "$RUNNER_TEMP/controller-sync/controller-sync.log"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$USER@$HOST:/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/controller-sync.json" \
+            "$RUNNER_TEMP/controller-sync/controller-sync.json"
+          python3 - "$RUNNER_TEMP/controller-sync/controller-sync.json" "$TARGET_SHA" "$CONTROLLER_SHA256" <<'PY'
+          import json,sys
+          path,target,expected=sys.argv[1:]
+          report=json.load(open(path,encoding='utf-8'))
+          assert report.get('schemaVersion') == 'tai.controller-sync.v1'
+          assert report.get('targetSha') == target
+          assert report.get('controllerSha256') == expected
+          assert report.get('directDockerAuthority') is False
+          assert report.get('status') == 'PASS'
+          PY
+      - name: Upload controller synchronization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-controller-sync-${{ env.TARGET_SHORT }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/controller-sync
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish exact-main controller synchronization result
+    needs: [authority, sync]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai sync-controller current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - name: Publish redacted terminal evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          CONTROLLER_SHA256: ${{ needs.authority.outputs.controller_sha256 }}
+        run: |
+          set -Eeuo pipefail
+          state=failure; terminal=FAILED; description='TAI exact controller synchronization failed'
+          if [[ "$AUTHORITY_RESULT" == success && "$SYNC_RESULT" == success ]]; then
+            state=success; terminal=PASS; description='TAI exact controller synchronization PASS'
+          fi
+          if [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+              -f state="$state" -f context='TAI Controller Sync' -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          fi
+          cat > "$RUNNER_TEMP/comment.md" <<EOF
+          ## TAI exact controller synchronization
+
+          - result: \`$terminal\`
+          - exact main: \`${TARGET_SHA:-unresolved}\`
+          - controller SHA-256: \`${CONTROLLER_SHA256:-unresolved}\`
+          - run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - authority widened: \`false\`
+          EOF
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$state" == success ]]
+
+  result_gate:
+    name: Confirm exact controller synchronization result
+    needs: [authority, sync, publish]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai sync-controller current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped synchronization jobs
+        env:
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$AUTHORITY_RESULT" == success ]]
+          [[ "$SYNC_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]
