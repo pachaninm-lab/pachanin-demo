@@ -24,6 +24,7 @@ env:
   BRANCH: fix/security-brace-expansion-5-0-8
   EXPECTED_BRANCH_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   EXPECTED_MAIN_SHA: a8c9476cc7bf0e7c32318dadd8a263b9b1672bb7
+  SECURITY_ARTIFACT_DIR: artifacts/security
 
 jobs:
   materialize:
@@ -109,12 +110,33 @@ jobs:
           NODE
           pnpm install --frozen-lockfile
 
-      - name: Verify production audit and exception retirement
+      - name: Verify production audit through governed evaluator
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$SECURITY_ARTIFACT_DIR"
           ! grep -Fq '"findingId": "1130705"' docs/platform-v7/autopilot/security-exceptions.json
-          pnpm audit --prod --audit-level high
+
+          pnpm -r list --prod --json --depth Infinity \
+            > "$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json"
+
+          NPM_BULK_AUDIT_INPUT="$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json" \
+          PNPM_AUDIT_JSON="$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
+          NPM_REGISTRY_URL="https://registry.npmjs.org" \
+          node docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs \
+            > "$SECURITY_ARTIFACT_DIR/pnpm-audit.stdout.txt" \
+            2> "$SECURITY_ARTIFACT_DIR/pnpm-audit.stderr.txt"
+
+          if grep -Fq '1130705' "$SECURITY_ARTIFACT_DIR/pnpm-audit.json"; then
+            echo 'Target advisory 1130705 remains reachable after lock regeneration.' >&2
+            exit 1
+          fi
+
+          PNPM_AUDIT_EXIT=0 \
+          SECURITY_EXACT_HEAD="$EXPECTED_BRANCH_HEAD" \
+          PNPM_AUDIT_JSON="$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
+          PNPM_AUDIT_REPORT="$SECURITY_ARTIFACT_DIR/pnpm-audit-evaluation.json" \
+          node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
 
       - name: Verify ExcelJS archive compatibility
         shell: bash
@@ -155,6 +177,7 @@ jobs:
             package.json
             pnpm-lock.yaml
             docs/platform-v7/autopilot/security-exceptions.json
+            artifacts/security/
           if-no-files-found: error
           retention-days: 30
 
@@ -166,6 +189,7 @@ jobs:
           [[ "$(git rev-parse origin/main)" == "$EXPECTED_MAIN_SHA" ]]
           [[ "$(git rev-parse "origin/$BRANCH")" == "$EXPECTED_BRANCH_HEAD" ]]
           rm -f .github/workflows/security-brace-expansion-5-0-8.yml
+          rm -rf "$SECURITY_ARTIFACT_DIR"
           git add -A
           git commit -m 'chore(security): materialize brace-expansion 5.0.9 lock'
           git reset --soft origin/main
