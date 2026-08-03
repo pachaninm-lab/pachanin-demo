@@ -108,6 +108,13 @@ BEGIN
         );
     END LOOP;
 
+    IF NOT has_database_privilege('tai_runtime', current_database(), 'CONNECT') THEN
+        RAISE EXCEPTION 'tai_runtime database CONNECT grant reconciliation failed';
+    END IF;
+    IF NOT has_schema_privilege('tai_runtime', 'public', 'USAGE') THEN
+        RAISE EXCEPTION 'tai_runtime public schema USAGE grant reconciliation failed';
+    END IF;
+
     SELECT COUNT(*)::INTEGER
     INTO missing_relation_count
     FROM pg_catalog.pg_class AS relation
@@ -116,20 +123,33 @@ BEGIN
     WHERE namespace.nspname = 'public'
       AND relation.relname LIKE 'tai\_%' ESCAPE '\'
       AND relation.relkind IN ('r', 'v', 'm', 'p', 'f')
-      AND NOT CASE
-          WHEN relation.relkind IN ('v', 'm') THEN
-              has_table_privilege(
-                  'tai_runtime',
-                  format('%I.%I', namespace.nspname, relation.relname),
-                  'SELECT'
+      AND NOT (
+          has_table_privilege(
+              'tai_runtime',
+              format('%I.%I', namespace.nspname, relation.relname),
+              'SELECT'
+          )
+          AND (
+              relation.relkind IN ('v', 'm')
+              OR (
+                  has_table_privilege(
+                      'tai_runtime',
+                      format('%I.%I', namespace.nspname, relation.relname),
+                      'INSERT'
+                  )
+                  AND has_table_privilege(
+                      'tai_runtime',
+                      format('%I.%I', namespace.nspname, relation.relname),
+                      'UPDATE'
+                  )
+                  AND has_table_privilege(
+                      'tai_runtime',
+                      format('%I.%I', namespace.nspname, relation.relname),
+                      'DELETE'
+                  )
               )
-          ELSE
-              has_table_privilege(
-                  'tai_runtime',
-                  format('%I.%I', namespace.nspname, relation.relname),
-                  'SELECT,INSERT,UPDATE,DELETE'
-              )
-      END;
+          )
+      );
 
     SELECT COUNT(*)::INTEGER
     INTO missing_sequence_count
@@ -139,10 +159,22 @@ BEGIN
     WHERE namespace.nspname = 'public'
       AND relation.relname LIKE 'tai\_%' ESCAPE '\'
       AND relation.relkind = 'S'
-      AND NOT has_sequence_privilege(
-          'tai_runtime',
-          format('%I.%I', namespace.nspname, relation.relname),
-          'USAGE,SELECT,UPDATE'
+      AND NOT (
+          has_sequence_privilege(
+              'tai_runtime',
+              format('%I.%I', namespace.nspname, relation.relname),
+              'USAGE'
+          )
+          AND has_sequence_privilege(
+              'tai_runtime',
+              format('%I.%I', namespace.nspname, relation.relname),
+              'SELECT'
+          )
+          AND has_sequence_privilege(
+              'tai_runtime',
+              format('%I.%I', namespace.nspname, relation.relname),
+              'UPDATE'
+          )
       );
 
     IF missing_relation_count <> 0 OR missing_sequence_count <> 0 THEN
@@ -150,8 +182,5 @@ BEGIN
     END IF;
 END;
 $tai_runtime_grants$;
-
-COMMENT ON DATABASE CURRENT_DATABASE IS
-    'TAI runtime grants are reconciled only for the bounded tai_* relation namespace';
 
 COMMIT;
