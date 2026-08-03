@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-activation-dispatch-bridge-20260803",
+  "status": "active",
+  "title": "TAI owner activation dispatch bridge",
+  "priority": "P0",
+  "baselineExactMain": "735116a6db522a238f5990976b1419ff89c45b43",
+  "objective": "Replace unreliable multi-event activation runs with a separate owner-only command workflow that verifies the completed exact-main owner preflight and dispatches the production activation workflow with exact inputs; keep activation and downstream deployment as independent auditable workflow runs.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-qwen-activation-command.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/check-tai-owner-activation-command.mjs",
+    "scripts/check-tai-reg-ru-release-chain.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
+  ],
+  "boundaries": [
+    "Only /tai activate current-main on issue 3365 by the repository owner can dispatch activation",
+    "The command workflow requires the latest completed successful exact-SHA owner-preflight run and all six successful jobs",
+    "The activation workflow accepts only workflow_dispatch with exact confirmation and re-verifies the same preflight run, owner actors and six jobs",
+    "The activation workflow no longer listens to issue_comment or workflow_run events",
+    "Image, protected REG.RU controller, RU/EN/ZH SSE, Chromium, finalization, rollback and standalone deployment gates remain unchanged",
+    "No new recurring cost"
+  ]
+}

@@ -1,0 +1,167 @@
+name: TAI Owner Qwen Activation Command
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-qwen-activation-command.yml"
+      - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
+      - "scripts/select-tai-owner-preflight-run.mjs"
+      - "scripts/check-tai-owner-preflight-run-selection.mjs"
+      - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/check-tai-reg-ru-release-chain.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-qwen-activation-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  authority:
+    name: Resolve exact successful owner preflight
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai activate current-main'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      target_sha: ${{ steps.authority.outputs.target_sha }}
+      upstream_run_id: ${{ steps.authority.outputs.upstream_run_id }}
+      upstream_run_attempt: ${{ steps.authority.outputs.upstream_run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate owner activation dispatch contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-tai-owner-preflight-run-selection.mjs
+          node scripts/check-tai-owner-activation-command.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
+      - name: Verify owner command and exact preflight authority
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-reg-ru-preflight-owner-command.yml/runs?branch=main&status=success&per_page=100" \
+            > "$RUNNER_TEMP/preflight-candidates.json"
+          read -r upstream_run_id upstream_run_attempt < <(
+            node scripts/select-tai-owner-preflight-run.mjs \
+              "$RUNNER_TEMP/preflight-candidates.json" "$target_sha"
+          )
+          [[ "$upstream_run_id" =~ ^[0-9]+$ ]]
+          [[ "$upstream_run_attempt" =~ ^[1-9][0-9]*$ ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${upstream_run_id}" > "$RUNNER_TEMP/preflight-run.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
+            "$target_sha" "$upstream_run_attempt" 'TAI Owner REG.RU Preflight' "$GITHUB_REPOSITORY"
+          node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
+          const fs = require('node:fs');
+          const [path, owner] = process.argv.slice(2);
+          const run = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (
+            run.event !== 'issue_comment'
+            || run.actor?.login !== owner
+            || run.triggering_actor?.login !== owner
+          ) process.exit(3);
+          NODE
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${upstream_run_id}/attempts/${upstream_run_attempt}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/preflight-jobs.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs "$RUNNER_TEMP/preflight-jobs.json" \
+            'Require successful canonical image build' \
+            'Least-privilege preflight contract' \
+            'Exact-main canonical TAI image authority' \
+            'Exact-main REG.RU controller inventory' \
+            'Publish REG.RU preflight status' \
+            'Confirm REG.RU preflight chain result'
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "upstream_run_id=$upstream_run_id" >> "$GITHUB_OUTPUT"
+          echo "upstream_run_attempt=$upstream_run_attempt" >> "$GITHUB_OUTPUT"
+
+  dispatch:
+    name: Dispatch protected restricted Qwen activation
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch exact verified activation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          UPSTREAM_RUN_ID: ${{ needs.authority.outputs.upstream_run_id }}
+          UPSTREAM_RUN_ATTEMPT: ${{ needs.authority.outputs.upstream_run_attempt }}
+        run: |
+          set -Eeuo pipefail
+          python3 - "$TARGET_SHA" "$UPSTREAM_RUN_ID" "$UPSTREAM_RUN_ATTEMPT" > "$RUNNER_TEMP/dispatch.json" <<'PY'
+          import json,sys
+          sha,run_id,attempt=sys.argv[1:]
+          print(json.dumps({
+            'ref':'main',
+            'inputs':{
+              'target_sha':sha,
+              'confirmation':'ACTIVATE-RESTRICTED-QWEN-REG-RU',
+              'upstream_run_id':run_id,
+              'upstream_run_attempt':attempt,
+            },
+          },separators=(',',':')))
+          PY
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
+            --input "$RUNNER_TEMP/dispatch.json"
+
+  result:
+    name: Confirm owner activation dispatch
+    needs: [authority, dispatch]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai activate current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped command jobs
+        env:
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          DISPATCH_RESULT: ${{ needs.dispatch.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$AUTHORITY_RESULT" == success ]]
+          [[ "$DISPATCH_RESULT" == success ]]
