@@ -249,8 +249,8 @@ PY
 } > "$REVOKE_SQL"
 {
  echo BEGIN\;
- psql_admin -Atc "SELECT format('GRANT %I ON TABLE %I.%I TO PUBLIC%s;',x.privilege_type,n.nspname,c.relname,CASE WHEN x.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(c.relacl) x WHERE n.nspname='public' AND c.relname NOT LIKE 'tai\\_%' ESCAPE '\\' AND c.relkind IN ('r','v','m','p','f') AND x.grantee=0 ORDER BY c.oid,x.privilege_type;"
- psql_admin -Atc "SELECT format('GRANT %I (%I) ON TABLE %I.%I TO PUBLIC%s;',x.privilege_type,a.attname,n.nspname,c.relname,CASE WHEN x.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE n.nspname='public' AND c.relname NOT LIKE 'tai\\_%' ESCAPE '\\' AND c.relkind IN ('r','v','m','p','f') AND a.attnum>0 AND NOT a.attisdropped AND x.grantee=0 ORDER BY c.oid,a.attnum,x.privilege_type;"
+ psql_admin -Atc "SELECT format('GRANT %s ON TABLE %I.%I TO PUBLIC%s;',x.privilege_type,n.nspname,c.relname,CASE WHEN x.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(c.relacl) x WHERE n.nspname='public' AND c.relname NOT LIKE 'tai\\_%' ESCAPE '\\' AND c.relkind IN ('r','v','m','p','f') AND x.grantee=0 ORDER BY c.oid,x.privilege_type;"
+ psql_admin -Atc "SELECT format('GRANT %s (%I) ON TABLE %I.%I TO PUBLIC%s;',x.privilege_type,a.attname,n.nspname,c.relname,CASE WHEN x.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE n.nspname='public' AND c.relname NOT LIKE 'tai\\_%' ESCAPE '\\' AND c.relkind IN ('r','v','m','p','f') AND a.attnum>0 AND NOT a.attisdropped AND x.grantee=0 ORDER BY c.oid,a.attnum,x.privilege_type;"
  echo COMMIT\;
 } > "$RESTORE_SQL"
 chmod 0600 "$REVOKE_SQL" "$RESTORE_SQL"
