@@ -137,10 +137,13 @@ function assertSafeOutwardResult(question: string) {
     expect(grounded.actionAllowed).toBe(false);
     return;
   }
-  expect(route).toContain("resolution: 'clarification_required'");
-  expect(route).toContain('escalationId');
-  expect(route).toContain("event: 'PUBLIC_ASSISTANT_UNANSWERED'");
-  expect(route).toContain('не придумывает ответ');
+  // Without a prospect topic the question still reaches an answer: the platform
+  // knowledge sections and the public knowledge base both sit behind the router,
+  // and only a safety block or a genuine off-topic question stops there.
+  expect(route).toContain('resolveAnswer(');
+  expect(route).toContain('composePlatformSectionAnswer');
+  expect(route).toContain("event: 'PUBLIC_ASSISTANT_REDIRECTED'");
+  expect(route).not.toContain('не смог с достаточной уверенностью');
 }
 
 describe('public prospect assistant industrial question acceptance', () => {

@@ -4,9 +4,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationsService } from './integrations.service';
 import { EdoWebhookController } from './edo-webhook.controller';
+import { FgisLegacyQuarantineModule } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.module';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, FgisLegacyQuarantineModule],
   controllers: [IntegrationsController, EdoWebhookController],
   providers: [IntegrationsService, AccessScopeService],
   exports: [IntegrationsService]

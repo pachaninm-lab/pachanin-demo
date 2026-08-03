@@ -2,6 +2,7 @@ import { UnprocessableEntityException } from '@nestjs/common';
 import { AuctionCommandService } from './auction-command.service';
 import type { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
+import { RecordingFgisQuarantineAudit } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.test-double';
 
 const buyer: RequestUser = {
   id: 'buyer-user',
@@ -14,9 +15,11 @@ const buyer: RequestUser = {
 
 describe('AuctionCommandService input authority', () => {
   const withTrustedContext = jest.fn();
-  const service = new AuctionCommandService({
-    withTrustedContext,
-  } as unknown as RlsTransactionService);
+  const audit = new RecordingFgisQuarantineAudit();
+  const service = new AuctionCommandService(
+    { withTrustedContext } as unknown as RlsTransactionService,
+    audit.asService(),
+  );
 
   beforeEach(() => withTrustedContext.mockReset());
 

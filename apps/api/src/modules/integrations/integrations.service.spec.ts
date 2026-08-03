@@ -1,5 +1,9 @@
 import * as crypto from 'crypto';
+import { GoneException } from '@nestjs/common';
 import { IntegrationsService } from './integrations.service';
+import { FGIS_LEGACY_ERROR_CODES } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+import { RecordingFgisQuarantineAudit } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.test-double';
+import type { RequestUser } from '../../common/types/request-user';
 
 function makeRuntime() {
   return {
@@ -11,29 +15,80 @@ function makeRuntime() {
 
 describe('IntegrationsService', () => {
   let svc: IntegrationsService;
+  let audit: RecordingFgisQuarantineAudit;
 
   beforeEach(() => {
-    svc = new IntegrationsService(makeRuntime());
+    audit = new RecordingFgisQuarantineAudit();
+    svc = new IntegrationsService(makeRuntime(), audit.asService());
   });
 
-  describe('handleFgisWebhook()', () => {
-    it('returns received:true with echoed fields', () => {
-      const result = svc.handleFgisWebhook({
-        sdizId: 'SDIZ-123',
-        dealId: 'D1',
-        status: 'CONFIRMED',
-        confirmedAt: '2026-05-20T10:00:00Z',
-      });
-      expect(result.received).toBe(true);
-      expect(result.sdizId).toBe('SDIZ-123');
-      expect(result.status).toBe('CONFIRMED');
-      expect(result.confirmedAt).toBe('2026-05-20T10:00:00Z');
+  describe('handleFgisWebhook() — retired in P0.2-1A', () => {
+    async function denial(body: Record<string, unknown>): Promise<GoneException> {
+      try {
+        await svc.handleFgisWebhook(body);
+      } catch (error) {
+        return error as GoneException;
+      }
+      throw new Error('handleFgisWebhook must not return a success response');
+    }
+
+    it('refuses the JSON callback with 410 and a stable code', async () => {
+      const error = await denial({ sdizId: 'SDIZ-123', dealId: 'D1', status: 'CONFIRMED' });
+      expect(error).toBeInstanceOf(GoneException);
+      expect(error.getStatus()).toBe(410);
+      const body = error.getResponse() as Record<string, unknown>;
+      expect(body.code).toBe(FGIS_LEGACY_ERROR_CODES.WEBHOOK_RETIRED);
+      expect(body.stateChanged).toBe(false);
+      expect(body.attestation).toBe('NOT_ATTESTED');
     });
 
-    it('fills confirmedAt when not provided', () => {
-      const result = svc.handleFgisWebhook({ sdizId: 'S1', dealId: 'D1', status: 'REJECTED' });
-      expect(result.confirmedAt).toBeDefined();
-      expect(new Date(result.confirmedAt).getFullYear()).toBeGreaterThanOrEqual(2026);
+    it('does not echo caller-supplied fields back', async () => {
+      // The old handler reflected sdizId/dealId/status. Echoing an unauthenticated
+      // body makes attacker-chosen values look like recorded ФГИС state.
+      const body = (await denial({
+        sdizId: 'SDIZ-ATTACKER',
+        dealId: 'DEAL-ATTACKER',
+        status: 'CONFIRMED',
+      })).getResponse() as Record<string, unknown>;
+      expect(JSON.stringify(body)).not.toContain('SDIZ-ATTACKER');
+      expect(JSON.stringify(body)).not.toContain('DEAL-ATTACKER');
+      expect(body).not.toHaveProperty('received');
+      expect(body).not.toHaveProperty('sdizId');
+      expect(body).not.toHaveProperty('status');
+    });
+
+    it('issues a fresh correlation code per denial and leaks no secret', async () => {
+      const first = (await denial({})).getResponse() as { correlationCode: string };
+      const second = (await denial({})).getResponse() as { correlationCode: string };
+      expect(first.correlationCode).toMatch(/^FGIS-[0-9A-F]{8}$/);
+      expect(second.correlationCode).not.toBe(first.correlationCode);
+      expect(JSON.stringify(first)).not.toMatch(/secret|token|certificate|password/i);
+    });
+  });
+
+  describe('pushFgis() — retired in P0.2-1A', () => {
+    it('refuses without contacting any adapter or mutating the deal', async () => {
+      const actor: RequestUser = {
+        id: 'user-1',
+        orgId: 'org-1',
+        tenantId: 'tenant-one',
+        role: 'ADMIN',
+        email: 'admin@example.test',
+        sessionId: 'session-1',
+      };
+      let thrown: GoneException | undefined;
+      try {
+        await svc.pushFgis('DEAL-1', actor);
+      } catch (error) {
+        thrown = error as GoneException;
+      }
+      expect(thrown).toBeInstanceOf(GoneException);
+      const body = thrown!.getResponse() as Record<string, unknown>;
+      expect(body.code).toBe(FGIS_LEGACY_ERROR_CODES.PUSH_RETIRED);
+      expect(body.stateChanged).toBe(false);
+      // The old path answered MOCK_OK with an invented СДИЗ number.
+      expect(JSON.stringify(body)).not.toContain('MOCK_OK');
+      expect(body).not.toHaveProperty('sdizNumber');
     });
   });
 
@@ -53,7 +108,10 @@ describe('IntegrationsService', () => {
   describe('gpsHeartbeat()', () => {
     it('delegates to runtime and returns GPS status', () => {
       const runtime = makeRuntime();
-      const service = new IntegrationsService(runtime);
+      const service = new IntegrationsService(
+        runtime,
+        new RecordingFgisQuarantineAudit().asService(),
+      );
       const result = service.gpsHeartbeat('SHIP-1', { id: 'u1', role: 'DRIVER' });
       expect(result.connector).toBe('GPS');
       expect(result.status).toBe('LIVE_SIMULATED');

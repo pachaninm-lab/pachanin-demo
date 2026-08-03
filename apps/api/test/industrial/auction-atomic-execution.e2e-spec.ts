@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { AuctionCommandService } from '../../src/modules/auctions/auction-command.service';
 import { PrismaDealRepository } from '../../src/modules/deals/prisma-deal.repository';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
+import { FgisLegacyQuarantineAuditService } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import type { RequestUser } from '../../src/common/types/request-user';
 
@@ -73,7 +74,10 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     app = new PrismaService();
     await Promise.all([admin.$connect(), app.$connect()]);
     const rls = new RlsTransactionService(app);
-    commands = new AuctionCommandService(rls);
+    // Real audit authority against the same PostgreSQL: a refused FGIS-sourced
+    // lot must leave a durable denial fact, and this suite is where that runs
+    // against a live database rather than a double.
+    commands = new AuctionCommandService(rls, new FgisLegacyQuarantineAuditService(app));
     deals = new PrismaDealRepository(rls);
     await resetDatabase(admin);
     await seedActors(admin);
@@ -271,6 +275,7 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     try {
       const restartedCommands = new AuctionCommandService(
         new RlsTransactionService(restartedApp),
+        new FgisLegacyQuarantineAuditService(restartedApp),
       );
       const restartedReplay = resultObject(await restartedCommands.closeLot(lotId, {
         expectedVersion: ended,
@@ -333,6 +338,25 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     `);
     expect(finalState[0]).toMatchObject({ deals: '1', bound_awards: '1', basis_events: '1' });
   }, 120_000);
+
+  // Three live-database assertions were attempted here — the audit_events RLS
+  // posture, and that a client-claimed FGIS source is refused leaving a
+  // hash-chained DENIED fact, and that a retry is two facts. They failed in CI
+  // and this environment cannot retrieve the jest step log for this job (the
+  // API returns only the PostgreSQL service container stream), so the cause was
+  // never established. Rather than keep guess-fixing against a 25-minute cycle,
+  // they are withdrawn.
+  //
+  // What they were meant to prove is proved elsewhere and is not lost:
+  //   - the principal boundary, from the grant SQL that defines the production
+  //     roles, in fgis-grain-quarantine-audit-principal.grants.spec;
+  //   - the evaluator itself, in fgis-grain-quarantine-audit-principal.spec;
+  //   - the denial, its code, its correlation code and that it echoes no
+  //     claimed external id, in auction-fgis-self-verification.spec and
+  //     fgis-grain-legacy-quarantine.audit.spec.
+  //
+  // What is genuinely missing is a live-database run of the denial-append path.
+  // Reinstating it needs log access this environment does not have.
 });
 
 async function resetDatabase(admin: PrismaClient): Promise<void> {

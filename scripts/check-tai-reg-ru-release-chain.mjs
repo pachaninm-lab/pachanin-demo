@@ -78,6 +78,7 @@ forbid(
 
 for (const fragment of [
   'upstream_preflight_gate:',
+  'workflows: ["TAI Owner REG.RU Preflight"]',
   "group: tai-restricted-qwen-reg-ru-activation-${{ github.event.pull_request.number || 'production' }}",
   'needs: upstream_preflight_gate',
   "if: needs.upstream_preflight_gate.result == 'success'",
@@ -172,7 +173,7 @@ expectBlocked('malformed', []);
 expectBlocked('truncated', { total_count: 101, jobs: successfulJobs });
 expectBlocked('count-mismatch', { total_count: successfulJobs.length + 1, jobs: successfulJobs });
 const successfulRun = {
-  name: 'TAI REG.RU Preflight',
+  name: 'TAI Owner REG.RU Preflight',
   head_repository: { full_name: 'pachaninm-lab/pachanin-demo' },
   head_sha: '1'.repeat(40),
   head_branch: 'main',
@@ -180,13 +181,13 @@ const successfulRun = {
   status: 'completed',
   conclusion: 'success',
 };
-verifyWorkflowRun(successfulRun, '1'.repeat(40), '2', 'TAI REG.RU Preflight', 'pachaninm-lab/pachanin-demo');
+verifyWorkflowRun(successfulRun, '1'.repeat(40), '2', 'TAI Owner REG.RU Preflight', 'pachaninm-lab/pachanin-demo');
 const expectRunBlocked = (
   label,
   report,
   sha = '1'.repeat(40),
   attempt = '2',
-  name = 'TAI REG.RU Preflight',
+  name = 'TAI Owner REG.RU Preflight',
   repository = 'pachaninm-lab/pachanin-demo',
 ) => {
   try {

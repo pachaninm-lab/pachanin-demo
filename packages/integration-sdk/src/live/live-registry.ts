@@ -10,8 +10,12 @@ import { integrationRegistry, type AdapterName } from '../registry';
 import { buildHttpClient, type BuildClientDeps } from './build-client';
 import { resolveIntegrationConfig, type Env } from './integration-config';
 import { HttpIntegrationClient } from './http-integration-client';
+import {
+  FGIS_CANONICAL_CONTOUR,
+  LegacyFgisQuarantineError,
+  QuarantinedFgisZernoAdapter,
+} from '../quarantine/fgis-zerno-legacy';
 import { LiveBankAdapter } from './live-bank.adapter';
-import { LiveFgisZernoAdapter } from './live-fgis-zerno.adapter';
 import { LiveDiadokAdapter } from './live-diadok.adapter';
 import { LiveCryptoproAdapter } from './live-cryptopro.adapter';
 import { LiveFnsAdapter } from './live-fns.adapter';
@@ -31,10 +35,13 @@ import { LiveSmevAdapter } from './live-smev.adapter';
  * implements the same contract as its mock over the shared HTTP client; the
  * remaining per-vendor work is endpoint paths + field mapping (marked
  * "VENDOR MAPPING" in each file). See INTEGRATION_CONNECT_GUIDE.md.
+ *
+ * `FGIS_ZERNO` has no entry and must never get one: its official contract is
+ * SOAP 1.1, not JSON over this HTTP client, and it is served by the canonical
+ * regulatory-integration contour. See `QUARANTINED_ADAPTERS` below.
  */
 export const LIVE_ADAPTER_FACTORIES: Partial<Record<AdapterName, (http: HttpIntegrationClient) => IntegrationAdapter>> = {
   BANK: (http) => new LiveBankAdapter(http),
-  FGIS_ZERNO: (http) => new LiveFgisZernoAdapter(http),
   DIADOK: (http) => new LiveDiadokAdapter(http),
   CRYPTOPRO_DSS: (http) => new LiveCryptoproAdapter(http),
   FNS: (http) => new LiveFnsAdapter(http),
@@ -54,7 +61,16 @@ export interface ConfigureResult {
   readonly live: AdapterName[];
   readonly stub: AdapterName[];
   readonly disabled: AdapterName[];
+  /** Integrations that no env value can promote — see `QUARANTINED_ADAPTERS`. */
+  readonly quarantined: AdapterName[];
 }
+
+/**
+ * Integrations whose legacy adapter was retired because it did not match the
+ * official external contract. They stay fail-closed regardless of `<NAME>_MODE`:
+ * an operator cannot re-enable an invented transport by setting an env var.
+ */
+export const QUARANTINED_ADAPTERS: readonly AdapterName[] = ['FGIS_ZERNO'];
 
 /**
  * Registered in place of a real adapter when `<NAME>_MODE=disabled`. Any call
@@ -94,9 +110,24 @@ export function configureIntegrationsFromEnv(
   deps: BuildClientDeps = {},
   registry = integrationRegistry,
 ): ConfigureResult {
-  const result: ConfigureResult = { live: [], stub: [], disabled: [] };
+  const result: ConfigureResult = { live: [], stub: [], disabled: [], quarantined: [] };
 
   for (const name of ALL_ADAPTER_NAMES) {
+    if (QUARANTINED_ADAPTERS.includes(name)) {
+      // Evaluated before the mode switch on purpose: `stub` must not hand back
+      // a mock, and `live`/`sandbox` must not silently downgrade to one either.
+      registry.register(name, new QuarantinedFgisZernoAdapter());
+      result.quarantined.push(name);
+      const requested = resolveIntegrationConfig(name, env).mode;
+      if (requested === 'live' || requested === 'sandbox') {
+        throw new LegacyFgisQuarantineError(
+          `Integration "${name}" cannot be set to mode="${requested}": its legacy ` +
+            'REST adapter was retired because the official contract is SOAP 1.1 ' +
+            `(SendRequest/SendResponse/Ack). Real exchange is served only by ${FGIS_CANONICAL_CONTOUR}.`,
+        );
+      }
+      continue;
+    }
     const config = resolveIntegrationConfig(name, env);
     if (config.mode === 'disabled') {
       // Replace the pre-registered mock with a hard-stop adapter so a disabled

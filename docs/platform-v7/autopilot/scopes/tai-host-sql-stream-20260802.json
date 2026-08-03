@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-host-sql-stream-20260802",
+  "status": "active",
+  "purpose": "Repair the confirmed TAI standalone migration failure by streaming root-owned host SQL into the PostgreSQL container over stdin instead of passing an inaccessible host path to psql -f, and apply the same correction to bootstrap SQL.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "56e79fc35897488947c64dc8eb637c051766c01e",
+  "failureRun": 30747960550,
+  "failureArtifact": 8833496910,
+  "confirmedFailureCode": "TAI_DEPLOY_MIGRATIONS_FAILED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-host-sql-stream-20260802.json"
+  ],
+  "requiredBehavior": [
+    "migration SQL remains a root-owned regular mode-0600 file inside the protected state root",
+    "bootstrap SQL remains a root-owned regular mode-0600 file inside the protected state root",
+    "psql receives both SQL programs through docker exec stdin",
+    "no production host filesystem path is passed to psql inside the PostgreSQL container",
+    "the migration ledger and bootstrap authority remain transactional and fail closed",
+    "rollback, least privilege, exact-main authority and redacted evidence remain unchanged",
+    "REG.RU-only hosting and zero new recurring cost remain unchanged"
+  ],
+  "forbiddenCapabilities": [
+    "mounting protected controller state into the PostgreSQL container",
+    "copying SQL or secrets into the container filesystem",
+    "raw SQL or protected log publication",
+    "new sudo Docker SSH tenant or financial authority",
+    "continue-on-error or fabricated production PASS",
+    "new hosting paid service or recurring expense"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "hostPathPsqlFileModeForbidden": true,
+    "stdinSqlTransportRequired": true,
+    "migrationAndBootstrapContractsRequired": true,
+    "rerunExactMainReleaseChainRequired": true
+  }
+}

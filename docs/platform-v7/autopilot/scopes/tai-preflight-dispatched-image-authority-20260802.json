@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-preflight-dispatched-image-authority-20260802",
+  "status": "active",
+  "title": "TAI exact-main preflight owner command",
+  "priority": "P0",
+  "baselineExactMain": "942c6f756ce313472ac6c60418239d165f3f400f",
+  "objective": "Provide an owner-only exact-current-main command that dispatches the existing fail-closed TAI REG.RU preflight with its canonical target SHA and confirmation inputs.",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    "docs/platform-v7/autopilot/scopes/tai-preflight-dispatched-image-authority-20260802.json"
+  ],
+  "boundaries": [
+    "Command is accepted only on issue 3365",
+    "Comment author, workflow actor and triggering actor must be the repository owner",
+    "Target SHA is read from the current main ref immediately before dispatch",
+    "The existing TAI preflight retains exact-main, image revision, non-root user, immutable digest and protected REG.RU controller checks",
+    "No direct production mutation is performed by the command bridge",
+    "Zero new recurring cost"
+  ]
+}
