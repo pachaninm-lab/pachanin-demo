@@ -1,0 +1,93 @@
+name: One-shot brace-expansion security remediation
+
+on:
+  push:
+    branches:
+      - security/socket-io-parser-4.2.7-20260803
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-brace-expansion-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    if: github.event.head_commit.message != 'fix(security): pin brace-expansion 5.0.9'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout generator branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: security/socket-io-parser-4.2.7-20260803
+          fetch-depth: 0
+
+      - name: Setup repository pnpm pin
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Apply exact vulnerable-version override
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = 'package.json';
+          const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+          pkg.pnpm ??= {};
+          pkg.pnpm.overrides ??= {};
+          pkg.pnpm.overrides['brace-expansion@5.0.8'] = '5.0.9';
+          fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+          pnpm install --lockfile-only
+
+      - name: Verify frozen install and patched resolutions
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+
+          if (pkg.pnpm?.overrides?.['socket.io-parser@<4.2.7'] !== '4.2.7') {
+            throw new Error('socket.io-parser override regressed');
+          }
+          if (pkg.pnpm?.overrides?.['brace-expansion@5.0.8'] !== '5.0.9') {
+            throw new Error('brace-expansion override missing');
+          }
+          if (!lock.includes('socket.io-parser@4.2.7:')) {
+            throw new Error('socket.io-parser 4.2.7 snapshot missing');
+          }
+          if (lock.includes('socket.io-parser@4.2.6:')) {
+            throw new Error('socket.io-parser 4.2.6 remains');
+          }
+          if (!lock.includes('brace-expansion@5.0.9:')) {
+            throw new Error('brace-expansion 5.0.9 snapshot missing');
+          }
+          if (lock.includes('brace-expansion@5.0.8:')) {
+            throw new Error('brace-expansion 5.0.8 remains');
+          }
+          NODE
+          git diff --check
+
+      - name: Commit generated two-file result
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/one-shot-brace-expansion-remediation.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json pnpm-lock.yaml .github/workflows/one-shot-brace-expansion-remediation.yml
+          git commit -m "fix(security): pin brace-expansion 5.0.9"
+          git push origin HEAD:security/socket-io-parser-4.2.7-20260803
