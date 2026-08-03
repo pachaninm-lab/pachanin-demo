@@ -15,10 +15,14 @@ for (const fragment of [
   'issue_comment:',
   "github.event.issue.number == 3365",
   "github.event.comment.body == '/tai activate current-main'",
+  "github.event.workflow_run.conclusion == 'success'",
+  "github.event.workflow_run.head_branch == 'main'",
   'COMMENTER: ${{ github.event.comment.user.login }}',
   '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
+  '[[ "$UPSTREAM_CONCLUSION" == success ]]',
+  '[[ "$UPSTREAM_BRANCH" == main ]]',
   'actions/workflows/tai-reg-ru-preflight-owner-command.yml/runs?branch=main&status=success&per_page=100',
   "run.event !== 'issue_comment'",
   "run.actor?.login !== owner",
@@ -40,11 +44,10 @@ forbid(/pull_request_target:/u, 'pull_request_target is forbidden');
 forbid(/continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(/github\.event\.comment\.body\s*!=/u, 'command matching must use exact positive equality');
 forbid(/\/tai\s+activate\s+(?!current-main)/u, 'alternate activation command is forbidden');
-forbid(/workflow_run[\s\S]{0,600}UPSTREAM_CONCLUSION[^\n]*\n(?![\s\S]*\[\[ \"\$UPSTREAM_CONCLUSION\" == success \]\])/u, 'workflow_run must remain success-only');
 
 if (violations.length) {
   console.error('TAI owner activation command contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner activation command contract PASS: exact owner command, exact preflight run and neutral skipped-run boundary.');
+console.log('TAI owner activation command contract PASS: exact owner command, exact successful preflight run and neutral skipped-run boundary.');
