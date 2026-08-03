@@ -41,6 +41,7 @@ set_internal_deploy_stage() {
 }
 
 ROLE_CREATED=0
+ORPHAN_ROLE_RECOVERY=0
 PREVIOUS_TAI=0
 DC_BASE=()
 DC_TAI=()
@@ -646,6 +647,71 @@ env_value() {
 set_internal_deploy_stage TAI_DEPLOY_RUNTIME_ROLE_BOUNDARY_FAILED
 role_exists="$(psql_admin -Atc "SELECT COUNT(*) FROM pg_roles WHERE rolname = '${ROLE_NAME}';")"
 [[ "$role_exists" == 0 || "$role_exists" == 1 ]]
+if [[ "$role_exists" == 1 && ! -f "$ENV_FILE" ]]; then
+  orphan_role_boundary="$(psql_admin -AtF $'\t' <<SQL
+WITH role_row AS (
+  SELECT oid, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
+  FROM pg_catalog.pg_roles
+  WHERE rolname = '${ROLE_NAME}'
+), non_tai AS (
+  SELECT COUNT(*)::int AS count
+  FROM pg_catalog.pg_class AS relation
+  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+  WHERE namespace.nspname = 'public'
+    AND relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'
+    AND relation.relkind IN ('r','v','m','p','f')
+    AND has_table_privilege('${ROLE_NAME}', format('%I.%I', namespace.nspname, relation.relname),
+      'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+), owned_objects AS (
+  SELECT (
+    (SELECT COUNT(*) FROM pg_catalog.pg_class WHERE relowner = role_row.oid)
+    + (SELECT COUNT(*) FROM pg_catalog.pg_proc WHERE proowner = role_row.oid)
+    + (SELECT COUNT(*) FROM pg_catalog.pg_type WHERE typowner = role_row.oid AND typrelid = 0)
+  )::int AS count
+  FROM role_row
+), active_sessions AS (
+  SELECT COUNT(*)::int AS count
+  FROM pg_catalog.pg_stat_activity
+  WHERE usename = '${ROLE_NAME}'
+)
+SELECT role_row.rolsuper, role_row.rolcreatedb, role_row.rolcreaterole,
+       role_row.rolreplication, role_row.rolbypassrls,
+       (SELECT COUNT(*) FROM pg_catalog.pg_auth_members WHERE member = role_row.oid),
+       (SELECT COUNT(*) FROM pg_catalog.pg_auth_members WHERE roleid = role_row.oid),
+       non_tai.count, owned_objects.count, active_sessions.count
+FROM role_row, non_tai, owned_objects, active_sessions;
+SQL
+)"
+  [[ "$(printf '%s\n' "$orphan_role_boundary" | grep -c .)" == 1 ]]
+  IFS=$'\t' read -r orphan_super orphan_createdb orphan_createrole orphan_replication orphan_bypass orphan_memberships orphan_grantees orphan_non_tai orphan_owned orphan_sessions <<< "$orphan_role_boundary"
+  for value in "$orphan_memberships" "$orphan_grantees" "$orphan_non_tai" "$orphan_owned" "$orphan_sessions"; do
+    [[ "$value" =~ ^[0-9]+$ ]]
+  done
+  if [[ "$orphan_super" != f || "$orphan_createdb" != f || "$orphan_createrole" != f || "$orphan_replication" != f || "$orphan_bypass" != f ]]; then
+    set_internal_deploy_stage TAI_DEPLOY_ORPHAN_ROLE_ELEVATED_AUTHORITY_FAILED
+    exit 18
+  fi
+  if [[ "$orphan_memberships" != 0 || "$orphan_grantees" != 0 ]]; then
+    set_internal_deploy_stage TAI_DEPLOY_ORPHAN_ROLE_MEMBERSHIP_FAILED
+    exit 18
+  fi
+  if [[ "$orphan_non_tai" != 0 ]]; then
+    set_internal_deploy_stage TAI_DEPLOY_ORPHAN_ROLE_NON_TAI_PRIVILEGE_FAILED
+    exit 18
+  fi
+  if [[ "$orphan_owned" != 0 ]]; then
+    set_internal_deploy_stage TAI_DEPLOY_ORPHAN_ROLE_OWNERSHIP_FAILED
+    exit 18
+  fi
+  if [[ "$orphan_sessions" != 0 ]]; then
+    set_internal_deploy_stage TAI_DEPLOY_ORPHAN_ROLE_ACTIVE_SESSION_FAILED
+    exit 18
+  fi
+  (( PREVIOUS_TAI == 0 ))
+  [[ ! -f "$OVERRIDE" ]]
+  ORPHAN_ROLE_RECOVERY=1
+  role_exists=0
+fi
 if [[ "$role_exists" == 1 ]]; then
   [[ -f "$ENV_FILE" ]]
   role_boundary="$(psql_admin -AtF $'\t' <<SQL
@@ -743,6 +809,7 @@ DB_SERVICE=$DB_SERVICE
 DB_ADMIN=$DB_ADMIN
 DB_NAME=$DB_NAME
 ROLE_CREATED=$(( role_exists == 0 ? 1 : 0 ))
+ORPHAN_ROLE_RECOVERY=$ORPHAN_ROLE_RECOVERY
 PREVIOUS_TAI=$PREVIOUS_TAI
 EOF
 chmod 0600 "$STATE_ROOT/metadata.env"
@@ -750,6 +817,15 @@ chmod 0600 "$STATE_ROOT/metadata.env"
 set_internal_deploy_stage TAI_DEPLOY_RUNTIME_MATERIALIZATION_FAILED
 MUTATION_STARTED=1
 touch "$STATE_ROOT/MUTATION_STARTED"
+
+if (( ORPHAN_ROLE_RECOVERY == 1 )); then
+  set_internal_deploy_stage TAI_DEPLOY_DATABASE_ORPHAN_ROLE_RESET_FAILED
+  psql_admin <<SQL
+DROP OWNED BY ${ROLE_NAME};
+DROP ROLE ${ROLE_NAME};
+SQL
+  [[ "$(psql_admin -Atc "SELECT COUNT(*) FROM pg_roles WHERE rolname = '${ROLE_NAME}';")" == 0 ]]
+fi
 
 if [[ "$role_exists" == 0 ]]; then
   set_internal_deploy_stage TAI_DEPLOY_DATABASE_ROLE_CREATE_FAILED

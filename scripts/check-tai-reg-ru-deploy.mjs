@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import './check-tai-migration-sql-normalization.mjs';
+import './check-tai-orphan-runtime-role-recovery.mjs';
 import { join } from 'node:path';
 
 const workflowPath = '.github/workflows/tai-reg-ru-deploy.yml';

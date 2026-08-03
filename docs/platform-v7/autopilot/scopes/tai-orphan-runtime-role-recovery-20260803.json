@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-orphan-runtime-role-recovery-20260803",
+  "status": "active",
+  "title": "TAI orphan runtime database role recovery",
+  "priority": "P0",
+  "baselineExactMain": "f13c4186e132fbc45d089943690738ff41cae7b1",
+  "objective": "Recover only a safe orphaned tai_runtime role left without the dedicated environment or service, then resume the existing least-privilege standalone TAI deployment and exact postflight.",
+  "allowedPaths": [
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/check-tai-orphan-runtime-role-recovery.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-orphan-runtime-role-recovery-20260803.json"
+  ],
+  "boundaries": [
+    "Recovery is allowed only when the dedicated environment, override and running TAI service are absent",
+    "Elevated role attributes, memberships, grantees, non-TAI privileges, owned objects or active sessions fail closed",
+    "The orphan reset occurs only after the existing mutation guard and rollback snapshots",
+    "The recreated role retains the existing exact least-privilege grants and runtime attestation",
+    "No public model listener, tenant authority, financial authority or external integration is added",
+    "REG.RU only and zero new recurring cost"
+  ]
+}
