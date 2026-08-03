@@ -8,6 +8,7 @@ unset BASH_ENV ENV CDPATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 S
 readonly REPOSITORY_URL='https://github.com/pachaninm-lab/pachanin-demo.git'
 readonly REPOSITORY_ROOT='/var/lib/pc-release-authority/repository'
 readonly STATE_ROOT='/var/lib/pc-release-authority'
+readonly INPUT_ROOT='/var/lib/pc-release-authority/runner-input'
 readonly OUTPUT_ROOT='/var/lib/pc-release-authority/runner-output'
 readonly CORE_RELATIVE='scripts/pc-tai-release-controller-core.sh'
 readonly REPAIR_RELATIVE='scripts/tai-runtime-role-repair.sh'
@@ -31,17 +32,23 @@ RUN_ID="${3:-}"
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail INVALID_TARGET_SHA 11
 [[ "$RUN_ID" =~ ^[0-9]{1,20}$ ]] || fail INVALID_RUN_ID 12
 
+job_input="$INPUT_ROOT/$RUN_ID"
 job_output="$OUTPUT_ROOT/$RUN_ID"
 
 restore_runner_boundary() {
   install -d -m 0710 -o root -g pcactions "$STATE_ROOT" || return 90
   install -d -m 0700 -o root -g root "$REPOSITORY_ROOT" "$STATE_ROOT/controller-jobs" || return 91
-  install -d -m 0750 -o root -g pcactions "$OUTPUT_ROOT" || return 92
+  install -d -m 0730 -o root -g pcactions "$INPUT_ROOT" || return 92
+  install -d -m 0750 -o root -g pcactions "$OUTPUT_ROOT" || return 93
+  if [[ "$ACTION" =~ ^(activate|deploy)$ && ( -e "$job_input" || -L "$job_input" ) ]]; then
+    [[ -d "$job_input" && ! -L "$job_input" ]] || return 94
+    rm -rf --one-file-system "$job_input" || return 95
+  fi
   if [[ -d "$job_output" && ! -L "$job_output" ]]; then
-    chown root:pcactions "$job_output" || return 93
-    chmod 0750 "$job_output" || return 94
-    find -P "$job_output" -mindepth 1 -maxdepth 1 -type f -exec chown root:pcactions {} + || return 95
-    find -P "$job_output" -mindepth 1 -maxdepth 1 -type f -exec chmod 0640 {} + || return 96
+    chown root:pcactions "$job_output" || return 96
+    chmod 0750 "$job_output" || return 97
+    find -P "$job_output" -mindepth 1 -maxdepth 1 -type f -exec chown root:pcactions {} + || return 98
+    find -P "$job_output" -mindepth 1 -maxdepth 1 -type f -exec chmod 0640 {} + || return 99
   fi
 }
 
@@ -57,6 +64,8 @@ on_exit() {
 trap on_exit EXIT
 
 install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
+install -d -m 0730 -o root -g pcactions "$INPUT_ROOT"
+install -d -m 0750 -o root -g pcactions "$OUTPUT_ROOT"
 if [[ ! -d "$REPOSITORY_ROOT/.git" ]]; then
   rm -rf "$REPOSITORY_ROOT"
   git clone --filter=blob:none --no-checkout "$REPOSITORY_URL" "$REPOSITORY_ROOT" >/dev/null
