@@ -4,7 +4,7 @@
   "status": "active",
   "title": "TAI agro-first fail-open content routing",
   "priority": "P0",
-  "baselineExactMain": "11d1450b481bda6d32fdcb2dd254f5df85a79306",
+  "baselineExactMain": "79266ee2aea896dc031ba83e8db9c184fc4a3cd2",
   "objective": "Eliminate false thematic refusals across agriculture, agribusiness and safe general assistance while preserving fail-closed safety, privacy, authorization, tenant, write, financial and tool-execution boundaries.",
   "allowedPaths": [
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
