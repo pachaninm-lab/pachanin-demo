@@ -11,6 +11,7 @@ readonly STATE_ROOT='/var/lib/pc-release-authority'
 readonly OUTPUT_ROOT='/var/lib/pc-release-authority/runner-output'
 readonly CORE_RELATIVE='scripts/pc-tai-release-controller-core.sh'
 readonly REPAIR_RELATIVE='scripts/tai-runtime-role-repair.sh'
+readonly DEPLOY_RECOVERY_RELATIVE='scripts/tai-deployment-failure-recovery.sh'
 readonly WRAPPER_RELATIVE='scripts/pc-tai-release-controller.sh'
 readonly INSTALLED_CONTROLLER='/usr/local/sbin/pc-tai-release-controller'
 
@@ -75,10 +76,12 @@ git -C "$REPOSITORY_ROOT" clean -ffdx >/dev/null
 
 readonly CORE_PATH="$REPOSITORY_ROOT/$CORE_RELATIVE"
 readonly REPAIR_PATH="$REPOSITORY_ROOT/$REPAIR_RELATIVE"
+readonly DEPLOY_RECOVERY_PATH="$REPOSITORY_ROOT/$DEPLOY_RECOVERY_RELATIVE"
 readonly WRAPPER_PATH="$REPOSITORY_ROOT/$WRAPPER_RELATIVE"
 [[ -f "$CORE_PATH" && ! -L "$CORE_PATH" ]] || fail PROTECTED_CORE_INVALID 25
 [[ -f "$WRAPPER_PATH" && ! -L "$WRAPPER_PATH" ]] || fail PROTECTED_WRAPPER_INVALID 26
 [[ -f "$REPAIR_PATH" && ! -L "$REPAIR_PATH" ]] || fail PROTECTED_REPAIR_INVALID 28
+[[ -f "$DEPLOY_RECOVERY_PATH" && ! -L "$DEPLOY_RECOVERY_PATH" ]] || fail PROTECTED_DEPLOY_RECOVERY_INVALID 29
 [[ "$(sha256sum "$INSTALLED_CONTROLLER" | awk '{print $1}')" == "$(sha256sum "$WRAPPER_PATH" | awk '{print $1}')" ]] || fail INSTALLED_CONTROLLER_NOT_EXACT_TARGET 27
 
 if [[ "$ACTION" == repair-runtime-role ]]; then
@@ -86,6 +89,16 @@ if [[ "$ACTION" == repair-runtime-role ]]; then
   rm -rf "$job_output"
   install -d -m 0750 -o root -g pcactions "$job_output"
   bash "$REPAIR_PATH" "$TARGET_SHA" "$RUN_ID" "$job_output/runtime-role-repair.json"
+elif [[ "$ACTION" == deploy ]]; then
+  set +e
+  bash "$CORE_PATH" "$@"
+  core_rc="$?"
+  set -e
+  if (( core_rc != 0 )); then
+    bash "$DEPLOY_RECOVERY_PATH" "$TARGET_SHA" "$RUN_ID" "$job_output/deployment-recovery.json" "$core_rc" \
+      || fail DEPLOYMENT_FAILURE_RECOVERY_FAILED 97
+  fi
+  exit "$core_rc"
 else
   bash "$CORE_PATH" "$@"
 fi
