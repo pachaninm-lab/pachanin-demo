@@ -62,32 +62,49 @@ for (const fragment of [
   "readonly REPOSITORY_URL='https://github.com/pachaninm-lab/pachanin-demo.git'",
   "readonly REPOSITORY_ROOT='/var/lib/pc-release-authority/repository'",
   "readonly CONTROLLER_TARGET='/usr/local/sbin/pc-tai-release-controller'",
+  "readonly CONTROLLER_LOCK='/run/lock/pc-tai-release-controller.lock'",
   "readonly MARKER='/etc/pc-release-authority/actions-runner.json'",
   "readonly SUDOERS='/etc/sudoers.d/pc-tai-release-controller'",
   "readonly RUNNER_USER='pcactions'",
   '[[ "$(id -u)" -eq 0 ]]',
+  '[[ -z "${SUDO_USER:-}" ]]',
+  'flock -n 9',
   'TARGET_IS_NOT_CURRENT_MAIN',
   'PROTECTED_CHECKOUT_DIRTY',
   'UPLOADED_CONTROLLER_NOT_EXACT_TARGET',
+  'SOURCE_FILE_WRITABLE_BY_NONROOT',
   'bash -n "$SOURCE_FILE"',
-  "root:${RUNNER_USER}:750",
+  "root:${RUNNER_USER}:750:1",
   'visudo -cf "$SUDOERS"',
+  "grep -Fxq 'pcactions ALL=(root) NOPASSWD: /usr/local/sbin/pc-tai-release-controller'",
   'RUNNER_DIRECT_DOCKER_AUTHORITY_PRESENT',
   'RUNNER_DOCKER_GROUP_PRESENT',
-  "'schemaVersion':'pc.actions-runner-authority.v3'",
-  "'sudoController':'/usr/local/sbin/pc-tai-release-controller'",
+  "'schemaVersion': 'pc.actions-runner-authority.v3'",
+  "'sudoController': '/usr/local/sbin/pc-tai-release-controller'",
+  '[[ "$marker_previous_sha" == "$previous_sha" ]]',
+  'INSTALLED_CONTROLLER_ATTESTATION_MISMATCH',
+  'if [[ "$previous_sha" == "$expected_sha" ]]; then',
+  'write_evidence ALREADY_EXACT',
   'backup_dir="$(mktemp -d /var/lib/pc-release-authority/.controller-sync.XXXXXX)"',
   'install -m 0750 -o root -g "$RUNNER_USER" "$controller_backup" "$CONTROLLER_TARGET"',
   'install -m 0644 -o root -g root "$marker_backup" "$MARKER"',
-  'staged="$(mktemp /usr/local/sbin/.pc-tai-release-controller.XXXXXX)"',
-  'mv -f "$staged" "$CONTROLLER_TARGET"',
-  "payload['sudoControllerSha256']=digest",
-  'os.replace(tmp,path)',
-  "'schemaVersion':'tai.controller-sync.v1'",
-  "'newRecurringCostRub':0",
-  "'runnerDirectDockerAuthority':False",
-  "'runnerDockerGroupMembership':False",
-  "'rollbackPrepared':True",
+  'mv -Tf "${CONTROLLER_TARGET}.new-${RUN_ID}" "$CONTROLLER_TARGET"',
+  'mv -Tf "${MARKER}.new-${RUN_ID}" "$MARKER"',
+  'fsync_paths "$CONTROLLER_TARGET" "$MARKER"',
+  "'schemaVersion': 'tai.controller-sync.v1'",
+  "'newRecurringCostRub': 0",
+  "'markerMatchedInstalledBeforeSync': True",
+  "'sharedControllerLockHeld': True",
+  "'runnerDirectDockerAuthority': False",
+  "'runnerDockerGroupMembership': False",
+  "'runnerRegistrationChanged': False",
+  "'runnerServiceRestarted': False",
+  "'composeMutationPerformed': False",
+  "'databaseMutationPerformed': False",
+  "'modelMutationPerformed': False",
+  "'applicationDeploymentPerformed': False",
+  "'sudoAuthorityWidened': False",
+  'write_evidence UPDATED',
   'TAI_CONTROLLER_SYNC_COMPLETE=1',
 ]) requireFragment(sync, fragment, paths.sync);
 
@@ -99,12 +116,16 @@ forbid(workflow, /\/tai\s+sync-controller\s+(?!current-main)/u, `${paths.workflo
 forbid(sync, /\bcurl\b|\bwget\b|\beval\b/iu, `${paths.sync}: remote download or eval is forbidden`);
 forbid(sync, /chmod\s+(?:4|6|7)777|chown\s+-R|chmod\s+-R/iu, `${paths.sync}: broad permission mutation is forbidden`);
 forbid(sync, /\/var\/run\/docker[.]sock|usermod|gpasswd/iu, `${paths.sync}: Docker or user authority mutation is forbidden`);
-forbid(sync, /systemctl\s+(?:stop|disable)|service\s+[^\n]+\s+stop/iu, `${paths.sync}: runner shutdown is forbidden`);
+forbid(sync, /\bdocker\s+(?:run|rm|rmi|compose|pull|push|login|exec|stop|start|restart|create|network|volume|system|image\s+rm)\b/iu,
+  `${paths.sync}: Docker mutation is forbidden`);
+forbid(sync, /systemctl\s+(?:stop|disable|restart)|service\s+[^\n]+\s+(?:stop|restart)/iu, `${paths.sync}: runner service mutation is forbidden`);
+forbid(sync, /\b(?:psql|createdb|dropdb|createuser|dropuser)\b/iu, `${paths.sync}: database mutation is forbidden`);
 forbid(sync, /set\s+-[^\n]*x/iu, `${paths.sync}: shell tracing is forbidden`);
 forbid(sync, /\b(?:netlify|vercel|railway|openai[.]com|anthropic[.]com)\b/iu, `${paths.sync}: external hosting or paid LLM dependency is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${paths.scope}: invalid schemaVersion`);
-if (scope.branch !== 'fix/tai-exact-controller-sync-20260803') violations.push(`${paths.scope}: branch mismatch`);
+if (scope.branch !== 'fix/tai-controller-sync-hardening-20260803') violations.push(`${paths.scope}: branch mismatch`);
+if (scope.baselineExactMain !== 'c2f0aac662025eca80972e608eb94c8d61db3340') violations.push(`${paths.scope}: baseline mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) {
   violations.push(`${paths.scope}: hosting or cost boundary changed`);
 }
@@ -123,15 +144,27 @@ if (JSON.stringify(expectedTriggerPaths) !== JSON.stringify(allowedTriggerPaths)
   violations.push(`${triggerScopePath}: allowedPaths must exactly match the canonical trigger implementation`);
 }
 
+const lockIndex = sync.indexOf('flock -n 9');
 const checkoutIndex = sync.indexOf("git -C \"$REPOSITORY_ROOT\" checkout --force --detach \"$TARGET_SHA\"");
 const sourceDigestIndex = sync.indexOf('uploaded_sha="$(sha256sum "$SOURCE_FILE"');
+const attestationIndex = sync.indexOf('[[ "$marker_previous_sha" == "$previous_sha" ]]');
 const backupIndex = sync.indexOf('controller_backup="$backup_dir/controller"');
-const installIndex = sync.indexOf('mv -f "$staged" "$CONTROLLER_TARGET"');
-const markerIndex = sync.indexOf("payload['sudoControllerSha256']=digest");
-const evidenceIndex = sync.indexOf("'schemaVersion':'tai.controller-sync.v1'");
-if ([checkoutIndex, sourceDigestIndex, backupIndex, installIndex, markerIndex, evidenceIndex].some((index) => index < 0)
-  || !(checkoutIndex < sourceDigestIndex && sourceDigestIndex < backupIndex && backupIndex < installIndex && installIndex < markerIndex && markerIndex < evidenceIndex)) {
-  violations.push(`${paths.sync}: exact checkout, digest proof, rollback backup, install, marker update and evidence order is invalid`);
+const mutationIndex = sync.indexOf('mutated=1');
+const controllerInstallIndex = sync.indexOf('mv -Tf "${CONTROLLER_TARGET}.new-${RUN_ID}" "$CONTROLLER_TARGET"');
+const markerInstallIndex = sync.indexOf('mv -Tf "${MARKER}.new-${RUN_ID}" "$MARKER"');
+const fsyncIndex = sync.indexOf('fsync_paths "$CONTROLLER_TARGET" "$MARKER"');
+const evidenceIndex = sync.indexOf('write_evidence UPDATED');
+if ([lockIndex, checkoutIndex, sourceDigestIndex, attestationIndex, backupIndex, mutationIndex, controllerInstallIndex, markerInstallIndex, fsyncIndex, evidenceIndex].some((index) => index < 0)
+  || !(lockIndex < checkoutIndex
+    && checkoutIndex < sourceDigestIndex
+    && sourceDigestIndex < attestationIndex
+    && attestationIndex < backupIndex
+    && backupIndex < mutationIndex
+    && mutationIndex < controllerInstallIndex
+    && controllerInstallIndex < markerInstallIndex
+    && markerInstallIndex < fsyncIndex
+    && fsyncIndex < evidenceIndex)) {
+  violations.push(`${paths.sync}: lock, exact checkout, digest proof, prior attestation, rollback backup, atomic install, fsync and evidence order is invalid`);
 }
 const restoreController = sync.indexOf('install -m 0750 -o root -g "$RUNNER_USER" "$controller_backup" "$CONTROLLER_TARGET"');
 const restoreMarker = sync.indexOf('install -m 0644 -o root -g root "$marker_backup" "$MARKER"');
@@ -144,4 +177,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI exact controller sync contract PASS: owner-only exact-main full-stack authority, pinned REG.RU root transport, byte-identical atomic install, canonical exact-main image trigger, marker digest update, rollback and unchanged runner privilege.');
+console.log('TAI exact controller sync contract PASS: owner-only exact-main full-stack authority, canonical image trigger, pinned REG.RU root transport, shared controller lock, prior digest attestation, atomic install, fsync, rollback and unchanged runner privilege.');
