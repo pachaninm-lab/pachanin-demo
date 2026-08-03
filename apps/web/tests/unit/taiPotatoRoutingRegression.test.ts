@@ -29,7 +29,7 @@ describe('TAI broad agricultural production regression', () => {
   });
 
   it('covers crops, gardens, livestock, machinery, storage, farm economics and village infrastructure', () => {
-    for (const id of [
+    const caseIds = [
       'potato-fertilizer',
       'cucumber-yellow-leaves',
       'wheat-low-yield',
@@ -48,10 +48,12 @@ describe('TAI broad agricultural production regression', () => {
       'farm-costs',
       'village-water',
       'farm-excel',
+      'potato-en',
+      'cucumber-zh',
       'context-followup',
-    ]) {
-      expect(acceptance).toContain(`id: '${id}'`);
-    }
+    ];
+    expect(caseIds.length).toBeGreaterThanOrEqual(20);
+    for (const id of caseIds) expect(acceptance).toContain(`id: '${id}'`);
   });
 
   it('requires real local Qwen, general agro mode, subject relevance and no platform-security misroute', () => {
