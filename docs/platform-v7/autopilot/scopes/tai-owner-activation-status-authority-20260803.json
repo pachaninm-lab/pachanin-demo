@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-activation-status-authority-20260803",
+  "status": "active",
+  "title": "TAI owner activation commit-status authority",
+  "priority": "P0",
+  "baselineExactMain": "da515af054b505c914a07d33f56cd116cd59d05f",
+  "objective": "Resolve the exact successful owner preflight from the authoritative exact-SHA commit status, reverify the referenced run and all six mandatory jobs, dispatch restricted Qwen activation, and publish terminal dispatch evidence instead of failing silently.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-qwen-activation-command.yml",
+    "scripts/select-tai-owner-preflight-status.mjs",
+    "scripts/check-tai-owner-preflight-status-selection.mjs",
+    "scripts/check-tai-owner-activation-command.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-owner-activation-status-authority-20260803.json"
+  ],
+  "boundaries": [
+    "The only production command remains /tai activate current-main on issue 3365",
+    "Commenter, actor and triggering actor must equal the repository owner",
+    "The selected status must be success for exact context TAI REG.RU Preflight on exact current main",
+    "The status target must identify a GitHub Actions run in this repository",
+    "The referenced run is revalidated for exact SHA, workflow name, branch, repository, owner actors and run attempt",
+    "All six mandatory preflight jobs remain required and fail-closed",
+    "Dispatch is accepted only after a matching activation workflow_dispatch run is observed",
+    "Every command publishes terminal redacted evidence to issue 3365",
+    "No model, tenant, role, write or financial authority is widened",
+    "Zero new recurring cost"
+  ]
+}
