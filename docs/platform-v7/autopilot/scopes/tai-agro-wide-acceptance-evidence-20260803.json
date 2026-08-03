@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-agro-wide-acceptance-evidence-20260803",
+  "status": "active",
+  "title": "TAI agro-wide live acceptance evidence hardening",
+  "priority": "P0",
+  "baselineExactMain": "a8c9476cc7bf0e7c32318dadd8a263b9b1672bb7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Make the broad agricultural live acceptance deterministic, evidence-complete and vocabulary-tolerant without weakening subject relevance, fail-open agro routing or fail-closed security boundaries.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-agro-wide-acceptance-evidence-20260803.json",
+    "scripts/tai-potato-mobile-live-acceptance.mjs"
+  ],
+  "boundaries": [
+    "The production route remains model-first for every safe agricultural or agribusiness question",
+    "No application routing, authorization, tenant isolation, write authority, secret handling or model identity logic is changed",
+    "The live validator must persist the full answer evidence before applying quality assertions so failures are diagnosable",
+    "A substantive answer must mention the actual subject, avoid platform-security misrouting and match at least two domain concept groups",
+    "Concept groups may include professional synonyms and equivalent operational terms; a closed single-word vocabulary must not create false failures",
+    "Short, refusal-only, unrelated, fabricated-operation or platform-boilerplate answers remain hard failures",
+    "RU remains mandatory with representative EN and ZH coverage",
+    "Exact-main manifest, local Qwen identity, general_agro mode, direct SSE and 390x844 mobile UI remain mandatory",
+    "No paid model, SaaS, database, hosting service or recurring cost is added",
+    "Production completion still requires merge, canonical images, REG.RU exact-main rollout, TAI preflight, activation, finalization and live evidence PASS"
+  ]
+}
