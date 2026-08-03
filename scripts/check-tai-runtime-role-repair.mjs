@@ -34,6 +34,7 @@ for (const fragment of [
   'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
   'sudo -n /usr/local/sbin/pc-tai-release-controller repair-runtime-role',
   'runtime-role-repair.json',
+  'if: always()',
   "context='TAI Runtime Role Repair'",
   'production deployment started: \\`false\\`',
   'name: Confirm orphan runtime role repair result',
@@ -74,6 +75,13 @@ for (const fragment of [
   'WHERE roleid=role_row.oid',
   "WHERE usename='${ROLE_NAME}'",
   "relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'",
+  'if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]',
+  "<<'PY_BLOCKED_EVIDENCE'",
+  "'status':'BLOCKED_BOUNDARY'",
+  "'errorCode':'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID'",
+  "'mutationPerformed':False",
+  "'passed':False",
+  "os.chown(path,0,grp.getgrnam('pcactions').gr_gid)",
   'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID',
   'BEGIN;',
   'ALTER ROLE ${ROLE_NAME} NOLOGIN;',
@@ -88,6 +96,7 @@ for (const fragment of [
   "status='REMOVED_SAFE_ORPHAN'",
   "'schemaVersion':'tai.runtime-role-repair.v1'",
   "'newRecurringCostRub':0",
+  "'mutationPerformed': status == 'REMOVED_SAFE_ORPHAN'",
   "'dropOwnedUsed':False",
   "'reassignOwnedUsed':False",
   'TAI_RUNTIME_ROLE_REPAIR_COMPLETE=1',
@@ -107,7 +116,8 @@ forbid(repair, /\b(?:netlify|vercel|railway|openai[.]com|anthropic[.]com)\b/iu, 
 forbid(repair, /set\s+-[^\n]*x/iu, `${paths.repair}: shell tracing is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${paths.scope}: invalid schemaVersion`);
-if (scope.branch !== 'fix/tai-orphan-runtime-role-repair-20260803') violations.push(`${paths.scope}: branch mismatch`);
+if (scope.branch !== 'fix/tai-runtime-role-boundary-evidence-20260803') violations.push(`${paths.scope}: branch mismatch`);
+if (scope.baselineExactMain !== 'd4e79a9f2f460fcf2d5da1c5c8eed2993d0e273e') violations.push(`${paths.scope}: baseline mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) {
   violations.push(`${paths.scope}: hosting or cost boundary changed`);
 }
@@ -127,6 +137,26 @@ const nonTaiCheck = repair.indexOf("relation.relname NOT LIKE 'tai\\\\_%' ESCAPE
 if (nonTaiCheck < 0 || nonTaiCheck > transactionStart) {
   violations.push(`${paths.repair}: non-TAI privilege attestation must precede mutation`);
 }
+const boundaryJson = repair.indexOf('role_boundary_json="$(python3 -');
+const blockedCondition = repair.indexOf('if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]');
+const blockedEvidence = repair.indexOf("<<'PY_BLOCKED_EVIDENCE'", blockedCondition);
+const blockedExit = repair.indexOf("echo 'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID' >&2", blockedEvidence);
+if ([boundaryJson, blockedCondition, blockedEvidence, blockedExit].some(index => index < 0)
+  || !(nonTaiCheck < boundaryJson
+    && boundaryJson < blockedCondition
+    && blockedCondition < blockedEvidence
+    && blockedEvidence < blockedExit
+    && blockedExit < transactionStart)) {
+  violations.push(`${paths.repair}: redacted blocked evidence must be assembled and written before every mutation`);
+}
+const blockedEvidenceEnd = repair.indexOf('\nPY_BLOCKED_EVIDENCE', blockedEvidence);
+if (blockedEvidenceEnd < 0) {
+  violations.push(`${paths.repair}: blocked evidence heredoc is incomplete`);
+} else {
+  const blockedEvidenceBody = repair.slice(blockedEvidence, blockedEvidenceEnd);
+  forbid(blockedEvidenceBody, /password|connectionString|sqlText|relationNames|roleNames|tenantId|businessData|secret/iu,
+    `${paths.repair}: blocked evidence contains a prohibited sensitive field`);
+}
 const absenceChecks = [
   repair.indexOf('TAI_RUNTIME_ROLE_REPAIR_ENV_PRESENT'),
   repair.indexOf('TAI_RUNTIME_ROLE_REPAIR_OVERRIDE_PRESENT'),
@@ -141,4 +171,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI orphan runtime role repair contract PASS: exact owner command, strict orphan attestation, scoped transactional revocation, no DROP OWNED and idempotent role absence.');
+console.log('TAI orphan runtime role repair contract PASS: exact owner command, count-only blocked evidence before mutation, strict orphan attestation, scoped transactional revocation, no DROP OWNED and idempotent role absence.');
