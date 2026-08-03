@@ -118,6 +118,20 @@ jobs:
 
       - name: Build production web bundle
         run: pnpm --filter @pc/web build
+
+      # A real login sets Secure cookies, and WebKit will not store one that
+      # arrives over plain http://localhost — so the matrix is served over TLS,
+      # as production is. Self-signed, localhost only, regenerated every run.
+      - name: Issue a localhost certificate for the acceptance server
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          mkdir -p .acceptance-tls
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout .acceptance-tls/tls.key -out .acceptance-tls/tls.crt \
+            -days 1 -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
+
       - name: Run Design System v8 browser and accessibility matrix
         working-directory: apps/web
         run: pnpm exec playwright test --config=playwright.acceptance.config.ts

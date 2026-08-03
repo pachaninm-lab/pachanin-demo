@@ -2,7 +2,9 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { loginAs, type CabinetRole } from './support/acceptance-login';
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+// Must track playwright.acceptance.config.ts: the acceptance server speaks TLS
+// so that WebKit will store the Secure cookies a real login sets.
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:3000';
 const ROLE_ROUTES: ReadonlyArray<readonly [CabinetRole, string]> = [
   ['operator', '/platform-v7/operator'],
   ['buyer', '/platform-v7/buyer'],
