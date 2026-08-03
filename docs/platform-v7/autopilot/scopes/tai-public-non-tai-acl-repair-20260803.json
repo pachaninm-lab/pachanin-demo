@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-public-acl-production-repair-20260803",
+  "status": "active",
+  "title": "TAI PUBLIC non-TAI ACL production repair",
+  "priority": "P0",
+  "baselineExactMain": "ba06e6067faebab23550db5f54d0f6eeab85550a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Remove only the exactly attested PUBLIC relation ACL entries that give the orphan tai_runtime principal effective access to two non-TAI public-schema relations, prove API/web and durable intake remain healthy, retain an exact inverse rollback, then allow the existing direct-grant repair and standalone TAI deployment to complete.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-public-non-tai-acl-repair.yml",
+    "scripts/tai-public-non-tai-acl-repair.sh",
+    "scripts/check-tai-public-non-tai-acl-repair.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-public-non-tai-acl-repair-20260803.json"
+  ],
+  "boundaries": [
+    "The only production command is /tai repair-public-non-tai-acls current-main on issue 3365",
+    "Commenter, actor and triggering actor must equal the repository owner",
+    "Exact current main must have successful TAI Controller Sync and TAI REG.RU Preflight authority",
+    "Transport uses only the canonical REG.RU host, protected root SSH principal and pinned host fingerprint",
+    "No repair runs while a TAI container, dedicated environment file or TAI Compose override exists",
+    "Exact-main API/web containers and the single persistent PostgreSQL authority are proven before mutation",
+    "tai_runtime must have the exact least-privilege attributes, no memberships, no grants to other roles, no sessions and no owned objects",
+    "Exactly two non-TAI public-schema relations must be effectively accessible and every effective privilege must be explained by a non-grantable PUBLIC relation ACL",
+    "Only SELECT or REFERENCES PUBLIC privileges may be removed; INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, column grants and grant options fail closed",
+    "No ACL entry belonging to tai_runtime, an application role or any other named principal is changed by this repair",
+    "The original PUBLIC ACLs are serialized into an exact inverse rollback before mutation",
+    "PUBLIC ACL revocation is one PostgreSQL transaction and postcondition requires zero effective non-TAI relation privileges for tai_runtime",
+    "RU/EN/ZH public live acceptance plus durable PostgreSQL, audit and outbox verification must pass before finalization",
+    "Any acceptance failure executes the exact inverse rollback and verifies restoration",
+    "DROP OWNED, REASSIGN OWNED, DROP ROLE, object deletion, tenant mutation, application deployment and model mutation are forbidden",
+    "No authority is widened and no new recurring cost is introduced"
+  ]
+}
