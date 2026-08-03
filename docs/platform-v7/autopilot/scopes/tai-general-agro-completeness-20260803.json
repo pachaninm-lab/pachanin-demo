@@ -10,7 +10,6 @@
   "objective": "Repair the production activation failure where local Qwen recognized a drip-irrigation question but returned an answer without concrete design variables, while preserving model-first behavior and the existing broad live acceptance standard.",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
-    ".github/workflows/tai-one-shot-lockfile-regenerate.yml",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts",
@@ -31,8 +30,7 @@
     "Activation failure evidence must retain the actual failed public answer and completed-case metadata so the next failure is directly diagnosable",
     "The activation workflow must run when the restricted public Qwen service or its tests change",
     "The fixed socket.io-parser 4.2.7 must replace every production resolution of 4.2.6; no security exception is permitted for GHSA-2m8v-j782-fhvr",
-    "The vulnerable brace-expansion 5.0.8 resolution must be removed rather than accepted by a temporary exception; CRITICAL exceptions remain prohibited",
-    "The one-shot lockfile workflow may write only pnpm-lock.yaml on this exact branch, must verify the fixed resolutions, must not modify dependency declarations outside package.json authority, and must be removed before merge",
+    "brace-expansion 2.1.4 and 5.0.9 must replace the affected 2.1.2 and 5.0.8 resolutions; no exception is permitted for GHSA-rgw5-rvv9-x895",
     "No paid model, SaaS, hosting, database or recurring cost is added",
     "Production completion requires exact-head CI, exact-main merge, canonical images, full-stack REG.RU release, successful preflight, restricted Qwen activation, broad endpoint and mobile Chromium acceptance, finalization and post-deployment verification",
     "The failed activation must remain rolled back until a new exact-main activation reaches terminal PASS"
