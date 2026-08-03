@@ -321,7 +321,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ]; then
+if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/tai-general-agro-completeness-20260803" ]; then
   # Lockfile exemptions are granted per branch by the owner, never self-issued.
   # claude/tai-production-attestation-gizgzh: owner instruction of 2026-07-26 to
   # remove Netlify in full, which requires dropping @netlify/plugin-nextjs from
