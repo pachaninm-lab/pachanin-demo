@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-controller-sync-canonical-images-20260803",
+  "status": "active",
+  "title": "TAI controller sync canonical image trigger",
+  "priority": "P0",
+  "baselineExactMain": "bb0cee5f01daf38827fd89468b1bcc62e62d71fb",
+  "objective": "Ensure changes to the owner-only exact controller synchronization authority publish canonical API, web, TAI and migration images for the same merged main SHA so the required exact-main full-stack release can execute before controller synchronization.",
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    "scripts/check-tai-controller-sync.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-controller-sync-canonical-images-20260803.json"
+  ],
+  "boundaries": [
+    "The pull request performs no production mutation",
+    "Canonical images are published only by the existing main-push image authority after merge",
+    "The owner-only controller sync command, exact full-stack authority, pinned SSH transport and rollback contract remain unchanged",
+    "No tenant, role, model, database, staff, financial, tool or application-data authority is widened",
+    "REG.RU only and zero new recurring cost"
+  ]
+}
