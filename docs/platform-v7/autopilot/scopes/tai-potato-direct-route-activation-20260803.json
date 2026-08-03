@@ -14,6 +14,7 @@
     "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts",
     "docs/platform-v7/autopilot/security-exceptions.json",
     "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json",
+    "scripts/security/build-evidence-manifest.mjs",
     "scripts/tai-potato-mobile-live-acceptance.mjs"
   ],
   "boundaries": [
@@ -29,6 +30,7 @@
     "Private mode, signed sessions, role propagation, tenant isolation, secret handling, write authority and current-evidence controls remain unchanged",
     "No hard-coded agronomic dose is introduced without soil, crop, region and production inputs",
     "The newly published brace-expansion advisory may be covered only by the formal seven-day HIGH exception SEC-2026-3665; CRITICAL exceptions remain prohibited and the lock must be upgraded before expiry",
+    "The unified security evidence manifest may accept observed HIGH findings only when every finding is bound one-to-one to a formal evaluator exception; blocked, unexcepted, duplicate, orphaned or CRITICAL findings fail closed",
     "No paid model, SaaS, database, hosting service or recurring cost is added",
     "Production completion requires exact-head CI, exact-main merge, canonical images, REG.RU deployment, preflight, restricted Qwen activation and finalization, direct SSE and 390x844 mobile Chromium acceptance",
     "PostgreSQL, audit and outbox authority must remain PASS"
