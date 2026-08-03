@@ -1,0 +1,378 @@
+name: TAI Owner REG.RU Deployment Command
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-reg-ru-deployment-command.yml"
+      - ".github/workflows/tai-reg-ru-deploy.yml"
+      - "scripts/select-tai-restricted-qwen-activation-status.mjs"
+      - "scripts/check-tai-owner-deployment-status-selection.mjs"
+      - "scripts/check-tai-owner-deployment-command.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
+      - "scripts/check-tai-reg-ru-deploy.mjs"
+      - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-tai-model-artifact-evidence.mjs"
+      - "scripts/check-tai-exact-main-convergence.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-reg-ru-deployment-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  authority:
+    name: Resolve exact successful restricted Qwen activation
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai deploy current-main'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: read
+    outputs:
+      target_sha: ${{ steps.authority.outputs.target_sha }}
+      target_short: ${{ steps.authority.outputs.target_short }}
+      upstream_run_id: ${{ steps.authority.outputs.upstream_run_id }}
+      upstream_run_attempt: ${{ steps.authority.outputs.upstream_run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate owner deployment command contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-tai-owner-deployment-status-selection.mjs
+          node scripts/check-tai-owner-deployment-command.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-tai-model-artifact-evidence.mjs
+          node scripts/check-tai-exact-main-convergence.mjs
+      - name: Verify owner command and exact activation authority
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          target_short="${target_sha:0:7}"
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status" \
+            > "$RUNNER_TEMP/activation-status.json"
+          upstream_run_id="$(node scripts/select-tai-restricted-qwen-activation-status.mjs \
+            "$RUNNER_TEMP/activation-status.json" "$target_sha" "$GITHUB_REPOSITORY")"
+          [[ "$upstream_run_id" =~ ^[0-9]+$ ]]
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${upstream_run_id}" \
+            > "$RUNNER_TEMP/activation-run.json"
+          upstream_run_attempt="$(node - "$RUNNER_TEMP/activation-run.json" <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (!Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1) process.exit(2);
+          process.stdout.write(String(run.run_attempt));
+          NODE
+          )"
+          [[ "$upstream_run_attempt" =~ ^[1-9][0-9]*$ ]]
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/activation-run.json" \
+            "$target_sha" "$upstream_run_attempt" 'TAI Restricted Qwen REG.RU Activation' "$GITHUB_REPOSITORY"
+          node - "$RUNNER_TEMP/activation-run.json" "$OWNER" <<'NODE'
+          const fs = require('node:fs');
+          const [path, owner] = process.argv.slice(2);
+          const run = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const actor = run.actor?.login;
+          const triggering = run.triggering_actor?.login;
+          const allowed = new Set([owner, 'github-actions[bot]']);
+          if (run.event !== 'workflow_dispatch' || !allowed.has(actor) || triggering !== actor) process.exit(3);
+          NODE
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${upstream_run_id}/attempts/${upstream_run_attempt}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/activation-jobs.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs "$RUNNER_TEMP/activation-jobs.json" \
+            'Require exact-run REG.RU preflight completion' \
+            'Least-privilege activation contract' \
+            'Exact-main API, web and migration image authority' \
+            'Activate through protected REG.RU controller' \
+            'Hosted live public AI acceptance' \
+            'Finalize or roll back activation' \
+            'Publish restricted Qwen activation result' \
+            'Confirm restricted Qwen activation chain result'
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "target_short=$target_short" >> "$GITHUB_OUTPUT"
+          echo "upstream_run_id=$upstream_run_id" >> "$GITHUB_OUTPUT"
+          echo "upstream_run_attempt=$upstream_run_attempt" >> "$GITHUB_OUTPUT"
+
+  contract:
+    name: Least-privilege owner deployment contract
+    needs: authority
+    if: needs.authority.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate deployment authority
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/pc-tai-release-controller.sh
+          bash -n scripts/tai-reg-ru-deploy.sh
+          bash -n scripts/tai-reg-ru-preflight.sh
+          node scripts/check-tai-owner-deployment-command.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-tai-model-artifact-evidence.mjs
+          node scripts/check-tai-exact-main-convergence.mjs
+
+  image_authority:
+    name: Exact-main rootless TAI image authority
+    needs: [authority, contract]
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.contract.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
+      reference: ${{ steps.image.outputs.reference }}
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact current main
+        id: target
+        env:
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Verify canonical exact-SHA rootless TAI image outside production
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        run: |
+          set -Eeuo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          image="ghcr.io/pachaninm-lab/grainflow-tai:sha-${SHORT_SHA}"
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker pull "$image" >/dev/null 2>&1; then
+              revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+              user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+              digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
+              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 10
+          done
+          (( ready == 1 )) || { echo 'Exact rootless TAI image is unavailable or invalid.' >&2; exit 2; }
+          echo "reference=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Remove hosted registry session
+        if: always()
+        run: docker logout ghcr.io >/dev/null 2>&1 || true
+
+  deploy:
+    name: Deploy through protected REG.RU controller
+    needs: image_authority
+    if: needs.image_authority.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    permissions:
+      contents: read
+      packages: none
+      statuses: none
+      issues: none
+    timeout-minutes: 90
+    env:
+      TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+      TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
+      TAI_IMAGE: ${{ needs.image_authority.outputs.reference }}
+      TAI_DIGEST: ${{ needs.image_authority.outputs.digest }}
+      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+    steps:
+      - name: Verify direct production authority is absent
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Prepare protected model evidence input
+        run: |
+          set -Eeuo pipefail
+          input="/var/lib/pc-release-authority/runner-input/${GITHUB_RUN_ID}"
+          rm -rf "$input"
+          install -d -m 0700 "$input"
+          [[ "$(stat -c '%U:%G:%a' "$input")" == pcactions:pcactions:700 ]]
+          printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
+          printf '%s' "${MODEL_PORT_SECRET:-22}" > "$input/model-port"
+          chmod 0600 "$input/model-user" "$input/model-port"
+      - name: Execute protected exact-main deployment and postflight
+        id: deploy
+        run: |
+          set -Eeuo pipefail
+          sudo -n /usr/local/sbin/pc-tai-release-controller deploy "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
+      - name: Surface the published deployment failure code
+        if: always() && steps.deploy.outcome == 'failure'
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/deployment.json"
+          if [[ ! -f "$evidence" ]]; then
+            echo 'TAI_DEPLOY_ERROR_CODE=EVIDENCE_NOT_PUBLISHED'
+            exit 0
+          fi
+          python3 - "$evidence" <<'PY'
+          import json,re,sys
+          try:
+              value=json.load(open(sys.argv[1],encoding='utf-8'))
+          except Exception:
+              print('TAI_DEPLOY_ERROR_CODE=EVIDENCE_UNREADABLE')
+              raise SystemExit(0)
+          code=str(value.get('errorCode') or '').strip()
+          if not re.fullmatch(r'[A-Z][A-Z0-9_]*',code): code='EVIDENCE_WITHOUT_ERROR_CODE'
+          print(f'TAI_DEPLOY_ERROR_CODE={code}')
+          print(f"TAI_DEPLOY_STAGE={value.get('action') or 'unknown'}")
+          print(f"TAI_DEPLOY_EXIT_CODE={value.get('exitCode')}")
+          print(f"TAI_DEPLOY_ROLLBACK_STATUS={value.get('rollbackStatus') or 'UNKNOWN'}")
+          PY
+      - name: Upload exact-main deployment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-owner-reg-ru-deployment-${{ env.TARGET_SHORT }}-${{ github.run_id }}
+          path: |
+            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/predeploy.json
+            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/deployment.json
+            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/postdeploy.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish exact-main owner deployment result
+    needs: [authority, image_authority, deploy]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai deploy current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - name: Publish commit status and redacted terminal evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          ACTIVATION_RUN_ID: ${{ needs.authority.outputs.upstream_run_id }}
+        run: |
+          set -Eeuo pipefail
+          state=failure
+          description='Owner TAI deployment failed or was not authorized'
+          terminal=FAILED_OR_ROLLED_BACK
+          if [[ "$AUTHORITY_RESULT" == success && "$IMAGE_RESULT" == success && "$DEPLOY_RESULT" == success ]]; then
+            state=success
+            description='Standalone TAI REG.RU deployment PASS'
+            terminal=PASS
+          fi
+          if [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+              -f state="$state" -f context='TAI REG.RU Deployment' -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            if [[ "$state" == success ]]; then
+              gh api --method POST -H 'Accept: application/vnd.github+json' \
+                "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+                -f state='success' -f context='TAI REG.RU Preflight' \
+                -f description='TAI REG.RU post-deployment preflight PASS' \
+                -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            fi
+          fi
+          cat > "$RUNNER_TEMP/comment.md" <<EOF
+          ## TAI owner REG.RU deployment
+
+          - result: \`$terminal\`
+          - exact main: \`${TARGET_SHA:-unresolved}\`
+          - verified activation run: \`${ACTIVATION_RUN_ID:-none}\`
+          - deployment run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - protected controller: \`pc-tai-release-controller\`
+          - postflight: \`${DEPLOY_RESULT:-unknown}\`
+          EOF
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$state" == success ]]
+
+  result_gate:
+    name: Confirm owner standalone TAI deployment result
+    needs: [authority, contract, image_authority, deploy, publish]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai deploy current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped deployment jobs
+        env:
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$AUTHORITY_RESULT" == success ]]
+          [[ "$CONTRACT_RESULT" == success ]]
+          [[ "$IMAGE_RESULT" == success ]]
+          [[ "$DEPLOY_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]
