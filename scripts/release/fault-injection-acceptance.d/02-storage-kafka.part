@@ -1,0 +1,66 @@
+FAILURE_REASON="object-storage outage produced false verification or did not recover"
+export FAILURE_REASON
+object_content="industrial-fault-proof"
+object_hash="$(printf '%s' "$object_content" | sha256sum | awk '{print $1}')"
+upload_request="$(jq -nc --arg deal "$DEAL_ID" --argjson size "${#object_content}" '{filename:"fault-proof.txt",mimeType:"text/plain",sizeBytes:$size,dealId:$deal}')"
+upload="$(curl_api POST /api/api/storage/request-upload "$ACCESS_TOKEN" "$upload_request")"
+printf '%s\n' "$upload" > "$RAW_DIR/object-upload-request.json"
+file_id="$(jq -r '.fileId' <<<"$upload")"
+upload_url="$(jq -r '.uploadUrl' <<<"$upload")"
+[[ -n "$file_id" && "$file_id" != null && -n "$upload_url" && "$upload_url" != null ]]
+export file_id
+
+kubectl run fault-object-client -n "$NAMESPACE" --restart=Never \
+  --image=curlimages/curl:8.8.0 \
+  --labels=app.kubernetes.io/name=grainflow-api,app.kubernetes.io/component=acceptance-probe \
+  --overrides='{"spec":{"automountServiceAccountToken":false,"securityContext":{"runAsNonRoot":true,"runAsUser":100,"runAsGroup":101,"seccompProfile":{"type":"RuntimeDefault"}}}}' \
+  --command -- sh -ec 'sleep 1200'
+kubectl wait --for=condition=Ready pod/fault-object-client -n "$NAMESPACE" --timeout=180s
+printf '%s' "$object_content" | kubectl exec -i -n "$NAMESPACE" pod/fault-object-client -- \
+  curl -kfsS -X PUT -H 'content-type: text/plain' --data-binary @- "$upload_url"
+
+kubectl scale deployment/minio -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=minio --timeout=180s
+set +e
+object_outage="$(curl_api POST "/api/api/storage/confirm-upload/${file_id}" "$ACCESS_TOKEN" "{\"sha256\":\"${object_hash}\"}" 2>"$RAW_DIR/object-outage.stderr")"
+object_outage_rc=$?
+set -e
+printf '%s\n' "$object_outage" > "$RAW_DIR/object-outage-response.json"
+false_verified="$(admin_sql "SELECT count(*) FROM public.deal_documents WHERE id='${file_id}' AND status='VERIFIED' AND \"isImmutable\"=true;")"
+printf '%s\n' "$false_verified" > "$RAW_DIR/object-outage-false-verified.txt"
+[[ "$object_outage_rc" != 0 || "$(jq -r '.statusCode // 500' <<<"${object_outage:-{}}" 2>/dev/null || echo 500)" -ge 400 ]]
+[[ "$false_verified" = 0 ]]
+
+kubectl scale deployment/minio -n "$NAMESPACE" --replicas=1
+wait_deployment minio
+object_recovered="$(curl_api POST "/api/api/storage/confirm-upload/${file_id}" "$ACCESS_TOKEN" "{\"sha256\":\"${object_hash}\"}")"
+printf '%s\n' "$object_recovered" > "$RAW_DIR/object-recovery-response.json"
+verified="$(admin_sql "SELECT count(*) FROM public.deal_documents WHERE id='${file_id}' AND status='VERIFIED' AND \"isImmutable\"=true AND hash='${object_hash}';")"
+printf '%s\n' "$verified" > "$RAW_DIR/object-recovery-verified.txt"
+[[ "$verified" = 1 ]]
+
+FAILURE_REASON="Kafka outage was falsely acknowledged or backlog did not recover"
+export FAILURE_REASON
+kubectl scale deployment/kafka -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --timeout=180s
+admin_sql "
+INSERT INTO public.outbox_entries
+  (id,type,payload,status,\"idempotencyKey\",\"maxRetries\",\"retryCount\",\"nextRetryAt\",\"correlationId\")
+SELECT '${RUN_ID}-outbox-'||i, '${RUN_ID}.kafka', jsonb_build_object('runId','${RUN_ID}','i',i),
+       'PENDING','${RUN_ID}-outbox-idem-'||i,20,0,now()-interval '1 second','${RUN_ID}.kafka'
+FROM generate_series(1,25) g(i)
+ON CONFLICT (id) DO NOTHING;
+" >/dev/null
+sleep 10
+false_sent="$(admin_sql "SELECT count(*) FROM public.outbox_entries WHERE \"correlationId\"='${RUN_ID}.kafka' AND status='SENT';")"
+printf '%s\n' "$false_sent" > "$RAW_DIR/kafka-outage-false-sent.txt"
+[[ "$false_sent" = 0 ]]
+
+kubectl scale deployment/kafka -n "$NAMESPACE" --replicas=1
+wait_deployment kafka
+admin_sql "UPDATE public.outbox_entries SET \"nextRetryAt\"=now()-interval '1 second' WHERE \"correlationId\"='${RUN_ID}.kafka' AND status='PENDING';" >/dev/null
+kafka_recovery_start="$(date +%s)"
+wait_sql_count 25 90 "SELECT count(*) FROM public.outbox_entries WHERE \"correlationId\"='${RUN_ID}.kafka' AND status='SENT';"
+kafka_recovery_seconds=$(( $(date +%s) - kafka_recovery_start ))
+printf '%s\n' "$kafka_recovery_seconds" > "$RAW_DIR/kafka-recovery-seconds.txt"
+[[ "$kafka_recovery_seconds" -le 90 ]]
