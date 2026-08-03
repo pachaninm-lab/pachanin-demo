@@ -1,0 +1,240 @@
+name: TAI Owner Public Non-TAI ACL Repair v2
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-public-non-tai-acl-repair-v2.yml"
+      - "scripts/tai-public-non-tai-acl-repair-v2.sh"
+      - "docs/platform-v7/autopilot/scopes/tai-public-non-tai-acl-repair-v2-20260803.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-public-non-tai-acl-repair-v2-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  EVIDENCE_DIR: artifacts/tai-public-non-tai-acl-repair-v2
+
+jobs:
+  authority:
+    name: Resolve exact owner repair authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3365 &&
+       github.event.comment.body == '/tai repair-public-non-tai-acls-v2 current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      statuses: read
+    outputs:
+      target_sha: ${{ steps.authority.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Validate bounded repair contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/tai-public-non-tai-acl-repair-v2.sh
+          ! grep -Eiq '\b(DROP[[:space:]]+OWNED|REASSIGN[[:space:]]+OWNED|DROP[[:space:]]+ROLE)\b' scripts/tai-public-non-tai-acl-repair-v2.sh
+          python3 -m json.tool docs/platform-v7/autopilot/scopes/tai-public-non-tai-acl-repair-v2-20260803.json >/dev/null
+      - name: Verify owner command and upstream exact-main authority
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" && "$ACTOR" == "$OWNER" && "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          target_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status" > "$RUNNER_TEMP/status.json"
+          python3 - "$RUNNER_TEMP/status.json" "$GITHUB_REPOSITORY" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8')); repo=sys.argv[2]
+          for context in ('TAI Controller Sync','TAI REG.RU Preflight'):
+              matches=[s for s in report.get('statuses',[]) if s.get('context')==context]
+              if not matches or matches[0].get('state')!='success': raise SystemExit(2)
+              if not str(matches[0].get('target_url') or '').startswith(f'https://github.com/{repo}/actions/runs/'): raise SystemExit(3)
+          PY
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+  repair:
+    name: Repair exact PUBLIC ACLs and accept production
+    needs: authority
+    if: github.event_name == 'issue_comment' && needs.authority.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirm exact checkout
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          bash -n scripts/tai-public-non-tai-acl-repair-v2.sh
+          mkdir -p "$EVIDENCE_DIR"
+      - name: Resolve pinned REG.RU root SSH authority
+        id: ssh
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" && -n "$user" && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate(){ local src="$1" dst="$HOME/.ssh/id_pc_prod" pub; tr -d '\r' < "$src" > "$dst"; chmod 600 "$dst"; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$dst" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          slot "${SSH_KEY_PRIMARY:-}" || slot "${SSH_KEY_SECONDARY:-}" || slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]; mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; echo ROOT_SSH_AUTH_OK' > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Copy bounded repair and durable verification assets
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          scp "${common[@]}" scripts/tai-public-non-tai-acl-repair-v2.sh "$USER@$HOST:/tmp/pc-tai-public-acl-v2-${GITHUB_RUN_ID}.sh"
+          scp "${common[@]}" scripts/production-full-stack-exact-sha.sh "$USER@$HOST:/tmp/pc-full-stack-v2-${GITHUB_RUN_ID}.sh"
+      - name: Apply, accept, finalize or rollback
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          PC_LIVE_BASE: ${{ env.LIVE_BASE }}
+          PC_LIVE_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}/live
+          PC_RELEASE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -Eeuo pipefail
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          remote="/tmp/pc-tai-public-acl-v2-${GITHUB_RUN_ID}.sh"; verifier="/tmp/pc-full-stack-v2-${GITHUB_RUN_ID}.sh"; evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/public-non-tai-acl-repair-v2.json"
+          ssh "${ssh_common[@]}" "$USER@$HOST" "chmod 0700 '$remote' '$verifier' && '$remote' apply '$TARGET_SHA' '$GITHUB_RUN_ID' '$evidence'" | tee "$EVIDENCE_DIR/apply.log"
+          set +e
+          bash scripts/production-full-stack-live-acceptance.sh "$TARGET_SHA" | tee "$EVIDENCE_DIR/live.log"
+          live_rc=${PIPESTATUS[0]}
+          db_rc=1
+          if (( live_rc == 0 )); then
+            request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" | tail -1)"; correlation="$(sed -n 's/^LIVE_CORRELATION_ID=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
+            if [[ "$request" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ && "$correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]]; then
+              ssh "${ssh_common[@]}" "$USER@$HOST" "'$verifier' verify-intake '$TARGET_SHA' '$GITHUB_RUN_ID' '$request' '$correlation'" | tee "$EVIDENCE_DIR/durable-intake-db.log"
+              db_rc=${PIPESTATUS[0]}
+            fi
+          fi
+          set -e
+          if (( live_rc != 0 || db_rc != 0 )); then
+            ssh "${ssh_common[@]}" "$USER@$HOST" "'$remote' rollback '$TARGET_SHA' '$GITHUB_RUN_ID' '$evidence'" | tee "$EVIDENCE_DIR/rollback.log" || true
+            exit 40
+          fi
+          grep -Fxq DURABLE_INTAKE_DB=PASS "$EVIDENCE_DIR/durable-intake-db.log"
+          ssh "${ssh_common[@]}" "$USER@$HOST" "'$remote' finalize '$TARGET_SHA' '$GITHUB_RUN_ID' '$evidence'" | tee "$EVIDENCE_DIR/finalize.log"
+          grep -Fxq TAI_PUBLIC_NON_TAI_ACL_V2_FINALIZE=PASS "$EVIDENCE_DIR/finalize.log"
+      - name: Retrieve and validate terminal evidence
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST:/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/public-non-tai-acl-repair-v2.json" "$EVIDENCE_DIR/repair.json"
+          python3 - "$EVIDENCE_DIR/repair.json" "$TARGET_SHA" <<'PY'
+          import json,sys
+          v=json.load(open(sys.argv[1],encoding='utf-8'))
+          if v.get('schemaVersion')!='tai.public-non-tai-acl-repair.v2' or v.get('targetSha')!=sys.argv[2]: raise SystemExit(2)
+          if v.get('status')!='ACCEPTED' or v.get('passed') is not True or v.get('mutationPerformed') is not True: raise SystemExit(3)
+          if v.get('rollbackPerformed') is not False or v.get('dropOwnedUsed') is not False or v.get('reassignOwnedUsed') is not False: raise SystemExit(4)
+          PY
+      - name: Remove transient remote and local key material
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set +e
+          [[ -f "$HOME/.ssh/id_pc_prod" ]] && ssh -i "$HOME/.ssh/id_pc_prod" -p "${PORT:-22}" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "${USER:-root}@${HOST:-$DEFAULT_HOST}" "rm -f '/tmp/pc-tai-public-acl-v2-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-v2-${GITHUB_RUN_ID}.sh'" >/dev/null 2>&1
+          rm -rf "$HOME/.ssh"
+      - name: Upload repair evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-public-non-tai-acl-repair-v2-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish exact-main ACL repair v2 result
+    needs: [authority, repair]
+    if: always() && github.event_name == 'issue_comment' && github.event.issue.number == 3365 && github.event.comment.body == '/tai repair-public-non-tai-acls-v2 current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          REPAIR_RESULT: ${{ needs.repair.result }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+        run: |
+          set -Eeuo pipefail
+          state=failure; terminal=FAILED_OR_ROLLED_BACK; description='TAI PUBLIC ACL repair v2 failed or rolled back'
+          [[ "$AUTHORITY_RESULT" == success && "$REPAIR_RESULT" == success ]] && { state=success; terminal=PASS; description='TAI PUBLIC ACL repair v2 PASS'; }
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] && gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" -f state="$state" -f context='TAI Public Non-TAI ACL Repair v2' -f description="$description" -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          printf '## TAI PUBLIC non-TAI ACL repair v2\n\n- result: `%s`\n- exact main: `%s`\n- run: https://github.com/%s/actions/runs/%s\n' "$terminal" "${TARGET_SHA:-unresolved}" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$RUNNER_TEMP/comment.md"
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$state" == success ]]
+
+  result_gate:
+    name: Confirm PUBLIC ACL repair v2 result
+    needs: [authority, repair, publish]
+    if: always() && github.event_name == 'issue_comment' && github.event.issue.number == 3365 && github.event.comment.body == '/tai repair-public-non-tai-acls-v2 current-main'
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          REPAIR_RESULT: ${{ needs.repair.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$AUTHORITY_RESULT" == success && "$REPAIR_RESULT" == success && "$PUBLISH_RESULT" == success ]]
