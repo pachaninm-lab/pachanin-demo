@@ -363,7 +363,7 @@ function streamDirectAnswer(answer: string, assessment: Readonly<Record<string, 
 
 function emitSources(
   writer: GatewayStreamWriter,
-  sources: readonly Readonly<{ label: string; href: string }[],
+  sources: readonly Readonly<{ label: string; href: string }>[],
 ): void {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
   for (const source of sources) {
