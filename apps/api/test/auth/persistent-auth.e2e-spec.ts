@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from 'crypto';
+import { cpus } from 'os';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
@@ -715,12 +716,35 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     // contention real and the outcome deterministic.
     const chainUser = `auth-user-audit-concurrency-${randomUUID()}`;
     const WRITERS = 50;
+    // Build the URL structurally: DATABASE_URL may or may not already carry a
+    // query string, and concatenating "&connection_limit=..." onto one that
+    // does not turns the parameter into part of the database name.
+    const pooledUrl = new URL(String(process.env.DATABASE_URL));
+    pooledUrl.searchParams.set('connection_limit', String(WRITERS + 10));
     const pooled = new PrismaClient({
-      datasources: { db: { url: `${process.env.DATABASE_URL}&connection_limit=${WRITERS + 10}` } },
+      datasources: { db: { url: pooledUrl.toString() } },
     }) as unknown as PrismaService;
+    expect(pooledUrl.searchParams.get('connection_limit')).toBe(String(WRITERS + 10));
     const concurrent = new PersistentAuthRepository(pooled);
 
+    // Records how many writers were inside a transaction at once. With the
+    // shared client's default pool this could never exceed nproc*2+1, so the
+    // observed peak is what proves the dedicated pool is in use and the writers
+    // genuinely contend instead of queueing for connections.
+    let inFlight = 0;
+    let peakInFlight = 0;
+
     const appendOne = async (index: number) => concurrent.transaction(async (tx) => {
+      inFlight += 1;
+      peakInFlight = Math.max(peakInFlight, inFlight);
+      try {
+        return await appendBody(tx, index);
+      } finally {
+        inFlight -= 1;
+      }
+    });
+
+    const appendBody = async (tx: Parameters<Parameters<typeof concurrent.transaction>[0]>[0], index: number) => {
       const { chainKey, prevHash, nextSequence } = await concurrent.latestAuditChainPosition(
         tx,
         chainUser,
@@ -739,14 +763,17 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       }));
       await concurrent.insertAudit(tx, { ...input, hash, prevHash, chainSequence: nextSequence });
       return Number(nextSequence);
-    });
+    };
 
     const claimed = await Promise.all(
       Array.from({ length: WRITERS }, (_, index) => appendOne(index)),
     );
 
-    // Every writer claimed a distinct position; none silently lost its write.
+    // All fifty completed, each claiming a distinct position; none was lost.
+    expect(claimed).toHaveLength(WRITERS);
     expect(new Set(claimed).size).toBe(WRITERS);
+    // More concurrent transactions than the shared client's pool could hold.
+    expect(peakInFlight).toBeGreaterThan(cpus().length * 2 + 1);
 
     const chain = await first.prisma.$queryRaw<Array<{
       hash: string; prev_hash: string | null; chain_sequence: bigint; chain_key: string;
@@ -804,6 +831,35 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       VALUES (${`auth_evt_${randomUUID()}`}, ${chainUser}, 'auth.audit.duplicate', 'SUCCESS',
               ${sha256(`duplicate-${chainUser}`)}, NULL, ${WRITERS})
     `).rejects.toThrow(/Key \(chain_key, chain_sequence\)=/);
+
+    // Retry is scoped to chain contention only. A duplicate primary key is a
+    // real defect, so it must surface immediately rather than be retried until
+    // the budget is exhausted.
+    const existing = chain[0];
+    const [{ id: existingId }] = await first.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM auth.audit_events WHERE hash = ${existing.hash}
+    `;
+    const startedAt = Date.now();
+    await expect(concurrent.transaction(async (tx) => {
+      const position = await concurrent.latestAuditChainPosition(tx, chainUser, null);
+      await concurrent.insertAudit(tx, {
+        id: existingId,
+        userId: chainUser,
+        action: 'auth.audit.duplicate_id',
+        outcome: 'SUCCESS',
+        hash: sha256(`duplicate-id-${chainUser}`),
+        prevHash: position.prevHash,
+        chainSequence: position.nextSequence,
+      });
+    })).rejects.toThrow(/audit_events_pkey|already exists/);
+    // Surfaced on the first attempt, not after sixty-four retries.
+    expect(Date.now() - startedAt).toBeLessThan(10_000);
+
+    const unchanged = await first.prisma.$queryRaw<Array<{ chain_sequence: bigint }>>`
+      SELECT chain_sequence FROM auth.audit_events
+      WHERE chain_key = ${chainUser} ORDER BY chain_sequence ASC
+    `;
+    expect(unchanged).toHaveLength(WRITERS);
 
     await pooled.$disconnect();
   }, 180_000);
