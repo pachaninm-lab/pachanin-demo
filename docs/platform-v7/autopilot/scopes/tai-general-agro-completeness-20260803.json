@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-general-agro-completeness-20260803",
+  "status": "active",
+  "title": "TAI general-agro answer completeness and activation acceptance repair",
+  "priority": "P0",
+  "baselineExactMain": "a8c9476cc7bf0e7c32318dadd8a263b9b1672bb7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Repair the production activation failure where local Qwen recognized a drip-irrigation question but returned an answer without concrete design variables, while preserving model-first behavior and the existing broad live acceptance standard.",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json"
+  ],
+  "boundaries": [
+    "Do not weaken, remove, skip or make optional any RU, EN, ZH, SSE, Chromium, mobile, subject-relevance or substantive-factor acceptance assertion",
+    "General-agro answers must remain model-first; deterministic server logic may add only a bounded stable completeness floor when the generated answer omits concrete applicable factors",
+    "The completeness floor must be category-based and reusable across crop production, irrigation, livestock, machinery, storage, farm infrastructure, economics and farm IT rather than a single hard-coded answer",
+    "No agronomic dose, pesticide rate, veterinary medicine, machinery specification, diagnostic code, compatibility claim, current price, current law or production status may be fabricated",
+    "A selection, design or diagnostic answer must name at least two applicable observable or measurable decision factors before asking for clarification",
+    "Any server-added completeness text must be safe, non-executable, read-only, free of exact current claims and exposed through a distinct safety flag",
+    "Private model transport, HMAC authority, role and tenant boundaries, secret redaction, no-write guarantees and current-evidence controls remain unchanged",
+    "Activation failure evidence must retain the actual failed public answer and completed-case metadata so the next failure is directly diagnosable",
+    "The activation workflow must run when the restricted public Qwen service or its tests change",
+    "No paid model, SaaS, hosting, database or recurring cost is added",
+    "Production completion requires exact-head CI, exact-main merge, canonical images, full-stack REG.RU release, successful preflight, restricted Qwen activation, broad endpoint and mobile Chromium acceptance, finalization and post-deployment verification",
+    "The failed activation must remain rolled back until a new exact-main activation reaches terminal PASS"
+  ]
+}
