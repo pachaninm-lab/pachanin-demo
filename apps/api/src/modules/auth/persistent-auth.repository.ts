@@ -96,9 +96,39 @@ export type AuthAuditInput = {
   metadata?: Record<string, unknown> | null;
   hash: string;
   prevHash?: string | null;
+  /** Position in the chain, resolved under the chain's advisory lock. */
+  chainSequence: bigint;
 };
 
-const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
+/**
+ * A hash chain cannot be appended to concurrently without conflict, and under
+ * SERIALIZABLE the conflict is unavoidable by design: the transaction's
+ * snapshot is taken before it can acquire the chain's advisory lock, so a
+ * writer that waited for the lock still cannot see the row the previous holder
+ * committed. It computes the same next position, and PostgreSQL rejects the
+ * duplicate. That rejection is the integrity guarantee working, so the answer
+ * is to retry the whole transaction against a fresh snapshot rather than to
+ * weaken the constraint.
+ *
+ * The budget is sized for genuine contention on a single chain: each retry
+ * round lets one waiting writer through, so a burst of N writers needs up to
+ * N attempts from the unluckiest one.
+ */
+const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 64;
+
+/**
+ * Unique violations that mean "another writer reached this chain position
+ * first". Prisma reports the offending key columns rather than the index name,
+ * so both spellings are matched. Any other duplicate is a real defect and must
+ * surface rather than be retried.
+ */
+const AUTH_CHAIN_CONTENTION_SIGNATURES = [
+  'auth_audit_events_chain_position_key',
+  'auth_audit_events_prev_hash_key',
+  'chain_key, chain_sequence',
+  'chain_key,chain_sequence',
+  '(prev_hash)',
+];
 
 @Injectable()
 export class PersistentAuthRepository {
@@ -126,10 +156,20 @@ export class PersistentAuthRepository {
       message?: unknown;
       meta?: { code?: unknown; database_error?: unknown };
     };
-    return candidate?.code === 'P2034'
+    if (candidate?.code === 'P2034'
       || candidate?.meta?.code === '40001'
       || String(candidate?.meta?.database_error ?? '').includes('40001')
-      || /could not serialize access|write conflict|deadlock detected/i.test(String(candidate?.message ?? ''));
+      || /could not serialize access|write conflict|deadlock detected/i.test(String(candidate?.message ?? ''))) {
+      return true;
+    }
+    // A unique violation on a chain index is contention, not corruption: the
+    // position was claimed by a writer this transaction's snapshot predates.
+    const description = `${String(candidate?.message ?? '')} ${String(candidate?.meta?.database_error ?? '')}`;
+    const uniqueViolation = candidate?.code === 'P2002'
+      || candidate?.meta?.code === '23505'
+      || description.includes('23505');
+    return uniqueViolation
+      && AUTH_CHAIN_CONTENTION_SIGNATURES.some((signature) => description.includes(signature));
   }
 
   async findIdentityByEmail(
@@ -940,28 +980,48 @@ export class PersistentAuthRepository {
     `);
   }
 
-  async latestAuditHash(
+  /**
+   * The chain an event belongs to. Kept identical to the generated chain_key
+   * column so the writer, the reader and the verifier cannot disagree.
+   */
+  static auditChainKey(userId?: string | null, sessionId?: string | null): string {
+    return sessionId ?? userId ?? 'auth-global';
+  }
+
+  /**
+   * Resolves the tail of a chain under its advisory lock, and the position the
+   * next event must occupy.
+   *
+   * Ordering is by chain_sequence, never by created_at: created_at defaults to
+   * NOW(), which is the transaction timestamp, so every event written inside
+   * one transaction shares it and the previous tie-break — a random TEXT id —
+   * could resolve "the previous event" to the wrong one.
+   */
+  async latestAuditChainPosition(
     client: AuthSqlClient,
     userId?: string | null,
     sessionId?: string | null,
-  ): Promise<string | null> {
-    const chainKey = sessionId ?? userId ?? 'auth-global';
+  ): Promise<{ chainKey: string; prevHash: string | null; nextSequence: bigint }> {
+    const chainKey = PersistentAuthRepository.auditChainKey(userId, sessionId);
     await client.$queryRaw<Array<{ acquired: number }>>(Prisma.sql`
       SELECT 1::int AS acquired
       FROM (
         SELECT pg_advisory_xact_lock(hashtextextended(${chainKey}, 0))
       ) AS auth_audit_lock
     `);
-    const rows = await client.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
-      SELECT hash
+    const rows = await client.$queryRaw<Array<{ hash: string; chain_sequence: bigint }>>(Prisma.sql`
+      SELECT hash, chain_sequence
       FROM auth.audit_events
-      WHERE (${sessionId ?? null}::text IS NOT NULL AND session_id = ${sessionId ?? null})
-         OR (${sessionId ?? null}::text IS NULL AND ${userId ?? null}::text IS NOT NULL AND user_id = ${userId ?? null})
-         OR (${sessionId ?? null}::text IS NULL AND ${userId ?? null}::text IS NULL AND user_id IS NULL AND session_id IS NULL)
-      ORDER BY created_at DESC, id DESC
+      WHERE chain_key = ${chainKey}
+      ORDER BY chain_sequence DESC
       LIMIT 1
     `);
-    return rows[0]?.hash ?? null;
+    const tail = rows[0];
+    return {
+      chainKey,
+      prevHash: tail?.hash ?? null,
+      nextSequence: tail ? BigInt(tail.chain_sequence) + 1n : 1n,
+    };
   }
 
   async insertAudit(client: AuthSqlClient, input: AuthAuditInput): Promise<void> {
@@ -978,7 +1038,8 @@ export class PersistentAuthRepository {
         reason,
         metadata,
         hash,
-        prev_hash
+        prev_hash,
+        chain_sequence
       ) VALUES (
         ${input.id},
         ${input.userId ?? null},
@@ -991,7 +1052,8 @@ export class PersistentAuthRepository {
         ${input.reason ?? null},
         ${JSON.stringify(input.metadata ?? {})}::jsonb,
         ${input.hash},
-        ${input.prevHash ?? null}
+        ${input.prevHash ?? null},
+        ${input.chainSequence}
       )
     `);
   }

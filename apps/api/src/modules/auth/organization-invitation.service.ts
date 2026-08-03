@@ -1206,8 +1206,15 @@ export class OrganizationInvitationService {
     metadata: Record<string, unknown>,
   ) {
     const id = `auth_evt_${randomUUID()}`;
-    const prevHash = await this.authRepository.latestAuditHash(tx, user.id);
-    const hash = sha256(stableJson({ id, action, outcome, reason, metadata, prevHash }));
+    const { chainKey, prevHash, nextSequence } = await this.authRepository.latestAuditChainPosition(
+      tx,
+      user.id,
+      null,
+    );
+    const hash = sha256(stableJson({
+      id, action, outcome, reason, metadata, prevHash, chainKey,
+      chainSequence: nextSequence.toString(),
+    }));
     await this.authRepository.insertAudit(tx, {
       id,
       userId: user.id,
@@ -1220,6 +1227,7 @@ export class OrganizationInvitationService {
       metadata,
       hash,
       prevHash,
+      chainSequence: nextSequence,
     });
   }
 }

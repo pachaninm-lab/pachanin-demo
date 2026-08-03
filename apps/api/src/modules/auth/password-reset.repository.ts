@@ -152,8 +152,11 @@ export class PasswordResetRepository {
     return this.auth.revokeAllUserSessions(client, userId, reason);
   }
 
-  latestAuditHash(client: AuthSqlClient, userId?: string | null): Promise<string | null> {
-    return this.auth.latestAuditHash(client, userId, null);
+  latestAuditChainPosition(
+    client: AuthSqlClient,
+    userId?: string | null,
+  ): ReturnType<PersistentAuthRepository['latestAuditChainPosition']> {
+    return this.auth.latestAuditChainPosition(client, userId, null);
   }
 
   insertAudit(client: AuthSqlClient, input: Parameters<PersistentAuthRepository['insertAudit']>[1]): Promise<void> {

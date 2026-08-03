@@ -1115,8 +1115,18 @@ export class AuthService {
     },
   ): Promise<void> {
     const id = `auth_evt_${randomUUID()}`;
-    const prevHash = await this.repository.latestAuditHash(tx, input.userId, input.sessionId);
-    const hash = sha256(stableJson({ id, ...input, prevHash }));
-    await this.repository.insertAudit(tx, { id, ...input, hash, prevHash });
+    const { chainKey, prevHash, nextSequence } = await this.repository.latestAuditChainPosition(
+      tx,
+      input.userId,
+      input.sessionId,
+    );
+    // The position is part of the signed fact: a replayed or reordered event
+    // cannot present the same hash from a different place in the chain.
+    const hash = sha256(stableJson({
+      id, ...input, prevHash, chainKey, chainSequence: nextSequence.toString(),
+    }));
+    await this.repository.insertAudit(tx, {
+      id, ...input, hash, prevHash, chainSequence: nextSequence,
+    });
   }
 }

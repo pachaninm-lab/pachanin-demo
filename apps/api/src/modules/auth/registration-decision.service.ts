@@ -841,8 +841,14 @@ export class RegistrationDecisionService {
     },
   ) {
     const id = `auth_evt_${randomUUID()}`;
-    const prevHash = await this.authRepository.latestAuditHash(tx, input.userId);
-    const hash = sha256(stableJson({ id, ...input, prevHash }));
+    const { chainKey, prevHash, nextSequence } = await this.authRepository.latestAuditChainPosition(
+      tx,
+      input.userId,
+      null,
+    );
+    const hash = sha256(stableJson({
+      id, ...input, prevHash, chainKey, chainSequence: nextSequence.toString(),
+    }));
     await this.authRepository.insertAudit(tx, {
       id,
       userId: input.userId,
@@ -855,6 +861,7 @@ export class RegistrationDecisionService {
       metadata: input.metadata,
       hash,
       prevHash,
+      chainSequence: nextSequence,
     });
   }
 }

@@ -213,8 +213,13 @@ export class PasswordResetService {
     },
   ): Promise<void> {
     const id = `auth_evt_${randomUUID()}`;
-    const prevHash = await this.repository.latestAuditHash(tx, input.userId);
-    const hash = sha256(stableJson({ id, ...input, prevHash }));
+    const { chainKey, prevHash, nextSequence } = await this.repository.latestAuditChainPosition(
+      tx,
+      input.userId,
+    );
+    const hash = sha256(stableJson({
+      id, ...input, prevHash, chainKey, chainSequence: nextSequence.toString(),
+    }));
     await this.repository.insertAudit(tx, {
       id,
       userId: input.userId,
@@ -224,6 +229,7 @@ export class PasswordResetService {
       metadata: input.metadata,
       hash,
       prevHash,
+      chainSequence: nextSequence,
     });
   }
 }

@@ -16,7 +16,7 @@ function repositoryMock() {
     replacePassword: jest.fn(),
     consumeChallenge: jest.fn(),
     revokeAllUserSessions: jest.fn(),
-    latestAuditHash: jest.fn().mockResolvedValue(null),
+    latestAuditChainPosition: jest.fn().mockResolvedValue({ chainKey: 'auth-global', prevHash: null, nextSequence: 1n }),
     insertAudit: jest.fn(),
   };
 }

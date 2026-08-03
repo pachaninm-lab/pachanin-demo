@@ -50,7 +50,7 @@ function repository() {
     recordMfaFailure: jest.fn(),
     revokeSession: jest.fn(),
     activateMfaStepUp: jest.fn().mockResolvedValue(new Date('2026-08-01T12:00:00.000Z')),
-    latestAuditHash: jest.fn().mockResolvedValue(null),
+    latestAuditChainPosition: jest.fn().mockResolvedValue({ chainKey: 'auth-global', prevHash: null, nextSequence: 1n }),
     insertAudit: jest.fn(),
   };
 }

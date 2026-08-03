@@ -57,7 +57,7 @@ function repository() {
     createRefreshToken: jest.fn(),
     createMfaChallenge: jest.fn(),
     setMfaSecret: jest.fn(),
-    latestAuditHash: jest.fn().mockResolvedValue(null),
+    latestAuditChainPosition: jest.fn().mockResolvedValue({ chainKey: 'auth-global', prevHash: null, nextSequence: 1n }),
     insertAudit: jest.fn(),
   };
   return repo;

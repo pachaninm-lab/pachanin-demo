@@ -70,7 +70,7 @@ function serviceWith(queryHandler: (sql: string) => unknown = () => []) {
   };
   const repository = {
     ensureCredentialState: jest.fn(),
-    latestAuditHash: jest.fn().mockResolvedValue(null),
+    latestAuditChainPosition: jest.fn().mockResolvedValue({ chainKey: 'auth-global', prevHash: null, nextSequence: 1n }),
     insertAudit: jest.fn(),
     revokeAllUserSessions: jest.fn(),
   };

@@ -45,6 +45,7 @@
     "apps/api/prisma/migrations/20260801130000_p0_auth_state_integrity/migration.sql",
     "apps/api/prisma/migrations/20260801133000_p0_mfa_recovery/migration.sql",
     "apps/api/prisma/migrations/20260801134000_p0_consent_authority/migration.sql",
+    "apps/api/prisma/migrations/20260803140000_auth_audit_chain_integrity/migration.sql",
     "apps/api/prisma/schema.prisma",
     "apps/api/scripts/seed-design-system-v8-identities.mjs",
     "apps/api/src/common/types/request-user.ts",
