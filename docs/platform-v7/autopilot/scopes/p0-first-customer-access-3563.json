@@ -169,6 +169,7 @@
     "apps/web/tests/unit/mfaPendingLoginTicket.test.ts",
     "apps/web/tests/unit/p0AuthFailClosed.test.ts",
     "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+    "apps/web/tests/unit/pcCrop10cApplicability.test.ts",
     "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
     "apps/web/tests/unit/platformV7FirstCustomerAccessAuthFailClosed.test.ts",
     "apps/web/tests/unit/platformV7FirstCustomerRegistrationBoundary.test.ts",
@@ -182,6 +183,7 @@
     "apps/web/tests/unit/platformV7StaffControlCenterControlledAccess.test.ts",
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
     "docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json",
+    "scripts/pc-crop-10c/applicability.mjs",
     "scripts/platform-v7-forward-only-migration-check.mjs"
   ],
   "requiredBehavior": [

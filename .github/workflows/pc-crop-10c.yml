@@ -76,15 +76,55 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Resolve exact base and enforce applicable PC-CROP project lock
+      - name: Resolve PC-CROP-10C applicability before any scope verification
+        id: applicability
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+
           if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
             git fetch --no-tags origin "${{ github.base_ref }}"
             base_ref="origin/${{ github.base_ref }}"
+          elif [[ "${{ github.event_name }}" == 'push' ]]; then
+            base_ref='${{ github.event.before }}'
+            git cat-file -e "${base_ref}^{commit}"
+          else
+            base_ref='HEAD^'
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+
+          # Decides once, before the scope verifier runs. A foreign branch that
+          # touches the governed tenant-read authority is still applicable; a
+          # foreign branch that touches only PC-CROP governance files is not,
+          # but its edit is checked for gate integrity instead. The base and
+          # head revisions let the resolver scope the shared Prisma schema by
+          # owned block rather than by path.
+          PC_CROP_10C_EVENT_NAME='${{ github.event_name }}' \
+          PC_CROP_10C_HEAD_REF='${{ github.head_ref }}' \
+          PC_CROP_10C_BASE_REF="$base_ref" \
+          PC_CROP_10C_HEAD_SHA="$EXACT_HEAD" \
+          PC_CROP_10C_CHANGED_FILES="$(cat "$EVIDENCE_DIR/changed-files.txt")" \
+            node scripts/pc-crop-10c/applicability.mjs | tee "$EVIDENCE_DIR/applicability.json"
+
+      - name: Record non-applicable outcome and stop before the scope verifier
+        if: steps.applicability.outputs.applicable != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            '{"schemaVersion":"pc-crop-project-lock.applicability.v1","status":"NOT_APPLICABLE","reason":"PC-CROP-10C is not an authority for this change; see applicability.json"}' \
+            | tee "$EVIDENCE_DIR/project-lock.log"
+          echo 'PC-CROP-10C NOT_APPLICABLE for this change; the tenant-read scope verifier is intentionally not run.'
+
+      - name: Enforce applicable PC-CROP project lock
+        if: steps.applicability.outputs.applicable == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
             case "${{ github.head_ref }}" in
               agent/pc-crop-*|fix/pc-crop-*|governance/pc-crop-*|ops/pc-crop-*)
                 export PC_CROP_BRANCH="${{ github.head_ref }}"
@@ -95,25 +135,21 @@ jobs:
                 ;;
               *)
                 printf '%s\n' \
-                  '{"schemaVersion":"pc-crop-project-lock.applicability.v1","status":"NOT_APPLICABLE","reason":"unrelated PR branch; completed PC-CROP governance lock is not an authority for this change"}' \
+                  '{"schemaVersion":"pc-crop-project-lock.applicability.v1","status":"APPLICABLE_BY_SCOPE","reason":"foreign branch touching governed tenant-read files; scope verifier applies"}' \
                   | tee "$EVIDENCE_DIR/project-lock.log"
                 ;;
             esac
-          elif [[ "${{ github.event_name }}" == 'push' ]]; then
-            base_ref='${{ github.event.before }}'
-            git cat-file -e "${base_ref}^{commit}"
-          else
-            base_ref='HEAD^'
           fi
-          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
-          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          base_ref="$(cat "$EVIDENCE_DIR/base-ref.txt")"
           BASE_REF="$base_ref" node --check scripts/pc-crop-10c/verify.mjs
           BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs | tee "$EVIDENCE_DIR/source-verification.log"
 
       - name: Install frozen dependencies
+        if: steps.applicability.outputs.applicable == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Bootstrap restricted runtime principal
+        if: steps.applicability.outputs.applicable == 'true'
         env:
           PGPASSWORD: postgres
         shell: bash
@@ -134,6 +170,7 @@ jobs:
           SQL
 
       - name: Apply complete PostgreSQL migration chain
+        if: steps.applicability.outputs.applicable == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -145,6 +182,7 @@ jobs:
           touch "$EVIDENCE_DIR/migration.ok"
 
       - name: Verify restricted runtime and dedicated outcome grants
+        if: steps.applicability.outputs.applicable == 'true'
         env:
           PGPASSWORD: postgres
         shell: bash
@@ -376,6 +414,7 @@ jobs:
           touch "$EVIDENCE_DIR/restricted-principal.ok"
 
       - name: Typecheck API authority
+        if: steps.applicability.outputs.applicable == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -383,6 +422,7 @@ jobs:
           touch "$EVIDENCE_DIR/api-typecheck.ok"
 
       - name: Run contract repository and controller tests
+        if: steps.applicability.outputs.applicable == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -394,6 +434,7 @@ jobs:
           touch "$EVIDENCE_DIR/unit-tests.ok"
 
       - name: Run PostgreSQL tenant isolation and immutable audit acceptance
+        if: steps.applicability.outputs.applicable == 'true'
         env:
           PC_CROP_10C_POSTGRESQL: '1'
         shell: bash
@@ -406,6 +447,7 @@ jobs:
           touch "$EVIDENCE_DIR/postgresql-acceptance.ok"
 
       - name: Rebuild and enforce machine-readable exact-head evidence
+        if: steps.applicability.outputs.applicable == 'true'
         shell: bash
         run: |
           set -euo pipefail
