@@ -55,8 +55,16 @@ forbid(/continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(/\/tai\s+deploy\s+(?!current-main)/u, 'alternate deployment command is forbidden');
 forbid(/github\.event\.comment\.body\s*!=/u, 'command matching must use exact positive equality');
 forbid(/docker\s+(run|compose|exec)/u, 'workflow must not gain direct Docker mutation authority');
-forbid(/sudo\s+(?!-n\s+\/usr\/local\/sbin\/pc-tai-release-controller)/u,
-  'sudo is restricted to the protected TAI release controller');
+
+for (const [index, line] of workflow.split('\n').entries()) {
+  const trimmed = line.trim();
+  if (!trimmed.includes('sudo ')) continue;
+  const allowedReadOnlyInspection = trimmed.includes('sudo -n -l');
+  const allowedProtectedController = trimmed.includes('sudo -n /usr/local/sbin/pc-tai-release-controller');
+  if (!allowedReadOnlyInspection && !allowedProtectedController) {
+    violations.push(`line ${index + 1}: sudo is restricted to read-only -l or the protected TAI release controller`);
+  }
+}
 
 if (violations.length) {
   console.error('TAI owner deployment command contract failed:');
