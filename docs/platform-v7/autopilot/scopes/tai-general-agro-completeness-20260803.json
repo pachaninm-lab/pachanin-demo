@@ -12,6 +12,7 @@
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts",
     "scripts/tai-potato-mobile-live-acceptance.mjs",
     "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json"
   ],
