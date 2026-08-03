@@ -16,7 +16,8 @@
     "docs/platform-v7/autopilot/scopes/tai-orphan-runtime-role-repair-20260803.json"
   ],
   "boundaries": [
-    "The repair is owner-only and bound to exact current main on issue 3365",
+    "The only repair command is /tai repair-runtime-role current-main on issue 3365",
+    "The command requires an exact successful owner REG.RU preflight and all six mandatory jobs",
     "No repair runs while a TAI container, dedicated env file or TAI Compose override exists",
     "An existing role must be LOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOINHERIT, NOREPLICATION, NOBYPASSRLS with connection limit 20",
     "The role must have no memberships in either direction, no active sessions and no privileges on non-TAI relations",
