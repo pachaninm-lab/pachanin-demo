@@ -152,7 +152,7 @@ const backupIndex = sync.indexOf('controller_backup="$backup_dir/controller"');
 const mutationIndex = sync.indexOf('mutated=1');
 const controllerInstallIndex = sync.indexOf('mv -Tf "${CONTROLLER_TARGET}.new-${RUN_ID}" "$CONTROLLER_TARGET"');
 const markerInstallIndex = sync.indexOf('mv -Tf "${MARKER}.new-${RUN_ID}" "$MARKER"');
-const fsyncIndex = sync.indexOf('fsync_paths "$CONTROLLER_TARGET" "$MARKER"');
+const fsyncIndex = sync.indexOf('fsync_paths "$CONTROLLER_TARGET" "$MARKER"', markerInstallIndex + 1);
 const evidenceIndex = sync.indexOf('write_evidence UPDATED');
 if ([lockIndex, checkoutIndex, sourceDigestIndex, attestationIndex, backupIndex, mutationIndex, controllerInstallIndex, markerInstallIndex, fsyncIndex, evidenceIndex].some((index) => index < 0)
   || !(lockIndex < checkoutIndex
