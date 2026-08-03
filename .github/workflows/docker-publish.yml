@@ -17,6 +17,7 @@ on:
       - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-owner-reg-ru-deployment-command.yml"
+      - ".github/workflows/tai-owner-controller-refresh-command.yml"
       - "scripts/production-full-stack-exact-sha.sh"
       - "scripts/production-full-stack-live-acceptance.sh"
       - "scripts/check-production-full-stack-release.mjs"
@@ -26,6 +27,8 @@ on:
       - "scripts/tai-reg-ru-deploy.sh"
       - "scripts/pc-tai-release-controller.sh"
       - "scripts/pc-tai-release-controller-core.sh"
+      - "scripts/tai-reg-ru-controller-refresh.sh"
+      - "scripts/check-tai-owner-controller-refresh.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
@@ -35,6 +38,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/*tai-runner*.json"
       - "docs/platform-v7/autopilot/scopes/*least-privilege-controller*.json"
       - "docs/platform-v7/autopilot/scopes/*controller-canonical-trigger*.json"
+      - "docs/platform-v7/autopilot/scopes/tai-controller-refresh-authority-20260803.json"
   workflow_dispatch:
     inputs:
       services:
