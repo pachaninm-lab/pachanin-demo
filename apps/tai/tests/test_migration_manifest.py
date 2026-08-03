@@ -16,18 +16,19 @@ def _repo_root() -> Path:
 
 def test_repository_manifest_preserves_historical_paths_with_unique_authority_order() -> None:
     inventory = _migration_inventory(_repo_root())
-    assert [item.version for item in inventory.migrations] == list(range(1, 25))
+    assert [item.version for item in inventory.migrations] == list(range(1, 26))
     paths = [item.path for item in inventory.migrations]
     assert paths[9].endswith("0010_operational_authority.sql")
     assert paths[10].endswith("0010_orchestration_runtime.sql")
-    assert paths[-8].endswith("0016_official_source_coverage.sql")
-    assert paths[-7].endswith("0017_official_source_run_evidence.sql")
-    assert paths[-6].endswith("0018_confirmation_denial_audit.sql")
-    assert paths[-5].endswith("0019_public_official_corpus.sql")
-    assert paths[-4].endswith("0020_public_official_corpus_audit_authority.sql")
-    assert paths[-3].endswith("0021_public_official_acquisition_authority.sql")
-    assert paths[-2].endswith("0021_retrieval_activation_serialization.sql")
-    assert paths[-1].endswith("0022_runtime_role_grant_reconciliation.sql")
+    assert paths[-9].endswith("0016_official_source_coverage.sql")
+    assert paths[-8].endswith("0017_official_source_run_evidence.sql")
+    assert paths[-7].endswith("0018_confirmation_denial_audit.sql")
+    assert paths[-6].endswith("0019_public_official_corpus.sql")
+    assert paths[-5].endswith("0020_public_official_corpus_audit_authority.sql")
+    assert paths[-4].endswith("0021_public_official_acquisition_authority.sql")
+    assert paths[-3].endswith("0021_retrieval_activation_serialization.sql")
+    assert paths[-2].endswith("0022_runtime_role_grant_reconciliation.sql")
+    assert paths[-1].endswith("0023_public_relation_privilege_boundary.sql")
 
 
 def test_runtime_role_grant_reconciliation_is_bounded_and_fail_closed() -> None:
@@ -48,6 +49,28 @@ def test_runtime_role_grant_reconciliation_is_bounded_and_fail_closed() -> None:
     assert "tai_runtime grant reconciliation is incomplete" in migration
     assert "GRANT ALL" not in migration.upper()
     assert "ON ALL TABLES" not in migration.upper()
+    assert "ALTER ROLE" not in migration.upper()
+
+
+def test_public_relation_privilege_boundary_is_exact_idempotent_and_preserves_trusted_roles() -> None:
+    migration = (
+        _repo_root()
+        / "apps/tai/tai/migrations/0023_public_relation_privilege_boundary.sql"
+    ).read_text(encoding="utf-8")
+
+    assert "namespace.nspname = 'public'" in migration
+    assert "relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'" in migration
+    assert "acl.grantee = 0" in migration
+    assert "IF affected_relation_count = 0 THEN" in migration
+    assert "IF affected_relation_count <> 2 THEN" in migration
+    assert "ARRAY['app_runtime', 'app_service']" in migration
+    assert "GRANT %s ON TABLE %I.%I TO %I%s" in migration
+    assert "REVOKE %s ON TABLE %I.%I FROM PUBLIC" in migration
+    assert "PUBLIC relation privilege reconciliation is incomplete" in migration
+    assert "DROP TABLE" not in migration.upper()
+    assert "DROP VIEW" not in migration.upper()
+    assert "DROP OWNED" not in migration.upper()
+    assert "REASSIGN OWNED" not in migration.upper()
     assert "ALTER ROLE" not in migration.upper()
 
 
