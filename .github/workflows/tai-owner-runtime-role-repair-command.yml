@@ -1,0 +1,218 @@
+name: TAI Owner Runtime Role Repair Command
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-runtime-role-repair-command.yml"
+      - "scripts/pc-tai-release-controller.sh"
+      - "scripts/tai-runtime-role-repair.sh"
+      - "scripts/check-tai-runtime-role-repair.mjs"
+      - "scripts/select-tai-owner-preflight-status.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-orphan-runtime-role-repair-20260803.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-runtime-role-repair-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  authority:
+    name: Resolve exact successful owner preflight
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai repair-runtime-role current-main'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: read
+    outputs:
+      target_sha: ${{ steps.authority.outputs.target_sha }}
+      preflight_run_id: ${{ steps.authority.outputs.preflight_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate repair contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/pc-tai-release-controller.sh
+          bash -n scripts/tai-runtime-role-repair.sh
+          node scripts/check-tai-runtime-role-repair.mjs
+      - name: Verify owner command and exact preflight authority
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status" \
+            > "$RUNNER_TEMP/preflight-status.json"
+          preflight_run_id="$(node scripts/select-tai-owner-preflight-status.mjs \
+            "$RUNNER_TEMP/preflight-status.json" "$target_sha" "$GITHUB_REPOSITORY")"
+          [[ "$preflight_run_id" =~ ^[0-9]+$ ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${preflight_run_id}" \
+            > "$RUNNER_TEMP/preflight-run.json"
+          preflight_attempt="$(node - "$RUNNER_TEMP/preflight-run.json" <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (!Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1) process.exit(2);
+          process.stdout.write(String(run.run_attempt));
+          NODE
+          )"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
+            "$target_sha" "$preflight_attempt" 'TAI Owner REG.RU Preflight' "$GITHUB_REPOSITORY"
+          node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
+          const fs = require('node:fs');
+          const [path, owner] = process.argv.slice(2);
+          const run = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (run.event !== 'issue_comment' || run.actor?.login !== owner || run.triggering_actor?.login !== owner) process.exit(3);
+          NODE
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${preflight_run_id}/attempts/${preflight_attempt}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/preflight-jobs.json"
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --jobs "$RUNNER_TEMP/preflight-jobs.json" \
+            'Require successful canonical image build' \
+            'Least-privilege preflight contract' \
+            'Exact-main canonical TAI image authority' \
+            'Exact-main REG.RU controller inventory' \
+            'Publish REG.RU preflight status' \
+            'Confirm REG.RU preflight chain result'
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "preflight_run_id=$preflight_run_id" >> "$GITHUB_OUTPUT"
+
+  repair:
+    name: Repair strictly attested orphan runtime role
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    permissions:
+      contents: read
+      packages: none
+      statuses: none
+      issues: none
+    timeout-minutes: 15
+    env:
+      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+    steps:
+      - name: Verify direct production authority is absent
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Execute protected orphan-role repair
+        run: |
+          set -Eeuo pipefail
+          sudo -n /usr/local/sbin/pc-tai-release-controller repair-runtime-role "$TARGET_SHA" "$GITHUB_RUN_ID"
+      - name: Upload role repair evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-runtime-role-repair-${{ github.run_id }}
+          path: /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/runtime-role-repair.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish exact-main runtime role repair result
+    needs: [authority, repair]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai repair-runtime-role current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - name: Publish redacted terminal evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          REPAIR_RESULT: ${{ needs.repair.result }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          PREFLIGHT_RUN_ID: ${{ needs.authority.outputs.preflight_run_id }}
+        run: |
+          set -Eeuo pipefail
+          state=failure
+          terminal=FAILED_NO_DEPLOYMENT_STARTED
+          description='TAI runtime role repair failed or was not authorized'
+          if [[ "$AUTHORITY_RESULT" == success && "$REPAIR_RESULT" == success ]]; then
+            state=success
+            terminal=PASS
+            description='TAI orphan runtime role repair PASS'
+          fi
+          if [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+              -f state="$state" -f context='TAI Runtime Role Repair' -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          fi
+          cat > "$RUNNER_TEMP/comment.md" <<EOF
+          ## TAI runtime role repair
+
+          - result: \`$terminal\`
+          - exact main: \`${TARGET_SHA:-unresolved}\`
+          - verified preflight run: \`${PREFLIGHT_RUN_ID:-none}\`
+          - repair run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - production deployment started: \`false\`
+          EOF
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$state" == success ]]
+
+  result_gate:
+    name: Confirm orphan runtime role repair result
+    needs: [authority, repair, publish]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai repair-runtime-role current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped repair jobs
+        env:
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          REPAIR_RESULT: ${{ needs.repair.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$AUTHORITY_RESULT" == success ]]
+          [[ "$REPAIR_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]

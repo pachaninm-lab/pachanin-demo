@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-orphan-runtime-role-repair-20260803",
+  "status": "active",
+  "title": "TAI orphan runtime role repair",
+  "priority": "P0",
+  "baselineExactMain": "f13c4186e132fbc45d089943690738ff41cae7b1",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Repair only a strictly attested orphan tai_runtime PostgreSQL role when the standalone TAI service, dedicated environment and Compose override are all absent, then allow the existing fail-closed deployment to recreate the principal with a fresh secret.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-runtime-role-repair-command.yml",
+    "scripts/pc-tai-release-controller.sh",
+    "scripts/tai-runtime-role-repair.sh",
+    "scripts/check-tai-runtime-role-repair.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-orphan-runtime-role-repair-20260803.json"
+  ],
+  "boundaries": [
+    "The only repair command is /tai repair-runtime-role current-main on issue 3365",
+    "The command requires an exact successful owner REG.RU preflight and all six mandatory jobs",
+    "No repair runs while a TAI container, dedicated env file or TAI Compose override exists",
+    "An existing role must be LOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOINHERIT, NOREPLICATION, NOBYPASSRLS with connection limit 20",
+    "The role must have no memberships in either direction, no active sessions and no privileges on non-TAI relations",
+    "Only CONNECT, public schema usage and privileges on tai_* relations and sequences are revoked",
+    "DROP OWNED and REASSIGN OWNED are forbidden; any unexpected dependency makes DROP ROLE fail and rolls back the PostgreSQL transaction",
+    "Role absence is an idempotent PASS",
+    "The normal deployment remains responsible for fresh role creation, grants, runtime proof and rollback",
+    "No model, tenant, role, financial or autonomous write authority is widened",
+    "No new recurring cost"
+  ]
+}
