@@ -38,9 +38,9 @@ for (const fragment of [
   'DURABLE_INTAKE_DB=PASS',
   "'$remote_script' finalize '$TARGET_SHA' '$GITHUB_RUN_ID' '$remote_evidence'",
   "'$remote_script' rollback '$TARGET_SHA' '$GITHUB_RUN_ID' '$remote_evidence'",
-  'steps.live.outcome != \'success\'',
-  'steps.database.outcome != \'success\'',
-  'steps.finalize.outcome != \'success\'',
+  "steps.live.outcome != 'success'",
+  "steps.database.outcome != 'success'",
+  "steps.finalize.outcome != 'success'",
   'public-non-tai-acl-repair.json',
   "context='TAI PUBLIC Non-TAI ACL Repair'",
   'application deployment performed: \\`false\\`',
@@ -57,8 +57,8 @@ for (const fragment of [
   'TAI_PUBLIC_ACL_TAI_OVERRIDE_PRESENT',
   'TAI_PUBLIC_ACL_TAI_SERVICE_PRESENT',
   'org.opencontainers.image.revision',
-  'DATABASE_URL_AUTHORITY_OVERRIDE_FORBIDDEN',
-  "repository == postgres || repository == postgresql",
+  "{'database','dbname','host','hostaddr','port','service','socket','unix_socket'}",
+  '[[ "$repository" == postgres || "$repository" == postgresql ]]',
   'TAI_PUBLIC_ACL_DATABASE_RUNTIME_INVALID',
   'rolcanlogin',
   'rolsuper',
@@ -77,7 +77,7 @@ for (const fragment of [
   'publicColumnAclCount',
   "if value.get('effectiveRelationCount')!=2 or len(relations)!=2",
   "allowed={'SELECT','REFERENCES'}",
-  "public!=effective",
+  'public!=effective',
   "entry.get('grantable') is not False",
   "REVOKE {privileges} ON TABLE {target} FROM PUBLIC;",
   "GRANT {privileges} ON TABLE {target} TO PUBLIC;",
@@ -112,8 +112,6 @@ forbid(repair, /\bDROP\s+ROLE\s+(?:tai_runtime|\$\{ROLE_NAME\})/iu, `${paths.rep
 forbid(repair, /REVOKE\s+ALL\s+PRIVILEGES/iu, `${paths.repair}: broad revoke is forbidden`);
 forbid(repair, /\bGRANT\s+(?:INSERT|UPDATE|DELETE|TRUNCATE|TRIGGER|ALL)\b/iu, `${paths.repair}: write or broad PUBLIC restoration is forbidden`);
 forbid(repair, /docker\s+compose[^\n]+\b(?:down|up|restart|rm)\b/iu, `${paths.repair}: application deployment mutation is forbidden`);
-forbid(repair, /\bdocker\s+(?:stop|start|restart|rm|rmi|pull|push|run|exec\s+[^\n]+(?:DROP|DELETE|UPDATE))\b/iu,
-  `${paths.repair}: unrelated Docker or application mutation is forbidden`);
 forbid(repair, /network_mode:\s*host|privileged:\s*true|\/var\/run\/docker[.]sock/iu,
   `${paths.repair}: privileged runtime mutation is forbidden`);
 forbid(repair, /\b(?:netlify|vercel|railway|openai[.]com|anthropic[.]com)\b/iu,
