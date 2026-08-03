@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-runtime-role-grant-reconcile-20260803",
+  "status": "active",
+  "title": "TAI runtime role grant reconciliation",
+  "priority": "P0",
+  "baselineExactMain": "f13c4186e132fbc45d089943690738ff41cae7b1",
+  "objective": "Repair the exact production blocker TAI_DEPLOY_RUNTIME_ROLE_BOUNDARY_FAILED by reconciling only the bounded tai_* relation and sequence privileges for an already-existing least-privilege tai_runtime role after forward-only migrations create new TAI relations.",
+  "allowedPaths": [
+    "apps/tai/tai/migrations/0022_runtime_role_grant_reconciliation.sql",
+    "apps/tai/tai/migrations/manifest.json",
+    "apps/tai/tests/test_migration_manifest.py",
+    "docs/platform-v7/autopilot/scopes/tai-runtime-role-grant-reconcile-20260803.json"
+  ],
+  "boundaries": [
+    "The migration is a no-op when tai_runtime does not exist",
+    "Existing role attributes, memberships and non-TAI relation privileges must already satisfy the fail-closed boundary",
+    "Only CONNECT, public schema USAGE and exact privileges on public tai_* relations and sequences are reconciled",
+    "No GRANT ALL, ON ALL TABLES, role membership, role attribute or non-TAI privilege expansion is permitted",
+    "No production mutation occurs before merge and exact-main release authority",
+    "REG.RU only and zero new recurring cost"
+  ]
+}
