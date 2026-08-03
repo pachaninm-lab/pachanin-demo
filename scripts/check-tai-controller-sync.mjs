@@ -31,8 +31,15 @@ for (const fragment of [
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
   'production-full-stack-exact-sha.yml/runs?branch=main&status=success&per_page=100',
   "run?.name === 'Production Full-Stack Exact-SHA Release'",
+  'candidate_run_ids="$(node -',
+  'runs.map((run) => String(run.id))',
+  "full_stack_run_id=''",
+  'while IFS= read -r candidate_run_id; do',
+  'full-stack-jobs-${candidate_run_id}.json',
   "'Validate full-stack release contract'",
   "'Migrate, deploy API and web, verify live intake'",
+  'full_stack_run_id="$candidate_run_id"',
+  '[[ "$full_stack_run_id" =~ ^[0-9]+$ ]]',
   'runs-on: ubuntu-24.04',
   'DEFAULT_HOST: 195.19.12.120',
   'SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}',
@@ -113,6 +120,8 @@ forbid(workflow, /continue-on-error:\s*true/mu, `${paths.workflow}: continue-on-
 forbid(workflow, /StrictHostKeyChecking=(?:no|accept-new)/u, `${paths.workflow}: unpinned SSH host acceptance is forbidden`);
 forbid(workflow, /runs-on:\s*\[self-hosted/iu, `${paths.workflow}: controller sync must not run through the restricted self-hosted runner`);
 forbid(workflow, /\/tai\s+sync-controller\s+(?!current-main)/u, `${paths.workflow}: alternate controller sync target is forbidden`);
+forbid(workflow, /process[.]stdout[.]write\(String\(runs\[0\][.]id\)\)/u,
+  `${paths.workflow}: newest workflow-level success must not be selected before job-level validation`);
 forbid(sync, /\bcurl\b|\bwget\b|\beval\b/iu, `${paths.sync}: remote download or eval is forbidden`);
 forbid(sync, /chmod\s+(?:4|6|7)777|chown\s+-R|chmod\s+-R/iu, `${paths.sync}: broad permission mutation is forbidden`);
 forbid(sync, /\/var\/run\/docker[.]sock|usermod|gpasswd/iu, `${paths.sync}: Docker or user authority mutation is forbidden`);
@@ -124,8 +133,8 @@ forbid(sync, /set\s+-[^\n]*x/iu, `${paths.sync}: shell tracing is forbidden`);
 forbid(sync, /\b(?:netlify|vercel|railway|openai[.]com|anthropic[.]com)\b/iu, `${paths.sync}: external hosting or paid LLM dependency is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${paths.scope}: invalid schemaVersion`);
-if (scope.branch !== 'fix/tai-controller-sync-hardening-20260803') violations.push(`${paths.scope}: branch mismatch`);
-if (scope.baselineExactMain !== 'c2f0aac662025eca80972e608eb94c8d61db3340') violations.push(`${paths.scope}: baseline mismatch`);
+if (scope.branch !== 'fix/tai-controller-sync-authority-selection-20260803') violations.push(`${paths.scope}: branch mismatch`);
+if (scope.baselineExactMain !== 'd9a74d2f59c8da15c5900d2c7389f1966c9b5a37') violations.push(`${paths.scope}: baseline mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) {
   violations.push(`${paths.scope}: hosting or cost boundary changed`);
 }
@@ -142,6 +151,19 @@ const expectedTriggerPaths = [dockerPublishPath, paths.checker, triggerScopePath
 const allowedTriggerPaths = Array.isArray(triggerScope.allowedPaths) ? [...triggerScope.allowedPaths].sort() : [];
 if (JSON.stringify(expectedTriggerPaths) !== JSON.stringify(allowedTriggerPaths)) {
   violations.push(`${triggerScopePath}: allowedPaths must exactly match the canonical trigger implementation`);
+}
+
+const candidateListIndex = workflow.indexOf('candidate_run_ids="$(node -');
+const candidateLoopIndex = workflow.indexOf('while IFS= read -r candidate_run_id; do');
+const candidateJobsIndex = workflow.indexOf('full-stack-jobs-${candidate_run_id}.json');
+const candidateSelectIndex = workflow.indexOf('full_stack_run_id="$candidate_run_id"');
+const authorityOutputIndex = workflow.indexOf('echo "full_stack_run_id=$full_stack_run_id"');
+if ([candidateListIndex, candidateLoopIndex, candidateJobsIndex, candidateSelectIndex, authorityOutputIndex].some((index) => index < 0)
+  || !(candidateListIndex < candidateLoopIndex
+    && candidateLoopIndex < candidateJobsIndex
+    && candidateJobsIndex < candidateSelectIndex
+    && candidateSelectIndex < authorityOutputIndex)) {
+  violations.push(`${paths.workflow}: candidate runs must be job-validated before full-stack authority is selected and published`);
 }
 
 const lockIndex = sync.indexOf('flock -n 9');
@@ -177,4 +199,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI exact controller sync contract PASS: owner-only exact-main full-stack authority, canonical image trigger, pinned REG.RU root transport, shared controller lock, prior digest attestation, atomic install, fsync, rollback and unchanged runner privilege.');
+console.log('TAI exact controller sync contract PASS: exact-main candidates are job-validated before selection, then owner-only pinned REG.RU synchronization retains shared lock, prior digest attestation, atomic install, fsync, rollback and unchanged runner privilege.');
