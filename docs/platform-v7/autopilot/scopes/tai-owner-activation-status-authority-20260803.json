@@ -11,6 +11,7 @@
     "scripts/select-tai-owner-preflight-status.mjs",
     "scripts/check-tai-owner-preflight-status-selection.mjs",
     "scripts/check-tai-owner-activation-command.mjs",
+    "scripts/check-tai-reg-ru-release-chain.mjs",
     "docs/platform-v7/autopilot/scopes/tai-owner-activation-status-authority-20260803.json"
   ],
   "boundaries": [
