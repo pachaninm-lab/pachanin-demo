@@ -145,6 +145,7 @@ output_dir="$OUTPUT_ROOT/$RUN_ID"
 rm -rf "$output_dir"
 install -d -m 0750 -o root -g pcactions "$output_dir"
 python3 - "$output_dir/controller-sync.json" "$TARGET_SHA" "$EXPECTED_SHA256" "$runner_name" "$service_name" <<'PY'
+import grp
 import json
 import os
 import sys
@@ -163,7 +164,7 @@ payload = {
     'status': 'PASS',
 }
 Path(path).write_text(json.dumps(payload, ensure_ascii=True, separators=(',', ':')) + '\n', encoding='utf-8')
-os.chown(path, 0, os.stat(path).st_gid)
+os.chown(path, 0, grp.getgrnam('pcactions').gr_gid)
 os.chmod(path, 0o640)
 PY
 
