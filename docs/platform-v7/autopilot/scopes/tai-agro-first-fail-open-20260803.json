@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "tai/agro-first-fail-open-20260803",
+  "status": "active",
+  "title": "TAI agro-first fail-open content routing",
+  "priority": "P0",
+  "baselineExactMain": "11d1450b481bda6d32fdcb2dd254f5df85a79306",
+  "objective": "Eliminate false thematic refusals across agriculture, agribusiness and safe general assistance while preserving fail-closed safety, privacy, authorization, tenant, write, financial and tool-execution boundaries.",
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "docs/platform-v7/ai/agro-first-fail-open-routing-policy.md",
+    "docs/platform-v7/autopilot/scopes/tai-agro-first-fail-open-20260803.json",
+    "scripts/tai-live-public-ai-acceptance.mjs"
+  ],
+  "boundaries": [
+    "No platform write-authority expansion",
+    "No tenant, role or private-data expansion",
+    "No autonomous financial, legal or production action",
+    "Explicit safety and sensitive-input boundaries remain fail-closed",
+    "Platform capability and execution claims remain verified-grounding-only",
+    "Current facts require governed current evidence",
+    "Critical calculations remain deterministic-code authority",
+    "REG.RU and local Qwen only",
+    "Zero new recurring cost"
+  ],
+  "acceptance": [
+    "Agricultural and agribusiness questions are never blocked by lexical confidence or missing platform functionality",
+    "Safe general questions receive normal concise answers",
+    "Short follow-ups inherit bounded conversation context",
+    "Missing inputs produce a preliminary answer plus factors, risks, required inputs and focused questions",
+    "A missing platform module produces an explanation without a false execution claim",
+    "RU, EN and ZH use the same coverage policy",
+    "Secrets, foreign data, privilege escalation and write requests remain blocked",
+    "Exact-main REG.RU mobile live acceptance before DONE"
+  ]
+}
