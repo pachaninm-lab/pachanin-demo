@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-activation-neutral-gate-20260803",
+  "status": "active",
+  "title": "TAI activation neutral event gate",
+  "priority": "P0",
+  "baselineExactMain": "55f9e0e0b72c643678e409d5ae18e20bc91b3b47",
+  "objective": "Ensure every activation event creates a verifiable authority job, while unrelated issue comments and unsuccessful workflow_run events exit neutrally without target outputs or false production status; exact owner activation remains fail-closed.",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/check-tai-owner-activation-command.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-activation-neutral-gate-20260803.json"
+  ],
+  "boundaries": [
+    "The upstream authority job is always materialized for supported workflow events",
+    "Unrelated issue comments and non-success/non-main workflow_run events exit with no target SHA output",
+    "Only /tai activate current-main on issue 3365 by the repository owner can resolve a preflight run",
+    "The exact successful owner preflight and all six required jobs remain mandatory",
+    "Image, protected controller, RU/EN/ZH SSE, Chromium, finalization, rollback and standalone deployment gates are unchanged",
+    "No new recurring cost"
+  ]
+}
