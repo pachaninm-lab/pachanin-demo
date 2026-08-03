@@ -1,0 +1,75 @@
+name: TAI one-shot autopilot guard remediation
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - main
+    paths:
+      - .github/workflows/tai-one-shot-autopilot-guard-remediation.yml
+      - docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json
+      - scripts/p7-autopilot-guard.sh
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-one-shot-autopilot-guard-remediation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  remediate:
+    name: Admit exact governed lockfile remediation branch
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/tai-general-agro-completeness-20260803'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-general-agro-completeness-20260803
+          fetch-depth: 0
+
+      - name: Apply exact single guard admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/p7-autopilot-guard.sh')
+          text = path.read_text(encoding='utf-8')
+          old = '      "$HEAD_REF" != "agent/tai-ap-14f2a-rosstat-fact-pack-3381" ]] && \\\n'
+          new = (
+              '      "$HEAD_REF" != "agent/tai-ap-14f2a-rosstat-fact-pack-3381" && \\\n'
+              '      "$HEAD_REF" != "fix/tai-general-agro-completeness-20260803" ]] && \\\n'
+          )
+
+          if new in text:
+              print('Exact branch admission is already present')
+          else:
+              occurrences = text.count(old)
+              if occurrences != 1:
+                  raise SystemExit(f'Expected one exact guard anchor, found {occurrences}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+          git diff --check
+          test "$(grep -Fc '"'"'$HEAD_REF'"'"' != "fix/tai-general-agro-completeness-20260803"' scripts/p7-autopilot-guard.sh)" -eq 1
+
+      - name: Commit guard admission when changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- scripts/p7-autopilot-guard.sh; then
+            echo "Guard is already synchronized"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/p7-autopilot-guard.sh
+          git commit -m "governance: admit exact TAI lockfile remediation branch"
+          git push origin HEAD:fix/tai-general-agro-completeness-20260803
