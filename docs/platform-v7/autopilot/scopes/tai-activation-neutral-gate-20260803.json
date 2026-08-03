@@ -9,6 +9,7 @@
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "scripts/check-tai-owner-activation-command.mjs",
+    "scripts/check-tai-reg-ru-release-chain.mjs",
     "docs/platform-v7/autopilot/scopes/tai-activation-neutral-gate-20260803.json"
   ],
   "boundaries": [
