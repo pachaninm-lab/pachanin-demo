@@ -1,0 +1,318 @@
+name: TAI Owner REG.RU Controller Refresh Command
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/docker-publish.yml'
+      - '.github/workflows/tai-owner-controller-refresh-command.yml'
+      - 'scripts/pc-tai-release-controller.sh'
+      - 'scripts/tai-reg-ru-controller-refresh.sh'
+      - 'scripts/check-tai-owner-controller-refresh.mjs'
+      - 'docs/platform-v7/autopilot/scopes/tai-controller-refresh-authority-20260803.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-controller-refresh-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  authority:
+    name: Resolve exact owner controller refresh authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai refresh-controller current-main'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
+      wrapper_sha256: ${{ steps.target.outputs.wrapper_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate controller refresh contract
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/tai-reg-ru-controller-refresh.sh
+          node scripts/check-tai-owner-controller-refresh.mjs
+      - name: Enforce repository-owner command authority
+        if: github.event_name == 'issue_comment'
+        env:
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+      - name: Resolve and bind exact current main
+        if: github.event_name == 'issue_comment'
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+          git checkout --force --detach "$target_sha"
+          [[ -z "$(git status --porcelain=v1)" ]]
+          wrapper_sha256="$(sha256sum scripts/pc-tai-release-controller.sh | awk '{print $1}')"
+          [[ "$wrapper_sha256" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "short=${target_sha:0:7}" >> "$GITHUB_OUTPUT"
+          echo "wrapper_sha256=$wrapper_sha256" >> "$GITHUB_OUTPUT"
+
+  refresh:
+    name: Refresh exact controller through pinned REG.RU SSH
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      refresh_status: ${{ steps.refresh.outputs.refresh_status }}
+      old_digest: ${{ steps.refresh.outputs.old_digest }}
+      new_digest: ${{ steps.refresh.outputs.new_digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Revalidate exact source tree
+        env:
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          WRAPPER_SHA256: ${{ needs.authority.outputs.wrapper_sha256 }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          git checkout --force --detach "$TARGET_SHA"
+          [[ -z "$(git status --porcelain=v1)" ]]
+          [[ "$(sha256sum scripts/pc-tai-release-controller.sh | awk '{print $1}')" == "$WRAPPER_SHA256" ]]
+          bash -n scripts/pc-tai-release-controller.sh
+          bash -n scripts/tai-reg-ru-controller-refresh.sh
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" >/dev/null
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; test -f /usr/local/sbin/pc-tai-release-controller; echo ROOT_SSH_AUTH_OK' \
+            | grep -Fxq ROOT_SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Refresh controller and collect redacted evidence
+        id: refresh
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          local_dir="$RUNNER_TEMP/controller-refresh"
+          remote_dir="/var/lib/pc-release-authority/controller-refresh/${GITHUB_RUN_ID}"
+          mkdir -p "$local_dir"
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "set -Eeuo pipefail; test ! -e '$remote_dir'; install -d -m 0700 -o root -g root '$remote_dir'"
+          scp "${scp_common[@]}" scripts/pc-tai-release-controller.sh \
+            "$USER@$HOST:$remote_dir/pc-tai-release-controller.sh"
+          scp "${scp_common[@]}" scripts/tai-reg-ru-controller-refresh.sh \
+            "$USER@$HOST:$remote_dir/refresh.sh"
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "set -Eeuo pipefail; chown root:root '$remote_dir/pc-tai-release-controller.sh' '$remote_dir/refresh.sh'; chmod 0600 '$remote_dir/pc-tai-release-controller.sh'; chmod 0700 '$remote_dir/refresh.sh'"
+
+          raw="$local_dir/refresh.raw.log"
+          clean="$local_dir/refresh.log"
+          set +e
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "'$remote_dir/refresh.sh' '$TARGET_SHA' '$GITHUB_RUN_ID' '$remote_dir/pc-tai-release-controller.sh' '$remote_dir/controller-refresh.json'" \
+            > "$raw" 2>&1
+          rc=$?
+          scp "${scp_common[@]}" "$USER@$HOST:$remote_dir/controller-refresh.json" \
+            "$local_dir/controller-refresh.json" >/dev/null 2>&1
+          evidence_rc=$?
+          set -e
+          sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' "$raw" > "$clean"
+          cat "$clean"
+          rm -f "$raw"
+          (( evidence_rc == 0 )) || { echo 'Controller refresh evidence unavailable.' >&2; exit 60; }
+          result="$(python3 - "$local_dir/controller-refresh.json" "$TARGET_SHA" "$GITHUB_RUN_ID" <<'PY'
+          import json
+          import re
+          import sys
+          path, sha, run_id = sys.argv[1:]
+          report = json.load(open(path, encoding='utf-8'))
+          if report.get('schemaVersion') != 'tai.reg-ru.controller-refresh.v1': raise SystemExit('schema mismatch')
+          if report.get('targetSha') != sha or report.get('runId') != run_id: raise SystemExit('identity mismatch')
+          if report.get('mode') != 'OWNER_EXACT_MAIN_CONTROLLER_REFRESH': raise SystemExit('mode mismatch')
+          if report.get('status') not in {'REFRESHED', 'ALREADY_CURRENT', 'FAILED'}: raise SystemExit('status mismatch')
+          for key in ('runnerRegistrationChanged','runnerServiceRestarted','composeMutationPerformed','databaseMutationPerformed','modelMutationPerformed','applicationDeploymentPerformed','sudoAuthorityWidened'):
+              if report.get(key) is not False: raise SystemExit(f'boundary mismatch: {key}')
+          old = report.get('oldControllerSha256')
+          new = report.get('newControllerSha256')
+          if not isinstance(old, str) or not re.fullmatch(r'[0-9a-f]{64}', old): raise SystemExit('old digest invalid')
+          if not isinstance(new, str) or not re.fullmatch(r'[0-9a-f]{64}', new): raise SystemExit('new digest invalid')
+          if report.get('passed') is not True: raise SystemExit('refresh did not pass')
+          print(json.dumps({'status':report['status'],'old':old,'new':new}, separators=(',',':')))
+          PY
+          )"
+          status="$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.status)' "$result")"
+          old="$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.old)' "$result")"
+          new="$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.new)' "$result")"
+          echo "refresh_status=$status" >> "$GITHUB_OUTPUT"
+          echo "old_digest=$old" >> "$GITHUB_OUTPUT"
+          echo "new_digest=$new" >> "$GITHUB_OUTPUT"
+          (( rc == 0 )) || exit "$rc"
+      - name: Upload controller refresh evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-controller-refresh-${{ needs.authority.outputs.target_short }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/controller-refresh
+          if-no-files-found: error
+          retention-days: 30
+
+  result:
+    name: Publish controller refresh result
+    needs: [authority, refresh]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai refresh-controller current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - name: Publish exact-main status and terminal evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          REFRESH_RESULT: ${{ needs.refresh.result }}
+          REFRESH_STATUS: ${{ needs.refresh.outputs.refresh_status }}
+          OLD_DIGEST: ${{ needs.refresh.outputs.old_digest }}
+          NEW_DIGEST: ${{ needs.refresh.outputs.new_digest }}
+        run: |
+          set -Eeuo pipefail
+          state=error
+          description='Controller refresh failed before exact attestation'
+          result=FAILED
+          if [[ "$AUTHORITY_RESULT" == success && "$REFRESH_RESULT" == success && "$REFRESH_STATUS" =~ ^(REFRESHED|ALREADY_CURRENT)$ ]]; then
+            state=success
+            description="Exact REG.RU controller ${REFRESH_STATUS,,}"
+            result="$REFRESH_STATUS"
+          fi
+          if [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+              -f state="$state" \
+              -f context='TAI Controller Refresh' \
+              -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          fi
+          cat > "$RUNNER_TEMP/comment.md" <<EOF
+          ## TAI exact-main controller refresh
+
+          - result: \`$result\`
+          - exact main: \`${TARGET_SHA:-unresolved}\`
+          - old controller SHA-256: \`${OLD_DIGEST:-unavailable}\`
+          - new controller SHA-256: \`${NEW_DIGEST:-unavailable}\`
+          - runner registration changed: \`false\`
+          - runner service restarted: \`false\`
+          - Compose/DB/model/application mutation: \`false\`
+          - sudo authority widened: \`false\`
+          - workflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$state" == success ]]
