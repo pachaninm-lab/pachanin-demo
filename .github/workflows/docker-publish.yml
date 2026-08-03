@@ -38,7 +38,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/*tai-runner*.json"
       - "docs/platform-v7/autopilot/scopes/*least-privilege-controller*.json"
       - "docs/platform-v7/autopilot/scopes/*controller-canonical-trigger*.json"
-      - "docs/platform-v7/autopilot/scopes/tai-exact-controller-sync-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/*controller-sync*.json"
   workflow_dispatch:
     inputs:
       services:
