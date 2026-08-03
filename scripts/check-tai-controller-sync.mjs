@@ -47,7 +47,7 @@ requireAll('workflow', [
   'tai.controller-sync.v1',
   "context='TAI Controller Sync'",
   'Publish redacted terminal evidence',
-  'authority widened: `false`',
+  'authority widened:',
   'Confirm exact controller synchronization result',
   'retention-days: 30',
 ]);
