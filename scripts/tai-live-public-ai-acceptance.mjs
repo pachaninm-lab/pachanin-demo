@@ -92,6 +92,20 @@ function assertRealGeneralQwen({ id, locale, text, frames, assessment, done, ans
   return { flags };
 }
 
+function assertNoThematicRefusal({ id, locale, answer, expectedTerms = [] }) {
+  const normalized = answer.normalize('NFKC').toLocaleLowerCase(locale === 'en' ? 'en-US' : locale === 'zh' ? 'zh-CN' : 'ru-RU');
+  const refusalPatterns = locale === 'en'
+    ? [/outside (?:my|the) (?:area|scope|domain)/iu, /i (?:only )?speciali[sz]e in agriculture/iu, /cannot help with this unrelated/iu]
+    : locale === 'zh'
+      ? [/不在我的(?:专业)?范围/u, /我只专注于农业/u, /无法帮助这个无关/u]
+      : [/это не моя область/iu, /здесь я не помогу/iu, /я занимаюсь только (?:сельским хозяйством|агробизнесом)/iu, /не относится к моей специализации/iu];
+  const refusal = refusalPatterns.find(pattern => pattern.test(normalized));
+  if (refusal) throw new Error(`sse_thematic_refusal:${id}:${refusal.source}`);
+  if (expectedTerms.length && !expectedTerms.some(term => normalized.includes(term.toLocaleLowerCase(locale === 'en' ? 'en-US' : locale === 'zh' ? 'zh-CN' : 'ru-RU')))) {
+    throw new Error(`sse_expected_substance_missing:${id}:${expectedTerms.join(',')}`);
+  }
+}
+
 async function verifyRealQwenSse() {
   const cases = [
     ['ru', 'Что влияет на цену зерна?'],
@@ -107,6 +121,7 @@ async function verifyRealQwenSse() {
       ...response,
       minimumAnswerCharacters: 80,
     });
+    assertNoThematicRefusal({ id: locale, locale, answer: response.answer });
     const evidence = languageAndTopicEvidence(locale, response.answer);
     results.push({
       locale,
@@ -130,6 +145,7 @@ async function verifyConversationalBreadth() {
       question: 'Привет',
       history: [],
       minimumAnswerCharacters: 5,
+      expectedTerms: [],
     },
     {
       id: 'rare_crop_term',
@@ -137,6 +153,7 @@ async function verifyConversationalBreadth() {
       question: 'Как интерпретировать коэффициент кущения и продуктивную кустистость?',
       history: [],
       minimumAnswerCharacters: 60,
+      expectedTerms: ['кущ', 'побег', 'растен'],
     },
     {
       id: 'livestock_microclimate',
@@ -144,6 +161,7 @@ async function verifyConversationalBreadth() {
       question: 'Как интерпретировать THI 78 для высокопродуктивной группы животных?',
       history: [],
       minimumAnswerCharacters: 60,
+      expectedTerms: ['теплов', 'стресс', 'температур', 'влажност'],
     },
     {
       id: 'machinery_pto',
@@ -151,6 +169,7 @@ async function verifyConversationalBreadth() {
       question: 'Что проверить при нестабильной частоте вращения ВОМ под нагрузкой?',
       history: [],
       minimumAnswerCharacters: 60,
+      expectedTerms: ['вом', 'нагруз', 'привод', 'обороты'],
     },
     {
       id: 'contextual_follow_up',
@@ -161,12 +180,57 @@ async function verifyConversationalBreadth() {
         { role: 'assistant', text: 'Нужно последовательно проверить привод, нагрузку и режим работы.' },
       ],
       minimumAnswerCharacters: 40,
+      expectedTerms: ['вом', 'привод', 'нагруз', 'обороты'],
+    },
+    {
+      id: 'safe_general_excel_ru',
+      locale: 'ru',
+      question: 'Как в Excel посчитать процент одного значения от другого?',
+      history: [],
+      minimumAnswerCharacters: 30,
+      expectedTerms: ['процент', 'формул', 'ячейк', '%'],
+    },
+    {
+      id: 'safe_general_excel_en',
+      locale: 'en',
+      question: 'How do I calculate one value as a percentage of another in Excel?',
+      history: [],
+      minimumAnswerCharacters: 30,
+      expectedTerms: ['percent', 'formula', 'cell', '%'],
+    },
+    {
+      id: 'safe_general_excel_zh',
+      locale: 'zh',
+      question: '如何在 Excel 中计算一个数值占另一个数值的百分比？',
+      history: [],
+      minimumAnswerCharacters: 20,
+      expectedTerms: ['百分比', '公式', '单元格', '%'],
+    },
+    {
+      id: 'underspecified_farm_costs',
+      locale: 'ru',
+      question: 'Как уменьшить расходы?',
+      history: [
+        { role: 'user', text: 'У нас молочная ферма на 180 коров. Корма, электроэнергия и ремонт дорожают.' },
+        { role: 'assistant', text: 'Нужно разобрать структуру себестоимости и производственные показатели.' },
+      ],
+      minimumAnswerCharacters: 80,
+      expectedTerms: ['затрат', 'себесто', 'корм', 'энерг', 'ремонт'],
+    },
+    {
+      id: 'missing_platform_module_explanation',
+      locale: 'ru',
+      question: 'Функция автоматического расчёта кормового рациона не подключена. Объясни методику расчёта и какие исходные данные нужны, не заявляя о выполнении операции.',
+      history: [],
+      minimumAnswerCharacters: 100,
+      expectedTerms: ['рацион', 'корм', 'сух', 'потребн', 'продуктив'],
     },
   ];
   const results = [];
   for (const testCase of cases) {
     const response = await requestPublicSse(testCase);
     const { flags } = assertRealGeneralQwen({ ...testCase, ...response });
+    assertNoThematicRefusal({ ...testCase, answer: response.answer });
     results.push({
       id: testCase.id,
       locale: testCase.locale,
@@ -241,7 +305,7 @@ try {
 
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-390x844.png'), fullPage: true });
   fs.writeFileSync(path.join(evidenceDir, 'public-ai-window.json'), JSON.stringify({
-    schemaVersion: 'tai.public-ai-ui.acceptance.v3',
+    schemaVersion: 'tai.public-ai-ui.acceptance.v4',
     targetSha,
     manifestSha,
     title,
@@ -259,7 +323,7 @@ try {
   const errorText = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-failure-390x844.png'), fullPage: true }).catch(() => undefined);
   fs.writeFileSync(path.join(evidenceDir, 'public-ai-window-failure.json'), JSON.stringify({
-    schemaVersion: 'tai.public-ai-ui.acceptance-failure.v2',
+    schemaVersion: 'tai.public-ai-ui.acceptance-failure.v3',
     targetSha,
     manifestSha,
     title,
