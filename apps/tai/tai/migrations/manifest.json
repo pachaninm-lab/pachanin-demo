@@ -95,6 +95,10 @@
     {
       "path": "0022_runtime_role_grant_reconciliation.sql",
       "version": 24
+    },
+    {
+      "path": "0023_public_relation_privilege_boundary.sql",
+      "version": 25
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
