@@ -95,6 +95,10 @@
     {
       "path": "0022_runtime_role_grant_reconciliation.sql",
       "version": 24
+    },
+    {
+      "path": "0023_public_schema_public_acl_hardening.sql",
+      "version": 25
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
