@@ -10,7 +10,6 @@
   "objective": "Repair the production activation failure where local Qwen recognized a drip-irrigation question but returned an answer without concrete design variables, while preserving model-first behavior and the existing broad live acceptance standard.",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
-    ".github/workflows/tai-one-shot-autopilot-guard-remediation.yml",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts",
