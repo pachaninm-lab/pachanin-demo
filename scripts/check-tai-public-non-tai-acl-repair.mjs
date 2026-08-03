@@ -134,9 +134,9 @@ const inventoryIndex = repair.indexOf('> "$INVENTORY_FILE"');
 const sqlGenerationIndex = repair.indexOf("<<'PY_VALIDATE_AND_SQL'");
 const rollbackPreparedIndex = repair.indexOf('chmod 0600 "$REVOKE_SQL" "$RESTORE_SQL"');
 const mutationMarkerIndex = repair.indexOf('touch "$STATE_ROOT/MUTATION_STARTED"');
-const revokeIndex = repair.indexOf('psql_admin < "$REVOKE_SQL"');
-const postconditionIndex = repair.indexOf('[[ "$remaining" == 0 ]]');
-const appliedIndex = repair.indexOf('touch "$STATE_ROOT/APPLIED"');
+const revokeIndex = repair.indexOf('psql_admin < "$REVOKE_SQL"', mutationMarkerIndex);
+const postconditionIndex = repair.indexOf('[[ "$remaining" == 0 ]]', revokeIndex);
+const appliedIndex = repair.indexOf('touch "$STATE_ROOT/APPLIED"', postconditionIndex);
 if ([inventoryIndex, sqlGenerationIndex, rollbackPreparedIndex, mutationMarkerIndex, revokeIndex, postconditionIndex, appliedIndex].some(index => index < 0)
   || !(inventoryIndex < sqlGenerationIndex
     && sqlGenerationIndex < rollbackPreparedIndex
@@ -146,11 +146,12 @@ if ([inventoryIndex, sqlGenerationIndex, rollbackPreparedIndex, mutationMarkerIn
     && postconditionIndex < appliedIndex)) {
   violations.push(`${paths.repair}: inventory, inverse rollback, mutation, postcondition and applied evidence order is invalid`);
 }
-const rollbackIndex = repair.indexOf('psql_admin < "$RESTORE_SQL"');
-const rollbackPostcondition = repair.indexOf('[[ "$restored" == 2 ]]');
-const rollbackMarker = repair.indexOf('touch "$STATE_ROOT/ROLLED_BACK"');
-if ([rollbackIndex, rollbackPostcondition, rollbackMarker].some(index => index < 0)
-  || !(rollbackIndex < rollbackPostcondition && rollbackPostcondition < rollbackMarker)) {
+const rollbackActionIndex = repair.indexOf('if [[ "$ACTION" == rollback ]]');
+const rollbackIndex = repair.indexOf('psql_admin < "$RESTORE_SQL"', rollbackActionIndex);
+const rollbackPostcondition = repair.indexOf('[[ "$restored" == 2 ]]', rollbackIndex);
+const rollbackMarker = repair.indexOf('touch "$STATE_ROOT/ROLLED_BACK"', rollbackPostcondition);
+if ([rollbackActionIndex, rollbackIndex, rollbackPostcondition, rollbackMarker].some(index => index < 0)
+  || !(rollbackActionIndex < rollbackIndex && rollbackIndex < rollbackPostcondition && rollbackPostcondition < rollbackMarker)) {
   violations.push(`${paths.repair}: inverse rollback and restoration proof order is invalid`);
 }
 
