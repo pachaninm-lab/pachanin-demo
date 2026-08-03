@@ -10,6 +10,7 @@ readonly REPOSITORY_ROOT='/var/lib/pc-release-authority/repository'
 readonly STATE_ROOT='/var/lib/pc-release-authority'
 readonly OUTPUT_ROOT='/var/lib/pc-release-authority/runner-output'
 readonly CORE_RELATIVE='scripts/pc-tai-release-controller-core.sh'
+readonly REPAIR_RELATIVE='scripts/tai-runtime-role-repair.sh'
 readonly WRAPPER_RELATIVE='scripts/pc-tai-release-controller.sh'
 readonly INSTALLED_CONTROLLER='/usr/local/sbin/pc-tai-release-controller'
 
@@ -26,7 +27,7 @@ ACTION="${1:-}"
 TARGET_SHA="${2:-}"
 RUN_ID="${3:-}"
 
-[[ "$ACTION" =~ ^(preflight|activate|finalize-activation|deploy)$ ]] || fail INVALID_ACTION 10
+[[ "$ACTION" =~ ^(preflight|activate|finalize-activation|deploy|repair-runtime-role)$ ]] || fail INVALID_ACTION 10
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail INVALID_TARGET_SHA 11
 [[ "$RUN_ID" =~ ^[0-9]{1,20}$ ]] || fail INVALID_RUN_ID 12
 
@@ -73,9 +74,18 @@ git -C "$REPOSITORY_ROOT" clean -ffdx >/dev/null
 [[ -z "$(git -C "$REPOSITORY_ROOT" status --porcelain=v1)" ]] || fail PROTECTED_CHECKOUT_DIRTY 24
 
 readonly CORE_PATH="$REPOSITORY_ROOT/$CORE_RELATIVE"
+readonly REPAIR_PATH="$REPOSITORY_ROOT/$REPAIR_RELATIVE"
 readonly WRAPPER_PATH="$REPOSITORY_ROOT/$WRAPPER_RELATIVE"
 [[ -f "$CORE_PATH" && ! -L "$CORE_PATH" ]] || fail PROTECTED_CORE_INVALID 25
 [[ -f "$WRAPPER_PATH" && ! -L "$WRAPPER_PATH" ]] || fail PROTECTED_WRAPPER_INVALID 26
+[[ -f "$REPAIR_PATH" && ! -L "$REPAIR_PATH" ]] || fail PROTECTED_REPAIR_INVALID 28
 [[ "$(sha256sum "$INSTALLED_CONTROLLER" | awk '{print $1}')" == "$(sha256sum "$WRAPPER_PATH" | awk '{print $1}')" ]] || fail INSTALLED_CONTROLLER_NOT_EXACT_TARGET 27
 
-bash "$CORE_PATH" "$@"
+if [[ "$ACTION" == repair-runtime-role ]]; then
+  install -d -m 0750 -o root -g pcactions "$OUTPUT_ROOT"
+  rm -rf "$job_output"
+  install -d -m 0750 -o root -g pcactions "$job_output"
+  bash "$REPAIR_PATH" "$TARGET_SHA" "$RUN_ID" "$job_output/runtime-role-repair.json"
+else
+  bash "$CORE_PATH" "$@"
+fi
