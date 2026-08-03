@@ -37,11 +37,12 @@ describe('P0 model-first agricultural chat', () => {
       'Any plausible connection to crop production, livestock, machinery and equipment',
       'Safe general questions outside agriculture may be answered normally and concisely',
       'Medium confidence, a missing keyword, or a missing platform module, button or integration is never a reason to refuse',
-      'Never apply the legacy rule "PATH 4 — outside the domain: do not solve the unrelated request in substance"',
+      'Do not reject a safe question merely because it is outside agriculture',
       'inherit the active crop, animal, machine, farm, document, deal or corporate system',
       'Give a useful preliminary answer, the main factors, limitations and risks',
       'Separate knowledge from execution',
     ]) expect(qwenService).toContain(fragment);
+    expect(qwenService).not.toContain('do not solve the unrelated request in substance');
   });
 
   it('keeps Transparent Price claims on verified public grounding while allowing domain explanation', () => {
