@@ -118,6 +118,37 @@ describe('credential boundary', () => {
     expect(violations).toEqual([]);
   });
 
+  // The second half of the boundary: an opaque one-time token is a bearer
+  // credential and must digest through the authority, where it is bound to a
+  // purpose and a version. The generic keyed hash offers neither.
+  it('never passes an opaque token to the generic keyed hash', () => {
+    const TOKEN_ARGUMENT = /\b(?:rawToken|refreshToken|challengeToken|backupCode|accessToken|opaqueToken)\b|\btoken\b(?!_)/i;
+    const violations: string[] = [];
+    for (const { path, source } of files) {
+      if (path.endsWith('opaque-token-authority.ts')) continue;
+      for (const { line, call } of fastHashArguments(source)) {
+        if (!/^hashAuthMaterial|^hashClientValue/.test(call)) continue;
+        if (TOKEN_ARGUMENT.test(expressionsOnly(call))) {
+          violations.push(`${path}:${line} ${call.replace(/\s+/g, ' ').slice(0, 120)}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('routes every opaque token contour through the authority', () => {
+    const authority = files.find((f) => f.path.endsWith('opaque-token-authority.ts'));
+    expect(authority).toBeDefined();
+    for (const name of ['password-reset', 'mfa-recovery', 'invitation', 'email-verification',
+      'membership-selection', 'registration-status', 'staff-access']) {
+      expect(authority?.source).toContain(`'${name}'`);
+    }
+    // Minting and parsing live only in the authority.
+    const strays = files.filter((f) => !f.path.endsWith('opaque-token-authority.ts')
+      && /export function (?:makeOpaqueToken|parseOpaqueToken)\b/.test(f.source));
+    expect(strays.map((f) => f.path)).toEqual([]);
+  });
+
   it('exposes no password fingerprint helper', () => {
     const crypto = files.find((f) => f.path.endsWith('auth-crypto.ts'));
     expect(crypto).toBeDefined();
