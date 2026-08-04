@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-semantic-factor-validator-20260804",
+  "status": "active",
+  "title": "TAI semantic factor validator repair",
+  "priority": "P0",
+  "baselineExactMain": "5646e7202c6767f9d52c1d3cc3e42552a463d8ea",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Eliminate false-negative live acceptance for substantive agricultural answers by validating independent semantic factor groups instead of requiring two literal terms from a narrow list.",
+  "allowedPaths": [
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-semantic-factor-validator-20260804.json"
+  ],
+  "boundaries": [
+    "Do not weaken source, model identity, answer mode, stream completeness, subject relevance, minimum answer length, forbidden platform article, RU/EN/ZH or mobile Chromium assertions",
+    "A substantive answer still requires at least two independent factor groups",
+    "Synonyms within one factor group count once, preventing repeated nutrient names from satisfying a two-factor requirement by themselves",
+    "The cucumber yellow-leaves scenario must recognize nutrition, water/root, disease/pests and climate as independent diagnostic groups",
+    "No production behavior, model prompt, authority boundary, write path or infrastructure is changed",
+    "Production completion requires exact-head terminal PASS, merge to current main, protected exact-main activation, all endpoint and mobile scenarios PASS and finalization accept"
+  ]
+}
