@@ -106,13 +106,26 @@ try {
     const assessment = assessmentFrame?.summary ? JSON.parse(String(assessmentFrame.summary)) : null;
     const answer = frames.filter(frame => frame.event === 'token').map(frame => String(frame.text || '')).join('').trim();
     const done = frames.at(-1);
+    const row = {
+      id: testCase.id,
+      locale: testCase.locale,
+      question: testCase.question,
+      answer: answer.slice(0, 4_000),
+      answerCharacters: answer.length,
+      source: assessment?.source ?? null,
+      answerMode: assessment?.answerMode ?? null,
+      modelIdentity: assessment?.modelIdentity ?? null,
+      streamComplete: done?.event === 'done' && done.complete === true,
+      status: 'PENDING',
+    };
+    evidence.push(row);
     if (!assessment) throw new Error(`${testCase.id}_assessment_missing`);
     if (assessment.source !== 'local_qwen') throw new Error(`${testCase.id}_source_invalid:${assessment.source}`);
     if (assessment.modelIdentity !== 'tai-qwen3-8b-q4km') throw new Error(`${testCase.id}_model_identity_invalid`);
     if (assessment.answerMode !== 'general_agro') throw new Error(`${testCase.id}_answer_mode_invalid:${assessment.answerMode}`);
     if (done?.event !== 'done' || done.complete !== true) throw new Error(`${testCase.id}_stream_incomplete`);
-    const matchedTerms = assertAgriculturalAnswer(answer, testCase, 'endpoint');
-    evidence.push({ id: testCase.id, locale: testCase.locale, question: testCase.question, answerCharacters: answer.length, matchedTerms, source: assessment.source, answerMode: assessment.answerMode });
+    row.matchedTerms = assertAgriculturalAnswer(answer, testCase, 'endpoint');
+    row.status = 'PASS';
   }
 
   const hidden = page.locator('.pc-public-assistant-shortcut');
@@ -128,9 +141,15 @@ try {
     const answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
     await answered.waitFor({ state: 'visible', timeout: 240_000 });
     const uiAnswer = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
-    const matchedTerms = assertAgriculturalAnswer(uiAnswer, testCase, 'ui');
     const row = evidence.find(item => item.id === testCase.id);
-    row.ui = { viewport: '390x844', answerCharacters: uiAnswer.length, matchedTerms };
+    row.ui = {
+      viewport: '390x844',
+      answer: uiAnswer.slice(0, 4_000),
+      answerCharacters: uiAnswer.length,
+      status: 'PENDING',
+    };
+    row.ui.matchedTerms = assertAgriculturalAnswer(uiAnswer, testCase, 'ui');
+    row.ui.status = 'PASS';
   }
 
   if (await dialog.locator('[role="alert"]').count()) throw new Error('agro_ui_alert_present');

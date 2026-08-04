@@ -8,6 +8,9 @@ on:
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
       - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      - "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts"
       - "apps/web/middleware.ts"
       - "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts"
       - "scripts/pc-tai-release-controller.sh"
@@ -31,6 +34,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-preflight-run-discovery-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json"
   workflow_dispatch:
     inputs:
       target_sha:
