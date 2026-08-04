@@ -280,6 +280,14 @@ if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ]; t
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$TRANSITIVE_RUNTIME_REMEDIATION_SCOPE")
 fi
 
+BRACE_EXPANSION_5_0_9_SCOPE='package.json
+pnpm-lock.yaml
+docs/platform-v7/autopilot/security-exceptions.json'
+
+if [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$BRACE_EXPANSION_5_0_9_SCOPE")
+fi
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$OPENTELEMETRY_REMEDIATION_SCOPE")
 fi
@@ -321,8 +329,13 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/tai-general-agro-completeness-20260803" ]; then
+if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ]; then
   # Lockfile exemptions are granted per branch by the owner, never self-issued.
+  # fix/security-brace-expansion-5-0-8: owner instruction of 2026-08-03 to raise
+  # brace-expansion to 5.0.9 and socket.io-parser to 4.2.7, both HIGH advisories
+  # against the production tree. A resolution bump cannot be expressed without
+  # pnpm-lock.yaml, and the owner declined a formal exception in favour of the
+  # fix. Scoped below to package.json and pnpm-lock.yaml only.
   # claude/tai-production-attestation-gizgzh: owner instruction of 2026-07-26 to
   # remove Netlify in full, which requires dropping @netlify/plugin-nextjs from
   # package.json and pnpm-lock.yaml together — package.json alone would break
