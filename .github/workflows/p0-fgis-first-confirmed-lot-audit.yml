@@ -25,11 +25,6 @@ concurrency:
   group: p0-fgis-first-confirmed-lot-audit-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# `runner` is a job-scoped context and is not available in a workflow-level
-# `env:` block. Referencing it here made GitHub reject the whole workflow at
-# parse time, so every run since it was introduced ended as a startup failure
-# with zero jobs — the gate looked red but had never actually executed.
-# EVIDENCE_DIR therefore lives on the job, where `runner.temp` resolves.
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   EXPECTED_MAIN: aad390e160a5ed5335d2a99d16519ca0e025279c
@@ -39,10 +34,25 @@ jobs:
     name: Exact main · 17 areas · official SOAP · unsafe quarantine boundary
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-first-confirmed-lot-audit
 
     steps:
+      # The `runner` context is not available in a workflow-level OR a job-level
+      # `env:` block — GitHub allows only github, needs, strategy, matrix, vars,
+      # secrets and inputs there. Referencing `runner.temp` in either place makes
+      # GitHub reject the file at parse time, and a rejected workflow still
+      # produces a run: completed, conclusion failure, zero jobs, `on:` filters
+      # never evaluated. That is why this gate was red on every push to every
+      # branch across 445 runs without ever executing a single step.
+      #
+      # $RUNNER_TEMP is the default environment variable behind that context and
+      # is available in every step's shell, so EVIDENCE_DIR is exported here
+      # instead. It is set before checkout so that the `if: always()` summary and
+      # upload steps still resolve it when an earlier step fails. Evidence stays
+      # outside the checkout, as intended.
+      - name: Resolve evidence directory
+        shell: bash
+        run: echo "EVIDENCE_DIR=$RUNNER_TEMP/p0-fgis-first-confirmed-lot-audit" >> "$GITHUB_ENV"
+
       - name: Checkout exact revision and full ancestry
         uses: actions/checkout@v4
         with:

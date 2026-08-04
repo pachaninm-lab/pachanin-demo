@@ -1,20 +1,58 @@
 #!/usr/bin/env python3
-"""Fail closed when any GitHub Actions workflow is not parseable YAML.
+"""Fail closed when a GitHub Actions workflow cannot start.
 
-An unparseable workflow does not fail loudly: GitHub records a startup_failure
+An unstartable workflow does not fail loudly: GitHub records a startup_failure
 run with zero jobs, so the automation silently never executes while every push
 to the branch collects a red check. This guard turns that into an explicit,
 attributable CI failure.
+
+Unparseable YAML is only one way to get there. A workflow whose YAML is valid
+is still rejected at parse time if it references a context that is not
+available at that position, and the symptom is identical — zero jobs, and the
+`on:` filters are never even evaluated, so the phantom failure appears on
+every branch rather than only on the ones the workflow targets. That is how
+`p0-fgis-first-confirmed-lot-audit.yml` accumulated 445 red runs without ever
+executing a step: it read `runner.temp` from an `env:` block, where the
+`runner` context does not exist.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
 import yaml
 
 WORKFLOW_DIR = Path(".github/workflows")
+
+# https://docs.github.com/actions/learn-github-actions/contexts#context-availability
+# `env:` blocks are evaluated before a runner is assigned, so `runner`, `job`,
+# `steps` and `env` itself are unavailable in them. Step-level `env:` is not
+# checked here: at that point the full context set is available.
+WORKFLOW_ENV_CONTEXTS = frozenset({"github", "secrets", "inputs", "vars"})
+JOB_ENV_CONTEXTS = frozenset(
+    {"github", "needs", "strategy", "matrix", "vars", "secrets", "inputs"}
+)
+
+CONTEXT_REFERENCE = re.compile(r"\$\{\{[^}]*?\b([a-zA-Z_][a-zA-Z0-9_-]*)\s*\.")
+
+
+def context_violations(
+    block: object, allowed: frozenset[str], where: str
+) -> list[str]:
+    """Report every context an `env:` block reads that it may not read."""
+    if not isinstance(block, dict):
+        return []
+    problems = []
+    for name, value in block.items():
+        for context in sorted(set(CONTEXT_REFERENCE.findall(str(value)))):
+            if context not in allowed:
+                problems.append(
+                    f"{where} `{name}` reads the `{context}` context, "
+                    f"which is not available there"
+                )
+    return problems
 
 
 def main() -> int:
@@ -45,13 +83,32 @@ def main() -> int:
         if "on" not in document and True not in document:
             failures.append(f"{path}: workflow declares no triggers")
 
+        for problem in context_violations(
+            document.get("env"), WORKFLOW_ENV_CONTEXTS, "workflow env:"
+        ):
+            failures.append(f"{path}: {problem}")
+
+        jobs = document.get("jobs")
+        if isinstance(jobs, dict):
+            for job_id, job in jobs.items():
+                if not isinstance(job, dict):
+                    continue
+                for problem in context_violations(
+                    job.get("env"), JOB_ENV_CONTEXTS, f"job `{job_id}` env:"
+                ):
+                    failures.append(f"{path}: {problem}")
+
     for failure in failures:
         print(failure, file=sys.stderr)
     if failures:
-        print(f"\n{len(failures)} of {len(workflows)} workflows are invalid", file=sys.stderr)
+        problem = "problem" if len(failures) == 1 else "problems"
+        print(f"\n{len(failures)} {problem} across {len(workflows)} workflows", file=sys.stderr)
         return 1
 
-    print(f"all {len(workflows)} workflows parse and declare triggers and jobs")
+    print(
+        f"all {len(workflows)} workflows parse, declare triggers and jobs, "
+        f"and read only available contexts from their env blocks"
+    )
     return 0
 
 
