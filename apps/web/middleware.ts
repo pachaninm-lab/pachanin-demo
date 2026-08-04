@@ -394,6 +394,23 @@ export async function middleware(req: NextRequest) {
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const presentationRole = resolveRole(req, session?.role ?? null);
 
+  // The public URL is a compatibility alias only. Every POST is rewritten here,
+  // before filesystem route resolution, to the model-first agro route. GET stays
+  // on the public catalog handler. This prevents a stale standalone bundle from
+  // answering a crop question with an unrelated platform knowledge article.
+  if (p === '/api/public-platform-assistant' && req.method === 'POST') {
+    const u = req.nextUrl.clone();
+    u.pathname = '/api/agro-chat';
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-pc-role', presentationRole);
+    requestHeaders.set('x-pc-pathname', u.pathname);
+    const response = NextResponse.rewrite(u, { request: { headers: requestHeaders } });
+    response.headers.set('x-pc-role', presentationRole);
+    response.headers.set('x-pc-pathname', u.pathname);
+    persistRoleCookie(req, response, presentationRole);
+    return applySecurityHeaders(response, privateModeEnabled && protectedPath);
+  }
+
   // Match the route segment, not the string. `/platform-v7-density-fix.css` is
   // a stylesheet in public/, not a cabinet, and a prefix test sent it to login.
   if (p === '/platform-v7' || p.startsWith('/platform-v7/')) {

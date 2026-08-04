@@ -8,10 +8,13 @@ on:
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
       - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - "apps/web/middleware.ts"
+      - "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts"
       - "scripts/pc-tai-release-controller.sh"
       - "scripts/pc-tai-release-controller-core.sh"
       - "scripts/tai-restricted-qwen-reg-ru-activate.sh"
       - "scripts/tai-live-public-ai-acceptance.mjs"
+      - "scripts/tai-potato-mobile-live-acceptance.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
       - "scripts/check-tai-local-model-key-authority.mjs"
@@ -27,6 +30,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-activation-neutral-gate-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-preflight-run-discovery-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json"
   workflow_dispatch:
     inputs:
       target_sha:
@@ -55,6 +59,7 @@ concurrency:
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  CONTROLLER_RUN_ID: ${{ format('{0}{1}', github.run_id, github.run_attempt) }}
 
 jobs:
   upstream_preflight_gate:
@@ -149,6 +154,7 @@ jobs:
           bash -n scripts/tai-restricted-qwen-reg-ru-activate.sh
           bash -n scripts/install-pc-prod-actions-runner.sh
           node --check scripts/tai-live-public-ai-acceptance.mjs
+          node --check scripts/tai-potato-mobile-live-acceptance.mjs
           node scripts/check-pc-tai-release-controller.mjs
           node scripts/check-tai-local-model-key-authority.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
@@ -242,15 +248,16 @@ jobs:
       MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
       BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}
     steps:
-      - name: Prepare fixed model transport input
+      - name: Prepare attempt-scoped model transport input
         run: |
           set -Eeuo pipefail
           [[ "$(id -u)" -ne 0 ]]
           ! id -nG | tr ' ' '\n' | grep -Fxq docker
           if docker version >/dev/null 2>&1; then exit 21; fi
           sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
-          input="/var/lib/pc-release-authority/runner-input/${GITHUB_RUN_ID}"
-          rm -rf "$input"
+          [[ "$CONTROLLER_RUN_ID" =~ ^[0-9]{2,20}$ ]]
+          input="/var/lib/pc-release-authority/runner-input/${CONTROLLER_RUN_ID}"
+          [[ ! -e "$input" ]] || { echo 'Attempt-scoped controller input already exists.' >&2; exit 23; }
           install -d -m 0700 "$input"
           [[ "$(stat -c '%U:%G:%a' "$input")" == pcactions:pcactions:700 ]]
           printf '%s' "${MODEL_USER_SECRET:-root}" > "$input/model-user"
@@ -261,8 +268,8 @@ jobs:
       - name: Execute protected exact-main activation
         run: |
           set -Eeuo pipefail
-          sudo -n /usr/local/sbin/pc-tai-release-controller activate "$TARGET_SHA" "$GITHUB_RUN_ID" "$API_IMAGE" "$API_DIGEST" "$WEB_IMAGE" "$WEB_DIGEST" "$MIGRATION_IMAGE" "$MIGRATION_DIGEST"
-      - name: Verify public RU, EN and ZH SSE answers
+          sudo -n /usr/local/sbin/pc-tai-release-controller activate "$TARGET_SHA" "$CONTROLLER_RUN_ID" "$API_IMAGE" "$API_DIGEST" "$WEB_IMAGE" "$WEB_DIGEST" "$MIGRATION_IMAGE" "$MIGRATION_DIGEST"
+      - name: Verify public RU, EN, ZH and exact potato SSE answers
         run: |
           set -Eeuo pipefail
           out="$RUNNER_TEMP/tai-live"; mkdir -p "$out"
@@ -275,18 +282,36 @@ jobs:
             )"
             curl -fsS --connect-timeout 10 --max-time 240 -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -H 'Sec-Fetch-Site: same-origin' -H "Origin: $LIVE_BASE" --data-binary "$payload" "$LIVE_BASE/api/public-platform-assistant?stream=1" > "$out/${locale}.sse"
           done
+          potato_payload="$(python3 - <<'PY'
+          import json
+          print(json.dumps({'message':'Чем удобрять картошку','locale':'ru','history':[]},ensure_ascii=False))
+          PY
+          )"
+          curl -fsS --connect-timeout 10 --max-time 240 -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -H 'Sec-Fetch-Site: same-origin' -H "Origin: $LIVE_BASE" --data-binary "$potato_payload" "$LIVE_BASE/api/public-platform-assistant?stream=1" > "$out/potato.sse"
           python3 - "$out" <<'PY'
           import json,pathlib,sys
           root=pathlib.Path(sys.argv[1])
+          def frames(path):
+              text=path.read_text(encoding='utf-8'); result=[]
+              for block in text.split('\n\n'):
+                  for line in block.splitlines():
+                      if line.startswith('data: '): result.append(json.loads(line[6:]))
+              return text,result
           for locale in ('ru','en','zh'):
-            text=(root/f'{locale}.sse').read_text(encoding='utf-8'); frames=[]
-            for block in text.split('\n\n'):
-              for line in block.splitlines():
-                if line.startswith('data: '): frames.append(json.loads(line[6:]))
-            assert 'token' in [f.get('event') for f in frames]
-            assert frames[-1].get('event')=='done' and frames[-1].get('complete') is True
-            for forbidden in ('192.168.0.206','tenantId','membershipId','subjectId','AI_ASSISTANT_API_KEY','TAI_PUBLIC_GATEWAY_HMAC_SECRET'):
-              assert forbidden not in text
+              text,rows=frames(root/f'{locale}.sse')
+              assert 'token' in [row.get('event') for row in rows]
+              assert rows[-1].get('event')=='done' and rows[-1].get('complete') is True
+              for forbidden in ('192.168.0.206','tenantId','membershipId','subjectId','AI_ASSISTANT_API_KEY','TAI_PUBLIC_GATEWAY_HMAC_SECRET'):
+                  assert forbidden not in text
+          text,rows=frames(root/'potato.sse')
+          assert rows[-1].get('event')=='done' and rows[-1].get('complete') is True
+          answer=''.join(str(row.get('text') or '') for row in rows if row.get('event')=='token').strip()
+          normalized=answer.casefold().replace('ё','е')
+          assert len(answer)>=80
+          assert 'картоф' in normalized
+          assert sum(term in normalized for term in ('удобрен','калий','фосфор','азот','почв','органик','навоз'))>=2
+          for wrong in ('как защищаются данные','доступ назначает сервер','подписанной сессии','данные разных организаций изолированы','журнале аудита'):
+              assert wrong not in normalized
           PY
       - name: Upload activation and SSE evidence
         if: always()
@@ -294,7 +319,7 @@ jobs:
         with:
           name: tai-restricted-qwen-activation-${{ env.TARGET_SHORT }}-${{ github.run_id }}
           path: |
-            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/activation.json
+            /var/lib/pc-release-authority/runner-output/${{ env.CONTROLLER_RUN_ID }}/activation.json
             ${{ runner.temp }}/tai-live
           if-no-files-found: error
           retention-days: 30
@@ -311,7 +336,7 @@ jobs:
         with:
           ref: ${{ needs.image_authority.outputs.target_sha }}
           persist-credentials: false
-      - name: Verify clean public AI window in Chromium
+      - name: Verify clean public AI window and potato answer in Chromium
         env:
           TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
           UI_EVIDENCE_DIR: ${{ runner.temp }}/tai-live-ui/evidence
@@ -322,7 +347,9 @@ jobs:
           npm install --no-audit --no-fund --ignore-scripts playwright@1.59.1 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
           cp "$GITHUB_WORKSPACE/scripts/tai-live-public-ai-acceptance.mjs" "$work/acceptance.mjs"
+          cp "$GITHUB_WORKSPACE/scripts/tai-potato-mobile-live-acceptance.mjs" "$work/potato-acceptance.mjs"
           LIVE_BASE="$LIVE_BASE" node "$work/acceptance.mjs"
+          LIVE_BASE="$LIVE_BASE" node "$work/potato-acceptance.mjs"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -349,15 +376,16 @@ jobs:
       - name: Apply final acceptance decision
         run: |
           set -Eeuo pipefail
+          [[ "$CONTROLLER_RUN_ID" =~ ^[0-9]{2,20}$ ]]
           decision=rollback
           if [[ "$ACCEPTANCE_RESULT" == success ]]; then decision=accept; fi
-          sudo -n /usr/local/sbin/pc-tai-release-controller finalize-activation "$TARGET_SHA" "$GITHUB_RUN_ID" "$decision"
+          sudo -n /usr/local/sbin/pc-tai-release-controller finalize-activation "$TARGET_SHA" "$CONTROLLER_RUN_ID" "$decision"
       - name: Upload finalization evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tai-restricted-qwen-finalization-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/finalization.json
+          path: /var/lib/pc-release-authority/runner-output/${{ env.CONTROLLER_RUN_ID }}/finalization.json
           if-no-files-found: error
           retention-days: 30
 
@@ -388,7 +416,7 @@ jobs:
             -f state="$state" -f context='TAI Restricted Qwen REG.RU Activation' -f description="$description" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [[ "$state" == success ]]; then
-            gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Restricted Qwen accepted on REG.RU for exact main \`$TARGET_SHA\`: least-privilege controller, no production inbound SSH, private model transport, RU/EN/ZH SSE PASS and hosted Chromium UI PASS."
+            gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Restricted Qwen accepted on REG.RU for exact main \`$TARGET_SHA\`: least-privilege controller, no production inbound SSH, private model transport, RU/EN/ZH SSE PASS, exact potato answer PASS and hosted Chromium UI PASS."
           fi
 
   result_gate:
