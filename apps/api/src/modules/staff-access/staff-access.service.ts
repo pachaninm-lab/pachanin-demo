@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { randomBytes, randomUUID } from 'crypto';
 import { RequestUser } from '../../common/types/request-user';
+import { digestOpaqueAuthToken } from '../auth/opaque-token-authority';
 import {
   hashAuthMaterial,
   hashClientValue,
@@ -341,7 +342,9 @@ export class StaffAccessService {
   }
 
   async resolveAccessSession(user: RequestUser, token: string): Promise<StaffAccessContext> {
-    const tokenHash = hashAuthMaterial(String(token ?? ''));
+    const presented = String(token ?? '');
+    if (!presented) throw new UnauthorizedException('Invalid staff access session');
+    const tokenHash = digestOpaqueAuthToken({ purpose: 'staff-access', rawToken: presented });
     const session = await this.repository.getAccessSessionByHash(this.repository.prisma, tokenHash, user.id);
     if (!session || !isStaffRole(session.staff_role) || !isStaffAccessMode(session.access_mode)) {
       throw new UnauthorizedException('Invalid staff access session');
@@ -721,11 +724,14 @@ export class StaffAccessService {
     return { id: grantId, expiresAt };
   }
 
+  // A staff access token is a bearer credential, so its stored form comes
+  // from the opaque token authority under its own purpose. It cannot be
+  // presented as an invitation, a password reset or any other token.
   private makeAccessToken() {
     const id = `sat_${randomBytes(18).toString('base64url')}`;
     const secret = randomBytes(32).toString('base64url');
     const token = `${id}.${secret}`;
-    return { token, hash: hashAuthMaterial(token) };
+    return { token, hash: digestOpaqueAuthToken({ purpose: 'staff-access', rawToken: token }) };
   }
 
   private assertGrantActive(grant: StaffGrantRow) {

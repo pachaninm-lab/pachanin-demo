@@ -10,13 +10,12 @@ import * as bcrypt from 'bcryptjs';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { RequestUser } from '../../common/types/request-user';
 import { isStrongPassword } from '../../common/validators/strong-password.validator';
+import { makeOpaqueToken, parseOpaqueToken } from './opaque-token-authority';
 import { AuthPrismaService } from './auth-prisma.service';
 import { CURRENT_CONSENT_EVIDENCE, isCurrentConsent } from './consent-policy';
 import {
   hashAuthMaterial,
   hashClientValue,
-  makeOpaqueToken,
-  parseOpaqueToken,
   secureEqual,
   sha256,
   stableJson,
@@ -240,7 +239,7 @@ export class OrganizationInvitationService {
           idempotency_key, request_hash, correlation_id, expires_at
         ) VALUES (
           ${invitationId}, ${admin.organizationId}, ${admin.organization.tenantId}, ${email}, ${emailHash},
-          ${role}, ${token.hash}, ${user.id}, ${admin.id},
+          ${role}, ${token.digest}, ${user.id}, ${admin.id},
           ${idempotencyKey}, ${requestHash}, ${correlationId}, ${expiresAt}
         )
       `);
@@ -324,7 +323,7 @@ export class OrganizationInvitationService {
       }
       const updated = await tx.$executeRaw(Prisma.sql`
         UPDATE auth.organization_invitations
-        SET token_hash = ${token.hash}, expires_at = ${expiresAt}, version = version + 1, updated_at = NOW()
+        SET token_hash = ${token.digest}, expires_at = ${expiresAt}, version = version + 1, updated_at = NOW()
         WHERE id = ${current.id} AND status = 'PENDING' AND version = ${current.version}
       `);
       if (updated !== 1) throw new ConflictException({ code: 'INVITATION_VERSION_CONFLICT' });
@@ -341,7 +340,7 @@ export class OrganizationInvitationService {
       });
       await this.audit(tx, user, 'auth.organization.invitation.resend', 'SUCCESS', reason, { invitationId, correlationId });
       return {
-        invitation: { ...current, token_hash: token.hash, expires_at: expiresAt, version: current.version + 1n },
+        invitation: { ...current, token_hash: token.digest, expires_at: expiresAt, version: current.version + 1n },
         replayed: false as const,
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
@@ -423,7 +422,7 @@ export class OrganizationInvitationService {
         FOR UPDATE OF invitation, organization
       `);
       const invitation = rows[0];
-      if (!invitation || !secureEqual(invitation.token_hash, parsed.hash) || invitation.status !== 'PENDING') {
+      if (!invitation || !secureEqual(invitation.token_hash, parsed.digest) || invitation.status !== 'PENDING') {
         return { kind: 'invalid' as const };
       }
       if (invitation.expires_at <= new Date()) {
@@ -773,7 +772,7 @@ export class OrganizationInvitationService {
           idempotency_key, request_hash, expires_at
         ) VALUES (
           ${token.id}, ${target.user_id}, ${membershipId}, ${admin.organizationId}, ${admin.organization.tenantId},
-          ${token.hash}, ${user.id}, ${reason}, ${correlationId},
+          ${token.digest}, ${user.id}, ${reason}, ${correlationId},
           ${`mfa-recovery:${idempotencyKey}`}, ${requestHash}, ${expiresAt}
         )
       `);
@@ -818,7 +817,7 @@ export class OrganizationInvitationService {
           membership_id: membershipId,
           organization_id: admin.organizationId,
           tenant_id: admin.organization.tenantId,
-          token_hash: token.hash,
+          token_hash: token.digest,
           status: 'PENDING',
           expires_at: expiresAt,
           attempts: 0,
@@ -897,7 +896,7 @@ export class OrganizationInvitationService {
         FOR UPDATE OF challenge, subject, membership
       `);
       const challenge = rows[0];
-      if (!challenge || !secureEqual(challenge.token_hash, parsed.hash) || challenge.status !== 'PENDING') {
+      if (!challenge || !secureEqual(challenge.token_hash, parsed.digest) || challenge.status !== 'PENDING') {
         return { kind: 'invalid' as const };
       }
       if (challenge.expires_at <= new Date()) {

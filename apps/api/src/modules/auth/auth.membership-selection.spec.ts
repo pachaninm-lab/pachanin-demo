@@ -1,9 +1,10 @@
 import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { Role } from '../../common/types/request-user';
-import { makeOpaqueToken } from './auth-crypto';
+
 import { AuthService } from './auth.service';
 import type { CredentialStateRow, IdentityRow, MembershipIdentityRow } from './persistent-auth.repository';
+import { makeOpaqueToken } from './opaque-token-authority';
 
 const PASSWORD = 'Correct-Horse-9!';
 
@@ -93,7 +94,7 @@ describe('safe multi-membership login selection', () => {
     repo.getMembershipSelectionChallengeForUpdate.mockResolvedValue({
       id: token.id,
       user_id: 'user-1',
-      token_hash: token.hash,
+      token_hash: token.digest,
       status: 'PENDING',
       credential_version: 1,
       current_credential_version: 1,
@@ -120,7 +121,7 @@ describe('safe multi-membership login selection', () => {
     repo.getMembershipSelectionChallengeForUpdate.mockResolvedValue({
       id: token.id,
       user_id: selected.user_id,
-      token_hash: token.hash,
+      token_hash: token.digest,
       status: 'PENDING',
       credential_version: 1,
       current_credential_version: 1,

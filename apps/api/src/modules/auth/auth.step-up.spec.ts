@@ -4,10 +4,10 @@ import {
   encryptMfaSecret,
   generateTotpSecret,
   hashAuthMaterial,
-  makeOpaqueToken,
 } from './auth-crypto';
 import { AuthService } from './auth.service';
 import type { CredentialStateRow, MfaChallengeRow, SessionContextRow } from './persistent-auth.repository';
+import { makeOpaqueToken } from './opaque-token-authority';
 
 const actor: RequestUser = {
   id: 'user-1', email: 'admin@example.test', orgId: 'org-1', tenantId: 'tenant-1',
@@ -72,7 +72,7 @@ describe('active-session MFA step-up', () => {
     const repo = repository();
     const token = makeOpaqueToken('mc');
     repo.getMfaChallengeForUpdate.mockResolvedValue({
-      ...session(), challenge_id: token.id, challenge_token_hash: token.hash, challenge_type: 'STEP_UP',
+      ...session(), challenge_id: token.id, challenge_token_hash: token.digest, challenge_type: 'STEP_UP',
       challenge_status: 'PENDING', challenge_attempts: 0, challenge_max_attempts: 5,
       challenge_expires_at: new Date(Date.now() + 60_000), session_id: 'session-other',
     } satisfies MfaChallengeRow);
@@ -87,7 +87,7 @@ describe('active-session MFA step-up', () => {
     const repo = repository();
     const token = makeOpaqueToken('mc');
     repo.getMfaChallengeForUpdate.mockResolvedValue({
-      ...session(), challenge_id: token.id, challenge_token_hash: token.hash, challenge_type: 'STEP_UP',
+      ...session(), challenge_id: token.id, challenge_token_hash: token.digest, challenge_type: 'STEP_UP',
       challenge_status: 'PENDING', challenge_attempts: 0, challenge_max_attempts: 5,
       challenge_expires_at: new Date(Date.now() + 60_000),
     } satisfies MfaChallengeRow);
@@ -106,7 +106,7 @@ describe('active-session MFA step-up', () => {
     const repo = repository();
     const token = makeOpaqueToken('mc');
     repo.getMfaChallengeForUpdate.mockResolvedValue({
-      ...session(), challenge_id: token.id, challenge_token_hash: token.hash, challenge_type: 'TOTP_VERIFY',
+      ...session(), challenge_id: token.id, challenge_token_hash: token.digest, challenge_type: 'TOTP_VERIFY',
       challenge_status: 'VERIFIED', challenge_attempts: 1, challenge_max_attempts: 5,
       challenge_expires_at: new Date(Date.now() + 60_000),
     } satisfies MfaChallengeRow);
@@ -123,7 +123,7 @@ describe('active-session MFA step-up', () => {
     const repo = repository();
     const token = makeOpaqueToken('mc');
     repo.getMfaChallengeForUpdate.mockResolvedValue({
-      ...session(), challenge_id: token.id, challenge_token_hash: token.hash, challenge_type: 'STEP_UP',
+      ...session(), challenge_id: token.id, challenge_token_hash: token.digest, challenge_type: 'STEP_UP',
       challenge_status: 'PENDING', challenge_attempts: 0, challenge_max_attempts: 5,
       challenge_expires_at: new Date(Date.now() + 60_000),
     } satisfies MfaChallengeRow);
@@ -140,7 +140,7 @@ describe('active-session MFA step-up', () => {
     const repo = repository();
     const token = makeOpaqueToken('mc');
     repo.getMfaChallengeForUpdate.mockResolvedValue({
-      ...session(), challenge_id: token.id, challenge_token_hash: token.hash, challenge_type: 'STEP_UP',
+      ...session(), challenge_id: token.id, challenge_token_hash: token.digest, challenge_type: 'STEP_UP',
       challenge_status: 'VERIFIED', challenge_attempts: 0, challenge_max_attempts: 5,
       challenge_expires_at: new Date(Date.now() + 60_000),
     } satisfies MfaChallengeRow);

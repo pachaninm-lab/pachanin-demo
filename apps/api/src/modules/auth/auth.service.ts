@@ -25,14 +25,13 @@ import {
   generateTotpSecret,
   hashAuthMaterial,
   hashClientValue,
-  makeOpaqueToken,
-  parseOpaqueToken,
   secureEqual,
   sha256,
   stableJson,
   verifyTotp,
 } from './auth-crypto';
 import { CURRENT_CONSENT_VERSION } from './consent-policy';
+import { makeOpaqueToken, parseOpaqueToken } from './opaque-token-authority';
 import {
   AuthSqlClient,
   CredentialStateRow,
@@ -171,7 +170,7 @@ export class AuthService {
         await this.repository.createMembershipSelectionChallenge(tx, {
           id: selection.id,
           userId: identity.user_id,
-          tokenHash: selection.hash,
+          tokenHash: selection.digest,
           credentialVersion: credential.credential_version,
           expiresAt,
         });
@@ -233,7 +232,7 @@ export class AuthService {
     if (!parsed) throw new UnauthorizedException('Invalid membership selection');
     const result = await this.repository.transaction(async (tx) => {
       const challenge = await this.repository.getMembershipSelectionChallengeForUpdate(tx, parsed.id);
-      if (!challenge || !secureEqual(challenge.token_hash, parsed.hash)) return { kind: 'invalid' as const };
+      if (!challenge || !secureEqual(challenge.token_hash, parsed.digest)) return { kind: 'invalid' as const };
       if (
         challenge.status !== 'PENDING'
         || challenge.expires_at <= new Date()
@@ -297,7 +296,7 @@ export class AuthService {
 
     const result = await this.repository.transaction(async (tx) => {
       const context = await this.repository.getRefreshContextForUpdate(tx, parsed.id);
-      if (!context || !secureEqual(context.refresh_token_hash, parsed.hash)) {
+      if (!context || !secureEqual(context.refresh_token_hash, parsed.digest)) {
         await this.audit(tx, {
           action: 'auth.refresh',
           outcome: 'DENIED',
@@ -353,7 +352,7 @@ export class AuthService {
       await this.repository.rotateRefreshToken(tx, {
         currentTokenId: context.refresh_token_id,
         replacementTokenId: replacement.id,
-        replacementTokenHash: replacement.hash,
+        replacementTokenHash: replacement.digest,
         sessionId: context.session_id,
         familyId: context.refresh_token_family_id,
         replacementExpiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
@@ -398,7 +397,7 @@ export class AuthService {
 
     const result = await this.repository.transaction(async (tx) => {
       const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.id);
-      if (!challenge || !secureEqual(challenge.challenge_token_hash, parsed.hash)) {
+      if (!challenge || !secureEqual(challenge.challenge_token_hash, parsed.digest)) {
         return { kind: 'invalid' as const };
       }
       const invalidReason = this.sessionInvalidReason(challenge, true);
@@ -477,7 +476,7 @@ export class AuthService {
         id: refresh.id,
         sessionId: challenge.session_id,
         familyId: challenge.refresh_family_id,
-        tokenHash: refresh.hash,
+        tokenHash: refresh.digest,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
         userAgentHash: hashClientValue(userAgent),
         ipHash: hashClientValue(ip),
@@ -529,7 +528,7 @@ export class AuthService {
         id: challenge.id,
         sessionId: context.session_id,
         userId: context.user_id,
-        challengeTokenHash: challenge.hash,
+        challengeTokenHash: challenge.digest,
         type: 'STEP_UP',
         expiresAt,
       });
@@ -566,7 +565,7 @@ export class AuthService {
       const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.id);
       if (
         !challenge
-        || !secureEqual(challenge.challenge_token_hash, parsed.hash)
+        || !secureEqual(challenge.challenge_token_hash, parsed.digest)
         || challenge.challenge_type !== 'STEP_UP'
         || challenge.session_id !== user.sessionId
         || challenge.user_id !== user.id
@@ -650,7 +649,7 @@ export class AuthService {
         : null;
       if (!context && parsedRefresh) {
         const refreshContext = await this.repository.getRefreshContextForUpdate(tx, parsedRefresh.id);
-        if (refreshContext && secureEqual(refreshContext.refresh_token_hash, parsedRefresh.hash)) {
+        if (refreshContext && secureEqual(refreshContext.refresh_token_hash, parsedRefresh.digest)) {
           context = refreshContext;
         }
       }
@@ -915,7 +914,7 @@ export class AuthService {
         id: challenge.id,
         sessionId,
         userId: identity.user_id,
-        challengeTokenHash: challenge.hash,
+        challengeTokenHash: challenge.digest,
         type: enrollment ? 'TOTP_ENROLL' : 'TOTP_VERIFY',
         expiresAt: challengeExpiresAt,
       });
@@ -975,7 +974,7 @@ export class AuthService {
       id: refresh.id,
       sessionId: input.id,
       familyId: input.familyId,
-      tokenHash: refresh.hash,
+      tokenHash: refresh.digest,
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
       userAgentHash: hashClientValue(input.userAgent),
       ipHash: hashClientValue(input.ip),

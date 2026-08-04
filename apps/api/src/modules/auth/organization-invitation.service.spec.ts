@@ -1,8 +1,12 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { Role, type RequestUser } from '../../common/types/request-user';
-import { hashAuthMaterial, makeOpaqueToken, stableJson } from './auth-crypto';
+import {
+  hashAuthMaterial,
+  stableJson,
+} from './auth-crypto';
 import { OrganizationInvitationService } from './organization-invitation.service';
+import { makeOpaqueToken } from './opaque-token-authority';
 
 const ACTOR: RequestUser = {
   id: 'admin-user',
@@ -149,7 +153,7 @@ describe('organization invitation authority', () => {
     const token = makeOpaqueToken('iv');
     const row = invitationRow({
       id: token.id,
-      token_hash: token.hash,
+      token_hash: token.digest,
       expires_at: new Date(Date.now() - 1_000),
     });
     const { service, tx } = serviceWith((sql) => (
@@ -173,7 +177,7 @@ describe('organization invitation authority', () => {
 
   it('rejects a consumed invitation without performing a write', async () => {
     const token = makeOpaqueToken('iv');
-    const row = invitationRow({ id: token.id, token_hash: token.hash, status: 'ACCEPTED' });
+    const row = invitationRow({ id: token.id, token_hash: token.digest, status: 'ACCEPTED' });
     const { service, tx } = serviceWith((sql) => (
       sql.includes('FROM auth.organization_invitations invitation') ? [row] : []
     ));
@@ -211,7 +215,7 @@ describe('organization invitation authority', () => {
 
   it('requires a strong password only when the invitation creates a new identity', async () => {
     const token = makeOpaqueToken('iv');
-    const row = invitationRow({ id: token.id, token_hash: token.hash });
+    const row = invitationRow({ id: token.id, token_hash: token.digest });
     const { service, tx } = serviceWith((sql) => (
       sql.includes('FROM auth.organization_invitations invitation') ? [row] : []
     ));
@@ -233,7 +237,7 @@ describe('organization invitation authority', () => {
   it('allows an existing identity to prove its current legacy password without resetting it', async () => {
     const password = 'legacy1!';
     const token = makeOpaqueToken('iv');
-    const row = invitationRow({ id: token.id, token_hash: token.hash });
+    const row = invitationRow({ id: token.id, token_hash: token.digest });
     const { service, tx, repository } = serviceWith((sql) => (
       sql.includes('FROM auth.organization_invitations invitation') ? [row] : []
     ));
@@ -400,7 +404,7 @@ describe('organization invitation authority', () => {
       membership_id: 'membership-employee',
       organization_id: 'org-a',
       tenant_id: 'tenant-a',
-      token_hash: token.hash,
+      token_hash: token.digest,
       status: 'PENDING',
       expires_at: new Date(Date.now() + 60_000),
       attempts: 0,
@@ -464,7 +468,7 @@ describe('organization invitation authority', () => {
       membership_id: 'attempt-membership',
       organization_id: 'org-a',
       tenant_id: 'tenant-a',
-      token_hash: token.hash,
+      token_hash: token.digest,
       status: 'PENDING',
       expires_at: new Date(Date.now() + 60_000),
       attempts: 4,

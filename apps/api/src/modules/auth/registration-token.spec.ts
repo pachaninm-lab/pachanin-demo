@@ -22,8 +22,11 @@ describe('registration tokens', () => {
     const token = deriveRegistrationStatusToken('reg_application', 'idempotency-key-123456789');
     const hash = hashRegistrationStatusToken(token);
 
-    expect(token).toMatch(/^rst_reg_application\.[a-f0-9]{64}$/);
-    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    // The stored form is versioned: `v1:<base64url>` from the opaque token
+    // authority, not a bare keyed hash. The version prefix is what lets a
+    // future scheme be rejected rather than silently accepted.
+    expect(token).toMatch(/^rst_reg_application\.v1:[A-Za-z0-9_-]+$/);
+    expect(hash).toMatch(/^v1:[A-Za-z0-9_-]+$/);
     expect(hash).not.toContain(token);
   });
 

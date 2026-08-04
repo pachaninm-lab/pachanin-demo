@@ -1,5 +1,4 @@
-import { randomBytes } from 'crypto';
-import { hashAuthMaterial, secureEqual } from './auth-crypto';
+import { makeOpaqueToken, opaqueDigestMatches, parseOpaqueToken } from './opaque-token-authority';
 
 export const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
 export const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
@@ -10,19 +9,22 @@ export type PasswordResetToken = {
   hash: string;
 };
 
+/**
+ * The stored value is a purpose-bound digest from the opaque token authority,
+ * not a generic keyed hash. A reset token and an MFA-recovery token with
+ * identical random bytes therefore digest differently, so one can never be
+ * presented in place of the other.
+ */
 export function issuePasswordResetToken(): PasswordResetToken {
-  const id = `pr_${randomBytes(18).toString('base64url')}`;
-  const secret = randomBytes(32).toString('base64url');
-  const token = `${id}.${secret}`;
-  return { id, token, hash: hashAuthMaterial(token) };
+  const minted = makeOpaqueToken('pr');
+  return { id: minted.id, token: minted.token, hash: minted.digest };
 }
 
 export function parsePasswordResetToken(raw: string): { id: string; hash: string } | null {
-  const [id, secret, extra] = String(raw ?? '').split('.');
-  if (extra || !id || !secret || !id.startsWith('pr_') || secret.length < 40) return null;
-  return { id, hash: hashAuthMaterial(`${id}.${secret}`) };
+  const parsed = parseOpaqueToken(raw, 'pr');
+  return parsed ? { id: parsed.id, hash: parsed.digest } : null;
 }
 
 export function passwordResetHashMatches(stored: string, candidate: string): boolean {
-  return secureEqual(stored, candidate);
+  return opaqueDigestMatches(stored, candidate);
 }
