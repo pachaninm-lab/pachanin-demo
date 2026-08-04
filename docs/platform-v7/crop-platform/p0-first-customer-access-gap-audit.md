@@ -131,7 +131,9 @@ and negative direct-SQL tests proving that tenant B cannot read tenant A —
 before login, after login, with multi-membership, for admin/reviewer, and for
 background and service principals.
 
-That work is tracked as #3618. Whether it lands inside this PR or as its own,
+That work is tracked as #3670. (#3618 is a different task — append-only hardening
+of `public.audit_events` — and is not the identity-RLS blocker.)
+Whether it lands inside this PR or as its own,
 it is a hard prerequisite: **PR #3564 stays in draft, is not merged and is not
 deployed until identity RLS is in force and this section reads PASS.** No
 PRODUCTION_PASS may be claimed before then.
@@ -177,7 +179,7 @@ Disclosed rather than buried:
 
 | Item | Owner | Blocking |
 |---|---|---|
-| **Identity RLS on `users`, `user_orgs`, `organizations`; remove the 7 inert policies** | **#3618 — hard prerequisite for merge and deploy** | **7.2–7.5, and the P0 security PASS** |
+| **Identity RLS on `users`, `user_orgs`, `organizations`; remove the 7 inert policies** | **#3670 — hard prerequisite for merge and deploy** | **7.2–7.5, and the P0 security PASS** |
 | Firefox and WebKit projects of the acceptance matrix | CI | 4.7 |
 | Real mail delivery | production | 1.9 |
 | REG.RU deployment of the merge SHA | owner — no credentials in this environment | 8–11 of the acceptance sequence |
