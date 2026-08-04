@@ -10,13 +10,7 @@ import { randomUUID, timingSafeEqual } from 'crypto';
 import { Role } from '../../common/types/request-user';
 import { AuthPrismaService } from './auth-prisma.service';
 import { CURRENT_CONSENT_EVIDENCE, isCurrentConsent } from './consent-policy';
-import {
-  hashAuthMaterial,
-  hashClientValue,
-  hashPasswordFingerprint,
-  sha256,
-  stableJson,
-} from './auth-crypto';
+import { hashAuthMaterial, hashClientValue, sha256, stableJson } from './auth-crypto';
 import { type PublicWorkspaceClass, RegisterDto } from './dto/register.dto';
 import { PersistentAuthRepository, type AuthSqlClient } from './persistent-auth.repository';
 import {
@@ -140,6 +134,50 @@ export function roleForWorkspace(workspace: PublicWorkspaceClass): Role {
   return WORKSPACE_ROLE[workspace];
 }
 
+/**
+ * The canonical, non-secret payload that decides replay versus conflict for a
+ * public registration submission.
+ *
+ * The credential is deliberately absent. A password belongs to the credential
+ * contour — bcrypt when it is written, bcrypt when it is verified — and
+ * nowhere else: it is not an input to an idempotency, audit or correlation
+ * fingerprint, so no stored hash can ever become an offline oracle for it.
+ *
+ * The consequence is intended and load-bearing: a retry that reuses the same
+ * key with the same non-secret payload but a *different* password returns the
+ * first result rather than conflicting. A caller cannot use an idempotency key
+ * to learn anything about a credential, because the key's fingerprint does not
+ * depend on one.
+ *
+ * Extracted as a pure function so the property is asserted directly instead of
+ * by a test that would just re-derive the implementation.
+ */
+export function registrationIdempotencyPayload(dto: RegisterDto, idempotencyKey: string) {
+  return {
+    purpose: 'auth.registration.public_submit',
+    idempotencyKey,
+    email: dto.email.trim().toLowerCase(),
+    phone: normalizePhone(dto.phone),
+    fullName: dto.fullName.trim(),
+    position: dto.position.trim(),
+    orgLegalName: dto.orgLegalName.trim(),
+    orgInn: dto.orgInn.replace(/\D/g, ''),
+    orgKpp: dto.orgKpp?.replace(/\D/g, '') || null,
+    orgOgrn: dto.orgOgrn?.replace(/\D/g, '') || null,
+    orgType: dto.orgType,
+    region: dto.region.trim(),
+    workspace: dto.workspace,
+    termsVersion: dto.termsVersion.trim(),
+    privacyVersion: dto.privacyVersion.trim(),
+  };
+}
+
+export function registrationRequestHash(
+  payload: ReturnType<typeof registrationIdempotencyPayload>,
+): string {
+  return hashAuthMaterial(stableJson(payload));
+}
+
 @Injectable()
 export class RegistrationApplicationService {
   constructor(
@@ -162,32 +200,11 @@ export class RegistrationApplicationService {
       throw new BadRequestException({ code: 'IDEMPOTENCY_KEY_REQUIRED' });
     }
 
-    // Derived before the payload is assembled so the deliberately expensive
-    // KDF runs off the event loop rather than inside an object literal.
-    const passwordFingerprint = await hashPasswordFingerprint(dto.password);
-    const normalized = {
-      email: dto.email.trim().toLowerCase(),
-      phone: normalizePhone(dto.phone),
-      fullName: dto.fullName.trim(),
-      position: dto.position.trim(),
-      orgLegalName: dto.orgLegalName.trim(),
-      orgInn: dto.orgInn.replace(/\D/g, ''),
-      orgKpp: dto.orgKpp?.replace(/\D/g, '') || null,
-      orgOgrn: dto.orgOgrn?.replace(/\D/g, '') || null,
-      orgType: dto.orgType,
-      region: dto.region.trim(),
-      workspace: dto.workspace,
-      termsVersion: dto.termsVersion.trim(),
-      privacyVersion: dto.privacyVersion.trim(),
-      // The plaintext password never enters request/audit metadata. Its
-      // fingerprint does, so an idempotency key cannot silently accept a retry
-      // that asks to install a different credential.
-      passwordFingerprint,
-    };
+    const normalized = registrationIdempotencyPayload(dto, idempotencyKey);
     if (!isCurrentConsent(normalized.termsVersion, normalized.privacyVersion)) {
       throw new BadRequestException({ code: 'CONSENT_VERSION_NOT_CURRENT' });
     }
-    const requestHash = hashAuthMaterial(stableJson(normalized));
+    const requestHash = registrationRequestHash(normalized);
 
     const existing = await this.findByIdempotency(idempotencyKey);
     if (existing) {

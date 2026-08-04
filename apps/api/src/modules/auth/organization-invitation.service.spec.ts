@@ -346,9 +346,14 @@ describe('organization invitation authority', () => {
 
     const replayMembershipId = 'membership-replay';
     const replayVersion = 5n;
+    // Membership, actor, purpose and the server-issued request key. No
+    // credential material: the recovery token is minted separately and never
+    // reaches this hash.
     const replayRequestHash = hashAuthMaterial(stableJson({
+      purpose: 'auth.membership.mfa_reset',
       membershipId: replayMembershipId,
-      command: 'MFA_RESET',
+      actorId: ACTOR.id,
+      requestId: 'idempotency-mfa-recovery-0004',
       version: replayVersion.toString(),
       reason,
     }));

@@ -662,7 +662,18 @@ export class OrganizationInvitationService {
     const admin = await this.requireAdmin(user);
     if (membershipId === admin.id) throw new ForbiddenException({ code: 'SELF_MFA_RESET_FORBIDDEN' });
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
-    const requestHash = hashAuthMaterial(stableJson({ membershipId, command: 'MFA_RESET', version: version.toString(), reason }));
+    // Membership, actor, purpose and the server-issued request key — no
+    // credential material of any kind. The recovery token minted below is 256
+    // bits of randomness and belongs to the credential contour, so it never
+    // enters this hash either.
+    const requestHash = hashAuthMaterial(stableJson({
+      purpose: 'auth.membership.mfa_reset',
+      membershipId,
+      actorId: user.id,
+      requestId: idempotencyKey,
+      version: version.toString(),
+      reason,
+    }));
     const token = makeOpaqueToken('mr');
     const expiresAt = new Date(Date.now() + MFA_RECOVERY_TTL_MS);
     const result = await this.prisma.$transaction(async (tx) => {

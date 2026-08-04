@@ -158,39 +158,48 @@ PRODUCTION_PASS may be claimed before then.
 | New paid service | Held | no new dependency or hosted service |
 | Production PASS without exact SHA and live evidence | Held | this document claims none |
 
-## 8.1 CodeQL: one high-severity alert, one real defect inside it
+## 8.1 CodeQL: no password-derived value reaches a keyed hash
 
 CodeQL raised one alert against this PR — *use of password hash with
 insufficient computational effort*, one sink, the `createHmac` inside
-`hashAuthMaterial` (`auth-crypto.ts`). On `main` no caller of that function has
-a password-named source, so the alert does arrive with this branch. It carries
-nine contributing flow paths, and they are not all the same thing.
+`hashAuthMaterial`. On `main` no caller of that function has a password-named
+source, so the alert does arrive with this branch. It carried nine contributing
+flow paths.
 
-| Flow source | Paths | What the value actually is | Verdict |
-|---|---|---|---|
-| `dto.password` → `passwordFingerprint` | 3 | a user-chosen password | **real defect, fixed** |
-| `issuePasswordResetToken` | 5 | `randomBytes(18)` id + `randomBytes(32)` secret | false positive on the identifier name |
-| `resetMembershipMfa` | 1 | `stableJson({membershipId, command, version, reason})`; the token beside it is `randomBytes(32)` | false positive on the identifier name |
+The owner's decision was to remove password-derived material from every
+request fingerprint rather than to file an exception, downgrade the severity,
+suppress the rule, or rename domain methods so the scanner's heuristic stops
+matching. Renaming to dodge a scanner is suppression under another name, and
+`issuePasswordResetToken` and its siblings keep their names.
 
-The real one: `registration-application.service.ts` fed a user-chosen password
-to the keyed hash written for high-entropy material. The plaintext never
-reached the database and the stored credential was always `bcrypt(12)`, so it
-was never a stored password hash — but the fingerprint is folded into
-`request_hash`, which *is* stored, so the database plus `AUTH_TOKEN_PEPPER`
-recovered the password at HMAC-SHA256 speed without paying the bcrypt cost.
-The weakest link sets the cost. `hashPasswordFingerprint` now derives it with
-scrypt at the RFC 7914 interactive parameters (N=2¹⁴, r=8, p=1, ~41 ms
-measured), staying deterministic so an idempotent retry that swaps the
-credential is still rejected. `auth-crypto.spec.ts` pins determinism,
-separation, the cost floor and non-equality with the old keyed hash; restoring
-the previous implementation fails two of its five tests.
+| Contract | Fingerprint inputs after this change |
+|---|---|
+| `auth.registration.public_submit` | purpose, idempotency key, normalized email, phone, name, position, organization identity, region, workspace, consent versions |
+| `auth.membership.mfa_reset` | purpose, membership id, actor id, server-issued request id, version, reason |
+| password reset | no request fingerprint exists; the stored value is the hash of a 256-bit random token, which is the credential contour, not an idempotency record |
 
-The residue is the query's name-based source heuristic firing on 256-bit
-random tokens. It is recorded here rather than closed: no exception was filed,
-no severity downgraded, no suppression added, and the identifiers were **not**
-renamed to stop the heuristic matching — renaming code to dodge a scanner is
-suppression wearing a different hat. Closing the check therefore remains an
-owner decision, and this row stays open until it is taken.
+The password is now confined to the credential contour: bcrypt when it is
+written, bcrypt when it is verified. It is not an input to an idempotency,
+audit or correlation fingerprint, is not returned from a helper, and is not
+written to an event or a log. `hashPasswordFingerprint` was deleted with its
+call site — an interim scrypt version of it removed the cost problem but left
+the dataflow, and no legitimate credential-only use remained.
+
+One consequence is intended and load-bearing: a retry that reuses an
+idempotency key with the same non-secret payload but a *different* password
+returns the first result instead of conflicting. A caller cannot use an
+idempotency key to learn anything about a credential, because the key's
+fingerprint no longer depends on one. Conflict is still raised when the
+non-secret payload differs.
+
+Proof: `registrationIdempotencyContract.spec.ts` asserts the fingerprint is
+unchanged by a password change, contains no password-derived field and no
+occurrence of the credential, still changes for every non-secret field, and is
+bound to its purpose and key. `authCredentialBoundary.spec.ts` is a static
+guard over every auth and staff-access source: it fails the build if a password
+or password-derived expression is ever passed to a keyed or fast hash again,
+and it carries its own positive and negative cases so it cannot rot into a
+no-op.
 
 ## 9. Environment concessions in the acceptance job
 
@@ -214,7 +223,7 @@ Disclosed rather than buried:
 | Item | Owner | Blocking |
 |---|---|---|
 | **Identity RLS on `users`, `user_orgs`, `organizations`; remove the 7 inert policies** | **#3670 — hard prerequisite for merge and deploy** | **7.2–7.5, and the P0 security PASS** |
-| CodeQL alert: 6 remaining flow paths are the query's name heuristic on 256-bit random tokens, not passwords | owner — closing it must not be a rename, exception or suppression | 8.1 |
+| CodeQL re-run on the exact head after removing password-derived material from every request fingerprint | CI | 8.1 |
 | Firefox and WebKit projects of the acceptance matrix | CI | 4.7 |
 | Real mail delivery | production | 1.9 |
 | REG.RU deployment of the merge SHA | owner — no credentials in this environment | 8–11 of the acceptance sequence |
