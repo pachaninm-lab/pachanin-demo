@@ -11,7 +11,19 @@ fs.mkdirSync(evidenceDir, { recursive: true });
 
 const CASES = [
   { id: 'potato-fertilizer', locale: 'ru', question: 'Чем удобрять картошку', subject: ['картоф'], support: ['удобрен', 'калий', 'фосфор', 'азот', 'почв', 'органик', 'навоз'] },
-  { id: 'cucumber-yellow-leaves', locale: 'ru', question: 'Почему желтеют листья у огурцов в теплице?', subject: ['огур'], support: ['полив', 'питан', 'азот', 'корн', 'болезн', 'температур'] },
+  {
+    id: 'cucumber-yellow-leaves',
+    locale: 'ru',
+    question: 'Почему желтеют листья у огурцов в теплице?',
+    subject: ['огур'],
+    support: ['полив', 'питан', 'азот', 'корн', 'болезн', 'температур'],
+    supportGroups: [
+      { id: 'nutrition', terms: ['питан', 'азот', 'калий', 'магни', 'фосфор', 'дефицит', 'ph'] },
+      { id: 'water-root', terms: ['полив', 'влаг', 'корн', 'переувлаж', 'засух'] },
+      { id: 'disease-pests', terms: ['болезн', 'гриб', 'инфекц', 'вредител', 'тля', 'клещ'] },
+      { id: 'climate', terms: ['температур', 'жар', 'холод', 'влажност'] },
+    ],
+  },
   { id: 'wheat-low-yield', locale: 'ru', question: 'Почему падает урожайность озимой пшеницы?', subject: ['пшениц'], support: ['почв', 'влаг', 'питан', 'болезн', 'сорняк', 'сорт'] },
   { id: 'tomato-blossom-drop', locale: 'ru', question: 'Почему у томатов опадают цветки?', subject: ['томат'], support: ['температур', 'влажн', 'опыл', 'полив', 'питан'] },
   { id: 'apple-scab', locale: 'ru', question: 'Как снизить риск парши в яблоневом саду?', subject: ['яблон', 'парш'], support: ['обработ', 'лист', 'влаг', 'санитар', 'фунгиц'] },
@@ -54,11 +66,16 @@ function assertAgriculturalAnswer(answer, testCase, boundary) {
   if (!testCase.subject.some(term => normalized.includes(normalize(term, testCase.locale)))) {
     throw new Error(`${testCase.id}_${boundary}_subject_missing`);
   }
-  const supportMatches = testCase.support.filter(term => normalized.includes(normalize(term, testCase.locale)));
-  if (supportMatches.length < 2) throw new Error(`${testCase.id}_${boundary}_substance_missing:${supportMatches.join(',')}`);
+  const supportGroups = testCase.supportGroups || testCase.support.map(term => ({ id: term, terms: [term] }));
+  const matchedGroups = supportGroups
+    .filter(group => group.terms.some(term => normalized.includes(normalize(term, testCase.locale))))
+    .map(group => group.id);
+  if (matchedGroups.length < 2) {
+    throw new Error(`${testCase.id}_${boundary}_substance_missing:${matchedGroups.join(',')}`);
+  }
   const wrong = FORBIDDEN.find(term => normalized.includes(term));
   if (wrong) throw new Error(`${testCase.id}_${boundary}_wrong_platform_article:${wrong}`);
-  return supportMatches;
+  return matchedGroups;
 }
 
 function parseSse(text) {
