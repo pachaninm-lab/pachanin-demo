@@ -24,6 +24,7 @@
     "Activation failure evidence retains the actual failed public answer and completed-case metadata",
     "The activation workflow runs when the restricted public Qwen service or its tests change",
     "Dependency and lockfile authority comes exclusively from current main; this branch carries no dependency remediation or exception",
+    "The reconciled exact-head diff contains only the five governed functional, test, workflow and evidence files listed above",
     "No paid model, SaaS, hosting, database or recurring cost is added",
     "Completion requires exact-head checks, exact-main merge, canonical images, REG.RU release, preflight, protected Qwen activation, 21 endpoint and 5 mobile Chromium cases, finalization accept and postflight"
   ]
