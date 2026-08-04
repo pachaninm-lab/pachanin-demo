@@ -10,7 +10,13 @@ import { randomUUID, timingSafeEqual } from 'crypto';
 import { Role } from '../../common/types/request-user';
 import { AuthPrismaService } from './auth-prisma.service';
 import { CURRENT_CONSENT_EVIDENCE, isCurrentConsent } from './consent-policy';
-import { hashAuthMaterial, hashClientValue, sha256, stableJson } from './auth-crypto';
+import {
+  hashAuthMaterial,
+  hashClientValue,
+  hashPasswordFingerprint,
+  sha256,
+  stableJson,
+} from './auth-crypto';
 import { type PublicWorkspaceClass, RegisterDto } from './dto/register.dto';
 import { PersistentAuthRepository, type AuthSqlClient } from './persistent-auth.repository';
 import {
@@ -156,6 +162,9 @@ export class RegistrationApplicationService {
       throw new BadRequestException({ code: 'IDEMPOTENCY_KEY_REQUIRED' });
     }
 
+    // Derived before the payload is assembled so the deliberately expensive
+    // KDF runs off the event loop rather than inside an object literal.
+    const passwordFingerprint = await hashPasswordFingerprint(dto.password);
     const normalized = {
       email: dto.email.trim().toLowerCase(),
       phone: normalizePhone(dto.phone),
@@ -170,10 +179,10 @@ export class RegistrationApplicationService {
       workspace: dto.workspace,
       termsVersion: dto.termsVersion.trim(),
       privacyVersion: dto.privacyVersion.trim(),
-      // The plaintext password never enters request/audit metadata. Its keyed
+      // The plaintext password never enters request/audit metadata. Its
       // fingerprint does, so an idempotency key cannot silently accept a retry
       // that asks to install a different credential.
-      passwordFingerprint: hashAuthMaterial(`registration-password:${dto.password}`),
+      passwordFingerprint,
     };
     if (!isCurrentConsent(normalized.termsVersion, normalized.privacyVersion)) {
       throw new BadRequestException({ code: 'CONSENT_VERSION_NOT_CURRENT' });

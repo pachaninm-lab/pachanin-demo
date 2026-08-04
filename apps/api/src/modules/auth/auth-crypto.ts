@@ -4,9 +4,18 @@ import {
   createHash,
   createHmac,
   randomBytes,
+  scrypt,
   timingSafeEqual,
 } from 'crypto';
+import { promisify } from 'util';
 import { requireSecret } from '../../common/config/secrets';
+
+const scryptAsync = promisify(scrypt) as (
+  password: string,
+  salt: Buffer,
+  keylen: number,
+  options: { N: number; r: number; p: number },
+) => Promise<Buffer>;
 
 const JWT_SECRET = requireSecret('JWT_SECRET');
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -55,6 +64,37 @@ export function hashAuthMaterial(value: string): string {
 export function hashClientValue(value?: string | null): string | null {
   const normalized = String(value ?? '').trim();
   return normalized ? hashAuthMaterial(normalized) : null;
+}
+
+/**
+ * Deterministic fingerprint of a user-chosen password.
+ *
+ * `hashAuthMaterial` is the right tool for high-entropy material — opaque
+ * tokens, backup codes, invitation ids — where a keyed hash only has to be
+ * unforgeable. A password is not high-entropy, and a fingerprint of one ends
+ * up stored inside a request hash, so at HMAC-SHA256 speed it becomes an
+ * offline oracle that recovers the password far faster than the bcrypt(12)
+ * credential stored beside it: the weakest link, not the strongest, sets the
+ * cost. scrypt restores that cost.
+ *
+ * It stays deterministic on purpose — the caller needs the same password to
+ * produce the same fingerprint so an idempotent retry that silently swaps the
+ * credential is still rejected — so the salt is the deployment's pepper rather
+ * than a per-call random value. That means equal passwords share a
+ * fingerprint, which is why this value must only ever be folded into a wider
+ * request hash and never stored or compared on its own.
+ *
+ * N=2^14, r=8, p=1 is the RFC 7914 interactive-login parameter set: ~16 MiB
+ * and tens of milliseconds per call, against a submission path that already
+ * pays bcrypt(12).
+ */
+export async function hashPasswordFingerprint(password: string): Promise<string> {
+  const derived = await scryptAsync(password, keyFrom('AUTH_TOKEN_PEPPER'), 32, {
+    N: 16_384,
+    r: 8,
+    p: 1,
+  });
+  return derived.toString('hex');
 }
 
 type OpaqueTokenPrefix = 'rt' | 'mc' | 'iv' | 'ms' | 'mr';

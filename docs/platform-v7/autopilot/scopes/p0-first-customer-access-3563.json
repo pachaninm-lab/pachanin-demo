@@ -49,6 +49,7 @@
     "apps/api/prisma/schema.prisma",
     "apps/api/scripts/seed-design-system-v8-identities.mjs",
     "apps/api/src/common/types/request-user.ts",
+    "apps/api/src/modules/auth/auth-crypto.spec.ts",
     "apps/api/src/modules/auth/auth-crypto.ts",
     "apps/api/src/modules/auth/auth.controller.ts",
     "apps/api/src/modules/auth/auth.membership-selection.spec.ts",
