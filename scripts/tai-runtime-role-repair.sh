@@ -395,9 +395,97 @@ SQL
   status='REMOVED_SAFE_ORPHAN'
 fi
 
-python3 - "$OUTPUT_FILE" "$TARGET_SHA" "$RUN_ID" "$status" "$prod_project" "$DB_SERVICE" "$DB_NAME" "$role_boundary_json" <<'PY_EVIDENCE'
+runtime_health_json="$(psql_admin -Atc "
+SELECT json_build_object(
+  'activeProfileCount', (
+    SELECT COUNT(*)::int
+    FROM public.tai_local_model_profiles
+    WHERE status='ACTIVE'
+  ),
+  'activeGenerationCount', (
+    SELECT COUNT(*)::int
+    FROM public.tai_retrieval_generations
+    WHERE status='ACTIVE'
+  ),
+  'masterSpecChunkCount', (
+    SELECT COUNT(*)::int
+    FROM public.tai_retrieval_chunks AS chunk
+    JOIN public.tai_retrieval_generations AS generation
+      ON generation.generation=chunk.generation
+     AND generation.status='ACTIVE'
+    WHERE chunk.source_id='tai-agro-os-master-spec-v4.0'
+      AND chunk.revoked IS FALSE
+  ),
+  'acceptedAdmissionCount', (
+    SELECT COUNT(*)::int
+    FROM public.tai_current_model_admission_v1
+    WHERE accepted IS TRUE
+  ),
+  'profiles', COALESCE((
+    SELECT json_agg(
+      json_build_object(
+        'modelId', profile.model_id,
+        'revision', profile.revision,
+        'artifactSha256', profile.artifact_sha256,
+        'profileStatus', profile.status,
+        'runtimeStatus', health.status,
+        'availableSlots', health.available_slots,
+        'queueDepth', health.queue_depth,
+        'p95LatencyMs', health.p95_latency_ms,
+        'observedAt', health.observed_at,
+        'circuitOpenUntil', health.circuit_open_until,
+        'updatedAt', health.updated_at
+      )
+      ORDER BY profile.routing_priority, profile.model_id, profile.revision
+    )
+    FROM public.tai_local_model_profiles AS profile
+    LEFT JOIN public.tai_local_model_health AS health
+      ON health.model_id=profile.model_id
+     AND health.revision=profile.revision
+    WHERE profile.status='ACTIVE'
+  ), '[]'::json)
+)::text;
+")"
+[[ -n "$runtime_health_json" ]]
+python3 - "$runtime_health_json" <<'PY_RUNTIME_HEALTH_VALIDATE'
+import json,sys
+value=json.loads(sys.argv[1])
+assert isinstance(value.get('activeProfileCount'),int)
+assert isinstance(value.get('activeGenerationCount'),int)
+assert isinstance(value.get('masterSpecChunkCount'),int)
+assert isinstance(value.get('acceptedAdmissionCount'),int)
+assert isinstance(value.get('profiles'),list)
+PY_RUNTIME_HEALTH_VALIDATE
+
+latest_failed_run=''
+shopt -s nullglob
+for state_dir in /var/lib/pc-release-authority/tai-agro-os-*; do
+  [[ -d "$state_dir" && ! -L "$state_dir" ]] || continue
+  [[ -f "$state_dir/ROLLED_BACK" && -f "$state_dir/metadata.env" ]] || continue
+  source_target="$(awk -F= '$1 == "TARGET_SHA" { print $2; exit }' "$state_dir/metadata.env")"
+  [[ "$source_target" == "$TARGET_SHA" ]] || continue
+  candidate="${state_dir##*-}"
+  [[ "$candidate" =~ ^[0-9]{1,20}$ ]] || continue
+  if [[ -z "$latest_failed_run" || "$candidate" -gt "$latest_failed_run" ]]; then
+    latest_failed_run="$candidate"
+  fi
+done
+shopt -u nullglob
+latest_deployment_error='NONE'
+latest_rollback_confirmed=false
+if [[ -n "$latest_failed_run" ]]; then
+  latest_stage="/var/lib/pc-release-authority/controller-jobs/${latest_failed_run}/deploy-stage-error.log"
+  if [[ -f "$latest_stage" && ! -L "$latest_stage" ]]; then
+    candidate_error="$(sed -n 's/^ERROR_CODE=//p' "$latest_stage" | tail -1)"
+    [[ "$candidate_error" =~ ^[A-Z][A-Z0-9_]+$ ]] && latest_deployment_error="$candidate_error"
+  fi
+  [[ -f "/var/lib/pc-release-authority/tai-agro-os-${latest_failed_run}/ROLLED_BACK" ]] \
+    && latest_rollback_confirmed=true
+fi
+
+python3 - "$OUTPUT_FILE" "$TARGET_SHA" "$RUN_ID" "$status" "$prod_project" "$DB_SERVICE" "$DB_NAME" "$role_boundary_json" "$runtime_health_json" "${latest_failed_run:-none}" "$latest_deployment_error" "$latest_rollback_confirmed" <<'PY_EVIDENCE'
 import grp,json,os,sys
-path,sha,run_id,status,project,db_service,db_name,boundary=sys.argv[1:]
+path,sha,run_id,status,project,db_service,db_name,boundary,runtime_health,failed_run,error_code,rollback=sys.argv[1:]
 report={
   'schemaVersion':'tai.runtime-role-repair.v1',
   'targetSha':sha,
@@ -413,6 +501,10 @@ report={
   'databaseService':db_service,
   'databaseName':db_name,
   'boundaryBefore':json.loads(boundary),
+  'runtimeHealthDiagnostic':json.loads(runtime_health),
+  'latestFailedDeploymentRunId':None if failed_run == 'none' else failed_run,
+  'latestDeploymentErrorCode':error_code,
+  'latestDeploymentRollbackConfirmed':rollback == 'true',
   'mutationPerformed': status == 'REMOVED_SAFE_ORPHAN',
   'dropOwnedUsed':False,
   'reassignOwnedUsed':False,
