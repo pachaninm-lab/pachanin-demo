@@ -49,7 +49,7 @@ function yamlList(source: string, key: string): string[] {
   const items: string[] = [];
   for (const line of lines.slice(start + 1)) {
     if (/^\S/.test(line) && line.trim()) break;
-    const item = /^\s+-\s+(.*\S)\s*$/.exec(line);
+    const item = /^\s+-\s+(?:uses:\s*)?(.*\S)\s*$/.exec(line);
     if (item) items.push(item[1].replace(/^['"]|['"]$/g, ''));
   }
   return items;
@@ -63,7 +63,10 @@ const workflow = readFileSync(WORKFLOW, 'utf8');
 
 describe('CodeQL password-hash model correction', () => {
   it('is attached to the analysis', () => {
-    expect(config).toContain('./codeql/insufficient-password-hash-corrected');
+    expect(config).toContain('./codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql');
+    // The guards must run the same binary that performed the analysis.
+    expect(workflow).toContain('CODEQL_ACTION_CLI_VERSION_INFO');
+    expect(code(workflow)).not.toMatch(/^\s+codeql /m);
     expect(workflow).toContain('config-file: ./.github/codeql/codeql-config.yml');
   });
 
@@ -96,7 +99,10 @@ describe('CodeQL password-hash model correction', () => {
   it('keeps the whole default suite and adds the corrected query', () => {
     expect(code(config)).not.toMatch(/disable-default-queries/);
     expect(config).toContain('InsufficientPasswordHashCorrected.ql');
-    expect(yamlList(config, 'packs')).toEqual(['./codeql/insufficient-password-hash-corrected']);
+    // `packs:` takes published pack names only; a path there is ignored in
+    // silence, which is how the first attempt failed without saying so.
+    expect(yamlList(config, 'packs')).toEqual([]);
+    expect(yamlList(config, 'queries').join(' ')).toContain('InsufficientPasswordHashCorrected.ql');
   });
 
   it('ignores only the query-test pack, never product source', () => {

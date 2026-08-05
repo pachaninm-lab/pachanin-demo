@@ -49,11 +49,22 @@ jobs:
           # steps below prove it is exactly that.
           config-file: ./.github/codeql/codeql-config.yml
 
+      # The CLI is not on PATH in a plain run step. The action exports its
+      # absolute location in CODEQL_ACTION_CLI_VERSION_INFO, so the guards use
+      # exactly the binary that performed the analysis.
+      - name: Locate the CodeQL CLI used by this analysis
+        run: |
+          set -euo pipefail
+          CODEQL_BIN="$(node -e 'process.stdout.write(JSON.parse(process.env.CODEQL_ACTION_CLI_VERSION_INFO).cmd)')"
+          test -x "$CODEQL_BIN"
+          echo "CODEQL_BIN=$CODEQL_BIN" >> "$GITHUB_ENV"
+          "$CODEQL_BIN" version --format=terse
+
       - name: Compile the replacement query pack
         run: |
           set -euo pipefail
-          codeql pack install codeql/insufficient-password-hash-corrected
-          codeql query compile --check-only \
+          "$CODEQL_BIN" pack install codeql/insufficient-password-hash-corrected
+          "$CODEQL_BIN" query compile --check-only \
             codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql
 
       - name: Run the query regression matrix
@@ -62,17 +73,18 @@ jobs:
           # Positive fixtures must alert and negative fixtures must not. The
           # expectation files are the contract, so a drift in either direction
           # fails here rather than reaching production.
-          codeql test run codeql/insufficient-password-hash-corrected/tests \
+          "$CODEQL_BIN" pack install codeql/insufficient-password-hash-corrected/tests
+          "$CODEQL_BIN" test run codeql/insufficient-password-hash-corrected/tests \
             2>&1 | tee /tmp/codeql-test.log
 
       - name: Prove the selection is a replacement, not a removal
         run: |
           set -euo pipefail
-          SUITE="$(codeql resolve qlpacks --format=json \
+          SUITE="$("$CODEQL_BIN" resolve qlpacks --format=json \
             | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(p["codeql/javascript-queries"][0])')"
-          codeql resolve queries --format=json \
+          "$CODEQL_BIN" resolve queries --format=json \
             "$SUITE/codeql-suites/javascript-code-scanning.qls" > /tmp/upstream-queries.json
-          codeql resolve queries --format=json \
+          "$CODEQL_BIN" resolve queries --format=json \
             codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql \
             > /tmp/replacement-query.json
           node -e '
@@ -87,7 +99,7 @@ jobs:
       - name: Prove upstream has not drifted from the pinned fork base
         run: |
           set -euo pipefail
-          codeql resolve qlpacks --format=json > /tmp/installed-packs.json
+          "$CODEQL_BIN" resolve qlpacks --format=json > /tmp/installed-packs.json
           node scripts/codeql-replacement-guard.mjs drift /tmp/installed-packs.json
 
       - name: Perform CodeQL analysis

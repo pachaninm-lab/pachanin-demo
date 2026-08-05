@@ -16,9 +16,9 @@ name: platform-v7 CodeQL configuration
 # is changed, and there is no baseline and no continue-on-error. The selection
 # guard and the parity manifest fail the job if any of that stops being true.
 
-packs:
-  - ./codeql/insufficient-password-hash-corrected
-
+# A local query is attached through `queries:`. `packs:` accepts only published
+# pack names — a path there is silently ignored, which is exactly how the first
+# attempt failed without saying so.
 queries:
   - uses: ./codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql
 
