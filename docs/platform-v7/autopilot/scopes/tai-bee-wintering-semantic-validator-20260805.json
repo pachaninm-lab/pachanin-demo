@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-bee-wintering-semantic-validator-20260805",
+  "status": "active",
+  "title": "TAI bee-wintering semantic acceptance repair",
+  "priority": "P0",
+  "baselineExactMain": "647e53a7a8d2acdfaae528b56968efe53e8d850f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Eliminate the false-negative broad live acceptance for a substantive bee-wintering answer by validating independent preparation factor groups rather than narrow literal stems.",
+  "triggerEvidence": {
+    "activationRunId": 30987661564,
+    "failedJobId": 92247178691,
+    "artifactId": 8923299983,
+    "failure": "bee-wintering_endpoint_substance_missing:"
+  },
+  "allowedPaths": [
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts",
+    "docs/platform-v7/autopilot/scopes/tai-bee-wintering-semantic-validator-20260805.json"
+  ],
+  "boundaries": [
+    "Do not change production model behavior, prompts, API routing, security controls, authorization, tenant isolation, write paths or infrastructure",
+    "Do not weaken source, exact model identity, general-agro mode, stream completion, subject relevance, minimum answer length, forbidden-platform-article, RU/EN/ZH or mobile Chromium assertions",
+    "The bee-wintering scenario must require at least two independent factor groups among feed reserves, colony health, winter microclimate, colony strength and hive preparation",
+    "Multiple feed reserve terms count as one group and multiple climate or insulation terms count as one group",
+    "The substantive production answer naming honey reserves, disease or parasites, and insulation, wind or frost protection must pass without requiring unrelated literal words such as корм, клещ, семья, вентиляция or запас",
+    "The validator remains fail-closed and must preserve the actual answer in evidence before any failure",
+    "Production completion requires exact-head terminal PASS, merge, exact-main full-stack REG.RU release, controller sync, preflight, protected activation, all 21 endpoint and 5 mobile cases PASS, finalization accept, standalone TAI deployment and postflight PASS"
+  ]
+}
