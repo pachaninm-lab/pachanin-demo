@@ -137,6 +137,9 @@ export class RestrictedPublicQwenService {
       if (request.currentDataRequired) {
         answer = enforceCurrentEvidenceBoundary(answer, request.locale, safetyFlags);
       }
+      if (request.answerMode === 'general_agro') {
+        answer = enforceGeneralAgroCompleteness(answer, request, safetyFlags);
+      }
 
       const withoutLinks = answer.replace(/(?:https?:\/\/|www\.)\S+/giu, '').replace(/[ \t]+\n/gu, '\n').trim();
       if (withoutLinks !== answer) safetyFlags.push('RAW_LINK_REMOVED');
@@ -333,6 +336,7 @@ function publicSystemPrompt(locale: PublicLocale, answerMode: PublicAnswerMode, 
     'For every agriculture or agribusiness answer, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation.',
     'For irrigation selection or design, explicitly cover at least two of water source or available debit, required flow, operating pressure, filtration, zoning, line or tape length, emitter spacing, crop water demand, soil and relief.',
     'For crop production, consider crop or variety and growth stage, soil and pH, moisture, nutrition, temperature, disease, pests, weeds, plant density and field history.',
+    'For crop disease prevention or risk reduction, explicitly cover at least two disease-specific control groups: weather or leaf-wetness conditions; sanitation and inoculum removal; canopy density and airflow; resistant cultivar choice; or scouting and label-compliant treatment timing. Do not substitute unrelated root-health advice for disease-specific prevention.',
     'For livestock, consider feed or ration, water, health, microclimate, stress, age or production stage and records.',
     'For machinery, consider load, settings, cooling, lubrication, wear, fasteners, vibration, speed and operating conditions; use the actual machine named by the user.',
     'For storage, infrastructure, farm economics and farm IT, name the controlling capacity, quality, cost, unit, process and verification variables rather than giving generic advice.',
@@ -356,6 +360,53 @@ function buildGroundedPrompt(request: NormalizedRequest): string {
     '',
     'MINIMUM_ANSWER_QUALITY:',
     'Apply the system-defined domain completeness rule. Before asking for more data, explicitly discuss at least two concrete applicable factors instead of giving only generic selection or diagnostic advice.',
+  ].join('\n');
+}
+
+const PLANT_DISEASE_QUESTION_PATTERN = /(?:парш|фитофтор|мучнист|ржавчин|болезн|заболеван|грибн|инфекц|disease|scab|blight|mildew|rust|病害|病斑|霉|锈病)/iu;
+const PLANT_DISEASE_FACTOR_PATTERNS = [
+  /(?:влажн|намокан|роса|осадк|дожд|температур|погод|humidity|leaf wetness|rain|temperature|湿度|叶面湿|降雨|温度)/iu,
+  /(?:санитар|удал.{0,25}(?:лист|плод|остат)|собир.{0,25}(?:лист|плод|остат)|источник.{0,25}(?:инфекц|возбудител)|инокул|sanitation|remove.{0,25}(?:leaf|fruit|debris)|inoculum|清园|病叶|落叶|病果|菌源)/iu,
+  /(?:крон|проветр|воздухообмен|загущ|обрезк|canopy|airflow|prun|通风|树冠|修剪)/iu,
+  /(?:устойчив.{0,15}(?:сорт|гибрид)|resistan.{0,15}(?:cultivar|variet)|抗病.{0,10}(?:品种)?)/iu,
+  /(?:монитор|осмотр|наблюден|прогноз|обработ|фунгиц|этикетк|инструкц|scout|monitor|forecast|fungic|label|监测|巡查|防治|药剂|标签)/iu,
+] as const;
+
+function enforceGeneralAgroCompleteness(
+  answer: string,
+  request: NormalizedRequest,
+  safetyFlags: string[],
+): string {
+  const questionContext = `${request.originalQuestion}\n${request.question}`;
+  if (!PLANT_DISEASE_QUESTION_PATTERN.test(questionContext)) return answer;
+  const matchedFactorGroups = PLANT_DISEASE_FACTOR_PATTERNS.filter((pattern) => pattern.test(answer)).length;
+  if (matchedFactorGroups >= 2) return answer;
+  safetyFlags.push('GENERAL_AGRO_PLANT_DISEASE_COMPLETENESS_FLOOR');
+  return `${answer}\n\n${plantDiseaseCompletenessCopy(request.locale)}`.trim();
+}
+
+function plantDiseaseCompletenessCopy(locale: PublicLocale): string {
+  if (locale === 'en') {
+    return [
+      'For plant-disease prevention, check at least two indepent control blocks:',
+      '• Infection source: affected leaves, fruit and crop debris; sanitation and removal reduce the inoculum available for new infection.',
+      '• Infection conditions: leaf-wetness duration, rain, temperature and canopy airflow; reducing prolonged wetness and dense, poorly ventilated growth lowers risk.',
+      'If a treatment is considered, use only a product registered for the exact crop and follow its label for timing and dose; do not infer a dose without the label and field data.',
+    ].join('\n');
+  }
+  if (locale === 'zh') {
+    return [
+      '防控作物病害时，至少检查两个相互独立的控制环节：',
+      '• 菌源：病叶、病果和作物残体；清园并移除病残体可减少再次侵染的菌源。',
+      '• 侵染条件：叶面持续湿润时间、降雨、温度和冠层通风；减少长时间叶面潮湿和过密、通风不良的冠层可降低风险。',
+      '如需药剂，只能选择该作物已登记的产品，并严格按标签确定时期和剂量；没有标签和田间数据时不得推定剂量。',
+    ].join('\n');
+  }
+  return [
+    'Для профилактики болезней сада и поля отдельно проверь минимум два независимых блока:',
+    '• Источник инфекции: поражённые листья, плоды и растительные остатки; санитарное удаление снижает запас возбудителя для нового заражения.',
+    '• Условия заражения: длительность увлажнения листьев, осадки, температура и проветривание кроны; сокращение длительного намокания и загущения снижает риск.',
+    'Если рассматривается обработка, используй только зарегистрированное для конкретной культуры средство и соблюдай этикетку по сроку и дозе; без этикетки и полевых данных дозу не определяй.',
   ].join('\n');
 }
 
