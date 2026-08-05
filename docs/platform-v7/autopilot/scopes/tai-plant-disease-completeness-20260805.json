@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-plant-disease-completeness-20260805",
+  "status": "active",
+  "title": "TAI plant-disease completeness and semantic acceptance repair",
+  "priority": "P0",
+  "baselineExactMain": "8e24af07fdf10d4852bea06756421698010e03e5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Repair the exact-main live acceptance failure where Qwen answered the apple-scab question with only one disease-control factor group, while preserving agro-first model behavior and strengthening disease-specific answer completeness without inventing products or doses.",
+  "allowedPaths": [
+    ".github/workflows/tai-one-shot-plant-disease-completeness.yml",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts",
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-plant-disease-completeness-20260805.json"
+  ],
+  "boundaries": [
+    "Do not weaken source, model identity, answer mode, stream completeness, subject relevance, minimum answer length, forbidden platform article, RU/EN/ZH or mobile Chromium assertions",
+    "Plant-disease prevention answers must cover at least two independent relevant groups such as weather or leaf wetness, sanitation or inoculum, canopy or airflow, resistant genetics, or monitoring and label-compliant treatment timing",
+    "The deterministic completeness floor may be applied only to general-agro plant-disease questions, must remain read-only and must not name a pesticide, dose, current regulation, current weather or execution claim",
+    "The model remains the primary answer source; any bounded server-added completeness text must be disclosed by a distinct safety flag",
+    "Do not count multiple aliases inside the same factor group as multiple independent factors",
+    "The apple-scab scenario must reject an answer that contains only moisture or root-health advice and must accept sanitation plus infection-condition controls",
+    "No tenant, role, staff, private-data, write, financial-action, model transport, HMAC, secret-redaction or tool-execution boundary is changed",
+    "The one-shot workflow may modify only the registered paths on this exact branch and must remove itself before merge",
+    "No paid model, SaaS, hosting, database or recurring cost is added",
+    "Production completion requires exact-head CI, security, runtime and Kubernetes PASS, exact-main merge, REG.RU full-stack PASS, controller sync, preflight, protected activation, all endpoint and mobile Chromium cases PASS, finalization accept, deployment and postflight PASS"
+  ]
+}
