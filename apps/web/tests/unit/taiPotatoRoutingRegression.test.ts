@@ -71,4 +71,18 @@ describe('TAI broad agricultural production regression', () => {
     expect(acceptance).toContain('UI_CASE_IDS');
     expect(acceptance).toContain("viewport: '390x844'");
   });
+
+  it('validates bee wintering by independent semantic factor groups', () => {
+    const beeStart = acceptance.indexOf("id: 'bee-wintering'");
+    const beeEnd = acceptance.indexOf("id: 'tractor-overheat'", beeStart);
+    expect(beeStart).toBeGreaterThan(-1);
+    expect(beeEnd).toBeGreaterThan(beeStart);
+    const beeCase = acceptance.slice(beeStart, beeEnd);
+    expect(beeCase).toContain("id: 'feed-reserves'");
+    expect(beeCase).toContain("id: 'colony-health'");
+    expect(beeCase).toContain("id: 'winter-microclimate'");
+    expect(beeCase).toContain("'мед'");
+    expect(beeCase).toContain("'болезн'");
+    expect(beeCase).toContain("'утепл'");
+  });
 });
