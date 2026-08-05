@@ -5,7 +5,7 @@
   "title": "TAI plant-disease completeness and semantic acceptance repair",
   "priority": "P0",
   "baselineExactMain": "8e24af07fdf10d4852bea06756421698010e03e5",
-  "patchedByCommit": "a58198a65d98b2a032023eaf42dfb0bf7567b328",
+  "patchedByCommit": "09fa55ce56e9379dff0d652628ac34bd873a7764",
   "ownerAttestedAt": "2026-08-05",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
