@@ -388,7 +388,7 @@ function enforceGeneralAgroCompleteness(
 function plantDiseaseCompletenessCopy(locale: PublicLocale): string {
   if (locale === 'en') {
     return [
-      'For plant-disease prevention, check at least two indepent control blocks:',
+      'For plant-disease prevention, check at least two independent control blocks:',
       '• Infection source: affected leaves, fruit and crop debris; sanitation and removal reduce the inoculum available for new infection.',
       '• Infection conditions: leaf-wetness duration, rain, temperature and canopy airflow; reducing prolonged wetness and dense, poorly ventilated growth lowers risk.',
       'If a treatment is considered, use only a product registered for the exact crop and follow its label for timing and dose; do not infer a dose without the label and field data.',
