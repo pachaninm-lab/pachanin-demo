@@ -111,9 +111,13 @@ jobs:
           # Positive fixtures must alert and negative fixtures must not. The
           # expectation files are the contract, so a drift in either direction
           # fails here rather than reaching production.
+          # The test pack depends on the query pack beside it, so the
+          # repository's own codeql/ directory joins the bundled root on the
+          # search path. Without it the sibling is unresolvable and both tests
+          # fail to compile rather than to assert.
           "$CODEQL_BIN" test run codeql/insufficient-password-hash-corrected/tests \
-            --search-path="$CODEQL_SEARCH_PATH" \
-            --additional-packs="$CODEQL_SEARCH_PATH" \
+            --search-path="$CODEQL_SEARCH_PATH:$PWD/codeql" \
+            --additional-packs="$CODEQL_SEARCH_PATH:$PWD/codeql" \
             2>&1 | tee artifacts/codeql/query-test.log
           rc=${PIPESTATUS[0]}
           tail -n 300 artifacts/codeql/query-test.log
