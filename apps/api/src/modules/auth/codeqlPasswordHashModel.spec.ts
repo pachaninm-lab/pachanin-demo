@@ -167,7 +167,11 @@ describe('CodeQL password-hash model correction', () => {
     // widen the correction into an exclusion, which is what this pins.
     expect(modelCode).toMatch(/OpaqueFlow::flowTo\(this\)/);
     expect(modelCode).toMatch(/forall\(DataFlow::Node source \| PasswordFlow::flow\(source, this\)/);
-    expect(modelCode).toMatch(/not OpaqueFlow::flowTo\(digest\.getKey\(\)\)/);
+    expect(modelCode).toMatch(/isMintingCall\(source\)/);
+    // The key must not be the credential it protects. Asking whether one draw
+    // feeds both the key and the pre-image is the condition; "the key is not
+    // random" would be the wrong one, and would reject a correct authority.
+    expect(modelCode).toMatch(/OpaqueFlow::flow\(draw, digest\.getKey\(\)\)\s*and\s*OpaqueFlow::flow\(draw, this\)/);
     expect(modelCode).toMatch(/not PasswordFlow::flowTo\(digest\.getKey\(\)\)/);
     expect(modelCode).toMatch(/isDomainSeparated\(this\)/);
     // The digest must be a keyed HMAC; a bare hash is never exempt.

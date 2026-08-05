@@ -125,6 +125,29 @@ private module PasswordConfig implements DataFlow::ConfigSig {
 
 private module PasswordFlow = TaintTracking::Global<PasswordConfig>;
 
+/**
+ * A function that draws credential material, directly or through what it calls.
+ *
+ * This is asked of a *callee*, not of a value, because the name heuristic fires
+ * on a call whose result is an object with the token inside it. Taint reaching
+ * that object carries the credential in content, so asking whether the call
+ * node itself is tainted answers no even when the call plainly mints one.
+ */
+private predicate drawsCredentialMaterial(Function callee) {
+  exists(DataFlow::Node draw | isCsprngOutput(draw) and draw.getContainer() = callee)
+  or
+  exists(DataFlow::CallNode inner |
+    inner.getContainer() = callee and drawsCredentialMaterial(inner.getACallee())
+  )
+}
+
+/** A call that yields freshly minted credential material. */
+private predicate isMintingCall(DataFlow::Node node) {
+  exists(DataFlow::CallNode call |
+    node = call and drawsCredentialMaterial(call.getACallee())
+  )
+}
+
 /** Where attacker-controlled input ends up. */
 private module RemoteConfig implements DataFlow::ConfigSig {
   predicate isSource(DataFlow::Node node) { node instanceof RemoteFlowSource }
@@ -164,9 +187,14 @@ class OpaqueCredentialBarrier extends DataFlow::Node {
       OpaqueFlow::flowTo(this) and
       exists(DataFlow::Node source | PasswordFlow::flow(source, this)) and
       forall(DataFlow::Node source | PasswordFlow::flow(source, this) |
-        OpaqueFlow::flowTo(source)
+        isMintingCall(source)
       ) and
-      not OpaqueFlow::flowTo(digest.getKey()) and
+      // The key must not be the credential it protects. An independently drawn
+      // random key is exactly right, so this asks whether one draw feeds both
+      // the key and the pre-image, not whether the key is random.
+      not exists(DataFlow::Node draw |
+        OpaqueFlow::flow(draw, digest.getKey()) and OpaqueFlow::flow(draw, this)
+      ) and
       not PasswordFlow::flowTo(digest.getKey()) and
       isDomainSeparated(this)
     )
