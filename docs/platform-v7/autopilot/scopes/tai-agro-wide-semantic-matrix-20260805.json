@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-agro-wide-semantic-matrix-20260805",
+  "status": "active",
+  "title": "TAI broad agro semantic acceptance matrix",
+  "priority": "P0",
+  "baselineExactMain": "647e53a7a8d2acdfaae528b56968efe53e8d850f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Eliminate the remaining false-negative broad live acceptance failures by validating at least two independent semantic factor groups for every unproven agricultural scenario instead of narrow literal tokens, while preserving all source, model, safety and mobile assertions.",
+  "allowedPaths": [
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-agro-wide-semantic-matrix-20260805.json"
+  ],
+  "boundaries": [
+    "Do not change production model behavior, prompts, API routing, security controls, authorization, tenant isolation, write paths or infrastructure",
+    "Do not weaken source=local_qwen, exact model identity, general_agro answer mode, complete SSE stream, subject relevance, minimum answer length, forbidden platform article, RU/EN/ZH or mobile Chromium assertions",
+    "Every scenario must still require at least two independent semantic factor groups; aliases inside one group count once",
+    "The bee-wintering scenario must recognize feed reserves, colony condition, health and parasites, hive microclimate and weather protection as independent groups",
+    "Machinery, storage, farm economics, water infrastructure, Excel, English, Chinese and context-follow-up scenarios must use domain-specific groups rather than broad generic words",
+    "The validator must preserve the actual answer in evidence before any failure and remain fail-closed",
+    "Production completion requires exact-head terminal PASS, merge, exact-main full-stack REG.RU release, controller sync, preflight, protected activation, all 21 endpoint and 5 mobile cases PASS, finalization accept, standalone TAI deployment and postflight PASS"
+  ]
+}
