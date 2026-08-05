@@ -49,66 +49,107 @@ jobs:
           # steps below prove it is exactly that.
           config-file: ./.github/codeql/codeql-config.yml
 
-      # The CLI is not on PATH in a plain run step. The action exports its
-      # absolute location in CODEQL_ACTION_CLI_VERSION_INFO, so the guards use
-      # exactly the binary that performed the analysis.
-      - name: Locate the CodeQL CLI used by this analysis
+      # Every CodeQL invocation below writes its combined output to a file that
+      # is uploaded whatever happens. The previous three attempts each failed
+      # inside a step whose stderr was unreachable afterwards: the GitHub log
+      # tail is capped, and an artifact populated only on success is empty
+      # exactly when it is needed.
+      - name: Locate the CodeQL CLI and its bundled packs
         run: |
           set -euo pipefail
+          mkdir -p artifacts/codeql
           CODEQL_BIN="$(node -e 'process.stdout.write(JSON.parse(process.env.CODEQL_ACTION_CLI_VERSION_INFO).cmd)')"
           test -x "$CODEQL_BIN"
           echo "CODEQL_BIN=$CODEQL_BIN" >> "$GITHUB_ENV"
-          "$CODEQL_BIN" version --format=terse
+          "$CODEQL_BIN" version --format=json 2>&1 | tee artifacts/codeql/codeql-version.json
 
-      - name: Compile the replacement query pack
+      - name: Resolve the bundled qlpack roots
         run: |
-          set -euo pipefail
-          # Resolve against the CLI's bundled qlpacks rather than the registry,
-          # so the replacement compiles against the same library the built-in
-          # query was compiled against.
-          BUNDLED="$(dirname "$CODEQL_BIN")/qlpacks"
-          test -d "$BUNDLED"
+          set -o pipefail
+          "$CODEQL_BIN" resolve qlpacks --format=json 2>&1 \
+            | tee artifacts/codeql/resolve-qlpacks.json
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then tail -n 300 artifacts/codeql/resolve-qlpacks.json; exit "$rc"; fi
+          # The search path is derived from where the CLI actually resolved its
+          # own packs, never from a guessed directory layout.
+          SEARCH="$(node -e '
+            const packs = JSON.parse(require("fs").readFileSync("artifacts/codeql/resolve-qlpacks.json", "utf8"));
+            const roots = new Set();
+            for (const locations of Object.values(packs)) {
+              for (const location of locations) roots.add(require("path").dirname(require("path").dirname(location)));
+            }
+            process.stdout.write([...roots].join(":"));
+          ')"
+          test -n "$SEARCH"
+          echo "CODEQL_SEARCH_PATH=$SEARCH" >> "$GITHUB_ENV"
+          echo "$SEARCH" | tr ':' '\n' | tee artifacts/codeql/search-path.txt
+
+      - name: Compile the replacement query
+        run: |
+          set -o pipefail
           "$CODEQL_BIN" query compile --check-only \
-            --search-path="$BUNDLED" \
-            --additional-packs="$BUNDLED" \
-            codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql
+            --search-path="$CODEQL_SEARCH_PATH" \
+            --additional-packs="$CODEQL_SEARCH_PATH" \
+            codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql \
+            2>&1 | tee artifacts/codeql/query-compile.log
+          rc=${PIPESTATUS[0]}
+          tail -n 300 artifacts/codeql/query-compile.log
+          exit "$rc"
 
       - name: Run the query regression matrix
         run: |
-          set -euo pipefail
+          set -o pipefail
           # Positive fixtures must alert and negative fixtures must not. The
           # expectation files are the contract, so a drift in either direction
           # fails here rather than reaching production.
           "$CODEQL_BIN" test run codeql/insufficient-password-hash-corrected/tests \
-            --search-path="$(dirname "$CODEQL_BIN")/qlpacks" \
-            --additional-packs="$(dirname "$CODEQL_BIN")/qlpacks" \
-            2>&1 | tee /tmp/codeql-test.log
+            --search-path="$CODEQL_SEARCH_PATH" \
+            --additional-packs="$CODEQL_SEARCH_PATH" \
+            2>&1 | tee artifacts/codeql/query-test.log
+          rc=${PIPESTATUS[0]}
+          tail -n 300 artifacts/codeql/query-test.log
+          exit "$rc"
 
       - name: Prove the selection is a replacement, not a removal
         run: |
-          set -euo pipefail
-          SUITE="$("$CODEQL_BIN" resolve qlpacks --format=json \
-            | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(p["codeql/javascript-queries"][0])')"
+          set -o pipefail
+          SUITE="$(node -e '
+            const packs = JSON.parse(require("fs").readFileSync("artifacts/codeql/resolve-qlpacks.json", "utf8"));
+            process.stdout.write(packs["codeql/javascript-queries"][0]);
+          ')"
           "$CODEQL_BIN" resolve queries --format=json \
-            "$SUITE/codeql-suites/javascript-code-scanning.qls" > /tmp/upstream-queries.json
+            --search-path="$CODEQL_SEARCH_PATH" \
+            "$SUITE/codeql-suites/javascript-code-scanning.qls" \
+            2>&1 | tee artifacts/codeql/resolve-upstream-queries.json
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then tail -n 300 artifacts/codeql/resolve-upstream-queries.json; exit "$rc"; fi
           "$CODEQL_BIN" resolve queries --format=json \
+            --search-path="$CODEQL_SEARCH_PATH" \
             codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql \
-            > /tmp/replacement-query.json
+            2>&1 | tee artifacts/codeql/resolve-replacement-query.json
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then tail -n 300 artifacts/codeql/resolve-replacement-query.json; exit "$rc"; fi
           node -e '
             const fs = require("fs");
-            const upstream = JSON.parse(fs.readFileSync("/tmp/upstream-queries.json", "utf8"));
-            const replacement = JSON.parse(fs.readFileSync("/tmp/replacement-query.json", "utf8"));
+            const upstream = JSON.parse(fs.readFileSync("artifacts/codeql/resolve-upstream-queries.json", "utf8"));
+            const replacement = JSON.parse(fs.readFileSync("artifacts/codeql/resolve-replacement-query.json", "utf8"));
             const kept = upstream.filter((q) => !/CWE-916\/InsufficientPasswordHash\.ql$/.test(q));
-            fs.writeFileSync("/tmp/resolved-queries.json", JSON.stringify(kept.concat(replacement), null, 2));
+            if (kept.length !== upstream.length - 1) {
+              throw new Error(`expected to drop exactly one built-in query, dropped ${upstream.length - kept.length}`);
+            }
+            fs.writeFileSync("artifacts/codeql/resolved-queries.json", JSON.stringify(kept.concat(replacement), null, 2));
           '
-          node scripts/codeql-replacement-guard.mjs selection /tmp/resolved-queries.json
+          node scripts/codeql-replacement-guard.mjs selection artifacts/codeql/resolved-queries.json \
+            2>&1 | tee artifacts/codeql/selection-guard.log
 
       - name: Prove upstream has not drifted from the pinned fork base
         run: |
-          set -euo pipefail
-          "$CODEQL_BIN" resolve qlpacks --format=json > /tmp/installed-packs.json
-          node scripts/codeql-replacement-guard.mjs drift /tmp/installed-packs.json
+          set -o pipefail
+          node scripts/codeql-replacement-guard.mjs drift artifacts/codeql/resolve-qlpacks.json \
+            2>&1 | tee artifacts/codeql/drift-guard.log
+          exit "${PIPESTATUS[0]}"
 
+      # Only once resolve, compile and the regression matrix have all passed.
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
         with:
@@ -118,20 +159,32 @@ jobs:
 
       - name: Prove the corrected control reports no product findings
         run: |
-          set -euo pipefail
-          node scripts/codeql-replacement-guard.mjs sarif \
-            "$(ls sarif-results/*.sarif | head -1)"
+          set -o pipefail
+          cp -r sarif-results artifacts/codeql/sarif-results || true
+          node scripts/codeql-replacement-guard.mjs sarif "$(ls sarif-results/*.sarif | head -1)" \
+            2>&1 | tee artifacts/codeql/sarif-guard.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Collect the inputs alongside the outputs
+        if: always()
+        run: |
+          set +e
+          mkdir -p artifacts/codeql/inputs
+          cp codeql/insufficient-password-hash-corrected/qlpack.yml artifacts/codeql/inputs/qlpack.yml
+          cp codeql/insufficient-password-hash-corrected/tests/qlpack.yml artifacts/codeql/inputs/tests-qlpack.yml
+          cp codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql artifacts/codeql/inputs/
+          cp codeql/insufficient-password-hash-corrected/OpaqueCredentialBarrier.qll artifacts/codeql/inputs/
+          cp codeql/insufficient-password-hash-corrected/upstream.lock.json artifacts/codeql/inputs/
+          cp .github/codeql/codeql-config.yml artifacts/codeql/inputs/
+          cp -r codeql/insufficient-password-hash-corrected/tests artifacts/codeql/inputs/tests
+          ls -R artifacts/codeql > artifacts/codeql/manifest.txt
+          true
 
       - name: Upload replacement evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: codeql-replacement-evidence
-          path: |
-            sarif-results
-            /tmp/resolved-queries.json
-            /tmp/upstream-queries.json
-            /tmp/installed-packs.json
-            /tmp/codeql-test.log
+          path: artifacts/codeql
           if-no-files-found: warn
           retention-days: 30
