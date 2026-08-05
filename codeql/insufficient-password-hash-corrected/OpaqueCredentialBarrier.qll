@@ -6,31 +6,52 @@
  * plausible secrets. Everything the rule does follows from that premise.
  *
  * The premise does not hold for an opaque bearer credential. A value drawn from
- * a CSPRNG with 128 bits or more of entropy has no enumerable space, so no
+ * a CSPRNG with 256 bits or more of entropy has no enumerable space, so no
  * digest cost bounds a search of it. For such a value a deterministic keyed
  * digest is the correct storage form, and a deliberately slow KDF would add
  * latency and a denial-of-service surface while adding no protection.
  *
- * What makes the rule misfire on such code is its source heuristic: a call is
- * treated as yielding a password when its *name* suggests one. A token issuer
- * whose name happens to contain the word mints its result from a CSPRNG, yet
- * every value it returns is taken for a password on the strength of the name
- * alone.
+ * What makes the rule misfire is its source heuristic: a call is treated as
+ * yielding a password when its *name* suggests one. A token issuer whose name
+ * happens to contain the word mints its result from a CSPRNG, yet every value
+ * it returns is taken for a password on the strength of the name alone.
  *
- * This file states the correction and nothing else. It names no file, no path,
- * no function and no finding. A digest site is exempt only when *every*
- * password source that reaches it is a call whose callee demonstrably returns
- * CSPRNG material — so a genuine password reaching the same site, including one
- * concatenated with a random salt, is still reported.
+ * A digest site is exempt only when the whole chain below holds. Any one
+ * conjunct failing leaves the site reported exactly as upstream reports it:
+ *
+ *   1. credential material of at least the minimum width reaches the digest,
+ *      established by interprocedural taint from the CSPRNG draw itself, so
+ *      argument-to-parameter, return-to-caller, `x ?? ''`, `String(x)`, array
+ *      elements, `join`, aliases and property read/write are all covered by
+ *      the engine rather than by a hand-written list of shapes;
+ *   2. every password-classified source reaching the digest is that same
+ *      material, so one ordinary password arriving at the same site — on its
+ *      own or mixed with a token — keeps the site reported;
+ *   3. the digest is a keyed HMAC, not a bare hash;
+ *   4. the key is neither the token nor a password;
+ *   5. the pre-image is assembled with at least two label operands that carry
+ *      neither credential material, nor password material, nor remote input —
+ *      domain separation, together with a purpose and a version that an
+ *      attacker cannot choose.
+ *
+ * This file names no file, no path, no function, no purpose string and no
+ * finding. Every condition is a property of the program.
+ *
+ * One condition the owner requires is deliberately *not* asserted here: that
+ * the raw token never reaches the database or the audit log. That is a
+ * statement about sinks this query does not model, and faking it in QL would
+ * make the barrier look stronger than it is. It is enforced separately, by the
+ * credential-boundary specs in the auth module.
  */
 
 import javascript
 private import semmle.javascript.security.dataflow.InsufficientPasswordHashCustomizations
+private import semmle.javascript.security.dataflow.RemoteFlowSources
 
-/** 128 bits: the floor below which a digest's cost would start to matter. */
-private int minimumEntropyBytes() { result = 16 }
+/** 256 bits: the authority's minimum credential width. */
+private int minimumEntropyBytes() { result = 32 }
 
-/** A call to a cryptographically secure random generator. */
+/** A call to a cryptographically secure random generator of sufficient width. */
 private predicate isCsprngOutput(DataFlow::Node node) {
   exists(DataFlow::CallNode call |
     call =
@@ -39,74 +60,115 @@ private predicate isCsprngOutput(DataFlow::Node node) {
     call.getArgument(0).getIntValue() >= minimumEntropyBytes() and
     node = call
   )
-  or
-  exists(DataFlow::CallNode call |
-    call = DataFlow::moduleMember(["crypto", "node:crypto"], "randomUUID").getACall() and
-    node = call
+}
+
+/** The pre-image argument of a keyed HMAC. */
+private class KeyedHmacDigest extends DataFlow::Node {
+  private DataFlow::CallNode hmac;
+
+  KeyedHmacDigest() {
+    hmac = DataFlow::moduleMember(["crypto", "node:crypto"], "createHmac").getACall() and
+    this = hmac.getAMethodCall("update").getArgument(0)
+  }
+
+  /** The keying material this digest was constructed with. */
+  DataFlow::Node getKey() { result = hmac.getArgument(1) }
+}
+
+/** An element of an array that is joined into a single string. */
+private predicate joinedElement(DataFlow::MethodCallNode join, DataFlow::Node element) {
+  exists(DataFlow::ArrayCreationNode parts |
+    join.getMethodName() = "join" and
+    parts = join.getReceiver().getALocalSource() and
+    element = parts.getAnElement()
   )
 }
 
 /**
- * Flow from a CSPRNG call to a value a function hands back.
+ * The nodes any of the flows below need an answer about.
  *
- * Taint tracking is used rather than a hand-written step relation because the
- * shapes that carry a token are open-ended — `String(raw ?? '')`, a template,
- * `[version, purpose, token].join(sep)`, a property of a returned object, a
- * parameter of a helper two modules away. An earlier version of this file
- * enumerated those steps and missed the ones the product actually uses.
+ * Declaring them rather than tracking to every node in the program keeps three
+ * global analyses affordable.
  */
-private module MintConfig implements DataFlow::ConfigSig {
+private class RelevantNode extends DataFlow::Node {
+  RelevantNode() {
+    this instanceof InsufficientPasswordHash::Source or
+    this instanceof InsufficientPasswordHash::Sink or
+    this instanceof KeyedHmacDigest or
+    exists(KeyedHmacDigest digest | this = digest.getKey()) or
+    joinedElement(_, this)
+  }
+}
+
+/** Where credential material drawn from a CSPRNG ends up. */
+private module OpaqueConfig implements DataFlow::ConfigSig {
   predicate isSource(DataFlow::Node node) { isCsprngOutput(node) }
 
-  predicate isSink(DataFlow::Node node) { node = any(Function f).getAReturnedExpr().flow() }
+  predicate isSink(DataFlow::Node node) { node instanceof RelevantNode }
 }
 
-private module MintFlow = TaintTracking::Global<MintConfig>;
-
-/**
- * A call whose callee returns CSPRNG material: a minting call.
- *
- * The value such a call yields is a freshly drawn credential regardless of what
- * the function is named, which is exactly the evidence the name heuristic lacks.
- */
-private predicate mintedCredentialCall(DataFlow::Node node) {
-  exists(DataFlow::CallNode call, Function callee |
-    node = call and
-    callee = call.getACallee() and
-    MintFlow::flowTo(callee.getAReturnedExpr().flow())
-  )
-}
+private module OpaqueFlow = TaintTracking::Global<OpaqueConfig>;
 
 /**
  * Upstream's own source-to-sink relation, computed without this file's barrier.
  *
  * The barrier has to ask which sources reach a digest site, and it cannot ask
  * the corrected query that question without defining itself in terms of itself.
- * This is that same relation, stated once, free of the correction.
  */
-private module PlainPasswordConfig implements DataFlow::ConfigSig {
+private module PasswordConfig implements DataFlow::ConfigSig {
   predicate isSource(DataFlow::Node node) { node instanceof InsufficientPasswordHash::Source }
 
-  predicate isSink(DataFlow::Node node) { node instanceof InsufficientPasswordHash::Sink }
+  predicate isSink(DataFlow::Node node) { node instanceof RelevantNode }
 
   predicate isBarrier(DataFlow::Node node) { node instanceof InsufficientPasswordHash::Sanitizer }
 }
 
-private module PlainPasswordFlow = TaintTracking::Global<PlainPasswordConfig>;
+private module PasswordFlow = TaintTracking::Global<PasswordConfig>;
+
+/** Where attacker-controlled input ends up. */
+private module RemoteConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node node) { node instanceof RemoteFlowSource }
+
+  predicate isSink(DataFlow::Node node) { node instanceof RelevantNode }
+}
+
+private module RemoteFlow = TaintTracking::Global<RemoteConfig>;
 
 /**
- * A digest site fed only by minted credentials.
+ * A fixed label in a digest pre-image: a purpose, a version, a separator.
  *
- * `forall` is what keeps this from concealing a defect: one ordinary password
- * arriving at the same site — a parameter, a request field, a password mixed
- * with a random salt — leaves the site reported exactly as upstream reports it.
+ * Fixed is stated negatively and structurally — the operand carries no
+ * credential material, no password material and nothing an attacker supplies —
+ * because the positive form, "a member of this enum", cannot be written without
+ * naming the enum, and naming it would tie the correction to one repository.
  */
+private predicate isFixedLabel(DataFlow::Node node) {
+  not OpaqueFlow::flowTo(node) and
+  not PasswordFlow::flowTo(node) and
+  not RemoteFlow::flowTo(node)
+}
+
+/** A pre-image carrying domain separation: at least two fixed labels. */
+private predicate isDomainSeparated(DataFlow::Node preimage) {
+  exists(DataFlow::MethodCallNode join |
+    join.flowsTo(preimage) and
+    count(DataFlow::Node label | joinedElement(join, label) and isFixedLabel(label)) >= 2
+  )
+}
+
+/** A digest site fed only by minted credentials, under a keyed authority. */
 class OpaqueCredentialBarrier extends DataFlow::Node {
   OpaqueCredentialBarrier() {
-    this instanceof InsufficientPasswordHash::Sink and
-    exists(DataFlow::Node source | PlainPasswordFlow::flow(source, this)) and
-    forall(DataFlow::Node source | PlainPasswordFlow::flow(source, this) |
-      mintedCredentialCall(source)
+    exists(KeyedHmacDigest digest |
+      this = digest and
+      OpaqueFlow::flowTo(this) and
+      exists(DataFlow::Node source | PasswordFlow::flow(source, this)) and
+      forall(DataFlow::Node source | PasswordFlow::flow(source, this) |
+        OpaqueFlow::flowTo(source)
+      ) and
+      not OpaqueFlow::flowTo(digest.getKey()) and
+      not PasswordFlow::flowTo(digest.getKey()) and
+      isDomainSeparated(this)
     )
   }
 }

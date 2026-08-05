@@ -157,8 +157,23 @@ describe('CodeQL password-hash model correction', () => {
   it('keys the sanitizer on entropy, not on naming', () => {
     expect(modelCode).toContain('randomBytes');
     expect(modelCode).toMatch(/getIntValue\(\)\s*>=\s*minimumEntropyBytes\(\)/);
-    // 128 bits is the floor below which a digest's cost would start to matter.
-    expect(modelCode).toMatch(/minimumEntropyBytes\(\)\s*\{\s*result\s*=\s*16\s*\}/);
+    // 256 bits: the authority's minimum credential width. A narrower draw is
+    // not accepted as opaque material, so a weakened issuer is reported again.
+    expect(modelCode).toMatch(/minimumEntropyBytes\(\)\s*\{\s*result\s*=\s*32\s*\}/);
+  });
+
+  it('requires the whole chain, so no single condition can exempt a digest', () => {
+    // Each of these is a conjunct of the barrier. Losing one silently would
+    // widen the correction into an exclusion, which is what this pins.
+    expect(modelCode).toMatch(/OpaqueFlow::flowTo\(this\)/);
+    expect(modelCode).toMatch(/forall\(DataFlow::Node source \| PasswordFlow::flow\(source, this\)/);
+    expect(modelCode).toMatch(/not OpaqueFlow::flowTo\(digest\.getKey\(\)\)/);
+    expect(modelCode).toMatch(/not PasswordFlow::flowTo\(digest\.getKey\(\)\)/);
+    expect(modelCode).toMatch(/isDomainSeparated\(this\)/);
+    // The digest must be a keyed HMAC; a bare hash is never exempt.
+    expect(modelCode).toMatch(/createHmac/);
+    // A label an attacker can choose is not a fixed purpose or version.
+    expect(modelCode).toMatch(/not RemoteFlow::flowTo\(node\)/);
   });
 
   describe('characterization fixtures', () => {
