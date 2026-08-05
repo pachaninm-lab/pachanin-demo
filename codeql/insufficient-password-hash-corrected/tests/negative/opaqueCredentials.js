@@ -9,7 +9,11 @@ const VERSION = 'v1';
 const KEY = randomBytes(32);
 
 function digest(purpose, rawToken) {
-  const canonical = [VERSION, purpose, rawToken].join(SEPARATOR);
+  // `String(x ?? '')` and `.join()` are the shapes the production authority
+  // uses. They are reproduced exactly, because a barrier written against a
+  // simpler shape passed here and then missed the real one.
+  const token = String(rawToken ?? '');
+  const canonical = [VERSION, purpose, token].join(SEPARATOR);
   return `${VERSION}:${createHmac('sha256', KEY).update(canonical, 'utf8').digest('base64url')}`;
 }
 
@@ -69,7 +73,46 @@ function issuePasswordResetToken() {
   return { id: minted.rawToken.split('.')[0], token: minted.rawToken, hash: minted.storedDigest };
 }
 
+// 13-15. The verification contour, which is where the rule actually misfires.
+// A password-named issuer mints from a CSPRNG and returns an *object*; a
+// caller takes the token back out; verification receives it from outside as a
+// plain string, splits it, reassembles it and digests it again. No CSPRNG call
+// appears anywhere on that last path — the randomness is established at the
+// mint site, in another function. Cases 1-12 above all keep the random draw
+// and the digest in one place, which is why they cannot exercise this.
+function issueOpaqueCredential(prefix) {
+  const credentialId = `${prefix}_${randomBytes(18).toString('base64url')}`;
+  const secret = randomBytes(32).toString('base64url');
+  const rawToken = `${credentialId}.${secret}`;
+  return { credentialId, rawToken, storedDigest: digest('password-reset', rawToken) };
+}
+
+// 13. Password-named wrapper: the name is the whole of the rule's evidence.
+function issuePasswordResetTokenLike() {
+  const minted = issueOpaqueCredential('pr');
+  return { id: minted.credentialId, token: minted.rawToken, hash: minted.storedDigest };
+}
+
+// 14. Verification: the token arrives as an opaque string from a request.
+function resolvePresentedCredentialLike(presented, prefix) {
+  const [credentialId, ...extra] = String(presented ?? '').split('.');
+  const secret = extra.join('.');
+  if (!credentialId.startsWith(`${prefix}_`) || !secret) return null;
+  const rawToken = `${credentialId}.${secret}`;
+  return { credentialId, storedDigest: digest('password-reset', rawToken) };
+}
+
+// 15. The two joined, which is the flow the analysis reports on the product.
+function confirmPasswordResetLike() {
+  const issued = issuePasswordResetTokenLike();
+  return resolvePresentedCredentialLike(issued.token, 'pr');
+}
+
 module.exports = {
+  issueOpaqueCredential,
+  issuePasswordResetTokenLike,
+  resolvePresentedCredentialLike,
+  confirmPasswordResetLike,
   rawRandomDigest,
   issueOpaqueBearerToken,
   issuePasswordResetCredential,
