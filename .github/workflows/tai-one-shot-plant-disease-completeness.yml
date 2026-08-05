@@ -1,0 +1,210 @@
+name: TAI one-shot plant-disease completeness repair
+
+on:
+  push:
+    branches:
+      - fix/tai-plant-disease-completeness-20260805
+    paths:
+      - .github/workflows/tai-one-shot-plant-disease-completeness.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-one-shot-plant-disease-completeness
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    name: Apply bounded disease-completeness repair
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-plant-disease-completeness-20260805
+          fetch-depth: 0
+
+      - name: Patch service, regression tests and live semantic groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          service_path = Path('apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts')
+          quality_path = Path('apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts')
+          acceptance_path = Path('scripts/tai-potato-mobile-live-acceptance.mjs')
+
+          service = service_path.read_text()
+          current_boundary = """      if (request.currentDataRequired) {
+                answer = enforceCurrentEvidenceBoundary(answer, request.locale, safetyFlags);
+              }
+
+              const withoutLinks = answer.replace(/(?:https?:\\/\\/|www\\.)\\S+/giu, '').replace(/[ \\t]+\\n/gu, '\\n').trim();"""
+          completeness_boundary = """      if (request.currentDataRequired) {
+                answer = enforceCurrentEvidenceBoundary(answer, request.locale, safetyFlags);
+              }
+              if (request.answerMode === 'general_agro') {
+                answer = enforceGeneralAgroCompleteness(answer, request, safetyFlags);
+              }
+
+              const withoutLinks = answer.replace(/(?:https?:\\/\\/|www\\.)\\S+/giu, '').replace(/[ \\t]+\\n/gu, '\\n').trim();"""
+          if service.count(current_boundary) != 1:
+              raise SystemExit(f'current-evidence anchor count={service.count(current_boundary)}')
+          service = service.replace(current_boundary, completeness_boundary)
+
+          crop_frame = "    'For crop production, consider crop or variety and growth stage, soil and pH, moisture, nutrition, temperature, disease, pests, weeds, plant density and field history.',"
+          disease_frame = "    'For crop disease prevention or risk reduction, explicitly cover at least two disease-specific control groups: weather or leaf-wetness conditions; sanitation and inoculum removal; canopy density and airflow; resistant cultivar choice; or scouting and label-compliant treatment timing. Do not substitute unrelated root-health advice for disease-specific prevention.',"
+          if service.count(crop_frame) != 1:
+              raise SystemExit(f'crop frame anchor count={service.count(crop_frame)}')
+          service = service.replace(crop_frame, crop_frame + '\n' + disease_frame)
+
+          function_anchor = 'function enforcePlatformGrounding(answer: string, grounding: PublicGrounding, safetyFlags: string[]): string {'
+          if service.count(function_anchor) != 1:
+              raise SystemExit(f'function anchor count={service.count(function_anchor)}')
+          disease_functions = r'''const PLANT_DISEASE_QUESTION_PATTERN = /(?:парш|фитофтор|мучнист|ржавчин|болезн|заболеван|грибн|инфекц|disease|scab|blight|mildew|rust|病害|病斑|霉|锈病)/iu;
+          const PLANT_DISEASE_FACTOR_PATTERNS = [
+            /(?:влажн|намокан|роса|осадк|дожд|температур|погод|humidity|leaf wetness|rain|temperature|湿度|叶面湿|降雨|温度)/iu,
+            /(?:санитар|удал.{0,25}(?:лист|плод|остат)|собир.{0,25}(?:лист|плод|остат)|источник.{0,25}(?:инфекц|возбудител)|инокул|sanitation|remove.{0,25}(?:leaf|fruit|debris)|inoculum|清园|病叶|落叶|病果|菌源)/iu,
+            /(?:крон|проветр|воздухообмен|загущ|обрезк|canopy|airflow|prun|通风|树冠|修剪)/iu,
+            /(?:устойчив.{0,15}(?:сорт|гибрид)|resistan.{0,15}(?:cultivar|variet)|抗病.{0,10}(?:品种)?)/iu,
+            /(?:монитор|осмотр|наблюден|прогноз|обработ|фунгиц|этикетк|инструкц|scout|monitor|forecast|fungic|label|监测|巡查|防治|药剂|标签)/iu,
+          ] as const;
+
+          function enforceGeneralAgroCompleteness(
+            answer: string,
+            request: NormalizedRequest,
+            safetyFlags: string[],
+          ): string {
+            const questionContext = `${request.originalQuestion}\n${request.question}`;
+            if (!PLANT_DISEASE_QUESTION_PATTERN.test(questionContext)) return answer;
+            const matchedFactorGroups = PLANT_DISEASE_FACTOR_PATTERNS.filter((pattern) => pattern.test(answer)).length;
+            if (matchedFactorGroups >= 2) return answer;
+            safetyFlags.push('GENERAL_AGRO_PLANT_DISEASE_COMPLETENESS_FLOOR');
+            return `${answer}\n\n${plantDiseaseCompletenessCopy(request.locale)}`.trim();
+          }
+
+          function plantDiseaseCompletenessCopy(locale: PublicLocale): string {
+            if (locale === 'en') {
+              return [
+                'For plant-disease prevention, check at least two independent control blocks:',
+                '• Infection source: affected leaves, fruit and crop debris; sanitation and removal reduce the inoculum available for new infection.',
+                '• Infection conditions: leaf-wetness duration, rain, temperature and canopy airflow; reducing prolonged wetness and dense, poorly ventilated growth lowers risk.',
+                'If a treatment is considered, use only a product registered for the exact crop and follow its label for timing and dose; do not infer a dose without the label and field data.',
+              ].join('\n');
+            }
+            if (locale === 'zh') {
+              return [
+                '防控作物病害时，至少检查两个相互独立的控制环节：',
+                '• 菌源：病叶、病果和作物残体；清园并移除病残体可减少再次侵染的菌源。',
+                '• 侵染条件：叶面持续湿润时间、降雨、温度和冠层通风；减少长时间叶面潮湿和过密、通风不良的冠层可降低风险。',
+                '如需药剂，只能选择该作物已登记的产品，并严格按标签确定时期和剂量；没有标签和田间数据时不得推定剂量。',
+              ].join('\n');
+            }
+            return [
+              'Для профилактики болезней сада и поля отдельно проверь минимум два независимых блока:',
+              '• Источник инфекции: поражённые листья, плоды и растительные остатки; санитарное удаление снижает запас возбудителя для нового заражения.',
+              '• Условия заражения: длительность увлажнения листьев, осадки, температура и проветривание кроны; сокращение длительного намокания и загущения снижает риск.',
+              'Если рассматривается обработка, используй только зарегистрированное для конкретной культуры средство и соблюдай этикетку по сроку и дозе; без этикетки и полевых данных дозу не определяй.',
+            ].join('\n');
+          }
+
+          '''
+          service = service.replace(function_anchor, disease_functions + function_anchor)
+          service_path.write_text(service)
+
+          quality = quality_path.read_text()
+          prompt_expectation = "    expect(systemPrompt).toContain('For crop production');"
+          if quality.count(prompt_expectation) != 1:
+              raise SystemExit(f'quality prompt anchor count={quality.count(prompt_expectation)}')
+          quality = quality.replace(
+              prompt_expectation,
+              prompt_expectation + "\n    expect(systemPrompt).toContain('For crop disease prevention or risk reduction');\n    expect(systemPrompt).toContain('sanitation and inoculum removal');\n    expect(systemPrompt).toContain('canopy density and airflow');\n    expect(systemPrompt).toContain('label-compliant treatment timing');",
+          )
+
+          extra_tests = r'''
+
+            it('adds a bounded plant-disease completeness floor when the model omits disease controls', async () => {
+              const weakAnswer = 'Чтобы снизить риск парши, контролируйте влажность почвы и проверяйте состояние корневой системы деревьев.';
+              const fetchMock = jest.fn().mockResolvedValue(providerResponse(weakAnswer));
+              global.fetch = fetchMock as typeof fetch;
+
+              const result = await new RestrictedPublicQwenService().generate({
+                ...IRRIGATION_REQUEST,
+                question: 'Как снизить риск парши в яблоневом саду?',
+                originalQuestion: 'Как снизить риск парши в яблоневом саду?',
+              });
+
+              expect(result.answer).toContain(weakAnswer);
+              expect(result.answer).toContain('Источник инфекции');
+              expect(result.answer).toContain('санитарное удаление');
+              expect(result.answer).toContain('проветривание кроны');
+              expect(result.answer).toContain('без этикетки и полевых данных дозу не определяй');
+              expect(result.safetyFlags).toContain('GENERAL_AGRO_PLANT_DISEASE_COMPLETENESS_FLOOR');
+            });
+
+            it('preserves a disease answer that already contains two independent control groups', async () => {
+              const completeAnswer = 'Риск парши снижают санитарное удаление поражённых листьев и прореживание кроны для лучшего проветривания.';
+              const fetchMock = jest.fn().mockResolvedValue(providerResponse(completeAnswer));
+              global.fetch = fetchMock as typeof fetch;
+
+              const result = await new RestrictedPublicQwenService().generate({
+                ...IRRIGATION_REQUEST,
+                question: 'Как снизить риск парши в яблоневом саду?',
+                originalQuestion: 'Как снизить риск парши в яблоневом саду?',
+              });
+
+              expect(result.answer).toBe(completeAnswer);
+              expect(result.safetyFlags).not.toContain('GENERAL_AGRO_PLANT_DISEASE_COMPLETENESS_FLOOR');
+            });
+          '''
+          if not quality.endswith('\n});\n'):
+              raise SystemExit('quality spec terminal anchor missing')
+          quality = quality[:-5] + extra_tests + '\n});\n'
+          quality_path.write_text(quality)
+
+          acceptance = acceptance_path.read_text()
+          apple_case = "  { id: 'apple-scab', locale: 'ru', question: 'Как снизить риск парши в яблоневом саду?', subject: ['яблон', 'парш'], support: ['обработ', 'лист', 'влаг', 'санитар', 'фунгиц'] },"
+          apple_semantic_case = """  {
+            id: 'apple-scab',
+            locale: 'ru',
+            question: 'Как снизить риск парши в яблоневом саду?',
+            subject: ['яблон', 'парш'],
+            support: ['обработ', 'лист', 'влаг', 'санитар', 'фунгиц'],
+            supportGroups: [
+              { id: 'weather-moisture', terms: ['влажн', 'намокан', 'роса', 'осадк', 'дожд', 'температур'] },
+              { id: 'sanitation-inoculum', terms: ['санитар', 'пораженн', 'растительн остат', 'опавш', 'источник инфекц', 'запас возбудител', 'инокул'] },
+              { id: 'canopy-airflow', terms: ['крон', 'проветр', 'воздухообмен', 'загущ', 'обрезк'] },
+              { id: 'resistant-genetics', terms: ['устойчив', 'сорт', 'подвой'] },
+              { id: 'monitoring-treatment', terms: ['монитор', 'осмотр', 'прогноз', 'обработ', 'фунгиц', 'этикетк', 'инструкц'] },
+            ],
+          },"""
+          if acceptance.count(apple_case) != 1:
+              raise SystemExit(f'apple case anchor count={acceptance.count(apple_case)}')
+          acceptance = acceptance.replace(apple_case, apple_semantic_case)
+          acceptance_path.write_text(acceptance)
+          PY
+
+          node --check scripts/tai-potato-mobile-live-acceptance.mjs
+          git diff --check
+
+          grep -Fq 'GENERAL_AGRO_PLANT_DISEASE_COMPLETENESS_FLOOR' apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts
+          grep -Fq "id: 'sanitation-inoculum'" scripts/tai-potato-mobile-live-acceptance.mjs
+          grep -Fq "adds a bounded plant-disease completeness floor" apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts
+
+      - name: Commit governed repair and retire one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tai-one-shot-plant-disease-completeness.yml
+          git add \
+            apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts \
+            apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts \
+            scripts/tai-potato-mobile-live-acceptance.mjs
+          git diff --cached --check
+          git commit -m "fix(tai): enforce disease-specific answer completeness"
+          git push origin HEAD:fix/tai-plant-disease-completeness-20260805
