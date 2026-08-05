@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-plant-disease-prevention-completeness-20260805",
+  "status": "active",
+  "title": "TAI plant disease prevention completeness repair",
+  "priority": "P0",
+  "baselineExactMain": "8e24af07fdf10d4852bea06756421698010e03e5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Repair the exact-main activation failure where the local Qwen answer to apple-scab prevention discussed humidity and roots but omitted independent disease-prevention controls such as inoculum sanitation, canopy drying, weather-linked infection risk, monitoring/timing and label-compliant crop protection.",
+  "allowedPaths": [
+    ".github/workflows/tai-one-shot-plant-disease-completeness.yml",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts",
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-plant-disease-prevention-completeness-20260805.json"
+  ],
+  "boundaries": [
+    "Preserve agro-first fail-open content routing and every fail-closed privacy, tenant, authorization, write, financial-action, tool and secret boundary",
+    "The model remains primary; the production prompt must require actionable plant-disease prevention factors before clarification",
+    "For orchard and crop disease prevention, cover at least two independent groups among inoculum sanitation, canopy or leaf-drying conditions, weather and infection risk, monitoring or timing, and locally registered label-compliant crop protection",
+    "Do not invent pesticide products, doses, application intervals, resistance claims, legal registrations or current regional rules",
+    "The live validator must count independent semantic factor groups and must not pass from repeated synonyms inside one group",
+    "Do not weaken source, model identity, answer mode, stream completeness, subject relevance, minimum length, forbidden-platform-article, RU/EN/ZH or mobile Chromium assertions",
+    "The one-shot workflow may modify only the registered paths, must verify exact anchors, must run syntax checks and must delete itself before the branch is merged",
+    "Production completion requires exact-head terminal PASS, merge, exact-main full-stack REG.RU release, controller sync, preflight, protected activation, all 21 endpoint and 5 mobile cases PASS, finalization accept and standalone TAI postflight PASS"
+  ]
+}
