@@ -20,7 +20,7 @@
  *   node scripts/codeql-replacement-guard.mjs drift <installed-packs.json>
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -144,6 +144,119 @@ function sarif(path) {
   }
 }
 
+/**
+ * Map a fixture line to the function that encloses it.
+ *
+ * A case is named by the function containing the flow's *source*, not its sink:
+ * several cases deliberately share one digest site, so the sink does not
+ * identify a case while the source always does.
+ */
+function enclosingFunction(source, line) {
+  const lines = source.split('\n');
+  let name = null;
+  for (let index = 0; index < line && index < lines.length; index += 1) {
+    const declaration = /^(?:async\s+)?function\s+([A-Za-z0-9_$]+)/.exec(lines[index]);
+    if (declaration) name = declaration[1];
+  }
+  return name;
+}
+
+/** The `#select` rows of a `.expected` file, as the case ids they belong to. */
+function reportedCases(expectedPath, fixturePath) {
+  const rows = [];
+  let expected;
+  let fixture;
+  try {
+    expected = readFileSync(join(ROOT, expectedPath), 'utf8');
+    fixture = readFileSync(join(ROOT, fixturePath), 'utf8');
+  } catch (error) {
+    failures.push(`FAIL cannot read fixture expectations: ${error.message}`);
+    return rows;
+  }
+  const body = expected.slice(expected.indexOf('#select'));
+  for (const line of body.split('\n')) {
+    if (!line.startsWith('|')) continue;
+    // Every location in a row looks like `file.js:startLine:startCol:endLine:endCol`.
+    // The first is the alert element, the second is the source.
+    const locations = [...line.matchAll(/([\w.\-]+\.js):(\d+):\d+:\d+:\d+/g)];
+    if (locations.length < 2) {
+      failures.push(`FAIL unparseable #select row in ${expectedPath}: ${line.slice(0, 80)}`);
+      continue;
+    }
+    const sourceLine = Number(locations[1][2]);
+    const fn = enclosingFunction(fixture, sourceLine);
+    rows.push({ fn, sourceLine });
+  }
+  return rows;
+}
+
+/**
+ * The findings must be exactly the set the manifest declares — no more, no less.
+ *
+ * Comparing counts would pass a run in which one case stopped alerting while
+ * another started, which is precisely the regression a barrier edit causes.
+ */
+function expectations() {
+  const manifest = read(join(ROOT, 'codeql/insufficient-password-hash-corrected/expectations.json'));
+  if (!manifest) return;
+
+  const byFixture = new Map();
+  for (const testCase of manifest.cases) {
+    if (!byFixture.has(testCase.fixture)) byFixture.set(testCase.fixture, []);
+    byFixture.get(testCase.fixture).push(testCase);
+    check(
+      Boolean(testCase.id && testCase.function && testCase.rationale),
+      `case ${testCase.id ?? '(unnamed)'} declares an id, a function and a reason`,
+    );
+  }
+
+  const ids = manifest.cases.map((testCase) => testCase.id);
+  check(new Set(ids).size === ids.length, `case ids are unique (${ids.length} cases)`);
+
+  for (const [fixture, cases] of byFixture) {
+    // The expectation file lives beside the fixture and is the only one there,
+    // so it is found rather than derived from a naming convention.
+    const dir = `codeql/insufficient-password-hash-corrected/${dirname(fixture)}`;
+    const siblings = readdirSync(join(ROOT, dir)).filter((name) => name.endsWith('.expected'));
+    if (siblings.length !== 1) {
+      failures.push(`FAIL expected exactly one .expected file in ${dir}, found ${siblings.length}`);
+      continue;
+    }
+    const reported = reportedCases(
+      `${dir}/${siblings[0]}`,
+      `codeql/insufficient-password-hash-corrected/${fixture}`,
+    );
+
+    const reportedFns = new Set(reported.map((row) => row.fn));
+    const wanted = new Set(cases.filter((c) => c.expectedFinding).map((c) => c.function));
+
+    for (const testCase of cases) {
+      const found = reportedFns.has(testCase.function);
+      check(
+        found === testCase.expectedFinding,
+        `${testCase.id}: ${testCase.expectedFinding ? 'reported' : 'silent'} as declared` +
+          (found === testCase.expectedFinding ? '' : ` (saw ${found ? 'a finding' : 'none'})`),
+      );
+    }
+
+    // An undeclared finding is as much a failure as a missing one: it means the
+    // query started reporting something nobody wrote a reason for.
+    const declared = new Set(cases.map((c) => c.function));
+    const undeclared = reported.filter((row) => row.fn === null || !declared.has(row.fn));
+    check(
+      undeclared.length === 0,
+      `every finding in ${fixture} belongs to a declared case` +
+        (undeclared.length === 0
+          ? ''
+          : ` (${undeclared.map((row) => `line ${row.sourceLine} → ${row.fn ?? 'no function'}`).join(', ')})`),
+    );
+
+    notes.push(
+      `     ${fixture}: ${reported.length} finding(s), ${wanted.size} declared as expected`,
+    );
+  }
+}
+
 /** Upstream must still be the version the fork was derived from. */
 function drift(path) {
   const installed = read(path);
@@ -159,14 +272,19 @@ function drift(path) {
 }
 
 const [mode, path] = process.argv.slice(2);
-if (!mode || !path) {
-  console.error('usage: codeql-replacement-guard.mjs <selection|sarif|drift> <file>');
+// `expectations` reads the manifest and the fixtures beside it, so it takes no
+// file argument; the other modes are handed an artifact produced by the CLI.
+if (!mode || (!path && mode !== 'expectations')) {
+  console.error(
+    'usage: codeql-replacement-guard.mjs <selection|sarif|drift> <file> | expectations',
+  );
   process.exit(2);
 }
 
 if (mode === 'selection') selection(path);
 else if (mode === 'sarif') sarif(path);
 else if (mode === 'drift') drift(path);
+else if (mode === 'expectations') expectations();
 else {
   console.error(`unknown mode: ${mode}`);
   process.exit(2);

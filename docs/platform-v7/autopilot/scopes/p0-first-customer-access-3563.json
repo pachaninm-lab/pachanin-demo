@@ -207,6 +207,7 @@
     "apps/web/tests/unit/surfaceRoleMappingParity.test.ts",
     "codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql",
     "codeql/insufficient-password-hash-corrected/OpaqueCredentialBarrier.qll",
+    "codeql/insufficient-password-hash-corrected/expectations.json",
     "codeql/insufficient-password-hash-corrected/qlpack.yml",
     "codeql/insufficient-password-hash-corrected/tests/negative/NegativeOpaqueCredentials.expected",
     "codeql/insufficient-password-hash-corrected/tests/negative/NegativeOpaqueCredentials.qlref",

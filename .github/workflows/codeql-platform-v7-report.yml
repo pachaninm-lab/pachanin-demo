@@ -140,6 +140,19 @@ jobs:
           tail -n 300 artifacts/codeql/query-test.log
           exit "$rc"
 
+      # The regression matrix above proves the run matches the pinned .expected
+      # files. This proves those files match the manifest, case by named case.
+      # Together they make the run equal the manifest, and an extra finding
+      # fails as loudly as a missing one — a count would pass a run in which one
+      # case stopped alerting while another started.
+      - name: Prove the findings are exactly the declared set
+        run: |
+          set +e
+          set -o pipefail
+          node scripts/codeql-replacement-guard.mjs expectations \
+            2>&1 | tee artifacts/codeql/expectations-guard.log
+          exit "${PIPESTATUS[0]}"
+
       - name: Prove the selection is a replacement, not a removal
         run: |
           set -e
@@ -218,6 +231,7 @@ jobs:
           cp codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql artifacts/codeql/inputs/
           cp codeql/insufficient-password-hash-corrected/OpaqueCredentialBarrier.qll artifacts/codeql/inputs/
           cp codeql/insufficient-password-hash-corrected/upstream.lock.json artifacts/codeql/inputs/
+          cp codeql/insufficient-password-hash-corrected/expectations.json artifacts/codeql/inputs/
           cp .github/codeql/codeql-config.yml artifacts/codeql/inputs/
           cp -r codeql/insufficient-password-hash-corrected/tests artifacts/codeql/inputs/tests
           ls -R artifacts/codeql > artifacts/codeql/manifest.txt
