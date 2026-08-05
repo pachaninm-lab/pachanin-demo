@@ -1,0 +1,76 @@
+name: TAI one-shot crop-yield semantic validator repair
+
+on:
+  push:
+    branches:
+      - fix/tai-crop-yield-semantic-validator-20260805
+    paths:
+      - .github/workflows/tai-one-shot-crop-yield-semantic-validator.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-one-shot-crop-yield-semantic-validator
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    name: Apply bounded crop-yield semantic validator repair
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-crop-yield-semantic-validator-20260805
+          fetch-depth: 0
+
+      - name: Patch semantic factor groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/tai-potato-mobile-live-acceptance.mjs')
+          text = path.read_text(encoding='utf-8')
+          old = "  { id: 'wheat-low-yield', locale: 'ru', question: 'Почему падает урожайность озимой пшеницы?', subject: ['пшениц'], support: ['почв', 'влаг', 'питан', 'болезн', 'сорняк', 'сорт'] },"
+          new = """  {
+            id: 'wheat-low-yield',
+            locale: 'ru',
+            question: 'Почему падает урожайность озимой пшеницы?',
+            subject: ['пшениц'],
+            support: ['почв', 'влаг', 'питан', 'болезн', 'сорняк', 'сорт'],
+            supportGroups: [
+              { id: 'nutrition', terms: ['питан', 'питательн', 'удобрен', 'подкорм', 'азот', 'фосфор', 'калий', 'дефицит'] },
+              { id: 'water-climate', terms: ['влаг', 'влажн', 'засух', 'переувлаж', 'осад', 'дожд', 'температур', 'мороз', 'жар', 'погод'] },
+              { id: 'soil-condition', terms: ['почв', 'рн', 'ph', 'структур', 'органик', 'уплотнен', 'кислот'] },
+              { id: 'crop-health', terms: ['болезн', 'инфекц', 'вредител', 'сорняк', 'полеган'] },
+              { id: 'agronomy-genetics', terms: ['сорт', 'семен', 'густот', 'посев', 'срок', 'предшествен', 'севооборот'] },
+              { id: 'field-history', terms: ['история урожайности', 'история поля', 'участк', 'поле', 'неравномерн'] },
+            ],
+          },"""
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one exact wheat case anchor, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+          node --check scripts/tai-potato-mobile-live-acceptance.mjs
+          grep -Fq "id: 'water-climate'" scripts/tai-potato-mobile-live-acceptance.mjs
+          grep -Fq "питательн" scripts/tai-potato-mobile-live-acceptance.mjs
+          grep -Fq "влажн" scripts/tai-potato-mobile-live-acceptance.mjs
+          git diff --check
+
+      - name: Commit repair and retire one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tai-one-shot-crop-yield-semantic-validator.yml
+          git add \
+            scripts/tai-potato-mobile-live-acceptance.mjs \
+            docs/platform-v7/autopilot/scopes/tai-crop-yield-semantic-validator-20260805.json
+          git commit -m "test(tai): validate crop-yield semantic factor groups"
+          git push origin HEAD:fix/tai-crop-yield-semantic-validator-20260805
