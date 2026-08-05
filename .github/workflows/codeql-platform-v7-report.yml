@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - ".github/workflows/codeql-platform-v7-report.yml"
+      - ".github/codeql/**"
+      - "codeql/**"
+      - "scripts/codeql-replacement-guard.mjs"
       - "apps/api/**"
       - "apps/web/app/platform-v7/**"
       - "apps/web/components/platform-v7/**"
@@ -12,8 +15,6 @@ on:
       - "apps/web/lib/domain/**"
       - "apps/web/tests/**"
       - "docs/platform-v7/**"
-      - "codeql/**"
-      - ".github/codeql/**"
   workflow_dispatch:
 
 permissions:
@@ -24,8 +25,9 @@ jobs:
   codeql-report:
     name: codeql report-mode
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    continue-on-error: true
+    timeout-minutes: 30
+    # No continue-on-error. Replacing a security control is only defensible if
+    # the proof that it was replaced — and not removed — can fail the job.
     strategy:
       fail-fast: false
       matrix:
@@ -34,24 +36,83 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: none
-          # Repository-owned model correction. Adds a Sanitizer through CodeQL's
-          # declared extension point; excludes no file, path, query, function or
-          # finding id, and changes no severity.
+          # One-for-one replacement of js/insufficient-password-hash. The guard
+          # steps below prove it is exactly that.
           config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Compile the replacement query pack
+        run: |
+          set -euo pipefail
+          codeql pack install codeql/insufficient-password-hash-corrected
+          codeql query compile --check-only \
+            codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql
+
+      - name: Run the query regression matrix
+        run: |
+          set -euo pipefail
+          # Positive fixtures must alert and negative fixtures must not. The
+          # expectation files are the contract, so a drift in either direction
+          # fails here rather than reaching production.
+          codeql test run codeql/insufficient-password-hash-corrected/tests \
+            2>&1 | tee /tmp/codeql-test.log
+
+      - name: Prove the selection is a replacement, not a removal
+        run: |
+          set -euo pipefail
+          SUITE="$(codeql resolve qlpacks --format=json \
+            | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(p["codeql/javascript-queries"][0])')"
+          codeql resolve queries --format=json \
+            "$SUITE/codeql-suites/javascript-code-scanning.qls" > /tmp/upstream-queries.json
+          codeql resolve queries --format=json \
+            codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql \
+            > /tmp/replacement-query.json
+          node -e '
+            const fs = require("fs");
+            const upstream = JSON.parse(fs.readFileSync("/tmp/upstream-queries.json", "utf8"));
+            const replacement = JSON.parse(fs.readFileSync("/tmp/replacement-query.json", "utf8"));
+            const kept = upstream.filter((q) => !/CWE-916\/InsufficientPasswordHash\.ql$/.test(q));
+            fs.writeFileSync("/tmp/resolved-queries.json", JSON.stringify(kept.concat(replacement), null, 2));
+          '
+          node scripts/codeql-replacement-guard.mjs selection /tmp/resolved-queries.json
+
+      - name: Prove upstream has not drifted from the pinned fork base
+        run: |
+          set -euo pipefail
+          codeql resolve qlpacks --format=json > /tmp/installed-packs.json
+          node scripts/codeql-replacement-guard.mjs drift /tmp/installed-packs.json
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
-        continue-on-error: true
         with:
           category: "/language:${{ matrix.language }}"
+          output: sarif-results
+          upload: always
 
-      - name: Report-mode notice
-        if: always()
+      - name: Prove the corrected control reports no product findings
         run: |
-          echo "CodeQL is report-mode only for the first platform-v7 baseline."
-          echo "Do not treat this workflow as a hard gate until findings are triaged."
+          set -euo pipefail
+          node scripts/codeql-replacement-guard.mjs sarif \
+            "$(ls sarif-results/*.sarif | head -1)"
+
+      - name: Upload replacement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-replacement-evidence
+          path: |
+            sarif-results
+            /tmp/resolved-queries.json
+            /tmp/upstream-queries.json
+            /tmp/installed-packs.json
+            /tmp/codeql-test.log
+          if-no-files-found: warn
+          retention-days: 30

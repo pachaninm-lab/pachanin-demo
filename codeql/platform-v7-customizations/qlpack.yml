@@ -1,5 +1,0 @@
-name: pachaninm-lab/platform-v7-codeql-customizations
-version: 1.0.0
-library: true
-dependencies:
-  codeql/javascript-all: "*"

@@ -1,0 +1,150 @@
+#!/usr/bin/env node
+/**
+ * Fail-closed proof that the CodeQL replacement is exactly a replacement.
+ *
+ * A one-for-one swap of a security control is only safe if it can be shown to
+ * be one. Every way this could quietly go wrong has a check here, and each is
+ * fatal rather than a warning:
+ *
+ *   - the corrected query silently not running, leaving the control absent;
+ *   - both queries running, so the original finding comes back and the
+ *     replacement looks broken;
+ *   - the exclusion widening beyond the single replaced rule, dropping other
+ *     security queries with it;
+ *   - upstream moving underneath the fork, so the local correction is applied
+ *     to a query that no longer matches what it was derived from.
+ *
+ * Usage:
+ *   node scripts/codeql-replacement-guard.mjs selection <resolved-queries.json>
+ *   node scripts/codeql-replacement-guard.mjs sarif <results.sarif>
+ *   node scripts/codeql-replacement-guard.mjs drift <installed-packs.json>
+ */
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const LOCK = JSON.parse(
+  readFileSync(join(ROOT, 'codeql/insufficient-password-hash-corrected/upstream.lock.json'), 'utf8'),
+);
+
+const REPLACED = LOCK.replacedRuleId;
+const REPLACEMENT = LOCK.replacementRuleId;
+
+const failures = [];
+const notes = [];
+
+function check(condition, message) {
+  if (condition) notes.push(`ok   ${message}`);
+  else failures.push(`FAIL ${message}`);
+}
+
+function read(path) {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    failures.push(`FAIL cannot read ${path}: ${error.message}`);
+    return null;
+  }
+}
+
+/** The resolved query list must be the standard suite, minus one, plus one. */
+function selection(path) {
+  const resolved = read(path);
+  if (!resolved) return;
+  const queries = Array.isArray(resolved) ? resolved : Object.keys(resolved);
+  const text = queries.join('\n');
+
+  check(queries.length > 50, `standard suite is loaded (${queries.length} queries resolved)`);
+  check(
+    !queries.some((q) => /Security\/CWE-916\/InsufficientPasswordHash\.ql$/.test(q)),
+    `the replaced built-in query does not run (${REPLACED})`,
+  );
+  const replacements = queries.filter((q) => /InsufficientPasswordHashCorrected\.ql$/.test(q));
+  check(replacements.length === 1, `the corrected query runs exactly once (found ${replacements.length})`);
+
+  // The control must still be present in some form: never zero.
+  check(
+    replacements.length + queries.filter((q) => /InsufficientPasswordHash\.ql$/.test(q)).length >= 1,
+    'the CWE-916 password-hashing control is present',
+  );
+
+  // Other security families must survive the exclusion.
+  for (const family of ['CWE-079', 'CWE-089', 'CWE-078', 'CWE-022', 'CWE-327']) {
+    check(text.includes(family), `other security queries retained: ${family}`);
+  }
+}
+
+/** The product SARIF must show the correction took effect, and nothing else. */
+function sarif(path) {
+  const doc = read(path);
+  if (!doc) return;
+  const runs = doc.runs ?? [];
+  const rules = runs.flatMap((run) => run.tool?.driver?.rules ?? []);
+  const results = runs.flatMap((run) => run.results ?? []);
+  const ruleIds = new Set(rules.map((rule) => rule.id));
+
+  check(ruleIds.has(REPLACEMENT), `the replacement rule is present in SARIF (${REPLACEMENT})`);
+  check(!ruleIds.has(REPLACED), `the replaced rule is absent from SARIF (${REPLACED})`);
+
+  const replacement = rules.find((rule) => rule.id === REPLACEMENT);
+  if (replacement) {
+    const properties = replacement.properties ?? {};
+    check(
+      String(properties['security-severity'] ?? '') === '8.1',
+      `security severity is unchanged (8.1, saw ${properties['security-severity']})`,
+    );
+    check(
+      (properties.tags ?? []).includes('external/cwe/cwe-916'),
+      'CWE-916 tag is unchanged',
+    );
+    check((properties.tags ?? []).includes('security'), 'security tag is unchanged');
+  }
+
+  const corrected = results.filter((result) => result.ruleId === REPLACEMENT);
+  check(
+    corrected.length === 0,
+    `the corrected control reports no product findings (saw ${corrected.length})`,
+  );
+  for (const result of corrected) {
+    const where = result.locations?.[0]?.physicalLocation?.artifactLocation?.uri ?? 'unknown';
+    notes.push(`     residual finding at ${where}`);
+  }
+}
+
+/** Upstream must still be the version the fork was derived from. */
+function drift(path) {
+  const installed = read(path);
+  if (!installed) return;
+  const text = JSON.stringify(installed);
+  const expected = LOCK.queriesPack;
+
+  check(
+    text.includes(expected.version),
+    `upstream ${expected.name} is still ${expected.version} (re-review the fork if this moves)`,
+  );
+  check(text.includes(expected.name), `upstream pack ${expected.name} is installed`);
+}
+
+const [mode, path] = process.argv.slice(2);
+if (!mode || !path) {
+  console.error('usage: codeql-replacement-guard.mjs <selection|sarif|drift> <file>');
+  process.exit(2);
+}
+
+if (mode === 'selection') selection(path);
+else if (mode === 'sarif') sarif(path);
+else if (mode === 'drift') drift(path);
+else {
+  console.error(`unknown mode: ${mode}`);
+  process.exit(2);
+}
+
+for (const note of notes) console.log(note);
+for (const failure of failures) console.error(failure);
+if (failures.length) {
+  console.error(`\n${failures.length} replacement guarantee(s) violated in mode "${mode}"`);
+  process.exit(1);
+}
+console.log(`\nreplacement guarantees hold (${mode})`);

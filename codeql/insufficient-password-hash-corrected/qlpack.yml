@@ -1,0 +1,6 @@
+name: pachaninm-lab/insufficient-password-hash-corrected
+version: 1.0.0
+library: false
+dependencies:
+  codeql/javascript-all: ^2.6.2
+  codeql/javascript-queries: ^2.4.2
