@@ -1,0 +1,13 @@
+name: platform-v7 CodeQL configuration
+
+# Repository-owned model correction for js/insufficient-password-hash.
+#
+# It adds a Sanitizer through the extension point CodeQL declares for that
+# purpose and states one general property: a value carrying full CSPRNG entropy
+# is not a password, so the cost of its digest does not bound an attacker's
+# search.
+#
+# It excludes no file, no path, no query, no function and no finding id, and it
+# changes no severity. Every genuine password flow is still reported.
+packs:
+  - ./codeql/platform-v7-customizations

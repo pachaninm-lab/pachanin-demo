@@ -33,6 +33,8 @@
     "enumerationGuardHead": "ed1433fd911eb5f9596af7d2f909322ea5f612fd"
   },
   "allowedPaths": [
+    ".github/codeql/codeql-config.yml",
+    ".github/workflows/codeql-platform-v7-report.yml",
     ".github/workflows/pc-crop-10c.yml",
     ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
@@ -61,6 +63,7 @@
     "apps/api/src/modules/auth/auth.service.ts",
     "apps/api/src/modules/auth/auth.step-up.spec.ts",
     "apps/api/src/modules/auth/authCredentialBoundary.spec.ts",
+    "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
     "apps/api/src/modules/auth/consent-policy.spec.ts",
     "apps/api/src/modules/auth/consent-policy.ts",
     "apps/api/src/modules/auth/dto/membership-select.dto.ts",
@@ -202,6 +205,9 @@
     "apps/web/tests/unit/platformV7StaffControlCenterControlledAccess.test.ts",
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
     "apps/web/tests/unit/surfaceRoleMappingParity.test.ts",
+    "codeql/platform-v7-customizations/fixtures/password-hash-model-fixtures.js",
+    "codeql/platform-v7-customizations/qlpack.yml",
+    "codeql/platform-v7-customizations/semmle/javascript/Customizations.qll",
     "docs/platform-v7/autopilot/scopes/p0-first-customer-access-3563.json",
     "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json",
     "docs/platform-v7/autopilot/scopes/tai-semantic-factor-validator-20260804.json",

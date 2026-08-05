@@ -12,6 +12,8 @@ on:
       - "apps/web/lib/domain/**"
       - "apps/web/tests/**"
       - "docs/platform-v7/**"
+      - "codeql/**"
+      - ".github/codeql/**"
   workflow_dispatch:
 
 permissions:
@@ -37,6 +39,10 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: none
+          # Repository-owned model correction. Adds a Sanitizer through CodeQL's
+          # declared extension point; excludes no file, path, query, function or
+          # finding id, and changes no severity.
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
