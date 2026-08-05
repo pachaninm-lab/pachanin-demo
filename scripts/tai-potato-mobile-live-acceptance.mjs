@@ -422,10 +422,26 @@ try {
   await dialog.waitFor({ state: 'visible', timeout: 30_000 });
   const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
 
+  const answeredMessages = dialog.locator(
+    '.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]',
+  );
+  const userMessages = dialog.locator('.pc-public-assistant-message[data-role="user"]');
+
   for (const testCase of CASES.filter(item => UI_CASE_IDS.has(item.id))) {
+    const answeredBefore = await answeredMessages.count();
+    const usersBefore = await userMessages.count();
+
     await composer.fill(testCase.question);
     await dialog.getByRole('button', { name: 'Отправить' }).click();
-    const answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
+
+    const submitted = userMessages.nth(usersBefore);
+    await submitted.waitFor({ state: 'visible', timeout: 30_000 });
+    const submittedQuestion = ((await submitted.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+    if (!normalize(submittedQuestion, testCase.locale).includes(normalize(testCase.question, testCase.locale))) {
+      throw new Error(`${testCase.id}_ui_question_mismatch`);
+    }
+
+    const answered = answeredMessages.nth(answeredBefore);
     await answered.waitFor({ state: 'visible', timeout: 240_000 });
     const uiAnswer = ((await answered.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
     const row = evidence.find(item => item.id === testCase.id);
