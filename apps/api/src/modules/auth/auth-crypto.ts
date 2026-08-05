@@ -7,7 +7,7 @@ import {
   timingSafeEqual,
 } from 'crypto';
 import { requireSecret } from '../../common/config/secrets';
-import { digestOpaqueAuthToken } from './opaque-token-authority';
+import { digestMfaBackupCode } from './opaque-token-authority';
 
 const JWT_SECRET = requireSecret('JWT_SECRET');
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -192,6 +192,6 @@ export function generateBackupCodes(count = 8): { codes: string[]; hashes: strin
   });
   return {
     codes,
-    hashes: codes.map((code) => digestOpaqueAuthToken({ purpose: 'mfa-backup-code', rawToken: code })),
+    hashes: codes.map(digestMfaBackupCode),
   };
 }

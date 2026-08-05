@@ -71,6 +71,7 @@
     "apps/api/src/modules/auth/jwt-auth.guard.spec.ts",
     "apps/api/src/modules/auth/jwt-auth.guard.ts",
     "apps/api/src/modules/auth/legacy-admin-identity-boundary.ts",
+    "apps/api/src/modules/auth/mfaBackupCodeSymmetry.spec.ts",
     "apps/api/src/modules/auth/opaque-token-authority.ts",
     "apps/api/src/modules/auth/opaqueTokenAuthority.spec.ts",
     "apps/api/src/modules/auth/organization-invitation.service.spec.ts",

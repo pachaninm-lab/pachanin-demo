@@ -193,6 +193,23 @@ export function opaqueDigestMatches(stored: string, candidate: string): boolean 
   return left.length > 0 && left.length === right.length && timingSafeEqual(left, right);
 }
 
+/**
+ * An MFA backup code, normalised and digested together.
+ *
+ * These two steps must never live apart. When minting normalised-and-digested
+ * in one module while verification normalised-and-digested in another, the two
+ * silently diverged and no backup code could match — the failure surfaced only
+ * as "Invalid or expired MFA challenge", with nothing pointing at the digest.
+ * Keeping the normalisation inside the authority makes that divergence
+ * impossible: there is one function, and both sides call it.
+ */
+export function digestMfaBackupCode(code: string): string {
+  return digestOpaqueAuthToken({
+    purpose: 'mfa-backup-code',
+    rawToken: String(code ?? '').trim().toUpperCase(),
+  });
+}
+
 export type OpaqueToken = {
   id: string;
   secret: string;

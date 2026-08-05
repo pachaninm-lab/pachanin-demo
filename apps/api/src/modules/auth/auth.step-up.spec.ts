@@ -7,7 +7,7 @@ import {
 } from './auth-crypto';
 import { AuthService } from './auth.service';
 import type { CredentialStateRow, MfaChallengeRow, SessionContextRow } from './persistent-auth.repository';
-import { makeOpaqueToken } from './opaque-token-authority';
+import { digestMfaBackupCode, makeOpaqueToken } from './opaque-token-authority';
 
 const actor: RequestUser = {
   id: 'user-1', email: 'admin@example.test', orgId: 'org-1', tenantId: 'tenant-1',
@@ -32,7 +32,10 @@ function credential(backupCode = 'ABCD-1234-EF56'): CredentialStateRow {
     user_id: actor.id, credential_version: 1, failed_login_count: 0, locked_until: null,
     password_changed_at: null, last_login_at: null, mfa_enabled: true,
     mfa_secret_ciphertext: encryptMfaSecret(generateTotpSecret()).ciphertext,
-    mfa_key_version: 'v1', mfa_backup_hashes: [hashAuthMaterial(backupCode)],
+    // The fixture must store what production stores: the authority digest,
+    // not the generic keyed hash. Seeding a legacy value here is what let a
+    // mint/verify asymmetry pass unit tests while failing on a real database.
+    mfa_key_version: 'v1', mfa_backup_hashes: [digestMfaBackupCode(backupCode)],
     consent_version: null, consent_at: null,
   };
 }

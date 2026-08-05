@@ -31,7 +31,7 @@ import {
   verifyTotp,
 } from './auth-crypto';
 import { CURRENT_CONSENT_VERSION } from './consent-policy';
-import { makeOpaqueToken, parseOpaqueToken } from './opaque-token-authority';
+import { digestMfaBackupCode, makeOpaqueToken, parseOpaqueToken } from './opaque-token-authority';
 import {
   AuthSqlClient,
   CredentialStateRow,
@@ -1067,7 +1067,7 @@ export class AuthService {
     const hashes = Array.isArray(credential.mfa_backup_hashes)
       ? credential.mfa_backup_hashes.filter((item): item is string => typeof item === 'string')
       : [];
-    const candidate = hashAuthMaterial(String(code).trim().toUpperCase());
+    const candidate = digestMfaBackupCode(code);
     const matchedIndex = hashes.findIndex((item) => secureEqual(item, candidate));
     if (matchedIndex < 0) return null;
     return {

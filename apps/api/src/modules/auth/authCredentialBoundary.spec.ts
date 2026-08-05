@@ -149,6 +149,29 @@ describe('credential boundary', () => {
     expect(strays.map((f) => f.path)).toEqual([]);
   });
 
+  // Fixtures are the third way this boundary breaks. A spec that seeds a
+  // credential column with the generic keyed hash passes on its own mocks and
+  // hides a mint/verify asymmetry until a real database rejects every login.
+  it('seeds no credential column with a generic keyed hash in any fixture', () => {
+    const CREDENTIAL_COLUMN = /\b(?:mfa_backup_hashes|token_hash|challenge_token_hash|refresh_token_hash|status_token_hash|backupHashes|tokenHash)\b/;
+    const violations: string[] = [];
+    for (const directory of AUTH_DIRECTORIES) {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        if (!entry.isFile() || !entry.name.endsWith('.spec.ts')) continue;
+        const path = join(directory, entry.name);
+        // The boundary spec itself names these patterns as test data.
+        if (entry.name === 'authCredentialBoundary.spec.ts') continue;
+        const source = stripComments(readFileSync(path, 'utf8'));
+        source.split('\n').forEach((line, index) => {
+          if (CREDENTIAL_COLUMN.test(line) && /\bhashAuthMaterial\s*\(/.test(line)) {
+            violations.push(`${path}:${index + 1} ${line.trim().slice(0, 110)}`);
+          }
+        });
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
   it('exposes no password fingerprint helper', () => {
     const crypto = files.find((f) => f.path.endsWith('auth-crypto.ts'));
     expect(crypto).toBeDefined();
