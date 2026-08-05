@@ -61,17 +61,32 @@ jobs:
           CODEQL_BIN="$(node -e 'process.stdout.write(JSON.parse(process.env.CODEQL_ACTION_CLI_VERSION_INFO).cmd)')"
           test -x "$CODEQL_BIN"
           echo "CODEQL_BIN=$CODEQL_BIN" >> "$GITHUB_ENV"
-          "$CODEQL_BIN" version --format=json 2>&1 | tee artifacts/codeql/codeql-version.json
+          "$CODEQL_BIN" version --format=json \
+            > artifacts/codeql/codeql-version.json \
+            2> artifacts/codeql/codeql-version.err
+          cat artifacts/codeql/codeql-version.err
+          node -e 'JSON.parse(require("fs").readFileSync("artifacts/codeql/codeql-version.json", "utf8"))'
 
       - name: Resolve the bundled qlpack roots
         run: |
-          set -o pipefail
-          "$CODEQL_BIN" resolve qlpacks --format=json 2>&1 \
-            | tee artifacts/codeql/resolve-qlpacks.json
-          rc=${PIPESTATUS[0]}
-          if [ "$rc" -ne 0 ]; then tail -n 300 artifacts/codeql/resolve-qlpacks.json; exit "$rc"; fi
+          # errexit is on by default for this shell, which would abort before
+          # the diagnostics below ever ran. Every CodeQL step here turns it off
+          # and propagates the real exit code by hand.
+          set +e
+          # --format=json writes the document to stdout and progress lines such
+          # as "Recording pack reference ..." to stderr. Merging them produces a
+          # file that is neither parseable JSON nor a readable log, so the two
+          # streams are captured side by side instead.
+          "$CODEQL_BIN" resolve qlpacks --format=json \
+            > artifacts/codeql/resolve-qlpacks.json \
+            2> artifacts/codeql/resolve-qlpacks.err
+          rc=$?
+          tail -n 300 artifacts/codeql/resolve-qlpacks.err
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
           # The search path is derived from where the CLI actually resolved its
           # own packs, never from a guessed directory layout.
+          # Past the CodeQL invocation the ordinary fail-fast rules apply again.
+          set -e
           SEARCH="$(node -e '
             const path = require("path");
             const packs = JSON.parse(require("fs").readFileSync("artifacts/codeql/resolve-qlpacks.json", "utf8"));
@@ -95,6 +110,7 @@ jobs:
 
       - name: Compile the replacement query
         run: |
+          set +e
           set -o pipefail
           "$CODEQL_BIN" query compile --check-only \
             --search-path="$CODEQL_SEARCH_PATH" \
@@ -107,6 +123,7 @@ jobs:
 
       - name: Run the query regression matrix
         run: |
+          set +e
           set -o pipefail
           # Positive fixtures must alert and negative fixtures must not. The
           # expectation files are the contract, so a drift in either direction
@@ -125,23 +142,31 @@ jobs:
 
       - name: Prove the selection is a replacement, not a removal
         run: |
-          set -o pipefail
+          set -e
           SUITE="$(node -e '
             const packs = JSON.parse(require("fs").readFileSync("artifacts/codeql/resolve-qlpacks.json", "utf8"));
             process.stdout.write(packs["codeql/javascript-queries"][0]);
           ')"
+          # Same split as above: the JSON goes to its own file untouched, the
+          # progress chatter to a sibling .err that is echoed and archived.
+          set +e
           "$CODEQL_BIN" resolve queries --format=json \
             --search-path="$CODEQL_SEARCH_PATH" \
             "$SUITE/codeql-suites/javascript-code-scanning.qls" \
-            2>&1 | tee artifacts/codeql/resolve-upstream-queries.json
-          rc=${PIPESTATUS[0]}
-          if [ "$rc" -ne 0 ]; then tail -n 300 artifacts/codeql/resolve-upstream-queries.json; exit "$rc"; fi
+            > artifacts/codeql/resolve-upstream-queries.json \
+            2> artifacts/codeql/resolve-upstream-queries.err
+          rc=$?
+          tail -n 300 artifacts/codeql/resolve-upstream-queries.err
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
           "$CODEQL_BIN" resolve queries --format=json \
             --search-path="$CODEQL_SEARCH_PATH" \
             codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql \
-            2>&1 | tee artifacts/codeql/resolve-replacement-query.json
-          rc=${PIPESTATUS[0]}
-          if [ "$rc" -ne 0 ]; then tail -n 300 artifacts/codeql/resolve-replacement-query.json; exit "$rc"; fi
+            > artifacts/codeql/resolve-replacement-query.json \
+            2> artifacts/codeql/resolve-replacement-query.err
+          rc=$?
+          tail -n 300 artifacts/codeql/resolve-replacement-query.err
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          set -e
           node -e '
             const fs = require("fs");
             const upstream = JSON.parse(fs.readFileSync("artifacts/codeql/resolve-upstream-queries.json", "utf8"));
@@ -152,11 +177,15 @@ jobs:
             }
             fs.writeFileSync("artifacts/codeql/resolved-queries.json", JSON.stringify(kept.concat(replacement), null, 2));
           '
+          set +e
+          set -o pipefail
           node scripts/codeql-replacement-guard.mjs selection artifacts/codeql/resolved-queries.json \
             2>&1 | tee artifacts/codeql/selection-guard.log
+          exit "${PIPESTATUS[0]}"
 
       - name: Prove upstream has not drifted from the pinned fork base
         run: |
+          set +e
           set -o pipefail
           node scripts/codeql-replacement-guard.mjs drift artifacts/codeql/resolve-qlpacks.json \
             2>&1 | tee artifacts/codeql/drift-guard.log
@@ -172,6 +201,7 @@ jobs:
 
       - name: Prove the corrected control reports no product findings
         run: |
+          set +e
           set -o pipefail
           cp -r sarif-results artifacts/codeql/sarif-results || true
           node scripts/codeql-replacement-guard.mjs sarif "$(ls sarif-results/*.sarif | head -1)" \

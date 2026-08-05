@@ -211,6 +211,7 @@
     "codeql/insufficient-password-hash-corrected/tests/negative/NegativeOpaqueCredentials.expected",
     "codeql/insufficient-password-hash-corrected/tests/negative/NegativeOpaqueCredentials.qlref",
     "codeql/insufficient-password-hash-corrected/tests/negative/opaqueCredentials.js",
+    "codeql/insufficient-password-hash-corrected/tests/positive/PositivePasswordFlows.expected",
     "codeql/insufficient-password-hash-corrected/tests/positive/PositivePasswordFlows.qlref",
     "codeql/insufficient-password-hash-corrected/tests/positive/passwordFlows.js",
     "codeql/insufficient-password-hash-corrected/tests/qlpack.yml",
