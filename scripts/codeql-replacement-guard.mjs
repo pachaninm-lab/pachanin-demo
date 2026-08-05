@@ -76,12 +76,28 @@ function selection(path) {
   }
 }
 
+/** `path/to/file.ts:12:34`, or as much of it as the SARIF carries. */
+function describeLocation(location) {
+  const physical = location?.physicalLocation;
+  const uri = physical?.artifactLocation?.uri ?? 'unknown';
+  const region = physical?.region;
+  if (!region?.startLine) return uri;
+  return `${uri}:${region.startLine}${region.startColumn ? `:${region.startColumn}` : ''}`;
+}
+
 /** The product SARIF must show the correction took effect, and nothing else. */
 function sarif(path) {
   const doc = read(path);
   if (!doc) return;
   const runs = doc.runs ?? [];
-  const rules = runs.flatMap((run) => run.tool?.driver?.rules ?? []);
+  // A query supplied by the workflow rather than by the bundled pack is
+  // described in `tool.extensions`, not in `tool.driver.rules`. Looking only at
+  // the driver reported the replacement rule as missing while its own result
+  // was sitting in the same document.
+  const rules = runs.flatMap((run) => [
+    ...(run.tool?.driver?.rules ?? []),
+    ...(run.tool?.extensions ?? []).flatMap((extension) => extension.rules ?? []),
+  ]);
   const results = runs.flatMap((run) => run.results ?? []);
   const ruleIds = new Set(rules.map((rule) => rule.id));
 
@@ -107,9 +123,24 @@ function sarif(path) {
     corrected.length === 0,
     `the corrected control reports no product findings (saw ${corrected.length})`,
   );
+  // A residual finding is the one outcome that needs to be diagnosable from the
+  // job log alone: the SARIF lives in an artifact, and "a finding somewhere in
+  // this file" is not enough to tell a real defect from a barrier that does not
+  // reach the shape the product actually uses. Print the whole path.
   for (const result of corrected) {
-    const where = result.locations?.[0]?.physicalLocation?.artifactLocation?.uri ?? 'unknown';
-    notes.push(`     residual finding at ${where}`);
+    notes.push(`     residual finding: ${result.message?.text ?? '(no message)'}`);
+    for (const location of result.locations ?? []) {
+      notes.push(`       at ${describeLocation(location)}`);
+    }
+    result.codeFlows?.forEach((flow, flowIndex) => {
+      flow.threadFlows?.forEach((thread) => {
+        notes.push(`       flow ${flowIndex + 1}:`);
+        for (const step of thread.locations ?? []) {
+          const message = step.location?.message?.text ?? '';
+          notes.push(`         ${describeLocation(step.location)}${message ? ` — ${message}` : ''}`);
+        }
+      });
+    });
   }
 }
 
