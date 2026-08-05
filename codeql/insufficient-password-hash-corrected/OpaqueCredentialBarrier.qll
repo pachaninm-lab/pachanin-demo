@@ -17,20 +17,23 @@
  */
 
 import javascript
+private import semmle.javascript.security.dataflow.InsufficientPasswordHashCustomizations
 
-/** Holds when `node` is output of a CSPRNG asked for at least `minBytes` bytes. */
-private predicate isCsprngOutput(DataFlow::Node node, int minBytes) {
+/** 128 bits: the floor below which a digest's cost would start to matter. */
+private int minimumEntropyBytes() { result = 16 }
+
+/** A call to a cryptographically secure random generator. */
+private predicate isCsprngOutput(DataFlow::Node node) {
   exists(DataFlow::CallNode call |
     call =
       DataFlow::moduleMember(["crypto", "node:crypto"], ["randomBytes", "randomFillSync"])
           .getACall() and
-    call.getArgument(0).getIntValue() >= minBytes and
+    call.getArgument(0).getIntValue() >= minimumEntropyBytes() and
     node = call
   )
   or
   exists(DataFlow::CallNode call |
     call = DataFlow::moduleMember(["crypto", "node:crypto"], "randomUUID").getACall() and
-    minBytes = 16 and
     node = call
   )
 }
@@ -40,57 +43,41 @@ private predicate isCsprngOutput(DataFlow::Node node, int minBytes) {
  *
  * The step relation is deliberately narrow. Encoding, slicing and assembling a
  * token out of random parts preserve entropy; deriving a value from something
- * the rule already considers a password does not create it, which is why a
- * template or an array containing a `Source` never qualifies.
+ * the rule already treats as a password does not create it, which is why a
+ * template containing a password source never qualifies.
  */
-private DataFlow::Node fullEntropyValue() {
-  isCsprngOutput(result, 16)
+private predicate fullEntropyValue(DataFlow::Node node) {
+  isCsprngOutput(node)
   or
-  // Encoding and reshaping: Buffer -> string, case and slice normalisation.
+  // Encoding and reshaping: Buffer to string, case and slice normalisation.
   exists(DataFlow::MethodCallNode step |
-    step.getReceiver() = fullEntropyValue() and
+    fullEntropyValue(step.getReceiver()) and
     step.getMethodName() =
-      ["toString", "slice", "substring", "substr", "toUpperCase", "toLowerCase", "trim",
-          "replace", "padStart", "padEnd"] and
-    result = step
+      [
+        "toString", "slice", "substring", "substr", "toUpperCase", "toLowerCase", "trim",
+        "replace", "padStart", "padEnd"
+      ] and
+    node = step
   )
   or
   // Assembly: `${id}.${secret}`, provided no part is itself a password.
   exists(TemplateLiteral tpl |
-    tpl.getAnElement().flow() = fullEntropyValue() and
-    not exists(Expr part | part = tpl.getAnElement() | part.flow() instanceof PasswordLikeNode) and
-    result = tpl.flow()
+    fullEntropyValue(tpl.getAnElement().flow()) and
+    not tpl.getAnElement().flow() instanceof InsufficientPasswordHash::Source and
+    node = tpl.flow()
   )
   or
-  // Assembly: [version, purpose, token].join(sep), same condition.
+  // Assembly: [version, purpose, token].join(separator), same condition.
   exists(DataFlow::MethodCallNode join, DataFlow::ArrayCreationNode parts |
     join.getMethodName() = "join" and
     join.getReceiver() = parts and
-    parts.getAnElement() = fullEntropyValue() and
-    not parts.getAnElement() instanceof PasswordLikeNode and
-    result = join
+    fullEntropyValue(parts.getAnElement()) and
+    not parts.getAnElement() instanceof InsufficientPasswordHash::Source and
+    node = join
   )
-  or
-  // Field of an object literal built from a full-entropy value.
-  exists(DataFlow::PropWrite write |
-    write.getRhs() = fullEntropyValue() and
-    result = write.getBase()
-  )
-}
-
-/**
- * A node the password-hashing model already treats as a password.
- *
- * Referenced only to stop the entropy relation from laundering one: if a
- * password is concatenated with random bytes, the result is still a password.
- */
-private class PasswordLikeNode extends DataFlow::Node {
-  PasswordLikeNode() {
-    this.(SensitiveNode).getClassification() = SensitiveDataClassification::password()
-  }
 }
 
 /** A value carrying full CSPRNG entropy, which is therefore not a password. */
 class OpaqueCredentialBarrier extends DataFlow::Node {
-  OpaqueCredentialBarrier() { this = fullEntropyValue() }
+  OpaqueCredentialBarrier() { fullEntropyValue(this) }
 }

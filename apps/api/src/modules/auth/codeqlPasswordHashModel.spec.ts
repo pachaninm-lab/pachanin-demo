@@ -156,9 +156,9 @@ describe('CodeQL password-hash model correction', () => {
 
   it('keys the sanitizer on entropy, not on naming', () => {
     expect(modelCode).toContain('randomBytes');
-    expect(modelCode).toMatch(/getIntValue\(\)\s*>=\s*minBytes/);
+    expect(modelCode).toMatch(/getIntValue\(\)\s*>=\s*minimumEntropyBytes\(\)/);
     // 128 bits is the floor below which a digest's cost would start to matter.
-    expect(modelCode).toContain('isCsprngOutput(result, 16)');
+    expect(modelCode).toMatch(/minimumEntropyBytes\(\)\s*\{\s*result\s*=\s*16\s*\}/);
   });
 
   describe('characterization fixtures', () => {
