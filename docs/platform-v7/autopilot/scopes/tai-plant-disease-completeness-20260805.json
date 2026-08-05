@@ -5,6 +5,8 @@
   "title": "TAI plant-disease completeness and semantic acceptance repair",
   "priority": "P0",
   "baselineExactMain": "8e24af07fdf10d4852bea06756421698010e03e5",
+  "patchedByCommit": "a58198a65d98b2a032023eaf42dfb0bf7567b328",
+  "ownerAttestedAt": "2026-08-05",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "objective": "Repair the exact-main live acceptance failure where Qwen answered the apple-scab question with only one disease-control factor group, while preserving agro-first model behavior and strengthening disease-specific answer completeness without inventing products or doses.",
