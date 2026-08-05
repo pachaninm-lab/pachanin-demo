@@ -208,6 +208,10 @@ function expectations() {
       Boolean(testCase.id && testCase.function && testCase.rationale),
       `case ${testCase.id ?? '(unnamed)'} declares an id, a function and a reason`,
     );
+    check(
+      testCase.ruleId === REPLACEMENT,
+      `case ${testCase.id} names the replacement rule (${testCase.ruleId ?? 'none'})`,
+    );
   }
 
   const ids = manifest.cases.map((testCase) => testCase.id);
@@ -236,6 +240,18 @@ function expectations() {
         found === testCase.expectedFinding,
         `${testCase.id}: ${testCase.expectedFinding ? 'reported' : 'silent'} as declared` +
           (found === testCase.expectedFinding ? '' : ` (saw ${found ? 'a finding' : 'none'})`),
+      );
+      // The lines are pinned from the CLI's own output, so a flow that moves to
+      // a different source inside the same function is a change, not a detail.
+      const actual = reported
+        .filter((row) => row.fn === testCase.function)
+        .map((row) => row.sourceLine)
+        .sort((a, b) => a - b);
+      const declaredLines = [...(testCase.sourceLines ?? [])].sort((a, b) => a - b);
+      check(
+        actual.join(',') === declaredLines.join(','),
+        `${testCase.id}: source lines are [${declaredLines}]` +
+          (actual.join(',') === declaredLines.join(',') ? '' : ` (saw [${actual}])`),
       );
     }
 
