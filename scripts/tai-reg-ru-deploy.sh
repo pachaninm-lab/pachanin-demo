@@ -943,6 +943,86 @@ set_internal_deploy_stage TAI_DEPLOY_CONTAINER_MATERIALIZATION_FAILED
 "${DC_TAI[@]}" up -d --no-deps --pull never tai
 
 tai_id=""
+capture_runtime_health_diagnostic() {
+  local id="$1" output="$STATE_ROOT/runtime-health-diagnostic.json"
+  if [[ -z "$id" ]]; then
+    printf '%s\n' '{"container":"absent","schemaVersion":"tai.runtime-health-diagnostic.v1"}' > "$output"
+  elif ! docker exec -i "$id" python - > "$output" <<'PY_RUNTIME_DIAGNOSTIC'
+import json
+import re
+import urllib.error
+import urllib.request
+
+safe_text = re.compile(r'^[A-Za-z0-9._:-]{1,160}$')
+
+def safe_string(value, fallback='invalid'):
+    return value if isinstance(value, str) and safe_text.fullmatch(value) else fallback
+
+def request(path):
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:8080' + path, timeout=5) as response:
+            status = response.status
+            raw = response.read(131073)
+    except urllib.error.HTTPError as error:
+        status = error.code
+        raw = error.read(131073)
+    except Exception as error:
+        return {'transport': 'unreachable', 'errorClass': type(error).__name__}
+    if len(raw) > 131072:
+        return {'httpStatus': status, 'payload': 'oversized'}
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return {'httpStatus': status, 'payload': 'non_json'}
+    if not isinstance(payload, dict):
+        return {'httpStatus': status, 'payload': 'non_object'}
+    result = {'httpStatus': status, 'status': safe_string(payload.get('status'))}
+    for key in ('policy', 'billing', 'orchestration'):
+        if key in payload:
+            result[key] = safe_string(payload.get(key))
+    components = payload.get('components')
+    if isinstance(components, dict):
+        result['components'] = {
+            safe_string(key): safe_string(value)
+            for key, value in components.items()
+            if isinstance(key, str) and isinstance(value, str)
+        }
+    reasons = payload.get('reasons')
+    if isinstance(reasons, list):
+        result['reasons'] = [safe_string(value) for value in reasons if isinstance(value, str)][:32]
+    pressure = payload.get('pressure')
+    if isinstance(pressure, dict):
+        result['pressure'] = {
+            key: value for key, value in pressure.items()
+            if isinstance(key, str) and isinstance(value, int) and not isinstance(value, bool)
+        }
+    supervisor = payload.get('supervisor')
+    if isinstance(supervisor, dict):
+        result['supervisor'] = {
+            key: (safe_string(value) if isinstance(value, str) else value)
+            for key, value in supervisor.items()
+            if isinstance(key, str) and (
+                isinstance(value, str)
+                or (isinstance(value, int) and not isinstance(value, bool))
+                or value is None
+            )
+        }
+    return result
+
+print(json.dumps({
+    'schemaVersion': 'tai.runtime-health-diagnostic.v1',
+    'live': request('/health/live'),
+    'ready': request('/health/ready'),
+    'runtime': request('/health/runtime'),
+}, sort_keys=True, separators=(',', ':')))
+PY_RUNTIME_DIAGNOSTIC
+  then
+    printf '%s\n' '{"container":"exec_failed","schemaVersion":"tai.runtime-health-diagnostic.v1"}' > "$output"
+  fi
+  chmod 0600 "$output"
+  printf 'TAI_RUNTIME_HEALTH_DIAGNOSTIC=%s\n' "$(tr -d '\n' < "$output")" >&2
+}
+
 set_internal_deploy_stage TAI_DEPLOY_RUNTIME_HEALTHCHECK_FAILED
 for _ in $(seq 1 60); do
   tai_id="$("${DC_TAI[@]}" ps -q tai | head -1)"
@@ -952,8 +1032,15 @@ for _ in $(seq 1 60); do
   fi
   sleep 5
 done
-test -n "$tai_id"
-test "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$tai_id")" = healthy
+if [[ -z "$tai_id" ]]; then
+  capture_runtime_health_diagnostic ''
+  exit 18
+fi
+final_tai_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$tai_id")"
+if [[ "$final_tai_state" != healthy ]]; then
+  capture_runtime_health_diagnostic "$tai_id"
+  exit 18
+fi
 test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$tai_id")" = "$TARGET_SHA"
 test "$(docker inspect --format '{{.Image}}' "$tai_id")" = "$expected_image_id"
 test "$(docker inspect --format '{{.Config.Image}}' "$tai_id")" = "$TAI_IMAGE_DIGEST"
