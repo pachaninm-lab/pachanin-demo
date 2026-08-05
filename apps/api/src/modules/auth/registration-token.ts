@@ -1,9 +1,4 @@
-import {
-  digestOpaqueAuthToken,
-  makeOpaqueToken,
-  opaqueDigestMatches,
-  parseOpaqueToken,
-} from './opaque-token-authority';
+import { digestOpaqueAuthToken, issueEmailVerificationCredential, opaqueDigestMatches, resolvePresentedCredential } from './opaque-token-authority';
 
 export const REGISTRATION_EMAIL_TTL_MS = 30 * 60 * 1000;
 export const REGISTRATION_APPLICATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -15,13 +10,13 @@ export const REGISTRATION_APPLICATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
  * invitation or a password reset.
  */
 export function issueRegistrationEmailToken() {
-  const minted = makeOpaqueToken('rev');
-  return { id: minted.id, token: minted.token, hash: minted.digest };
+  const minted = issueEmailVerificationCredential();
+  return { id: minted.credentialId, token: minted.rawToken, hash: minted.storedDigest };
 }
 
 export function parseRegistrationEmailToken(raw: string): { id: string; hash: string } | null {
-  const parsed = parseOpaqueToken(raw, 'rev');
-  return parsed ? { id: parsed.id, hash: parsed.digest } : null;
+  const parsed = resolvePresentedCredential(raw, 'rev');
+  return parsed ? { id: parsed.credentialId, hash: parsed.storedDigest } : null;
 }
 
 /**

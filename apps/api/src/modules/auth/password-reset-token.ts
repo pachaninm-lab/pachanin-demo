@@ -1,4 +1,4 @@
-import { makeOpaqueToken, opaqueDigestMatches, parseOpaqueToken } from './opaque-token-authority';
+import { issuePasswordResetCredential, opaqueDigestMatches, resolvePresentedCredential } from './opaque-token-authority';
 
 export const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
 export const PASSWORD_RESET_COOLDOWN_MS = 60 * 1000;
@@ -16,13 +16,13 @@ export type PasswordResetToken = {
  * presented in place of the other.
  */
 export function issuePasswordResetToken(): PasswordResetToken {
-  const minted = makeOpaqueToken('pr');
-  return { id: minted.id, token: minted.token, hash: minted.digest };
+  const minted = issuePasswordResetCredential();
+  return { id: minted.credentialId, token: minted.rawToken, hash: minted.storedDigest };
 }
 
 export function parsePasswordResetToken(raw: string): { id: string; hash: string } | null {
-  const parsed = parseOpaqueToken(raw, 'pr');
-  return parsed ? { id: parsed.id, hash: parsed.digest } : null;
+  const parsed = resolvePresentedCredential(raw, 'pr');
+  return parsed ? { id: parsed.credentialId, hash: parsed.storedDigest } : null;
 }
 
 export function passwordResetHashMatches(stored: string, candidate: string): boolean {

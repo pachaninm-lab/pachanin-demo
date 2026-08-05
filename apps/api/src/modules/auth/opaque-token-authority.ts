@@ -210,6 +210,139 @@ export function digestMfaBackupCode(code: string): string {
   });
 }
 
+/**
+ * A credential issued by the authority.
+ *
+ * `rawToken` is the bearer secret and exists exactly once, on its way to a
+ * delivery or response boundary. `storedDigest` is the only value a caller may
+ * persist. `purpose` and `version` travel with them so a reader of the call
+ * site can see which contour a record belongs to without inferring it from an
+ * id prefix.
+ */
+export type IssuedCredential = {
+  credentialId: string;
+  rawToken: string;
+  storedDigest: string;
+  purpose: OpaqueTokenPurpose;
+  version: string;
+};
+
+/**
+ * The single place a credential comes into existence.
+ *
+ * Random generation, purpose binding, version selection, the canonical
+ * pre-image, the HMAC and the stored formatting all happen here, in one step.
+ * A call site never assembles a token out of parts and never reaches a crypto
+ * primitive: it asks for a credential and receives one.
+ */
+function issueCredential(prefix: OpaqueTokenPrefix): IssuedCredential {
+  const credentialId = `${prefix}_${randomBytes(18).toString('base64url')}`;
+  const secret = randomBytes(32).toString('base64url');
+  const rawToken = `${credentialId}.${secret}`;
+  const purpose = OPAQUE_TOKEN_PREFIX_PURPOSE[prefix];
+  return {
+    credentialId,
+    rawToken,
+    purpose,
+    version: OPAQUE_TOKEN_DIGEST_VERSION,
+    storedDigest: digestOpaqueAuthToken({ purpose, rawToken }),
+  };
+}
+
+// One typed entry point per contour. The purpose is chosen by the function the
+// caller picks, so it cannot be passed wrongly, and a reviewer can see at the
+// call site which credential is being minted.
+export const issuePasswordResetCredential = (): IssuedCredential => issueCredential('pr');
+export const issueMfaRecoveryCredential = (): IssuedCredential => issueCredential('mr');
+export const issueInvitationCredential = (): IssuedCredential => issueCredential('iv');
+export const issueEmailVerificationCredential = (): IssuedCredential => issueCredential('rev');
+export const issueMembershipSelectionCredential = (): IssuedCredential => issueCredential('ms');
+export const issueRefreshCredential = (): IssuedCredential => issueCredential('rt');
+export const issueMfaChallengeCredential = (): IssuedCredential => issueCredential('mc');
+
+/**
+ * The registration status credential is derived, not random: the same
+ * application and idempotency key must always yield the same value so a caller
+ * can poll without storing it.
+ */
+export function issueRegistrationStatusCredential(
+  applicationId: string,
+  idempotencyKey: string,
+): IssuedCredential {
+  const proof = digestOpaqueAuthToken({
+    purpose: 'registration-status',
+    rawToken: `derive:${applicationId}:${idempotencyKey}`,
+  });
+  const rawToken = `rst_${applicationId}.${proof}`;
+  return {
+    credentialId: `rst_${applicationId}`,
+    rawToken,
+    purpose: 'registration-status',
+    version: OPAQUE_TOKEN_DIGEST_VERSION,
+    storedDigest: digestOpaqueAuthToken({
+      purpose: 'registration-status',
+      rawToken: `present:${rawToken}`,
+    }),
+  };
+}
+
+/** Backup codes are human-transcribed, so they are short and normalised. */
+export function issueMfaBackupCodeCredential(): IssuedCredential {
+  const raw = randomBytes(6).toString('hex').toUpperCase();
+  const rawToken = `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
+  return {
+    credentialId: rawToken,
+    rawToken,
+    purpose: 'mfa-backup-code',
+    version: OPAQUE_TOKEN_DIGEST_VERSION,
+    storedDigest: digestMfaBackupCode(rawToken),
+  };
+}
+
+/** Staff access tokens carry their own prefix and are not part of the auth map. */
+export function issueStaffAccessCredential(): IssuedCredential {
+  const credentialId = `sat_${randomBytes(18).toString('base64url')}`;
+  const rawToken = `${credentialId}.${randomBytes(32).toString('base64url')}`;
+  return {
+    credentialId,
+    rawToken,
+    purpose: 'staff-access',
+    version: OPAQUE_TOKEN_DIGEST_VERSION,
+    storedDigest: digestOpaqueAuthToken({ purpose: 'staff-access', rawToken }),
+  };
+}
+
+/**
+ * Resolve a presented token to the digest that would have been stored.
+ *
+ * Returns `null` for anything malformed, so a caller cannot query with a
+ * digest derived from a token of the wrong shape. The purpose comes from the
+ * prefix the caller expects, never from the presented token, so a bearer
+ * cannot choose which purpose their token is checked against.
+ */
+export function resolvePresentedCredential(
+  rawToken: string,
+  prefix: OpaqueTokenPrefix,
+): { credentialId: string; storedDigest: string } | null {
+  const [credentialId, secret, extra] = String(rawToken ?? '').split('.');
+  if (extra || !credentialId || !secret || !credentialId.startsWith(`${prefix}_`) || secret.length < 32) {
+    return null;
+  }
+  return {
+    credentialId,
+    storedDigest: digestOpaqueAuthToken({
+      purpose: OPAQUE_TOKEN_PREFIX_PURPOSE[prefix],
+      rawToken: `${credentialId}.${secret}`,
+    }),
+  };
+}
+
+/**
+ * Compatibility shape for call sites that store the id and the digest.
+ *
+ * Kept deliberately thin: it delegates to the typed issuers above so there is
+ * still exactly one place a credential is created.
+ */
 export type OpaqueToken = {
   id: string;
   secret: string;
@@ -217,42 +350,20 @@ export type OpaqueToken = {
   digest: string;
 };
 
-/**
- * Mint an opaque one-time token: 144 bits of id, 256 bits of secret, and the
- * digest the database stores. The raw token is returned exactly once, to the
- * delivery boundary; nothing else may persist or log it.
- */
 export function makeOpaqueToken(prefix: OpaqueTokenPrefix): OpaqueToken {
-  const id = `${prefix}_${randomBytes(18).toString('base64url')}`;
-  const secret = randomBytes(32).toString('base64url');
-  const token = `${id}.${secret}`;
+  const issued = issueCredential(prefix);
   return {
-    id,
-    secret,
-    token,
-    digest: digestOpaqueAuthToken({ purpose: OPAQUE_TOKEN_PREFIX_PURPOSE[prefix], rawToken: token }),
+    id: issued.credentialId,
+    secret: issued.rawToken.slice(issued.credentialId.length + 1),
+    token: issued.rawToken,
+    digest: issued.storedDigest,
   };
 }
 
-/**
- * Parse a presented token and compute the digest to look up.
- *
- * Returns `null` for anything malformed, so a caller cannot accidentally query
- * with a digest derived from a token of the wrong shape. The purpose comes
- * from the expected prefix, never from the presented token, so a bearer cannot
- * choose which purpose their token is checked against.
- */
 export function parseOpaqueToken(
   token: string,
   prefix: OpaqueTokenPrefix,
 ): { id: string; digest: string } | null {
-  const [id, secret, extra] = String(token ?? '').split('.');
-  if (extra || !id || !secret || !id.startsWith(`${prefix}_`) || secret.length < 32) return null;
-  return {
-    id,
-    digest: digestOpaqueAuthToken({
-      purpose: OPAQUE_TOKEN_PREFIX_PURPOSE[prefix],
-      rawToken: `${id}.${secret}`,
-    }),
-  };
+  const resolved = resolvePresentedCredential(token, prefix);
+  return resolved ? { id: resolved.credentialId, digest: resolved.storedDigest } : null;
 }

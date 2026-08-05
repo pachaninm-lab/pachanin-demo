@@ -31,7 +31,13 @@ import {
   verifyTotp,
 } from './auth-crypto';
 import { CURRENT_CONSENT_VERSION } from './consent-policy';
-import { digestMfaBackupCode, makeOpaqueToken, parseOpaqueToken } from './opaque-token-authority';
+import {
+  digestMfaBackupCode,
+  issueMembershipSelectionCredential,
+  issueMfaChallengeCredential,
+  issueRefreshCredential,
+  resolvePresentedCredential,
+} from './opaque-token-authority';
 import {
   AuthSqlClient,
   CredentialStateRow,
@@ -165,12 +171,12 @@ export class AuthService {
       await this.repository.markLoginSuccess(tx, identity.user_id);
 
       if (usableMemberships.length > 1) {
-        const selection = makeOpaqueToken('ms');
+        const issuedSelection = issueMembershipSelectionCredential();
         const expiresAt = new Date(Date.now() + MEMBERSHIP_SELECTION_TTL_MS);
         await this.repository.createMembershipSelectionChallenge(tx, {
-          id: selection.id,
+          id: issuedSelection.credentialId,
           userId: identity.user_id,
-          tokenHash: selection.digest,
+          tokenHash: issuedSelection.storedDigest,
           credentialVersion: credential.credential_version,
           expiresAt,
         });
@@ -182,7 +188,7 @@ export class AuthService {
         });
         return {
           kind: 'membership' as const,
-          challengeToken: selection.token,
+          challengeToken: issuedSelection.rawToken,
           expiresAt: expiresAt.toISOString(),
           memberships: usableMemberships.map((membership) => ({
             membershipId: membership.membership_id,
@@ -228,11 +234,11 @@ export class AuthService {
     userAgent?: string,
     ip?: string,
   ) {
-    const parsed = parseOpaqueToken(dto.challengeToken, 'ms');
+    const parsed = resolvePresentedCredential(dto.challengeToken, 'ms');
     if (!parsed) throw new UnauthorizedException('Invalid membership selection');
     const result = await this.repository.transaction(async (tx) => {
-      const challenge = await this.repository.getMembershipSelectionChallengeForUpdate(tx, parsed.id);
-      if (!challenge || !secureEqual(challenge.token_hash, parsed.digest)) return { kind: 'invalid' as const };
+      const challenge = await this.repository.getMembershipSelectionChallengeForUpdate(tx, parsed.credentialId);
+      if (!challenge || !secureEqual(challenge.token_hash, parsed.storedDigest)) return { kind: 'invalid' as const };
       if (
         challenge.status !== 'PENDING'
         || challenge.expires_at <= new Date()
@@ -291,17 +297,17 @@ export class AuthService {
 
 
   async refresh(dto: { refreshToken: string }, userAgent?: string, ip?: string) {
-    const parsed = parseOpaqueToken(dto.refreshToken, 'rt');
+    const parsed = resolvePresentedCredential(dto.refreshToken, 'rt');
     if (!parsed) throw new UnauthorizedException('Invalid refresh token');
 
     const result = await this.repository.transaction(async (tx) => {
-      const context = await this.repository.getRefreshContextForUpdate(tx, parsed.id);
-      if (!context || !secureEqual(context.refresh_token_hash, parsed.digest)) {
+      const context = await this.repository.getRefreshContextForUpdate(tx, parsed.credentialId);
+      if (!context || !secureEqual(context.refresh_token_hash, parsed.storedDigest)) {
         await this.audit(tx, {
           action: 'auth.refresh',
           outcome: 'DENIED',
           reason: 'REFRESH_TOKEN_NOT_FOUND',
-          metadata: this.clientMetadata(userAgent, ip, { tokenId: parsed.id }),
+          metadata: this.clientMetadata(userAgent, ip, { tokenId: parsed.credentialId }),
         });
         return { kind: 'invalid' as const };
       }
@@ -322,7 +328,7 @@ export class AuthService {
           action: 'auth.refresh.reuse',
           outcome: 'DENIED',
           reason: 'REFRESH_TOKEN_REUSE_DETECTED',
-          metadata: this.clientMetadata(userAgent, ip, { tokenId: parsed.id }),
+          metadata: this.clientMetadata(userAgent, ip, { tokenId: parsed.credentialId }),
         });
         return { kind: 'reuse' as const };
       }
@@ -348,11 +354,11 @@ export class AuthService {
         return { kind: 'invalid' as const };
       }
 
-      const replacement = makeOpaqueToken('rt');
+      const issuedReplacement = issueRefreshCredential();
       await this.repository.rotateRefreshToken(tx, {
         currentTokenId: context.refresh_token_id,
-        replacementTokenId: replacement.id,
-        replacementTokenHash: replacement.digest,
+        replacementTokenId: issuedReplacement.credentialId,
+        replacementTokenHash: issuedReplacement.storedDigest,
         sessionId: context.session_id,
         familyId: context.refresh_token_family_id,
         replacementExpiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
@@ -369,7 +375,7 @@ export class AuthService {
         outcome: 'SUCCESS',
         metadata: this.clientMetadata(userAgent, ip, {
           rotatedFrom: context.refresh_token_id,
-          rotatedTo: replacement.id,
+          rotatedTo: issuedReplacement.credentialId,
         }),
       });
       return {
@@ -379,7 +385,7 @@ export class AuthService {
           context.session_id,
           context.current_credential_version,
         ),
-        refreshToken: replacement.token,
+        refreshToken: issuedReplacement.rawToken,
         user: this.userProjection(context, Boolean(context.mfa_verified_at)),
       };
     });
@@ -392,12 +398,12 @@ export class AuthService {
   }
 
   async verifyMfa(dto: MfaVerifyInput, userAgent?: string, ip?: string) {
-    const parsed = parseOpaqueToken(dto.challengeToken, 'mc');
+    const parsed = resolvePresentedCredential(dto.challengeToken, 'mc');
     if (!parsed) throw new UnauthorizedException('Invalid MFA challenge');
 
     const result = await this.repository.transaction(async (tx) => {
-      const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.id);
-      if (!challenge || !secureEqual(challenge.challenge_token_hash, parsed.digest)) {
+      const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.credentialId);
+      if (!challenge || !secureEqual(challenge.challenge_token_hash, parsed.storedDigest)) {
         return { kind: 'invalid' as const };
       }
       const invalidReason = this.sessionInvalidReason(challenge, true);
@@ -471,12 +477,12 @@ export class AuthService {
         enableMfa: enrollment,
         backupHashes: persistedBackupHashes,
       });
-      const refresh = makeOpaqueToken('rt');
+      const issuedRefresh = issueRefreshCredential();
       await this.repository.createRefreshToken(tx, {
-        id: refresh.id,
+        id: issuedRefresh.credentialId,
         sessionId: challenge.session_id,
         familyId: challenge.refresh_family_id,
-        tokenHash: refresh.digest,
+        tokenHash: issuedRefresh.storedDigest,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
         userAgentHash: hashClientValue(userAgent),
         ipHash: hashClientValue(ip),
@@ -498,7 +504,7 @@ export class AuthService {
           challenge.session_id,
           challenge.current_credential_version,
         ),
-        refreshToken: refresh.token,
+        refreshToken: issuedRefresh.rawToken,
         backupCodes: backup?.codes,
         user: this.userProjection(challenge, true),
       };
@@ -522,13 +528,13 @@ export class AuthService {
       }
 
       await this.repository.expirePendingMfaChallenges(tx, context.session_id, 'STEP_UP');
-      const challenge = makeOpaqueToken('mc');
+      const issuedChallenge = issueMfaChallengeCredential();
       const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
       await this.repository.createMfaChallenge(tx, {
-        id: challenge.id,
+        id: issuedChallenge.credentialId,
         sessionId: context.session_id,
         userId: context.user_id,
-        challengeTokenHash: challenge.digest,
+        challengeTokenHash: issuedChallenge.storedDigest,
         type: 'STEP_UP',
         expiresAt,
       });
@@ -544,7 +550,7 @@ export class AuthService {
       });
       return {
         ok: true,
-        challengeToken: challenge.token,
+        challengeToken: issuedChallenge.rawToken,
         expiresAt: expiresAt.toISOString(),
         methods: ['totp', 'backup_code'] as const,
       };
@@ -558,14 +564,14 @@ export class AuthService {
     ip?: string,
   ) {
     if (!user.sessionId) throw new UnauthorizedException('Active session is required');
-    const parsed = parseOpaqueToken(dto.challengeToken, 'mc');
+    const parsed = resolvePresentedCredential(dto.challengeToken, 'mc');
     if (!parsed) throw new UnauthorizedException('Invalid MFA step-up challenge');
 
     const result = await this.repository.transaction(async (tx) => {
-      const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.id);
+      const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.credentialId);
       if (
         !challenge
-        || !secureEqual(challenge.challenge_token_hash, parsed.digest)
+        || !secureEqual(challenge.challenge_token_hash, parsed.storedDigest)
         || challenge.challenge_type !== 'STEP_UP'
         || challenge.session_id !== user.sessionId
         || challenge.user_id !== user.id
@@ -642,14 +648,14 @@ export class AuthService {
   }
 
   async logout(dto: { refreshToken?: string }, sessionId?: string) {
-    const parsedRefresh = dto.refreshToken ? parseOpaqueToken(dto.refreshToken, 'rt') : null;
+    const parsedRefresh = dto.refreshToken ? resolvePresentedCredential(dto.refreshToken, 'rt') : null;
     await this.repository.transaction(async (tx) => {
       let context: SessionContextRow | null = sessionId
         ? await this.repository.getSessionContext(tx, sessionId, undefined, true)
         : null;
       if (!context && parsedRefresh) {
-        const refreshContext = await this.repository.getRefreshContextForUpdate(tx, parsedRefresh.id);
-        if (refreshContext && secureEqual(refreshContext.refresh_token_hash, parsedRefresh.digest)) {
+        const refreshContext = await this.repository.getRefreshContextForUpdate(tx, parsedRefresh.credentialId);
+        if (refreshContext && secureEqual(refreshContext.refresh_token_hash, parsedRefresh.storedDigest)) {
           context = refreshContext;
         }
       }
@@ -908,13 +914,13 @@ export class AuthService {
         const encrypted = encryptMfaSecret(setupSecret);
         await this.repository.setMfaSecret(tx, identity.user_id, encrypted.ciphertext, encrypted.keyVersion);
       }
-      const challenge = makeOpaqueToken('mc');
+      const issuedChallenge = issueMfaChallengeCredential();
       const challengeExpiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
       await this.repository.createMfaChallenge(tx, {
-        id: challenge.id,
+        id: issuedChallenge.credentialId,
         sessionId,
         userId: identity.user_id,
-        challengeTokenHash: challenge.digest,
+        challengeTokenHash: issuedChallenge.storedDigest,
         type: enrollment ? 'TOTP_ENROLL' : 'TOTP_VERIFY',
         expiresAt: challengeExpiresAt,
       });
@@ -930,7 +936,7 @@ export class AuthService {
       });
       return {
         kind: 'mfa' as const,
-        challengeToken: challenge.token,
+        challengeToken: issuedChallenge.rawToken,
         expiresAt: challengeExpiresAt.toISOString(),
         setupSecret,
         otpAuthUri: setupSecret ? buildOtpAuthUri(identity.email, setupSecret) : undefined,
@@ -969,19 +975,19 @@ export class AuthService {
       ip?: string;
     },
   ) {
-    const refresh = makeOpaqueToken('rt');
+    const issuedRefresh = issueRefreshCredential();
     await this.repository.createRefreshToken(tx, {
-      id: refresh.id,
+      id: issuedRefresh.credentialId,
       sessionId: input.id,
       familyId: input.familyId,
-      tokenHash: refresh.digest,
+      tokenHash: issuedRefresh.storedDigest,
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
       userAgentHash: hashClientValue(input.userAgent),
       ipHash: hashClientValue(input.ip),
     });
     return {
       accessToken: this.signAccessToken(identity.user_id, input.id, input.credentialVersion),
-      refreshToken: refresh.token,
+      refreshToken: issuedRefresh.rawToken,
       user: this.userProjection(identity, false),
     };
   }

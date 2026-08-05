@@ -172,6 +172,32 @@ describe('credential boundary', () => {
     expect(violations).toEqual([]);
   });
 
+  // A credential comes into existence in exactly one place. If a call site can
+  // assemble its own token or reach a crypto primitive, the purpose binding and
+  // the version are advisory rather than structural.
+  it('mints credentials only inside the authority', () => {
+    const SELF_MINTING = /\bmakeOpaqueToken\s*\(|\bcreateHmac\s*\(|randomBytes\(\s*\d+\s*\)\s*\.toString\(\s*'base64url'\s*\)/;
+    const OWNERS = ['opaque-token-authority.ts', 'auth-crypto.ts'];
+    const violations = files
+      .filter((f) => !OWNERS.some((owner) => f.path.endsWith(owner)))
+      .filter((f) => SELF_MINTING.test(stripComments(f.source)))
+      .map((f) => f.path);
+
+    expect(violations).toEqual([]);
+  });
+
+  it('offers one typed issuer per purpose', () => {
+    const authority = files.find((f) => f.path.endsWith('opaque-token-authority.ts'));
+    for (const issuer of [
+      'issuePasswordResetCredential', 'issueMfaRecoveryCredential', 'issueInvitationCredential',
+      'issueEmailVerificationCredential', 'issueMembershipSelectionCredential',
+      'issueRefreshCredential', 'issueMfaChallengeCredential', 'issueRegistrationStatusCredential',
+      'issueMfaBackupCodeCredential', 'issueStaffAccessCredential',
+    ]) {
+      expect(authority?.source).toMatch(new RegExp(`export (?:const|function) ${issuer}\\b`));
+    }
+  });
+
   it('exposes no password fingerprint helper', () => {
     const crypto = files.find((f) => f.path.endsWith('auth-crypto.ts'));
     expect(crypto).toBeDefined();

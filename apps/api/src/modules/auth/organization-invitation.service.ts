@@ -10,7 +10,11 @@ import * as bcrypt from 'bcryptjs';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { RequestUser } from '../../common/types/request-user';
 import { isStrongPassword } from '../../common/validators/strong-password.validator';
-import { makeOpaqueToken, parseOpaqueToken } from './opaque-token-authority';
+import {
+  issueInvitationCredential,
+  issueMfaRecoveryCredential,
+  resolvePresentedCredential,
+} from './opaque-token-authority';
 import { AuthPrismaService } from './auth-prisma.service';
 import { CURRENT_CONSENT_EVIDENCE, isCurrentConsent } from './consent-policy';
 import {
@@ -162,7 +166,7 @@ export class OrganizationInvitationService {
     const email = normalizeEmail(emailInput);
     const emailHash = hashAuthMaterial(`invitation-email:${email}`);
     const requestHash = hashAuthMaterial(stableJson({ organizationId: admin.organizationId, email, role }));
-    const token = makeOpaqueToken('iv');
+    const token = issueInvitationCredential();
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -231,7 +235,7 @@ export class OrganizationInvitationService {
       `);
       if (pendingInvitation[0]) throw new ConflictException({ code: 'ORGANIZATION_INVITATION_ALREADY_PENDING' });
 
-      const invitationId = token.id;
+      const invitationId = token.credentialId;
       await tx.$executeRaw(Prisma.sql`
         INSERT INTO auth.organization_invitations (
           id, organization_id, tenant_id, invited_email, invited_email_hash,
@@ -239,7 +243,7 @@ export class OrganizationInvitationService {
           idempotency_key, request_hash, correlation_id, expires_at
         ) VALUES (
           ${invitationId}, ${admin.organizationId}, ${admin.organization.tenantId}, ${email}, ${emailHash},
-          ${role}, ${token.digest}, ${user.id}, ${admin.id},
+          ${role}, ${token.storedDigest}, ${user.id}, ${admin.id},
           ${idempotencyKey}, ${requestHash}, ${correlationId}, ${expiresAt}
         )
       `);
@@ -282,7 +286,7 @@ export class OrganizationInvitationService {
       emailDelivery: !result.replayed && deliveryAuthorized(deliveryKey)
         ? {
           email,
-          token: token.token,
+          token: token.rawToken,
           organizationName: admin.organization.name,
           role,
           expiresInSeconds: Math.floor(INVITATION_TTL_MS / 1000),
@@ -301,7 +305,7 @@ export class OrganizationInvitationService {
   ) {
     const admin = await this.requireAdmin(user);
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
-    const token = makeOpaqueToken('iv');
+    const token = issueInvitationCredential();
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -323,7 +327,7 @@ export class OrganizationInvitationService {
       }
       const updated = await tx.$executeRaw(Prisma.sql`
         UPDATE auth.organization_invitations
-        SET token_hash = ${token.digest}, expires_at = ${expiresAt}, version = version + 1, updated_at = NOW()
+        SET token_hash = ${token.storedDigest}, expires_at = ${expiresAt}, version = version + 1, updated_at = NOW()
         WHERE id = ${current.id} AND status = 'PENDING' AND version = ${current.version}
       `);
       if (updated !== 1) throw new ConflictException({ code: 'INVITATION_VERSION_CONFLICT' });
@@ -340,7 +344,7 @@ export class OrganizationInvitationService {
       });
       await this.audit(tx, user, 'auth.organization.invitation.resend', 'SUCCESS', reason, { invitationId, correlationId });
       return {
-        invitation: { ...current, token_hash: token.digest, expires_at: expiresAt, version: current.version + 1n },
+        invitation: { ...current, token_hash: token.storedDigest, expires_at: expiresAt, version: current.version + 1n },
         replayed: false as const,
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
@@ -354,7 +358,7 @@ export class OrganizationInvitationService {
       emailDelivery: !result.replayed && deliveryAuthorized(deliveryKey)
         ? {
           email: result.invitation.invited_email,
-          token: token.token,
+          token: token.rawToken,
           organizationName: result.invitation.organization_name,
           role: result.invitation.role,
           expiresInSeconds: Math.floor(INVITATION_TTL_MS / 1000),
@@ -409,7 +413,7 @@ export class OrganizationInvitationService {
     if (!dto.acceptTerms || !dto.acceptPrivacy || !isCurrentConsent(dto.termsVersion, dto.privacyVersion)) {
       throw new BadRequestException({ code: 'CONSENT_VERSION_NOT_CURRENT' });
     }
-    const parsed = parseOpaqueToken(dto.token, 'iv');
+    const parsed = resolvePresentedCredential(dto.token, 'iv');
     if (!parsed) throw new BadRequestException({ code: 'INVITATION_INVALID' });
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
@@ -418,11 +422,11 @@ export class OrganizationInvitationService {
         SELECT invitation.*, organization.name AS organization_name, organization.status AS organization_status
         FROM auth.organization_invitations invitation
         JOIN public.organizations organization ON organization.id = invitation.organization_id
-        WHERE invitation.id = ${parsed.id}
+        WHERE invitation.id = ${parsed.credentialId}
         FOR UPDATE OF invitation, organization
       `);
       const invitation = rows[0];
-      if (!invitation || !secureEqual(invitation.token_hash, parsed.digest) || invitation.status !== 'PENDING') {
+      if (!invitation || !secureEqual(invitation.token_hash, parsed.storedDigest) || invitation.status !== 'PENDING') {
         return { kind: 'invalid' as const };
       }
       if (invitation.expires_at <= new Date()) {
@@ -673,7 +677,7 @@ export class OrganizationInvitationService {
       version: version.toString(),
       reason,
     }));
-    const token = makeOpaqueToken('mr');
+    const token = issueMfaRecoveryCredential();
     const expiresAt = new Date(Date.now() + MFA_RECOVERY_TTL_MS);
     const result = await this.prisma.$transaction(async (tx) => {
       if (await this.membershipCommandReplayed(tx, admin, idempotencyKey, requestHash, membershipId, 'MFA_RESET')) {
@@ -771,8 +775,8 @@ export class OrganizationInvitationService {
           token_hash, created_by_user_id, reason, correlation_id,
           idempotency_key, request_hash, expires_at
         ) VALUES (
-          ${token.id}, ${target.user_id}, ${membershipId}, ${admin.organizationId}, ${admin.organization.tenantId},
-          ${token.digest}, ${user.id}, ${reason}, ${correlationId},
+          ${token.credentialId}, ${target.user_id}, ${membershipId}, ${admin.organizationId}, ${admin.organization.tenantId},
+          ${token.storedDigest}, ${user.id}, ${reason}, ${correlationId},
           ${`mfa-recovery:${idempotencyKey}`}, ${requestHash}, ${expiresAt}
         )
       `);
@@ -783,7 +787,7 @@ export class OrganizationInvitationService {
       `);
       if (membershipUpdated !== 1) throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
       await this.insertMfaRecoveryEvent(tx, {
-        challengeId: token.id,
+        challengeId: token.credentialId,
         actorUserId: user.id,
         eventType: 'CREATED',
         previousStatus: null,
@@ -812,12 +816,12 @@ export class OrganizationInvitationService {
       });
       return {
         challenge: {
-          id: token.id,
+          id: token.credentialId,
           user_id: target.user_id,
           membership_id: membershipId,
           organization_id: admin.organizationId,
           tenant_id: admin.organization.tenantId,
-          token_hash: token.digest,
+          token_hash: token.storedDigest,
           status: 'PENDING',
           expires_at: expiresAt,
           attempts: 0,
@@ -840,7 +844,7 @@ export class OrganizationInvitationService {
       recoveryDelivery: !result.replayed && deliveryAuthorized(deliveryKey)
         ? {
             email: result.challenge.email,
-            token: token.token,
+            token: token.rawToken,
             expiresInSeconds: Math.floor(MFA_RECOVERY_TTL_MS / 1000),
           }
         : undefined,
@@ -855,7 +859,7 @@ export class OrganizationInvitationService {
     userAgent?: string,
   ) {
     if (!deliveryAuthorized(deliveryKey)) throw new BadRequestException({ code: 'MFA_RECOVERY_INVALID' });
-    const parsed = parseOpaqueToken(dto.token, 'mr');
+    const parsed = resolvePresentedCredential(dto.token, 'mr');
     if (!parsed) throw new BadRequestException({ code: 'MFA_RECOVERY_INVALID' });
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -892,11 +896,11 @@ export class OrganizationInvitationService {
         JOIN public.organizations organization
           ON organization.id = challenge.organization_id
           AND organization."tenantId" = challenge.tenant_id
-        WHERE challenge.id = ${parsed.id}
+        WHERE challenge.id = ${parsed.credentialId}
         FOR UPDATE OF challenge, subject, membership
       `);
       const challenge = rows[0];
-      if (!challenge || !secureEqual(challenge.token_hash, parsed.digest) || challenge.status !== 'PENDING') {
+      if (!challenge || !secureEqual(challenge.token_hash, parsed.storedDigest) || challenge.status !== 'PENDING') {
         return { kind: 'invalid' as const };
       }
       if (challenge.expires_at <= new Date()) {

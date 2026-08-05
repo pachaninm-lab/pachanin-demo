@@ -9,7 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { randomBytes, randomUUID } from 'crypto';
 import { RequestUser } from '../../common/types/request-user';
-import { digestOpaqueAuthToken } from '../auth/opaque-token-authority';
+import { digestOpaqueAuthToken, issueStaffAccessCredential } from '../auth/opaque-token-authority';
 import {
   hashAuthMaterial,
   hashClientValue,
@@ -728,10 +728,8 @@ export class StaffAccessService {
   // from the opaque token authority under its own purpose. It cannot be
   // presented as an invitation, a password reset or any other token.
   private makeAccessToken() {
-    const id = `sat_${randomBytes(18).toString('base64url')}`;
-    const secret = randomBytes(32).toString('base64url');
-    const token = `${id}.${secret}`;
-    return { token, hash: digestOpaqueAuthToken({ purpose: 'staff-access', rawToken: token }) };
+    const issued = issueStaffAccessCredential();
+    return { token: issued.rawToken, hash: issued.storedDigest };
   }
 
   private assertGrantActive(grant: StaffGrantRow) {
