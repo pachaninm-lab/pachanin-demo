@@ -63,8 +63,14 @@ jobs:
       - name: Compile the replacement query pack
         run: |
           set -euo pipefail
-          "$CODEQL_BIN" pack install codeql/insufficient-password-hash-corrected
+          # Resolve against the CLI's bundled qlpacks rather than the registry,
+          # so the replacement compiles against the same library the built-in
+          # query was compiled against.
+          BUNDLED="$(dirname "$CODEQL_BIN")/qlpacks"
+          test -d "$BUNDLED"
           "$CODEQL_BIN" query compile --check-only \
+            --search-path="$BUNDLED" \
+            --additional-packs="$BUNDLED" \
             codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql
 
       - name: Run the query regression matrix
@@ -73,8 +79,9 @@ jobs:
           # Positive fixtures must alert and negative fixtures must not. The
           # expectation files are the contract, so a drift in either direction
           # fails here rather than reaching production.
-          "$CODEQL_BIN" pack install codeql/insufficient-password-hash-corrected/tests
           "$CODEQL_BIN" test run codeql/insufficient-password-hash-corrected/tests \
+            --search-path="$(dirname "$CODEQL_BIN")/qlpacks" \
+            --additional-packs="$(dirname "$CODEQL_BIN")/qlpacks" \
             2>&1 | tee /tmp/codeql-test.log
 
       - name: Prove the selection is a replacement, not a removal

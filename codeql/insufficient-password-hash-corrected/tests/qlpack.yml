@@ -5,4 +5,4 @@ extractor: javascript
 tests: .
 dependencies:
   pachaninm-lab/insufficient-password-hash-corrected: "*"
-  codeql/javascript-all: ^2.6.2
+  codeql/javascript-all: "*"
