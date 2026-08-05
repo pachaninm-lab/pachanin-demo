@@ -73,10 +73,19 @@ jobs:
           # The search path is derived from where the CLI actually resolved its
           # own packs, never from a guessed directory layout.
           SEARCH="$(node -e '
+            const path = require("path");
             const packs = JSON.parse(require("fs").readFileSync("artifacts/codeql/resolve-qlpacks.json", "utf8"));
             const roots = new Set();
             for (const locations of Object.values(packs)) {
-              for (const location of locations) roots.add(require("path").dirname(require("path").dirname(location)));
+              for (const location of locations) {
+                // Every query pack vendors its own copy of the shared libraries
+                // under .codeql/libraries. Putting those on the search path
+                // makes one pack visible from a dozen roots, and resolution
+                // fails as ambiguous rather than picking one. Only the
+                // top-level bundled root belongs here.
+                if (location.includes(`${path.sep}.codeql${path.sep}libraries${path.sep}`)) continue;
+                roots.add(path.dirname(path.dirname(location)));
+              }
             }
             process.stdout.write([...roots].join(":"));
           ')"
