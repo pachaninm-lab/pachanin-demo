@@ -103,10 +103,49 @@ describe('RestrictedPublicQwenService general-agro completeness contract', () =>
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
     const systemPrompt = String(body.messages[0].content);
     expect(systemPrompt).toContain('For crop production');
+    expect(systemPrompt).toContain('For crop disease prevention or risk reduction');
+    expect(systemPrompt).toContain('sanitation and inoculum removal');
+    expect(systemPrompt).toContain('canopy density and airflow');
+    expect(systemPrompt).toContain('label-compliant treatment timing');
     expect(systemPrompt).toContain('For livestock');
     expect(systemPrompt).toContain('For machinery');
     expect(systemPrompt).toContain('For storage, infrastructure, farm economics and farm IT');
     expect(systemPrompt).toContain('Do not invent agronomic norms, product doses, medicines or veterinary diagnoses');
     expect(systemPrompt).toContain('Do not invent machinery specifications, diagnostic codes or compatibility');
   });
+
+  it('adds a bounded plant-disease completeness floor when the model omits disease controls', async () => {
+    const weakAnswer = 'Чтобы снизить риск парши, контролируйте влажность почвы и проверяйте состояние корневой системы деревьев.';
+    const fetchMock = jest.fn().mockResolvedValue(providerResponse(weakAnswer));
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await new RestrictedPublicQwenService().generate({
+      ...IRRIGATION_REQUEST,
+      question: 'Как снизить риск парши в яблоневом саду?',
+      originalQuestion: 'Как снизить риск парши в яблоневом саду?',
+    });
+
+    expect(result.answer).toContain(weakAnswer);
+    expect(result.answer).toContain('Источник инфекции');
+    expect(result.answer).toContain('санитарное удаление');
+    expect(result.answer).toContain('проветривание кроны');
+    expect(result.answer).toContain('без этикетки и полевых данных дозу не определяй');
+    expect(result.safetyFlags).toContain('GENERAL_AGRO_PLANT_DISEASE_COMPLETENESS_FLOOR');
+  });
+
+  it('preserves a disease answer that already contains two independent control groups', async () => {
+    const completeAnswer = 'Риск парши снижают санитарное удаление поражённых листьев и прореживание кроны для лучшего проветривания.';
+    const fetchMock = jest.fn().mockResolvedValue(providerResponse(completeAnswer));
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await new RestrictedPublicQwenService().generate({
+      ...IRRIGATION_REQUEST,
+      question: 'Как снизить риск парши в яблоневом саду?',
+      originalQuestion: 'Как снизить риск парши в яблоневом саду?',
+    });
+
+    expect(result.answer).toBe(completeAnswer);
+    expect(result.safetyFlags).not.toContain('GENERAL_AGRO_PLANT_DISEASE_COMPLETENESS_FLOOR');
+  });
+
 });
