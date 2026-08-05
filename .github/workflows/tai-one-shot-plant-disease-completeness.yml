@@ -1,0 +1,48 @@
+name: TAI one-shot plant-disease wording cleanup
+
+on:
+  push:
+    branches:
+      - fix/tai-plant-disease-completeness-20260805
+    paths:
+      - .github/workflows/tai-one-shot-plant-disease-completeness.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-one-shot-plant-disease-wording-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Correct bounded English copy and retire one-shot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/tai-plant-disease-completeness-20260805
+          fetch-depth: 0
+
+      - name: Correct wording and verify exact replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -c "from pathlib import Path; p=Path('apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts'); s=p.read_text(); old='at least two indepent control blocks'; assert s.count(old)==1, s.count(old); p.write_text(s.replace(old, 'at least two independent control blocks'))"
+          grep -Fq 'at least two independent control blocks' apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts
+          if grep -Fq 'indepent' apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts; then exit 1; fi
+          git diff --check
+
+      - name: Commit cleanup and remove workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tai-one-shot-plant-disease-completeness.yml
+          git add apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts
+          git diff --cached --check
+          git commit -m "fix(tai): correct disease completeness English copy"
+          git push origin HEAD:fix/tai-plant-disease-completeness-20260805
