@@ -210,13 +210,17 @@ TO one_deal_auth;
 GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO one_deal_auth;
 REVOKE UPDATE, DELETE ON auth.staff_access_events FROM one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(TEXT) TO one_deal_auth;
+
+GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM one_deal_auth;
+
 REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
@@ -255,6 +259,8 @@ GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) 
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM one_deal_staff;
@@ -312,13 +318,19 @@ SELECT
    WHERE n.nspname = 'public' AND c.relname IN ('users','user_orgs','organizations')
      AND r.rolname = 'one_deal_auth'))::text
   || ':' ||
-  (has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_login_identity_by_id(text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships(text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships_ordered(text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_email(text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_membership(text,text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE'))::text
+  (
+    has_function_privilege('one_deal_auth', 'auth.resolve_login_credential(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_default_membership(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_membership(text,text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE')
+    AND NOT (
+      has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_identity_by_id(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships_ordered(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_email(text)', 'EXECUTE')
+    )
+  )::text
   || ':' ||
   (has_function_privilege('one_deal_auth', 'auth.resolve_staff_target_scope(text,text,text,text,text)', 'EXECUTE')
    OR has_function_privilege('one_deal_auth', 'auth.resolve_staff_deal_target_scope(text,text,text)', 'EXECUTE')
@@ -335,7 +347,7 @@ SELECT
    WHERE member.rolname = 'one_deal_auth'))::text;
 SQL
 )"
-echo "[one-deal] auth identity proof forced-rls:owns:bootstrap-execute:staff-execute:memberships = $AUTH_IDENTITY_PROOF"
+echo "[one-deal] auth identity proof forced-rls:owns:minimal-bootstrap:staff-execute:memberships = $AUTH_IDENTITY_PROOF"
 if [[ "$AUTH_IDENTITY_PROOF" != "true:false:true:false:false" && "$AUTH_IDENTITY_PROOF" != "t:f:t:f:f" ]]; then
   echo "Auth principal identity boundary is invalid: $AUTH_IDENTITY_PROOF" >&2
   exit 1
@@ -348,10 +360,10 @@ if [[ "$STAFF_ROLE_PROOF" != "false:false:false:0:true:true:true:true:true:true:
   exit 1
 fi
 
-AUTH_BOOTSTRAP_PROOF="$(psql "$AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM auth.resolve_login_identity('nobody@example.invalid'))::text")"
-echo "[one-deal] auth bootstrap proof direct-users:bootstrap-rows = $AUTH_BOOTSTRAP_PROOF"
-if [[ "$AUTH_BOOTSTRAP_PROOF" != "0:0" ]]; then
-  echo "Auth principal reads identities without context: $AUTH_BOOTSTRAP_PROOF" >&2
+AUTH_BOOTSTRAP_PROOF="$(psql "$AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM auth.resolve_login_credential('nobody@example.invalid'))::text || ':' || has_function_privilege(current_user,'auth.resolve_login_context_by_email(text)','EXECUTE')::text")"
+echo "[one-deal] auth bootstrap proof direct-users:minimal-credential-rows:legacy-context-execute = $AUTH_BOOTSTRAP_PROOF"
+if [[ "$AUTH_BOOTSTRAP_PROOF" != "0:0:false" && "$AUTH_BOOTSTRAP_PROOF" != "0:0:f" ]]; then
+  echo "Auth principal minimal bootstrap boundary failed: $AUTH_BOOTSTRAP_PROOF" >&2
   exit 1
 fi
 STORAGE_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','SELECT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','UPDATE')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','INSERT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','DELETE')::text FROM pg_roles WHERE rolname='one_deal_storage'")"
