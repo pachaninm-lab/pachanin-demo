@@ -9,7 +9,12 @@ import {
 
 const SHA = '1'.repeat(40);
 const workflowPath = '.github/workflows/tai-reg-ru-preflight-owner-command.yml';
+const checkerPath = 'scripts/check-tai-bootstrap-preflight.mjs';
+const dockerPublishPath = '.github/workflows/docker-publish.yml';
+const triggerScopePath = 'docs/platform-v7/autopilot/scopes/tai-bootstrap-canonical-images-20260806.json';
 const workflow = readFileSync(workflowPath, 'utf8');
+const dockerPublish = readFileSync(dockerPublishPath, 'utf8');
+const triggerScope = JSON.parse(readFileSync(triggerScopePath, 'utf8'));
 const livePreflightStart = workflow.indexOf('\n  live_preflight:\n');
 const publishStatusStart = workflow.indexOf('\n  publish_status:\n', livePreflightStart);
 const livePreflight = livePreflightStart >= 0 && publishStatusStart > livePreflightStart
@@ -49,6 +54,9 @@ const clone = (value) => structuredClone(value);
 const violations = [];
 const requireWorkflowFragment = (fragment) => {
   if (!workflow.includes(fragment)) violations.push(`${workflowPath}: missing ${JSON.stringify(fragment)}`);
+};
+const requireDockerPublishFragment = (fragment) => {
+  if (!dockerPublish.includes(fragment)) violations.push(`${dockerPublishPath}: missing ${JSON.stringify(fragment)}`);
 };
 const expectPass = (label, report, options, expectedClassification) => {
   try {
@@ -98,6 +106,30 @@ if (/actions\/upload-artifact@v4/u.test(workflow)) {
 }
 if (/actions\/download-artifact@v4/u.test(workflow)) {
   violations.push(`${workflowPath}: owner preflight evidence must be materialized from the bounded job output`);
+}
+
+for (const fragment of [
+  '- ".github/workflows/tai-reg-ru-preflight-owner-command.yml"',
+  '- "scripts/verify-tai-preflight-report.mjs"',
+  '- "scripts/check-tai-bootstrap-preflight.mjs"',
+  '- "docs/platform-v7/autopilot/scopes/*bootstrap-preflight*.json"',
+  '- "docs/platform-v7/autopilot/scopes/*bootstrap-canonical-images*.json"',
+  '# Canonical API, web, TAI and migration images are published for the exact main SHA.',
+]) requireDockerPublishFragment(fragment);
+
+if (triggerScope.schemaVersion !== 'platform-v7.concurrent-scope.v1') {
+  violations.push(`${triggerScopePath}: invalid schemaVersion`);
+}
+if (triggerScope.branch !== 'fix/tai-bootstrap-canonical-images-20260806') {
+  violations.push(`${triggerScopePath}: branch mismatch`);
+}
+if (triggerScope.baselineExactMain !== 'b39671c3c3d72aa3ff67c89b6ad379f32a379dee') {
+  violations.push(`${triggerScopePath}: baseline mismatch`);
+}
+const expectedTriggerPaths = [dockerPublishPath, checkerPath, triggerScopePath].sort();
+const allowedTriggerPaths = Array.isArray(triggerScope.allowedPaths) ? [...triggerScope.allowedPaths].sort() : [];
+if (JSON.stringify(expectedTriggerPaths) !== JSON.stringify(allowedTriggerPaths)) {
+  violations.push(`${triggerScopePath}: allowedPaths must exactly match the canonical trigger implementation`);
 }
 
 expectPass('exact full-stack bootstrap set', clone(base), { allowBootstrap: true }, 'BOOTSTRAP_ELIGIBLE');
@@ -188,4 +220,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI bootstrap preflight contract PASS: only the exact full-stack plus standalone-TAI materialization gap is bootstrap-eligible; contradictory API/Web authority, baseline health, rollback, capacity, model connectivity and no-mutation remain fail-closed.');
+console.log('TAI bootstrap preflight contract PASS: canonical exact-main image publication is bound to every bootstrap-authority change; contradictory API/Web authority, baseline health, rollback, capacity, model connectivity and no-mutation remain fail-closed.');
