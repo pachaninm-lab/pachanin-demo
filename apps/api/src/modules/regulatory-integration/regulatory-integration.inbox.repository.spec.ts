@@ -15,6 +15,7 @@ const TRUSTED_CONTEXT: TrustedRlsContext = Object.freeze({
   tenantId: 'tenant-1',
   role: 'OPERATOR',
   sessionId: 'session-1',
+  staffRoles: [],
 });
 
 function command(

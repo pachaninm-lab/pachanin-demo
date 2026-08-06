@@ -346,7 +346,6 @@ CREATE POLICY users_self_select ON public."users"
     public.app_identity_user_id() IS NOT NULL
     AND (
       "id" = public.app_identity_user_id()
-      OR public.app_identity_is_reviewer()
       OR (
         public.app_identity_is_org_admin()
         AND EXISTS (
@@ -378,7 +377,6 @@ CREATE POLICY user_orgs_self_select ON public."user_orgs"
     public.app_identity_user_id() IS NOT NULL
     AND (
       "userId" = public.app_identity_user_id()
-      OR public.app_identity_is_reviewer()
       OR (
         "organizationId" = public.app_identity_org_id()
         AND public.app_identity_is_org_admin()
@@ -418,8 +416,7 @@ CREATE POLICY organizations_context_select ON public."organizations"
   FOR SELECT USING (
     public.app_identity_user_id() IS NOT NULL
     AND (
-      public.app_identity_is_reviewer()
-      OR (
+      (
         "id" = public.app_identity_org_id()
         AND "tenantId" = public.app_identity_tenant_id()
       )
