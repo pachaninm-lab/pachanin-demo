@@ -171,20 +171,24 @@ async function inspectAuthPrincipal(
           AND identity.relname IN ('users', 'user_orgs', 'organizations')
           AND identity.relowner = roles.oid
       ) AS owns_identity_tables,
-      -- The full pre-auth/session surface used by PersistentAuthRepository.
-      -- to_regprocedure yields NULL for a missing migration so inspection
-      -- reports a boundary failure instead of throwing an unrelated lookup error.
+      -- Production auth must have the exact minimal login/session surface and
+      -- must not retain EXECUTE on any historical wider bootstrap function.
       (
-        coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity(text)'), 'EXECUTE'), false)
-        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity_by_id(text)'), 'EXECUTE'), false)
-        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships(text)'), 'EXECUTE'), false)
-        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships_ordered(text)'), 'EXECUTE'), false)
-        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_email(text)'), 'EXECUTE'), false)
+        coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_credential(text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_default_membership(text)'), 'EXECUTE'), false)
         AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_membership(text,text)'), 'EXECUTE'), false)
         AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_session_identity(text,text,text,text)'), 'EXECUTE'), false)
+        AND NOT (
+          coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity_by_id(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships_ordered(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_email(text)'), 'EXECUTE'), false)
+        )
       ) AS identity_bootstrap_execute,
       (
         coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_staff_target_scope(text,text,text,text,text)'), 'EXECUTE'), false)
+        OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_staff_deal_target_scope(text,text,text)'), 'EXECUTE'), false)
         OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_queue(text,text,text,integer)'), 'EXECUTE'), false)
         OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_application(text,text,text,text)'), 'EXECUTE'), false)
         OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_decision(text,text,text,text,text,text)'), 'EXECUTE'), false)
