@@ -14,6 +14,9 @@ const requireFragment = (fragment) => {
 for (const fragment of [
   'name: TAI Owner Canonical Images Command',
   'issue_comment:',
+  'schedule:',
+  "cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'",
+  "github.event_name == 'schedule'",
   "github.event.issue.number == 3365",
   "github.event.comment.body == '/tai images current-main'",
   'COMMENTER: ${{ github.event.comment.user.login }}',
@@ -23,8 +26,12 @@ for (const fragment of [
   '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
+  '[[ "$EVENT_NAME" == schedule ]]',
   'repos/${GITHUB_REPOSITORY}/commits/main',
   'git rev-parse origin/main',
+  'TAI REG.RU Deployment',
+  'TAI Canonical Images',
+  'now_epoch - created_epoch < 5400',
   'actions/workflows/docker-publish.yml/dispatches',
   "-f ref='main'",
   "-f 'inputs[services]=all'",
@@ -52,6 +59,9 @@ if (!Array.isArray(scope.allowedPaths) || !scope.allowedPaths.includes(workflowP
 if (scope.branch !== 'fix/tai-owner-canonical-images-command-20260806' || scope.status !== 'active') {
   violations.push(`${scopePath}: scope identity or status is invalid`);
 }
+if (!Array.isArray(scope.boundaries) || !scope.boundaries.some((entry) => String(entry).includes('temporary scheduled fallback'))) {
+  violations.push(`${scopePath}: temporary schedule removal boundary is missing`);
+}
 
 if (violations.length) {
   console.error('TAI owner canonical images command contract failed:');
@@ -59,4 +69,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI owner canonical images command contract PASS: exact owner authority dispatches only the existing all-service canonical build for unchanged current main; no production or remote-shell authority is introduced.');
+console.log('TAI owner canonical images command contract PASS: exact owner or temporary scheduled authority dispatches only the existing all-service canonical build for unchanged current main, skips recent duplicates and terminal deployment, and introduces no production or remote-shell authority.');
