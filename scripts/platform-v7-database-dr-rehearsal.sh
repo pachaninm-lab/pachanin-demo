@@ -217,6 +217,7 @@ DECLARE
     'auth.resolve_login_context_by_membership(text,text)',
     'auth.resolve_session_identity(text,text,text,text)',
     'auth.validate_deal_creation_actors(text,text,text,text,text)',
+    'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)',
     'public.app_identity_is_org_admin()',
     'public.app_identity_is_reviewer()'
   ];
@@ -235,9 +236,11 @@ BEGIN
         EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', target);
       END IF;
     END LOOP;
-    GRANT USAGE ON SCHEMA auth, public TO pc_identity_bootstrap;
+    GRANT USAGE ON SCHEMA auth, public, logistics TO pc_identity_bootstrap;
     GRANT SELECT ON auth.staff_assignments, auth.sessions TO pc_identity_bootstrap;
-    GRANT SELECT ON public.users, public.user_orgs, public.organizations TO pc_identity_bootstrap;
+    GRANT SELECT ON public.users, public.user_orgs, public.organizations, public.deal_participants
+      TO pc_identity_bootstrap;
+    GRANT SELECT ON logistics.deal_admissions TO pc_identity_bootstrap;
     -- The two authority predicates are consulted by policies on behalf of
     -- whichever principal runs the statement, so they go back to PUBLIC.
     GRANT EXECUTE ON FUNCTION public.app_identity_is_org_admin() TO PUBLIC;
@@ -250,11 +253,15 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(text,text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
-    -- Deal actor validation is separate from pre-authentication and belongs to
-    -- the deal runtime only. It returns a status code, never identity rows.
+    -- Deal actor validation and logistics identity projection are separate
+    -- from pre-authentication and belong to the deal runtime only.
     GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
       TO one_deal_app;
+    GRANT EXECUTE ON FUNCTION public.app_logistics_assignment_projection(text,text,text,text,text,text,text)
+      TO one_deal_app;
     REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
+      FROM one_deal_auth, one_deal_storage;
+    REVOKE ALL ON FUNCTION public.app_logistics_assignment_projection(text,text,text,text,text,text,text)
       FROM one_deal_auth, one_deal_storage;
   END IF;
 
@@ -307,12 +314,17 @@ SELECT
   || ':' ||
   (SELECT count(*) FROM pg_proc p JOIN pg_roles owner ON owner.oid = p.proowner
    JOIN pg_namespace n ON n.oid = p.pronamespace
-   WHERE n.nspname = 'auth'
-     AND p.proname IN (
-       'resolve_login_identity', 'resolve_login_identity_by_id',
-       'resolve_login_memberships', 'resolve_login_memberships_ordered',
-       'resolve_login_context_by_email', 'resolve_login_context_by_membership',
-       'resolve_session_identity', 'validate_deal_creation_actors')
+   WHERE (
+       n.nspname = 'auth'
+       AND p.proname IN (
+         'resolve_login_identity', 'resolve_login_identity_by_id',
+         'resolve_login_memberships', 'resolve_login_memberships_ordered',
+         'resolve_login_context_by_email', 'resolve_login_context_by_membership',
+         'resolve_session_identity', 'validate_deal_creation_actors')
+     ) OR (
+       n.nspname = 'public'
+       AND p.proname = 'app_logistics_assignment_projection'
+     )
      AND owner.rolname = 'pc_identity_bootstrap')::text
   || ':' ||
   (SELECT count(*) FROM pg_roles WHERE rolname = 'one_deal_auth' AND rolbypassrls)::text
@@ -321,11 +333,15 @@ SELECT
   || ':' ||
   has_function_privilege('one_deal_app', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text
   || ':' ||
-  has_function_privilege('one_deal_auth', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text;
+  has_function_privilege('one_deal_auth', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text
+  || ':' ||
+  has_function_privilege('one_deal_app', 'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)', 'EXECUTE')::int::text
+  || ':' ||
+  has_function_privilege('one_deal_auth', 'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)', 'EXECUTE')::int::text;
 SQL
 )"
-echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:bootstrap-execute:deal-actor-execute:auth-actor-execute = $RESTORE_IDENTITY_PROOF"
-if [[ "$RESTORE_IDENTITY_PROOF" != "3:8:0:1:1:0" ]]; then
+echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:bootstrap-execute:deal-actor-execute:auth-actor-execute:logistics-execute:auth-logistics-execute = $RESTORE_IDENTITY_PROOF"
+if [[ "$RESTORE_IDENTITY_PROOF" != "3:9:0:1:1:0:1:0" ]]; then
   echo "Restored identity boundary is invalid: $RESTORE_IDENTITY_PROOF" >&2
   exit 1
 fi
