@@ -135,9 +135,8 @@ if mode == 'deploy':
         raise SystemExit('INPUT_REGISTRY_TOKEN_INVALID')
     if not isinstance(backup, str) or len(backup) > 4096 or any(ch in backup for ch in '\x00\r\n'):
         raise SystemExit('INPUT_BACKUP_PATH_INVALID')
-    if backup:
-        if not backup.startswith('/') or posixpath.normpath(backup) != backup:
-            raise SystemExit('INPUT_BACKUP_PATH_INVALID')
+    if backup and (not backup.startswith('/') or posixpath.normpath(backup) != backup):
+        raise SystemExit('INPUT_BACKUP_PATH_INVALID')
     values.update({
         'API_DIGEST': payload['apiDigest'],
         'WEB_DIGEST': payload['webDigest'],
@@ -326,12 +325,17 @@ case "$MODE" in
     audit_id="$(field DURABLE_INTAKE_AUDIT_ID "$clean_log")"
     outbox_id="$(field DURABLE_INTAKE_OUTBOX_ID "$clean_log")"
     passed=false
-    if (( action_rc == 0 )) && [[ "$durable" == PASS && -n "$audit_id" && -n "$outbox_id" ]]; then passed=true; fi
+    if (( action_rc == 0 )) && [[ "$durable" == PASS && -n "$audit_id" && -n "$outbox_id" ]]; then
+      passed=true
+    elif (( action_rc == 0 )); then
+      action_rc=99
+      printf 'ERROR_CODE=DURABLE_INTAKE_EVIDENCE_INVALID\n' >> "$clean_log"
+    fi
     error_code=''
     [[ "$passed" == true ]] || error_code="$(error_code_from_log "$clean_log" DURABLE_INTAKE_VERIFICATION_FAILED)"
     publish_log
     write_evidence verify-intake "$passed" "$error_code" NOT_REQUIRED false false '' '' '' "$audit_id" "$outbox_id"
-    [[ "$passed" == true ]] || exit "${action_rc:-99}"
+    [[ "$passed" == true ]] || exit "$action_rc"
     ;;
   rollback)
     set +e
@@ -342,13 +346,19 @@ case "$MODE" in
     restored_api="$(field RESTORED_API_REVISION "$clean_log")"
     restored_web="$(field RESTORED_WEB_REVISION "$clean_log")"
     passed=false
-    if (( action_rc == 0 )) && grep -Fxq 'ROLLBACK_COMPLETE=1' "$clean_log"; then passed=true; fi
+    if (( action_rc == 0 )) && grep -Fxq 'ROLLBACK_COMPLETE=1' "$clean_log" \
+      && [[ "$restored_api" =~ ^[0-9a-f]{40}$ && "$restored_web" =~ ^[0-9a-f]{40}$ ]]; then
+      passed=true
+    elif (( action_rc == 0 )); then
+      action_rc=100
+      printf 'ERROR_CODE=ROLLBACK_EVIDENCE_INVALID\n' >> "$clean_log"
+    fi
     error_code=''
     [[ "$passed" == true ]] || error_code="$(error_code_from_log "$clean_log" FULL_STACK_ROLLBACK_FAILED)"
     publish_log
     write_evidence rollback "$passed" "$error_code" "$([[ "$passed" == true ]] && echo CONFIRMED || echo FAILED)" \
       false false "$restored_api" "$restored_web"
-    [[ "$passed" == true ]] || exit "${action_rc:-100}"
+    [[ "$passed" == true ]] || exit "$action_rc"
     ;;
   *) fail INPUT_MODE_INVALID 40 ;;
 esac
