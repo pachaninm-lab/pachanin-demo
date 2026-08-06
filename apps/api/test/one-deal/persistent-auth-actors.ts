@@ -113,8 +113,9 @@ export async function createPersistentActorHarness(
     // public.users and public.user_orgs. Those scans used to work because this
     // principal held BYPASSRLS; without it a pre-context scan returns nothing,
     // which is the boundary doing its job. The seeded identifiers are known, so
-    // the harness asks for exactly the twelve actors it created — the same
-    // shape of read the login path performs.
+    // the harness asks for exactly the twelve actors it created. A membership
+    // does not have to be marked isDefault to be valid; choose the first
+    // permitted membership with the same deterministic ordering as login.
     const rows = await primaryPrisma.$queryRaw<Array<{
       membership_id: string;
       organization_id: string;
@@ -134,9 +135,16 @@ export async function createPersistentActorHarness(
         identity."fullName" AS full_name
       FROM unnest(${[...PERSISTENT_ACTOR_USER_IDS]}::text[]) AS seeded(user_id)
       JOIN LATERAL auth.resolve_login_identity_by_id(seeded.user_id) identity ON TRUE
-      JOIN LATERAL auth.resolve_login_memberships_ordered(seeded.user_id) membership
-        ON membership.is_default
-      WHERE membership.organization_id = ANY(${[...organizationIds]}::text[])
+      JOIN LATERAL (
+        SELECT candidate.*
+        FROM auth.resolve_login_memberships_ordered(seeded.user_id) candidate
+        WHERE candidate.organization_id = ANY(${[...organizationIds]}::text[])
+        ORDER BY
+          candidate.is_default DESC,
+          candidate.joined_at ASC,
+          candidate.membership_id ASC
+        LIMIT 1
+      ) membership ON TRUE
       ORDER BY membership.role ASC
     `;
 
