@@ -5,7 +5,7 @@
 -- The auth runtime does not need any of that before proving the password.
 --
 -- Final boundary:
---   1. resolve_login_credential(email) -> one minimal credential row;
+--   1. resolve_login_credential(email) -> user id + email + password hash only;
 --   2. application verifies the bcrypt password (and rechecks the same hash
 --      inside the serializable login transaction);
 --   3. resolve_login_default_membership(user) -> one opaque membership id;
@@ -22,9 +22,7 @@ CREATE OR REPLACE FUNCTION auth.resolve_login_credential(p_email text)
 RETURNS TABLE (
   user_id text,
   email text,
-  password_hash text,
-  user_status text,
-  deleted_at timestamptz
+  password_hash text
 )
 LANGUAGE sql
 SECURITY DEFINER
@@ -34,9 +32,7 @@ AS $function$
   SELECT
     candidate."id",
     candidate."email",
-    candidate."passwordHash",
-    candidate."status",
-    candidate."deletedAt"
+    candidate."passwordHash"
   FROM public."users" candidate
   WHERE candidate."email" = lower(btrim(p_email))
   LIMIT 1;
