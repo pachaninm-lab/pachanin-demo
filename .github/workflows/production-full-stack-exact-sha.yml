@@ -6,20 +6,12 @@ on:
     paths:
       - '.github/workflows/docker-publish.yml'
       - '.github/workflows/production-full-stack-exact-sha.yml'
+      - 'scripts/pc-full-stack-controller.sh'
+      - 'scripts/tai-runtime-role-repair.sh'
       - 'scripts/production-full-stack-exact-sha.sh'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
-      - 'docs/ops/production-full-stack-release.md'
-      - 'docs/ops/virtual-server-production-runbook.md'
-      - 'docs/ops/vps-post-deploy-checklist.md'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/docker-publish.yml'
-      - '.github/workflows/production-full-stack-exact-sha.yml'
-      - 'scripts/production-full-stack-exact-sha.sh'
-      - 'scripts/production-full-stack-live-acceptance.sh'
-      - 'scripts/check-production-full-stack-release.mjs'
+      - 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json'
   workflow_run:
     workflows: ['Build & Publish Canonical Docker Images']
     types: [completed]
@@ -27,11 +19,11 @@ on:
   workflow_dispatch:
     inputs:
       target_sha:
-        description: 'Exact current main SHA'
+        description: Exact current main SHA
         required: true
         type: string
       confirmation:
-        description: 'Enter DEPLOY-FULL-STACK-EXACT-SHA'
+        description: Enter DEPLOY-FULL-STACK-EXACT-SHA
         required: true
         type: string
   issue_comment:
@@ -39,8 +31,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
-  issues: write
 
 concurrency:
   group: production-full-stack-exact-sha
@@ -48,357 +38,434 @@ concurrency:
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
-  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
-  DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-full-stack-release
   RELEASE_ISSUE_NUMBER: 3072
-  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
-  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
-  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
-  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
-  BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}
 
 jobs:
   contract:
     name: Validate full-stack release contract
     if: >-
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main') ||
       github.event_name == 'pull_request' ||
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
-       github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/production full-stack current-main')
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      ) ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main' &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA'
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production full-stack current-main'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
-      - run: node scripts/check-production-full-stack-release.mjs
+          node-version: 24
+      - name: Validate outbound-only release authority
+        run: node scripts/check-production-full-stack-release.mjs
 
-  deploy:
-    name: Migrate, deploy API and web, verify live intake
+  image_authority:
+    name: Exact-main API, web and migration image authority
     needs: contract
-    if: >-
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main') ||
-      (github.event_name == 'workflow_dispatch' &&
-       github.actor == github.repository_owner &&
-       inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA') ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
-       github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/production full-stack current-main')
+    if: github.event_name != 'pull_request' && needs.contract.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
+      api_digest: ${{ steps.images.outputs.api_digest }}
+      web_digest: ${{ steps.images.outputs.web_digest }}
+      migration_digest: ${{ steps.images.outputs.migration_digest }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name }}
+          ref: main
           fetch-depth: 0
-
-      - name: Resolve exact current-main target
+          persist-credentials: false
+      - name: Resolve exact current main
         id: target
-        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ inputs.target_sha }}
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
           git fetch --no-tags origin main
-          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}'
-          if [[ '${{ github.event_name }}' == issue_comment ]]; then
-            target="$(git rev-parse origin/main)"
-          fi
-          if [[ '${{ github.event_name }}' == workflow_run ]]; then
-            [[ '${{ github.event.workflow_run.name }}' == 'Build & Publish Canonical Docker Images' ]]
-            [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
-            [[ '${{ github.event.workflow_run.event }}' == push ]]
-            [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
-          fi
+          target="$(git rev-parse origin/main)"
+          if [[ "$EVENT_NAME" == workflow_run ]]; then target="$UPSTREAM_SHA"; fi
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then target="$INPUT_SHA"; fi
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           [[ "$target" == "$(git rev-parse origin/main)" ]]
-          git cat-file -e "${target}^{commit}"
+          [[ "$(git rev-parse HEAD)" == "$target" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
           echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for and verify exact GHCR images
+      - name: Verify immutable exact-SHA images
         id: images
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
-          SHORT_SHA: ${{ steps.target.outputs.short }}
-        shell: bash
+          TARGET_SHORT: ${{ steps.target.outputs.short }}
         run: |
-          set -euo pipefail
-          mkdir -p "$EVIDENCE_DIR"
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          set -Eeuo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
           for component in api web migration; do
-            image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+            reference="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${TARGET_SHORT}"
             ready=0
             for attempt in $(seq 1 90); do
-              if docker pull "$image" >/dev/null 2>&1; then
-                revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
-                if [[ "$revision" == "$TARGET_SHA" ]]; then ready=1; break; fi
+              if docker pull "$reference" >/dev/null 2>&1; then
+                revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$reference")"
+                digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$reference")"
+                if [[ "$revision" == "$TARGET_SHA" && "$digest" =~ ^ghcr[.]io/pachaninm-lab/grainflow-${component}@sha256:[0-9a-f]{64}$ ]]; then
+                  ready=1
+                  break
+                fi
               fi
               sleep 10
             done
-            (( ready == 1 )) || { echo "Exact $component image unavailable." >&2; exit 2; }
-            docker image inspect "$image" > "$EVIDENCE_DIR/${component}-image.json"
-            echo "${component}_image=$image" >> "$GITHUB_OUTPUT"
+            (( ready == 1 ))
+            echo "${component}_digest=$digest" >> "$GITHUB_OUTPUT"
           done
-          printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
+      - name: Remove hosted registry session
+        if: always()
+        run: docker logout ghcr.io >/dev/null 2>&1 || true
 
-      - name: Resolve protected key and pinned VPS identity
-        id: ssh
-        shell: bash
+  deploy:
+    name: Migrate and deploy API/web through protected pc-prod controller
+    needs: image_authority
+    if: needs.image_authority.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
+    env:
+      TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+      API_DIGEST: ${{ needs.image_authority.outputs.api_digest }}
+      WEB_DIGEST: ${{ needs.image_authority.outputs.web_digest }}
+      MIGRATION_DIGEST: ${{ needs.image_authority.outputs.migration_digest }}
+      REGISTRY_TOKEN: ${{ github.token }}
+      REGISTRY_USER: ${{ github.actor }}
+      BACKUP_EVIDENCE_PATH: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}
+    steps:
+      - name: Verify least-privilege runner authority
         run: |
-          set -euo pipefail
-          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
-          user="$(trim "${SSH_USER_SECRET:-}")"
-          port="$(trim "${SSH_PORT_SECRET:-22}")"
-          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
-          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
-          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
-          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
-          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
-          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
-          chmod 700 "$HOME/.ssh"
-
-          validate_key(){
-            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
-            tr -d '\r' < "$source" > "$target"
-            chmod 600 "$target"
-            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
-            pub="$(mktemp)"
-            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
-            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
-            rm -f "$pub"
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Execute exact deployment through compatibility dispatch
+        id: execute
+        run: |
+          set -Eeuo pipefail
+          controller_id="${GITHUB_RUN_ID}1"
+          release_id="$GITHUB_RUN_ID"
+          [[ "$controller_id" =~ ^[0-9]{1,20}$ && "$release_id" =~ ^[0-9]{1,20}$ ]]
+          input="/var/lib/pc-release-authority/runner-input/${controller_id}"
+          rm -rf "$input"
+          install -d -m 0700 "$input"
+          CONTROLLER_ID="$controller_id" RELEASE_ID="$release_id" python3 - "$input/full-stack-release.json" <<'PY'
+          import json, os, sys
+          payload = {
+              'schemaVersion': 'pc.full-stack.controller-input.v1',
+              'mode': 'deploy',
+              'controllerTargetSha': os.environ['TARGET_SHA'],
+              'controllerRunId': os.environ['CONTROLLER_ID'],
+              'releaseTargetSha': os.environ['TARGET_SHA'],
+              'releaseStateId': os.environ['RELEASE_ID'],
+              'apiDigest': os.environ['API_DIGEST'],
+              'webDigest': os.environ['WEB_DIGEST'],
+              'migrationDigest': os.environ['MIGRATION_DIGEST'],
+              'registryUser': os.environ['REGISTRY_USER'],
+              'registryToken': os.environ['REGISTRY_TOKEN'],
+              'backupEvidencePath': os.environ.get('BACKUP_EVIDENCE_PATH', ''),
           }
-          try_slot(){
-            local raw="$1" a b c
-            [[ -n "$raw" ]] || return 1
-            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
-            printf '%s\n' "$raw" > "$a"
-            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
-            printf '%s' "${raw//\\n/$'\n'}" > "$b"
-            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
-            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
-            rm -f "$a" "$b" "$c"; return 1
-          }
-          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
-            printf '%s\n' no-valid-protected-private-key > "$EVIDENCE_DIR/ssh-credential-status.txt"
-            echo 'No valid protected SSH private key is configured.' >&2
-            exit 14
-          }
-          printf '%s\n' valid-private-key > "$EVIDENCE_DIR/ssh-credential-status.txt"
-
-          scan="$(mktemp)"; match="$(mktemp)"
-          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-          [[ -s "$scan" ]]
-          while IFS= read -r line; do
-            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-          done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch.' >&2; exit 15; }
-          mv "$match" "$HOME/.ssh/known_hosts"
-          rm -f "$scan"
-          chmod 600 "$HOME/.ssh/known_hosts"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
-            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
-            > "$EVIDENCE_DIR/ssh-auth.txt"
-          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-          echo "port=$port" >> "$GITHUB_OUTPUT"
-
-      - name: Copy bounded release assets
-        env:
-          HOST: ${{ steps.ssh.outputs.host }}
-          PORT: ${{ steps.ssh.outputs.port }}
-        shell: bash
+          raw = json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
+          with open(sys.argv[1], 'x', encoding='utf-8') as handle:
+              handle.write(raw); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
+          os.chmod(sys.argv[1], 0o600)
+          PY
+          sudo -n /usr/local/sbin/pc-tai-release-controller repair-runtime-role "$TARGET_SHA" "$controller_id"
+      - name: Export bounded redacted deployment evidence
+        id: evidence
+        if: always()
         run: |
-          set -euo pipefail
-          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
-          scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
+          set -Eeuo pipefail
+          controller_id="${GITHUB_RUN_ID}1"
+          report="/var/lib/pc-release-authority/runner-output/${controller_id}/runtime-role-repair.json"
+          [[ -s "$report" ]]
+          python3 - "$report" "$GITHUB_OUTPUT" "$TARGET_SHA" "$controller_id" "$GITHUB_RUN_ID" <<'PY'
+          import json, sys
+          path, output, sha, controller_id, release_id = sys.argv[1:]
+          raw = open(path, 'rb').read()
+          if not raw or len(raw) > 65536: raise SystemExit('evidence size invalid')
+          value = json.loads(raw.decode('utf-8'))
+          if value.get('schemaVersion') != 'pc.full-stack.controller-evidence.v1' or value.get('mode') != 'deploy': raise SystemExit('evidence schema invalid')
+          if value.get('controllerTargetSha') != sha or value.get('releaseTargetSha') != sha: raise SystemExit('evidence target invalid')
+          if value.get('controllerRunId') != controller_id or value.get('releaseStateId') != release_id: raise SystemExit('evidence run invalid')
+          canonical = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
+          with open(output, 'a', encoding='utf-8') as handle: handle.write(f'json={canonical}\n')
+          PY
 
-      - name: Authenticate production host to exact private registry
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HOST: ${{ steps.ssh.outputs.host }}
-          PORT: ${{ steps.ssh.outputs.port }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "${GH_TOKEN:-}" ]]
-          registry_config="/tmp/pc-registry-${GITHUB_RUN_ID}"
-          printf '%s' "$GH_TOKEN" | ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "set -euo pipefail; rm -rf '$registry_config'; install -d -m 0700 '$registry_config'; DOCKER_CONFIG='$registry_config' docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin >/dev/null"
-          printf '%s\n' HOSTED_REGISTRY_LOGIN=PASS > "$EVIDENCE_DIR/registry-login.txt"
-
-      - name: Execute migration and exact API/web rollout
-        id: production
-        env:
-          HOST: ${{ steps.ssh.outputs.host }}
-          PORT: ${{ steps.ssh.outputs.port }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          API_IMAGE: ${{ steps.images.outputs.api_image }}
-          WEB_IMAGE: ${{ steps.images.outputs.web_image }}
-          MIGRATION_IMAGE: ${{ steps.images.outputs.migration_image }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          enc(){ printf '%s' "$1" | base64 -w0; }
-          raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
-          set +e
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
-          rc=$?
-          set -e
-          sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
-          rm -f "$raw"
-          cat "$clean"
-          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE; do
-            value="$(sed -n "s/^${field}=//p" "$clean" | tail -1)"
-            echo "$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')=${value:-unknown}" >> "$GITHUB_OUTPUT"
-          done
-          ((rc==0)) || exit "$rc"
-
-      - name: Verify public routes and durable intake
-        id: live
-        if: steps.production.outputs.deployment_complete == '1'
-        continue-on-error: true
+  live_acceptance:
+    name: Hosted live RU/EN/ZH and intake acceptance
+    needs: [image_authority, deploy]
+    if: needs.deploy.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      request_number: ${{ steps.evidence.outputs.request_number }}
+      correlation_id: ${{ steps.evidence.outputs.correlation_id }}
+      evidence_json: ${{ steps.evidence.outputs.json }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Execute live acceptance
+        id: execute
         env:
           PC_LIVE_BASE: ${{ env.LIVE_BASE }}
-          PC_LIVE_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}/live
+          PC_LIVE_EVIDENCE_DIR: ${{ runner.temp }}/live
           PC_RELEASE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-        shell: bash
-        run: bash scripts/production-full-stack-live-acceptance.sh '${{ steps.target.outputs.sha }}' | tee "$EVIDENCE_DIR/live.log"
-
-      - name: Verify PostgreSQL, audit and outbox evidence
-        id: database
-        if: steps.live.outcome == 'success'
-        continue-on-error: true
-        env:
-          HOST: ${{ steps.ssh.outputs.host }}
-          PORT: ${{ steps.ssh.outputs.port }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-        shell: bash
+          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
         run: |
-          set -euo pipefail
-          request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
-          correlation="$(sed -n 's/^LIVE_CORRELATION_ID=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
-          [[ "$request" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]]
-          [[ "$correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]]
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh verify-intake '$TARGET_SHA' '$GITHUB_RUN_ID' '$request' '$correlation'" \
-            | tee "$EVIDENCE_DIR/durable-intake-db.log"
-          grep -Fxq DURABLE_INTAKE_DB=PASS "$EVIDENCE_DIR/durable-intake-db.log"
-
-      - name: Restore exact API/web images after acceptance failure
-        if: steps.live.outcome == 'failure' || steps.database.outcome == 'failure'
-        env:
-          HOST: ${{ steps.ssh.outputs.host }}
-          PORT: ${{ steps.ssh.outputs.port }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh rollback '$TARGET_SHA' '$GITHUB_RUN_ID'" \
-            | tee "$EVIDENCE_DIR/live-failure-rollback.log"
-
-      - name: Remove production registry session and bounded assets
+          set +e
+          mkdir -p "$PC_LIVE_EVIDENCE_DIR"
+          bash scripts/production-full-stack-live-acceptance.sh "$TARGET_SHA" > "$RUNNER_TEMP/live.log" 2>&1
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: Build bounded live evidence
+        id: evidence
         if: always()
         env:
-          HOST: ${{ steps.ssh.outputs.host }}
-          PORT: ${{ steps.ssh.outputs.port }}
-        shell: bash
+          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+          LIVE_RC: ${{ steps.execute.outputs.rc }}
         run: |
-          set -euo pipefail
-          if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
-            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh'" \
-              || true
-          fi
-          docker logout ghcr.io >/dev/null 2>&1 || true
-          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+          set -Eeuo pipefail
+          python3 - "$RUNNER_TEMP/live.log" "$GITHUB_OUTPUT" "$TARGET_SHA" "${LIVE_RC:-1}" <<'PY'
+          import json, re, sys
+          path, output, sha, rc = sys.argv[1:]
+          text = open(path, encoding='utf-8', errors='replace').read() if __import__('os').path.exists(path) else ''
+          def field(name):
+              values = re.findall(rf'^{re.escape(name)}=(.*)$', text, re.M)
+              return values[-1].strip() if values else ''
+          request, correlation = field('LIVE_REQUEST_NUMBER'), field('LIVE_CORRELATION_ID')
+          passed = rc == '0' and field('LIVE_ACCEPTANCE') == 'PASS' and re.fullmatch(r'PC-[0-9]{8}-[0-9A-F]{12}', request or '') is not None and re.fullmatch(r'[A-Za-z0-9._:-]{8,128}', correlation or '') is not None
+          value = {'schemaVersion':'pc.full-stack.live-evidence.v1','targetSha':sha,'passed':passed,'requestNumber':request or None,'correlationId':correlation or None}
+          canonical = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
+          with open(output, 'a', encoding='utf-8') as handle:
+              handle.write(f'request_number={request}\n'); handle.write(f'correlation_id={correlation}\n'); handle.write(f'json={canonical}\n')
+          PY
+      - name: Enforce live acceptance
+        env:
+          LIVE_EVIDENCE: ${{ steps.evidence.outputs.json }}
+        run: |
+          python3 - "$LIVE_EVIDENCE" <<'PY'
+          import json, sys
+          value=json.loads(sys.argv[1])
+          if value.get('passed') is not True: raise SystemExit('live acceptance failed')
+          PY
 
-      - name: Publish release evidence
+  verify_database:
+    name: Verify PostgreSQL, audit and outbox through protected pc-prod controller
+    needs: [image_authority, deploy, live_acceptance]
+    if: needs.deploy.result == 'success' && needs.live_acceptance.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
+    env:
+      RELEASE_TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+      REQUEST_NUMBER: ${{ needs.live_acceptance.outputs.request_number }}
+      CORRELATION_ID: ${{ needs.live_acceptance.outputs.correlation_id }}
+    steps:
+      - name: Execute durable intake verification
+        id: execute
+        run: |
+          set -Eeuo pipefail
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          controller_target="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk 'NR==1{print $1}')"
+          [[ "$controller_target" =~ ^[0-9a-f]{40}$ ]]
+          controller_id="${GITHUB_RUN_ID}2"
+          input="/var/lib/pc-release-authority/runner-input/${controller_id}"
+          rm -rf "$input"; install -d -m 0700 "$input"
+          CONTROLLER_TARGET="$controller_target" CONTROLLER_ID="$controller_id" RELEASE_ID="$GITHUB_RUN_ID" python3 - "$input/full-stack-release.json" <<'PY'
+          import json, os, sys
+          value={'schemaVersion':'pc.full-stack.controller-input.v1','mode':'verify-intake','controllerTargetSha':os.environ['CONTROLLER_TARGET'],'controllerRunId':os.environ['CONTROLLER_ID'],'releaseTargetSha':os.environ['RELEASE_TARGET_SHA'],'releaseStateId':os.environ['RELEASE_ID'],'requestNumber':os.environ['REQUEST_NUMBER'],'correlationId':os.environ['CORRELATION_ID']}
+          with open(sys.argv[1],'x',encoding='utf-8') as handle: json.dump(value,handle,ensure_ascii=True,sort_keys=True,separators=(',',':')); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
+          os.chmod(sys.argv[1],0o600)
+          PY
+          sudo -n /usr/local/sbin/pc-tai-release-controller repair-runtime-role "$controller_target" "$controller_id"
+      - name: Export bounded redacted database evidence
+        id: evidence
         if: always()
+        run: |
+          set -Eeuo pipefail
+          controller_id="${GITHUB_RUN_ID}2"
+          report="/var/lib/pc-release-authority/runner-output/${controller_id}/runtime-role-repair.json"
+          [[ -s "$report" ]]
+          python3 - "$report" "$GITHUB_OUTPUT" "$controller_id" "$GITHUB_RUN_ID" <<'PY'
+          import json,sys
+          path,output,controller_id,release_id=sys.argv[1:]
+          raw=open(path,'rb').read()
+          if not raw or len(raw)>65536: raise SystemExit('evidence size invalid')
+          value=json.loads(raw.decode())
+          if value.get('schemaVersion')!='pc.full-stack.controller-evidence.v1' or value.get('mode')!='verify-intake': raise SystemExit('evidence schema invalid')
+          if value.get('controllerRunId')!=controller_id or value.get('releaseStateId')!=release_id: raise SystemExit('evidence run invalid')
+          canonical=json.dumps(value,ensure_ascii=True,sort_keys=True,separators=(',',':'))
+          with open(output,'a',encoding='utf-8') as handle: handle.write(f'json={canonical}\n')
+          PY
+
+  rollback:
+    name: Restore baseline API/web after post-deploy failure
+    needs: [image_authority, deploy, live_acceptance, verify_database]
+    if: >-
+      always() &&
+      needs.deploy.result == 'success' &&
+      (needs.live_acceptance.result != 'success' || needs.verify_database.result != 'success')
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
+    env:
+      RELEASE_TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+    steps:
+      - name: Execute protected exact-image rollback
+        run: |
+          set -Eeuo pipefail
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          controller_target="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk 'NR==1{print $1}')"
+          [[ "$controller_target" =~ ^[0-9a-f]{40}$ ]]
+          controller_id="${GITHUB_RUN_ID}3"
+          input="/var/lib/pc-release-authority/runner-input/${controller_id}"
+          rm -rf "$input"; install -d -m 0700 "$input"
+          CONTROLLER_TARGET="$controller_target" CONTROLLER_ID="$controller_id" RELEASE_ID="$GITHUB_RUN_ID" python3 - "$input/full-stack-release.json" <<'PY'
+          import json,os,sys
+          value={'schemaVersion':'pc.full-stack.controller-input.v1','mode':'rollback','controllerTargetSha':os.environ['CONTROLLER_TARGET'],'controllerRunId':os.environ['CONTROLLER_ID'],'releaseTargetSha':os.environ['RELEASE_TARGET_SHA'],'releaseStateId':os.environ['RELEASE_ID']}
+          with open(sys.argv[1],'x',encoding='utf-8') as handle: json.dump(value,handle,ensure_ascii=True,sort_keys=True,separators=(',',':')); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
+          os.chmod(sys.argv[1],0o600)
+          PY
+          sudo -n /usr/local/sbin/pc-tai-release-controller repair-runtime-role "$controller_target" "$controller_id"
+      - name: Export bounded redacted rollback evidence
+        id: evidence
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          controller_id="${GITHUB_RUN_ID}3"
+          report="/var/lib/pc-release-authority/runner-output/${controller_id}/runtime-role-repair.json"
+          [[ -s "$report" ]]
+          python3 - "$report" "$GITHUB_OUTPUT" "$controller_id" "$GITHUB_RUN_ID" <<'PY'
+          import json,sys
+          path,output,controller_id,release_id=sys.argv[1:]
+          raw=open(path,'rb').read()
+          if not raw or len(raw)>65536: raise SystemExit('evidence size invalid')
+          value=json.loads(raw.decode())
+          if value.get('schemaVersion')!='pc.full-stack.controller-evidence.v1' or value.get('mode')!='rollback' or value.get('passed') is not True: raise SystemExit('rollback evidence invalid')
+          if value.get('controllerRunId')!=controller_id or value.get('releaseStateId')!=release_id: raise SystemExit('evidence run invalid')
+          canonical=json.dumps(value,ensure_ascii=True,sort_keys=True,separators=(',',':'))
+          with open(output,'a',encoding='utf-8') as handle: handle.write(f'json={canonical}\n')
+          PY
+
+  publish:
+    name: Publish exact-main release evidence
+    needs: [contract, image_authority, deploy, live_acceptance, verify_database, rollback]
+    if: always() && needs.image_authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - name: Materialize bounded evidence and publish status
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          DEPLOYMENT_COMPLETE: ${{ steps.production.outputs.deployment_complete }}
-          MIGRATION_COMPLETE: ${{ steps.production.outputs.migration_complete }}
-          DEPLOYED_API_REVISION: ${{ steps.production.outputs.deployed_api_revision }}
-          DEPLOYED_WEB_REVISION: ${{ steps.production.outputs.deployed_web_revision }}
-          BASELINE_API_REVISION: ${{ steps.production.outputs.baseline_api_revision }}
-          BASELINE_WEB_REVISION: ${{ steps.production.outputs.baseline_web_revision }}
-          WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
-          BACKUP_MODE: ${{ steps.production.outputs.backup_mode }}
-          LIVE_OUTCOME: ${{ steps.live.outcome }}
-          DATABASE_OUTCOME: ${{ steps.database.outcome }}
-        shell: bash
+          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          LIVE_RESULT: ${{ needs.live_acceptance.result }}
+          DATABASE_RESULT: ${{ needs.verify_database.result }}
+          ROLLBACK_RESULT: ${{ needs.rollback.result }}
+          DEPLOY_JSON: ${{ needs.deploy.outputs.evidence_json }}
+          LIVE_JSON: ${{ needs.live_acceptance.outputs.evidence_json }}
+          DATABASE_JSON: ${{ needs.verify_database.outputs.evidence_json }}
+          ROLLBACK_JSON: ${{ needs.rollback.outputs.evidence_json }}
         run: |
-          set -euo pipefail
-          live="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
-          request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
-          durable="$(sed -n 's/^DURABLE_INTAKE_DB=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
-          audit_id="$(sed -n 's/^DURABLE_INTAKE_AUDIT_ID=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
-          outbox_id="$(sed -n 's/^DURABLE_INTAKE_OUTBOX_ID=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
-          rollback=not-required; [[ ! -f "$EVIDENCE_DIR/live-failure-rollback.log" ]] || rollback=attempted
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          python3 - "$EVIDENCE_DIR" <<'PY'
+          import json,os,sys
+          root=sys.argv[1]
+          for name,key in [('deploy','DEPLOY_JSON'),('live','LIVE_JSON'),('database','DATABASE_JSON'),('rollback','ROLLBACK_JSON')]:
+              raw=os.environ.get(key,'')
+              if not raw: continue
+              value=json.loads(raw)
+              canonical=json.dumps(value,ensure_ascii=True,sort_keys=True,separators=(',',':'))
+              if canonical!=raw or len(raw.encode())>65536: raise SystemExit(f'{name} evidence invalid')
+              open(f'{root}/{name}.json','w',encoding='utf-8').write(canonical+'\n')
+          PY
+          state=failure
+          description='Full-stack release failed or was rolled back'
+          if [[ "$DEPLOY_RESULT" == success && "$LIVE_RESULT" == success && "$DATABASE_RESULT" == success && "$ROLLBACK_RESULT" == skipped ]]; then
+            state=success
+            description='Full-stack exact-SHA release PASS'
+          fi
+          gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state="$state" -f context='Production Full-Stack Exact-SHA Release' -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           record="$EVIDENCE_DIR/issue-record.md"
           {
-            echo "## Full-stack release run \`$GITHUB_RUN_ID\`"
+            echo "## Full-stack pc-prod controller run \`$GITHUB_RUN_ID\`"
             echo
-            echo "- target SHA: \`${TARGET_SHA:-unknown}\`"
-            echo "- backup: \`${BACKUP_MODE:-unknown}\`"
-            echo "- migration complete: \`${MIGRATION_COMPLETE:-0}\`"
-            echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
-            echo "- API revision: \`${DEPLOYED_API_REVISION:-unknown}\`"
-            echo "- web revision: \`${DEPLOYED_WEB_REVISION:-unknown}\`"
-            echo "- live acceptance: \`${live:-${LIVE_OUTCOME:-skipped}}\`"
-            echo "- durable intake DB/audit/outbox: \`${durable:-${DATABASE_OUTCOME:-skipped}}\`"
-            echo "- live request number: \`${request:-none}\`"
-            echo "- audit event: \`${audit_id:-none}\`"
-            echo "- outbox entry: \`${outbox_id:-none}\`"
-            echo "- baseline API: \`${BASELINE_API_REVISION:-unknown}\`"
-            echo "- baseline web: \`${BASELINE_WEB_REVISION:-unknown}\`"
-            echo "- rollback: \`$rollback\`"
-            echo "- Watchtower retired: \`${WATCHTOWER_RETIRED:-0}\`"
+            echo "- target SHA: \`$TARGET_SHA\`"
+            echo "- deploy: \`$DEPLOY_RESULT\`"
+            echo "- live RU/EN/ZH and intake: \`$LIVE_RESULT\`"
+            echo "- PostgreSQL/audit/outbox: \`$DATABASE_RESULT\`"
+            echo "- rollback: \`$ROLLBACK_RESULT\`"
+            echo "- production inbound SSH used: \`false\`"
+            echo "- pcactions direct Docker authority: \`false\`"
+            echo "- terminal result: \`$state\`"
           } > "$record"
-          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
-            gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
-          fi
-
-      - name: Enforce production result
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ '${{ steps.production.outputs.deployment_complete }}' == 1 ]]
-          [[ '${{ steps.production.outputs.migration_complete }}' == 1 ]]
-          [[ '${{ steps.live.outcome }}' == success ]]
-          [[ '${{ steps.database.outcome }}' == success ]]
-
-      - name: Upload release evidence
-        if: always()
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+          [[ "$state" == success ]] && gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed || true
+      - name: Upload hosted redacted evidence
         uses: actions/upload-artifact@v4
         with:
           name: production-full-stack-release-${{ github.run_id }}
@@ -406,3 +473,30 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
+
+  result_gate:
+    name: Confirm full-stack production chain result
+    needs: [contract, image_authority, deploy, live_acceptance, verify_database, rollback, publish]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed, skipped or rolled-back production chain
+        env:
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          LIVE_RESULT: ${{ needs.live_acceptance.result }}
+          DATABASE_RESULT: ${{ needs.verify_database.result }}
+          ROLLBACK_RESULT: ${{ needs.rollback.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$CONTRACT_RESULT" == success ]]
+          [[ "$IMAGE_RESULT" == success ]]
+          [[ "$DEPLOY_RESULT" == success ]]
+          [[ "$LIVE_RESULT" == success ]]
+          [[ "$DATABASE_RESULT" == success ]]
+          [[ "$ROLLBACK_RESULT" == skipped ]]
+          [[ "$PUBLISH_RESULT" == success ]]
