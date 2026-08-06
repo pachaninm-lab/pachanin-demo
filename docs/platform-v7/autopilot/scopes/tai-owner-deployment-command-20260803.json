@@ -4,8 +4,8 @@
   "status": "active",
   "title": "TAI owner exact deployment command",
   "priority": "P0",
-  "baselineExactMain": "b20cf1ea4994f5f263f1241d74c4fcc6c2e1bd65",
-  "objective": "Provide an observable owner-only exact-main deployment command that revalidates the successful restricted Qwen activation and all eight activation jobs before invoking the existing protected REG.RU controller and strict postflight.",
+  "baselineExactMain": "b4b81d8841b381c51952b5bf00aca8bfdd52bf8f",
+  "objective": "Provide an observable owner-only exact-main deployment command that revalidates the successful restricted Qwen activation and all eight activation jobs, invokes only the protected REG.RU controller, and keeps the production self-hosted deployment job actionless while validating and checksumming root-owned evidence locally.",
   "allowedPaths": [
     ".github/workflows/tai-owner-reg-ru-deployment-command.yml",
     "scripts/select-tai-restricted-qwen-activation-status.mjs",
@@ -14,14 +14,16 @@
     "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
   ],
   "boundaries": [
-    "The only production command is /tai deploy current-main on issue 3365",
-    "Commenter, actor and triggering actor must equal the repository owner",
+    "The only production command is /tai deploy current-main on issue 3365 or the owner-only current-main workflow dispatch",
+    "Commenter, actor and triggering actor must equal the repository owner where applicable",
     "The latest exact commit status TAI Restricted Qwen REG.RU Activation must be success",
     "The status target must identify an exact workflow run in this repository",
     "The referenced activation run is revalidated for exact SHA, workflow name, branch, repository, run attempt and allowed actor pair",
     "All eight activation jobs remain mandatory and fail-closed",
     "The existing rootless image and protected pc-tai-release-controller remain the only deployment authority",
-    "Deployment evidence and rollback remain mandatory",
+    "The production self-hosted deployment job contains shell steps only and downloads no third-party GitHub Action",
+    "Predeploy, deployment and postdeploy evidence remain root-owned on REG.RU, are exact-target validated, and are SHA-256 checksummed without printing contents",
+    "Successful deployment requires a complete evidence set and a blocker-free passing postflight",
     "Every command publishes redacted terminal evidence",
     "No model, tenant, role, financial or write authority is widened",
     "Zero new recurring cost"
