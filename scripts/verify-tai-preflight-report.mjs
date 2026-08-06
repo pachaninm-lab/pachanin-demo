@@ -105,6 +105,9 @@ export function classifyTaiPreflightReport(raw, expectedSha, { allowBootstrap = 
   if (mutationChecks.some(({ status }) => status === 'BLOCKED')) throw new Error('mutation guard is blocked');
 
   if (blockers.length === 0) {
+    if (checkCodes.has('API_WEB_NOT_EXACT_MAIN')) {
+      throw new Error('strict evidence contains non-exact API/web authority');
+    }
     for (const code of STRICT_ONLY_PASS_CODES) requirePass(checks, code);
     if (report.passed !== true) throw new Error('zero-blocker preflight did not declare PASS');
     return Object.freeze({
@@ -119,7 +122,7 @@ export function classifyTaiPreflightReport(raw, expectedSha, { allowBootstrap = 
   if (!sameSet(sortedBlockers, expectedBootstrap)) {
     throw new Error(`unexpected bootstrap blockers: ${sortedBlockers.join(',')}`);
   }
-  if (checks.some(({ code }) => code === 'API_WEB_EXACT_MAIN')) {
+  if (checkCodes.has('API_WEB_EXACT_MAIN')) {
     throw new Error('bootstrap evidence may not simultaneously assert API_WEB_EXACT_MAIN');
   }
   const apiMismatch = checks.find(({ code }) => code === 'API_WEB_NOT_EXACT_MAIN');
