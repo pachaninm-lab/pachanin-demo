@@ -1,0 +1,219 @@
+name: Identity RLS one-shot source hotfix
+
+on:
+  push:
+    branches:
+      - identity-rls-3670
+
+permissions:
+  contents: write
+
+concurrency:
+  group: identity-rls-one-shot-hotfix
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: identity-rls-3670
+          fetch-depth: 0
+
+      - name: Apply bounded authority integration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_exact(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one exact match, found {count}")
+              target.write_text(text.replace(old, new, 1))
+
+          def replace_regex(path: str, pattern: str, replacement: str) -> None:
+              target = Path(path)
+              text = target.read_text()
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one regex match, found {count}")
+              target.write_text(updated)
+
+          replace_exact(
+              "apps/api/test/industrial/harness.ts",
+              """      await tx.userOrg.create({
+                data: { userId, organizationId: orgId, role, isDefault: true },
+              });""",
+              """      await tx.userOrg.create({
+                data: {
+                  id: `membership-e2e-${slug}-${key}`,
+                  userId,
+                  organizationId: orgId,
+                  role,
+                  isDefault: true,
+                },
+              });""",
+          )
+          replace_exact(
+              "apps/api/test/industrial/harness.ts",
+              """      tenantId: INDUSTRIAL_TENANT,
+                sessionId: `session-e2e-${slug}-${key}`,""",
+              """      tenantId: INDUSTRIAL_TENANT,
+                membershipId: `membership-e2e-${slug}-${key}`,
+                sessionId: `session-e2e-${slug}-${key}`,""",
+          )
+
+          replace_exact(
+              "apps/api/src/modules/staff-access/staff-access.repository.ts",
+              """export type StaffAccessRequestRow = {""",
+              """export type StaffTargetScopeRow = {
+            tenant_id: string | null;
+            organization_id: string | null;
+            user_id: string | null;
+          };
+
+          export type StaffAccessRequestRow = {""",
+          )
+          replace_exact(
+              "apps/api/src/modules/staff-access/staff-access.repository.ts",
+              """  async listActiveAssignments(client: StaffSqlClient, userId: string, now = new Date()): Promise<StaffAssignmentRow[]> {""",
+              """  async resolveTargetScope(
+            client: StaffSqlClient,
+            input: {
+              actorUserId: string;
+              assignmentId: string;
+              targetTenantId?: string | null;
+              targetOrganizationId?: string | null;
+              targetUserId?: string | null;
+            },
+          ): Promise<StaffTargetScopeRow | null> {
+            const rows = await client.$queryRaw<StaffTargetScopeRow[]>(Prisma.sql`
+              SELECT tenant_id, organization_id, user_id
+              FROM auth.resolve_staff_target_scope(
+                ${input.actorUserId},
+                ${input.assignmentId},
+                ${input.targetTenantId ?? null},
+                ${input.targetOrganizationId ?? null},
+                ${input.targetUserId ?? null}
+              )
+            `);
+            return rows[0] ?? null;
+          }
+
+          async listActiveAssignments(client: StaffSqlClient, userId: string, now = new Date()): Promise<StaffAssignmentRow[]> {""",
+          )
+
+          replace_exact(
+              "apps/api/src/modules/staff-access/staff-access.service.ts",
+              "const target = await this.validateTargetScope(input);",
+              "const target = await this.validateTargetScope(user, assignment.id, input);",
+          )
+          replace_regex(
+              "apps/api/src/modules/staff-access/staff-access.service.ts",
+              r"  private async validateTargetScope\(input: RequestStaffAccessInput\) \{.*?\n  \}\n\n  private canAutoApprove",
+              """  private async validateTargetScope(
+            user: RequestUser,
+            assignmentId: string,
+            input: RequestStaffAccessInput,
+          ) {
+            const customerMode = input.accessMode !== StaffAccessMode.CONTROL_PLANE;
+            if (customerMode && !input.targetOrganizationId && !input.targetTenantId && !input.targetDealId) {
+              throw new BadRequestException('Customer-context access must be scoped to a tenant, organization or deal');
+            }
+            if (input.targetUserId && !input.targetOrganizationId) {
+              throw new BadRequestException('Target user requires target organization');
+            }
+
+            const target = await this.repository.resolveTargetScope(this.repository.prisma, {
+              actorUserId: user.id,
+              assignmentId,
+              targetTenantId: input.targetTenantId ?? null,
+              targetOrganizationId: input.targetOrganizationId ?? null,
+              targetUserId: input.targetUserId ?? null,
+            });
+            if (!target) {
+              throw new ForbiddenException('Target staff access scope could not be verified');
+            }
+
+            return {
+              tenantId: target.tenant_id,
+              organizationId: target.organization_id,
+              userId: target.user_id,
+            };
+          }
+
+          private canAutoApprove""",
+          )
+
+          replace_exact(
+              "scripts/platform-v7-one-deal-e2e.sh",
+              "GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO one_deal_auth;",
+              """GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO one_deal_auth;
+          GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;""",
+          )
+
+          replace_exact(
+              "scripts/platform-v7-database-dr-rehearsal.sh",
+              """    'auth.resolve_session_identity(text,text,text,text)',
+                'auth.validate_deal_creation_actors(text,text,text,text,text)',""",
+              """    'auth.resolve_session_identity(text,text,text,text)',
+                'auth.resolve_staff_target_scope(text,text,text,text,text)',
+                'auth.validate_deal_creation_actors(text,text,text,text,text)',""",
+          )
+          replace_exact(
+              "scripts/platform-v7-database-dr-rehearsal.sh",
+              """    GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
+                -- Deal actor validation and logistics identity projection are separate""",
+              """    GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
+                GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) TO one_deal_auth;
+                -- Deal actor validation and logistics identity projection are separate""",
+          )
+          replace_exact(
+              "scripts/platform-v7-database-dr-rehearsal.sh",
+              """         'resolve_session_identity', 'validate_deal_creation_actors')""",
+              """         'resolve_session_identity', 'resolve_staff_target_scope',
+                     'validate_deal_creation_actors')""",
+          )
+          replace_exact(
+              "scripts/platform-v7-database-dr-rehearsal.sh",
+              """   WHERE (
+                 n.nspname = 'auth'""",
+              """   WHERE ((
+                 n.nspname = 'auth'""",
+          )
+          replace_exact(
+              "scripts/platform-v7-database-dr-rehearsal.sh",
+              """       AND p.proname = 'app_logistics_assignment_projection'
+                 )
+                 AND owner.rolname = 'pc_identity_bootstrap')::text""",
+              """       AND p.proname = 'app_logistics_assignment_projection'
+                 ))
+                 AND owner.rolname = 'pc_identity_bootstrap')::text""",
+          )
+          replace_exact(
+              "scripts/platform-v7-database-dr-rehearsal.sh",
+              '"3:9:0:1:1:0:1:0"',
+              '"3:10:0:1:1:0:1:0"',
+          )
+
+          Path(".github/workflows/identity-rls-hotfix-once.yml").unlink()
+          PY
+
+          git diff --check
+          git status --short
+
+      - name: Commit exact hotfix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(identity-rls): route staff targets and industrial fixtures through authority"
+          git push origin HEAD:identity-rls-3670
