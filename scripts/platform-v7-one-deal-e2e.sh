@@ -210,7 +210,6 @@ TO one_deal_auth;
 GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO one_deal_auth;
 REVOKE UPDATE, DELETE ON auth.staff_access_events FROM one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(TEXT) TO one_deal_auth;
@@ -219,6 +218,7 @@ GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(TEXT) TO one_deal_
 GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM one_deal_auth;
@@ -246,6 +246,7 @@ GRANT USAGE ON SCHEMA auth TO one_deal_staff;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM one_deal_staff;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) TO one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) TO one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
@@ -320,6 +321,7 @@ SELECT
    AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE'))::text
   || ':' ||
   (has_function_privilege('one_deal_auth', 'auth.resolve_staff_target_scope(text,text,text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.resolve_staff_deal_target_scope(text,text,text)', 'EXECUTE')
    OR has_function_privilege('one_deal_auth', 'auth.staff_admission_queue(text,text,text,integer)', 'EXECUTE')
    OR has_function_privilege('one_deal_auth', 'auth.staff_admission_application(text,text,text,text)', 'EXECUTE')
    OR has_function_privilege('one_deal_auth', 'auth.staff_admission_decision(text,text,text,text,text,text)', 'EXECUTE')
@@ -339,9 +341,9 @@ if [[ "$AUTH_IDENTITY_PROOF" != "true:false:true:false:false" && "$AUTH_IDENTITY
   exit 1
 fi
 
-STAFF_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || rolinherit::text || ':' || (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_directory(text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_users(text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_projection_capability(text,text,text,text,text,text,boolean)','EXECUTE')::text FROM pg_roles WHERE rolname='one_deal_staff'")"
-echo "[one-deal] staff principal proof super:bypass:inherit:table-grants:target:queue:application:decision:directory:users:cabinet:admission-capability:projection-capability = $STAFF_ROLE_PROOF"
-if [[ "$STAFF_ROLE_PROOF" != "false:false:false:0:true:true:true:true:true:true:true:false:false" && "$STAFF_ROLE_PROOF" != "f:f:f:0:t:t:t:t:t:t:t:f:f" ]]; then
+STAFF_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || rolinherit::text || ':' || (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_deal_target_scope(text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_directory(text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_users(text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_projection_capability(text,text,text,text,text,text,boolean)','EXECUTE')::text FROM pg_roles WHERE rolname='one_deal_staff'")"
+echo "[one-deal] staff principal proof super:bypass:inherit:table-grants:target:deal-target:queue:application:decision:directory:users:cabinet:admission-capability:projection-capability = $STAFF_ROLE_PROOF"
+if [[ "$STAFF_ROLE_PROOF" != "false:false:false:0:true:true:true:true:true:true:true:true:false:false" && "$STAFF_ROLE_PROOF" != "f:f:f:0:t:t:t:t:t:t:t:t:f:f" ]]; then
   echo "Staff principal privilege boundary is invalid: $STAFF_ROLE_PROOF" >&2
   exit 1
 fi
