@@ -104,7 +104,7 @@ BEGIN
     END IF;
 
     FOREACH privilege_name IN ARRAY ARRAY[
-      'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+      'INSERT', 'UPDATE', 'DELETE', 'REFERENCES', 'TRIGGER'
     ]
     LOOP
       IF has_table_privilege(
