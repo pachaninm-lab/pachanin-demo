@@ -214,6 +214,8 @@ DECLARE
     'auth.resolve_login_memberships(text)',
     'auth.resolve_login_memberships_ordered(text)',
     'auth.resolve_login_context_by_email(text)',
+    'auth.resolve_login_credential(text)',
+    'auth.resolve_login_default_membership(text)',
     'auth.resolve_login_context_by_membership(text,text)',
     'auth.resolve_session_identity(text,text,text,text)',
     'auth.resolve_staff_target_scope(text,text,text,text,text)',
@@ -250,13 +252,16 @@ BEGIN
     GRANT EXECUTE ON FUNCTION public.app_identity_is_org_admin() TO PUBLIC;
     GRANT EXECUTE ON FUNCTION public.app_identity_is_reviewer() TO PUBLIC;
 
-    GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(text) TO one_deal_auth;
-    GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(text) TO one_deal_auth;
-    GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(text) TO one_deal_auth;
-    GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships_ordered(text) TO one_deal_auth;
-    GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(text) TO one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(text) TO one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(text,text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_identity(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_memberships(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(text) FROM one_deal_auth;
+
     REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) FROM one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) TO one_deal_staff;
 
@@ -268,6 +273,11 @@ BEGIN
       FROM one_deal_auth, one_deal_staff, one_deal_storage;
     REVOKE ALL ON FUNCTION public.app_logistics_assignment_projection(text,text,text,text,text,text,text)
       FROM one_deal_auth, one_deal_staff, one_deal_storage;
+
+    REVOKE ALL ON FUNCTION auth.resolve_login_credential(text) FROM one_deal_staff, one_deal_app, one_deal_storage;
+    REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(text) FROM one_deal_staff, one_deal_app, one_deal_storage;
+    REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(text,text) FROM one_deal_staff, one_deal_app, one_deal_storage;
+    REVOKE ALL ON FUNCTION auth.resolve_session_identity(text,text,text,text) FROM one_deal_staff, one_deal_app, one_deal_storage;
   END IF;
 
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_staff_authority') THEN
@@ -346,7 +356,8 @@ SELECT
        AND p.proname IN (
          'resolve_login_identity', 'resolve_login_identity_by_id',
          'resolve_login_memberships', 'resolve_login_memberships_ordered',
-         'resolve_login_context_by_email', 'resolve_login_context_by_membership',
+         'resolve_login_context_by_email', 'resolve_login_credential',
+         'resolve_login_default_membership', 'resolve_login_context_by_membership',
          'resolve_session_identity', 'resolve_staff_target_scope',
          'validate_deal_creation_actors')
      ) OR (
@@ -357,7 +368,19 @@ SELECT
   || ':' ||
   (SELECT count(*) FROM pg_roles WHERE rolname = 'one_deal_auth' AND rolbypassrls)::text
   || ':' ||
-  has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')::int::text
+  (
+    has_function_privilege('one_deal_auth', 'auth.resolve_login_credential(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_default_membership(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_membership(text,text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE')
+    AND NOT (
+      has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_identity_by_id(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships_ordered(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_email(text)', 'EXECUTE')
+    )
+  )::int::text
   || ':' ||
   has_function_privilege('one_deal_app', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text
   || ':' ||
@@ -368,8 +391,8 @@ SELECT
   has_function_privilege('one_deal_auth', 'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)', 'EXECUTE')::int::text;
 SQL
 )"
-echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:bootstrap-execute:deal-actor-execute:auth-actor-execute:logistics-execute:auth-logistics-execute = $RESTORE_IDENTITY_PROOF"
-if [[ "$RESTORE_IDENTITY_PROOF" != "3:10:0:1:1:0:1:0" ]]; then
+echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:minimal-bootstrap:deal-actor-execute:auth-actor-execute:logistics-execute:auth-logistics-execute = $RESTORE_IDENTITY_PROOF"
+if [[ "$RESTORE_IDENTITY_PROOF" != "3:12:0:1:1:0:1:0" ]]; then
   echo "Restored identity boundary is invalid: $RESTORE_IDENTITY_PROOF" >&2
   exit 1
 fi
@@ -381,10 +404,10 @@ if [[ "$RESTORE_STAFF_PROOF" != "0:1:1:1:1:1:1:1:1:0:0:0:0:0" ]]; then
   exit 1
 fi
 
-RESTORE_AUTH_ISOLATION="$(psql "$RESTORE_AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM public.organizations)::text")"
-echo "[dr] restored auth principal without context users:orgs = $RESTORE_AUTH_ISOLATION"
-if [[ "$RESTORE_AUTH_ISOLATION" != "0:0" ]]; then
-  echo "Restored auth principal reads identities without context: $RESTORE_AUTH_ISOLATION" >&2
+RESTORE_AUTH_ISOLATION="$(psql "$RESTORE_AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM public.organizations)::text || ':' || (SELECT count(*) FROM auth.resolve_login_credential('nobody@example.invalid'))::text || ':' || has_function_privilege(current_user,'auth.resolve_login_context_by_email(text)','EXECUTE')::text")"
+echo "[dr] restored auth proof users:orgs:minimal-credential-rows:legacy-context-execute = $RESTORE_AUTH_ISOLATION"
+if [[ "$RESTORE_AUTH_ISOLATION" != "0:0:0:false" && "$RESTORE_AUTH_ISOLATION" != "0:0:0:f" ]]; then
+  echo "Restored auth principal minimal login boundary failed: $RESTORE_AUTH_ISOLATION" >&2
   exit 1
 fi
 
