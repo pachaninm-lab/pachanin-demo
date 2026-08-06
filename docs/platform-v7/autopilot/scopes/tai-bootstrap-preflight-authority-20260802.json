@@ -4,8 +4,8 @@
   "status": "active",
   "title": "TAI bootstrap preflight authority",
   "priority": "P0",
-  "baselineExactMain": "88c5dcc58947c26cc82d57a1e5de7474d45f8196",
-  "objective": "Break the exact-main release cycle without widening production authority: accept only the exact safe four-blocker bootstrap state in which the existing API/Web baseline is healthy but not yet on the target SHA and standalone TAI is not yet materialized, then let the existing protected activation controller perform the exact API/Web/Migration rollout followed by restricted Qwen activation and rollback-governed acceptance.",
+  "baselineExactMain": "bc9bbc79c1bda6aeaeb6464d3f055f6f5fb54529",
+  "objective": "Keep the owner-authorized REG.RU preflight fail-closed and fully observable: accept only the exact safe four-blocker bootstrap state, cancel stale duplicate commands, and publish a target-bound commit status plus redacted issue evidence for every terminal outcome before protected activation may proceed.",
   "allowedPaths": [
     ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
     "scripts/verify-tai-preflight-report.mjs",
@@ -22,7 +22,9 @@
     "Post-activation and post-deployment acceptance must finish with a strict zero-blocker postflight or invoke the existing rollback path",
     "The production self-hosted owner-preflight job contains shell steps only and performs no third-party Action download",
     "Redacted preflight evidence is target-bound canonical JSON capped at 65536 bytes before crossing the job-output boundary",
-    "Only the hosted status publisher materializes transferred evidence and it rejects missing, multiline, noncanonical or malformed payloads",
+    "The newest exact owner command cancels stale queued or running preflight duplicates for issue 3365",
+    "Every owner command terminal path publishes TAI REG.RU Preflight commit status and a redacted issue comment, including upstream, contract and image-authority failures",
+    "Terminal evidence contains only exact target/current SHA, stage, blocker codes, job conclusions, no-mutation assertion and run URL",
     "No inbound production SSH, direct runner Docker authority, new sudo capability, credential, hosting service or recurring expense is introduced",
     "Model admission remains a separately reported maturity state and is never fabricated",
     "Zero new recurring cost"
