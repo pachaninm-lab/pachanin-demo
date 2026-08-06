@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
 import {
   BOOTSTRAP_BLOCKERS,
   CRITICAL_PASS_CODES,
@@ -6,6 +7,13 @@ import {
 } from './verify-tai-preflight-report.mjs';
 
 const SHA = '1'.repeat(40);
+const workflowPath = '.github/workflows/tai-reg-ru-preflight-owner-command.yml';
+const workflow = readFileSync(workflowPath, 'utf8');
+const livePreflightStart = workflow.indexOf('\n  live_preflight:\n');
+const publishStatusStart = workflow.indexOf('\n  publish_status:\n', livePreflightStart);
+const livePreflight = livePreflightStart >= 0 && publishStatusStart > livePreflightStart
+  ? workflow.slice(livePreflightStart, publishStatusStart)
+  : '';
 const criticalChecks = CRITICAL_PASS_CODES.map((code, index) => ({
   name: `critical_${index}`,
   status: 'PASS',
@@ -38,6 +46,9 @@ const base = {
 
 const clone = (value) => structuredClone(value);
 const violations = [];
+const requireWorkflowFragment = (fragment) => {
+  if (!workflow.includes(fragment)) violations.push(`${workflowPath}: missing ${JSON.stringify(fragment)}`);
+};
 const expectPass = (label, report, options, expectedClassification) => {
   try {
     const result = classifyTaiPreflightReport(report, SHA, options);
@@ -56,6 +67,32 @@ const expectBlocked = (label, report, options = { allowBootstrap: true }, sha = 
     // Expected fail-closed result.
   }
 };
+
+if (!livePreflight) violations.push(`${workflowPath}: live_preflight job boundary is missing`);
+if (/^\s{6}- uses:/mu.test(livePreflight)) {
+  violations.push(`${workflowPath}: production self-hosted live_preflight job must be actionless`);
+}
+if (/actions\/(?:upload|download)-artifact@v4/u.test(livePreflight)) {
+  violations.push(`${workflowPath}: artifact Actions are forbidden in production self-hosted live_preflight`);
+}
+for (const fragment of [
+  'outputs:\n      evidence_json: ${{ steps.evidence.outputs.json }}',
+  '- name: Export bounded redacted preflight evidence',
+  'id: evidence',
+  "len(raw) > 65536",
+  "json.dumps(payload, ensure_ascii=True, separators=(',', ':'))",
+  '- name: Materialize bounded redacted preflight evidence',
+  'PREFLIGHT_EVIDENCE_JSON: ${{ needs.live_preflight.outputs.evidence_json }}',
+  "canonical != raw",
+  'report.flush()',
+  'os.fsync(report.fileno())',
+]) requireWorkflowFragment(fragment);
+if (/actions\/upload-artifact@v4/u.test(workflow)) {
+  violations.push(`${workflowPath}: owner preflight may not upload evidence from the production runner with an Action`);
+}
+if (/actions\/download-artifact@v4/u.test(workflow)) {
+  violations.push(`${workflowPath}: owner preflight evidence must be materialized from the bounded job output`);
+}
 
 expectPass('exact bootstrap set', clone(base), { allowBootstrap: true }, 'BOOTSTRAP_ELIGIBLE');
 expectBlocked('bootstrap disabled', clone(base), { allowBootstrap: false });
@@ -130,4 +167,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI bootstrap preflight contract PASS: only the exact safe materialization gap is bootstrap-eligible; strict postflight and all negative fixtures remain fail-closed.');
+console.log('TAI bootstrap preflight contract PASS: owner preflight is actionless on REG.RU, evidence transfer is bounded, and only the exact safe materialization gap is bootstrap-eligible.');
