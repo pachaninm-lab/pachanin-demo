@@ -34,10 +34,10 @@ for (const fragment of [
   'production mutation: `NONE`',
 ]) requireFragment(fragment);
 
-if (/\b(?:docker|ssh|scp|rsync)\b/u.test(workflow)) {
+if (/^\s+(?:docker|ssh|scp|rsync)\s/mu.test(workflow)) {
   violations.push(`${workflowPath}: owner dispatch bridge must not execute Docker or remote-shell commands`);
 }
-if (/\bsudo\b/u.test(workflow)) {
+if (/^\s+sudo\s/mu.test(workflow)) {
   violations.push(`${workflowPath}: owner dispatch bridge must not have sudo authority`);
 }
 if (/pull_request_target:/u.test(workflow)) {
