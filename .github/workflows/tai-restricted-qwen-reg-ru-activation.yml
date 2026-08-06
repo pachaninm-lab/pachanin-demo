@@ -109,8 +109,21 @@ jobs:
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          gh api -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/preflight-run.json"
+          terminal=0
+          for attempt in $(seq 1 60); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" \
+              > "$RUNNER_TEMP/preflight-run.json"
+            status="$(node - "$RUNNER_TEMP/preflight-run.json" <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          process.stdout.write(String(run.status || ''));
+          NODE
+            )"
+            if [[ "$status" == completed ]]; then terminal=1; break; fi
+            sleep 5
+          done
+          (( terminal == 1 )) || { echo 'Automatic preflight did not reach a terminal state.' >&2; exit 4; }
           node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
             "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Automatic REG.RU Preflight' "$GITHUB_REPOSITORY"
           node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
