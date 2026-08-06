@@ -202,6 +202,8 @@ jobs:
       packages: none
       statuses: none
     timeout-minutes: 35
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
     env:
       TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
       TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
@@ -224,13 +226,24 @@ jobs:
           sudo -n /usr/local/sbin/pc-tai-release-controller \
             preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
       - name: Upload redacted preflight evidence
+        id: evidence
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-reg-ru-preflight-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/preflight.json
-          if-no-files-found: error
-          retention-days: 30
+        run: |
+          set -Eeuo pipefail
+          report="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/preflight.json"
+          [[ -s "$report" && ! -L "$report" ]]
+          python3 - "$report" "$GITHUB_OUTPUT" "$TARGET_SHA" <<'PY'
+          import json,sys
+          report_path,output_path,target_sha=sys.argv[1:]
+          raw=open(report_path,'rb').read()
+          if not raw or len(raw)>65536: raise SystemExit('redacted preflight evidence size outside boundary')
+          payload=json.loads(raw.decode('utf-8'))
+          if not isinstance(payload,dict) or payload.get('schemaVersion')!='tai.reg-ru.preflight.v1': raise SystemExit('redacted preflight evidence schema invalid')
+          if payload.get('targetSha')!=target_sha: raise SystemExit('redacted preflight evidence target mismatch')
+          canonical=json.dumps(payload,ensure_ascii=True,separators=(',',':'))
+          if '\n' in canonical or '\r' in canonical or len(canonical.encode())>65536: raise SystemExit('canonical preflight evidence invalid')
+          with open(output_path,'a',encoding='utf-8') as output: output.write(f'json={canonical}\n')
+          PY
       - name: Enforce strict or bootstrap-eligible preflight result
         if: always()
         run: |
@@ -291,11 +304,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: actions/download-artifact@v4
+      - name: Materialize bounded redacted preflight evidence
         if: needs.live_preflight.result == 'success'
-        with:
-          name: tai-reg-ru-preflight-${{ needs.image_authority.outputs.target_short }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/preflight
+        env:
+          PREFLIGHT_EVIDENCE_JSON: ${{ needs.live_preflight.outputs.evidence_json }}
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$PREFLIGHT_EVIDENCE_JSON" ]]
+          install -d -m 0700 "$RUNNER_TEMP/preflight"
+          python3 - "$PREFLIGHT_EVIDENCE_JSON" "$RUNNER_TEMP/preflight/preflight.json" "${{ needs.image_authority.outputs.target_sha }}" <<'PY'
+          import json,os,sys
+          raw,report_path,target_sha=sys.argv[1:]
+          if not raw or len(raw.encode())>65536 or '\n' in raw or '\r' in raw: raise SystemExit('transferred evidence outside boundary')
+          payload=json.loads(raw)
+          if not isinstance(payload,dict) or payload.get('schemaVersion')!='tai.reg-ru.preflight.v1': raise SystemExit('transferred evidence schema invalid')
+          if payload.get('targetSha')!=target_sha: raise SystemExit('transferred evidence target mismatch')
+          canonical=json.dumps(payload,ensure_ascii=True,separators=(',',':'))
+          if canonical!=raw: raise SystemExit('transferred evidence is not canonical')
+          with open(report_path,'w',encoding='utf-8') as report:
+              report.write(canonical+'\n'); report.flush(); os.fsync(report.fileno())
+          PY
       - name: Publish exact-main preflight commit status
         if: always()
         env:
