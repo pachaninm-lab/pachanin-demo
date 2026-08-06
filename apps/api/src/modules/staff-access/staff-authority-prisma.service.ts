@@ -58,6 +58,7 @@ type StaffPrincipalInspectionRow = {
   row_security: string;
   auth_schema_usage: boolean;
   target_scope_execute: boolean;
+  deal_target_scope_execute: boolean;
   admission_queue_execute: boolean;
   admission_application_execute: boolean;
   admission_decision_execute: boolean;
@@ -137,6 +138,11 @@ export class StaffAuthorityPrismaService extends PrismaService {
         ), false) AS target_scope_execute,
         coalesce(has_function_privilege(
           current_user,
+          to_regprocedure('auth.resolve_staff_deal_target_scope(text,text,text)'),
+          'EXECUTE'
+        ), false) AS deal_target_scope_execute,
+        coalesce(has_function_privilege(
+          current_user,
           to_regprocedure('auth.staff_admission_queue(text,text,text,integer)'),
           'EXECUTE'
         ), false) AS admission_queue_execute,
@@ -202,6 +208,7 @@ export class StaffAuthorityPrismaService extends PrismaService {
     if (row.row_security.toLowerCase() !== 'on') errors.push('row_security must be on');
     if (!row.auth_schema_usage) errors.push('requires USAGE on schema auth');
     if (!row.target_scope_execute) errors.push('requires EXECUTE on auth.resolve_staff_target_scope');
+    if (!row.deal_target_scope_execute) errors.push('requires EXECUTE on auth.resolve_staff_deal_target_scope');
     if (!row.admission_queue_execute) errors.push('requires EXECUTE on auth.staff_admission_queue');
     if (!row.admission_application_execute) errors.push('requires EXECUTE on auth.staff_admission_application');
     if (!row.admission_decision_execute) errors.push('requires EXECUTE on auth.staff_admission_decision');
