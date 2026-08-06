@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
 const registerRoute = read('app/api/auth/register/route.ts');
+const resendRoute = read('app/api/auth/registration/resend/route.ts');
 const registerPage = read('app/platform-v7/register/page.tsx');
 const registerClient = read('app/platform-v7/register/RegisterFormClient.tsx');
 
@@ -17,6 +18,19 @@ describe('P0 first-customer registration boundary', () => {
     expect(registerRoute).not.toContain('Fall through to demo mode');
     expect(registerRoute).toContain("String(process.env.API_URL || '')");
     expect(registerRoute).toContain("code: 'REGISTRATION_SERVICE_UNAVAILABLE'");
+  });
+
+  it('fails closed unless a server-only registration delivery boundary and real mail channel are configured', () => {
+    expect(registerRoute).toContain('REGISTRATION_DELIVERY_KEY');
+    expect(registerRoute).toContain('!mailChannelConfigured()');
+    expect(registerRoute).toContain('sendTransactionalMail');
+    expect(registerRoute).toContain('if (!deliveryResult.delivered)');
+    expect(registerRoute).not.toContain('REGISTRATION_DELIVERY_KEY:');
+
+    expect(resendRoute).toContain('REGISTRATION_DELIVERY_KEY');
+    expect(resendRoute).toContain('!mailConfigured()');
+    expect(resendRoute).toContain('sendTransactionalMail');
+    expect(resendRoute).not.toContain('REGISTRATION_DELIVERY_KEY:');
   });
 
   it('rejects client role injection and only accepts public workspace classes', () => {
