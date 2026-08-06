@@ -337,9 +337,10 @@ DROP POLICY IF EXISTS organizations_bootstrap_login ON public."organizations";
 CREATE POLICY organizations_bootstrap_login ON public."organizations"
   FOR SELECT TO pc_identity_bootstrap USING (true);
 
--- users: an identity reads itself, an organization administrator reads the
--- members of the organization in context, and a reviewer reads across
--- organizations for the admission queue.
+-- users: an identity reads itself, and an organization administrator reads the
+-- members of the organization in context. There is no cross-tenant branch:
+-- staff read across organizations through the bounded functions in
+-- 20260806103000, under a principal the tenant runtime cannot become.
 DROP POLICY IF EXISTS users_self_select ON public."users";
 CREATE POLICY users_self_select ON public."users"
   FOR SELECT USING (
@@ -409,23 +410,27 @@ CREATE POLICY user_orgs_admin_delete ON public."user_orgs"
     AND public.app_identity_is_org_admin()
   );
 
--- organizations: the organization in context, by tenant as well as by
--- identifier, so a guessed identifier from another tenant matches nothing.
+-- organizations: the organizations the identity belongs to, and no others.
+--
+-- An earlier revision also admitted the organization named in context when the
+-- claimed tenant matched — "id = current org AND tenantId = current tenant" —
+-- on the reasoning that a guessed identifier from another tenant would fail the
+-- second half. The isolation gate showed that reasoning to be wrong: the pair
+-- is not a secret, and a runtime that states another organization's identifier
+-- together with its real tenant identifier satisfied both halves and read the
+-- row. Membership is the only test that cannot be satisfied by restating
+-- somebody else's identifiers, so it is now the whole test. Multi-membership
+-- still works, including across tenants, because it is the memberships that are
+-- consulted rather than the single organization in context.
 DROP POLICY IF EXISTS organizations_context_select ON public."organizations";
 CREATE POLICY organizations_context_select ON public."organizations"
   FOR SELECT USING (
     public.app_identity_user_id() IS NOT NULL
-    AND (
-      (
-        "id" = public.app_identity_org_id()
-        AND "tenantId" = public.app_identity_tenant_id()
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM public."user_orgs" membership
-        WHERE membership."organizationId" = public."organizations"."id"
-          AND membership."userId" = public.app_identity_user_id()
-      )
+    AND EXISTS (
+      SELECT 1
+      FROM public."user_orgs" membership
+      WHERE membership."organizationId" = public."organizations"."id"
+        AND membership."userId" = public.app_identity_user_id()
     )
   );
 
@@ -471,8 +476,11 @@ REVOKE ALL ON FUNCTION public.app_identity_is_org_admin() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_identity_is_reviewer() FROM PUBLIC;
 
 -- The authority functions read beneath the policy layer, so the bootstrap
--- owner needs the reads its bodies perform and nothing wider.
-GRANT USAGE ON SCHEMA auth TO pc_identity_bootstrap;
+-- owner needs the reads its bodies perform and nothing wider. Schema public is
+-- named explicitly rather than left to the default PUBLIC grant: a deployment
+-- that recreates the schema, as the isolation gate does, drops that default and
+-- the whole login path fails on "permission denied for schema public".
+GRANT USAGE ON SCHEMA auth, public TO pc_identity_bootstrap;
 GRANT SELECT ON auth.staff_assignments, auth.sessions TO pc_identity_bootstrap;
 
 -- The policies call the two authority functions on behalf of whichever
@@ -480,6 +488,42 @@ GRANT SELECT ON auth.staff_assignments, auth.sessions TO pc_identity_bootstrap;
 -- the bodies are fixed by this migration and return a single boolean.
 GRANT EXECUTE ON FUNCTION public.app_identity_is_org_admin() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION public.app_identity_is_reviewer() TO PUBLIC;
+
+-- The pre-auth surface goes to the authentication principal by name, and to
+-- nothing else. Revoking from PUBLIC without granting it anywhere leaves login
+-- unable to read an identity at all: the isolation gate measured
+-- "permission denied for function resolve_login_identity" as the auth runtime,
+-- which is the whole login path failing closed rather than a boundary holding.
+DO $bootstrap_execute_grants$
+DECLARE
+  runtime_role text;
+BEGIN
+  FOR runtime_role IN
+    SELECT rolname FROM pg_catalog.pg_roles WHERE rolname = 'pc_auth_runtime'
+  LOOP
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(text) TO %I', runtime_role);
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(text) TO %I', runtime_role);
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(text) TO %I', runtime_role);
+  END LOOP;
+
+  -- The deal runtime authenticates nobody, so it must not reach the pre-auth
+  -- surface even if a later ops script grants broadly.
+  FOR runtime_role IN
+    SELECT rolname FROM pg_catalog.pg_roles
+    WHERE rolname IN ('pc_deal_runtime', 'pc_staff_runtime', 'pc_storage_runtime')
+  LOOP
+    EXECUTE format(
+      'REVOKE ALL ON FUNCTION auth.resolve_login_identity(text) FROM %I', runtime_role);
+    EXECUTE format(
+      'REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(text) FROM %I', runtime_role);
+    EXECUTE format(
+      'REVOKE ALL ON FUNCTION auth.resolve_login_memberships(text) FROM %I', runtime_role);
+  END LOOP;
+END;
+$bootstrap_execute_grants$;
 
 -- 7. Privileged columns ------------------------------------------------------
 --
