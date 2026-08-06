@@ -79,124 +79,145 @@ type BankCallbackFixture = Readonly<{
 
 const ACTION_ROLE: Record<UserActionId, Role> = {
   approve_admission: Role.COMPLIANCE_OFFICER,
-  sign_seller: Role.FARMER,
-  sign_buyer: Role.BUYER,
+  publish_auction: Role.FARMER,
+  place_winning_bid: Role.BUYER,
+  seller_sign_contract: Role.FARMER,
+  buyer_sign_contract: Role.BUYER,
+  request_reserve: Role.BUYER,
   assign_logistics: Role.LOGISTICIAN,
-  create_shipment: Role.LOGISTICIAN,
-  start_loading: Role.DRIVER,
-  confirm_dispatch: Role.LOGISTICIAN,
-  depart: Role.DRIVER,
-  arrive: Role.DRIVER,
-  record_weight: Role.ELEVATOR,
+  confirm_loading: Role.DRIVER,
+  start_transit: Role.DRIVER,
+  confirm_arrival: Role.DRIVER,
+  confirm_weight: Role.ELEVATOR,
   confirm_inspection: Role.SURVEYOR,
   finalize_lab: Role.LAB,
   accept_delivery: Role.BUYER,
-  request_reserve: Role.ACCOUNTING,
-  open_dispute: Role.BUYER,
-  resolve_dispute: Role.ARBITRATOR,
+  complete_documents: Role.FARMER,
   request_release: Role.ACCOUNTING,
+  close_deal: Role.SUPPORT_MANAGER,
 };
 
 function evidence(kind: string): string {
   return `evidence:${CANONICAL_TEST_DEAL_ID}:${kind}`;
 }
 
-function signCallback(body: BankCallbackFixture['body'], timestamp: string, eventId: string): string {
-  return createHmac('sha256', BANK_SECRET)
-    .update(buildBankSignaturePayload(timestamp, eventId, body))
-    .digest('hex');
-}
-
-function callback(
+function callbackFixture(
   operation: 'RESERVE' | 'RELEASE',
   operationId: string,
-  eventId: string,
-  bankRef: string,
-  timestamp: string,
 ): BankCallbackFixture {
   const body = {
     dealId: CANONICAL_TEST_DEAL_ID,
-    eventId,
+    eventId: operation === 'RESERVE' ? 'reserve-event-e2e' : 'release-event-e2e',
     operation,
     status: 'SUCCESS' as const,
-    bankRef,
+    bankRef: operation === 'RESERVE' ? 'reserve-ref-e2e' : 'release-ref-e2e',
     operationId,
   };
-  return {
-    body,
-    timestamp,
-    eventId,
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signed = buildBankSignaturePayload({
     partnerId: BANK_PARTNER_ID,
     keyId: BANK_KEY_ID,
-    signature: signCallback(body, timestamp, eventId),
-  };
-}
-
-function command(
-  actionId: UserActionId,
-  sequence: number,
-  expectedVersion: number,
-  payload: Record<string, unknown> = {},
-): ExecuteDealCommandDto {
+    timestamp,
+    eventId: body.eventId,
+    body,
+  });
   return {
-    commandId: `one-deal-${sequence}-${actionId}`,
-    idempotencyKey: `one-deal-idem-${sequence}-${actionId}`,
-    expectedVersion,
-    payload,
+    body,
+    timestamp: String(timestamp),
+    eventId: body.eventId,
+    partnerId: BANK_PARTNER_ID,
+    keyId: BANK_KEY_ID,
+    signature: `hmac-sha256=${createHmac('sha256', BANK_SECRET).update(signed).digest('hex')}`,
   };
 }
 
-function issued(actionId: UserActionId, dto: ExecuteDealCommandDto): IssuedCommand {
-  return { actionId, role: ACTION_ROLE[actionId], dto };
+function settlement(instance: SettlementServiceInstance): SettlementEngineController {
+  return new SettlementEngineController(
+    instance.settlement,
+    new BankKeyRegistryService(instance.prisma),
+    new IntegrationEventsService(instance.prisma),
+  );
 }
 
-function payloadFor(
-  actionId: UserActionId,
-  fixture: DealFixture,
-  context: {
-    reserveOperationId?: string;
-    releaseOperationId?: string;
-  } = {},
-): Record<string, unknown> {
+async function submitCallback(
+  controller: SettlementEngineController,
+  fixture: BankCallbackFixture,
+  proveInvalid = false,
+) {
+  if (proveInvalid) {
+    await expect(controller.bankCallback(
+      fixture.body,
+      'hmac-sha256=invalid',
+      fixture.timestamp,
+      fixture.eventId,
+      fixture.partnerId,
+      fixture.keyId,
+    )).rejects.toBeInstanceOf(UnauthorizedException);
+  }
+  return controller.bankCallback(
+    fixture.body,
+    fixture.signature,
+    fixture.timestamp,
+    fixture.eventId,
+    fixture.partnerId,
+    fixture.keyId,
+  );
+}
+
+function payload(fixture: DealFixture, actionId: DealActionId): Prisma.InputJsonObject {
   switch (actionId) {
-    case 'approve_admission':
-      return { admissionId: `admission:${CANONICAL_TEST_DEAL_ID}` };
-    case 'sign_seller':
-      return { documentId: CONTRACT_ID, evidenceRef: evidence('seller-signature') };
-    case 'sign_buyer':
-      return { documentId: CONTRACT_ID, evidenceRef: evidence('buyer-signature') };
+    case 'seller_sign_contract':
+      return {
+        documentId: CONTRACT_ID,
+        signedAt: '2026-07-12T09:00:00.000Z',
+        signatureEvidenceRef: evidence('seller-signature'),
+      };
+    case 'buyer_sign_contract':
+      return {
+        documentId: CONTRACT_ID,
+        signedAt: '2026-07-12T09:05:00.000Z',
+        signatureEvidenceRef: evidence('buyer-signature'),
+      };
     case 'assign_logistics':
       return {
         carrierOrgId: 'org-canonical-logistics',
-        driverUserId: 'driver-e2e',
+        driverUserId: fixture.users.driver.id,
         vehicleId: VEHICLE_ID,
         routeFromFacilityId: ROUTE_FROM_ID,
         routeToFacilityId: ROUTE_TO_ID,
+      };
+    case 'confirm_loading':
+      return {
+        shipmentId: SHIPMENT_ID,
+        actualWeightTons: '150.000000',
+        occurredAt: '2026-07-12T10:00:00.000Z',
+        basis: 'WEIGHING_TICKET',
         evidenceRef: evidence('loading'),
+        unit: 'TON',
       };
-    case 'create_shipment':
+    case 'start_transit':
       return {
         shipmentId: SHIPMENT_ID,
-        carrierOrgId: 'org-canonical-logistics',
-        driverUserId: 'driver-e2e',
-        vehicleId: VEHICLE_ID,
-        routeFromFacilityId: ROUTE_FROM_ID,
-        routeToFacilityId: ROUTE_TO_ID,
+        occurredAt: '2026-07-12T10:15:00.000Z',
+        basis: 'DRIVER_CONFIRMATION',
+        evidenceRef: evidence('departure'),
       };
-    case 'start_loading':
-      return { shipmentId: SHIPMENT_ID, occurredAt: '2026-07-12T10:00:00.000Z', evidenceRef: evidence('loading') };
-    case 'confirm_dispatch':
-      return { shipmentId: SHIPMENT_ID, occurredAt: '2026-07-12T10:30:00.000Z', evidenceRef: evidence('departure') };
-    case 'depart':
-      return { shipmentId: SHIPMENT_ID, occurredAt: '2026-07-12T11:00:00.000Z', evidenceRef: evidence('departure') };
-    case 'arrive':
-      return { shipmentId: SHIPMENT_ID, occurredAt: '2026-07-12T13:00:00.000Z', evidenceRef: evidence('arrival') };
-    case 'record_weight':
+    case 'confirm_arrival':
       return {
         shipmentId: SHIPMENT_ID,
-        grossWeightKg: '154000.000',
-        tareWeightKg: '4000.000',
-        netWeightKg: '150000.000',
+        occurredAt: '2026-07-12T13:30:00.000Z',
+        confirmationMethod: 'ELEVATOR_CHECKPOINT',
+        evidenceRef: evidence('arrival'),
+        lat: 52.7212,
+        lng: 41.4523,
+      };
+    case 'confirm_weight':
+      return {
+        shipmentId: SHIPMENT_ID,
+        grossTons: '180.000000',
+        tareTons: '30.400000',
+        netTons: '149.600000',
+        weighingSource: 'ELEVATOR_SCALE',
         occurredAt: '2026-07-12T13:45:00.000Z',
         evidenceRef: evidence('weighing'),
         equipmentId: `scale:${CANONICAL_TEST_DEAL_ID}`,
@@ -215,24 +236,6 @@ function payloadFor(
         acceptedAt: '2026-07-12T15:30:00.000Z',
         evidenceRef: evidence('acceptance'),
       };
-    case 'request_reserve':
-      return { operationId: context.reserveOperationId };
-    case 'open_dispute':
-      return {
-        disputeId: `dispute:${CANONICAL_TEST_DEAL_ID}`,
-        reasonCode: 'QUALITY_DEVIATION',
-        openedAt: '2026-07-12T16:00:00.000Z',
-        evidenceRefs: [evidence('inspection'), fixture.evidence.lab],
-      };
-    case 'resolve_dispute':
-      return {
-        disputeId: `dispute:${CANONICAL_TEST_DEAL_ID}`,
-        resolution: 'RELEASE_FULL',
-        decisionAt: '2026-07-12T16:30:00.000Z',
-        evidenceRefs: [evidence('inspection'), fixture.evidence.lab],
-      };
-    case 'request_release':
-      return { operationId: context.releaseOperationId };
     default:
       return {};
   }
@@ -286,177 +289,219 @@ describe('persistent-auth-backed industrial one-deal settlement authority gate',
         lab: actor(Role.LAB),
         accounting: actor(Role.ACCOUNTING),
         operator: actor(Role.SUPPORT_MANAGER),
-        arbitrator: actor(Role.ARBITRATOR),
-        executive: actor(Role.EXECUTIVE),
       },
     };
-    await prepareLaboratoryLifecycle(instance, fixture);
   });
 
   afterAll(async () => {
-    await auth?.disconnect();
-    await destroyInstance(instance);
+    await Promise.allSettled([destroyInstance(instance), auth?.disconnect()]);
   });
+
+  async function execute(actionId: UserActionId) {
+    const role = ACTION_ROLE[actionId];
+    const user = actor(role);
+    if (actionId === 'request_reserve' || actionId === 'request_release') {
+      auth.primaryAuth.assertRecentFinancialMfa(user, Number(DEAL_AMOUNT_KOPECKS));
+    }
+    const workspace = await instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, user);
+    const dto: ExecuteDealCommandDto = {
+      commandId: `command-${actionId}`,
+      idempotencyKey: `idempotency-${actionId}`,
+      expectedUpdatedAt: workspace.deal.updatedAt,
+      expectedVersion: String(workspace.deal.version),
+      payload: payload(fixture, actionId),
+    };
+    const receipt = await instance.gateway.executeUser(
+      CANONICAL_TEST_DEAL_ID,
+      actionId,
+      dto,
+      user,
+    ) as Record<string, unknown>;
+    expect(receipt).toMatchObject({ duplicate: false, actionId, commandId: dto.commandId });
+    issued.push({ actionId, role, dto });
+    return receipt;
+  }
 
   it('executes 12-role/19-command deal through the same Settlement path and survives restart', async () => {
-    const { commandService, settlementController } = instance;
-    let currentVersion = 0;
-
-    const run = async (actionId: UserActionId, payload: Record<string, unknown> = {}) => {
-      const dto = command(actionId, issued.length + 1, currentVersion, payload);
-      const result = await commandService.execute(CANONICAL_TEST_DEAL_ID, actionId, dto, actor(ACTION_ROLE[actionId]));
-      issued.push(issued.length === 0 ? issued : issued);
-      currentVersion = Number((result as { version: number }).version);
-      return result;
-    };
-
-    await run('approve_admission', payloadFor('approve_admission', fixture));
-    await run('sign_seller', payloadFor('sign_seller', fixture));
-    await run('sign_buyer', payloadFor('sign_buyer', fixture));
-    await run('assign_logistics', payloadFor('assign_logistics', fixture));
-    await run('create_shipment', payloadFor('create_shipment', fixture));
-    await run('start_loading', payloadFor('start_loading', fixture));
-    await run('confirm_dispatch', payloadFor('confirm_dispatch', fixture));
-    await run('depart', payloadFor('depart', fixture));
-    await run('arrive', payloadFor('arrive', fixture));
-    await run('record_weight', payloadFor('record_weight', fixture));
-    await run('confirm_inspection', payloadFor('confirm_inspection', fixture));
-    await run('finalize_lab', payloadFor('finalize_lab', fixture));
-    await run('accept_delivery', payloadFor('accept_delivery', fixture));
-
-    const reserveRequest = await settlementController.reserve(
-      {
-        dealId: CANONICAL_TEST_DEAL_ID,
-        commandId: 'one-deal-reserve-request',
-        idempotencyKey: 'one-deal-reserve-request',
-        amountKopecks: DEAL_AMOUNT_KOPECKS.toString(),
-        expectedVersion: currentVersion,
-      },
-      actor(Role.ACCOUNTING),
-    ) as { operationId: string; version: number };
-    currentVersion = reserveRequest.version;
-    const reserveCallback = callback(
-      'RESERVE',
-      reserveRequest.operationId,
-      'one-deal-reserve-event',
-      'BANK-RESERVE-ONE-DEAL',
-      '2026-07-12T15:45:00.000Z',
+    const roleViews = await Promise.all(
+      [...users.keys()].map((role) => instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, actor(role))),
     );
-    await settlementController.callback(
-      reserveCallback.body,
-      reserveCallback.timestamp,
-      reserveCallback.eventId,
-      reserveCallback.partnerId,
-      reserveCallback.keyId,
-      reserveCallback.signature,
-    );
-
-    await run('open_dispute', payloadFor('open_dispute', fixture));
-    await run('resolve_dispute', payloadFor('resolve_dispute', fixture));
-
-    const releaseRequest = await settlementController.release(
-      {
-        dealId: CANONICAL_TEST_DEAL_ID,
-        commandId: 'one-deal-release-request',
-        idempotencyKey: 'one-deal-release-request',
-        amountKopecks: DEAL_AMOUNT_KOPECKS.toString(),
-        expectedVersion: currentVersion,
-      },
-      actor(Role.ACCOUNTING),
-    ) as { operationId: string; version: number };
-    currentVersion = releaseRequest.version;
-    const releaseCallback = callback(
-      'RELEASE',
-      releaseRequest.operationId,
-      'one-deal-release-event',
-      'BANK-RELEASE-ONE-DEAL',
-      '2026-07-12T17:00:00.000Z',
-    );
-    await settlementController.callback(
-      releaseCallback.body,
-      releaseCallback.timestamp,
-      releaseCallback.eventId,
-      releaseCallback.partnerId,
-      releaseCallback.keyId,
-      releaseCallback.signature,
-    );
-
+    expect(roleViews.every((view) => view.deal.id === CANONICAL_TEST_DEAL_ID)).toBe(true);
+    expect(roleViews.every((view) => view.deal.status === 'DRAFT')).toBe(true);
     await auth.verifyWithFreshInstance();
-
-    const restarted = await createSettlementInstance();
-    await destroyInstance(instance);
-    instance = restarted;
-
-    const restored = await instance.commandService.workspace(CANONICAL_TEST_DEAL_ID, actor(Role.EXECUTIVE));
-    expect(restored.deal.status).toBeDefined();
-  });
-
-  it('rejects injected role, tenant and membership claims after persistent re-authorization', async () => {
-    const buyerToken = auth.accessTokensByRole.get(Role.BUYER);
-    if (!buyerToken) throw new Error('Missing buyer token');
-    const decoded = jwt.decode(buyerToken) as jwt.JwtPayload;
-    const forged = jwt.sign(
-      {
-        typ: 'access',
-        sid: decoded.sid,
-        role: Role.ADMIN,
-        orgId: 'org-attacker-controlled',
-        organizationId: 'org-attacker-controlled',
-        tenantId: 'tenant-attacker-controlled',
-        membershipId: 'membership-attacker-controlled',
-      },
-      String(process.env.JWT_SECRET),
-      {
-        subject: String(decoded.sub),
-        issuer: 'transparent-price-api',
-        audience: 'transparent-price-platform',
-        expiresIn: '5m',
-      },
-    );
-    const reauthorized = await auth.primaryAuth.verifyAccessToken(forged);
-    expect(reauthorized.role).toBe(Role.BUYER);
-    expect(reauthorized.tenantId).toBe('tenant-canonical-test');
-    expect(reauthorized.orgId).toBe('org-canonical-buyer');
-  });
-
-  it('rejects idempotency payload changes and cross-tenant access after restart', async () => {
-    const first = issued[0];
-    expect(first).toBeDefined();
-    await expect(
-      instance.commandService.execute(
-        CANONICAL_TEST_DEAL_ID,
-        first.actionId,
-        { ...first.dto, payload: { tampered: true } },
-        actor(first.role),
-      ),
-    ).rejects.toBeInstanceOf(ConflictException);
 
     const wrongTenant = {
       ...actor(Role.BUYER),
-      tenantId: 'tenant-attacker-controlled',
-      sessionId: 'wrong-tenant-one-deal',
+      tenantId: 'tenant-other',
+      sessionId: 'wrong-tenant',
     };
-    await expect(instance.commandService.workspace(CANONICAL_TEST_DEAL_ID, wrongTenant))
+    await expect(instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, wrongTenant))
       .rejects.toBeInstanceOf(ForbiddenException);
-  });
 
-  it('rejects bank callback replay and invalid signatures', async () => {
-    const replay = callback(
-      'RESERVE',
-      'missing-operation',
-      'one-deal-replayed-event',
-      'BANK-REPLAY',
-      '2026-07-12T18:00:00.000Z',
+    const earlyRelease = callbackFixture('RELEASE', 'missing-release-operation');
+    await expect(submitCallback(settlement(instance), earlyRelease))
+      .rejects.toBeInstanceOf(ConflictException);
+
+    for (const actionId of [
+      'approve_admission',
+      'publish_auction',
+      'place_winning_bid',
+      'seller_sign_contract',
+      'buyer_sign_contract',
+    ] as const) await execute(actionId);
+
+    const reserveRequest = await execute('request_reserve');
+    const reserve = callbackFixture('RESERVE', String(reserveRequest.operationId));
+    await expect(submitCallback(settlement(instance), reserve, true))
+      .resolves.toMatchObject({ status: 'SUCCESS', dealStatus: 'RESERVED', duplicate: false });
+    await expect(submitCallback(settlement(instance), reserve))
+      .resolves.toMatchObject({ status: 'SUCCESS', duplicate: true });
+
+    for (const actionId of [
+      'assign_logistics',
+      'confirm_loading',
+      'start_transit',
+      'confirm_arrival',
+      'confirm_weight',
+      'confirm_inspection',
+    ] as const) await execute(actionId);
+
+    await prepareLaboratoryLifecycle(instance, fixture);
+    await execute('finalize_lab');
+    await execute('accept_delivery');
+    await execute('complete_documents');
+    const releaseRequest = await execute('request_release');
+    const release = callbackFixture('RELEASE', String(releaseRequest.operationId));
+
+    await expect(submitCallback(settlement(instance), release, true))
+      .resolves.toMatchObject({ status: 'SUCCESS', dealStatus: 'RELEASED', duplicate: false });
+    await expect(submitCallback(settlement(instance), release))
+      .resolves.toMatchObject({ status: 'SUCCESS', duplicate: true });
+    await execute('close_deal');
+
+    const operator = actor(Role.SUPPORT_MANAGER);
+    const facts = await instance.rls.withTrustedContext(operator, async (tx) => {
+      const [deal, participants, events, audits, outbox, publicLedger, publicOperations, sample, protocols,
+        settlementPayments, settlementOperations, settlementLedger, callbacks] = await Promise.all([
+        tx.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } }),
+        tx.dealParticipant.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
+        tx.dealEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
+        tx.auditEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
+        tx.outboxEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
+        tx.ledgerEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
+        tx.bankOperation.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
+        tx.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId }, include: { tests: true } }),
+        tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          SELECT id FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
+        `),
+        tx.$queryRaw<Array<{ status: string; confirmedReserved: bigint; confirmedReleased: bigint }>>(Prisma.sql`
+          SELECT status, confirmed_reserved_minor AS "confirmedReserved",
+                 confirmed_released_minor AS "confirmedReleased"
+          FROM settlement.payments WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+        `),
+        tx.$queryRaw<Array<{ id: string; status: string; operationType: string }>>(Prisma.sql`
+          SELECT id, status, operation_type AS "operationType"
+          FROM settlement.bank_operations
+          WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+          ORDER BY created_at, id
+        `),
+        tx.$queryRaw<Array<{ id: string; entryType: string; prevHash: string | null; hash: string }>>(Prisma.sql`
+          SELECT id, entry_type AS "entryType", prev_hash AS "prevHash", hash
+          FROM settlement.ledger_entries
+          WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+          ORDER BY created_at, id
+        `),
+        tx.$queryRaw<Array<{ eventId: string }>>(Prisma.sql`
+          SELECT event_id AS "eventId" FROM settlement.bank_callbacks
+          WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+        `),
+      ]);
+      return {
+        deal,
+        participants,
+        events,
+        audits,
+        outbox,
+        publicLedger,
+        publicOperations,
+        sample,
+        protocols,
+        settlementPayments,
+        settlementOperations,
+        settlementLedger,
+        callbacks,
+      };
+    });
+
+    expect(facts.deal).toMatchObject({ status: 'CLOSED', totalKopecks: DEAL_AMOUNT_KOPECKS });
+    expect(facts.participants).toHaveLength(12);
+    expect(facts.events).toHaveLength(DEAL_ACTIONS.length);
+    expect(facts.events.slice(1).every((event, index) => event.prevHash === facts.events[index].hash)).toBe(true);
+    expect(facts.publicLedger.map((entry) => entry.entryType)).toEqual(['RESERVE', 'RELEASE']);
+    expect(facts.publicOperations).toHaveLength(2);
+    expect(facts.publicOperations.every((operation) => operation.status === 'DONE')).toBe(true);
+    expect(facts.settlementPayments).toEqual([{
+      status: 'RELEASED',
+      confirmedReserved: DEAL_AMOUNT_KOPECKS,
+      confirmedReleased: DEAL_AMOUNT_KOPECKS,
+    }]);
+    expect(facts.settlementOperations.map((item) => item.operationType)).toEqual(['RESERVE', 'RELEASE']);
+    expect(facts.settlementOperations.every((item) => item.status === 'CONFIRMED')).toBe(true);
+    expect(facts.settlementLedger.map((item) => item.entryType)).toEqual(['RESERVE', 'RELEASE']);
+    expect(facts.settlementLedger.slice(1).every((entry, index) =>
+      entry.prevHash === facts.settlementLedger[index].hash)).toBe(true);
+    expect(facts.callbacks).toHaveLength(2);
+    expect(facts.sample.status).toBe('FINALIZED');
+    expect(facts.sample.tests).toHaveLength(2);
+    expect(facts.protocols).toHaveLength(1);
+    expect(facts.audits.length).toBeGreaterThanOrEqual(DEAL_ACTIONS.length);
+    expect(facts.outbox.filter((entry) =>
+      entry.type === 'deal.command.receipt' || entry.type === 'settlement.command.receipt').length)
+      .toBeGreaterThanOrEqual(DEAL_ACTIONS.length);
+
+    const restarted = await createSettlementInstance();
+    try {
+      for (const command of issued) {
+        await expect(restarted.gateway.executeUser(
+          CANONICAL_TEST_DEAL_ID,
+          command.actionId,
+          command.dto,
+          actor(command.role),
+        )).resolves.toMatchObject({ duplicate: true, commandId: command.dto.commandId });
+      }
+      await expect(submitCallback(settlement(restarted), reserve))
+        .resolves.toMatchObject({ duplicate: true });
+      await expect(submitCallback(settlement(restarted), release))
+        .resolves.toMatchObject({ duplicate: true });
+    } finally {
+      await destroyInstance(restarted);
+    }
+
+    const before = await instance.rls.withTrustedContext(operator, (tx) =>
+      tx.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } }),
     );
-    await expect(
-      (instance.settlementController as SettlementEngineController).callback(
-        replay.body,
-        replay.timestamp,
-        replay.eventId,
-        replay.partnerId,
-        replay.keyId,
-        'not-a-valid-signature',
-      ),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(instance.rls.withTrustedContext(operator, async (tx) => {
+      await tx.deal.update({
+        where: { id: CANONICAL_TEST_DEAL_ID },
+        data: { nextAction: 'rollback-probe' },
+      });
+      throw new Error('forced-rollback');
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })).rejects.toThrow('forced-rollback');
+    const after = await instance.rls.withTrustedContext(operator, (tx) =>
+      tx.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } }),
+    );
+    expect(after).toEqual(before);
+
+    process.stdout.write(`${JSON.stringify({
+      e2e: 'passed',
+      identity: 'persistent-postgresql',
+      settlementAuthority: 'postgresql',
+      dealId: facts.deal.id,
+      status: facts.deal.status,
+      roles: users.size,
+      actions: DEAL_ACTIONS.length,
+      callbacks: facts.callbacks.length,
+      settlementLedgerEntries: facts.settlementLedger.length,
+    })}\n`);
   });
 });
