@@ -12,12 +12,11 @@ This document records the runtime contract enforced by PR #3684.
 
 ## Main synchronization boundary
 
-The branch was synchronized with current `main` through a clean two-parent merge after verifying that the 33 incoming commits changed no PR-owned file.
+The branch was synchronized with current `main` through a clean two-parent merge after verifying that the four incoming commits changed only TAI preflight files and no PR-owned path.
 
-- synchronized `main`: `bc9bbc79c1bda6aeaeb6464d3f055f6f5fb54529`;
-- pre-synchronization branch head: `0bffbc1a11f54e44ff947aef927526a34b2dcdcb`;
-- two-parent synchronization merge: `bf05480f4c2bde66e8f819fe064a4fdfe8af6af3`;
-- first post-synchronization evidence commit: `6f69bc37d8e5a613c3c5fe68af605759e38a7aae`.
+- synchronized `main`: `cd1763e5e6f11309c2cde89c17faec4b5cc61c3c`;
+- pre-synchronization branch head: `1348744def007f41f15eb85afdf2341f02a7dd31`;
+- two-parent synchronization merge: `103bf37cd2aee7c2b0aea5094d9d14cd8ca87474`.
 
 These identifiers prove only which trees were combined. They are not acceptance evidence: only the exact-head CI matrix can attest the resulting tree. A queued, pending, cancelled or superseded run is never treated as PASS.
 
