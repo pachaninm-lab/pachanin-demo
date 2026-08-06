@@ -4,8 +4,8 @@
   "status": "active",
   "title": "TAI bootstrap preflight authority",
   "priority": "P0",
-  "baselineExactMain": "51d5ae3ab841e88c11f6762a63ee51ab2c8d6287",
-  "objective": "Keep the owner-authorized exact-main REG.RU preflight fail-closed and actionless on the production self-hosted runner, transferring only bounded canonical redacted JSON to a hosted publisher while accepting only the exact safe standalone-runtime materialization blockers as bootstrap-eligible.",
+  "baselineExactMain": "88c5dcc58947c26cc82d57a1e5de7474d45f8196",
+  "objective": "Break the exact-main release cycle without widening production authority: accept only the exact safe four-blocker bootstrap state in which the existing API/Web baseline is healthy but not yet on the target SHA and standalone TAI is not yet materialized, then let the existing protected activation controller perform the exact API/Web/Migration rollout followed by restricted Qwen activation and rollback-governed acceptance.",
   "allowedPaths": [
     ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
     "scripts/verify-tai-preflight-report.mjs",
@@ -13,15 +13,18 @@
     "docs/platform-v7/autopilot/scopes/tai-bootstrap-preflight-authority-20260802.json"
   ],
   "boundaries": [
-    "Bootstrap eligibility requires exactly TAI_SERVICE_NOT_MATERIALIZED, TAI_DEDICATED_ENV_NOT_MATERIALIZED and TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED",
-    "All critical compose, exact-runtime, capacity, model-connectivity, TAI schema/profile and no-mutation checks must be PASS",
-    "Any additional, missing-authority, malformed or mutation-related blocker fails closed",
+    "Bootstrap eligibility requires exactly API_WEB_NOT_EXACT_MAIN, TAI_SERVICE_NOT_MATERIALIZED, TAI_DEDICATED_ENV_NOT_MATERIALIZED and TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED",
+    "The existing API and Web runtime must be present, baseline-healthy and backed by an identified rollback baseline before bootstrap is eligible",
+    "Compose authority, protected topology, disk and memory capacity, private-model connectivity, TAI relations, knowledge, model profile, model identity and no-mutation checks must all be PASS",
+    "The existing protected activate action remains the only authority that may deploy exact API, Web and Migration images and then activate restricted Qwen",
+    "Any additional, missing-authority, malformed, unhealthy-baseline, capacity, model-connectivity or mutation-related blocker fails closed",
+    "A zero-blocker strict result still requires API_WEB_EXACT_MAIN and raw passed=true evidence",
+    "Post-activation and post-deployment acceptance must finish with a strict zero-blocker postflight or invoke the existing rollback path",
     "The production self-hosted owner-preflight job contains shell steps only and performs no third-party Action download",
-    "Redacted preflight evidence is target-bound JSON, canonicalized and capped at 65536 bytes before crossing the job-output boundary",
+    "Redacted preflight evidence is target-bound canonical JSON capped at 65536 bytes before crossing the job-output boundary",
     "Only the hosted status publisher materializes transferred evidence and it rejects missing, multiline, noncanonical or malformed payloads",
+    "No inbound production SSH, direct runner Docker authority, new sudo capability, credential, hosting service or recurring expense is introduced",
     "Model admission remains a separately reported maturity state and is never fabricated",
-    "The owner command, exact-current-main image, immutable digest, non-root image user and protected REG.RU controller remain mandatory",
-    "Standalone deployment must still finish with a strict zero-blocker postflight",
     "Zero new recurring cost"
   ]
 }
