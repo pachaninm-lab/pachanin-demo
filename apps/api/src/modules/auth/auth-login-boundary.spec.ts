@@ -15,8 +15,6 @@ function repositoryHarness() {
         user_id: 'user-a',
         email: 'a@example.test',
         password_hash: PASSWORD_HASH,
-        user_status: 'ACTIVE',
-        deleted_at: null,
       };
     }),
     findDefaultLoginMembershipId: jest.fn(async () => {
@@ -94,9 +92,9 @@ describe('minimal login bootstrap boundary', () => {
       password: PASSWORD,
     } as any) as any;
 
-    // One credential read precedes bcrypt and a second occurs inside the
-    // serializable transaction to reject a password-change race. Only then is
-    // membership/context authority exercised.
+    // One three-field credential read precedes bcrypt and a second occurs inside
+    // the serializable transaction to reject a password-change race. Only then
+    // is membership/context authority exercised.
     expect(calls).toEqual(['credential', 'credential', 'membership', 'context']);
     expect(repository.createSession).toHaveBeenCalledWith(
       expect.anything(),
