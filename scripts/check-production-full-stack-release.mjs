@@ -1,4 +1,4 @@
-// Exact-current release trigger after TAI PUBLIC ACL repair v2.
+// Exact-current release trigger after owner-only TAI deployment dispatch authority.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
