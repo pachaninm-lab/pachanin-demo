@@ -27,6 +27,7 @@ kubectl label namespace "$NAMESPACE" environment=production-like team=grainflow 
 POSTGRES_PASSWORD="$(openssl rand -hex 24)"
 APP_DB_PASSWORD="$(openssl rand -hex 24)"
 AUTH_DB_PASSWORD="$(openssl rand -hex 24)"
+STAFF_DB_PASSWORD="$(openssl rand -hex 24)"
 STORAGE_DB_PASSWORD="$(openssl rand -hex 24)"
 OUTBOX_DB_PASSWORD="$(openssl rand -hex 24)"
 MINIO_ACCESS_KEY="acceptance$(openssl rand -hex 8)"
@@ -39,7 +40,7 @@ BANK_HMAC_SECRET="$(openssl rand -hex 32)"
 FGIS_WEBHOOK_SECRET="$(openssl rand -hex 32)"
 EDO_WEBHOOK_SECRET="$(openssl rand -hex 32)"
 for secret in \
-  "$POSTGRES_PASSWORD" "$APP_DB_PASSWORD" "$AUTH_DB_PASSWORD" "$STORAGE_DB_PASSWORD" "$OUTBOX_DB_PASSWORD" \
+  "$POSTGRES_PASSWORD" "$APP_DB_PASSWORD" "$AUTH_DB_PASSWORD" "$STAFF_DB_PASSWORD" "$STORAGE_DB_PASSWORD" "$OUTBOX_DB_PASSWORD" \
   "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" "$JWT_SECRET" "$AUTH_TOKEN_PEPPER" "$MFA_ENCRYPTION_KEY" \
   "$RATE_LIMIT_KEY_PEPPER" "$BANK_HMAC_SECRET" "$FGIS_WEBHOOK_SECRET" "$EDO_WEBHOOK_SECRET"; do
   mask "$secret"
@@ -57,6 +58,7 @@ kubectl create secret generic grainflow-migration-secrets -n "$NAMESPACE" \
 kubectl create secret generic grainflow-api-secrets -n "$NAMESPACE" \
   --from-literal=DATABASE_URL="postgresql://app_runtime:${APP_DB_PASSWORD}@postgresql:5432/grainflow?schema=public" \
   --from-literal=AUTH_DATABASE_URL="postgresql://app_auth:${AUTH_DB_PASSWORD}@postgresql:5432/grainflow?schema=public" \
+  --from-literal=STAFF_DATABASE_URL="postgresql://app_staff:${STAFF_DB_PASSWORD}@postgresql:5432/grainflow?schema=public" \
   --from-literal=STORAGE_DATABASE_URL="postgresql://app_storage:${STORAGE_DB_PASSWORD}@postgresql:5432/grainflow?schema=public" \
   --from-literal=JWT_SECRET="$JWT_SECRET" \
   --from-literal=AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
@@ -127,6 +129,7 @@ kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
   env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow \
   -v app_password="$APP_DB_PASSWORD" \
   -v auth_password="$AUTH_DB_PASSWORD" \
+  -v staff_password="$STAFF_DB_PASSWORD" \
   -v storage_password="$STORAGE_DB_PASSWORD" \
   -v outbox_password="$OUTBOX_DB_PASSWORD" \
   < infra/kind/production-like/postgresql-principals-bootstrap.sql
@@ -144,27 +147,34 @@ kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
   env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow \
   < infra/kind/production-like/postgresql-runtime-grants.sql
 
-# app_auth is counted with the others now: the second term used to read
-# "NOT rolbypassrls", demanding the attribute for the pre-context identity
-# lookup. That lookup is the bounded auth.resolve_login_* surface as of #3670,
-# and BYPASSRLS on any runtime principal is a violation.
+# Every application principal is confined: no SUPERUSER, BYPASSRLS or INHERIT,
+# and no role membership that could expose a second authority through SET ROLE.
 principal_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
   psql -U postgres -d grainflow -Atc \
-  "SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('app_runtime','app_auth','app_storage','app_outbox') AND (rolsuper OR rolbypassrls OR rolinherit)) || ':' || (SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('app_runtime','app_auth','app_storage','app_outbox'));")"
+  "SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox') AND (rolsuper OR rolbypassrls OR rolinherit)) || ':' || (SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox'));")"
 printf '%s\n' "$principal_proof" | tee "$K8S_DIR/cluster/principal-proof.txt"
 test "$principal_proof" = "0:0"
 
 # Revoking BYPASSRLS is only safe while what replaced it is in place. Read in
 # order: the identity tables forced under RLS; app_auth owning none of them;
-# the three bootstrap functions granted to app_auth; the staff admission
-# surface reachable by no application principal.
+# the bootstrap functions granted to app_auth; the staff admission surface
+# reachable by no non-staff application principal.
 auth_identity_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
   psql -U postgres -d grainflow -Atc \
-  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND c.relrowsecurity AND c.relforcerowsecurity) || ':' || (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND r.rolname='app_auth') || ':' || (has_function_privilege('app_auth','auth.resolve_login_identity(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_identity_by_id(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_memberships(text)','EXECUTE'))::int || ':' || (SELECT count(*) FROM (VALUES ('app_auth'),('app_runtime'),('app_storage'),('app_outbox')) AS p(role) WHERE has_function_privilege(p.role,'auth.staff_admission_queue(text,text,text,integer)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_application(text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE'));")"
+  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND c.relrowsecurity AND c.relforcerowsecurity) || ':' || (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND r.rolname='app_auth') || ':' || (has_function_privilege('app_auth','auth.resolve_login_identity(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_identity_by_id(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_memberships(text)','EXECUTE'))::int || ':' || (SELECT count(*) FROM (VALUES ('app_auth'),('app_runtime'),('app_storage'),('app_outbox')) AS p(role) WHERE has_function_privilege(p.role,'auth.staff_admission_queue(text,text,text,integer)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_application(text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE'));")"
 printf '%s\n' "$auth_identity_proof" | tee "$K8S_DIR/cluster/auth-identity-proof.txt"
 test "$auth_identity_proof" = "3:0:1:0"
 
-# And measured from the principal itself. A probe identity is planted first:
+# app_staff is function-only. It owns no runtime object, has no direct table
+# grant, can execute all four external bounded staff functions, cannot execute
+# the internal capability resolver and cannot execute identity-login bootstrap.
+staff_authority_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
+  psql -U postgres -d grainflow -Atc \
+  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname IN ('public','auth') AND r.rolname='app_staff') || ':' || (SELECT count(*) FROM information_schema.role_table_grants g WHERE g.grantee='app_staff' AND g.table_schema IN ('public','auth')) || ':' || has_function_privilege('app_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::int || ':' || (has_function_privilege('app_staff','auth.resolve_login_identity(text)','EXECUTE') OR has_function_privilege('app_staff','auth.resolve_login_context_by_email(text)','EXECUTE'))::int;")"
+printf '%s\n' "$staff_authority_proof" | tee "$K8S_DIR/cluster/staff-authority-proof.txt"
+test "$staff_authority_proof" = "0:0:1:1:1:1:0:0"
+
+# And measured from the auth principal itself. A probe identity is planted first:
 # without one the counts below are zero because the database is empty, not
 # because the boundary holds, and the check would pass on a cluster with no RLS
 # at all. The superuser plants it (superusers are exempt from FORCE RLS by
@@ -181,8 +191,7 @@ SQL
 
 # Read in order: identities visible to app_auth without a context; organizations
 # visible without a context; rows the bootstrap function returns for the same
-# identity. The first two must be zero while the third is one — that pair is the
-# whole difference between a bounded pre-auth surface and BYPASSRLS.
+# identity. The first two must be zero while the bounded functions return one.
 auth_bootstrap_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$AUTH_DB_PASSWORD" \
   psql -U app_auth -d grainflow -Atc \
   "SELECT (SELECT count(*) FROM public.users) || ':' || (SELECT count(*) FROM public.organizations) || ':' || (SELECT count(*) FROM auth.resolve_login_identity('probe@rls.invalid')) || ':' || (SELECT count(*) FROM auth.resolve_login_context_by_email('probe@rls.invalid'));")"
