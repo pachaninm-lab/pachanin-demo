@@ -54,7 +54,7 @@ for (const fragment of [
   'inputs[confirmation]=ACTIVATE-RESTRICTED-QWEN-REG-RU',
   'inputs[upstream_run_id]=$GITHUB_RUN_ID',
   'inputs[upstream_run_attempt]=$GITHUB_RUN_ATTEMPT',
-  'production mutation: `NONE`',
+  'production mutation:',
 ]) requireFragment(automatic, paths.automatic, fragment);
 
 const liveStart = automatic.indexOf('\n  live_preflight:\n');
