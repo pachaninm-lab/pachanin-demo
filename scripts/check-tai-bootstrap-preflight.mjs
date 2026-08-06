@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
   BOOTSTRAP_BLOCKERS,
   CRITICAL_PASS_CODES,
+  STRICT_ONLY_PASS_CODES,
   classifyTaiPreflightReport,
 } from './verify-tai-preflight-report.mjs';
 
@@ -86,6 +87,9 @@ for (const fragment of [
   "canonical != raw",
   'report.flush()',
   'os.fsync(report.fileno())',
+  "'API_WEB_NOT_EXACT_MAIN'",
+  "'API_WEB_EXACT_MAIN' not in passed",
+  "'API_WEB_EXACT_MAIN' in passed",
 ]) requireWorkflowFragment(fragment);
 if (/actions\/upload-artifact@v4/u.test(workflow)) {
   violations.push(`${workflowPath}: owner preflight may not upload evidence from the production runner with an Action`);
@@ -94,11 +98,14 @@ if (/actions\/download-artifact@v4/u.test(workflow)) {
   violations.push(`${workflowPath}: owner preflight evidence must be materialized from the bounded job output`);
 }
 
-expectPass('exact bootstrap set', clone(base), { allowBootstrap: true }, 'BOOTSTRAP_ELIGIBLE');
+expectPass('exact full-stack bootstrap set', clone(base), { allowBootstrap: true }, 'BOOTSTRAP_ELIGIBLE');
 expectBlocked('bootstrap disabled', clone(base), { allowBootstrap: false });
 
 const strict = clone(base);
 strict.checks = strict.checks.map((check) => {
+  if (check.code === 'API_WEB_NOT_EXACT_MAIN') {
+    return { ...check, status: 'PASS', code: 'API_WEB_EXACT_MAIN' };
+  }
   if (check.code === 'TAI_SERVICE_NOT_MATERIALIZED') {
     return { ...check, status: 'PASS', code: 'TAI_SERVICE_DECLARED' };
   }
@@ -114,6 +121,10 @@ strict.blockers = [];
 strict.passed = true;
 expectPass('strict postflight', strict, { allowBootstrap: false }, 'STRICT_PASS');
 
+const strictWithoutExact = clone(strict);
+strictWithoutExact.checks = strictWithoutExact.checks.filter((check) => !STRICT_ONLY_PASS_CODES.includes(check.code));
+expectBlocked('strict result without exact API/web authority', strictWithoutExact, { allowBootstrap: false });
+
 const unexpected = clone(base);
 unexpected.checks.push({ name: 'runtime', status: 'BLOCKED', code: 'TAI_RUNTIME_UNHEALTHY' });
 unexpected.blockers.push('TAI_RUNTIME_UNHEALTHY');
@@ -124,16 +135,20 @@ incompleteBootstrap.checks = incompleteBootstrap.checks.filter((check) => check.
 incompleteBootstrap.blockers = incompleteBootstrap.blockers.filter((code) => code !== BOOTSTRAP_BLOCKERS[0]);
 expectBlocked('incomplete bootstrap authority', incompleteBootstrap);
 
+const falseExactAndMismatch = clone(base);
+falseExactAndMismatch.checks.push({ name: 'api_web_exact', status: 'PASS', code: 'API_WEB_EXACT_MAIN' });
+expectBlocked('simultaneous exact and non-exact API/web authority', falseExactAndMismatch);
+
 const missingCritical = clone(base);
 missingCritical.checks = missingCritical.checks.filter((check) => check.code !== 'API_TO_PRIVATE_MODEL_HEALTHY');
 expectBlocked('missing model connectivity', missingCritical);
 
-const blockedCritical = clone(base);
-blockedCritical.checks = blockedCritical.checks.map((check) => check.code === 'API_WEB_EXACT_MAIN'
-  ? { ...check, status: 'BLOCKED', code: 'API_WEB_NOT_EXACT_MAIN' }
+const blockedBaseline = clone(base);
+blockedBaseline.checks = blockedBaseline.checks.map((check) => check.code === 'API_WEB_BASELINE_HEALTHY'
+  ? { ...check, status: 'BLOCKED', code: 'API_WEB_BASELINE_UNHEALTHY' }
   : check);
-blockedCritical.blockers.push('API_WEB_NOT_EXACT_MAIN');
-expectBlocked('non-exact platform runtime', blockedCritical);
+blockedBaseline.blockers.push('API_WEB_BASELINE_UNHEALTHY');
+expectBlocked('unhealthy platform baseline', blockedBaseline);
 
 const mutation = clone(base);
 mutation.checks = mutation.checks.map((check) => check.code === 'NO_PRODUCTION_MUTATION_DETECTED'
@@ -167,4 +182,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI bootstrap preflight contract PASS: owner preflight is actionless on REG.RU, evidence transfer is bounded, and only the exact safe materialization gap is bootstrap-eligible.');
+console.log('TAI bootstrap preflight contract PASS: only the exact full-stack plus standalone-TAI materialization gap is bootstrap-eligible; baseline health, rollback, capacity, model connectivity and no-mutation remain fail-closed.');
