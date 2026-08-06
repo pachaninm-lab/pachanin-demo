@@ -4,7 +4,7 @@
   "status": "active",
   "purpose": "Move the exact-SHA REG.RU API, web and migration rollout from unavailable inbound SSH to the restored outbound-only pc-prod runner and the existing restricted root controller. Preserve canonical-image authority, protected Compose discovery, backup, forward-only migration, live RU/EN/ZH acceptance, durable PostgreSQL/audit/outbox evidence and automatic image rollback.",
   "approvedBy": "owner-direct-production-completion-2026-08-06",
-  "authorityBaseExactMain": "51d5ae3ab841e88c11f6762a63ee51ab2c8d6287",
+  "authorityBaseExactMain": "b4b81d8841b381c51952b5bf00aca8bfdd52bf8f",
   "evidenceIssue": 3072,
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
