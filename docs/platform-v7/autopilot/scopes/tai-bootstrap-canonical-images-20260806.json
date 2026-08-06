@@ -4,8 +4,8 @@
   "status": "active",
   "title": "TAI bootstrap canonical image trigger",
   "priority": "P0",
-  "baselineExactMain": "54acfd7a367c2f07800be674ae2adcaeae4d8c17",
-  "objective": "Trigger the existing canonical API, Web, Migration and TAI image publication once for the final unchanged exact-main release target after GitHub Actions webhook throttling prevented the manual owner command from starting; no release logic or production authority is changed.",
+  "baselineExactMain": "7d0a3a44d00738a6260c0592e69ac34214beea4a",
+  "objective": "Retry the existing canonical API, Web, Migration and TAI image publication for the unchanged release logic after the preceding main-push and owner issue-command events were dropped during the active GitHub Actions webhook-throttling incident; no release logic or production authority is changed.",
   "allowedPaths": [
     ".github/workflows/docker-publish.yml",
     "scripts/check-tai-bootstrap-preflight.mjs",
@@ -16,7 +16,7 @@
     "Canonical images are published only by the existing main-push image authority after merge",
     "The owner preflight, protected activation controller, exact-main checks, rollback and strict postflight remain unchanged",
     "No inbound SSH, runner Docker authority, sudo capability, credential, tenant, role, model, database, financial or application-data authority is added",
-    "This is the final manual trigger commit; exact main must remain unchanged while the release chain executes",
+    "Do not move exact main again while this retry release chain is executing",
     "REG.RU only and zero new recurring cost"
   ]
 }
