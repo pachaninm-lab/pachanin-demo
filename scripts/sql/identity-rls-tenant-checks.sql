@@ -31,57 +31,70 @@ BEGIN
   END IF;
 
   ---------------------------------------------------------------------------
-  -- Login before any tenant context exists, through the bootstrap surface.
-  -- This is the read that used to require BYPASSRLS.
-  ---------------------------------------------------------------------------
-  measured := coalesce(
-    (SELECT id || ' ' || "passwordHash" FROM auth.resolve_login_identity('a@example.test')),
-    'NONE');
-  IF measured = 'user-a hash-a' THEN
-    RAISE NOTICE 'PASS  02 bootstrap login without context -> %', measured;
-  ELSE
-    RAISE WARNING 'FAIL  02 bootstrap login without context -> % (want user-a hash-a)', measured;
-    failures := failures + 1;
-  END IF;
-
-  ---------------------------------------------------------------------------
-  -- The rest of the pre-authentication surface. Login does not read one user
-  -- row; it reads an identity joined to a membership and an organization, and
-  -- session verification reads the identity behind a session before there is
-  -- any context to verify against. Written as direct joins those return
-  -- nothing here, which is why they go through bounded functions too.
+  -- Pre-password login authority. This is the only identity read available
+  -- before bcrypt proves possession of the password: one credential row and
+  -- no membership, tenant, organization or MFA material.
   ---------------------------------------------------------------------------
   measured := coalesce((
-    SELECT user_id || '/' || membership_id || '/' || organization_id || '/' || tenant_id
-    FROM auth.resolve_login_context_by_email('a@example.test')
+    SELECT user_id || ' ' || password_hash
+    FROM auth.resolve_login_credential('a@example.test')
   ), 'NONE');
-  IF measured = 'user-a/m-a/org-a/tenant-a' THEN
-    RAISE NOTICE 'PASS  02b login context by email -> %', measured;
+  IF measured = 'user-a hash-a' THEN
+    RAISE NOTICE 'PASS  02 minimal credential bootstrap -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL  02b login context by email -> % (want user-a/m-a/org-a/tenant-a)', measured;
+    RAISE WARNING 'FAIL  02 minimal credential bootstrap -> % (want user-a hash-a)', measured;
     failures := failures + 1;
   END IF;
 
-  -- Multi-membership: the default membership is chosen, not an arbitrary one.
+  -- Historical wider bootstrap entry points stay in migration history but the
+  -- login runtime must not be able to execute any of them.
+  measured :=
+    has_function_privilege(current_user, 'auth.resolve_login_identity(text)', 'EXECUTE')::text || '/' ||
+    has_function_privilege(current_user, 'auth.resolve_login_identity_by_id(text)', 'EXECUTE')::text || '/' ||
+    has_function_privilege(current_user, 'auth.resolve_login_memberships(text)', 'EXECUTE')::text || '/' ||
+    has_function_privilege(current_user, 'auth.resolve_login_memberships_ordered(text)', 'EXECUTE')::text || '/' ||
+    has_function_privilege(current_user, 'auth.resolve_login_context_by_email(text)', 'EXECUTE')::text;
+  IF measured = 'false/false/false/false/false' THEN
+    RAISE NOTICE 'PASS  02b retired broad login functions -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02b retired broad login functions -> % (want all false)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- The default membership id is the first post-password lookup. It exposes no
+  -- organization or tenant on its own and is deterministic for multi-membership.
   measured := coalesce((
-    SELECT membership_id FROM auth.resolve_login_context_by_email('both@example.test')
+    SELECT membership_id FROM auth.resolve_login_default_membership('user-both')
   ), 'NONE');
   IF measured = 'm-both-a' THEN
-    RAISE NOTICE 'PASS  02c login context picks the default membership -> %', measured;
+    RAISE NOTICE 'PASS  02c post-password default membership -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL  02c login context picks the default membership -> % (want m-both-a)', measured;
+    RAISE WARNING 'FAIL  02c post-password default membership -> % (want m-both-a)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- Context is resolved only by a membership explicitly bound to the proven
+  -- identity. This is the positive half of that boundary.
+  measured := coalesce((
+    SELECT user_id || '/' || membership_id || '/' || organization_id || '/' || tenant_id
+    FROM auth.resolve_login_context_by_membership('user-a', 'm-a')
+  ), 'NONE');
+  IF measured = 'user-a/m-a/org-a/tenant-a' THEN
+    RAISE NOTICE 'PASS  02d post-password context by membership -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02d post-password context by membership -> % (want user-a/m-a/org-a/tenant-a)', measured;
     failures := failures + 1;
   END IF;
 
   -- A membership that belongs to somebody else cannot be paired with this
-  -- identity, so choosing an organization after login cannot cross tenants.
+  -- identity, so selecting an organization after password proof cannot cross tenants.
   measured := coalesce((
     SELECT membership_id FROM auth.resolve_login_context_by_membership('user-a', 'm-b')
   ), 'NONE');
   IF measured = 'NONE' THEN
-    RAISE NOTICE 'PASS  02d login context refuses another identity''s membership -> %', measured;
+    RAISE NOTICE 'PASS  02e login context refuses another identity''s membership -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL  02d login context refuses another identity''s membership -> % (want NONE)', measured;
+    RAISE WARNING 'FAIL  02e login context refuses another identity''s membership -> % (want NONE)', measured;
     failures := failures + 1;
   END IF;
 
@@ -90,9 +103,9 @@ BEGIN
     FROM auth.resolve_session_identity('user-staff', 'm-staff', 'org-a', 'tenant-a')
   ), 'NONE');
   IF measured = 'user-staff/FARMER/tenant-a' THEN
-    RAISE NOTICE 'PASS  02e session identity for a consistent session row -> %', measured;
+    RAISE NOTICE 'PASS  02f session identity for a consistent session row -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL  02e session identity for a consistent session row -> % (want user-staff/FARMER/tenant-a)', measured;
+    RAISE WARNING 'FAIL  02f session identity for a consistent session row -> % (want user-staff/FARMER/tenant-a)', measured;
     failures := failures + 1;
   END IF;
 
@@ -102,9 +115,9 @@ BEGIN
     SELECT user_id FROM auth.resolve_session_identity('user-staff', 'm-staff', 'org-b', 'tenant-b')
   ), 'NONE');
   IF measured = 'NONE' THEN
-    RAISE NOTICE 'PASS  02f session identity for an inconsistent session row -> %', measured;
+    RAISE NOTICE 'PASS  02g session identity for an inconsistent session row -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL  02f session identity for an inconsistent session row -> % (want NONE)', measured;
+    RAISE WARNING 'FAIL  02g session identity for an inconsistent session row -> % (want NONE)', measured;
     failures := failures + 1;
   END IF;
 
@@ -124,13 +137,13 @@ BEGIN
       FOR UPDATE OF s
     ), 'NONE');
     IF measured = 'user-staff/org-a/ACTIVE' THEN
-      RAISE NOTICE 'PASS  02g locked session context query -> %', measured;
+      RAISE NOTICE 'PASS  02h locked session context query -> %', measured;
     ELSE
-      RAISE WARNING 'FAIL  02g locked session context query -> % (want user-staff/org-a/ACTIVE)', measured;
+      RAISE WARNING 'FAIL  02h locked session context query -> % (want user-staff/org-a/ACTIVE)', measured;
       failures := failures + 1;
     END IF;
   EXCEPTION WHEN others THEN
-    RAISE WARNING 'FAIL  02g locked session context query -> %', SQLERRM;
+    RAISE WARNING 'FAIL  02h locked session context query -> %', SQLERRM;
     failures := failures + 1;
   END;
 
@@ -495,6 +508,6 @@ BEGIN
   IF failures > 0 THEN
     RAISE EXCEPTION 'identity isolation: % tenant-runtime check(s) failed', failures;
   END IF;
-  RAISE NOTICE 'tenant runtime: 38 checks, 0 failures';
+  RAISE NOTICE 'tenant runtime: minimal login + tenant isolation checks, 0 failures';
 END;
 $tenant_checks$;
