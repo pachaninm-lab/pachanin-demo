@@ -13,11 +13,9 @@ OUTPUT_FILE="${3:-}"
 [[ "$(id -u)" -eq 0 ]] || { echo 'ROOT_AUTHORITY_REQUIRED' >&2; exit 2; }
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly REPOSITORY_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly FULL_STACK_INPUT="/var/lib/pc-release-authority/runner-input/${RUN_ID}/full-stack-release.json"
 readonly FULL_STACK_CONTROLLER="$SCRIPT_DIR/pc-full-stack-controller.sh"
-readonly LEGACY_COMMIT='43ec7d01fc84c1af84fe5dea7f63630f66454257'
-readonly LEGACY_PATH='scripts/tai-runtime-role-repair.sh'
+readonly LEGACY_REPAIR="$SCRIPT_DIR/tai-runtime-role-repair-legacy.sh"
 readonly LEGACY_BLOB='ff1c984440794a2a73267c5e1886b3308a152c49'
 
 if [[ -e "$FULL_STACK_INPUT" || -L "$FULL_STACK_INPUT" ]]; then
@@ -32,24 +30,12 @@ if [[ -e "$FULL_STACK_INPUT" || -L "$FULL_STACK_INPUT" ]]; then
   exec bash "$FULL_STACK_CONTROLLER" "$TARGET_SHA" "$RUN_ID" "$OUTPUT_FILE"
 fi
 
-legacy="$(mktemp)"
-cleanup() { rm -f "$legacy"; }
-trap cleanup EXIT INT TERM
-
-git -C "$REPOSITORY_ROOT" cat-file -e "${LEGACY_COMMIT}^{commit}" 2>/dev/null || {
-  echo 'LEGACY_REPAIR_COMMIT_UNAVAILABLE' >&2
+[[ -f "$LEGACY_REPAIR" && ! -L "$LEGACY_REPAIR" ]] || {
+  echo 'LEGACY_REPAIR_FILE_INVALID' >&2
   exit 30
 }
-git -C "$REPOSITORY_ROOT" show "${LEGACY_COMMIT}:${LEGACY_PATH}" > "$legacy"
-[[ "$(git hash-object "$legacy")" == "$LEGACY_BLOB" ]] || {
+[[ "$(git hash-object "$LEGACY_REPAIR")" == "$LEGACY_BLOB" ]] || {
   echo 'LEGACY_REPAIR_BLOB_MISMATCH' >&2
   exit 31
 }
-chmod 0700 "$legacy"
-set +e
-bash "$legacy" "$TARGET_SHA" "$RUN_ID" "$OUTPUT_FILE"
-rc=$?
-set -e
-rm -f "$legacy"
-trap - EXIT INT TERM
-exit "$rc"
+exec bash "$LEGACY_REPAIR" "$TARGET_SHA" "$RUN_ID" "$OUTPUT_FILE"
