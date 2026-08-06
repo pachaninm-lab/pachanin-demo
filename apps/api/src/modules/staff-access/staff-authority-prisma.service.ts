@@ -61,7 +61,11 @@ type StaffPrincipalInspectionRow = {
   admission_queue_execute: boolean;
   admission_application_execute: boolean;
   admission_decision_execute: boolean;
+  organization_directory_execute: boolean;
+  organization_users_execute: boolean;
+  cabinet_deals_execute: boolean;
   admission_capability_execute: boolean;
+  projection_capability_execute: boolean;
   identity_bootstrap_execute: boolean;
 };
 
@@ -148,9 +152,29 @@ export class StaffAuthorityPrismaService extends PrismaService {
         ), false) AS admission_decision_execute,
         coalesce(has_function_privilege(
           current_user,
+          to_regprocedure('auth.staff_organization_directory(text,text,text)'),
+          'EXECUTE'
+        ), false) AS organization_directory_execute,
+        coalesce(has_function_privilege(
+          current_user,
+          to_regprocedure('auth.staff_organization_users(text,text,text,text)'),
+          'EXECUTE'
+        ), false) AS organization_users_execute,
+        coalesce(has_function_privilege(
+          current_user,
+          to_regprocedure('auth.staff_cabinet_deals(text,text,text,text,text)'),
+          'EXECUTE'
+        ), false) AS cabinet_deals_execute,
+        coalesce(has_function_privilege(
+          current_user,
           to_regprocedure('auth.staff_admission_capability(text,text,text,text,text)'),
           'EXECUTE'
         ), false) AS admission_capability_execute,
+        coalesce(has_function_privilege(
+          current_user,
+          to_regprocedure('auth.staff_projection_capability(text,text,text,text,text,text,boolean)'),
+          'EXECUTE'
+        ), false) AS projection_capability_execute,
         (
           coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity(text)'), 'EXECUTE'), false)
           OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity_by_id(text)'), 'EXECUTE'), false)
@@ -181,7 +205,11 @@ export class StaffAuthorityPrismaService extends PrismaService {
     if (!row.admission_queue_execute) errors.push('requires EXECUTE on auth.staff_admission_queue');
     if (!row.admission_application_execute) errors.push('requires EXECUTE on auth.staff_admission_application');
     if (!row.admission_decision_execute) errors.push('requires EXECUTE on auth.staff_admission_decision');
+    if (!row.organization_directory_execute) errors.push('requires EXECUTE on auth.staff_organization_directory');
+    if (!row.organization_users_execute) errors.push('requires EXECUTE on auth.staff_organization_users');
+    if (!row.cabinet_deals_execute) errors.push('requires EXECUTE on auth.staff_cabinet_deals');
     if (row.admission_capability_execute) errors.push('must not EXECUTE auth.staff_admission_capability directly');
+    if (row.projection_capability_execute) errors.push('must not EXECUTE auth.staff_projection_capability directly');
     if (row.identity_bootstrap_execute) errors.push('must not EXECUTE identity bootstrap functions');
 
     if (errors.length > 0) {
