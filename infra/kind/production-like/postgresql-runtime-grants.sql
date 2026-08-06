@@ -25,22 +25,24 @@ GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO app_auth;
 REVOKE UPDATE, DELETE ON auth.audit_events, auth.staff_access_events FROM app_auth;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA auth, public TO app_auth;
 
--- Named functions rather than "ALL FUNCTIONS IN SCHEMA auth" (#3670). Staff
--- cross-tenant projections and Deal target resolution are intentionally absent:
--- their legacy identifier-only signatures are dropped by the forward-only
--- chain and their bounded replacements belong exclusively to the staff runtime.
+-- Named functions rather than "ALL FUNCTIONS IN SCHEMA auth" (#3670).
 GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO app_auth;
 
--- The complete bounded authentication surface: what app_auth has instead of
--- BYPASSRLS. These grants are repeated here because the Kubernetes runtime
--- principals are provisioned independently from migration execution.
-GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(TEXT) TO app_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(TEXT) TO app_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(TEXT) TO app_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) TO app_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(TEXT) TO app_auth;
+-- Minimal authentication surface. Before password proof app_auth can resolve
+-- exactly one credential row and no tenant/org/membership/MFA material. The
+-- default membership id and its context are consumed by server code only after
+-- the bcrypt check; session identity is used only for an existing session.
+GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(TEXT) TO app_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO app_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO app_auth;
+
+-- Retire the historical wider bootstrap surface from the login runtime.
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_auth;
 
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM app_auth;
@@ -69,6 +71,8 @@ GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) 
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_staff;
@@ -77,9 +81,9 @@ REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_staff;
 
--- The deal runtime holds SELECT/INSERT/UPDATE/DELETE on every table in public,
--- which includes the identity tables. That is bounded by their policies rather
--- than by the grant, so it must not also reach the pre-auth or staff surfaces.
+-- Non-auth runtimes must not reach any bootstrap login surface.
+REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_runtime, app_storage, app_outbox;
