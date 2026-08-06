@@ -202,39 +202,51 @@ CREATE POLICY integration_events_select ON public."integration_events" FOR SELEC
   )
 );
 
+-- Identity-table RLS is owned by the forward-only identity migrations. The
+-- canonical production artifact predates #3670 and can recreate these legacy
+-- organization policies immediately before this overlay. Remove those names,
+-- but never replace them with a deal-derived or writable-GUC authority path.
+DROP POLICY IF EXISTS organizations_write_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_select ON public."organizations";
-CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
-  public.app_rls_context_ready()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND (
-    "id" = current_setting('app.current_org_id', true)
-    OR public.app_rls_privileged()
-    OR EXISTS (
-      SELECT 1 FROM public."deal_participants" dp
-      WHERE dp."organizationId" = "organizations"."id"
-        AND dp."tenantId" = current_setting('app.current_tenant_id', true)
-        AND dp."userId" = current_setting('app.current_user_id', true)
-        AND dp."status" = 'ACTIVE'
-    )
-    OR EXISTS (
+DROP POLICY IF EXISTS organizations_insert_privileged ON public."organizations";
+DROP POLICY IF EXISTS organizations_update_privileged ON public."organizations";
+
+DO $identity_organization_policy_authority$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class relation
+    JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+    WHERE namespace.nspname = 'public'
+      AND relation.relname = 'organizations'
+      AND relation.relrowsecurity
+      AND relation.relforcerowsecurity
+  ) THEN
+    RAISE EXCEPTION 'Identity organization table is not FORCE RLS protected'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF EXISTS (
+    SELECT required.policy_name
+    FROM unnest(ARRAY[
+      'organizations_bootstrap_login',
+      'organizations_context_select',
+      'organizations_admin_update',
+      'organizations_bootstrap_insert'
+    ]) AS required(policy_name)
+    WHERE NOT EXISTS (
       SELECT 1
-      FROM public."integration_events" ie
-      CROSS JOIN LATERAL (
-        SELECT COALESCE(ie."responsePayload", ie."requestPayload")::jsonb AS basis
-      ) confirmed
-      WHERE ie."dealId" IS NULL
-        AND current_setting('app.current_role', true) = 'FARMER'
-        AND ie."adapterName" = 'auction'
-        AND ie."eventType" = 'DEAL_BASIS_READY'
-        AND ie."status" = 'CONFIRMED'
-        AND COALESCE(ie."responsePayload", ie."requestPayload") IS NOT NULL
-        AND confirmed.basis ->> 'tenantId' = current_setting('app.current_tenant_id', true)
-        AND confirmed.basis ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
-        AND confirmed.basis ->> 'sellerUserId' = current_setting('app.current_user_id', true)
-        AND "organizations"."id" IN (confirmed.basis ->> 'sellerOrgId', confirmed.basis ->> 'buyerOrgId')
+      FROM pg_catalog.pg_policies policy
+      WHERE policy.schemaname = 'public'
+        AND policy.tablename = 'organizations'
+        AND policy.policyname = required.policy_name
     )
-  )
-);
+  ) THEN
+    RAISE EXCEPTION 'Forward-only identity organization policies are missing'
+      USING ERRCODE = '42501';
+  END IF;
+END
+$identity_organization_policy_authority$;
 
 DROP POLICY IF EXISTS deal_participants_insert ON public."deal_participants";
 CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT WITH CHECK (
