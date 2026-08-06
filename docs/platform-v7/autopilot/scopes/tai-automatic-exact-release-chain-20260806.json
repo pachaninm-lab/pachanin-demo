@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-automatic-exact-release-chain-20260806",
+  "status": "active",
+  "title": "TAI automatic exact release chain",
+  "priority": "P0",
+  "baselineExactMain": "cd1763e5e6f11309c2cde89c17faec4b5cc61c3c",
+  "objective": "Close the exact-main release chain without relying on issue comments: after a successful canonical image workflow for unchanged current main, execute the existing protected read-only REG.RU preflight, publish bounded evidence, dispatch the existing restricted Qwen activation, and let the existing activation workflow_run deployment continue to strict postflight.",
+  "allowedPaths": [
+    ".github/workflows/tai-automatic-reg-ru-preflight.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    ".github/workflows/docker-publish.yml",
+    "scripts/check-tai-automatic-release-chain.mjs",
+    "scripts/check-tai-owner-activation-command.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-automatic-exact-release-chain-20260806.json",
+    "docs/platform-v7/autopilot/scopes/tai-owner-activation-command-20260803.json"
+  ],
+  "boundaries": [
+    "Automatic preflight starts only from a successful Build & Publish Canonical Docker Images workflow_run for this repository, branch main and unchanged exact current main SHA",
+    "All five canonical build jobs must be successful before preflight",
+    "The REG.RU preflight runner remains non-root, outside the Docker group, without direct Docker access and with only the protected pc-tai-release-controller sudo authority",
+    "The self-hosted preflight job contains no checkout, third-party Action or artifact Action",
+    "Only bounded canonical redacted JSON crosses from the production runner to a hosted publisher",
+    "Activation dispatch occurs only after accepted strict or exact four-blocker bootstrap evidence",
+    "The activation workflow independently re-fetches and verifies the automatic preflight run, exact SHA, branch, actor pair and all six required jobs",
+    "The existing activation controller, RU/EN/ZH and potato acceptance, Chromium acceptance, rollback and automatic standalone deployment remain unchanged",
+    "Any main movement, failed image, malformed evidence, additional blocker, failed acceptance or postflight failure remains fail-closed",
+    "No inbound production SSH, direct runner Docker authority, new sudo capability, credential, SaaS, server or recurring expense is introduced",
+    "Permanent model admission remains NOT_ATTESTED",
+    "Zero new recurring cost"
+  ]
+}

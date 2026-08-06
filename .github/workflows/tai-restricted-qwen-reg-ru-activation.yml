@@ -8,6 +8,7 @@ on:
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
       - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - ".github/workflows/tai-automatic-reg-ru-preflight.yml"
       - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
       - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
       - "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts"
@@ -23,6 +24,7 @@ on:
       - "scripts/check-tai-local-model-key-authority.mjs"
       - "scripts/check-tai-reg-ru-release-chain.mjs"
       - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/check-tai-automatic-release-chain.mjs"
       - "scripts/select-tai-owner-preflight-run.mjs"
       - "scripts/check-tai-owner-preflight-run-selection.mjs"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
@@ -35,6 +37,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-automatic-exact-release-chain-20260806.json"
   workflow_dispatch:
     inputs:
       target_sha:
@@ -46,11 +49,11 @@ on:
         required: true
         type: string
       upstream_run_id:
-        description: Exact successful owner preflight run ID
+        description: Exact successful automatic preflight run ID
         required: true
         type: string
       upstream_run_attempt:
-        description: Exact successful owner preflight run attempt
+        description: Exact successful automatic preflight run attempt
         required: true
         type: string
 
@@ -106,18 +109,35 @@ jobs:
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          gh api -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/preflight-run.json"
+          terminal=0
+          for attempt in $(seq 1 60); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" \
+              > "$RUNNER_TEMP/preflight-run.json"
+            status="$(node - "$RUNNER_TEMP/preflight-run.json" <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          process.stdout.write(String(run.status || ''));
+          NODE
+            )"
+            if [[ "$status" == completed ]]; then terminal=1; break; fi
+            sleep 5
+          done
+          (( terminal == 1 )) || { echo 'Automatic preflight did not reach a terminal state.' >&2; exit 4; }
           node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
-            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Owner REG.RU Preflight' "$GITHUB_REPOSITORY"
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Automatic REG.RU Preflight' "$GITHUB_REPOSITORY"
           node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
           const fs = require('node:fs');
           const [path, owner] = process.argv.slice(2);
           const run = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const allowedActors = new Set([owner, 'github-actions[bot]']);
+          const actor = run.actor?.login;
+          const triggeringActor = run.triggering_actor?.login || actor;
           if (
-            run.event !== 'issue_comment'
-            || run.actor?.login !== owner
-            || run.triggering_actor?.login !== owner
+            run.event !== 'workflow_run'
+            || run.head_branch !== 'main'
+            || !allowedActors.has(actor)
+            || !allowedActors.has(triggeringActor)
           ) process.exit(3);
           NODE
           gh api -H 'Accept: application/vnd.github+json' \
@@ -164,6 +184,7 @@ jobs:
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-owner-activation-command.mjs
           node scripts/check-tai-owner-preflight-run-selection.mjs
+          node scripts/check-tai-automatic-release-chain.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority
