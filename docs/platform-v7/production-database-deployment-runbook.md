@@ -14,6 +14,7 @@ This runbook defines the target operational procedure. The repository CI proves 
 6. Migration credentials are separate from runtime credentials and are not stored in the application environment.
 7. Every step produces immutable evidence: commit SHA, migration list, backup checksum, timestamps, principal proof, schema drift result and smoke-test output.
 8. `infra/sql/postgresql-deal-authority-policies.sql` is applied immediately after the base RLS artifact; applying only the base file would restore the legacy pre-deal basis restriction and block PostgreSQL-authoritative creation.
+9. Cross-tenant staff reads require a live staff access session **and** the digest of its secret capability. Actor/session identifiers alone are never database authority.
 
 ## Required roles
 
@@ -21,10 +22,10 @@ This runbook defines the target operational procedure. The repository CI proves 
 |---|---|---|
 | Migration owner | Apply Prisma migrations, create/alter schema, apply canonical RLS | Application runtime use |
 | Deal runtime | CRUD required business tables under `ENABLE + FORCE RLS` | SUPERUSER, BYPASSRLS, table ownership, role memberships |
-| Auth runtime | Identity/auth tables under `ENABLE + FORCE RLS`, plus `EXECUTE` on the complete bounded `auth.resolve_login_*` / session bootstrap surface | `BYPASSRLS`, any privilege on `public.deals`, SUPERUSER, ownership of the identity tables, role memberships (including `pc_identity_bootstrap`), `EXECUTE` on `auth.resolve_staff_target_scope` or `auth.staff_admission_*` |
+| Auth runtime | Identity/auth tables under `ENABLE + FORCE RLS`, plus `EXECUTE` on the complete bounded `auth.resolve_login_*` / session bootstrap surface | `BYPASSRLS`, any privilege on `public.deals`, SUPERUSER, ownership of the identity tables, role memberships (including `pc_identity_bootstrap`), `EXECUTE` on staff target/admission/projection functions |
 | Identity bootstrap (`pc_identity_bootstrap`) | Own the bounded identity/login/session functions plus `auth.resolve_staff_target_scope`; hold only the reads their fixed bodies require | LOGIN, INHERIT, SUPERUSER, `BYPASSRLS`, members of any kind |
-| Staff authority (`pc_staff_authority`) | Own `auth.staff_admission_capability` and the three external `auth.staff_admission_*` definer functions; hold only the reads/writes those fixed bodies require | LOGIN, members of any kind |
-| Staff runtime (`app_staff` / `pc_staff_runtime`) | `EXECUTE` on `auth.resolve_staff_target_scope` and the three external `auth.staff_admission_*` functions | Any direct table/sequence privilege, identity-login bootstrap execution, `auth.staff_admission_capability` execution, SUPERUSER, `BYPASSRLS`, role memberships |
+| Staff authority (`pc_staff_authority`) | Own internal `auth.staff_admission_capability`, `auth.staff_projection_capability`, the external `auth.staff_admission_*`, and secret-bound `auth.staff_organization_*` / `auth.staff_cabinet_deals` definer functions; hold only the reads/writes those fixed bodies require | LOGIN, members of any kind |
+| Staff runtime (`app_staff` / `pc_staff_runtime`) | `EXECUTE` on `auth.resolve_staff_target_scope`, external `auth.staff_admission_*`, secret-bound `auth.staff_organization_directory`, `auth.staff_organization_users`, and `auth.staff_cabinet_deals` | Any direct table/sequence privilege, identity-login bootstrap execution, internal capability-resolver execution, SUPERUSER, `BYPASSRLS`, role memberships |
 | Storage runtime | Bounded document finalization reads/updates only | Deal/auth/staff authority, SUPERUSER, `BYPASSRLS`, role memberships |
 | Backup operator | Provider backup/PITR or `pg_dump` under controlled operations | Application runtime use |
 
@@ -59,7 +60,7 @@ node scripts/platform-v7-forward-only-migration-check.mjs
 
 5. Run `prisma migrate status` with migration-owner credentials.
 6. Run `prisma migrate diff` from the target database to `schema.prisma`; unexplained drift blocks release.
-7. Verify all runtime principal boundaries using the production startup checks in a read-only preflight process. In particular, the staff principal must own no runtime object, hold no direct table/sequence grant, and expose only the bounded staff function surface.
+7. Verify all runtime principal boundaries using the production startup checks in a read-only preflight process. In particular, the staff principal must own no runtime object, hold no direct table/sequence grant, expose only the bounded staff function surface, and be unable to execute either internal capability resolver.
 8. Verify provider backup/PITR health and available storage.
 9. Confirm that the previous application image is available for application rollback.
 10. Confirm post-deploy smoke tests and observability dashboards are ready.
@@ -105,9 +106,12 @@ psql "$MIGRATION_DATABASE_URL" \
 ```
 
 4. Verify all of the following against the release SHA:
-   - `public.users`, `public.user_orgs` and `public.organizations` have both `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`;
+   - `public.users`, `public.user_orgs`, `public.organizations`, `public.deal_participants`, `public.integration_events` and `public.outbox_entries` have both `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`;
+   - no `pg_policies` row exists for an ordinary/partitioned table whose `relrowsecurity` is false;
    - `auth.resolve_login_identity*`, membership/session bootstrap and staff target-scope functions retain the expected owner, `PUBLIC` revocation and exact runtime grants;
-   - auth has no staff-function execution and staff has no direct table/sequence authority or identity-login execution;
+   - auth has no staff target/admission/projection execution;
+   - staff has zero direct table/sequence authority, can execute exactly the bounded target/admission/secret-bound projection surface, and cannot execute `auth.staff_admission_capability` or `auth.staff_projection_capability` directly;
+   - the legacy identifier-only signatures `auth.staff_organization_directory(text)`, `auth.staff_organization_users(text,text)` and `auth.staff_cabinet_deals(text,text,text,text)` do not exist;
    - `public.app_deal_basis_deal_visible`, `public.app_deal_basis_participant_allowed` and `public.enforce_single_deal_per_basis` are `SECURITY DEFINER`;
    - `PUBLIC` has no `EXECUTE` privilege on those deal functions;
    - final `deals_select`, `deals_insert`, `integration_events_select`, migration-owned identity policies and `deal_participants_insert` policies are installed;
@@ -115,7 +119,7 @@ psql "$MIGRATION_DATABASE_URL" \
    - a direct Deal insert without a confirmed basis fails, and reuse of one tenant/lot/winner basis fails with the single-use constraint.
 5. Validate schema drift, migration history, RLS inventory and principal capabilities.
 6. Start one application instance with production boundary enforcement.
-7. Run authentication, staff admission/target-scope, tenant isolation, participant-scoped deal create/read and signed callback smoke checks.
+7. Run authentication, staff admission/target-scope, secret-bound staff projection, tenant isolation, participant-scoped deal create/read and signed callback smoke checks.
 8. Increase traffic gradually while observing errors, latency, connection pools, locks, replication lag and outbox processing.
 
 ## Application rollback
@@ -137,13 +141,14 @@ Use only for corruption, destructive operator action or unrecoverable migration 
 1. Freeze writes and preserve evidence.
 2. Select a recovery point from provider backup/PITR metadata.
 3. Restore into a new isolated database/cluster. Never overwrite the damaged database first.
-4. Restore/recreate least-privilege runtime grants, including the dedicated function-only staff principal.
+4. Restore/recreate least-privilege runtime grants, including the dedicated function-only staff principal and its secret-bound projection functions.
 5. Validate:
    - backup checksum or provider restore identity;
    - migration history;
    - source/recovery fingerprints where the source remains readable;
    - deal/auth/staff/storage runtime principal startup;
-   - identity definer ownership and exact auth/staff function grants after `--no-owner --no-acl` restore;
+   - identity/staff definer ownership and exact auth/staff function grants after `--no-owner --no-acl` restore;
+   - staff cannot call either internal capability resolver and auth cannot call any cross-tenant staff projection;
    - `ENABLE + FORCE RLS`, policy/function/trigger inventory and deal-authority overlay;
    - cross-tenant visibility equals zero;
    - persistent login/session verification;
@@ -177,10 +182,11 @@ It proves:
 - restore into a separate PostgreSQL database;
 - exact source/recovery fingerprint equality;
 - successful Prisma migration history;
+- no inert RLS policy remains in the migration-only catalog;
 - eight protected business tables retain enabled and forced RLS, while the identity-specific proof separately requires all three identity tables to remain forced;
-- identity bootstrap function ownership and execution ACLs are restored after `--no-owner --no-acl`;
-- auth runtime cannot reach staff target/admission functions;
-- restored staff runtime has zero direct table grants and only the bounded staff function surface;
+- identity/staff function ownership and execution ACLs are restored after `--no-owner --no-acl`;
+- auth runtime cannot reach staff target/admission/projection functions;
+- restored staff runtime has zero direct table grants and only the bounded target/admission/secret-bound projection surface;
 - persistent deal creation works under a restricted `NOBYPASSRLS` principal using a seller-scoped confirmed basis;
 - direct unbacked Deal insert and duplicate basis reuse fail at PostgreSQL level;
 - auth runtime cannot read deals or arbitrary identities without context;
