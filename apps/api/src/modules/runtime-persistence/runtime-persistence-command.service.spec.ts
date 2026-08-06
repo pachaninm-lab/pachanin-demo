@@ -65,6 +65,7 @@ function fixture() {
     tenantId: TRUSTED_USER.tenantId!,
     role: TRUSTED_USER.role,
     sessionId: TRUSTED_USER.sessionId!,
+    staffRoles: [],
   };
   const persistence = {
     persistWithinTransaction: jest.fn().mockResolvedValue(RECEIPT),
