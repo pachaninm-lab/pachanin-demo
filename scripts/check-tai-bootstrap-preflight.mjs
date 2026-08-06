@@ -17,8 +17,12 @@ const dockerPublish = readFileSync(dockerPublishPath, 'utf8');
 const triggerScope = JSON.parse(readFileSync(triggerScopePath, 'utf8'));
 const livePreflightStart = workflow.indexOf('\n  live_preflight:\n');
 const publishStatusStart = workflow.indexOf('\n  publish_status:\n', livePreflightStart);
+const resultGateStart = workflow.indexOf('\n  result_gate:\n', publishStatusStart);
 const livePreflight = livePreflightStart >= 0 && publishStatusStart > livePreflightStart
   ? workflow.slice(livePreflightStart, publishStatusStart)
+  : '';
+const publishStatus = publishStatusStart >= 0 && resultGateStart > publishStatusStart
+  ? workflow.slice(publishStatusStart, resultGateStart)
   : '';
 const criticalChecks = CRITICAL_PASS_CODES.map((code, index) => ({
   name: `critical_${index}`,
@@ -55,6 +59,9 @@ const violations = [];
 const requireWorkflowFragment = (fragment) => {
   if (!workflow.includes(fragment)) violations.push(`${workflowPath}: missing ${JSON.stringify(fragment)}`);
 };
+const requirePublishFragment = (fragment) => {
+  if (!publishStatus.includes(fragment)) violations.push(`${workflowPath}: publish_status missing ${JSON.stringify(fragment)}`);
+};
 const requireDockerPublishFragment = (fragment) => {
   if (!dockerPublish.includes(fragment)) violations.push(`${dockerPublishPath}: missing ${JSON.stringify(fragment)}`);
 };
@@ -78,13 +85,18 @@ const expectBlocked = (label, report, options = { allowBootstrap: true }, sha = 
 };
 
 if (!livePreflight) violations.push(`${workflowPath}: live_preflight job boundary is missing`);
+if (!publishStatus) violations.push(`${workflowPath}: publish_status job boundary is missing`);
 if (/^\s{6}- uses:/mu.test(livePreflight)) {
   violations.push(`${workflowPath}: production self-hosted live_preflight job must be actionless`);
 }
 if (/actions\/(?:upload|download)-artifact@v4/u.test(livePreflight)) {
   violations.push(`${workflowPath}: artifact Actions are forbidden in production self-hosted live_preflight`);
 }
+if (/cancel-in-progress:\s*false/u.test(workflow)) {
+  violations.push(`${workflowPath}: stale owner-preflight commands must be cancelled by the newest exact command`);
+}
 for (const fragment of [
+  'cancel-in-progress: true',
   'outputs:\n      evidence_json: ${{ steps.evidence.outputs.json }}',
   '- name: Export bounded redacted preflight evidence',
   'id: evidence',
@@ -107,6 +119,23 @@ if (/actions\/upload-artifact@v4/u.test(workflow)) {
 if (/actions\/download-artifact@v4/u.test(workflow)) {
   violations.push(`${workflowPath}: owner preflight evidence must be materialized from the bounded job output`);
 }
+
+for (const fragment of [
+  'always() &&',
+  'needs: [upstream_build_gate, contract, image_authority, live_preflight]',
+  'issues: write',
+  '- name: Resolve terminal target and stage',
+  "stage='UPSTREAM_BUILD_GATE_FAILED'",
+  "stage='PREFLIGHT_CONTRACT_FAILED'",
+  "stage='IMAGE_AUTHORITY_FAILED'",
+  "stage='PREFLIGHT_EVIDENCE_READY'",
+  '- name: Classify accepted preflight evidence',
+  '- name: Publish exact-main preflight status and terminal evidence',
+  "context='TAI REG.RU Preflight'",
+  'gh issue comment 3365',
+  '- production mutation: `NONE`',
+  '[[ "$state" == success ]]',
+]) requirePublishFragment(fragment);
 
 for (const fragment of [
   '- ".github/workflows/tai-reg-ru-preflight-owner-command.yml"',
@@ -220,4 +249,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI bootstrap preflight contract PASS: canonical exact-main image publication is bound to every bootstrap-authority change; contradictory API/Web authority, baseline health, rollback, capacity, model connectivity and no-mutation remain fail-closed.');
+console.log('TAI bootstrap preflight contract PASS: newest owner command cancels stale duplicates, every terminal path publishes status and redacted issue evidence, canonical images remain exact-main bound, and all bootstrap safety checks remain fail-closed.');
