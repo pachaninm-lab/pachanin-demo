@@ -5,6 +5,8 @@
 -- The result is deliberately status-only: tenant id, organization id and user id
 -- for one exact requested tuple. No directory, names, contacts or arbitrary rows
 -- are exposed. The active durable staff assignment is part of the database check.
+-- Production execution belongs exclusively to pc_staff_runtime; pc_auth_runtime
+-- and the tenant/deal/storage runtimes are explicitly denied this surface.
 
 GRANT SELECT ON auth.staff_assignments TO pc_identity_bootstrap;
 
@@ -128,7 +130,7 @@ BEGIN
   FOR runtime_role IN
     SELECT rolname
     FROM pg_catalog.pg_roles
-    WHERE rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth', 'app_service')
+    WHERE rolname = 'pc_staff_runtime'
   LOOP
     EXECUTE format(
       'GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) TO %I',
@@ -140,9 +142,9 @@ BEGIN
     SELECT rolname
     FROM pg_catalog.pg_roles
     WHERE rolname IN (
-      'pc_deal_runtime', 'pc_storage_runtime', 'pc_outbox_runtime',
+      'pc_auth_runtime', 'pc_deal_runtime', 'pc_storage_runtime', 'pc_outbox_runtime',
       'one_deal_app', 'one_deal_storage',
-      'app_deal', 'app_storage', 'app_outbox'
+      'app_auth', 'app_service', 'app_deal', 'app_storage', 'app_outbox'
     )
   LOOP
     EXECUTE format(
