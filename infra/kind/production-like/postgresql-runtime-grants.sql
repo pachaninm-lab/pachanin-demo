@@ -26,11 +26,10 @@ REVOKE UPDATE, DELETE ON auth.audit_events, auth.staff_access_events FROM app_au
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA auth, public TO app_auth;
 
 -- Named functions rather than "ALL FUNCTIONS IN SCHEMA auth" (#3670). Staff
--- cross-tenant projections are intentionally absent: their legacy identifier-
--- only signatures were dropped and their capability-bound replacements belong
--- exclusively to the dedicated staff runtime.
+-- cross-tenant projections and Deal target resolution are intentionally absent:
+-- their legacy identifier-only signatures are dropped by the forward-only
+-- chain and their bounded replacements belong exclusively to the staff runtime.
 GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO app_auth;
-GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO app_auth;
 
 -- The complete bounded authentication surface: what app_auth has instead of
 -- BYPASSRLS. These grants are repeated here because the Kubernetes runtime
@@ -49,17 +48,19 @@ REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FRO
 REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
 
 -- Dedicated function-only staff runtime. It receives no table or sequence
--- privilege at all: every cross-tenant identity read is bounded by a fixed
--- SECURITY DEFINER function plus the secret-backed access capability.
+-- privilege at all: every cross-tenant identity/business scope read is bounded
+-- by a fixed SECURITY DEFINER function and server-authenticated staff authority.
 GRANT USAGE ON SCHEMA auth TO app_staff;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM app_staff;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM app_staff;
 GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) TO app_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) TO app_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) TO app_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
@@ -87,6 +88,8 @@ REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_runtim
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT)
   FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER)
   FROM app_runtime, app_storage, app_outbox;
