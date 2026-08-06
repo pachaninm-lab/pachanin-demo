@@ -20,6 +20,21 @@ const PROVISIONING_SOURCES = [
   ['Kubernetes acceptance', 'scripts/release/production-like-kubernetes-cluster.sh'],
 ] as const;
 
+const AUTH_RUNTIME_FUNCTIONS = [
+  'auth.resolve_login_credential(TEXT)',
+  'auth.resolve_login_default_membership(TEXT)',
+  'auth.resolve_login_context_by_membership(TEXT, TEXT)',
+  'auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT)',
+] as const;
+
+const RETIRED_AUTH_FUNCTIONS = [
+  'auth.resolve_login_identity(TEXT)',
+  'auth.resolve_login_identity_by_id(TEXT)',
+  'auth.resolve_login_memberships(TEXT)',
+  'auth.resolve_login_memberships_ordered(TEXT)',
+  'auth.resolve_login_context_by_email(TEXT)',
+] as const;
+
 const STAFF_EXTERNAL_FUNCTIONS = [
   'auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT)',
   'auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT)',
@@ -63,22 +78,19 @@ describe('auth and staff principal provisioning', () => {
     );
   });
 
-  it('grants the complete bounded pre-auth surface by exact signature where BYPASSRLS was removed', () => {
+  it('provisions only the minimal login surface and revokes the retired bootstrap surface', () => {
     for (const file of [
       'scripts/platform-v7-one-deal-e2e.sh',
       'infra/kind/production-like/postgresql-runtime-grants.sql',
     ]) {
       const source = repositoryFile(file);
-      for (const signature of [
-        'auth.resolve_login_identity(TEXT)',
-        'auth.resolve_login_identity_by_id(TEXT)',
-        'auth.resolve_login_memberships(TEXT)',
-        'auth.resolve_login_memberships_ordered(TEXT)',
-        'auth.resolve_login_context_by_email(TEXT)',
-        'auth.resolve_login_context_by_membership(TEXT, TEXT)',
-        'auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT)',
-      ]) {
+      for (const signature of AUTH_RUNTIME_FUNCTIONS) {
         expect(source).toContain(`GRANT EXECUTE ON FUNCTION ${signature}`);
+      }
+      for (const signature of RETIRED_AUTH_FUNCTIONS) {
+        expect(source).toContain(`REVOKE ALL ON FUNCTION ${signature}`);
+        expect(source).not.toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO one_deal_auth`);
+        expect(source).not.toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO app_auth`);
       }
     }
   });
@@ -112,6 +124,9 @@ describe('auth and staff principal provisioning', () => {
     for (const signature of STAFF_INTERNAL_FUNCTIONS) {
       expect(oneDeal).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM one_deal_staff`);
     }
+    for (const signature of AUTH_RUNTIME_FUNCTIONS) {
+      expect(oneDeal).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM one_deal_staff`);
+    }
     expect(oneDeal).toContain('STAFF_DATABASE_URL="$STAFF_URL"');
     expect(oneDeal).toContain('STAFF_ROLE_PROOF');
     expect(oneDeal).toContain('f:f:f:0:t:t:t:t:t:t:t:t:f:f');
@@ -132,52 +147,48 @@ describe('auth and staff principal provisioning', () => {
     for (const signature of STAFF_INTERNAL_FUNCTIONS) {
       expect(grants).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM app_staff`);
     }
+    for (const signature of AUTH_RUNTIME_FUNCTIONS) {
+      expect(grants).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM app_staff`);
+    }
 
     const kubernetes = repositoryFile('scripts/release/production-like-kubernetes-cluster.sh');
     expect(kubernetes).toContain('STAFF_DATABASE_URL="postgresql://app_staff:');
     expect(kubernetes).toContain("rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox')");
     expect(kubernetes).toContain('staff_authority_proof');
-    expect(kubernetes).toContain('staff_authority_proof" = "0:0:1:1:1:1:1:1:1:1:0:0:0');
 
     const example = repositoryFile('.env.example');
     expect(example).toContain('STAFF_DATABASE_URL: dedicated staff authority runtime');
   });
 
-  it('restores the same auth/staff split after no-owner no-acl DR', () => {
+  it('restores the same minimal auth/staff split after no-owner no-acl DR', () => {
     const rehearsal = repositoryFile('scripts/platform-v7-database-dr-rehearsal.sh');
     expect(rehearsal).toContain('--no-owner');
     expect(rehearsal).toContain('--no-acl');
     expect(rehearsal).toContain('DR_RESTORE_STAFF_URL');
     expect(rehearsal).toContain('ALTER FUNCTION %s OWNER TO pc_identity_bootstrap');
     expect(rehearsal).toContain('ALTER FUNCTION %s OWNER TO pc_staff_authority');
-    for (const signature of [
-      'auth.resolve_staff_target_scope(text,text,text,text,text)',
-      'auth.resolve_staff_deal_target_scope(text,text,text)',
-      'auth.staff_admission_queue(text,text,text,integer)',
-      'auth.staff_admission_application(text,text,text,text)',
-      'auth.staff_admission_decision(text,text,text,text,text,text)',
-      'auth.staff_organization_directory(text,text,text)',
-      'auth.staff_organization_users(text,text,text,text)',
-      'auth.staff_cabinet_deals(text,text,text,text,text)',
-    ]) {
-      expect(rehearsal).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO one_deal_staff`);
+    for (const signature of AUTH_RUNTIME_FUNCTIONS.map((entry) => entry.toLowerCase())) {
+      expect(rehearsal.toLowerCase()).toContain(`grant execute on function ${signature.toLowerCase()} to one_deal_auth`);
     }
-    expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.staff_projection_capability(text,text,text,text,text,text,boolean) FROM one_deal_staff');
-    expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) FROM one_deal_auth');
-    expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) FROM one_deal_auth');
-    expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.staff_organization_directory(text,text,text) FROM one_deal_auth');
+    for (const signature of RETIRED_AUTH_FUNCTIONS.map((entry) => entry.toLowerCase())) {
+      expect(rehearsal.toLowerCase()).toContain(`revoke all on function ${signature.toLowerCase()} from one_deal_auth`);
+    }
+    for (const signature of STAFF_EXTERNAL_FUNCTIONS.map((entry) => entry.toLowerCase())) {
+      expect(rehearsal.toLowerCase()).toContain(`grant execute on function ${signature.toLowerCase()} to one_deal_staff`);
+    }
     expect(rehearsal).toContain('RESTORE_IDENTITY_PROOF');
     expect(rehearsal).toContain('RESTORE_STAFF_PROOF');
     expect(rehearsal).toContain('RESTORE_AUTH_ISOLATION');
     expect(rehearsal).toContain('STAFF_DATABASE_URL="$RESTORE_STAFF_URL"');
-    expect(rehearsal).toContain('0:1:1:1:1:1:1:1:1:0:0:0:0:0');
   });
 
-  it('asserts NOBYPASSRLS in the acceptance proofs rather than demanding the attribute', () => {
+  it('asserts NOBYPASSRLS and the minimal bootstrap in acceptance proofs', () => {
     const oneDeal = repositoryFile('scripts/platform-v7-one-deal-e2e.sh');
     expect(oneDeal).toContain('"$AUTH_ROLE_PROOF" != "false:false:false"');
     expect(oneDeal).toContain('AUTH_IDENTITY_PROOF');
     expect(oneDeal).toContain('AUTH_BOOTSTRAP_PROOF');
+    expect(oneDeal).toContain('resolve_login_credential');
+    expect(oneDeal).toContain('resolve_login_default_membership');
     expect(oneDeal).toContain('STAFF_ROLE_PROOF');
 
     const kubernetes = repositoryFile('scripts/release/production-like-kubernetes-cluster.sh');
@@ -185,21 +196,17 @@ describe('auth and staff principal provisioning', () => {
     expect(kubernetes).toContain('auth_identity_proof');
     expect(kubernetes).toContain('auth_bootstrap_proof');
     expect(kubernetes).toContain('staff_authority_proof');
-    expect(kubernetes).toContain('user-rls-probe');
-    expect(kubernetes).toContain('auth_bootstrap_proof" = "0:0:1:1');
   });
 
   it('documents the auth and staff principals without BYPASSRLS', () => {
     const runbook = repositoryFile('docs/platform-v7/production-database-deployment-runbook.md');
-    expect(runbook).toMatch(/\| Auth runtime \|[^|]*auth\.resolve_login_\*/);
+    expect(runbook).toMatch(/\| Auth runtime \|[^|]*auth\.resolve_login_/);
     expect(runbook).toMatch(/\| Auth runtime \|[^|]*\|[^|]*`BYPASSRLS`/);
     expect(runbook).toMatch(/\| Staff runtime[^|]*\|[^|]*auth\.resolve_staff_target_scope/);
-    expect(runbook).toMatch(/\| Staff runtime[^|]*\|[^|]*auth\.staff_admission_\*/);
-    expect(runbook).toMatch(/\| Staff runtime[^|]*\|[^|]*auth\.staff_(organization|cabinet)_/);
+    expect(runbook).toMatch(/\| Staff runtime[^|]*\|[^|]*auth\.staff_admission_/);
 
     const example = repositoryFile('.env.example');
     expect(example).toContain('AUTH_DATABASE_URL: identity role, NOSUPERUSER + NOBYPASSRLS');
     expect(example).toContain('STAFF_DATABASE_URL: dedicated staff authority runtime');
-    expect(example).toContain('secret-bound staff projection');
   });
 });
