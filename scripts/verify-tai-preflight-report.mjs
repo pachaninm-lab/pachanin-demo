@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const BOOTSTRAP_BLOCKERS = Object.freeze([
+  'API_WEB_NOT_EXACT_MAIN',
   'TAI_SERVICE_NOT_MATERIALIZED',
   'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
   'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
@@ -15,7 +16,6 @@ export const CRITICAL_PASS_CODES = Object.freeze([
   'API_WEB_RUNTIME_PRESENT',
   'API_WEB_BASELINE_HEALTHY',
   'ROLLBACK_BASELINE_IDENTIFIED',
-  'API_WEB_EXACT_MAIN',
   'DOCKER_DISK_CAPACITY_READY',
   'HOST_MEMORY_CAPACITY_READY',
   'EXISTING_LOCAL_MODEL_ENV_READY',
@@ -25,6 +25,10 @@ export const CRITICAL_PASS_CODES = Object.freeze([
   'ACTIVE_MODEL_PROFILE_READY',
   'ACTIVE_MODEL_IDENTITY_MATCHED',
   'NO_PRODUCTION_MUTATION_DETECTED',
+]);
+
+export const STRICT_ONLY_PASS_CODES = Object.freeze([
+  'API_WEB_EXACT_MAIN',
 ]);
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/u;
@@ -50,6 +54,11 @@ function stringArray(value, label) {
 
 function sameSet(left, right) {
   return left.length === right.length && left.every((value) => right.includes(value));
+}
+
+function requirePass(checks, code) {
+  const check = checks.find((candidate) => candidate.code === code);
+  if (!check || check.status !== 'PASS') throw new Error(`critical preflight authority ${code} did not pass`);
 }
 
 export function classifyTaiPreflightReport(raw, expectedSha, { allowBootstrap = false } = {}) {
@@ -87,10 +96,7 @@ export function classifyTaiPreflightReport(raw, expectedSha, { allowBootstrap = 
     throw new Error('preflight blocked checks and blocker authority differ');
   }
 
-  for (const code of CRITICAL_PASS_CODES) {
-    const check = checks.find((candidate) => candidate.code === code);
-    if (!check || check.status !== 'PASS') throw new Error(`critical preflight authority ${code} did not pass`);
-  }
+  for (const code of CRITICAL_PASS_CODES) requirePass(checks, code);
 
   const mutationChecks = checks.filter(({ name, code }) => /mutation/iu.test(name) || /MUTATION/u.test(code));
   if (!mutationChecks.some(({ code, status }) => code === 'NO_PRODUCTION_MUTATION_DETECTED' && status === 'PASS')) {
@@ -99,6 +105,7 @@ export function classifyTaiPreflightReport(raw, expectedSha, { allowBootstrap = 
   if (mutationChecks.some(({ status }) => status === 'BLOCKED')) throw new Error('mutation guard is blocked');
 
   if (blockers.length === 0) {
+    for (const code of STRICT_ONLY_PASS_CODES) requirePass(checks, code);
     if (report.passed !== true) throw new Error('zero-blocker preflight did not declare PASS');
     return Object.freeze({
       classification: 'STRICT_PASS',
@@ -112,11 +119,18 @@ export function classifyTaiPreflightReport(raw, expectedSha, { allowBootstrap = 
   if (!sameSet(sortedBlockers, expectedBootstrap)) {
     throw new Error(`unexpected bootstrap blockers: ${sortedBlockers.join(',')}`);
   }
+  if (checks.some(({ code }) => code === 'API_WEB_EXACT_MAIN')) {
+    throw new Error('bootstrap evidence may not simultaneously assert API_WEB_EXACT_MAIN');
+  }
+  const apiMismatch = checks.find(({ code }) => code === 'API_WEB_NOT_EXACT_MAIN');
+  if (!apiMismatch || apiMismatch.status !== 'BLOCKED') {
+    throw new Error('bootstrap API/web exact-main mismatch authority is missing');
+  }
   if (report.passed !== false) throw new Error('bootstrap-eligible preflight must retain raw passed=false evidence');
 
   return Object.freeze({
     classification: 'BOOTSTRAP_ELIGIBLE',
-    description: 'TAI REG.RU bootstrap preflight PASS',
+    description: 'TAI REG.RU full-stack bootstrap preflight PASS',
     blockers: Object.freeze([...sortedBlockers]),
   });
 }
