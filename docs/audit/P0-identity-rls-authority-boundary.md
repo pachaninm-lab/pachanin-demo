@@ -10,6 +10,15 @@ This document records the runtime contract enforced by PR #3684.
 - DR restore must re-establish function ownership, exact grants, `PUBLIC` revocations and the same `NOBYPASSRLS` boundary before acceptance.
 - No custom GUC, role label, user id, session id or tenant id is sufficient proof of staff or tenant authority.
 
-The branch was synchronized with current `main` through a clean two-parent merge after verifying that the 33 incoming commits changed no PR-owned file. This synchronization is not acceptance: only the new exact-head matrix can attest the merged tree.
+## Main synchronization boundary
+
+The branch was synchronized with current `main` through a clean two-parent merge after verifying that the 33 incoming commits changed no PR-owned file.
+
+- synchronized `main`: `bc9bbc79c1bda6aeaeb6464d3f055f6f5fb54529`;
+- branch synchronization merge: `0bffbc1a11f54e44ff947aef927526a34b2dcdcb`;
+- first post-synchronization evidence commit: `6f69bc37d8e5a613c3c5fe68af605759e38a7aae`;
+- generated PR merge-ref at that boundary: `bf05480f4c2bde66e8f819fe064a4fdfe8af6af3`.
+
+These identifiers prove only which trees were combined. They are not acceptance evidence: only the exact-head CI matrix can attest the resulting tree.
 
 The pull request remains draft until exact-head CI, one-deal, staff-access, persistent-auth, recovery, Kubernetes and DR gates all pass.
