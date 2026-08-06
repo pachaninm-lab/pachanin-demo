@@ -58,6 +58,9 @@ for (const fragment of [
   '[[ "$CONFIRMATION" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]',
   "[[ \"$ACTOR\" == 'github-actions[bot]' ]]",
   "[[ \"$TRIGGERING_ACTOR\" == 'github-actions[bot]' ]]",
+  'for attempt in $(seq 1 60)',
+  "if [[ \"$status\" == completed ]]",
+  'Automatic preflight did not reach a terminal state.',
   "'TAI Automatic REG.RU Preflight'",
   "run.event !== 'workflow_run'",
   "run.head_branch !== 'main'",
@@ -84,4 +87,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner activation dispatch contract PASS: manual owner fallback remains exact, automatic preflight workflow_run is re-fetched and verified, and protected activation retains all live acceptance and rollback gates.');
+console.log('TAI owner activation dispatch contract PASS: manual owner fallback remains exact, automatic preflight reaches terminal success before proof verification, and protected activation retains all live acceptance and rollback gates.');
