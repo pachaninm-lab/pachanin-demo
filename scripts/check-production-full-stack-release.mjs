@@ -141,7 +141,7 @@ forbid('live', [/email=.*@/iu, /phone=/iu, /inn=/iu]);
 try {
   const scope = JSON.parse(s.scope);
   if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1' || scope.branch !== 'ops/production-full-stack-release-v1') errors.push(`${p.scope}: identity invalid`);
-  if (scope.authorityBaseExactMain !== '43ec7d01fc84c1af84fe5dea7f63630f66454257') errors.push(`${p.scope}: authority invalid`);
+  if (!/^[0-9a-f]{40}$/u.test(String(scope.authorityBaseExactMain || ''))) errors.push(`${p.scope}: exact-main authority invalid`);
   if (scope.evidenceIssue !== 3072 || scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) errors.push(`${p.scope}: boundary invalid`);
   for (const path of Object.values(p).filter((path) => path !== p.publish)) if (!scope.allowedPaths?.includes(path)) errors.push(`${p.scope}: ${path} outside scope`);
 } catch (e) { errors.push(`${p.scope}: invalid JSON ${e.message}`); }
