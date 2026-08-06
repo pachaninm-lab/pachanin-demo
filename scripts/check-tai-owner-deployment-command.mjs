@@ -69,6 +69,22 @@ if (dispatchGuardCount < 4) {
   violations.push('workflow_dispatch must be governed at authority, image, publish and terminal result boundaries');
 }
 
+const targetBlock = workflow.match(
+  /workflow_dispatch:\s*\n\s+inputs:\s*\n\s+target:\s*\n[\s\S]*?\n\s+options:\s*\n((?:\s+-\s+[^\n]+\n?)+)/u,
+);
+if (!targetBlock) {
+  violations.push('workflow_dispatch target choice block is missing');
+} else {
+  const targetOptions = targetBlock[1]
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^-\s+/u, ''));
+  if (targetOptions.length !== 1 || targetOptions[0] !== 'current-main') {
+    violations.push('workflow_dispatch target choices must remain current-main only');
+  }
+}
+
 if (!dockerPublish.includes('- ".github/workflows/tai-owner-reg-ru-deployment-command.yml"')) {
   violations.push(`${dockerPublishPath}: owner deployment authority changes must publish exact canonical images`);
 }
@@ -78,7 +94,6 @@ forbid(/continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(/\/tai\s+deploy\s+(?!current-main)/u, 'alternate deployment command is forbidden');
 forbid(/github\.event\.comment\.body\s*!=/u, 'command matching must use exact positive equality');
 forbid(/docker\s+(run|compose|exec)/u, 'workflow must not gain direct Docker mutation authority');
-forbid(/options:\s*\n(?:\s*-\s*(?!current-main\s*$).+\n?)+/mu, 'workflow_dispatch target choices must remain current-main only');
 
 for (const [index, line] of workflow.split('\n').entries()) {
   const trimmed = line.trim();
