@@ -8,6 +8,13 @@
 -- vehicle/route tuple must have a currently ACTIVE logistics admission. Only
 -- the four fields needed to denormalize the shipment are returned.
 
+-- pc_identity_bootstrap is a NOLOGIN/NOBYPASSRLS authority role. It receives
+-- only the two additional reads required by this function; runtime principals
+-- receive no direct identity-table access from this migration.
+GRANT USAGE ON SCHEMA logistics TO pc_identity_bootstrap;
+GRANT SELECT ON public."deal_participants" TO pc_identity_bootstrap;
+GRANT SELECT ON logistics.deal_admissions TO pc_identity_bootstrap;
+
 CREATE OR REPLACE FUNCTION public.app_logistics_assignment_projection(
   p_deal_id text,
   p_tenant_id text,
