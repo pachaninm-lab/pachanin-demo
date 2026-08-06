@@ -14,6 +14,7 @@ import {
   StaffAccessService,
 } from './staff-access.service';
 import { StaffAccessContext, StaffPermission } from './staff-access.types';
+import { StaffAuthorityPrismaService } from './staff-authority-prisma.service';
 
 export type StaffDealScopeRow = {
   tenant_id: string | null;
@@ -32,6 +33,7 @@ export class StaffAccessRequestService {
   constructor(
     private readonly repository: StaffAccessRepository,
     private readonly access: StaffAccessService,
+    private readonly staffAuthorityPrisma: StaffAuthorityPrismaService,
   ) {}
 
   async listRequests(user: RequestUser, access?: StaffAccessContext) {
@@ -80,9 +82,17 @@ export class StaffAccessRequestService {
       return this.access.requestAccess(user, input, correlationId);
     }
 
-    const rows = await this.repository.prisma.$queryRaw<StaffDealScopeRow[]>(Prisma.sql`
+    // A target-deal lookup is cross-tenant by definition and happens before a
+    // staff access session exists. It therefore runs through the dedicated
+    // function-only staff principal, not through app_auth. The database binds
+    // the lookup to this authenticated actor's exact active assignment.
+    const rows = await this.staffAuthorityPrisma.$queryRaw<StaffDealScopeRow[]>(Prisma.sql`
       SELECT *
-      FROM auth.staff_resolve_deal_scope(${user.id}, ${input.targetDealId})
+      FROM auth.resolve_staff_deal_target_scope(
+        ${user.id},
+        ${input.assignmentId},
+        ${input.targetDealId}
+      )
     `);
     const scope = rows[0];
     if (!scope) throw new NotFoundException('Target deal not found');
