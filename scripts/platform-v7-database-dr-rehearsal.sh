@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_ADMIN_URL="${DR_SOURCE_ADMIN_URL:?DR_SOURCE_ADMIN_URL is required}"
 RESTORE_ADMIN_URL="${DR_RESTORE_ADMIN_URL:?DR_RESTORE_ADMIN_URL is required}"
 RESTORE_AUTH_URL="${DR_RESTORE_AUTH_URL:?DR_RESTORE_AUTH_URL is required}"
+RESTORE_STAFF_URL="${DR_RESTORE_STAFF_URL:?DR_RESTORE_STAFF_URL is required}"
 RESTORE_APP_URL="${DR_RESTORE_APP_URL:?DR_RESTORE_APP_URL is required}"
 RESTORE_STORAGE_URL="${DR_RESTORE_STORAGE_URL:?DR_RESTORE_STORAGE_URL is required}"
 BACKUP_PATH="${DR_BACKUP_PATH:-/tmp/platform-v7-predeploy.backup}"
@@ -15,7 +16,7 @@ if [[ "${NODE_ENV:-}" == "production" ]]; then
   echo "Refusing DR rehearsal with NODE_ENV=production" >&2
   exit 2
 fi
-for candidate in "$SOURCE_ADMIN_URL" "$RESTORE_ADMIN_URL" "$RESTORE_AUTH_URL" "$RESTORE_APP_URL" "$RESTORE_STORAGE_URL"; do
+for candidate in "$SOURCE_ADMIN_URL" "$RESTORE_ADMIN_URL" "$RESTORE_AUTH_URL" "$RESTORE_STAFF_URL" "$RESTORE_APP_URL" "$RESTORE_STORAGE_URL"; do
   if [[ "$candidate" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
     echo "Refusing DR rehearsal: datasource appears production-like" >&2
     exit 2
@@ -25,9 +26,10 @@ if [[ "$SOURCE_ADMIN_URL" == "$RESTORE_ADMIN_URL" ]]; then
   echo "Refusing DR rehearsal: source and restore admin URLs are identical" >&2
   exit 2
 fi
-if [[ "$RESTORE_AUTH_URL" == "$RESTORE_APP_URL" || "$RESTORE_AUTH_URL" == "$RESTORE_STORAGE_URL" \
+if [[ "$RESTORE_AUTH_URL" == "$RESTORE_STAFF_URL" || "$RESTORE_AUTH_URL" == "$RESTORE_APP_URL" || "$RESTORE_AUTH_URL" == "$RESTORE_STORAGE_URL" \
+  || "$RESTORE_STAFF_URL" == "$RESTORE_APP_URL" || "$RESTORE_STAFF_URL" == "$RESTORE_STORAGE_URL" \
   || "$RESTORE_APP_URL" == "$RESTORE_STORAGE_URL" ]]; then
-  echo "Refusing DR rehearsal: restore auth, app and storage URLs must use different principals" >&2
+  echo "Refusing DR rehearsal: restore auth, staff, app and storage URLs must use different principals" >&2
   exit 2
 fi
 
@@ -143,7 +145,7 @@ RESTORE_SECONDS="$(( $(date +%s) - RESTORE_STARTED_EPOCH ))"
 
 echo "[dr] restoring least-privilege runtime grants"
 psql "$RESTORE_ADMIN_URL" -X --set ON_ERROR_STOP=1 <<SQL
-GRANT CONNECT ON DATABASE "$RESTORE_DATABASE" TO one_deal_app, one_deal_auth, one_deal_storage;
+GRANT CONNECT ON DATABASE "$RESTORE_DATABASE" TO one_deal_app, one_deal_auth, one_deal_staff, one_deal_storage;
 
 GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement, auth TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
@@ -192,18 +194,16 @@ GRANT SELECT, INSERT, UPDATE ON
   auth.mfa_challenges
 TO one_deal_auth;
 GRANT SELECT, INSERT ON auth.audit_events TO one_deal_auth;
+
+GRANT USAGE ON SCHEMA auth TO one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM one_deal_staff;
 SQL
 
-# pg_restore ran with --no-owner --no-acl, which is what makes the restored
-# database independent of the source cluster's roles — and what silently
-# dismantles the identity boundary. Every SECURITY DEFINER function comes back
-# owned by the restoring principal, so a definer function meant to run as the
-# confined pc_identity_bootstrap runs as the restore admin instead: FORCE RLS
-# stops applying to it and the pre-auth surface becomes an unrestricted read.
-# The ACLs are gone too, so the REVOKE ... FROM PUBLIC no longer holds.
-#
-# Re-establishing that is part of the recovery, not an optimisation. This is
-# the same statement set the migration issues, replayed after the restore.
+# pg_restore ran with --no-owner --no-acl. Recovery therefore must restore not
+# only definer ownership but also the separation between auth and staff runtime
+# principals. Otherwise a DR event could silently reintroduce the authority that
+# #3670 removed from normal deployment.
 echo "[dr] re-establishing identity definer ownership and execution privileges"
 psql "$RESTORE_ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
 DO $identity_recovery$
@@ -242,11 +242,9 @@ BEGIN
     GRANT SELECT ON public.users, public.user_orgs, public.organizations, public.deal_participants
       TO pc_identity_bootstrap;
     GRANT SELECT ON logistics.deal_admissions TO pc_identity_bootstrap;
-    -- The two authority predicates are consulted by policies on behalf of
-    -- whichever principal runs the statement, so they go back to PUBLIC.
     GRANT EXECUTE ON FUNCTION public.app_identity_is_org_admin() TO PUBLIC;
     GRANT EXECUTE ON FUNCTION public.app_identity_is_reviewer() TO PUBLIC;
-    -- The pre-auth surface goes to the authentication principal alone.
+
     GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(text) TO one_deal_auth;
@@ -254,17 +252,17 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(text,text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
-    GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) TO one_deal_auth;
-    -- Deal actor validation and logistics identity projection are separate
-    -- from pre-authentication and belong to the deal runtime only.
+    REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) FROM one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) TO one_deal_staff;
+
     GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
       TO one_deal_app;
     GRANT EXECUTE ON FUNCTION public.app_logistics_assignment_projection(text,text,text,text,text,text,text)
       TO one_deal_app;
     REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
-      FROM one_deal_auth, one_deal_storage;
+      FROM one_deal_auth, one_deal_staff, one_deal_storage;
     REVOKE ALL ON FUNCTION public.app_logistics_assignment_projection(text,text,text,text,text,text,text)
-      FROM one_deal_auth, one_deal_storage;
+      FROM one_deal_auth, one_deal_staff, one_deal_storage;
   END IF;
 
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_staff_authority') THEN
@@ -285,6 +283,17 @@ BEGIN
       ON public.kyc_tasks TO pc_staff_authority;
     GRANT EXECUTE ON FUNCTION auth.staff_admission_capability(text,text,text,text,text)
       TO pc_staff_authority;
+
+    GRANT USAGE ON SCHEMA auth TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(text,text,text,integer) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_admission_application(text,text,text,text) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text)
+      TO one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.staff_admission_capability(text,text,text,text,text) FROM one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.staff_admission_queue(text,text,text,integer) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_admission_application(text,text,text,text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text) FROM one_deal_auth;
+
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_staff_runtime') THEN
       GRANT USAGE ON SCHEMA auth TO pc_staff_runtime;
       GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(text,text,text,integer) TO pc_staff_runtime;
@@ -294,8 +303,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- The privileged columns of public.users are withheld at the grant level,
-  -- which --no-acl also discarded.
   REVOKE UPDATE ON public.users FROM PUBLIC;
   FOREACH target IN ARRAY ARRAY['one_deal_auth', 'one_deal_app'] LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = target) THEN
@@ -349,6 +356,13 @@ if [[ "$RESTORE_IDENTITY_PROOF" != "3:10:0:1:1:0:1:0" ]]; then
   exit 1
 fi
 
+RESTORE_STAFF_PROOF="$(psql "$RESTORE_ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text")"
+echo "[dr] restored staff proof table-grants:target:queue:application:decision:capability:auth-target = $RESTORE_STAFF_PROOF"
+if [[ "$RESTORE_STAFF_PROOF" != "0:1:1:1:1:0:0" ]]; then
+  echo "Restored staff authority boundary is invalid: $RESTORE_STAFF_PROOF" >&2
+  exit 1
+fi
+
 RESTORE_AUTH_ISOLATION="$(psql "$RESTORE_AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM public.organizations)::text")"
 echo "[dr] restored auth principal without context users:orgs = $RESTORE_AUTH_ISOLATION"
 if [[ "$RESTORE_AUTH_ISOLATION" != "0:0" ]]; then
@@ -396,6 +410,7 @@ fi
 NODE_ENV=test \
 DATABASE_URL="$RESTORE_APP_URL" \
 AUTH_DATABASE_URL="$RESTORE_AUTH_URL" \
+STAFF_DATABASE_URL="$RESTORE_STAFF_URL" \
 STORAGE_DATABASE_URL="$RESTORE_STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="${JWT_SECRET:?JWT_SECRET is required}" \
@@ -406,7 +421,7 @@ pnpm --filter @pc/api exec ts-node test/one-deal/restored-database-acceptance.ts
 export SOURCE_FINGERPRINT RESTORE_FINGERPRINT BACKUP_SHA256 BACKUP_BYTES
 export BACKUP_STARTED_AT BACKUP_COMPLETED_AT BACKUP_SECONDS
 export RESTORE_STARTED_AT RESTORE_COMPLETED_AT RESTORE_SECONDS
-export PUBLIC_RLS_PROOF SETTLEMENT_RLS_PROOF RESTORE_APP_ROLE_PROOF SETTLEMENT_OUTBOX_PROOF
+export PUBLIC_RLS_PROOF SETTLEMENT_RLS_PROOF RESTORE_APP_ROLE_PROOF RESTORE_STAFF_PROOF SETTLEMENT_OUTBOX_PROOF
 
 node - "$MANIFEST_PATH" <<'NODE'
 const fs = require('node:fs');
@@ -430,6 +445,7 @@ const manifest = {
   publicRlsProof: process.env.PUBLIC_RLS_PROOF,
   settlementRlsProof: process.env.SETTLEMENT_RLS_PROOF,
   settlementPrincipalProof: process.env.RESTORE_APP_ROLE_PROOF,
+  staffPrincipalProof: process.env.RESTORE_STAFF_PROOF,
   settlementOutboxProof: process.env.SETTLEMENT_OUTBOX_PROOF,
   failedMigrations: 0,
 };
