@@ -110,7 +110,7 @@ BEGIN
 END
 $one_deal_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_app;
-GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement TO one_deal_app;
+GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement, auth TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
@@ -150,6 +150,7 @@ REVOKE DELETE ON ALL TABLES IN SCHEMA settlement FROM one_deal_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO one_deal_app;
+GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA security GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA logistics GRANT SELECT ON TABLES TO one_deal_app;
@@ -237,11 +238,18 @@ REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, T
 REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 SQL
 
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
 if [[ "$ROLE_PROOF" != "false:false" && "$ROLE_PROOF" != "f:f" ]]; then
   echo "Deal application principal is not NOSUPERUSER NOBYPASSRLS: $ROLE_PROOF" >&2
+  exit 1
+fi
+DEAL_ACTOR_AUTHORITY_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('one_deal_app','auth','USAGE')::text || ':' || has_function_privilege('one_deal_app','auth.validate_deal_creation_actors(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_auth','auth.validate_deal_creation_actors(text,text,text,text,text)','EXECUTE')::text")"
+echo "[one-deal] deal actor authority proof app-usage:app-execute:auth-execute = $DEAL_ACTOR_AUTHORITY_PROOF"
+if [[ "$DEAL_ACTOR_AUTHORITY_PROOF" != "true:true:false" && "$DEAL_ACTOR_AUTHORITY_PROOF" != "t:t:f" ]]; then
+  echo "Deal actor authority boundary is invalid: $DEAL_ACTOR_AUTHORITY_PROOF" >&2
   exit 1
 fi
 LOGISTICS_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'logistics','USAGE')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','SELECT')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','UPDATE')::text")"
