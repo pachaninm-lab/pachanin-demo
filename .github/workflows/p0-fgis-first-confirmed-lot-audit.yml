@@ -25,11 +25,10 @@ concurrency:
   group: p0-fgis-first-confirmed-lot-audit-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# `runner` is a job-scoped context and is not available in a workflow-level
-# `env:` block. Referencing it here made GitHub reject the whole workflow at
-# parse time, so every run since it was introduced ended as a startup failure
-# with zero jobs — the gate looked red but had never actually executed.
-# EVIDENCE_DIR therefore lives on the job, where `runner.temp` resolves.
+# `runner` is unavailable in both workflow-level `env` and `jobs.<job_id>.env`.
+# Referencing `runner.temp` in either location makes GitHub reject the workflow
+# before any job is created. Runtime shell steps use the default RUNNER_TEMP
+# variable, while the artifact step uses runner.temp in its supported step scope.
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   EXPECTED_MAIN: aad390e160a5ed5335d2a99d16519ca0e025279c
@@ -39,8 +38,6 @@ jobs:
     name: Exact main · 17 areas · official SOAP · unsafe quarantine boundary
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-first-confirmed-lot-audit
 
     steps:
       - name: Checkout exact revision and full ancestry
@@ -64,6 +61,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          EVIDENCE_DIR="${RUNNER_TEMP}/p0-fgis-first-confirmed-lot-audit"
+          export EVIDENCE_DIR
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
           printf '%s\n' "$EXPECTED_MAIN" > "$EVIDENCE_DIR/expected-main.txt"
@@ -97,6 +96,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          EVIDENCE_DIR="${RUNNER_TEMP}/p0-fgis-first-confirmed-lot-audit"
+          export EVIDENCE_DIR
           pnpm --filter @pc/api exec prisma generate \
             2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
           pnpm --filter @pc/api exec jest --runInBand \
@@ -113,6 +114,9 @@ jobs:
         if: always()
         shell: bash
         run: |
+          EVIDENCE_DIR="${RUNNER_TEMP}/p0-fgis-first-confirmed-lot-audit"
+          export EVIDENCE_DIR
+          mkdir -p "$EVIDENCE_DIR"
           {
             echo '## P0.2 FGIS first confirmed lot · Stage 1 audit'
             echo "- Exact audited main: \`$EXPECTED_MAIN\`"
@@ -133,6 +137,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: p0-fgis-first-confirmed-lot-audit-${{ env.EXACT_HEAD }}
-          path: ${{ env.EVIDENCE_DIR }}
+          path: ${{ runner.temp }}/p0-fgis-first-confirmed-lot-audit
           if-no-files-found: error
           retention-days: 90
