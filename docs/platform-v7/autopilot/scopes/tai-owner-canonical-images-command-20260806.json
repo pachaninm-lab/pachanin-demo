@@ -4,22 +4,25 @@
   "status": "active",
   "title": "TAI owner canonical images command",
   "priority": "P0",
-  "baselineExactMain": "57c543b80f476d888b161056fbc7058ff9d4e356",
-  "objective": "Provide an owner-only issue command that dispatches the existing canonical Docker image workflow for unchanged current main when an app-authored merge does not emit a usable push workflow, allowing the already-merged automatic REG.RU preflight, activation, acceptance, deployment and strict postflight chain to proceed without creating another source commit.",
+  "baselineExactMain": "cb4f43f602c4c2f03ba8306087df02f790666e35",
+  "objective": "Dispatch the existing canonical Docker image workflow for unchanged current main when app-authored merge and issue-comment events do not emit a usable Actions run. The owner command remains available, while a temporary idempotent scheduled fallback dispatches at most one recent build and lets the already-merged automatic REG.RU preflight, activation, acceptance, deployment and strict postflight chain proceed without adding production authority.",
   "allowedPaths": [
     ".github/workflows/tai-owner-canonical-images-command.yml",
     "scripts/check-tai-owner-canonical-images-command.mjs",
     "docs/platform-v7/autopilot/scopes/tai-owner-canonical-images-command-20260806.json"
   ],
   "boundaries": [
-    "The only command is /tai images current-main on issue 3365",
-    "Commenter, actor and triggering actor must all equal the repository owner",
-    "The command resolves and revalidates unchanged origin/main before dispatch",
+    "The only interactive command is /tai images current-main on issue 3365",
+    "Commenter, actor and triggering actor must all equal the repository owner for interactive dispatch",
+    "The temporary scheduled fallback runs only from the protected default-branch workflow and must be removed after terminal production PASS",
+    "Every path resolves and revalidates unchanged origin/main before dispatch",
     "Only the existing Build & Publish Canonical Docker Images workflow is dispatched with ref main and services all",
-    "The command has no Docker, SSH, sudo, production filesystem, database or application mutation authority",
+    "A successful TAI REG.RU Deployment status prevents further scheduled dispatches",
+    "A canonical-image pending status younger than 5400 seconds prevents duplicate dispatch",
+    "The bridge has no Docker, SSH, sudo, production filesystem, database or application mutation authority",
     "Production mutation remains NONE until the downstream protected REG.RU controller accepts preflight evidence",
     "The existing automatic preflight, activation, live acceptance, rollback, deployment and strict postflight workflows remain the sole release authority",
-    "Every accepted command publishes the exact target SHA and a pending canonical-image status",
-    "Zero new recurring cost"
+    "Every accepted dispatch publishes the exact target SHA and a pending canonical-image status",
+    "Zero new recurring external cost"
   ]
 }

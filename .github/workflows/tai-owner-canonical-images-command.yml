@@ -8,12 +8,14 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-owner-canonical-images-command-20260806.json"
   issue_comment:
     types: [created]
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
 
 permissions:
   contents: read
 
 concurrency:
-  group: tai-owner-canonical-images-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  group: tai-owner-canonical-images-${{ github.event.issue.number || github.event.pull_request.number || 'scheduled-current-main' }}
   cancel-in-progress: true
 
 jobs:
@@ -21,6 +23,7 @@ jobs:
     name: Dispatch exact-main canonical images
     if: >-
       github.event_name == 'pull_request' ||
+      github.event_name == 'schedule' ||
       (
         github.event_name == 'issue_comment' &&
         github.event.issue.number == 3365 &&
@@ -47,25 +50,49 @@ jobs:
         run: |
           set -Eeuo pipefail
           node scripts/check-tai-owner-canonical-images-command.mjs
-      - name: Enforce owner authority and dispatch exact current main
-        if: github.event_name == 'issue_comment'
+      - name: Dispatch exact current-main canonical build
+        if: github.event_name == 'issue_comment' || github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           COMMENTER: ${{ github.event.comment.user.login }}
           ACTOR: ${{ github.actor }}
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -Eeuo pipefail
-          [[ "$COMMENTER" == "$OWNER" ]]
-          [[ "$ACTOR" == "$OWNER" ]]
-          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          if [[ "$EVENT_NAME" == issue_comment ]]; then
+            [[ "$COMMENTER" == "$OWNER" ]]
+            [[ "$ACTOR" == "$OWNER" ]]
+            [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          else
+            [[ "$EVENT_NAME" == schedule ]]
+          fi
 
           target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
           git fetch --no-tags origin main
           [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+
+          status_json="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status")"
+          deployment_state="$(jq -r '[.statuses[] | select(.context == "TAI REG.RU Deployment")][0].state // ""' <<<"$status_json")"
+          canonical_state="$(jq -r '[.statuses[] | select(.context == "TAI Canonical Images")][0].state // ""' <<<"$status_json")"
+          canonical_created="$(jq -r '[.statuses[] | select(.context == "TAI Canonical Images")][0].created_at // ""' <<<"$status_json")"
+
+          if [[ "$deployment_state" == success || "$canonical_state" == success ]]; then
+            echo 'Exact-main release already has terminal successful authority; scheduled dispatch skipped.'
+            exit 0
+          fi
+          if [[ "$canonical_state" == pending && -n "$canonical_created" ]]; then
+            created_epoch="$(date -u -d "$canonical_created" +%s)"
+            now_epoch="$(date -u +%s)"
+            if (( now_epoch - created_epoch < 5400 )); then
+              echo 'A recent exact-main canonical build is already pending; duplicate dispatch skipped.'
+              exit 0
+            fi
+          fi
 
           gh api --method POST -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/workflows/docker-publish.yml/dispatches" \
@@ -83,6 +110,7 @@ jobs:
           ## TAI canonical image authority
 
           - exact main: \`$target_sha\`
+          - trigger: \`$EVENT_NAME\`
           - canonical services: \`api, web, migration, tai\`
           - build workflow: \`Build & Publish Canonical Docker Images\`
           - dispatch: \`ACCEPTED\`
