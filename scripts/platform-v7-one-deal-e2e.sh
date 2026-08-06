@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ADMIN_URL="${ONE_DEAL_ADMIN_URL:?ONE_DEAL_ADMIN_URL is required}"
 AUTH_URL="${ONE_DEAL_AUTH_URL:?ONE_DEAL_AUTH_URL is required}"
+STAFF_URL="${ONE_DEAL_STAFF_URL:?ONE_DEAL_STAFF_URL is required}"
 APP_URL="${ONE_DEAL_APP_URL:?ONE_DEAL_APP_URL is required}"
 STORAGE_URL="${ONE_DEAL_STORAGE_URL:?ONE_DEAL_STORAGE_URL is required}"
 EVIDENCE_LOG="${ONE_DEAL_EVIDENCE_LOG:-/tmp/platform-v7-one-deal-e2e.log}"
@@ -17,15 +18,16 @@ if [[ -n "${DATABASE_URL:-}" && "$ADMIN_URL" == "$DATABASE_URL" ]]; then
   echo "Refusing one-deal E2E: admin URL equals ambient DATABASE_URL" >&2
   exit 2
 fi
-for candidate in "$ADMIN_URL" "$AUTH_URL" "$APP_URL" "$STORAGE_URL"; do
+for candidate in "$ADMIN_URL" "$AUTH_URL" "$STAFF_URL" "$APP_URL" "$STORAGE_URL"; do
   if [[ "$candidate" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
     echo "Refusing one-deal E2E: datasource appears production-like" >&2
     exit 2
   fi
 done
-if [[ "$ADMIN_URL" == "$AUTH_URL" || "$ADMIN_URL" == "$APP_URL" || "$ADMIN_URL" == "$STORAGE_URL" \
-  || "$AUTH_URL" == "$APP_URL" || "$AUTH_URL" == "$STORAGE_URL" || "$APP_URL" == "$STORAGE_URL" ]]; then
-  echo "Refusing one-deal E2E: admin, auth, application and storage URLs must differ" >&2
+if [[ "$ADMIN_URL" == "$AUTH_URL" || "$ADMIN_URL" == "$STAFF_URL" || "$ADMIN_URL" == "$APP_URL" || "$ADMIN_URL" == "$STORAGE_URL" \
+  || "$AUTH_URL" == "$STAFF_URL" || "$AUTH_URL" == "$APP_URL" || "$AUTH_URL" == "$STORAGE_URL" \
+  || "$STAFF_URL" == "$APP_URL" || "$STAFF_URL" == "$STORAGE_URL" || "$APP_URL" == "$STORAGE_URL" ]]; then
+  echo "Refusing one-deal E2E: admin, auth, staff, application and storage URLs must differ" >&2
   exit 2
 fi
 
@@ -184,12 +186,6 @@ BEGIN
     DROP OWNED BY one_deal_auth;
     DROP ROLE one_deal_auth;
   END IF;
-  -- NOBYPASSRLS (#3670). This role used to carry BYPASSRLS so that login could
-  -- read an identity before any tenant context existed. That bought the login
-  -- lookup at the price of every statement after it: with the attribute set,
-  -- no policy on any table applies to anything this principal does. The
-  -- pre-context read now goes through the bounded auth.resolve_login_*
-  -- functions granted by name below.
   CREATE ROLE one_deal_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ephemeral_one_deal_auth_only';
 END
 $one_deal_auth_role$;
@@ -218,12 +214,6 @@ GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT) TO one_deal_au
 GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
-
--- The bounded pre-authentication surface, by exact signature. These seven are
--- what the auth principal has instead of BYPASSRLS. The role is created after
--- migrations in this harness, so migration-time conditional grants cannot
--- reach it; provisioning must reproduce the complete exact list.
 GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(TEXT) TO one_deal_auth;
@@ -231,15 +221,42 @@ GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) TO one_de
 GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
-
--- And explicitly not the staff admission surface, which belongs to
--- pc_staff_runtime. Named here so a later blanket grant cannot quietly hand
--- the auth principal a cross-tenant read.
+REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+SQL
+
+echo "[one-deal] creating isolated function-only staff principal"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
+DO $one_deal_staff_role$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'one_deal_staff') THEN
+    DROP OWNED BY one_deal_staff;
+    DROP ROLE one_deal_staff;
+  END IF;
+  CREATE ROLE one_deal_staff LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ephemeral_one_deal_staff_only';
+END
+$one_deal_staff_role$;
+GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_staff;
+GRANT USAGE ON SCHEMA auth TO one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 SQL
 
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
@@ -278,10 +295,6 @@ if [[ "$AUTH_ROLE_PROOF" != "false:false:false" && "$AUTH_ROLE_PROOF" != "f:f:f"
   exit 1
 fi
 
-# Losing BYPASSRLS is only safe while the boundary that replaced it is actually
-# in place: policies forcing the identity tables, the bootstrap functions
-# granted by name, no ownership, no membership of the bootstrap role, and no
-# reach into the staff admission surface.
 AUTH_IDENTITY_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
 SELECT
   (SELECT count(*) = 3 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -299,10 +312,10 @@ SELECT
    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships_ordered(text)', 'EXECUTE')
    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_email(text)', 'EXECUTE')
    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_membership(text,text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE')
-   AND has_function_privilege('one_deal_auth', 'auth.resolve_staff_target_scope(text,text,text,text,text)', 'EXECUTE'))::text
+   AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE'))::text
   || ':' ||
-  (has_function_privilege('one_deal_auth', 'auth.staff_admission_queue(text,text,text,integer)', 'EXECUTE')
+  (has_function_privilege('one_deal_auth', 'auth.resolve_staff_target_scope(text,text,text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_admission_queue(text,text,text,integer)', 'EXECUTE')
    OR has_function_privilege('one_deal_auth', 'auth.staff_admission_application(text,text,text,text)', 'EXECUTE')
    OR has_function_privilege('one_deal_auth', 'auth.staff_admission_decision(text,text,text,text,text,text)', 'EXECUTE'))::text
   || ':' ||
@@ -318,9 +331,13 @@ if [[ "$AUTH_IDENTITY_PROOF" != "true:false:true:false:false" && "$AUTH_IDENTITY
   exit 1
 fi
 
-# The read that BYPASSRLS used to buy must still work, and must still be the
-# only pre-context read available: a direct SELECT without context returns
-# nothing, while the bootstrap function returns the identity.
+STAFF_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || rolinherit::text || ':' || (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::text FROM pg_roles WHERE rolname='one_deal_staff'")"
+echo "[one-deal] staff principal proof super:bypass:inherit:table-grants:target:queue:application:decision:capability = $STAFF_ROLE_PROOF"
+if [[ "$STAFF_ROLE_PROOF" != "false:false:false:0:true:true:true:true:false" && "$STAFF_ROLE_PROOF" != "f:f:f:0:t:t:t:t:f" ]]; then
+  echo "Staff principal privilege boundary is invalid: $STAFF_ROLE_PROOF" >&2
+  exit 1
+fi
+
 AUTH_BOOTSTRAP_PROOF="$(psql "$AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM auth.resolve_login_identity('nobody@example.invalid'))::text")"
 echo "[one-deal] auth bootstrap proof direct-users:bootstrap-rows = $AUTH_BOOTSTRAP_PROOF"
 if [[ "$AUTH_BOOTSTRAP_PROOF" != "0:0" ]]; then
@@ -382,6 +399,7 @@ echo "[one-deal] proving strict Nest runtime datasource boundaries"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STAFF_DATABASE_URL="$STAFF_URL" \
 STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec ts-node test/one-deal/runtime-principal-startup-proof.ts
@@ -390,6 +408,7 @@ echo "[one-deal] running persistent-auth-backed exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STAFF_DATABASE_URL="$STAFF_URL" \
 STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="$JWT_SECRET" \
@@ -402,6 +421,7 @@ echo "[one-deal] running staff-access PostgreSQL exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STAFF_DATABASE_URL="$STAFF_URL" \
 STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="$JWT_SECRET" \
