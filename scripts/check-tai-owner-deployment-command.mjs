@@ -15,13 +15,25 @@ const forbid = (pattern, message) => {
 
 for (const fragment of [
   'name: TAI Owner REG.RU Deployment Command',
+  'workflow_dispatch:',
+  'target:',
+  'default: current-main',
+  'type: choice',
+  '- current-main',
   'issue_comment:',
   "github.event.issue.number == 3365",
   "github.event.comment.body == '/tai deploy current-main'",
+  "github.event_name == 'workflow_dispatch'",
+  "github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch'",
+  "github.event.issue.number || github.event.pull_request.number || '3365'",
   'COMMENTER: ${{ github.event.comment.user.login }}',
+  'REQUESTED_TARGET: ${{ inputs.target }}',
+  'REF: ${{ github.ref }}',
   '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
+  '[[ "$REQUESTED_TARGET" == \'current-main\' ]]',
+  '[[ "$REF" == \'refs/heads/main\' ]]',
   'statuses: read',
   'commits/${target_sha}/status',
   'node scripts/select-tai-restricted-qwen-activation-status.mjs',
@@ -52,6 +64,11 @@ for (const fragment of [
   'statuses: write',
 ]) requireFragment(fragment);
 
+const dispatchGuardCount = (workflow.match(/github\.event_name == 'workflow_dispatch'/gu) || []).length;
+if (dispatchGuardCount < 4) {
+  violations.push('workflow_dispatch must be governed at authority, image, publish and terminal result boundaries');
+}
+
 if (!dockerPublish.includes('- ".github/workflows/tai-owner-reg-ru-deployment-command.yml"')) {
   violations.push(`${dockerPublishPath}: owner deployment authority changes must publish exact canonical images`);
 }
@@ -61,6 +78,7 @@ forbid(/continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(/\/tai\s+deploy\s+(?!current-main)/u, 'alternate deployment command is forbidden');
 forbid(/github\.event\.comment\.body\s*!=/u, 'command matching must use exact positive equality');
 forbid(/docker\s+(run|compose|exec)/u, 'workflow must not gain direct Docker mutation authority');
+forbid(/options:\s*\n(?:\s*-\s*(?!current-main\s*$).+\n?)+/mu, 'workflow_dispatch target choices must remain current-main only');
 
 for (const [index, line] of workflow.split('\n').entries()) {
   const trimmed = line.trim();
@@ -77,4 +95,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner deployment command contract PASS: exact activation proof, rootless image, canonical trigger, protected controller, rollback evidence and terminal status are fail-closed.');
+console.log('TAI owner deployment command contract PASS: exact activation proof, owner-only issue or main-branch workflow dispatch, rootless image, protected controller, rollback evidence and terminal status are fail-closed.');
