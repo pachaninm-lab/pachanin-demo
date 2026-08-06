@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  shouldEnforceDatabasePrincipalBoundary,
+} from '../../common/prisma/database-principal-boundary';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 function principalFromUrl(value: string, label: string): string {
@@ -17,10 +20,10 @@ function resolveStaffDatabaseUrl(environment: NodeJS.ProcessEnv = process.env): 
   const authUrl = String(environment.AUTH_DATABASE_URL ?? '').trim();
   const dealUrl = String(environment.DATABASE_URL ?? '').trim();
   const storageUrl = String(environment.STORAGE_DATABASE_URL ?? '').trim();
-  const production = String(environment.NODE_ENV ?? '').trim().toLowerCase() === 'production';
+  const strict = shouldEnforceDatabasePrincipalBoundary(environment);
 
-  if (production && !staffUrl) {
-    throw new Error('STAFF_DATABASE_URL is required in production.');
+  if (strict && !staffUrl) {
+    throw new Error('STAFF_DATABASE_URL is required when the database principal boundary is enforced.');
   }
 
   if (staffUrl) {
@@ -37,7 +40,7 @@ function resolveStaffDatabaseUrl(environment: NodeJS.ProcessEnv = process.env): 
   }
 
   // Local/unit-test environments may keep using the existing auth datasource.
-  // Production never reaches this fallback because STAFF_DATABASE_URL is mandatory.
+  // Strict acceptance and production never reach this fallback.
   return staffUrl || authUrl || dealUrl || undefined;
 }
 
@@ -72,16 +75,16 @@ export class StaffAuthorityPrismaService extends PrismaService {
   }
 
   override async onModuleInit(): Promise<void> {
-    const production = String(process.env.NODE_ENV ?? '').trim().toLowerCase() === 'production';
+    const strict = shouldEnforceDatabasePrincipalBoundary();
     try {
       await this.$connect();
-      if (production) {
+      if (strict) {
         await this.assertProductionPrincipal();
       } else {
         this.staffLogger.log('Staff authority database connected');
       }
     } catch (error) {
-      if (production) throw error;
+      if (strict) throw error;
       this.staffLogger.warn(`Staff authority database unavailable in non-production mode: ${(error as Error).message}`);
     }
   }
