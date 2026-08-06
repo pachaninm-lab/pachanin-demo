@@ -15,6 +15,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MIGRATIONS_DIR="$ROOT_DIR/apps/api/prisma/migrations"
 IDENTITY_MIGRATION="$MIGRATIONS_DIR/20260806090000_identity_row_level_security/migration.sql"
 STAFF_MIGRATION="$MIGRATIONS_DIR/20260806103000_bounded_staff_admission_authority/migration.sql"
+LOGIN_CONTEXT_MIGRATION="$MIGRATIONS_DIR/20260806120000_identity_bootstrap_login_context/migration.sql"
 
 : "${RLS_INTEGRATION_ADMIN_URL:?Set RLS_INTEGRATION_ADMIN_URL to a dedicated throwaway PostgreSQL database}"
 
@@ -35,6 +36,7 @@ command -v psql >/dev/null || { echo "psql is required" >&2; exit 2; }
 command -v node >/dev/null || { echo "node is required" >&2; exit 2; }
 [[ -f "$IDENTITY_MIGRATION" ]] || { echo "Missing $IDENTITY_MIGRATION" >&2; exit 2; }
 [[ -f "$STAFF_MIGRATION" ]] || { echo "Missing $STAFF_MIGRATION" >&2; exit 2; }
+[[ -f "$LOGIN_CONTEXT_MIGRATION" ]] || { echo "Missing $LOGIN_CONTEXT_MIGRATION" >&2; exit 2; }
 
 # The runtime principals log in over TCP in CI, so they need a password. It is
 # minted per run and never leaves this process tree.
@@ -116,14 +118,18 @@ GRANT SELECT ON public."users", public."user_orgs", public."organizations"
 -- (evaluateAuthPrincipalBoundary requires it), which means it can read a staff
 -- capability digest. The checks below depend on that being true.
 GRANT SELECT, INSERT, UPDATE ON
+  auth.login_throttles, auth.credential_states, auth.sessions,
+  auth.refresh_tokens, auth.mfa_challenges,
   auth.staff_assignments, auth.staff_access_requests, auth.staff_access_grants,
-  auth.staff_access_sessions, auth.sessions TO pc_auth_runtime;
+  auth.staff_access_sessions TO pc_auth_runtime;
+GRANT SELECT, INSERT ON auth.audit_events TO pc_auth_runtime;
 SQL
 
 # Re-applied so the column-level restrictions land after ops provisioning,
 # exactly as they do when the runtime role already exists.
 admin -f "$IDENTITY_MIGRATION" >/dev/null
 admin -f "$STAFF_MIGRATION" >/dev/null
+admin -f "$LOGIN_CONTEXT_MIGRATION" >/dev/null
 
 echo "== seeding two tenants, a member of staff and two admission applications =="
 admin <<'SQL'
@@ -157,6 +163,13 @@ VALUES ('kyc-new','org-new','ORGANIZATION_ADMISSION','PENDING',now(),now()),
 -- checks below substitute them rather than inventing them.
 INSERT INTO auth.staff_assignments(id,user_id,role,status,valid_from,activated_at,reason,created_at,updated_at)
 VALUES ('sa-1','user-staff','COMPLIANCE_STAFF','ACTIVE',now()-interval '1 day',now()-interval '1 day','admission review',now(),now());
+
+-- auth_require_mfa_on_staff_assignment already created a row for user-staff
+-- when the assignment above was inserted, so this fills the rest in.
+INSERT INTO auth.credential_states(user_id, credential_version, mfa_enabled)
+VALUES ('user-a',1,true),('user-b',1,false),('user-both',1,false),
+       ('user-staff',1,true),('user-new',1,false)
+ON CONFLICT (user_id) DO UPDATE SET mfa_enabled = EXCLUDED.mfa_enabled;
 
 INSERT INTO auth.sessions(id,user_id,membership_id,organization_id,tenant_id,status,refresh_family_id,credential_version,mfa_level,mfa_verified_at,expires_at,created_at,updated_at)
 VALUES ('sess-staff','user-staff','m-staff','org-a','tenant-a','ACTIVE','fam-1',1,'TOTP',now(),now()+interval '1 hour',now(),now());

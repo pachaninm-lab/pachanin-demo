@@ -183,7 +183,13 @@ BEGIN
     DROP OWNED BY one_deal_auth;
     DROP ROLE one_deal_auth;
   END IF;
-  CREATE ROLE one_deal_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS PASSWORD 'ephemeral_one_deal_auth_only';
+  -- NOBYPASSRLS (#3670). This role used to carry BYPASSRLS so that login could
+  -- read an identity before any tenant context existed. That bought the login
+  -- lookup at the price of every statement after it: with the attribute set,
+  -- no policy on any table applies to anything this principal does. The
+  -- pre-context read now goes through the bounded auth.resolve_login_*
+  -- functions granted by name below.
+  CREATE ROLE one_deal_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ephemeral_one_deal_auth_only';
 END
 $one_deal_auth_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_auth;
@@ -211,6 +217,20 @@ GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT) TO one_deal_au
 GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO one_deal_auth;
+
+-- The bounded pre-authentication surface, by exact signature. These three are
+-- what the auth principal has instead of BYPASSRLS.
+GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(TEXT) TO one_deal_auth;
+
+-- And explicitly not the staff admission surface, which belongs to
+-- pc_staff_runtime. Named here so a later blanket grant cannot quietly hand
+-- the auth principal a cross-tenant read.
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
 SQL
 
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
@@ -238,8 +258,53 @@ if [[ "$SETTLEMENT_ROLE_PROOF" != "true:true:true:false" && "$SETTLEMENT_ROLE_PR
 fi
 AUTH_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_auth','public.deals','SELECT')::text FROM pg_roles WHERE rolname='one_deal_auth'")"
 echo "[one-deal] auth principal proof super:bypass:deal-select = $AUTH_ROLE_PROOF"
-if [[ "$AUTH_ROLE_PROOF" != "false:true:false" && "$AUTH_ROLE_PROOF" != "f:t:f" ]]; then
+if [[ "$AUTH_ROLE_PROOF" != "false:false:false" && "$AUTH_ROLE_PROOF" != "f:f:f" ]]; then
   echo "Auth principal privilege boundary is invalid: $AUTH_ROLE_PROOF" >&2
+  exit 1
+fi
+
+# Losing BYPASSRLS is only safe while the boundary that replaced it is actually
+# in place: policies forcing the identity tables, the bootstrap functions
+# granted by name, no ownership, no membership of the bootstrap role, and no
+# reach into the staff admission surface.
+AUTH_IDENTITY_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
+SELECT
+  (SELECT count(*) = 3 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relname IN ('users','user_orgs','organizations')
+     AND c.relrowsecurity AND c.relforcerowsecurity)::text
+  || ':' ||
+  (SELECT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   JOIN pg_roles r ON r.oid = c.relowner
+   WHERE n.nspname = 'public' AND c.relname IN ('users','user_orgs','organizations')
+     AND r.rolname = 'one_deal_auth'))::text
+  || ':' ||
+  (has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')
+   AND has_function_privilege('one_deal_auth', 'auth.resolve_login_identity_by_id(text)', 'EXECUTE')
+   AND has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships(text)', 'EXECUTE'))::text
+  || ':' ||
+  (has_function_privilege('one_deal_auth', 'auth.staff_admission_queue(text,text,text,integer)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_admission_application(text,text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_admission_decision(text,text,text,text,text,text)', 'EXECUTE'))::text
+  || ':' ||
+  (SELECT EXISTS (SELECT 1 FROM pg_auth_members m
+   JOIN pg_roles grantee ON grantee.oid = m.roleid
+   JOIN pg_roles member ON member.oid = m.member
+   WHERE member.rolname = 'one_deal_auth'))::text;
+SQL
+)"
+echo "[one-deal] auth identity proof forced-rls:owns:bootstrap-execute:staff-execute:memberships = $AUTH_IDENTITY_PROOF"
+if [[ "$AUTH_IDENTITY_PROOF" != "true:false:true:false:false" && "$AUTH_IDENTITY_PROOF" != "t:f:t:f:f" ]]; then
+  echo "Auth principal identity boundary is invalid: $AUTH_IDENTITY_PROOF" >&2
+  exit 1
+fi
+
+# The read that BYPASSRLS used to buy must still work, and must still be the
+# only pre-context read available: a direct SELECT without context returns
+# nothing, while the bootstrap function returns the identity.
+AUTH_BOOTSTRAP_PROOF="$(psql "$AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM auth.resolve_login_identity('nobody@example.invalid'))::text")"
+echo "[one-deal] auth bootstrap proof direct-users:bootstrap-rows = $AUTH_BOOTSTRAP_PROOF"
+if [[ "$AUTH_BOOTSTRAP_PROOF" != "0:0" ]]; then
+  echo "Auth principal reads identities without context: $AUTH_BOOTSTRAP_PROOF" >&2
   exit 1
 fi
 STORAGE_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','SELECT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','UPDATE')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','INSERT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','DELETE')::text FROM pg_roles WHERE rolname='one_deal_storage'")"

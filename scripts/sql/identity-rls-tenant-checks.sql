@@ -45,6 +45,96 @@ BEGIN
   END IF;
 
   ---------------------------------------------------------------------------
+  -- The rest of the pre-authentication surface. Login does not read one user
+  -- row; it reads an identity joined to a membership and an organization, and
+  -- session verification reads the identity behind a session before there is
+  -- any context to verify against. Written as direct joins those return
+  -- nothing here, which is why they go through bounded functions too.
+  ---------------------------------------------------------------------------
+  measured := coalesce((
+    SELECT user_id || '/' || membership_id || '/' || organization_id || '/' || tenant_id
+    FROM auth.resolve_login_context_by_email('a@example.test')
+  ), 'NONE');
+  IF measured = 'user-a/m-a/org-a/tenant-a' THEN
+    RAISE NOTICE 'PASS  02b login context by email -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02b login context by email -> % (want user-a/m-a/org-a/tenant-a)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- Multi-membership: the default membership is chosen, not an arbitrary one.
+  measured := coalesce((
+    SELECT membership_id FROM auth.resolve_login_context_by_email('both@example.test')
+  ), 'NONE');
+  IF measured = 'm-both-a' THEN
+    RAISE NOTICE 'PASS  02c login context picks the default membership -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02c login context picks the default membership -> % (want m-both-a)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- A membership that belongs to somebody else cannot be paired with this
+  -- identity, so choosing an organization after login cannot cross tenants.
+  measured := coalesce((
+    SELECT membership_id FROM auth.resolve_login_context_by_membership('user-a', 'm-b')
+  ), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  02d login context refuses another identity''s membership -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02d login context refuses another identity''s membership -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((
+    SELECT user_id || '/' || role || '/' || tenant_id
+    FROM auth.resolve_session_identity('user-staff', 'm-staff', 'org-a', 'tenant-a')
+  ), 'NONE');
+  IF measured = 'user-staff/FARMER/tenant-a' THEN
+    RAISE NOTICE 'PASS  02e session identity for a consistent session row -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02e session identity for a consistent session row -> % (want user-staff/FARMER/tenant-a)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- A session row whose columns disagree resolves to nothing rather than to
+  -- whichever identity the first join happens to find.
+  measured := coalesce((
+    SELECT user_id FROM auth.resolve_session_identity('user-staff', 'm-staff', 'org-b', 'tenant-b')
+  ), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  02f session identity for an inconsistent session row -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02f session identity for an inconsistent session row -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- The shape the repository actually issues, lock and all: a lateral join
+  -- from the session row onto the bounded identity function, locking only the
+  -- session. PostgreSQL refuses FOR UPDATE against a function scan, so naming
+  -- the session explicitly is load-bearing rather than stylistic.
+  BEGIN
+    measured := coalesce((
+      SELECT identity.user_id || '/' || identity.organization_id || '/' || s.status
+      FROM auth.sessions s
+      JOIN LATERAL auth.resolve_session_identity(
+        s.user_id, s.membership_id, s.organization_id, s.tenant_id
+      ) identity ON TRUE
+      JOIN auth.credential_states cs ON cs.user_id = s.user_id
+      WHERE s.id = 'sess-staff'
+      FOR UPDATE OF s
+    ), 'NONE');
+    IF measured = 'user-staff/org-a/ACTIVE' THEN
+      RAISE NOTICE 'PASS  02g locked session context query -> %', measured;
+    ELSE
+      RAISE WARNING 'FAIL  02g locked session context query -> % (want user-staff/org-a/ACTIVE)', measured;
+      failures := failures + 1;
+    END IF;
+  EXCEPTION WHEN others THEN
+    RAISE WARNING 'FAIL  02g locked session context query -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
   -- Tenant A context: its own organization and no other.
   ---------------------------------------------------------------------------
   PERFORM set_config('app.current_user_id', 'user-a', true),
@@ -405,6 +495,6 @@ BEGIN
   IF failures > 0 THEN
     RAISE EXCEPTION 'identity isolation: % tenant-runtime check(s) failed', failures;
   END IF;
-  RAISE NOTICE 'tenant runtime: 31 checks, 0 failures';
+  RAISE NOTICE 'tenant runtime: 38 checks, 0 failures';
 END;
 $tenant_checks$;

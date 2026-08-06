@@ -21,7 +21,10 @@ This runbook defines the target operational procedure. The repository CI proves 
 |---|---|---|
 | Migration owner | Apply Prisma migrations, create/alter schema, apply canonical RLS | Application runtime use |
 | Deal runtime | CRUD required business tables under `ENABLE + FORCE RLS` | SUPERUSER, BYPASSRLS, table ownership, role memberships |
-| Auth runtime | Identity/auth tables and `BYPASSRLS` for pre-context identity lookup | Any privilege on `public.deals`, SUPERUSER, role memberships |
+| Auth runtime | Identity/auth tables under `ENABLE + FORCE RLS`, plus `EXECUTE` on the three `auth.resolve_login_*` bootstrap functions for the pre-context identity lookup | `BYPASSRLS`, any privilege on `public.deals`, SUPERUSER, ownership of the identity tables, role memberships (including `pc_identity_bootstrap`), `EXECUTE` on `auth.staff_admission_*` |
+| Identity bootstrap (`pc_identity_bootstrap`) | Own the three `auth.resolve_login_*` definer functions; the sole principal the pre-auth policies admit | LOGIN, INHERIT, SUPERUSER, `BYPASSRLS`, members of any kind |
+| Staff authority (`pc_staff_authority`) | Own the three `auth.staff_admission_*` definer functions and hold the reads they perform | LOGIN, members of any kind |
+| Staff runtime (`pc_staff_runtime`) | `EXECUTE` on the three `auth.staff_admission_*` functions | Any table privilege, SUPERUSER, `BYPASSRLS`, role memberships |
 | Backup operator | Provider backup/PITR or `pg_dump` under controlled operations | Application runtime use |
 
 ## Release evidence package

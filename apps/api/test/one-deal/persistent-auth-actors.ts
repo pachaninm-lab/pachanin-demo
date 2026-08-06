@@ -4,6 +4,7 @@ import { RequestUser, Role } from '../../src/common/types/request-user';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
+import { PERSISTENT_ACTOR_USER_IDS } from './persistent-actor-identities';
 
 const TEST_PASSWORD = 'demo1234';
 const ACCESS_ISSUER = 'transparent-price-api';
@@ -108,24 +109,47 @@ export async function createPersistentActorHarness(
       throw new Error(`Persistent auth harness connected as unexpected principal ${currentUser}`);
     }
 
-    const organizationRows = await primaryPrisma.organization.findMany({
-      where: { id: { in: [...organizationIds] } },
-      select: { tenantId: true },
-    });
-    const tenantIds = [...new Set(organizationRows.map((item) => item.tenantId).filter(Boolean))];
-    if (tenantIds.length === 0) {
-      throw new Error('Persistent auth harness could not resolve a canonical tenant');
-    }
+    // Resolved through the bounded bootstrap functions rather than by scanning
+    // public.users and public.user_orgs. Those scans used to work because this
+    // principal held BYPASSRLS; without it a pre-context scan returns nothing,
+    // which is the boundary doing its job. The seeded identifiers are known, so
+    // the harness asks for exactly the twelve actors it created — the same
+    // shape of read the login path performs.
+    const rows = await primaryPrisma.$queryRaw<Array<{
+      membership_id: string;
+      organization_id: string;
+      role: string;
+      tenant_id: string;
+      user_id: string;
+      email: string;
+      full_name: string;
+    }>>`
+      SELECT
+        membership.membership_id,
+        membership.organization_id,
+        membership.role,
+        membership.tenant_id,
+        identity."id" AS user_id,
+        identity."email",
+        identity."fullName" AS full_name
+      FROM unnest(${[...PERSISTENT_ACTOR_USER_IDS]}::text[]) AS seeded(user_id)
+      JOIN LATERAL auth.resolve_login_identity_by_id(seeded.user_id) identity ON TRUE
+      JOIN LATERAL auth.resolve_login_memberships_ordered(seeded.user_id) membership
+        ON membership.is_default
+      WHERE membership.organization_id = ANY(${[...organizationIds]}::text[])
+      ORDER BY membership.role ASC
+    `;
 
-    const memberships = (await primaryPrisma.userOrg.findMany({
-      where: {
-        isDefault: true,
-        organization: { tenantId: { in: tenantIds } },
-        user: { id: { endsWith: '-e2e' } },
-      },
-      include: { user: true, organization: true },
-      orderBy: { role: 'asc' },
-    })) as MembershipRow[];
+    const memberships: MembershipRow[] = rows.map((row) => ({
+      id: row.membership_id,
+      organizationId: row.organization_id,
+      role: row.role,
+      organization: { tenantId: row.tenant_id },
+      user: { id: row.user_id, email: row.email, fullName: row.full_name },
+    }));
+    if (memberships.length === 0) {
+      throw new Error('Persistent auth harness resolved no actors through the bootstrap surface');
+    }
 
     const actorsByRole = new Map<Role, RequestUser>();
     const accessTokensByRole = new Map<Role, string>();

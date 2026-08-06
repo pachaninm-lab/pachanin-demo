@@ -144,11 +144,58 @@ kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
   env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow \
   < infra/kind/production-like/postgresql-runtime-grants.sql
 
+# app_auth is counted with the others now: the second term used to read
+# "NOT rolbypassrls", demanding the attribute for the pre-context identity
+# lookup. That lookup is the bounded auth.resolve_login_* surface as of #3670,
+# and BYPASSRLS on any runtime principal is a violation.
 principal_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
   psql -U postgres -d grainflow -Atc \
-  "SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('app_runtime','app_storage','app_outbox') AND (rolsuper OR rolbypassrls OR rolinherit)) || ':' || (SELECT count(*) FROM pg_roles WHERE rolname='app_auth' AND (rolsuper OR NOT rolbypassrls OR rolinherit)) || ':' || (SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('app_runtime','app_auth','app_storage','app_outbox'));")"
+  "SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('app_runtime','app_auth','app_storage','app_outbox') AND (rolsuper OR rolbypassrls OR rolinherit)) || ':' || (SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('app_runtime','app_auth','app_storage','app_outbox'));")"
 printf '%s\n' "$principal_proof" | tee "$K8S_DIR/cluster/principal-proof.txt"
-test "$principal_proof" = "0:0:0"
+test "$principal_proof" = "0:0"
+
+# Revoking BYPASSRLS is only safe while what replaced it is in place. Read in
+# order: the identity tables forced under RLS; app_auth owning none of them;
+# the three bootstrap functions granted to app_auth; the staff admission
+# surface reachable by no application principal.
+auth_identity_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
+  psql -U postgres -d grainflow -Atc \
+  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND c.relrowsecurity AND c.relforcerowsecurity) || ':' || (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND r.rolname='app_auth') || ':' || (has_function_privilege('app_auth','auth.resolve_login_identity(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_identity_by_id(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_memberships(text)','EXECUTE'))::int || ':' || (SELECT count(*) FROM (VALUES ('app_auth'),('app_runtime'),('app_storage'),('app_outbox')) AS p(role) WHERE has_function_privilege(p.role,'auth.staff_admission_queue(text,text,text,integer)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_application(text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE'));")"
+printf '%s\n' "$auth_identity_proof" | tee "$K8S_DIR/cluster/auth-identity-proof.txt"
+test "$auth_identity_proof" = "3:0:1:0"
+
+# And measured from the principal itself. A probe identity is planted first:
+# without one the counts below are zero because the database is empty, not
+# because the boundary holds, and the check would pass on a cluster with no RLS
+# at all. The superuser plants it (superusers are exempt from FORCE RLS by
+# definition) and removes it immediately afterwards.
+kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
+  env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow <<'SQL'
+INSERT INTO public."organizations"("id","inn","name","type","status","tenantId","createdAt","updatedAt")
+VALUES ('org-rls-probe','0000000000','RLS Probe','LEGAL','ACTIVE','tenant-rls-probe',now(),now());
+INSERT INTO public."users"("id","email","passwordHash","fullName","status","createdAt","updatedAt")
+VALUES ('user-rls-probe','probe@rls.invalid','probe-hash','RLS Probe','ACTIVE',now(),now());
+INSERT INTO public."user_orgs"("id","userId","organizationId","role","isDefault","joinedAt")
+VALUES ('m-rls-probe','user-rls-probe','org-rls-probe','ADMIN',true,now());
+SQL
+
+# Read in order: identities visible to app_auth without a context; organizations
+# visible without a context; rows the bootstrap function returns for the same
+# identity. The first two must be zero while the third is one — that pair is the
+# whole difference between a bounded pre-auth surface and BYPASSRLS.
+auth_bootstrap_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$AUTH_DB_PASSWORD" \
+  psql -U app_auth -d grainflow -Atc \
+  "SELECT (SELECT count(*) FROM public.users) || ':' || (SELECT count(*) FROM public.organizations) || ':' || (SELECT count(*) FROM auth.resolve_login_identity('probe@rls.invalid')) || ':' || (SELECT count(*) FROM auth.resolve_login_context_by_email('probe@rls.invalid'));")"
+printf '%s\n' "$auth_bootstrap_proof" | tee "$K8S_DIR/cluster/auth-bootstrap-proof.txt"
+
+kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
+  env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow <<'SQL'
+DELETE FROM public."user_orgs" WHERE id = 'm-rls-probe';
+DELETE FROM public."users" WHERE id = 'user-rls-probe';
+DELETE FROM public."organizations" WHERE id = 'org-rls-probe';
+SQL
+
+test "$auth_bootstrap_proof" = "0:0:1:1"
 
 ddl_privileges="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$APP_DB_PASSWORD" \
   psql -U app_runtime -d grainflow -Atc \
