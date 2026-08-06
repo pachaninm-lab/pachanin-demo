@@ -37,11 +37,16 @@ GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT) TO app_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT) TO app_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO app_auth;
 
--- The bounded pre-authentication surface: what app_auth has instead of
--- BYPASSRLS. Without these, login cannot read an identity at all.
+-- The complete bounded authentication surface: what app_auth has instead of
+-- BYPASSRLS. These grants are repeated here because the Kubernetes runtime
+-- principals are provisioned independently from migration execution.
 GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(TEXT) TO app_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(TEXT) TO app_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO app_auth;
 
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM app_auth;
@@ -55,12 +60,25 @@ REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEX
 REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER)
   FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT)
   FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)
   FROM app_runtime, app_storage, app_outbox;
+
+-- Deal creation validates the confirmed seller and buyer without exposing
+-- their identity rows. The function is status-only, transaction-context-bound
+-- and owned by the confined identity authority.
+GRANT USAGE ON SCHEMA auth TO app_runtime;
+GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT)
+  TO app_runtime;
+REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_auth, app_storage, app_outbox;
 
 GRANT SELECT ON public.deals, public.deal_participants TO app_storage;
 GRANT SELECT, UPDATE ON public.deal_documents TO app_storage;
