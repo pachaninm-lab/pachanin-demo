@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
 import {
   BOOTSTRAP_BLOCKERS,
   CRITICAL_PASS_CODES,
@@ -6,6 +7,8 @@ import {
 } from './verify-tai-preflight-report.mjs';
 
 const SHA = '1'.repeat(40);
+const workflowPath = '.github/workflows/tai-reg-ru-preflight-owner-command.yml';
+const workflow = readFileSync(workflowPath, 'utf8');
 const criticalChecks = CRITICAL_PASS_CODES.map((code, index) => ({
   name: `critical_${index}`,
   status: 'PASS',
@@ -56,6 +59,33 @@ const expectBlocked = (label, report, options = { allowBootstrap: true }, sha = 
     // Expected fail-closed result.
   }
 };
+
+for (const fragment of [
+  'outputs:\n      evidence_json: ${{ steps.evidence.outputs.json }}',
+  'id: evidence',
+  'PREFLIGHT_EVIDENCE_JSON: ${{ needs.live_preflight.outputs.evidence_json }}',
+  'Materialize bounded redacted preflight evidence',
+  "payload.get('targetSha')!=target_sha",
+  "canonical!=raw",
+]) {
+  if (!workflow.includes(fragment)) violations.push(`${workflowPath}: missing ${JSON.stringify(fragment)}`);
+}
+const liveStart = workflow.indexOf('  live_preflight:\n');
+const publishStart = workflow.indexOf('  publish_status:\n', liveStart);
+if (liveStart < 0 || publishStart < 0) {
+  violations.push(`${workflowPath}: live preflight job boundary is missing`);
+} else {
+  const liveJob = workflow.slice(liveStart, publishStart);
+  if (!liveJob.includes('runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]')) {
+    violations.push(`${workflowPath}: self-hosted authority marker is missing`);
+  }
+  if (/uses:\s*actions\//u.test(liveJob)) {
+    violations.push(`${workflowPath}: production self-hosted preflight must be actionless`);
+  }
+  if (!liveJob.includes('sudo -n /usr/local/sbin/pc-tai-release-controller')) {
+    violations.push(`${workflowPath}: restricted controller call is missing`);
+  }
+}
 
 expectPass('exact bootstrap set', clone(base), { allowBootstrap: true }, 'BOOTSTRAP_ELIGIBLE');
 expectBlocked('bootstrap disabled', clone(base), { allowBootstrap: false });
@@ -130,4 +160,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI bootstrap preflight contract PASS: only the exact safe materialization gap is bootstrap-eligible; strict postflight and all negative fixtures remain fail-closed.');
+console.log('TAI bootstrap preflight contract PASS: owner production preflight is actionless; only the exact safe materialization gap is bootstrap-eligible; strict postflight and all negative fixtures remain fail-closed.');
