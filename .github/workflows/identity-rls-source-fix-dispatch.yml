@@ -1,0 +1,48 @@
+name: Identity RLS robust source fix
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: identity-rls-robust-source-fix-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'identity-rls-3670'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: identity-rls-3670
+          fetch-depth: 0
+
+      - name: Apply direct source fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/apply-identity-rls-source-fix.py
+          git diff --check
+          grep -q 'membershipId: `membership-e2e-' apps/api/test/industrial/harness.ts
+          grep -q 'resolve_staff_target_scope' apps/api/src/modules/staff-access/staff-access.repository.ts
+          grep -q 'validateTargetScope(user, assignment.id, input)' apps/api/src/modules/staff-access/staff-access.service.ts
+          test ! -e .github/workflows/identity-rls-source-fix-dispatch.yml
+          test ! -e .github/identity-rls-source-fix.trigger
+          test ! -e scripts/apply-identity-rls-source-fix.py
+
+      - name: Commit source fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(identity-rls): bind staff targets and industrial memberships"
+          git push origin HEAD:identity-rls-3670
