@@ -182,10 +182,14 @@ export class StaffAuthorityPrismaService extends PrismaService {
           'EXECUTE'
         ), false) AS projection_capability_execute,
         (
-          coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity(text)'), 'EXECUTE'), false)
+          coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_credential(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_default_membership(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity(text)'), 'EXECUTE'), false)
           OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity_by_id(text)'), 'EXECUTE'), false)
           OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships_ordered(text)'), 'EXECUTE'), false)
           OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_email(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_membership(text,text)'), 'EXECUTE'), false)
           OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_session_identity(text,text,text,text)'), 'EXECUTE'), false)
         ) AS identity_bootstrap_execute
       FROM pg_catalog.pg_roles roles
