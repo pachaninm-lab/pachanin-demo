@@ -145,7 +145,7 @@ echo "[dr] restoring least-privilege runtime grants"
 psql "$RESTORE_ADMIN_URL" -X --set ON_ERROR_STOP=1 <<SQL
 GRANT CONNECT ON DATABASE "$RESTORE_DATABASE" TO one_deal_app, one_deal_auth, one_deal_storage;
 
-GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement TO one_deal_app;
+GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement, auth TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
@@ -216,6 +216,7 @@ DECLARE
     'auth.resolve_login_context_by_email(text)',
     'auth.resolve_login_context_by_membership(text,text)',
     'auth.resolve_session_identity(text,text,text,text)',
+    'auth.validate_deal_creation_actors(text,text,text,text,text)',
     'public.app_identity_is_org_admin()',
     'public.app_identity_is_reviewer()'
   ];
@@ -249,6 +250,12 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(text,text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
+    -- Deal actor validation is separate from pre-authentication and belongs to
+    -- the deal runtime only. It returns a status code, never identity rows.
+    GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
+      TO one_deal_app;
+    REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
+      FROM one_deal_auth, one_deal_storage;
   END IF;
 
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_staff_authority') THEN
@@ -305,16 +312,20 @@ SELECT
        'resolve_login_identity', 'resolve_login_identity_by_id',
        'resolve_login_memberships', 'resolve_login_memberships_ordered',
        'resolve_login_context_by_email', 'resolve_login_context_by_membership',
-       'resolve_session_identity')
+       'resolve_session_identity', 'validate_deal_creation_actors')
      AND owner.rolname = 'pc_identity_bootstrap')::text
   || ':' ||
   (SELECT count(*) FROM pg_roles WHERE rolname = 'one_deal_auth' AND rolbypassrls)::text
   || ':' ||
-  has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')::int::text;
+  has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')::int::text
+  || ':' ||
+  has_function_privilege('one_deal_app', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text
+  || ':' ||
+  has_function_privilege('one_deal_auth', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text;
 SQL
 )"
-echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:bootstrap-execute = $RESTORE_IDENTITY_PROOF"
-if [[ "$RESTORE_IDENTITY_PROOF" != "3:7:0:1" ]]; then
+echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:bootstrap-execute:deal-actor-execute:auth-actor-execute = $RESTORE_IDENTITY_PROOF"
+if [[ "$RESTORE_IDENTITY_PROOF" != "3:8:0:1:1:0" ]]; then
   echo "Restored identity boundary is invalid: $RESTORE_IDENTITY_PROOF" >&2
   exit 1
 fi
@@ -326,10 +337,10 @@ if [[ "$RESTORE_AUTH_ISOLATION" != "0:0" ]]; then
   exit 1
 fi
 
-RESTORE_APP_ROLE_PROOF="$(psql "$RESTORE_APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'settlement','USAGE')::text || ':' || has_table_privilege(current_user,'settlement.payments','SELECT')::text || ':' || has_table_privilege(current_user,'settlement.payments','UPDATE')::text || ':' || has_table_privilege(current_user,'settlement.ledger_entries','DELETE')::text")"
-echo "[dr] restored settlement principal proof usage:select:update:ledger-delete = $RESTORE_APP_ROLE_PROOF"
-if [[ "$RESTORE_APP_ROLE_PROOF" != "true:true:true:false" && "$RESTORE_APP_ROLE_PROOF" != "t:t:t:f" ]]; then
-  echo "Restored application Settlement privilege boundary is invalid: $RESTORE_APP_ROLE_PROOF" >&2
+RESTORE_APP_ROLE_PROOF="$(psql "$RESTORE_APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'settlement','USAGE')::text || ':' || has_table_privilege(current_user,'settlement.payments','SELECT')::text || ':' || has_table_privilege(current_user,'settlement.payments','UPDATE')::text || ':' || has_table_privilege(current_user,'settlement.ledger_entries','DELETE')::text || ':' || has_function_privilege(current_user,'auth.validate_deal_creation_actors(text,text,text,text,text)','EXECUTE')::text")"
+echo "[dr] restored settlement/deal principal proof usage:select:update:ledger-delete:actor-execute = $RESTORE_APP_ROLE_PROOF"
+if [[ "$RESTORE_APP_ROLE_PROOF" != "true:true:true:false:true" && "$RESTORE_APP_ROLE_PROOF" != "t:t:t:f:t" ]]; then
+  echo "Restored application Settlement/deal privilege boundary is invalid: $RESTORE_APP_ROLE_PROOF" >&2
   exit 1
 fi
 
