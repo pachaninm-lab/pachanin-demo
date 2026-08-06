@@ -19,6 +19,7 @@ on:
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
       - 'infra/sql/postgresql-regulatory-integration-inbox-policies.sql'
       - 'scripts/verify-pc-crop-07a.mjs'
+      - '.github/workflows/pc-crop-07a.yml'
   push:
     branches: [main]
     paths:
@@ -38,6 +39,7 @@ on:
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07a.json'
       - 'infra/sql/postgresql-regulatory-integration-inbox-policies.sql'
       - 'scripts/verify-pc-crop-07a.mjs'
+      - '.github/workflows/pc-crop-07a.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -77,25 +79,72 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Enforce exact PC-CROP-07A scope
+      - name: Classify ownership and enforce exact PC-CROP-07A scope
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git fetch --no-tags origin "${{ github.base_ref }}"
-            base_ref="origin/${{ github.base_ref }}"
+
+          if [ "$EVENT_NAME" = 'workflow_dispatch' ]; then
+            printf '%s\n' 'MANUAL_DISPATCH' > "$EVIDENCE_DIR/scope-mode.txt"
+            printf '%s\n' 'workflow_dispatch' > "$EVIDENCE_DIR/base-ref.txt"
+            : > "$EVIDENCE_DIR/changed-files.txt"
+            : > "$EVIDENCE_DIR/authority-files.txt"
+            : > "$EVIDENCE_DIR/compatibility-files.txt"
+            echo 'Manual dispatch: full PC-CROP-07A acceptance runs without diff ownership.'
           else
-            base_ref="HEAD^"
-          fi
-          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
-          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-07a\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/.*|apps/api/src/modules/regulatory-integration/.*|apps/api/src/modules/integration-events/integration-events\.module\.ts|apps/api/test/industrial/regulatory-integration-inbox\.e2e-spec\.ts|infra/sql/postgresql-regulatory-integration-inbox-policies\.sql|scripts/verify-pc-crop-07a\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-07a\.json|scripts/p7-autopilot-guard\.sh)$' \
-            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
-            echo 'PC-CROP-07A contains out-of-scope files:' >&2
-            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
-            exit 1
+            if [ "$EVENT_NAME" = 'pull_request' ]; then
+              git fetch --no-tags origin "$BASE_BRANCH"
+              base_ref="origin/$BASE_BRANCH"
+            elif [ -n "$PUSH_BEFORE" ] \
+              && [ "$PUSH_BEFORE" != '0000000000000000000000000000000000000000' ] \
+              && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+              base_ref="$PUSH_BEFORE"
+            else
+              base_ref="HEAD^"
+            fi
+            printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+            git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+
+            # Two repository unit tests consume the shared TrustedRlsContext
+            # shape. Adding a required identity field there is a cross-cutting
+            # compatibility change, not ownership of the regulatory inbox
+            # authority. It must run the complete acceptance suite, but it must
+            # not turn an otherwise broad P0 authority PR into a narrow 07A
+            # remediation and reject all unrelated files.
+            grep -E '^(apps/api/src/modules/regulatory-integration/regulatory-integration\.inbox-lifecycle\.repository\.spec\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.inbox\.repository\.spec\.ts)$' \
+              "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/compatibility-files.txt" || true
+
+            # Only changes to the actual inbox authority, its dedicated
+            # contracts, schema, migration, verifier or evidence scope claim
+            # bounded PC-CROP-07A remediation ownership. Workflow/guard changes
+            # are governance dependencies: they still trigger and run the full
+            # contract, but do not claim product-slice ownership by themselves.
+            grep -E '^(apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/.*|apps/api/src/modules/regulatory-integration/regulatory-integration\.errors\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.inbox-lifecycle\.repository\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.inbox-policy(\.spec)?\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.inbox\.repository\.ts|apps/api/src/modules/regulatory-integration/regulatory-integration\.(state-machine|types)(\.spec)?\.ts|apps/api/src/modules/integration-events/integration-events\.module\.ts|apps/api/test/industrial/regulatory-integration-inbox\.e2e-spec\.ts|infra/sql/postgresql-regulatory-integration-inbox-policies\.sql|scripts/verify-pc-crop-07a\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-07a\.json)$' \
+              "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/authority-files.txt" || true
+
+            if [ ! -s "$EVIDENCE_DIR/authority-files.txt" ]; then
+              if [ -s "$EVIDENCE_DIR/compatibility-files.txt" ]; then
+                printf '%s\n' 'CROSS_CUTTING_COMPATIBILITY' > "$EVIDENCE_DIR/scope-mode.txt"
+                echo 'Only shared identity-contract compatibility files changed; full acceptance continues.'
+              else
+                printf '%s\n' 'SHARED_GOVERNANCE' > "$EVIDENCE_DIR/scope-mode.txt"
+                echo 'Only shared workflow/guard governance changed; full acceptance continues.'
+              fi
+            else
+              printf '%s\n' 'SLICE_REMEDIATION' > "$EVIDENCE_DIR/scope-mode.txt"
+              if grep -Ev '^(\.github/workflows/pc-crop-07a\.yml|apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260722120000_regulatory_integration_inbox/.*|apps/api/src/modules/regulatory-integration/.*|apps/api/src/modules/integration-events/integration-events\.module\.ts|apps/api/test/industrial/regulatory-integration-inbox\.e2e-spec\.ts|infra/sql/postgresql-regulatory-integration-inbox-policies\.sql|scripts/verify-pc-crop-07a\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-07a\.json|scripts/p7-autopilot-guard\.sh)$' \
+                "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+                echo 'PC-CROP-07A contains out-of-scope files:' >&2
+                cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+                exit 1
+              fi
+            fi
           fi
 
       - uses: pnpm/action-setup@v4

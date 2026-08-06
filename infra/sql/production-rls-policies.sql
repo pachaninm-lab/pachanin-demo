@@ -179,35 +179,38 @@ CREATE POLICY deals_update ON public."deals" FOR UPDATE USING (
 -- ── organizations ─────────────────────────────────────────────────────────────
 ALTER TABLE public."organizations" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."organizations" FORCE ROW LEVEL SECURITY;
+
+-- Identity-table access is migration-owned. Do not recreate the historical
+-- GUC-authorized policies here: the confined runtime can write those settings,
+-- and deal-derived predicates make identity reads depend on unrelated tables.
 DROP POLICY IF EXISTS organizations_write_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_select ON public."organizations";
 DROP POLICY IF EXISTS organizations_insert_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_update_privileged ON public."organizations";
-CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
-  public.app_rls_context_ready()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND (
-    public.app_rls_privileged()
-    OR "id" = current_setting('app.current_org_id', true)
-  )
-);
-CREATE POLICY organizations_insert_privileged ON public."organizations" FOR INSERT
-WITH CHECK (
-  public.app_rls_context_ready()
-  AND public.app_rls_privileged()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-);
-CREATE POLICY organizations_update_privileged ON public."organizations" FOR UPDATE
-USING (
-  public.app_rls_context_ready()
-  AND public.app_rls_privileged()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-)
-WITH CHECK (
-  public.app_rls_context_ready()
-  AND public.app_rls_privileged()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-);
+
+DO $identity_organization_policy_authority$
+BEGIN
+  IF EXISTS (
+    SELECT required.policy_name
+    FROM unnest(ARRAY[
+      'organizations_bootstrap_login',
+      'organizations_context_select',
+      'organizations_admin_update',
+      'organizations_bootstrap_insert'
+    ]) AS required(policy_name)
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_policies policy
+      WHERE policy.schemaname = 'public'
+        AND policy.tablename = 'organizations'
+        AND policy.policyname = required.policy_name
+    )
+  ) THEN
+    RAISE EXCEPTION 'Forward-only identity organization policies are missing'
+      USING ERRCODE = '42501';
+  END IF;
+END
+$identity_organization_policy_authority$;
 -- No DELETE policy: organizations are lifecycle-managed, not physically deleted.
 
 -- ── audit_events: append-only ─────────────────────────────────────────────────

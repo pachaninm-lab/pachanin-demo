@@ -24,7 +24,84 @@ TO app_auth;
 GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO app_auth;
 REVOKE UPDATE, DELETE ON auth.audit_events, auth.staff_access_events FROM app_auth;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA auth, public TO app_auth;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO app_auth;
+
+-- Named functions rather than "ALL FUNCTIONS IN SCHEMA auth" (#3670). Schema
+-- auth now also holds the bounded staff admission surface, which belongs to
+-- the dedicated staff runtime and must never be reachable from the
+-- authentication principal; a blanket grant would have handed it over the
+-- moment the migration created it. Every function app_auth needs is listed
+-- here, and the staff surface is revoked by name below.
+GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO app_auth;
+
+-- The complete bounded authentication surface: what app_auth has instead of
+-- BYPASSRLS. These grants are repeated here because the Kubernetes runtime
+-- principals are provisioned independently from migration execution.
+GRANT EXECUTE ON FUNCTION auth.resolve_login_identity(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_identity_by_id(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO app_auth;
+
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+
+-- Dedicated function-only staff runtime. It receives no table or sequence
+-- privilege at all: every cross-tenant identity read is bounded by one of the
+-- SECURITY DEFINER functions below. The internal capability resolver remains
+-- unreachable, so the runtime cannot bypass the function-specific scope.
+GRANT USAGE ON SCHEMA auth TO app_staff;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM app_staff;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM app_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_staff;
+
+-- The deal runtime holds SELECT/INSERT/UPDATE/DELETE on every table in public,
+-- which includes the identity tables. That is bounded by their policies rather
+-- than by the grant, so it must not also reach the pre-auth surface that runs
+-- beneath them, nor the staff admission surface.
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+
+-- Deal creation validates the confirmed seller and buyer without exposing
+-- their identity rows. The function is status-only, transaction-context-bound
+-- and owned by the confined identity authority.
+GRANT USAGE ON SCHEMA auth TO app_runtime;
+GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT)
+  TO app_runtime;
+REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_auth, app_staff, app_storage, app_outbox;
 
 GRANT SELECT ON public.deals, public.deal_participants TO app_storage;
 GRANT SELECT, UPDATE ON public.deal_documents TO app_storage;
@@ -53,5 +130,5 @@ REVOKE ALL PRIVILEGES ON TABLE security.api_rate_limit_buckets FROM app_runtime;
 GRANT USAGE ON SCHEMA security TO app_runtime;
 GRANT EXECUTE ON FUNCTION security.consume_api_rate_limit(TEXT, TEXT, INTEGER) TO app_runtime;
 
-REVOKE CREATE ON DATABASE grainflow FROM app_runtime, app_auth, app_storage, app_outbox;
-REVOKE CREATE ON SCHEMA public FROM app_runtime, app_auth, app_storage, app_outbox;
+REVOKE CREATE ON DATABASE grainflow FROM app_runtime, app_auth, app_staff, app_storage, app_outbox;
+REVOKE CREATE ON SCHEMA public FROM app_runtime, app_auth, app_staff, app_storage, app_outbox;

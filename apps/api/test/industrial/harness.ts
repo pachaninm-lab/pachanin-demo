@@ -443,7 +443,13 @@ export async function provisionDeal(
         },
       });
       await tx.userOrg.create({
-        data: { userId, organizationId: orgId, role, isDefault: true },
+        data: {
+          id: `membership-e2e-${slug}-${key}`,
+          userId,
+          organizationId: orgId,
+          role,
+          isDefault: true,
+        },
       });
       await tx.dealParticipant.create({
         data: {
@@ -548,6 +554,7 @@ export async function provisionDeal(
       role,
       orgId: orgFor(role),
       tenantId: INDUSTRIAL_TENANT,
+      membershipId: `membership-e2e-${slug}-${key}`,
       sessionId: `session-e2e-${slug}-${key}`,
       mfaVerified: true,
     };

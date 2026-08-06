@@ -2,6 +2,7 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "../..",
   "testRegex": "test/staff-access/.*\\.e2e-spec\\.ts$",
+  "setupFiles": ["<rootDir>/test/staff-access/setup-env.js"],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
