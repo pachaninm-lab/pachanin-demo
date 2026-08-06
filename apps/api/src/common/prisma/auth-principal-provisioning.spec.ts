@@ -22,6 +22,7 @@ const PROVISIONING_SOURCES = [
 
 const STAFF_EXTERNAL_FUNCTIONS = [
   'auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT)',
+  'auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT)',
   'auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER)',
   'auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT)',
   'auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)',
@@ -113,7 +114,7 @@ describe('auth and staff principal provisioning', () => {
     }
     expect(oneDeal).toContain('STAFF_DATABASE_URL="$STAFF_URL"');
     expect(oneDeal).toContain('STAFF_ROLE_PROOF');
-    expect(oneDeal).toContain('f:f:f:0:t:t:t:t:t:t:t:f:f');
+    expect(oneDeal).toContain('f:f:f:0:t:t:t:t:t:t:t:t:f:f');
   });
 
   it('provisions a separate function-only staff runtime in production-like Kubernetes', () => {
@@ -151,6 +152,7 @@ describe('auth and staff principal provisioning', () => {
     expect(rehearsal).toContain('ALTER FUNCTION %s OWNER TO pc_staff_authority');
     for (const signature of [
       'auth.resolve_staff_target_scope(text,text,text,text,text)',
+      'auth.resolve_staff_deal_target_scope(text,text,text)',
       'auth.staff_admission_queue(text,text,text,integer)',
       'auth.staff_admission_application(text,text,text,text)',
       'auth.staff_admission_decision(text,text,text,text,text,text)',
@@ -162,12 +164,13 @@ describe('auth and staff principal provisioning', () => {
     }
     expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.staff_projection_capability(text,text,text,text,text,text,boolean) FROM one_deal_staff');
     expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) FROM one_deal_auth');
+    expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) FROM one_deal_auth');
     expect(rehearsal).toContain('REVOKE ALL ON FUNCTION auth.staff_organization_directory(text,text,text) FROM one_deal_auth');
     expect(rehearsal).toContain('RESTORE_IDENTITY_PROOF');
     expect(rehearsal).toContain('RESTORE_STAFF_PROOF');
     expect(rehearsal).toContain('RESTORE_AUTH_ISOLATION');
     expect(rehearsal).toContain('STAFF_DATABASE_URL="$RESTORE_STAFF_URL"');
-    expect(rehearsal).toContain('0:1:1:1:1:1:1:1:0:0:0:0');
+    expect(rehearsal).toContain('0:1:1:1:1:1:1:1:1:0:0:0:0:0');
   });
 
   it('asserts NOBYPASSRLS in the acceptance proofs rather than demanding the attribute', () => {
