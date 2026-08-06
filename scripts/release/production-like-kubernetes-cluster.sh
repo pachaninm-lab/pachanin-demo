@@ -81,9 +81,6 @@ kubectl patch deployment kafka -n "$NAMESPACE" --type=strategic \
   --patch-file infra/kind/production-like/kafka-runtime-patch.yaml \
   > "$K8S_DIR/kafka-runtime-patch.log"
 
-# The initial apply can create the pre-patch PostgreSQL pod and Kafka ReplicaSet
-# before the hardened templates are accepted. Force those disposable pods out so
-# rollout status observes only the patched revisions.
 kubectl delete pod postgresql-0 -n "$NAMESPACE" --ignore-not-found=true --wait=true \
   > "$K8S_DIR/postgresql-prepatch-pod-delete.log"
 kubectl delete pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --ignore-not-found=true --wait=true \
@@ -102,8 +99,7 @@ done
 
 postgres_current_revision="$(kubectl get statefulset postgresql -n "$NAMESPACE" -o jsonpath='{.status.currentRevision}')"
 postgres_update_revision="$(kubectl get statefulset postgresql -n "$NAMESPACE" -o jsonpath='{.status.updateRevision}')"
-printf '%s:%s\n' "$postgres_current_revision" "$postgres_update_revision" \
-  > "$K8S_DIR/cluster/postgresql-revision-proof.txt"
+printf '%s:%s\n' "$postgres_current_revision" "$postgres_update_revision" > "$K8S_DIR/cluster/postgresql-revision-proof.txt"
 test -n "$postgres_current_revision"
 test "$postgres_current_revision" = "$postgres_update_revision"
 test "$(kubectl get deployment kafka -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')" = "1"
@@ -147,38 +143,24 @@ kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
   env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow \
   < infra/kind/production-like/postgresql-runtime-grants.sql
 
-# Every application principal is confined: no SUPERUSER, BYPASSRLS or INHERIT,
-# and no role membership that could expose a second authority through SET ROLE.
 principal_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
   psql -U postgres -d grainflow -Atc \
   "SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox') AND (rolsuper OR rolbypassrls OR rolinherit)) || ':' || (SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox'));")"
 printf '%s\n' "$principal_proof" | tee "$K8S_DIR/cluster/principal-proof.txt"
 test "$principal_proof" = "0:0"
 
-# Revoking BYPASSRLS is only safe while what replaced it is in place. Read in
-# order: the identity tables forced under RLS; app_auth owning none of them;
-# the bootstrap functions granted to app_auth; the staff admission surface
-# reachable by no non-staff application principal.
 auth_identity_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
   psql -U postgres -d grainflow -Atc \
-  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND c.relrowsecurity AND c.relforcerowsecurity) || ':' || (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND r.rolname='app_auth') || ':' || (has_function_privilege('app_auth','auth.resolve_login_identity(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_identity_by_id(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_memberships(text)','EXECUTE'))::int || ':' || (SELECT count(*) FROM (VALUES ('app_auth'),('app_runtime'),('app_storage'),('app_outbox')) AS p(role) WHERE has_function_privilege(p.role,'auth.staff_admission_queue(text,text,text,integer)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_application(text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE'));")"
+  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND c.relrowsecurity AND c.relforcerowsecurity) || ':' || (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname='public' AND c.relname IN ('users','user_orgs','organizations') AND r.rolname='app_auth') || ':' || (has_function_privilege('app_auth','auth.resolve_login_identity(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_identity_by_id(text)','EXECUTE') AND has_function_privilege('app_auth','auth.resolve_login_memberships(text)','EXECUTE'))::int || ':' || (SELECT count(*) FROM (VALUES ('app_auth'),('app_runtime'),('app_storage'),('app_outbox')) AS p(role) WHERE has_function_privilege(p.role,'auth.staff_admission_queue(text,text,text,integer)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_application(text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_organization_directory(text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_organization_users(text,text,text,text)','EXECUTE') OR has_function_privilege(p.role,'auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE'));")"
 printf '%s\n' "$auth_identity_proof" | tee "$K8S_DIR/cluster/auth-identity-proof.txt"
 test "$auth_identity_proof" = "3:0:1:0"
 
-# app_staff is function-only. It owns no runtime object, has no direct table
-# grant, can execute all four external bounded staff functions, cannot execute
-# the internal capability resolver and cannot execute identity-login bootstrap.
 staff_authority_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$POSTGRES_PASSWORD" \
   psql -U postgres -d grainflow -Atc \
-  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname IN ('public','auth') AND r.rolname='app_staff') || ':' || (SELECT count(*) FROM information_schema.role_table_grants g WHERE g.grantee='app_staff' AND g.table_schema IN ('public','auth')) || ':' || has_function_privilege('app_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::int || ':' || (has_function_privilege('app_staff','auth.resolve_login_identity(text)','EXECUTE') OR has_function_privilege('app_staff','auth.resolve_login_context_by_email(text)','EXECUTE'))::int;")"
+  "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname IN ('public','auth') AND r.rolname='app_staff') || ':' || (SELECT count(*) FROM information_schema.role_table_grants g WHERE g.grantee='app_staff' AND g.table_schema IN ('public','auth')) || ':' || has_function_privilege('app_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_organization_directory(text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_organization_users(text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::int || ':' || has_function_privilege('app_staff','auth.staff_projection_capability(text,text,text,text,text,text,boolean)','EXECUTE')::int || ':' || (has_function_privilege('app_staff','auth.resolve_login_identity(text)','EXECUTE') OR has_function_privilege('app_staff','auth.resolve_login_context_by_email(text)','EXECUTE'))::int;")"
 printf '%s\n' "$staff_authority_proof" | tee "$K8S_DIR/cluster/staff-authority-proof.txt"
-test "$staff_authority_proof" = "0:0:1:1:1:1:0:0"
+test "$staff_authority_proof" = "0:0:1:1:1:1:1:1:1:0:0:0"
 
-# And measured from the auth principal itself. A probe identity is planted first:
-# without one the counts below are zero because the database is empty, not
-# because the boundary holds, and the check would pass on a cluster with no RLS
-# at all. The superuser plants it (superusers are exempt from FORCE RLS by
-# definition) and removes it immediately afterwards.
 kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
   env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow <<'SQL'
 INSERT INTO public."organizations"("id","inn","name","type","status","tenantId","createdAt","updatedAt")
@@ -189,9 +171,6 @@ INSERT INTO public."user_orgs"("id","userId","organizationId","role","isDefault"
 VALUES ('m-rls-probe','user-rls-probe','org-rls-probe','ADMIN',true,now());
 SQL
 
-# Read in order: identities visible to app_auth without a context; organizations
-# visible without a context; rows the bootstrap function returns for the same
-# identity. The first two must be zero while the bounded functions return one.
 auth_bootstrap_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- env PGPASSWORD="$AUTH_DB_PASSWORD" \
   psql -U app_auth -d grainflow -Atc \
   "SELECT (SELECT count(*) FROM public.users) || ':' || (SELECT count(*) FROM public.organizations) || ':' || (SELECT count(*) FROM auth.resolve_login_identity('probe@rls.invalid')) || ':' || (SELECT count(*) FROM auth.resolve_login_context_by_email('probe@rls.invalid'));")"
