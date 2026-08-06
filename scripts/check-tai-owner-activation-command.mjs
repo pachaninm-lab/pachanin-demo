@@ -58,13 +58,16 @@ for (const fragment of [
   '[[ "$CONFIRMATION" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]',
   "[[ \"$ACTOR\" == 'github-actions[bot]' ]]",
   "[[ \"$TRIGGERING_ACTOR\" == 'github-actions[bot]' ]]",
-  "run.event !== 'issue_comment'",
-  "run.actor?.login !== owner",
-  "run.triggering_actor?.login !== owner",
-  "'TAI Owner REG.RU Preflight'",
+  "'TAI Automatic REG.RU Preflight'",
+  "run.event !== 'workflow_run'",
+  "run.head_branch !== 'main'",
+  "new Set([owner, 'github-actions[bot]'])",
+  '!allowedActors.has(actor)',
+  '!allowedActors.has(triggeringActor)',
   "'Confirm REG.RU preflight chain result'",
   'needs: [upstream_preflight_gate, contract]',
   'needs.upstream_preflight_gate.outputs.target_sha !=',
+  'node scripts/check-tai-automatic-release-chain.mjs',
 ]) requireFragment(activation, activationPath, fragment);
 
 forbid(command, commandPath, /pull_request_target:/u, 'pull_request_target is forbidden');
@@ -72,7 +75,7 @@ forbid(command, commandPath, /continue-on-error:\s*true/mu, 'continue-on-error i
 forbid(command, commandPath, /\/tai\s+activate\s+(?!current-main)/u, 'alternate activation command is forbidden');
 forbid(command, commandPath, /actions\/workflows\/tai-reg-ru-preflight-owner-command[.]yml\/runs\?/u, 'workflow-list discovery is forbidden; exact commit status is authoritative');
 forbid(activation, activationPath, /^\s{2}issue_comment:/mu, 'production activation must not listen to issue comments');
-forbid(activation, activationPath, /^\s{2}workflow_run:/mu, 'production activation must not listen to workflow_run');
+forbid(activation, activationPath, /^\s{2}workflow_run:/mu, 'production activation must not directly listen to workflow_run');
 forbid(activation, activationPath, /continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(activation, activationPath, /pull_request_target:/u, 'pull_request_target is forbidden');
 
@@ -81,4 +84,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner activation dispatch contract PASS: exact owner command, exact commit-status preflight proof, observed activation run and terminal redacted evidence.');
+console.log('TAI owner activation dispatch contract PASS: manual owner fallback remains exact, automatic preflight workflow_run is re-fetched and verified, and protected activation retains all live acceptance and rollback gates.');
