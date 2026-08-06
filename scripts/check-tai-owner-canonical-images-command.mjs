@@ -14,9 +14,6 @@ const requireFragment = (fragment) => {
 for (const fragment of [
   'name: TAI Owner Canonical Images Command',
   'issue_comment:',
-  'schedule:',
-  "cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'",
-  "github.event_name == 'schedule'",
   "github.event.issue.number == 3365",
   "github.event.comment.body == '/tai images current-main'",
   'COMMENTER: ${{ github.event.comment.user.login }}',
@@ -26,7 +23,6 @@ for (const fragment of [
   '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
-  '[[ "$EVENT_NAME" == schedule ]]',
   'repos/${GITHUB_REPOSITORY}/commits/main',
   'git rev-parse origin/main',
   'TAI REG.RU Deployment',
@@ -41,6 +37,9 @@ for (const fragment of [
   'production mutation: `NONE`',
 ]) requireFragment(fragment);
 
+if (/\bschedule\s*:/u.test(workflow) || /cron:/u.test(workflow) || /github\.event_name == 'schedule'/u.test(workflow)) {
+  violations.push(`${workflowPath}: scheduled automation is forbidden; canonical builds are owner-triggered only`);
+}
 if (/^\s+(?:docker|ssh|scp|rsync)\s/mu.test(workflow)) {
   violations.push(`${workflowPath}: owner dispatch bridge must not execute Docker or remote-shell commands`);
 }
@@ -59,8 +58,8 @@ if (!Array.isArray(scope.allowedPaths) || !scope.allowedPaths.includes(workflowP
 if (scope.branch !== 'fix/tai-owner-canonical-images-command-20260806' || scope.status !== 'active') {
   violations.push(`${scopePath}: scope identity or status is invalid`);
 }
-if (!Array.isArray(scope.boundaries) || !scope.boundaries.some((entry) => String(entry).includes('temporary scheduled fallback'))) {
-  violations.push(`${scopePath}: temporary schedule removal boundary is missing`);
+if (!Array.isArray(scope.boundaries) || !scope.boundaries.some((entry) => String(entry).includes('manual owner command only'))) {
+  violations.push(`${scopePath}: manual-only execution boundary is missing`);
 }
 
 if (violations.length) {
@@ -69,4 +68,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI owner canonical images command contract PASS: exact owner or temporary scheduled authority dispatches only the existing all-service canonical build for unchanged current main, skips recent duplicates and terminal deployment, and introduces no production or remote-shell authority.');
+console.log('TAI owner canonical images command contract PASS: canonical builds are manual owner-command only, exact-main bound, deduplicated, and introduce no production or remote-shell authority.');
