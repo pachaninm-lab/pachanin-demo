@@ -8,8 +8,6 @@ export type LoginCredentialRow = {
   user_id: string;
   email: string;
   password_hash: string;
-  user_status: string;
-  deleted_at: Date | null;
 };
 
 export type IdentityRow = {
@@ -127,10 +125,10 @@ export class PersistentAuthRepository {
   }
 
   // Pre-password authority is deliberately minimal: no membership, tenant,
-  // organization or MFA material is available at this stage.
+  // organization, status, deletion or MFA material is available at this stage.
   async findLoginCredentialByEmail(client: AuthSqlClient, email: string): Promise<LoginCredentialRow | null> {
     const rows = await client.$queryRaw<LoginCredentialRow[]>(Prisma.sql`
-      SELECT user_id, email, password_hash, user_status, deleted_at
+      SELECT user_id, email, password_hash
       FROM auth.resolve_login_credential(${email})
     `);
     return rows[0] ?? null;
