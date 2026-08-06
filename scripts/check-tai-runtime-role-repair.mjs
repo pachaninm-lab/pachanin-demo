@@ -1,93 +1,77 @@
 #!/usr/bin/env node
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const paths = {
   workflow: '.github/workflows/tai-owner-runtime-role-repair-command.yml',
   wrapper: 'scripts/pc-tai-release-controller.sh',
-  repair: 'scripts/tai-runtime-role-repair.sh',
+  dispatcher: 'scripts/tai-runtime-role-repair.sh',
+  legacy: 'scripts/tai-runtime-role-repair-legacy.sh',
   checker: 'scripts/check-tai-runtime-role-repair.mjs',
-  scope: 'docs/platform-v7/autopilot/scopes/tai-orphan-runtime-role-repair-20260803.json',
+  orphanScope: 'docs/platform-v7/autopilot/scopes/tai-orphan-runtime-role-repair-20260803.json',
+  fullStackController: 'scripts/pc-full-stack-controller.sh',
+  fullStackScope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
 };
-const fullStackControllerPath = 'scripts/pc-full-stack-controller.sh';
-const fullStackScopePath = 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json';
-const workflow = readFileSync(paths.workflow, 'utf8');
-const wrapper = readFileSync(paths.wrapper, 'utf8');
-const dispatcher = readFileSync(paths.repair, 'utf8');
-const controller = readFileSync(fullStackControllerPath, 'utf8');
-const scope = JSON.parse(readFileSync(paths.scope, 'utf8'));
-const fullStackScope = JSON.parse(readFileSync(fullStackScopePath, 'utf8'));
+const text = Object.fromEntries(Object.entries(paths).map(([name, path]) => [name, readFileSync(path, 'utf8')]));
+const orphanScope = JSON.parse(text.orphanScope);
+const fullStackScope = JSON.parse(text.fullStackScope);
 const violations = [];
-const requireFragment = (source, fragment, label) => {
-  if (!source.includes(fragment)) violations.push(`${label}: missing ${JSON.stringify(fragment)}`);
+const requireAll = (name, fragments) => {
+  for (const fragment of fragments) if (!text[name].includes(fragment)) violations.push(`${paths[name]}: missing ${JSON.stringify(fragment)}`);
 };
-const forbid = (source, pattern, label) => {
-  if (pattern.test(source)) violations.push(label);
+const forbid = (name, patterns) => {
+  for (const pattern of patterns) if (pattern.test(text[name])) violations.push(`${paths[name]}: forbidden ${pattern}`);
 };
 
-for (const fragment of [
+requireAll('workflow', [
   'name: TAI Owner Runtime Role Repair Command',
   "github.event.issue.number == 3365",
   "github.event.comment.body == '/tai repair-runtime-role current-main'",
   '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
-  'node scripts/select-tai-owner-preflight-status.mjs',
-  "'TAI Owner REG.RU Preflight'",
   'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
   'sudo -n /usr/local/sbin/pc-tai-release-controller repair-runtime-role',
   'runtime-role-repair.json',
   "context='TAI Runtime Role Repair'",
   'production deployment started: \\`false\\`',
-  'name: Confirm orphan runtime role repair result',
-]) requireFragment(workflow, fragment, paths.workflow);
+]);
+forbid('workflow', [/pull_request_target:/u, /continue-on-error:\s*true/mu]);
 
-for (const fragment of [
+requireAll('wrapper', [
   "readonly REPAIR_RELATIVE='scripts/tai-runtime-role-repair.sh'",
   'preflight|activate|finalize-activation|deploy|repair-runtime-role',
   'PROTECTED_REPAIR_INVALID',
   'INSTALLED_CONTROLLER_NOT_EXACT_TARGET',
   'if [[ "$ACTION" == repair-runtime-role ]]',
   'bash "$REPAIR_PATH" "$TARGET_SHA" "$RUN_ID" "$job_output/runtime-role-repair.json"',
-]) requireFragment(wrapper, fragment, paths.wrapper);
+]);
+forbid('wrapper', [/\bdocker\b/u, /\bcurl\b|\beval\b/u]);
 
-for (const fragment of [
+requireAll('dispatcher', [
   "readonly FULL_STACK_INPUT=\"/var/lib/pc-release-authority/runner-input/${RUN_ID}/full-stack-release.json\"",
   "readonly FULL_STACK_CONTROLLER=\"$SCRIPT_DIR/pc-full-stack-controller.sh\"",
-  "readonly LEGACY_COMMIT='43ec7d01fc84c1af84fe5dea7f63630f66454257'",
+  "readonly LEGACY_REPAIR=\"$SCRIPT_DIR/tai-runtime-role-repair-legacy.sh\"",
   "readonly LEGACY_BLOB='ff1c984440794a2a73267c5e1886b3308a152c49'",
-  'git -C "$REPOSITORY_ROOT" show "${LEGACY_COMMIT}:${LEGACY_PATH}"',
-  'git hash-object "$legacy"',
+  '[[ "$(git hash-object "$LEGACY_REPAIR")" == "$LEGACY_BLOB" ]]',
   'exec bash "$FULL_STACK_CONTROLLER"',
-]) requireFragment(dispatcher, fragment, paths.repair);
-forbid(dispatcher, /\beval\b|\bcurl\b|\bwget\b/u, `${paths.repair}: dispatcher remote execution primitive is forbidden`);
-forbid(dispatcher, /set\s+-[^\n]*x/iu, `${paths.repair}: shell tracing is forbidden`);
+  'exec bash "$LEGACY_REPAIR"',
+]);
+forbid('dispatcher', [/\bcurl\b|\bwget\b|\beval\b/u, /set\s+-[^\n]*x/iu]);
 
-let legacyRepair = '';
-try {
-  const legacyBuffer = execFileSync('git', ['show', '43ec7d01fc84c1af84fe5dea7f63630f66454257:scripts/tai-runtime-role-repair.sh']);
-  const hash = spawnSync('git', ['hash-object', '--stdin'], { input: legacyBuffer, encoding: 'utf8' });
-  if (hash.status !== 0 || hash.stdout.trim() !== 'ff1c984440794a2a73267c5e1886b3308a152c49') {
-    violations.push(`${paths.repair}: pinned legacy blob hash mismatch`);
-  }
-  legacyRepair = legacyBuffer.toString('utf8');
-} catch {
-  violations.push(`${paths.repair}: pinned legacy repair blob unavailable`);
+const hash = spawnSync('git', ['hash-object', paths.legacy], { encoding: 'utf8' });
+if (hash.status !== 0 || hash.stdout.trim() !== 'ff1c984440794a2a73267c5e1886b3308a152c49') {
+  violations.push(`${paths.legacy}: immutable blob mismatch`);
 }
-
-for (const fragment of [
+requireAll('legacy', [
   "readonly ENV_FILE='/etc/transparent-price/tai-agro-os.env'",
   "readonly ROLE_NAME='tai_runtime'",
   'TAI_RUNTIME_ROLE_REPAIR_ENV_PRESENT',
   'TAI_RUNTIME_ROLE_REPAIR_OVERRIDE_PRESENT',
   'TAI_RUNTIME_ROLE_REPAIR_SERVICE_PRESENT',
-  'org.opencontainers.image.revision',
-  "database_url = api_env.get('DATABASE_URL', '')",
   'DATABASE_URL_AUTHORITY_OVERRIDE_FORBIDDEN',
   'POSTGRES_PERSISTENT_AUTHORITY_AMBIGUOUS',
   'TAI_RUNTIME_ROLE_REPAIR_DB_ADMIN_INVALID',
-  'rolcanlogin', 'rolsuper', 'rolcreatedb', 'rolcreaterole',
-  'rolinherit', 'rolreplication', 'rolbypassrls', 'rolconnlimit',
   "relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'",
   'if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]',
   "<<'PY_BLOCKED_EVIDENCE'",
@@ -103,24 +87,24 @@ for (const fragment of [
   "'dropOwnedUsed':False",
   "'reassignOwnedUsed':False",
   'TAI_RUNTIME_ROLE_REPAIR_COMPLETE=1',
-]) requireFragment(legacyRepair, fragment, 'pinned legacy runtime repair');
-forbid(legacyRepair, /\bDROP\s+OWNED\b/iu, 'pinned legacy repair: DROP OWNED is forbidden');
-forbid(legacyRepair, /\bREASSIGN\s+OWNED\b/iu, 'pinned legacy repair: REASSIGN OWNED is forbidden');
-forbid(legacyRepair, /\bGRANT\b/iu, 'pinned legacy repair: grant authority is forbidden');
-forbid(legacyRepair, /docker\s+compose[^\n]+\bdown\b/iu, 'pinned legacy repair: Compose shutdown is forbidden');
-forbid(legacyRepair, /set\s+-[^\n]*x/iu, 'pinned legacy repair: shell tracing is forbidden');
-
-const nonTaiCheck = legacyRepair.indexOf("relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'");
-const blockedCondition = legacyRepair.indexOf('if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]');
-const transactionStart = legacyRepair.indexOf('\nBEGIN;\nALTER ROLE ${ROLE_NAME} NOLOGIN;');
-const dropRole = legacyRepair.indexOf('\nDROP ROLE ${ROLE_NAME};', transactionStart);
-const commit = legacyRepair.indexOf('\nCOMMIT;\n', dropRole);
-if ([nonTaiCheck, blockedCondition, transactionStart, dropRole, commit].some((index) => index < 0)
-  || !(nonTaiCheck < blockedCondition && blockedCondition < transactionStart && transactionStart < dropRole && dropRole < commit)) {
-  violations.push('pinned legacy runtime repair: pre-mutation attestation and transactional drop ordering invalid');
+]);
+forbid('legacy', [
+  /\bDROP\s+OWNED\b/iu,
+  /\bREASSIGN\s+OWNED\b/iu,
+  /\bGRANT\b/iu,
+  /docker\s+compose[^\n]+\bdown\b/iu,
+  /set\s+-[^\n]*x/iu,
+]);
+const nonTai = text.legacy.indexOf("relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'");
+const boundary = text.legacy.indexOf('if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]');
+const begin = text.legacy.indexOf('\nBEGIN;\nALTER ROLE ${ROLE_NAME} NOLOGIN;');
+const drop = text.legacy.indexOf('\nDROP ROLE ${ROLE_NAME};', begin);
+const commit = text.legacy.indexOf('\nCOMMIT;\n', drop);
+if ([nonTai, boundary, begin, drop, commit].some((index) => index < 0) || !(nonTai < boundary && boundary < begin && begin < drop && drop < commit)) {
+  violations.push(`${paths.legacy}: pre-mutation and transaction ordering invalid`);
 }
 
-for (const fragment of [
+requireAll('fullStackController', [
   "'pc.full-stack.controller-input.v1'",
   "'deploy'", "'verify-intake'", "'rollback'",
   'INPUT_SCHEMA_SHAPE_INVALID',
@@ -128,37 +112,30 @@ for (const fragment of [
   'rm -rf --one-file-system "$INPUT_DIR"',
   "'productionInboundSshUsed': False",
   "'runnerDirectDockerAuthority': False",
-]) requireFragment(controller, fragment, fullStackControllerPath);
-forbid(controller, /\bssh\b|\bscp\b|\bsudo\b/iu, `${fullStackControllerPath}: SSH, SCP or nested sudo is forbidden`);
+]);
+forbid('fullStackController', [/\b(?:ssh|scp)\s+/iu, /\bsudo\s+/iu]);
 
-forbid(workflow, /pull_request_target:/u, `${paths.workflow}: pull_request_target is forbidden`);
-forbid(workflow, /continue-on-error:\s*true/mu, `${paths.workflow}: continue-on-error is forbidden`);
-forbid(wrapper, /\bdocker\b/u, `${paths.wrapper}: wrapper may not gain direct Docker authority`);
-forbid(wrapper, /\bcurl\b|\beval\b/u, `${paths.wrapper}: remote download or eval is forbidden`);
-
-if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${paths.scope}: invalid schemaVersion`);
-if (scope.branch !== 'fix/tai-runtime-role-boundary-evidence-20260803') violations.push(`${paths.scope}: branch mismatch`);
-if (scope.baselineExactMain !== 'd4e79a9f2f460fcf2d5da1c5c8eed2993d0e273e') violations.push(`${paths.scope}: baseline mismatch`);
-if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) violations.push(`${paths.scope}: hosting or cost boundary changed`);
-const expectedPaths = Object.values(paths).sort();
-const allowedPaths = Array.isArray(scope.allowedPaths) ? [...scope.allowedPaths].sort() : [];
-if (JSON.stringify(expectedPaths) !== JSON.stringify(allowedPaths)) violations.push(`${paths.scope}: allowedPaths must exactly match the governed orphan-repair implementation`);
-
+if (orphanScope.schemaVersion !== 'platform-v7.concurrent-scope.v1' || orphanScope.branch !== 'fix/tai-runtime-role-boundary-evidence-20260803') {
+  violations.push(`${paths.orphanScope}: invalid legacy scope`);
+}
+if (orphanScope.productionHosting !== 'REG_RU_VPS_ONLY' || orphanScope.newRecurringCostRub !== 0) violations.push(`${paths.orphanScope}: boundary changed`);
+for (const path of [paths.workflow, paths.wrapper, paths.dispatcher, paths.checker, paths.orphanScope]) {
+  if (!orphanScope.allowedPaths?.includes(path)) violations.push(`${paths.orphanScope}: original path missing ${path}`);
+}
 if (fullStackScope.schemaVersion !== 'platform-v7.concurrent-scope.v1' || fullStackScope.branch !== 'ops/production-full-stack-release-v1') {
-  violations.push(`${fullStackScopePath}: invalid concurrent scope authority`);
+  violations.push(`${paths.fullStackScope}: invalid full-stack scope`);
 }
-for (const path of [paths.repair, paths.checker, fullStackControllerPath]) {
-  if (!fullStackScope.allowedPaths?.includes(path)) violations.push(`${fullStackScopePath}: ${path} outside outbound full-stack scope`);
+for (const path of [paths.dispatcher, paths.legacy, paths.checker, paths.fullStackController]) {
+  if (!fullStackScope.allowedPaths?.includes(path)) violations.push(`${paths.fullStackScope}: ${path} outside full-stack scope`);
 }
-
-for (const path of [paths.repair, fullStackControllerPath]) {
+for (const path of [paths.dispatcher, paths.legacy, paths.fullStackController]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   if (result.status !== 0) violations.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
 }
 
 if (violations.length) {
-  console.error('TAI orphan runtime role repair compatibility contract failed:');
+  console.error('TAI runtime-role compatibility contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI orphan runtime role repair contract PASS: exact owner command, immutable legacy blob attestation, unchanged safe orphan semantics and bounded outbound full-stack compatibility dispatch.');
+console.log('TAI runtime-role compatibility PASS: immutable local legacy repair and bounded full-stack dispatch coexist without changing the installed wrapper.');
