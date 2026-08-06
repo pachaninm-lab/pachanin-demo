@@ -88,8 +88,10 @@ for (const fragment of [
   'report.flush()',
   'os.fsync(report.fileno())',
   "'API_WEB_NOT_EXACT_MAIN'",
-  "'API_WEB_EXACT_MAIN' not in passed",
-  "'API_WEB_EXACT_MAIN' in passed",
+  "codes = {row.get('code') for row in checks if isinstance(row, dict)}",
+  "if 'API_WEB_NOT_EXACT_MAIN' in codes",
+  "if 'API_WEB_EXACT_MAIN' in codes",
+  "if 'API_WEB_EXACT_MAIN' not in passed",
 ]) requireWorkflowFragment(fragment);
 if (/actions\/upload-artifact@v4/u.test(workflow)) {
   violations.push(`${workflowPath}: owner preflight may not upload evidence from the production runner with an Action`);
@@ -125,6 +127,10 @@ const strictWithoutExact = clone(strict);
 strictWithoutExact.checks = strictWithoutExact.checks.filter((check) => !STRICT_ONLY_PASS_CODES.includes(check.code));
 expectBlocked('strict result without exact API/web authority', strictWithoutExact, { allowBootstrap: false });
 
+const strictWithMismatch = clone(strict);
+strictWithMismatch.checks.push({ name: 'api_web_nonexact', status: 'DEFERRED', code: 'API_WEB_NOT_EXACT_MAIN' });
+expectBlocked('strict result with contradictory non-exact authority', strictWithMismatch, { allowBootstrap: false });
+
 const unexpected = clone(base);
 unexpected.checks.push({ name: 'runtime', status: 'BLOCKED', code: 'TAI_RUNTIME_UNHEALTHY' });
 unexpected.blockers.push('TAI_RUNTIME_UNHEALTHY');
@@ -136,7 +142,7 @@ incompleteBootstrap.blockers = incompleteBootstrap.blockers.filter((code) => cod
 expectBlocked('incomplete bootstrap authority', incompleteBootstrap);
 
 const falseExactAndMismatch = clone(base);
-falseExactAndMismatch.checks.push({ name: 'api_web_exact', status: 'PASS', code: 'API_WEB_EXACT_MAIN' });
+falseExactAndMismatch.checks.push({ name: 'api_web_exact', status: 'DEFERRED', code: 'API_WEB_EXACT_MAIN' });
 expectBlocked('simultaneous exact and non-exact API/web authority', falseExactAndMismatch);
 
 const missingCritical = clone(base);
@@ -182,4 +188,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI bootstrap preflight contract PASS: only the exact full-stack plus standalone-TAI materialization gap is bootstrap-eligible; baseline health, rollback, capacity, model connectivity and no-mutation remain fail-closed.');
+console.log('TAI bootstrap preflight contract PASS: only the exact full-stack plus standalone-TAI materialization gap is bootstrap-eligible; contradictory API/Web authority, baseline health, rollback, capacity, model connectivity and no-mutation remain fail-closed.');
