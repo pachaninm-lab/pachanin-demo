@@ -216,6 +216,7 @@ DECLARE
     'auth.resolve_login_context_by_email(text)',
     'auth.resolve_login_context_by_membership(text,text)',
     'auth.resolve_session_identity(text,text,text,text)',
+    'auth.resolve_staff_target_scope(text,text,text,text,text)',
     'auth.validate_deal_creation_actors(text,text,text,text,text)',
     'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)',
     'public.app_identity_is_org_admin()',
@@ -253,6 +254,7 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_email(text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(text,text) TO one_deal_auth;
     GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) TO one_deal_auth;
     -- Deal actor validation and logistics identity projection are separate
     -- from pre-authentication and belong to the deal runtime only.
     GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
@@ -314,17 +316,18 @@ SELECT
   || ':' ||
   (SELECT count(*) FROM pg_proc p JOIN pg_roles owner ON owner.oid = p.proowner
    JOIN pg_namespace n ON n.oid = p.pronamespace
-   WHERE (
+   WHERE ((
        n.nspname = 'auth'
        AND p.proname IN (
          'resolve_login_identity', 'resolve_login_identity_by_id',
          'resolve_login_memberships', 'resolve_login_memberships_ordered',
          'resolve_login_context_by_email', 'resolve_login_context_by_membership',
-         'resolve_session_identity', 'validate_deal_creation_actors')
+         'resolve_session_identity', 'resolve_staff_target_scope',
+         'validate_deal_creation_actors')
      ) OR (
        n.nspname = 'public'
        AND p.proname = 'app_logistics_assignment_projection'
-     )
+     ))
      AND owner.rolname = 'pc_identity_bootstrap')::text
   || ':' ||
   (SELECT count(*) FROM pg_roles WHERE rolname = 'one_deal_auth' AND rolbypassrls)::text
@@ -341,7 +344,7 @@ SELECT
 SQL
 )"
 echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:bootstrap-execute:deal-actor-execute:auth-actor-execute:logistics-execute:auth-logistics-execute = $RESTORE_IDENTITY_PROOF"
-if [[ "$RESTORE_IDENTITY_PROOF" != "3:9:0:1:1:0:1:0" ]]; then
+if [[ "$RESTORE_IDENTITY_PROOF" != "3:10:0:1:1:0:1:0" ]]; then
   echo "Restored identity boundary is invalid: $RESTORE_IDENTITY_PROOF" >&2
   exit 1
 fi
