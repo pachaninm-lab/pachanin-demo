@@ -4,6 +4,14 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type AuthSqlClient = Pick<Prisma.TransactionClient, '$queryRaw' | '$executeRaw'>;
 
+export type LoginCredentialRow = {
+  user_id: string;
+  email: string;
+  password_hash: string;
+  user_status: string;
+  deleted_at: Date | null;
+};
+
 export type IdentityRow = {
   user_id: string;
   email: string;
@@ -118,30 +126,25 @@ export class PersistentAuthRepository {
       || /could not serialize access|write conflict|deadlock detected/i.test(String(candidate?.message ?? ''));
   }
 
-  // Both identity lookups below run before any tenant context exists, which is
-  // exactly the read the auth principal used to need BYPASSRLS for. They now go
-  // through the bounded bootstrap functions from
-  // 20260806120000_identity_bootstrap_login_context: SECURITY DEFINER, owned by
-  // a NOLOGIN role with no members, bodies fixed by the migration. Written as a
-  // direct join here, these return zero rows under the identity policies and no
-  // one can log in.
-  async findIdentityByEmail(client: AuthSqlClient, email: string): Promise<IdentityRow | null> {
-    const rows = await client.$queryRaw<IdentityRow[]>(Prisma.sql`
-      SELECT
-        user_id,
-        email,
-        password_hash,
-        full_name,
-        phone,
-        user_status,
-        membership_id,
-        role,
-        organization_id,
-        organization_status,
-        tenant_id
-      FROM auth.resolve_login_context_by_email(${email})
+  // Pre-password authority is deliberately minimal: no membership, tenant,
+  // organization or MFA material is available at this stage.
+  async findLoginCredentialByEmail(client: AuthSqlClient, email: string): Promise<LoginCredentialRow | null> {
+    const rows = await client.$queryRaw<LoginCredentialRow[]>(Prisma.sql`
+      SELECT user_id, email, password_hash, user_status, deleted_at
+      FROM auth.resolve_login_credential(${email})
     `);
     return rows[0] ?? null;
+  }
+
+  // This returns one opaque membership id only. The application invokes it
+  // after the password has been verified; organization/tenant context is then
+  // resolved by the membership-bound function below.
+  async findDefaultLoginMembershipId(client: AuthSqlClient, userId: string): Promise<string | null> {
+    const rows = await client.$queryRaw<Array<{ membership_id: string }>>(Prisma.sql`
+      SELECT membership_id
+      FROM auth.resolve_login_default_membership(${userId})
+    `);
+    return rows[0]?.membership_id ?? null;
   }
 
   async findIdentityByUserAndMembership(
