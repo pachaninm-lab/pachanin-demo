@@ -1,0 +1,221 @@
+name: Temporary TAI Actionless Self-Hosted Patcher
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-actionless-patcher-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/tai-reg-ru-release-chain-gate-20260801'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Replace third-party Actions on production runners
+        env:
+          PATCHER_PATH: .github/workflows/tai-actionless-self-hosted-patcher.yml
+          AUTHORITY_BASE: 43ec7d01fc84c1af84fe5dea7f63630f66454257
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          activation_path = Path('.github/workflows/tai-restricted-qwen-reg-ru-activation.yml')
+          deploy_path = Path('.github/workflows/tai-reg-ru-deploy.yml')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json')
+          patcher_path = Path(os.environ['PATCHER_PATH'])
+
+          def replace_step(path: Path, name: str, replacement: str) -> None:
+              lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
+              marker = f'      - name: {name}\n'
+              starts = [index for index, line in enumerate(lines) if line == marker]
+              if len(starts) != 1:
+                  raise SystemExit(f'{path}: expected one step {name!r}, found {len(starts)}')
+              start = starts[0]
+              end = start + 1
+              while end < len(lines):
+                  line = lines[end]
+                  if line.startswith('      - ') or re.fullmatch(r'  [A-Za-z0-9_]+:\s*\n', line):
+                      break
+                  end += 1
+              block = replacement.strip('\n').splitlines(keepends=False)
+              lines[start:end] = [line + '\n' for line in block]
+              path.write_text(''.join(lines), encoding='utf-8')
+
+          replace_step(
+              activation_path,
+              'Upload activation and SSE evidence',
+              r'''
+      - name: Upload activation and SSE evidence
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${CONTROLLER_RUN_ID}/activation.json"
+          [[ -s "$evidence" ]]
+          python3 - "$evidence" "$TARGET_SHA" <<'PY_ACTIVATION_EVIDENCE'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding='utf-8'))
+          if not isinstance(report, dict) or report.get('targetSha') != sys.argv[2]:
+              raise SystemExit('activation evidence target mismatch')
+          if not isinstance(report.get('passed'), bool):
+              raise SystemExit('activation evidence terminal state is missing')
+          PY_ACTIVATION_EVIDENCE
+          out="$RUNNER_TEMP/tai-live"
+          for name in ru en zh potato; do [[ -s "$out/${name}.sse" ]]; done
+          {
+            digest="$(sha256sum "$evidence" | awk '{print $1}')"
+            printf '%s  activation.json\n' "$digest"
+            for name in ru en zh potato; do
+              digest="$(sha256sum "$out/${name}.sse" | awk '{print $1}')"
+              printf '%s  %s.sse\n' "$digest" "$name"
+            done
+          } > "$out/evidence.sha256"
+''',
+          )
+
+          replace_step(
+              activation_path,
+              'Upload finalization evidence',
+              r'''
+      - name: Upload finalization evidence
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${CONTROLLER_RUN_ID}/finalization.json"
+          [[ -s "$evidence" ]]
+          python3 - "$evidence" "$TARGET_SHA" <<'PY_FINALIZATION_EVIDENCE'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding='utf-8'))
+          if not isinstance(report, dict) or report.get('targetSha') != sys.argv[2]:
+              raise SystemExit('finalization evidence target mismatch')
+          if not isinstance(report.get('passed'), bool):
+              raise SystemExit('finalization evidence terminal state is missing')
+          PY_FINALIZATION_EVIDENCE
+          digest="$(sha256sum "$evidence" | awk '{print $1}')"
+          printf 'FINALIZATION_EVIDENCE_SHA256=%s\n' "$digest"
+''',
+          )
+
+          replace_step(
+              deploy_path,
+              'Upload exact-main deployment evidence',
+              r'''
+      - name: Upload exact-main deployment evidence
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          root="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}"
+          python3 - "$root" "$TARGET_SHA" <<'PY_DEPLOYMENT_EVIDENCE'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          target = sys.argv[2]
+          reports = {}
+          for name in ('predeploy.json', 'deployment.json', 'postdeploy.json'):
+              path = root / name
+              if not path.is_file() or path.is_symlink():
+                  continue
+              value = json.loads(path.read_text(encoding='utf-8'))
+              if not isinstance(value, dict) or value.get('targetSha') != target:
+                  raise SystemExit(f'{name}: target mismatch')
+              reports[name] = value
+          if 'deployment.json' not in reports:
+              raise SystemExit('deployment evidence is missing')
+          if reports['deployment.json'].get('passed') is True:
+              if 'predeploy.json' not in reports or 'postdeploy.json' not in reports:
+                  raise SystemExit('successful deployment evidence set is incomplete')
+              if reports['postdeploy.json'].get('passed') is not True or reports['postdeploy.json'].get('blockers'):
+                  raise SystemExit('successful deployment postflight is invalid')
+          PY_DEPLOYMENT_EVIDENCE
+          manifest="$RUNNER_TEMP/tai-deployment-evidence.sha256"
+          : > "$manifest"
+          for name in predeploy.json deployment.json postdeploy.json; do
+            if [[ -s "$root/$name" ]]; then
+              digest="$(sha256sum "$root/$name" | awk '{print $1}')"
+              printf '%s  %s\n' "$digest" "$name" >> "$manifest"
+            fi
+          done
+          [[ -s "$manifest" ]]
+''',
+          )
+
+          activation = activation_path.read_text(encoding='utf-8')
+          deploy = deploy_path.read_text(encoding='utf-8')
+
+          def job_slice(source: str, job: str, next_job: str) -> str:
+              start = source.index(f'  {job}:\n')
+              end = source.index(f'  {next_job}:\n', start)
+              return source[start:end]
+
+          for label, source in (
+              ('activation.activate', job_slice(activation, 'activate', 'acceptance')),
+              ('activation.finalize', job_slice(activation, 'finalize', 'publish')),
+              ('deployment.deploy', job_slice(deploy, 'deploy', 'publish_status')),
+          ):
+              if 'uses: actions/' in source:
+                  raise SystemExit(f'{label}: third-party Action remains on production runner')
+              if 'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]' not in source:
+                  raise SystemExit(f'{label}: self-hosted authority marker is missing')
+
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          scope['purpose'] = (
+              'Keep the exact-main REG.RU activation and deployment chain fail-closed while '
+              'executing production self-hosted jobs without third-party GitHub Actions. '
+              'Retain the non-root runner, restricted root controller, server-side redacted evidence, '
+              'automatic rollback and hosted acceptance/status publication.'
+          )
+          scope['authorityBaseExactMain'] = os.environ['AUTHORITY_BASE']
+          required = scope.setdefault('requiredBehavior', [])
+          for value in (
+              'execute no third-party GitHub Action on the production self-hosted activation job',
+              'execute no third-party GitHub Action on the production self-hosted finalization job',
+              'execute no third-party GitHub Action on the production self-hosted TAI deployment job',
+              'validate and checksum root-controller evidence locally without printing its contents',
+          ):
+              if value not in required:
+                  required.append(value)
+          forbidden = scope.setdefault('forbiddenCapabilities', [])
+          for value in (
+              'third-party GitHub Actions on production self-hosted activation finalization or deployment jobs',
+              'weakening the non-root no-Docker runner boundary',
+              'declaring success without controller evidence and postflight',
+          ):
+              if value not in forbidden:
+                  forbidden.append(value)
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          patcher_path.unlink()
+          PY
+
+          node scripts/check-tai-reg-ru-release-chain.mjs
+          node scripts/check-tai-reg-ru-deploy.mjs
+          node scripts/check-tai-reg-ru-preflight.mjs
+          git diff --check
+
+      - name: Commit final governed patch
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm-lab@users.noreply.github.com'
+          git add \
+            .github/workflows/tai-restricted-qwen-reg-ru-activation.yml \
+            .github/workflows/tai-reg-ru-deploy.yml \
+            docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json \
+            .github/workflows/tai-actionless-self-hosted-patcher.yml
+          git commit -m 'fix(tai): keep production self-hosted rollout actionless'
+          git push origin HEAD:fix/tai-reg-ru-release-chain-gate-20260801
