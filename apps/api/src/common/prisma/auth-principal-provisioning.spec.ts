@@ -32,18 +32,11 @@ const PROVISIONING_SOURCES = [
 
 describe('auth principal provisioning', () => {
   it.each(PROVISIONING_SOURCES)('never grants BYPASSRLS in the %s', (_label, file) => {
-    // Comments are stripped first. These files explain at length why the
-    // attribute is gone, and a guard that cannot tell an explanation from a
-    // grant would force the explanations out — the opposite of what it is for.
     const statements = repositoryFile(file)
       .split('\n')
       .filter((line) => !/^\s*(#|--)/.test(line))
       .join('\n');
-    // NOBYPASSRLS contains BYPASSRLS as a substring, so the boundary matters:
-    // only an occurrence not preceded by NO is a grant of the attribute.
     expect(statements.match(/(?<!NO)BYPASSRLS/g) ?? []).toEqual([]);
-    // And no proof may demand it, which is how the attribute survived the last
-    // two reviews: the assertion said "count roles that are NOT bypassrls".
     expect(statements).not.toMatch(/NOT\s+rolbypassrls/i);
   });
 
@@ -65,8 +58,6 @@ describe('auth principal provisioning', () => {
   });
 
   it('grants the bounded pre-auth surface by exact signature wherever BYPASSRLS was removed', () => {
-    // Revoking the attribute without these leaves authentication unable to read
-    // an identity at all, which is a broken product rather than a boundary.
     for (const file of [
       'scripts/platform-v7-one-deal-e2e.sh',
       'infra/kind/production-like/postgresql-runtime-grants.sql',
@@ -79,8 +70,6 @@ describe('auth principal provisioning', () => {
   });
 
   it('never hands the authentication principal the staff admission surface', () => {
-    // A blanket "ALL FUNCTIONS IN SCHEMA auth" grant used to do exactly that the
-    // moment 20260806103000 created those functions.
     const kubernetes = repositoryFile('infra/kind/production-like/postgresql-runtime-grants.sql');
     expect(kubernetes).not.toMatch(/GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO app_auth/);
 
@@ -92,31 +81,51 @@ describe('auth principal provisioning', () => {
       expect(source).toMatch(/REVOKE ALL ON FUNCTION auth\.staff_admission_queue/);
       expect(source).toMatch(/REVOKE ALL ON FUNCTION auth\.staff_admission_decision/);
     }
+    expect(kubernetes).toMatch(
+      /REVOKE ALL ON FUNCTION auth\.resolve_staff_target_scope\(TEXT, TEXT, TEXT, TEXT, TEXT\) FROM app_auth/,
+    );
+  });
+
+  it('provisions a separate function-only staff runtime in production-like Kubernetes', () => {
+    const principals = repositoryFile('infra/kind/production-like/postgresql-principals-bootstrap.sql');
+    expect(principals).toContain("rolname='app_staff'");
+    expect(principals).toMatch(
+      /ALTER ROLE app_staff LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE/,
+    );
+
+    const grants = repositoryFile('infra/kind/production-like/postgresql-runtime-grants.sql');
+    expect(grants).toContain('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM app_staff');
+    expect(grants).toContain('GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff');
+    expect(grants).toContain('GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) TO app_staff');
+    expect(grants).toContain('GRANT EXECUTE ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) TO app_staff');
+    expect(grants).toContain('GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff');
+    expect(grants).toContain('REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_staff');
+
+    const kubernetes = repositoryFile('scripts/release/production-like-kubernetes-cluster.sh');
+    expect(kubernetes).toContain('STAFF_DATABASE_URL="postgresql://app_staff:');
+    expect(kubernetes).toContain("rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox')");
+    expect(kubernetes).toContain('staff_authority_proof');
+    expect(kubernetes).toContain('staff_authority_proof" = "0:0:1:1:1:1:0:0');
+
+    const example = repositoryFile('.env.example');
+    expect(example).toContain('STAFF_DATABASE_URL: dedicated staff authority runtime');
   });
 
   it('asserts NOBYPASSRLS in the acceptance proofs rather than demanding the attribute', () => {
     const oneDeal = repositoryFile('scripts/platform-v7-one-deal-e2e.sh');
-    // The proof reads super:bypass:deal-select. It used to require "false:true:false".
     expect(oneDeal).toContain('"$AUTH_ROLE_PROOF" != "false:false:false"');
     expect(oneDeal).toContain('AUTH_IDENTITY_PROOF');
     expect(oneDeal).toContain('AUTH_BOOTSTRAP_PROOF');
 
     const kubernetes = repositoryFile('scripts/release/production-like-kubernetes-cluster.sh');
-    // app_auth is counted alongside the other runtimes now, rather than being
-    // held to the inverse condition.
-    expect(kubernetes).toContain("rolname IN ('app_runtime','app_auth','app_storage','app_outbox') AND (rolsuper OR rolbypassrls OR rolinherit)");
+    expect(kubernetes).toContain("rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox') AND (rolsuper OR rolbypassrls OR rolinherit)");
     expect(kubernetes).toContain('auth_identity_proof');
     expect(kubernetes).toContain('auth_bootstrap_proof');
-    // The bootstrap proof plants a probe identity, so it cannot pass merely
-    // because the database is empty at that point in the deployment.
     expect(kubernetes).toContain('user-rls-probe');
     expect(kubernetes).toContain('auth_bootstrap_proof" = "0:0:1:1');
   });
 
   it('re-establishes definer ownership after a no-owner no-acl restore', () => {
-    // pg_restore --no-owner --no-acl is what keeps a restore independent of the
-    // source cluster's roles, and it is also what returns every SECURITY DEFINER
-    // function to the restoring superuser. Recovery has to put them back.
     const rehearsal = repositoryFile('scripts/platform-v7-database-dr-rehearsal.sh');
     expect(rehearsal).toContain('--no-owner');
     expect(rehearsal).toContain('ALTER FUNCTION %s OWNER TO pc_identity_bootstrap');
@@ -125,12 +134,14 @@ describe('auth principal provisioning', () => {
     expect(rehearsal).toContain('RESTORE_AUTH_ISOLATION');
   });
 
-  it('documents the auth principal without BYPASSRLS', () => {
+  it('documents the auth and staff principals without BYPASSRLS', () => {
     const runbook = repositoryFile('docs/platform-v7/production-database-deployment-runbook.md');
     expect(runbook).toMatch(/\| Auth runtime \|[^|]*auth\.resolve_login_\*/);
     expect(runbook).toMatch(/\| Auth runtime \|[^|]*\|[^|]*`BYPASSRLS`/);
+    expect(runbook).toMatch(/\| Staff runtime \|[^|]*auth\.staff_admission_\*/);
 
     const example = repositoryFile('.env.example');
     expect(example).toContain('AUTH_DATABASE_URL: identity role, NOSUPERUSER + NOBYPASSRLS');
+    expect(example).toContain('STAFF_DATABASE_URL: dedicated staff authority runtime');
   });
 });
