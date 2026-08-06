@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-bootstrap-canonical-images-20260806",
+  "status": "active",
+  "title": "TAI bootstrap canonical image trigger",
+  "priority": "P0",
+  "baselineExactMain": "b39671c3c3d72aa3ff67c89b6ad379f32a379dee",
+  "objective": "Ensure every merged change to the owner-authorized TAI bootstrap preflight authority publishes canonical API, Web, Migration and TAI images for the same exact main SHA, so protected preflight and activation cannot deadlock on missing immutable image authority.",
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    "scripts/check-tai-bootstrap-preflight.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-bootstrap-canonical-images-20260806.json"
+  ],
+  "boundaries": [
+    "The pull request performs no production mutation",
+    "Canonical images are published only by the existing main-push image authority after merge",
+    "The owner preflight, protected activation controller, exact-main checks, rollback and strict postflight remain unchanged",
+    "No inbound SSH, runner Docker authority, sudo capability, credential, tenant, role, model, database, financial or application-data authority is added",
+    "REG.RU only and zero new recurring cost"
+  ]
+}
