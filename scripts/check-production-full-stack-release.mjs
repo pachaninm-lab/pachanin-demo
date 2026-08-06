@@ -99,11 +99,19 @@ requireAll('workflow', [
   'DEPLOY-FULL-STACK-EXACT-SHA',
   'github.actor == github.repository_owner',
   'issue_comment:',
+  'workflow_run:',
+  "workflows: ['Build & Publish Canonical Docker Images']",
+  "github.event_name == 'workflow_run'",
+  "github.event.workflow_run.conclusion == 'success'",
+  "github.event.workflow_run.event == 'push'",
+  "github.event.workflow_run.head_branch == 'main'",
+  'github.event.workflow_run.head_sha',
   'github.event.issue.number == 3072',
   'github.event.comment.user.login == github.repository_owner',
   "github.event.comment.body == '/production full-stack current-main'",
-  "github.event_name == 'issue_comment' && github.event.repository.default_branch || github.ref_name",
+  "github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name",
   "if [[ '${{ github.event_name }}' == issue_comment ]]; then",
+  "if [[ '${{ github.event_name }}' == workflow_run ]]; then",
   'RELEASE_ISSUE_NUMBER: 3072',
   'for component in api web migration',
   'grainflow-${component}:sha-${SHORT_SHA}',
@@ -242,4 +250,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('PASS: exact API/web/migration images, serialized image publication, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');
+console.log('PASS: exact API/web/migration images, serialized image publication, trusted post-image workflow-run authority, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');
