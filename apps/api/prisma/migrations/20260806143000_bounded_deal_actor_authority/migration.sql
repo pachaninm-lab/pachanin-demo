@@ -103,6 +103,11 @@ BEGIN
     FROM pg_catalog.pg_roles
     WHERE rolname IN ('pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime')
   LOOP
+    -- EXECUTE on a function in a non-public schema is unusable without schema
+    -- USAGE. Grant both parts of the same bounded surface here so roles that
+    -- exist before migration deployment (for example app_deal in CI) receive
+    -- a complete authority contract rather than a latent permission failure.
+    EXECUTE format('GRANT USAGE ON SCHEMA auth TO %I', runtime_role);
     EXECUTE format(
       'GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text) TO %I',
       runtime_role
