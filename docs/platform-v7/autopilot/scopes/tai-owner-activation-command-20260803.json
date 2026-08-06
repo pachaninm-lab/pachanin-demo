@@ -15,6 +15,7 @@
     "Activation remains workflow_dispatch-only and never listens directly to issue_comment or workflow_run",
     "The dispatch actor and triggering actor must be the repository owner or github-actions[bot]",
     "Activation requires the exact successful TAI Automatic REG.RU Preflight run ID and run attempt supplied by the automatic preflight publisher",
+    "Activation waits at most 300 seconds for that exact upstream run to reach a terminal state, then requires completed success",
     "The upstream preflight run must be event workflow_run, branch main, exact current-main SHA and have an owner-or-github-actions actor pair",
     "All six automatic preflight jobs must be completed successfully",
     "The manual /tai activate current-main owner command remains separately available and unchanged",
