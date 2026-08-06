@@ -252,3 +252,5 @@ psql "$STAFF_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/scripts/sql/identity-rls-s
 
 echo
 echo "identity isolation gate: PASS"
+
+# Exact-head CI trigger: identity RLS acceptance.
