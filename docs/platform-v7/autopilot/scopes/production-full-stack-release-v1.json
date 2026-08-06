@@ -1,40 +1,62 @@
 {
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "ops/production-full-stack-release-v1",
   "status": "active",
-  "purpose": "Create one fail-closed exact-SHA production release authority for the REG.RU Docker Compose contour: publish immutable API, web and migration images; apply a forward-only migration through the protected one-shot service; recreate only API and web; verify the live organization-intake path; and preserve immutable image rollback.",
-  "approvedBy": "user-directed-finish-homepage-2026-07-23",
+  "purpose": "Move the exact-SHA REG.RU API, web and migration rollout from unavailable inbound SSH to the restored outbound-only pc-prod runner and the existing restricted root controller. Preserve canonical-image authority, protected Compose discovery, backup, forward-only migration, live RU/EN/ZH acceptance, durable PostgreSQL/audit/outbox evidence and automatic image rollback.",
+  "approvedBy": "owner-direct-production-completion-2026-08-06",
+  "authorityBaseExactMain": "43ec7d01fc84c1af84fe5dea7f63630f66454257",
   "evidenceIssue": 3072,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
   "allowedPaths": [
-    ".github/workflows/docker-publish.yml",
     ".github/workflows/production-full-stack-exact-sha.yml",
+    "scripts/pc-full-stack-controller.sh",
+    "scripts/tai-runtime-role-repair.sh",
+    "scripts/check-production-full-stack-release.mjs",
     "scripts/production-full-stack-exact-sha.sh",
     "scripts/production-full-stack-live-acceptance.sh",
-    "scripts/check-production-full-stack-release.mjs",
-    "docs/ops/production-full-stack-release.md",
-    "docs/ops/virtual-server-production-runbook.md",
-    "docs/ops/vps-post-deploy-checklist.md",
     "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json"
   ],
-  "forbiddenCapabilities": [
-    "using latest mutable tags or local builds on the production VPS",
-    "running migration from the API process or application runtime credentials",
-    "database down-migration or destructive schema rollback",
-    "changing Caddy protected environment volumes networks PostgreSQL Redis MinIO or non-target service configuration",
-    "printing SSH keys passwords database URLs protected paths or resolved Compose secrets",
-    "bypassing host fingerprint verification or using an untrusted proxy-derived SSH host",
-    "declaring deployment success without exact API and web OCI revisions and live intake evidence",
-    "changing application product code packages or lockfiles"
+  "requiredBehavior": [
+    "keep pcactions non-root and outside the Docker group",
+    "execute production Docker and Compose mutations only through /usr/local/sbin/pc-tai-release-controller",
+    "keep the installed pc-tai release wrapper byte-identical and route full-stack mode through the already permitted repair-runtime-role compatibility action",
+    "execute no third-party GitHub Action on the production self-hosted runner",
+    "consume the run-scoped GitHub package token through a bounded 0600 runner-input file and delete it after use",
+    "verify exact immutable API, web and migration image digests and source revisions before mutation",
+    "take or validate backup authority before forward-only migration",
+    "recreate only API and web while preserving unrelated production containers",
+    "run live RU EN ZH and organization-intake acceptance from a hosted runner",
+    "verify durable PostgreSQL audit and outbox evidence through a second protected controller call",
+    "roll back exact API and web images automatically after post-deploy acceptance failure",
+    "publish only bounded canonical redacted JSON evidence from self-hosted jobs"
   ],
-  "acceptance": [
-    "migration image is published from the same exact source SHA as API and web",
-    "workflow requires an exact full SHA reachable from current main and verifies all OCI revision labels",
-    "SSH and host identity fail closed before server mutation",
-    "protected Compose authority and one unambiguous migration service are discovered without printing paths or secrets",
-    "migration runs once with successful exit before API or web recreation",
-    "only API and web container identities may change and all other production containers remain invariant",
-    "API readiness and web health pass before live acceptance",
-    "live RU EN ZH routes and server-issued organization request plus exact replay pass",
-    "API and web images roll back automatically after post-deploy failure while the forward-compatible schema remains",
-    "evidence is checksummed and written to issue 3072"
-  ]
+  "forbiddenCapabilities": [
+    "production inbound SSH or host-key scanning",
+    "direct Docker socket authority for pcactions",
+    "arbitrary sudo or root shell access",
+    "changing the installed wrapper or requiring manual controller synchronization",
+    "mutable latest tags or local production builds",
+    "database down-migration or destructive schema rollback",
+    "printing package tokens credentials database URLs protected paths or resolved Compose authority",
+    "changing Caddy protected environment volumes networks PostgreSQL Redis MinIO or non-target services",
+    "declaring success without exact revisions live acceptance and durable DB audit outbox evidence",
+    "new hosting paid service credential or recurring expense"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "productionMutationAllowedBeforeMerge": false,
+    "requiredChecks": [
+      "platform-v7 autopilot guard",
+      "Workflow Syntax Guard",
+      "Production Full-Stack Exact-SHA Release",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ]
+  }
 }
