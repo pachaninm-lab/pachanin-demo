@@ -171,17 +171,21 @@ async function inspectAuthPrincipal(
           AND identity.relname IN ('users', 'user_orgs', 'organizations')
           AND identity.relowner = roles.oid
       ) AS owns_identity_tables,
-      -- to_regprocedure rather than a literal signature: it yields NULL for a
-      -- function that does not exist instead of raising, so a database missing
-      -- the identity migration reports a missing privilege rather than failing
-      -- the inspection with an unrelated error.
+      -- The full pre-auth/session surface used by PersistentAuthRepository.
+      -- to_regprocedure yields NULL for a missing migration so inspection
+      -- reports a boundary failure instead of throwing an unrelated lookup error.
       (
         coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity(text)'), 'EXECUTE'), false)
         AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity_by_id(text)'), 'EXECUTE'), false)
         AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships(text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships_ordered(text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_email(text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_membership(text,text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_session_identity(text,text,text,text)'), 'EXECUTE'), false)
       ) AS identity_bootstrap_execute,
       (
-        coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_queue(text,text,text,integer)'), 'EXECUTE'), false)
+        coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_staff_target_scope(text,text,text,text,text)'), 'EXECUTE'), false)
+        OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_queue(text,text,text,integer)'), 'EXECUTE'), false)
         OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_application(text,text,text,text)'), 'EXECUTE'), false)
         OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_decision(text,text,text,text,text,text)'), 'EXECUTE'), false)
         OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_capability(text,text,text,text,text)'), 'EXECUTE'), false)
