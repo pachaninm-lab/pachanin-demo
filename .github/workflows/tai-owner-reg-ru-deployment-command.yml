@@ -1,6 +1,15 @@
 name: TAI Owner REG.RU Deployment Command
 
 on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Exact deployment authority target
+        required: true
+        default: current-main
+        type: choice
+        options:
+          - current-main
   pull_request:
     paths:
       - ".github/workflows/tai-owner-reg-ru-deployment-command.yml"
@@ -21,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tai-owner-reg-ru-deployment-command-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  group: tai-owner-reg-ru-deployment-command-${{ github.event.issue.number || github.event.pull_request.number || '3365' }}
   cancel-in-progress: false
 
 jobs:
@@ -29,6 +38,7 @@ jobs:
     name: Resolve exact successful restricted Qwen activation
     if: >-
       github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
       (
         github.event_name == 'issue_comment' &&
         github.event.issue.number == 3365 &&
@@ -64,18 +74,29 @@ jobs:
           node scripts/check-tai-exact-main-convergence.mjs
       - name: Verify owner command and exact activation authority
         id: authority
-        if: github.event_name == 'issue_comment'
+        if: github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           COMMENTER: ${{ github.event.comment.user.login }}
+          REQUESTED_TARGET: ${{ inputs.target }}
+          REF: ${{ github.ref }}
           ACTOR: ${{ github.actor }}
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -Eeuo pipefail
-          [[ "$COMMENTER" == "$OWNER" ]]
           [[ "$ACTOR" == "$OWNER" ]]
           [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          if [[ "$EVENT_NAME" == 'issue_comment' ]]; then
+            [[ "$COMMENTER" == "$OWNER" ]]
+            [[ -z "$REQUESTED_TARGET" ]]
+          else
+            [[ "$EVENT_NAME" == 'workflow_dispatch' ]]
+            [[ "$REQUESTED_TARGET" == 'current-main' ]]
+            [[ "$REF" == 'refs/heads/main' ]]
+            [[ -z "$COMMENTER" ]]
+          fi
           target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
@@ -155,7 +176,7 @@ jobs:
     name: Exact-main rootless TAI image authority
     needs: [authority, contract]
     if: >-
-      github.event_name == 'issue_comment' &&
+      (github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch') &&
       needs.authority.result == 'success' &&
       needs.contract.result == 'success' &&
       needs.authority.outputs.target_sha != ''
@@ -297,9 +318,14 @@ jobs:
     needs: [authority, image_authority, deploy]
     if: >-
       always() &&
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3365 &&
-      github.event.comment.body == '/tai deploy current-main'
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 3365 &&
+          github.event.comment.body == '/tai deploy current-main'
+        )
+      )
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -355,9 +381,14 @@ jobs:
     needs: [authority, contract, image_authority, deploy, publish]
     if: >-
       always() &&
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3365 &&
-      github.event.comment.body == '/tai deploy current-main'
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 3365 &&
+          github.event.comment.body == '/tai deploy current-main'
+        )
+      )
     runs-on: ubuntu-24.04
     permissions:
       contents: read
