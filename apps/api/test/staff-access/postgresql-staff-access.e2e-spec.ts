@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { RequestUser, Role } from '../../src/common/types/request-user';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { StaffAccessRepository } from '../../src/modules/staff-access/staff-access.repository';
@@ -28,6 +28,7 @@ const ids = {
   developerAssignment: 'sta-developer-e2e',
   sreAssignment: 'sta-sre-e2e',
 };
+const ADMIN_DATABASE_URL = process.env.STAFF_ACCESS_TEST_ADMIN_URL ?? '';
 
 function actor(userId: string, email: string, orgId: string, tenantId: string): RequestUser {
   return {
@@ -46,6 +47,9 @@ function actor(userId: string, email: string, orgId: string, tenantId: string): 
 
 describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   const prisma = new AuthPrismaService();
+  const adminPrisma = new PrismaClient(
+    ADMIN_DATABASE_URL ? { datasources: { db: { url: ADMIN_DATABASE_URL } } } : undefined,
+  );
   const repository = new StaffAccessRepository(prisma);
   const access = new StaffAccessService(repository);
   const projection = new StaffProjectionService(repository, access);
@@ -59,9 +63,12 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   const sre = actor(ids.sre, 'sre.staff.e2e@example.test', ids.platformOrg, 'tenant-staff-platform-e2e');
 
   beforeAll(async () => {
-    await prisma.$connect();
+    if (!ADMIN_DATABASE_URL) {
+      throw new Error('STAFF_ACCESS_TEST_ADMIN_URL is required for isolated fixture bootstrap.');
+    }
+    await Promise.all([prisma.$connect(), adminPrisma.$connect()]);
 
-    await prisma.organization.upsert({
+    await adminPrisma.organization.upsert({
       where: { id: ids.platformOrg },
       create: {
         id: ids.platformOrg,
@@ -74,7 +81,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
       },
       update: {},
     });
-    await prisma.organization.upsert({
+    await adminPrisma.organization.upsert({
       where: { id: ids.otherOrg },
       create: {
         id: ids.otherOrg,
@@ -89,7 +96,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     });
 
     for (const user of [owner, admin, supervisor, support, developer, sre]) {
-      await prisma.user.upsert({
+      await adminPrisma.user.upsert({
         where: { id: user.id },
         create: {
           id: user.id,
@@ -100,7 +107,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
         },
         update: {},
       });
-      await prisma.userOrg.upsert({
+      await adminPrisma.userOrg.upsert({
         where: { userId_organizationId: { userId: user.id, organizationId: ids.platformOrg } },
         create: {
           id: `membership-${user.id}`,
@@ -123,7 +130,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     ] as const;
 
     for (const [id, userId, role] of assignments) {
-      await prisma.$executeRaw(Prisma.sql`
+      await adminPrisma.$executeRaw(Prisma.sql`
         INSERT INTO auth.staff_assignments (
           id, user_id, role, status, activated_at, granted_by_user_id, reason
         ) VALUES (
@@ -135,7 +142,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   });
 
   afterAll(async () => {
-    await prisma.$disconnect();
+    await Promise.allSettled([prisma.$disconnect(), adminPrisma.$disconnect()]);
   });
 
   it('forces MFA enrollment for every active staff assignment', async () => {
@@ -174,7 +181,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   });
 
   it('creates an owner view-as session and enforces the exact organization and role in PostgreSQL', async () => {
-    const target = await prisma.organization.findUnique({
+    const target = await adminPrisma.organization.findUnique({
       where: { id: 'org-canonical-buyer' },
       select: { id: true, tenantId: true },
     });
