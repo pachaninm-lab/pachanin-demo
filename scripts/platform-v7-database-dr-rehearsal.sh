@@ -225,6 +225,7 @@ DECLARE
   authority_owned text[] := ARRAY[
     'auth.staff_admission_capability(text,text,text,text,text)',
     'auth.staff_projection_capability(text,text,text,text,text,text,boolean)',
+    'auth.resolve_staff_deal_target_scope(text,text,text)',
     'auth.staff_admission_queue(text,text,text,integer)',
     'auth.staff_admission_application(text,text,text,text)',
     'auth.staff_admission_decision(text,text,text,text,text,text)',
@@ -291,6 +292,7 @@ BEGIN
       TO pc_staff_authority;
 
     GRANT USAGE ON SCHEMA auth TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) TO one_deal_staff;
     GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(text,text,text,integer) TO one_deal_staff;
     GRANT EXECUTE ON FUNCTION auth.staff_admission_application(text,text,text,text) TO one_deal_staff;
     GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text) TO one_deal_staff;
@@ -299,6 +301,7 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(text,text,text,text,text) TO one_deal_staff;
     REVOKE ALL ON FUNCTION auth.staff_admission_capability(text,text,text,text,text) FROM one_deal_staff;
     REVOKE ALL ON FUNCTION auth.staff_projection_capability(text,text,text,text,text,text,boolean) FROM one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) FROM one_deal_auth;
     REVOKE ALL ON FUNCTION auth.staff_admission_queue(text,text,text,integer) FROM one_deal_auth;
     REVOKE ALL ON FUNCTION auth.staff_admission_application(text,text,text,text) FROM one_deal_auth;
     REVOKE ALL ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text) FROM one_deal_auth;
@@ -308,6 +311,7 @@ BEGIN
 
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_staff_runtime') THEN
       GRANT USAGE ON SCHEMA auth TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) TO pc_staff_runtime;
       GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(text,text,text,integer) TO pc_staff_runtime;
       GRANT EXECUTE ON FUNCTION auth.staff_admission_application(text,text,text,text) TO pc_staff_runtime;
       GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text) TO pc_staff_runtime;
@@ -370,9 +374,9 @@ if [[ "$RESTORE_IDENTITY_PROOF" != "3:10:0:1:1:0:1:0" ]]; then
   exit 1
 fi
 
-RESTORE_STAFF_PROOF="$(psql "$RESTORE_ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_directory(text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_users(text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_projection_capability(text,text,text,text,text,text,boolean)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.staff_organization_directory(text,text,text)','EXECUTE')::int::text")"
-echo "[dr] restored staff proof table-grants:target:queue:application:decision:directory:users:cabinet:admission-cap:projection-cap:auth-target:auth-directory = $RESTORE_STAFF_PROOF"
-if [[ "$RESTORE_STAFF_PROOF" != "0:1:1:1:1:1:1:1:0:0:0:0" ]]; then
+RESTORE_STAFF_PROOF="$(psql "$RESTORE_ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_deal_target_scope(text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_directory(text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_users(text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_projection_capability(text,text,text,text,text,text,boolean)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.resolve_staff_deal_target_scope(text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.staff_organization_directory(text,text,text)','EXECUTE')::int::text")"
+echo "[dr] restored staff proof table-grants:target:deal-target:queue:application:decision:directory:users:cabinet:admission-cap:projection-cap:auth-target:auth-deal-target:auth-directory = $RESTORE_STAFF_PROOF"
+if [[ "$RESTORE_STAFF_PROOF" != "0:1:1:1:1:1:1:1:1:0:0:0:0:0" ]]; then
   echo "Restored staff authority boundary is invalid: $RESTORE_STAFF_PROOF" >&2
   exit 1
 fi
