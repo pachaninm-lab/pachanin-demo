@@ -1,11 +1,11 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/tai-bootstrap-preflight-authority-20260802",
+  "branch": "fix/tai-owner-preflight-actionless-20260806",
   "status": "active",
-  "title": "TAI bootstrap preflight authority",
+  "title": "TAI bootstrap preflight actionless authority",
   "priority": "P0",
-  "baselineExactMain": "edeb99a11f82e8261e3021a2116b8e583cbd5a31",
-  "objective": "Break the circular TAI release dependency by accepting only the exact safe standalone-runtime materialization blockers as bootstrap-eligible after every infrastructure, model, PostgreSQL and mutation-guard prerequisite has passed; retain strict zero-blocker post-deployment authority.",
+  "baselineExactMain": "51d5ae3ab841e88c11f6762a63ee51ab2c8d6287",
+  "objective": "Break the circular TAI release dependency without weakening the hardened REG.RU runner: accept only the exact safe standalone-runtime materialization blockers as bootstrap-eligible, execute the owner self-hosted preflight without third-party GitHub Actions, transfer only bounded canonical redacted JSON to the hosted publisher, and retain strict zero-blocker post-deployment authority.",
   "allowedPaths": [
     ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
     "scripts/verify-tai-preflight-report.mjs",
@@ -15,6 +15,11 @@
   "boundaries": [
     "Bootstrap eligibility requires exactly TAI_SERVICE_NOT_MATERIALIZED, TAI_DEDICATED_ENV_NOT_MATERIALIZED and TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED",
     "All critical compose, exact-runtime, capacity, model-connectivity, TAI schema/profile and no-mutation checks must be PASS",
+    "The production self-hosted owner preflight job contains no third-party GitHub Action",
+    "The pcactions runner remains non-root and without direct Docker authority",
+    "Only the restricted root controller may inspect production and no production mutation is allowed during preflight",
+    "Preflight evidence is bounded to 65536 bytes, canonical JSON, schema-checked and exact-target-bound before transfer",
+    "Evidence is materialized and revalidated only on the hosted status publisher",
     "Any additional, missing-authority, malformed or mutation-related blocker fails closed",
     "Model admission remains a separately reported maturity state and is never fabricated",
     "The owner command, exact-current-main image, immutable digest, non-root image user and protected REG.RU controller remain mandatory",
