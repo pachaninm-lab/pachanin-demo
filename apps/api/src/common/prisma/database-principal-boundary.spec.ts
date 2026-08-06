@@ -84,7 +84,7 @@ describe('database principal boundaries', () => {
     const authSnapshot: DatabasePrincipalSnapshot = {
       ...safeSnapshot,
       currentUser: 'auth_runtime',
-      bypassRls: true,
+      bypassRls: false,
       dealSelect: false,
       dealInsert: false,
       dealUpdate: false,

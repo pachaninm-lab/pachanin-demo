@@ -106,14 +106,31 @@ AS $function$
   SELECT nullif(current_setting('app.current_role', true), '');
 $function$;
 
+CREATE OR REPLACE FUNCTION public.app_identity_session_id()
+RETURNS text
+LANGUAGE sql
+STABLE
+PARALLEL SAFE
+AS $function$
+  SELECT nullif(current_setting('app.current_session_id', true), '');
+$function$;
+
 -- An organization-level administrator of the organization in context. Derived
 -- from the membership table, not from the role label alone, so a client that
 -- could influence the label still could not grant itself administration of an
 -- organization it does not belong to.
+--
+-- SECURITY DEFINER is not a convenience here. This function is called from the
+-- policies on public."user_orgs" itself; as an invoker function its read would
+-- re-enter those same policies and PostgreSQL would raise "infinite recursion
+-- detected in policy for relation". Running as the owner reads the table once,
+-- beneath the policy layer, and returns a single boolean.
 CREATE OR REPLACE FUNCTION public.app_identity_is_org_admin()
 RETURNS boolean
 LANGUAGE sql
+SECURITY DEFINER
 STABLE
+SET search_path = public, pg_temp
 AS $function$
   SELECT EXISTS (
     SELECT 1
@@ -124,6 +141,8 @@ AS $function$
   );
 $function$;
 
+ALTER FUNCTION public.app_identity_is_org_admin() OWNER TO pc_identity_bootstrap;
+
 -- The admission reviewer and platform staff contour. These principals read
 -- across organizations by design, so the signal admitting them must not be one
 -- an ordinary tenant can hold.
@@ -132,30 +151,61 @@ $function$;
 -- an organization membership role as well as a staff label, so keying the
 -- cross-tenant branch on it would hand every organization administrator a read
 -- of every other tenant — which is what the first run of the direct-SQL
--- isolation test showed. Platform authority travels in its own setting,
--- populated from RequestUser.staffRoles, which is resolved server-side and
--- never sourced from a JWT, a URL, a cookie or client storage.
-CREATE OR REPLACE FUNCTION public.app_identity_staff_roles()
-RETURNS text[]
-LANGUAGE sql
-STABLE
-PARALLEL SAFE
-AS $function$
-  SELECT CASE
-    WHEN nullif(current_setting('app.current_staff_roles', true), '') IS NULL THEN ARRAY[]::text[]
-    ELSE string_to_array(current_setting('app.current_staff_roles', true), ',')
-  END;
-$function$;
-
+-- isolation test showed.
+--
+-- Nor does it read a staff label out of a setting. Any GUC the runtime
+-- principal can write is not an authority: that principal can simply execute
+-- `SET LOCAL app.current_staff_roles = 'PLATFORM_ADMIN'` and award itself the
+-- cross-tenant branch. That was measured against this very migration — the
+-- restricted role read every organization and every user — so the setting is
+-- gone rather than merely discouraged.
+--
+-- Platform authority is a fact in the database or it does not exist: an ACTIVE
+-- staff assignment inside its validity window, held by the identity in
+-- context, whose session is live, unexpired, unrevoked and MFA-verified.
+-- Claiming another identity's user or session id no longer suffices, because
+-- the claim must correspond to rows that actually exist.
 CREATE OR REPLACE FUNCTION public.app_identity_is_reviewer()
 RETURNS boolean
 LANGUAGE sql
+SECURITY DEFINER
 STABLE
-PARALLEL SAFE
+SET search_path = public, auth, pg_temp
 AS $function$
-  SELECT public.app_identity_staff_roles()
-    && ARRAY['PLATFORM_ADMIN', 'SUPPORT_MANAGER', 'COMPLIANCE_OFFICER', 'REGISTRATION_REVIEWER'];
+  SELECT EXISTS (
+    SELECT 1
+    FROM auth.staff_assignments assignment
+    JOIN auth.sessions session
+      ON session.user_id = assignment.user_id
+    WHERE assignment.user_id = public.app_identity_user_id()
+      AND assignment.status = 'ACTIVE'
+      AND assignment.revoked_at IS NULL
+      AND assignment.suspended_at IS NULL
+      AND assignment.valid_from <= now()
+      AND (assignment.valid_until IS NULL OR assignment.valid_until > now())
+      -- Drawn from the vocabulary auth_staff_assignments_role_check already
+      -- enforces, so a label this predicate would admit but the table would
+      -- reject cannot exist. BREAK_GLASS_ADMIN and DEVELOPER are deliberately
+      -- absent: neither reviews admissions, and neither should read identity
+      -- across tenants as a matter of course.
+      AND assignment.role IN (
+        'PLATFORM_OWNER',
+        'PLATFORM_ADMIN',
+        'SUPPORT_L1',
+        'SUPPORT_L2',
+        'OPERATIONS_AGENT',
+        'OPERATIONS_SUPERVISOR',
+        'COMPLIANCE_STAFF'
+      )
+      AND session.id = public.app_identity_session_id()
+      AND session.status = 'ACTIVE'
+      AND session.revoked_at IS NULL
+      AND session.expires_at > now()
+      AND session.mfa_verified_at IS NOT NULL
+  );
 $function$;
+
+ALTER FUNCTION public.app_identity_is_reviewer() OWNER TO pc_identity_bootstrap;
 
 -- 4. The pre-authentication surface ------------------------------------------
 --
@@ -409,3 +459,57 @@ CREATE POLICY users_bootstrap_insert ON public."users"
 DROP POLICY IF EXISTS user_orgs_bootstrap_insert ON public."user_orgs";
 CREATE POLICY user_orgs_bootstrap_insert ON public."user_orgs"
   FOR INSERT TO pc_identity_bootstrap WITH CHECK (true);
+
+-- 6. Execution privileges ----------------------------------------------------
+--
+-- A SECURITY DEFINER function is executable by PUBLIC unless said otherwise,
+-- which would make every one of these a way around the boundary for any role
+-- that can reach the database at all. Each is revoked from PUBLIC and granted
+-- back only where it is needed.
+
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.app_identity_is_org_admin() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.app_identity_is_reviewer() FROM PUBLIC;
+
+-- The authority functions read beneath the policy layer, so the bootstrap
+-- owner needs the reads its bodies perform and nothing wider.
+GRANT USAGE ON SCHEMA auth TO pc_identity_bootstrap;
+GRANT SELECT ON auth.staff_assignments, auth.sessions TO pc_identity_bootstrap;
+
+-- The policies call the two authority functions on behalf of whichever
+-- principal is running the statement, so execution must be available to them;
+-- the bodies are fixed by this migration and return a single boolean.
+GRANT EXECUTE ON FUNCTION public.app_identity_is_org_admin() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.app_identity_is_reviewer() TO PUBLIC;
+
+-- 7. Privileged columns ------------------------------------------------------
+--
+-- users_self_update lets an identity maintain its own row, which must not mean
+-- promoting itself, resurrecting a deleted account or replacing its own
+-- credential material. Row-level security cannot express that: a policy admits
+-- or refuses a row, not a column. The privileged columns are therefore withheld
+-- at the grant level, so an UPDATE that touches them is refused before any
+-- policy is consulted.
+REVOKE UPDATE ON public."users" FROM PUBLIC;
+
+DO $privileged_columns$
+DECLARE
+  runtime_role text;
+BEGIN
+  FOR runtime_role IN
+    SELECT rolname FROM pg_catalog.pg_roles
+    WHERE rolname IN ('pc_auth_runtime', 'pc_deal_runtime')
+  LOOP
+    EXECUTE format(
+      'REVOKE UPDATE ON public."users" FROM %I',
+      runtime_role
+    );
+    EXECUTE format(
+      'GRANT UPDATE ("email", "phone", "fullName", "updatedAt") ON public."users" TO %I',
+      runtime_role
+    );
+  END LOOP;
+END;
+$privileged_columns$;

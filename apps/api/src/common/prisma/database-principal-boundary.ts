@@ -118,7 +118,15 @@ export function evaluateDealPrincipalBoundary(snapshot: DatabasePrincipalSnapsho
 export function evaluateAuthPrincipalBoundary(snapshot: DatabasePrincipalSnapshot): string[] {
   const errors: string[] = [...evaluateRoleIsolation(snapshot, 'auth')];
   if (snapshot.superuser) errors.push('auth principal must not be SUPERUSER');
-  if (!snapshot.bypassRls) errors.push('auth principal must have BYPASSRLS for identity reads before deal context');
+  // This assertion used to run the other way: the auth principal was *required*
+  // to hold BYPASSRLS, because authentication has to read an identity before
+  // any tenant context exists and nothing else could serve that read. BYPASSRLS
+  // buys the login lookup at the price of every statement that follows it —
+  // once the principal holds it, no policy on any table applies to anything it
+  // does. The pre-auth read now goes through the bounded bootstrap functions in
+  // 20260806090000_identity_row_level_security instead, so the privilege is not
+  // merely unnecessary here, it is forbidden (#3670).
+  if (snapshot.bypassRls) errors.push('auth principal must not have BYPASSRLS');
   if (snapshot.ownsDeals) errors.push('auth principal must not own public.deals');
   if (snapshot.dealSelect || snapshot.dealInsert || snapshot.dealUpdate || snapshot.dealDelete) {
     errors.push('auth principal must have no privileges on public.deals');

@@ -114,17 +114,19 @@ describe('RlsTransactionService', () => {
     expect(sql).toContain("set_config('app.current_tenant_id'");
     expect(sql).toContain("set_config('app.current_role'");
     expect(sql).toContain("set_config('app.current_session_id'");
-    expect(sql).toContain("set_config('app.current_staff_roles'");
+    // Staff authority is deliberately absent from the settings. The runtime
+    // principal can write any setting it likes, so one carrying platform
+    // authority would be forgeable by the very principal it confines.
+    expect(sql).not.toContain('app.current_staff_roles');
     // Every setting is transaction-local. A session-level one would outlive the
     // statement and carry another request's authority.
-    expect(sql.match(/true/g)).toHaveLength(6);
+    expect(sql.match(/true/g)).toHaveLength(5);
     expect(statement.values).toEqual([
       TRUSTED_USER.id,
       TRUSTED_USER.orgId,
       TRUSTED_USER.tenantId,
       TRUSTED_USER.role,
       TRUSTED_USER.sessionId,
-      '',
     ]);
   });
 

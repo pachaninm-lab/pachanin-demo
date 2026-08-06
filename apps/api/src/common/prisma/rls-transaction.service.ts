@@ -27,10 +27,17 @@ export type TrustedRlsContext = Readonly<{
   /**
    * Platform authority, resolved server-side from durable staff assignments.
    *
-   * Identity RLS admits the cross-organization reader on this and never on
-   * `role`: 'ADMIN' is an organization membership role in this schema as well
-   * as a staff label, so keying the cross-tenant branch on `role` would hand
-   * every organization administrator a read of every other tenant.
+   * Available to application code, and deliberately **not** written into a
+   * PostgreSQL setting. An earlier revision passed it as
+   * `app.current_staff_roles` for the identity policies to read, which measured
+   * as no boundary at all: the runtime principal can execute
+   * `SET LOCAL app.current_staff_roles = 'PLATFORM_ADMIN'` itself, and did —
+   * reading every organization and every user in the isolation harness. A
+   * setting the confined principal can write is not an authority.
+   *
+   * The database now establishes platform authority from its own rows: an
+   * ACTIVE staff assignment inside its validity window whose session is live,
+   * unexpired and MFA-verified. See public.app_identity_is_reviewer().
    */
   staffRoles: readonly string[];
 }>;
@@ -121,8 +128,7 @@ export class RlsTransactionService {
                   set_config('app.current_org_id', ${context.orgId}, true),
                   set_config('app.current_tenant_id', ${context.tenantId}, true),
                   set_config('app.current_role', ${context.role}, true),
-                  set_config('app.current_session_id', ${context.sessionId}, true),
-                  set_config('app.current_staff_roles', ${context.staffRoles.join(',')}, true)
+                  set_config('app.current_session_id', ${context.sessionId}, true)
               `,
             );
 
