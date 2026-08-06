@@ -319,14 +319,22 @@ jobs:
           PY
       - name: Upload activation and SSE evidence
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-restricted-qwen-activation-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: |
-            /var/lib/pc-release-authority/runner-output/${{ env.CONTROLLER_RUN_ID }}/activation.json
-            ${{ runner.temp }}/tai-live
-          if-no-files-found: error
-          retention-days: 30
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${CONTROLLER_RUN_ID}/activation.json"
+          [[ -s "$evidence" ]]
+          python3 - "$evidence" "$TARGET_SHA" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          if not isinstance(report,dict) or report.get('targetSha') != sys.argv[2]: raise SystemExit('activation evidence target mismatch')
+          if not isinstance(report.get('passed'),bool): raise SystemExit('activation evidence terminal state missing')
+          PY
+          out="$RUNNER_TEMP/tai-live"
+          for name in ru en zh potato; do [[ -s "$out/${name}.sse" ]]; done
+          {
+            digest="$(sha256sum "$evidence" | awk '{print $1}')"; printf '%s  activation.json\n' "$digest"
+            for name in ru en zh potato; do digest="$(sha256sum "$out/${name}.sse" | awk '{print $1}')"; printf '%s  %s.sse\n' "$digest" "$name"; done
+          } > "$out/evidence.sha256"
 
   acceptance:
     name: Hosted live public AI acceptance
@@ -386,12 +394,18 @@ jobs:
           sudo -n /usr/local/sbin/pc-tai-release-controller finalize-activation "$TARGET_SHA" "$CONTROLLER_RUN_ID" "$decision"
       - name: Upload finalization evidence
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-restricted-qwen-finalization-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: /var/lib/pc-release-authority/runner-output/${{ env.CONTROLLER_RUN_ID }}/finalization.json
-          if-no-files-found: error
-          retention-days: 30
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${CONTROLLER_RUN_ID}/finalization.json"
+          [[ -s "$evidence" ]]
+          python3 - "$evidence" "$TARGET_SHA" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          if not isinstance(report,dict) or report.get('targetSha') != sys.argv[2]: raise SystemExit('finalization evidence target mismatch')
+          if not isinstance(report.get('passed'),bool): raise SystemExit('finalization evidence terminal state missing')
+          PY
+          digest="$(sha256sum "$evidence" | awk '{print $1}')"
+          printf 'FINALIZATION_EVIDENCE_SHA256=%s\n' "$digest"
 
   publish:
     name: Publish restricted Qwen activation result
