@@ -16,6 +16,7 @@ MIGRATIONS_DIR="$ROOT_DIR/apps/api/prisma/migrations"
 IDENTITY_MIGRATION="$MIGRATIONS_DIR/20260806090000_identity_row_level_security/migration.sql"
 STAFF_MIGRATION="$MIGRATIONS_DIR/20260806103000_bounded_staff_admission_authority/migration.sql"
 LOGIN_CONTEXT_MIGRATION="$MIGRATIONS_DIR/20260806120000_identity_bootstrap_login_context/migration.sql"
+MINIMAL_LOGIN_MIGRATION="$MIGRATIONS_DIR/20260807005000_minimal_login_bootstrap/migration.sql"
 
 : "${RLS_INTEGRATION_ADMIN_URL:?Set RLS_INTEGRATION_ADMIN_URL to a dedicated throwaway PostgreSQL database}"
 
@@ -37,6 +38,7 @@ command -v node >/dev/null || { echo "node is required" >&2; exit 2; }
 [[ -f "$IDENTITY_MIGRATION" ]] || { echo "Missing $IDENTITY_MIGRATION" >&2; exit 2; }
 [[ -f "$STAFF_MIGRATION" ]] || { echo "Missing $STAFF_MIGRATION" >&2; exit 2; }
 [[ -f "$LOGIN_CONTEXT_MIGRATION" ]] || { echo "Missing $LOGIN_CONTEXT_MIGRATION" >&2; exit 2; }
+[[ -f "$MINIMAL_LOGIN_MIGRATION" ]] || { echo "Missing $MINIMAL_LOGIN_MIGRATION" >&2; exit 2; }
 
 # The runtime principals log in over TCP in CI, so they need a password. It is
 # minted per run and never leaves this process tree.
@@ -125,11 +127,15 @@ GRANT SELECT, INSERT, UPDATE ON
 GRANT SELECT, INSERT ON auth.audit_events TO pc_auth_runtime;
 SQL
 
-# Re-applied so the column-level restrictions land after ops provisioning,
-# exactly as they do when the runtime role already exists.
+# These migrations contain conditional grants to principals that may not exist
+# during the first migration pass. Replaying them after provisioning models ops.
+# The minimal-login migration MUST be last: 0900/1200 contain historical wider
+# bootstrap grants, and 070050 is the forward-only revocation that narrows them
+# to credential -> post-password membership -> session authority.
 admin -f "$IDENTITY_MIGRATION" >/dev/null
 admin -f "$STAFF_MIGRATION" >/dev/null
 admin -f "$LOGIN_CONTEXT_MIGRATION" >/dev/null
+admin -f "$MINIMAL_LOGIN_MIGRATION" >/dev/null
 
 echo "== seeding two tenants, a member of staff and two admission applications =="
 admin <<'SQL'
@@ -214,7 +220,7 @@ INSERT INTO auth.staff_access_sessions(
   started_at, expires_at)
 VALUES ('sas-2','sag-2','user-staff','scoped-secret-digest','ACTIVE','CONTROL_PLANE','org-new',
   '["organization:read","organization:admission:decide"]'::jsonb,
-  'single application review','TICKET-2','TOTP', now(), now()+interval '1 hour');
+  'single application review','TICKET-2','TOTP', now(),now()+interval '1 hour');
 
 -- An expired capability.
 INSERT INTO auth.staff_access_requests(
