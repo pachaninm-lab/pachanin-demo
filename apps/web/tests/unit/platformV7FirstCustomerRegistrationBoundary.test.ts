@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { sendTransactionalMail } from '../../lib/server/transactional-mail';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
@@ -31,6 +32,60 @@ describe('P0 first-customer registration boundary', () => {
     expect(resendRoute).toContain('!mailConfigured()');
     expect(resendRoute).toContain('sendTransactionalMail');
     expect(resendRoute).not.toContain('REGISTRATION_DELIVERY_KEY:');
+  });
+
+  it('executes the server-only Resend transport without exposing its credential', async () => {
+    const previous = {
+      resendApiKey: process.env.RESEND_API_KEY,
+      resendFromEmail: process.env.RESEND_FROM_EMAIL,
+      mailFrom: process.env.PC_MAIL_FROM,
+      smtpHost: process.env.PC_SMTP_HOST,
+      smtpUser: process.env.PC_SMTP_USER,
+      smtpPass: process.env.PC_SMTP_PASS,
+    };
+    process.env.RESEND_API_KEY = 'test-resend-key-never-sent-to-the-browser';
+    process.env.RESEND_FROM_EMAIL = 'security@example.test';
+    delete process.env.PC_MAIL_FROM;
+    delete process.env.PC_SMTP_HOST;
+    delete process.env.PC_SMTP_USER;
+    delete process.env.PC_SMTP_PASS;
+
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      await expect(sendTransactionalMail({
+        to: 'recipient@example.test',
+        subject: 'Registration verification',
+        text: 'single-use verification link',
+      })).resolves.toEqual({ delivered: true, provider: 'resend', reason: 'sent' });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe('https://api.resend.com/emails');
+      expect(init.method).toBe('POST');
+      expect(init.headers).toMatchObject({
+        Authorization: 'Bearer test-resend-key-never-sent-to-the-browser',
+        'Content-Type': 'application/json',
+      });
+      expect(JSON.parse(String(init.body))).toEqual({
+        from: 'security@example.test',
+        to: ['recipient@example.test'],
+        subject: 'Registration verification',
+        text: 'single-use verification link',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      const restore = (name: string, value: string | undefined) => {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      };
+      restore('RESEND_API_KEY', previous.resendApiKey);
+      restore('RESEND_FROM_EMAIL', previous.resendFromEmail);
+      restore('PC_MAIL_FROM', previous.mailFrom);
+      restore('PC_SMTP_HOST', previous.smtpHost);
+      restore('PC_SMTP_USER', previous.smtpUser);
+      restore('PC_SMTP_PASS', previous.smtpPass);
+    }
   });
 
   it('rejects client role injection and only accepts public workspace classes', () => {
