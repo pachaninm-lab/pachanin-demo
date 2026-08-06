@@ -137,7 +137,7 @@ describe('auth and staff principal provisioning', () => {
     expect(kubernetes).toContain('STAFF_DATABASE_URL="postgresql://app_staff:');
     expect(kubernetes).toContain("rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox')");
     expect(kubernetes).toContain('staff_authority_proof');
-    expect(kubernetes).toContain('staff_authority_proof" = "0:0:1:1:1:1:1:1:1:0:0:0');
+    expect(kubernetes).toContain('staff_authority_proof" = "0:0:1:1:1:1:1:1:1:1:0:0:0');
 
     const example = repositoryFile('.env.example');
     expect(example).toContain('STAFF_DATABASE_URL: dedicated staff authority runtime');
