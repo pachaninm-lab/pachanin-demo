@@ -88,23 +88,36 @@ GRANT SELECT ON TABLE
 TO pc_identity_bootstrap;
 
 DO $identity_bootstrap_table_privileges_proof$
+DECLARE
+  relation_name text;
+  privilege_name text;
 BEGIN
-  IF NOT (
-    has_table_privilege('pc_identity_bootstrap', 'public.users', 'SELECT')
-    AND has_table_privilege('pc_identity_bootstrap', 'public.user_orgs', 'SELECT')
-    AND has_table_privilege('pc_identity_bootstrap', 'public.organizations', 'SELECT')
-  ) THEN
-    RAISE EXCEPTION 'pc_identity_bootstrap is missing an identity SELECT privilege'
-      USING ERRCODE = '42501';
-  END IF;
+  FOREACH relation_name IN ARRAY ARRAY['users', 'user_orgs', 'organizations']
+  LOOP
+    IF NOT has_table_privilege(
+      'pc_identity_bootstrap',
+      format('public.%I', relation_name),
+      'SELECT'
+    ) THEN
+      RAISE EXCEPTION 'pc_identity_bootstrap is missing SELECT on public.%', relation_name
+        USING ERRCODE = '42501';
+    END IF;
 
-  IF (
-    has_table_privilege('pc_identity_bootstrap', 'public.users', 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-    OR has_table_privilege('pc_identity_bootstrap', 'public.user_orgs', 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-    OR has_table_privilege('pc_identity_bootstrap', 'public.organizations', 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-  ) THEN
-    RAISE EXCEPTION 'pc_identity_bootstrap received identity write authority'
-      USING ERRCODE = '42501';
-  END IF;
+    FOREACH privilege_name IN ARRAY ARRAY[
+      'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+    ]
+    LOOP
+      IF has_table_privilege(
+        'pc_identity_bootstrap',
+        format('public.%I', relation_name),
+        privilege_name
+      ) THEN
+        RAISE EXCEPTION 'pc_identity_bootstrap received % on public.%',
+          privilege_name,
+          relation_name
+          USING ERRCODE = '42501';
+      END IF;
+    END LOOP;
+  END LOOP;
 END;
 $identity_bootstrap_table_privileges_proof$;
