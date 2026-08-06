@@ -82,7 +82,9 @@ jobs:
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+
+          event_name='${{ github.event_name }}'
+          if [[ "$event_name" == 'pull_request' ]]; then
             git fetch --no-tags origin "${{ github.base_ref }}"
             base_ref="origin/${{ github.base_ref }}"
             export PC_CROP_BRANCH="${{ github.head_ref }}"
@@ -90,16 +92,42 @@ jobs:
             export PC_CROP_ISSUE='3446'
             export PC_CROP_SCOPE_PATH='docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
             node scripts/verify-pc-crop-project-lock.mjs | tee "$EVIDENCE_DIR/project-lock.log"
-          elif [[ "${{ github.event_name }}" == 'push' ]]; then
+          elif [[ "$event_name" == 'push' ]]; then
             base_ref='${{ github.event.before }}'
             git cat-file -e "${base_ref}^{commit}"
           else
             base_ref='HEAD^'
           fi
+
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          BASE_REF="$base_ref" node --check scripts/pc-crop-10c/verify.mjs
-          BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs | tee "$EVIDENCE_DIR/source-verification.log"
+
+          # The workflow is both a trigger and a governance dependency. A broad
+          # authority PR that only updates this workflow must still run the full
+          # 10C contract, but it must not be misclassified as a narrow 10C
+          # remediation and reject every unrelated file. All other allowed 10C
+          # files are authority-bearing; if any of them changed, the verifier's
+          # exact allowlist remains mandatory for the whole diff.
+          grep -E '^(apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration\.sql|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/src/modules/regulatory-integration/dto/fgis-grain-tenant-read\.dto\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read\..*|apps/api/test/industrial/fgis-grain-tenant-read\.e2e-spec\.ts|scripts/pc-crop-10c/verify\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-10c\.json)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/authority-files.txt" || true
+
+          if [[ "$event_name" == 'workflow_dispatch' ]]; then
+            scope_mode='MANUAL_DISPATCH'
+          elif [[ -s "$EVIDENCE_DIR/authority-files.txt" ]]; then
+            scope_mode='SLICE_REMEDIATION'
+          else
+            scope_mode='SHARED_GOVERNANCE'
+          fi
+          printf '%s\n' "$scope_mode" > "$EVIDENCE_DIR/scope-mode.txt"
+
+          node --check scripts/pc-crop-10c/verify.mjs
+          if [[ "$scope_mode" == 'SLICE_REMEDIATION' ]]; then
+            BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs \
+              | tee "$EVIDENCE_DIR/source-verification.log"
+          else
+            node scripts/pc-crop-10c/verify.mjs \
+              | tee "$EVIDENCE_DIR/source-verification.log"
+          fi
 
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
@@ -401,7 +429,14 @@ jobs:
         run: |
           set -euo pipefail
           base_ref="$(cat "$EVIDENCE_DIR/base-ref.txt")"
-          BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs | tee "$EVIDENCE_DIR/final-verification.log"
+          scope_mode="$(cat "$EVIDENCE_DIR/scope-mode.txt")"
+          if [[ "$scope_mode" == 'SLICE_REMEDIATION' ]]; then
+            BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs \
+              | tee "$EVIDENCE_DIR/final-verification.log"
+          else
+            node scripts/pc-crop-10c/verify.mjs \
+              | tee "$EVIDENCE_DIR/final-verification.log"
+          fi
           node - "$EVIDENCE_DIR/acceptance.json" "$EXACT_HEAD" <<'NODE'
           const fs = require('node:fs');
           const [path, exactHead] = process.argv.slice(2);
