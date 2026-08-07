@@ -14,6 +14,13 @@ async function seededUser(authPrisma: AuthPrismaService, role: Role): Promise<Re
   const userId = SEEDED_USER_ID_BY_ROLE[role];
   if (!userId) throw new Error(`No seeded identity is registered for ${role}`);
 
+  const memberships = await authPrisma.$queryRaw<Array<{ membership_id: string }>>`
+    SELECT membership_id
+    FROM auth.resolve_login_default_membership(${userId})
+  `;
+  const membershipId = memberships[0]?.membership_id;
+  if (!membershipId) throw new Error(`Missing default seeded membership for ${role}`);
+
   const rows = await authPrisma.$queryRaw<Array<{
     user_id: string;
     email: string;
@@ -24,20 +31,22 @@ async function seededUser(authPrisma: AuthPrismaService, role: Role): Promise<Re
     role: string;
   }>>`
     SELECT
-      identity."id" AS user_id,
-      identity."email",
-      identity."fullName" AS full_name,
-      membership.membership_id,
-      membership.organization_id,
-      membership.tenant_id,
-      membership.role
-    FROM auth.resolve_login_identity_by_id(${userId}) identity
-    JOIN LATERAL auth.resolve_login_memberships_ordered(${userId}) membership
-      ON membership.role = ${String(role)}
-    LIMIT 1
+      user_id,
+      email,
+      full_name,
+      membership_id,
+      organization_id,
+      tenant_id,
+      role
+    FROM auth.resolve_login_context_by_membership(${userId}, ${membershipId})
   `;
   const identity = rows[0];
-  if (!identity || identity.tenant_id !== TENANT_ID || identity.role !== String(role)) {
+  if (
+    !identity
+    || identity.membership_id !== membershipId
+    || identity.tenant_id !== TENANT_ID
+    || identity.role !== String(role)
+  ) {
     throw new Error(`Missing seeded membership for ${role}`);
   }
   return {
