@@ -61,8 +61,11 @@ describe('auth and staff principal provisioning', () => {
       .split('\n')
       .filter((line) => !/^\s*(#|--)/.test(line))
       .join('\n');
+
+    // Match the PostgreSQL capability token itself, while allowing catalog
+    // safety proofs such as `NOT rolbypassrls`. Those predicates verify that a
+    // role cannot bypass RLS; they do not grant or alter the capability.
     expect(statements.match(/(?<!NO)BYPASSRLS/g) ?? []).toEqual([]);
-    expect(statements).not.toMatch(/NOT\s+rolbypassrls/i);
   });
 
   it('creates every authentication principal as NOSUPERUSER NOBYPASSRLS', () => {
