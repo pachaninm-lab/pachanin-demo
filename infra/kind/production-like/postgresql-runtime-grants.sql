@@ -37,6 +37,13 @@ GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(TEXT) TO app_aut
 GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO app_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO app_auth;
 
+-- Public registration is the only legitimate pre-session identity write. It is
+-- exposed through one fixed SECURITY DEFINER function owned by the confined
+-- pc_registration_authority role; app_auth never becomes that role.
+GRANT EXECUTE ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) TO app_auth;
+
 -- Retire the historical wider bootstrap surface from the login runtime.
 REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_auth;
@@ -80,8 +87,11 @@ REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_sta
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) FROM app_staff;
 
--- Non-auth runtimes must not reach any bootstrap login surface.
+-- Non-auth runtimes must not reach any bootstrap login or registration surface.
 REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_runtime, app_storage, app_outbox;
@@ -91,6 +101,9 @@ REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_run
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT)
   FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT)
