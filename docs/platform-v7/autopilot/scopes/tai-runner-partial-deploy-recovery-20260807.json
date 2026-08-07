@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-orphan-deploy-recovery-20260807",
+  "status": "active",
+  "title": "TAI bounded partial deployment recovery",
+  "priority": "P0",
+  "baselineExactMain": "810bcf47ecafec8c51c741429b21586567563a6d",
+  "objective": "Recover exactly one failed first-time standalone TAI materialization left after rollback authority was unavailable: prove the newer exact-main API/Web baseline, bind the orphan state to the exact partial TAI container and root-owned metadata, capture bounded health evidence, remove only that TAI service, restore the previously-absent protected env/override and drop only a controller-created least-privilege tai_runtime role while retaining forward-only schema/bootstrap data.",
+  "allowedPaths": [
+    "scripts/tai-partial-deployment-recovery.sh",
+    "scripts/check-tai-partial-deployment-recovery.mjs",
+    ".github/workflows/tai-owner-partial-deployment-recovery-command.yml",
+    "docs/platform-v7/autopilot/scopes/tai-runner-partial-deploy-recovery-20260807.json"
+  ],
+  "boundaries": [
+    "Recovery is owner-command only on issue 3365 and requires exact current main",
+    "Current API and Web must both be healthy and exact current main before any recovery mutation",
+    "Exactly one isolated rootless no-public-port TAI container and exactly one matching root-owned MUTATION_STARTED state root are required",
+    "The orphan target must differ from the newer current main and PREVIOUS_TAI must be zero",
+    "Protected env and override must exist now and their state snapshots must attest that both were absent before the failed deployment",
+    "PostgreSQL authority is bound to the exact Compose project, service, database and administrator recorded by the protected deployment metadata",
+    "If tai_runtime was controller-created, it may be dropped only after proving least-privilege flags, zero memberships, zero non-TAI relation grants and zero sessions after TAI removal",
+    "TAI migrations and bootstrap rows are retained as forward-only idempotent state; no production application data is rolled back",
+    "The recovery never mutates API/Web containers, model-host configuration, permanent model admission, tenants, business data or financial data",
+    "Only bounded sanitized health metadata is published; environment values, credentials, tokens, SQL contents and container logs are never published",
+    "REG.RU only and zero new recurring cost"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
