@@ -71,19 +71,28 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status")"
           deployment_state="$(jq -r '[.statuses[] | select(.context == "TAI REG.RU Deployment")][0].state // ""' <<<"$status_json")"
           canonical_state="$(jq -r '[.statuses[] | select(.context == "TAI Canonical Images")][0].state // ""' <<<"$status_json")"
-          canonical_created="$(jq -r '[.statuses[] | select(.context == "TAI Canonical Images")][0].created_at // ""' <<<"$status_json")"
 
           if [[ "$deployment_state" == success || "$canonical_state" == success ]]; then
             echo 'Exact-main release already has terminal successful authority; manual dispatch skipped.'
             exit 0
           fi
-          if [[ "$canonical_state" == pending && -n "$canonical_created" ]]; then
-            created_epoch="$(date -u -d "$canonical_created" +%s)"
-            now_epoch="$(date -u +%s)"
-            if (( now_epoch - created_epoch < 5400 )); then
-              echo 'A recent exact-main canonical build is already pending; duplicate manual dispatch skipped.'
-              exit 0
-            fi
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/docker-publish.yml/runs?event=workflow_dispatch&branch=main&per_page=30" \
+            > "$RUNNER_TEMP/canonical-runs.json"
+          active_run_id="$(jq -r --arg sha "$target_sha" '
+            [.workflow_runs[]
+              | select(
+                  .head_sha == $sha
+                  and .head_branch == "main"
+                  and .event == "workflow_dispatch"
+                  and (.status == "queued" or .status == "in_progress" or .status == "requested" or .status == "waiting" or .status == "pending")
+                )
+              | .id][0] // empty
+          ' "$RUNNER_TEMP/canonical-runs.json")"
+          if [[ "$active_run_id" =~ ^[0-9]+$ ]]; then
+            echo "Exact-main canonical build run ${active_run_id} is still active; duplicate manual dispatch skipped."
+            exit 0
           fi
 
           gh api --method POST -H 'Accept: application/vnd.github+json' \

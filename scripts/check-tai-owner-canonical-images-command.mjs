@@ -27,16 +27,27 @@ for (const fragment of [
   'git rev-parse origin/main',
   'TAI REG.RU Deployment',
   'TAI Canonical Images',
-  'now_epoch - created_epoch < 5400',
+  'actions/workflows/docker-publish.yml/runs?event=workflow_dispatch&branch=main&per_page=30',
+  '--arg sha "$target_sha"',
+  '.head_sha == $sha',
+  '.head_branch == "main"',
+  '.event == "workflow_dispatch"',
+  '.status == "queued"',
+  '.status == "in_progress"',
+  'active_run_id=',
+  '[[ "$active_run_id" =~ ^[0-9]+$ ]]',
   'actions/workflows/docker-publish.yml/dispatches',
   "-f ref='main'",
   "-f 'inputs[services]=all'",
   "context='TAI Canonical Images'",
   "state='pending'",
   'gh issue comment 3365',
-  'production mutation: `NONE`',
+  'production mutation: \\`NONE\\`',
 ]) requireFragment(fragment);
 
+if (/now_epoch\s*-\s*created_epoch\s*<\s*5400/u.test(workflow)) {
+  violations.push(`${workflowPath}: status-age-only pending dedupe is forbidden; an active workflow run must be proven`);
+}
 if (/\bschedule\s*:/u.test(workflow) || /cron:/u.test(workflow) || /github\.event_name == 'schedule'/u.test(workflow)) {
   violations.push(`${workflowPath}: scheduled automation is forbidden; canonical builds are owner-triggered only`);
 }
@@ -68,4 +79,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI owner canonical images command contract PASS: canonical builds are manual owner-command only, exact-main bound, deduplicated, and introduce no production or remote-shell authority.');
+console.log('TAI owner canonical images command contract PASS: canonical builds are manual owner-command only, exact-main bound, deduplicated by a proven active workflow run, and introduce no production or remote-shell authority.');
