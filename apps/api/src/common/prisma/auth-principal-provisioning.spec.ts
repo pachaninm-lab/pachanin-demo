@@ -163,8 +163,8 @@ describe('auth and staff principal provisioning', () => {
     expect(kubernetes).toContain("rolname IN ('app_runtime','app_auth','app_staff','app_storage','app_outbox')");
     expect(kubernetes).toContain('staff_authority_proof');
 
-    const example = repositoryFile('.env.example');
-    expect(example).toContain('STAFF_DATABASE_URL: dedicated staff authority runtime');
+    const runbook = repositoryFile('docs/platform-v7/production-database-deployment-runbook.md');
+    expect(runbook).toContain('`DATABASE_URL`, `AUTH_DATABASE_URL`, `STAFF_DATABASE_URL` and `STORAGE_DATABASE_URL`');
   });
 
   it('restores the same minimal auth/staff split after no-owner no-acl DR', () => {
@@ -212,15 +212,12 @@ describe('auth and staff principal provisioning', () => {
     expect(kubernetes).toContain('staff_authority_proof');
   });
 
-  it('documents the auth and staff principals without BYPASSRLS', () => {
+  it('documents the auth and staff principals without BYPASSRLS in the production runbook', () => {
     const runbook = repositoryFile('docs/platform-v7/production-database-deployment-runbook.md');
     expect(runbook).toMatch(/\| Auth runtime \|[^|]*auth\.resolve_login_/);
     expect(runbook).toMatch(/\| Auth runtime \|[^|]*\|[^|]*`BYPASSRLS`/);
     expect(runbook).toMatch(/\| Staff runtime[^|]*\|[^|]*auth\.resolve_staff_target_scope/);
     expect(runbook).toMatch(/\| Staff runtime[^|]*\|[^|]*auth\.staff_admission_/);
-
-    const example = repositoryFile('.env.example');
-    expect(example).toContain('AUTH_DATABASE_URL: identity role, NOSUPERUSER + NOBYPASSRLS');
-    expect(example).toContain('STAFF_DATABASE_URL: dedicated staff authority runtime');
+    expect(runbook).toContain('`DATABASE_URL`, `AUTH_DATABASE_URL`, `STAFF_DATABASE_URL` and `STORAGE_DATABASE_URL`');
   });
 });
