@@ -49,11 +49,11 @@ on:
         required: true
         type: string
       upstream_run_id:
-        description: Exact successful automatic preflight run ID
+        description: Exact successful REG.RU preflight run ID
         required: true
         type: string
       upstream_run_attempt:
-        description: Exact successful automatic preflight run attempt
+        description: Exact successful REG.RU preflight run attempt
         required: true
         type: string
 
@@ -123,23 +123,41 @@ jobs:
             if [[ "$status" == completed ]]; then terminal=1; break; fi
             sleep 5
           done
-          (( terminal == 1 )) || { echo 'Automatic preflight did not reach a terminal state.' >&2; exit 4; }
-          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
-            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Automatic REG.RU Preflight' "$GITHUB_REPOSITORY"
-          node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
+          (( terminal == 1 )) || { echo 'REG.RU preflight did not reach a terminal state.' >&2; exit 4; }
+          preflight_kind="$(node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
           const fs = require('node:fs');
           const [path, owner] = process.argv.slice(2);
           const run = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const allowedActors = new Set([owner, 'github-actions[bot]']);
-          const actor = run.actor?.login;
-          const triggeringActor = run.triggering_actor?.login || actor;
-          if (
-            run.event !== 'workflow_run'
-            || run.head_branch !== 'main'
-            || !allowedActors.has(actor)
-            || !allowedActors.has(triggeringActor)
-          ) process.exit(3);
+          if (run.name === 'TAI Automatic REG.RU Preflight') {
+            const allowedActors = new Set([owner, 'github-actions[bot]']);
+            const actor = run.actor?.login;
+            const triggeringActor = run.triggering_actor?.login || actor;
+            if (
+              run.event !== 'workflow_run'
+              || run.head_branch !== 'main'
+              || !allowedActors.has(actor)
+              || !allowedActors.has(triggeringActor)
+            ) process.exit(3);
+            process.stdout.write('automatic');
+          } else if (run.name === 'TAI Owner REG.RU Preflight') {
+            if (
+              run.event !== 'issue_comment'
+              || run.actor?.login !== owner
+              || run.triggering_actor?.login !== owner
+            ) process.exit(3);
+            process.stdout.write('owner');
+          } else {
+            process.exit(3);
+          }
           NODE
+          )"
+          case "$preflight_kind" in
+            automatic) upstream_name='TAI Automatic REG.RU Preflight' ;;
+            owner) upstream_name='TAI Owner REG.RU Preflight' ;;
+            *) echo 'Unrecognized REG.RU preflight authority.' >&2; exit 3 ;;
+          esac
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" "$upstream_name" "$GITHUB_REPOSITORY"
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
             > "$RUNNER_TEMP/preflight-jobs.json"
