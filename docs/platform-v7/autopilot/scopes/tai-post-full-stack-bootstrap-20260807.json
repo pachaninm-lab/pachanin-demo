@@ -9,6 +9,7 @@
   "allowedPaths": [
     "scripts/verify-tai-preflight-report.mjs",
     "scripts/check-tai-bootstrap-preflight.mjs",
+    "scripts/check-tai-automatic-release-chain.mjs",
     ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
     ".github/workflows/tai-automatic-reg-ru-preflight.yml",
     "docs/platform-v7/autopilot/scopes/tai-bootstrap-preflight-authority-20260802.json",
@@ -23,6 +24,7 @@
     "All existing critical PASS checks and NO_PRODUCTION_MUTATION_DETECTED remain mandatory",
     "TAI image reference and digest remain exact target-SHA bound",
     "Production self-hosted jobs remain non-root, actionless and without direct Docker authority",
+    "Automatic release-chain contract must match the existing wildcard-governed canonical image trigger path",
     "Permanent model admission remains deferred and is never fabricated",
     "Strict zero-blocker postflight still requires API_WEB_EXACT_MAIN and raw passed=true",
     "REG.RU only and zero new recurring cost"
