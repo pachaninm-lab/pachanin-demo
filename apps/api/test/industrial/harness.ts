@@ -433,6 +433,8 @@ export async function provisionDeal(
     for (const { role, key } of ROLE_SET) {
       const userId = `user-e2e-${slug}-${key}`;
       const orgId = orgFor(role);
+      const membershipId = `membership-e2e-${slug}-${key}`;
+      const sessionId = `session-e2e-${slug}-${key}`;
       await tx.user.create({
         data: {
           id: userId,
@@ -444,13 +446,24 @@ export async function provisionDeal(
       });
       await tx.userOrg.create({
         data: {
-          id: `membership-e2e-${slug}-${key}`,
+          id: membershipId,
           userId,
           organizationId: orgId,
           role,
           isDefault: true,
         },
       });
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO auth.sessions (
+          id, user_id, membership_id, organization_id, tenant_id,
+          status, refresh_family_id, credential_version, mfa_level,
+          mfa_verified_at, expires_at
+        ) VALUES (
+          ${sessionId}, ${userId}, ${membershipId}, ${orgId}, ${INDUSTRIAL_TENANT},
+          'ACTIVE', ${`refresh-family-e2e-${slug}-${key}`}, 1, 'TOTP',
+          now(), now() + interval '1 day'
+        )
+      `);
       await tx.dealParticipant.create({
         data: {
           id: `participant:${dealId}:${key}`,
