@@ -42,7 +42,7 @@ for (const fragment of [
   "context='TAI Canonical Images'",
   "state='pending'",
   'gh issue comment 3365',
-  'production mutation: `NONE`',
+  'production mutation: \\`NONE\\`',
 ]) requireFragment(fragment);
 
 if (/now_epoch\s*-\s*created_epoch\s*<\s*5400/u.test(workflow)) {
