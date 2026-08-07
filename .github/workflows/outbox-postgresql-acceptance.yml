@@ -131,6 +131,8 @@ jobs:
             --runInBand 2>&1 | tee "$GITHUB_WORKSPACE/$OUTBOX_DIR/unit-jest.log"
 
       - name: Run exact-head PostgreSQL concurrency acceptance
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
