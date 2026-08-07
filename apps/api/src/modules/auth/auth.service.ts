@@ -328,55 +328,63 @@ export class AuthService {
       throw new BadRequestException('Email, full name, organization name and INN are required.');
     }
 
+    const userId = `user_${randomUUID()}`;
+    const membershipId = `membership_${randomUUID()}`;
+    const organizationId = `org_${randomUUID()}`;
+    const tenantId = `tenant_${randomUUID()}`;
+    const passwordHash = await bcrypt.hash(String(dto.password), 12);
+
     return this.repository.transaction(async (tx) => {
-      const existing = await tx.user.findUnique({ where: { email } });
-      if (existing) throw new ConflictException('Email already registered');
-      const existingOrganization = await tx.organization.findUnique({ where: { inn: orgInn } });
-      if (existingOrganization) {
+      const rows = await tx.$queryRaw<Array<{
+        outcome: 'CREATED' | 'EMAIL_EXISTS' | 'ORGANIZATION_EXISTS';
+        user_id: string | null;
+        membership_id: string | null;
+        organization_id: string | null;
+        tenant_id: string | null;
+      }>>(Prisma.sql`
+        SELECT outcome, user_id, membership_id, organization_id, tenant_id
+        FROM auth.create_pending_registration_identity(
+          ${userId},
+          ${membershipId},
+          ${organizationId},
+          ${tenantId},
+          ${email},
+          ${dto.phone ? String(dto.phone) : null},
+          ${passwordHash},
+          ${fullName},
+          ${orgInn},
+          ${orgLegalName},
+          ${String(dto.orgType ?? 'LEGAL')},
+          ${requestedRole}
+        )
+      `);
+      const created = rows[0];
+      if (!created) throw new Error('Registration authority returned no result');
+      if (created.outcome === 'EMAIL_EXISTS') throw new ConflictException('Email already registered');
+      if (created.outcome === 'ORGANIZATION_EXISTS') {
         throw new ConflictException('Organization already exists. Request an administrator invitation.');
       }
+      if (
+        created.outcome !== 'CREATED'
+        || created.user_id !== userId
+        || created.membership_id !== membershipId
+        || created.organization_id !== organizationId
+        || created.tenant_id !== tenantId
+      ) {
+        throw new Error('Registration authority returned an invalid identity result');
+      }
 
-      const organization = await tx.organization.create({
-        data: {
-          id: `org_${randomUUID()}`,
-          inn: orgInn,
-          name: orgLegalName,
-          type: String(dto.orgType ?? 'LEGAL'),
-          status: 'PENDING',
-          tenantId: `tenant_${randomUUID()}`,
-          kycStatus: 'PENDING',
-          amlStatus: 'CLEAR',
-        },
-      });
-      const user = await tx.user.create({
-        data: {
-          id: `user_${randomUUID()}`,
-          email,
-          phone: dto.phone ? String(dto.phone) : null,
-          passwordHash: await bcrypt.hash(String(dto.password), 12),
-          fullName,
-          status: 'ACTIVE',
-        },
-      });
-      const membership = await tx.userOrg.create({
-        data: {
-          userId: user.id,
-          organizationId: organization.id,
-          role: requestedRole,
-          isDefault: true,
-        },
-      });
       await this.repository.ensureCredentialState(
         tx,
-        user.id,
+        userId,
         dto.consentVersion || CURRENT_CONSENT_VERSION,
         new Date(),
       );
       await this.audit(tx, {
-        userId: user.id,
-        membershipId: membership.id,
-        organizationId: organization.id,
-        tenantId: organization.tenantId,
+        userId,
+        membershipId,
+        organizationId,
+        tenantId,
         action: 'auth.register',
         outcome: 'SUCCESS',
         reason: 'ORGANIZATION_VERIFICATION_REQUIRED',
@@ -385,13 +393,13 @@ export class AuthService {
       return {
         status: 'PENDING_ORGANIZATION_VERIFICATION',
         user: {
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
+          id: userId,
+          email,
+          fullName,
           role: requestedRole,
-          orgId: organization.id,
-          tenantId: organization.tenantId,
-          membershipId: membership.id,
+          orgId: organizationId,
+          tenantId,
+          membershipId,
         },
       };
     });
