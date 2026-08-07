@@ -246,16 +246,12 @@ export class LabEvidenceUploadService {
           throw new NotFoundException({ code: 'LAB_PROVISIONING_DEAL_NOT_AVAILABLE' });
         }
 
-        const laboratory = await tx.organization.findUnique({
-          where: { id: laboratoryOrgId },
-          select: { id: true, tenantId: true, status: true, kycStatus: true },
-        });
-        if (
-          !laboratory
-          || laboratory.tenantId !== context.tenantId
-          || laboratory.status !== 'VERIFIED'
-          || laboratory.kycStatus !== 'APPROVED'
-        ) {
+        const laboratory = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+          SELECT public.app_labs_verified_organization_for_deal(
+            ${context.tenantId}, ${dealId}, ${laboratoryOrgId}
+          ) AS valid
+        `);
+        if (laboratory[0]?.valid !== true) {
           throw new NotFoundException({ code: 'LABORATORY_ORGANIZATION_NOT_AVAILABLE' });
         }
 
@@ -283,7 +279,7 @@ export class LabEvidenceUploadService {
           dealId,
           metadata: {
             labPurpose: dto.purpose,
-            laboratoryOrgId: laboratory.id,
+            laboratoryOrgId,
             ...(dto.purpose === 'ADMISSION'
               ? {
                   shipmentId: shipmentId as string,

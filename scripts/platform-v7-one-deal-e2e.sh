@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ADMIN_URL="${ONE_DEAL_ADMIN_URL:?ONE_DEAL_ADMIN_URL is required}"
 AUTH_URL="${ONE_DEAL_AUTH_URL:?ONE_DEAL_AUTH_URL is required}"
+STAFF_URL="${ONE_DEAL_STAFF_URL:?ONE_DEAL_STAFF_URL is required}"
 APP_URL="${ONE_DEAL_APP_URL:?ONE_DEAL_APP_URL is required}"
 STORAGE_URL="${ONE_DEAL_STORAGE_URL:?ONE_DEAL_STORAGE_URL is required}"
 EVIDENCE_LOG="${ONE_DEAL_EVIDENCE_LOG:-/tmp/platform-v7-one-deal-e2e.log}"
@@ -17,15 +18,16 @@ if [[ -n "${DATABASE_URL:-}" && "$ADMIN_URL" == "$DATABASE_URL" ]]; then
   echo "Refusing one-deal E2E: admin URL equals ambient DATABASE_URL" >&2
   exit 2
 fi
-for candidate in "$ADMIN_URL" "$AUTH_URL" "$APP_URL" "$STORAGE_URL"; do
+for candidate in "$ADMIN_URL" "$AUTH_URL" "$STAFF_URL" "$APP_URL" "$STORAGE_URL"; do
   if [[ "$candidate" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
     echo "Refusing one-deal E2E: datasource appears production-like" >&2
     exit 2
   fi
 done
-if [[ "$ADMIN_URL" == "$AUTH_URL" || "$ADMIN_URL" == "$APP_URL" || "$ADMIN_URL" == "$STORAGE_URL" \
-  || "$AUTH_URL" == "$APP_URL" || "$AUTH_URL" == "$STORAGE_URL" || "$APP_URL" == "$STORAGE_URL" ]]; then
-  echo "Refusing one-deal E2E: admin, auth, application and storage URLs must differ" >&2
+if [[ "$ADMIN_URL" == "$AUTH_URL" || "$ADMIN_URL" == "$STAFF_URL" || "$ADMIN_URL" == "$APP_URL" || "$ADMIN_URL" == "$STORAGE_URL" \
+  || "$AUTH_URL" == "$STAFF_URL" || "$AUTH_URL" == "$APP_URL" || "$AUTH_URL" == "$STORAGE_URL" \
+  || "$STAFF_URL" == "$APP_URL" || "$STAFF_URL" == "$STORAGE_URL" || "$APP_URL" == "$STORAGE_URL" ]]; then
+  echo "Refusing one-deal E2E: admin, auth, staff, application and storage URLs must differ" >&2
   exit 2
 fi
 
@@ -110,7 +112,7 @@ BEGIN
 END
 $one_deal_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_app;
-GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement TO one_deal_app;
+GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement, auth TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
@@ -150,6 +152,7 @@ REVOKE DELETE ON ALL TABLES IN SCHEMA settlement FROM one_deal_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO one_deal_app;
+GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA security GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA logistics GRANT SELECT ON TABLES TO one_deal_app;
@@ -183,7 +186,7 @@ BEGIN
     DROP OWNED BY one_deal_auth;
     DROP ROLE one_deal_auth;
   END IF;
-  CREATE ROLE one_deal_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS PASSWORD 'ephemeral_one_deal_auth_only';
+  CREATE ROLE one_deal_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ephemeral_one_deal_auth_only';
 END
 $one_deal_auth_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_auth;
@@ -207,15 +210,76 @@ TO one_deal_auth;
 GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO one_deal_auth;
 REVOKE UPDATE, DELETE ON auth.staff_access_events FROM one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
-GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO one_deal_auth;
+
+GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM one_deal_auth;
+
+REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_auth;
+SQL
+
+echo "[one-deal] creating isolated function-only staff principal"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
+DO $one_deal_staff_role$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'one_deal_staff') THEN
+    DROP OWNED BY one_deal_staff;
+    DROP ROLE one_deal_staff;
+  END IF;
+  CREATE ROLE one_deal_staff LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ephemeral_one_deal_staff_only';
+END
+$one_deal_staff_role$;
+GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_staff;
+GRANT USAGE ON SCHEMA auth TO one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 SQL
 
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
 if [[ "$ROLE_PROOF" != "false:false" && "$ROLE_PROOF" != "f:f" ]]; then
   echo "Deal application principal is not NOSUPERUSER NOBYPASSRLS: $ROLE_PROOF" >&2
+  exit 1
+fi
+DEAL_ACTOR_AUTHORITY_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege('one_deal_app','auth','USAGE')::text || ':' || has_function_privilege('one_deal_app','auth.validate_deal_creation_actors(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_auth','auth.validate_deal_creation_actors(text,text,text,text,text)','EXECUTE')::text")"
+echo "[one-deal] deal actor authority proof app-usage:app-execute:auth-execute = $DEAL_ACTOR_AUTHORITY_PROOF"
+if [[ "$DEAL_ACTOR_AUTHORITY_PROOF" != "true:true:false" && "$DEAL_ACTOR_AUTHORITY_PROOF" != "t:t:f" ]]; then
+  echo "Deal actor authority boundary is invalid: $DEAL_ACTOR_AUTHORITY_PROOF" >&2
   exit 1
 fi
 LOGISTICS_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'logistics','USAGE')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','SELECT')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','UPDATE')::text")"
@@ -238,8 +302,68 @@ if [[ "$SETTLEMENT_ROLE_PROOF" != "true:true:true:false" && "$SETTLEMENT_ROLE_PR
 fi
 AUTH_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_auth','public.deals','SELECT')::text FROM pg_roles WHERE rolname='one_deal_auth'")"
 echo "[one-deal] auth principal proof super:bypass:deal-select = $AUTH_ROLE_PROOF"
-if [[ "$AUTH_ROLE_PROOF" != "false:true:false" && "$AUTH_ROLE_PROOF" != "f:t:f" ]]; then
+if [[ "$AUTH_ROLE_PROOF" != "false:false:false" && "$AUTH_ROLE_PROOF" != "f:f:f" ]]; then
   echo "Auth principal privilege boundary is invalid: $AUTH_ROLE_PROOF" >&2
+  exit 1
+fi
+
+AUTH_IDENTITY_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
+SELECT
+  (SELECT count(*) = 3 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relname IN ('users','user_orgs','organizations')
+     AND c.relrowsecurity AND c.relforcerowsecurity)::text
+  || ':' ||
+  (SELECT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   JOIN pg_roles r ON r.oid = c.relowner
+   WHERE n.nspname = 'public' AND c.relname IN ('users','user_orgs','organizations')
+     AND r.rolname = 'one_deal_auth'))::text
+  || ':' ||
+  (
+    has_function_privilege('one_deal_auth', 'auth.resolve_login_credential(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_default_membership(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_membership(text,text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE')
+    AND NOT (
+      has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_identity_by_id(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships_ordered(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_email(text)', 'EXECUTE')
+    )
+  )::text
+  || ':' ||
+  (has_function_privilege('one_deal_auth', 'auth.resolve_staff_target_scope(text,text,text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.resolve_staff_deal_target_scope(text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_admission_queue(text,text,text,integer)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_admission_application(text,text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_admission_decision(text,text,text,text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_organization_directory(text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_organization_users(text,text,text,text)', 'EXECUTE')
+   OR has_function_privilege('one_deal_auth', 'auth.staff_cabinet_deals(text,text,text,text,text)', 'EXECUTE'))::text
+  || ':' ||
+  (SELECT EXISTS (SELECT 1 FROM pg_auth_members m
+   JOIN pg_roles grantee ON grantee.oid = m.roleid
+   JOIN pg_roles member ON member.oid = m.member
+   WHERE member.rolname = 'one_deal_auth'))::text;
+SQL
+)"
+echo "[one-deal] auth identity proof forced-rls:owns:minimal-bootstrap:staff-execute:memberships = $AUTH_IDENTITY_PROOF"
+if [[ "$AUTH_IDENTITY_PROOF" != "true:false:true:false:false" && "$AUTH_IDENTITY_PROOF" != "t:f:t:f:f" ]]; then
+  echo "Auth principal identity boundary is invalid: $AUTH_IDENTITY_PROOF" >&2
+  exit 1
+fi
+
+STAFF_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || rolinherit::text || ':' || (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_deal_target_scope(text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_directory(text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_users(text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::text || ':' || has_function_privilege('one_deal_staff','auth.staff_projection_capability(text,text,text,text,text,text,boolean)','EXECUTE')::text FROM pg_roles WHERE rolname='one_deal_staff'")"
+echo "[one-deal] staff principal proof super:bypass:inherit:table-grants:target:deal-target:queue:application:decision:directory:users:cabinet:admission-capability:projection-capability = $STAFF_ROLE_PROOF"
+if [[ "$STAFF_ROLE_PROOF" != "false:false:false:0:true:true:true:true:true:true:true:true:false:false" && "$STAFF_ROLE_PROOF" != "f:f:f:0:t:t:t:t:t:t:t:t:f:f" ]]; then
+  echo "Staff principal privilege boundary is invalid: $STAFF_ROLE_PROOF" >&2
+  exit 1
+fi
+
+AUTH_BOOTSTRAP_PROOF="$(psql "$AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM auth.resolve_login_credential('nobody@example.invalid'))::text || ':' || has_function_privilege(current_user,'auth.resolve_login_context_by_email(text)','EXECUTE')::text")"
+echo "[one-deal] auth bootstrap proof direct-users:minimal-credential-rows:legacy-context-execute = $AUTH_BOOTSTRAP_PROOF"
+if [[ "$AUTH_BOOTSTRAP_PROOF" != "0:0:false" && "$AUTH_BOOTSTRAP_PROOF" != "0:0:f" ]]; then
+  echo "Auth principal minimal bootstrap boundary failed: $AUTH_BOOTSTRAP_PROOF" >&2
   exit 1
 fi
 STORAGE_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','SELECT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','UPDATE')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','INSERT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','DELETE')::text FROM pg_roles WHERE rolname='one_deal_storage'")"
@@ -297,6 +421,7 @@ echo "[one-deal] proving strict Nest runtime datasource boundaries"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STAFF_DATABASE_URL="$STAFF_URL" \
 STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec ts-node test/one-deal/runtime-principal-startup-proof.ts
@@ -305,6 +430,7 @@ echo "[one-deal] running persistent-auth-backed exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STAFF_DATABASE_URL="$STAFF_URL" \
 STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="$JWT_SECRET" \
@@ -317,6 +443,7 @@ echo "[one-deal] running staff-access PostgreSQL exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STAFF_DATABASE_URL="$STAFF_URL" \
 STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="$JWT_SECRET" \
