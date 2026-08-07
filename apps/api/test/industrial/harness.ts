@@ -167,7 +167,7 @@ class SettlementBackedIndustrialDealCommandGateway extends IndustrialDealCommand
       keyId: 'industrial-harness-key',
       payloadFingerprint: fixtureHash(JSON.stringify(payload)),
       payload,
-    }) as Record<string, unknown>;
+    });
     const deal = await this.authorityPrisma.deal.findUnique({
       where: { id: input.dealId },
       select: { status: true },
