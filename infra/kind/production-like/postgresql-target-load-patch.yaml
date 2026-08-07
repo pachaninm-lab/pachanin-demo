@@ -1,0 +1,16 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgresql
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 20Gi
