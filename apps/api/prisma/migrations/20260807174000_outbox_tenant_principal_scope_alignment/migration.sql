@@ -1,32 +1,15 @@
--- P0 identity/RLS forward-only correction for the outbox policy audiences.
---
--- Runtime principals are provisioned at different times in CI and production.
--- Policy correctness must therefore never depend on whether a legitimate role
--- already exists while prisma migrate deploy runs.
---
--- Security boundary preserved here:
---   * app_outbox/app_outbox_worker are confined to worker SELECT/UPDATE policy;
---   * app_outbox still has no INSERT/DELETE table privilege;
---   * no SUPERUSER/BYPASSRLS/ownership/membership is introduced;
---   * tenant INSERT/SELECT require the exact application-principal allowlist,
---     trusted transaction-local RLS context and Deal visibility;
---   * settlement callback UPDATE additionally requires the exact BANK_CALLBACK
---     context and the bound confirmed/failed operation authority;
---   * auth/staff/storage principals are deliberately absent.
---
--- TO PUBLIC is intentional and provisioning-order safe: table ACLs remain
--- authoritative and each policy expression immediately rejects database
--- principals outside its explicit current_user allowlist.
+-- P0 identity/RLS forward-only correction for outbox policy audiences.
+-- Policy behavior must not depend on whether runtime roles already exist while
+-- prisma migrate deploy runs. TO PUBLIC is used only as a provisioning-order
+-- mechanism; table ACLs plus exact current_user predicates remain authoritative.
 
 ALTER TABLE public."outbox_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."outbox_entries" FORCE ROW LEVEL SECURITY;
 
-DO $outbox_tenant_scope$
+DO $outbox_scope$
 BEGIN
-  -- Re-materialize the dedicated worker policies from the canonical production
-  -- RLS contract. app_outbox needs SELECT visibility for the SKIP LOCKED claim
-  -- subquery and UPDATE visibility for claim/heartbeat/retry/SENT transitions.
-  -- It deliberately receives no INSERT policy here.
+  -- Dedicated delivery worker. app_outbox may SELECT and UPDATE queue state but
+  -- receives no INSERT/DELETE authority. app_outbox_worker remains compatible.
   EXECUTE 'DROP POLICY IF EXISTS outbox_entries_worker_select ON public."outbox_entries"';
   EXECUTE 'DROP POLICY IF EXISTS outbox_entries_worker_insert ON public."outbox_entries"';
   EXECUTE 'DROP POLICY IF EXISTS outbox_entries_worker_update ON public."outbox_entries"';
@@ -35,32 +18,26 @@ BEGIN
     CREATE POLICY outbox_entries_worker_select
     ON public."outbox_entries"
     FOR SELECT TO PUBLIC
-    USING (
-      current_user IN ('app_service', 'app_outbox_worker', 'app_outbox')
-    )
+    USING (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'))
   $policy$;
 
   EXECUTE $policy$
     CREATE POLICY outbox_entries_worker_insert
     ON public."outbox_entries"
     FOR INSERT TO PUBLIC
-    WITH CHECK (
-      current_user IN ('app_service', 'app_outbox_worker')
-    )
+    WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'))
   $policy$;
 
   EXECUTE $policy$
     CREATE POLICY outbox_entries_worker_update
     ON public."outbox_entries"
     FOR UPDATE TO PUBLIC
-    USING (
-      current_user IN ('app_service', 'app_outbox_worker', 'app_outbox')
-    )
-    WITH CHECK (
-      current_user IN ('app_service', 'app_outbox_worker', 'app_outbox')
-    )
+    USING (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'))
+    WITH CHECK (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'))
   $policy$;
 
+  -- Deal-scoped application producer/read surface. Dedicated workers are not
+  -- admitted through these policies.
   EXECUTE 'DROP POLICY IF EXISTS outbox_entries_select ON public."outbox_entries"';
   EXECUTE 'DROP POLICY IF EXISTS outbox_entries_insert ON public."outbox_entries"';
 
@@ -94,13 +71,10 @@ BEGIN
     )
   $policy$;
 
-  -- Preserve the historical settlement callback predicate while making its
-  -- audience independent of role-provisioning order. The explicit current_user
-  -- allowlist is the database-principal boundary; TO PUBLIC only avoids freezing
-  -- the policy audience to whichever roles happened to exist during migrate.
+  -- Verified Settlement callback: exact application runtime + trusted callback
+  -- context + exact operation/deal binding. Dedicated workers remain excluded.
   IF EXISTS (
-    SELECT 1
-    FROM pg_policies
+    SELECT 1 FROM pg_catalog.pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'outbox_entries'
       AND policyname = 'outbox_entries_settlement_callback_update'
@@ -154,119 +128,100 @@ BEGIN
     );
   END IF;
 END
-$outbox_tenant_scope$;
+$outbox_scope$;
 
-DO $outbox_tenant_scope_proof$
+DO $outbox_scope_proof$
 DECLARE
-  insert_qual TEXT;
-  insert_roles TEXT;
-  select_qual TEXT;
-  select_roles TEXT;
-  worker_select_qual TEXT;
+  app_select TEXT;
+  app_insert TEXT;
+  app_select_roles TEXT;
+  app_insert_roles TEXT;
+  worker_select TEXT;
+  worker_insert TEXT;
+  worker_update TEXT;
+  worker_check TEXT;
   worker_select_roles TEXT;
-  worker_insert_qual TEXT;
   worker_insert_roles TEXT;
-  worker_update_qual TEXT;
-  worker_update_check TEXT;
   worker_update_roles TEXT;
-  callback_update_qual TEXT;
-  callback_update_check TEXT;
-  callback_update_roles TEXT;
+  callback_update TEXT;
+  callback_check TEXT;
+  callback_roles TEXT;
 BEGIN
-  SELECT with_check, roles::text INTO insert_qual, insert_roles
-  FROM pg_policies
-  WHERE schemaname = 'public'
-    AND tablename = 'outbox_entries'
-    AND policyname = 'outbox_entries_insert';
+  SELECT qual, roles::text INTO app_select, app_select_roles
+  FROM pg_catalog.pg_policies
+  WHERE schemaname='public' AND tablename='outbox_entries'
+    AND policyname='outbox_entries_select' AND cmd='SELECT';
 
-  SELECT qual, roles::text INTO select_qual, select_roles
-  FROM pg_policies
-  WHERE schemaname = 'public'
-    AND tablename = 'outbox_entries'
-    AND policyname = 'outbox_entries_select';
+  SELECT with_check, roles::text INTO app_insert, app_insert_roles
+  FROM pg_catalog.pg_policies
+  WHERE schemaname='public' AND tablename='outbox_entries'
+    AND policyname='outbox_entries_insert' AND cmd='INSERT';
 
-  SELECT qual, roles::text INTO worker_select_qual, worker_select_roles
-  FROM pg_policies
-  WHERE schemaname = 'public'
-    AND tablename = 'outbox_entries'
-    AND policyname = 'outbox_entries_worker_select'
-    AND cmd = 'SELECT';
+  SELECT qual, roles::text INTO worker_select, worker_select_roles
+  FROM pg_catalog.pg_policies
+  WHERE schemaname='public' AND tablename='outbox_entries'
+    AND policyname='outbox_entries_worker_select' AND cmd='SELECT';
 
-  SELECT with_check, roles::text INTO worker_insert_qual, worker_insert_roles
-  FROM pg_policies
-  WHERE schemaname = 'public'
-    AND tablename = 'outbox_entries'
-    AND policyname = 'outbox_entries_worker_insert'
-    AND cmd = 'INSERT';
+  SELECT with_check, roles::text INTO worker_insert, worker_insert_roles
+  FROM pg_catalog.pg_policies
+  WHERE schemaname='public' AND tablename='outbox_entries'
+    AND policyname='outbox_entries_worker_insert' AND cmd='INSERT';
 
   SELECT qual, with_check, roles::text
-  INTO worker_update_qual, worker_update_check, worker_update_roles
-  FROM pg_policies
-  WHERE schemaname = 'public'
-    AND tablename = 'outbox_entries'
-    AND policyname = 'outbox_entries_worker_update'
-    AND cmd = 'UPDATE';
+  INTO worker_update, worker_check, worker_update_roles
+  FROM pg_catalog.pg_policies
+  WHERE schemaname='public' AND tablename='outbox_entries'
+    AND policyname='outbox_entries_worker_update' AND cmd='UPDATE';
 
   SELECT qual, with_check, roles::text
-  INTO callback_update_qual, callback_update_check, callback_update_roles
-  FROM pg_policies
-  WHERE schemaname = 'public'
-    AND tablename = 'outbox_entries'
-    AND policyname = 'outbox_entries_settlement_callback_update'
-    AND cmd = 'UPDATE';
+  INTO callback_update, callback_check, callback_roles
+  FROM pg_catalog.pg_policies
+  WHERE schemaname='public' AND tablename='outbox_entries'
+    AND policyname='outbox_entries_settlement_callback_update' AND cmd='UPDATE';
 
-  IF insert_qual IS NULL OR select_qual IS NULL THEN
-    RAISE EXCEPTION 'bounded tenant outbox policies are missing'
-      USING ERRCODE = '42501';
-  END IF;
-
-  IF insert_roles NOT LIKE '%public%'
-     OR select_roles NOT LIKE '%public%'
-     OR insert_qual NOT LIKE '%app_runtime%'
-     OR insert_qual NOT LIKE '%app_service%'
-     OR insert_qual NOT LIKE '%app_deal%'
-     OR insert_qual NOT LIKE '%one_deal_app%'
-     OR insert_qual NOT LIKE '%app_rls_context_ready%'
-     OR insert_qual NOT LIKE '%app_rls_deal_visible%'
-     OR insert_qual LIKE '%app_outbox%'
-     OR select_qual LIKE '%app_outbox%'
+  IF app_select IS NULL OR app_insert IS NULL
+     OR app_select_roles NOT LIKE '%public%'
+     OR app_insert_roles NOT LIKE '%public%'
+     OR app_select NOT LIKE '%app_rls_context_ready%'
+     OR app_select NOT LIKE '%app_rls_deal_visible%'
+     OR app_insert NOT LIKE '%app_runtime%'
+     OR app_insert NOT LIKE '%app_service%'
+     OR app_insert NOT LIKE '%app_deal%'
+     OR app_insert NOT LIKE '%one_deal_app%'
+     OR app_insert LIKE '%''app_outbox''%'
   THEN
-    RAISE EXCEPTION 'outbox tenant policy audience/predicate is not provisioning-order safe and least-privilege aligned'
-      USING ERRCODE = '42501';
+    RAISE EXCEPTION 'deal-scoped outbox policies are not provisioning-order safe and bounded'
+      USING ERRCODE='42501';
   END IF;
 
-  IF worker_select_qual IS NULL
-     OR worker_insert_qual IS NULL
-     OR worker_update_qual IS NULL
-     OR worker_update_check IS NULL
+  IF worker_select IS NULL OR worker_insert IS NULL
+     OR worker_update IS NULL OR worker_check IS NULL
      OR worker_select_roles NOT LIKE '%public%'
      OR worker_insert_roles NOT LIKE '%public%'
      OR worker_update_roles NOT LIKE '%public%'
-     OR worker_select_qual NOT LIKE '%app_outbox%'
-     OR worker_update_qual NOT LIKE '%app_outbox%'
-     OR worker_update_check NOT LIKE '%app_outbox%'
-     OR worker_insert_qual LIKE '%app_outbox%'
-     OR worker_select_qual LIKE '%one_deal_app%'
-     OR worker_update_qual LIKE '%one_deal_app%'
+     OR worker_select NOT LIKE '%''app_outbox''%'
+     OR worker_update NOT LIKE '%''app_outbox''%'
+     OR worker_check NOT LIKE '%''app_outbox''%'
+     OR worker_insert LIKE '%''app_outbox''%'
+     OR worker_select LIKE '%one_deal_app%'
+     OR worker_update LIKE '%one_deal_app%'
   THEN
     RAISE EXCEPTION 'dedicated outbox worker policies are not provisioning-order safe and least-privilege bounded'
-      USING ERRCODE = '42501';
+      USING ERRCODE='42501';
   END IF;
 
-  IF callback_update_qual IS NULL
-     OR callback_update_check IS NULL
-     OR callback_update_roles NOT LIKE '%public%'
-     OR callback_update_qual NOT LIKE '%one_deal_app%'
-     OR callback_update_qual NOT LIKE '%BANK_CALLBACK%'
-     OR callback_update_qual NOT LIKE '%settlement-bank-request:%'
-     OR callback_update_qual NOT LIKE '%callback_event_id%'
-     OR callback_update_qual NOT LIKE '%buyerOrgId%'
-     OR callback_update_qual LIKE '%app_outbox%'
-     OR callback_update_check NOT LIKE '%one_deal_app%'
-     OR callback_update_check NOT LIKE '%BANK_CALLBACK%'
+  IF callback_update IS NULL OR callback_check IS NULL
+     OR callback_roles NOT LIKE '%public%'
+     OR callback_update NOT LIKE '%one_deal_app%'
+     OR callback_update NOT LIKE '%BANK_CALLBACK%'
+     OR callback_update NOT LIKE '%settlement-bank-request:%'
+     OR callback_update NOT LIKE '%callback_event_id%'
+     OR callback_update NOT LIKE '%buyerOrgId%'
+     OR callback_update LIKE '%''app_outbox''%'
+     OR callback_check NOT LIKE '%BANK_CALLBACK%'
   THEN
-    RAISE EXCEPTION 'settlement callback outbox UPDATE policy is not provisioning-order safe and least-privilege bounded'
-      USING ERRCODE = '42501';
+    RAISE EXCEPTION 'Settlement callback outbox policy is not provisioning-order safe and bounded'
+      USING ERRCODE='42501';
   END IF;
 END
-$outbox_tenant_scope_proof$;
+$outbox_scope_proof$;
