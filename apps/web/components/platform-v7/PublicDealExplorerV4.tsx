@@ -85,14 +85,22 @@ export function PublicDealExplorerV4({
   const [historyRevision, setHistoryRevision] = useState(0);
   const [guideMode, setGuideMode] = useState<GuideMode>('idle');
 
-  const replacePresentedState = useCallback((next: TourState) => {
+  const presentState = useCallback((next: TourState, historyMode: 'push' | 'replace') => {
     const normalizedNext = normalizePublicBusinessState(next);
     const params = writeTourStateToSearchParams(normalizedNext, new URLSearchParams(window.location.search));
     const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
-    window.history.replaceState({}, '', url);
+    window.history[historyMode === 'push' ? 'pushState' : 'replaceState']({}, '', url);
     setHistoryState(normalizedNext);
     setHistoryRevision((revision) => revision + 1);
   }, []);
+
+  const replacePresentedState = useCallback((next: TourState) => {
+    presentState(next, 'replace');
+  }, [presentState]);
+
+  const pushPresentedState = useCallback((next: TourState) => {
+    presentState(next, 'push');
+  }, [presentState]);
 
   useEffect(() => {
     const bridge = (event: Event) => {
@@ -186,13 +194,13 @@ export function PublicDealExplorerV4({
 
   const selectMobilePerspective = (perspective: TourPerspective) => {
     const next = { ...readPresentedState(), perspective };
-    replacePresentedState(next);
+    pushPresentedState(next);
     emitMobileSelection('perspective_selected', locale, next);
   };
 
   const selectMobileScenario = (scenario: TourScenario) => {
     const next = { ...readPresentedState(), scenario };
-    replacePresentedState(next);
+    pushPresentedState(next);
     emitMobileSelection('scenario_selected', locale, next);
   };
 
