@@ -153,6 +153,9 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO one_deal_app;
 GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_app;
+REVOKE ALL ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) FROM one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA security GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA logistics GRANT SELECT ON TABLES TO one_deal_app;
@@ -215,6 +218,9 @@ GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) TO one_deal_auth;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM one_deal_auth;
 REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM one_deal_auth;
@@ -268,6 +274,9 @@ REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM one_dea
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 SQL
 
@@ -350,6 +359,50 @@ SQL
 echo "[one-deal] auth identity proof forced-rls:owns:minimal-bootstrap:staff-execute:memberships = $AUTH_IDENTITY_PROOF"
 if [[ "$AUTH_IDENTITY_PROOF" != "true:false:true:false:false" && "$AUTH_IDENTITY_PROOF" != "t:f:t:f:f" ]]; then
   echo "Auth principal identity boundary is invalid: $AUTH_IDENTITY_PROOF" >&2
+  exit 1
+fi
+
+REGISTRATION_AUTHORITY_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
+SELECT
+  (SELECT count(*) FROM pg_proc p
+   JOIN pg_namespace n ON n.oid = p.pronamespace
+   JOIN pg_roles owner ON owner.oid = p.proowner
+   WHERE n.nspname='auth' AND p.proname='create_pending_registration_identity'
+     AND p.prosecdef AND owner.rolname='pc_registration_authority')::text
+  || ':' ||
+  (SELECT count(*) FROM pg_roles
+   WHERE rolname='pc_registration_authority'
+     AND NOT rolcanlogin AND NOT rolinherit AND NOT rolsuper AND NOT rolbypassrls
+     AND NOT rolcreatedb AND NOT rolcreaterole)::text
+  || ':' ||
+  has_function_privilege(
+    'one_deal_auth',
+    'auth.create_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text)',
+    'EXECUTE'
+  )::int::text
+  || ':' ||
+  has_function_privilege(
+    'one_deal_app',
+    'auth.create_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text)',
+    'EXECUTE'
+  )::int::text
+  || ':' ||
+  has_function_privilege(
+    'one_deal_staff',
+    'auth.create_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text)',
+    'EXECUTE'
+  )::int::text
+  || ':' ||
+  has_function_privilege(
+    'one_deal_storage',
+    'auth.create_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text)',
+    'EXECUTE'
+  )::int::text;
+SQL
+)"
+echo "[one-deal] registration proof definer:confined:auth:deal:staff:storage = $REGISTRATION_AUTHORITY_PROOF"
+if [[ "$REGISTRATION_AUTHORITY_PROOF" != "1:1:1:0:0:0" ]]; then
+  echo "Registration authority boundary is invalid: $REGISTRATION_AUTHORITY_PROOF" >&2
   exit 1
 fi
 
