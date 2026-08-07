@@ -11,6 +11,12 @@
 -- Settlement aggregate. Once settlement.payments exists, Settlement becomes the
 -- sole callback authority and the legacy branch is structurally excluded.
 --
+-- A completed operation may establish only the minimal tenant/buyer scope needed
+-- to reach idempotent replay handling, and only when the authoritative operation
+-- row already contains durable callback evidence. A different event cannot repeat
+-- the financial effect because the Deal command state transition is already closed;
+-- the exact stored receipt remains the authority for duplicate/mismatch handling.
+--
 -- Keep the ordinary settlement policies unchanged and add purpose-specific,
 -- cryptographically-bound callback policies. No table grant, ownership,
 -- BYPASSRLS or human role authority is widened.
@@ -100,13 +106,14 @@ USING (
 -- Preserve the original two-argument API used by the application.
 --
 -- Priority 0: current Settlement authority. A pending operation may establish
--- callback context. Once the callback is persisted, the same exact operation may
--- establish only the minimal tenant/buyer scope needed to enter replay handling;
--- replay itself remains partner+event-bound by bank_callbacks_verified_replay_select.
+-- callback context. A completed operation may establish replay scope only when
+-- the operation itself contains all callback-binding fields that the forced-RLS
+-- transition requires.
 --
--- Priority 1: legacy public.bank_operations compatibility. This branch is valid
--- only for the exact pending legacy operation and only if no Settlement payment
--- aggregate exists for the Deal. It therefore cannot bypass or shadow Settlement.
+-- Priority 1: legacy public.bank_operations compatibility. A pending operation
+-- may establish initial scope. DONE/FAILED may establish replay-only scope only
+-- when durable callback evidence already exists on that exact operation. Legacy
+-- authority remains excluded whenever a Settlement payment aggregate exists.
 CREATE OR REPLACE FUNCTION public.app_bank_callback_scope(
   p_deal_id TEXT,
   p_operation_id TEXT
@@ -127,12 +134,11 @@ AS $function$
       AND deal."tenantId" = operation.tenant_id
       AND (
         operation.status = 'PENDING'
-        OR EXISTS (
-          SELECT 1
-          FROM settlement.bank_callbacks callback
-          WHERE callback.operation_id = operation.id
-            AND callback.deal_id = operation.deal_id
-            AND callback.tenant_id = operation.tenant_id
+        OR (
+          operation.status IN ('CONFIRMED', 'FAILED')
+          AND operation.callback_event_id IS NOT NULL
+          AND operation.callback_key_id IS NOT NULL
+          AND operation.callback_payload_fingerprint IS NOT NULL
         )
       )
 
@@ -143,7 +149,21 @@ AS $function$
     JOIN public.deals deal ON deal.id = operation."dealId"
     WHERE operation."dealId" = p_deal_id
       AND operation."id" = p_operation_id
-      AND operation."status" = 'PENDING'
+      AND (
+        operation."status" = 'PENDING'
+        OR (
+          operation."status" = 'DONE'
+          AND operation."confirmedAt" IS NOT NULL
+          AND operation."bankRef" IS NOT NULL
+          AND operation."responsePayload" IS NOT NULL
+        )
+        OR (
+          operation."status" = 'FAILED'
+          AND operation."failureReason" IS NOT NULL
+          AND operation."bankRef" IS NOT NULL
+          AND operation."responsePayload" IS NOT NULL
+        )
+      )
       AND NOT EXISTS (
         SELECT 1
         FROM settlement.payments authority
@@ -219,15 +239,20 @@ BEGIN
 
   IF scope_definition IS NULL
      OR scope_definition NOT LIKE '%operation.status = ''PENDING''%'
-     OR scope_definition NOT LIKE '%settlement.bank_callbacks%'
+     OR scope_definition NOT LIKE '%callback_event_id%'
+     OR scope_definition NOT LIKE '%callback_key_id%'
+     OR scope_definition NOT LIKE '%callback_payload_fingerprint%'
      OR (
        scope_definition NOT LIKE '%public."bank_operations"%'
        AND scope_definition NOT LIKE '%public.bank_operations%'
      )
+     OR scope_definition NOT LIKE '%confirmedAt%'
+     OR scope_definition NOT LIKE '%responsePayload%'
+     OR scope_definition NOT LIKE '%failureReason%'
      OR scope_definition NOT LIKE '%settlement.payments%'
      OR scope_definition NOT LIKE '%NOT EXISTS%'
   THEN
-    RAISE EXCEPTION 'callback scope does not preserve Settlement replay plus fail-closed legacy compatibility'
+    RAISE EXCEPTION 'callback scope does not preserve evidence-bound replay plus fail-closed legacy compatibility'
       USING ERRCODE = '42501';
   END IF;
 END
