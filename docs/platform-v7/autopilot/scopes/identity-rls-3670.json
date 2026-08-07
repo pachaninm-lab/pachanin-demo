@@ -38,6 +38,7 @@
     "apps/api/prisma/migrations/20260807174000_outbox_tenant_principal_scope_alignment/migration.sql",
     "apps/api/prisma/migrations/20260807193000_outbox_settlement_callback_select_alignment/migration.sql",
     "apps/api/prisma/migrations/20260807194000_settlement_callback_replay_rls_alignment/migration.sql",
+    "apps/api/prisma/migrations/20260807195000_settlement_verified_callback_authority_function/migration.sql",
     "apps/api/src/common/prisma/auth-principal-provisioning.spec.ts",
     "apps/api/src/common/prisma/database-principal-boundary.spec.ts",
     "apps/api/src/common/prisma/database-principal-boundary.ts",
@@ -107,6 +108,7 @@
     "dedicated app_outbox remains RLS-confined with worker SELECT and UPDATE only and no INSERT DELETE BYPASSRLS or table ownership",
     "BANK_CALLBACK can SELECT an outbox row only through the same exact bounded settlement callback predicate required for callback UPDATE",
     "verified BANK_CALLBACK operation transition and replay remain exact tenant buyer partner and event scoped under FORCE RLS",
+    "verified BANK_CALLBACK RLS predicates use a boolean-only definer authority and do not recursively inherit participant-table visibility",
     "DR restore reconstructs least-privilege ownership and named grants before application acceptance",
     "all exact-head security and production-like acceptance gates remain fail-closed"
   ],
