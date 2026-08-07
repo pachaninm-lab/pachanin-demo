@@ -16,14 +16,6 @@ const MFA_REQUIRED_FIXTURE_ROLES = new Set<Role>([
   Role.ARBITRATOR,
 ]);
 
-type MembershipRow = {
-  id: string;
-  organizationId: string;
-  role: string;
-  organization: { tenantId: string };
-  user: { id: string; email: string; fullName: string };
-};
-
 type OpaqueAccessClaims = jwt.JwtPayload & {
   sub: string;
   sid: string;
@@ -87,6 +79,11 @@ function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): O
   return decoded as OpaqueAccessClaims;
 }
 
+function seededEmail(userId: string): string {
+  if (!userId.endsWith('-e2e')) throw new Error(`Unexpected persistent actor id ${userId}`);
+  return `${userId.slice(0, -'-e2e'.length)}@demo.ru`;
+}
+
 export async function createPersistentActorHarness(
   organizationIds: readonly string[],
 ): Promise<PersistentActorHarness> {
@@ -109,65 +106,23 @@ export async function createPersistentActorHarness(
       throw new Error(`Persistent auth harness connected as unexpected principal ${currentUser}`);
     }
 
-    // Resolved through the bounded bootstrap functions rather than by scanning
-    // public.users and public.user_orgs. Those scans used to work because this
-    // principal held BYPASSRLS; without it a pre-context scan returns nothing,
-    // which is the boundary doing its job. The seeded identifiers are known, so
-    // the harness asks for exactly the twelve actors it created. A membership
-    // does not have to be marked isDefault to be valid; choose the first
-    // permitted membership with the same deterministic ordering as login.
-    const rows = await primaryPrisma.$queryRaw<Array<{
-      membership_id: string;
-      organization_id: string;
-      role: string;
-      tenant_id: string;
-      user_id: string;
-      email: string;
-      full_name: string;
-    }>>`
-      SELECT
-        membership.membership_id,
-        membership.organization_id,
-        membership.role,
-        membership.tenant_id,
-        identity."id" AS user_id,
-        identity."email",
-        identity."fullName" AS full_name
-      FROM unnest(${[...PERSISTENT_ACTOR_USER_IDS]}::text[]) AS seeded(user_id)
-      JOIN LATERAL auth.resolve_login_identity_by_id(seeded.user_id) identity ON TRUE
-      JOIN LATERAL (
-        SELECT candidate.*
-        FROM auth.resolve_login_memberships_ordered(seeded.user_id) candidate
-        WHERE candidate.organization_id = ANY(${[...organizationIds]}::text[])
-        ORDER BY
-          candidate.is_default DESC,
-          candidate.joined_at ASC,
-          candidate.membership_id ASC
-        LIMIT 1
-      ) membership ON TRUE
-      ORDER BY membership.role ASC
-    `;
-
-    const memberships: MembershipRow[] = rows.map((row) => ({
-      id: row.membership_id,
-      organizationId: row.organization_id,
-      role: row.role,
-      organization: { tenantId: row.tenant_id },
-      user: { id: row.user_id, email: row.email, fullName: row.full_name },
-    }));
-    if (memberships.length === 0) {
-      throw new Error('Persistent auth harness resolved no actors through the bootstrap surface');
-    }
-
+    // Do not rediscover identities with the retired resolve_login_identity* or
+    // resolve_login_memberships* functions. The harness knows the twelve fixture
+    // email addresses it seeded and enters through AuthService.login exactly as
+    // a real client does: three-field credential lookup, bcrypt proof, then the
+    // bounded membership/context lookup. The authoritative role/tenant/org is
+    // read only from the resulting server-side session projection.
     const actorsByRole = new Map<Role, RequestUser>();
     const accessTokensByRole = new Map<Role, string>();
 
-    for (const membership of memberships) {
-      const role = membership.role as Role;
+    for (const expectedUserId of PERSISTENT_ACTOR_USER_IDS) {
+      const email = seededEmail(expectedUserId);
       const login = await primaryAuth.login({
-        email: membership.user.email,
+        email,
         password: TEST_PASSWORD,
       }) as any;
+      const role = login?.user?.role as Role | undefined;
+      if (!role) throw new Error(`Persistent login did not resolve a role for ${expectedUserId}`);
       const expectedMfa = MFA_REQUIRED_FIXTURE_ROLES.has(role);
       if (Boolean(login.mfaRequired) !== expectedMfa) {
         throw new Error(`Unexpected MFA requirement for ${role}: ${String(login.mfaRequired)}`);
@@ -193,14 +148,14 @@ export async function createPersistentActorHarness(
         }
       }
 
-      const claims = assertOpaqueAccessToken(accessToken, membership.user.id);
+      const claims = assertOpaqueAccessToken(accessToken, expectedUserId);
       const actor = await verifierAuth.verifyAccessToken(accessToken);
       if (
-        actor.id !== membership.user.id
+        actor.id !== expectedUserId
         || actor.role !== role
-        || actor.orgId !== membership.organizationId
-        || actor.tenantId !== membership.organization.tenantId
-        || actor.membershipId !== membership.id
+        || !organizationIds.includes(actor.orgId)
+        || !actor.tenantId
+        || !actor.membershipId
         || !actor.sessionId
       ) {
         throw new Error(`PostgreSQL session projection mismatch for ${role}`);
@@ -221,7 +176,7 @@ export async function createPersistentActorHarness(
         },
         jwtSecret,
         {
-          subject: membership.user.id,
+          subject: expectedUserId,
           issuer: ACCESS_ISSUER,
           audience: ACCESS_AUDIENCE,
           expiresIn: '5m',
@@ -230,9 +185,9 @@ export async function createPersistentActorHarness(
       const reauthorized = await primaryAuth.verifyAccessToken(injectedClaimsToken);
       if (
         reauthorized.role !== role
-        || reauthorized.orgId !== membership.organizationId
-        || reauthorized.tenantId !== membership.organization.tenantId
-        || reauthorized.membershipId !== membership.id
+        || reauthorized.orgId !== actor.orgId
+        || reauthorized.tenantId !== actor.tenantId
+        || reauthorized.membershipId !== actor.membershipId
       ) {
         throw new Error(`Injected JWT authority claims overrode PostgreSQL membership for ${role}`);
       }
@@ -252,13 +207,14 @@ export async function createPersistentActorHarness(
       if (
         !session
         || session.status !== 'ACTIVE'
-        || session.membership_id !== membership.id
-        || session.organization_id !== membership.organizationId
-        || session.tenant_id !== membership.organization.tenantId
+        || session.membership_id !== actor.membershipId
+        || session.organization_id !== actor.orgId
+        || session.tenant_id !== actor.tenantId
       ) {
         throw new Error(`Persistent session row mismatch for ${role}`);
       }
 
+      if (actorsByRole.has(role)) throw new Error(`Duplicate persistent actor role ${role}`);
       actorsByRole.set(role, actor);
       accessTokensByRole.set(role, accessToken);
     }
