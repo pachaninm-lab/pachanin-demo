@@ -6,9 +6,18 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 10;
 
-const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+const COMPOSE_INTERNAL_API_URL = 'http://api:3001';
 const MAX_BODY_BYTES = 8 * 1024;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
+
+function resolveApiUrl(): string {
+  const explicitServerUrl = String(process.env.API_URL || '').trim();
+  if (explicitServerUrl) return explicitServerUrl.replace(/\/$/, '');
+  if (process.env.NODE_ENV === 'production') return COMPOSE_INTERNAL_API_URL;
+  return String(process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
+}
+
+const API_URL = resolveApiUrl();
 
 const allowedRoles = new Set([
   'PRODUCER_SELLER',
