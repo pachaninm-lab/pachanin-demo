@@ -102,7 +102,12 @@ export class LabAuthorityService {
       requestFingerprint,
       async (tx, context) => {
         await this.requireDeal(tx, normalized.dealId, context);
-        await this.requireVerifiedOrganization(tx, normalized.laboratoryOrgId, context);
+        await this.requireVerifiedOrganization(
+          tx,
+          normalized.dealId,
+          normalized.laboratoryOrgId,
+          context,
+        );
         await this.requirePurposeEvidence(
           tx,
           normalized.evidenceRef,
@@ -480,19 +485,18 @@ export class LabAuthorityService {
 
   private async requireVerifiedOrganization(
     tx: Prisma.TransactionClient,
+    dealId: string,
     organizationId: string,
     context: TrustedRlsContext,
   ): Promise<void> {
-    const organization = await tx.organization.findFirst({
-      where: {
-        id: organizationId,
-        tenantId: context.tenantId,
-        status: 'VERIFIED',
-        kycStatus: 'APPROVED',
-      },
-      select: { id: true },
-    });
-    if (!organization) throw new ConflictException({ code: 'LAB_ORGANIZATION_NOT_VERIFIED' });
+    const organization = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+      SELECT public.app_labs_verified_organization_for_deal(
+        ${context.tenantId}, ${dealId}, ${organizationId}
+      ) AS valid
+    `);
+    if (organization[0]?.valid !== true) {
+      throw new ConflictException({ code: 'LAB_ORGANIZATION_NOT_VERIFIED' });
+    }
   }
 
   private async requireActiveParticipant(
