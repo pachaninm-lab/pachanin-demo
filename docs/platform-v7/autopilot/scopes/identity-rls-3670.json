@@ -36,6 +36,7 @@
     "apps/api/prisma/migrations/20260807160000_outbox_runtime_rls_principal_alignment/migration.sql",
     "apps/api/prisma/migrations/20260807170500_outbox_rls_policy_scope_alignment/migration.sql",
     "apps/api/prisma/migrations/20260807174000_outbox_tenant_principal_scope_alignment/migration.sql",
+    "apps/api/prisma/migrations/20260807193000_outbox_settlement_callback_select_alignment/migration.sql",
     "apps/api/src/common/prisma/auth-principal-provisioning.spec.ts",
     "apps/api/src/common/prisma/database-principal-boundary.spec.ts",
     "apps/api/src/common/prisma/database-principal-boundary.ts",
@@ -103,6 +104,7 @@
     "login proves password before resolving membership organization or tenant authority",
     "staff projections remain function-only and capability-bound",
     "dedicated app_outbox remains RLS-confined with worker SELECT and UPDATE only and no INSERT DELETE BYPASSRLS or table ownership",
+    "BANK_CALLBACK can SELECT an outbox row only through the same exact bounded settlement callback predicate required for callback UPDATE",
     "DR restore reconstructs least-privilege ownership and named grants before application acceptance",
     "all exact-head security and production-like acceptance gates remain fail-closed"
   ],
