@@ -51,6 +51,10 @@ const STAFF_INTERNAL_FUNCTIONS = [
   'auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN)',
 ] as const;
 
+function normalizeSqlFunctionSignature(source: string): string {
+  return source.toLowerCase().replace(/\s*,\s*/g, ',');
+}
+
 describe('auth and staff principal provisioning', () => {
   it.each(PROVISIONING_SOURCES)('never grants BYPASSRLS in the %s', (_label, file) => {
     const statements = repositoryFile(file)
@@ -162,19 +166,26 @@ describe('auth and staff principal provisioning', () => {
 
   it('restores the same minimal auth/staff split after no-owner no-acl DR', () => {
     const rehearsal = repositoryFile('scripts/platform-v7-database-dr-rehearsal.sh');
+    const normalizedRehearsal = normalizeSqlFunctionSignature(rehearsal);
     expect(rehearsal).toContain('--no-owner');
     expect(rehearsal).toContain('--no-acl');
     expect(rehearsal).toContain('DR_RESTORE_STAFF_URL');
     expect(rehearsal).toContain('ALTER FUNCTION %s OWNER TO pc_identity_bootstrap');
     expect(rehearsal).toContain('ALTER FUNCTION %s OWNER TO pc_staff_authority');
-    for (const signature of AUTH_RUNTIME_FUNCTIONS.map((entry) => entry.toLowerCase())) {
-      expect(rehearsal.toLowerCase()).toContain(`grant execute on function ${signature.toLowerCase()} to one_deal_auth`);
+    for (const signature of AUTH_RUNTIME_FUNCTIONS) {
+      expect(normalizedRehearsal).toContain(
+        `grant execute on function ${normalizeSqlFunctionSignature(signature)} to one_deal_auth`,
+      );
     }
-    for (const signature of RETIRED_AUTH_FUNCTIONS.map((entry) => entry.toLowerCase())) {
-      expect(rehearsal.toLowerCase()).toContain(`revoke all on function ${signature.toLowerCase()} from one_deal_auth`);
+    for (const signature of RETIRED_AUTH_FUNCTIONS) {
+      expect(normalizedRehearsal).toContain(
+        `revoke all on function ${normalizeSqlFunctionSignature(signature)} from one_deal_auth`,
+      );
     }
-    for (const signature of STAFF_EXTERNAL_FUNCTIONS.map((entry) => entry.toLowerCase())) {
-      expect(rehearsal.toLowerCase()).toContain(`grant execute on function ${signature.toLowerCase()} to one_deal_staff`);
+    for (const signature of STAFF_EXTERNAL_FUNCTIONS) {
+      expect(normalizedRehearsal).toContain(
+        `grant execute on function ${normalizeSqlFunctionSignature(signature)} to one_deal_staff`,
+      );
     }
     expect(rehearsal).toContain('RESTORE_IDENTITY_PROOF');
     expect(rehearsal).toContain('RESTORE_STAFF_PROOF');
