@@ -47,7 +47,7 @@ const PHASES = [
   {
     id: 'auth-replay',
     dependsOn: 'one-deal',
-    command: 'DATABASE_URL="$ONE_DEAL_AUTH_URL" AUTH_DATABASE_URL="$ONE_DEAL_AUTH_URL" DB_PRINCIPAL_BOUNDARY_ENFORCED=false pnpm --filter @pc/api exec jest --runInBand --config test/auth/jest.config.json --runTestsByPath test/auth/persistent-auth.e2e-spec.ts --testNamePattern "rotates refresh once and revokes the complete family on old-token reuse across instances"',
+    command: 'DATABASE_URL="$ONE_DEAL_AUTH_URL" AUTH_DATABASE_URL="$ONE_DEAL_AUTH_URL" DB_PRINCIPAL_BOUNDARY_ENFORCED=false pnpm --filter @pc/api exec jest --runInBand --config test/auth/jest.config.json --runTestsByPath test/auth/persistent-auth.e2e-spec.ts --testNamePattern "rotates refresh once and revokes the complete family on old-token reuse across instances|ignores client orgId during self-registration and creates a pending organization"',
   },
 ];
 
