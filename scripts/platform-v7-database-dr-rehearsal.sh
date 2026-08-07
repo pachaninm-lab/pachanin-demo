@@ -331,14 +331,16 @@ BEGIN
     END IF;
   END IF;
 
+  -- Keep the isolated one-deal auth principal aligned with the runtime boundary
+  -- asserted by restored-database-acceptance. Only the deal principal is
+  -- narrowed to the self-service public.users columns here; the production
+  -- pc_auth_runtime restriction is already restored from migration history.
   REVOKE UPDATE ON public.users FROM PUBLIC;
-  FOREACH target IN ARRAY ARRAY['one_deal_auth', 'one_deal_app'] LOOP
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = target) THEN
-      EXECUTE format('REVOKE UPDATE ON public.users FROM %I', target);
-      EXECUTE format(
-        'GRANT UPDATE ("email", "phone", "fullName", "updatedAt") ON public.users TO %I', target);
-    END IF;
-  END LOOP;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'one_deal_app') THEN
+    REVOKE UPDATE ON public.users FROM one_deal_app;
+    GRANT UPDATE ("email", "phone", "fullName", "updatedAt")
+      ON public.users TO one_deal_app;
+  END IF;
 END;
 $identity_recovery$;
 SQL
