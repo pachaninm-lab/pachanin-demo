@@ -37,16 +37,12 @@ export type DatabasePrincipalSnapshot = {
   /** The auth principal must never own the tables its policies confine it to. */
   ownsIdentityTables: boolean;
   /**
-   * EXECUTE on the exact minimal login/session bootstrap functions. Historical
-   * wider pre-auth identity functions must remain inaccessible.
+   * EXECUTE on auth.resolve_login_identity, ...identity_by_id and
+   * ...login_memberships — the bounded pre-authentication surface that
+   * replaced BYPASSRLS. Without these the login path cannot read an identity
+   * at all and fails closed at the first request.
    */
   identityBootstrapExecute: boolean;
-  /**
-   * EXECUTE on the one bounded pre-auth registration function. Without this
-   * the runtime can pass login checks but public registration fails closed at
-   * its first identity write under FORCE RLS.
-   */
-  registrationAuthorityExecute: boolean;
   /**
    * EXECUTE on any of the auth.staff_admission_* functions. The staff surface
    * belongs to pc_staff_runtime; an auth principal holding it would have the
@@ -186,12 +182,6 @@ export function evaluateAuthPrincipalBoundary(snapshot: DatabasePrincipalSnapsho
   // missing it has no working login rather than a tighter one.
   if (!snapshot.identityBootstrapExecute) {
     errors.push('auth principal requires EXECUTE on the auth.resolve_login_* bootstrap functions');
-  }
-  // Pre-context registration writes have the same fail-closed requirement but
-  // a separate authority. The runtime gets EXECUTE only; it does not become the
-  // NOLOGIN pc_registration_authority role and does not bypass row security.
-  if (!snapshot.registrationAuthorityExecute) {
-    errors.push('auth principal requires EXECUTE on auth.create_pending_registration_identity');
   }
   if (snapshot.staffAdmissionExecute) {
     errors.push('auth principal must have no EXECUTE on the auth.staff_admission_* functions');
