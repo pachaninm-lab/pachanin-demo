@@ -33,6 +33,7 @@
     "apps/api/prisma/migrations/20260807134000_staff_projection_deal_basis_policy_dependency/migration.sql",
     "apps/api/prisma/migrations/20260807151000_bounded_public_registration_identity_authority/migration.sql",
     "apps/api/prisma/migrations/20260807152000_bounded_public_registration_timestamps/migration.sql",
+    "apps/api/prisma/migrations/20260807160000_outbox_runtime_rls_principal_alignment/migration.sql",
     "apps/api/src/common/prisma/auth-principal-provisioning.spec.ts",
     "apps/api/src/common/prisma/database-principal-boundary.spec.ts",
     "apps/api/src/common/prisma/database-principal-boundary.ts",
@@ -97,12 +98,13 @@
     "public registration writes only through bounded SECURITY DEFINER identity authority",
     "login proves password before resolving membership organization or tenant authority",
     "staff projections remain function-only and capability-bound",
+    "dedicated app_outbox remains RLS-confined with worker SELECT and UPDATE only and no INSERT DELETE BYPASSRLS or table ownership",
     "DR restore reconstructs least-privilege ownership and named grants before application acceptance",
     "all exact-head security and production-like acceptance gates remain fail-closed"
   ],
   "forbiddenCapabilities": [
     "BYPASSRLS or SUPERUSER grants",
-    "broad direct table authority for auth or staff runtimes",
+    "broad direct table authority for auth staff or outbox runtimes",
     "client-selected tenant organization or privileged role",
     "RLS policy weakening or disabling FORCE RLS",
     "secret credential or .env changes",
