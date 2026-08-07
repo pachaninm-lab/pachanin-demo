@@ -4,11 +4,26 @@
  */
 @media (max-width: 720px) {
   .pc-ppe-page .pc-ppe-explorer-intro {
-    padding-top: 24px !important;
+    padding-top: 8px !important;
   }
 
   .pc-ppe-page .pc-ppe-explorer-intro-actions {
-    margin-top: 12px !important;
+    margin-top: 4px !important;
+  }
+
+  .pc-ppe-page .pc-ppe-explorer-intro h1 {
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .pc-ppe-page .pc-ppe-demo-banner {
+    margin-top: 10px !important;
+  }
+
+  .pc-ppe-page .pc-ppe-v4-mobile-controls {
+    gap: 12px !important;
+    margin-bottom: 10px !important;
+    padding: 12px !important;
   }
 
   .pc-ppe-page .pc-ppe-v4-mobile-scenario-list {
