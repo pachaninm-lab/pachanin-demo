@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { TextStack } from '@pc/design-system-v8';
+import styles from './CockpitHero.module.css';
 
 export function CockpitHero({
   eyebrow,
@@ -21,10 +23,12 @@ export function CockpitHero({
   /** extra class appended to the hero root (keeps page-specific responsive rules) */
   className?: string;
 }) {
+  const rootClassName = ['pc-prem-hero', styles.root, className].filter(Boolean).join(' ');
+
   return (
-    <section className={className ? `pc-prem-hero ${className}` : 'pc-prem-hero'}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ display: 'grid', gap: 9 }}>
+    <section className={rootClassName}>
+      <div className={styles.layout}>
+        <TextStack className={styles.copy} spacing='title'>
           {eyebrow ? <span className='pc-prem-hero__eyebrow'>{eyebrow}</span> : null}
           <h1 className='pc-prem-hero__title'>
             {title}
@@ -36,8 +40,8 @@ export function CockpitHero({
             ) : null}
           </h1>
           {lead ? <p className='pc-prem-hero__lead'>{lead}</p> : null}
-        </div>
-        {aside ? <div>{aside}</div> : null}
+        </TextStack>
+        {aside ? <div className={styles.aside}>{aside}</div> : null}
       </div>
       {children}
     </section>
