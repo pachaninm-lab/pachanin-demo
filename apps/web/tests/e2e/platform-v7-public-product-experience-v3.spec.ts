@@ -76,6 +76,12 @@ async function expectLayoutShiftWithinBudget(page: Page) {
   expect(cls).toBeLessThanOrEqual(0.1);
 }
 
+function responsiveScenarioSelector(page: Page) {
+  return (page.viewportSize()?.width ?? 1280) <= 720
+    ? '.pc-ppe-v4-mobile-scenario-list > button'
+    : '.pc-ppe-segmented > button';
+}
+
 async function expectMinimumTargets(page: Page, locator: string) {
   const elements = page.locator(locator);
   await expect(elements.first()).toBeVisible();
@@ -184,7 +190,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
     await clickUntilAttribute(riskButton, explorer, 'data-lens', 'risk');
     await expect(page).toHaveURL(/lens=risk/);
 
-    const disputeButton = page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спор по качеству' });
+    const disputeButton = page.locator(responsiveScenarioSelector(page)).filter({ hasText: 'Спор по качеству' });
     await clickUntilAttribute(disputeButton, explorer, 'data-scenario', 'dispute');
     await expect(page).toHaveURL(/scenario=dispute/);
 
@@ -217,7 +223,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
       expect(response?.ok(), `${locale} explorer 320px response`).toBe(true);
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '.pc-ppe-lens-list button:visible');
-      await expectMinimumTargets(page, '.pc-ppe-segmented button');
+      await expectMinimumTargets(page, responsiveScenarioSelector(page));
       await expectMinimumTargets(page, '.pc-ppe-stage-nav button');
     }
   });
