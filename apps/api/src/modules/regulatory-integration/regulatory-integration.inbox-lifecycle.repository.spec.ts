@@ -17,9 +17,6 @@ const CONTEXT: TrustedRlsContext = Object.freeze({
   tenantId: 'tenant-1',
   role: Role.ADMIN,
   sessionId: 'session-1',
-  // A tenant actor. Role.ADMIN is an organization membership role here and
-  // carries no platform authority of its own.
-  staffRoles: [],
 });
 
 const REDRIVE_USER: RequestUser = {

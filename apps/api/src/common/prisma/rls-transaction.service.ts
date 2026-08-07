@@ -38,8 +38,13 @@ export type TrustedRlsContext = Readonly<{
    * The database now establishes platform authority from its own rows: an
    * ACTIVE staff assignment inside its validity window whose session is live,
    * unexpired and MFA-verified. See public.app_identity_is_reviewer().
+   *
+   * Optional only for source compatibility with callers that construct the
+   * context shape directly (primarily legacy tests). The production derivation
+   * below always supplies the normalized array, and PostgreSQL authority never
+   * depends on this field.
    */
-  staffRoles: readonly string[];
+  staffRoles?: readonly string[];
 }>;
 
 export type RlsTransactionOptions = Readonly<{
