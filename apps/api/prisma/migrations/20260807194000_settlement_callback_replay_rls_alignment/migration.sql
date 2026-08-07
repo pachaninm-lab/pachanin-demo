@@ -220,7 +220,10 @@ BEGIN
   IF scope_definition IS NULL
      OR scope_definition NOT LIKE '%operation.status = ''PENDING''%'
      OR scope_definition NOT LIKE '%settlement.bank_callbacks%'
-     OR scope_definition NOT LIKE '%public.bank_operations%'
+     OR (
+       scope_definition NOT LIKE '%public."bank_operations"%'
+       AND scope_definition NOT LIKE '%public.bank_operations%'
+     )
      OR scope_definition NOT LIKE '%settlement.payments%'
      OR scope_definition NOT LIKE '%NOT EXISTS%'
   THEN
