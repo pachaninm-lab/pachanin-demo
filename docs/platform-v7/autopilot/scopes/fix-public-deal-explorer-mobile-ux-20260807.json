@@ -8,7 +8,8 @@
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-public-deal-explorer-mobile-ux-20260807.json",
     "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
-    "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts"
+    "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
+    "apps/web/tests/e2e/platform-v7-public-deal-explorer-mobile.spec.ts"
   ],
   "requiredBehavior": [
     "mobile users choose role and scenario before starting the guided deal walkthrough",
@@ -17,7 +18,8 @@
     "mobile content hierarchy keeps the deal itself ahead of secondary role context after the initial selection",
     "the fixed public contact dock remains available without obscuring core deal content",
     "RU EN ZH continue to use the existing localized public-product copy and URL-authoritative tour state",
-    "analytics and public funnel events remain emitted for role scenario and guided-tour actions"
+    "analytics and public funnel events remain emitted for role scenario and guided-tour actions",
+    "mobile browser acceptance proves ordering state updates and zero horizontal overflow at representative narrow widths"
   ],
   "forbiddenCapabilities": [
     "transaction state-machine changes",
