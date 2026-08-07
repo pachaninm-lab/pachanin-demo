@@ -292,12 +292,12 @@ DROP POLICY IF EXISTS outbox_entries_worker_update ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_select ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_insert ON public."outbox_entries";
 CREATE POLICY outbox_entries_worker_select ON public."outbox_entries" FOR SELECT
-USING (current_user IN ('app_service', 'app_outbox_worker'));
+USING (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'));
 CREATE POLICY outbox_entries_worker_insert ON public."outbox_entries" FOR INSERT
 WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'));
 CREATE POLICY outbox_entries_worker_update ON public."outbox_entries" FOR UPDATE
-USING (current_user IN ('app_service', 'app_outbox_worker'))
-WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'));
+USING (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'))
+WITH CHECK (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'));
 CREATE POLICY outbox_entries_select ON public."outbox_entries" FOR SELECT USING (
   public.app_rls_context_ready()
   AND "dealId" IS NOT NULL
