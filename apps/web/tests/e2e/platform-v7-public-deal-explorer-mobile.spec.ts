@@ -23,18 +23,32 @@ for (const width of [320, 390, 430]) {
 
     const layout = await page.evaluate(() => {
       const controlsRect = document.querySelector('.pc-ppe-v4-mobile-controls')?.getBoundingClientRect();
+      const scenarioRect = document.querySelector('.pc-ppe-v4-mobile-scenario-list')?.getBoundingClientRect();
+      const scenarioButtons = Array.from(document.querySelectorAll('.pc-ppe-v4-mobile-scenario-list > button'))
+        .map((button) => button.getBoundingClientRect());
       const guideRect = document.querySelector('.pc-ppe-v4-guide-bar')?.getBoundingClientRect();
+      const guideActionRect = document.querySelector('.pc-ppe-v4-guide-bar .pc-ppe-primary-button')?.getBoundingClientRect();
       const explorerRect = document.querySelector('.pc-ppe-explorer-grid')?.getBoundingClientRect();
+      const dockRect = document.querySelector('.pc-public-contact-dock')?.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         controlsBeforeGuide: Boolean(controlsRect && guideRect && controlsRect.bottom <= guideRect.top + 1),
         guideBeforeExplorer: Boolean(guideRect && explorerRect && guideRect.bottom <= explorerRect.top + 1),
+        scenariosVisibleTogether: Boolean(scenarioRect && scenarioButtons.length === 3 && scenarioButtons.every((rect) => (
+          rect.left >= scenarioRect.left - 1
+          && rect.right <= scenarioRect.right + 1
+          && rect.width >= 44
+          && rect.height >= 44
+        ))),
+        primaryActionClearOfDock: Boolean(guideActionRect && dockRect && guideActionRect.bottom <= dockRect.top + 1),
       };
     });
 
     expect(layout.overflow).toBeLessThanOrEqual(1);
     expect(layout.controlsBeforeGuide).toBe(true);
     expect(layout.guideBeforeExplorer).toBe(true);
+    expect(layout.scenariosVisibleTogether).toBe(true);
+    expect(layout.primaryActionClearOfDock).toBe(true);
 
     const partial = scenarioList.getByRole('button', { name: 'Частичная приёмка' });
     await partial.click();
