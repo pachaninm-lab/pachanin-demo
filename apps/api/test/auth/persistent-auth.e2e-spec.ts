@@ -1,6 +1,7 @@
 import { createHmac } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
@@ -56,13 +57,25 @@ function totp(secret: string, unixMs = Date.now()): string {
 describe('persistent PostgreSQL identity, session rotation, revocation and MFA', () => {
   const first = runtime();
   const second = runtime();
+  const fixturePrisma = process.env.ONE_DEAL_ADMIN_URL
+    ? new PrismaClient({ datasources: { db: { url: process.env.ONE_DEAL_ADMIN_URL } } })
+    : first.prisma;
+  const ownsFixturePrisma = fixturePrisma !== first.prisma;
 
   beforeAll(async () => {
-    await Promise.all([first.prisma.$connect(), second.prisma.$connect()]);
+    await Promise.all([
+      first.prisma.$connect(),
+      second.prisma.$connect(),
+      ownsFixturePrisma ? fixturePrisma.$connect() : Promise.resolve(),
+    ]);
   });
 
   afterAll(async () => {
-    await Promise.all([first.prisma.$disconnect(), second.prisma.$disconnect()]);
+    await Promise.all([
+      first.prisma.$disconnect(),
+      second.prisma.$disconnect(),
+      ownsFixturePrisma ? fixturePrisma.$disconnect() : Promise.resolve(),
+    ]);
   });
 
   async function seedIdentity(
@@ -74,7 +87,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     const organizationId = `auth-org-${key}`;
     const tenantId = `auth-tenant-${key}`;
     const email = `${key}@auth.test`;
-    const organization = await first.prisma.organization.upsert({
+    const organization = await fixturePrisma.organization.upsert({
       where: { id: organizationId },
       update: {
         status: options.organizationStatus ?? 'VERIFIED',
@@ -93,7 +106,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         verifiedAt: new Date(),
       },
     });
-    const user = await first.prisma.user.upsert({
+    const user = await fixturePrisma.user.upsert({
       where: { id: userId },
       update: {
         email,
@@ -112,7 +125,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         mfaEnabled: options.mfaEnabled ?? false,
       },
     });
-    const membership = await first.prisma.userOrg.upsert({
+    const membership = await fixturePrisma.userOrg.upsert({
       where: {
         userId_organizationId: {
           userId,
@@ -291,7 +304,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
 
     const membershipIdentity = await seedIdentity('membership-change', Role.BUYER);
     const membershipLogin = await first.auth.login({ email: membershipIdentity.email, password: PASSWORD }) as any;
-    const replacementOrganization = await first.prisma.organization.upsert({
+    const replacementOrganization = await fixturePrisma.organization.upsert({
       where: { id: 'auth-org-membership-replacement' },
       update: {
         status: 'VERIFIED',
@@ -308,7 +321,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         verifiedAt: new Date(),
       },
     });
-    await first.prisma.userOrg.update({
+    await fixturePrisma.userOrg.update({
       where: { id: membershipIdentity.membership.id },
       data: { organizationId: replacementOrganization.id },
     });
@@ -324,7 +337,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     expect(membershipSessions).toEqual([
       expect.objectContaining({ status: 'REVOKED', revocation_reason: 'MEMBERSHIP_CHANGED' }),
     ]);
-    await first.prisma.userOrg.update({
+    await fixturePrisma.userOrg.update({
       where: { id: membershipIdentity.membership.id },
       data: { organizationId: membershipIdentity.organizationId },
     });
@@ -332,7 +345,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
 
     const suspendedIdentity = await seedIdentity('suspended-org', Role.ELEVATOR);
     const suspendedLogin = await first.auth.login({ email: suspendedIdentity.email, password: PASSWORD }) as any;
-    await first.prisma.organization.update({
+    await fixturePrisma.organization.update({
       where: { id: suspendedIdentity.organizationId },
       data: { status: 'SUSPENDED' },
     });
@@ -353,7 +366,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
 
     expect(result.status).toBe('PENDING_ORGANIZATION_VERIFICATION');
     expect(result.user.orgId).not.toBe('org-attacker-selected');
-    const organization = await first.prisma.organization.findUnique({ where: { id: result.user.orgId } });
+    const organization = await fixturePrisma.organization.findUnique({ where: { id: result.user.orgId } });
     expect(organization?.status).toBe('PENDING');
     await expect(
       second.auth.login({ email: 'pending-registration@auth.test', password: PASSWORD }),
