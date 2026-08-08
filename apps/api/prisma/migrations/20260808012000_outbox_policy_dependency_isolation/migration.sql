@@ -123,6 +123,8 @@ DO $outbox_dependency_isolation_proof$
 DECLARE
   app_helper TEXT;
   callback_helper TEXT;
+  app_helper_invoker BOOLEAN;
+  callback_helper_invoker BOOLEAN;
   tenant_select TEXT;
   tenant_insert TEXT;
   callback_select TEXT;
@@ -132,12 +134,15 @@ DECLARE
   worker_update TEXT;
   worker_insert TEXT;
 BEGIN
-  SELECT pg_get_functiondef(
-    'public.app_outbox_application_deal_visible(text)'::regprocedure
-  ) INTO app_helper;
-  SELECT pg_get_functiondef(
-    'public.app_outbox_settlement_callback_visible(text,text)'::regprocedure
-  ) INTO callback_helper;
+  SELECT pg_get_functiondef(p.oid), NOT p.prosecdef
+  INTO app_helper, app_helper_invoker
+  FROM pg_catalog.pg_proc p
+  WHERE p.oid = 'public.app_outbox_application_deal_visible(text)'::regprocedure;
+
+  SELECT pg_get_functiondef(p.oid), NOT p.prosecdef
+  INTO callback_helper, callback_helper_invoker
+  FROM pg_catalog.pg_proc p
+  WHERE p.oid = 'public.app_outbox_settlement_callback_visible(text,text)'::regprocedure;
 
   SELECT qual INTO tenant_select
   FROM pg_catalog.pg_policies
@@ -169,12 +174,12 @@ BEGIN
     AND policyname='outbox_entries_worker_insert' AND cmd='INSERT';
 
   IF app_helper IS NULL
-     OR app_helper NOT LIKE '%SECURITY INVOKER%'
+     OR app_helper_invoker IS DISTINCT FROM TRUE
      OR app_helper NOT LIKE '%current_user NOT IN%'
      OR app_helper NOT LIKE '%app_rls_deal_visible%'
      OR app_helper NOT LIKE '%one_deal_app%'
      OR callback_helper IS NULL
-     OR callback_helper NOT LIKE '%SECURITY INVOKER%'
+     OR callback_helper_invoker IS DISTINCT FROM TRUE
      OR callback_helper NOT LIKE '%current_user NOT IN%'
      OR callback_helper NOT LIKE '%verified_bank_callback_context%'
      OR callback_helper NOT LIKE '%callback_event_id%'
