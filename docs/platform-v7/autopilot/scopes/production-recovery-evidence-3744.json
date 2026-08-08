@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-recovery-evidence-3744",
+  "status": "active",
+  "purpose": "Retain the owner-only production recovery output as a 90-day artifact, including failure evidence after credential cleanup.",
+  "approvedBy": "owner-direct-production-recovery-2026-08-08",
+  "authorityBaseExactMain": "8e066859152c326e2cd91d42898642795e04934f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-staff-database-url.yml",
+    "scripts/check-production-staff-database-provision.mjs",
+    "docs/platform-v7/autopilot/scopes/production-recovery-evidence-3744.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ]
+}
