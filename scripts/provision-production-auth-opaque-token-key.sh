@@ -5,7 +5,13 @@ ACTION="${1:-}"
 PROD_DIR_B64="${PC_PROD_DIR_B64:-}"
 
 fail() { printf 'ERROR_CODE=%s\n' "$1" >&2; exit "${2:-1}"; }
-decode() { [[ -n "$1" ]] && printf '%s' "$1" | base64 -d; }
+decode() {
+  # An unset optional input is valid: the caller then derives the authoritative
+  # Compose directory from the single running web service.  Return success so
+  # `set -e` does not skip that fail-closed discovery path.
+  [[ -z "${1:-}" ]] && return 0
+  printf '%s' "$1" | base64 -d
+}
 
 [[ "$ACTION" == provision ]] || fail INVALID_ACTION 2
 prod_dir="$(decode "$PROD_DIR_B64")"
