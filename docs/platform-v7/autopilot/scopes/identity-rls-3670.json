@@ -106,7 +106,8 @@
     "scripts/security/run-abuse-gate.mjs",
     "scripts/sql/identity-rls-no-inert-policies.sql",
     "scripts/sql/identity-rls-staff-checks.sql",
-    "scripts/sql/identity-rls-tenant-checks.sql"
+    "scripts/sql/identity-rls-tenant-checks.sql",
+    "scripts/p7-autopilot-guard.sh"
   ],
   "requiredBehavior": [
     "public.users public.user_orgs and public.organizations remain ENABLE RLS plus FORCE RLS",
