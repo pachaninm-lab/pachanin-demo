@@ -214,6 +214,14 @@
       "scripts/check-production-auth-opaque-token-provision.mjs",
       "docs/platform-v7/autopilot/scopes/production-auth-key-provision-3723.json"
     ],
+    "fix/production-staff-database-provision-3734": [
+      ".github/workflows/production-staff-database-url.yml",
+      "scripts/production-full-stack-exact-sha.sh",
+      "scripts/provision-production-staff-database-url.sh",
+      "scripts/check-production-staff-database-provision.mjs",
+      "docs/platform-v7/autopilot/scopes/production-staff-database-provision-3734.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "fix/tai-postgres-service-authority-20260801": [
       "scripts/tai-reg-ru-deploy.sh",
       "scripts/check-tai-reg-ru-deploy.mjs",
