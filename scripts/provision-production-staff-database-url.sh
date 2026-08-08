@@ -116,7 +116,7 @@ if ":" in host and not host.startswith("["):
     host = f"[{host}]"
 if url.port:
     host = f"{host}:{url.port}"
-netloc = f"pc_staff_runtime:{quote(password, safe=\"\")}@{host}"
+netloc = "pc_staff_runtime:" + quote(password, safe="") + "@" + host
 print(urlunsplit((url.scheme, netloc, url.path, url.query, "")))
 ')" || fail STAFF_DATABASE_URL_BUILD_FAILED 12
 

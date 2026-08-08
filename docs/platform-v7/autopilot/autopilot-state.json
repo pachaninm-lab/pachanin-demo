@@ -222,6 +222,12 @@
       "docs/platform-v7/autopilot/scopes/production-staff-database-provision-3734.json",
       "docs/platform-v7/autopilot/autopilot-state.json"
     ],
+    "fix/production-staff-database-url-syntax-3735": [
+      "scripts/provision-production-staff-database-url.sh",
+      "scripts/check-production-staff-database-provision.mjs",
+      "docs/platform-v7/autopilot/scopes/production-staff-database-url-syntax-3735.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "fix/tai-postgres-service-authority-20260801": [
       "scripts/tai-reg-ru-deploy.sh",
       "scripts/check-tai-reg-ru-deploy.mjs",
