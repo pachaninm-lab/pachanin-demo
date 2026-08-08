@@ -13,6 +13,7 @@ on:
 permissions:
   actions: write
   contents: read
+  packages: read
   pull-requests: read
   checks: read
   statuses: read
@@ -152,13 +153,6 @@ jobs:
               exit 23
             }
 
-            gh workflow run production-full-stack-exact-sha.yml \
-              --repo "$REPO" \
-              --ref main \
-              -f target_sha="$main_sha" \
-              -f confirmation=DEPLOY-FULL-STACK-EXACT-SHA
-
-            sleep 10
           fi
 
           collect_runs() {
@@ -248,3 +242,14 @@ jobs:
           gh issue edit 3072 --repo "$REPO" --title "$status_title"
           gh issue comment 3072 --repo "$REPO" --body-file "$record"
           cat "$record" >> "$GITHUB_STEP_SUMMARY"
+
+  production-full-stack-execution-3072:
+    needs: production-release-control-3072
+    if: >-
+      needs.production-release-control-3072.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production release current-main'
+    uses: ./.github/workflows/production-full-stack-exact-sha.yml
+    secrets: inherit
