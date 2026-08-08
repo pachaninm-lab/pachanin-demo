@@ -142,6 +142,36 @@ wait_api() {
   return 1
 }
 
+redact_api_startup_log() {
+  sed -E \
+    -e 's#([A-Za-z][A-Za-z0-9+.-]*://)[^[:space:]@/]+@#\1[REDACTED]@#g' \
+    -e 's#(password|token|secret|authorization|api[_-]?key)([[:space:]]*[:=][[:space:]]*)[^[:space:],;}]+#\1\2[REDACTED]#gI'
+}
+
+emit_api_startup_diagnostics() {
+  local id state restart_count exit_code oom_killed
+  id="$("${dc_target[@]}" ps -q api | head -1)"
+  printf 'API_STARTUP_DIAGNOSTICS_BEGIN\n' >&2
+  if [[ -z "$id" ]]; then
+    printf 'API_STARTUP_CONTAINER=missing\n' >&2
+    printf 'API_STARTUP_DIAGNOSTICS_END\n' >&2
+    return 0
+  fi
+
+  state="$(docker inspect --format '{{.State.Status}}' "$id" 2>/dev/null || true)"
+  restart_count="$(docker inspect --format '{{.RestartCount}}' "$id" 2>/dev/null || true)"
+  exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$id" 2>/dev/null || true)"
+  oom_killed="$(docker inspect --format '{{.State.OOMKilled}}' "$id" 2>/dev/null || true)"
+  printf 'API_STARTUP_CONTAINER_STATE=%s\n' "${state:-unknown}" >&2
+  printf 'API_STARTUP_RESTART_COUNT=%s\n' "${restart_count:-unknown}" >&2
+  printf 'API_STARTUP_EXIT_CODE=%s\n' "${exit_code:-unknown}" >&2
+  printf 'API_STARTUP_OOM_KILLED=%s\n' "${oom_killed:-unknown}" >&2
+  printf 'API_STARTUP_LOG_TAIL_BEGIN\n' >&2
+  docker logs --tail 80 "$id" 2>&1 | redact_api_startup_log >&2 || true
+  printf 'API_STARTUP_LOG_TAIL_END\n' >&2
+  printf 'API_STARTUP_DIAGNOSTICS_END\n' >&2
+}
+
 wait_web() {
   local id state attempt
   for attempt in $(seq 1 30); do
@@ -384,7 +414,10 @@ mutated=1
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
 printf 'MIGRATION_COMPLETE=1\n'
 "${dc_target[@]}" up -d --no-deps --pull never api
-wait_api || fail API_READINESS_FAILED 30
+if ! wait_api; then
+  emit_api_startup_diagnostics
+  fail API_READINESS_FAILED 30
+fi
 "${dc_target[@]}" up -d --no-deps --pull never web
 wait_web || fail WEB_HEALTH_FAILED 31
 
