@@ -146,6 +146,12 @@ function isPlatformV7StaffPath(p: string): boolean {
   return p === '/platform-v7/staff' || p.startsWith('/platform-v7/staff/');
 }
 
+function isPublicRegistrationPath(p: string): boolean {
+  return p === '/platform-v7/register'
+    || p === '/api/auth/register'
+    || p.startsWith('/api/auth/registration/');
+}
+
 function isProtectedPath(p: string): boolean {
   if (isPublicAsset(p)) return false;
   return true;
@@ -434,9 +440,9 @@ export async function middleware(req: NextRequest) {
     if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
       // Registration is an unauthenticated boundary.  A writable presentation
       // cookie must not survive onto it or suggest an operator context.
-      const routeRole = p === '/platform-v7/register' ? 'organization' : presentationRole;
+      const routeRole = isPublicRegistrationPath(p) ? 'organization' : presentationRole;
       const response = withRoleHeaders(req, routeRole, privateModeEnabled && protectedPath, isIndexable);
-      if (p === '/platform-v7/register') clearPresentationRoleCookie(response);
+      if (isPublicRegistrationPath(p)) clearPresentationRoleCookie(response);
       else persistRoleCookie(req, response, routeRole);
       if (isEntry) markPlatformV7Entry(response);
       return response;
@@ -484,8 +490,10 @@ export async function middleware(req: NextRequest) {
     || isTokenAuthenticatedInternalPath(p)
   ) {
     const isIndexable = p === '/' && !privateModeEnabled;
-    const response = withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath, isIndexable);
-    persistRoleCookie(req, response, presentationRole);
+    const routeRole = isPublicRegistrationPath(p) ? 'organization' : presentationRole;
+    const response = withRoleHeaders(req, routeRole, privateModeEnabled && protectedPath, isIndexable);
+    if (isPublicRegistrationPath(p)) clearPresentationRoleCookie(response);
+    else persistRoleCookie(req, response, routeRole);
     return response;
   }
 
