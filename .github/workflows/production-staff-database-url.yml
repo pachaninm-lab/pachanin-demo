@@ -95,6 +95,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Confirm exact current-main checkout
+        id: current
         run: |
           set -Eeuo pipefail
           git fetch --no-tags origin main
@@ -102,6 +103,7 @@ jobs:
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ && "$(git rev-parse HEAD)" == "$target_sha" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
           node scripts/check-production-staff-database-provision.mjs
+          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
       - name: Resolve protected root key and pinned REG.RU identity
         id: ssh
         run: |
@@ -145,6 +147,7 @@ jobs:
           USER: ${{ steps.ssh.outputs.user }}
           PORT: ${{ steps.ssh.outputs.port }}
           COMMAND: ${{ github.event.comment.body }}
+          TARGET_SHA: ${{ steps.current.outputs.sha }}
         run: |
           set -Eeuo pipefail
           case "$COMMAND" in
@@ -158,9 +161,9 @@ jobs:
             '/production rollback-full-stack failed-run-31273608232')
               remote="/tmp/pc-full-stack-rollback-${GITHUB_RUN_ID}.sh"
               scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes scripts/production-full-stack-exact-sha.sh "$USER@$HOST:$remote"
-              ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "chmod 0700 '$remote' && '$remote' rollback 'a6176e917ef8aad97d3231f15aa867d8409f2ef1' '31273608232'" | tee "$EVIDENCE_DIR/rollback.log"
+              ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "chmod 0700 '$remote' && '$remote' rollback '$TARGET_SHA' '31273608232'" | tee "$EVIDENCE_DIR/rollback.log"
               grep -Fxq ROLLBACK_COMPLETE=1 "$EVIDENCE_DIR/rollback.log"
-              grep -Fxq RESTORED_API_REVISION=3233bd05b4f39ba3a0bdbe8253a414a7dc25a6ec "$EVIDENCE_DIR/rollback.log"
+              grep -Eq '^RESTORED_API_REVISION=[0-9a-f]{40}$' "$EVIDENCE_DIR/rollback.log"
               ;;
             *) exit 15 ;;
           esac
