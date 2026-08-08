@@ -181,6 +181,11 @@ export async function POST(request: Request) {
           registrationApplicationRef: payload.applicationId,
           accountHash: accountHash(email),
         }));
+        return json({
+          accepted: false,
+          code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE',
+          correlationId: payload.correlationId || correlationId,
+        }, 503);
       }
     }
 
