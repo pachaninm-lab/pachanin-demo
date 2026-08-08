@@ -44,6 +44,9 @@ requireAll('workflow', [
   'PC_PROD_DIR',
   'PC_PROD_DIR_B64',
   'StrictHostKeyChecking=yes',
+  'scp_common=',
+  'ssh_common=',
+  '-p "$PORT"',
   'provision-production-auth-opaque-token-key.sh',
   'AUTH_OPAQUE_TOKEN_KEY_VALID=1',
 ]);
