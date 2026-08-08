@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
   actions: write
-  issues: read
+  issues: write
 
 concurrency:
   group: production-web-owner-exact-command
@@ -52,6 +52,7 @@ jobs:
           echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch canonical exact-SHA web release
+        id: release_dispatch
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
@@ -64,27 +65,55 @@ jobs:
             -f action=deploy \
             -f target_sha="$TARGET_SHA" \
             -f confirmation=DEPLOY-EXACT-SHA
+          echo 'dispatched=1' >> "$GITHUB_OUTPUT"
 
       - name: Record dispatch evidence
+        if: always()
         env:
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          DISPATCH_OUTCOME: ${{ steps.release_dispatch.outcome }}
+          DISPATCHED: ${{ steps.release_dispatch.outputs.dispatched }}
         shell: bash
         run: |
           set -euo pipefail
           {
             printf 'COMMAND_AUTHORITY=OWNER_ONLY\n'
             printf 'RELEASE_AUTHORITY=production-web-exact-sha.yml\n'
-            printf 'TARGET_SHA=%s\n' "$TARGET_SHA"
-            printf 'DISPATCHED=1\n'
+            printf 'TARGET_SHA=%s\n' "${TARGET_SHA:-unresolved}"
+            printf 'DISPATCH_OUTCOME=%s\n' "${DISPATCH_OUTCOME:-unknown}"
+            printf 'DISPATCHED=%s\n' "${DISPATCHED:-0}"
           } > dispatch-evidence.txt
 
+      - name: Publish dispatch record
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          DISPATCH_OUTCOME: ${{ steps.release_dispatch.outcome }}
+          DISPATCHED: ${{ steps.release_dispatch.outputs.dispatched }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            printf '## Owner exact web dispatch `%s`\n\n' "$GITHUB_RUN_ID"
+            printf -- '- target SHA: `%s`\n' "${TARGET_SHA:-unresolved}"
+            printf -- '- canonical release: `production-web-exact-sha.yml`\n'
+            printf -- '- dispatch outcome: `%s`\n' "${DISPATCH_OUTCOME:-unknown}"
+            printf -- '- dispatched: `%s`\n' "${DISPATCHED:-0}"
+            printf -- '- production mutation in this command workflow: `none`\n'
+          } > "$record"
+          gh issue comment 3048 --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
       - name: Upload dispatch evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: production-web-owner-command-${{ github.run_id }}
           path: |
             target-sha.txt
             dispatch-evidence.txt
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
           compression-level: 0
