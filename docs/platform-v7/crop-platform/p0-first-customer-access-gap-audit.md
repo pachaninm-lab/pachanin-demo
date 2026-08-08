@@ -136,7 +136,7 @@ separate REG.RU evidence.
 | Bypassing email verification | Held | `registration-token.spec.ts` |
 | Disabling RLS or required checks | Held | no migration disables RLS; forward-only gate blocks it |
 | `continue-on-error` on critical gates | Held | no P0 critical gate uses it; completed PC-CROP regression stays mandatory in its owning workflow |
-| Extending a foreign PC-CROP scope with P0 files | Held | PC-CROP-10C manifest and workflow remain owned by the completed slice on `main`; this P0 scope contains neither |
+| Extending a foreign PC-CROP product scope with P0 files | Held | the completed PC-CROP-10C manifest remains unchanged; its shared workflow now distinguishes changes to its four owned Prisma models from unrelated edits in the monorepo-wide schema |
 | Fictitious legal organization | Held in production paths | acceptance fixtures use `@acceptance.invalid` addresses and checksum-valid but non-registered INNs, seeded only into an ephemeral CI database that the seeder refuses to run against a non-local host |
 | Fictitious SMS | Held | no SMS transport in this slice |
 | New paid service | Held | no new dependency or hosted service |

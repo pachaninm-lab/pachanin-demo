@@ -187,6 +187,11 @@ describe('auth and staff principal provisioning', () => {
     );
     expect(migration).toContain('pc_invitation_acceptance_authority must have no members');
     expect(migration).toContain('candidate.token_hash = p_token_hash');
+    expect(migration).toContain(
+      'SELECT candidate.*, organization."name" AS accepted_organization_name',
+    );
+    expect(migration).toMatch(/INTO invitation\s+FROM auth\.organization_invitations candidate/);
+    expect(migration).not.toMatch(/INTO invitation\s*,/);
     expect(migration).toContain('subject."passwordHash" IS DISTINCT FROM p_expected_password_hash');
     expect(migration).toContain("SET status = 'ACCEPTED'");
     expect(migration).not.toMatch(

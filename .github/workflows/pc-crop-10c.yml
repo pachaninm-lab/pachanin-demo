@@ -97,10 +97,45 @@ jobs:
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
 
-          # The workflow is a governance trigger, not product authority. Only a
-          # change to another 10C-owned file claims remediation ownership.
-          grep -E '^(apps/api/prisma/schema\.prisma|apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration\.sql|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/src/modules/regulatory-integration/dto/fgis-grain-tenant-read\.dto\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read\..*|apps/api/test/industrial/fgis-grain-tenant-read\.e2e-spec\.ts|scripts/pc-crop-10c/verify\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-10c\.json)$' \
+          # The workflow and shared Prisma schema are governance triggers, not
+          # by themselves product authority. Exclusive 10C files always claim
+          # remediation ownership. The shared schema does so only when one of
+          # the four FGIS tenant-read models actually changed.
+          grep -E '^(apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration\.sql|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/src/modules/regulatory-integration/dto/fgis-grain-tenant-read\.dto\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read\..*|apps/api/test/industrial/fgis-grain-tenant-read\.e2e-spec\.ts|scripts/pc-crop-10c/verify\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-10c\.json)$' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/authority-files.txt" || true
+
+          schema_path='apps/api/prisma/schema.prisma'
+          if grep -Fxq "$schema_path" "$EVIDENCE_DIR/changed-files.txt"; then
+            base_schema="$RUNNER_TEMP/pc-crop-10c-base-schema.prisma"
+            head_schema="$RUNNER_TEMP/pc-crop-10c-head-schema.prisma"
+            git show "${base_ref}:${schema_path}" > "$base_schema"
+            git show "${EXACT_HEAD}:${schema_path}" > "$head_schema"
+
+            schema_authority_changed='false'
+            for model in \
+              FgisGrainTenantReadAuthorization \
+              FgisGrainTenantReadProviderClaim \
+              FgisGrainTenantReadAudit \
+              FgisGrainTenantReadAuditHead
+            do
+              base_block="$RUNNER_TEMP/pc-crop-10c-${model}-base.prisma"
+              head_block="$RUNNER_TEMP/pc-crop-10c-${model}-head.prisma"
+              awk -v model="$model" \
+                '$0 == "model " model " {" { capture = 1 } capture { print } capture && $0 == "}" { exit }' \
+                "$base_schema" > "$base_block"
+              awk -v model="$model" \
+                '$0 == "model " model " {" { capture = 1 } capture { print } capture && $0 == "}" { exit }' \
+                "$head_schema" > "$head_block"
+              if [[ ! -s "$base_block" || ! -s "$head_block" ]] \
+                 || ! cmp -s "$base_block" "$head_block"; then
+                schema_authority_changed='true'
+              fi
+            done
+            if [[ "$schema_authority_changed" == 'true' ]]; then
+              printf '%s\n' "$schema_path" >> "$EVIDENCE_DIR/authority-files.txt"
+            fi
+          fi
+          sort -u -o "$EVIDENCE_DIR/authority-files.txt" "$EVIDENCE_DIR/authority-files.txt"
 
           if [[ "$event_name" == 'workflow_dispatch' ]]; then
             scope_mode='MANUAL_DISPATCH'

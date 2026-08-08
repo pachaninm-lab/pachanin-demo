@@ -33,6 +33,7 @@
   "allowedPaths": [
     ".github/codeql/codeql-config.yml",
     ".github/workflows/codeql-platform-v7-report.yml",
+    ".github/workflows/pc-crop-10c.yml",
     ".github/workflows/platform-v7-design-system-v8-acceptance.yml",
     ".github/workflows/web-unit.yml",
     "apps/api/prisma/migrations/20260731195000_p0_password_reset_challenges/migration.sql",
@@ -262,7 +263,7 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 201,
+    "changedPathCount": 202,
     "requiredChecks": [
       "CI",
       "Node CI",

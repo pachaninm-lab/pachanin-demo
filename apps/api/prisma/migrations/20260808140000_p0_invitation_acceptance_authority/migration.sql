@@ -151,16 +151,15 @@ SET search_path = auth, public, pg_temp
 SET row_security = on
 AS $function$
 DECLARE
-  invitation auth.organization_invitations%ROWTYPE;
-  organization_name_value text;
+  invitation record;
   subject public."users"%ROWTYPE;
   subject_exists boolean;
   make_default boolean;
   accepted_time timestamptz := clock_timestamp();
   changed integer;
 BEGIN
-  SELECT candidate, organization."name"
-  INTO invitation, organization_name_value
+  SELECT candidate.*, organization."name" AS accepted_organization_name
+  INTO invitation
   FROM auth.organization_invitations candidate
   JOIN public."organizations" organization
     ON organization."id" = candidate.organization_id
@@ -256,7 +255,7 @@ BEGIN
     p_membership_id,
     invitation.organization_id,
     invitation.tenant_id,
-    organization_name_value,
+    invitation.accepted_organization_name,
     invitation.role,
     p_expected_version + 1;
 END;
