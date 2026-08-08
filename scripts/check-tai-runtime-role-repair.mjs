@@ -99,6 +99,9 @@ for (const fragment of [
   "'mutationPerformed': status == 'REMOVED_SAFE_ORPHAN'",
   "'dropOwnedUsed':False",
   "'reassignOwnedUsed':False",
+  'runtimeHealthDiagnostic',
+  'latestDeploymentErrorCode',
+  'tai_local_model_health',
   'TAI_RUNTIME_ROLE_REPAIR_COMPLETE=1',
 ]) requireFragment(repair, fragment, paths.repair);
 

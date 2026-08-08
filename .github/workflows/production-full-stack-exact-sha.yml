@@ -20,6 +20,10 @@ on:
       - 'scripts/production-full-stack-exact-sha.sh'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
+  workflow_run:
+    workflows: ['Build & Publish Canonical Docker Images']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       target_sha:
@@ -64,12 +68,17 @@ jobs:
   contract:
     name: Validate full-stack release contract
     if: >-
-      github.event_name != 'issue_comment' ||
-      (
-        github.event.issue.number == 3072 &&
-        github.event.comment.user.login == github.repository_owner &&
-        github.event.comment.body == '/production full-stack current-main'
-      )
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3072 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.body == '/production full-stack current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -83,7 +92,10 @@ jobs:
     name: Migrate, deploy API and web, verify live intake
     needs: contract
     if: >-
-      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main') ||
       (github.event_name == 'workflow_dispatch' &&
        github.actor == github.repository_owner &&
        inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA') ||
@@ -96,7 +108,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.ref_name }}
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name }}
           fetch-depth: 0
 
       - name: Resolve exact current-main target
@@ -105,9 +117,15 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.sha }}'
+          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}'
           if [[ '${{ github.event_name }}' == issue_comment ]]; then
             target="$(git rev-parse origin/main)"
+          fi
+          if [[ '${{ github.event_name }}' == workflow_run ]]; then
+            [[ '${{ github.event.workflow_run.name }}' == 'Build & Publish Canonical Docker Images' ]]
+            [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
+            [[ '${{ github.event.workflow_run.event }}' == push ]]
+            [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
           fi
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           [[ "$target" == "$(git rev-parse origin/main)" ]]
@@ -217,6 +235,20 @@ jobs:
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
 
+      - name: Authenticate production host to exact private registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${GH_TOKEN:-}" ]]
+          registry_config="/tmp/pc-registry-${GITHUB_RUN_ID}"
+          printf '%s' "$GH_TOKEN" | ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "set -euo pipefail; rm -rf '$registry_config'; install -d -m 0700 '$registry_config'; DOCKER_CONFIG='$registry_config' docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin >/dev/null"
+          printf '%s\n' HOSTED_REGISTRY_LOGIN=PASS > "$EVIDENCE_DIR/registry-login.txt"
+
       - name: Execute migration and exact API/web rollout
         id: production
         env:
@@ -233,7 +265,7 @@ jobs:
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
           sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
@@ -288,6 +320,22 @@ jobs:
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
             "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh rollback '$TARGET_SHA' '$GITHUB_RUN_ID'" \
             | tee "$EVIDENCE_DIR/live-failure-rollback.log"
+
+      - name: Remove production registry session and bounded assets
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh'" \
+              || true
+          fi
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
 
       - name: Publish release evidence
         if: always()

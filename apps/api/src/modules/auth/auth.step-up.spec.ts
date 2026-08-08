@@ -16,7 +16,7 @@ const actor: RequestUser = {
 
 function session(): SessionContextRow {
   return {
-    user_id: actor.id, email: actor.email, password_hash: 'unused', full_name: 'Admin', phone: null,
+    user_id: actor.id, email: actor.email, full_name: 'Admin', phone: null,
     user_status: 'ACTIVE', membership_id: actor.membershipId as string, role: actor.role,
     is_org_admin: true, membership_status: 'ACTIVE', organization_id: actor.orgId,
     organization_status: 'VERIFIED', tenant_id: actor.tenantId as string, session_id: actor.sessionId as string,

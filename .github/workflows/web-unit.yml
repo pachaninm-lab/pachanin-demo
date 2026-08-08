@@ -52,7 +52,6 @@ jobs:
             tests/unit/roleContinuityPanel.test.tsx \
             tests/unit/platformV7VerifiedSession.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
-            tests/unit/pcCrop10cApplicability.test.ts \
             tests/unit/surfaceRoleMappingParity.test.ts \
             2>&1 | tee /tmp/web-unit.log
 

@@ -62,7 +62,6 @@ type EmailChallengeRow = {
   application_kind: 'NEW_ORGANIZATION' | 'JOIN_EXISTING_ORGANIZATION';
   requested_workspace: string;
   applicant_email: string;
-  applicant_name: string;
 };
 
 type ApplicationStatusRow = {
@@ -85,15 +84,25 @@ type PreviousApplicationRow = {
   user_id: string;
   membership_id: string;
   organization_id: string;
-  tenant_id: string;
   inn: string;
   status: string;
   version: bigint;
   expires_at: Date;
-  user_status: string;
-  user_deleted_at: Date | null;
-  membership_status: string;
-  organization_status: string;
+};
+
+type PreparedIdentityRow = {
+  outcome: 'CREATED' | 'SUPPRESSED';
+  application_kind: 'NEW_ORGANIZATION' | 'JOIN_EXISTING_ORGANIZATION' | null;
+  user_id: string | null;
+  membership_id: string | null;
+  organization_id: string | null;
+  tenant_id: string | null;
+};
+
+type RestartedIdentityRow = {
+  restarted: boolean;
+  application_kind: 'NEW_ORGANIZATION' | 'JOIN_EXISTING_ORGANIZATION' | null;
+  tenant_id: string | null;
 };
 
 function safeSecretEqual(leftValue: string, rightValue: string): boolean {
@@ -223,6 +232,8 @@ export class RegistrationApplicationService {
     const applicationId = `reg_${randomUUID()}`;
     const userId = `user_${randomUUID()}`;
     const membershipId = `membership_${randomUUID()}`;
+    const proposedOrganizationId = `org_${randomUUID()}`;
+    const proposedTenantId = `tenant_${randomUUID()}`;
     const statusToken = deriveRegistrationStatusToken(applicationId, idempotencyKey);
     const statusTokenHash = hashRegistrationStatusToken(statusToken);
 
@@ -244,53 +255,50 @@ export class RegistrationApplicationService {
       let effectiveUserId = userId;
       let effectiveMembershipId = membershipId;
       let reusableApplication: PreviousApplicationRow | null = null;
-      const existingUser = await tx.user.findUnique({ where: { email: normalized.email }, select: { id: true } });
-      if (existingUser) {
-        const priorRows = await tx.$queryRaw<PreviousApplicationRow[]>(Prisma.sql`
-          SELECT
-            application.id,
-            application.kind,
-            application.user_id,
-            application.membership_id,
-            application.organization_id,
-            organization."tenantId" AS tenant_id,
-            application.inn,
-            application.status,
-            application.version,
-            application.expires_at,
-            subject.status AS user_status,
-            subject."deletedAt" AS user_deleted_at,
-            membership.status AS membership_status,
-            organization.status AS organization_status
-          FROM auth.registration_applications application
-          JOIN public.users subject ON subject.id = application.user_id
-          JOIN public.user_orgs membership ON membership.id = application.membership_id
-          JOIN public.organizations organization ON organization.id = application.organization_id
-          WHERE application.user_id = ${existingUser.id}
-          ORDER BY application.created_at DESC, application.id DESC
-          LIMIT 1
-          FOR UPDATE OF application, subject, membership, organization
+      let kind: 'NEW_ORGANIZATION' | 'JOIN_EXISTING_ORGANIZATION' | null = null;
+      let organizationId: string | null = null;
+      let tenantId: string | null = null;
+
+      const priorRows = await tx.$queryRaw<PreviousApplicationRow[]>(Prisma.sql`
+        SELECT
+          id, kind, user_id, membership_id, organization_id,
+          inn, status, version, expires_at
+        FROM auth.registration_applications
+        WHERE lower(email) = ${normalized.email}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+        FOR UPDATE
+      `);
+      const prior = priorRows[0] ?? null;
+      if (prior && prior.expires_at <= now && !TERMINAL_STATUSES.has(prior.status)) {
+        prior.version = await this.expireApplication(tx, prior, context.correlationId);
+        prior.status = 'EXPIRED';
+      }
+      if (
+        prior
+        && ['EXPIRED', 'CANCELLED'].includes(prior.status)
+        && prior.inn === normalized.orgInn
+      ) {
+        const [restart] = await tx.$queryRaw<RestartedIdentityRow[]>(Prisma.sql`
+          SELECT restarted, application_kind, tenant_id
+          FROM auth.restart_pending_registration_identity(
+            ${prior.id}, ${prior.user_id}, ${prior.membership_id}, ${prior.organization_id},
+            ${normalized.email}, ${normalized.phone}, ${passwordHash}, ${normalized.fullName},
+            ${normalized.orgInn}, ${normalized.orgLegalName}, ${normalized.orgType},
+            ${normalized.orgKpp}, ${normalized.orgOgrn}, ${normalized.region}, ${normalized.workspace}
+          )
         `);
-        const prior = priorRows[0] ?? null;
-        if (prior && prior.expires_at <= now && !TERMINAL_STATUSES.has(prior.status)) {
-          prior.version = await this.expireApplication(tx, prior, context.correlationId);
-          prior.status = 'EXPIRED';
-        }
-        if (
-          prior
-          && ['EXPIRED', 'CANCELLED'].includes(prior.status)
-          && prior.inn === normalized.orgInn
-          && prior.user_deleted_at === null
-          && ['PENDING_EMAIL_VERIFICATION', 'PENDING_APPROVAL'].includes(prior.user_status)
-          && prior.membership_status === 'PENDING'
-          && ['PENDING', 'VERIFIED'].includes(prior.organization_status)
-        ) {
+        if (restart?.restarted && restart.application_kind && restart.tenant_id) {
           reusableApplication = prior;
           effectiveUserId = prior.user_id;
           effectiveMembershipId = prior.membership_id;
+          organizationId = prior.organization_id;
+          tenantId = restart.tenant_id;
+          kind = restart.application_kind;
         }
       }
-      if (existingUser && !reusableApplication) {
+
+      if (prior && !reusableApplication) {
         const suppressed = {
           id: null,
           request_hash: requestHash,
@@ -316,97 +324,61 @@ export class RegistrationApplicationService {
         return { existing: suppressed } as const;
       }
 
-      const existingOrganization = reusableApplication
-        ? null
-        : await tx.organization.findUnique({
-            where: { inn: normalized.orgInn },
-            select: { id: true, tenantId: true },
-          });
-      const kind = reusableApplication?.kind
-        ?? (existingOrganization ? 'JOIN_EXISTING_ORGANIZATION' : 'NEW_ORGANIZATION');
-      const organizationId = reusableApplication?.organization_id
-        ?? existingOrganization?.id
-        ?? `org_${randomUUID()}`;
-      const tenantId = reusableApplication?.tenant_id
-        ?? existingOrganization?.tenantId
-        ?? `tenant_${randomUUID()}`;
-      if (!existingOrganization && !reusableApplication) {
-        await tx.organization.create({
-          data: {
-            id: organizationId,
-            inn: normalized.orgInn,
-            ogrn: normalized.orgOgrn,
-            name: normalized.orgLegalName,
-            type: normalized.orgType,
-            status: 'PENDING',
-            tenantId,
-            kycStatus: 'PENDING',
-            amlStatus: 'CLEAR',
-          },
-        });
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE public.organizations
-          SET kpp = ${normalized.orgKpp}, region = ${normalized.region}
-          WHERE id = ${organizationId}
-        `);
-      }
-
       if (reusableApplication) {
-        await tx.user.update({
-          where: { id: effectiveUserId },
-          data: {
-            phone: normalized.phone,
-            passwordHash,
-            fullName: normalized.fullName,
-            status: 'PENDING_EMAIL_VERIFICATION',
-          },
-        });
-        await tx.userOrg.update({
-          where: { id: effectiveMembershipId },
-          data: {
-            role: Role.GUEST,
-            status: 'PENDING',
-            requestedWorkspace: normalized.workspace,
-            isDefault: true,
-            version: { increment: 1 },
-          },
-        });
-        if (kind === 'NEW_ORGANIZATION') {
-          await tx.$executeRaw(Prisma.sql`
-            UPDATE public.organizations
-            SET name = ${normalized.orgLegalName},
-                type = ${normalized.orgType},
-                ogrn = ${normalized.orgOgrn},
-                kpp = ${normalized.orgKpp},
-                region = ${normalized.region},
-                version = version + 1,
-                "updatedAt" = NOW()
-            WHERE id = ${organizationId} AND status = 'PENDING'
-          `);
-        }
         await this.authRepository.revokeAllUserSessions(tx, effectiveUserId, 'REGISTRATION_RESTARTED');
       } else {
-        await tx.user.create({
-          data: {
-            id: effectiveUserId,
-            email: normalized.email,
-            phone: normalized.phone,
-            passwordHash,
-            fullName: normalized.fullName,
-            status: 'PENDING_EMAIL_VERIFICATION',
-          },
-        });
-        await tx.userOrg.create({
-          data: {
-            id: effectiveMembershipId,
-            userId: effectiveUserId,
-            organizationId,
-            role: Role.GUEST,
-            status: 'PENDING',
-            requestedWorkspace: normalized.workspace,
-            isDefault: true,
-          },
-        });
+        const [prepared] = await tx.$queryRaw<PreparedIdentityRow[]>(Prisma.sql`
+          SELECT outcome, application_kind, user_id, membership_id, organization_id, tenant_id
+          FROM auth.prepare_pending_registration_identity(
+            ${effectiveUserId}, ${effectiveMembershipId},
+            ${proposedOrganizationId}, ${proposedTenantId},
+            ${normalized.email}, ${normalized.phone}, ${passwordHash}, ${normalized.fullName},
+            ${normalized.orgInn}, ${normalized.orgLegalName}, ${normalized.orgType},
+            ${normalized.orgKpp}, ${normalized.orgOgrn}, ${normalized.region}, ${normalized.workspace}
+          )
+        `);
+        if (
+          !prepared
+          || prepared.outcome !== 'CREATED'
+          || !prepared.application_kind
+          || !prepared.user_id
+          || !prepared.membership_id
+          || !prepared.organization_id
+          || !prepared.tenant_id
+        ) {
+          const suppressed = {
+            id: null,
+            request_hash: requestHash,
+            status: 'EMAIL_VERIFICATION_REQUIRED',
+            correlation_id: context.correlationId,
+            idempotency_key: idempotencyKey,
+            outcome: 'SUPPRESSED_EXISTING_ACCOUNT',
+          } satisfies ExistingSubmissionRow;
+          await tx.$executeRaw(Prisma.sql`
+            INSERT INTO auth.registration_public_attempts (
+              id, idempotency_key, request_hash, correlation_id, outcome, application_id
+            ) VALUES (
+              ${`reg_attempt_${randomUUID()}`}, ${idempotencyKey}, ${requestHash},
+              ${context.correlationId}, 'SUPPRESSED_EXISTING_ACCOUNT', NULL
+            )
+          `);
+          await this.audit(tx, {
+            action: 'auth.registration.submit',
+            outcome: 'SUCCESS',
+            reason: 'PUBLIC_REQUEST_ACCEPTED',
+            metadata: { correlationId: context.correlationId, requestHash },
+          });
+          return { existing: suppressed } as const;
+        }
+        effectiveUserId = prepared.user_id;
+        effectiveMembershipId = prepared.membership_id;
+        organizationId = prepared.organization_id;
+        tenantId = prepared.tenant_id;
+        kind = prepared.application_kind;
+      }
+
+      if (!kind || !organizationId || !tenantId) {
+        throw new ConflictException({ code: 'REGISTRATION_IDENTITY_PREPARATION_FAILED' });
       }
       await this.authRepository.ensureCredentialState(
         tx,
@@ -534,12 +506,10 @@ export class RegistrationApplicationService {
           application.membership_id,
           application.kind AS application_kind,
           application.requested_workspace,
-          application.email AS applicant_email,
-          applicant."fullName" AS applicant_name
+          application.email AS applicant_email
         FROM auth.registration_email_challenges challenge
         JOIN auth.registration_applications application
           ON application.id = challenge.application_id
-        JOIN public.users applicant ON applicant.id = challenge.user_id
         WHERE challenge.id = ${parsed.id}
         FOR UPDATE OF challenge, application
       `);
@@ -579,11 +549,15 @@ export class RegistrationApplicationService {
       if (applicationUpdated !== 1) {
         throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
       }
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE public.users
-        SET status = 'PENDING_APPROVAL', "updatedAt" = NOW()
-        WHERE id = ${challenge.user_id}
+      const [identityUpdated] = await tx.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
+        SELECT updated
+        FROM auth.mark_registration_email_verified(
+          ${challenge.application_id}, ${challenge.id}, ${challenge.user_id}
+        )
       `);
+      if (!identityUpdated?.updated) {
+        throw new ConflictException({ code: 'REGISTRATION_IDENTITY_STATE_CONFLICT' });
+      }
       await this.insertEvent(tx, {
         applicationId: challenge.application_id,
         actorUserId: challenge.user_id,
@@ -605,24 +579,34 @@ export class RegistrationApplicationService {
         metadata: { applicationId: challenge.application_id, correlationId },
       });
 
-      const joinNotificationDelivery = challenge.application_kind === 'JOIN_EXISTING_ORGANIZATION'
+      let joinNotificationDelivery: {
+        recipients: string[];
+        applicantName: string;
+        applicantEmail: string;
+        requestedWorkspace: string;
+      } | undefined;
+      if (
+        challenge.application_kind === 'JOIN_EXISTING_ORGANIZATION'
         && deliveryAuthorized(deliveryKey)
-        ? {
-            recipients: (await tx.userOrg.findMany({
-              where: {
-                organizationId: challenge.organization_id,
-                status: 'ACTIVE',
-                isOrgAdmin: true,
-                user: { status: 'ACTIVE', deletedAt: null },
-              },
-              select: { user: { select: { email: true } } },
-              take: 20,
-            })).map(({ user }) => user.email),
-            applicantName: challenge.applicant_name,
-            applicantEmail: challenge.applicant_email,
-            requestedWorkspace: challenge.requested_workspace,
-          }
-        : undefined;
+      ) {
+        const notificationRows = await tx.$queryRaw<Array<{
+          recipient_email: string | null;
+          applicant_name: string;
+        }>>(Prisma.sql`
+          SELECT recipient_email, applicant_name
+          FROM auth.registration_join_notification_recipients(
+            ${challenge.application_id}, ${challenge.user_id}, ${challenge.organization_id}
+          )
+        `);
+        joinNotificationDelivery = {
+          recipients: notificationRows
+            .map((row) => row.recipient_email)
+            .filter((email): email is string => Boolean(email)),
+          applicantName: notificationRows[0]?.applicant_name ?? '',
+          applicantEmail: challenge.applicant_email,
+          requestedWorkspace: challenge.requested_workspace,
+        };
+      }
 
       return {
         ok: true,

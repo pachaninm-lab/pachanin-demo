@@ -167,8 +167,14 @@ export class PasswordResetService {
           throw this.invalidReset();
         }
 
-        const passwordUpdated = await this.repository.replacePassword(tx, challenge.user_id, passwordHash, now);
-        if (!passwordUpdated) throw this.invalidReset();
+        const notificationEmail = await this.repository.replacePassword(
+          tx,
+          challenge.id,
+          challenge.user_id,
+          passwordHash,
+          now,
+        );
+        if (!notificationEmail) throw this.invalidReset();
 
         const consumed = await this.repository.consumeChallenge(tx, challenge.id, now);
         if (!consumed) throw this.invalidReset();
@@ -185,7 +191,7 @@ export class PasswordResetService {
         return {
           success: true,
           sessionsRevoked: true,
-          notificationDelivery: { email: challenge.email },
+          notificationDelivery: { email: notificationEmail },
         };
       });
     } catch (error) {

@@ -1,23 +1,27 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/tai-owner-activation-command-20260803",
+  "branch": "fix/tai-owner-preflight-activation-authority-20260807",
   "status": "active",
-  "title": "TAI owner activation command authority",
+  "title": "TAI dual preflight activation dispatch authority",
   "priority": "P0",
-  "baselineExactMain": "084cda3656e1e5e443cf2524f16d8bc4b509231e",
-  "objective": "Provide a deterministic owner-only activation command that resolves and verifies the latest successful exact-main TAI Owner REG.RU Preflight run, while making skipped preflight workflow_run events neutral and non-mutating.",
+  "baselineExactMain": "682491bd71117b1d7bc1783ceccaf171194569a1",
+  "objective": "Allow restricted Qwen activation to consume only an exact-main successful TAI Automatic REG.RU Preflight workflow_run or an exact-main successful owner-issued TAI Owner REG.RU Preflight, while preserving deterministic dispatch, protected activation, acceptance, rollback and deployment gates.",
   "allowedPaths": [
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
     "scripts/check-tai-owner-activation-command.mjs",
     "docs/platform-v7/autopilot/scopes/tai-owner-activation-command-20260803.json"
   ],
   "boundaries": [
-    "The only issue command is /tai activate current-main on issue 3365",
-    "Commenter, actor and triggering actor must equal the repository owner",
-    "Activation requires an exact successful TAI Owner REG.RU Preflight run for current main",
-    "The upstream run must be an owner issue_comment run and all six required jobs must be successful",
-    "Skipped or unrelated preflight runs remain neutral and cannot publish activation failure",
-    "All image, REG.RU controller, live RU/EN/ZH, Chromium, rollback and deployment gates remain unchanged",
-    "No new recurring cost"
+    "Activation remains workflow_dispatch-only and never listens directly to issue_comment or workflow_run",
+    "The activation dispatch actor and triggering actor must be the repository owner or github-actions[bot]",
+    "Activation accepts exactly one of two upstream authorities: TAI Automatic REG.RU Preflight or TAI Owner REG.RU Preflight",
+    "Both upstream authorities must be terminal successful, exact current-main SHA, exact run attempt and prove the same six successful preflight jobs",
+    "Automatic upstream authority must be event workflow_run on branch main with owner-or-github-actions actor and triggering actor",
+    "Owner upstream authority must be event issue_comment with repository owner as actor and triggering actor",
+    "The manual /tai activate current-main command remains owner-only and selects its upstream run from the exact successful TAI REG.RU Preflight commit status",
+    "All exact image, protected REG.RU controller, RU/EN/ZH SSE, potato, Chromium, rollback, finalization and deployment gates remain unchanged",
+    "No direct production SSH, Docker authority, tenant, role, model admission, financial or write authority is widened",
+    "Permanent model admission remains NOT_ATTESTED",
+    "Zero new recurring cost"
   ]
 }

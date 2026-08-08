@@ -1,7 +1,10 @@
 # P0 First Customer Access — gap audit
 
 Issue #3563 · PR #3564 · branch `p0/first-customer-access-foundation-3563`
-Audited head: `bdfd8fd8b` · base: `bea9a2e71` · behind_by 0
+Integration base: exact `main` `aaf20a7c62f5fb68deb962dabdc1af153e37382f`
+(current source authority, including the Identity RLS merge for PR #3684). The publication head and `behind_by=0`
+status are acceptance outputs and must be recorded from GitHub after this
+integration is committed.
 
 ## How to read this
 
@@ -12,13 +15,11 @@ surface, and a test. The last two columns are deliberately separate:
 - **Production evidence** is what has been observed on the deployed REG.RU
   instance at a known revision.
 
-**Production evidence is empty for every row in this document.** Nothing here
-has been deployed or exercised against production. The environment running this
-audit holds no REG.RU or SSH credentials (`env` matches none; `~/.ssh` is
-empty) and `workflow_dispatch` returns `403 Resource not accessible by
-integration`. Deployment, live E2E and the clean-room test therefore remain
-open and are not claimed. A `PASS` below means "implemented and proved by an
-automated test", never "verified in production".
+**Production evidence is empty for every row in this document.** Nothing in
+this integration is claimed as deployed or exercised against REG.RU.
+Deployment, real mail delivery, live E2E and the clean-room test remain open.
+A `PASS` below means "implemented and proved by an automated test", never
+"verified in production".
 
 Verdicts: **PASS** implemented and covered · **PARTIAL** implemented, coverage
 or enforcement incomplete · **FAIL** requirement not met · **N/A** not
@@ -52,7 +53,7 @@ applicable to this slice.
 
 | # | Requirement | Code | DB object | API | UI | Test | Prod evidence | Verdict |
 |---|---|---|---|---|---|---|---|---|
-| 3.1 | Password verified in PostgreSQL under row lock | `auth.service.ts login()` | `public.users.passwordHash` | `POST /auth/login` | `/platform-v7/login` | `persistent-auth.e2e-spec.ts` | none | PASS |
+| 3.1 | Password proof precedes every membership/org/tenant lookup; the credential is re-read inside the serializable transaction | `auth.service.ts login()`, `persistent-auth.repository.ts` | `auth.resolve_login_credential(text)` | `POST /auth/login` | `/platform-v7/login` | `auth-login-boundary.spec.ts`, `persistent-auth.e2e-spec.ts` | none | PASS |
 | 3.2 | Lockout and throttling | `ensureLoginThrottle` | `auth.login_throttles` | `POST /auth/login` | — | `persistent-auth.e2e-spec.ts` | none | PASS |
 | 3.3 | Server-minted session + cabinet cookie carrying user/membership/org/tenant | `applyAuthenticatedSession` | `auth.sessions`, `auth.refresh_tokens` | `POST /api/auth/login` | — | `platformV7VerifiedSession.test.ts`; **live E2E** in `platform-v7-design-system-v8-acceptance.spec.ts` | none | PASS |
 | 3.4 | No demo/passwordless fallback in production | `demo-login-policy.ts` | — | `/api/auth/demo*` (3 routes, all gated) | — | `demoLoginPolicy.test.ts` | none | PASS — flag cannot enable it under `NODE_ENV=production` |
@@ -60,7 +61,7 @@ applicable to this slice.
 | 3.6 | Step-up MFA for sensitive actions | `auth.step-up.spec.ts` subject | `auth.mfa_challenges` | `POST /auth/mfa/step-up/*` | — | `auth.step-up.spec.ts` | none | PASS |
 | 3.7 | MFA login ticket is canonical AES-GCM, rejects alternate encodings | `mfa-login-ticket.ts` | — | `POST /api/auth/mfa-login` | — | `mfaPendingLoginTicket.test.ts` | none | PASS |
 | 3.8 | CSRF enforced on unsafe methods | `server-request-security.ts` | — | all mutating routes | — | `platformV7LoginSecurityBoundary.test.ts` | none | PASS |
-| 3.9 | Multi-membership selection is safe | `auth.membership-selection.spec.ts` subject | `auth.membership_selection_challenges` | `POST /auth/membership/select` | `/platform-v7/login` | `auth.membership-selection.spec.ts` | none | PASS |
+| 3.9 | Multi-membership selection begins only after password proof and mints no session/MFA challenge before one-time server-side selection | `auth.service.ts`, `persistent-auth.repository.ts` | `auth.resolve_post_password_membership_ids`, `auth.resolve_post_password_membership_context`, `auth.membership_selection_challenges` | `POST /auth/membership/select` | `/platform-v7/login` | `auth-login-boundary.spec.ts`, `auth.membership-selection.spec.ts`, `persistent-auth.e2e-spec.ts` | none | PASS |
 | 3.10 | Session is never minted locally when the API is unreachable | `refresh/route.ts` | — | `POST /api/auth/refresh` | — | `p0AuthFailClosed.test.ts` | none | PASS |
 
 ## 4. Cabinets and server authority
@@ -85,58 +86,41 @@ applicable to this slice.
 | 5.3 | Revoke ends access | `organization-team.service.ts` | `public.user_orgs.revokedAt` | `POST /auth/organization-memberships/:id/revoke` | `/platform-v7/profile/team` | `organization-team.service.spec.ts` | none | PASS |
 | 5.4 | Membership commands are append-only audited | migration `20260801130000_p0_auth_state_integrity` | `auth.organization_membership_command_events` | — | — | `organization-team.service.spec.ts` | none | PASS |
 
-## 6. Recovery
+## 6. Recovery and account lifecycle
 
 | # | Requirement | Code | DB object | API | UI | Test | Prod evidence | Verdict |
 |---|---|---|---|---|---|---|---|---|
 | 6.1 | Password reset, single-use hashed token, bounded TTL | `password-reset-token.ts` | `auth.password_reset_challenges` | `POST /auth/password-reset/*` | `/platform-v7/reset-password` | `password-reset-token.spec.ts`, `password-reset.service.spec.ts` | none | PASS |
-| 6.2 | Reset revokes sessions and cannot be raced by an old password | `auth.service.ts` (user row locked through session creation) | `auth.sessions` | — | — | `persistent-auth.e2e-spec.ts` | none | PASS |
+| 6.2 | Reset revokes sessions and a concurrent password change invalidates the proof before membership lookup/session creation | `auth.service.ts` (serializable credential re-read and constant-time hash comparison) | `auth.resolve_login_credential`, `auth.sessions` | — | — | `auth-login-boundary.spec.ts`, `persistent-auth.e2e-spec.ts` | none | PASS |
 | 6.3 | Controlled MFA recovery with admin approval | `mfa-recovery` slice | `auth.mfa_recovery_challenges`, `auth.mfa_recovery_events` | `POST /auth/mfa-recovery/confirm` | `/platform-v7/mfa-recovery` | `mfa-recovery.e2e-spec.ts` | none | PASS |
 | 6.4 | Backup codes are one-time | `generateBackupCodes`, `auth-crypto.ts` | `auth.credential_states.mfa_backup_hashes` | `POST /auth/mfa/verify` | — | `mfa-backup-code-one-time.e2e-spec.ts` | none | PASS |
+| 6.5 | Personal-data export is session-bound and read-only | `auth.service.ts`, `persistent-auth.repository.ts` | `auth.account_data_export`, `pc_account_export_authority` | `GET /auth/me/data-export` | — | `auth.service.spec.ts`, `identity-rls-tenant-checks.sql` | none | PASS |
+| 6.6 | Account anonymization is atomic, revokes credentials and fails closed on replay | `auth.service.ts`, `persistent-auth.repository.ts` | `auth.anonymize_account_identity`, `pc_account_anonymization_authority` | `POST /auth/me/anonymize` | — | `auth.service.spec.ts`, `identity-rls-tenant-checks.sql` | none | PASS |
 
-## 7. Tenant isolation A vs B — the material gap
+## 7. Tenant isolation A vs B — prerequisite merged and integrated
 
-Verified by inspecting a PostgreSQL 16 database built from the complete
-forward-only migration chain (the same chain production applies).
+Issue #3670 was closed by PR #3684 and merged to `main` at
+`c5d2d452543506bfecd81c43b70cc066bc71a030`. This P0 integration preserves the
+password-first boundary from that merge while restoring safe multi-membership
+selection. These verdicts cover the forward-only migration chain and automated
+PostgreSQL/security proofs; they do not claim REG.RU evidence.
 
-| # | Requirement | Observed | Verdict |
+| # | Requirement | Observed implementation/evidence | Verdict |
 |---|---|---|---|
-| 7.1 | Tenant-scoped business tables enforce RLS | 21 tables in `public` have RLS enabled; 18 of those are `FORCE`d | PASS |
-| 7.2 | Identity tables enforce tenant isolation in PostgreSQL | `public.users` — no RLS, no policies. `public.user_orgs` — no RLS, no policies. `public.organizations` — **RLS not enabled**, yet one policy (`organizations_select`) is defined and therefore inert | **FAIL** |
-| 7.3 | No policy is defined on a table without RLS | 7 inert policies found: `organizations_select`; `deal_participants_insert`; `outbox_entries` ×4; `integration_events_select`. Each reads as protection that is not in force | **FAIL** |
-| 7.4 | RLS verified with a restricted runtime role, not a superuser | 3 `public` tables have RLS without `FORCE`, so the table owner bypasses them | PARTIAL |
-| 7.5 | Cross-tenant read of A by B is denied | Not proved for identity data. Isolation of `users`/`user_orgs`/`organizations` currently rests on application query scoping alone, which the P0 specification does not accept as PostgreSQL tenant isolation | **FAIL — release blocker** |
+| 7.1 | Identity tables enforce PostgreSQL RLS | `public.users`, `public.user_orgs` and `public.organizations` use `ENABLE ROW LEVEL SECURITY` plus `FORCE ROW LEVEL SECURITY`; policies are installed by the identity-RLS migration chain | PASS |
+| 7.2 | Pre-password authority is minimal | `app_auth`/`one_deal_auth` can call only the three-field `auth.resolve_login_credential(text)` before bcrypt; membership/org/tenant/role/MFA fields are absent | PASS |
+| 7.3 | Post-password multi-membership does not revive a broad login surface | migration `20260808100000_p0_password_first_multi_membership` adds named membership/context/session functions; retired `resolve_login_identity*`, `resolve_login_memberships*` and `resolve_login_context_by_email` remain revoked | PASS |
+| 7.4 | No policy is inert | `identity-rls-no-inert-policies.sql` and the final-catalog CI query fail when a policy exists on a table with RLS disabled | PASS |
+| 7.5 | Runtime principals cannot bypass or own the boundary | auth/staff/deal/storage/outbox principals are `NOSUPERUSER NOBYPASSRLS`, separated by purpose, do not own identity tables and receive named-function grants only | PASS |
+| 7.6 | Direct A→B SQL access is denied | `identity-rls-tenant-checks.sql`, `platform-v7-rls-integration.sh`, one-deal and Kubernetes acceptance cover direct cross-tenant identity reads and forged context | PASS |
+| 7.7 | MFA compatibility update remains bounded | `auth.finalize_authenticated_user_mfa` is owned by a dedicated `NOLOGIN/NOBYPASSRLS` authority with one-column update privilege; non-auth runtimes are denied | PASS |
+| 7.8 | Restore does not resurrect broad authority | `platform-v7-database-dr-rehearsal.sh` restores owners and exact grants, re-revokes retired functions and repeats auth/staff/RLS negative proofs | PASS |
+| 7.9 | Data export and account anonymization remain usable without reopening identity tables | migration `20260808160000_p0_account_lifecycle_authority` separates a read-only export owner from a bounded anonymization owner; both require the exact active session/user/membership/org/tenant tuple and non-auth runtimes are denied | PASS |
 
-### 7.2–7.5 are a release blocker, not an accepted gap
-
-The P0 specification requires tenant isolation **in PostgreSQL**, with
-cross-tenant negative tests and no access to another organization. Application
-query scoping is not equivalent to that and does not satisfy it. These rows
-therefore block the P0 security PASS: they are not deferred risk and must not
-be described as merely audited.
-
-The honest statement of today's posture: **tenant isolation for identity data
-is enforced in application code, not in PostgreSQL.** Row 7.3 is the sharper
-finding — seven policies exist that never execute, which is worse than no
-policy, because reading the schema suggests a boundary that is not in force.
-
-**Blocking condition.** Identity RLS must land before this PR is merged and
-before any REG.RU deployment. Enabling it is a schema-authority change: the
-login transaction has to read an identity *before* any tenant context exists,
-so it needs a dedicated runtime identity role without BYPASSRLS, a separate
-bootstrap/login authority path, a transaction-scoped tenant and user context,
-FORCE RLS wherever the owner is not the runtime principal, policies on
-`users`, `user_orgs` and `organizations`, removal of the seven inert policies,
-and negative direct-SQL tests proving that tenant B cannot read tenant A —
-before login, after login, with multi-membership, for admin/reviewer, and for
-background and service principals.
-
-That work is tracked as #3670. (#3618 is a different task — append-only hardening
-of `public.audit_events` — and is not the identity-RLS blocker.)
-Whether it lands inside this PR or as its own,
-it is a hard prerequisite: **PR #3564 stays in draft, is not merged and is not
-deployed until identity RLS is in force and this section reads PASS.** No
-PRODUCTION_PASS may be claimed before then.
+Section 7 is no longer the code prerequisite blocking #3564. The remaining
+release gate is operational: this exact integrated head must pass the complete
+CI matrix, merge cleanly, repeat exact-main acceptance, and then produce
+separate REG.RU evidence.
 
 ## 8. Prohibitions
 
@@ -151,8 +135,8 @@ PRODUCTION_PASS may be claimed before then.
 | Test cookies/JWT instead of real login | **Now held** | the acceptance matrix previously hand-minted `pc_v7_cabinet`; it now performs a real login incl. second factor |
 | Bypassing email verification | Held | `registration-token.spec.ts` |
 | Disabling RLS or required checks | Held | no migration disables RLS; forward-only gate blocks it |
-| `continue-on-error` on critical gates | Held | asserted by `pcCrop10cApplicability.test.ts` |
-| Extending a foreign PC-CROP scope with P0 files | Held | PC-CROP-10C manifest unchanged; applicability resolved instead |
+| `continue-on-error` on critical gates | Held | no P0 critical gate uses it; completed PC-CROP regression stays mandatory in its owning workflow |
+| Extending a foreign PC-CROP scope with P0 files | Held | PC-CROP-10C manifest and workflow remain owned by the completed slice on `main`; this P0 scope contains neither |
 | Fictitious legal organization | Held in production paths | acceptance fixtures use `@acceptance.invalid` addresses and checksum-valid but non-registered INNs, seeded only into an ephemeral CI database that the seeder refuses to run against a non-local host |
 | Fictitious SMS | Held | no SMS transport in this slice |
 | New paid service | Held | no new dependency or hosted service |
@@ -201,6 +185,12 @@ or password-derived expression is ever passed to a keyed or fast hash again,
 and it carries its own positive and negative cases so it cannot rot into a
 no-op.
 
+The same boundary now covers the staff access capability introduced by the
+Identity RLS merge. `StaffProjectionService` purpose-binds the presented bearer
+credential through `digestOpaqueAuthToken({ purpose: 'staff-access', ... })`;
+the generic keyed hash is no longer used for that token. The focused staff
+projection test and the static credential-boundary test both pin this contract.
+
 ## 9. Environment concessions in the acceptance job
 
 Disclosed rather than buried:
@@ -222,10 +212,9 @@ Disclosed rather than buried:
 
 | Item | Owner | Blocking |
 |---|---|---|
-| **Identity RLS on `users`, `user_orgs`, `organizations`; remove the 7 inert policies** | **#3670 — hard prerequisite for merge and deploy** | **7.2–7.5, and the P0 security PASS** |
-| CodeQL re-run on the exact head after removing password-derived material from every request fingerprint | CI | 8.1 |
+| Full exact-head matrix on the integrated #3564 SHA, including RLS/DR/Kubernetes and CodeQL | CI | merge |
 | Firefox and WebKit projects of the acceptance matrix | CI | 4.7 |
 | Real mail delivery | production | 1.9 |
-| REG.RU deployment of the merge SHA | owner — no credentials in this environment | 8–11 of the acceptance sequence |
+| REG.RU deployment of the exact merge SHA | release operation | production acceptance |
 | Live production E2E with a new user | owner | 9 |
 | Second independent clean-room test | owner | 10 |

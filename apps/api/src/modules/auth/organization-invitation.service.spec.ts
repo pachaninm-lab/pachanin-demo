@@ -15,6 +15,7 @@ const ACTOR: RequestUser = {
   orgId: 'org-a',
   tenantId: 'tenant-a',
   membershipId: 'membership-admin',
+  sessionId: 'session-admin',
   isOrgAdmin: true,
   mfaVerified: true,
   mfaVerifiedAt: new Date().toISOString(),
@@ -53,9 +54,59 @@ function invitationRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function acceptanceCredential(row: ReturnType<typeof invitationRow>, overrides: Record<string, unknown> = {}) {
+  return {
+    invitation_id: row.id,
+    organization_id: row.organization_id,
+    tenant_id: row.tenant_id,
+    organization_name: row.organization_name,
+    organization_status: row.organization_status,
+    invited_email: row.invited_email,
+    role: row.role,
+    invitation_status: row.status,
+    expires_at: row.expires_at,
+    invitation_version: row.version,
+    existing_user_id: null,
+    existing_password_hash: null,
+    existing_user_status: null,
+    existing_user_deleted_at: null,
+    ...overrides,
+  };
+}
+
+function acceptedInvitation(row: ReturnType<typeof invitationRow>, userId: string) {
+  return {
+    accepted: true,
+    user_id: userId,
+    membership_id: 'membership-accepted',
+    organization_id: row.organization_id,
+    tenant_id: row.tenant_id,
+    organization_name: row.organization_name,
+    role: row.role,
+    invitation_version: row.version + 1n,
+  };
+}
+
+function resolvedAdmin() {
+  return [{
+    membership_id: ADMIN.id,
+    role: ADMIN.role,
+    membership_version: ADMIN.version,
+    organization_id: ADMIN.organizationId,
+    tenant_id: ADMIN.organization.tenantId,
+    organization_status: ADMIN.organization.status,
+    organization_name: ADMIN.organization.name,
+  }];
+}
+
 function serviceWith(queryHandler: (sql: string) => unknown = () => []) {
   const tx = {
-    $queryRaw: jest.fn(async (query: unknown) => queryHandler(sqlText(query))),
+    $queryRaw: jest.fn(async (query: unknown) => {
+      const sql = sqlText(query);
+      if (sql.includes('resolve_organization_admin_session')) return resolvedAdmin();
+      if (sql.includes("set_config('app.current_user_id'")) return [{}];
+      return queryHandler(sql);
+    }),
     $executeRaw: jest.fn(async () => 1),
     userOrg: {
       findFirst: jest.fn().mockResolvedValue(null),
@@ -69,7 +120,13 @@ function serviceWith(queryHandler: (sql: string) => unknown = () => []) {
     },
   };
   const prisma = {
-    userOrg: { findFirst: jest.fn().mockResolvedValue(ADMIN) },
+    $queryRaw: jest.fn(async (query: unknown) => {
+      const sql = sqlText(query);
+      if (sql.includes('resolve_organization_admin_session')) {
+        return resolvedAdmin();
+      }
+      return queryHandler(sql);
+    }),
     $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
   };
   const repository = {
@@ -133,8 +190,11 @@ describe('organization invitation authority', () => {
   });
 
   it('does not create an invitation when the email already has any membership in the organization', async () => {
-    const { service, tx } = serviceWith();
-    tx.userOrg.findFirst.mockResolvedValueOnce({ id: 'membership-revoked' } as never);
+    const { service, tx } = serviceWith((sql) => (
+      sql.includes('organization_membership_exists_for_email')
+        ? [{ membership_exists: true }]
+        : []
+    ));
 
     await expect(service.create(
       ACTOR,
@@ -157,7 +217,9 @@ describe('organization invitation authority', () => {
       expires_at: new Date(Date.now() - 1_000),
     });
     const { service, tx } = serviceWith((sql) => (
-      sql.includes('FROM auth.organization_invitations invitation') ? [row] : []
+      sql.includes('resolve_invitation_acceptance_credential')
+        ? [acceptanceCredential(row)]
+        : []
     ));
 
     await expect(service.accept({
@@ -179,7 +241,9 @@ describe('organization invitation authority', () => {
     const token = makeOpaqueToken('iv');
     const row = invitationRow({ id: token.id, token_hash: token.digest, status: 'ACCEPTED' });
     const { service, tx } = serviceWith((sql) => (
-      sql.includes('FROM auth.organization_invitations invitation') ? [row] : []
+      sql.includes('resolve_invitation_acceptance_credential')
+        ? [acceptanceCredential(row)]
+        : []
     ));
 
     await expect(service.accept({
@@ -217,7 +281,9 @@ describe('organization invitation authority', () => {
     const token = makeOpaqueToken('iv');
     const row = invitationRow({ id: token.id, token_hash: token.digest });
     const { service, tx } = serviceWith((sql) => (
-      sql.includes('FROM auth.organization_invitations invitation') ? [row] : []
+      sql.includes('resolve_invitation_acceptance_credential')
+        ? [acceptanceCredential(row)]
+        : []
     ));
 
     await expect(service.accept({
@@ -238,15 +304,21 @@ describe('organization invitation authority', () => {
     const password = 'legacy1!';
     const token = makeOpaqueToken('iv');
     const row = invitationRow({ id: token.id, token_hash: token.digest });
-    const { service, tx, repository } = serviceWith((sql) => (
-      sql.includes('FROM auth.organization_invitations invitation') ? [row] : []
-    ));
-    tx.user.findUnique.mockResolvedValueOnce({
-      id: 'existing-user',
-      passwordHash: await bcrypt.hash(password, 4),
-      status: 'ACTIVE',
-      deletedAt: null,
-    } as never);
+    const existingPasswordHash = await bcrypt.hash(password, 4);
+    const { service, tx, repository } = serviceWith((sql) => {
+      if (sql.includes('resolve_invitation_acceptance_credential')) {
+        return [acceptanceCredential(row, {
+          existing_user_id: 'existing-user',
+          existing_password_hash: existingPasswordHash,
+          existing_user_status: 'ACTIVE',
+          existing_user_deleted_at: null,
+        })];
+      }
+      if (sql.includes('accept_organization_invitation_identity')) {
+        return [acceptedInvitation(row, 'existing-user')];
+      }
+      return [];
+    });
 
     await expect(service.accept({
       token: token.token,
@@ -259,9 +331,10 @@ describe('organization invitation authority', () => {
     }, 'corr-existing-legacy')).resolves.toMatchObject({ ok: true, membershipId: expect.any(String) });
 
     expect(tx.user.create).not.toHaveBeenCalled();
-    expect(tx.userOrg.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ userId: 'existing-user', organizationId: 'org-a' }),
-    }));
+    expect(tx.userOrg.create).not.toHaveBeenCalled();
+    expect(tx.$queryRaw.mock.calls
+      .map((call) => sqlText((call as unknown[])[0]))
+      .join('\n')).toContain('accept_organization_invitation_identity');
     expect(repository.ensureCredentialState).toHaveBeenCalledWith(
       expect.anything(), 'existing-user', '2026-07-31|2026-07-31', expect.any(Date),
     );
@@ -270,14 +343,16 @@ describe('organization invitation authority', () => {
   it('does not let an organization administrator initiate global MFA recovery for a cross-organization or staff identity', async () => {
     const { service, tx } = serviceWith((sql) => {
       if (sql.includes('organization_membership_command_events')) return [];
-      if (sql.includes('has_other_membership') && sql.includes('FOR UPDATE OF membership, subject')) {
+      if (sql.includes('prepare_organization_mfa_recovery_target')) {
         return [{
+          prepared: true,
           user_id: 'shared-user',
           email: 'shared@example.test',
           has_other_membership: true,
           has_staff_assignment: true,
           mfa_enabled: true,
           has_mfa_secret: true,
+          new_version: 3n,
         }];
       }
       return [];
@@ -300,14 +375,16 @@ describe('organization invitation authority', () => {
     const reason = 'Controlled recovery requested by organization administrator';
     const fresh = serviceWith((sql) => {
       if (sql.includes('organization_membership_command_events')) return [];
-      if (sql.includes('has_other_membership') && sql.includes('FOR UPDATE OF membership, subject')) {
+      if (sql.includes('prepare_organization_mfa_recovery_target')) {
         return [{
+          prepared: true,
           user_id: 'employee-user',
           email: 'employee@example.test',
           has_other_membership: false,
           has_staff_assignment: false,
           mfa_enabled: true,
           has_mfa_secret: true,
+          new_version: 4n,
         }];
       }
       return [];
@@ -325,14 +402,16 @@ describe('organization invitation authority', () => {
 
     const withoutBoundary = serviceWith((sql) => {
       if (sql.includes('organization_membership_command_events')) return [];
-      if (sql.includes('has_other_membership') && sql.includes('FOR UPDATE OF membership, subject')) {
+      if (sql.includes('prepare_organization_mfa_recovery_target')) {
         return [{
+          prepared: true,
           user_id: 'employee-user-2',
           email: 'employee2@example.test',
           has_other_membership: false,
           has_staff_assignment: false,
           mfa_enabled: true,
           has_mfa_secret: true,
+          new_version: 2n,
         }];
       }
       return [];
@@ -380,6 +459,7 @@ describe('organization invitation authority', () => {
         return [{ membership_id: replayMembershipId, command: 'MFA_RESET', request_hash: replayRequestHash }];
       }
       if (sql.includes('FROM auth.mfa_recovery_challenges')) return [recovery];
+      if (sql.includes('organization_mfa_recovery_snapshot')) return [recovery];
       return [];
     });
     const replay = await replayService.service.resetMembershipMfa(
@@ -420,7 +500,7 @@ describe('organization invitation authority', () => {
       has_staff_assignment: false,
     };
     const invalid = serviceWith((sql) => (
-      sql.includes('FROM auth.mfa_recovery_challenges challenge') ? [row] : []
+      sql.includes('resolve_mfa_recovery_identity') ? [row] : []
     ));
     await expect(invalid.service.confirmMfaRecovery(
       { token: token.token, password: 'Wrong-Password-9!' },
@@ -434,9 +514,19 @@ describe('organization invitation authority', () => {
     expect(invalidSql).not.toContain('mfa_secret_ciphertext = NULL');
     expect(invalid.repository.revokeAllUserSessions).not.toHaveBeenCalled();
 
-    const success = serviceWith((sql) => (
-      sql.includes('FROM auth.mfa_recovery_challenges challenge') ? [row] : []
-    ));
+    const success = serviceWith((sql) => {
+      if (sql.includes('resolve_mfa_recovery_identity')) return [row];
+      if (sql.includes('finalize_mfa_recovery_identity')) {
+        return [{
+          user_id: row.user_id,
+          membership_id: row.membership_id,
+          organization_id: row.organization_id,
+          tenant_id: row.tenant_id,
+          email: row.email,
+        }];
+      }
+      return [];
+    });
     const result = await success.service.confirmMfaRecovery(
       { token: token.token, password: 'Current-Password-9!' },
       'corr-mfa-success',
@@ -456,8 +546,13 @@ describe('organization invitation authority', () => {
     const executedSql = success.tx.$executeRaw.mock.calls
       .map((call) => sqlText((call as unknown[])[0]))
       .join('\n');
-    expect(executedSql).toContain('mfa_secret_ciphertext = NULL');
-    expect(executedSql).toContain("SET status = 'CONSUMED'");
+    expect(executedSql).not.toContain('mfa_secret_ciphertext = NULL');
+    expect(executedSql).not.toContain("SET status = 'CONSUMED'");
+    const authoritySql = success.tx.$queryRaw.mock.calls
+      .map((call) => sqlText((call as unknown[])[0]))
+      .join('\n');
+    expect(authoritySql).toContain('resolve_mfa_recovery_identity');
+    expect(authoritySql).toContain('finalize_mfa_recovery_identity');
   });
 
   it('revokes the recovery challenge when the subject password attempt budget is exhausted', async () => {
@@ -484,7 +579,7 @@ describe('organization invitation authority', () => {
       has_staff_assignment: false,
     };
     const terminal = serviceWith((sql) => (
-      sql.includes('FROM auth.mfa_recovery_challenges challenge') ? [row] : []
+      sql.includes('resolve_mfa_recovery_identity') ? [row] : []
     ));
     await expect(terminal.service.confirmMfaRecovery(
       { token: token.token, password: 'Wrong-Password-9!' },

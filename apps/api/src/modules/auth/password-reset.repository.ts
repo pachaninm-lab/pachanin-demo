@@ -19,7 +19,6 @@ export type PasswordResetChallengeRow = {
   expires_at: Date;
   consumed_at: Date | null;
   created_at: Date;
-  email: string;
 };
 
 @Injectable()
@@ -36,10 +35,8 @@ export class PasswordResetRepository {
 
   async findUserByEmail(client: AuthSqlClient, email: string): Promise<PasswordResetUserRow | null> {
     const rows = await client.$queryRaw<PasswordResetUserRow[]>(Prisma.sql`
-      SELECT id, email, status, "deletedAt" AS deleted_at
-      FROM public.users
-      WHERE LOWER(email) = LOWER(${email})
-      LIMIT 1
+      SELECT user_id AS id, email, user_status AS status, deleted_at
+      FROM auth.resolve_password_reset_subject(${email})
     `);
     return rows[0] ?? null;
   }
@@ -100,9 +97,8 @@ export class PasswordResetRepository {
       SELECT
         challenge.id, challenge.user_id, challenge.token_hash, challenge.status,
         challenge.requested_ip_hash, challenge.expires_at, challenge.consumed_at,
-        challenge.created_at, subject.email
+        challenge.created_at
       FROM auth.password_reset_challenges challenge
-      JOIN public.users subject ON subject.id = challenge.user_id
       WHERE challenge.id = ${challengeId}
       FOR UPDATE OF challenge
     `);
@@ -122,18 +118,21 @@ export class PasswordResetRepository {
 
   async replacePassword(
     client: AuthSqlClient,
+    challengeId: string,
     userId: string,
     passwordHash: string,
     now: Date,
-  ): Promise<boolean> {
-    const updated = await client.$executeRaw(Prisma.sql`
-      UPDATE public.users
-      SET "passwordHash" = ${passwordHash}, "updatedAt" = ${now}
-      WHERE id = ${userId}
-        AND status = 'ACTIVE'
-        AND "deletedAt" IS NULL
+  ): Promise<string | null> {
+    const [result] = await client.$queryRaw<Array<{
+      updated: boolean;
+      notification_email: string | null;
+    }>>(Prisma.sql`
+      SELECT updated, notification_email
+      FROM auth.replace_password_after_reset(
+        ${challengeId}, ${userId}, ${passwordHash}, ${now}
+      )
     `);
-    if (updated !== 1) return false;
+    if (!result?.updated || !result.notification_email) return null;
 
     await client.$executeRaw(Prisma.sql`
       INSERT INTO auth.credential_states (user_id, password_changed_at)
@@ -145,7 +144,7 @@ export class PasswordResetRepository {
           locked_until = NULL,
           updated_at = NOW()
     `);
-    return true;
+    return result.notification_email;
   }
 
   revokeAllUserSessions(client: AuthSqlClient, userId: string, reason: string): Promise<void> {

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-agro-wide-semantic-groups-20260805",
+  "status": "active",
+  "title": "TAI broad agro live-acceptance semantic groups hardening",
+  "priority": "P0",
+  "baselineExactMain": "647e53a7a8d2acdfaae528b56968efe53e8d850f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Eliminate the class of false-negative broad live-acceptance failures caused by narrow literal stems by defining independent semantic factor groups for every remaining agriculture, livestock, machinery, storage, economics, infrastructure, spreadsheet and multilingual scenario.",
+  "allowedPaths": [
+    ".github/workflows/tai-one-shot-agro-wide-semantic-groups.yml",
+    "scripts/patch-tai-agro-wide-semantic-groups.py",
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-agro-wide-semantic-groups-20260805.json"
+  ],
+  "boundaries": [
+    "Do not change production model behavior, prompts, API routing, security controls, authorization, tenant isolation, write paths or infrastructure",
+    "Do not weaken source, exact model identity, general-agro answer mode, stream completion, subject relevance, minimum answer length, forbidden-platform-article, RU/EN/ZH or mobile Chromium assertions",
+    "Every scenario must still require at least two independent semantic factor groups; synonyms and multiple terms inside one factor group count once",
+    "The bee-wintering scenario must recognize feed stores, colony strength, parasite or health control, hive ventilation or moisture, and insulation or regional climate as independent groups",
+    "Crop, livestock, machinery, storage, economics, infrastructure, spreadsheet and multilingual scenarios must use domain-relevant groups rather than single literal tokens",
+    "The validator remains deterministic, fail-closed and must preserve the actual answer in evidence before any failure",
+    "The temporary patch script and workflow must modify only the registered paths and delete themselves before merge",
+    "Production completion requires exact-head terminal PASS, merge, exact-main full-stack REG.RU release, controller sync, strict preflight, protected activation, all 21 endpoint and 5 mobile cases PASS, finalization accept, standalone TAI deployment and postflight PASS"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-deal-journey-10of10-current-main-20260808",
+  "status": "active",
+  "purpose": "Turn the public deal explorer into an intent-first, role-personalized guided Deal journey with progressive disclosure and clear money, documents, risk and next-step context while preserving the existing detailed explorer and production architecture.",
+  "approvedBy": "owner-direct-implement-2026-08-08",
+  "authorityBaseExactMain": "98102961fb78cea1c7d48420da07525401daee24",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json",
+    "docs/platform-v7/DEAL_JOURNEY_10OF10_ACCEPTANCE_20260808.md",
+    "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/i18n/public-deal-journey-v5.ts",
+    "apps/web/styles/platform-v7-public-deal-journey-v5.css",
+    "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
+    "apps/web/tests/unit/platformV7PublicDealJourneyV5.test.ts",
+    "apps/web/tests/e2e/platform-v7-public-deal-explorer-mobile.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-product-experience-v3.spec.ts"
+  ],
+  "requiredBehavior": [
+    "default public deal entry asks what the visitor wants to do before exposing system roles",
+    "six intent choices map to existing public perspectives without changing RBAC or authorization",
+    "the first layer is a guided quick journey and the full existing explorer remains available through progressive disclosure",
+    "the Deal remains the persistent primary object with current stage, acting participant, visitor action, platform action, money, documents, risk and next step",
+    "plain-language scenario labels appear before formal operational labels",
+    "money and document state remain clearly demonstrational and never claim live banking or external integrations",
+    "final journey result explains the one-contour value and offers one primary organization-connect CTA",
+    "RU EN ZH are complete with no untranslated new controls",
+    "URL-authoritative stage scenario perspective state and browser history remain operable",
+    "existing detailed lenses and analytics funnel semantics remain intact",
+    "320 390 and 430 CSS-pixel mobile acceptance proves zero horizontal overflow, minimum touch targets and clear primary hierarchy"
+  ],
+  "forbiddenCapabilities": [
+    "TAI model runtime routing latency context or knowledge changes",
+    "transaction state-machine changes",
+    "RBAC authentication or tenant-authority changes",
+    "money settlement or banking execution changes",
+    "API database or persistence changes",
+    "fake live data or production claims",
+    "external integration claims without confirmed evidence",
+    "acceptance weakening",
+    "new mandatory paid services"
+  ]
+}

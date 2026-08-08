@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-post-full-stack-bootstrap-20260807",
+  "status": "active",
+  "title": "TAI post-full-stack bootstrap authority",
+  "priority": "P0",
+  "baselineExactMain": "0e125634a7ebfad39c1fd9848ac67f31dbd5f89d",
+  "objective": "Allow the fail-closed TAI preflight to accept the exact safe post-full-stack bootstrap state where API/Web already match current main and only TAI service, dedicated environment and dedicated database principal remain to be materialized, while preserving all critical PASS, no-mutation, image, runner and exact-SHA authorities.",
+  "allowedPaths": [
+    "scripts/verify-tai-preflight-report.mjs",
+    "scripts/check-tai-bootstrap-preflight.mjs",
+    "scripts/check-tai-automatic-release-chain.mjs",
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    ".github/workflows/tai-automatic-reg-ru-preflight.yml",
+    "docs/platform-v7/autopilot/scopes/tai-bootstrap-preflight-authority-20260802.json",
+    "docs/platform-v7/autopilot/scopes/tai-automatic-exact-release-chain-20260806.json",
+    "docs/platform-v7/autopilot/scopes/tai-post-full-stack-bootstrap-20260807.json"
+  ],
+  "boundaries": [
+    "Exact safe bootstrap has two accepted forms only: the existing four-blocker full-stack bootstrap state, or the post-full-stack three-blocker TAI-only materialization state",
+    "The three-blocker state requires API_WEB_EXACT_MAIN=PASS and forbids API_WEB_NOT_EXACT_MAIN",
+    "The four-blocker state requires API_WEB_NOT_EXACT_MAIN=BLOCKED and forbids API_WEB_EXACT_MAIN",
+    "No additional blocker is accepted in either bootstrap state",
+    "All existing critical PASS checks and NO_PRODUCTION_MUTATION_DETECTED remain mandatory",
+    "TAI image reference and digest remain exact target-SHA bound",
+    "Production self-hosted jobs remain non-root, actionless and without direct Docker authority",
+    "Automatic release-chain contract must match the existing wildcard-governed canonical image trigger path",
+    "Permanent model admission remains deferred and is never fabricated",
+    "Strict zero-blocker postflight still requires API_WEB_EXACT_MAIN and raw passed=true",
+    "REG.RU only and zero new recurring cost"
+  ]
+}

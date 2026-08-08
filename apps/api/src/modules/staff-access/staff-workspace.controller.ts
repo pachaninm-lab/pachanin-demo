@@ -41,6 +41,7 @@ import { StaffWorkspaceService } from './staff-workspace.service';
 type StaffRequest = {
   user: RequestUser;
   staffAccess?: StaffAccessContext;
+  headers?: Record<string, string | string[] | undefined>;
 };
 
 @Controller('staff/workspaces')
@@ -262,7 +263,12 @@ export class StaffWorkspaceController {
     @Req() request: StaffRequest,
     @Param('organizationId') organizationId: string,
   ) {
-    return this.projection.organizationUsers(request.user, organizationId);
+    return this.projection.organizationUsers(
+      request.user,
+      this.requireAccessContext(request),
+      this.requireCapabilityToken(request),
+      organizationId,
+    );
   }
 
   @Get('break-glass')
@@ -303,5 +309,13 @@ export class StaffWorkspaceController {
   private requireAccessContext(request: StaffRequest): StaffAccessContext {
     if (!request.staffAccess) throw new UnauthorizedException('X-Staff-Access-Session is required');
     return request.staffAccess;
+  }
+
+  private requireCapabilityToken(request: StaffRequest): string {
+    const raw = request.headers?.['x-staff-access-session'];
+    if (Array.isArray(raw) || typeof raw !== 'string' || !raw.trim()) {
+      throw new UnauthorizedException('X-Staff-Access-Session capability is required');
+    }
+    return raw;
   }
 }

@@ -7,7 +7,6 @@ from fastapi import FastAPI
 from tai.always_on_core import (
     AlwaysOnConfig,
     AlwaysOnConfigurationError,
-    AlwaysOnModelSupervisor,
     AsyncModelAdmissionGate,
     install_always_on_core,
 )
@@ -25,6 +24,7 @@ from tai.production_authenticated_runtime import (
     ProductionModelAccessError,
     build_authenticated_production_runtime,
 )
+from tai.production_model_supervisor import ProductionAlwaysOnModelSupervisor
 from tai.production_platform_tools import production_platform_tool_handlers
 from tai.production_runtime import (
     ProductionConfigurationError,
@@ -88,7 +88,7 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
             )
         )
         always_on_gate = AsyncModelAdmissionGate(always_on_config)
-        always_on_supervisor = AlwaysOnModelSupervisor(
+        always_on_supervisor = ProductionAlwaysOnModelSupervisor(
             config=always_on_config,
             bindings=config.model_endpoints,
             gate=always_on_gate,

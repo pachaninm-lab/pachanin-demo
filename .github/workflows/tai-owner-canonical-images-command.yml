@@ -1,0 +1,121 @@
+name: TAI Owner Canonical Images Command
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-canonical-images-command.yml"
+      - "scripts/check-tai-owner-canonical-images-command.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-owner-canonical-images-command-20260806.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-canonical-images-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  authority:
+    name: Dispatch exact-main canonical images
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai images current-main'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        if: github.event_name == 'pull_request'
+        with:
+          node-version: 22
+      - name: Validate owner canonical-image command contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-tai-owner-canonical-images-command.mjs
+      - name: Enforce owner authority and dispatch exact current main
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+
+          status_json="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status")"
+          deployment_state="$(jq -r '[.statuses[] | select(.context == "TAI REG.RU Deployment")][0].state // ""' <<<"$status_json")"
+          canonical_state="$(jq -r '[.statuses[] | select(.context == "TAI Canonical Images")][0].state // ""' <<<"$status_json")"
+
+          if [[ "$deployment_state" == success || "$canonical_state" == success ]]; then
+            echo 'Exact-main release already has terminal successful authority; manual dispatch skipped.'
+            exit 0
+          fi
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/docker-publish.yml/runs?event=workflow_dispatch&branch=main&per_page=30" \
+            > "$RUNNER_TEMP/canonical-runs.json"
+          active_run_id="$(jq -r --arg sha "$target_sha" '
+            [.workflow_runs[]
+              | select(
+                  .head_sha == $sha
+                  and .head_branch == "main"
+                  and .event == "workflow_dispatch"
+                  and (.status == "queued" or .status == "in_progress" or .status == "requested" or .status == "waiting" or .status == "pending")
+                )
+              | .id][0] // empty
+          ' "$RUNNER_TEMP/canonical-runs.json")"
+          if [[ "$active_run_id" =~ ^[0-9]+$ ]]; then
+            echo "Exact-main canonical build run ${active_run_id} is still active; duplicate manual dispatch skipped."
+            exit 0
+          fi
+
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/docker-publish.yml/dispatches" \
+            -f ref='main' \
+            -f 'inputs[services]=all'
+
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${target_sha}" \
+            -f state='pending' \
+            -f context='TAI Canonical Images' \
+            -f description='Canonical exact-main image build dispatched manually' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/docker-publish.yml"
+
+          cat > "$RUNNER_TEMP/comment.md" <<EOF
+          ## TAI canonical image authority
+
+          - exact main: \`$target_sha\`
+          - trigger: \`manual-owner-command\`
+          - canonical services: \`api, web, migration, tai\`
+          - build workflow: \`Build & Publish Canonical Docker Images\`
+          - dispatch: \`ACCEPTED\`
+          - production mutation: \`NONE\`
+          - next release stage: \`TAI Automatic REG.RU Preflight\`
+          EOF
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"

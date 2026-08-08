@@ -13,7 +13,7 @@ describe('P0 first-customer completion boundaries', () => {
     const bff = read('apps/web/app/api/auth/organization-invitations/route.ts');
     const client = read('apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx');
     expect(api).toContain('token_hash');
-    expect(api).toContain("makeOpaqueToken('iv')");
+    expect(api).toContain('issueInvitationCredential()');
     expect(api).toContain('!result.replayed && deliveryAuthorized(deliveryKey)');
     expect(bff).toContain('ORGANIZATION_INVITATION_DELIVERY_KEY');
     expect(bff).toContain('deliverOrganizationInvitation');
@@ -34,7 +34,7 @@ describe('P0 first-customer completion boundaries', () => {
     const api = read('apps/api/src/modules/auth/auth.service.ts');
     const route = read('apps/web/app/api/auth/membership-select/route.ts');
     const login = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
-    expect(api).toContain("makeOpaqueToken('ms')");
+    expect(api).toContain('issueMembershipSelectionCredential()');
     expect(api).toContain('consumeMembershipSelectionChallenge');
     expect(api).toContain('findIdentityByUserAndMembership');
     expect(route).toContain('MEMBERSHIP_SELECTION_COOKIE');
@@ -58,9 +58,13 @@ describe('P0 first-customer completion boundaries', () => {
 
   it('keeps team commands tenant-scoped, MFA-gated, optimistic and auditable', () => {
     const invitations = read('apps/api/src/modules/auth/organization-invitation.service.ts');
+    const teamAuthority = read('apps/api/prisma/migrations/20260808130000_p0_organization_team_authority/migration.sql');
+    const commandAuthority = read('apps/api/prisma/migrations/20260808150000_p0_invitation_recovery_authority/migration.sql');
     const decisions = read('apps/api/src/modules/auth/registration-decision.service.ts');
-    expect(invitations).toContain('FRESH_MFA_REQUIRED');
-    expect(invitations).toContain('membership.version =');
+    expect(invitations).toContain('FROM auth.resolve_organization_admin_session(');
+    expect(teamAuthority).toContain("session.mfa_verified_at >= now() - interval '15 minutes'");
+    expect(invitations).toContain('FROM auth.change_organization_membership_role(');
+    expect(commandAuthority).toContain('membership."version" = p_expected_version');
     expect(invitations).toContain('organization_membership_command_events');
     expect(decisions).toContain('SELF_APPROVAL_FORBIDDEN');
     expect(decisions).toContain('application.organization_id !== administrator.organizationId');
@@ -85,15 +89,16 @@ describe('P0 first-customer completion boundaries', () => {
   it('uses controlled subject-confirmed MFA recovery instead of an administrator-side reset', () => {
     const api = read('apps/api/src/modules/auth/organization-invitation.service.ts');
     const migration = read('apps/api/prisma/migrations/20260801133000_p0_mfa_recovery/migration.sql');
+    const recoveryAuthority = read('apps/api/prisma/migrations/20260808150000_p0_invitation_recovery_authority/migration.sql');
     const initiate = read('apps/web/app/api/auth/organization-memberships/[membershipId]/mfa-recovery/route.ts');
     const confirm = read('apps/web/app/api/auth/mfa-recovery/confirm/route.ts');
     const client = read('apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx');
     const publicClient = read('apps/web/app/platform-v7/mfa-recovery/MfaRecoveryClient.tsx');
     const genericProxy = read('apps/web/app/api/proxy/[...path]/route.ts');
-    expect(api).toContain("makeOpaqueToken('mr')");
+    expect(api).toContain('issueMfaRecoveryCredential()');
     expect(api).toContain('MFA_RECOVERY_PLATFORM_REVIEW_REQUIRED');
-    expect(api).toContain("SET status = 'CONSUMED'");
-    expect(api).toContain("mfa_secret_ciphertext = NULL");
+    expect(recoveryAuthority).toContain("SET status = 'CONSUMED'");
+    expect(recoveryAuthority).toContain('mfa_secret_ciphertext = NULL');
     expect(api).toContain("revokeAllUserSessions(tx, challenge.user_id, 'CONTROLLED_MFA_RECOVERY')");
     expect(migration).toContain('mfa_recovery_one_pending_user_idx');
     expect(migration).toContain('mfa_recovery_events_append_only');

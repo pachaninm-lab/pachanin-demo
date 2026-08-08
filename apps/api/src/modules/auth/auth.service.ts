@@ -5,7 +5,6 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
@@ -39,6 +38,7 @@ import {
   resolvePresentedCredential,
 } from './opaque-token-authority';
 import {
+  AccountAuthorityContext,
   AuthSqlClient,
   CredentialStateRow,
   IdentityRow,
@@ -102,25 +102,25 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
 
+    // The only authority available before password proof is the three-field
+    // credential projection. Membership, organization, tenant, role and MFA
+    // state are deliberately unavailable here.
+    const loginCredential = await this.repository.findLoginCredentialByEmail(
+      this.repository.prisma,
+      email,
+    );
+    const validPassword = await bcrypt.compare(
+      dto.password,
+      loginCredential?.password_hash ?? DUMMY_PASSWORD_HASH,
+    );
+
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
       const throttle = await this.repository.getLoginThrottle(tx, accountHash, true);
-      // The user row must remain locked from password verification through session
-      // creation. Otherwise a concurrent password reset can commit a new hash and
-      // session revocation between the compare and this transaction, allowing the
-      // old password to create a fresh session after the reset.
-      const identity = await this.repository.findIdentityByEmail(tx, email, true);
-      const validPassword = await bcrypt.compare(
-        dto.password,
-        identity?.password_hash ?? DUMMY_PASSWORD_HASH,
-      );
       const now = new Date();
       if (throttle?.locked_until && throttle.locked_until > now) {
         await this.audit(tx, {
-          userId: identity?.user_id,
-          membershipId: identity?.membership_id,
-          organizationId: identity?.organization_id,
-          tenantId: identity?.tenant_id,
+          userId: loginCredential?.user_id,
           action: 'auth.login',
           outcome: 'DENIED',
           reason: 'ACCOUNT_TEMPORARILY_LOCKED',
@@ -129,17 +129,14 @@ export class AuthService {
         return { kind: 'locked' as const, lockedUntil: throttle.locked_until };
       }
 
-      if (!identity || !validPassword) {
+      if (!loginCredential || !validPassword) {
         const failures = (throttle?.failures ?? 0) + 1;
         const lockedUntil = failures >= MAX_FAILED_LOGINS
           ? new Date(Date.now() + LOGIN_LOCKOUT_MS)
           : null;
         await this.repository.setLoginThrottle(tx, accountHash, lockedUntil ? 0 : failures, lockedUntil);
         await this.audit(tx, {
-          userId: identity?.user_id,
-          membershipId: identity?.membership_id,
-          organizationId: identity?.organization_id,
-          tenantId: identity?.tenant_id,
+          userId: loginCredential?.user_id,
           action: 'auth.login',
           outcome: 'FAILURE',
           reason: 'INVALID_CREDENTIALS',
@@ -148,40 +145,62 @@ export class AuthService {
         return { kind: 'invalid' as const };
       }
 
-      const memberships = await this.repository.findIdentitiesByUser(tx, identity.user_id);
+      // Re-read the credential in the serializable transaction. A password
+      // reset between bcrypt and this point invalidates the proof before any
+      // membership authority or session can be created.
+      const currentLoginCredential = await this.repository.findLoginCredentialByEmail(tx, email);
+      if (
+        !currentLoginCredential
+        || currentLoginCredential.user_id !== loginCredential.user_id
+        || !secureEqual(currentLoginCredential.password_hash, loginCredential.password_hash)
+      ) {
+        await this.audit(tx, {
+          userId: loginCredential.user_id,
+          action: 'auth.login',
+          outcome: 'DENIED',
+          reason: 'CREDENTIAL_CHANGED_DURING_LOGIN',
+          metadata: this.clientMetadata(userAgent, ip, { accountHash }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      // All membership and tenant projections begin only after password proof.
+      const memberships = await this.repository.findIdentitiesByUser(
+        tx,
+        currentLoginCredential.user_id,
+      );
       const usableMemberships = memberships.filter((membership) => this.identityUsable(membership));
       if (usableMemberships.length === 0) {
-        const reason = this.identityInvalidReason(identity) ?? 'NO_ACTIVE_MEMBERSHIP';
+        const reason = memberships[0]
+          ? this.identityInvalidReason(memberships[0]) ?? 'NO_ACTIVE_MEMBERSHIP'
+          : 'NO_ACTIVE_MEMBERSHIP';
         await this.audit(tx, {
-          userId: identity.user_id,
-          membershipId: identity.membership_id,
-          organizationId: identity.organization_id,
-          tenantId: identity.tenant_id,
+          userId: currentLoginCredential.user_id,
           action: 'auth.login',
           outcome: 'DENIED',
           reason,
           metadata: this.clientMetadata(userAgent, ip, { accountHash }),
         });
-        return { kind: 'invalid' as const };
+        return { kind: 'no_context' as const, reason };
       }
       const selectedIdentity = usableMemberships[0];
-      await this.repository.ensureCredentialState(tx, identity.user_id);
-      const credential = await this.requireCredentialState(tx, identity.user_id, true);
+      await this.repository.ensureCredentialState(tx, currentLoginCredential.user_id);
+      const credential = await this.requireCredentialState(tx, currentLoginCredential.user_id, true);
       await this.repository.clearLoginThrottle(tx, accountHash);
-      await this.repository.markLoginSuccess(tx, identity.user_id);
+      await this.repository.markLoginSuccess(tx, currentLoginCredential.user_id);
 
       if (usableMemberships.length > 1) {
         const issuedSelection = issueMembershipSelectionCredential();
         const expiresAt = new Date(Date.now() + MEMBERSHIP_SELECTION_TTL_MS);
         await this.repository.createMembershipSelectionChallenge(tx, {
           id: issuedSelection.credentialId,
-          userId: identity.user_id,
+          userId: currentLoginCredential.user_id,
           tokenHash: issuedSelection.storedDigest,
           credentialVersion: credential.credential_version,
           expiresAt,
         });
         await this.audit(tx, {
-          userId: identity.user_id,
+          userId: currentLoginCredential.user_id,
           action: 'auth.login.membership_selection_required',
           outcome: 'SUCCESS',
           metadata: this.clientMetadata(userAgent, ip, { membershipCount: usableMemberships.length }),
@@ -208,6 +227,7 @@ export class AuthService {
       throw new UnauthorizedException(`Account temporarily locked. Try again in ${retryAfterSec}s.`);
     }
     if (result.kind === 'invalid') throw new UnauthorizedException('Invalid credentials');
+    if (result.kind === 'no_context') throw new ForbiddenException(result.reason);
     if (result.kind === 'membership') {
       return {
         membershipSelectionRequired: true,
@@ -242,7 +262,6 @@ export class AuthService {
       if (
         challenge.status !== 'PENDING'
         || challenge.expires_at <= new Date()
-        || challenge.user_status !== 'ACTIVE'
         || challenge.credential_version !== challenge.current_credential_version
       ) {
         await this.repository.recordMembershipSelectionFailure(tx, challenge.id, true);
@@ -781,79 +800,73 @@ export class AuthService {
     }
   }
 
-  async getUserData(requestingUserId: string) {
-    const user = await this.repository.prisma.user.findUnique({
-      where: { id: requestingUserId },
-      include: { orgs: { include: { organization: true } } },
-    });
-    if (!user) throw new NotFoundException('User not found');
-    if (user.deletedAt) throw new ForbiddenException('Account has been anonymized');
-    const credential = await this.repository.getCredentialState(this.repository.prisma, user.id);
+  async getUserData(requestingUser: RequestUser) {
+    const context = this.accountAuthorityContext(requestingUser);
+    const account = await this.repository.accountDataExport(this.repository.prisma, context);
+    if (!account) throw new NotFoundException('Account export is unavailable');
     return {
       exportedAt: new Date().toISOString(),
       exportVersion: '2.0',
       subject: '152-ФЗ Data Portability Export',
       profile: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        phone: user.phone,
-        createdAt: user.createdAt.toISOString(),
+        id: account.user_id,
+        email: account.email,
+        fullName: account.full_name,
+        phone: account.phone,
+        createdAt: new Date(account.created_at).toISOString(),
       },
-      memberships: user.orgs.map((membership) => ({
-        membershipId: membership.id,
+      memberships: account.membership_data.map((membership) => ({
+        membershipId: membership.membershipId,
         role: membership.role,
         organizationId: membership.organizationId,
-        organizationName: membership.organization.name,
-        tenantId: membership.organization.tenantId,
-        organizationStatus: membership.organization.status,
+        organizationName: membership.organizationName,
+        tenantId: membership.tenantId,
+        organizationStatus: membership.organizationStatus,
       })),
       consent: {
-        version: credential?.consent_version ?? null,
-        recordedAt: credential?.consent_at?.toISOString() ?? null,
+        version: account.consent_version,
+        recordedAt: account.consent_at ? new Date(account.consent_at).toISOString() : null,
         currentPolicyVersion: CURRENT_CONSENT_VERSION,
       },
       security: {
-        mfaEnabled: credential?.mfa_enabled ?? false,
-        credentialVersion: credential?.credential_version ?? 1,
+        mfaEnabled: account.mfa_enabled,
+        credentialVersion: account.credential_version,
       },
     };
   }
 
-  async anonymizeUser(requestingUserId: string) {
+  async anonymizeUser(requestingUser: RequestUser) {
+    const context = this.accountAuthorityContext(requestingUser);
     return this.repository.transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: requestingUserId } });
-      if (!user) throw new NotFoundException('User not found');
-      if (user.deletedAt) throw new ConflictException('Account already anonymized');
-      const anonymizedAt = new Date();
-      await this.repository.revokeAllUserSessions(tx, user.id, 'ACCOUNT_ANONYMIZED');
-      await tx.user.update({
-        where: { id: user.id },
-        data: {
-          email: `anon-${user.id}@deleted.invalid`,
-          fullName: 'Anonymized User',
-          phone: null,
-          passwordHash: '',
-          status: 'BLOCKED',
-          deletedAt: anonymizedAt,
-        },
-      });
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE auth.credential_states
-        SET credential_version = credential_version + 1,
-            mfa_secret_ciphertext = NULL,
-            mfa_backup_hashes = NULL,
-            updated_at = NOW()
-        WHERE user_id = ${user.id}
-      `);
+      const result = await this.repository.anonymizeAccountIdentity(tx, context);
+      if (!result?.applied || !result.anonymized_at) {
+        throw new ConflictException('Account is already anonymized or the session is no longer active');
+      }
       await this.audit(tx, {
-        userId: user.id,
+        userId: context.userId,
+        sessionId: context.sessionId,
+        membershipId: context.membershipId,
+        organizationId: context.organizationId,
+        tenantId: context.tenantId,
         action: 'auth.account.anonymize',
         outcome: 'SUCCESS',
         reason: 'USER_REQUEST',
       });
-      return { success: true, anonymizedAt: anonymizedAt.toISOString() };
+      return { success: true, anonymizedAt: new Date(result.anonymized_at).toISOString() };
     });
+  }
+
+  private accountAuthorityContext(user: RequestUser): AccountAuthorityContext {
+    if (!user.id || !user.sessionId || !user.membershipId || !user.orgId || !user.tenantId) {
+      throw new UnauthorizedException('Authenticated account context is incomplete');
+    }
+    return {
+      userId: user.id,
+      sessionId: user.sessionId,
+      membershipId: user.membershipId,
+      organizationId: user.orgId,
+      tenantId: user.tenantId,
+    };
   }
 
   sberBusinessStart(query: Record<string, string | undefined>) {
@@ -940,7 +953,10 @@ export class AuthService {
         expiresAt: challengeExpiresAt.toISOString(),
         setupSecret,
         otpAuthUri: setupSecret ? buildOtpAuthUri(identity.email, setupSecret) : undefined,
-        user: this.userProjection(identity, false),
+        // A pending-MFA response never discloses organization, tenant or
+        // membership authority. The complete projection is returned only
+        // after successful challenge verification.
+        user: { email: identity.email, role: this.role(identity.role) },
       };
     }
 

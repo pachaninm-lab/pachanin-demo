@@ -71,6 +71,10 @@ function totp(secret: string, unixMs = Date.now()): string {
 describe('persistent PostgreSQL identity, session rotation, revocation and MFA', () => {
   const first = runtime();
   const second = runtime();
+  const fixturePrisma = process.env.ONE_DEAL_ADMIN_URL
+    ? new PrismaClient({ datasources: { db: { url: process.env.ONE_DEAL_ADMIN_URL } } })
+    : first.prisma;
+  const ownsFixturePrisma = fixturePrisma !== first.prisma;
 
   beforeAll(async () => {
     await Promise.all([
@@ -78,6 +82,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       second.prisma.$connect(),
       first.authPrisma.$connect(),
       second.authPrisma.$connect(),
+      ownsFixturePrisma ? fixturePrisma.$connect() : Promise.resolve(),
     ]);
   });
 
@@ -87,6 +92,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       second.prisma.$disconnect(),
       first.authPrisma.$disconnect(),
       second.authPrisma.$disconnect(),
+      ownsFixturePrisma ? fixturePrisma.$disconnect() : Promise.resolve(),
     ]);
   });
 
@@ -99,7 +105,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     const organizationId = `auth-org-${key}`;
     const tenantId = `auth-tenant-${key}`;
     const email = `${key}@auth.test`;
-    const organization = await first.prisma.organization.upsert({
+    const organization = await fixturePrisma.organization.upsert({
       where: { id: organizationId },
       update: {
         status: options.organizationStatus ?? 'VERIFIED',
@@ -118,7 +124,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         verifiedAt: new Date(),
       },
     });
-    const user = await first.prisma.user.upsert({
+    const user = await fixturePrisma.user.upsert({
       where: { id: userId },
       update: {
         email,
@@ -137,7 +143,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         mfaEnabled: options.mfaEnabled ?? false,
       },
     });
-    const membership = await first.prisma.userOrg.upsert({
+    const membership = await fixturePrisma.userOrg.upsert({
       where: {
         userId_organizationId: {
           userId,
@@ -258,6 +264,154 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     ).rejects.toThrow(/temporarily locked/i);
   });
 
+  it('never invokes the PostgreSQL membership projection for a bad password', async () => {
+    const identity = await seedIdentity(`bad-password-boundary-${randomUUID()}`, Role.BUYER);
+    const membershipLookup = jest.spyOn(first.repository, 'findIdentitiesByUser');
+    try {
+      await expect(first.auth.login({
+        email: identity.email,
+        password: 'Definitely-Wrong-Password-7!',
+      })).rejects.toThrow(/invalid credentials/i);
+      expect(membershipLookup).not.toHaveBeenCalled();
+      const [{ count }] = await first.prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM auth.sessions
+        WHERE user_id = ${identity.userId}
+      `;
+      expect(Number(count)).toBe(0);
+    } finally {
+      membershipLookup.mockRestore();
+    }
+  });
+
+  it('rechecks the credential in-transaction and rejects a password-change race', async () => {
+    const identity = await seedIdentity(`password-race-${randomUUID()}`, Role.BUYER);
+    const replacementHash = await bcrypt.hash('Replacement-Password-8!', 10);
+    const originalLookup = first.repository.findLoginCredentialByEmail.bind(first.repository);
+    const credentialLookup = jest.spyOn(first.repository, 'findLoginCredentialByEmail');
+    const membershipLookup = jest.spyOn(first.repository, 'findIdentitiesByUser');
+    credentialLookup.mockImplementationOnce(async (client, email) => {
+      const initial = await originalLookup(client, email);
+      await fixturePrisma.user.update({
+        where: { id: identity.userId },
+        data: { passwordHash: replacementHash },
+      });
+      return initial;
+    });
+
+    try {
+      await expect(first.auth.login({
+        email: identity.email,
+        password: PASSWORD,
+      })).rejects.toThrow(/invalid credentials/i);
+      expect(credentialLookup).toHaveBeenCalledTimes(2);
+      expect(membershipLookup).not.toHaveBeenCalled();
+      const [{ count }] = await first.prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM auth.sessions
+        WHERE user_id = ${identity.userId}
+      `;
+      expect(Number(count)).toBe(0);
+    } finally {
+      credentialLookup.mockRestore();
+      membershipLookup.mockRestore();
+    }
+  });
+
+  it('requires one-time server-side membership selection before MFA or session minting', async () => {
+    const key = `multi-membership-${randomUUID()}`;
+    const identity = await seedIdentity(key, Role.BUYER);
+    const secondOrganizationId = `auth-org-${key}-second`;
+    const secondTenantId = `auth-tenant-${key}-second`;
+    const secondOrganization = await fixturePrisma.organization.create({
+      data: {
+        id: secondOrganizationId,
+        inn: `78${String(Math.abs(hashCode(`${key}-second`))).padStart(10, '0').slice(0, 10)}`,
+        name: 'Auth Multi Membership Second',
+        status: 'VERIFIED',
+        tenantId: secondTenantId,
+        kycStatus: 'APPROVED',
+        amlStatus: 'CLEAR',
+        verifiedAt: new Date(),
+      },
+    });
+    const secondMembership = await fixturePrisma.userOrg.create({
+      data: {
+        userId: identity.userId,
+        organizationId: secondOrganization.id,
+        role: Role.FARMER,
+        status: 'ACTIVE',
+        isDefault: false,
+      },
+    });
+
+    const order: string[] = [];
+    const originalCredentialLookup = first.repository.findLoginCredentialByEmail.bind(first.repository);
+    const originalMembershipLookup = first.repository.findIdentitiesByUser.bind(first.repository);
+    const credentialLookup = jest.spyOn(first.repository, 'findLoginCredentialByEmail')
+      .mockImplementation(async (client, email) => {
+        order.push('credential');
+        return originalCredentialLookup(client, email);
+      });
+    const membershipLookup = jest.spyOn(first.repository, 'findIdentitiesByUser')
+      .mockImplementation(async (client, userId) => {
+        order.push('memberships');
+        return originalMembershipLookup(client, userId);
+      });
+
+    try {
+      const selection = await first.auth.login({
+        email: identity.email,
+        password: PASSWORD,
+      }) as any;
+      expect(order).toEqual(['credential', 'credential', 'memberships']);
+      expect(selection).toMatchObject({
+        membershipSelectionRequired: true,
+        memberships: expect.arrayContaining([
+          expect.objectContaining({ membershipId: identity.membership.id }),
+          expect.objectContaining({ membershipId: secondMembership.id }),
+        ]),
+      });
+      expect(selection.challengeToken).toMatch(/^ms_/);
+
+      const [beforeSelection] = await first.prisma.$queryRaw<Array<{
+        sessions: bigint; mfa_challenges: bigint; selection_challenges: bigint;
+      }>>`
+        SELECT
+          (SELECT COUNT(*) FROM auth.sessions WHERE user_id = ${identity.userId})::bigint AS sessions,
+          (SELECT COUNT(*) FROM auth.mfa_challenges WHERE user_id = ${identity.userId})::bigint AS mfa_challenges,
+          (SELECT COUNT(*) FROM auth.membership_selection_challenges
+            WHERE user_id = ${identity.userId} AND status = 'PENDING')::bigint AS selection_challenges
+      `;
+      expect({
+        sessions: Number(beforeSelection.sessions),
+        mfaChallenges: Number(beforeSelection.mfa_challenges),
+        selectionChallenges: Number(beforeSelection.selection_challenges),
+      }).toEqual({ sessions: 0, mfaChallenges: 0, selectionChallenges: 1 });
+
+      const active = await second.auth.selectMembership({
+        challengeToken: selection.challengeToken,
+        membershipId: secondMembership.id,
+      }) as any;
+      expect(active).toMatchObject({
+        mfaRequired: false,
+        user: {
+          membershipId: secondMembership.id,
+          orgId: secondOrganization.id,
+          tenantId: secondTenantId,
+          role: Role.FARMER,
+        },
+      });
+      await expect(second.auth.selectMembership({
+        challengeToken: selection.challengeToken,
+        membershipId: identity.membership.id,
+      })).rejects.toThrow(/invalid|expired/i);
+    } finally {
+      credentialLookup.mockRestore();
+      membershipLookup.mockRestore();
+    }
+  });
+
   it('requires TOTP before activating a privileged compliance session', async () => {
     const identity = await seedIdentity('compliance', Role.COMPLIANCE_OFFICER);
     const pending = await first.auth.login({ email: identity.email, password: PASSWORD }) as any;
@@ -316,7 +470,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
 
     const membershipIdentity = await seedIdentity('membership-change', Role.BUYER);
     const membershipLogin = await first.auth.login({ email: membershipIdentity.email, password: PASSWORD }) as any;
-    const replacementOrganization = await first.prisma.organization.upsert({
+    const replacementOrganization = await fixturePrisma.organization.upsert({
       where: { id: 'auth-org-membership-replacement' },
       update: {
         status: 'VERIFIED',
@@ -333,7 +487,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         verifiedAt: new Date(),
       },
     });
-    await first.prisma.userOrg.update({
+    await fixturePrisma.userOrg.update({
       where: { id: membershipIdentity.membership.id },
       data: { organizationId: replacementOrganization.id },
     });
@@ -349,7 +503,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     expect(membershipSessions).toEqual([
       expect.objectContaining({ status: 'REVOKED', revocation_reason: 'MEMBERSHIP_CHANGED' }),
     ]);
-    await first.prisma.userOrg.update({
+    await fixturePrisma.userOrg.update({
       where: { id: membershipIdentity.membership.id },
       data: { organizationId: membershipIdentity.organizationId },
     });
@@ -357,7 +511,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
 
     const suspendedIdentity = await seedIdentity('suspended-org', Role.ELEVATOR);
     const suspendedLogin = await first.auth.login({ email: suspendedIdentity.email, password: PASSWORD }) as any;
-    await first.prisma.organization.update({
+    await fixturePrisma.organization.update({
       where: { id: suspendedIdentity.organizationId },
       data: { status: 'SUSPENDED' },
     });
@@ -366,13 +520,13 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
 
   it('denies non-active membership at login, refresh and access resolution', async () => {
     const pendingIdentity = await seedIdentity('pending-membership', Role.BUYER);
-    await first.prisma.userOrg.update({
+    await fixturePrisma.userOrg.update({
       where: { id: pendingIdentity.membership.id },
       data: { status: 'PENDING' },
     });
     await expect(
       first.auth.login({ email: pendingIdentity.email, password: PASSWORD }),
-    ).rejects.toThrow(/Invalid credentials/i);
+    ).rejects.toThrow(/MEMBERSHIP_NOT_ACTIVE/i);
     const [pendingSessionCount] = await first.prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count
       FROM auth.sessions
@@ -385,7 +539,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       email: refreshIdentity.email,
       password: PASSWORD,
     }) as any;
-    await first.prisma.userOrg.update({
+    await fixturePrisma.userOrg.update({
       where: { id: refreshIdentity.membership.id },
       data: { status: 'SUSPENDED' },
     });
@@ -409,7 +563,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       email: accessIdentity.email,
       password: PASSWORD,
     }) as any;
-    await first.prisma.userOrg.update({
+    await fixturePrisma.userOrg.update({
       where: { id: accessIdentity.membership.id },
       data: { status: 'REVOKED', revokedAt: new Date() },
     });
@@ -611,7 +765,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       status: 'EMAIL_VERIFICATION_REQUIRED', user_id: before.user_id,
       organization_id: before.organization_id, membership_id: before.membership_id,
     });
-    const [{ users, organizations, memberships, expiry_events: expiryEvents }] = await first.prisma.$queryRaw<Array<{
+    const [{ users, organizations, memberships, expiry_events: expiryEvents }] = await fixturePrisma.$queryRaw<Array<{
       users: bigint; organizations: bigint; memberships: bigint; expiry_events: bigint;
     }>>`
       SELECT

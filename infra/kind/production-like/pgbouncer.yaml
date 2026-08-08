@@ -120,6 +120,7 @@ spec:
               printf '"postgres" "%s"\n' "$POSTGRES_PASSWORD" > /generated/userlist.txt
               printf '"app_runtime" "%s"\n' "$APP_DB_PASSWORD" >> /generated/userlist.txt
               printf '"app_auth" "%s"\n' "$AUTH_DB_PASSWORD" >> /generated/userlist.txt
+              printf '"app_staff" "%s"\n' "$STAFF_DB_PASSWORD" >> /generated/userlist.txt
               printf '"app_storage" "%s"\n' "$STORAGE_DB_PASSWORD" >> /generated/userlist.txt
               printf '"app_outbox" "%s"\n' "$OUTBOX_DB_PASSWORD" >> /generated/userlist.txt
           resources:

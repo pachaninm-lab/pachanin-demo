@@ -63,6 +63,7 @@ export class RegistrationDecisionService {
   async listPlatformReviewQueue(reviewer: RequestUser) {
     this.requireFreshMfa(reviewer);
     this.requirePlatformReviewer(reviewer);
+    const sessionId = this.requireActorSession(reviewer);
     const applications = await this.prisma.$queryRaw<Array<{
       id: string;
       kind: string;
@@ -93,38 +94,8 @@ export class RegistrationDecisionService {
       duplicate_organization_count: number;
       duplicate_email_application_count: number;
     }>>(Prisma.sql`
-      SELECT
-        application.id, application.kind, application.status,
-        application.requested_workspace, application.requested_role,
-        application.legal_name, application.inn, application.kpp, application.ogrn,
-        application.region, application.applicant_position, application.email, application.phone,
-        application.submitted_at, application.updated_at, application.version, application.correlation_id,
-        organization.id AS organization_id, organization.status AS organization_status,
-        organization.name AS organization_name,
-        organization."kycStatus" AS organization_kyc_status,
-        organization."amlStatus" AS organization_aml_status,
-        organization."sanctionHit" AS organization_sanction_hit,
-        applicant.id AS user_id, applicant."fullName" AS applicant_name,
-        application.email_verified_at,
-        (
-          SELECT COUNT(*)::int
-          FROM public.organizations duplicate_organization
-          WHERE duplicate_organization.inn = application.inn
-            AND duplicate_organization.id <> application.organization_id
-        ) AS duplicate_organization_count,
-        (
-          SELECT COUNT(*)::int
-          FROM auth.registration_applications duplicate_application
-          WHERE LOWER(duplicate_application.email) = LOWER(application.email)
-            AND duplicate_application.id <> application.id
-        ) AS duplicate_email_application_count
-      FROM auth.registration_applications application
-      JOIN public.organizations organization ON organization.id = application.organization_id
-      JOIN public.users applicant ON applicant.id = application.user_id
-      WHERE application.kind = 'NEW_ORGANIZATION'
-        AND application.status IN ('ORGANIZATION_VERIFICATION_PENDING', 'ADDITIONAL_INFORMATION_REQUIRED', 'SUSPENDED')
-      ORDER BY application.submitted_at ASC, application.id ASC
-      LIMIT 100
+      SELECT *
+      FROM auth.registration_platform_review_queue(${reviewer.id}, ${sessionId}, 100)
     `);
     if (applications.length === 0) return { applications: [] };
     const events = await this.prisma.$queryRaw<Array<{
@@ -161,6 +132,7 @@ export class RegistrationDecisionService {
 
   async listOrganizationJoinRequests(reviewer: RequestUser) {
     const administrator = await this.requireOrganizationAdmin(reviewer);
+    const sessionId = this.requireActorSession(reviewer);
     const applications = await this.prisma.$queryRaw<Array<{
       id: string;
       status: string;
@@ -176,20 +148,11 @@ export class RegistrationDecisionService {
       user_id: string;
       applicant_name: string;
     }>>(Prisma.sql`
-      SELECT
-        application.id, application.status, application.requested_workspace, application.requested_role,
-        application.applicant_position, application.email, application.phone,
-        application.submitted_at, application.updated_at, application.version, application.correlation_id,
-        applicant.id AS user_id, applicant."fullName" AS applicant_name
-      FROM auth.registration_applications application
-      JOIN public.users applicant ON applicant.id = application.user_id
-      JOIN public.organizations organization ON organization.id = application.organization_id
-      WHERE application.kind = 'JOIN_EXISTING_ORGANIZATION'
-        AND application.organization_id = ${administrator.organizationId}
-        AND organization."tenantId" = ${administrator.tenantId}
-        AND application.status IN ('ORGANIZATION_VERIFICATION_PENDING', 'ADDITIONAL_INFORMATION_REQUIRED')
-      ORDER BY application.submitted_at ASC, application.id ASC
-      LIMIT 100
+      SELECT *
+      FROM auth.registration_organization_join_queue(
+        ${reviewer.id}, ${sessionId}, ${administrator.membershipId},
+        ${administrator.organizationId}, ${administrator.tenantId}, 100
+      )
     `);
     return {
       organizationId: administrator.organizationId,
@@ -223,17 +186,15 @@ export class RegistrationDecisionService {
     deliveryKey?: string,
   ) {
     const { reason, idempotencyKey } = this.validateDecisionInput(reasonInput, idempotencyKeyInput);
-    const administrator = await this.requireOrganizationAdmin(reviewer);
     return this.prisma.$transaction(async (tx) => {
+      const administrator = await this.requireOrganizationAdmin(reviewer, tx);
       const eventKey = `org-join-decision:${idempotencyKey}`;
       const existing = await tx.$queryRaw<Array<{ application_id: string; new_status: string }>>(Prisma.sql`
         SELECT event.application_id, event.new_status
         FROM auth.registration_application_events event
         JOIN auth.registration_applications application ON application.id = event.application_id
-        JOIN public.organizations organization ON organization.id = application.organization_id
         WHERE event.idempotency_key = ${eventKey}
           AND application.organization_id = ${administrator.organizationId}
-          AND organization."tenantId" = ${administrator.tenantId}
         LIMIT 1
       `);
       if (existing[0]) {
@@ -243,7 +204,13 @@ export class RegistrationDecisionService {
         return this.readResult(tx, applicationId, deliveryKey);
       }
 
-      const application = await this.lockApplication(tx, applicationId);
+      const application = await this.lockApplication(
+        tx,
+        applicationId,
+        reviewer,
+        'ORGANIZATION_ADMIN',
+        administrator,
+      );
       if (
         application.kind !== 'JOIN_EXISTING_ORGANIZATION'
         || application.organization_id !== administrator.organizationId
@@ -263,7 +230,17 @@ export class RegistrationDecisionService {
       }
 
       if (decision === 'APPROVE') {
-        await this.approve(tx, application, reviewer, reason, idempotencyKey, correlationId, 'ORGANIZATION_ADMIN', eventKey);
+        await this.approve(
+          tx,
+          application,
+          reviewer,
+          reason,
+          idempotencyKey,
+          correlationId,
+          'ORGANIZATION_ADMIN',
+          eventKey,
+          administrator,
+        );
       } else {
         await this.nonApprovalDecision(
           tx,
@@ -274,6 +251,7 @@ export class RegistrationDecisionService {
           eventKey,
           correlationId,
           'ORGANIZATION_ADMIN',
+          administrator,
         );
       }
       await this.audit(tx, {
@@ -304,6 +282,7 @@ export class RegistrationDecisionService {
     this.requirePlatformReviewer(reviewer);
 
     return this.prisma.$transaction(async (tx) => {
+      await this.requirePlatformDecisionAuthority(reviewer, tx);
       const eventKey = `decision:${idempotencyKey}`;
       const existing = await tx.$queryRaw<Array<{ application_id: string }>>(Prisma.sql`
         SELECT application_id
@@ -318,7 +297,12 @@ export class RegistrationDecisionService {
         return this.readResult(tx, applicationId, deliveryKey);
       }
 
-      const application = await this.lockApplication(tx, applicationId);
+      const application = await this.lockApplication(
+        tx,
+        applicationId,
+        reviewer,
+        'PLATFORM_REVIEWER',
+      );
       if (application.kind !== 'NEW_ORGANIZATION') {
         // Existing-organization joins belong exclusively to the verified
         // administrator of that same tenant. A platform reviewer must not be
@@ -375,6 +359,7 @@ export class RegistrationDecisionService {
     correlationId: string,
     actorKind: DecisionActorKind,
     finalEventKey = `decision:${idempotencyKey}`,
+    administrator?: OrganizationAdmin,
   ) {
     const workspace = application.requested_workspace as PublicWorkspaceClass;
     if (
@@ -412,50 +397,14 @@ export class RegistrationDecisionService {
       throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
     }
 
-    if (application.kind === 'NEW_ORGANIZATION') {
-      const organizationUpdated = await tx.$executeRaw(Prisma.sql`
-        UPDATE public.organizations
-        SET status = 'VERIFIED',
-            "verifiedAt" = NOW(),
-            version = version + 1,
-            "updatedAt" = NOW()
-        WHERE id = ${application.organization_id}
-          AND status = 'PENDING'
-      `);
-      if (organizationUpdated !== 1) {
-        throw new ConflictException({ code: 'ORGANIZATION_ACTIVATION_CONFLICT' });
-      }
-    }
-
-    const allowedUserStatuses = application.kind === 'JOIN_EXISTING_ORGANIZATION' && actorKind === 'ORGANIZATION_ADMIN'
-      ? Prisma.sql`('PENDING_APPROVAL', 'ACTIVE')`
-      : Prisma.sql`('PENDING_APPROVAL', 'SUSPENDED', 'ACTIVE')`;
-    const userUpdated = await tx.$executeRaw(Prisma.sql`
-      UPDATE public.users
-      SET status = 'ACTIVE', "updatedAt" = NOW()
-      WHERE id = ${application.user_id}
-        AND status IN ${allowedUserStatuses}
-    `);
-    if (userUpdated !== 1) {
-      throw new ConflictException({ code: 'USER_ACTIVATION_CONFLICT' });
-    }
-
-    const membershipUpdated = await tx.$executeRaw(Prisma.sql`
-      UPDATE public.user_orgs
-      SET status = 'ACTIVE',
-          role = ${application.requested_role},
-          activated_at = NOW(),
-          revoked_at = NULL,
-          is_org_admin = ${application.kind === 'NEW_ORGANIZATION'},
-          version = version + 1
-      WHERE id = ${application.membership_id}
-        AND "userId" = ${application.user_id}
-        AND "organizationId" = ${application.organization_id}
-        AND status IN ('PENDING', 'SUSPENDED')
-    `);
-    if (membershipUpdated !== 1) {
-      throw new ConflictException({ code: 'MEMBERSHIP_ACTIVATION_CONFLICT' });
-    }
+    await this.applyIdentityTransition(
+      tx,
+      application,
+      reviewer,
+      actorKind,
+      'APPROVE',
+      administrator,
+    );
 
     await this.insertEvent(tx, {
       applicationId: application.id,
@@ -492,6 +441,7 @@ export class RegistrationDecisionService {
     eventKey: string,
     correlationId: string,
     actorKind: DecisionActorKind,
+    administrator?: OrganizationAdmin,
   ) {
     const targetStatus = decision === 'REJECT'
       ? 'REJECTED'
@@ -515,42 +465,17 @@ export class RegistrationDecisionService {
       throw new ConflictException({ code: 'REGISTRATION_VERSION_CONFLICT' });
     }
 
-    if (targetStatus === 'REJECTED') {
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE public.user_orgs
-        SET status = 'REVOKED', revoked_at = NOW(), version = version + 1
-        WHERE id = ${application.membership_id}
-      `);
-      if (application.kind === 'NEW_ORGANIZATION') {
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE public.users
-          SET status = 'REJECTED', "updatedAt" = NOW()
-          WHERE id = ${application.user_id}
-        `);
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE public.organizations
-          SET status = 'REJECTED', version = version + 1, "updatedAt" = NOW()
-          WHERE id = ${application.organization_id}
-          AND status = 'PENDING'
-        `);
-      } else {
-        await this.updateUserStatusWithoutActiveMembership(tx, application.user_id, 'REJECTED');
-      }
-    } else if (targetStatus === 'SUSPENDED') {
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE public.user_orgs
-        SET status = 'SUSPENDED', version = version + 1
-        WHERE id = ${application.membership_id}
-      `);
-      if (application.kind === 'NEW_ORGANIZATION') {
-        await tx.$executeRaw(Prisma.sql`
-          UPDATE public.users
-          SET status = 'SUSPENDED', "updatedAt" = NOW()
-          WHERE id = ${application.user_id}
-        `);
+    if (targetStatus === 'REJECTED' || targetStatus === 'SUSPENDED') {
+      await this.applyIdentityTransition(
+        tx,
+        application,
+        reviewer,
+        actorKind,
+        targetStatus === 'REJECTED' ? 'REJECT' : 'SUSPEND',
+        administrator,
+      );
+      if (targetStatus === 'SUSPENDED' && application.kind === 'NEW_ORGANIZATION') {
         await this.authRepository.revokeAllUserSessions(tx, application.user_id, 'REGISTRATION_SUSPENDED');
-      } else {
-        await this.updateUserStatusWithoutActiveMembership(tx, application.user_id, 'SUSPENDED');
       }
     }
 
@@ -597,77 +522,104 @@ export class RegistrationDecisionService {
     }
   }
 
-  private async requireOrganizationAdmin(reviewer: RequestUser): Promise<OrganizationAdmin> {
+  private requireActorSession(reviewer: RequestUser): string {
+    const sessionId = String(reviewer.sessionId || '').trim();
+    if (!sessionId) {
+      throw new ForbiddenException({ code: 'ACTIVE_SESSION_REQUIRED' });
+    }
+    return sessionId;
+  }
+
+  private async requirePlatformDecisionAuthority(
+    reviewer: RequestUser,
+    client: AuthSqlClient = this.prisma,
+  ): Promise<void> {
+    const sessionId = this.requireActorSession(reviewer);
+    const rows = await client.$queryRaw<Array<{ authorized: boolean }>>(Prisma.sql`
+      SELECT auth.registration_platform_actor_authorized(
+        ${reviewer.id}, ${sessionId}
+      ) AS authorized
+    `);
+    if (!rows[0]?.authorized) {
+      throw new ForbiddenException({ code: 'PLATFORM_REVIEWER_REQUIRED' });
+    }
+  }
+
+  private async requireOrganizationAdmin(
+    reviewer: RequestUser,
+    client: AuthSqlClient = this.prisma,
+  ): Promise<OrganizationAdmin> {
     this.requireFreshMfa(reviewer);
     const membershipId = String(reviewer.membershipId || '').trim();
     const organizationId = String(reviewer.orgId || '').trim();
     const tenantId = String(reviewer.tenantId || '').trim();
+    const sessionId = this.requireActorSession(reviewer);
     if (!reviewer.id || !membershipId || !organizationId || !tenantId || !reviewer.isOrgAdmin) {
       throw new ForbiddenException({ code: 'ORGANIZATION_ADMIN_REQUIRED' });
     }
-    const membership = await this.prisma.userOrg.findFirst({
-      where: {
-        id: membershipId,
-        userId: reviewer.id,
-        organizationId,
-        status: 'ACTIVE',
-        isOrgAdmin: true,
-        organization: { tenantId, status: 'VERIFIED' },
-      },
-      select: { id: true, role: true, organizationId: true, organization: { select: { tenantId: true } } },
-    });
-    if (!membership || !isOrganizationHumanRole(membership.role)) {
+    const rows = await client.$queryRaw<Array<{
+      membership_id: string;
+      organization_id: string;
+      tenant_id: string;
+      administrator_role: string;
+    }>>(Prisma.sql`
+      SELECT *
+      FROM auth.registration_organization_admin_context(
+        ${reviewer.id}, ${sessionId}, ${membershipId}, ${organizationId}, ${tenantId}
+      )
+    `);
+    const context = rows[0];
+    if (!context || !isOrganizationHumanRole(context.administrator_role)) {
       throw new ForbiddenException({ code: 'ORGANIZATION_ADMIN_REQUIRED' });
     }
     return {
-      membershipId: membership.id,
-      organizationId: membership.organizationId,
-      tenantId: membership.organization.tenantId,
-      role: membership.role,
+      membershipId: context.membership_id,
+      organizationId: context.organization_id,
+      tenantId: context.tenant_id,
+      role: context.administrator_role,
     };
   }
 
   private async lockApplication(
     tx: Prisma.TransactionClient,
     applicationId: string,
+    reviewer: RequestUser,
+    actorKind: DecisionActorKind,
+    administrator?: OrganizationAdmin,
   ): Promise<LockedApplication> {
+    const sessionId = this.requireActorSession(reviewer);
     const rows = await tx.$queryRaw<LockedApplication[]>(Prisma.sql`
-      SELECT
-        application.id,
-        application.kind,
-        application.user_id,
-        application.organization_id,
-        application.membership_id,
-        application.requested_workspace,
-        application.requested_role,
-        application.status,
-        application.version,
-        application.correlation_id,
-        organization.status AS organization_status,
-        organization."tenantId" AS tenant_id
-      FROM auth.registration_applications application
-      JOIN public.organizations organization ON organization.id = application.organization_id
-      WHERE application.id = ${applicationId}
-      FOR UPDATE OF application, organization
+      SELECT *
+      FROM auth.lock_registration_decision_application(
+        ${actorKind}, ${reviewer.id}, ${sessionId},
+        ${administrator?.membershipId ?? null}, ${administrator?.organizationId ?? null},
+        ${administrator?.tenantId ?? null}, ${applicationId}
+      )
     `);
     if (!rows[0]) throw new NotFoundException({ code: 'REGISTRATION_APPLICATION_NOT_FOUND' });
     return rows[0];
   }
 
-  private async updateUserStatusWithoutActiveMembership(
+  private async applyIdentityTransition(
     tx: Prisma.TransactionClient,
-    userId: string,
-    status: 'REJECTED' | 'SUSPENDED',
+    application: LockedApplication,
+    reviewer: RequestUser,
+    actorKind: DecisionActorKind,
+    transition: 'APPROVE' | 'REJECT' | 'SUSPEND',
+    administrator?: OrganizationAdmin,
   ) {
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE public.users subject
-      SET status = ${status}, "updatedAt" = NOW()
-      WHERE subject.id = ${userId}
-        AND NOT EXISTS (
-          SELECT 1 FROM public.user_orgs membership
-          WHERE membership."userId" = subject.id AND membership.status = 'ACTIVE'
-        )
+    const sessionId = this.requireActorSession(reviewer);
+    const rows = await tx.$queryRaw<Array<{ applied: boolean }>>(Prisma.sql`
+      SELECT *
+      FROM auth.apply_registration_identity_transition(
+        ${actorKind}, ${reviewer.id}, ${sessionId},
+        ${administrator?.membershipId ?? null}, ${administrator?.organizationId ?? null},
+        ${administrator?.tenantId ?? null}, ${application.id}, ${transition}
+      )
     `);
+    if (!rows[0]?.applied) {
+      throw new ConflictException({ code: 'REGISTRATION_IDENTITY_TRANSITION_CONFLICT' });
+    }
   }
 
   private queueItem(application: {

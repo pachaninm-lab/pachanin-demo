@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/tai-reg-ru-release-chain-gate-20260801",
   "status": "active",
-  "purpose": "Restore the REG.RU release chain after the non-root preflight runner was denied access to a protected root marker, prevent skipped preflight or activation jobs from being treated as production authority, and register the merged PostgreSQL authority source scope in the branch-to-path governance map.",
+  "purpose": "Restore and harden the exact-main REG.RU release chain. Keep every production self-hosted job non-root, actionless and without Docker authority; use only the restricted root controller for mutation; transfer bounded redacted preflight evidence to a hosted publisher while validating and checksumming activation, finalization and deployment evidence locally on REG.RU; fail closed before and after every production mutation.",
   "approvedBy": "owner-direct-tai-agro-os-v4-production-completion-2026-08-01",
-  "authorityBaseExactMain": "758f55b89ff677d6bcd5e820887d519fb41271d1",
+  "authorityBaseExactMain": "43ec7d01fc84c1af84fe5dea7f63630f66454257",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "productionMutationAllowedBeforeMerge": false,
@@ -20,7 +20,12 @@
   ],
   "requiredBehavior": [
     "keep the self-hosted runner non-root without Docker socket authority",
-    "delegate protected marker and exact-main wrapper verification to the root-owned restricted controller",
+    "execute no third-party GitHub Action on any production self-hosted preflight activation finalization or deployment job",
+    "delegate every production mutation to the root-owned restricted controller",
+    "export only bounded valid JSON redacted preflight evidence through a job output",
+    "materialize and validate preflight evidence only on the hosted status-publishing job",
+    "validate target binding and terminal state of activation finalization and deployment evidence on REG.RU",
+    "checksum activation SSE finalization and deployment evidence without printing evidence contents",
     "fail preflight when the upstream canonical image build is not a successful main push",
     "require successful completion of the exact upstream preflight workflow attempt and every critical job before activation without mislabelling inventory completion as readiness PASS",
     "require successful completion of the exact upstream activation workflow attempt and every critical job before standalone deployment",
@@ -28,13 +33,19 @@
     "make every non-PR workflow fail when any production-chain job is failed or skipped",
     "make the PC-CROP scope guard honor only exact branch mappings backed by a matching concurrent scope authority on PR and main push events",
     "register the merged PostgreSQL authority branch and its exact three source paths",
-    "stop before every production mutation when an upstream authority check is absent or mismatched"
+    "stop before every production mutation when an upstream authority check is absent or mismatched",
+    "preserve automatic rollback when activation acceptance or TAI deployment postflight fails"
   ],
   "forbiddenCapabilities": [
     "non-root access to root-only authority files",
+    "third-party Actions on production self-hosted preflight activation finalization or deployment jobs",
+    "direct Docker authority for the pcactions runner",
+    "printing root-controller evidence contents secrets protected paths or model credentials",
+    "unbounded or non-JSON preflight evidence transfer",
     "workflow conclusion as standalone production authority",
     "activation after skipped or failed preflight",
     "deployment after skipped failed or rolled-back activation",
+    "success after missing mismatched or invalid controller evidence",
     "new hosting paid service credential or recurring expense"
   ],
   "acceptance": {

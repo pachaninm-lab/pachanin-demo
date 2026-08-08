@@ -8,6 +8,10 @@ on:
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
       - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - ".github/workflows/tai-automatic-reg-ru-preflight.yml"
+      - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      - "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts"
       - "apps/web/middleware.ts"
       - "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts"
       - "scripts/pc-tai-release-controller.sh"
@@ -20,6 +24,7 @@ on:
       - "scripts/check-tai-local-model-key-authority.mjs"
       - "scripts/check-tai-reg-ru-release-chain.mjs"
       - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/check-tai-automatic-release-chain.mjs"
       - "scripts/select-tai-owner-preflight-run.mjs"
       - "scripts/check-tai-owner-preflight-run-selection.mjs"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
@@ -31,6 +36,8 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-preflight-run-discovery-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-automatic-exact-release-chain-20260806.json"
   workflow_dispatch:
     inputs:
       target_sha:
@@ -42,11 +49,11 @@ on:
         required: true
         type: string
       upstream_run_id:
-        description: Exact successful owner preflight run ID
+        description: Exact successful REG.RU preflight run ID
         required: true
         type: string
       upstream_run_attempt:
-        description: Exact successful owner preflight run attempt
+        description: Exact successful REG.RU preflight run attempt
         required: true
         type: string
 
@@ -102,20 +109,55 @@ jobs:
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          gh api -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/preflight-run.json"
-          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
-            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Owner REG.RU Preflight' "$GITHUB_REPOSITORY"
-          node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
+          terminal=0
+          for attempt in $(seq 1 60); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" \
+              > "$RUNNER_TEMP/preflight-run.json"
+            status="$(node - "$RUNNER_TEMP/preflight-run.json" <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          process.stdout.write(String(run.status || ''));
+          NODE
+            )"
+            if [[ "$status" == completed ]]; then terminal=1; break; fi
+            sleep 5
+          done
+          (( terminal == 1 )) || { echo 'REG.RU preflight did not reach a terminal state.' >&2; exit 4; }
+          preflight_kind="$(node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
           const fs = require('node:fs');
           const [path, owner] = process.argv.slice(2);
           const run = JSON.parse(fs.readFileSync(path, 'utf8'));
-          if (
-            run.event !== 'issue_comment'
-            || run.actor?.login !== owner
-            || run.triggering_actor?.login !== owner
-          ) process.exit(3);
+          if (run.name === 'TAI Automatic REG.RU Preflight') {
+            const allowedActors = new Set([owner, 'github-actions[bot]']);
+            const actor = run.actor?.login;
+            const triggeringActor = run.triggering_actor?.login || actor;
+            if (
+              run.event !== 'workflow_run'
+              || run.head_branch !== 'main'
+              || !allowedActors.has(actor)
+              || !allowedActors.has(triggeringActor)
+            ) process.exit(3);
+            process.stdout.write('automatic');
+          } else if (run.name === 'TAI Owner REG.RU Preflight') {
+            if (
+              run.event !== 'issue_comment'
+              || run.actor?.login !== owner
+              || run.triggering_actor?.login !== owner
+            ) process.exit(3);
+            process.stdout.write('owner');
+          } else {
+            process.exit(3);
+          }
           NODE
+          )"
+          case "$preflight_kind" in
+            automatic) upstream_name='TAI Automatic REG.RU Preflight' ;;
+            owner) upstream_name='TAI Owner REG.RU Preflight' ;;
+            *) echo 'Unrecognized REG.RU preflight authority.' >&2; exit 3 ;;
+          esac
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" "$upstream_name" "$GITHUB_REPOSITORY"
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
             > "$RUNNER_TEMP/preflight-jobs.json"
@@ -160,6 +202,7 @@ jobs:
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-owner-activation-command.mjs
           node scripts/check-tai-owner-preflight-run-selection.mjs
+          node scripts/check-tai-automatic-release-chain.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority
@@ -315,14 +358,22 @@ jobs:
           PY
       - name: Upload activation and SSE evidence
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-restricted-qwen-activation-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: |
-            /var/lib/pc-release-authority/runner-output/${{ env.CONTROLLER_RUN_ID }}/activation.json
-            ${{ runner.temp }}/tai-live
-          if-no-files-found: error
-          retention-days: 30
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${CONTROLLER_RUN_ID}/activation.json"
+          [[ -s "$evidence" ]]
+          python3 - "$evidence" "$TARGET_SHA" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          if not isinstance(report,dict) or report.get('targetSha') != sys.argv[2]: raise SystemExit('activation evidence target mismatch')
+          if not isinstance(report.get('passed'),bool): raise SystemExit('activation evidence terminal state missing')
+          PY
+          out="$RUNNER_TEMP/tai-live"
+          for name in ru en zh potato; do [[ -s "$out/${name}.sse" ]]; done
+          {
+            digest="$(sha256sum "$evidence" | awk '{print $1}')"; printf '%s  activation.json\n' "$digest"
+            for name in ru en zh potato; do digest="$(sha256sum "$out/${name}.sse" | awk '{print $1}')"; printf '%s  %s.sse\n' "$digest" "$name"; done
+          } > "$out/evidence.sha256"
 
   acceptance:
     name: Hosted live public AI acceptance
@@ -382,12 +433,18 @@ jobs:
           sudo -n /usr/local/sbin/pc-tai-release-controller finalize-activation "$TARGET_SHA" "$CONTROLLER_RUN_ID" "$decision"
       - name: Upload finalization evidence
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-restricted-qwen-finalization-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: /var/lib/pc-release-authority/runner-output/${{ env.CONTROLLER_RUN_ID }}/finalization.json
-          if-no-files-found: error
-          retention-days: 30
+        run: |
+          set -Eeuo pipefail
+          evidence="/var/lib/pc-release-authority/runner-output/${CONTROLLER_RUN_ID}/finalization.json"
+          [[ -s "$evidence" ]]
+          python3 - "$evidence" "$TARGET_SHA" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          if not isinstance(report,dict) or report.get('targetSha') != sys.argv[2]: raise SystemExit('finalization evidence target mismatch')
+          if not isinstance(report.get('passed'),bool): raise SystemExit('finalization evidence terminal state missing')
+          PY
+          digest="$(sha256sum "$evidence" | awk '{print $1}')"
+          printf 'FINALIZATION_EVIDENCE_SHA256=%s\n' "$digest"
 
   publish:
     name: Publish restricted Qwen activation result

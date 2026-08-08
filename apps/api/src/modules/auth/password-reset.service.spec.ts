@@ -120,9 +120,8 @@ describe('PasswordResetService', () => {
       expires_at: new Date(Date.now() + 60_000),
       consumed_at: null,
       created_at: new Date(),
-      email: 'known@example.com',
     });
-    repository.replacePassword.mockResolvedValue(true);
+    repository.replacePassword.mockResolvedValue('person@example.test');
     repository.consumeChallenge.mockResolvedValue(true);
     const service = new PasswordResetService(repository as never);
 
@@ -131,9 +130,15 @@ describe('PasswordResetService', () => {
     expect(result).toEqual({
       success: true,
       sessionsRevoked: true,
-      notificationDelivery: { email: 'known@example.com' },
+      notificationDelivery: { email: 'person@example.test' },
     });
-    expect(repository.replacePassword).toHaveBeenCalledWith(repository.tx, 'user-1', expect.any(String), expect.any(Date));
+    expect(repository.replacePassword).toHaveBeenCalledWith(
+      repository.tx,
+      issued.id,
+      'user-1',
+      expect.any(String),
+      expect.any(Date),
+    );
     expect(repository.consumeChallenge).toHaveBeenCalledWith(repository.tx, issued.id, expect.any(Date));
     expect(repository.revokeAllUserSessions).toHaveBeenCalledWith(repository.tx, 'user-1', 'PASSWORD_RESET');
     expect(repository.expirePending).toHaveBeenCalledWith(repository.tx, 'user-1', issued.id);

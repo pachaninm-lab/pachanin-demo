@@ -12,7 +12,6 @@ function identity(membershipId: string, organizationId: string, organizationName
   return {
     user_id: 'user-1',
     email: 'multi@example.test',
-    password_hash: '',
     full_name: 'Multi User',
     phone: null,
     user_status: 'ACTIVE',
@@ -40,7 +39,7 @@ function repository() {
   const repo = {
     prisma: {},
     transaction: jest.fn(async (work: (tx: unknown) => Promise<unknown>) => work({})),
-    findIdentityByEmail: jest.fn(),
+    findLoginCredentialByEmail: jest.fn(),
     findIdentitiesByUser: jest.fn(),
     findIdentityByUserAndMembership: jest.fn(),
     ensureLoginThrottle: jest.fn(),
@@ -68,14 +67,19 @@ describe('safe multi-membership login selection', () => {
   it('creates no session until one of the password-verified memberships is selected', async () => {
     const repo = repository();
     const first = identity('membership-a', 'org-a', 'Organization A');
-    first.password_hash = await bcrypt.hash(PASSWORD, 4);
-    const second = { ...identity('membership-b', 'org-b', 'Organization B'), password_hash: first.password_hash };
-    repo.findIdentityByEmail.mockResolvedValue(first);
+    const passwordHash = await bcrypt.hash(PASSWORD, 4);
+    const second = identity('membership-b', 'org-b', 'Organization B');
+    repo.findLoginCredentialByEmail.mockResolvedValue({
+      user_id: first.user_id,
+      email: first.email,
+      password_hash: passwordHash,
+    });
     repo.findIdentitiesByUser.mockResolvedValue([first, second]);
 
     const result = await new AuthService(repo as never).login({ email: first.email, password: PASSWORD });
 
-    expect(repo.findIdentityByEmail).toHaveBeenCalledWith(expect.anything(), first.email, true);
+    expect(repo.findLoginCredentialByEmail).toHaveBeenCalledTimes(2);
+    expect(repo.findIdentitiesByUser).toHaveBeenCalledWith(expect.anything(), first.user_id);
     expect(result).toMatchObject({
       membershipSelectionRequired: true,
       memberships: [
@@ -98,7 +102,6 @@ describe('safe multi-membership login selection', () => {
       status: 'PENDING',
       credential_version: 1,
       current_credential_version: 1,
-      user_status: 'ACTIVE',
       attempts: 0,
       max_attempts: 5,
       expires_at: new Date(Date.now() + 60_000),
@@ -125,7 +128,6 @@ describe('safe multi-membership login selection', () => {
       status: 'PENDING',
       credential_version: 1,
       current_credential_version: 1,
-      user_status: 'ACTIVE',
       attempts: 0,
       max_attempts: 5,
       expires_at: new Date(Date.now() + 60_000),

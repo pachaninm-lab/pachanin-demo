@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { StoragePrismaService } from '../../src/common/prisma/storage-prisma.service';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
+import { StaffAuthorityPrismaService } from '../../src/modules/staff-access/staff-authority-prisma.service';
 
 async function main(): Promise<void> {
   if (String(process.env.DB_PRINCIPAL_BOUNDARY_ENFORCED).toLowerCase() !== 'true') {
@@ -10,17 +11,20 @@ async function main(): Promise<void> {
 
   const dealPrisma = new PrismaService();
   const authPrisma = new AuthPrismaService();
+  const staffPrisma = new StaffAuthorityPrismaService();
   const storagePrisma = new StoragePrismaService();
   await Promise.all([
     dealPrisma.onModuleInit(),
     authPrisma.onModuleInit(),
+    staffPrisma.onModuleInit(),
     storagePrisma.onModuleInit(),
   ]);
 
   try {
-    const [dealIdentity, authIdentity, storageIdentity] = await Promise.all([
+    const [dealIdentity, authIdentity, staffIdentity, storageIdentity] = await Promise.all([
       dealPrisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`),
       authPrisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`),
+      staffPrisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`),
       storagePrisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`),
     ]);
     if (dealIdentity[0]?.current_user !== 'one_deal_app') {
@@ -28,6 +32,9 @@ async function main(): Promise<void> {
     }
     if (authIdentity[0]?.current_user !== 'one_deal_auth') {
       throw new Error(`Auth runtime connected as ${authIdentity[0]?.current_user ?? 'unknown'}`);
+    }
+    if (staffIdentity[0]?.current_user !== 'one_deal_staff') {
+      throw new Error(`Staff runtime connected as ${staffIdentity[0]?.current_user ?? 'unknown'}`);
     }
     if (storageIdentity[0]?.current_user !== 'one_deal_storage') {
       throw new Error(`Storage runtime connected as ${storageIdentity[0]?.current_user ?? 'unknown'}`);
@@ -44,6 +51,19 @@ async function main(): Promise<void> {
     }
     if (!authDealDenied) {
       throw new Error('Auth runtime unexpectedly read public.deals.');
+    }
+
+    let staffDirectIdentityDenied = false;
+    try {
+      await staffPrisma.$queryRaw(Prisma.sql`SELECT id FROM public.users LIMIT 1`);
+    } catch (error) {
+      const candidate = error as { code?: string; meta?: { code?: string }; message?: string };
+      staffDirectIdentityDenied = candidate.code === 'P2010'
+        || candidate.meta?.code === '42501'
+        || /permission denied/i.test(String(candidate.message ?? ''));
+    }
+    if (!staffDirectIdentityDenied) {
+      throw new Error('Staff runtime unexpectedly read public.users directly.');
     }
 
     const crossTenantCount = await dealPrisma.$transaction(async (tx) => {
@@ -68,14 +88,17 @@ async function main(): Promise<void> {
       runtimePrincipalBoundary: 'passed',
       dealPrincipal: dealIdentity[0].current_user,
       authPrincipal: authIdentity[0].current_user,
+      staffPrincipal: staffIdentity[0].current_user,
       storagePrincipal: storageIdentity[0].current_user,
       authDealDenied,
+      staffDirectIdentityDenied,
       crossTenantCount,
     })}\n`);
   } finally {
     await Promise.all([
       dealPrisma.onModuleDestroy(),
       authPrisma.onModuleDestroy(),
+      staffPrisma.onModuleDestroy(),
       storagePrisma.onModuleDestroy(),
     ]);
   }

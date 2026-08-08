@@ -4,10 +4,15 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type AuthSqlClient = Pick<Prisma.TransactionClient, '$queryRaw' | '$executeRaw'>;
 
-export type IdentityRow = {
+export type LoginCredentialRow = {
   user_id: string;
   email: string;
   password_hash: string;
+};
+
+export type IdentityRow = {
+  user_id: string;
+  email: string;
   full_name: string;
   phone: string | null;
   user_status: string;
@@ -29,7 +34,6 @@ export type MembershipSelectionChallengeRow = {
   status: string;
   credential_version: number;
   current_credential_version: number;
-  user_status: string;
   attempts: number;
   max_attempts: number;
   expires_at: Date;
@@ -50,6 +54,44 @@ export type CredentialStateRow = {
   consent_at: Date | null;
 };
 
+export type AccountAuthorityContext = {
+  sessionId: string;
+  userId: string;
+  membershipId: string;
+  organizationId: string;
+  tenantId: string;
+};
+
+export type AccountMembershipExport = {
+  membershipId: string;
+  role: string;
+  status: string;
+  organizationId: string;
+  organizationName: string;
+  tenantId: string;
+  organizationStatus: string;
+};
+
+export type AccountDataExportRow = {
+  user_id: string;
+  email: string;
+  full_name: string;
+  phone: string | null;
+  created_at: Date;
+  consent_version: string | null;
+  consent_at: Date | null;
+  mfa_enabled: boolean;
+  credential_version: number;
+  membership_data: AccountMembershipExport[];
+};
+
+export type AccountAnonymizationRow = {
+  applied: boolean;
+  anonymized_at: Date | null;
+};
+
+// Session resolution deliberately excludes credential material. Password data
+// is available only to the bounded login flow before a session exists.
 export type SessionContextRow = IdentityRow & {
   session_id: string;
   session_status: string;
@@ -172,34 +214,16 @@ export class PersistentAuthRepository {
       && AUTH_CHAIN_CONTENTION_SIGNATURES.some((signature) => description.includes(signature));
   }
 
-  async findIdentityByEmail(
+  // This is the complete pre-password authority: one user id, normalized
+  // email and bcrypt hash. It cannot disclose membership, organization,
+  // tenant, role or MFA state.
+  async findLoginCredentialByEmail(
     client: AuthSqlClient,
     email: string,
-    lockUser = false,
-  ): Promise<IdentityRow | null> {
-    const lock = lockUser ? Prisma.sql` FOR UPDATE OF u` : Prisma.empty;
-    const rows = await client.$queryRaw<IdentityRow[]>(Prisma.sql`
-      SELECT
-        u.id AS user_id,
-        u.email,
-        u."passwordHash" AS password_hash,
-        u."fullName" AS full_name,
-        u.phone,
-        u.status AS user_status,
-        uo.id AS membership_id,
-        uo.role,
-        uo.is_org_admin AS is_org_admin,
-        uo.status AS membership_status,
-        o.id AS organization_id,
-        o.status AS organization_status,
-        o."tenantId" AS tenant_id
-      FROM public.users u
-      JOIN public.user_orgs uo ON uo."userId" = u.id
-      JOIN public.organizations o ON o.id = uo."organizationId"
-      WHERE LOWER(u.email) = LOWER(${email})
-      ORDER BY uo."isDefault" DESC, uo."joinedAt" ASC, uo.id ASC
-      LIMIT 1
-      ${lock}
+  ): Promise<LoginCredentialRow | null> {
+    const rows = await client.$queryRaw<LoginCredentialRow[]>(Prisma.sql`
+      SELECT user_id, email, password_hash
+      FROM auth.resolve_login_credential(${email})
     `);
     return rows[0] ?? null;
   }
@@ -210,25 +234,23 @@ export class PersistentAuthRepository {
   ): Promise<MembershipIdentityRow[]> {
     return client.$queryRaw<MembershipIdentityRow[]>(Prisma.sql`
       SELECT
-        u.id AS user_id,
-        u.email,
-        u."passwordHash" AS password_hash,
-        u."fullName" AS full_name,
-        u.phone,
-        u.status AS user_status,
-        uo.id AS membership_id,
-        uo.role,
-        uo.is_org_admin AS is_org_admin,
-        uo.status AS membership_status,
-        o.id AS organization_id,
-        o.name AS organization_name,
-        o.status AS organization_status,
-        o."tenantId" AS tenant_id
-      FROM public.users u
-      JOIN public.user_orgs uo ON uo."userId" = u.id
-      JOIN public.organizations o ON o.id = uo."organizationId"
-      WHERE u.id = ${userId}
-      ORDER BY uo."isDefault" DESC, uo."joinedAt" ASC, uo.id ASC
+        context.user_id,
+        context.email,
+        context.full_name,
+        context.phone,
+        context.user_status,
+        context.membership_id,
+        context.role,
+        context.is_org_admin,
+        context.membership_status,
+        context.organization_id,
+        context.organization_name,
+        context.organization_status,
+        context.tenant_id
+      FROM auth.resolve_post_password_membership_ids(${userId}) membership
+      JOIN LATERAL auth.resolve_post_password_membership_context(
+        ${userId}, membership.membership_id
+      ) context ON TRUE
     `);
   }
 
@@ -239,25 +261,19 @@ export class PersistentAuthRepository {
   ): Promise<IdentityRow | null> {
     const rows = await client.$queryRaw<IdentityRow[]>(Prisma.sql`
       SELECT
-        u.id AS user_id,
-        u.email,
-        u."passwordHash" AS password_hash,
-        u."fullName" AS full_name,
-        u.phone,
-        u.status AS user_status,
-        uo.id AS membership_id,
-        uo.role,
-        uo.is_org_admin AS is_org_admin,
-        uo.status AS membership_status,
-        o.id AS organization_id,
-        o.status AS organization_status,
-        o."tenantId" AS tenant_id
-      FROM public.users u
-      JOIN public.user_orgs uo ON uo."userId" = u.id
-      JOIN public.organizations o ON o.id = uo."organizationId"
-      WHERE u.id = ${userId}
-        AND uo.id = ${membershipId}
-      LIMIT 1
+        user_id,
+        email,
+        full_name,
+        phone,
+        user_status,
+        membership_id,
+        role,
+        is_org_admin,
+        membership_status,
+        organization_id,
+        organization_status,
+        tenant_id
+      FROM auth.resolve_post_password_membership_context(${userId}, ${membershipId})
     `);
     return rows[0] ?? null;
   }
@@ -316,6 +332,50 @@ export class PersistentAuthRepository {
         consent_at
       FROM auth.credential_states
       WHERE user_id = ${userId}${lock}
+    `);
+    return rows[0] ?? null;
+  }
+
+  async accountDataExport(
+    client: AuthSqlClient,
+    context: AccountAuthorityContext,
+  ): Promise<AccountDataExportRow | null> {
+    const rows = await client.$queryRaw<AccountDataExportRow[]>(Prisma.sql`
+      SELECT
+        user_id,
+        email,
+        full_name,
+        phone,
+        created_at,
+        consent_version,
+        consent_at,
+        mfa_enabled,
+        credential_version,
+        membership_data
+      FROM auth.account_data_export(
+        ${context.sessionId},
+        ${context.userId},
+        ${context.membershipId},
+        ${context.organizationId},
+        ${context.tenantId}
+      )
+    `);
+    return rows[0] ?? null;
+  }
+
+  async anonymizeAccountIdentity(
+    client: AuthSqlClient,
+    context: AccountAuthorityContext,
+  ): Promise<AccountAnonymizationRow | null> {
+    const rows = await client.$queryRaw<AccountAnonymizationRow[]>(Prisma.sql`
+      SELECT applied, anonymized_at
+      FROM auth.anonymize_account_identity(
+        ${context.sessionId},
+        ${context.userId},
+        ${context.membershipId},
+        ${context.organizationId},
+        ${context.tenantId}
+      )
     `);
     return rows[0] ?? null;
   }
@@ -528,12 +588,10 @@ export class PersistentAuthRepository {
         challenge.status,
         challenge.credential_version,
         credential.credential_version AS current_credential_version,
-        subject.status AS user_status,
         challenge.attempts,
         challenge.max_attempts,
         challenge.expires_at
       FROM auth.membership_selection_challenges challenge
-      JOIN public.users subject ON subject.id = challenge.user_id
       JOIN auth.credential_states credential ON credential.user_id = challenge.user_id
       WHERE challenge.id = ${challengeId}
       FOR UPDATE OF challenge, credential
@@ -574,19 +632,18 @@ export class PersistentAuthRepository {
     const userFilter = userId ? Prisma.sql` AND s.user_id = ${userId}` : Prisma.empty;
     const rows = await client.$queryRaw<SessionContextRow[]>(Prisma.sql`
       SELECT
-        u.id AS user_id,
-        u.email,
-        u."passwordHash" AS password_hash,
-        u."fullName" AS full_name,
-        u.phone,
-        u.status AS user_status,
-        uo.id AS membership_id,
-        uo.role,
-        uo.is_org_admin AS is_org_admin,
-        uo.status AS membership_status,
-        o.id AS organization_id,
-        o.status AS organization_status,
-        o."tenantId" AS tenant_id,
+        identity.user_id,
+        identity.email,
+        identity.full_name,
+        identity.phone,
+        identity.user_status,
+        identity.membership_id,
+        identity.role,
+        identity.is_org_admin,
+        identity.membership_status,
+        identity.organization_id,
+        identity.organization_status,
+        identity.tenant_id,
         s.id AS session_id,
         s.status AS session_status,
         s.refresh_family_id,
@@ -599,12 +656,9 @@ export class PersistentAuthRepository {
         cs.credential_version AS current_credential_version,
         cs.mfa_enabled AS current_mfa_enabled
       FROM auth.sessions s
-      JOIN public.users u ON u.id = s.user_id
-      JOIN public.user_orgs uo ON uo.id = s.membership_id
-        AND uo."userId" = s.user_id
-        AND uo."organizationId" = s.organization_id
-      JOIN public.organizations o ON o.id = s.organization_id
-        AND o."tenantId" = s.tenant_id
+      JOIN LATERAL auth.resolve_session_identity_v2(
+        s.user_id, s.membership_id, s.organization_id, s.tenant_id
+      ) identity ON TRUE
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
       WHERE s.id = ${sessionId}${userFilter}${lock}
     `);
@@ -617,19 +671,18 @@ export class PersistentAuthRepository {
   ): Promise<RefreshContextRow | null> {
     const rows = await client.$queryRaw<RefreshContextRow[]>(Prisma.sql`
       SELECT
-        u.id AS user_id,
-        u.email,
-        u."passwordHash" AS password_hash,
-        u."fullName" AS full_name,
-        u.phone,
-        u.status AS user_status,
-        uo.id AS membership_id,
-        uo.role,
-        uo.is_org_admin AS is_org_admin,
-        uo.status AS membership_status,
-        o.id AS organization_id,
-        o.status AS organization_status,
-        o."tenantId" AS tenant_id,
+        identity.user_id,
+        identity.email,
+        identity.full_name,
+        identity.phone,
+        identity.user_status,
+        identity.membership_id,
+        identity.role,
+        identity.is_org_admin,
+        identity.membership_status,
+        identity.organization_id,
+        identity.organization_status,
+        identity.tenant_id,
         s.id AS session_id,
         s.status AS session_status,
         s.refresh_family_id,
@@ -649,12 +702,9 @@ export class PersistentAuthRepository {
         rt.family_id AS refresh_token_family_id
       FROM auth.refresh_tokens rt
       JOIN auth.sessions s ON s.id = rt.session_id
-      JOIN public.users u ON u.id = s.user_id
-      JOIN public.user_orgs uo ON uo.id = s.membership_id
-        AND uo."userId" = s.user_id
-        AND uo."organizationId" = s.organization_id
-      JOIN public.organizations o ON o.id = s.organization_id
-        AND o."tenantId" = s.tenant_id
+      JOIN LATERAL auth.resolve_session_identity_v2(
+        s.user_id, s.membership_id, s.organization_id, s.tenant_id
+      ) identity ON TRUE
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
       WHERE rt.id = ${refreshTokenId}
       FOR UPDATE OF rt, s
@@ -668,19 +718,18 @@ export class PersistentAuthRepository {
   ): Promise<MfaChallengeRow | null> {
     const rows = await client.$queryRaw<MfaChallengeRow[]>(Prisma.sql`
       SELECT
-        u.id AS user_id,
-        u.email,
-        u."passwordHash" AS password_hash,
-        u."fullName" AS full_name,
-        u.phone,
-        u.status AS user_status,
-        uo.id AS membership_id,
-        uo.role,
-        uo.is_org_admin AS is_org_admin,
-        uo.status AS membership_status,
-        o.id AS organization_id,
-        o.status AS organization_status,
-        o."tenantId" AS tenant_id,
+        identity.user_id,
+        identity.email,
+        identity.full_name,
+        identity.phone,
+        identity.user_status,
+        identity.membership_id,
+        identity.role,
+        identity.is_org_admin,
+        identity.membership_status,
+        identity.organization_id,
+        identity.organization_status,
+        identity.tenant_id,
         s.id AS session_id,
         s.status AS session_status,
         s.refresh_family_id,
@@ -701,12 +750,9 @@ export class PersistentAuthRepository {
         c.expires_at AS challenge_expires_at
       FROM auth.mfa_challenges c
       JOIN auth.sessions s ON s.id = c.session_id
-      JOIN public.users u ON u.id = s.user_id
-      JOIN public.user_orgs uo ON uo.id = s.membership_id
-        AND uo."userId" = s.user_id
-        AND uo."organizationId" = s.organization_id
-      JOIN public.organizations o ON o.id = s.organization_id
-        AND o."tenantId" = s.tenant_id
+      JOIN LATERAL auth.resolve_session_identity_v2(
+        s.user_id, s.membership_id, s.organization_id, s.tenant_id
+      ) identity ON TRUE
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
       WHERE c.id = ${challengeId}
       FOR UPDATE OF c, s, cs
@@ -879,10 +925,13 @@ export class PersistentAuthRepository {
     `);
     if (credentialUpdated !== 1) throw new Error('MFA credential state conflict');
     if (input.enableMfa) {
-      const userUpdated = await client.$executeRaw(Prisma.sql`
-        UPDATE public.users SET "mfaEnabled" = TRUE WHERE id = ${input.userId}
+      const finalized = await client.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
+        SELECT updated
+        FROM auth.finalize_authenticated_user_mfa(
+          ${input.userId}, ${input.sessionId}, ${input.challengeId}
+        )
       `);
-      if (userUpdated !== 1) throw new Error('MFA user state conflict');
+      if (finalized[0]?.updated !== true) throw new Error('MFA user state conflict');
     }
   }
 

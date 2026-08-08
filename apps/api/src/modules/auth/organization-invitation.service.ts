@@ -37,7 +37,6 @@ import { PersistentAuthRepository, type AuthSqlClient } from './persistent-auth.
 
 const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
 const MFA_RECOVERY_TTL_MS = 30 * 60 * 1000;
-const ADMIN_MFA_FRESHNESS_MS = 15 * 60 * 1000;
 
 type AdminMembership = {
   id: string;
@@ -170,12 +169,15 @@ export class OrganizationInvitationService {
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await this.establishAdminIdentityContext(tx, user, admin);
       await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`invitation:${admin.organizationId}:${emailHash}`}, 0))`);
 
       const existing = await tx.$queryRaw<Array<InvitationRow>>(Prisma.sql`
-        SELECT invitation.*, organization.name AS organization_name, organization.status AS organization_status
+        SELECT
+          invitation.*,
+          ${admin.organization.name}::text AS organization_name,
+          ${admin.organization.status}::text AS organization_status
         FROM auth.organization_invitations invitation
-        JOIN public.organizations organization ON organization.id = invitation.organization_id
         WHERE invitation.idempotency_key = ${idempotencyKey}
           AND invitation.organization_id = ${admin.organizationId}
           AND invitation.tenant_id = ${admin.organization.tenantId}
@@ -216,14 +218,16 @@ export class OrganizationInvitationService {
         });
       }
 
-      const duplicateMembership = await tx.userOrg.findFirst({
-        where: {
-          organizationId: admin.organizationId,
-          user: { email, deletedAt: null },
-        },
-        select: { id: true },
-      });
-      if (duplicateMembership) throw new ConflictException({ code: 'ORGANIZATION_MEMBERSHIP_ALREADY_EXISTS' });
+      const [duplicateMembership] = await tx.$queryRaw<Array<{ membership_exists: boolean }>>(Prisma.sql`
+        SELECT membership_exists
+        FROM auth.organization_membership_exists_for_email(
+          ${user.sessionId}, ${user.id}, ${admin.id}, ${admin.organizationId},
+          ${admin.organization.tenantId}, ${email}
+        )
+      `);
+      if (duplicateMembership?.membership_exists) {
+        throw new ConflictException({ code: 'ORGANIZATION_MEMBERSHIP_ALREADY_EXISTS' });
+      }
 
       const pendingInvitation = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         SELECT id
@@ -309,6 +313,7 @@ export class OrganizationInvitationService {
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await this.establishAdminIdentityContext(tx, user, admin);
       const replay = await tx.$queryRaw<Array<{ invitation_id: string }>>(Prisma.sql`
         SELECT invitation_id FROM auth.organization_invitation_events
         WHERE idempotency_key = ${`resend:${idempotencyKey}`}
@@ -377,6 +382,7 @@ export class OrganizationInvitationService {
     const admin = await this.requireAdmin(user);
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
     return this.prisma.$transaction(async (tx) => {
+      await this.establishAdminIdentityContext(tx, user, admin);
       const replay = await tx.$queryRaw<Array<{ invitation_id: string }>>(Prisma.sql`
         SELECT invitation_id FROM auth.organization_invitation_events
         WHERE idempotency_key = ${`revoke:${idempotencyKey}`}
@@ -418,115 +424,137 @@ export class OrganizationInvitationService {
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<InvitationRow[]>(Prisma.sql`
-        SELECT invitation.*, organization.name AS organization_name, organization.status AS organization_status
-        FROM auth.organization_invitations invitation
-        JOIN public.organizations organization ON organization.id = invitation.organization_id
-        WHERE invitation.id = ${parsed.credentialId}
-        FOR UPDATE OF invitation, organization
+      const rows = await tx.$queryRaw<Array<{
+        invitation_id: string;
+        organization_id: string;
+        tenant_id: string;
+        organization_name: string;
+        organization_status: string;
+        invited_email: string;
+        role: OrganizationHumanRole;
+        invitation_status: string;
+        expires_at: Date;
+        invitation_version: bigint;
+        existing_user_id: string | null;
+        existing_password_hash: string | null;
+        existing_user_status: string | null;
+        existing_user_deleted_at: Date | null;
+      }>>(Prisma.sql`
+        SELECT *
+        FROM auth.resolve_invitation_acceptance_credential(
+          ${parsed.credentialId}, ${parsed.storedDigest}
+        )
       `);
       const invitation = rows[0];
-      if (!invitation || !secureEqual(invitation.token_hash, parsed.storedDigest) || invitation.status !== 'PENDING') {
+      if (!invitation || invitation.invitation_status !== 'PENDING') {
         return { kind: 'invalid' as const };
       }
       if (invitation.expires_at <= new Date()) {
         await tx.$executeRaw(Prisma.sql`
           UPDATE auth.organization_invitations
           SET status = 'EXPIRED', version = version + 1, updated_at = NOW()
-          WHERE id = ${invitation.id} AND status = 'PENDING' AND version = ${invitation.version}
+          WHERE id = ${invitation.invitation_id}
+            AND status = 'PENDING'
+            AND version = ${invitation.invitation_version}
         `);
         await this.insertEvent(tx, {
-          invitationId: invitation.id,
+          invitationId: invitation.invitation_id,
           eventType: 'EXPIRED',
           previousStatus: 'PENDING',
           newStatus: 'EXPIRED',
           reason: 'INVITATION_TTL_EXPIRED',
           correlationId,
-          idempotencyKey: `accept-expired:${invitation.id}:${invitation.version}`,
-          invitationVersion: invitation.version + 1n,
+          idempotencyKey: `accept-expired:${invitation.invitation_id}:${invitation.invitation_version}`,
+          invitationVersion: invitation.invitation_version + 1n,
         });
         return { kind: 'invalid' as const };
       }
       if (invitation.organization_status !== 'VERIFIED') return { kind: 'invalid' as const };
 
-      const existingUser = await tx.user.findUnique({
-        where: { email: invitation.invited_email },
-        select: { id: true, passwordHash: true, status: true, deletedAt: true },
-      });
+      const existingUser = invitation.existing_user_id
+        ? {
+          id: invitation.existing_user_id,
+          passwordHash: invitation.existing_password_hash,
+          status: invitation.existing_user_status,
+          deletedAt: invitation.existing_user_deleted_at,
+        }
+        : null;
       if (
         existingUser
-        && (existingUser.deletedAt || existingUser.status !== 'ACTIVE' || !await bcrypt.compare(dto.password, existingUser.passwordHash))
+        && (
+          existingUser.deletedAt
+          || existingUser.status !== 'ACTIVE'
+          || !existingUser.passwordHash
+          || !await bcrypt.compare(dto.password, existingUser.passwordHash)
+        )
       ) return { kind: 'invalid' as const };
       if (!existingUser && !isStrongPassword(dto.password)) {
         throw new BadRequestException({ code: 'PASSWORD_POLICY_FAILED' });
       }
 
       const userId = existingUser?.id || `user_${randomUUID()}`;
-      if (!existingUser) {
-        await tx.user.create({
-          data: {
-            id: userId,
-            email: invitation.invited_email,
-            phone: normalizePhone(dto.phone),
-            passwordHash,
-            fullName: dto.fullName.trim(),
-            status: 'ACTIVE',
-          },
-        });
-      }
-      const duplicate = await tx.userOrg.findUnique({
-        where: { userId_organizationId: { userId, organizationId: invitation.organization_id } },
-        select: { id: true },
-      });
-      if (duplicate) throw new ConflictException({ code: 'ORGANIZATION_MEMBERSHIP_ALREADY_EXISTS' });
-
       const membershipId = `membership_${randomUUID()}`;
-      const membershipCount = await tx.userOrg.count({ where: { userId, status: 'ACTIVE' } });
-      await tx.userOrg.create({
-        data: {
-          id: membershipId,
-          userId,
-          organizationId: invitation.organization_id,
-          role: invitation.role,
-          status: 'ACTIVE',
-          isDefault: membershipCount === 0,
-          isOrgAdmin: false,
-          activatedAt: new Date(),
-        },
-      });
+      const [accepted] = await tx.$queryRaw<Array<{
+        accepted: boolean;
+        user_id: string | null;
+        membership_id: string | null;
+        organization_id: string | null;
+        tenant_id: string | null;
+        organization_name: string | null;
+        role: OrganizationHumanRole | null;
+        invitation_version: bigint | null;
+      }>>(Prisma.sql`
+        SELECT *
+        FROM auth.accept_organization_invitation_identity(
+          ${invitation.invitation_id},
+          ${parsed.storedDigest},
+          ${invitation.invitation_version},
+          ${userId},
+          ${existingUser?.passwordHash ?? null},
+          ${!existingUser},
+          ${passwordHash},
+          ${normalizePhone(dto.phone)},
+          ${dto.fullName.trim()},
+          ${membershipId}
+        )
+      `);
+      if (
+        !accepted?.accepted
+        || !accepted.user_id
+        || !accepted.membership_id
+        || !accepted.organization_id
+        || !accepted.tenant_id
+        || !accepted.organization_name
+        || !accepted.role
+        || accepted.invitation_version === null
+      ) return { kind: 'invalid' as const };
+
       await this.authRepository.ensureCredentialState(
         tx,
-        userId,
+        accepted.user_id,
         `${dto.termsVersion.trim()}|${dto.privacyVersion.trim()}`,
         new Date(),
       );
 
-      const updated = await tx.$executeRaw(Prisma.sql`
-        UPDATE auth.organization_invitations
-        SET status = 'ACCEPTED', accepted_at = NOW(), accepted_by_user_id = ${userId},
-            accepted_membership_id = ${membershipId}, version = version + 1, updated_at = NOW()
-        WHERE id = ${invitation.id} AND status = 'PENDING' AND version = ${invitation.version}
-      `);
-      if (updated !== 1) throw new ConflictException({ code: 'INVITATION_VERSION_CONFLICT' });
       await this.insertEvent(tx, {
-        invitationId: invitation.id,
-        actorUserId: userId,
+        invitationId: invitation.invitation_id,
+        actorUserId: accepted.user_id,
         eventType: 'ACCEPTED',
         previousStatus: 'PENDING',
         newStatus: 'ACCEPTED',
         reason: 'EMAIL_LINK_AND_CREDENTIAL_VERIFIED',
         correlationId,
-        idempotencyKey: `accept:${invitation.id}`,
-        invitationVersion: invitation.version + 1n,
-        metadata: { membershipId, role: invitation.role },
+        idempotencyKey: `accept:${invitation.invitation_id}`,
+        invitationVersion: accepted.invitation_version,
+        metadata: { membershipId: accepted.membership_id, role: accepted.role },
       });
       await this.audit(tx, {
-        id: userId,
-        orgId: invitation.organization_id,
-        tenantId: invitation.tenant_id,
-        membershipId,
+        id: accepted.user_id,
+        orgId: accepted.organization_id,
+        tenantId: accepted.tenant_id,
+        membershipId: accepted.membership_id,
       } as RequestUser, 'auth.organization.invitation.accept', 'SUCCESS', 'INVITATION_ACCEPTED', {
-        invitationId: invitation.id,
+        invitationId: invitation.invitation_id,
         correlationId,
         consent: CURRENT_CONSENT_EVIDENCE,
         ipHash: hashClientValue(ip),
@@ -534,10 +562,10 @@ export class OrganizationInvitationService {
       });
       return {
         kind: 'accepted' as const,
-        organizationId: invitation.organization_id,
-        organizationName: invitation.organization_name,
-        membershipId,
-        role: invitation.role,
+        organizationId: accepted.organization_id,
+        organizationName: accepted.organization_name,
+        membershipId: accepted.membership_id,
+        role: accepted.role,
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
 
@@ -560,19 +588,17 @@ export class OrganizationInvitationService {
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
     const requestHash = hashAuthMaterial(stableJson({ membershipId, command: 'ROLE_CHANGE', role, version: version.toString(), reason }));
     const replayed = await this.prisma.$transaction(async (tx) => {
+      await this.establishAdminIdentityContext(tx, user, admin);
       if (await this.membershipCommandReplayed(tx, admin, idempotencyKey, requestHash, membershipId, 'ROLE_CHANGE')) return true;
-      const updated = await tx.$executeRaw(Prisma.sql`
-        UPDATE public.user_orgs membership
-        SET role = ${role}, version = version + 1
-        FROM public.organizations organization
-        WHERE membership.id = ${membershipId}
-          AND membership."organizationId" = ${admin.organizationId}
-          AND membership."organizationId" = organization.id
-          AND organization."tenantId" = ${admin.organization.tenantId}
-          AND membership.status = 'ACTIVE'
-          AND membership.version = ${version}
+      const [transition] = await tx.$queryRaw<Array<{ applied: boolean }>>(Prisma.sql`
+        SELECT applied
+        FROM auth.change_organization_membership_role(
+          ${String(user.sessionId)}, ${user.id}, ${admin.id},
+          ${admin.organizationId}, ${admin.organization.tenantId},
+          ${membershipId}, ${version}, ${role}
+        )
       `);
-      if (updated !== 1) throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
+      if (!transition?.applied) throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
       await this.audit(tx, user, 'auth.organization.membership.role_change', 'SUCCESS', reason, {
         membershipId,
         role,
@@ -608,30 +634,25 @@ export class OrganizationInvitationService {
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
     const requestHash = hashAuthMaterial(stableJson({ membershipId, command: 'REVOKE', version: version.toString(), reason }));
     const replayed = await this.prisma.$transaction(async (tx) => {
+      await this.establishAdminIdentityContext(tx, user, admin);
       if (await this.membershipCommandReplayed(tx, admin, idempotencyKey, requestHash, membershipId, 'REVOKE')) return true;
-      const targets = await tx.$queryRaw<Array<{ id: string; is_org_admin: boolean }>>(Prisma.sql`
-        SELECT membership.id, membership.is_org_admin
-        FROM public.user_orgs membership
-        JOIN public.organizations organization ON organization.id = membership."organizationId"
-        WHERE membership.id = ${membershipId}
-          AND membership."organizationId" = ${admin.organizationId}
-          AND organization."tenantId" = ${admin.organization.tenantId}
-        FOR UPDATE OF membership
+      const [transition] = await tx.$queryRaw<Array<{ outcome: string }>>(Prisma.sql`
+        SELECT outcome
+        FROM auth.revoke_organization_membership(
+          ${String(user.sessionId)}, ${user.id}, ${admin.id},
+          ${admin.organizationId}, ${admin.organization.tenantId},
+          ${membershipId}, ${version}
+        )
       `);
-      const target = targets[0];
-      if (!target) throw new NotFoundException({ code: 'MEMBERSHIP_NOT_FOUND' });
-      if (target.is_org_admin) {
-        const administrators = await tx.userOrg.count({
-          where: { organizationId: admin.organizationId, status: 'ACTIVE', isOrgAdmin: true },
-        });
-        if (administrators <= 1) throw new ConflictException({ code: 'LAST_ORGANIZATION_ADMIN_REQUIRED' });
+      if (transition?.outcome === 'NOT_FOUND') {
+        throw new NotFoundException({ code: 'MEMBERSHIP_NOT_FOUND' });
       }
-      const updated = await tx.$executeRaw(Prisma.sql`
-        UPDATE public.user_orgs
-        SET status = 'REVOKED', revoked_at = NOW(), "isDefault" = FALSE, version = version + 1
-        WHERE id = ${target.id} AND status = 'ACTIVE' AND version = ${version}
-      `);
-      if (updated !== 1) throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
+      if (transition?.outcome === 'LAST_ADMIN') {
+        throw new ConflictException({ code: 'LAST_ORGANIZATION_ADMIN_REQUIRED' });
+      }
+      if (transition?.outcome !== 'APPLIED') {
+        throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
+      }
       await this.audit(tx, user, 'auth.organization.membership.revoke', 'SUCCESS', reason, {
         membershipId,
         correlationId,
@@ -680,58 +701,51 @@ export class OrganizationInvitationService {
     const token = issueMfaRecoveryCredential();
     const expiresAt = new Date(Date.now() + MFA_RECOVERY_TTL_MS);
     const result = await this.prisma.$transaction(async (tx) => {
+      await this.establishAdminIdentityContext(tx, user, admin);
       if (await this.membershipCommandReplayed(tx, admin, idempotencyKey, requestHash, membershipId, 'MFA_RESET')) {
-        const replay = await tx.$queryRaw<MfaRecoveryRow[]>(Prisma.sql`
-          SELECT challenge.*, subject.email
-          FROM auth.mfa_recovery_challenges challenge
-          JOIN public.users subject ON subject.id = challenge.user_id
-          WHERE challenge.idempotency_key = ${`mfa-recovery:${idempotencyKey}`}
+        const [replayedChallenge] = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          SELECT id
+          FROM auth.mfa_recovery_challenges
+          WHERE idempotency_key = ${`mfa-recovery:${idempotencyKey}`}
           LIMIT 1
         `);
+        const replay = replayedChallenge
+          ? await tx.$queryRaw<MfaRecoveryRow[]>(Prisma.sql`
+            SELECT *
+            FROM auth.organization_mfa_recovery_snapshot(
+              ${String(user.sessionId)}, ${user.id}, ${admin.id},
+              ${admin.organizationId}, ${admin.organization.tenantId},
+              ${replayedChallenge.id}
+            )
+          `)
+          : [];
         if (!replay[0]) throw new ConflictException({ code: 'MFA_RECOVERY_REPLAY_NOT_FOUND' });
         return { challenge: replay[0], replayed: true as const };
       }
       const targets = await tx.$queryRaw<Array<{
+        prepared: boolean;
         user_id: string;
         email: string;
         has_other_membership: boolean;
         has_staff_assignment: boolean;
         mfa_enabled: boolean;
         has_mfa_secret: boolean;
+        new_version: bigint;
       }>>(Prisma.sql`
         SELECT
-          membership."userId" AS user_id,
-          subject.email,
-          credential.mfa_enabled,
-          (credential.mfa_secret_ciphertext IS NOT NULL) AS has_mfa_secret,
-          EXISTS (
-            SELECT 1
-            FROM public.user_orgs other_membership
-            WHERE other_membership."userId" = membership."userId"
-              AND other_membership."organizationId" <> membership."organizationId"
-              AND other_membership.status IN ('PENDING', 'ACTIVE', 'SUSPENDED')
-          ) AS has_other_membership,
-          EXISTS (
-            SELECT 1
-            FROM auth.staff_assignments assignment
-            WHERE assignment.user_id = membership."userId"
-              AND assignment.status IN ('ELIGIBLE', 'ACTIVE')
-              AND assignment.valid_from <= NOW()
-              AND (assignment.valid_until IS NULL OR assignment.valid_until > NOW())
-          ) AS has_staff_assignment
-        FROM public.user_orgs membership
-        JOIN public.organizations organization ON organization.id = membership."organizationId"
-        JOIN public.users subject ON subject.id = membership."userId"
-        JOIN auth.credential_states credential ON credential.user_id = subject.id
-        WHERE membership.id = ${membershipId}
-          AND membership."organizationId" = ${admin.organizationId}
-          AND organization."tenantId" = ${admin.organization.tenantId}
-          AND organization.status = 'VERIFIED'
-          AND subject.status = 'ACTIVE'
-          AND subject."deletedAt" IS NULL
-          AND membership.status = 'ACTIVE'
-          AND membership.version = ${version}
-        FOR UPDATE OF membership, subject
+          prepared,
+          target_user_id AS user_id,
+          target_email AS email,
+          has_other_membership,
+          has_staff_assignment,
+          mfa_enabled,
+          has_mfa_secret,
+          new_version
+        FROM auth.prepare_organization_mfa_recovery_target(
+          ${String(user.sessionId)}, ${user.id}, ${admin.id},
+          ${admin.organizationId}, ${admin.organization.tenantId},
+          ${membershipId}, ${version}
+        )
       `);
       const target = targets[0];
       if (!target) throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
@@ -740,6 +754,9 @@ export class OrganizationInvitationService {
       }
       if (!target.mfa_enabled || !target.has_mfa_secret) {
         throw new ConflictException({ code: 'MFA_NOT_ENROLLED' });
+      }
+      if (!target.prepared || target.new_version !== version + 1n) {
+        throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
       }
 
       const pending = await tx.$queryRaw<Array<{ id: string; version: bigint; expires_at: Date }>>(Prisma.sql`
@@ -780,12 +797,6 @@ export class OrganizationInvitationService {
           ${`mfa-recovery:${idempotencyKey}`}, ${requestHash}, ${expiresAt}
         )
       `);
-      const membershipUpdated = await tx.$executeRaw(Prisma.sql`
-        UPDATE public.user_orgs
-        SET version = version + 1
-        WHERE id = ${membershipId} AND version = ${version} AND status = 'ACTIVE'
-      `);
-      if (membershipUpdated !== 1) throw new ConflictException({ code: 'MEMBERSHIP_VERSION_CONFLICT' });
       await this.insertMfaRecoveryEvent(tx, {
         challengeId: token.credentialId,
         actorUserId: user.id,
@@ -864,43 +875,13 @@ export class OrganizationInvitationService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<MfaRecoveryRow[]>(Prisma.sql`
-        SELECT
-          challenge.*,
-          subject.email,
-          subject."passwordHash" AS password_hash,
-          subject.status AS user_status,
-          subject."deletedAt" AS user_deleted_at,
-          membership.status AS membership_status,
-          organization.status AS organization_status,
-          EXISTS (
-            SELECT 1
-            FROM public.user_orgs other_membership
-            WHERE other_membership."userId" = challenge.user_id
-              AND other_membership."organizationId" <> challenge.organization_id
-              AND other_membership.status IN ('PENDING', 'ACTIVE', 'SUSPENDED')
-          ) AS has_other_membership,
-          EXISTS (
-            SELECT 1
-            FROM auth.staff_assignments assignment
-            WHERE assignment.user_id = challenge.user_id
-              AND assignment.status IN ('ELIGIBLE', 'ACTIVE')
-              AND assignment.valid_from <= NOW()
-              AND (assignment.valid_until IS NULL OR assignment.valid_until > NOW())
-          ) AS has_staff_assignment
-        FROM auth.mfa_recovery_challenges challenge
-        JOIN public.users subject ON subject.id = challenge.user_id
-        JOIN public.user_orgs membership
-          ON membership.id = challenge.membership_id
-          AND membership."userId" = challenge.user_id
-          AND membership."organizationId" = challenge.organization_id
-        JOIN public.organizations organization
-          ON organization.id = challenge.organization_id
-          AND organization."tenantId" = challenge.tenant_id
-        WHERE challenge.id = ${parsed.credentialId}
-        FOR UPDATE OF challenge, subject, membership
+        SELECT *
+        FROM auth.resolve_mfa_recovery_identity(
+          ${parsed.credentialId}, ${parsed.storedDigest}
+        )
       `);
       const challenge = rows[0];
-      if (!challenge || !secureEqual(challenge.token_hash, parsed.storedDigest) || challenge.status !== 'PENDING') {
+      if (!challenge || challenge.status !== 'PENDING') {
         return { kind: 'invalid' as const };
       }
       if (challenge.expires_at <= new Date()) {
@@ -974,27 +955,20 @@ export class OrganizationInvitationService {
         return { kind: 'invalid' as const };
       }
 
-      const credentialUpdated = await tx.$executeRaw(Prisma.sql`
-        UPDATE auth.credential_states
-        SET mfa_enabled = TRUE,
-            mfa_secret_ciphertext = NULL,
-            mfa_key_version = NULL,
-            mfa_backup_hashes = NULL,
-            credential_version = credential_version + 1,
-            updated_at = NOW()
-        WHERE user_id = ${challenge.user_id}
+      const finalized = await tx.$queryRaw<Array<{
+        user_id: string;
+        membership_id: string;
+        organization_id: string;
+        tenant_id: string;
+        email: string;
+      }>>(Prisma.sql`
+        SELECT *
+        FROM auth.finalize_mfa_recovery_identity(
+          ${challenge.id}, ${parsed.storedDigest},
+          ${String(challenge.password_hash || '')}, ${challenge.version}
+        )
       `);
-      if (credentialUpdated !== 1) throw new NotFoundException({ code: 'CREDENTIAL_STATE_NOT_FOUND' });
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE public.users SET "mfaEnabled" = TRUE, "updatedAt" = NOW()
-        WHERE id = ${challenge.user_id}
-      `);
-      const consumed = await tx.$executeRaw(Prisma.sql`
-        UPDATE auth.mfa_recovery_challenges
-        SET status = 'CONSUMED', consumed_at = NOW(), version = version + 1, updated_at = NOW()
-        WHERE id = ${challenge.id} AND status = 'PENDING' AND version = ${challenge.version}
-      `);
-      if (consumed !== 1) throw new ConflictException({ code: 'MFA_RECOVERY_VERSION_CONFLICT' });
+      if (!finalized[0]) throw new ConflictException({ code: 'MFA_RECOVERY_IDENTITY_CONFLICT' });
       await this.authRepository.revokeAllUserSessions(tx, challenge.user_id, 'CONTROLLED_MFA_RECOVERY');
       await this.insertMfaRecoveryEvent(tx, {
         challengeId: challenge.id,
@@ -1120,35 +1094,68 @@ export class OrganizationInvitationService {
     `);
   }
 
-  private async requireAdmin(user: RequestUser): Promise<AdminMembership> {
-    if (!user.id || !user.orgId || !user.tenantId || !user.membershipId || !user.isOrgAdmin) {
+  private async requireAdmin(
+    user: RequestUser,
+    client: AuthSqlClient = this.prisma,
+  ): Promise<AdminMembership> {
+    if (!user.id || !user.orgId || !user.tenantId || !user.membershipId || !user.sessionId) {
       throw new ForbiddenException({ code: 'ORGANIZATION_ADMIN_REQUIRED' });
     }
-    const mfaAt = Date.parse(String(user.mfaVerifiedAt || ''));
-    if (!user.mfaVerified || !Number.isFinite(mfaAt) || Date.now() - mfaAt > ADMIN_MFA_FRESHNESS_MS) {
-      throw new ForbiddenException({ code: 'FRESH_MFA_REQUIRED' });
-    }
-    const membership = await this.prisma.userOrg.findFirst({
-      where: {
-        id: user.membershipId,
-        userId: user.id,
-        organizationId: user.orgId,
-        status: 'ACTIVE',
-        isOrgAdmin: true,
-        organization: { tenantId: user.tenantId, status: 'VERIFIED' },
-      },
-      select: {
-        id: true,
-        role: true,
-        version: true,
-        organizationId: true,
-        organization: { select: { tenantId: true, status: true, name: true } },
-      },
-    });
+    const rows = await client.$queryRaw<Array<{
+      membership_id: string;
+      role: string;
+      membership_version: bigint;
+      organization_id: string;
+      tenant_id: string;
+      organization_status: string;
+      organization_name: string;
+    }>>(Prisma.sql`
+      SELECT
+        membership_id, role, membership_version, organization_id,
+        tenant_id, organization_status, organization_name
+      FROM auth.resolve_organization_admin_session(
+        ${user.sessionId}, ${user.id}, ${user.membershipId}, ${user.orgId}, ${user.tenantId}
+      )
+    `);
+    const membership = rows[0];
     if (!membership || !isOrganizationHumanRole(membership.role)) {
       throw new ForbiddenException({ code: 'ORGANIZATION_ADMIN_REQUIRED' });
     }
-    return membership as AdminMembership;
+    return {
+      id: membership.membership_id,
+      role: membership.role,
+      version: membership.membership_version,
+      organizationId: membership.organization_id,
+      organization: {
+        tenantId: membership.tenant_id,
+        status: membership.organization_status,
+        name: membership.organization_name,
+      },
+    };
+  }
+
+  private async establishAdminIdentityContext(
+    tx: Prisma.TransactionClient,
+    user: RequestUser,
+    expected: AdminMembership,
+  ): Promise<void> {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT
+        set_config('app.current_user_id', ${user.id}, true),
+        set_config('app.current_org_id', ${expected.organizationId}, true),
+        set_config('app.current_tenant_id', ${expected.organization.tenantId}, true),
+        set_config('app.current_role', ${user.role}, true),
+        set_config('app.current_session_id', ${user.sessionId || ''}, true)
+    `);
+    const current = await this.requireAdmin(user, tx);
+    if (
+      current.id !== expected.id
+      || current.organizationId !== expected.organizationId
+      || current.organization.tenantId !== expected.organization.tenantId
+      || current.role !== expected.role
+    ) {
+      throw new ForbiddenException({ code: 'ORGANIZATION_ADMIN_REQUIRED' });
+    }
   }
 
   private assertRoleWithinCeiling(adminRole: OrganizationHumanRole, requestedRole: OrganizationHumanRole) {
@@ -1173,9 +1180,11 @@ export class OrganizationInvitationService {
   ): Promise<InvitationRow> {
     const suffix = lock ? Prisma.sql` FOR UPDATE OF invitation` : Prisma.empty;
     const rows = await tx.$queryRaw<InvitationRow[]>(Prisma.sql`
-      SELECT invitation.*, organization.name AS organization_name, organization.status AS organization_status
+      SELECT
+        invitation.*,
+        ${admin.organization.name}::text AS organization_name,
+        ${admin.organization.status}::text AS organization_status
       FROM auth.organization_invitations invitation
-      JOIN public.organizations organization ON organization.id = invitation.organization_id
       WHERE invitation.id = ${invitationId}
         AND invitation.organization_id = ${admin.organizationId}
         AND invitation.tenant_id = ${admin.organization.tenantId}${suffix}

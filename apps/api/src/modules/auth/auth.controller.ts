@@ -422,12 +422,12 @@ export class AuthController {
 
   @Get('me/data-export')
   dataExport(@CurrentUser() user: RequestUser) {
-    return this.authService.getUserData(user.id);
+    return this.authService.getUserData(user);
   }
 
   @HttpCode(200)
   @Post('me/anonymize')
   anonymize(@CurrentUser() user: RequestUser) {
-    return this.authService.anonymizeUser(user.id);
+    return this.authService.anonymizeUser(user);
   }
 }

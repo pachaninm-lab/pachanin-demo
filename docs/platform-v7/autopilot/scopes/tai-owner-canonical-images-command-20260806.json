@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-owner-canonical-images-command-20260806",
+  "status": "active",
+  "title": "TAI owner canonical images command",
+  "priority": "P0",
+  "baselineExactMain": "4f5475835e4bbde54a98f40fcfa5b6b4a925027e",
+  "objective": "Keep canonical image publication manual owner-command only. The owner may dispatch the existing all-service canonical Docker image workflow for unchanged current main, after which the already-merged protected REG.RU preflight, activation, acceptance, deployment and strict postflight chain remains authoritative.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-canonical-images-command.yml",
+    "scripts/check-tai-owner-canonical-images-command.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-owner-canonical-images-command-20260806.json"
+  ],
+  "boundaries": [
+    "Canonical image publication is manual owner command only; no schedule or background automation is permitted",
+    "The only interactive command is /tai images current-main on issue 3365",
+    "Commenter, actor and triggering actor must all equal the repository owner",
+    "The command resolves and revalidates unchanged origin/main before dispatch",
+    "Only the existing Build & Publish Canonical Docker Images workflow is dispatched with ref main and services all",
+    "A successful TAI REG.RU Deployment or recent pending canonical-image status prevents duplicate manual dispatch",
+    "The bridge has no Docker, SSH, sudo, production filesystem, database or application mutation authority",
+    "Production mutation remains NONE until the downstream protected REG.RU controller accepts preflight evidence",
+    "The existing protected preflight, restricted activation, live acceptance, rollback, deployment and strict postflight workflows remain the sole release authority",
+    "Every accepted manual dispatch publishes the exact target SHA and a pending canonical-image status",
+    "Zero new recurring external cost"
+  ]
+}

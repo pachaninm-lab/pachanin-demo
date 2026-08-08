@@ -9,6 +9,7 @@ const REVIEWER: RequestUser = {
   orgId: 'platform-org',
   tenantId: 'platform-tenant',
   membershipId: 'reviewer-membership',
+  sessionId: 'reviewer-session',
   mfaVerified: true,
   mfaVerifiedAt: new Date().toISOString(),
 };
@@ -85,6 +86,7 @@ describe('platform registration reviewer boundary', () => {
   it('cannot decide an existing-organization join through the platform reviewer endpoint', async () => {
     const tx = {
       $queryRaw: jest.fn()
+        .mockResolvedValueOnce([{ authorized: true }])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{
           id: 'join-application-1', kind: 'JOIN_EXISTING_ORGANIZATION', user_id: 'applicant-1',
@@ -103,6 +105,6 @@ describe('platform registration reviewer boundary', () => {
       { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] }, 'idempotency-decision-join-0001', 'correlation-1',
     )).rejects.toBeInstanceOf(ForbiddenException);
 
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
   });
 });

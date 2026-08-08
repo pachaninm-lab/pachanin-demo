@@ -6,6 +6,8 @@ import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
 import '@/styles/platform-v7-public-product-experience-v5.css';
+import '@/styles/platform-v7-public-deal-explorer-mobile.css';
+import '@/styles/platform-v7-public-deal-journey-v5.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
@@ -16,6 +18,7 @@ import { PublicExperienceScrollCoordinator } from '@/components/platform-v7/Publ
 import { getPublicProductEntryVariantsCopy } from '@/i18n/public-product-entry-variants';
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
+import { getPublicDealJourneyV5Copy } from '@/i18n/public-deal-journey-v5';
 import {
   DEFAULT_TOUR_STATE,
   normalizeTourEntryVariant,
@@ -48,6 +51,7 @@ export default async function PublicDealFromInsidePage({
   const locale = await getLocale();
   const copy = getPublicProductExperienceCopy(locale);
   const ui = getPublicProductExperienceV4Copy(locale);
+  const journeyUi = getPublicDealJourneyV5Copy(locale);
   const entryCopy = getPublicProductEntryVariantsCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const initialEntry = normalizeTourEntryVariant(searchParams?.entry);
@@ -82,15 +86,15 @@ export default async function PublicDealFromInsidePage({
       <div className='pc-ppe-shell'>
         <header className='pc-ppe-explorer-intro'>
           <div>
-            <span className='pc-ppe-kicker'>{ui.explorer.kicker}</span>
-            <h1 id='pc-ppe-explorer-title'>{ui.explorer.title}</h1>
-            <p>{ui.explorer.lead}</p>
-            <div className='pc-ppe-demo-banner' role='note'>{ui.explorer.demoNotice}</div>
+            <span className='pc-ppe-kicker'>{journeyUi.intro.kicker}</span>
+            <h1 id='pc-ppe-explorer-title'>{journeyUi.intro.title}</h1>
+            <p>{journeyUi.intro.lead}</p>
+            <div className='pc-ppe-demo-banner' role='note'>{journeyUi.intro.demoNotice || ui.explorer.demoNotice}</div>
           </div>
           <div className='pc-ppe-explorer-intro-actions'>
             <a href={`/platform-v7?lang=${encodeURIComponent(locale)}`} className='pc-ppe-back-link'>
               <PublicExperienceIcon name='arrow' size={18} style={{ transform: 'rotate(180deg)' }} />
-              <span>{ui.explorer.backHome}</span>
+              <span>{journeyUi.intro.backHome}</span>
             </a>
           </div>
         </header>
@@ -103,7 +107,7 @@ export default async function PublicDealFromInsidePage({
           initialState={initialState}
         />
         <noscript>
-          <a href='/platform-v7/register' className='pc-ppe-primary-button'>{ui.explorer.connect}</a>
+          <a href='/platform-v7/register' className='pc-ppe-primary-button'>{journeyUi.intro.connect}</a>
         </noscript>
       </div>
 
