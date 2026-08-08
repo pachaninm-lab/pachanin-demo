@@ -70,7 +70,7 @@ describe('Correlation timeline', () => {
     const stamps = timeline.items.map((item) => item.at);
     expect([...stamps].sort()).toEqual(stamps);
     expect(timeline.items.some((item) => item.source === 'bank_operation' && item.summary.includes('RESERVE'))).toBe(true);
-    expect(timeline.items.some((item) => item.source === 'deal_event' && item.kind === 'CONFIRM_RESERVE')).toBe(true);
+    expect(timeline.items.some((item) => item.source === 'deal_event' && item.kind === 'SETTLEMENT_RESERVE_CALLBACK_SUCCESS')).toBe(true);
 
     const outsider = { ...fixture.users.operator, id: 'user-tl-outsider', sessionId: 'session-tl-outsider' };
     await expect(alpha.gateway.correlationTimeline(fixture.dealId, outsider)).rejects.toMatchObject({ status: 403 });
