@@ -25,12 +25,17 @@ describe('P0 first-customer registration boundary', () => {
     expect(registerRoute).toContain('REGISTRATION_DELIVERY_KEY');
     expect(registerRoute).toContain('!mailChannelConfigured()');
     expect(registerRoute).toContain('sendTransactionalMail');
+    expect(registerRoute).toContain('registration_delivery_contract_invalid');
     expect(registerRoute).toContain('if (!deliveryResult.delivered)');
+    expect(registerRoute).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
     expect(registerRoute).not.toContain('REGISTRATION_DELIVERY_KEY:');
 
     expect(resendRoute).toContain('REGISTRATION_DELIVERY_KEY');
     expect(resendRoute).toContain('!mailConfigured()');
     expect(resendRoute).toContain('sendTransactionalMail');
+    expect(resendRoute).toContain('if (!delivery?.email || !delivery.token)');
+    expect(resendRoute).toContain('if (!result.delivered)');
+    expect(resendRoute).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
     expect(resendRoute).not.toContain('REGISTRATION_DELIVERY_KEY:');
   });
 

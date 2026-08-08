@@ -156,32 +156,43 @@ export async function POST(request: Request) {
     }
 
     const delivery = payload.emailDelivery;
-    if (delivery?.email && delivery.token && payload.statusToken) {
-      const verifyUrl = new URL('/platform-v7/register', normalizeOrigin(request));
-      verifyUrl.searchParams.set('verify', delivery.token);
-      verifyUrl.searchParams.set('statusToken', payload.statusToken);
-      verifyUrl.searchParams.set('lang', locale);
-      const copy = mailCopy[locale];
-      const deliveryResult = await sendTransactionalMail({
-        to: delivery.email,
-        subject: copy.subject,
-        text: [copy.intro, '', copy.action, verifyUrl.toString(), '', copy.expiry].join('\n'),
-      });
-      console.info('registration_email_delivery_result', JSON.stringify({
+    if (!delivery?.email || !delivery.token || !payload.statusToken) {
+      console.error('registration_delivery_contract_invalid', JSON.stringify({
         correlationId,
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
-        delivered: deliveryResult.delivered,
-        provider: deliveryResult.provider,
-        reason: deliveryResult.reason,
       }));
-      if (!deliveryResult.delivered) {
-        console.warn('registration_email_delivery_deferred', JSON.stringify({
-          correlationId,
-          registrationApplicationRef: payload.applicationId,
-          accountHash: accountHash(email),
-        }));
-      }
+      return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId: payload.correlationId || correlationId }, 503);
+    }
+    const verifyUrl = new URL('/platform-v7/register', normalizeOrigin(request));
+    verifyUrl.searchParams.set('verify', delivery.token);
+    verifyUrl.searchParams.set('statusToken', payload.statusToken);
+    verifyUrl.searchParams.set('lang', locale);
+    const copy = mailCopy[locale];
+    const deliveryResult = await sendTransactionalMail({
+      to: delivery.email,
+      subject: copy.subject,
+      text: [copy.intro, '', copy.action, verifyUrl.toString(), '', copy.expiry].join('\n'),
+    });
+    console.info('registration_email_delivery_result', JSON.stringify({
+      correlationId,
+      registrationApplicationRef: payload.applicationId,
+      accountHash: accountHash(email),
+      delivered: deliveryResult.delivered,
+      provider: deliveryResult.provider,
+      reason: deliveryResult.reason,
+    }));
+    if (!deliveryResult.delivered) {
+      console.warn('registration_email_delivery_deferred', JSON.stringify({
+        correlationId,
+        registrationApplicationRef: payload.applicationId,
+        accountHash: accountHash(email),
+      }));
+      return json({
+        accepted: false,
+        code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE',
+        correlationId: payload.correlationId || correlationId,
+      }, 503);
     }
 
     return json({
