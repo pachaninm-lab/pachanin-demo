@@ -855,6 +855,13 @@
       "docs/platform-v7/autopilot/scopes/production-release-owner-bridge-3731.json",
       "docs/platform-v7/autopilot/autopilot-state.json",
       ".github/workflows/pc-crop-10a.yml"
+    ],
+    "fix/p0-registration-cookie-api-3733": [
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+      "apps/web/tests/unit/p0RegistrationPresentationCookie.test.ts",
+      "docs/platform-v7/autopilot/scopes/registration-cookie-api-boundary-3733.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
