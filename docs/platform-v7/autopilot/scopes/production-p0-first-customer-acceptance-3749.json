@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-p0-first-customer-acceptance-3750",
+  "status": "active",
+  "purpose": "Prove the already released P0 First Customer Access path on the canonical REG.RU production contour: two independently authenticated public BFF registrants, configured transactional-mail acknowledgement, single-use email verification, server-side staff approval, ordinary login and MFA, server-resolved cabinet, a named permitted action, logout/re-login, and causal PostgreSQL audit/outbox plus tenant-isolation evidence.",
+  "approvedBy": "owner-direct-registration-production-finish-2026-08-08",
+  "authorityBaseExactMain": "a177f5f1e4f80febe29340b99e3cd74c8b89bb64",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-first-customer-acceptance.yml",
+    "scripts/production-p0-first-customer-acceptance.sh",
+    "scripts/check-production-p0-first-customer-acceptance.mjs",
+    "docs/ops/production-p0-first-customer-acceptance.md",
+    "docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json"
+  ],
+  "requiredBehavior": [
+    "run only from an owner-authenticated issue command on release issue 3072 and resolve exact current main before every external action",
+    "use the public production Web BFF for registration, verification, login, MFA, logout and the permitted first action",
+    "require configured transactional-mail acknowledgement before email verification and never expose a raw email token in issue comments or artifacts",
+    "approve only through an existing server-authoritative staff reviewer session with recent MFA and STAFF_REQUEST_APPROVE permission",
+    "create two unique run-scoped public customer identities in distinct tenants; authenticate both, prove tenant A can read its own protected resource, then send tenant B through the same authenticated Web BFF against that known tenant-A resource and require the server-denied result",
+    "pair the BFF denial with a read-only PostgreSQL RLS assertion under the authenticated tenant-B session context: the known tenant-A resource must be visible to tenant A and invisible to tenant B; a generic 401, malformed request, nonexistent resource or application-only WHERE-clause rejection is not sufficient",
+    "bind audit and outbox proof to one named, server-authoritative P0 lifecycle action from this exact run: the correlation must match auth.registration.lifecycle.receipt and its registration-lifecycle idempotency key; no unrelated outbox row can satisfy the acceptance",
+    "return MISSING_P0_CAUSAL_OUTBOX_PRODUCER and fail the acceptance if the exact main does not yet produce that named lifecycle receipt; the acceptance workflow must not invent, insert or correlate a substitute event",
+    "fail closed when any protected reviewer or mailbox acceptance prerequisite is unavailable",
+    "redact credentials, bearer tokens, raw verification tokens, passwords, TOTP secrets and protected server paths"
+  ],
+  "forbiddenCapabilities": [
+    "direct VPS shell mutation outside an existing pinned owner-only workflow",
+    "direct production SQL to create, approve, activate or impersonate a customer identity",
+    "client-selected role, tenant or staff authority",
+    "demo, mock, localStorage or static-fallback authentication",
+    "RLS, MFA, audit, outbox, CSRF or rate-limit weakening",
+    "new paid provider, SaaS subscription, API or recurring cost",
+    "Netlify or Vercel production hosting",
+    "reporting organization intake as proof of a user registration"
+  ],
+  "acceptanceEvidence": [
+    "exact API and Web OCI revisions equal exact main and public /ready remains healthy",
+    "public registration accepted only after mail transport reports delivery",
+    "email verification and status transition recorded server-side",
+    "separate staff actor approves with recent MFA and immutable audit",
+    "approved applicant logs in, completes MFA when required and reaches the server-resolved role cabinet",
+    "one permitted first action, logout and fresh login succeed",
+    "the named auth.registration.lifecycle.receipt outbox row, its registration-lifecycle idempotency key and the immutable audit entries match this run correlation",
+    "tenant A can read its known protected resource while authenticated tenant B receives the server denial and the paired PostgreSQL RLS assertion returns no tenant-A row"
+  ]
+}
