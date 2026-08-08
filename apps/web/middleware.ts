@@ -320,6 +320,15 @@ function persistRoleCookie(req: NextRequest, response: NextResponse, role: strin
   }
 }
 
+function clearPresentationRoleCookie(response: NextResponse) {
+  response.cookies.set('pc-role', '', {
+    path: '/',
+    maxAge: 0,
+    sameSite: 'lax',
+    secure: true,
+  });
+}
+
 function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: string) {
   if (!VALID_LOCALES.has(locale)) return;
   if (req.cookies.get(LOCALE_COOKIE)?.value !== locale) {
@@ -423,8 +432,12 @@ export async function middleware(req: NextRequest) {
       return applySecurityHeaders(NextResponse.next(), false);
     }
     if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
-      const response = withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath, isIndexable);
-      persistRoleCookie(req, response, presentationRole);
+      // Registration is an unauthenticated boundary.  A writable presentation
+      // cookie must not survive onto it or suggest an operator context.
+      const routeRole = p === '/platform-v7/register' ? 'organization' : presentationRole;
+      const response = withRoleHeaders(req, routeRole, privateModeEnabled && protectedPath, isIndexable);
+      if (p === '/platform-v7/register') clearPresentationRoleCookie(response);
+      else persistRoleCookie(req, response, routeRole);
       if (isEntry) markPlatformV7Entry(response);
       return response;
     }
