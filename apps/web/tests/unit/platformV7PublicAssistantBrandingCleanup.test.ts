@@ -117,7 +117,13 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toMatch(/return \(\) => \{\s+stopActiveRequest\(\);\s+observer\.disconnect\(\);/u);
   });
 
-  it('never projects provisional tokens or operational metadata while thinking', () => {
+  it('projects an already-admitted safe delta but fails closed on an internal artifact', () => {
+    expect(publicSnapshotForDisplay(snapshot('streaming', 'Проверьте влажность и питание.'))).toMatchObject({
+      status: 'streaming',
+      text: 'Проверьте влажность и питание.',
+      assessment: null,
+      modelIdentity: null,
+    });
     const result = publicSnapshotForDisplay(snapshot('streaming', '<think>private reasoning</think> partial answer'));
     expect(result).toMatchObject({
       status: 'streaming',

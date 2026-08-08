@@ -28,7 +28,9 @@ export const runtime = 'nodejs';
 
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const INTERNAL_PATH = '/internal/tai/public-generate';
+const INTERNAL_STREAM_PATH = '/internal/tai/public-stream';
 const MAX_API_RESPONSE_BYTES = 1_048_576;
+const MAX_INTERNAL_SSE_RECORD_CHARS = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 130_000;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
@@ -74,6 +76,7 @@ type ModelResponse = Readonly<{
 type RuntimeConfig = Readonly<{
   enabled: boolean;
   endpoint: URL | null;
+  streamEndpoint: URL | null;
   secret: string;
   identity: string;
   timeoutMs: number;
@@ -253,7 +256,9 @@ function streamModelFirstAnswer(
         return;
       }
       request.signal.addEventListener('abort', cancel, { once: true });
-      writer.emit({ event: 'meta', mode: 'public', modelIdentity: null });
+      // The model identity is emitted only after a configured controller stream
+      // starts. Policy/fallback paths deliberately retain a null identity.
+      if (answerMode === 'verified_platform') writer.emit({ event: 'meta', mode: 'public', modelIdentity: null });
 
       const locale = resolveLocale(grounding, envelope.locale);
       const telemetry = {
@@ -313,6 +318,59 @@ function streamModelFirstAnswer(
         };
 
         recorder.mark('promptAssembly');
+
+        // `verified_platform` deliberately remains on the complete-answer path:
+        // its grounding enforcer decides over the whole completion. General agro
+        // has no such rewrite and can therefore safely forward the controller's
+        // screened deltas as they arrive.
+        if (answerMode === 'general_agro') {
+          try {
+            writer.emit({ event: 'meta', mode: 'public', modelIdentity: runtimeConfig.identity });
+            const terminal = await streamInternalModel(
+              runtimeConfig,
+              payload,
+              request.signal,
+              runtimeConfig.timeoutMs,
+              recorder.traceId,
+              (text) => {
+                if (!writer.emit({ event: 'token', text })) throw new Error('gateway_stream_sealed');
+                recorder.mark('firstUsefulText');
+              },
+            );
+            recorder.mark('modelTtft');
+            recorder.mark('generation');
+            telemetry.modelIdentity = terminal.modelIdentity;
+            telemetry.promptTokens = terminal.promptTokens;
+            telemetry.completionTokens = terminal.completionTokens;
+            writer.emit({
+              event: 'assessment',
+              summary: JSON.stringify({
+                source: 'local_qwen', answerMode, currentDataRequired,
+                modelIdentity: terminal.modelIdentity, finishReason: terminal.finishReason,
+                streaming: true,
+              }),
+              operationalStatus: 'NOT_ATTESTED',
+            });
+            writer.complete();
+            recorder.mark('postProcessing');
+          } catch (error) {
+            if (request.signal.aborted) {
+              telemetry.cancelled = true;
+              telemetry.errorClass = 'cancelled';
+              telemetry.timeoutClass = 'client';
+              return;
+            }
+            if (error instanceof InternalTaiStreamFailure && error.cancelled) {
+              telemetry.cancelled = true;
+              telemetry.errorClass = 'cancelled';
+              writer.fail('CANCELLED', 'The model generation was cancelled.');
+              return;
+            }
+            telemetry.errorClass = 'provider_transport';
+            writer.fail('UPSTREAM_ERROR', modelUnavailableCopy(locale));
+          }
+          return;
+        }
 
         let answer: ModelResponse;
         try {
@@ -382,7 +440,7 @@ function streamModelFirstAnswer(
             answerMode,
             modelIdentity: telemetry.modelIdentity,
             retrievalVersion: grounding.knowledgeVersion ?? null,
-            streaming: false,
+            streaming: answerMode === 'general_agro' && telemetry.modelIdentity !== null,
             cancelled: telemetry.cancelled,
             fallbackUsed: telemetry.fallbackUsed,
             timeoutClass: telemetry.timeoutClass,
@@ -530,32 +588,159 @@ async function callInternalModel(
   }
 }
 
+type InternalTaiStreamEvent =
+  | Readonly<{ kind: 'delta'; text: string }>
+  | Readonly<{ kind: 'done'; finishReason: 'stop' | 'length' | 'other'; promptTokens: number | null; completionTokens: number | null; modelIdentity: string }>
+  | Readonly<{ kind: 'error'; errorClass: string }>
+  | Readonly<{ kind: 'cancelled' }>;
+
+type InternalTaiStreamTerminal = Extract<InternalTaiStreamEvent, { kind: 'done' }>;
+
+class InternalTaiStreamFailure extends Error {
+  constructor(readonly cancelled: boolean) {
+    super(cancelled ? 'restricted_runtime_cancelled' : 'restricted_runtime_stream_invalid');
+  }
+}
+
+/**
+ * Consume the API's typed SSE rather than provider SSE. This is intentionally a
+ * second parser/validation boundary: a compromised or misconfigured internal
+ * service must not turn into arbitrary browser frames merely because it lives
+ * on the private network.
+ */
+async function streamInternalModel(
+  config: RuntimeConfig,
+  payload: unknown,
+  readerSignal: AbortSignal,
+  timeoutMs: number,
+  traceId: string,
+  onDelta: (text: string) => void,
+): Promise<InternalTaiStreamTerminal> {
+  if (!config.streamEndpoint) throw new InternalTaiStreamFailure(false);
+  const timestamp = String(Math.floor(Date.now() / 1_000));
+  const body = canonicalJson(payload);
+  const bodyHash = createHash('sha256').update(body, 'utf8').digest('hex');
+  const signature = createHmac('sha256', config.secret)
+    .update([SIGNATURE_VERSION, 'POST', INTERNAL_STREAM_PATH, timestamp, bodyHash].join('\n'), 'utf8')
+    .digest('hex');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const onReaderAbort = () => controller.abort();
+  readerSignal.addEventListener('abort', onReaderAbort, { once: true });
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
+  try {
+    const response = await fetch(config.streamEndpoint, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: {
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-TAI-Signature-Version': SIGNATURE_VERSION,
+        'X-TAI-Timestamp': timestamp,
+        'X-TAI-Signature': signature,
+        [TAI_TRACE_HEADER]: traceId,
+      },
+      body,
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.body) throw new InternalTaiStreamFailure(false);
+
+    reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let pending = '';
+    let terminal: InternalTaiStreamTerminal | null = null;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      pending += decoder.decode(value, { stream: true });
+      if (pending.length > MAX_INTERNAL_SSE_RECORD_CHARS) throw new InternalTaiStreamFailure(false);
+      const records = pending.split('\n\n');
+      pending = records.pop() ?? '';
+      for (const record of records) {
+        if (!record.trim()) continue;
+        const event = parseInternalTaiStreamRecord(record);
+        if (terminal) throw new InternalTaiStreamFailure(false);
+        if (event.kind === 'delta') {
+          onDelta(event.text);
+        } else if (event.kind === 'done') {
+          if (event.modelIdentity !== config.identity) throw new InternalTaiStreamFailure(false);
+          terminal = event;
+        } else {
+          throw new InternalTaiStreamFailure(event.kind === 'cancelled');
+        }
+      }
+    }
+    pending += decoder.decode();
+    if (pending.trim() || !terminal) throw new InternalTaiStreamFailure(false);
+    return terminal;
+  } catch (error) {
+    if (readerSignal.aborted) throw new InternalTaiStreamFailure(true);
+    if (error instanceof InternalTaiStreamFailure) throw error;
+    throw new InternalTaiStreamFailure(false);
+  } finally {
+    clearTimeout(timeout);
+    readerSignal.removeEventListener('abort', onReaderAbort);
+    await reader?.cancel().catch(() => undefined);
+    reader?.releaseLock();
+    if (!controller.signal.aborted) controller.abort();
+  }
+}
+
+function parseInternalTaiStreamRecord(record: string): InternalTaiStreamEvent {
+  const lines = record.replace(/\r/g, '').split('\n');
+  const eventName = lines.find((line) => line.startsWith('event:'))?.slice('event:'.length).trim();
+  const data = lines.filter((line) => line.startsWith('data:')).map((line) => line.slice('data:'.length).trim()).join('\n');
+  if (!eventName || !data || data.length > MAX_INTERNAL_SSE_RECORD_CHARS) throw new InternalTaiStreamFailure(false);
+  let decoded: unknown;
+  try { decoded = JSON.parse(data); } catch { throw new InternalTaiStreamFailure(false); }
+  if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) throw new InternalTaiStreamFailure(false);
+  const row = decoded as Record<string, unknown>;
+  if (row.kind !== eventName) throw new InternalTaiStreamFailure(false);
+  if (row.kind === 'delta' && typeof row.text === 'string' && row.text.length > 0 && row.text.length <= 8_192) {
+    return { kind: 'delta', text: row.text };
+  }
+  if (
+    row.kind === 'done'
+    && (row.finishReason === 'stop' || row.finishReason === 'length' || row.finishReason === 'other')
+    && (typeof row.promptTokens === 'number' || row.promptTokens === null)
+    && (typeof row.completionTokens === 'number' || row.completionTokens === null)
+    && typeof row.modelIdentity === 'string' && row.modelIdentity.length > 0 && row.modelIdentity.length <= 512
+  ) return row as InternalTaiStreamTerminal;
+  if (row.kind === 'error' && typeof row.errorClass === 'string' && row.errorClass.length > 0 && row.errorClass.length <= 128) {
+    return { kind: 'error', errorClass: row.errorClass };
+  }
+  if (row.kind === 'cancelled') return { kind: 'cancelled' };
+  throw new InternalTaiStreamFailure(false);
+}
+
 function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): RuntimeConfig {
   const enabled = (environment.TAI_RESTRICTED_QWEN_PUBLIC_ENABLED || '').trim() === 'true';
   const secret = (environment.TAI_PUBLIC_GATEWAY_HMAC_SECRET || '').trim();
   const identity = (environment.TAI_RESTRICTED_QWEN_MODEL_IDENTITY || '').trim();
   const rawBase = (environment.TAI_INTERNAL_API_BASE_URL || environment.NEXT_PUBLIC_API_URL || '').trim();
   const timeoutMs = boundedInteger(environment.TAI_PUBLIC_MODEL_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 5_000, 150_000);
-  if (!enabled) return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
+  if (!enabled) return Object.freeze({ enabled: false, endpoint: null, streamEndpoint: null, secret: '', identity: '', timeoutMs });
   if (secret.length < 32 || !identity || !rawBase) {
-    return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
+    return Object.freeze({ enabled: false, endpoint: null, streamEndpoint: null, secret: '', identity: '', timeoutMs });
   }
 
   let base: URL;
   try { base = new URL(rawBase.endsWith('/') ? rawBase : `${rawBase}/`); } catch {
-    return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
+    return Object.freeze({ enabled: false, endpoint: null, streamEndpoint: null, secret: '', identity: '', timeoutMs });
   }
   if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
-    return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
+    return Object.freeze({ enabled: false, endpoint: null, streamEndpoint: null, secret: '', identity: '', timeoutMs });
   }
   const allowedHosts = (environment.TAI_INTERNAL_API_ALLOWED_HOSTS || '')
     .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
   if (!allowedHosts.includes(base.hostname.toLowerCase())) {
-    return Object.freeze({ enabled: false, endpoint: null, secret: '', identity: '', timeoutMs });
+    return Object.freeze({ enabled: false, endpoint: null, streamEndpoint: null, secret: '', identity: '', timeoutMs });
   }
   return Object.freeze({
     enabled: true,
     endpoint: new URL('internal/tai/public-generate', base),
+    streamEndpoint: new URL('internal/tai/public-stream', base),
     secret,
     identity,
     timeoutMs,

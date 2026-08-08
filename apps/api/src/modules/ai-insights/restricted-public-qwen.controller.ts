@@ -21,6 +21,7 @@ import {
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const MAX_CLOCK_SKEW_SECONDS = 90;
 const INTERNAL_PATH = '/internal/tai/public-generate';
+const INTERNAL_STREAM_PATH = '/internal/tai/public-stream';
 const PRIVATE_PUBLIC_SOURCE = /^\/platform-v7\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\/|$)/u;
 const INTERNAL_TAG_BLOCK = /<\s*(think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/giu;
 const INTERNAL_TAG_TAIL = /<\s*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>[\s\S]*$/iu;
@@ -63,7 +64,7 @@ export class RestrictedPublicQwenController {
     @Res() response: ServerResponse,
     @Req() request: IncomingMessage,
   ): Promise<void> {
-    verifyInternalSignature(body, headers);
+    verifyInternalSignature(body, headers, undefined, undefined, INTERNAL_STREAM_PATH);
     verifyPublicSourceBoundary(body);
 
     const traceId = readTraceId(headers);
@@ -173,6 +174,7 @@ export function verifyInternalSignature(
   headers: HeaderMap,
   nowSeconds = Math.floor(Date.now() / 1_000),
   environment: NodeJS.ProcessEnv = process.env,
+  requestPath = INTERNAL_PATH,
 ): void {
   const secret = (environment.TAI_PUBLIC_GATEWAY_HMAC_SECRET || '').trim();
   if (secret.length < 32) {
@@ -192,7 +194,7 @@ export function verifyInternalSignature(
   }
 
   const bodyHash = createHash('sha256').update(canonicalJson(body), 'utf8').digest('hex');
-  const signed = [SIGNATURE_VERSION, 'POST', INTERNAL_PATH, timestampText, bodyHash].join('\n');
+  const signed = [SIGNATURE_VERSION, 'POST', requestPath, timestampText, bodyHash].join('\n');
   const expected = createHmac('sha256', secret).update(signed, 'utf8').digest('hex');
   const actualBuffer = Buffer.from(signature, 'hex');
   const expectedBuffer = Buffer.from(expected, 'hex');

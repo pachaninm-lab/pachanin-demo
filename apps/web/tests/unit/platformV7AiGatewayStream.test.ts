@@ -124,10 +124,10 @@ describe('reading a whole stream', () => {
     expect(texts).toEqual(['', 'а', 'аб', 'аб']);
   });
 
-  it('surfaces the admitted model identity from meta', async () => {
+  it('does not expose the admitted model identity in the public projection', async () => {
     const snapshot = await readGatewayStream(sseResponse([wire([meta('qwen@sha256:abc'), token('x'), done(true)])]), { mode: 'public' });
 
-    expect(snapshot.modelIdentity).toBe('qwen@sha256:abc');
+    expect(snapshot.modelIdentity).toBeNull();
   });
 
   it('reports a refusal as a refusal rather than throwing at the caller', async () => {

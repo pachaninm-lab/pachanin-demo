@@ -30,7 +30,7 @@ function signedHeaders(body: unknown, traceId: string | null = TRACE): Record<st
   const canonical = canonicalJson(body);
   const bodyHash = createHash('sha256').update(canonical, 'utf8').digest('hex');
   const signature = createHmac('sha256', SECRET)
-    .update(['tai-public-qwen.v1', 'POST', '/internal/tai/public-generate', timestamp, bodyHash].join('\n'), 'utf8')
+    .update(['tai-public-qwen.v1', 'POST', '/internal/tai/public-stream', timestamp, bodyHash].join('\n'), 'utf8')
     .digest('hex');
   return {
     'x-tai-signature-version': 'tai-public-qwen.v1',

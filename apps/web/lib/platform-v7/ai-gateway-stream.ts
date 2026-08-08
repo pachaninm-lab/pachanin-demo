@@ -255,15 +255,17 @@ export function stripPublicAssistantInternalArtifacts(value: string): string {
 /**
  * Produce the public UI projection.
  *
- * While the stream is open the user sees only the loading indicator; token text
- * is not rendered. The completed answer is scrubbed and public operational
- * metadata is removed before it is returned to the component.
+ * The API safety buffer admits a delta before it reaches this reader. We still
+ * fail closed if this second boundary sees an internal artifact: the browser may
+ * render an admitted safe prefix while generation continues, but it must never
+ * render a value that needed redaction after it crossed the network boundary.
  */
 export function publicSnapshotForDisplay(snapshot: GatewayStreamSnapshot): GatewayStreamSnapshot {
   if (snapshot.status === 'streaming') {
+    const internalScreened = stripPublicAssistantInternalArtifacts(snapshot.text);
     return {
       ...snapshot,
-      text: '',
+      text: internalScreened === snapshot.text ? stripPublicAssistantBoilerplate(internalScreened) : '',
       assessment: null,
       modelIdentity: null,
     };
