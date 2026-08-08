@@ -1,0 +1,90 @@
+name: Production Web Owner Exact-SHA Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: write
+  issues: read
+
+concurrency:
+  group: production-web-owner-exact-command
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Validate owner command and dispatch canonical web-only release
+    if: >-
+      github.event.issue.number == 3048 &&
+      github.event.comment.user.login == github.repository_owner &&
+      startsWith(github.event.comment.body, '/production web exact ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout current main authority
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve and validate exact target
+        id: target
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="${COMMENT_BODY//$'\r'/}"
+          if [[ ! "$body" =~ ^/production\ web\ exact\ ([0-9a-f]{40})$ ]]; then
+            echo 'Owner command must be exactly: /production web exact <40-char-lowercase-sha>' >&2
+            exit 2
+          fi
+
+          target_sha="${BASH_REMATCH[1]}"
+          git fetch --no-tags origin main
+          git cat-file -e "${target_sha}^{commit}"
+          git merge-base --is-ancestor "$target_sha" origin/main
+
+          printf '%s\n' "$target_sha" > target-sha.txt
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch canonical exact-SHA web release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run production-web-exact-sha.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f action=deploy \
+            -f target_sha="$TARGET_SHA" \
+            -f confirmation=DEPLOY-EXACT-SHA
+
+      - name: Record dispatch evidence
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'COMMAND_AUTHORITY=OWNER_ONLY\n'
+            printf 'RELEASE_AUTHORITY=production-web-exact-sha.yml\n'
+            printf 'TARGET_SHA=%s\n' "$TARGET_SHA"
+            printf 'DISPATCHED=1\n'
+          } > dispatch-evidence.txt
+
+      - name: Upload dispatch evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-web-owner-command-${{ github.run_id }}
+          path: |
+            target-sha.txt
+            dispatch-evidence.txt
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
