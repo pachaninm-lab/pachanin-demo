@@ -110,16 +110,19 @@ jobs:
             tests/unit/taiTelemetryRouteInstrumentation.test.ts \
             tests/unit/taiBaselineHarness.test.ts 2>&1 | tee /tmp/ci-tai-web.log
 
+      - name: Generate Prisma client
+        # Two ai-insights suites import a module that reaches PrismaService, so
+        # without a generated client they fail to compile and silently drop out
+        # of the run. Generating it here makes the whole module runnable instead
+        # of leaving those two permanently excluded.
+        run: pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
+
       - name: TAI API suites (model transport, safety, history budget, telemetry)
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest --runInBand \
-            src/modules/ai-insights/restricted-public-qwen.service.spec.ts \
-            src/modules/ai-insights/restricted-public-qwen.controller.spec.ts \
-            src/modules/ai-insights/restricted-public-qwen.quality.spec.ts \
-            src/modules/ai-insights/restricted-public-qwen.disease-completeness.spec.ts \
-            src/modules/ai-insights/ai-assistant-stream.contract.spec.ts \
-            src/modules/ai-insights/tai-telemetry.contract.spec.ts 2>&1 | tee /tmp/ci-tai-api.log
+            src/modules/ai-insights \
+            2>&1 | tee /tmp/ci-tai-api.log
 
       - name: Baseline harness executes and reports honestly without a model host
         # Guards the property that matters more than any number the harness can

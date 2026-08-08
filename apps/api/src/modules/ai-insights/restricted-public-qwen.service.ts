@@ -4,6 +4,18 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { isIP } from 'node:net';
+import { ProviderSseParser, providerStreamRequestBody, type ProviderFinishReason } from './tai-provider-stream';
+import { SemanticSafetyBuffer, trimDanglingSurrogate } from './tai-safety-buffer';
+
+/**
+ * Typed events the streaming contour emits. The provider's own frames stop at
+ * the parser; nothing downstream — controller, BFF or browser — sees them.
+ */
+export type TaiStreamEvent =
+  | Readonly<{ kind: 'delta'; text: string }>
+  | Readonly<{ kind: 'done'; finishReason: ProviderFinishReason; promptTokens: number | null; completionTokens: number | null; modelIdentity: string }>
+  | Readonly<{ kind: 'error'; errorClass: string }>
+  | Readonly<{ kind: 'cancelled' }>;
 
 const MAX_QUESTION_CHARS = 1_200;
 const MAX_GROUNDING_CHARS = 20_000;
@@ -173,6 +185,135 @@ export class RestrictedPublicQwenService {
       throw new ServiceUnavailableException('Restricted public model request failed.');
     } finally {
       clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Stream a general-agro answer, emitting safe text as the model produces it.
+   *
+   * Restricted to `general_agro` on purpose. In `verified_platform` mode the
+   * answer is rewritten against supplied grounding by `enforcePlatformGrounding`,
+   * which needs the whole text before it can decide what to keep — streaming it
+   * would mean publishing sentences that the grounding check might afterwards
+   * remove, which is precisely the failure mode that check exists to prevent.
+   * That contour keeps the blocking path until grounding enforcement is
+   * redesigned to work incrementally.
+   *
+   * Exactly one terminal event is emitted on every path, including abort.
+   */
+  async* generateStream(raw: unknown, signal?: AbortSignal): AsyncGenerator<TaiStreamEvent> {
+    if ((process.env.TAI_RESTRICTED_QWEN_PUBLIC_ENABLED || '').trim() !== 'true') {
+      yield { kind: 'error', errorClass: 'feature_disabled' };
+      return;
+    }
+
+    rejectPrivateShape(raw);
+    const request = normalizeRequest(raw);
+    if (request.answerMode !== 'general_agro') {
+      yield { kind: 'error', errorClass: 'streaming_unsupported_mode' };
+      return;
+    }
+
+    const config = readProviderConfig();
+    const endpoint = new URL('chat/completions', ensureTrailingSlash(config.baseUrl));
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
+
+    const parser = new ProviderSseParser();
+    const buffer = new SemanticSafetyBuffer();
+    let terminated = false;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Accept: 'text/event-stream',
+          'Content-Type': 'application/json; charset=utf-8',
+          Authorization: `Bearer ${config.apiKey}`,
+          'User-Agent': 'transparent-price/restricted-public-qwen',
+        },
+        body: JSON.stringify(providerStreamRequestBody(config.model, buildMessages(request), config.maxTokens)),
+        signal: controller.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        terminated = true;
+        yield { kind: 'error', errorClass: 'provider_http' };
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        const events = done ? parser.finish() : parser.push(decoder.decode(value, { stream: true }));
+
+        for (const event of events) {
+          if (event.kind === 'delta') {
+            const screened = buffer.push(event.text);
+            if (screened.blocked) {
+              terminated = true;
+              await reader.cancel().catch(() => undefined);
+              yield { kind: 'error', errorClass: `safety_${screened.blocked}` };
+              return;
+            }
+            const safe = trimDanglingSurrogate(screened.safe);
+            // Emitted the moment it clears the buffer — never accumulated into a
+            // finished answer first, which is what made the old path fake.
+            if (safe) yield { kind: 'delta', text: safe };
+            continue;
+          }
+
+          if (event.kind === 'done') {
+            const flushed = buffer.flush();
+            if (flushed.blocked) {
+              terminated = true;
+              yield { kind: 'error', errorClass: `safety_${flushed.blocked}` };
+              return;
+            }
+            if (flushed.safe) yield { kind: 'delta', text: flushed.safe };
+            terminated = true;
+            yield {
+              kind: 'done',
+              finishReason: event.finishReason,
+              promptTokens: event.promptTokens,
+              completionTokens: event.completionTokens,
+              modelIdentity: config.model,
+            };
+            return;
+          }
+
+          terminated = true;
+          yield event.kind === 'cancelled'
+            ? { kind: 'cancelled' }
+            : { kind: 'error', errorClass: event.errorClass };
+          return;
+        }
+
+        if (done) break;
+      }
+
+      // The reader ended without the parser producing a terminal event.
+      if (!terminated) {
+        terminated = true;
+        yield { kind: 'error', errorClass: 'provider_transport' };
+      }
+    } catch (error) {
+      if (terminated) return;
+      terminated = true;
+      const aborted = signal?.aborted === true
+        || (error instanceof Error && error.name === 'AbortError' && signal?.aborted !== false);
+      yield aborted ? { kind: 'cancelled' } : { kind: 'error', errorClass: 'provider_transport' };
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', abort);
+      // A generator abandoned by its consumer must not leave the upstream
+      // generation running: the provider keeps producing tokens nobody reads and
+      // the admission slot is never returned.
+      if (!controller.signal.aborted) controller.abort();
     }
   }
 }
