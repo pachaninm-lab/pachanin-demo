@@ -263,3 +263,59 @@ Per the specification's own instruction, P0 latency/context is recorded as:
 
 with the single exception of the history-budget defect (TA-4), which is now
 `IMPLEMENTED_NOT_ACCEPTED` — code and tests exist and pass locally; no production evidence.
+
+---
+
+## 9. P0-A1 addendum (branch `claude/tai-p0a1-instrumentation-streaming`)
+
+Base: `bf5a87c6000275372cbfb89b1c9b5e77ca3a545f` (main moved 14 commits during Stage 0; the
+branch was rebased onto it rather than kept on the stale base).
+
+### Finding TA-7 (P0) — the failing TAI suites were merged red
+
+`platformV7AiGatewayStream.test.ts`, `platformV7PrivateGatewayStreamProxy.test.ts`,
+`platformV7PublicAssistantStreamBinding.test.tsx` and `lib/platform-v7/ai-gateway-stream.ts` all
+arrived in one commit, `d4e79a9` (PR #3656). Checking out that exact commit and running those
+suites gives **8 failed / 32 passed** — they never passed, at any point, including the commit
+that introduced them. Nothing ran them, so nothing objected.
+
+This reframes TA-6: the gap is not that a green CI missed a regression, it is that the TAI
+contour has never had a gate at all, so red tests were merge-able by construction.
+
+### Known-failing TAI suites (28 tests across 8 files, unchanged by this branch)
+
+| Suite | Failing |
+|---|---|
+| `platformV7RestrictedPublicQwenRoute.test.ts` | 10 |
+| `platformV7PrivateGatewayStreamProxy.test.ts` | 7 |
+| `platformV7PublicAssistantStreamBinding.test.tsx` | 6 |
+| `platformV7AiGatewayStream.test.ts` | 2 |
+| `taiPotatoRoutingRegression.test.ts` | 2 |
+| `platformV7PublicAiInAction.test.ts` | 1 |
+
+**Root cause for the progressive-rendering failures, and why they are not fixed here.**
+`publicSnapshotForDisplay` (`ai-gateway-stream.ts:262`) deliberately blanks token text while
+`status === 'streaming'`, so the public contour cannot render progressively. That is consistent
+with the backend: there is nothing to render progressively while the answer arrives complete.
+
+The tests describe the target state; the implementation describes the current one. Making them
+pass means letting streamed text reach the browser — which is only safe once the bounded
+semantic buffer exists, because today's redaction (`<think>` blocks, secrets, write-claims) runs
+on the complete answer and would be evaded by content spanning two frames. Flipping the flag
+first would trade a red test for a real safety hole. These suites are therefore sequenced behind
+the streaming work, not before it.
+
+### Delivered on this branch
+
+| Item | Status | Evidence |
+|---|---|---|
+| Telemetry contract (closed schema, redaction, trace identity) | `IMPLEMENTED_NOT_ACCEPTED` | `tai-telemetry.contract.spec.ts` 30/30 |
+| Trace through BFF → API, phase capture, terminal-path emission | `IMPLEMENTED_NOT_ACCEPTED` | `taiTelemetryRouteInstrumentation.test.ts` 5/5 |
+| Baseline harness + frozen corpus + result schema | `IMPLEMENTED_NOT_ACCEPTED` | `taiBaselineHarness.test.ts` 11/11 |
+| Baseline capture | **`NOT_CAPTURED`** | `var/tai-baseline/tai-latency-baseline.json`, 4 named prerequisites |
+| CI gate for the TAI contour | `IMPLEMENTED_NOT_ACCEPTED` | `ci.yml` job `tai-assistant-unit`, 274 tests green locally |
+| Real Qwen streaming (TA-2) | **`NOT_IMPLEMENTED`** | still `stream: false`; unchanged by this branch |
+| `ConversationState` (TA-3) | **`NOT_IMPLEMENTED`** | unchanged |
+
+The baseline remains `NOT_CAPTURED` because no model host is reachable. The four prerequisites
+are named in the artifact; the harness refuses to emit numbers without them, by design.
