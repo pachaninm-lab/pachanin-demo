@@ -9,6 +9,11 @@ decode() { [[ -n "$1" ]] && printf '%s' "$1" | base64 -d; }
 
 [[ "$ACTION" == provision ]] || fail INVALID_ACTION 2
 prod_dir="$(decode "$PROD_DIR_B64")"
+if [[ -z "$prod_dir" ]]; then
+  mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+  (( ${#web_ids[@]} == 1 )) || fail COMPOSE_WEB_AUTHORITY_AMBIGUOUS 3
+  prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "${web_ids[0]}")"
+fi
 [[ -n "$prod_dir" && "$prod_dir" == /* && "$prod_dir" != / && -d "$prod_dir" && ! -L "$prod_dir" ]] || fail PRODUCTION_DIRECTORY_INVALID 3
 
 key_file="$prod_dir/.pc-auth-opaque-token.env"

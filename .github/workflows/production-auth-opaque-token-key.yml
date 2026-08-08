@@ -29,7 +29,6 @@ env:
   SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
   SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
   SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
-  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
   EVIDENCE_DIR: artifacts/production-auth-opaque-token-key
 
 jobs:
@@ -166,14 +165,12 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
-          [[ -n "${PROD_DIR_SECRET:-}" ]]
           remote_script="/tmp/pc-auth-opaque-token-key-${GITHUB_RUN_ID}.sh"
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           scp "${scp_common[@]}" scripts/provision-production-auth-opaque-token-key.sh "$USER@$HOST:$remote_script"
-          encoded_prod_dir="$(printf '%s' "$PROD_DIR_SECRET" | base64 -w0)"
           ssh "${ssh_common[@]}" "$USER@$HOST" \
-            "chmod 0700 '$remote_script' && PC_PROD_DIR_B64='$encoded_prod_dir' '$remote_script' provision" \
+            "chmod 0700 '$remote_script' && '$remote_script' provision" \
             | tee "$EVIDENCE_DIR/provision.log"
           grep -Eq '^AUTH_OPAQUE_TOKEN_KEY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.log"
           grep -Fxq AUTH_OPAQUE_TOKEN_KEY_VALID=1 "$EVIDENCE_DIR/provision.log"
