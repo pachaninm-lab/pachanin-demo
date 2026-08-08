@@ -163,7 +163,12 @@ jobs:
               scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes scripts/production-full-stack-exact-sha.sh "$USER@$HOST:$remote"
               ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "chmod 0700 '$remote' && '$remote' rollback '$TARGET_SHA' '31273608232'" | tee "$EVIDENCE_DIR/rollback.log"
               grep -Fxq ROLLBACK_COMPLETE=1 "$EVIDENCE_DIR/rollback.log"
-              grep -Eq '^RESTORED_API_REVISION=[0-9a-f]{40}$' "$EVIDENCE_DIR/rollback.log"
+              grep -Fxq ROLLBACK_CONTAINER_REVISIONS_VERIFIED=1 "$EVIDENCE_DIR/rollback.log"
+              mapfile -t restored_api < <(sed -n 's/^RESTORED_API_REVISION=//p' "$EVIDENCE_DIR/rollback.log")
+              mapfile -t restored_web < <(sed -n 's/^RESTORED_WEB_REVISION=//p' "$EVIDENCE_DIR/rollback.log")
+              [[ "${#restored_api[@]}" == 1 && "${#restored_web[@]}" == 1 ]]
+              is_revision() { local revision="$1"; [[ "${#revision}" == 40 && "$revision" != *[!0123456789abcdef]* ]]; }
+              is_revision "${restored_api[0]}" && is_revision "${restored_web[0]}"
               ;;
             *) exit 15 ;;
           esac

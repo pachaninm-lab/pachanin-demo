@@ -883,7 +883,7 @@
       "docs/platform-v7/autopilot/scopes/production-release-workflow-call-3740.json",
       "docs/platform-v7/autopilot/autopilot-state.json"
     ],
-    "fix/production-emergency-rollback-3743": [
+    "fix/production-emergency-rollback-3744-verify": [
       ".github/workflows/production-staff-database-url.yml",
       "scripts/check-production-staff-database-provision.mjs",
       "docs/platform-v7/autopilot/scopes/production-emergency-rollback-3741.json",

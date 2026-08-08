@@ -220,14 +220,29 @@ wait_web() {
   return 1
 }
 
+is_revision() {
+  local revision="$1"
+  [[ "${#revision}" == 40 && "$revision" != *[!0123456789abcdef]* ]]
+}
+
 rollback_images() {
+  local restored_api_id restored_web_id
   [[ -f "$STATE_FILE" ]] || return 1
   # shellcheck disable=SC1090
   source "$STATE_FILE"
+  is_revision "$BASELINE_API_REVISION" || return 1
+  is_revision "$BASELINE_WEB_REVISION" || return 1
   write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
   "${dc_target[@]}" config --quiet
   "${dc_target[@]}" up -d --no-deps --pull never api web
-  wait_api && wait_web
+  wait_api && wait_web || return 1
+  restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"
+  restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
+  [[ -n "$restored_api_id" && -n "$restored_web_id" ]] || return 1
+  restored_api_revision="$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$restored_api_id")"
+  restored_web_revision="$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$restored_web_id")"
+  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" ]] || return 1
+  [[ "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 1
 }
 
 verify_durable_intake_local_postgres() {
@@ -377,8 +392,9 @@ fi
 if [[ "$ACTION" == rollback ]]; then
   rollback_images || fail AUTOMATIC_ROLLBACK_FAILED 50
   printf 'ROLLBACK_COMPLETE=1\n'
-  printf 'RESTORED_API_REVISION=%s\n' "$BASELINE_API_REVISION"
-  printf 'RESTORED_WEB_REVISION=%s\n' "$BASELINE_WEB_REVISION"
+  printf 'RESTORED_API_REVISION=%s\n' "$restored_api_revision"
+  printf 'RESTORED_WEB_REVISION=%s\n' "$restored_web_revision"
+  printf 'ROLLBACK_CONTAINER_REVISIONS_VERIFIED=1\n'
   exit 0
 fi
 
