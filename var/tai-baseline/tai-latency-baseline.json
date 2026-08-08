@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "tai.latency-baseline.v1",
+  "label": "p0a1-before-streaming",
+  "corpusVersion": "2026-08-08.1",
+  "corpusCaseCount": 9,
+  "startedAt": "2026-08-08T18:28:55.377Z",
+  "harnessNode": "v22.22.2",
+  "harnessPlatform": "linux-x64",
+  "status": "NOT_CAPTURED",
+  "reason": "model_host_prerequisites_absent",
+  "missingPrerequisites": [
+    {
+      "variable": "TAI_BASELINE_BASE_URL",
+      "why": "no deployed contour to measure"
+    },
+    {
+      "variable": "TAI_BASELINE_TARGET_SHA",
+      "why": "a baseline not bound to a SHA cannot be compared"
+    },
+    {
+      "variable": "TAI_BASELINE_MODEL_IDENTITY",
+      "why": "the measured model must be named"
+    },
+    {
+      "variable": "TAI_BASELINE_MODEL_DIGEST",
+      "why": "model identity without a digest cannot prove the same weights ran"
+    }
+  ],
+  "levels": []
+}

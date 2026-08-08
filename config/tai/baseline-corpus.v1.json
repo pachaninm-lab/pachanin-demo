@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "tai.baseline-corpus.v1",
+  "corpusVersion": "2026-08-08.1",
+  "description": "Fixed request corpus for TAI latency baselines. Frozen by version: changing any case requires a new corpusVersion, because a baseline compared against a different corpus is not a comparison.",
+  "repetitionsPerCase": 30,
+  "discardWarmupRepetitions": 3,
+  "concurrencyLevels": [1, 5, 10, 25, 50],
+  "notes": [
+    "Questions are general-agro and carry no private, tenant or platform-object context, so the corpus can be run against a public contour without authority.",
+    "Lengths are request-shape classes, not answer-length targets: short is a bare follow-up, medium a single scoped question, long a multi-constraint question.",
+    "The follow-up cases carry history on purpose; a baseline without history would miss prompt-assembly and context-budget cost entirely."
+  ],
+  "cases": [
+    {
+      "id": "ru-short-followup",
+      "locale": "ru",
+      "lengthClass": "short",
+      "message": "а фосфор?",
+      "history": [
+        { "role": "user", "text": "Почему падает урожайность озимой пшеницы?" },
+        { "role": "assistant", "text": "Причин несколько: питание, влага, густота стояния и болезни." },
+        { "role": "user", "text": "Если азота достаточно?" },
+        { "role": "assistant", "text": "Тогда смотрим на фосфор, калий и влагообеспеченность." }
+      ]
+    },
+    {
+      "id": "ru-medium-crop",
+      "locale": "ru",
+      "lengthClass": "medium",
+      "message": "Почему падает урожайность озимой пшеницы?",
+      "history": []
+    },
+    {
+      "id": "ru-long-economics",
+      "locale": "ru",
+      "lengthClass": "long",
+      "message": "Как уменьшить себестоимость тонны зерна в небольшом хозяйстве без потери урожайности, если техника старая, работников мало, а поля разбросаны на 40 километров и часть из них подтопляется весной?",
+      "history": []
+    },
+    {
+      "id": "en-short-followup",
+      "locale": "en",
+      "lengthClass": "short",
+      "message": "and without irrigation?",
+      "history": [
+        { "role": "user", "text": "How can I raise maize yield?" },
+        { "role": "assistant", "text": "Consider hybrid choice, soil, nutrition, plant density and moisture." }
+      ]
+    },
+    {
+      "id": "en-medium-livestock",
+      "locale": "en",
+      "lengthClass": "medium",
+      "message": "Why has milk yield dropped in my dairy herd?",
+      "history": []
+    },
+    {
+      "id": "en-long-machinery",
+      "locale": "en",
+      "lengthClass": "long",
+      "message": "My combine is leaving too much grain in the field on a wheat crop that lodged after heavy rain; walk me through what to check on ground speed, threshing, sieves and fan settings, and how those interact with straw moisture.",
+      "history": []
+    },
+    {
+      "id": "zh-short-followup",
+      "locale": "zh",
+      "lengthClass": "short",
+      "message": "那磷呢？",
+      "history": [
+        { "role": "user", "text": "冬小麦产量为什么下降？" },
+        { "role": "assistant", "text": "原因包括养分、水分、密度和病害。" }
+      ]
+    },
+    {
+      "id": "zh-medium-crop",
+      "locale": "zh",
+      "lengthClass": "medium",
+      "message": "温室黄瓜叶子为什么发黄？",
+      "history": []
+    },
+    {
+      "id": "zh-long-storage",
+      "locale": "zh",
+      "lengthClass": "long",
+      "message": "收获后如何安全储存小麦？请说明水分、温度、通风、干燥和虫害监测之间的关系，以及在没有专业烘干设备的小型农场应如何取舍。",
+      "history": []
+    }
+  ]
+}
