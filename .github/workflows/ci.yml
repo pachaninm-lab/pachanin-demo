@@ -19,6 +19,12 @@ on:
   push:
     branches:
       - main
+      # Governed working branches run the same gate on push. Without this the
+      # TAI job could only be reached by opening a pull request, which means the
+      # first evidence that a branch is green would arrive after review had
+      # already started — and dispatching it by API needs an actions:write token
+      # this integration does not have.
+      - 'claude/**'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
