@@ -1,7 +1,7 @@
 # P0 First Customer Access — gap audit
 
 Issue #3563 · PR #3564 · branch `p0/first-customer-access-foundation-3563`
-Integration base: exact `main` `aaf20a7c62f5fb68deb962dabdc1af153e37382f`
+Integration base: exact `main` `19f79cb380f7836622311d8cabc6fb8b83c808ca`
 (current source authority, including the Identity RLS merge for PR #3684). The publication head and `behind_by=0`
 status are acceptance outputs and must be recorded from GitHub after this
 integration is committed.
