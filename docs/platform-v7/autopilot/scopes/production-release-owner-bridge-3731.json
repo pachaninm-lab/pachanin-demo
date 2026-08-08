@@ -12,6 +12,7 @@
     ".github/workflows/platform-v7-safe-merge.yml",
     "scripts/check-production-full-stack-release.mjs",
     "docs/platform-v7/autopilot/scopes/production-release-owner-bridge-3731.json",
-    "docs/platform-v7/autopilot/autopilot-state.json"
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    ".github/workflows/pc-crop-10a.yml"
   ]
 }
