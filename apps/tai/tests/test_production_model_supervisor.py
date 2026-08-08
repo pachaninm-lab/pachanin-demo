@@ -46,7 +46,7 @@ class FakeTransport:
         timeout_seconds: float,
         maximum_response_bytes: int,
     ) -> Mapping[str, Any]:
-        assert endpoint == FakeBinding.endpoint
+        assert endpoint == FakeBinding().endpoint
         assert timeout_seconds > 0
         assert maximum_response_bytes > 0
         self.payload = payload
