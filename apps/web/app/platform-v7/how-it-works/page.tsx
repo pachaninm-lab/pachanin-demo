@@ -13,6 +13,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicDealEntryGate } from '@/components/platform-v7/PublicDealEntryGate';
+import { PublicDealWhatIfBridge } from '@/components/platform-v7/PublicDealWhatIfBridge';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
 import { PublicExperienceScrollCoordinator } from '@/components/platform-v7/PublicExperienceAnalytics';
 import { getPublicProductEntryVariantsCopy } from '@/i18n/public-product-entry-variants';
@@ -106,6 +107,7 @@ export default async function PublicDealFromInsidePage({
           initialEntry={initialEntry}
           initialState={initialState}
         />
+        <PublicDealWhatIfBridge locale={locale} />
         <noscript>
           <a href='/platform-v7/register' className='pc-ppe-primary-button'>{journeyUi.intro.connect}</a>
         </noscript>
