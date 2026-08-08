@@ -7,6 +7,7 @@
   "authorityBaseExactMain": "98102961fb78cea1c7d48420da07525401daee24",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json",
+    "docs/platform-v7/DEAL_JOURNEY_10OF10_ACCEPTANCE_20260808.md",
     "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
     "apps/web/app/platform-v7/how-it-works/page.tsx",
     "apps/web/i18n/public-deal-journey-v5.ts",
