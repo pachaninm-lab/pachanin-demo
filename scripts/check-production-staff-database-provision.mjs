@@ -68,6 +68,7 @@ try {
   const scope = JSON.parse(content.scope);
   if (scope.branch !== 'fix/production-emergency-rollback-3744-verify') failures.push(`${paths.scope}: branch mismatch`);
   if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) failures.push(`${paths.scope}: production boundary mismatch`);
+  if (!scope.allowedPaths.includes('scripts/production-full-stack-exact-sha.sh')) failures.push(`${paths.scope}: rollback executor is outside governed scope`);
 } catch (error) {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }

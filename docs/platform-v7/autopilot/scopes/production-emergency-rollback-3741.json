@@ -9,6 +9,7 @@
   "newRecurringCostRub": 0,
   "allowedPaths": [
     ".github/workflows/production-staff-database-url.yml",
+    "scripts/production-full-stack-exact-sha.sh",
     "scripts/check-production-staff-database-provision.mjs",
     "docs/platform-v7/autopilot/scopes/production-emergency-rollback-3741.json",
     "docs/platform-v7/autopilot/autopilot-state.json"
