@@ -8,16 +8,25 @@ const meta = (modelIdentity: string | null = 'qwen@sha256:abc'): GatewayFrame =>
 const token = (text: string): GatewayFrame => ({ event: 'token', streamId: STREAM, text });
 const done = (complete: boolean): GatewayFrame => ({ event: 'done', streamId: STREAM, complete });
 
+// Cookie names come from the module under test rather than being retyped here,
+// for the same reason the mock below is a passthrough: the previous literals
+// ('pc_access', 'pc_session') had stopped matching production months ago, so the
+// proxy read every request in this file as an anonymous session.
+const SESSION_PAYLOAD = encodeURIComponent(JSON.stringify({ role: 'BUYER', email: 'buyer@demo.ru' }));
+
 /** A cookie jar the proxy will read as a verified, non-demo session. */
 const REAL_SESSION = new Map<string, { value: string }>([
-  ['pc_access', { value: 'real.jwt.token' }],
-  ['pc_session', { value: encodeURIComponent(JSON.stringify({ role: 'BUYER', email: 'buyer@demo.ru' })) }],
+  ['pc_access_token', { value: 'real.jwt.token' }],
+  ['pc_session_present', { value: SESSION_PAYLOAD }],
 ]);
 
 const DEMO_SESSION = new Map<string, { value: string }>([
-  ['pc_access', { value: 'demo.jwt.token' }],
-  ['pc_session', { value: encodeURIComponent(JSON.stringify({ role: 'BUYER', email: 'buyer@demo.ru' })) }],
+  ['pc_access_token', { value: 'demo.jwt.token' }],
+  ['pc_session_present', { value: SESSION_PAYLOAD }],
 ]);
+
+/** Double-submit CSRF token: the same value in the cookie and the header. */
+const CSRF_TOKEN = 'csrf-token-for-proxy-tests';
 
 let jar = REAL_SESSION;
 
@@ -25,7 +34,12 @@ vi.mock('next/headers', () => ({
   cookies: async () => ({ get: (name: string) => jar.get(name) }),
 }));
 
-vi.mock('../../lib/auth-cookies', () => ({ ACCESS_COOKIE: 'pc_access', SESSION_COOKIE: 'pc_session' }));
+// Re-export the real cookie module rather than restating it. The hand-written
+// stub had drifted twice over: it was missing CSRF_COOKIE entirely, which threw
+// before a single assertion in this file could run, and its two constants held
+// values ('pc_access', 'pc_session') that the module had long since stopped
+// using. A passthrough cannot drift again.
+vi.mock('../../lib/auth-cookies', async (importActual) => await importActual<typeof import('../../lib/auth-cookies')>());
 
 const originalFetch = globalThis.fetch;
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -57,7 +71,14 @@ async function loadProxy() {
 function streamRequest() {
   return new Request('http://localhost:3000/api/proxy/ai-assistant/stream', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      // The proxy enforces double-submit CSRF on unsafe methods. Supplying both
+      // halves is what a browser does; omitting them made every case here a 403
+      // long before it reached the streaming behaviour under test.
+      cookie: `pc_csrf_token=${CSRF_TOKEN}`,
+      'x-csrf-token': CSRF_TOKEN,
+    },
     body: JSON.stringify({ message: 'Где груз?' }),
   });
 }
