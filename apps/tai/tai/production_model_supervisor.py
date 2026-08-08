@@ -5,7 +5,7 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
-from tai.always_on_core import AlwaysOnModelSupervisor
+from tai.always_on_core import AlwaysOnModelSupervisor, ModelEndpointBinding
 from tai.model_runtime import ModelRuntimeHealth, ModelRuntimeStatus
 
 
@@ -21,10 +21,10 @@ class ProductionAlwaysOnModelSupervisor(AlwaysOnModelSupervisor):
     still fail closed.
     """
 
-    async def _observe_binding(self, binding: object) -> None:
-        model_id = str(getattr(binding, "model_id"))
-        revision = str(getattr(binding, "revision"))
-        endpoint_value = str(getattr(binding, "endpoint"))
+    async def _observe_binding(self, binding: ModelEndpointBinding) -> None:
+        model_id = str(binding.model_id)
+        revision = str(binding.revision)
+        endpoint_value = str(binding.endpoint)
         now = self._clock()
         identity = (model_id, revision)
         pressure = await self._gate.snapshot()
