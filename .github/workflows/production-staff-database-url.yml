@@ -177,3 +177,11 @@ jobs:
           set -Eeuo pipefail
           if [[ -n "${HOST:-}" && -n "${USER:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "rm -f '/tmp/pc-staff-database-url-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-rollback-${GITHUB_RUN_ID}.sh'" || true; fi
           rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+      - name: Publish provision or recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-staff-database-or-recovery-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
