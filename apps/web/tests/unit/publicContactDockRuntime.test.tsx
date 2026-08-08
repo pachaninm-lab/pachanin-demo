@@ -79,6 +79,38 @@ describe('PublicContactDock runtime', () => {
       .toHaveAttribute('href', 'tel:+79162778989');
   });
 
+  it('collapses Deal Explorer contact actions behind one accessible Help launcher', async () => {
+    const assistantClick = vi.fn();
+    const supportClick = vi.fn();
+    nativeButton('pc-public-assistant-shortcut', assistantClick);
+    nativeButton('p7-support-chat-button', supportClick);
+
+    render(<PublicContactDock presentation='compact-help' />);
+
+    const help = screen.getByRole('button', { name: 'Открыть способы помощи' });
+    expect(help).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'Открыть ИИ-помощника по платформе' })).not.toBeInTheDocument();
+
+    fireEvent.click(help);
+    expect(help).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Открыть поддержку' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Позвонить по номеру 8 916 277-89-89' })).toBeVisible();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(help).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(help).toHaveFocus());
+
+    fireEvent.click(help);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' }));
+    expect(assistantClick).toHaveBeenCalledOnce();
+    expect(help).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(help);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть поддержку' }));
+    expect(supportClick).toHaveBeenCalledOnce();
+  });
+
   it('keeps the public AI action visible and enabled at the top of a mobile homepage', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
       matches: true,
