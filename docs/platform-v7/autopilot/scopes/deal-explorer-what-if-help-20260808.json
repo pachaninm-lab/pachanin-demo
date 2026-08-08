@@ -8,6 +8,8 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/components/platform-v7/PublicDealWhatIfBridge.tsx",
     "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
     "apps/web/i18n/public-deal-journey-v5.ts",
     "apps/web/styles/platform-v7-public-deal-journey-v5.css",
@@ -19,7 +21,7 @@
     "docs/platform-v7/autopilot/scopes/deal-explorer-what-if-help-20260808.json"
   ],
   "requiredBehavior": [
-    "reuse existing TourScenario state for hypothetical Deal consequence exploration; do not create a parallel transaction state machine",
+    "reuse existing TourScenario URL state for hypothetical Deal consequence exploration; do not create a parallel transaction state machine",
     "label hypothetical mode as demonstrational and non-predictive in RU EN and ZH",
     "show the selected hypothetical consequence immediately and keep it synchronized with the scenario URL state",
     "on /platform-v7/how-it-works only, replace the persistent three-action public contact dock with one compact Help launcher that expands the same AI Support and Call actions",
