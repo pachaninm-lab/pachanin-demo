@@ -145,7 +145,7 @@ BEGIN
     RAISE EXCEPTION 'Organization administrator authority is required'
       USING ERRCODE = '42501';
   END IF;
-  IF NOT (CASE administrator_role
+  IF (CASE administrator_role
     WHEN 'FARMER' THEN p_requested_role IN ('FARMER', 'GUEST')
     WHEN 'BUYER' THEN p_requested_role IN ('BUYER', 'GUEST')
     WHEN 'LOGISTICIAN' THEN p_requested_role IN ('LOGISTICIAN', 'DRIVER', 'GUEST')
@@ -156,7 +156,7 @@ BEGIN
     WHEN 'ACCOUNTING' THEN p_requested_role IN ('ACCOUNTING', 'GUEST')
     WHEN 'GUEST' THEN p_requested_role = 'GUEST'
     ELSE false
-  END) THEN
+  END) IS NOT TRUE THEN
     RAISE EXCEPTION 'Organization role ceiling would be exceeded'
       USING ERRCODE = '42501';
   END IF;

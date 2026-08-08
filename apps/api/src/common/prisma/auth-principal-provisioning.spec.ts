@@ -213,8 +213,8 @@ describe('auth and staff principal provisioning', () => {
     expect(migration).toContain('Membership and MFA recovery authorities must have no members');
     expect(migration).toContain('auth.resolve_organization_admin_session(');
     expect(migration).toContain('challenge.token_hash = p_token_hash');
-    expect(migration).toContain('IF NOT (CASE administrator_role');
-    expect(migration).toContain('END) THEN');
+    expect(migration).toContain('IF (CASE administrator_role');
+    expect(migration).toContain('END) IS NOT TRUE THEN');
     expect(migration).not.toContain('IF NOT CASE administrator_role');
     expect(migration).toContain('credential_version = credential.credential_version + 1');
     expect(migration).toContain('GRANT UPDATE ("mfaEnabled", "updatedAt") ON public."users"');
