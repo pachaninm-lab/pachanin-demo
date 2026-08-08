@@ -428,7 +428,7 @@ export function PublicDealExplorerV4({
                 <div className='pc-ppe-v5-stage-main'>
                   <span className='pc-ppe-v5-actor'><PublicExperienceIcon name={stageIcon(historyState.stage)} size={16} />{journey.labels.nowActs}: {currentStage.owner}</span>
                   <h2>{currentStage.label}</h2>
-                  <p>{currentStage.status}</p>
+                  <p>{deal.status}</p>
                 </div>
 
                 <div className='pc-ppe-v5-stage-core'>
