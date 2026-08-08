@@ -16,6 +16,8 @@
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/tests/unit/platformV7PublicDealJourneyV5.test.ts",
+    "apps/web/tests/unit/publicContactDockRuntime.test.tsx",
+    "apps/web/tests/unit/platformV7UnifiedPublicContactDock.test.ts",
     "apps/web/tests/e2e/platform-v7-public-deal-explorer-mobile.spec.ts",
     "apps/web/tests/e2e/platform-v7-public-product-experience-v3.spec.ts",
     "docs/platform-v7/autopilot/scopes/deal-explorer-what-if-help-20260808.json"
