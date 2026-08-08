@@ -235,6 +235,7 @@ describe('auth and staff principal provisioning', () => {
     expect(migration).not.toMatch(/^\s*FOR UPDATE OF membership,\s*subject;/mu);
     expect(migration).toMatch(/^\s*FOR UPDATE OF challenge, subject;$/mu);
     expect(migration).not.toMatch(/^\s*FOR UPDATE OF challenge, subject, membership;/mu);
+    expect(migration).toContain('subject."deletedAt"::timestamptz');
     expect(migration).toMatch(/^\s*FOR UPDATE OF candidate, subject;$/mu);
     expect(migration).not.toMatch(/^\s*FOR UPDATE OF candidate, subject, membership;/mu);
     expect(migration).toContain(

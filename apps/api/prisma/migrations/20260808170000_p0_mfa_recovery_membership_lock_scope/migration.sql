@@ -125,7 +125,8 @@ BEGIN
          challenge.organization_id, challenge.tenant_id, challenge.token_hash,
          challenge.status, challenge.expires_at, challenge.attempts,
          challenge.max_attempts, challenge.version, subject."email",
-         subject."passwordHash", subject."status", subject."deletedAt",
+         subject."passwordHash", subject."status",
+         subject."deletedAt"::timestamptz,
          membership."status", organization."status",
          EXISTS (
            SELECT 1 FROM public."user_orgs" other_membership
