@@ -15,7 +15,7 @@ for (const needle of [
   'issue_comment:',
   'types: [created]',
   'actions: write',
-  'issues: read',
+  'issues: write',
   'github.event.issue.number == 3048',
   'github.event.comment.user.login == github.repository_owner',
   "startsWith(github.event.comment.body, '/production web exact ')",
@@ -27,6 +27,9 @@ for (const needle of [
   '-f confirmation=DEPLOY-EXACT-SHA',
   'COMMAND_AUTHORITY=OWNER_ONLY',
   'RELEASE_AUTHORITY=production-web-exact-sha.yml',
+  'DISPATCH_OUTCOME=',
+  'gh issue comment 3048',
+  'production mutation in this command workflow: `none`',
 ]) requireText(needle);
 
 forbid(/ssh\s+-/);
@@ -44,4 +47,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('PASS: owner-only issue command validates an exact main ancestor and only dispatches the canonical bounded web release.');
+console.log('PASS: owner-only issue command validates an exact main ancestor, dispatches only the canonical bounded web release, and publishes non-secret dispatch evidence.');
