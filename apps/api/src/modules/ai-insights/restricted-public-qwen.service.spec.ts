@@ -343,4 +343,74 @@ describe('RestrictedPublicQwenService', () => {
     await expect(new RestrictedPublicQwenService().generate(GENERAL_AGRO_REQUEST))
       .rejects.toBeInstanceOf(ServiceUnavailableException);
   });
+
+  describe('history budget priority', () => {
+    // A follow-up resolves its referent against the turns immediately before it.
+    // When the character budget cannot hold the whole window, the turns that may
+    // be dropped are the oldest ones: dropping the newest instead answers the
+    // previous question rather than the current one.
+    const historyMessages = (fetchMock: jest.Mock): readonly { role: string; content: string }[] => {
+      const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+      const messages = JSON.parse(String(init.body)).messages as { role: string; content: string }[];
+      // Drop the system preamble and the trailing grounded prompt for the current question.
+      return messages.slice(1, -1);
+    };
+
+    it('keeps the newest turns when the budget cannot hold the whole window', async () => {
+      const filler = (index: number) => `Древний контекст ${index}. `.padEnd(2_000, 'я');
+      const history = [
+        ...Array.from({ length: 6 }, (_unused, index) => ({
+          role: index % 2 === 0 ? 'user' : 'assistant',
+          text: filler(index),
+        })),
+        { role: 'user', text: 'Речь идёт об озимой пшенице.' },
+        { role: 'assistant', text: 'Понял, озимая пшеница.' },
+      ];
+
+      const fetchMock = jest.fn().mockResolvedValue(providerResponse('Фосфор влияет на развитие корневой системы.'));
+      global.fetch = fetchMock as typeof fetch;
+
+      await new RestrictedPublicQwenService().generate({
+        ...GENERAL_AGRO_REQUEST,
+        question: 'а фосфор?',
+        originalQuestion: 'а фосфор?',
+        history,
+      });
+
+      const carried = historyMessages(fetchMock);
+      const carriedText = carried.map((turn) => turn.content).join('\n');
+
+      // The referent the follow-up depends on must survive.
+      expect(carriedText).toContain('Речь идёт об озимой пшенице.');
+      expect(carriedText).toContain('Понял, озимая пшеница.');
+      // The budget is spent newest-first, so the oldest filler is what gets dropped.
+      expect(carriedText).not.toContain('Древний контекст 0.');
+    });
+
+    it('preserves chronological order of the turns it keeps', async () => {
+      const history = [
+        { role: 'user', text: 'Почему падает урожайность озимой пшеницы?' },
+        { role: 'assistant', text: 'Причин несколько: питание, влага, густота стояния.' },
+        { role: 'user', text: 'Если азота достаточно?' },
+        { role: 'assistant', text: 'Тогда смотрим на фосфор, калий и влагообеспеченность.' },
+      ];
+
+      const fetchMock = jest.fn().mockResolvedValue(providerResponse('Фосфор отвечает за корневую систему.'));
+      global.fetch = fetchMock as typeof fetch;
+
+      await new RestrictedPublicQwenService().generate({
+        ...GENERAL_AGRO_REQUEST,
+        question: 'а фосфор?',
+        originalQuestion: 'а фосфор?',
+        history,
+      });
+
+      expect(historyMessages(fetchMock)).toEqual([
+        { role: 'user', content: 'Почему падает урожайность озимой пшеницы?' },
+        { role: 'assistant', content: 'Причин несколько: питание, влага, густота стояния.' },
+        { role: 'user', content: 'Если азота достаточно?' },
+        { role: 'assistant', content: 'Тогда смотрим на фосфор, калий и влагообеспеченность.' },
+      ]);
+    });
+  });
 });
