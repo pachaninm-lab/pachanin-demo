@@ -59,27 +59,28 @@ export async function POST(request: Request) {
       return json({ accepted: false, code: response.status === 429 ? 'RATE_LIMITED' : 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, response.status === 429 ? 429 : 503);
     }
     const delivery = payload.emailDelivery;
-    if (delivery?.email && delivery.token) {
-      const origin = String(process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '') || new URL(request.url).origin;
-      const verifyUrl = new URL('/platform-v7/register', origin);
-      verifyUrl.searchParams.set('verify', delivery.token);
-      verifyUrl.searchParams.set('lang', locale);
-      const copy = COPY[locale];
-      const result = await sendTransactionalMail({
-        to: delivery.email,
-        subject: copy.subject,
-        text: [copy.intro, '', copy.action, verifyUrl.toString(), '', copy.expiry].join('\n'),
-      });
-      console.info('registration_resend_delivery_result', JSON.stringify({
-        correlationId,
-        accountHash: createHash('sha256').update(email).digest('hex').slice(0, 16),
-        delivered: result.delivered,
-        provider: result.provider,
-        reason: result.reason,
-      }));
-      if (!result.delivered) {
-        return json({ accepted: false, code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE', correlationId }, 503);
-      }
+    if (!delivery?.email || !delivery.token) {
+      return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
+    }
+    const origin = String(process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '') || new URL(request.url).origin;
+    const verifyUrl = new URL('/platform-v7/register', origin);
+    verifyUrl.searchParams.set('verify', delivery.token);
+    verifyUrl.searchParams.set('lang', locale);
+    const copy = COPY[locale];
+    const result = await sendTransactionalMail({
+      to: delivery.email,
+      subject: copy.subject,
+      text: [copy.intro, '', copy.action, verifyUrl.toString(), '', copy.expiry].join('\n'),
+    });
+    console.info('registration_resend_delivery_result', JSON.stringify({
+      correlationId,
+      accountHash: createHash('sha256').update(email).digest('hex').slice(0, 16),
+      delivered: result.delivered,
+      provider: result.provider,
+      reason: result.reason,
+    }));
+    if (!result.delivered) {
+      return json({ accepted: false, code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE', correlationId }, 503);
     }
     return json({ accepted: true, cooldownSeconds: payload.cooldownSeconds || 60, correlationId: payload.correlationId || correlationId }, 202);
   } catch {
