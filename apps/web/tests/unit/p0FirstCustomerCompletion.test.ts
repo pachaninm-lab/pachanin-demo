@@ -56,6 +56,14 @@ describe('P0 first-customer completion boundaries', () => {
     expect(middleware).toContain('ensureCsrfCookie(req, response)');
   });
 
+  it('clears every writable presentation role at the public registration boundary', () => {
+    const middleware = read('apps/web/middleware.ts');
+    expect(middleware).toContain("p === '/platform-v7/register' ? 'organization' : presentationRole");
+    expect(middleware).toContain("if (p === '/platform-v7/register') clearPresentationRoleCookie(response)");
+    expect(middleware).toContain("response.cookies.set('pc-role', '', {");
+    expect(middleware).toContain('maxAge: 0');
+  });
+
   it('keeps team commands tenant-scoped, MFA-gated, optimistic and auditable', () => {
     const invitations = read('apps/api/src/modules/auth/organization-invitation.service.ts');
     const teamAuthority = read('apps/api/prisma/migrations/20260808130000_p0_organization_team_authority/migration.sql');
