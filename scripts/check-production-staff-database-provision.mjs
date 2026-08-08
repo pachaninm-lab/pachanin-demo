@@ -5,7 +5,7 @@ const paths = {
   executor: 'scripts/production-full-stack-exact-sha.sh',
   provisioner: 'scripts/provision-production-staff-database-url.sh',
   workflow: '.github/workflows/production-staff-database-url.yml',
-  scope: 'docs/platform-v7/autopilot/scopes/production-staff-database-url-syntax-3735.json',
+  scope: 'docs/platform-v7/autopilot/scopes/production-staff-database-nul-3739.json',
 };
 const failures = [];
 const content = Object.fromEntries(Object.entries(paths).map(([name, file]) => {
@@ -28,20 +28,44 @@ for (const file of [paths.executor, paths.provisioner]) {
   const result = spawnSync('bash', ['-n', file], { encoding: 'utf8' });
   if (result.status !== 0) failures.push(`${file}: bash syntax failed: ${result.stderr.trim()}`);
 }
-const urlBuilder = spawnSync('python3', ['-c', [
-  'from urllib.parse import quote, urlsplit, urlunsplit',
-  'url = urlsplit("postgresql://migration:secret@db.example:5432/platform?sslmode=require")',
-  'password = "a" * 64',
-  'host = f"{url.hostname}:{url.port}"',
-  'netloc = "pc_staff_runtime:" + quote(password, safe="") + "@" + host',
-  'actual = urlunsplit((url.scheme, netloc, url.path, url.query, ""))',
-  'expected = "postgresql://pc_staff_runtime:" + password + "@db.example:5432/platform?sslmode=require"',
-  'raise SystemExit(0 if actual == expected else 1)',
-].join('\n')], { encoding: 'utf8' });
-if (urlBuilder.status !== 0) failures.push(`staff database URL builder regression failed: ${urlBuilder.stderr.trim()}`);
+const extractPythonBlock = (startMarker, endMarker, label) => {
+  const start = content.provisioner.indexOf(startMarker);
+  const end = start === -1 ? -1 : content.provisioner.indexOf(endMarker, start + startMarker.length);
+  if (start === -1 || end === -1) {
+    failures.push('staff database ' + label + ' Python block is missing');
+    return '';
+  }
+  return content.provisioner.slice(start + startMarker.length, end);
+};
+const nulSplit = 'split(b"\\0", 1)';
+const escapedNulSplit = 'split(b"\\\\0", 1)';
+if ((content.provisioner.split(nulSplit).length - 1) !== 2) failures.push('staff database provisioner must split both NUL-delimited inputs');
+if (content.provisioner.includes(escapedNulSplit)) failures.push('staff database provisioner retains an escaped NUL delimiter');
+const password = 'a'.repeat(64);
+const urlBuilderSource = extractPythonBlock(
+  'staff_url="$(printf \'%s\\0%s\' "$migration_url" "$password" | python3 -c \'\n',
+  '\n\')" || fail STAFF_DATABASE_URL_BUILD_FAILED 12',
+  'URL builder',
+);
+const urlBuilder = spawnSync('python3', ['-c', urlBuilderSource], {
+  encoding: 'utf8',
+  input: Buffer.concat([Buffer.from('postgresql://migration:secret@db.example:5432/platform?sslmode=require'), Buffer.from([0]), Buffer.from(password)]),
+});
+const expectedUrl = 'postgresql://pc_staff_runtime:' + password + '@db.example:5432/platform?sslmode=require';
+if (urlBuilder.status !== 0 || urlBuilder.stdout.trim() !== expectedUrl) failures.push('staff database URL builder regression failed: ' + urlBuilder.stderr.trim());
+const sqlBuilderSource = extractPythonBlock(
+  'sql="$(printf \'%s\\0\' "$password" | python3 -c \'\n',
+  '\n\')" || fail STAFF_RUNTIME_SQL_BUILD_FAILED 13',
+  'SQL builder',
+);
+const sqlBuilder = spawnSync('python3', ['-c', sqlBuilderSource], {
+  encoding: 'utf8',
+  input: Buffer.concat([Buffer.from(password), Buffer.from([0])]),
+});
+if (sqlBuilder.status !== 0 || !sqlBuilder.stdout.includes('ALTER ROLE pc_staff_runtime') || sqlBuilder.stdout.includes('\0')) failures.push('staff database SQL builder regression failed: ' + sqlBuilder.stderr.trim());
 try {
   const scope = JSON.parse(content.scope);
-  if (scope.branch !== 'fix/production-staff-database-url-syntax-3735') failures.push(`${paths.scope}: branch mismatch`);
+  if (scope.branch !== 'fix/production-staff-database-nul-3739') failures.push(`${paths.scope}: branch mismatch`);
   if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) failures.push(`${paths.scope}: production boundary mismatch`);
 } catch (error) {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
