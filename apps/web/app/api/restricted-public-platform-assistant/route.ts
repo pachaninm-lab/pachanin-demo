@@ -472,8 +472,7 @@ function emptyEnvelope(): PublicEnvelope {
 
 function normalizeHistory(value: unknown): readonly HistoryTurn[] {
   if (!Array.isArray(value)) return [];
-  const turns: HistoryTurn[] = [];
-  let total = 0;
+  const candidates: HistoryTurn[] = [];
   for (const item of value.slice(-MAX_HISTORY_TURNS)) {
     const row = asRecord(item);
     const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
@@ -481,11 +480,25 @@ function normalizeHistory(value: unknown): readonly HistoryTurn[] {
       ? row.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ').trim().slice(0, MAX_HISTORY_TURN_CHARS)
       : '';
     if (!role || !text) continue;
-    if (total + text.length > MAX_HISTORY_TOTAL_CHARS) break;
-    turns.push(Object.freeze({ role, text }));
-    total += text.length;
+    candidates.push(Object.freeze({ role, text }));
   }
-  return Object.freeze(turns);
+
+  // The character budget is spent newest-first. A short follow-up resolves its
+  // referent against the turns immediately before it, so when the budget cannot
+  // hold the whole window the turns to drop are the oldest ones. This boundary
+  // trims before the model contour ever sees the history, so spending the budget
+  // oldest-first here would discard the recent turns irrecoverably.
+  let total = 0;
+  let firstKept = candidates.length;
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const length = candidates[index].text.length;
+    if (total + length > MAX_HISTORY_TOTAL_CHARS) break;
+    total += length;
+    firstKept = index;
+  }
+
+  // Kept turns stay in chronological order: the window is a conversation.
+  return Object.freeze(candidates.slice(firstKept));
 }
 
 function classifyAnswerMode(question: string, context: string, history: readonly HistoryTurn[]): PublicAnswerMode {

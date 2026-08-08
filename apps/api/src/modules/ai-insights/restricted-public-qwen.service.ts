@@ -266,19 +266,36 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
 
 function normalizeHistory(value: unknown): readonly PublicHistoryTurn[] {
   if (!Array.isArray(value)) return [];
-  const turns: PublicHistoryTurn[] = [];
-  let total = 0;
+
+  const candidates: PublicHistoryTurn[] = [];
   for (const item of value.slice(-MAX_HISTORY_TURNS)) {
     const row = asRecord(item);
     const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
     const text = cleanMultilineText(row?.text, MAX_HISTORY_TURN_CHARS);
     if (!role || !text) continue;
+    // Every candidate is screened, not just the ones the budget admits: whether a
+    // turn carries a secret cannot depend on how long the turns before it were.
     if (SECRET_PATTERN.test(text)) throw new BadRequestException('Secret-like history is forbidden in the public model contour.');
-    if (total + text.length > MAX_HISTORY_TOTAL_CHARS) break;
-    turns.push(Object.freeze({ role, text }));
-    total += text.length;
+    candidates.push(Object.freeze({ role, text }));
   }
-  return Object.freeze(turns);
+
+  // The character budget is spent newest-first. A follow-up such as "а фосфор?"
+  // resolves its referent against the turns immediately before it, so when the
+  // budget cannot hold the whole window the turns to drop are the oldest ones.
+  // Filling oldest-first spends the budget on ancient context and answers the
+  // previous question instead of the current one.
+  let total = 0;
+  let firstKept = candidates.length;
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const length = candidates[index].text.length;
+    if (total + length > MAX_HISTORY_TOTAL_CHARS) break;
+    total += length;
+    firstKept = index;
+  }
+
+  // The kept turns are replayed to the model oldest-first: the window is a
+  // conversation, and reversing it would change what the follow-up refers to.
+  return Object.freeze(candidates.slice(firstKept));
 }
 
 function normalizeSource(value: unknown): PublicSource {
