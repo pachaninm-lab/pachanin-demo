@@ -105,7 +105,7 @@ password="$(openssl rand -hex 32)"
 staff_url="$(printf '%s\0%s' "$migration_url" "$password" | python3 -c '
 import sys
 from urllib.parse import quote, urlsplit, urlunsplit
-source, password = sys.stdin.buffer.read().split(b"\\0", 1)
+source, password = sys.stdin.buffer.read().split(b"\0", 1)
 value = source.decode().strip()
 password = password.decode().strip()
 url = urlsplit(value)
@@ -122,7 +122,7 @@ print(urlunsplit((url.scheme, netloc, url.path, url.query, "")))
 
 sql="$(printf '%s\0' "$password" | python3 -c '
 import sys
-password = sys.stdin.buffer.read().split(b"\\0", 1)[0].decode()
+password = sys.stdin.buffer.read().split(b"\0", 1)[0].decode()
 if len(password) != 64 or any(c not in "0123456789abcdefABCDEF" for c in password): raise SystemExit(1)
 print("DO $$ BEGIN "
       "IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '\''pc_staff_runtime'\'') THEN RAISE EXCEPTION '\''pc_staff_runtime missing'\''; END IF; "
