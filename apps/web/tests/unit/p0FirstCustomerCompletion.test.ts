@@ -58,8 +58,11 @@ describe('P0 first-customer completion boundaries', () => {
 
   it('clears every writable presentation role at the public registration boundary', () => {
     const middleware = read('apps/web/middleware.ts');
-    expect(middleware).toContain("p === '/platform-v7/register' ? 'organization' : presentationRole");
-    expect(middleware).toContain("if (p === '/platform-v7/register') clearPresentationRoleCookie(response)");
+    expect(middleware).toContain("p === '/platform-v7/register'");
+    expect(middleware).toContain("p === '/api/auth/register'");
+    expect(middleware).toContain("p.startsWith('/api/auth/registration/')");
+    expect(middleware).toContain("isPublicRegistrationPath(p) ? 'organization' : presentationRole");
+    expect(middleware).toContain('if (isPublicRegistrationPath(p)) clearPresentationRoleCookie(response)');
     expect(middleware).toContain("response.cookies.set('pc-role', '', {");
     expect(middleware).toContain('maxAge: 0');
   });
