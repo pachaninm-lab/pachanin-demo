@@ -10,6 +10,8 @@
   "allowedPaths": [
     "apps/web/middleware.ts",
     "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
-    "docs/platform-v7/autopilot/scopes/registration-presentation-cookie-3730.json"
+    "apps/web/tests/unit/p0RegistrationPresentationCookie.test.ts",
+    "docs/platform-v7/autopilot/scopes/registration-presentation-cookie-3730.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
   ]
 }
