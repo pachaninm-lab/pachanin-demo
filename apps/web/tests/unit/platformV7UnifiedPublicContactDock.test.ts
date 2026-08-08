@@ -22,14 +22,19 @@ const roles = [
 ] as const;
 
 describe('platform-v7 unified public and cabinet contact docks', () => {
-  it('keeps the public three-action surface unchanged', () => {
+  it('keeps the default public three-action surface and scopes compact Help to Deal Explorer', () => {
     expect(contextual).toContain("import { PublicContactDock } from './PublicContactDock'");
     expect(contextual).toContain('<PublicPlatformAssistant />');
     expect(contextual).toContain('<ChatSupportWidget />');
-    expect(contextual).toContain('{renderDock ? <PublicContactDock /> : null}');
+    expect(contextual).toContain("const DEAL_EXPLORER = '/platform-v7/how-it-works'");
+    expect(contextual).toContain("presentation={path === DEAL_EXPLORER ? 'compact-help' : 'full'}");
+    expect(publicDock).toContain("type Presentation = 'full' | 'compact-help'");
+    expect(publicDock).toContain("presentation = 'full'");
     expect(publicDock).toContain("assistant: 'ИИ'");
     expect(publicDock).toContain("support: 'Поддержка'");
     expect(publicDock).toContain("call: 'Позвонить'");
+    expect(publicDock).toContain("help: 'Помощь'");
+    expect(publicDock).toContain('aria-expanded={helpOpen}');
     expect(publicDock).toContain('href={SUPPORT_PHONE_HREF}');
   });
 
