@@ -40,7 +40,8 @@ jobs:
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 3072 &&
        github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/production provision-staff-database-url current-main')
+       (github.event.comment.body == '/production provision-staff-database-url current-main' ||
+        github.event.comment.body == '/production rollback-full-stack failed-run-31273608232'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -138,18 +139,31 @@ jobs:
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" 'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; docker compose version >/dev/null; echo ROOT_SSH_AUTH_OK' > "$EVIDENCE_DIR/ssh-auth.txt"
           grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
           echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
-      - name: Provision or validate staff URL without disclosure
+      - name: Provision staff URL or restore the bounded failed rollout
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           USER: ${{ steps.ssh.outputs.user }}
           PORT: ${{ steps.ssh.outputs.port }}
+          COMMAND: ${{ github.event.comment.body }}
         run: |
           set -Eeuo pipefail
-          remote="/tmp/pc-staff-database-url-${GITHUB_RUN_ID}.sh"
-          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes scripts/provision-production-staff-database-url.sh "$USER@$HOST:$remote"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "chmod 0700 '$remote' && '$remote' provision" | tee "$EVIDENCE_DIR/provision.log"
-          grep -Eq '^STAFF_DATABASE_URL_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.log"
-          grep -Fxq STAFF_DATABASE_URL_VALID=1 "$EVIDENCE_DIR/provision.log"
+          case "$COMMAND" in
+            '/production provision-staff-database-url current-main')
+              remote="/tmp/pc-staff-database-url-${GITHUB_RUN_ID}.sh"
+              scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes scripts/provision-production-staff-database-url.sh "$USER@$HOST:$remote"
+              ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "chmod 0700 '$remote' && '$remote' provision" | tee "$EVIDENCE_DIR/provision.log"
+              grep -Eq '^STAFF_DATABASE_URL_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.log"
+              grep -Fxq STAFF_DATABASE_URL_VALID=1 "$EVIDENCE_DIR/provision.log"
+              ;;
+            '/production rollback-full-stack failed-run-31273608232')
+              remote="/tmp/pc-full-stack-rollback-${GITHUB_RUN_ID}.sh"
+              scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes scripts/production-full-stack-exact-sha.sh "$USER@$HOST:$remote"
+              ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "chmod 0700 '$remote' && '$remote' rollback 'a6176e917ef8aad97d3231f15aa867d8409f2ef1' '31273608232'" | tee "$EVIDENCE_DIR/rollback.log"
+              grep -Fxq ROLLBACK_COMPLETE=1 "$EVIDENCE_DIR/rollback.log"
+              grep -Fxq RESTORED_API_REVISION=3233bd05b4f39ba3a0bdbe8253a414a7dc25a6ec "$EVIDENCE_DIR/rollback.log"
+              ;;
+            *) exit 15 ;;
+          esac
       - name: Remove bounded remote asset and local credentials
         if: always()
         env:
@@ -158,5 +172,5 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
-          if [[ -n "${HOST:-}" && -n "${USER:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "rm -f '/tmp/pc-staff-database-url-${GITHUB_RUN_ID}.sh'" || true; fi
+          if [[ -n "${HOST:-}" && -n "${USER:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" "rm -f '/tmp/pc-staff-database-url-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-rollback-${GITHUB_RUN_ID}.sh'" || true; fi
           rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
