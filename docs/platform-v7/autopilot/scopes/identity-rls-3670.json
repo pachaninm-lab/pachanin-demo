@@ -120,6 +120,7 @@
     "verified BANK_CALLBACK operation transition and replay remain exact tenant buyer partner and event scoped under FORCE RLS",
     "verified BANK_CALLBACK RLS predicates use a boolean-only definer authority and do not recursively inherit participant-table visibility",
     "DR restore reconstructs least-privilege ownership and named grants before application acceptance",
+    "nanoid HIGH advisory remediation remains an actual package.json plus pnpm-lock.yaml dependency upgrade with no security exception or audit suppression",
     "all exact-head security and production-like acceptance gates remain fail-closed"
   ],
   "forbiddenCapabilities": [
