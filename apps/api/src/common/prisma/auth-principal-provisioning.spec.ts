@@ -422,6 +422,24 @@ describe('auth and staff principal provisioning', () => {
     expect(oneDeal).toContain('PASSWORD_RESET_AUTHORITY_PROOF');
     expect(oneDeal).toContain('ORGANIZATION_TEAM_AUTHORITY_PROOF');
     expect(oneDeal).toContain('INVITATION_MEMBERSHIP_RECOVERY_AUTHORITY_PROOF');
+    for (const proof of [
+      oneDeal,
+      repositoryFile('scripts/platform-v7-database-dr-rehearsal.sh'),
+      repositoryFile('scripts/release/production-like-kubernetes-cluster.sh'),
+    ]) {
+      expect(proof).toContain(
+        "has_column_privilege('pc_invitation_acceptance_authority', 'auth.organization_invitations', 'status', 'UPDATE')",
+      );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_invitation_acceptance_authority', 'auth.organization_invitations', 'UPDATE')",
+      );
+      expect(proof).toContain(
+        "has_column_privilege('pc_mfa_recovery_identity_authority', 'auth.credential_states', 'mfa_enabled', 'UPDATE')",
+      );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_mfa_recovery_identity_authority', 'auth.credential_states', 'UPDATE')",
+      );
+    }
     expect(oneDeal).toContain('REGISTRATION_DECISION_AUTHORITY_PROOF');
     expect(oneDeal).toContain('ACCOUNT_LIFECYCLE_AUTHORITY_PROOF');
     expect(oneDeal).toContain('STAFF_ROLE_PROOF');
