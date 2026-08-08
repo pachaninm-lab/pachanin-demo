@@ -96,6 +96,7 @@ if (!pushPaths) {
 
 requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
+  'workflow_call:',
   'DEPLOY-FULL-STACK-EXACT-SHA',
   'github.actor == github.repository_owner',
   'issue_comment:',
@@ -137,7 +138,11 @@ requireAll('controller', [
   'Build web image',
   'Build migration image',
   'Main advanced during image publication',
-  'gh workflow run production-full-stack-exact-sha.yml',
+  'production-full-stack-execution-3072:',
+  'needs: production-release-control-3072',
+  "github.event.comment.body == '/production release current-main'",
+  'uses: ./.github/workflows/production-full-stack-exact-sha.yml',
+  'secrets: inherit',
 ]);
 requireAll('middleware', [
   "'/api/platform-v7/organization-connect'",
@@ -146,9 +151,12 @@ requireAll('middleware', [
 const controllerSource = text.controller ?? '';
 const publishDispatchIndex = controllerSource.indexOf('gh workflow run docker-publish.yml');
 const imageWatchIndex = controllerSource.indexOf('gh run watch "$image_run_id"');
-const releaseDispatchIndex = controllerSource.indexOf('gh workflow run production-full-stack-exact-sha.yml');
-if (!(publishDispatchIndex >= 0 && imageWatchIndex > publishDispatchIndex && releaseDispatchIndex > imageWatchIndex)) {
-  failures.push(`${paths.controller}: exact image publication must complete before release dispatch`);
+const reusableReleaseIndex = controllerSource.indexOf('production-full-stack-execution-3072:');
+if (!(publishDispatchIndex >= 0 && imageWatchIndex > publishDispatchIndex && reusableReleaseIndex > imageWatchIndex)) {
+  failures.push(`${paths.controller}: exact image publication must complete before owner-authorized reusable release`);
+}
+if (controllerSource.includes('gh workflow run production-full-stack-exact-sha.yml')) {
+  failures.push(`${paths.controller}: the controller must not dispatch a second workflow as github-actions[bot]`);
 }
 requireAll('executor', [
   'COMPOSE_SERVICE_DISCOVERY_FAILED',
