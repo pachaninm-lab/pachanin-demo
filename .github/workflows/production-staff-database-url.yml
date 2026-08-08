@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
-      target_sha: ${{ steps.target.outputs.sha }}
+      authorized: ${{ steps.target.outputs.authorized }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,7 +76,7 @@ jobs:
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ && "$(git rev-parse HEAD)" == "$target_sha" ]]
           node scripts/check-production-staff-database-provision.mjs
           node scripts/check-production-full-stack-release.mjs
-          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "authorized=1" >> "$GITHUB_OUTPUT"
 
   provision:
     name: Provision protected staff database URL on REG.RU
@@ -84,11 +84,9 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       needs.authority.result == 'success' &&
-      needs.authority.outputs.target_sha != ''
+      needs.authority.outputs.authorized == '1'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,7 +97,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           git fetch --no-tags origin main
-          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" && "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          target_sha="$(git rev-parse origin/main)"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ && "$(git rev-parse HEAD)" == "$target_sha" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
           node scripts/check-production-staff-database-provision.mjs
       - name: Resolve protected root key and pinned REG.RU identity
