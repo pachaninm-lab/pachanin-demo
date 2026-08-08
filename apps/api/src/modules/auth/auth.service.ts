@@ -227,7 +227,15 @@ export class AuthService {
       throw new UnauthorizedException(`Account temporarily locked. Try again in ${retryAfterSec}s.`);
     }
     if (result.kind === 'invalid') throw new UnauthorizedException('Invalid credentials');
-    if (result.kind === 'no_context') throw new ForbiddenException(result.reason);
+    if (result.kind === 'no_context') {
+      // Registration creates an inactive identity before approval. Keep that
+      // lifecycle state indistinguishable from an unknown public account, but
+      // preserve actionable membership and organization denials after proof.
+      if (result.reason === 'USER_NOT_ACTIVE') {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      throw new ForbiddenException(result.reason);
+    }
     if (result.kind === 'membership') {
       return {
         membershipSelectionRequired: true,

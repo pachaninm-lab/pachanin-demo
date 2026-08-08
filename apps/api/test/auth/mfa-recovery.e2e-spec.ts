@@ -93,6 +93,21 @@ describe('controlled PostgreSQL MFA recovery', () => {
     });
     await repository.ensureCredentialState(prisma, adminUserId);
     await repository.ensureCredentialState(prisma, targetUserId);
+    const adminSessionId = `mfa-recovery-admin-session-${key}`;
+    await prisma.$executeRaw`
+      INSERT INTO auth.sessions (
+        id, user_id, membership_id, organization_id, tenant_id,
+        status, refresh_family_id, credential_version,
+        mfa_level, mfa_verified_at, mfa_verified_method, expires_at
+      )
+      SELECT
+        ${adminSessionId}, ${adminUserId}, ${adminMembership.id},
+        ${organizationId}, ${tenantId}, 'ACTIVE',
+        ${`mfa-recovery-admin-family-${key}`}, credential_version,
+        'TOTP', NOW(), 'TOTP', NOW() + interval '1 day'
+      FROM auth.credential_states
+      WHERE user_id = ${adminUserId}
+    `;
     await prisma.$executeRaw`
       UPDATE auth.credential_states
       SET mfa_enabled = TRUE,
@@ -140,6 +155,7 @@ describe('controlled PostgreSQL MFA recovery', () => {
       orgId: organization.id,
       tenantId,
       membershipId: adminMembership.id,
+      sessionId: adminSessionId,
       isOrgAdmin: true,
       mfaVerified: true,
       mfaVerifiedAt: new Date().toISOString(),

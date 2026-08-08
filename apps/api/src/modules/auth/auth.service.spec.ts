@@ -37,11 +37,12 @@ describe('persistent auth policy', () => {
     );
   });
 
-  it('returns the authenticated account lifecycle reason while retaining a denial audit', () => {
+  it('hides inactive accounts while retaining authenticated context denials and the audit reason', () => {
     expect(authSource).toContain("this.identityInvalidReason(memberships[0]) ?? 'NO_ACTIVE_MEMBERSHIP'");
     expect(authSource).toContain("outcome: 'DENIED'");
-    expect(authSource).toContain("if (result.kind === 'invalid') throw new UnauthorizedException('Invalid credentials')");
-    expect(authSource).toContain("if (result.kind === 'no_context') throw new ForbiddenException(result.reason)");
+    expect(authSource).toContain("if (result.reason === 'USER_NOT_ACTIVE') {");
+    expect(authSource).toContain("throw new UnauthorizedException('Invalid credentials');");
+    expect(authSource).toContain('throw new ForbiddenException(result.reason);');
   });
 
   it.each([
