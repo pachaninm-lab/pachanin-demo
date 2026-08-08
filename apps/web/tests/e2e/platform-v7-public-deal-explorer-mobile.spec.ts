@@ -23,6 +23,20 @@ for (const width of [320, 390, 430]) {
     await expect(intent.getByRole('heading', { name: 'Что вы хотите сделать?' })).toBeVisible();
     await expect(intentOptions).toHaveCount(6);
     await expect(page.locator('[data-testid="public-deal-quick-stage"]')).toHaveCount(0);
+
+    const help = page.getByRole('button', { name: 'Открыть способы помощи' });
+    await expect(help).toBeVisible();
+    const helpBox = await help.boundingBox();
+    expect(helpBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(helpBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await expect(page.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' })).toHaveCount(0);
+    await help.click();
+    await expect(help).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Открыть поддержку' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Позвонить по номеру/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(help).toHaveAttribute('aria-expanded', 'false');
     await expectNoHorizontalOverflow(page);
 
     await intent.getByRole('button', { name: /Продать продукцию/ }).click();
@@ -30,8 +44,12 @@ for (const width of [320, 390, 430]) {
     await expect(page).toHaveURL(/perspective=seller/);
     await expect(page).toHaveURL(/stage=terms/);
 
-    const scenarios = page.locator('.pc-ppe-v5-scenario-grid');
-    await expect(scenarios).toBeVisible();
+    const whatIf = page.locator('[data-testid="public-deal-what-if"]');
+    await expect(whatIf).toBeVisible();
+    await expect(whatIf.getByText('Что будет, если…')).toBeVisible();
+    await expect(whatIf.getByText(/сценарий интерфейса, а не прогноз/)).toBeVisible();
+
+    const scenarios = whatIf.locator('.pc-ppe-v5-what-if-grid');
     await expect(scenarios.getByRole('button')).toHaveCount(3);
     const scenarioBoxes = await scenarios.getByRole('button').evaluateAll((nodes) => nodes.map((node) => {
       const box = (node as HTMLElement).getBoundingClientRect();
@@ -43,6 +61,7 @@ for (const width of [320, 390, 430]) {
     await partial.click();
     await expect(page).toHaveURL(/scenario=partial/);
     await expect(partial).toHaveAttribute('aria-pressed', 'true');
+    await expect(whatIf.getByText(/фактически принятый объём/)).toBeVisible();
 
     const context = page.locator('[data-testid="public-deal-journey-context"]');
     const stage = page.locator('[data-testid="public-deal-quick-stage"]');

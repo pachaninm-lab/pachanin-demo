@@ -56,7 +56,11 @@ async function settleContactDock(page: Page) {
   await scrollAndFlush(page, 0);
   await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
   await expect(dock).toBeVisible();
-  await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
+  if (await dock.getAttribute('data-presentation') === 'compact-help') {
+    await expect(dock.locator('.pc-public-contact-dock-help')).toBeEnabled();
+  } else {
+    await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
+  }
 }
 
 async function expectNoSeriousAxeViolations(page: Page) {
@@ -77,7 +81,7 @@ async function expectLayoutShiftWithinBudget(page: Page) {
 }
 
 function responsiveScenarioSelector(_page: Page) {
-  return '.pc-ppe-v5-scenario-grid > button';
+  return '[data-testid="public-deal-what-if"] .pc-ppe-v5-what-if-grid > button';
 }
 
 async function expectMinimumTargets(page: Page, locator: string) {
@@ -135,7 +139,7 @@ test.describe('Public Product Experience V5 browser acceptance', () => {
       await expect(page.locator('.pc-ppe-segmented button')).toHaveCount(3);
       await expect(page.locator('.pc-ppe-select-label option')).toHaveCount(12);
       await expect(page.locator('.pc-ppe-stage-track button')).toHaveCount(10);
-      await expect(page.locator('.pc-ppe-v5-scenario-grid button')).toHaveCount(3);
+      await expect(page.locator(responsiveScenarioSelector(page))).toHaveCount(3);
       await expectNoHorizontalOverflow(page);
     }
 
