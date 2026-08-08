@@ -27,6 +27,10 @@ export default defineConfig({
         __dirname,
         '../api/src/modules/ai-insights/ai-assistant-admission.manifest.ts',
       ),
+      '@pc/tai-telemetry': path.resolve(
+        __dirname,
+        '../api/src/modules/ai-insights/tai-telemetry.contract.ts',
+      ),
       '@': path.resolve(__dirname, '.'),
     },
   },

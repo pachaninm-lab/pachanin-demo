@@ -15,6 +15,13 @@ import {
   type AssistantRoutingContext,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
+import {
+  TAI_TRACE_HEADER,
+  createLatencyRecorder,
+  resolveTraceId,
+  type TaiLatencyRecorder,
+} from '@pc/tai-telemetry';
+import { emitTaiTelemetry } from '@/lib/platform-v7/tai-telemetry-log';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -117,6 +124,11 @@ export async function POST(request: NextRequest) {
   if (request.nextUrl.searchParams.get('stream') !== '1') return knowledgePost(request);
   if (request.headers.get('sec-fetch-site') === 'cross-site') return knowledgePost(request);
 
+  // The trace is resolved before any work so that every phase below, including
+  // an early refusal, is attributable to one request across all four hops.
+  const traceId = resolveTraceId(request.headers.get(TAI_TRACE_HEADER));
+  const recorder = createLatencyRecorder(traceId);
+
   const rawBody = await request.text();
   const envelope = readPublicEnvelope(rawBody);
   if (!envelope.question) return knowledgePost(rebuildRequestWithoutStream(request, rawBody));
@@ -130,6 +142,7 @@ export async function POST(request: NextRequest) {
   });
   const routedQuestion = envelope.question;
   const outcome = routeAssistantQuestion(routedQuestion, routingContext);
+  recorder.mark('routing');
   let answerMode = resolveAnswerMode(routedQuestion, envelope.history, outcome, routingContext);
   const locale = envelope.locale;
 
@@ -174,8 +187,9 @@ export async function POST(request: NextRequest) {
   } else {
     grounding = generalAgroGrounding(locale);
   }
+  recorder.mark('grounding');
 
-  return streamModelFirstAnswer(request, grounding, envelope, routingContext, answerMode);
+  return streamModelFirstAnswer(request, grounding, envelope, routingContext, answerMode, recorder);
 }
 
 function resolveAnswerMode(
@@ -209,6 +223,7 @@ function streamModelFirstAnswer(
   envelope: PublicEnvelope,
   routingContext: AssistantRoutingContext,
   answerMode: PublicAnswerMode,
+  recorder: TaiLatencyRecorder,
 ) {
   const encoder = new TextEncoder();
   const streamId = randomUUID();
@@ -240,11 +255,23 @@ function streamModelFirstAnswer(
       request.signal.addEventListener('abort', cancel, { once: true });
       writer.emit({ event: 'meta', mode: 'public', modelIdentity: null });
 
+      const locale = resolveLocale(grounding, envelope.locale);
+      const telemetry = {
+        modelIdentity: null as string | null,
+        promptTokens: null as number | null,
+        completionTokens: null as number | null,
+        fallbackUsed: false,
+        cancelled: false,
+        timeoutClass: 'none' as 'none' | 'provider' | 'gateway' | 'client',
+        errorClass: 'none' as 'none' | 'provider_http' | 'provider_transport' | 'provider_contract'
+          | 'validation' | 'safety_refusal' | 'cancelled' | 'internal',
+      };
+
       const run = async () => {
-        const locale = resolveLocale(grounding, envelope.locale);
         const currentDataRequired = answerMode === 'general_agro' && requiresCurrentEvidence(envelope.question);
 
         if (grounding.resolution === 'refused') {
+          telemetry.errorClass = 'safety_refusal';
           writer.fail(
             'ABSTAINED_NO_DATA',
             grounding.answer || 'The requested private or write capability is unavailable in public mode.',
@@ -253,7 +280,9 @@ function streamModelFirstAnswer(
         }
 
         if (!runtimeConfig.enabled || !runtimeConfig.endpoint) {
+          telemetry.errorClass = 'validation';
           if (answerMode === 'verified_platform') {
+            telemetry.fallbackUsed = true;
             emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_RUNTIME_UNAVAILABLE');
           } else {
             writer.fail('UPSTREAM_ERROR', modelUnavailableCopy(locale));
@@ -283,23 +312,41 @@ function streamModelFirstAnswer(
           },
         };
 
+        recorder.mark('promptAssembly');
+
         let answer: ModelResponse;
         try {
-          answer = await callInternalModel(runtimeConfig, payload, request.signal, runtimeConfig.timeoutMs);
+          answer = await callInternalModel(runtimeConfig, payload, request.signal, runtimeConfig.timeoutMs, recorder.traceId);
         } catch {
-          if (request.signal.aborted) return;
+          if (request.signal.aborted) {
+            telemetry.cancelled = true;
+            telemetry.errorClass = 'cancelled';
+            telemetry.timeoutClass = 'client';
+            return;
+          }
+          telemetry.errorClass = 'provider_transport';
           if (answerMode === 'verified_platform') {
+            telemetry.fallbackUsed = true;
             emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_RUNTIME_FALLBACK');
           } else {
             writer.fail('UPSTREAM_ERROR', modelUnavailableCopy(locale));
           }
           return;
         }
+        // The provider is called without streaming, so this marks arrival of the
+        // whole completion, not a true first token. `streaming:false` on the
+        // record is what keeps the two from being compared as if they were alike.
+        recorder.mark('modelTtft');
+        telemetry.modelIdentity = answer.modelIdentity ?? null;
+        telemetry.promptTokens = typeof answer.promptTokens === 'number' ? answer.promptTokens : null;
+        telemetry.completionTokens = typeof answer.completionTokens === 'number' ? answer.completionTokens : null;
 
         if (answerMode === 'verified_platform') emitSources(writer, grounding.sources);
         for (const chunk of chunkAnswer(answer.answer)) {
           if (!writer.emit({ event: 'token', text: chunk })) return;
+          recorder.mark('firstUsefulText');
         }
+        recorder.mark('generation');
         writer.emit({
           event: 'assessment',
           summary: JSON.stringify({
@@ -312,15 +359,39 @@ function streamModelFirstAnswer(
           operationalStatus: 'NOT_ATTESTED',
         });
         writer.complete();
+        recorder.mark('postProcessing');
       };
 
       void run()
         .catch(() => {
+          telemetry.errorClass = 'internal';
           if (!request.signal.aborted) writer.fail('UPSTREAM_ERROR', 'The public assistant could not complete the answer.');
         })
         .finally(() => {
           request.signal.removeEventListener('abort', cancel);
           finish();
+          if (request.signal.aborted) {
+            telemetry.cancelled = true;
+            if (telemetry.errorClass === 'none') telemetry.errorClass = 'cancelled';
+          }
+          // Emitted on every terminal path, including refusal and cancellation:
+          // a request that ends without a record is one that cannot be explained.
+          emitTaiTelemetry(recorder.finish({
+            contour: 'public',
+            locale,
+            answerMode,
+            modelIdentity: telemetry.modelIdentity,
+            retrievalVersion: grounding.knowledgeVersion ?? null,
+            streaming: false,
+            cancelled: telemetry.cancelled,
+            fallbackUsed: telemetry.fallbackUsed,
+            timeoutClass: telemetry.timeoutClass,
+            errorClass: telemetry.errorClass,
+            promptTokens: telemetry.promptTokens,
+            completionTokens: telemetry.completionTokens,
+            historyTurnsSupplied: envelope.history.length,
+            historyTurnsCarried: envelope.history.length,
+          }));
         });
     },
   });
@@ -408,6 +479,7 @@ async function callInternalModel(
   payload: unknown,
   readerSignal: AbortSignal,
   timeoutMs = config.timeoutMs,
+  traceId?: string,
 ): Promise<ModelResponse> {
   if (!config.endpoint) throw new Error('restricted_runtime_endpoint_missing');
   const timestamp = String(Math.floor(Date.now() / 1_000));
@@ -431,6 +503,9 @@ async function callInternalModel(
         'X-TAI-Signature-Version': SIGNATURE_VERSION,
         'X-TAI-Timestamp': timestamp,
         'X-TAI-Signature': signature,
+        // Correlation only. The trace is deliberately outside the signed body so
+        // it can never be mistaken for an authenticated claim about the request.
+        ...(traceId ? { [TAI_TRACE_HEADER]: traceId } : {}),
       },
       body,
       signal: controller.signal,
