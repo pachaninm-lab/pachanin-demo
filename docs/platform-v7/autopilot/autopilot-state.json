@@ -876,6 +876,13 @@
       "docs/platform-v7/autopilot/autopilot-state.json",
       ".github/workflows/pc-crop-10a.yml"
     ],
+    "fix/production-release-workflow-call-3740": [
+      ".github/workflows/production-full-stack-exact-sha.yml",
+      ".github/workflows/platform-v7-safe-merge.yml",
+      "scripts/check-production-full-stack-release.mjs",
+      "docs/platform-v7/autopilot/scopes/production-release-workflow-call-3740.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "fix/p0-registration-cookie-api-3733": [
       "apps/web/middleware.ts",
       "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
