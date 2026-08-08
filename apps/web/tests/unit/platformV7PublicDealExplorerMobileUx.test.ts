@@ -7,46 +7,80 @@ const source = fs.readFileSync(
   path.join(root, 'apps/web/components/platform-v7/PublicDealExplorerV4.tsx'),
   'utf8',
 );
-const mobileCss = fs.readFileSync(
-  path.join(root, 'apps/web/styles/platform-v7-public-deal-explorer-mobile.css'),
+const journeyCss = fs.readFileSync(
+  path.join(root, 'apps/web/styles/platform-v7-public-deal-journey-v5.css'),
+  'utf8',
+);
+const journeyCopy = fs.readFileSync(
+  path.join(root, 'apps/web/i18n/public-deal-journey-v5.ts'),
   'utf8',
 );
 
-describe('platform-v7 public deal explorer mobile UX', () => {
-  it('puts explicit role and scenario controls before the guided walkthrough', () => {
-    expect(source).toContain("className='pc-ppe-v4-mobile-controls'");
-    expect(source).toContain('TOUR_PERSPECTIVES.map');
+describe('platform-v7 public Deal journey UX', () => {
+  it('starts from user intent instead of system role terminology', () => {
+    expect(source).toContain('DEAL_JOURNEY_INTENTS.map');
+    expect(source).toContain("className='pc-ppe-v5-intent-option'");
+    expect(source).toContain('journey.labels.intentQuestion');
+    expect(source).toContain('journey.labels.otherParticipant');
+    expect(journeyCopy).toContain("sell: { label: 'Продать продукцию'");
+    expect(journeyCopy).toContain("buy: { label: 'Купить продукцию'");
+    expect(journeyCopy).toContain("transport: { label: 'Организовать перевозку'");
+    expect(journeyCopy).toContain("receive: { label: 'Принять и проверить груз'");
+    expect(journeyCopy).toContain("settle: { label: 'Провести расчёт'");
+    expect(journeyCopy).toContain("control: { label: 'Контролировать исполнение'");
+  });
+
+  it('uses progressive disclosure with quick and detailed modes', () => {
+    expect(source).toContain("type JourneyMode = 'quick' | 'detailed'");
+    expect(source).toContain("journeyMode === 'quick'");
+    expect(source).toContain("data-testid='public-deal-detailed-mode'");
+    expect(source).toContain('<PublicDealExplorer key={historyRevision}');
+    expect(source).toContain('journey.labels.detailedOpen');
+    expect(source).toContain('journey.labels.detailedBack');
+  });
+
+  it('keeps one Deal as the persistent object and explains the current stage around the visitor', () => {
+    expect(source).toContain("data-testid='public-deal-journey-context'");
+    expect(source).toContain('journey.labels.whatHappened');
+    expect(source).toContain('journey.labels.yourAction');
+    expect(source).toContain('journey.labels.platformAction');
+    expect(source).toContain('journey.labels.nowActs');
+    expect(source).toContain('ACTIVE_PERSPECTIVES_BY_STAGE');
+  });
+
+  it('shows plain-language scenarios and cross-cutting money documents and risk', () => {
+    expect(source).toContain("className='pc-ppe-v5-scenario-grid pc-ppe-v4-mobile-scenario-list'");
     expect(source).toContain('TOUR_SCENARIOS.map');
-    expect(source.indexOf("className='pc-ppe-v4-mobile-controls'"))
-      .toBeLessThan(source.indexOf("className='pc-ppe-v4-guide-bar'"));
+    expect(source).toContain('journey.moneyByStage[historyState.stage]');
+    expect(source).toContain('journey.documentsByStage[historyState.stage]');
+    expect(source).toContain('scenarioRisk');
+    expect(journeyCopy).toContain("standard: { label: 'Всё прошло нормально'");
+    expect(journeyCopy).toContain("partial: { label: 'Приняли не весь объём'");
+    expect(journeyCopy).toContain("dispute: { label: 'Качество не совпало'");
   });
 
-  it('shows all three mobile scenarios together with usable touch targets', () => {
-    expect(mobileCss).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(mobileCss).toContain('overflow: visible !important;');
-    expect(mobileCss).toContain('min-height: 52px !important;');
-    expect(mobileCss).toContain('white-space: normal !important;');
-    expect(source).toContain(".pc-ppe-page .pc-ppe-explorer-toolbar {\n            display: none;");
+  it('uses the existing public assistant as a stage-aware TAI layer', () => {
+    expect(source).toContain("window.dispatchEvent(new CustomEvent('pc:public-assistant-context'");
+    expect(source).toContain('journey.taiPrompts[historyState.stage]');
+    expect(source).toContain("context: `deal-${historyState.stage}`");
+    expect(source).toContain("name: 'tai_stage_prompt_opened'");
   });
 
-  it('keeps mobile role and scenario changes in browser history while guided playback replaces stage state', () => {
-    expect(source).toContain("window.history[historyMode === 'push' ? 'pushState' : 'replaceState']");
-    expect(source).toContain("pushPresentedState(next);\n    emitMobileSelection('perspective_selected'");
-    expect(source).toContain("pushPresentedState(next);\n    emitMobileSelection('scenario_selected'");
-    expect(source).toContain("replacePresentedState(first);\n    setGuideMode('playing');");
+  it('finishes with a concrete Deal result and one primary organization CTA', () => {
+    expect(source).toContain("historyState.stage === 'closure'");
+    expect(source).toContain('journey.finalChecks.map');
+    expect(source).toContain('journey.labels.oneContour');
+    expect(source).toContain("href='/platform-v7/register'");
+    expect(source).toContain('journey.before.map');
+    expect(source).toContain('journey.after.map');
   });
 
-  it('keeps the mobile hierarchy role/scenario -> walkthrough -> lenses -> deal -> role context', () => {
-    expect(source).toContain("grid-template-areas:\n              'lenses'\n              'main'\n              'context';");
-    expect(source).toContain('.pc-ppe-context-panel .pc-ppe-select-label');
-    expect(source).toContain("className='pc-ppe-primary-button' onClick={startGuide}");
-  });
-
-  it('reduces mobile obstruction without removing the three contact actions', () => {
-    expect(source).toContain('width: min(286px');
-    expect(source).toContain('padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));');
-    expect(source).toContain('body .pc-public-contact-dock-action strong');
-    expect(mobileCss).toContain(".pc-ppe-v4-guide-bar[data-guide-mode='idle']");
-    expect(mobileCss).toContain('margin-bottom: 62px !important;');
+  it('keeps mobile targets usable without horizontal document overflow', () => {
+    expect(journeyCss).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(journeyCss).toContain('min-height: 58px');
+    expect(journeyCss).toContain('@media (max-width: 360px)');
+    expect(journeyCss).toContain('min-height: 68px');
+    expect(journeyCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(journeyCss).toContain('@media (forced-colors: active)');
   });
 });
