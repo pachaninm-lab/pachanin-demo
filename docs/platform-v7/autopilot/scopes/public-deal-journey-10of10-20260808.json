@@ -1,10 +1,10 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "feat/public-deal-journey-10of10-20260808",
+  "branch": "fix/public-deal-journey-10of10-current-main-20260808",
   "status": "active",
-  "purpose": "Turn the public deal explorer into an intent-first, role-personalized guided Deal journey with progressive disclosure, clear money/documents/risk context and stage-aware TAI prompts while preserving the existing detailed explorer and production architecture.",
+  "purpose": "Turn the public deal explorer into an intent-first, role-personalized guided Deal journey with progressive disclosure and clear money, documents, risk and next-step context while preserving the existing detailed explorer and production architecture.",
   "approvedBy": "owner-direct-implement-2026-08-08",
-  "authorityBaseExactMain": "44a566fffb7db9ef65ad5ada5786442962f1f8b6",
+  "authorityBaseExactMain": "98102961fb78cea1c7d48420da07525401daee24",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json",
     "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
@@ -23,7 +23,6 @@
     "the Deal remains the persistent primary object with current stage, acting participant, visitor action, platform action, money, documents, risk and next step",
     "plain-language scenario labels appear before formal operational labels",
     "money and document state remain clearly demonstrational and never claim live banking or external integrations",
-    "stage-aware TAI prompts open the existing public assistant with contextual questions instead of introducing a separate chatbot",
     "final journey result explains the one-contour value and offers one primary organization-connect CTA",
     "RU EN ZH are complete with no untranslated new controls",
     "URL-authoritative stage scenario perspective state and browser history remain operable",
@@ -31,6 +30,7 @@
     "320 390 and 430 CSS-pixel mobile acceptance proves zero horizontal overflow, minimum touch targets and clear primary hierarchy"
   ],
   "forbiddenCapabilities": [
+    "TAI model runtime routing latency context or knowledge changes",
     "transaction state-machine changes",
     "RBAC authentication or tenant-authority changes",
     "money settlement or banking execution changes",
