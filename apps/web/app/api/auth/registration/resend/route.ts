@@ -77,6 +77,9 @@ export async function POST(request: Request) {
         provider: result.provider,
         reason: result.reason,
       }));
+      if (!result.delivered) {
+        return json({ accepted: false, code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE', correlationId }, 503);
+      }
     }
     return json({ accepted: true, cooldownSeconds: payload.cooldownSeconds || 60, correlationId: payload.correlationId || correlationId }, 202);
   } catch {
