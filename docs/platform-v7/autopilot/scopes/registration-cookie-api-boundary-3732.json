@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-registration-cookie-api-3732",
+  "status": "active",
+  "purpose": "Prevent a writable presentation-role cookie from being reissued during any public registration API step after the public registration page clears it.",
+  "approvedBy": "owner-direct-registration-security-follow-up-2026-08-08",
+  "authorityBaseExactMain": "58986be7ec0aa21bb56623f1c389d8d0889db7e1",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+    "apps/web/tests/unit/p0RegistrationPresentationCookie.test.ts",
+    "docs/platform-v7/autopilot/scopes/registration-cookie-api-boundary-3732.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ]
+}
