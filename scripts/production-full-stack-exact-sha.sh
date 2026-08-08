@@ -29,6 +29,7 @@ prod_compose="$(decode "$PROD_COMPOSE_B64")"
 prod_project="$(decode "$PROD_PROJECT_B64")"
 backup_evidence="$(decode "$BACKUP_EVIDENCE_B64")"
 auth_opaque_token_env_file=""
+staff_database_env_file=""
 
 resolve_compose_authority() {
   if [[ -n "$prod_dir" && -n "$prod_compose" ]]; then return; fi
@@ -54,6 +55,27 @@ resolve_auth_opaque_token_env_file() {
 }
 
 resolve_auth_opaque_token_env_file
+
+resolve_staff_database_env_file() {
+  staff_database_env_file="${PC_STAFF_DATABASE_ENV_FILE:-$prod_dir/.pc-staff-database.env}"
+  [[ "$staff_database_env_file" == "$prod_dir"/* ]] || fail STAFF_DATABASE_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 52
+  [[ -f "$staff_database_env_file" && ! -L "$staff_database_env_file" ]] || fail STAFF_DATABASE_ENV_FILE_MISSING 53
+  [[ "$(stat -c '%a:%u:%g' "$staff_database_env_file")" == '600:0:0' ]] || fail STAFF_DATABASE_ENV_FILE_PERMISSIONS_INVALID 54
+  [[ "$(wc -l < "$staff_database_env_file" | tr -d '[:space:]')" == 1 ]] || fail STAFF_DATABASE_ENV_FILE_CONTENT_INVALID 55
+  python3 - "$staff_database_env_file" <<'PY' || fail STAFF_DATABASE_ENV_FILE_CONTENT_INVALID 56
+import sys
+from urllib.parse import urlsplit
+
+line = open(sys.argv[1], encoding='utf-8').read().rstrip('\n')
+if not line.startswith('STAFF_DATABASE_URL='):
+    raise SystemExit(1)
+url = urlsplit(line.split('=', 1)[1])
+if url.scheme not in ('postgresql', 'postgres') or url.username != 'pc_staff_runtime' or not url.password or not url.hostname or not url.path.strip('/'):
+    raise SystemExit(1)
+PY
+}
+
+resolve_staff_database_env_file
 
 IFS=',' read -r -a raw_files <<< "$prod_compose"
 compose_files=()
@@ -127,6 +149,7 @@ services:
     pull_policy: never
     env_file:
       - ${auth_opaque_token_env_file}
+      - ${staff_database_env_file}
   web:
     image: ${web_image}
     pull_policy: never
