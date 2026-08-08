@@ -890,6 +890,10 @@
       "docs/platform-v7/autopilot/scopes/production-emergency-rollback-3741.json",
       "docs/platform-v7/autopilot/autopilot-state.json"
     ],
+    "fix/production-app-service-auth-principal-3746": [
+      "apps/api/prisma/migrations/20260808180000_production_app_service_auth_principal_drift/migration.sql",
+      "apps/api/src/common/prisma/production-app-service-auth-principal-drift.spec.ts"
+    ],
     "fix/production-recovery-artifact-3746": [
       ".github/workflows/production-staff-database-url.yml",
       "scripts/check-production-staff-database-provision.mjs",
