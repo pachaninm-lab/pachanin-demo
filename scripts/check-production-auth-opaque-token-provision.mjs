@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const paths = {
@@ -39,6 +41,7 @@ requireAll('provisioner', [
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   'COMPOSE_WEB_AUTHORITY_AMBIGUOUS',
   'com.docker.compose.project.working_dir',
+  '[[ -z "${1:-}" ]] && return 0',
 ]);
 requireAll('workflow', [
   "github.event.issue.number == 3072",
@@ -66,6 +69,35 @@ forbid('workflow', [
 for (const path of [paths.executor, paths.provisioner]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
+}
+const mockRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-auth-key-provision-'));
+try {
+  const mockBin = path.join(mockRoot, 'bin');
+  const mockProductionDir = path.join(mockRoot, 'production');
+  fs.mkdirSync(mockBin);
+  fs.mkdirSync(mockProductionDir);
+  const mockDocker = path.join(mockBin, 'docker');
+  fs.writeFileSync(mockDocker, `#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ "$1" == ps ]]; then printf 'single-web\\n'; exit 0; fi
+if [[ "$1" == inspect ]]; then printf '%s\\n' "${mockProductionDir}"; exit 0; fi
+exit 90
+`);
+  fs.chmodSync(mockDocker, 0o700);
+  fs.writeFileSync(path.join(mockBin, 'chown'), '#!/usr/bin/env bash\nexit 0\n');
+  fs.writeFileSync(path.join(mockBin, 'stat'), '#!/usr/bin/env bash\nprintf "600:0:0\\n"\n');
+  fs.chmodSync(path.join(mockBin, 'chown'), 0o700);
+  fs.chmodSync(path.join(mockBin, 'stat'), 0o700);
+  const emptyDecodeRegression = spawnSync('bash', [paths.provisioner, 'provision'], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${mockBin}:${process.env.PATH}`, PC_PROD_DIR_B64: '' },
+  });
+  if (emptyDecodeRegression.status !== 0
+    || !emptyDecodeRegression.stdout.includes('AUTH_OPAQUE_TOKEN_KEY_VALID=1')) {
+    failures.push(`${paths.provisioner}: empty optional directory input must reach Compose discovery: ${emptyDecodeRegression.stderr.trim()}`);
+  }
+} finally {
+  fs.rmSync(mockRoot, { recursive: true, force: true });
 }
 try {
   const scope = JSON.parse(content.scope ?? '{}');
