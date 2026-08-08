@@ -7,6 +7,7 @@ import {
   timingSafeEqual,
 } from 'crypto';
 import { requireSecret } from '../../common/config/secrets';
+import { digestMfaBackupCode } from './opaque-token-authority';
 
 const JWT_SECRET = requireSecret('JWT_SECRET');
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -57,26 +58,30 @@ export function hashClientValue(value?: string | null): string | null {
   return normalized ? hashAuthMaterial(normalized) : null;
 }
 
-export function makeOpaqueToken(prefix: 'rt' | 'mc'): {
-  id: string;
-  secret: string;
-  token: string;
-  hash: string;
-} {
-  const id = `${prefix}_${randomBytes(18).toString('base64url')}`;
-  const secret = randomBytes(32).toString('base64url');
-  const token = `${id}.${secret}`;
-  return { id, secret, token, hash: hashAuthMaterial(token) };
-}
-
-export function parseOpaqueToken(token: string, prefix: 'rt' | 'mc'): {
-  id: string;
-  hash: string;
-} | null {
-  const [id, secret, extra] = String(token ?? '').split('.');
-  if (extra || !id || !secret || !id.startsWith(`${prefix}_`) || secret.length < 32) return null;
-  return { id, hash: hashAuthMaterial(`${id}.${secret}`) };
-}
+/**
+ * There is deliberately no password fingerprint helper here.
+ *
+ * A password belongs to the credential contour and nowhere else: bcrypt when
+ * it is stored, bcrypt when it is verified. It is never an input to an
+ * idempotency, audit or correlation fingerprint, is never returned from a
+ * helper, and is never written to an event or a log. A short-lived KDF-based
+ * fingerprint used to exist here so an idempotent retry could notice a swapped
+ * credential; it was removed with its call site, because any password-derived
+ * value inside a stored request hash makes that hash an offline oracle for the
+ * password no matter how the derivation is tuned. Idempotency is decided by
+ * non-secret canonical payload plus a server-issued key.
+ *
+ * There is no opaque token helper here either. A one-time token *is* a bearer
+ * credential and its digest is what admits the bearer, so it belongs to
+ * `opaque-token-authority.ts`: its own HKDF-derived key, its own purpose
+ * binding and its own version. What is left in this module is the generic
+ * keyed hash for material that is neither a password nor a credential —
+ * request fingerprints, account hashes, client IP and user-agent hashes.
+ *
+ * `authCredentialBoundary.spec.ts` fails the build if either rule is broken:
+ * a password reaching a fast or keyed hash, or an opaque token reaching
+ * `hashAuthMaterial` instead of the authority.
+ */
 
 export function secureEqual(left: string, right: string): boolean {
   const a = Buffer.from(left, 'utf8');
@@ -175,10 +180,18 @@ export function buildOtpAuthUri(email: string, secret: string): string {
   return `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }
 
+/**
+ * Backup codes are one-time bearer credentials, so their stored form comes from
+ * the opaque token authority rather than the generic keyed hash: a backup code
+ * cannot be presented as any other kind of token.
+ */
 export function generateBackupCodes(count = 8): { codes: string[]; hashes: string[] } {
   const codes = Array.from({ length: count }, () => {
     const raw = randomBytes(6).toString('hex').toUpperCase();
     return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
   });
-  return { codes, hashes: codes.map(hashAuthMaterial) };
+  return {
+    codes,
+    hashes: codes.map(digestMfaBackupCode),
+  };
 }

@@ -210,6 +210,12 @@ export default async function ProfilePage() {
   const copy = COPY[localeOf(await getLocale())];
   const profile = await getAuthProfile();
   const mfaVerified = profile.mfaVerified === true;
+  const organizationOnly = profile.role === 'GUEST';
+  const organizationDestination = profile.isOrgAdmin
+    ? '/platform-v7/profile/team'
+    : '/platform-v7/onboarding';
+  const organizationDestinationLabel = copy.routes.find((route) => route.href === organizationDestination)?.title
+    || copy.workspacesTitle;
   const priority: OperationalPriority = !profile.available
     ? {
         state: 'critical',
@@ -239,7 +245,9 @@ export default async function ProfilePage() {
           description: copy.readyDescription,
           owner: copy.ownerValue,
           result: copy.values.verified,
-          primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>,
+          primaryAction: organizationOnly
+            ? <Link className={operationalCockpitClasses.primaryLink} href={organizationDestination}>{organizationDestinationLabel}</Link>
+            : <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>,
         };
 
   const mfaValue = profile.mfaVerified === true
@@ -278,7 +286,11 @@ export default async function ProfilePage() {
     >
       <OperationalCockpitSection id='workspaces'>
         <OperationalQueue>
-          {copy.routes.map((route) => (
+          {copy.routes.filter((route) => !organizationOnly || [
+            '/platform-v7/profile/team',
+            '/platform-v7/onboarding',
+            '/platform-v7/status',
+          ].includes(route.href)).map((route) => (
             <OperationalQueueLink
               key={route.href}
               {...route}

@@ -1,4 +1,6 @@
 import { NextActionCard, StatusChip, Surface } from '@pc/design-system-v8';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { firstCustomerWorkspaceRequired } from '@/lib/first-customer-workspace-server';
 import { IntakeWorkbenchTemplate, KeyFact, KeyFactGrid } from '@/components/transaction-ux/FieldTaskTemplate';
 import workspace from '@/components/transaction-ux/FieldRoleWorkspace.module.css';
 import { getLabSamples, pendingProtocols } from '@/lib/labs-server';
@@ -42,6 +44,10 @@ const gates = [
 ];
 
 export default async function Page() {
+  if (firstCustomerWorkspaceRequired()) {
+    return <FirstCustomerWorkspace surface='elevator' />;
+  }
+
   const [samples, shipments] = await Promise.all([getLabSamples(), getShipments()]);
   const pendingSamples = pendingProtocols(samples);
   const shipmentCount = activeShipmentCount(shipments);

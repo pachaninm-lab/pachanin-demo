@@ -61,15 +61,17 @@ BEGIN
     failures := failures + 1;
   END IF;
 
-  -- The default membership id is the first post-password lookup. It exposes no
-  -- organization or tenant on its own and is deterministic for multi-membership.
+  -- The membership-id projection is the first post-password lookup. It exposes
+  -- no organization or tenant and returns every server-authoritative choice in
+  -- deterministic order for a multi-membership identity.
   measured := coalesce((
-    SELECT membership_id FROM auth.resolve_login_default_membership('user-both')
+    SELECT string_agg(membership_id, ',' ORDER BY membership_id)
+    FROM auth.resolve_post_password_membership_ids('user-both')
   ), 'NONE');
-  IF measured = 'm-both-a' THEN
-    RAISE NOTICE 'PASS  02c post-password default membership -> %', measured;
+  IF measured = 'm-both-a,m-both-b' THEN
+    RAISE NOTICE 'PASS  02c post-password membership choices -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL  02c post-password default membership -> % (want m-both-a)', measured;
+    RAISE WARNING 'FAIL  02c post-password membership choices -> % (want m-both-a,m-both-b)', measured;
     failures := failures + 1;
   END IF;
 
@@ -77,7 +79,7 @@ BEGIN
   -- identity. This is the positive half of that boundary.
   measured := coalesce((
     SELECT user_id || '/' || membership_id || '/' || organization_id || '/' || tenant_id
-    FROM auth.resolve_login_context_by_membership('user-a', 'm-a')
+    FROM auth.resolve_post_password_membership_context('user-a', 'm-a')
   ), 'NONE');
   IF measured = 'user-a/m-a/org-a/tenant-a' THEN
     RAISE NOTICE 'PASS  02d post-password context by membership -> %', measured;
@@ -89,7 +91,7 @@ BEGIN
   -- A membership that belongs to somebody else cannot be paired with this
   -- identity, so selecting an organization after password proof cannot cross tenants.
   measured := coalesce((
-    SELECT membership_id FROM auth.resolve_login_context_by_membership('user-a', 'm-b')
+    SELECT membership_id FROM auth.resolve_post_password_membership_context('user-a', 'm-b')
   ), 'NONE');
   IF measured = 'NONE' THEN
     RAISE NOTICE 'PASS  02e login context refuses another identity''s membership -> %', measured;
@@ -100,7 +102,7 @@ BEGIN
 
   measured := coalesce((
     SELECT user_id || '/' || role || '/' || tenant_id
-    FROM auth.resolve_session_identity('user-staff', 'm-staff', 'org-a', 'tenant-a')
+    FROM auth.resolve_session_identity_v2('user-staff', 'm-staff', 'org-a', 'tenant-a')
   ), 'NONE');
   IF measured = 'user-staff/FARMER/tenant-a' THEN
     RAISE NOTICE 'PASS  02f session identity for a consistent session row -> %', measured;
@@ -112,7 +114,7 @@ BEGIN
   -- A session row whose columns disagree resolves to nothing rather than to
   -- whichever identity the first join happens to find.
   measured := coalesce((
-    SELECT user_id FROM auth.resolve_session_identity('user-staff', 'm-staff', 'org-b', 'tenant-b')
+    SELECT user_id FROM auth.resolve_session_identity_v2('user-staff', 'm-staff', 'org-b', 'tenant-b')
   ), 'NONE');
   IF measured = 'NONE' THEN
     RAISE NOTICE 'PASS  02g session identity for an inconsistent session row -> %', measured;
@@ -129,7 +131,7 @@ BEGIN
     measured := coalesce((
       SELECT identity.user_id || '/' || identity.organization_id || '/' || s.status
       FROM auth.sessions s
-      JOIN LATERAL auth.resolve_session_identity(
+      JOIN LATERAL auth.resolve_session_identity_v2(
         s.user_id, s.membership_id, s.organization_id, s.tenant_id
       ) identity ON TRUE
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
@@ -502,6 +504,88 @@ BEGIN
     RAISE NOTICE 'PASS  28 privileged roles reachable from % -> %', current_user, measured;
   ELSE
     RAISE WARNING 'FAIL  28 privileged roles reachable from % -> % (want none)', current_user, measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- Every P0 identity command is exposed to the isolated auth principal, while
+  -- the internal registration role-mapping helper remains private.
+  ---------------------------------------------------------------------------
+  measured := (
+    has_function_privilege(current_user, 'auth.resolve_invitation_acceptance_credential(text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.accept_organization_invitation_identity(text,text,bigint,text,text,boolean,text,text,text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.change_organization_membership_role(text,text,text,text,text,text,bigint,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.revoke_organization_membership(text,text,text,text,text,text,bigint)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.prepare_organization_mfa_recovery_target(text,text,text,text,text,text,bigint)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.organization_mfa_recovery_snapshot(text,text,text,text,text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.resolve_mfa_recovery_identity(text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.finalize_mfa_recovery_identity(text,text,text,bigint)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.registration_platform_actor_authorized(text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.registration_organization_admin_context(text,text,text,text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.registration_platform_review_queue(text,text,integer)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.registration_organization_join_queue(text,text,text,text,text,integer)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.lock_registration_decision_application(text,text,text,text,text,text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.apply_registration_identity_transition(text,text,text,text,text,text,text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.account_data_export(text,text,text,text,text)', 'EXECUTE')
+    AND has_function_privilege(current_user, 'auth.anonymize_account_identity(text,text,text,text,text)', 'EXECUTE')
+    AND NOT has_function_privilege(current_user, 'auth.registration_role_assignment_allowed(text,text)', 'EXECUTE')
+  )::text;
+  IF measured = 'true' THEN
+    RAISE NOTICE 'PASS  29 bounded P0 identity command surface -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  29 bounded P0 identity command surface -> % (want true)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((
+    SELECT user_id || '/' || jsonb_array_length(membership_data)::text
+    FROM auth.account_data_export(
+      'sess-staff', 'user-staff', 'm-staff', 'org-a', 'tenant-a'
+    )
+  ), 'NONE');
+  IF measured = 'user-staff/1' THEN
+    RAISE NOTICE 'PASS  30 session-bound account export -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  30 session-bound account export -> % (want user-staff/1)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((
+    SELECT user_id
+    FROM auth.account_data_export(
+      'sess-staff', 'user-staff', 'm-b', 'org-b', 'tenant-b'
+    )
+  ), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  31 account export refuses a substituted tenant tuple -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  31 account export refuses a substituted tenant tuple -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((
+    SELECT applied::text
+    FROM auth.anonymize_account_identity(
+      'sess-staff', 'user-staff', 'm-staff', 'org-a', 'tenant-a'
+    )
+  ), 'NONE');
+  IF measured = 'true' THEN
+    RAISE NOTICE 'PASS  32 authenticated account anonymization -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  32 authenticated account anonymization -> % (want true)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((
+    SELECT applied::text
+    FROM auth.anonymize_account_identity(
+      'sess-staff', 'user-staff', 'm-staff', 'org-a', 'tenant-a'
+    )
+  ), 'NONE');
+  IF measured = 'false' THEN
+    RAISE NOTICE 'PASS  33 anonymization replay fails closed -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  33 anonymization replay fails closed -> % (want false)', measured;
     failures := failures + 1;
   END IF;
 

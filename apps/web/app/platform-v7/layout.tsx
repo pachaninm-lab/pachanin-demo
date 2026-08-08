@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
+import { getLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
-import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { getAuthProfile } from '@/lib/auth-profile-server';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
-  readVerifiedCabinetRole,
-  readVerifiedCabinetSessionRole,
+  mapApiRoleToCabinetRole,
+  readVerifiedCabinetSessionContext,
+  type VerifiedCabinetRole,
 } from '@/lib/platform-v7/verified-session';
-import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -32,6 +33,12 @@ export const metadata: Metadata = {
 const LANDING_PATH = '/platform-v7';
 const STAFF_PREFIX = '/platform-v7/staff';
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
+const ORGANIZATION_CABINET_PREFIXES = [
+  '/platform-v7/profile',
+  '/platform-v7/onboarding',
+  '/platform-v7/status',
+  '/platform-v7/notifications',
+] as const;
 const AUTH_PATHS = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
@@ -41,6 +48,8 @@ const PUBLIC_EXACT_PATHS = new Set([
   ...AUTH_PATHS,
   '/platform-v7/open',
   '/platform-v7/register',
+  '/platform-v7/invitation',
+  '/platform-v7/mfa-recovery',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
@@ -209,16 +218,36 @@ function loginHref(pathname: string): string {
   return `/platform-v7/login?next=${encodeURIComponent(pathname)}`;
 }
 
-async function verifiedCabinetRole(): Promise<PlatformRole | null> {
+function isOrganizationCabinetPath(pathname: string): boolean {
+  return ORGANIZATION_CABINET_PREFIXES.some((prefix) => (
+    pathname === prefix || pathname.startsWith(`${prefix}/`)
+  ));
+}
+
+async function verifiedCabinetRole(): Promise<VerifiedCabinetRole | null> {
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   if (!secret) return null;
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const cookieStore = await cookies();
-  return (
-    await readVerifiedCabinetSessionRole(cookieStore.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds)
-  ) ?? (
-    await readVerifiedCabinetRole(cookieStore.get(ACCESS_COOKIE)?.value ?? null, secret, nowSeconds)
+  const [cookieStore, profile] = await Promise.all([cookies(), getAuthProfile()]);
+  if (!profile.available || !profile.role || !profile.id || !profile.orgId || !profile.tenantId || !profile.membershipId) {
+    return null;
+  }
+  const context = await readVerifiedCabinetSessionContext(
+    cookieStore.get(CABINET_SESSION_COOKIE)?.value ?? null,
+    secret,
+    nowSeconds,
   );
+  const role = mapApiRoleToCabinetRole(profile.role);
+  if (
+    !context
+    || !role
+    || context.role !== role
+    || context.userId !== profile.id
+    || context.membershipId !== profile.membershipId
+    || context.organizationId !== profile.orgId
+    || context.tenantId !== profile.tenantId
+  ) return null;
+  return role;
 }
 
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
@@ -249,6 +278,11 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // or page code reaches the client.
   const role = await verifiedCabinetRole();
   if (!role) redirect(loginHref(pathname));
+  if (role === 'organization') {
+    if (!isOrganizationCabinetPath(pathname)) redirect('/platform-v7/profile');
+    const { OrganizationAccessShell } = await import('@/components/platform-v7/OrganizationAccessShell');
+    return <OrganizationAccessShell locale={await getLocale()}>{children}</OrganizationAccessShell>;
+  }
   if (!canRoleAccessCabinet(role, pathname)) redirect(platformV7RoleRoute(role));
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');

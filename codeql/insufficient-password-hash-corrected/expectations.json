@@ -1,0 +1,290 @@
+{
+  "note": "The repository-owned expectation manifest for the corrected CWE-916 query. Every fixture case is named, and every case says whether a finding is expected and why. The guard compares the exact set of case ids against what `codeql test run` actually produced: an extra finding and a missing finding both fail. Counting rows would not catch a case that stopped alerting while another started.",
+  "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+  "identifiedBy": "The function enclosing the flow's source, with the source lines pinned from the CLI's own output. Several cases share one digest site, so the sink does not identify a case; the source always does. MUT-MIXED-PASSWORD has two source lines because it has two password-classified sources: the minting call and the password beside it.",
+  "cases": [
+    {
+      "id": "POS-SHA1",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "sha1Password",
+      "sourceLines": [
+        9
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "A password is digested with SHA-1. The premise of the rule holds exactly: a small search space behind a cheap digest."
+    },
+    {
+      "id": "POS-SHA256",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "sha256Password",
+      "sourceLines": [
+        14
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "SHA-256 is no more expensive to enumerate than SHA-1 when the input is a password."
+    },
+    {
+      "id": "POS-HMAC",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "hmacPassword",
+      "sourceLines": [
+        19
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "A key does not enlarge a password's search space. Keying is what the correction accepts for a credential, so this case pins that keying alone never exempts a password."
+    },
+    {
+      "id": "POS-DERIVED",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "derivedPassword",
+      "sourceLines": [
+        24
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Material derived from a password by a template carries the password's entropy, not more."
+    },
+    {
+      "id": "POS-FINGERPRINT",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "requestFingerprint",
+      "sourceLines": [
+        30
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "A password folded into a request fingerprint is still a password reaching a fast digest."
+    },
+    {
+      "id": "POS-OBJECT",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "throughObjects",
+      "sourceLines": [
+        42
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Passing through helper functions and an object property changes nothing about the value."
+    },
+    {
+      "id": "POS-MULTIHOP",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "multiHop",
+      "sourceLines": [
+        48
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Aliases, an array join and a template are all shapes the correction tolerates for a credential; none of them may launder a password."
+    },
+    {
+      "id": "POS-MIRROR-AUTHORITY",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "mirrorPasswordThroughAuthority",
+      "sourceLines": [
+        72
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The opaque-credential contour step for step — argument to parameter, `?? ''`, String(), array, join, keyed HMAC — with a password in place of the token. If the correction ever keyed on the shape rather than on the entropy, this is the flow that would disappear."
+    },
+    {
+      "id": "MUT-REQUEST-TOKEN",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "tokenFromRequestBody",
+      "sourceLines": [
+        89
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The token is never minted: it arrives from the request body. Nothing establishes it as credential material, so the first condition of the barrier fails and the digest is reported."
+    },
+    {
+      "id": "MUT-NARROW-DRAW",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "narrowDraw",
+      "sourceLines": [
+        95
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The draw is 8 bytes, below the authority's 32-byte minimum, so it is not accepted as credential material. A weakened issuer must be reported again."
+    },
+    {
+      "id": "MUT-KEY-IS-TOKEN",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "keyIsTheToken",
+      "sourceLines": [
+        101
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The key is the very pre-image it is meant to protect, so one draw feeds both and the key condition fails. A digest keyed by its own input is not a keyed digest."
+    },
+    {
+      "id": "MUT-DYNAMIC-PURPOSE",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "unfixedPurpose",
+      "sourceLines": [
+        108
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The purpose is taken from the request, so an attacker chooses a label in the pre-image. It is not a fixed purpose and does not count toward domain separation."
+    },
+    {
+      "id": "MUT-DYNAMIC-VERSION",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "unfixedVersion",
+      "sourceLines": [
+        114
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Same as the purpose case, for the version label: attacker-chosen, therefore not a fixed authority version."
+    },
+    {
+      "id": "MUT-BARE-HASH",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "bareHashInsteadOfHmac",
+      "sourceLines": [
+        121
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "A bare hash is not a keyed digest, so the digest condition fails however good the token is."
+    },
+    {
+      "id": "MUT-MIXED-PASSWORD",
+      "fixture": "tests/positive/passwordFlows.js",
+      "function": "tokenMixedWithPassword",
+      "sourceLines": [
+        130,
+        131
+      ],
+      "expectedFinding": true,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The token beside it is genuinely opaque, but a password shares the pre-image. Not every source is a minting call, so the digest stays reported — this is the case that would be masked by a barrier keyed on the token alone."
+    },
+    {
+      "id": "NEG-RAW-RANDOM",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "rawRandomDigest",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "32 bytes straight from a CSPRNG into a keyed digest. There is no enumerable space for a digest cost to bound."
+    },
+    {
+      "id": "NEG-BEARER-TOKEN",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issueOpaqueBearerToken",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "A 256-bit bearer token assembled from random parts; assembly preserves the entropy it was drawn with."
+    },
+    {
+      "id": "NEG-PASSWORD-RESET",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issuePasswordResetCredential",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Purpose-bound, versioned, keyed digest of a freshly minted credential. The name contains the word password; the value is not one."
+    },
+    {
+      "id": "NEG-MFA-RECOVERY",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issueMfaRecoveryCredential",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Same shape under the mfa-recovery purpose, which digests differently from every other purpose."
+    },
+    {
+      "id": "NEG-REFRESH",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issueRefreshCredential",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Refresh tokens are verified on every rotation; a slow KDF here would add latency and a denial-of-service surface without adding protection."
+    },
+    {
+      "id": "NEG-MFA-CHALLENGE",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issueMfaChallengeCredential",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Same reasoning as the refresh token, on the login critical path."
+    },
+    {
+      "id": "NEG-INVITATION",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issueInvitationCredential",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Purpose-bound digest of a minted invitation credential."
+    },
+    {
+      "id": "NEG-EMAIL-VERIFICATION",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issueEmailVerificationCredential",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Purpose-bound digest of a minted verification credential."
+    },
+    {
+      "id": "NEG-PASSWORD-NAMED-WRAPPER",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issuePasswordResetToken",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The wrapper whose name produced the original false positive. It renames fields and mints nothing itself."
+    },
+    {
+      "id": "NEG-ISSUER",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issueOpaqueCredential",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The mint site: two CSPRNG draws assembled into a token and digested once, under a fixed purpose and version."
+    },
+    {
+      "id": "NEG-ISSUER-PASSWORD-NAMED",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "issuePasswordResetTokenLike",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "A password-named issuer returning an object with the token inside it. The name is the whole of the rule's evidence; the callee demonstrably draws credential material."
+    },
+    {
+      "id": "NEG-VERIFY",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "resolvePresentedCredentialLike",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "The verification path, where the token arrives from outside as a string and is split, reassembled and digested again. No CSPRNG call appears anywhere along it, which is why a barrier phrased as a local property of the value could not close it."
+    },
+    {
+      "id": "NEG-VERIFY-CHAIN",
+      "fixture": "tests/negative/opaqueCredentials.js",
+      "function": "confirmPasswordResetLike",
+      "sourceLines": [],
+      "expectedFinding": false,
+      "ruleId": "js/insufficient-password-hash-opaque-credential-aware",
+      "rationale": "Issue and verify joined, which is the flow the analysis reports on the product. This is the case that must stay silent for the product finding to be zero."
+    }
+  ]
+}

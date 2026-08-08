@@ -40,11 +40,37 @@ concurrency:
 jobs:
   browser-accessibility-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: dsv8_admin
+          POSTGRES_PASSWORD: ephemeral_dsv8_admin_only
+          POSTGRES_DB: dsv8_acceptance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dsv8_admin -d dsv8_acceptance"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
     env:
       PC_ACCEPTANCE_JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
       JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
       PC_CABINET_SESSION_SECRET: pc-design-system-v8-acceptance-secret-2026
+      MFA_LOGIN_TICKET_SECRET: pc-design-system-v8-acceptance-mfa-ticket-secret-2026
+      MFA_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      AUTH_TOKEN_PEPPER: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      DATABASE_URL: postgresql://dsv8_admin:ephemeral_dsv8_admin_only@127.0.0.1:5432/dsv8_acceptance
+      API_URL: http://127.0.0.1:4000/api
+      # Five browser projects each sign in as twelve roles from the runner's
+      # single address, which is normal for this job and abusive for a person.
+      # The limiter stays enabled and its code path unchanged; only the
+      # per-address budget is raised, and only in this ephemeral environment.
+      RATE_LIMIT_AUTH_LOGIN: '400'
+      RATE_LIMIT_AUTH_MFA_VERIFY: '400'
+      RATE_LIMIT_GENERAL: '20000'
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
@@ -61,11 +87,62 @@ jobs:
       - name: Install Chromium, Firefox and WebKit
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      # The platform layout admits a cabinet only when the signed session
+      # matches a live /auth/me profile, so the matrix needs the real API and a
+      # real database behind it. Cookies minted any other way are correctly
+      # refused, which is the behaviour this job exists to prove.
+      - name: Apply forward-only migrations
+        run: |
+          pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
+          pnpm --filter @pc/api exec prisma migrate deploy --schema prisma/schema.prisma
+      - name: Build API authority
+        run: pnpm --filter @pc/api build
+      - name: Seed one activated identity per cabinet role
+        run: node apps/api/scripts/seed-design-system-v8-identities.mjs
+      - name: Start API authority
+        run: |
+          set -euo pipefail
+          setsid nohup node apps/api/dist/apps/api/src/main.js > /tmp/dsv8-api.log 2>&1 < /dev/null &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4000/health > /dev/null; then
+              echo "API ready after ${attempt} attempt(s)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'API did not become ready'; tail -50 /tmp/dsv8-api.log; exit 1
+        env:
+          NODE_ENV: test
+          PORT: '4000'
+
       - name: Build production web bundle
         run: pnpm --filter @pc/web build
+
+      # A real login sets Secure cookies, and WebKit will not store one that
+      # arrives over plain http://localhost — so the matrix is served over TLS,
+      # as production is. Self-signed, localhost only, regenerated every run.
+      - name: Issue a localhost certificate for the acceptance server
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          mkdir -p .acceptance-tls
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout .acceptance-tls/tls.key -out .acceptance-tls/tls.crt \
+            -days 1 -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
+
       - name: Run Design System v8 browser and accessibility matrix
         working-directory: apps/web
         run: pnpm exec playwright test --config=playwright.acceptance.config.ts
+      - name: Upload API log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-design-system-v8-api-log-${{ github.sha }}
+          path: /tmp/dsv8-api.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: Publish acceptance summary
         if: always()
         working-directory: apps/web

@@ -35,7 +35,7 @@ export default async function DriverLayout({ children }: { children: ReactNode }
   }
 
   if (verifiedRole !== 'driver') {
-    redirect(platformV7RoleRoute(verifiedRole));
+    redirect(verifiedRole === 'organization' ? '/platform-v7/profile' : platformV7RoleRoute(verifiedRole));
   }
 
   return children;

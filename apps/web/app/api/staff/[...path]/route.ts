@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf } from '@/lib/server-request-security';
+import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,21 @@ const STAFF_ACCESS_META_COOKIE = 'pc_staff_access_meta';
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_STAFF_SESSION_SECONDS = 60 * 60;
 
+const registrationDecisionMailCopy = {
+  ru: {
+    subject: 'Прозрачная Цена — статус заявки изменён',
+    text: (status: string, reason: string) => `Статус регистрационной заявки: ${status}. Основание: ${reason}. Откройте страницу статуса по исходной защищённой ссылке.`,
+  },
+  en: {
+    subject: 'Transparent Price — application status changed',
+    text: (status: string, reason: string) => `Registration application status: ${status}. Basis: ${reason}. Open the status page using the original protected link.`,
+  },
+  zh: {
+    subject: '透明价格 — 申请状态已更新',
+    text: (status: string, reason: string) => `注册申请状态：${status}。依据：${reason}。请使用原始安全链接打开状态页面。`,
+  },
+} as const;
+
 const READ_PATHS = [
   /^assignments\/me$/,
   /^access\/requests$/,
@@ -22,6 +38,7 @@ const READ_PATHS = [
   /^organizations$/,
   /^organizations\/[^/]+\/users$/,
   /^organizations\/[^/]+\/cabinet\/[^/]+$/,
+  /^registration\/applications$/,
   /^audit\/events$/,
   /^break-glass\/active$/,
 ] as const;
@@ -33,6 +50,7 @@ const WRITE_PATHS = [
   /^access\/sessions\/[^/]+\/(?:end|revoke)$/,
   /^break-glass\/activate$/,
   /^break-glass\/[^/]+\/end$/,
+  /^registration\/applications\/[^/]+\/decision$/,
 ] as const;
 
 type StaffSessionMetadata = {
@@ -329,6 +347,14 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
     }
   }
 
+  const registrationDecision = /^registration\/applications\/[^/]+\/decision$/.test(path);
+  const registrationDeliveryKey = registrationDecision
+    ? String(process.env.REGISTRATION_DELIVERY_KEY || '').trim()
+    : '';
+  if (registrationDecision && registrationDeliveryKey.length < 32) {
+    return json({ ok: false, code: 'REGISTRATION_NOTIFICATION_UNAVAILABLE', correlationId }, 503);
+  }
+
   const query = request.nextUrl.searchParams.toString();
   const targetUrl = `${apiOrigin}/staff/${path}${query ? `?${query}` : ''}`;
   const ip = requestIp(request);
@@ -343,6 +369,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
         Accept: 'application/json',
         'x-correlation-id': correlationId,
         ...(staffAccessToken ? { 'x-staff-access-session': staffAccessToken } : {}),
+        ...(registrationDecision ? { 'x-registration-delivery-key': registrationDeliveryKey } : {}),
         ...(ip ? { 'x-forwarded-for': ip } : {}),
         ...(userAgent ? { 'user-agent': userAgent } : {}),
       },
@@ -362,6 +389,32 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
       : {};
     const safePayload: Record<string, unknown> = { ...payloadObject, correlationId };
     delete safePayload.accessToken;
+    const notification = safePayload.notificationDelivery && typeof safePayload.notificationDelivery === 'object'
+      ? safePayload.notificationDelivery as { email?: unknown; status?: unknown; reason?: unknown }
+      : null;
+    delete safePayload.notificationDelivery;
+    if (upstream.ok && registrationDecision && typeof notification?.email === 'string' && notification.email) {
+      let locale: keyof typeof registrationDecisionMailCopy = 'ru';
+      try {
+        const parsedBody = JSON.parse(body || '{}') as { locale?: unknown };
+        if (parsedBody.locale === 'en' || parsedBody.locale === 'zh') locale = parsedBody.locale;
+      } catch {
+        // The API owns DTO validation; malformed JSON is returned by the upstream boundary.
+      }
+      const copy = registrationDecisionMailCopy[locale];
+      const delivery = await sendTransactionalMail({
+        to: notification.email,
+        subject: copy.subject,
+        text: copy.text(String(notification.status || 'UPDATED'), String(notification.reason || 'RECORDED')),
+      });
+      safePayload.notificationDelivered = delivery.delivered;
+      console.info('registration_decision_notification_result', JSON.stringify({
+        correlationId,
+        delivered: delivery.delivered,
+        provider: delivery.provider,
+        reason: delivery.reason,
+      }));
+    }
     let response = json(Array.isArray(payload) ? payload : safePayload, upstream.status);
 
     if (upstream.ok && /^access\/grants\/[^/]+\/activate$/.test(path)) {

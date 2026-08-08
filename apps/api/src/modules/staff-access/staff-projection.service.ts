@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
-import { hashAuthMaterial } from '../auth/auth-crypto';
+import { digestOpaqueAuthToken } from '../auth/opaque-token-authority';
 import { StaffAccessService } from './staff-access.service';
 import { StaffAccessContext, StaffPermission } from './staff-access.types';
 import { StaffAuthorityPrismaService } from './staff-authority-prisma.service';
@@ -116,6 +116,6 @@ export class StaffProjectionService {
   private capabilityHash(capabilityToken: string): string {
     const token = String(capabilityToken ?? '').trim();
     if (!token) throw new UnauthorizedException('Staff access capability is required');
-    return hashAuthMaterial(token);
+    return digestOpaqueAuthToken({ purpose: 'staff-access', rawToken: token });
   }
 }

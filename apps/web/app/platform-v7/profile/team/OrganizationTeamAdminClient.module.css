@@ -1,0 +1,146 @@
+.panel {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--pc-border, #d8dee8);
+  border-radius: 1rem;
+  background: var(--pc-surface, #fff);
+}
+
+.panel h2,
+.panel h3,
+.panel p {
+  margin: 0;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(14rem, 2fr) minmax(11rem, 1fr) auto;
+  gap: .75rem;
+  align-items: end;
+}
+
+.form h3 {
+  grid-column: 1 / -1;
+}
+
+.form label,
+.reason {
+  display: grid;
+  gap: .35rem;
+  font-weight: 650;
+}
+
+.form input,
+.form select,
+.memberControls select,
+.reason textarea {
+  min-height: 2.75rem;
+  padding: .65rem .75rem;
+  border: 1px solid #b6c0ce;
+  border-radius: .65rem;
+  background: #fff;
+  color: #162033;
+  font: inherit;
+}
+
+.reason textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.form button,
+.actions button,
+.memberControls button {
+  min-height: 2.75rem;
+  padding: .65rem .9rem;
+  border: 0;
+  border-radius: .65rem;
+  background: #155eef;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.form button:disabled,
+.actions button:disabled,
+.memberControls button:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.actions .danger,
+.memberControls .danger {
+  background: #b42318;
+}
+
+.error {
+  padding: .75rem;
+  border-radius: .65rem;
+  background: #fee4e2;
+  color: #912018;
+}
+
+.success {
+  padding: .75rem;
+  border-radius: .65rem;
+  background: #dcfae6;
+  color: #085d3a;
+}
+
+.section {
+  display: grid;
+  gap: .75rem;
+}
+
+.list {
+  display: grid;
+  gap: .75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list > li {
+  display: grid;
+  gap: .75rem;
+  padding: .9rem;
+  border: 1px solid #e1e6ee;
+  border-radius: .75rem;
+}
+
+.list > li > div:first-child {
+  display: grid;
+  gap: .25rem;
+}
+
+.list span {
+  color: #526071;
+  font-size: .9rem;
+  overflow-wrap: anywhere;
+}
+
+.actions,
+.memberControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  .form h3 {
+    grid-column: auto;
+  }
+
+  .memberControls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

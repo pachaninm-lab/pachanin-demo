@@ -100,6 +100,7 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(workspace).toContain('expectedUpdatedAt: workspace.deal.updatedAt');
     expect(workspace).toContain('expectedVersion: workspace.deal.version');
     expect(workspace).toContain('<DealCommandForm');
+    expect(workspace).toContain("applyCsrfHeader({ 'Content-Type': 'application/json'");
     expect(workspace).not.toContain('commandPayload(');
     expect(workspace).not.toContain('user-driver-001');
     expect(workspace).not.toContain('Тестовый водитель');

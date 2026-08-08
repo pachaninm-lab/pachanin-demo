@@ -13,15 +13,30 @@ export type LoginCredentialRow = {
 export type IdentityRow = {
   user_id: string;
   email: string;
-  password_hash: string;
   full_name: string;
   phone: string | null;
   user_status: string;
   membership_id: string;
   role: string;
+  is_org_admin: boolean;
+  membership_status: string;
   organization_id: string;
   organization_status: string;
   tenant_id: string;
+};
+
+export type MembershipIdentityRow = IdentityRow & { organization_name: string };
+
+export type MembershipSelectionChallengeRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  status: string;
+  credential_version: number;
+  current_credential_version: number;
+  attempts: number;
+  max_attempts: number;
+  expires_at: Date;
 };
 
 export type CredentialStateRow = {
@@ -39,10 +54,45 @@ export type CredentialStateRow = {
   consent_at: Date | null;
 };
 
-// Session contexts deliberately carry no credential material: verifying a
-// session never needed the password hash, and the column was only present
-// because the projection was shared with login.
-export type SessionContextRow = Omit<IdentityRow, 'password_hash'> & {
+export type AccountAuthorityContext = {
+  sessionId: string;
+  userId: string;
+  membershipId: string;
+  organizationId: string;
+  tenantId: string;
+};
+
+export type AccountMembershipExport = {
+  membershipId: string;
+  role: string;
+  status: string;
+  organizationId: string;
+  organizationName: string;
+  tenantId: string;
+  organizationStatus: string;
+};
+
+export type AccountDataExportRow = {
+  user_id: string;
+  email: string;
+  full_name: string;
+  phone: string | null;
+  created_at: Date;
+  consent_version: string | null;
+  consent_at: Date | null;
+  mfa_enabled: boolean;
+  credential_version: number;
+  membership_data: AccountMembershipExport[];
+};
+
+export type AccountAnonymizationRow = {
+  applied: boolean;
+  anonymized_at: Date | null;
+};
+
+// Session resolution deliberately excludes credential material. Password data
+// is available only to the bounded login flow before a session exists.
+export type SessionContextRow = IdentityRow & {
   session_id: string;
   session_status: string;
   refresh_family_id: string;
@@ -88,9 +138,39 @@ export type AuthAuditInput = {
   metadata?: Record<string, unknown> | null;
   hash: string;
   prevHash?: string | null;
+  /** Position in the chain, resolved under the chain's advisory lock. */
+  chainSequence: bigint;
 };
 
-const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
+/**
+ * A hash chain cannot be appended to concurrently without conflict, and under
+ * SERIALIZABLE the conflict is unavoidable by design: the transaction's
+ * snapshot is taken before it can acquire the chain's advisory lock, so a
+ * writer that waited for the lock still cannot see the row the previous holder
+ * committed. It computes the same next position, and PostgreSQL rejects the
+ * duplicate. That rejection is the integrity guarantee working, so the answer
+ * is to retry the whole transaction against a fresh snapshot rather than to
+ * weaken the constraint.
+ *
+ * The budget is sized for genuine contention on a single chain: each retry
+ * round lets one waiting writer through, so a burst of N writers needs up to
+ * N attempts from the unluckiest one.
+ */
+const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 64;
+
+/**
+ * Unique violations that mean "another writer reached this chain position
+ * first". Prisma reports the offending key columns rather than the index name,
+ * so both spellings are matched. Any other duplicate is a real defect and must
+ * surface rather than be retried.
+ */
+const AUTH_CHAIN_CONTENTION_SIGNATURES = [
+  'auth_audit_events_chain_position_key',
+  'auth_audit_events_prev_hash_key',
+  'chain_key, chain_sequence',
+  'chain_key,chain_sequence',
+  '(prev_hash)',
+];
 
 @Injectable()
 export class PersistentAuthRepository {
@@ -118,15 +198,29 @@ export class PersistentAuthRepository {
       message?: unknown;
       meta?: { code?: unknown; database_error?: unknown };
     };
-    return candidate?.code === 'P2034'
+    if (candidate?.code === 'P2034'
       || candidate?.meta?.code === '40001'
       || String(candidate?.meta?.database_error ?? '').includes('40001')
-      || /could not serialize access|write conflict|deadlock detected/i.test(String(candidate?.message ?? ''));
+      || /could not serialize access|write conflict|deadlock detected/i.test(String(candidate?.message ?? ''))) {
+      return true;
+    }
+    // A unique violation on a chain index is contention, not corruption: the
+    // position was claimed by a writer this transaction's snapshot predates.
+    const description = `${String(candidate?.message ?? '')} ${String(candidate?.meta?.database_error ?? '')}`;
+    const uniqueViolation = candidate?.code === 'P2002'
+      || candidate?.meta?.code === '23505'
+      || description.includes('23505');
+    return uniqueViolation
+      && AUTH_CHAIN_CONTENTION_SIGNATURES.some((signature) => description.includes(signature));
   }
 
-  // Pre-password authority is deliberately minimal: no membership, tenant,
-  // organization, status, deletion or MFA material is available at this stage.
-  async findLoginCredentialByEmail(client: AuthSqlClient, email: string): Promise<LoginCredentialRow | null> {
+  // This is the complete pre-password authority: one user id, normalized
+  // email and bcrypt hash. It cannot disclose membership, organization,
+  // tenant, role or MFA state.
+  async findLoginCredentialByEmail(
+    client: AuthSqlClient,
+    email: string,
+  ): Promise<LoginCredentialRow | null> {
     const rows = await client.$queryRaw<LoginCredentialRow[]>(Prisma.sql`
       SELECT user_id, email, password_hash
       FROM auth.resolve_login_credential(${email})
@@ -134,15 +228,30 @@ export class PersistentAuthRepository {
     return rows[0] ?? null;
   }
 
-  // This returns one opaque membership id only. The application invokes it
-  // after the password has been verified; organization/tenant context is then
-  // resolved by the membership-bound function below.
-  async findDefaultLoginMembershipId(client: AuthSqlClient, userId: string): Promise<string | null> {
-    const rows = await client.$queryRaw<Array<{ membership_id: string }>>(Prisma.sql`
-      SELECT membership_id
-      FROM auth.resolve_login_default_membership(${userId})
+  async findIdentitiesByUser(
+    client: AuthSqlClient,
+    userId: string,
+  ): Promise<MembershipIdentityRow[]> {
+    return client.$queryRaw<MembershipIdentityRow[]>(Prisma.sql`
+      SELECT
+        context.user_id,
+        context.email,
+        context.full_name,
+        context.phone,
+        context.user_status,
+        context.membership_id,
+        context.role,
+        context.is_org_admin,
+        context.membership_status,
+        context.organization_id,
+        context.organization_name,
+        context.organization_status,
+        context.tenant_id
+      FROM auth.resolve_post_password_membership_ids(${userId}) membership
+      JOIN LATERAL auth.resolve_post_password_membership_context(
+        ${userId}, membership.membership_id
+      ) context ON TRUE
     `);
-    return rows[0]?.membership_id ?? null;
   }
 
   async findIdentityByUserAndMembership(
@@ -154,16 +263,17 @@ export class PersistentAuthRepository {
       SELECT
         user_id,
         email,
-        password_hash,
         full_name,
         phone,
         user_status,
         membership_id,
         role,
+        is_org_admin,
+        membership_status,
         organization_id,
         organization_status,
         tenant_id
-      FROM auth.resolve_login_context_by_membership(${userId}, ${membershipId})
+      FROM auth.resolve_post_password_membership_context(${userId}, ${membershipId})
     `);
     return rows[0] ?? null;
   }
@@ -184,7 +294,19 @@ export class PersistentAuthRepository {
         ${consentVersion ?? null},
         ${consentAt ?? null}
       )
-      ON CONFLICT (user_id) DO NOTHING
+      ON CONFLICT (user_id) DO UPDATE
+      SET consent_version = CASE
+            WHEN EXCLUDED.consent_version IS NULL THEN auth.credential_states.consent_version
+            ELSE EXCLUDED.consent_version
+          END,
+          consent_at = CASE
+            WHEN EXCLUDED.consent_version IS NULL THEN auth.credential_states.consent_at
+            ELSE EXCLUDED.consent_at
+          END,
+          updated_at = CASE
+            WHEN EXCLUDED.consent_version IS NULL THEN auth.credential_states.updated_at
+            ELSE NOW()
+          END
     `);
   }
 
@@ -210,6 +332,50 @@ export class PersistentAuthRepository {
         consent_at
       FROM auth.credential_states
       WHERE user_id = ${userId}${lock}
+    `);
+    return rows[0] ?? null;
+  }
+
+  async accountDataExport(
+    client: AuthSqlClient,
+    context: AccountAuthorityContext,
+  ): Promise<AccountDataExportRow | null> {
+    const rows = await client.$queryRaw<AccountDataExportRow[]>(Prisma.sql`
+      SELECT
+        user_id,
+        email,
+        full_name,
+        phone,
+        created_at,
+        consent_version,
+        consent_at,
+        mfa_enabled,
+        credential_version,
+        membership_data
+      FROM auth.account_data_export(
+        ${context.sessionId},
+        ${context.userId},
+        ${context.membershipId},
+        ${context.organizationId},
+        ${context.tenantId}
+      )
+    `);
+    return rows[0] ?? null;
+  }
+
+  async anonymizeAccountIdentity(
+    client: AuthSqlClient,
+    context: AccountAuthorityContext,
+  ): Promise<AccountAnonymizationRow | null> {
+    const rows = await client.$queryRaw<AccountAnonymizationRow[]>(Prisma.sql`
+      SELECT applied, anonymized_at
+      FROM auth.anonymize_account_identity(
+        ${context.sessionId},
+        ${context.userId},
+        ${context.membershipId},
+        ${context.organizationId},
+        ${context.tenantId}
+      )
     `);
     return rows[0] ?? null;
   }
@@ -349,7 +515,7 @@ export class PersistentAuthRepository {
       sessionId: string;
       userId: string;
       challengeTokenHash: string;
-      type: 'TOTP_ENROLL' | 'TOTP_VERIFY';
+      type: 'TOTP_ENROLL' | 'TOTP_VERIFY' | 'STEP_UP';
       expiresAt: Date;
     },
   ): Promise<void> {
@@ -372,6 +538,90 @@ export class PersistentAuthRepository {
     `);
   }
 
+  async expirePendingMfaChallenges(
+    client: AuthSqlClient,
+    sessionId: string,
+    type: 'STEP_UP',
+  ): Promise<void> {
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.mfa_challenges
+      SET status = 'EXPIRED'
+      WHERE session_id = ${sessionId}
+        AND type = ${type}
+        AND status = 'PENDING'
+    `);
+  }
+
+  async createMembershipSelectionChallenge(
+    client: AuthSqlClient,
+    input: {
+      id: string;
+      userId: string;
+      tokenHash: string;
+      credentialVersion: number;
+      expiresAt: Date;
+    },
+  ) {
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.membership_selection_challenges
+      SET status = 'REVOKED', updated_at = NOW()
+      WHERE user_id = ${input.userId} AND status = 'PENDING'
+    `);
+    await client.$executeRaw(Prisma.sql`
+      INSERT INTO auth.membership_selection_challenges (
+        id, user_id, token_hash, credential_version, expires_at
+      ) VALUES (
+        ${input.id}, ${input.userId}, ${input.tokenHash}, ${input.credentialVersion}, ${input.expiresAt}
+      )
+    `);
+  }
+
+  async getMembershipSelectionChallengeForUpdate(
+    client: AuthSqlClient,
+    challengeId: string,
+  ): Promise<MembershipSelectionChallengeRow | null> {
+    const rows = await client.$queryRaw<MembershipSelectionChallengeRow[]>(Prisma.sql`
+      SELECT
+        challenge.id,
+        challenge.user_id,
+        challenge.token_hash,
+        challenge.status,
+        challenge.credential_version,
+        credential.credential_version AS current_credential_version,
+        challenge.attempts,
+        challenge.max_attempts,
+        challenge.expires_at
+      FROM auth.membership_selection_challenges challenge
+      JOIN auth.credential_states credential ON credential.user_id = challenge.user_id
+      WHERE challenge.id = ${challengeId}
+      FOR UPDATE OF challenge, credential
+    `);
+    return rows[0] ?? null;
+  }
+
+  async recordMembershipSelectionFailure(
+    client: AuthSqlClient,
+    challengeId: string,
+    terminal: boolean,
+  ) {
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.membership_selection_challenges
+      SET attempts = LEAST(attempts + 1, max_attempts),
+          status = CASE WHEN ${terminal} THEN 'REVOKED' ELSE status END,
+          updated_at = NOW()
+      WHERE id = ${challengeId} AND status = 'PENDING'
+    `);
+  }
+
+  async consumeMembershipSelectionChallenge(client: AuthSqlClient, challengeId: string) {
+    const updated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.membership_selection_challenges
+      SET status = 'CONSUMED', consumed_at = NOW(), updated_at = NOW()
+      WHERE id = ${challengeId} AND status = 'PENDING'
+    `);
+    if (updated !== 1) throw new Error('Membership selection challenge conflict');
+  }
+
   async getSessionContext(
     client: AuthSqlClient,
     sessionId: string,
@@ -389,6 +639,8 @@ export class PersistentAuthRepository {
         identity.user_status,
         identity.membership_id,
         identity.role,
+        identity.is_org_admin,
+        identity.membership_status,
         identity.organization_id,
         identity.organization_status,
         identity.tenant_id,
@@ -404,7 +656,7 @@ export class PersistentAuthRepository {
         cs.credential_version AS current_credential_version,
         cs.mfa_enabled AS current_mfa_enabled
       FROM auth.sessions s
-      JOIN LATERAL auth.resolve_session_identity(
+      JOIN LATERAL auth.resolve_session_identity_v2(
         s.user_id, s.membership_id, s.organization_id, s.tenant_id
       ) identity ON TRUE
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
@@ -426,6 +678,8 @@ export class PersistentAuthRepository {
         identity.user_status,
         identity.membership_id,
         identity.role,
+        identity.is_org_admin,
+        identity.membership_status,
         identity.organization_id,
         identity.organization_status,
         identity.tenant_id,
@@ -448,7 +702,7 @@ export class PersistentAuthRepository {
         rt.family_id AS refresh_token_family_id
       FROM auth.refresh_tokens rt
       JOIN auth.sessions s ON s.id = rt.session_id
-      JOIN LATERAL auth.resolve_session_identity(
+      JOIN LATERAL auth.resolve_session_identity_v2(
         s.user_id, s.membership_id, s.organization_id, s.tenant_id
       ) identity ON TRUE
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
@@ -471,6 +725,8 @@ export class PersistentAuthRepository {
         identity.user_status,
         identity.membership_id,
         identity.role,
+        identity.is_org_admin,
+        identity.membership_status,
         identity.organization_id,
         identity.organization_status,
         identity.tenant_id,
@@ -494,7 +750,7 @@ export class PersistentAuthRepository {
         c.expires_at AS challenge_expires_at
       FROM auth.mfa_challenges c
       JOIN auth.sessions s ON s.id = c.session_id
-      JOIN LATERAL auth.resolve_session_identity(
+      JOIN LATERAL auth.resolve_session_identity_v2(
         s.user_id, s.membership_id, s.organization_id, s.tenant_id
       ) identity ON TRUE
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
@@ -631,12 +887,16 @@ export class PersistentAuthRepository {
       backupHashes?: string[] | null;
     },
   ): Promise<void> {
-    await client.$executeRaw(Prisma.sql`
+    const challengeUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
       SET status = 'VERIFIED', verified_at = NOW()
       WHERE id = ${input.challengeId}
+        AND status = 'PENDING'
+        AND type IN ('TOTP_ENROLL', 'TOTP_VERIFY')
     `);
-    await client.$executeRaw(Prisma.sql`
+    if (challengeUpdated !== 1) throw new Error('MFA login challenge conflict');
+
+    const sessionUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.sessions
       SET status = 'ACTIVE',
           mfa_level = ${input.method},
@@ -645,9 +905,12 @@ export class PersistentAuthRepository {
           last_seen_at = NOW(),
           updated_at = NOW()
       WHERE id = ${input.sessionId}
+        AND user_id = ${input.userId}
         AND status = 'MFA_PENDING'
     `);
-    await client.$executeRaw(Prisma.sql`
+    if (sessionUpdated !== 1) throw new Error('MFA login session conflict');
+
+    const credentialUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.credential_states
       SET mfa_enabled = CASE WHEN ${input.enableMfa} THEN TRUE ELSE mfa_enabled END,
           mfa_backup_hashes = CASE
@@ -660,11 +923,60 @@ export class PersistentAuthRepository {
           updated_at = NOW()
       WHERE user_id = ${input.userId}
     `);
+    if (credentialUpdated !== 1) throw new Error('MFA credential state conflict');
     if (input.enableMfa) {
+      const finalized = await client.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
+        SELECT updated
+        FROM auth.finalize_authenticated_user_mfa(
+          ${input.userId}, ${input.sessionId}, ${input.challengeId}
+        )
+      `);
+      if (finalized[0]?.updated !== true) throw new Error('MFA user state conflict');
+    }
+  }
+
+  async activateMfaStepUp(
+    client: AuthSqlClient,
+    input: {
+      challengeId: string;
+      sessionId: string;
+      userId: string;
+      method: 'TOTP' | 'BACKUP';
+      backupHashes?: string[];
+    },
+  ): Promise<Date> {
+    const verifiedAt = new Date();
+    const challengeUpdated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.mfa_challenges
+      SET status = 'VERIFIED', verified_at = ${verifiedAt}
+      WHERE id = ${input.challengeId}
+        AND status = 'PENDING'
+        AND type = 'STEP_UP'
+    `);
+    if (challengeUpdated !== 1) throw new Error('MFA step-up challenge conflict');
+
+    const sessionUpdated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.sessions
+      SET mfa_level = ${input.method},
+          mfa_verified_at = ${verifiedAt},
+          mfa_verified_method = ${input.method},
+          last_seen_at = ${verifiedAt},
+          updated_at = ${verifiedAt}
+      WHERE id = ${input.sessionId}
+        AND user_id = ${input.userId}
+        AND status = 'ACTIVE'
+    `);
+    if (sessionUpdated !== 1) throw new Error('MFA step-up session conflict');
+
+    if (input.backupHashes) {
       await client.$executeRaw(Prisma.sql`
-        UPDATE public.users SET "mfaEnabled" = TRUE WHERE id = ${input.userId}
+        UPDATE auth.credential_states
+        SET mfa_backup_hashes = ${JSON.stringify(input.backupHashes)}::jsonb,
+            updated_at = ${verifiedAt}
+        WHERE user_id = ${input.userId}
       `);
     }
+    return verifiedAt;
   }
 
   async recordMfaFailure(
@@ -674,9 +986,11 @@ export class PersistentAuthRepository {
   ): Promise<void> {
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
-      SET attempts = attempts + 1,
-          status = CASE WHEN ${terminal} THEN 'FAILED' ELSE status END
+      SET attempts = LEAST(attempts + 1, max_attempts),
+          status = CASE WHEN ${terminal} THEN 'FAILED' ELSE status END,
+          updated_at = NOW()
       WHERE id = ${challengeId}
+        AND status = 'PENDING'
     `);
   }
 
@@ -715,28 +1029,48 @@ export class PersistentAuthRepository {
     `);
   }
 
-  async latestAuditHash(
+  /**
+   * The chain an event belongs to. Kept identical to the generated chain_key
+   * column so the writer, the reader and the verifier cannot disagree.
+   */
+  static auditChainKey(userId?: string | null, sessionId?: string | null): string {
+    return sessionId ?? userId ?? 'auth-global';
+  }
+
+  /**
+   * Resolves the tail of a chain under its advisory lock, and the position the
+   * next event must occupy.
+   *
+   * Ordering is by chain_sequence, never by created_at: created_at defaults to
+   * NOW(), which is the transaction timestamp, so every event written inside
+   * one transaction shares it and the previous tie-break — a random TEXT id —
+   * could resolve "the previous event" to the wrong one.
+   */
+  async latestAuditChainPosition(
     client: AuthSqlClient,
     userId?: string | null,
     sessionId?: string | null,
-  ): Promise<string | null> {
-    const chainKey = sessionId ?? userId ?? 'auth-global';
+  ): Promise<{ chainKey: string; prevHash: string | null; nextSequence: bigint }> {
+    const chainKey = PersistentAuthRepository.auditChainKey(userId, sessionId);
     await client.$queryRaw<Array<{ acquired: number }>>(Prisma.sql`
       SELECT 1::int AS acquired
       FROM (
         SELECT pg_advisory_xact_lock(hashtextextended(${chainKey}, 0))
       ) AS auth_audit_lock
     `);
-    const rows = await client.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
-      SELECT hash
+    const rows = await client.$queryRaw<Array<{ hash: string; chain_sequence: bigint }>>(Prisma.sql`
+      SELECT hash, chain_sequence
       FROM auth.audit_events
-      WHERE (${sessionId ?? null}::text IS NOT NULL AND session_id = ${sessionId ?? null})
-         OR (${sessionId ?? null}::text IS NULL AND ${userId ?? null}::text IS NOT NULL AND user_id = ${userId ?? null})
-         OR (${sessionId ?? null}::text IS NULL AND ${userId ?? null}::text IS NULL AND user_id IS NULL AND session_id IS NULL)
-      ORDER BY created_at DESC, id DESC
+      WHERE chain_key = ${chainKey}
+      ORDER BY chain_sequence DESC
       LIMIT 1
     `);
-    return rows[0]?.hash ?? null;
+    const tail = rows[0];
+    return {
+      chainKey,
+      prevHash: tail?.hash ?? null,
+      nextSequence: tail ? BigInt(tail.chain_sequence) + 1n : 1n,
+    };
   }
 
   async insertAudit(client: AuthSqlClient, input: AuthAuditInput): Promise<void> {
@@ -753,7 +1087,8 @@ export class PersistentAuthRepository {
         reason,
         metadata,
         hash,
-        prev_hash
+        prev_hash,
+        chain_sequence
       ) VALUES (
         ${input.id},
         ${input.userId ?? null},
@@ -766,7 +1101,8 @@ export class PersistentAuthRepository {
         ${input.reason ?? null},
         ${JSON.stringify(input.metadata ?? {})}::jsonb,
         ${input.hash},
-        ${input.prevHash ?? null}
+        ${input.prevHash ?? null},
+        ${input.chainSequence}
       )
     `);
   }

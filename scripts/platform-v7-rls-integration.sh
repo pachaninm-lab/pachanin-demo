@@ -17,6 +17,14 @@ IDENTITY_MIGRATION="$MIGRATIONS_DIR/20260806090000_identity_row_level_security/m
 STAFF_MIGRATION="$MIGRATIONS_DIR/20260806103000_bounded_staff_admission_authority/migration.sql"
 LOGIN_CONTEXT_MIGRATION="$MIGRATIONS_DIR/20260806120000_identity_bootstrap_login_context/migration.sql"
 MINIMAL_LOGIN_MIGRATION="$MIGRATIONS_DIR/20260807005000_minimal_login_bootstrap/migration.sql"
+P0_PASSWORD_FIRST_MIGRATION="$MIGRATIONS_DIR/20260808100000_p0_password_first_multi_membership/migration.sql"
+P0_REGISTRATION_LIFECYCLE_MIGRATION="$MIGRATIONS_DIR/20260808110000_p0_registration_lifecycle_authority/migration.sql"
+P0_PASSWORD_RESET_MIGRATION="$MIGRATIONS_DIR/20260808120000_p0_password_reset_authority/migration.sql"
+P0_ORGANIZATION_TEAM_MIGRATION="$MIGRATIONS_DIR/20260808130000_p0_organization_team_authority/migration.sql"
+P0_INVITATION_ACCEPTANCE_MIGRATION="$MIGRATIONS_DIR/20260808140000_p0_invitation_acceptance_authority/migration.sql"
+P0_REGISTRATION_DECISION_MIGRATION="$MIGRATIONS_DIR/20260808140000_p0_registration_decision_authority/migration.sql"
+P0_MEMBERSHIP_RECOVERY_MIGRATION="$MIGRATIONS_DIR/20260808150000_p0_invitation_recovery_authority/migration.sql"
+P0_ACCOUNT_LIFECYCLE_MIGRATION="$MIGRATIONS_DIR/20260808160000_p0_account_lifecycle_authority/migration.sql"
 
 : "${RLS_INTEGRATION_ADMIN_URL:?Set RLS_INTEGRATION_ADMIN_URL to a dedicated throwaway PostgreSQL database}"
 
@@ -39,6 +47,14 @@ command -v node >/dev/null || { echo "node is required" >&2; exit 2; }
 [[ -f "$STAFF_MIGRATION" ]] || { echo "Missing $STAFF_MIGRATION" >&2; exit 2; }
 [[ -f "$LOGIN_CONTEXT_MIGRATION" ]] || { echo "Missing $LOGIN_CONTEXT_MIGRATION" >&2; exit 2; }
 [[ -f "$MINIMAL_LOGIN_MIGRATION" ]] || { echo "Missing $MINIMAL_LOGIN_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_PASSWORD_FIRST_MIGRATION" ]] || { echo "Missing $P0_PASSWORD_FIRST_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_REGISTRATION_LIFECYCLE_MIGRATION" ]] || { echo "Missing $P0_REGISTRATION_LIFECYCLE_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_PASSWORD_RESET_MIGRATION" ]] || { echo "Missing $P0_PASSWORD_RESET_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_ORGANIZATION_TEAM_MIGRATION" ]] || { echo "Missing $P0_ORGANIZATION_TEAM_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_INVITATION_ACCEPTANCE_MIGRATION" ]] || { echo "Missing $P0_INVITATION_ACCEPTANCE_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_REGISTRATION_DECISION_MIGRATION" ]] || { echo "Missing $P0_REGISTRATION_DECISION_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_MEMBERSHIP_RECOVERY_MIGRATION" ]] || { echo "Missing $P0_MEMBERSHIP_RECOVERY_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_ACCOUNT_LIFECYCLE_MIGRATION" ]] || { echo "Missing $P0_ACCOUNT_LIFECYCLE_MIGRATION" >&2; exit 2; }
 
 # The runtime principals log in over TCP in CI, so they need a password. It is
 # minted per run and never leaves this process tree.
@@ -131,17 +147,27 @@ SQL
 # during the first migration pass. Replaying them after provisioning models ops.
 # The minimal-login migration MUST be last: 0900/1200 contain historical wider
 # bootstrap grants, and 070050 is the forward-only revocation that narrows them
-# to credential -> post-password membership -> session authority.
+# to credential -> post-password membership -> session authority. The P0
+# migration is replayed after it so a newly created runtime receives only the
+# bounded multi-membership and MFA-finalization functions.
 admin -f "$IDENTITY_MIGRATION" >/dev/null
 admin -f "$STAFF_MIGRATION" >/dev/null
 admin -f "$LOGIN_CONTEXT_MIGRATION" >/dev/null
 admin -f "$MINIMAL_LOGIN_MIGRATION" >/dev/null
+admin -f "$P0_PASSWORD_FIRST_MIGRATION" >/dev/null
+admin -f "$P0_REGISTRATION_LIFECYCLE_MIGRATION" >/dev/null
+admin -f "$P0_PASSWORD_RESET_MIGRATION" >/dev/null
+admin -f "$P0_ORGANIZATION_TEAM_MIGRATION" >/dev/null
+admin -f "$P0_INVITATION_ACCEPTANCE_MIGRATION" >/dev/null
+admin -f "$P0_REGISTRATION_DECISION_MIGRATION" >/dev/null
+admin -f "$P0_MEMBERSHIP_RECOVERY_MIGRATION" >/dev/null
+admin -f "$P0_ACCOUNT_LIFECYCLE_MIGRATION" >/dev/null
 
 echo "== seeding two tenants, a member of staff and two admission applications =="
 admin <<'SQL'
 INSERT INTO public."organizations"("id","inn","name","type","status","kycStatus","tenantId","createdAt","updatedAt")
-VALUES ('org-a','1111111111','Alpha','LEGAL','ACTIVE','VERIFIED','tenant-a',now(),now()),
-       ('org-b','2222222222','Beta','LEGAL','ACTIVE','VERIFIED','tenant-b',now(),now()),
+VALUES ('org-a','1111111111','Alpha','LEGAL','VERIFIED','VERIFIED','tenant-a',now(),now()),
+       ('org-b','2222222222','Beta','LEGAL','VERIFIED','VERIFIED','tenant-b',now(),now()),
        ('org-new','3333333333','Gamma','LEGAL','PENDING','PENDING','tenant-c',now(),now()),
        ('org-other','4444444444','Delta','LEGAL','PENDING','PENDING','tenant-d',now(),now());
 

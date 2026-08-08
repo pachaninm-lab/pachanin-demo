@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE, SESSION_COOKIE } from '../../../../lib/auth-cookies';
+import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
+import { assertCsrf } from '../../../../lib/server-request-security';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 type DemoLocale = 'ru' | 'en' | 'zh';
 
@@ -64,9 +66,24 @@ function isAssistantStreamPath(path: string): boolean {
 }
 
 function requiresRealBackend(path: string): boolean {
-  return path === 'deals/accessible'
-    || /^deals\/[^/]+\/(execution-workspace|correlation-timeline)$/.test(path)
+  return /^deals\/[^/]+\/(execution-workspace|correlation-timeline)$/.test(path)
     || /^deals\/[^/]+\/commands\//.test(path);
+}
+
+function requiresDedicatedDeliveryBff(method: string, path: string): boolean {
+  if (method !== 'POST') return false;
+  return path === 'auth/organization-invitations'
+    || /^auth\/organization-invitations\/[^/]+\/resend$/.test(path)
+    || /^auth\/organization-memberships\/[^/]+\/mfa-reset$/.test(path)
+    || path === 'auth/password-reset/request'
+    || path === 'auth/password-reset/confirm'
+    || path === 'auth/register'
+    || path === 'auth/registration/email/verify'
+    || path === 'auth/registration/email/resend'
+    || path === 'auth/registration/additional-information'
+    || path === 'auth/organization-invitations/accept'
+    || path === 'auth/mfa-recovery/confirm'
+    || /^auth\/organization-join-requests\/[^/]+\/decision$/.test(path);
 }
 
 function realBackendUnavailable(reason: string) {
@@ -359,17 +376,30 @@ function demoResponse(method: string, path: string, jar: CookieStore, body: any)
 
 async function proxy(request: Request, params: { path: string[] }) {
   const path = params.path.join('/');
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) {
+    return NextResponse.json(
+      { ok: false, code: 'CSRF_REJECTED' },
+      { status: 403, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+  if (requiresDedicatedDeliveryBff(request.method, path)) {
+    return NextResponse.json(
+      { ok: false, code: 'DEDICATED_AUTH_ROUTE_REQUIRED' },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   const jar = await cookies();
   const token = jar.get(ACCESS_COOKIE)?.value || '';
   const demoToken = token.startsWith('demo.');
   const streamPath = isAssistantStreamPath(path);
-  const strictRealPath = requiresRealBackend(path) || streamPath || (isAssistantPath(path) && !demoToken);
-  // A demo token buys a demo answer everywhere except the gateway stream, which
-  // has no demo form: without the real backend it refuses rather than pretends.
-  const isDemo = !streamPath && (!API_URL || demoToken);
+  const strictRealPath = streamPath || requiresRealBackend(path);
+  const isDemo = !strictRealPath && demoToken && demoLoginAllowed();
 
-  if (strictRealPath && !API_URL) return realBackendUnavailable('api_url_missing');
-  if (strictRealPath && !token) return realBackendUnavailable('verified_session_missing');
+  if (!token) return realBackendUnavailable('verified_session_missing');
+  if (strictRealPath && demoToken) return realBackendUnavailable('verified_real_session_required');
+  if (demoToken && !isDemo) return realBackendUnavailable('demo_session_disabled');
+  if (!API_URL && !isDemo) return realBackendUnavailable('api_url_missing');
 
   if (!isDemo) {
     try {
@@ -377,6 +407,9 @@ async function proxy(request: Request, params: { path: string[] }) {
       const headers = new Headers(request.headers);
       headers.set('Authorization', `Bearer ${token}`);
       headers.delete('host');
+      headers.delete('x-organization-invitation-delivery-key');
+      headers.delete('x-password-reset-delivery-key');
+      headers.delete('x-registration-delivery-key');
       const requestBody = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
       const response = await fetch(target, {
         method: request.method,
@@ -414,11 +447,12 @@ async function proxy(request: Request, params: { path: string[] }) {
         },
       });
     } catch {
-      if (strictRealPath) return realBackendUnavailable('backend_unreachable');
+      return realBackendUnavailable('backend_unreachable');
     }
   }
 
   if (strictRealPath) return realBackendUnavailable('real_backend_not_used');
+  if (!isDemo) return realBackendUnavailable('real_backend_not_used');
 
   let body: any = {};
   try {

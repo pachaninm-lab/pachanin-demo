@@ -4,7 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { staffControlCenterMessages } from '../../i18n/staff-control-center-messages';
 
 function source(path: string) {
-  return readFileSync(resolve(process.cwd(), path), 'utf8');
+  const root = process.cwd().endsWith('/apps/web')
+    ? resolve(process.cwd(), '..', '..')
+    : process.cwd();
+  return readFileSync(resolve(root, path), 'utf8');
 }
 
 function keys(value: unknown, prefix = ''): string[] {
@@ -36,10 +39,13 @@ const requestService = source('apps/api/src/modules/staff-access/staff-access-re
 
 describe('platform-v7 Staff Control Center authority boundary', () => {
   it('verifies the real server session and never derives staff authority from URL or local storage', () => {
-    expect(page).toContain('cookies().get(ACCESS_COOKIE)');
+    expect(page).toContain('cookieStore.get(ACCESS_COOKIE)');
     expect(page).toContain('function resolveApiOrigin()');
     expect(page).toContain("process.env.NODE_ENV === 'production' && url.protocol !== 'https:'");
     expect(page).toContain('fetch(`${API_ORIGIN}/auth/me`');
+    expect(page).toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
+    expect(page).toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
+    expect(page).toContain("verification.status === 'forbidden'");
     expect(page).toContain("redirect: 'manual'");
     expect(page).toContain("redirect('/platform-v7/login?next=%2Fplatform-v7%2Fstaff')");
     expect(page).not.toContain('localStorage');
@@ -89,7 +95,7 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
   it('renders Staff authority in a dedicated shell instead of a business-role cabinet', () => {
     expect(platformLayout).toContain("const STAFF_PREFIX = '/platform-v7/staff'");
     expect(platformLayout).toContain('if (isStaffPath(pathname)) return children');
-    expect(platformLayout.indexOf('if (isStaffPath(pathname))')).toBeLessThan(platformLayout.indexOf('verifiedCabinetRole()'));
+    expect(platformLayout.indexOf('if (isStaffPath(pathname))')).toBeLessThan(platformLayout.indexOf('const role = await verifiedCabinetRole()'));
     expect(platformTemplate).toContain('return children');
     expect(platformTemplate).not.toContain('PlatformV7ProtectedTemplateRuntime');
     expect(protectedShell).toContain('if (isStaffControlCenter)');

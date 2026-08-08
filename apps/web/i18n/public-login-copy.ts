@@ -47,6 +47,10 @@ const copy: Record<AppLocale, PublicLoginPageCopy> = {
       setupSecretLabel: 'Ключ настройки',
       backupCodesTitle: 'Сохраните резервные коды',
       backupCodesLead: 'Каждый код действует один раз. Сохраните их в защищённом месте.',
+      membershipTitle: 'Выберите организацию',
+      membershipLead: 'Пароль подтверждён. Сервер покажет только активные membership этой учётной записи.',
+      membershipLabel: 'Организация и роль',
+      membershipSubmit: 'Продолжить',
     },
   },
   en: {
@@ -87,6 +91,10 @@ const copy: Record<AppLocale, PublicLoginPageCopy> = {
       setupSecretLabel: 'Setup key',
       backupCodesTitle: 'Save your backup codes',
       backupCodesLead: 'Each code works once. Store them in a secure place.',
+      membershipTitle: 'Choose an organization',
+      membershipLead: 'The password is verified. The server shows only active memberships for this account.',
+      membershipLabel: 'Organization and role',
+      membershipSubmit: 'Continue',
     },
   },
   zh: {
@@ -127,6 +135,10 @@ const copy: Record<AppLocale, PublicLoginPageCopy> = {
       setupSecretLabel: '设置密钥',
       backupCodesTitle: '保存备用代码',
       backupCodesLead: '每个代码只能使用一次。请将其保存在安全位置。',
+      membershipTitle: '选择组织',
+      membershipLead: '密码已验证。服务器仅显示此账户的活动 membership。',
+      membershipLabel: '组织和角色',
+      membershipSubmit: '继续',
     },
   },
 };
