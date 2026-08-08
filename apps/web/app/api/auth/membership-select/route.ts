@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     if (payload.mfaRequired) {
-      if (!payload.challengeToken || !payload.user?.id || !payload.user.email || !payload.user.role) {
+      if (!payload.challengeToken || !payload.user?.email || !payload.user.role) {
         const response = json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
         clearSelection(response);
         return response;

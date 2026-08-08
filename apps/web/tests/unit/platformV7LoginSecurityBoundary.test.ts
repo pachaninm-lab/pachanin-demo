@@ -9,6 +9,7 @@ const read = (relativePath: string) => fs.readFileSync(path.join(repositoryRoot,
 const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
 const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 const loginRoute = read('apps/web/app/api/auth/login/route.ts');
+const membershipSelectRoute = read('apps/web/app/api/auth/membership-select/route.ts');
 const mfaRoute = read('apps/web/app/api/auth/mfa-login/route.ts');
 const cancelRoute = read('apps/web/app/api/auth/mfa-login/cancel/route.ts');
 const session = read('apps/web/lib/server/auth-session-response.ts');
@@ -57,6 +58,13 @@ describe('platform-v7 server-authoritative login boundary', () => {
     expect(mfaRoute).toContain('applyAuthenticatedSession');
     expect(session).toContain('signCabinetSession');
     expect(session).toContain('CABINET_SESSION_COOKIE');
+  });
+
+  it('accepts the deliberately minimal pending-MFA identity projection', () => {
+    for (const route of [loginRoute, membershipSelectRoute]) {
+      expect(route).toContain('!payload.challengeToken || !payload.user?.email || !payload.user.role');
+      expect(route).not.toContain('!payload.challengeToken || !payload.user?.id');
+    }
   });
 
   it('stores only the encrypted challenge in a bounded HttpOnly ticket', () => {
