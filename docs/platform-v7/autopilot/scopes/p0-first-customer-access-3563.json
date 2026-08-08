@@ -55,6 +55,7 @@
     "apps/api/prisma/migrations/20260808140000_p0_registration_decision_authority/migration.sql",
     "apps/api/prisma/migrations/20260808150000_p0_invitation_recovery_authority/migration.sql",
     "apps/api/prisma/migrations/20260808160000_p0_account_lifecycle_authority/migration.sql",
+    "apps/api/prisma/migrations/20260808170000_p0_mfa_recovery_membership_lock_scope/migration.sql",
     "apps/api/prisma/schema.prisma",
     "apps/api/scripts/seed-design-system-v8-identities.mjs",
     "apps/api/src/common/types/request-user.ts",
@@ -263,7 +264,7 @@
     "exactMainRequired": true,
     "behindByRequired": 0,
     "reviewThreadsRequired": 0,
-    "changedPathCount": 202,
+    "changedPathCount": 203,
     "requiredChecks": [
       "CI",
       "Node CI",

@@ -226,6 +226,28 @@ describe('auth and staff principal provisioning', () => {
     );
   });
 
+  it('locks only rows each MFA recovery authority may mutate', () => {
+    const migration = repositoryFile(
+      'apps/api/prisma/migrations/20260808170000_p0_mfa_recovery_membership_lock_scope/migration.sql',
+    );
+
+    expect(migration).toMatch(/^\s*FOR UPDATE OF membership;$/mu);
+    expect(migration).not.toMatch(/^\s*FOR UPDATE OF membership,\s*subject;/mu);
+    expect(migration).toMatch(/^\s*FOR UPDATE OF challenge, subject;$/mu);
+    expect(migration).not.toMatch(/^\s*FOR UPDATE OF challenge, subject, membership;/mu);
+    expect(migration).toMatch(/^\s*FOR UPDATE OF candidate, subject;$/mu);
+    expect(migration).not.toMatch(/^\s*FOR UPDATE OF candidate, subject, membership;/mu);
+    expect(migration).toContain(
+      "has_table_privilege(\n    'pc_organization_membership_command_authority', 'public.users', 'UPDATE'",
+    );
+    expect(migration).not.toMatch(
+      /GRANT UPDATE[^;]*ON public\."users"[^;]*TO pc_organization_membership_command_authority/,
+    );
+    expect(migration).not.toMatch(
+      /GRANT UPDATE[^;]*ON public\."user_orgs"[^;]*TO pc_mfa_recovery_identity_authority/,
+    );
+  });
+
   it('keeps registration decisions session-, MFA- and scope-bound in PostgreSQL', () => {
     const migration = repositoryFile(
       'apps/api/prisma/migrations/20260808140000_p0_registration_decision_authority/migration.sql',
