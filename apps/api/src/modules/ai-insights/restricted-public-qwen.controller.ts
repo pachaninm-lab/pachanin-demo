@@ -4,14 +4,18 @@ import {
   Controller,
   Headers,
   Post,
+  Req,
+  Res,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Public } from '../../common/decorators/public.decorator';
 import {
   RestrictedPublicQwenService,
   type RestrictedPublicQwenResponse,
+  type TaiStreamEvent,
 } from './restricted-public-qwen.service';
 
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
@@ -42,6 +46,83 @@ export class RestrictedPublicQwenController {
     verifyPublicSourceBoundary(body);
     return this.qwen.generate(body).then(redactPublicModelInternals);
   }
+
+  /**
+   * Server-sent stream of normalized model events.
+   *
+   * Only the four typed events cross this boundary. The provider's own frames
+   * stop inside the parser, and the safety buffer has already screened every
+   * delta, so what reaches the BFF is text that was cleared for a browser — not
+   * model output awaiting inspection.
+   */
+  @Public()
+  @Post('public-stream')
+  async stream(
+    @Body() body: unknown,
+    @Headers() headers: HeaderMap,
+    @Res() response: ServerResponse,
+    @Req() request: IncomingMessage,
+  ): Promise<void> {
+    verifyInternalSignature(body, headers);
+    verifyPublicSourceBoundary(body);
+
+    const traceId = readTraceId(headers);
+    const controller = new AbortController();
+    // A client that goes away must not leave the provider generating: the abort
+    // travels to generateStream, which aborts the upstream request in its finally.
+    const onClose = () => controller.abort();
+    request.on('close', onClose);
+
+    response.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store, no-transform, max-age=0',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'X-Content-Type-Options': 'nosniff',
+      ...(traceId ? { 'x-tai-trace-id': traceId } : {}),
+    });
+
+    let terminal = false;
+    const emit = (event: TaiStreamEvent) => {
+      // Terminal uniqueness is enforced here rather than trusted from upstream:
+      // a second terminal frame would let a client believe a failed answer
+      // finished, or a finished one failed.
+      const isTerminal = event.kind !== 'delta';
+      if (terminal) return;
+      if (isTerminal) terminal = true;
+      response.write(`event: ${event.kind}\ndata: ${JSON.stringify(event)}\n\n`);
+    };
+
+    try {
+      for await (const event of this.qwen.generateStream(body, controller.signal)) {
+        if (event.kind === 'delta' && INTERNAL_MARKER.test(event.text)) {
+          // The safety buffer should have removed this. If a marker still
+          // arrives, the buffer's guarantee is broken and the honest response is
+          // to fail the stream, not to strip it here and hide the defect.
+          emit({ kind: 'error', errorClass: 'safety_internal_marker' });
+          break;
+        }
+        emit(event);
+        if (terminal) break;
+      }
+      if (!terminal) emit({ kind: 'error', errorClass: 'provider_transport' });
+    } catch {
+      if (!terminal) emit({ kind: 'error', errorClass: 'internal' });
+    } finally {
+      request.off('close', onClose);
+      if (!controller.signal.aborted) controller.abort();
+      response.end();
+    }
+  }
+}
+
+/** Correlation id only; it names nothing and grants nothing. */
+function readTraceId(headers: HeaderMap): string | null {
+  const raw = headers['x-tai-trace-id'];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return typeof value === 'string' && /^[0-9a-f]{32}$/u.test(value.trim().toLowerCase())
+    ? value.trim().toLowerCase()
+    : null;
 }
 
 export function stripInternalModelTrace(value: string): string {
