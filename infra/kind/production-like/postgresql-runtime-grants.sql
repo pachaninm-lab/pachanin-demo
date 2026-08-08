@@ -24,7 +24,111 @@ TO app_auth;
 GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO app_auth;
 REVOKE UPDATE, DELETE ON auth.audit_events, auth.staff_access_events FROM app_auth;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA auth, public TO app_auth;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO app_auth;
+
+-- Named functions rather than "ALL FUNCTIONS IN SCHEMA auth" (#3670).
+GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO app_auth;
+
+-- Minimal authentication surface. Before password proof app_auth can resolve
+-- exactly one credential row and no tenant/org/membership/MFA material. The
+-- default membership id and its context are consumed by server code only after
+-- the bcrypt check; session identity is used only for an existing session.
+GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) TO app_auth;
+GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) TO app_auth;
+
+-- Public registration is the only legitimate pre-session identity write. It is
+-- exposed through one fixed SECURITY DEFINER function owned by the confined
+-- pc_registration_authority role; app_auth never becomes that role.
+GRANT EXECUTE ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) TO app_auth;
+
+-- Retire the historical wider bootstrap surface from the login runtime.
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_auth;
+
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+
+-- Dedicated function-only staff runtime. It receives no table or sequence
+-- privilege at all: every cross-tenant identity/business scope read is bounded
+-- by a fixed SECURITY DEFINER function and server-authenticated staff authority.
+GRANT USAGE ON SCHEMA auth TO app_staff;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM app_staff;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM app_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
+REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_staff;
+REVOKE ALL ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) FROM app_staff;
+
+-- Non-auth runtimes must not reach any bootstrap login or registration surface.
+REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_session_identity(TEXT, TEXT, TEXT, TEXT) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.create_pending_registration_identity(
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+) FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_admission_queue(TEXT, TEXT, TEXT, INTEGER)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_admission_application(TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+
+-- Deal creation validates the confirmed seller and buyer without exposing
+-- their identity rows. The function is status-only, transaction-context-bound
+-- and owned by the confined identity authority.
+GRANT USAGE ON SCHEMA auth TO app_runtime;
+GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT)
+  TO app_runtime;
+REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_auth, app_staff, app_storage, app_outbox;
 
 GRANT SELECT ON public.deals, public.deal_participants TO app_storage;
 GRANT SELECT, UPDATE ON public.deal_documents TO app_storage;
@@ -45,13 +149,10 @@ BEGIN
 END
 $schemas$;
 
--- The generic runtime grants above must not reopen the distributed rate-limit
--- state tables. Runtime access is deliberately EXECUTE-only through the
--- SECURITY DEFINER function established by the migration.
 REVOKE ALL PRIVILEGES ON TABLE security.api_rate_limit_state FROM app_runtime;
 REVOKE ALL PRIVILEGES ON TABLE security.api_rate_limit_buckets FROM app_runtime;
 GRANT USAGE ON SCHEMA security TO app_runtime;
 GRANT EXECUTE ON FUNCTION security.consume_api_rate_limit(TEXT, TEXT, INTEGER) TO app_runtime;
 
-REVOKE CREATE ON DATABASE grainflow FROM app_runtime, app_auth, app_storage, app_outbox;
-REVOKE CREATE ON SCHEMA public FROM app_runtime, app_auth, app_storage, app_outbox;
+REVOKE CREATE ON DATABASE grainflow FROM app_runtime, app_auth, app_staff, app_storage, app_outbox;
+REVOKE CREATE ON SCHEMA public FROM app_runtime, app_auth, app_staff, app_storage, app_outbox;

@@ -120,8 +120,17 @@ export class AuthService {
   async login(dto: LoginDto, userAgent?: string, ip?: string) {
     const email = dto.email.trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
-    const identity = await this.repository.findIdentityByEmail(this.repository.prisma, email);
-    const validPassword = await bcrypt.compare(dto.password, identity?.password_hash ?? DUMMY_PASSWORD_HASH);
+
+    // Pre-password PostgreSQL authority is deliberately one credential row.
+    // No membership, tenant, organization or MFA material is read here.
+    const loginCredential = await this.repository.findLoginCredentialByEmail(
+      this.repository.prisma,
+      email,
+    );
+    const validPassword = await bcrypt.compare(
+      dto.password,
+      loginCredential?.password_hash ?? DUMMY_PASSWORD_HASH,
+    );
 
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
@@ -129,10 +138,7 @@ export class AuthService {
       const now = new Date();
       if (throttle?.locked_until && throttle.locked_until > now) {
         await this.audit(tx, {
-          userId: identity?.user_id,
-          membershipId: identity?.membership_id,
-          organizationId: identity?.organization_id,
-          tenantId: identity?.tenant_id,
+          userId: loginCredential?.user_id,
           action: 'auth.login',
           outcome: 'DENIED',
           reason: 'ACCOUNT_TEMPORARILY_LOCKED',
@@ -141,23 +147,62 @@ export class AuthService {
         return { kind: 'locked' as const, lockedUntil: throttle.locked_until };
       }
 
-      if (!identity || !validPassword) {
+      if (!loginCredential || !validPassword) {
         const failures = (throttle?.failures ?? 0) + 1;
         const lockedUntil = failures >= MAX_FAILED_LOGINS
           ? new Date(Date.now() + LOGIN_LOCKOUT_MS)
           : null;
         await this.repository.setLoginThrottle(tx, accountHash, lockedUntil ? 0 : failures, lockedUntil);
         await this.audit(tx, {
-          userId: identity?.user_id,
-          membershipId: identity?.membership_id,
-          organizationId: identity?.organization_id,
-          tenantId: identity?.tenant_id,
+          userId: loginCredential?.user_id,
           action: 'auth.login',
           outcome: 'FAILURE',
           reason: 'INVALID_CREDENTIALS',
           metadata: this.clientMetadata(userAgent, ip, { accountHash, locked: Boolean(lockedUntil) }),
         });
         return { kind: 'invalid' as const };
+      }
+
+      // Re-read the credential inside the serializable transaction. If the
+      // password changed after the first bcrypt comparison, the old password
+      // cannot race session creation; the caller must retry with the new one.
+      const currentLoginCredential = await this.repository.findLoginCredentialByEmail(tx, email);
+      if (
+        !currentLoginCredential
+        || currentLoginCredential.user_id !== loginCredential.user_id
+        || !secureEqual(currentLoginCredential.password_hash, loginCredential.password_hash)
+      ) {
+        await this.audit(tx, {
+          userId: loginCredential.user_id,
+          action: 'auth.login',
+          outcome: 'DENIED',
+          reason: 'CREDENTIAL_CHANGED_DURING_LOGIN',
+          metadata: this.clientMetadata(userAgent, ip, { accountHash }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      // Membership and tenant context are resolved only after password proof.
+      const membershipId = await this.repository.findDefaultLoginMembershipId(
+        tx,
+        currentLoginCredential.user_id,
+      );
+      const identity = membershipId
+        ? await this.repository.findIdentityByUserAndMembership(
+            tx,
+            currentLoginCredential.user_id,
+            membershipId,
+          )
+        : null;
+      if (!identity || !secureEqual(identity.password_hash, currentLoginCredential.password_hash)) {
+        await this.audit(tx, {
+          userId: currentLoginCredential.user_id,
+          action: 'auth.login',
+          outcome: 'DENIED',
+          reason: 'LOGIN_CONTEXT_UNAVAILABLE',
+          metadata: this.clientMetadata(userAgent, ip),
+        });
+        return { kind: 'no_context' as const };
       }
 
       await this.assertIdentityUsable(tx, identity, 'auth.login');
@@ -217,7 +262,10 @@ export class AuthService {
           expiresAt: new Date(Date.now() + MFA_CHALLENGE_TTL_MS).toISOString(),
           setupSecret,
           otpAuthUri: setupSecret ? buildOtpAuthUri(identity.email, setupSecret) : undefined,
-          user: this.userProjection(identity, false),
+          // The BFF needs only these two fields to seal the pending-MFA ticket.
+          // Organization, tenant and membership are not disclosed until the
+          // challenge is verified and the API returns the active session.
+          user: { email: identity.email, role: identity.role },
         };
       }
 
@@ -246,6 +294,7 @@ export class AuthService {
       throw new UnauthorizedException(`Account temporarily locked. Try again in ${retryAfterSec}s.`);
     }
     if (result.kind === 'invalid') throw new UnauthorizedException('Invalid credentials');
+    if (result.kind === 'no_context') throw new ForbiddenException('No active organization membership is available');
     if (result.kind === 'mfa') {
       return {
         mfaRequired: true,
@@ -279,55 +328,63 @@ export class AuthService {
       throw new BadRequestException('Email, full name, organization name and INN are required.');
     }
 
+    const userId = `user_${randomUUID()}`;
+    const membershipId = `membership_${randomUUID()}`;
+    const organizationId = `org_${randomUUID()}`;
+    const tenantId = `tenant_${randomUUID()}`;
+    const passwordHash = await bcrypt.hash(String(dto.password), 12);
+
     return this.repository.transaction(async (tx) => {
-      const existing = await tx.user.findUnique({ where: { email } });
-      if (existing) throw new ConflictException('Email already registered');
-      const existingOrganization = await tx.organization.findUnique({ where: { inn: orgInn } });
-      if (existingOrganization) {
+      const rows = await tx.$queryRaw<Array<{
+        outcome: 'CREATED' | 'EMAIL_EXISTS' | 'ORGANIZATION_EXISTS';
+        user_id: string | null;
+        membership_id: string | null;
+        organization_id: string | null;
+        tenant_id: string | null;
+      }>>(Prisma.sql`
+        SELECT outcome, user_id, membership_id, organization_id, tenant_id
+        FROM auth.create_pending_registration_identity(
+          ${userId},
+          ${membershipId},
+          ${organizationId},
+          ${tenantId},
+          ${email},
+          ${dto.phone ? String(dto.phone) : null},
+          ${passwordHash},
+          ${fullName},
+          ${orgInn},
+          ${orgLegalName},
+          ${String(dto.orgType ?? 'LEGAL')},
+          ${requestedRole}
+        )
+      `);
+      const created = rows[0];
+      if (!created) throw new Error('Registration authority returned no result');
+      if (created.outcome === 'EMAIL_EXISTS') throw new ConflictException('Email already registered');
+      if (created.outcome === 'ORGANIZATION_EXISTS') {
         throw new ConflictException('Organization already exists. Request an administrator invitation.');
       }
+      if (
+        created.outcome !== 'CREATED'
+        || created.user_id !== userId
+        || created.membership_id !== membershipId
+        || created.organization_id !== organizationId
+        || created.tenant_id !== tenantId
+      ) {
+        throw new Error('Registration authority returned an invalid identity result');
+      }
 
-      const organization = await tx.organization.create({
-        data: {
-          id: `org_${randomUUID()}`,
-          inn: orgInn,
-          name: orgLegalName,
-          type: String(dto.orgType ?? 'LEGAL'),
-          status: 'PENDING',
-          tenantId: `tenant_${randomUUID()}`,
-          kycStatus: 'PENDING',
-          amlStatus: 'CLEAR',
-        },
-      });
-      const user = await tx.user.create({
-        data: {
-          id: `user_${randomUUID()}`,
-          email,
-          phone: dto.phone ? String(dto.phone) : null,
-          passwordHash: await bcrypt.hash(String(dto.password), 12),
-          fullName,
-          status: 'ACTIVE',
-        },
-      });
-      const membership = await tx.userOrg.create({
-        data: {
-          userId: user.id,
-          organizationId: organization.id,
-          role: requestedRole,
-          isDefault: true,
-        },
-      });
       await this.repository.ensureCredentialState(
         tx,
-        user.id,
+        userId,
         dto.consentVersion || CURRENT_CONSENT_VERSION,
         new Date(),
       );
       await this.audit(tx, {
-        userId: user.id,
-        membershipId: membership.id,
-        organizationId: organization.id,
-        tenantId: organization.tenantId,
+        userId,
+        membershipId,
+        organizationId,
+        tenantId,
         action: 'auth.register',
         outcome: 'SUCCESS',
         reason: 'ORGANIZATION_VERIFICATION_REQUIRED',
@@ -336,13 +393,13 @@ export class AuthService {
       return {
         status: 'PENDING_ORGANIZATION_VERIFICATION',
         user: {
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
+          id: userId,
+          email,
+          fullName,
           role: requestedRole,
-          orgId: organization.id,
-          tenantId: organization.tenantId,
-          membershipId: membership.id,
+          orgId: organizationId,
+          tenantId,
+          membershipId,
         },
       };
     });

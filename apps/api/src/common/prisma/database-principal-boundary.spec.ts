@@ -33,6 +33,11 @@ const safeSnapshot: DatabasePrincipalSnapshot = {
   organizationsUpdate: true,
   authTablesReadWrite: true,
   authAuditReadInsert: true,
+  identityRlsForced: true,
+  ownsIdentityTables: false,
+  identityBootstrapExecute: true,
+  staffAdmissionExecute: false,
+  identityBootstrapMember: false,
 };
 
 describe('database principal boundaries', () => {
@@ -84,7 +89,7 @@ describe('database principal boundaries', () => {
     const authSnapshot: DatabasePrincipalSnapshot = {
       ...safeSnapshot,
       currentUser: 'auth_runtime',
-      bypassRls: true,
+      bypassRls: false,
       dealSelect: false,
       dealInsert: false,
       dealUpdate: false,
@@ -107,6 +112,57 @@ describe('database principal boundaries', () => {
       expect.stringMatching(/persistent auth state/),
       expect.stringMatching(/auth\.audit_events/),
     ]));
+  });
+
+  it('rejects an auth principal whose identity grants are not confined by a policy', () => {
+    // The grant is the same either way. What makes it narrow is the policy
+    // underneath it, so a database where the identity migration has not run
+    // turns "SELECT on public.users" into a read of every tenant.
+    expect(evaluateAuthPrincipalBoundary({
+      ...safeSnapshot,
+      currentUser: 'auth_runtime',
+      dealSelect: false,
+      dealInsert: false,
+      dealUpdate: false,
+      dealDelete: false,
+      identityRlsForced: false,
+      ownsIdentityTables: true,
+    })).toEqual(expect.arrayContaining([
+      expect.stringMatching(/must not own public\.users/),
+      expect.stringMatching(/ENABLE and FORCE RLS/),
+    ]));
+  });
+
+  it('rejects an auth principal that can reach the identity bootstrap or staff roles', () => {
+    expect(evaluateAuthPrincipalBoundary({
+      ...safeSnapshot,
+      currentUser: 'auth_runtime',
+      dealSelect: false,
+      dealInsert: false,
+      dealUpdate: false,
+      dealDelete: false,
+      identityBootstrapMember: true,
+      staffAdmissionExecute: true,
+    })).toEqual(expect.arrayContaining([
+      expect.stringMatching(/must not be a member of pc_identity_bootstrap/),
+      expect.stringMatching(/no EXECUTE on the auth\.staff_admission_\* functions/),
+    ]));
+  });
+
+  it('requires the bootstrap EXECUTE grants that replaced BYPASSRLS', () => {
+    // Revoking BYPASSRLS without granting these leaves login unable to read an
+    // identity at all — the boundary would pass while the product is broken.
+    expect(evaluateAuthPrincipalBoundary({
+      ...safeSnapshot,
+      currentUser: 'auth_runtime',
+      dealSelect: false,
+      dealInsert: false,
+      dealUpdate: false,
+      dealDelete: false,
+      identityBootstrapExecute: false,
+    })).toEqual([
+      'auth principal requires EXECUTE on the auth.resolve_login_* bootstrap functions',
+    ]);
   });
 
   it('requires separate auth and deal URLs in production', () => {

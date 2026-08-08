@@ -202,9 +202,19 @@ describe('Industrial transaction core on real PostgreSQL', () => {
     const ledger = await alpha.prisma.ledgerEntry.findMany({ where: { dealId: fixture.dealId, entryType: 'RESERVE' } });
     expect(ledger).toHaveLength(1);
     expect(BigInt(ledger[0].amountKopecks)).toBe(fixture.totalKopecks);
-    expect((await alpha.prisma.bankOperation.findUniqueOrThrow({ where: { id: `bank-reserve:${fixture.dealId}` } })).status).toBe('DONE');
+    const settlementOperations = await alpha.prisma.$queryRaw<Array<{ status: string }>>`
+      SELECT status
+      FROM settlement.bank_operations
+      WHERE deal_id = ${fixture.dealId}
+        AND operation_type = 'RESERVE'
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `;
+    expect(settlementOperations).toEqual([{ status: 'CONFIRMED' }]);
     expect((await currentDeal(alpha, fixture.dealId)).status).toBe('RESERVED');
-    expect(await alpha.prisma.dealEvent.count({ where: { dealId: fixture.dealId, eventType: 'CONFIRM_RESERVE' } })).toBe(1);
+    expect(await alpha.prisma.dealEvent.count({
+      where: { dealId: fixture.dealId, eventType: 'SETTLEMENT_RESERVE_CALLBACK_SUCCESS' },
+    })).toBe(1);
 
     expect(await alpha.gateway.executeBankCallback(callback)).toMatchObject({ duplicate: true, status: 'RESERVED' });
     await expect(alpha.gateway.executeBankCallback({ ...callback, bankRef: 'FORGED-REFERENCE' }))

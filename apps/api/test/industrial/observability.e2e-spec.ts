@@ -70,7 +70,7 @@ describe('Correlation timeline', () => {
     const stamps = timeline.items.map((item) => item.at);
     expect([...stamps].sort()).toEqual(stamps);
     expect(timeline.items.some((item) => item.source === 'bank_operation' && item.summary.includes('RESERVE'))).toBe(true);
-    expect(timeline.items.some((item) => item.source === 'deal_event' && item.kind === 'CONFIRM_RESERVE')).toBe(true);
+    expect(timeline.items.some((item) => item.source === 'deal_event' && item.kind === 'SETTLEMENT_RESERVE_CALLBACK_SUCCESS')).toBe(true);
 
     const outsider = { ...fixture.users.operator, id: 'user-tl-outsider', sessionId: 'session-tl-outsider' };
     await expect(alpha.gateway.correlationTimeline(fixture.dealId, outsider)).rejects.toMatchObject({ status: 403 });
@@ -93,7 +93,53 @@ describe('Participant-scoped accessible deals list', () => {
     expect(typeof row.version).toBe('number');
     expect(row.myRole).toBe('BUYER');
 
-    const outsider = { ...mine.users.buyer, id: 'user-list-outsider', sessionId: 'session-list-outsider' };
+    // A valid session membership with no deal participation is a legitimate
+    // empty-list case. Forging another user/session while retaining the buyer's
+    // membership is not: the server-authoritative identity boundary must reject
+    // that mismatch before the participant query runs.
+    const outsiderId = 'user-e2e-list01-outsider';
+    const outsiderMembershipId = 'membership-e2e-list01-outsider';
+    await alpha.prisma.user.upsert({
+      where: { id: outsiderId },
+      update: {
+        email: 'outsider-list01@industrial-e2e.invalid',
+        fullName: 'E2E outsider list01',
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+      create: {
+        id: outsiderId,
+        email: 'outsider-list01@industrial-e2e.invalid',
+        passwordHash: 'not-used-by-observability-e2e',
+        fullName: 'E2E outsider list01',
+        status: 'ACTIVE',
+      },
+    });
+    await alpha.prisma.userOrg.upsert({
+      where: {
+        userId_organizationId: {
+          userId: outsiderId,
+          organizationId: mine.buyerOrgId,
+        },
+      },
+      update: { role: mine.users.buyer.role, isDefault: true },
+      create: {
+        id: outsiderMembershipId,
+        userId: outsiderId,
+        organizationId: mine.buyerOrgId,
+        role: mine.users.buyer.role,
+        isDefault: true,
+      },
+    });
+
+    const outsider = {
+      ...mine.users.buyer,
+      id: outsiderId,
+      email: 'outsider-list01@industrial-e2e.invalid',
+      fullName: 'E2E outsider list01',
+      membershipId: outsiderMembershipId,
+      sessionId: 'session-e2e-list01-outsider',
+    };
     await expect(alpha.gateway.listAccessibleDeals(outsider)).resolves.toMatchObject({ count: 0, items: [] });
   });
 });

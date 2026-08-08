@@ -276,7 +276,11 @@ export class StaffAccessController {
   @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
   @StaffPermissions(StaffPermission.ORGANIZATION_LIST)
   organizations(@Req() request: StaffRequest) {
-    return this.projection.organizationDirectory(request.user);
+    return this.projection.organizationDirectory(
+      request.user,
+      this.requireAccessContext(request),
+      this.requireCapabilityToken(request),
+    );
   }
 
   @Get('organizations/:organizationId/users')
@@ -287,7 +291,12 @@ export class StaffAccessController {
     @Req() request: StaffRequest,
     @Param('organizationId') organizationId: string,
   ) {
-    return this.projection.organizationUsers(request.user, organizationId);
+    return this.projection.organizationUsers(
+      request.user,
+      this.requireAccessContext(request),
+      this.requireCapabilityToken(request),
+      organizationId,
+    );
   }
 
   @Get('organizations/:organizationId/cabinet/:role')
@@ -302,6 +311,7 @@ export class StaffAccessController {
     return this.projection.cabinetProjection(
       request.user,
       this.requireAccessContext(request),
+      this.requireCapabilityToken(request),
       organizationId,
       role,
     );
@@ -335,5 +345,13 @@ export class StaffAccessController {
       throw new UnauthorizedException('X-Staff-Access-Session is required');
     }
     return request.staffAccess;
+  }
+
+  private requireCapabilityToken(request: StaffRequest): string {
+    const raw = request.headers?.['x-staff-access-session'];
+    if (Array.isArray(raw) || typeof raw !== 'string' || !raw.trim()) {
+      throw new UnauthorizedException('X-Staff-Access-Session capability is required');
+    }
+    return raw;
   }
 }

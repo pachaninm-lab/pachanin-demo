@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_ADMIN_URL="${DR_SOURCE_ADMIN_URL:?DR_SOURCE_ADMIN_URL is required}"
 RESTORE_ADMIN_URL="${DR_RESTORE_ADMIN_URL:?DR_RESTORE_ADMIN_URL is required}"
 RESTORE_AUTH_URL="${DR_RESTORE_AUTH_URL:?DR_RESTORE_AUTH_URL is required}"
+RESTORE_STAFF_URL="${DR_RESTORE_STAFF_URL:?DR_RESTORE_STAFF_URL is required}"
 RESTORE_APP_URL="${DR_RESTORE_APP_URL:?DR_RESTORE_APP_URL is required}"
 RESTORE_STORAGE_URL="${DR_RESTORE_STORAGE_URL:?DR_RESTORE_STORAGE_URL is required}"
 BACKUP_PATH="${DR_BACKUP_PATH:-/tmp/platform-v7-predeploy.backup}"
@@ -15,7 +16,7 @@ if [[ "${NODE_ENV:-}" == "production" ]]; then
   echo "Refusing DR rehearsal with NODE_ENV=production" >&2
   exit 2
 fi
-for candidate in "$SOURCE_ADMIN_URL" "$RESTORE_ADMIN_URL" "$RESTORE_AUTH_URL" "$RESTORE_APP_URL" "$RESTORE_STORAGE_URL"; do
+for candidate in "$SOURCE_ADMIN_URL" "$RESTORE_ADMIN_URL" "$RESTORE_AUTH_URL" "$RESTORE_STAFF_URL" "$RESTORE_APP_URL" "$RESTORE_STORAGE_URL"; do
   if [[ "$candidate" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
     echo "Refusing DR rehearsal: datasource appears production-like" >&2
     exit 2
@@ -25,9 +26,10 @@ if [[ "$SOURCE_ADMIN_URL" == "$RESTORE_ADMIN_URL" ]]; then
   echo "Refusing DR rehearsal: source and restore admin URLs are identical" >&2
   exit 2
 fi
-if [[ "$RESTORE_AUTH_URL" == "$RESTORE_APP_URL" || "$RESTORE_AUTH_URL" == "$RESTORE_STORAGE_URL" \
+if [[ "$RESTORE_AUTH_URL" == "$RESTORE_STAFF_URL" || "$RESTORE_AUTH_URL" == "$RESTORE_APP_URL" || "$RESTORE_AUTH_URL" == "$RESTORE_STORAGE_URL" \
+  || "$RESTORE_STAFF_URL" == "$RESTORE_APP_URL" || "$RESTORE_STAFF_URL" == "$RESTORE_STORAGE_URL" \
   || "$RESTORE_APP_URL" == "$RESTORE_STORAGE_URL" ]]; then
-  echo "Refusing DR rehearsal: restore auth, app and storage URLs must use different principals" >&2
+  echo "Refusing DR rehearsal: restore auth, staff, app and storage URLs must use different principals" >&2
   exit 2
 fi
 
@@ -143,9 +145,9 @@ RESTORE_SECONDS="$(( $(date +%s) - RESTORE_STARTED_EPOCH ))"
 
 echo "[dr] restoring least-privilege runtime grants"
 psql "$RESTORE_ADMIN_URL" -X --set ON_ERROR_STOP=1 <<SQL
-GRANT CONNECT ON DATABASE "$RESTORE_DATABASE" TO one_deal_app, one_deal_auth, one_deal_storage;
+GRANT CONNECT ON DATABASE "$RESTORE_DATABASE" TO one_deal_app, one_deal_auth, one_deal_staff, one_deal_storage;
 
-GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement TO one_deal_app;
+GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement, auth TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
@@ -192,12 +194,298 @@ GRANT SELECT, INSERT, UPDATE ON
   auth.mfa_challenges
 TO one_deal_auth;
 GRANT SELECT, INSERT ON auth.audit_events TO one_deal_auth;
+
+GRANT USAGE ON SCHEMA auth TO one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM one_deal_staff;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM one_deal_staff;
 SQL
 
-RESTORE_APP_ROLE_PROOF="$(psql "$RESTORE_APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'settlement','USAGE')::text || ':' || has_table_privilege(current_user,'settlement.payments','SELECT')::text || ':' || has_table_privilege(current_user,'settlement.payments','UPDATE')::text || ':' || has_table_privilege(current_user,'settlement.ledger_entries','DELETE')::text")"
-echo "[dr] restored settlement principal proof usage:select:update:ledger-delete = $RESTORE_APP_ROLE_PROOF"
-if [[ "$RESTORE_APP_ROLE_PROOF" != "true:true:true:false" && "$RESTORE_APP_ROLE_PROOF" != "t:t:t:f" ]]; then
-  echo "Restored application Settlement privilege boundary is invalid: $RESTORE_APP_ROLE_PROOF" >&2
+# pg_restore ran with --no-owner --no-acl. Recovery therefore must restore not
+# only definer ownership but also the separation between auth and staff runtime
+# principals. Otherwise a DR event could silently reintroduce the authority that
+# #3670 removed from normal deployment.
+echo "[dr] re-establishing identity definer ownership and execution privileges"
+psql "$RESTORE_ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
+DO $identity_recovery$
+DECLARE
+  bootstrap_owned text[] := ARRAY[
+    'auth.resolve_login_identity(text)',
+    'auth.resolve_login_identity_by_id(text)',
+    'auth.resolve_login_memberships(text)',
+    'auth.resolve_login_memberships_ordered(text)',
+    'auth.resolve_login_context_by_email(text)',
+    'auth.resolve_login_credential(text)',
+    'auth.resolve_login_default_membership(text)',
+    'auth.resolve_login_context_by_membership(text,text)',
+    'auth.resolve_session_identity(text,text,text,text)',
+    'auth.resolve_staff_target_scope(text,text,text,text,text)',
+    'auth.validate_deal_creation_actors(text,text,text,text,text)',
+    'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)',
+    'public.app_identity_is_org_admin()',
+    'public.app_identity_is_reviewer()'
+  ];
+  authority_owned text[] := ARRAY[
+    'auth.staff_admission_capability(text,text,text,text,text)',
+    'auth.staff_projection_capability(text,text,text,text,text,text,boolean)',
+    'auth.resolve_staff_deal_target_scope(text,text,text)',
+    'auth.staff_admission_queue(text,text,text,integer)',
+    'auth.staff_admission_application(text,text,text,text)',
+    'auth.staff_admission_decision(text,text,text,text,text,text)',
+    'auth.staff_organization_directory(text,text,text)',
+    'auth.staff_organization_users(text,text,text,text)',
+    'auth.staff_cabinet_deals(text,text,text,text,text)'
+  ];
+  registration_function text := 'auth.create_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text)';
+  target text;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_identity_bootstrap') THEN
+    FOREACH target IN ARRAY bootstrap_owned LOOP
+      IF to_regprocedure(target) IS NOT NULL THEN
+        EXECUTE format('ALTER FUNCTION %s OWNER TO pc_identity_bootstrap', target);
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', target);
+      END IF;
+    END LOOP;
+    GRANT USAGE ON SCHEMA auth, public, logistics TO pc_identity_bootstrap;
+    GRANT SELECT ON auth.staff_assignments, auth.sessions TO pc_identity_bootstrap;
+    GRANT SELECT ON public.users, public.user_orgs, public.organizations, public.deal_participants
+      TO pc_identity_bootstrap;
+    GRANT SELECT ON logistics.deal_admissions TO pc_identity_bootstrap;
+    GRANT EXECUTE ON FUNCTION public.app_identity_is_org_admin() TO PUBLIC;
+    GRANT EXECUTE ON FUNCTION public.app_identity_is_reviewer() TO PUBLIC;
+
+    GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(text) TO one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_login_default_membership(text) TO one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_login_context_by_membership(text,text) TO one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_session_identity(text,text,text,text) TO one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_identity(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_identity_by_id(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_memberships(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_memberships_ordered(text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.resolve_login_context_by_email(text) FROM one_deal_auth;
+
+    REVOKE ALL ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) FROM one_deal_auth;
+    GRANT EXECUTE ON FUNCTION auth.resolve_staff_target_scope(text,text,text,text,text) TO one_deal_staff;
+
+    GRANT EXECUTE ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
+      TO one_deal_app;
+    GRANT EXECUTE ON FUNCTION public.app_logistics_assignment_projection(text,text,text,text,text,text,text)
+      TO one_deal_app;
+    REVOKE ALL ON FUNCTION auth.validate_deal_creation_actors(text,text,text,text,text)
+      FROM one_deal_auth, one_deal_staff, one_deal_storage;
+    REVOKE ALL ON FUNCTION public.app_logistics_assignment_projection(text,text,text,text,text,text,text)
+      FROM one_deal_auth, one_deal_staff, one_deal_storage;
+
+    REVOKE ALL ON FUNCTION auth.resolve_login_credential(text) FROM one_deal_staff, one_deal_app, one_deal_storage;
+    REVOKE ALL ON FUNCTION auth.resolve_login_default_membership(text) FROM one_deal_staff, one_deal_app, one_deal_storage;
+    REVOKE ALL ON FUNCTION auth.resolve_login_context_by_membership(text,text) FROM one_deal_staff, one_deal_app, one_deal_storage;
+    REVOKE ALL ON FUNCTION auth.resolve_session_identity(text,text,text,text) FROM one_deal_staff, one_deal_app, one_deal_storage;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_registration_authority')
+     AND to_regprocedure(registration_function) IS NOT NULL THEN
+    ALTER ROLE pc_registration_authority
+      NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+    EXECUTE format('ALTER FUNCTION %s OWNER TO pc_registration_authority', registration_function);
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', registration_function);
+    GRANT USAGE ON SCHEMA public, auth TO pc_registration_authority;
+    REVOKE ALL PRIVILEGES ON public.users, public.user_orgs, public.organizations
+      FROM pc_registration_authority;
+    GRANT SELECT, INSERT ON public.users, public.user_orgs, public.organizations
+      TO pc_registration_authority;
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO one_deal_auth', registration_function);
+    EXECUTE format(
+      'REVOKE ALL ON FUNCTION %s FROM one_deal_app, one_deal_staff, one_deal_storage',
+      registration_function
+    );
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_staff_authority') THEN
+    FOREACH target IN ARRAY authority_owned LOOP
+      IF to_regprocedure(target) IS NOT NULL THEN
+        EXECUTE format('ALTER FUNCTION %s OWNER TO pc_staff_authority', target);
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', target);
+      END IF;
+    END LOOP;
+    GRANT USAGE ON SCHEMA public, auth TO pc_staff_authority;
+    GRANT SELECT ON auth.staff_access_sessions, auth.staff_access_grants, auth.staff_assignments, auth.credential_states
+      TO pc_staff_authority;
+    GRANT SELECT ON public.organizations, public.users, public.user_orgs, public.deals TO pc_staff_authority;
+    GRANT UPDATE ("status", "kycStatus", "verifiedAt", "updatedAt")
+      ON public.organizations TO pc_staff_authority;
+    GRANT SELECT ON public.kyc_tasks TO pc_staff_authority;
+    GRANT UPDATE ("status", "assignedTo", "notes", "resolvedAt", "updatedAt")
+      ON public.kyc_tasks TO pc_staff_authority;
+    GRANT EXECUTE ON FUNCTION auth.staff_admission_capability(text,text,text,text,text)
+      TO pc_staff_authority;
+    GRANT EXECUTE ON FUNCTION auth.staff_projection_capability(text,text,text,text,text,text,boolean)
+      TO pc_staff_authority;
+
+    GRANT USAGE ON SCHEMA auth TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(text,text,text,integer) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_admission_application(text,text,text,text) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(text,text,text) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_organization_users(text,text,text,text) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(text,text,text,text,text) TO one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.staff_admission_capability(text,text,text,text,text) FROM one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.staff_projection_capability(text,text,text,text,text,text,boolean) FROM one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_admission_queue(text,text,text,integer) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_admission_application(text,text,text,text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_organization_directory(text,text,text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_organization_users(text,text,text,text) FROM one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(text,text,text,text,text) FROM one_deal_auth;
+
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_staff_runtime') THEN
+      GRANT USAGE ON SCHEMA auth TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_admission_queue(text,text,text,integer) TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_admission_application(text,text,text,text) TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(text,text,text,text,text,text) TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(text,text,text) TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_organization_users(text,text,text,text) TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(text,text,text,text,text) TO pc_staff_runtime;
+    END IF;
+  END IF;
+
+  -- Keep the isolated one-deal auth principal aligned with the runtime boundary
+  -- asserted by restored-database-acceptance. Only the deal principal is
+  -- narrowed to the self-service public.users columns here; the production
+  -- pc_auth_runtime restriction is already restored from migration history.
+  REVOKE UPDATE ON public.users FROM PUBLIC;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'one_deal_app') THEN
+    REVOKE UPDATE ON public.users FROM one_deal_app;
+    GRANT UPDATE ("email", "phone", "fullName", "updatedAt")
+      ON public.users TO one_deal_app;
+  END IF;
+END;
+$identity_recovery$;
+SQL
+
+RESTORE_IDENTITY_PROOF="$(psql "$RESTORE_ADMIN_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
+SELECT
+  (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relname IN ('users','user_orgs','organizations')
+     AND c.relrowsecurity AND c.relforcerowsecurity)::text
+  || ':' ||
+  (SELECT count(*) FROM pg_proc p JOIN pg_roles owner ON owner.oid = p.proowner
+   JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE ((
+       n.nspname = 'auth'
+       AND p.proname IN (
+         'resolve_login_identity', 'resolve_login_identity_by_id',
+         'resolve_login_memberships', 'resolve_login_memberships_ordered',
+         'resolve_login_context_by_email', 'resolve_login_credential',
+         'resolve_login_default_membership', 'resolve_login_context_by_membership',
+         'resolve_session_identity', 'resolve_staff_target_scope',
+         'validate_deal_creation_actors')
+     ) OR (
+       n.nspname = 'public'
+       AND p.proname = 'app_logistics_assignment_projection'
+     ))
+     AND owner.rolname = 'pc_identity_bootstrap')::text
+  || ':' ||
+  (SELECT count(*) FROM pg_roles WHERE rolname = 'one_deal_auth' AND rolbypassrls)::text
+  || ':' ||
+  (
+    has_function_privilege('one_deal_auth', 'auth.resolve_login_credential(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_default_membership(text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_membership(text,text)', 'EXECUTE')
+    AND has_function_privilege('one_deal_auth', 'auth.resolve_session_identity(text,text,text,text)', 'EXECUTE')
+    AND NOT (
+      has_function_privilege('one_deal_auth', 'auth.resolve_login_identity(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_identity_by_id(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_memberships_ordered(text)', 'EXECUTE')
+      OR has_function_privilege('one_deal_auth', 'auth.resolve_login_context_by_email(text)', 'EXECUTE')
+    )
+  )::int::text
+  || ':' ||
+  has_function_privilege('one_deal_app', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text
+  || ':' ||
+  has_function_privilege('one_deal_auth', 'auth.validate_deal_creation_actors(text,text,text,text,text)', 'EXECUTE')::int::text
+  || ':' ||
+  has_function_privilege('one_deal_app', 'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)', 'EXECUTE')::int::text
+  || ':' ||
+  has_function_privilege('one_deal_auth', 'public.app_logistics_assignment_projection(text,text,text,text,text,text,text)', 'EXECUTE')::int::text;
+SQL
+)"
+echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:minimal-bootstrap:deal-actor-execute:auth-actor-execute:logistics-execute:auth-logistics-execute = $RESTORE_IDENTITY_PROOF"
+if [[ "$RESTORE_IDENTITY_PROOF" != "3:12:0:1:1:0:1:0" ]]; then
+  echo "Restored identity boundary is invalid: $RESTORE_IDENTITY_PROOF" >&2
+  exit 1
+fi
+
+RESTORE_REGISTRATION_PROOF="$(psql "$RESTORE_ADMIN_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
+SELECT
+  (SELECT count(*)
+   FROM pg_proc p
+   JOIN pg_namespace n ON n.oid = p.pronamespace
+   JOIN pg_roles owner ON owner.oid = p.proowner
+   WHERE n.nspname = 'auth'
+     AND p.proname = 'create_pending_registration_identity'
+     AND p.prosecdef
+     AND owner.rolname = 'pc_registration_authority')::text
+  || ':' ||
+  (SELECT count(*) FROM pg_roles
+   WHERE rolname = 'pc_registration_authority'
+     AND NOT rolcanlogin AND NOT rolinherit AND NOT rolsuper AND NOT rolbypassrls
+     AND NOT rolcreatedb AND NOT rolcreaterole)::text
+  || ':' ||
+  has_function_privilege(
+    'one_deal_auth',
+    'auth.create_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text)',
+    'EXECUTE'
+  )::int::text
+  || ':' ||
+  has_function_privilege(
+    'one_deal_app',
+    'auth.create_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text)',
+    'EXECUTE'
+  )::int::text
+  || ':' ||
+  (
+    has_table_privilege('pc_registration_authority', 'public.users', 'SELECT')
+    AND has_table_privilege('pc_registration_authority', 'public.users', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_authority', 'public.users', 'UPDATE')
+    AND NOT has_table_privilege('pc_registration_authority', 'public.users', 'DELETE')
+    AND has_table_privilege('pc_registration_authority', 'public.user_orgs', 'SELECT')
+    AND has_table_privilege('pc_registration_authority', 'public.user_orgs', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_authority', 'public.user_orgs', 'UPDATE')
+    AND NOT has_table_privilege('pc_registration_authority', 'public.user_orgs', 'DELETE')
+    AND has_table_privilege('pc_registration_authority', 'public.organizations', 'SELECT')
+    AND has_table_privilege('pc_registration_authority', 'public.organizations', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_authority', 'public.organizations', 'UPDATE')
+    AND NOT has_table_privilege('pc_registration_authority', 'public.organizations', 'DELETE')
+  )::int::text;
+SQL
+)"
+echo "[dr] restored registration proof definer:confined:auth-execute:deal-execute:least-privilege = $RESTORE_REGISTRATION_PROOF"
+if [[ "$RESTORE_REGISTRATION_PROOF" != "1:1:1:0:1" ]]; then
+  echo "Restored registration authority boundary is invalid: $RESTORE_REGISTRATION_PROOF" >&2
+  exit 1
+fi
+
+RESTORE_STAFF_PROOF="$(psql "$RESTORE_ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='one_deal_staff' AND table_schema IN ('public','auth'))::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.resolve_staff_deal_target_scope(text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_queue(text,text,text,integer)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_application(text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_decision(text,text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_directory(text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_organization_users(text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_cabinet_deals(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_admission_capability(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_staff','auth.staff_projection_capability(text,text,text,text,text,text,boolean)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.resolve_staff_target_scope(text,text,text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.resolve_staff_deal_target_scope(text,text,text)','EXECUTE')::int::text || ':' || has_function_privilege('one_deal_auth','auth.staff_organization_directory(text,text,text)','EXECUTE')::int::text")"
+echo "[dr] restored staff proof table-grants:target:deal-target:queue:application:decision:directory:users:cabinet:admission-cap:projection-cap:auth-target:auth-deal-target:auth-directory = $RESTORE_STAFF_PROOF"
+if [[ "$RESTORE_STAFF_PROOF" != "0:1:1:1:1:1:1:1:1:0:0:0:0:0" ]]; then
+  echo "Restored staff authority boundary is invalid: $RESTORE_STAFF_PROOF" >&2
+  exit 1
+fi
+
+RESTORE_AUTH_ISOLATION="$(psql "$RESTORE_AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM public.users)::text || ':' || (SELECT count(*) FROM public.organizations)::text || ':' || (SELECT count(*) FROM auth.resolve_login_credential('nobody@example.invalid'))::text || ':' || has_function_privilege(current_user,'auth.resolve_login_context_by_email(text)','EXECUTE')::text")"
+echo "[dr] restored auth proof users:orgs:minimal-credential-rows:legacy-context-execute = $RESTORE_AUTH_ISOLATION"
+if [[ "$RESTORE_AUTH_ISOLATION" != "0:0:0:false" && "$RESTORE_AUTH_ISOLATION" != "0:0:0:f" ]]; then
+  echo "Restored auth principal minimal login boundary failed: $RESTORE_AUTH_ISOLATION" >&2
+  exit 1
+fi
+
+RESTORE_APP_ROLE_PROOF="$(psql "$RESTORE_APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'settlement','USAGE')::text || ':' || has_table_privilege(current_user,'settlement.payments','SELECT')::text || ':' || has_table_privilege(current_user,'settlement.payments','UPDATE')::text || ':' || has_table_privilege(current_user,'settlement.ledger_entries','DELETE')::text || ':' || has_function_privilege(current_user,'auth.validate_deal_creation_actors(text,text,text,text,text)','EXECUTE')::text")"
+echo "[dr] restored settlement/deal principal proof usage:select:update:ledger-delete:actor-execute = $RESTORE_APP_ROLE_PROOF"
+if [[ "$RESTORE_APP_ROLE_PROOF" != "true:true:true:false:true" && "$RESTORE_APP_ROLE_PROOF" != "t:t:t:f:t" ]]; then
+  echo "Restored application Settlement/deal privilege boundary is invalid: $RESTORE_APP_ROLE_PROOF" >&2
   exit 1
 fi
 
@@ -234,6 +522,7 @@ fi
 NODE_ENV=test \
 DATABASE_URL="$RESTORE_APP_URL" \
 AUTH_DATABASE_URL="$RESTORE_AUTH_URL" \
+STAFF_DATABASE_URL="$RESTORE_STAFF_URL" \
 STORAGE_DATABASE_URL="$RESTORE_STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="${JWT_SECRET:?JWT_SECRET is required}" \
@@ -244,7 +533,7 @@ pnpm --filter @pc/api exec ts-node test/one-deal/restored-database-acceptance.ts
 export SOURCE_FINGERPRINT RESTORE_FINGERPRINT BACKUP_SHA256 BACKUP_BYTES
 export BACKUP_STARTED_AT BACKUP_COMPLETED_AT BACKUP_SECONDS
 export RESTORE_STARTED_AT RESTORE_COMPLETED_AT RESTORE_SECONDS
-export PUBLIC_RLS_PROOF SETTLEMENT_RLS_PROOF RESTORE_APP_ROLE_PROOF SETTLEMENT_OUTBOX_PROOF
+export PUBLIC_RLS_PROOF SETTLEMENT_RLS_PROOF RESTORE_APP_ROLE_PROOF RESTORE_STAFF_PROOF RESTORE_REGISTRATION_PROOF SETTLEMENT_OUTBOX_PROOF
 
 node - "$MANIFEST_PATH" <<'NODE'
 const fs = require('node:fs');
@@ -268,6 +557,8 @@ const manifest = {
   publicRlsProof: process.env.PUBLIC_RLS_PROOF,
   settlementRlsProof: process.env.SETTLEMENT_RLS_PROOF,
   settlementPrincipalProof: process.env.RESTORE_APP_ROLE_PROOF,
+  staffPrincipalProof: process.env.RESTORE_STAFF_PROOF,
+  registrationPrincipalProof: process.env.RESTORE_REGISTRATION_PROOF,
   settlementOutboxProof: process.env.SETTLEMENT_OUTBOX_PROOF,
   failedMigrations: 0,
 };
