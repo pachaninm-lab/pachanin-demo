@@ -97,6 +97,9 @@ if (!pushPaths) {
 requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
   'workflow_call:',
+  'owner_release_authorized:',
+  "github.event_name == 'workflow_call'",
+  'inputs.owner_release_authorized == true',
   'DEPLOY-FULL-STACK-EXACT-SHA',
   'github.actor == github.repository_owner',
   'issue_comment:',
@@ -110,8 +113,8 @@ requireAll('workflow', [
   'github.event.issue.number == 3072',
   'github.event.comment.user.login == github.repository_owner',
   "github.event.comment.body == '/production full-stack current-main'",
-  "github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name",
-  "if [[ '${{ github.event_name }}' == issue_comment ]]; then",
+  "github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_call' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name",
+  "if [[ '${{ github.event_name }}' == issue_comment || '${{ github.event_name }}' == workflow_call ]]; then",
   "if [[ '${{ github.event_name }}' == workflow_run ]]; then",
   'RELEASE_ISSUE_NUMBER: 3072',
   'for component in api web migration',
@@ -142,6 +145,7 @@ requireAll('controller', [
   'needs: production-release-control-3072',
   "github.event.comment.body == '/production release current-main'",
   'uses: ./.github/workflows/production-full-stack-exact-sha.yml',
+  'owner_release_authorized: true',
   'secrets: inherit',
 ]);
 requireAll('middleware', [

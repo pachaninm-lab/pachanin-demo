@@ -252,4 +252,6 @@ jobs:
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.body == '/production release current-main'
     uses: ./.github/workflows/production-full-stack-exact-sha.yml
+    with:
+      owner_release_authorized: true
     secrets: inherit

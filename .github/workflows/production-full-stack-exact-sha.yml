@@ -2,6 +2,11 @@ name: Production Full-Stack Exact-SHA Release
 
 on:
   workflow_call:
+    inputs:
+      owner_release_authorized:
+        description: 'Set only by the owner-authorized production release controller.'
+        required: true
+        type: boolean
   pull_request:
     branches: [main]
     paths:
@@ -69,6 +74,8 @@ jobs:
   contract:
     name: Validate full-stack release contract
     if: >-
+      (github.event_name == 'workflow_call' &&
+       inputs.owner_release_authorized == true) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
@@ -93,6 +100,8 @@ jobs:
     name: Migrate, deploy API and web, verify live intake
     needs: contract
     if: >-
+      (github.event_name == 'workflow_call' &&
+       inputs.owner_release_authorized == true) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
@@ -109,7 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name }}
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_call' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name }}
           fetch-depth: 0
 
       - name: Resolve exact current-main target
@@ -119,7 +128,7 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin main
           target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}'
-          if [[ '${{ github.event_name }}' == issue_comment ]]; then
+          if [[ '${{ github.event_name }}' == issue_comment || '${{ github.event_name }}' == workflow_call ]]; then
             target="$(git rev-parse origin/main)"
           fi
           if [[ '${{ github.event_name }}' == workflow_run ]]; then
