@@ -28,6 +28,7 @@ prod_dir="$(decode "$PROD_DIR_B64")"
 prod_compose="$(decode "$PROD_COMPOSE_B64")"
 prod_project="$(decode "$PROD_PROJECT_B64")"
 backup_evidence="$(decode "$BACKUP_EVIDENCE_B64")"
+auth_opaque_token_env_file=""
 
 resolve_compose_authority() {
   if [[ -n "$prod_dir" && -n "$prod_compose" ]]; then return; fi
@@ -42,6 +43,17 @@ resolve_compose_authority() {
 
 resolve_compose_authority
 [[ -d "$prod_dir" ]] || fail PRODUCTION_DIRECTORY_INVALID 12
+
+resolve_auth_opaque_token_env_file() {
+  auth_opaque_token_env_file="${PC_AUTH_OPAQUE_TOKEN_ENV_FILE:-$prod_dir/.pc-auth-opaque-token.env}"
+  [[ "$auth_opaque_token_env_file" == "$prod_dir"/* ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 17
+  [[ -f "$auth_opaque_token_env_file" && ! -L "$auth_opaque_token_env_file" ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_MISSING 18
+  [[ "$(stat -c '%a:%u:%g' "$auth_opaque_token_env_file")" == '600:0:0' ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_PERMISSIONS_INVALID 19
+  [[ "$(wc -l < "$auth_opaque_token_env_file" | tr -d '[:space:]')" == 1 ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_CONTENT_INVALID 21
+  grep -Eq '^AUTH_OPAQUE_TOKEN_DIGEST_KEY=[A-Fa-f0-9]{64,}$' "$auth_opaque_token_env_file" || fail AUTH_OPAQUE_TOKEN_ENV_FILE_CONTENT_INVALID 22
+}
+
+resolve_auth_opaque_token_env_file
 
 IFS=',' read -r -a raw_files <<< "$prod_compose"
 compose_files=()
@@ -113,6 +125,8 @@ services:
   api:
     image: ${api_image}
     pull_policy: never
+    env_file:
+      - ${auth_opaque_token_env_file}
   web:
     image: ${web_image}
     pull_policy: never
