@@ -36,13 +36,14 @@ requireAll('provisioner', [
   'AUTH_OPAQUE_TOKEN_KEY_PROVISION=EXISTING',
   'AUTH_OPAQUE_TOKEN_KEY_VALID=1',
   'EXISTING_KEY_FILE_INVALID',
+  "docker ps -q --filter 'label=com.docker.compose.service=web'",
+  'COMPOSE_WEB_AUTHORITY_AMBIGUOUS',
+  'com.docker.compose.project.working_dir',
 ]);
 requireAll('workflow', [
   "github.event.issue.number == 3072",
   "github.event.comment.body == '/production provision-auth-opaque-token-key current-main'",
   'github.event.comment.user.login == github.repository_owner',
-  'PC_PROD_DIR',
-  'PC_PROD_DIR_B64',
   'StrictHostKeyChecking=yes',
   'scp_common=',
   'ssh_common=',
@@ -68,7 +69,7 @@ for (const path of [paths.executor, paths.provisioner]) {
 }
 try {
   const scope = JSON.parse(content.scope ?? '{}');
-  if (scope.branch !== 'agent/production-auth-key-provision-3723') failures.push(`${paths.scope}: branch mismatch`);
+  if (scope.branch !== 'agent/production-auth-key-discovery-3727') failures.push(`${paths.scope}: branch mismatch`);
   if (scope.productionHosting !== 'REG_RU_VPS_ONLY') failures.push(`${paths.scope}: production hosting mismatch`);
   if (scope.newRecurringCostRub !== 0) failures.push(`${paths.scope}: recurring cost must be zero`);
 } catch (error) {
