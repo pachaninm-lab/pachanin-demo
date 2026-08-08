@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-recovery-artifact-3746",
+  "status": "active",
+  "purpose": "Retain redacted owner-only REG.RU provision and rollback evidence after cleanup so failed recovery is diagnosable without repeated blind access.",
+  "approvedBy": "owner-direct-production-recovery-2026-08-08",
+  "authorityBaseExactMain": "1d2e81ead1c0c0afb904e4be774fad8a3c65c290",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-staff-database-url.yml",
+    "scripts/check-production-staff-database-provision.mjs",
+    "docs/platform-v7/autopilot/scopes/production-recovery-artifact-3746.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ]
+}
