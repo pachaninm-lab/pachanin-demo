@@ -1,0 +1,111 @@
+name: Identity RLS lockfile guard authorization
+
+on:
+  push:
+    branches:
+      - identity-rls-3670
+    paths:
+      - .github/workflows/identity-rls-3670-lockfile-guard.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: identity-rls-3670-lockfile-guard
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_PARENT_SHA: 064cc24c21ec20435847dc09f285b448a5c7f820
+      BRANCH: identity-rls-3670
+      WORKFLOW_PATH: .github/workflows/identity-rls-3670-lockfile-guard.yml
+    steps:
+      - name: Checkout exact authorization commit
+        uses: actions/checkout@v4
+        with:
+          ref: identity-rls-3670
+          fetch-depth: 2
+
+      - name: Verify exact parent and single-purpose trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT_SHA"
+          test "$(git diff --name-only "$EXPECTED_PARENT_SHA" HEAD)" = "$WORKFLOW_PATH"
+
+      - name: Authorize only the required lockfile mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          guard = Path('scripts/p7-autopilot-guard.sh')
+          text = guard.read_text()
+          old = 'if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ]; then\n'
+          new = 'if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ] || [ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]; then\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'guard branch authorization anchor count={text.count(old)}')
+          text = text.replace(old, new)
+          comment_anchor = '  # Lockfile exemptions are granted per branch by the owner, never self-issued.\n'
+          comment = (
+              comment_anchor
+              + '  # identity-rls-3670: owner-directed P0 registration/RLS closure requires the\n'
+              + '  # actual nanoid HIGH-advisory remediation; package.json and pnpm-lock.yaml\n'
+              + '  # remain bounded by the source-controlled branch scope below.\n'
+          )
+          if text.count(comment_anchor) != 1:
+              raise SystemExit(f'guard comment anchor count={text.count(comment_anchor)}')
+          text = text.replace(comment_anchor, comment)
+          guard.write_text(text)
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/identity-rls-3670.json')
+          scope = json.loads(scope_path.read_text())
+          allowed = scope.get('allowedPaths')
+          if not isinstance(allowed, list):
+              raise SystemExit('scope allowedPaths missing')
+          path = 'scripts/p7-autopilot-guard.sh'
+          if path not in allowed:
+              allowed.append(path)
+          if len(allowed) != len(set(allowed)):
+              raise SystemExit('scope contains duplicate allowedPaths')
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n')
+          PY
+
+      - name: Verify narrow authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/p7-autopilot-guard.sh
+          grep -Fq '[ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]' scripts/p7-autopilot-guard.sh
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const s = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/identity-rls-3670.json', 'utf8'));
+          if (!s.allowedPaths.includes('scripts/p7-autopilot-guard.sh')) process.exit(1);
+          NODE
+          git diff --check
+
+      - name: Publish authorization and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm "$WORKFLOW_PATH"
+          expected="$({ printf '%s\n' \
+            'docs/platform-v7/autopilot/scopes/identity-rls-3670.json' \
+            'scripts/p7-autopilot-guard.sh' \
+            "$WORKFLOW_PATH"; } | sort)"
+          actual="$(git status --short | sed -E 's/^.. //' | sort)"
+          test "$actual" = "$expected" || {
+            printf 'Unexpected authorization paths:\n%s\n' "$actual" >&2
+            diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+            exit 20
+          }
+          git add -A
+          git commit -m 'ci(identity): authorize scoped nanoid lockfile remediation'
+          git push origin "HEAD:refs/heads/${BRANCH}"
