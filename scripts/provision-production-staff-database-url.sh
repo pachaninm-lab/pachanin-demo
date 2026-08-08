@@ -19,9 +19,9 @@ if [[ -z "$prod_dir" || -z "$prod_compose" ]]; then
   mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
   (( ${#web_ids[@]} == 1 )) || fail COMPOSE_WEB_AUTHORITY_AMBIGUOUS 3
   web_id="${web_ids[0]}"
-  prod_dir="$(docker inspect --format '{{ index .Config.Labels \"com.docker.compose.project.working_dir\" }}' "$web_id")"
-  prod_compose="$(docker inspect --format '{{ index .Config.Labels \"com.docker.compose.project.config_files\" }}' "$web_id")"
-  prod_project="$(docker inspect --format '{{ index .Config.Labels \"com.docker.compose.project\" }}' "$web_id")"
+  prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+  prod_compose="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+  prod_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
 fi
 [[ -n "$prod_dir" && "$prod_dir" == /* && "$prod_dir" != / && -d "$prod_dir" && ! -L "$prod_dir" ]] || fail PRODUCTION_DIRECTORY_INVALID 4
 [[ -n "$prod_compose" ]] || fail PROTECTED_COMPOSE_FILE_MISSING 5
