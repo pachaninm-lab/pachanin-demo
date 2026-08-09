@@ -118,6 +118,78 @@ describe('platform registration reviewer boundary', () => {
     expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
   });
 
+  it('marks an exact platform decision retry as replayed before reading delivery metadata', async () => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ application_id: 'application-1' }]),
+    };
+    const prisma = {
+      $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
+    };
+    const service = new RegistrationDecisionService(prisma as never, {} as never);
+    const replayResult = { applicationId: 'application-1', status: 'ACTIVATED', replayed: true };
+    const readResult = jest.fn().mockResolvedValue(replayResult);
+    Object.assign(service as unknown as Record<string, unknown>, {
+      requirePlatformDecisionAuthority: jest.fn().mockResolvedValue(undefined),
+      readResult,
+    });
+    const deliveryKey = 'registration-delivery-key-for-replay-test';
+
+    await expect(service.decide(
+      'application-1',
+      'APPROVE',
+      'Verified organization details',
+      { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] },
+      'idempotency-decision-replay-0001',
+      'correlation-replay-1',
+      deliveryKey,
+    )).resolves.toEqual(replayResult);
+
+    expect(readResult).toHaveBeenCalledWith(
+      tx,
+      'application-1',
+      deliveryKey,
+      true,
+    );
+  });
+
+  it('omits notification delivery metadata when readResult is replayed', async () => {
+    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
+    const deliveryKey = 'registration-delivery-key-for-read-result-test';
+    process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
+    const { service } = createService();
+    const client = {
+      $queryRaw: jest.fn().mockResolvedValue([{
+        id: 'application-1',
+        status: 'ACTIVATED',
+        version: 2n,
+        correlation_id: 'correlation-1',
+        email: 'applicant@example.test',
+        decision_reason: 'Verified organization details',
+      }]),
+    };
+    const readResult = (service as unknown as {
+      readResult: (
+        tx: typeof client,
+        applicationId: string,
+        providedDeliveryKey?: string,
+        replayed?: boolean,
+      ) => Promise<Record<string, unknown>>;
+    }).readResult.bind(service);
+
+    try {
+      await expect(readResult(client, 'application-1', deliveryKey)).resolves.toMatchObject({
+        replayed: false,
+        notificationDelivery: { email: 'applicant@example.test' },
+      });
+      const replay = await readResult(client, 'application-1', deliveryKey, true);
+      expect(replay).toMatchObject({ replayed: true });
+      expect(replay).not.toHaveProperty('notificationDelivery');
+    } finally {
+      if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
+      else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
+    }
+  });
+
   it('keeps the causal receipt inside a membership-free bounded PostgreSQL authority', () => {
     const migration = lifecycleReceiptMigration();
 

@@ -201,7 +201,7 @@ export class RegistrationDecisionService {
         if (existing[0].application_id !== applicationId) {
           throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_TARGET' });
         }
-        return this.readResult(tx, applicationId, deliveryKey);
+        return this.readResult(tx, applicationId, deliveryKey, true);
       }
 
       const application = await this.lockApplication(
@@ -297,7 +297,7 @@ export class RegistrationDecisionService {
         if (existing[0].application_id !== applicationId) {
           throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_TARGET' });
         }
-        return this.readResult(tx, applicationId, deliveryKey);
+        return this.readResult(tx, applicationId, deliveryKey, true);
       }
 
       const application = await this.lockApplication(
@@ -724,7 +724,12 @@ export class RegistrationDecisionService {
     };
   }
 
-  private async readResult(client: AuthSqlClient, applicationId: string, deliveryKey?: string) {
+  private async readResult(
+    client: AuthSqlClient,
+    applicationId: string,
+    deliveryKey?: string,
+    replayed = false,
+  ) {
     const rows = await client.$queryRaw<Array<{
       id: string;
       status: string;
@@ -748,13 +753,16 @@ export class RegistrationDecisionService {
       nextAction: application.status === 'ACTIVATED' ? 'LOGIN' : 'WAIT',
       version: application.version.toString(),
       correlationId: application.correlation_id,
-      notificationDelivery: deliveryAuthorized(deliveryKey)
+      replayed,
+      ...(!replayed && deliveryAuthorized(deliveryKey)
         ? {
-            email: application.email,
-            status: application.status,
-            reason: application.decision_reason,
+            notificationDelivery: {
+              email: application.email,
+              status: application.status,
+              reason: application.decision_reason,
+            },
           }
-        : undefined,
+        : {}),
     };
   }
 
