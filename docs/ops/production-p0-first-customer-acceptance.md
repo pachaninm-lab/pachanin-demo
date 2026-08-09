@@ -30,7 +30,7 @@ Workflow не создаёт и не повышает staff-пользовате
 2. Ответ регистрации не раскрывает `applicationId`, status token или verification token.
 3. Транспорт сообщает delivery, IMAP подтверждает фактическое получение, одноразовая ссылка проверяется через BFF, а повторное использование token получает `REGISTRATION_EMAIL_TOKEN_INVALID`.
 4. Существующий `PLATFORM_OWNER` входит с TOTP, активирует ограниченную `CONTROL_PLANE` session с `staff-request:read` и `staff-request:approve` и одобряет обе заявки только через Web BFF.
-5. Для каждого решения обязательны `idempotency-key`, отдельный correlation ID, статус `ACTIVATED` и подтверждённое письмо о решении. Exact replay одного решения с тем же ключом обязан вернуть `replayed=true` без `notificationDelivered`, то есть не запускать повторную отправку.
+5. Для каждого решения обязательны `idempotency-key`, отдельный correlation ID, статус `ACTIVATED` и подтверждённое письмо о решении. До exact replay фиксируется UID первого письма; replay с тем же ключом обязан вернуть `replayed=true` без `notificationDelivered`, после чего 120-секундное IMAP-окно подтверждает отсутствие нового matching UID и тем самым отсутствие повторной отправки.
 6. Оба клиента входят, завершают MFA enrollment, получают server-resolved cabinet `seller` и оказываются в разных tenant/organization.
 7. Клиент A выполняет разрешённое действие `auction.lot.register`; A читает созданный workspace, а клиент B получает точный `AUCTION_LOT_NOT_ACCESSIBLE` на известный существующий lot.
 8. Оба клиента выходят, `/api/auth/me` возвращает 401, затем выполняют свежий password+TOTP login.
