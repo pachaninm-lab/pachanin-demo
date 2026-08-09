@@ -922,6 +922,10 @@
     ],
     "fix/production-like-kubernetes-timeout-3750": [
       ".github/workflows/production-like-kubernetes-acceptance.yml"
+    ],
+    "fix/production-p0-staff-decision-idempotency-3750": [
+      "apps/web/app/api/staff/[...path]/route.ts",
+      "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts"
     ]
   },
   "currentAcceptance": [
