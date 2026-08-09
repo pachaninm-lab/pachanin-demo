@@ -74,6 +74,10 @@ requireAll('executor', [
   'notificationDelivered == true',
   'REGISTRATION_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED',
   'and .replayed == true and (has("notificationDelivered") | not)',
+  'mailbox_assert_no_decision_after',
+  'REGISTRATION_DECISION_REPLAY_DUPLICATE_MAIL_DETECTED',
+  'duplicateDecisionNotification',
+  'decisionReplayMailbox:$replayMailbox',
   'decisionReplayNotification:"PASS"',
   "'/api/proxy/auctions/lots'",
   'AUCTION_LOT_NOT_ACCESSIBLE',
@@ -154,6 +158,10 @@ forbid('workflow', [
   /StrictHostKeyChecking=no/,
   /sshpass/i,
 ]);
+const workflowPreamble = (source.workflow ?? '').split(/\njobs:\s*\n/, 1)[0];
+if (/\$\{\{\s*secrets\./.test(workflowPreamble)) {
+  failures.push(`${paths.workflow}: production secrets must not be scoped at workflow level`);
+}
 forbid('executor', [
   /https?:\/\/[^\s"']+\/auth\/register/,
   /prisma\s+migrate\s+(?:reset|dev)/i,
