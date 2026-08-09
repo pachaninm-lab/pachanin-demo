@@ -938,6 +938,26 @@
     "fix/production-p0-staff-decision-idempotency-3750": [
       "apps/web/app/api/staff/[...path]/route.ts",
       "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts"
+    ],
+    "governance/production-p0-staff-decision-session-3750-v2": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/production-p0-staff-decision-session-3750.json",
+      "scripts/check-production-p0-staff-decision-session.mjs"
+    ],
+    "fix/production-p0-staff-decision-session-3750": [
+      "apps/api/src/modules/staff-access/staff-access.controller.ts",
+      "apps/api/src/modules/staff-access/registration-decision-session-boundary.spec.ts"
+    ],
+    "governance/production-p0-registration-decision-replay-notification-3750": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/production-p0-registration-decision-replay-notification-3750.json",
+      "scripts/check-production-p0-registration-decision-replay-notification.mjs"
+    ],
+    "fix/production-p0-registration-decision-replay-notification-3750": [
+      "apps/api/src/modules/auth/registration-decision.service.spec.ts",
+      "apps/api/src/modules/auth/registration-decision.service.ts"
     ]
   },
   "currentAcceptance": [
