@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'apps/api/src/modules/auth/**'
+      - 'apps/api/src/modules/staff-access/**'
       - 'apps/web/app/api/staff/**'
       - 'apps/web/app/platform-v7/**'
       - 'apps/web/components/platform-v7/**'
@@ -32,6 +33,7 @@ on:
       - 'scripts/p7-autopilot-guard.sh'
       - 'scripts/check-production-like-kubernetes-timeout.mjs'
       - 'scripts/check-production-p0-staff-decision-idempotency.mjs'
+      - 'scripts/check-production-p0-staff-decision-session.mjs'
       - '.github/workflows/platform-v7-autopilot-guard.yml'
       - '.github/workflows/production-like-kubernetes-acceptance.yml'
 
@@ -68,6 +70,17 @@ jobs:
             node scripts/check-production-p0-staff-decision-idempotency.mjs --self-test
           else
             node scripts/check-production-p0-staff-decision-idempotency.mjs
+          fi
+      - name: Validate production P0 staff decision session contract
+        if: >-
+          github.event_name == 'pull_request' &&
+          (github.head_ref == 'governance/production-p0-staff-decision-session-3750-v2' ||
+          github.head_ref == 'fix/production-p0-staff-decision-session-3750')
+        run: |
+          if [ "$GITHUB_HEAD_REF" = 'governance/production-p0-staff-decision-session-3750-v2' ]; then
+            node scripts/check-production-p0-staff-decision-session.mjs --self-test
+          else
+            node scripts/check-production-p0-staff-decision-session.mjs
           fi
       - name: Generate Platform V7 route inventory
         run: node scripts/platform-v7-route-inventory.mjs --output=platform-v7-route-inventory.json
