@@ -37,7 +37,7 @@ try {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
 
-const allowedPaths = [paths.service, paths.test];
+const allowedPaths = [paths.test, paths.service];
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schemaVersion mismatch`);
 if (scope.branch !== 'fix/production-p0-registration-decision-replay-notification-3750') failures.push(`${paths.scope}: branch mismatch`);
 if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
@@ -147,22 +147,21 @@ const testAccepted = `  it('marks an exact platform decision retry as replayed b
 
 ${testAnchor}`;
 
-const acceptedService = replaceExactly(
-  replaceExactly(
-    replaceExactly(service, replayCallAnchor, replayCallAccepted, 2, 'decision replay calls'),
-    signatureAnchor,
-    signatureAccepted,
-    1,
-    'readResult replay signature',
-  ),
-  deliveryAnchor,
-  deliveryAccepted,
-  1,
-  'replay-safe notification delivery',
-);
-const acceptedTest = replaceExactly(test, testAnchor, testAccepted, 1, 'replay notification unit tests');
-
 if (selfTest) {
+  const acceptedService = replaceExactly(
+    replaceExactly(
+      replaceExactly(service, replayCallAnchor, replayCallAccepted, 2, 'decision replay calls'),
+      signatureAnchor,
+      signatureAccepted,
+      1,
+      'readResult replay signature',
+    ),
+    deliveryAnchor,
+    deliveryAccepted,
+    1,
+    'replay-safe notification delivery',
+  );
+  const acceptedTest = replaceExactly(test, testAnchor, testAccepted, 1, 'replay notification unit tests');
   if (sha256(service) !== scope.baselineSha256?.service) failures.push(`${paths.service}: baseline SHA-256 mismatch`);
   if (sha256(test) !== scope.baselineSha256?.test) failures.push(`${paths.test}: baseline SHA-256 mismatch`);
   if (sha256(acceptedService) !== scope.acceptedSha256?.service) failures.push(`${paths.service}: synthesized accepted SHA-256 mismatch`);
