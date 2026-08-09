@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-p0-staff-decision-idempotency-3750",
+  "status": "active",
+  "purpose": "Permit only the Web staff BFF propagation of the backend-required registration-decision idempotency key and its static P0 contract assertions.",
+  "authorityBaseExactMain": "ecc915a86973f6d16b794c149ede42c567df2d30",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/api/staff/[...path]/route.ts",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts"
+  ],
+  "baselineSha256": {
+    "apps/web/app/api/staff/[...path]/route.ts": "223f3bf9f391c0e3bc250af4b641923142a2bd74800ebdcf35d32c2243cfceac",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts": "a37d8d185f2789ba3ed3e3c0b78422db4e0005b06f45112e18f18f6c0b5e03e9"
+  },
+  "acceptedSha256": {
+    "apps/web/app/api/staff/[...path]/route.ts": "54467d0bcf8e931b1ead64bbb09e4c5a6a8a0ce7556eae11a68acd8d8820cd96",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts": "d0a6f53f81757ad9b9626fa9ac5279bfd604e18c802d4c46c9f983285efe9f8b"
+  },
+  "requiredInvariants": [
+    "Only registration decision requests read, validate and forward idempotency-key.",
+    "The existing server-only registration delivery key remains mandatory and is never returned to the browser.",
+    "The browser path remains staff-session, permission and fresh-MFA protected.",
+    "The follow-up branch cannot edit this scope contract, its checker, or the protected guard workflow."
+  ]
+}
