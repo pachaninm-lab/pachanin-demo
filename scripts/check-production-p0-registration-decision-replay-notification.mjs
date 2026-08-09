@@ -183,8 +183,9 @@ if (selfTest) {
   if (diff.status !== 0) {
     failures.push(`git diff failed: ${diff.stderr.trim()}`);
   } else {
-    const changed = diff.stdout.trim().split(/\r?\n/).filter(Boolean);
-    if (JSON.stringify(changed) !== JSON.stringify(allowedPaths)) {
+    const changed = diff.stdout.trim().split(/\r?\n/).filter(Boolean).sort();
+    const expectedChanged = [...allowedPaths].sort();
+    if (JSON.stringify(changed) !== JSON.stringify(expectedChanged)) {
       failures.push(`changed paths must be exactly ${JSON.stringify(allowedPaths)}; received ${JSON.stringify(changed)}`);
     }
   }
