@@ -7,8 +7,8 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
-    "apps/api/src/modules/auth/registration-decision.service.ts",
-    "apps/api/src/modules/auth/registration-decision.service.spec.ts"
+    "apps/api/src/modules/auth/registration-decision.service.spec.ts",
+    "apps/api/src/modules/auth/registration-decision.service.ts"
   ],
   "baselineSha256": {
     "service": "37a53d1966df2a14e5bf687604845334aa0137926de7d86a63ccf3b8be62e0b3",
