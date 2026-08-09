@@ -1,59 +1,68 @@
-# Production P0: приёмка первой регистрации
+# Production P0 first-customer acceptance
 
-Этот контур доказывает только путь первой регистрации на каноническом REG.RU VPS для точного текущего `main`. Он не меняет production, не создаёт staff-аккаунт, не подменяет PostgreSQL-события и не является общей аттестацией всей платформы.
+## Authority and result
 
-## Запуск
+This runbook proves the public P0 customer-registration path on the canonical REG.RU Docker Compose production contour. It does not deploy code and it never treats organization intake, a preview, a registry image, or a merged pull request as production proof.
 
-Единственная разрешённая команда владельца в issue `#3072`:
-
-```text
-/production accept-p0-registration current-main
-```
-
-`workflow_dispatch` отсутствует. Workflow до любого внешнего действия подтверждает владельца комментария, `github.actor`, `github.triggering_actor`, чистый checkout и точный SHA текущего `main`. После проверки он повторно доказывает, что `main` не изменился.
-
-Сначала должен завершиться точный production-релиз этого SHA. Публичный `/api/health/ready` и OCI labels API, Web и migration image обязаны совпасть с ним.
-
-## Защищённые prerequisites
-
-В GitHub Actions должны быть настроены существующие pinned-SSH secrets production-контура и следующие acceptance secrets:
-
-- `PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE` — уникальный адрес с обязательными `{run}` и `{slot}`;
-- `PC_PROD_P0_MAILBOX_IMAP_HOST`, `PC_PROD_P0_MAILBOX_IMAP_PORT`, `PC_PROD_P0_MAILBOX_IMAP_USER`, `PC_PROD_P0_MAILBOX_IMAP_PASSWORD`;
-- `PC_PROD_P0_STAFF_EMAIL`, `PC_PROD_P0_STAFF_PASSWORD`, `PC_PROD_P0_STAFF_TOTP_SECRET` существующего `PLATFORM_OWNER`.
-
-Workflow не создаёт и не повышает staff-пользователя. При отсутствии assignment, свежего MFA, `STAFF_REQUEST_APPROVE`, защищённой staff session или mailbox acknowledgement он завершается ошибкой.
-
-## Что именно доказывается
-
-1. Через публичный Web BFF создаются две уникальные run-scoped заявки продавцов с разными организациями.
-2. Ответ регистрации не раскрывает `applicationId`, status token или verification token.
-3. Транспорт сообщает delivery, IMAP подтверждает фактическое получение, одноразовая ссылка проверяется через BFF, а повторное использование token получает `REGISTRATION_EMAIL_TOKEN_INVALID`.
-4. Существующий `PLATFORM_OWNER` входит с TOTP, активирует ограниченную `CONTROL_PLANE` session с `staff-request:read` и `staff-request:approve` и одобряет обе заявки только через Web BFF.
-5. Для каждого решения обязательны `idempotency-key`, отдельный correlation ID, статус `ACTIVATED` и подтверждённое письмо о решении. Exact replay одного решения с тем же ключом обязан вернуть `replayed=true` без `notificationDelivered`, то есть не запускать повторную отправку.
-6. Оба клиента входят, завершают MFA enrollment, получают server-resolved cabinet `seller` и оказываются в разных tenant/organization.
-7. Клиент A выполняет разрешённое действие `auction.lot.register`; A читает созданный workspace, а клиент B получает точный `AUCTION_LOT_NOT_ACCESSIBLE` на известный существующий lot.
-8. Оба клиента выходят, `/api/auth/me` возвращает 401, затем выполняют свежий password+TOTP login.
-9. В read-only транзакциях под реальным runtime principal PostgreSQL возвращает lot для tenant A и ноль строк для tenant B; роль обязана быть `NOSUPERUSER`, `NOBYPASSRLS`, а `auction.lots` — `ENABLE` + `FORCE RLS`.
-10. Prisma-клиент exact-SHA API image подключается с защищённым `DATABASE_URL` подтверждённого exact-SHA migration service только на время read-only транзакции, переключается на membership-free `pc_registration_receipt_authority` и читает ровно две причинные записи `auth.registration.lifecycle.receipt`. Для каждой совпадают application version, approval/activation events, immutable audit hash, decision correlation и ключ `registration-lifecycle:<applicationId>:<version>`.
-
-Если точный SHA не содержит или не произвёл этот outbox producer, результат всегда `MISSING_P0_CAUSAL_OUTBOX_PRODUCER`. Workflow не вставляет запасное событие и не принимает несвязанную outbox-запись.
-
-## Артефакт
-
-Успех создаёт `artifacts/production-p0-first-customer-acceptance/acceptance.json` с точным SHA, PASS-маркерами, non-secret IDs audit/outbox и хешами адресов.
-
-Артефакт не содержит адреса пользователей, passwords, bearer/cookie values, raw verification/status tokens, TOTP secrets/codes, mailbox credentials, private keys или защищённые пути сервера. Временные локальные и VPS-файлы удаляются независимо от результата.
-
-Ключевые итоговые маркеры:
+The only production trigger is an exact owner comment on release issue `#3072`:
 
 ```text
-P0_TWO_REGISTRATIONS=PASS
-P0_TRANSACTIONAL_MAIL=PASS
-P0_DECISION_REPLAY_NOTIFICATION=PASS
-P0_STAFF_MFA_AND_PROTECTED_SESSION=PASS
-P0_CABINET_ACTION_LOGOUT_RELOGIN=PASS
-P0_TENANT_RLS=PASS
-P0_CAUSAL_AUDIT_OUTBOX=PASS
-P0_FIRST_CUSTOMER_ACCEPTANCE=PASS
+/production p0-first-customer current-main
 ```
+
+The workflow requires the issue-comment author, Actions actor, and rerun triggering actor all to equal the repository owner. The pull-request contract has read-only repository permissions; only the owner-command production job receives `issues: write`, and neither checkout persists credentials. The workflow resolves GitHub `main` at the start and rechecks it before every public HTTP group, mailbox read, SSH read, issue comment, artifact publication, and terminal PASS. If `main` advances, the run fails. Before this command is used, `/production release current-main` must have completed successfully for the same exact SHA.
+
+## Protected prerequisites
+
+All prerequisites are existing protected GitHub Actions secrets. Missing values fail closed before a customer is created.
+
+Mailbox delivery and single-use verification:
+
+- `PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE` (or `PC_PROD_P0_EMAIL_TEMPLATE`): a deliverable controlled address containing either exactly one `{identity}` placeholder or exactly one `{run}` and one `{slot}` placeholder;
+- `PC_PROD_P0_MAILBOX_IMAP_HOST`, `PC_PROD_P0_MAILBOX_IMAP_USER`, `PC_PROD_P0_MAILBOX_IMAP_PASSWORD` (the shorter `PC_PROD_P0_IMAP_*` aliases are also accepted);
+- optional `PC_PROD_P0_MAILBOX_IMAP_PORT` or `PC_PROD_P0_IMAP_PORT` (default `993`), and `PC_PROD_P0_IMAP_FOLDER` (default `INBOX`).
+
+The mailbox must preserve the generated alias in a recipient header. The workflow reads with IMAPS and `BODY.PEEK[]`; it neither deletes nor publishes the message.
+
+Existing server-authoritative reviewer:
+
+- `PC_PROD_P0_STAFF_EMAIL` (or `PC_PROD_P0_REVIEWER_EMAIL`);
+- `PC_PROD_P0_STAFF_PASSWORD` (or `PC_PROD_P0_REVIEWER_PASSWORD`);
+- `PC_PROD_P0_STAFF_TOTP_SECRET` (or `PC_PROD_P0_REVIEWER_TOTP_SECRET`).
+
+The reviewer must already have MFA enrolled and an active `PLATFORM_OWNER` assignment whose server-side permission ceiling includes `STAFF_REQUEST_APPROVE`. The workflow never creates, promotes, or repairs a reviewer. After fresh MFA it requests the ordinary 30-minute auto-approved `CONTROL_PLANE` grant with only `staff-request:read` and `staff-request:approve`, verifies the resulting protected session, and ends it explicitly; failure cleanup also attempts to end it.
+
+The pinned REG.RU SSH prerequisites are the same protected values used by the exact-SHA release workflow: `PC_PROD_HOST`, `PC_PROD_SSH_USER`, `PC_PROD_SSH_PORT`, an accepted private-key slot, and `PC_PROD_SSH_HOST_FINGERPRINT`.
+
+## Acceptance sequence
+
+1. Confirm the running API and Web OCI revision labels and the configured migration image revision all equal exact current `main`, Web is healthy, public `/ready` reports the same revision, and PostgreSQL contains the bounded causal producer `auth.emit_registration_lifecycle_receipt(text,text)`.
+2. Generate two unique run-scoped deliverable identities and distinct organization identifiers.
+3. Submit both through `/api/auth/register` with CSRF and idempotency. HTTP `202` is accepted only because the Web BFF has received configured transactional-mail delivery acknowledgement; the response must not contain a verification token or status token.
+4. Read each single-use link from the controlled mailbox and verify through `/api/auth/registration/verify`. Raw verification tokens remain only in a rootless runner temporary directory and are never placed in an issue comment or artifact.
+5. Log in as the existing `PLATFORM_OWNER` reviewer through `/api/auth/login`, complete fresh MFA through `/api/auth/mfa-login`, verify the active reviewer assignment, request and activate the required time-bounded `CONTROL_PLANE` session with exactly `staff-request:read` and `staff-request:approve`, verify that session server-side, read the protected registration queue, and approve each exact application through `/api/staff/registration/applications/<id>/decision`. Both decision-notification deliveries must be acknowledged. End the protected staff session before reviewer logout, with best-effort cleanup on every failure path.
+6. Log in as both customers, require first-time TOTP enrollment, complete MFA, resolve each server-side user/organization/tenant/membership context, and perform the permitted `GET /api/proxy/auth/organization-team` action.
+7. Use authenticated tenant B to send the same Web BFF a valid command against tenant A's proven membership identifier and version. A malformed request, HTTP `401`, or a made-up identifier is not accepted as isolation evidence.
+8. Through the pinned owner-only SSH boundary, execute Prisma reads from the exact running API container against its actual `AUTH_DATABASE_URL`. The transaction is switched to `READ ONLY` before its first query; `current_user` must be a known restricted auth principal with neither `SUPERUSER` nor `BYPASSRLS`, and `public.user_orgs` must have both RLS and FORCE enabled. With all five exact active-session GUCs set transaction-locally, tenant A must return `A=1` for its membership and tenant B must return `B=0` for that same known row.
+9. Resolve the protected Compose authority from the live Web labels, require exactly one migration service and an exact-SHA migration image, and use that service's existing database endpoint without printing it. Inside the exact API image's Prisma client, begin another read-only transaction and assume only the `NOLOGIN`, `NOINHERIT`, `NOSUPERUSER`, `NOBYPASSRLS`, no-members role `pc_registration_receipt_authority`. Prove live that RLS is active and exposes no non-receipt outbox row to that role; the role has only its required reads and bounded outbox insert, no table- or column-level write privileges on registration/audit records or update/delete/truncate privilege on outbox; both exact outbox RLS policies remain bounded; the receipt function is owned by that role and remains `SECURITY DEFINER` with row security on, a fixed `pg_catalog, pg_temp` search path, and no `PUBLIC` execute grant; and both append-only audit triggers are enabled. Then read the exact activated application, APPROVED and ACTIVATED events, immutable approval audit, and named `auth.registration.lifecycle.receipt` outbox entry. Its idempotency key must be `registration-lifecycle:<applicationId>:<applicationVersion>`, and the application, actor, event, audit, correlation, and payload fields must match this exact run.
+10. Log both customers out, prove their sessions are rejected, perform fresh password + TOTP re-login, repeat the permitted read, log out again, and log out the reviewer.
+
+The PostgreSQL portion supports the production external PostgreSQL topology and does not require a Compose PostgreSQL container. Both database transactions are read-only. The migration database URL moves only over an in-memory NUL-delimited pipe into the exact API container; it is not a command argument, log field, result, or artifact. The workflow never uses SQL to create, approve, activate, repair, impersonate, or delete an identity, never runs a migration, and never calls the receipt producer. A missing producer returns `MISSING_P0_CAUSAL_OUTBOX_PRODUCER`; the workflow must never invent a substitute outbox row.
+
+## Evidence and redaction
+
+The 90-day checksummed artifact contains only a bounded JSON result, sanitized status markers, application/user/organization/tenant/membership identifiers, immutable audit IDs, and causal outbox IDs. Email addresses are represented only by truncated SHA-256 hashes. The release-issue comment is posted only after the artifact attempt and reports terminal `PASS` only when execution, redaction validation, exact-main guard, upload, and protected-credential cleanup have all succeeded; otherwise it reports `FAIL` and the bounded blocker.
+
+Passwords, bearer/refresh credentials, raw verification/status tokens, TOTP setup secrets, backup codes, reviewer credentials, mailbox credentials, private keys, and protected server paths are never evidence and must never be printed. The workflow scans its bounded artifact before upload and fails if credential-shaped material is found.
+
+Production P0 registration is accepted only when the workflow reports all of the following for one exact SHA:
+
+- two mail-delivered and email-verified public BFF registrations;
+- separate existing staff approval with recent MFA;
+- two distinct server-resolved tenants and successful customer MFA/re-login;
+- a permitted protected action and an authenticated cross-tenant BFF denial;
+- paired PostgreSQL RLS evidence `A=1` and `B=0`;
+- a no-members, write-bounded receipt authority, exact bounded RLS policies, a role-owned `SECURITY DEFINER` producer, and enabled append-only audit triggers;
+- two exact causal audit/outbox receipts of type `auth.registration.lifecycle.receipt`.
+
+Any missing protected mailbox/reviewer/SSH prerequisite, main advancement, production revision mismatch, generic unauthenticated denial, RLS mismatch, missing audit, or unrelated/missing outbox entry is a hard failure. There is never a partial PASS.

@@ -9,155 +9,184 @@ on:
       - 'scripts/check-production-p0-first-customer-acceptance.mjs'
       - 'docs/ops/production-p0-first-customer-acceptance.md'
       - 'docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-first-customer-acceptance.yml'
+      - 'scripts/production-p0-first-customer-acceptance.sh'
+      - 'scripts/check-production-p0-first-customer-acceptance.mjs'
+      - 'docs/ops/production-p0-first-customer-acceptance.md'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json'
   issue_comment:
     types: [created]
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: production-p0-first-customer-acceptance
   cancel-in-progress: false
 
 env:
-  DEFAULT_HOST: 195.19.12.120
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
   RELEASE_ISSUE_NUMBER: 3072
-  EVIDENCE_DIR: artifacts/production-p0-first-customer-acceptance
-  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  EVIDENCE_DIR: artifacts/production-p0-first-customer
 
 jobs:
   contract:
-    name: Validate exact-main owner authority and P0 contract
+    name: Validate production P0 acceptance contract
     if: >-
       github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
-       github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/production accept-p0-registration current-main')
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-first-customer current-main'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    outputs:
-      authorized: ${{ steps.authority.outputs.authorized }}
-      target_sha: ${{ steps.authority.outputs.target_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-      - name: Validate static fail-closed contract
-        run: node scripts/check-production-p0-first-customer-acceptance.mjs
-      - name: Resolve exact owner-authorized current main
-        id: authority
-        env:
-          COMMENTER: ${{ github.event.comment.user.login }}
-          ACTOR: ${{ github.actor }}
-          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
-          OWNER: ${{ github.repository_owner }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          if [[ '${{ github.event_name }}' != issue_comment ]]; then
-            echo 'authorized=0' >> "$GITHUB_OUTPUT"
-            echo 'target_sha=' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          [[ "$COMMENTER" == "$OWNER" && "$ACTOR" == "$OWNER" && "$TRIGGERING_ACTOR" == "$OWNER" ]]
-          git fetch --no-tags origin main
-          target_sha="$(git rev-parse origin/main)"
-          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
-          [[ -z "$(git status --porcelain=v1)" ]]
-          echo 'authorized=1' >> "$GITHUB_OUTPUT"
-          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          node-version: '24'
+      - run: node scripts/check-production-p0-first-customer-acceptance.mjs
 
-  acceptance:
-    name: Two registrations · MFA · cabinet · tenant RLS · causal receipt
+  accept-production-first-customers:
+    name: Two public customers · staff MFA · RLS · causal receipt
     needs: contract
     if: >-
-      github.event_name == 'issue_comment' &&
       needs.contract.result == 'success' &&
-      needs.contract.outputs.authorized == '1'
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-first-customer current-main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_P0_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+      PC_P0_REVIEWER_EMAIL: ${{ secrets.PC_PROD_P0_STAFF_EMAIL || secrets.PC_PROD_P0_REVIEWER_EMAIL }}
+      PC_P0_REVIEWER_PASSWORD: ${{ secrets.PC_PROD_P0_STAFF_PASSWORD || secrets.PC_PROD_P0_REVIEWER_PASSWORD }}
+      PC_P0_REVIEWER_TOTP_SECRET: ${{ secrets.PC_PROD_P0_STAFF_TOTP_SECRET || secrets.PC_PROD_P0_REVIEWER_TOTP_SECRET }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Reconfirm exact current main before external actions
-        env:
-          TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          git fetch --no-tags origin main
-          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
-          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-          [[ -z "$(git status --porcelain=v1)" ]]
-          node scripts/check-production-p0-first-customer-acceptance.mjs
 
-      - name: Resolve protected root key and pinned REG.RU identity
-        id: ssh
+      - name: Resolve exact current main
+        id: target
         shell: bash
         run: |
-          set -Eeuo pipefail
-          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned REG.RU identity
+        id: ssh
+        continue-on-error: true
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          guard_main() {
+            [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          }
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
           host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
           user="$(trim "${SSH_USER_SECRET:-}")"
           port="$(trim "${SSH_PORT_SECRET:-22}")"
           expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical REG.RU VPS mismatch.' >&2; exit 10; }
-          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 12
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
-          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
-          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
-          chmod 700 "$HOME/.ssh" "$EVIDENCE_DIR"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo P0_CANONICAL_VPS_MISMATCH >&2; exit 20; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 21; }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 22; }
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 23; }
+          if [[ -z "$PC_P0_EMAIL_TEMPLATE" || -z "$PC_P0_IMAP_HOST" \
+            || -z "$PC_P0_IMAP_USER" || -z "$PC_P0_IMAP_PASSWORD" ]]; then
+            echo MISSING_P0_MAILBOX_PREREQUISITE >&2
+            exit 24
+          fi
+          if [[ -z "$PC_P0_REVIEWER_EMAIL" || -z "$PC_P0_REVIEWER_PASSWORD" \
+            || -z "$PC_P0_REVIEWER_TOTP_SECRET" ]]; then
+            echo MISSING_P0_REVIEWER_PREREQUISITE >&2
+            exit 25
+          fi
 
-          validate_key(){
-            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
-            tr -d '\r' < "$source" > "$target"
-            chmod 600 "$target"
-            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+          key_path="$RUNNER_TEMP/pc-p0-production-key"
+          known_hosts="$RUNNER_TEMP/pc-p0-known-hosts"
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key_path"
+            chmod 0600 "$key_path"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key_path" && return 1
             public_key="$(mktemp)"
-            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
-            ssh-keygen -lf "$public_key" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null \
+              || { rm -f "$public_key"; return 1; }
             rm -f "$public_key"
           }
-          try_slot(){
-            local raw="$1" first second third
+          try_slot() {
+            local raw="$1" plain escaped decoded
             [[ -n "$raw" ]] || return 1
-            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
-            printf '%s\n' "$raw" > "$first"
-            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
-            printf '%s' "${raw//\\n/$'\n'}" > "$second"
-            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
-            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && { rm -f "$first" "$second" "$third"; return 0; }
-            rm -f "$first" "$second" "$third"
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
             return 1
           }
-          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
-            echo 'No valid protected SSH private key is configured.' >&2
-            exit 14
-          }
+          try_slot "${SSH_KEY_PRIMARY:-}" \
+            || try_slot "${SSH_KEY_SECONDARY:-}" \
+            || try_slot "${SSH_KEY_FALLBACK:-}" \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 26; }
 
+          guard_main
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips" || { echo P0_CANONICAL_DNS_MISMATCH >&2; exit 27; }
+          guard_main
           scan="$(mktemp)"; match="$(mktemp)"
           ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
           [[ -s "$scan" ]]
@@ -165,85 +194,175 @@ jobs:
             fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
             [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
           done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]] || { rm -f "$scan" "$match"; exit 15; }
-          mv "$match" "$HOME/.ssh/known_hosts"
+          [[ "$(grep -c . "$match" || true)" == 1 ]] || { echo P0_PINNED_HOST_KEY_MISMATCH >&2; exit 28; }
+          mv "$match" "$known_hosts"
           rm -f "$scan"
-          chmod 600 "$HOME/.ssh/known_hosts"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            "$user@$host" 'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; docker compose version >/dev/null; command -v jq >/dev/null; echo ROOT_SSH_AUTH_OK' \
-            > "$EVIDENCE_DIR/ssh-auth.txt"
-          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          chmod 0600 "$known_hosts"
+          guard_main
+          ssh -i "$key_path" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' \
+            >/dev/null
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "user=$user" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "key_path=$key_path" >> "$GITHUB_OUTPUT"
+          echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
 
-      - name: Execute fail-closed production P0 journey
-        env:
-          TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
-          PC_PROD_SSH_HOST: ${{ steps.ssh.outputs.host }}
-          PC_PROD_SSH_USER: ${{ steps.ssh.outputs.user }}
-          PC_PROD_SSH_PORT: ${{ steps.ssh.outputs.port }}
-          PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE }}
-          PC_PROD_P0_MAILBOX_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST }}
-          PC_PROD_P0_MAILBOX_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT }}
-          PC_PROD_P0_MAILBOX_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER }}
-          PC_PROD_P0_MAILBOX_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD }}
-          PC_PROD_P0_STAFF_EMAIL: ${{ secrets.PC_PROD_P0_STAFF_EMAIL }}
-          PC_PROD_P0_STAFF_PASSWORD: ${{ secrets.PC_PROD_P0_STAFF_PASSWORD }}
-          PC_PROD_P0_STAFF_TOTP_SECRET: ${{ secrets.PC_PROD_P0_STAFF_TOTP_SECRET }}
+      - name: Execute exact-main P0 first-customer acceptance
+        id: acceptance
+        continue-on-error: true
         shell: bash
-        run: PC_PROD_SSH_KEY_PATH="$HOME/.ssh/id_pc_prod" bash scripts/production-p0-first-customer-acceptance.sh
-
-      - name: Prove main did not advance during acceptance
         env:
-          TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+          PC_P0_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          PC_P0_LIVE_BASE: ${{ env.LIVE_BASE }}
+          PC_P0_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}
+          PC_P0_SSH_HOST: ${{ steps.ssh.outputs.host }}
+          PC_P0_SSH_USER: ${{ steps.ssh.outputs.user }}
+          PC_P0_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          PC_P0_SSH_KEY_PATH: ${{ steps.ssh.outputs.key_path }}
+          PC_P0_SSH_KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          bash scripts/production-p0-first-customer-acceptance.sh '${{ steps.target.outputs.sha }}' \
+            | tee "$EVIDENCE_DIR/run.log"
+
+      - name: Enforce bounded redacted evidence
+        id: evidence
+        if: always()
         shell: bash
         run: |
-          set -Eeuo pipefail
-          git fetch --no-tags origin main
-          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]] || {
-            echo 'Main advanced during P0 production acceptance.' >&2
-            exit 20
-          }
-          jq -e --arg sha "$TARGET_SHA" '.result == "PASS" and .targetSha == $sha' "$EVIDENCE_DIR/acceptance.json" >/dev/null
+          set -euo pipefail
+          test -f "$EVIDENCE_DIR/result.json"
+          set +e
+          rg --quiet --ignore-case \
+            'verify=|statusToken|setupSecret|mfaSecret|totpSecret|backupCodes|otpAuthUri|otpauth://|postgres(?:ql)?://|DATABASE_URL=|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|staffAccessToken|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|"password"[[:space:]]*:' \
+            "$EVIDENCE_DIR"
+          scan_status=$?
+          set -e
+          case "$scan_status" in
+            0) echo P0_EVIDENCE_CONTAINS_SECRET_MATERIAL >&2; exit 30 ;;
+            1) ;;
+            *) echo P0_EVIDENCE_SCAN_FAILED >&2; exit 31 ;;
+          esac
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 
-      - name: Upload redacted exact-SHA acceptance evidence
+      - name: Guard exact main before artifact publication
+        id: artifact_guard
         if: always()
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Upload bounded P0 acceptance evidence
+        id: upload
+        if: >-
+          always() &&
+          steps.evidence.outcome == 'success' &&
+          steps.artifact_guard.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: production-p0-first-customer-${{ needs.contract.outputs.target_sha }}
+          name: production-p0-first-customer-${{ steps.target.outputs.sha }}-${{ github.run_id }}
           path: ${{ env.EVIDENCE_DIR }}
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 90
+          compression-level: 0
 
-      - name: Remove local production credential
+      - name: Remove protected runner credentials
+        id: credential_cleanup
         if: always()
         shell: bash
-        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
-
-  report:
-    name: Publish bounded P0 result
-    needs: [contract, acceptance]
-    if: always() && github.event_name == 'issue_comment' && needs.contract.outputs.authorized == '1'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Comment safe result on production authority issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
-          ACCEPTANCE_RESULT: ${{ needs.acceptance.result }}
-        shell: bash
         run: |
-          set -Eeuo pipefail
-          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          if [[ "$ACCEPTANCE_RESULT" == success ]]; then
-            title='P0 registration production acceptance PASS'
-          else
-            title='P0 registration production acceptance BLOCKED'
+          set -euo pipefail
+          for protected_path in \
+            '${{ steps.ssh.outputs.key_path }}' \
+            '${{ steps.ssh.outputs.known_hosts }}' \
+            "$RUNNER_TEMP/pc-p0-production-key" \
+            "$RUNNER_TEMP/pc-p0-known-hosts"; do
+            [[ -z "$protected_path" ]] || rm -f -- "$protected_path"
+          done
+
+      - name: Publish bounded terminal result to release authority
+        id: publication
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          EVIDENCE_OUTCOME: ${{ steps.evidence.outcome }}
+          ARTIFACT_GUARD_OUTCOME: ${{ steps.artifact_guard.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          CLEANUP_OUTCOME: ${{ steps.credential_cleanup.outcome }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          execution_result=''
+          stage=''
+          blocker=''
+          if [[ -f "$EVIDENCE_DIR/run.log" ]]; then
+            execution_result="$(sed -n 's/^P0_FIRST_CUSTOMER_ACCEPTANCE=//p' "$EVIDENCE_DIR/run.log" | tail -1)"
+            stage="$(sed -n 's/^P0_ACCEPTANCE_STAGE=//p' "$EVIDENCE_DIR/run.log" | tail -1)"
+            blocker="$(sed -n 's/^P0_BLOCKER=//p' "$EVIDENCE_DIR/run.log" | tail -1)"
           fi
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$REPO" \
-            --body "$title for exact main \`$TARGET_SHA\`: $run_url"
-          [[ "$ACCEPTANCE_RESULT" == success ]]
+          [[ "$execution_result" =~ ^(PASS|FAIL)?$ ]]
+          [[ "$stage" =~ ^[A-Za-z0-9._:-]{0,100}$ ]]
+          [[ "$blocker" =~ ^[A-Z0-9_]{0,100}$ ]]
+          terminal_result=FAIL
+          if [[ "$execution_result" == PASS \
+            && "$ACCEPTANCE_OUTCOME" == success \
+            && "$EVIDENCE_OUTCOME" == success \
+            && "$ARTIFACT_GUARD_OUTCOME" == success \
+            && "$UPLOAD_OUTCOME" == success \
+            && "$CLEANUP_OUTCOME" == success ]]; then
+            terminal_result=PASS
+          elif [[ -z "$blocker" ]]; then
+            if [[ "$ACCEPTANCE_OUTCOME" != success ]]; then blocker=P0_ACCEPTANCE_EXECUTION_FAILED
+            elif [[ "$EVIDENCE_OUTCOME" != success ]]; then blocker=P0_EVIDENCE_VALIDATION_FAILED
+            elif [[ "$ARTIFACT_GUARD_OUTCOME" != success ]]; then blocker=P0_ARTIFACT_GUARD_FAILED
+            elif [[ "$UPLOAD_OUTCOME" != success ]]; then blocker=P0_EVIDENCE_UPLOAD_FAILED
+            else blocker=P0_CREDENTIAL_CLEANUP_FAILED
+            fi
+          fi
+          record="$(mktemp)"
+          {
+            echo "## Production P0 first-customer acceptance"
+            echo
+            echo "- exact main: \`$TARGET_SHA\`"
+            echo "- result: \`$terminal_result\`"
+            echo "- execution: \`${execution_result:-FAIL}\`"
+            echo "- stage: \`${stage:-unknown}\`"
+            echo "- blocker: \`${blocker:-none}\`"
+            echo "- evidence validation: \`$EVIDENCE_OUTCOME\`"
+            echo "- exact-main artifact guard: \`$ARTIFACT_GUARD_OUTCOME\`"
+            echo "- artifact upload: \`$UPLOAD_OUTCOME\`"
+            echo "- credential cleanup: \`$CLEANUP_OUTCOME\`"
+            echo "- artifact retention policy: \`90 days\`"
+            echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce production P0 result
+        if: always()
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]] \
+            || { echo P0_MAIN_ADVANCED_BEFORE_TERMINAL_RESULT >&2; exit 1; }
+          [[ '${{ steps.acceptance.outcome }}' == success ]]
+          [[ '${{ steps.evidence.outcome }}' == success ]]
+          [[ '${{ steps.artifact_guard.outcome }}' == success ]]
+          [[ '${{ steps.upload.outcome }}' == success ]]
+          [[ '${{ steps.credential_cleanup.outcome }}' == success ]]
+          [[ '${{ steps.publication.outcome }}' == success ]]
+          grep -Fxq P0_FIRST_CUSTOMER_ACCEPTANCE=PASS "$EVIDENCE_DIR/run.log"
