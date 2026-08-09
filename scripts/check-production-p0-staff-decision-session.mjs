@@ -18,6 +18,8 @@ const read = (path) => {
   return fs.readFileSync(path, 'utf8');
 };
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+const sameExactPaths = (actual, expected) => Array.isArray(actual)
+  && JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort());
 const replaceOnce = (source, from, to, label) => {
   const count = source.split(from).length - 1;
   if (count !== 1) {
@@ -37,10 +39,10 @@ try {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
 
-const allowedPaths = [paths.test, paths.controller];
+const allowedPaths = [paths.controller, paths.test];
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schemaVersion mismatch`);
 if (scope.branch !== 'fix/production-p0-staff-decision-session-3750') failures.push(`${paths.scope}: branch mismatch`);
-if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
+if (!sameExactPaths(scope.allowedPaths, allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
 
 const controllerAnchor = `  @Post('registration/applications/:applicationId/decision')
   @RateLimit({ name: 'staff_registration_application_decision', scope: 'user', limit: 20, windowSeconds: 900, includeParams: ['applicationId'] })
