@@ -928,6 +928,16 @@
       "docs/platform-v7/autopilot/autopilot-state.json",
       "docs/platform-v7/autopilot/scopes/production-like-kubernetes-timeout-3750.json",
       "scripts/check-production-like-kubernetes-timeout.mjs"
+    ],
+    "governance/production-p0-staff-decision-idempotency-3750": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/production-p0-staff-decision-idempotency-3750.json",
+      "scripts/check-production-p0-staff-decision-idempotency.mjs"
+    ],
+    "fix/production-p0-staff-decision-idempotency-3750": [
+      "apps/web/app/api/staff/[...path]/route.ts",
+      "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts"
     ]
   },
   "currentAcceptance": [
