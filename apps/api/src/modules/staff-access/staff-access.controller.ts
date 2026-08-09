@@ -74,6 +74,9 @@ export class StaffAccessController {
   }
 
   @Post('registration/applications/:applicationId/decision')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_REQUEST_APPROVE)
   @RateLimit({ name: 'staff_registration_application_decision', scope: 'user', limit: 20, windowSeconds: 900, includeParams: ['applicationId'] })
   async registrationApplicationDecision(
     @Req() request: StaffRequest,
