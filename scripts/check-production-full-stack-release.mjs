@@ -100,6 +100,7 @@ requireAll('workflow', [
   'owner_release_authorized:',
   "github.event_name == 'workflow_call'",
   'inputs.owner_release_authorized == true',
+  '(inputs.owner_release_authorized == true) ||',
   'DEPLOY-FULL-STACK-EXACT-SHA',
   'github.actor == github.repository_owner',
   'issue_comment:',
@@ -133,6 +134,10 @@ requireAll('workflow', [
   'gh issue close',
   'retention-days: 90',
 ]);
+const workflowSource = text.workflow ?? '';
+if (/github\.event_name\s*==\s*'workflow_call'\s*&&\s*inputs\.owner_release_authorized\s*==\s*true/.test(workflowSource)) {
+  failures.push(`${paths.workflow}: reusable owner authorization must not depend on the inherited caller event name`);
+}
 requireAll('controller', [
   '/production release current-main',
   'gh workflow run docker-publish.yml',

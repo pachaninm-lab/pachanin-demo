@@ -74,8 +74,7 @@ jobs:
   contract:
     name: Validate full-stack release contract
     if: >-
-      (github.event_name == 'workflow_call' &&
-       inputs.owner_release_authorized == true) ||
+      (inputs.owner_release_authorized == true) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
@@ -100,8 +99,7 @@ jobs:
     name: Migrate, deploy API and web, verify live intake
     needs: contract
     if: >-
-      (github.event_name == 'workflow_call' &&
-       inputs.owner_release_authorized == true) ||
+      (inputs.owner_release_authorized == true) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
