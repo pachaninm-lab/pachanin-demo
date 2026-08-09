@@ -18,6 +18,8 @@ const read = (path) => {
   return fs.readFileSync(path, 'utf8');
 };
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+const sameExactPaths = (actual, expected) => Array.isArray(actual)
+  && JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort());
 const replaceOnce = (source, from, to, label) => {
   const count = source.split(from).length - 1;
   if (count !== 1) {
@@ -40,7 +42,7 @@ try {
 const allowedPaths = [paths.controller, paths.test];
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schemaVersion mismatch`);
 if (scope.branch !== 'fix/production-p0-staff-decision-session-3750') failures.push(`${paths.scope}: branch mismatch`);
-if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
+if (!sameExactPaths(scope.allowedPaths, allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
 
 const controllerAnchor = `  @Post('registration/applications/:applicationId/decision')
   @RateLimit({ name: 'staff_registration_application_decision', scope: 'user', limit: 20, windowSeconds: 900, includeParams: ['applicationId'] })
@@ -115,12 +117,14 @@ describe('registration decision staff access session boundary', () => {
 });
 `;
 
-const acceptedController = replaceOnce(
-  controller,
-  controllerAnchor,
-  controllerAccepted,
-  'registration decision staff-session decorators',
-);
+const acceptedController = selfTest
+  ? replaceOnce(
+      controller,
+      controllerAnchor,
+      controllerAccepted,
+      'registration decision staff-session decorators',
+    )
+  : controller;
 
 if (selfTest) {
   if (fs.existsSync(paths.test)) failures.push(`${paths.test}: must not exist in the governance baseline`);
@@ -147,8 +151,9 @@ if (selfTest) {
   if (diff.status !== 0) {
     failures.push(`git diff failed: ${diff.stderr.trim()}`);
   } else {
-    const changed = diff.stdout.trim().split(/\r?\n/).filter(Boolean);
-    if (JSON.stringify(changed) !== JSON.stringify(allowedPaths)) {
+    const changed = diff.stdout.trim().split(/\r?\n/).filter(Boolean).sort();
+    const expectedChanged = [...allowedPaths].sort();
+    if (JSON.stringify(changed) !== JSON.stringify(expectedChanged)) {
       failures.push(`changed paths must be exactly ${JSON.stringify(allowedPaths)}; received ${JSON.stringify(changed)}`);
     }
   }
