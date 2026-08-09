@@ -919,6 +919,9 @@
       "scripts/check-production-p0-first-customer-acceptance.mjs",
       "docs/ops/production-p0-first-customer-acceptance.md",
       "docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json"
+    ],
+    "fix/production-like-kubernetes-timeout-3750": [
+      ".github/workflows/production-like-kubernetes-acceptance.yml"
     ]
   },
   "currentAcceptance": [
