@@ -18,6 +18,8 @@ const read = (path) => {
   return fs.readFileSync(path, 'utf8');
 };
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+const sameExactPaths = (actual, expected) => Array.isArray(actual)
+  && JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort());
 const replaceExactly = (source, from, to, expectedCount, label) => {
   const count = source.split(from).length - 1;
   if (count !== expectedCount) {
@@ -37,10 +39,10 @@ try {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
 
-const allowedPaths = [paths.test, paths.service];
+const allowedPaths = [paths.service, paths.test];
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schemaVersion mismatch`);
 if (scope.branch !== 'fix/production-p0-registration-decision-replay-notification-3750') failures.push(`${paths.scope}: branch mismatch`);
-if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
+if (!sameExactPaths(scope.allowedPaths, allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
 
 const replayCallAnchor = '        return this.readResult(tx, applicationId, deliveryKey);';
 const replayCallAccepted = '        return this.readResult(tx, applicationId, deliveryKey, true);';
