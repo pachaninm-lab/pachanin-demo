@@ -134,6 +134,12 @@ requireAll('executor', [
   '$LIVE_BASE/api/staff/registration/applications',
   '[[ "$status" == 201 ]] || fail "P0_REVIEWER_APPROVAL_${label^^}_FAILED"',
   'notificationDelivered',
+  "payload.get('replayed') is not False",
+  "payload.get('replayed') is not True",
+  "if 'notificationDelivered' in payload",
+  'P0_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED',
+  'DECISION_REPLAY_NOTIFICATION_SUPPRESSED=1',
+  'P0_DECISION_REPLAY_NOTIFICATION=PASS',
   'P0_REVIEWER_CONTROL_PLANE_CONTEXT_INVALID',
   "row.get('role') == 'PLATFORM_OWNER'",
   'activate_reviewer_control_plane',
@@ -237,8 +243,14 @@ requireAll('decision', [
   'await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);',
   'FROM auth.emit_registration_lifecycle_receipt(',
   'REGISTRATION_LIFECYCLE_RECEIPT_MISSING',
+  'return this.readResult(tx, applicationId, deliveryKey, true);',
+  '...(!replayed && deliveryAuthorized(deliveryKey)',
 ]);
 const decision = source.decision ?? '';
+const replayRead = 'return this.readResult(tx, applicationId, deliveryKey, true);';
+if (decision.split(replayRead).length - 1 !== 2) {
+  failures.push(`${paths.decision}: both exact decision replay branches must suppress notification delivery`);
+}
 for (const marker of [
   'await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);',
   'await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);',

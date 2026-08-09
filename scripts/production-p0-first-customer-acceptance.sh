@@ -18,6 +18,7 @@ declare -A EMAIL PASSWORD INN PHONE APP_ID APPROVAL_VERSION APPROVAL_CORRELATION
 declare -A USER_ID ORG_ID TENANT_ID MEMBERSHIP_ID MEMBER_VERSION USER_ROLE MFA_SECRET
 declare -A REGISTRATION_CORRELATION
 declare -A AUDIT_ID OUTBOX_ID
+DECISION_REPLAY_NOTIFICATION_SUPPRESSED=0
 
 safe_failure_record() {
   mkdir -p "$EVIDENCE_DIR"
@@ -792,8 +793,8 @@ PY
 }
 
 approve_registrations() {
-  local queue_response="$TMP_ROOT/reviewer-queue.json" decision_request decision_response
-  local status csrf label correlation idempotency result
+  local queue_response="$TMP_ROOT/reviewer-queue.json" decision_request decision_response decision_replay_response
+  local status csrf label correlation idempotency result replay_correlation
 
   CURRENT_STAGE=reviewer-queue
   status="$(http_request "$queue_response" "$REVIEWER_JAR" \
@@ -841,7 +842,6 @@ PY
       -H "Idempotency-Key: $idempotency" \
       -H "x-correlation-id: $correlation" \
       --data-binary "@$decision_request")"
-    rm -f "$decision_request"
     [[ "$status" == 201 ]] || fail "P0_REVIEWER_APPROVAL_${label^^}_FAILED" 52
     result="$(P0_EXPECTED_APP="${APP_ID[$label]}" P0_EXPECTED_CORRELATION="$correlation" \
       python3 - "$decision_response" <<'PY'
@@ -850,6 +850,7 @@ payload = json.load(open(sys.argv[1], encoding='utf-8'))
 if payload.get('applicationId') != os.environ['P0_EXPECTED_APP']: raise SystemExit(1)
 if payload.get('status') != 'ACTIVATED' or payload.get('nextAction') != 'LOGIN': raise SystemExit(1)
 if payload.get('notificationDelivered') is not True: raise SystemExit(1)
+if payload.get('replayed') is not False: raise SystemExit(1)
 if payload.get('correlationId') != os.environ['P0_EXPECTED_CORRELATION']: raise SystemExit(1)
 version = str(payload.get('version', ''))
 if not re.fullmatch(r'[1-9][0-9]*', version): raise SystemExit(1)
@@ -860,8 +861,40 @@ PY
     IFS=$'\t' read -r approval_version approval_correlation <<< "$result"
     APPROVAL_VERSION[$label]="$approval_version"
     APPROVAL_CORRELATION[$label]="$approval_correlation"
-    rm -f "$decision_response"
+    if [[ "$label" == a ]]; then
+      CURRENT_STAGE="reviewer-approval-replay-$label"
+      decision_replay_response="$TMP_ROOT/$label-decision-replay-response.json"
+      replay_correlation="p0-registration-approve-replay:${TARGET_SHA:0:12}:$RUN_ID:$label"
+      status="$(http_request "$decision_replay_response" "$REVIEWER_JAR" \
+        -X POST "$LIVE_BASE/api/staff/registration/applications/${APP_ID[$label]}/decision" \
+        -H 'Content-Type: application/json' \
+        -H "Origin: $LIVE_BASE" \
+        -H "x-csrf-token: $csrf" \
+        -H "Idempotency-Key: $idempotency" \
+        -H "x-correlation-id: $replay_correlation" \
+        --data-binary "@$decision_request")"
+      [[ "$status" == 201 ]] || fail P0_DECISION_REPLAY_REQUEST_FAILED 54
+      P0_EXPECTED_APP="${APP_ID[$label]}" \
+      P0_EXPECTED_CORRELATION="$replay_correlation" \
+      P0_EXPECTED_VERSION="$approval_version" \
+        python3 - "$decision_replay_response" <<'PY' \
+        || fail P0_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED 55
+import json, os, sys
+payload = json.load(open(sys.argv[1], encoding='utf-8'))
+if payload.get('applicationId') != os.environ['P0_EXPECTED_APP']: raise SystemExit(1)
+if payload.get('status') != 'ACTIVATED' or payload.get('nextAction') != 'LOGIN': raise SystemExit(1)
+if payload.get('replayed') is not True: raise SystemExit(1)
+if 'notificationDelivered' in payload: raise SystemExit(1)
+if payload.get('correlationId') != os.environ['P0_EXPECTED_CORRELATION']: raise SystemExit(1)
+if str(payload.get('version', '')) != os.environ['P0_EXPECTED_VERSION']: raise SystemExit(1)
+PY
+      DECISION_REPLAY_NOTIFICATION_SUPPRESSED=1
+      rm -f "$decision_replay_response"
+    fi
+    rm -f "$decision_request" "$decision_response"
   done
+  (( DECISION_REPLAY_NOTIFICATION_SUPPRESSED == 1 )) \
+    || fail P0_DECISION_REPLAY_NOTIFICATION_NOT_PROVED 56
 }
 
 customer_login() {
@@ -1775,6 +1808,7 @@ write_success_record() {
   P0_ROLE_A="${USER_ROLE[a]}" P0_ROLE_B="${USER_ROLE[b]}" \
   P0_AUDIT_A="${AUDIT_ID[a]}" P0_AUDIT_B="${AUDIT_ID[b]}" \
   P0_OUTBOX_A="${OUTBOX_ID[a]}" P0_OUTBOX_B="${OUTBOX_ID[b]}" \
+  P0_DECISION_REPLAY="$DECISION_REPLAY_NOTIFICATION_SUPPRESSED" \
   P0_BFF_DENIAL_STATUS="$BFF_DENIAL_STATUS" \
     python3 - "$EVIDENCE_DIR/result.json" <<'PY'
 import hashlib, json, os, sys
@@ -1816,6 +1850,7 @@ payload = {
     'passed': True,
     'targetSha': os.environ['P0_TARGET_SHA'],
     'runId': os.environ['P0_RUN_ID'],
+    'decisionReplayNotificationSuppressed': os.environ['P0_DECISION_REPLAY'] == '1',
     'production': {
         'hosting': 'REG_RU_VPS_ONLY',
         'apiRevisionExact': True,
@@ -1905,6 +1940,7 @@ main() {
   printf 'P0_PRODUCTION_REVISIONS=PASS\n'
   printf 'P0_MIGRATION_IMAGE_REVISION=PASS\n'
   printf 'P0_MAIL_DELIVERY_AND_VERIFICATION=PASS\n'
+  printf 'P0_DECISION_REPLAY_NOTIFICATION=PASS\n'
   printf 'P0_STAFF_APPROVAL_RECENT_MFA=PASS\n'
   printf 'P0_TWO_CUSTOMER_MFA_RELOGIN=PASS\n'
   printf 'P0_PERMITTED_ACTION=PASS\n'
