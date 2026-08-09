@@ -71,6 +71,8 @@ requireAll('workflow', [
   'MISSING_P0_REVIEWER_PREREQUISITE',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'StrictHostKeyChecking=yes',
+  'Reconfirm exact main immediately before production mutation',
+  'P0_MAIN_ADVANCED_BEFORE_MUTATION',
   'Execute exact-main P0 first-customer acceptance',
   'continue-on-error: true',
   'Enforce bounded redacted evidence',

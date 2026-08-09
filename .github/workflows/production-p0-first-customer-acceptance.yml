@@ -210,6 +210,16 @@ jobs:
           echo "key_path=$key_path" >> "$GITHUB_OUTPUT"
           echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
 
+      - name: Reconfirm exact main immediately before production mutation
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$current" == "$TARGET_SHA" ]] \
+            || { echo P0_MAIN_ADVANCED_BEFORE_MUTATION >&2; exit 29; }
+
       - name: Execute exact-main P0 first-customer acceptance
         id: acceptance
         continue-on-error: true
