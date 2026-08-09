@@ -37,7 +37,7 @@ try {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
 
-const allowedPaths = [paths.controller, paths.test];
+const allowedPaths = [paths.test, paths.controller];
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schemaVersion mismatch`);
 if (scope.branch !== 'fix/production-p0-staff-decision-session-3750') failures.push(`${paths.scope}: branch mismatch`);
 if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(allowedPaths)) failures.push(`${paths.scope}: allowedPaths mismatch`);
@@ -115,12 +115,14 @@ describe('registration decision staff access session boundary', () => {
 });
 `;
 
-const acceptedController = replaceOnce(
-  controller,
-  controllerAnchor,
-  controllerAccepted,
-  'registration decision staff-session decorators',
-);
+const acceptedController = selfTest
+  ? replaceOnce(
+      controller,
+      controllerAnchor,
+      controllerAccepted,
+      'registration decision staff-session decorators',
+    )
+  : controller;
 
 if (selfTest) {
   if (fs.existsSync(paths.test)) failures.push(`${paths.test}: must not exist in the governance baseline`);
@@ -147,8 +149,9 @@ if (selfTest) {
   if (diff.status !== 0) {
     failures.push(`git diff failed: ${diff.stderr.trim()}`);
   } else {
-    const changed = diff.stdout.trim().split(/\r?\n/).filter(Boolean);
-    if (JSON.stringify(changed) !== JSON.stringify(allowedPaths)) {
+    const changed = diff.stdout.trim().split(/\r?\n/).filter(Boolean).sort();
+    const expectedChanged = [...allowedPaths].sort();
+    if (JSON.stringify(changed) !== JSON.stringify(expectedChanged)) {
       failures.push(`changed paths must be exactly ${JSON.stringify(allowedPaths)}; received ${JSON.stringify(changed)}`);
     }
   }
