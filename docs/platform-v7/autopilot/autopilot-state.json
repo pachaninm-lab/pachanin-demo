@@ -921,13 +921,17 @@
       "docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json"
     ],
     "fix/production-like-kubernetes-timeout-3750": [
-      ".github/workflows/production-like-kubernetes-acceptance.yml",
-      "scripts/check-production-like-kubernetes-timeout.mjs",
-      "docs/platform-v7/autopilot/scopes/production-like-kubernetes-timeout-3750.json"
+      ".github/workflows/production-like-kubernetes-acceptance.yml"
     ],
     "fix/production-p0-staff-decision-idempotency-3750": [
       "apps/web/app/api/staff/[...path]/route.ts",
       "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts"
+    ],
+    "governance/production-like-kubernetes-timeout-3750": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/production-like-kubernetes-timeout-3750.json",
+      "scripts/check-production-like-kubernetes-timeout.mjs"
     ]
   },
   "currentAcceptance": [
