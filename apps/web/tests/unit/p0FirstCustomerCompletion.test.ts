@@ -140,6 +140,9 @@ describe('P0 first-customer completion boundaries', () => {
     expect(decisions).toContain('this.requirePlatformReviewer(reviewer)');
     expect(decisions).toContain("'PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF'");
     expect(proxy).toContain('/^registration\\/applications\\/[^/]+\\/decision$/');
+    expect(proxy).toContain("request.headers.get('idempotency-key')");
+    expect(proxy).toContain("'idempotency-key': idempotencyKey");
+    expect(proxy).toContain("code: 'IDEMPOTENCY_KEY_REQUIRED'");
   });
 
   it('does not render the staff control plane for an ordinary authenticated business user', () => {
