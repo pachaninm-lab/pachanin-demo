@@ -29,7 +29,9 @@ on:
       - 'scripts/check-design-system-v8*.mjs'
       - 'scripts/platform-v7-route-inventory.mjs'
       - 'scripts/p7-autopilot-guard.sh'
+      - 'scripts/check-production-like-kubernetes-timeout.mjs'
       - '.github/workflows/platform-v7-autopilot-guard.yml'
+      - '.github/workflows/production-like-kubernetes-acceptance.yml'
 
 concurrency:
   group: platform-v7-autopilot-guard-${{ github.ref }}
@@ -43,6 +45,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Validate production-like Kubernetes timeout contract
+        if: >-
+          github.event_name == 'pull_request' &&
+          (github.head_ref == 'governance/production-like-kubernetes-timeout-3750' ||
+          github.head_ref == 'fix/production-like-kubernetes-timeout-3750')
+        run: |
+          if [ "$GITHUB_HEAD_REF" = 'governance/production-like-kubernetes-timeout-3750' ]; then
+            node scripts/check-production-like-kubernetes-timeout.mjs --self-test
+          else
+            node scripts/check-production-like-kubernetes-timeout.mjs
+          fi
       - name: Generate Platform V7 route inventory
         run: node scripts/platform-v7-route-inventory.mjs --output=platform-v7-route-inventory.json
       - name: Upload Platform V7 route inventory
