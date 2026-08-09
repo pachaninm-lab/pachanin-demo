@@ -921,7 +921,9 @@
       "docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json"
     ],
     "fix/production-like-kubernetes-timeout-3750": [
-      ".github/workflows/production-like-kubernetes-acceptance.yml"
+      ".github/workflows/production-like-kubernetes-acceptance.yml",
+      "scripts/check-production-like-kubernetes-timeout.mjs",
+      "docs/platform-v7/autopilot/scopes/production-like-kubernetes-timeout-3750.json"
     ],
     "fix/production-p0-staff-decision-idempotency-3750": [
       "apps/web/app/api/staff/[...path]/route.ts",
