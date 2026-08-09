@@ -63,7 +63,7 @@ const routeHeaderAccepted = `        ...(registrationDecision ? {
           'idempotency-key': idempotencyKey,
           'x-registration-delivery-key': registrationDeliveryKey,
         } : {}),`;
-const testAnchor = `    expect(proxy).toContain('/^registration\\/applications\\/[^/]+\\/decision$/');
+const testAnchor = String.raw`    expect(proxy).toContain('/^registration\\/applications\\/[^/]+\\/decision$/');
 `;
 const testAccepted = `${testAnchor}    expect(proxy).toContain("request.headers.get('idempotency-key')");
     expect(proxy).toContain("'idempotency-key': idempotencyKey");
