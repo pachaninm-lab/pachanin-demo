@@ -247,8 +247,8 @@ jobs:
           set -euo pipefail
           test -f "$EVIDENCE_DIR/result.json"
           set +e
-          rg --quiet --ignore-case \
-            'verify=|statusToken|setupSecret|mfaSecret|totpSecret|backupCodes|otpAuthUri|otpauth://|postgres(?:ql)?://|DATABASE_URL=|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|staffAccessToken|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|"password"[[:space:]]*:' \
+          grep -ERq --binary-files=without-match --ignore-case \
+            'verify=|statusToken|setupSecret|mfaSecret|totpSecret|backupCodes|otpAuthUri|otpauth://|postgres(ql)?://|DATABASE_URL=|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|staffAccessToken|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|"password"[[:space:]]*:' \
             "$EVIDENCE_DIR"
           scan_status=$?
           set -e
