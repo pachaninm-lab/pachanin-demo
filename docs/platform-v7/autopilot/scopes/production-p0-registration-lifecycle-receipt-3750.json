@@ -4,7 +4,7 @@
   "status": "active",
   "purpose": "Add the missing causal auth.registration.lifecycle.receipt producer required by the already approved P0 production user-registration acceptance. The producer runs only after server-side ACTIVATED state and immutable approval audit in the same serializable transaction.",
   "approvedBy": "owner-direct-registration-production-finish-2026-08-09",
-  "authorityBaseExactMain": "24875c7792a5a0076711b5c843819aadcd5c5faa",
+  "authorityBaseExactMain": "181b97e3e61133d9595e66f6616d17ee94cd7a66",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
