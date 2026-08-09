@@ -571,6 +571,85 @@ raise SystemExit('mailbox acknowledgement timeout')
 PY
 }
 
+mailbox_assert_no_decision_after() {
+  local slot="$1" email="$2" minimum_uid="$3" output="$4" window_seconds="${5:-120}"
+  PC_P0_MAIL_SLOT="$slot" PC_P0_MAIL_TO="$email" PC_P0_MAIL_MIN_UID="$minimum_uid" \
+  PC_P0_MAIL_OUTPUT="$output" PC_P0_MAIL_WINDOW_SECONDS="$window_seconds" \
+    python3 - <<'PY'
+import email, imaplib, json, os, ssl, time
+from email import policy
+from email.header import decode_header, make_header
+
+host = os.environ['PC_PROD_P0_MAILBOX_IMAP_HOST']
+port = int(os.environ.get('PC_PROD_P0_MAILBOX_IMAP_PORT', '993'))
+user = os.environ['PC_PROD_P0_MAILBOX_IMAP_USER']
+password = os.environ['PC_PROD_P0_MAILBOX_IMAP_PASSWORD']
+target = os.environ['PC_P0_MAIL_TO']
+minimum_uid = int(os.environ['PC_P0_MAIL_MIN_UID'])
+output = os.environ['PC_P0_MAIL_OUTPUT']
+window_seconds = int(os.environ['PC_P0_MAIL_WINDOW_SECONDS'])
+if window_seconds < 120 or window_seconds > 300:
+    raise SystemExit('invalid replay mailbox observation window')
+deadline = time.time() + window_seconds
+last_successful_poll = 0.0
+markers = ('статус заявки', 'application status', '申请状态', '状态已更新')
+
+def decoded_subject(message):
+    try:
+        return str(make_header(decode_header(message.get('Subject', '')))).lower()
+    except Exception:
+        return ''
+
+while time.time() < deadline:
+    client = None
+    try:
+        client = imaplib.IMAP4_SSL(host, port, ssl_context=ssl.create_default_context())
+        client.login(user, password)
+        status, _ = client.select('INBOX', readonly=True)
+        if status != 'OK':
+            raise RuntimeError('mailbox select failed')
+        status, data = client.uid('search', None, 'TO', f'"{target}"')
+        if status != 'OK':
+            raise RuntimeError('mailbox search failed')
+        uids = sorted(int(item) for item in (data[0] or b'').split() if item.isdigit())
+        for uid in uids:
+            if uid <= minimum_uid:
+                continue
+            status, fetched = client.uid('fetch', str(uid), '(RFC822)')
+            if status != 'OK':
+                raise RuntimeError('mailbox fetch failed')
+            raw = next((item[1] for item in fetched if isinstance(item, tuple) and isinstance(item[1], bytes)), None)
+            if raw is None:
+                raise RuntimeError('mailbox message missing')
+            message = email.message_from_bytes(raw, policy=policy.default)
+            if any(marker in decoded_subject(message) for marker in markers):
+                raise SystemExit('duplicate decision notification detected after exact replay')
+        last_successful_poll = time.time()
+        client.logout()
+    except SystemExit:
+        raise
+    except Exception:
+        try:
+            if client is not None:
+                client.logout()
+        except Exception:
+            pass
+    remaining = deadline - time.time()
+    if remaining > 0:
+        time.sleep(min(10, remaining))
+
+if last_successful_poll == 0 or time.time() - last_successful_poll > 20:
+    raise SystemExit('mailbox unavailable at end of replay observation window')
+with open(output, 'w', encoding='utf-8') as handle:
+    json.dump({
+        'afterUid': minimum_uid,
+        'windowSeconds': window_seconds,
+        'duplicateDecisionNotification': False,
+    }, handle, separators=(',', ':'))
+os.chmod(output, 0o600)
+PY
+}
+
 totp_code() {
   local secret="$1"
   PC_P0_TOTP_SECRET="$secret" python3 - <<'PY'
@@ -693,7 +772,7 @@ INN_B="$(run_digits b)"
 declare -A EMAIL=( [a]="$EMAIL_A" [b]="$EMAIL_B" )
 declare -A PASSWORD=( [a]="$PASSWORD_A" [b]="$PASSWORD_B" )
 declare -A INN=( [a]="$INN_A" [b]="$INN_B" )
-declare -A APPLICATION_ID STATUS_TOKEN VERIFY_UID DECISION_CORRELATION
+declare -A APPLICATION_ID STATUS_TOKEN VERIFY_UID DECISION_CORRELATION DECISION_KEY
 
 for slot in a b; do
   jar="$TMP_DIR/register-$slot.cookies"
@@ -766,43 +845,53 @@ jq -e --arg session "$STAFF_SESSION_ID" '
 
 get_json "$STAFF_JAR" '/api/staff/registration/applications' "$TMP_DIR/staff-queue.json" 200 "p0-staff-queue-$RUN_KEY"
 DECISION_REPLAY_PROVED=0
+decision_payload="$(jq -cn '{decision:"APPROVE",reason:"Production P0 first-customer acceptance",locale:"ru"}')"
 for slot in a b; do
   jq -e --arg app "${APPLICATION_ID[$slot]}" '.applications | any(.applicationId == $app and .status == "ORGANIZATION_VERIFICATION_PENDING")' "$TMP_DIR/staff-queue.json" >/dev/null \
     || die "REGISTRATION_${slot}_NOT_IN_STAFF_QUEUE" 32
   DECISION_CORRELATION[$slot]="p0-decision-$slot-$RUN_KEY"
-  decision_key="p0-decision-idempotency-$slot-$RUN_KEY"
-  decision_payload="$(jq -cn '{decision:"APPROVE",reason:"Production P0 first-customer acceptance",locale:"ru"}')"
+  DECISION_KEY[$slot]="p0-decision-idempotency-$slot-$RUN_KEY"
   post_json "$STAFF_JAR" "/api/staff/registration/applications/${APPLICATION_ID[$slot]}/decision" \
-    "$decision_payload" "$TMP_DIR/decision-$slot.json" 201 "${DECISION_CORRELATION[$slot]}" "$decision_key"
+    "$decision_payload" "$TMP_DIR/decision-$slot.json" 201 "${DECISION_CORRELATION[$slot]}" "${DECISION_KEY[$slot]}"
   jq -e --arg app "${APPLICATION_ID[$slot]}" --arg correlation "${DECISION_CORRELATION[$slot]}" '
     .applicationId == $app and .status == "ACTIVATED" and .nextAction == "LOGIN"
     and .replayed == false and .notificationDelivered == true and .correlationId == $correlation
   ' "$TMP_DIR/decision-$slot.json" >/dev/null || die "REGISTRATION_${slot}_STAFF_DECISION_FAILED" 33
-  if [[ "$slot" == a ]]; then
-    replay_correlation="p0-decision-replay-$slot-$RUN_KEY"
-    post_json "$STAFF_JAR" "/api/staff/registration/applications/${APPLICATION_ID[$slot]}/decision" \
-      "$decision_payload" "$TMP_DIR/decision-replay-$slot.json" 201 "$replay_correlation" "$decision_key"
-    jq -e --arg app "${APPLICATION_ID[$slot]}" --arg correlation "$replay_correlation" '
-      .applicationId == $app and .status == "ACTIVATED" and .nextAction == "LOGIN"
-      and .replayed == true and (has("notificationDelivered") | not) and .correlationId == $correlation
-    ' "$TMP_DIR/decision-replay-$slot.json" >/dev/null || die REGISTRATION_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED 33
-    DECISION_REPLAY_PROVED=1
-  fi
   get_json "$TMP_DIR/register-$slot.cookies" "/api/auth/registration/status?token=${STATUS_TOKEN[$slot]}" "$TMP_DIR/status-active-$slot.json" 200 "p0-status-active-$slot-$RUN_KEY"
   jq -e --arg app "${APPLICATION_ID[$slot]}" '.ok == true and .applicationId == $app and .status == "ACTIVATED" and .nextAction == "LOGIN"' "$TMP_DIR/status-active-$slot.json" >/dev/null \
     || die "REGISTRATION_${slot}_ACTIVATED_STATUS_FAILED" 33
 done
-(( DECISION_REPLAY_PROVED == 1 )) || die REGISTRATION_DECISION_REPLAY_NOT_PROVED 33
 
 # Complete both privileged decisions inside the same fresh-MFA window before
-# waiting on asynchronous mailbox delivery. Mail acknowledgement remains
-# mandatory for each independent recipient and is bounded by its verification
-# message UID, so an earlier message cannot satisfy this gate.
-for slot in a b; do
-  mailbox_probe decision "$slot" "${EMAIL[$slot]}" "$TMP_DIR/decision-mail-$slot.json" "${VERIFY_UID[$slot]}"
-  jq -e '.acknowledged == true' "$TMP_DIR/decision-mail-$slot.json" >/dev/null \
-    || die "REGISTRATION_${slot}_DECISION_MAIL_NOT_ACKNOWLEDGED" 33
-done
+# waiting on asynchronous mailbox delivery. For slot A, acknowledge the first
+# decision email before the exact replay, then fail if a newer matching UID
+# appears during a bounded post-replay observation window.
+mailbox_probe decision a "${EMAIL[a]}" "$TMP_DIR/decision-mail-a.json" "${VERIFY_UID[a]}"
+jq -e '.acknowledged == true and (.uid | type == "number")' "$TMP_DIR/decision-mail-a.json" >/dev/null \
+  || die REGISTRATION_A_DECISION_MAIL_NOT_ACKNOWLEDGED 33
+first_decision_uid_a="$(jq -r '.uid' "$TMP_DIR/decision-mail-a.json")"
+
+replay_correlation="p0-decision-replay-a-$RUN_KEY"
+post_json "$STAFF_JAR" "/api/staff/registration/applications/${APPLICATION_ID[a]}/decision" \
+  "$decision_payload" "$TMP_DIR/decision-replay-a.json" 201 "$replay_correlation" "${DECISION_KEY[a]}"
+jq -e --arg app "${APPLICATION_ID[a]}" --arg correlation "$replay_correlation" '
+  .applicationId == $app and .status == "ACTIVATED" and .nextAction == "LOGIN"
+  and .replayed == true and (has("notificationDelivered") | not) and .correlationId == $correlation
+' "$TMP_DIR/decision-replay-a.json" >/dev/null || die REGISTRATION_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED 33
+
+mailbox_assert_no_decision_after a "${EMAIL[a]}" "$first_decision_uid_a" \
+  "$EVIDENCE_DIR/decision-replay-mailbox.json" 120 \
+  || die REGISTRATION_DECISION_REPLAY_DUPLICATE_MAIL_DETECTED 33
+jq -e --argjson uid "$first_decision_uid_a" '
+  .afterUid == $uid and .windowSeconds >= 120 and .duplicateDecisionNotification == false
+' "$EVIDENCE_DIR/decision-replay-mailbox.json" >/dev/null \
+  || die REGISTRATION_DECISION_REPLAY_MAILBOX_PROOF_INVALID 33
+DECISION_REPLAY_PROVED=1
+(( DECISION_REPLAY_PROVED == 1 )) || die REGISTRATION_DECISION_REPLAY_NOT_PROVED 33
+
+mailbox_probe decision b "${EMAIL[b]}" "$TMP_DIR/decision-mail-b.json" "${VERIFY_UID[b]}"
+jq -e '.acknowledged == true' "$TMP_DIR/decision-mail-b.json" >/dev/null \
+  || die REGISTRATION_B_DECISION_MAIL_NOT_ACKNOWLEDGED 33
 
 declare -A CUSTOMER_JAR CUSTOMER_ME CUSTOMER_SECRET
 for slot in a b; do
@@ -886,11 +975,12 @@ jq -n \
   --arg decisionCorrelationA "${DECISION_CORRELATION[a]}" --arg decisionCorrelationB "${DECISION_CORRELATION[b]}" \
   --arg emailHashA "$(printf '%s' "$EMAIL_A" | sha256sum | cut -d' ' -f1)" \
   --arg emailHashB "$(printf '%s' "$EMAIL_B" | sha256sum | cut -d' ' -f1)" \
+  --argjson replayMailbox "$(cat "$EVIDENCE_DIR/decision-replay-mailbox.json")" \
   --argjson remote "$(cat "$remote_result")" \
-  '{schemaVersion:"production.p0.first-customer.acceptance.v1",result:"PASS",targetSha:$targetSha,runKey:$runKey,decisionReplayNotification:"PASS",registrations:[{slot:"A",applicationId:$applicationA,decisionCorrelationId:$decisionCorrelationA,emailSha256:$emailHashA,status:"ACTIVATED",mailboxAcknowledged:true,logoutRelogin:"PASS"},{slot:"B",applicationId:$applicationB,decisionCorrelationId:$decisionCorrelationB,emailSha256:$emailHashB,status:"ACTIVATED",mailboxAcknowledged:true,logoutRelogin:"PASS"}],namedAction:{kind:"auction.lot.register",lotId:$lotId,auditId:$lotAuditId,outboxId:$lotOutboxId,ownerRead:"PASS",crossTenantBffDenial:"AUCTION_LOT_NOT_ACCESSIBLE"},productionProof:$remote}' \
+  '{schemaVersion:"production.p0.first-customer.acceptance.v1",result:"PASS",targetSha:$targetSha,runKey:$runKey,decisionReplayNotification:"PASS",decisionReplayMailbox:$replayMailbox,registrations:[{slot:"A",applicationId:$applicationA,decisionCorrelationId:$decisionCorrelationA,emailSha256:$emailHashA,status:"ACTIVATED",mailboxAcknowledged:true,logoutRelogin:"PASS"},{slot:"B",applicationId:$applicationB,decisionCorrelationId:$decisionCorrelationB,emailSha256:$emailHashB,status:"ACTIVATED",mailboxAcknowledged:true,logoutRelogin:"PASS"}],namedAction:{kind:"auction.lot.register",lotId:$lotId,auditId:$lotAuditId,outboxId:$lotOutboxId,ownerRead:"PASS",crossTenantBffDenial:"AUCTION_LOT_NOT_ACCESSIBLE"},productionProof:$remote}' \
   > "$EVIDENCE_DIR/acceptance.json"
 chmod 600 "$EVIDENCE_DIR/acceptance.json"
-jq -e '.result == "PASS" and .decisionReplayNotification == "PASS" and (.registrations | length == 2) and .productionProof.lifecycle.result == "PASS"' "$EVIDENCE_DIR/acceptance.json" >/dev/null
+jq -e '.result == "PASS" and .decisionReplayNotification == "PASS" and .decisionReplayMailbox.windowSeconds >= 120 and .decisionReplayMailbox.duplicateDecisionNotification == false and (.registrations | length == 2) and .productionProof.lifecycle.result == "PASS"' "$EVIDENCE_DIR/acceptance.json" >/dev/null
 
 printf 'P0_TWO_REGISTRATIONS=PASS\n'
 printf 'P0_TRANSACTIONAL_MAIL=PASS\n'
