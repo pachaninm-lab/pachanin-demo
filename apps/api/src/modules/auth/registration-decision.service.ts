@@ -264,6 +264,9 @@ export class RegistrationDecisionService {
         reason: decision,
         metadata: { applicationId, decisionReason: reason, correlationId },
       });
+      if (decision === 'APPROVE') {
+        await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);
+      }
       return this.readResult(tx, applicationId, deliveryKey);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
   }
@@ -345,6 +348,9 @@ export class RegistrationDecisionService {
           correlationId,
         },
       });
+      if (decision === 'APPROVE') {
+        await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);
+      }
 
       return this.readResult(tx, application.id, deliveryKey);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
@@ -777,6 +783,27 @@ export class RegistrationDecisionService {
         ${input.idempotencyKey}, ${input.applicationVersion}
       )
     `);
+  }
+
+  private async emitRegistrationLifecycleReceipt(
+    client: AuthSqlClient,
+    applicationId: string,
+    correlationId: string,
+  ): Promise<void> {
+    const rows = await client.$queryRaw<Array<{
+      outbox_id: string;
+      idempotency_key: string;
+      correlation_id: string;
+    }>>(Prisma.sql`
+      SELECT outbox_id, idempotency_key, correlation_id
+      FROM auth.emit_registration_lifecycle_receipt(
+        ${applicationId},
+        ${correlationId}
+      )
+    `);
+    if (!rows[0]?.outbox_id) {
+      throw new ConflictException({ code: 'REGISTRATION_LIFECYCLE_RECEIPT_MISSING' });
+    }
   }
 
   private async audit(

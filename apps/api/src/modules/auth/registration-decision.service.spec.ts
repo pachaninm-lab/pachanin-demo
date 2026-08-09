@@ -1,4 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { Role, type RequestUser } from '../../common/types/request-user';
 import { RegistrationDecisionService } from './registration-decision.service';
 
@@ -21,6 +23,14 @@ function createService() {
     service: new RegistrationDecisionService(prisma as never, repository as never),
     prisma,
   };
+}
+
+function lifecycleReceiptMigration(): string {
+  const relative = 'apps/api/prisma/migrations/20260808213000_p0_registration_lifecycle_receipt/migration.sql';
+  const candidates = [path.resolve(process.cwd(), relative), path.resolve(process.cwd(), '../..', relative)];
+  const source = candidates.find(existsSync);
+  if (!source) throw new Error(`Missing registration lifecycle receipt migration: ${relative}`);
+  return readFileSync(source, 'utf8');
 }
 
 describe('platform registration reviewer boundary', () => {
@@ -106,5 +116,54 @@ describe('platform registration reviewer boundary', () => {
     )).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps the causal receipt inside a membership-free bounded PostgreSQL authority', () => {
+    const migration = lifecycleReceiptMigration();
+
+    expect(migration).toContain('CREATE ROLE pc_registration_receipt_authority');
+    expect(migration).toContain('NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS');
+    expect(migration).toContain('SECURITY DEFINER');
+    expect(migration).toContain('SET row_security = on');
+    expect(migration).toContain('auth.registration.lifecycle.receipt');
+    expect(migration).toContain("'registration-lifecycle:' || application.id || ':' || application.version::text");
+    expect(migration).toContain('Auth approval audit must remain append-only');
+    expect(migration).not.toMatch(/GRANT\s+EXECUTE\s+ON\s+ALL\s+FUNCTIONS/i);
+    expect(migration).not.toMatch(/(?:DISABLE|NO\s+FORCE)\s+ROW\s+LEVEL\s+SECURITY/i);
+  });
+
+  it('writes approval audit before the receipt and reads the result in the same transaction', async () => {
+    const order: string[] = [];
+    const tx = { $queryRaw: jest.fn().mockResolvedValue([]) };
+    const prisma = {
+      $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
+    };
+    const service = new RegistrationDecisionService(prisma as never, {} as never);
+    const application = {
+      id: 'application-1', kind: 'NEW_ORGANIZATION', user_id: 'applicant-1',
+      organization_id: 'organization-1', membership_id: 'membership-1', requested_workspace: 'seller',
+      requested_role: Role.FARMER, status: 'ORGANIZATION_VERIFICATION_PENDING', version: 1n,
+      correlation_id: 'correlation-1', organization_status: 'PENDING', tenant_id: 'tenant-1',
+    };
+    Object.assign(service as unknown as Record<string, unknown>, {
+      requirePlatformDecisionAuthority: jest.fn(async () => { order.push('authority'); }),
+      lockApplication: jest.fn(async () => application),
+      approve: jest.fn(async () => { order.push('approve'); }),
+      audit: jest.fn(async () => { order.push('audit'); }),
+      emitRegistrationLifecycleReceipt: jest.fn(async () => { order.push('receipt'); }),
+      readResult: jest.fn(async () => { order.push('read'); return { status: 'ACTIVATED' }; }),
+    });
+
+    await expect(service.decide(
+      application.id,
+      'APPROVE',
+      'Verified organization details',
+      { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] },
+      'idempotency-decision-0001',
+      'correlation-1',
+    )).resolves.toEqual({ status: 'ACTIVATED' });
+
+    expect(order).toEqual(['authority', 'approve', 'audit', 'receipt', 'read']);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });
