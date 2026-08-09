@@ -906,6 +906,19 @@
       "apps/web/tests/unit/p0RegistrationPresentationCookie.test.ts",
       "docs/platform-v7/autopilot/scopes/registration-cookie-api-boundary-3733.json",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "fix/production-p0-registration-lifecycle-receipt-3750": [
+      "apps/api/prisma/migrations/20260808213000_p0_registration_lifecycle_receipt/migration.sql",
+      "apps/api/src/modules/auth/registration-decision.service.ts",
+      "apps/api/src/modules/auth/registration-decision.service.spec.ts",
+      "docs/platform-v7/autopilot/scopes/production-p0-registration-lifecycle-receipt-3750.json"
+    ],
+    "fix/production-p0-first-customer-acceptance-3750": [
+      ".github/workflows/production-p0-first-customer-acceptance.yml",
+      "scripts/production-p0-first-customer-acceptance.sh",
+      "scripts/check-production-p0-first-customer-acceptance.mjs",
+      "docs/ops/production-p0-first-customer-acceptance.md",
+      "docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json"
     ]
   },
   "currentAcceptance": [
