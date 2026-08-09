@@ -351,8 +351,14 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   const registrationDeliveryKey = registrationDecision
     ? String(process.env.REGISTRATION_DELIVERY_KEY || '').trim()
     : '';
+  const idempotencyKey = registrationDecision
+    ? String(request.headers.get('idempotency-key') || '').trim()
+    : '';
   if (registrationDecision && registrationDeliveryKey.length < 32) {
     return json({ ok: false, code: 'REGISTRATION_NOTIFICATION_UNAVAILABLE', correlationId }, 503);
+  }
+  if (registrationDecision && (idempotencyKey.length < 16 || idempotencyKey.length > 128)) {
+    return json({ ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', correlationId }, 400);
   }
 
   const query = request.nextUrl.searchParams.toString();
@@ -369,7 +375,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
         Accept: 'application/json',
         'x-correlation-id': correlationId,
         ...(staffAccessToken ? { 'x-staff-access-session': staffAccessToken } : {}),
-        ...(registrationDecision ? { 'x-registration-delivery-key': registrationDeliveryKey } : {}),
+        ...(registrationDecision ? {
+          'idempotency-key': idempotencyKey,
+          'x-registration-delivery-key': registrationDeliveryKey,
+        } : {}),
         ...(ip ? { 'x-forwarded-for': ip } : {}),
         ...(userAgent ? { 'user-agent': userAgent } : {}),
       },
