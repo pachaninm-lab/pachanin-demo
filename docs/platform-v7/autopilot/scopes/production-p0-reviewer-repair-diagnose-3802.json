@@ -1,12 +1,12 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-reviewer-diagnostic-current-main-3820",
+  "branch": "fix/p0-reviewer-diagnostic-failure-line-3821",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_CURRENT_MAIN_PIN",
+  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_FAILURE_LINE",
   "issue": 3802,
   "trackingIssue": 3810,
-  "title": "Production P0 reviewer rollback diagnostic current-main pin",
-  "diagnosticBaseRevision": "98447a394ecd156a2a736574eb3d3ccdbac49bd9",
+  "title": "Production P0 reviewer rollback diagnostic bounded failure line",
+  "diagnosticBaseRevision": "e367041a693b418ac27896f11abf8a190fb5ba52",
   "deployedRevision": "b81ee2e51f9fbf5ec66603211c3f32224532e782",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
@@ -24,15 +24,15 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "the governed diagnostic delta is measured from exact current main 98447a394ecd156a2a736574eb3d3ccdbac49bd9 and contains exactly these three files",
+    "the governed diagnostic delta is measured from exact current main e367041a693b418ac27896f11abf8a190fb5ba52 and contains exactly these three files",
     "the deployed API and Web revision remains pinned independently to exact healthy REG.RU revision b81ee2e51f9fbf5ec66603211c3f32224532e782",
-    "unrelated main commits do not become part of the diagnostic authority surface",
+    "a failed diagnostic may publish only its numeric shell failure line in addition to the existing fixed blocker and exit code",
+    "the failed command itself, environment, raw database message, PII, credentials and identifiers remain unpublished",
     "the command remains owner-only and exact-current-main bound on issue 3072",
     "the existing no-argument repair function is called only inside one SERIALIZABLE transaction that always rolls back",
-    "the raw database message is never printed, persisted or included in issue evidence",
-    "only one enum from the fixed static allowlist classifies the known 23514 repair stage",
-    "reviewer readiness is identical before and after the forced rollback",
-    "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface, security weakening or recurring cost"
+    "the fixed enum-only 23514 classifier remains unchanged",
+    "reviewer readiness must be identical before and after any successful forced-rollback diagnostic marker",
+    "the diagnostic introduces no durable production mutation, deployment mutation, arbitrary SQL surface, security weakening or recurring cost"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
 }
