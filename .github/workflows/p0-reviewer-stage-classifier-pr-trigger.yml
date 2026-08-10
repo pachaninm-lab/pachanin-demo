@@ -32,61 +32,396 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Execute the source-controlled one-shot patch and remove both triggers
+      - name: Apply fixed-stage classifier, validate and commit the exact net diff
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import json
+          import re
 
-          source = Path('.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml')
-          target = Path('/tmp/p0-reviewer-stage-classifier-selfpatch.sh')
-          lines = source.read_text(encoding='utf-8').splitlines()
-          blocks = []
-          index = 0
-          while index < len(lines):
-              line = lines[index]
-              if line.strip() != 'run: |':
-                  index += 1
-                  continue
-              indent = len(line) - len(line.lstrip())
-              index += 1
-              block = []
-              while index < len(lines):
-                  current = lines[index]
-                  current_indent = len(current) - len(current.lstrip())
-                  if current.strip() and current_indent <= indent:
-                      break
-                  prefix = ' ' * (indent + 2)
-                  if current.startswith(prefix):
-                      block.append(current[len(prefix):])
-                  elif not current.strip():
-                      block.append('')
-                  else:
-                      raise SystemExit('invalid self-patch block indentation')
-                  index += 1
-              blocks.append('\n'.join(block))
-          if len(blocks) < 2:
-              raise SystemExit(f'expected outer apply/commit blocks, got {len(blocks)}')
+          runner_path = Path('scripts/production-p0-reviewer-repair-diagnose.sh')
+          wrapper_path = Path('scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh')
+          checker_path = Path('scripts/check-production-p0-reviewer-repair-diagnose.mjs')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json')
+          trigger_path = Path('.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml')
+          selfpatch_path = Path('.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml')
 
-          # The first and last blocks are the outer workflow steps. Any additional
-          # match can only come from source text embedded inside the apply block.
-          script = blocks[0] + '\n\n' + blocks[-1] + '\n'
-          script = script.replace(
-              'set -euo pipefail\n',
-              "set -euo pipefail\nrm -f .github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml\n",
-              1,
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} replacement cardinality invalid: {count}')
+              return text.replace(old, new, 1)
+
+          runner = runner_path.read_text(encoding='utf-8')
+          if 'const classifyRepairStage = (message) =>' in runner:
+              raise SystemExit('stage classifier already present')
+
+          readiness_marker = 'const readinessTuple = (row) => ['
+          classifier = r'''const classifyRepairStage = (message) => {
+            const text = String(message ?? '');
+            const stages = [
+              ['reviewer membership repair structural precondition failed', 'STRUCTURAL_PRECONDITION_FAILED'],
+              ['unique active PLATFORM_OWNER identity is required', 'UNIQUE_ACTIVE_OWNER_IDENTITY_REQUIRED'],
+              ['reviewer membership pre-state is inconsistent', 'MEMBERSHIP_PRESTATE_INCONSISTENT'],
+              ['reviewer has a conflicting pre-existing membership state', 'CONFLICTING_PREEXISTING_MEMBERSHIP'],
+              ['reviewer membership repair postcondition failed', 'POSTCONDITION_FAILED'],
+            ];
+            const matches = stages.filter(([needle]) => text.includes(needle));
+            return matches.length === 1 ? matches[0][1] : 'UNCLASSIFIED_23514';
+          };
+
+          '''
+          runner = replace_once(
+              runner,
+              readiness_marker,
+              classifier + readiness_marker,
+              'classifier insertion',
           )
-          anchor = "            '.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml'\n"
-          replacement = (
-              "            '.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml'\n"
-              "            '.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml'\n"
+
+          runner, stage_field_count = re.subn(
+              r"(?m)^(\s*)metaKeys: 'NONE',$",
+              r"\1metaKeys: 'NONE',\n\1stageCode: 'NONE',",
+              runner,
           )
-          if script.count(anchor) != 1:
-              raise SystemExit('working-tree allowlist anchor mismatch')
-          script = script.replace(anchor, replacement, 1)
-          target.write_text(script, encoding='utf-8')
+          if stage_field_count != 2:
+              raise SystemExit(f'stage field insertion cardinality invalid: {stage_field_count}')
+
+          old_error = r'''            diagnostic = {
+                        outcome: 'FUNCTION_ERROR',
+                        prismaCode: clean(error && typeof error === 'object' ? error.code : 'UNKNOWN', 'UNKNOWN'),
+                        sqlState: clean(meta.code || meta.sqlstate || meta.sqlState || 'UNKNOWN', 'UNKNOWN'),
+                        constraint: clean(meta.constraint || meta.constraint_name || 'NONE', 'NONE'),
+                        metaKeys: clean(Object.keys(meta).sort().join('.') || 'NONE', 'NONE'),
+                      };'''
+          new_error = r'''            const sqlState = clean(
+                        meta.code || meta.sqlstate || meta.sqlState || 'UNKNOWN',
+                        'UNKNOWN',
+                      );
+                      diagnostic = {
+                        outcome: 'FUNCTION_ERROR',
+                        prismaCode: clean(error && typeof error === 'object' ? error.code : 'UNKNOWN', 'UNKNOWN'),
+                        sqlState,
+                        constraint: clean(meta.constraint || meta.constraint_name || 'NONE', 'NONE'),
+                        metaKeys: clean(Object.keys(meta).sort().join('.') || 'NONE', 'NONE'),
+                        stageCode: sqlState === '23514'
+                          ? classifyRepairStage(meta.message)
+                          : 'NOT_23514',
+                      };'''
+          runner = replace_once(runner, old_error, new_error, 'error classifier')
+
+          runner = replace_once(
+              runner,
+              "      + `|${diagnostic.metaKeys}|${before.join('|')}|${after.join('|')}`,",
+              "      + `|${diagnostic.metaKeys}|${diagnostic.stageCode}|${before.join('|')}|${after.join('|')}`,",
+              'diagnostic marker stage',
+          )
+          runner = replace_once(
+              runner,
+              "IFS='|' read -r tag outcome prisma_code sql_state constraint meta_keys \\\n  before_assignments",
+              "IFS='|' read -r tag outcome prisma_code sql_state constraint meta_keys stage_code \\\n  before_assignments",
+              'shell parser stage',
+          )
+          runner = replace_once(
+              runner,
+              'for value in "$outcome" "$prisma_code" "$sql_state" "$constraint" "$meta_keys"; do',
+              'for value in "$outcome" "$prisma_code" "$sql_state" "$constraint" "$meta_keys" "$stage_code"; do',
+              'shell stage validation',
+          )
+          count_anchor = '''done
+          for count in \\
+          '''
+          count_replacement = '''done
+          if [[ "$sql_state" == '23514' ]]; then
+            [[ "$stage_code" =~ ^(STRUCTURAL_PRECONDITION_FAILED|UNIQUE_ACTIVE_OWNER_IDENTITY_REQUIRED|MEMBERSHIP_PRESTATE_INCONSISTENT|CONFLICTING_PREEXISTING_MEMBERSHIP|POSTCONDITION_FAILED)$ ]]
+          fi
+          for count in \\
+          '''
+          runner = replace_once(runner, count_anchor, count_replacement, 'classified-stage fail-closed guard')
+          runner = replace_once(
+              runner,
+              '- SQLSTATE: \\`$sql_state\\`\n- constraint: \\`$constraint\\`',
+              '- SQLSTATE: \\`$sql_state\\`\n- repair stage: \\`$stage_code\\`\n- constraint: \\`$constraint\\`',
+              'published stage code',
+          )
+          runner_path.write_text(runner, encoding='utf-8')
+
+          wrapper = r'''#!/usr/bin/env bash
+          set -Eeuo pipefail
+
+          : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
+
+          SOURCE='scripts/production-p0-reviewer-repair-diagnose.sh'
+          PATCHED="$RUNNER_TEMP/production-p0-reviewer-repair-diagnose-stage-classifier.sh"
+
+          python - "$SOURCE" "$PATCHED" <<'PY'
+          from pathlib import Path
+          import sys
+
+          source = Path(sys.argv[1])
+          target = Path(sys.argv[2])
+          text = source.read_text(encoding='utf-8')
+
+          replacements = {
+              "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'":
+                  "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
+              "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'":
+                  "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
+              """expected_paths=(
+            '.github/workflows/production-p0-reviewer-repair-diagnose.yml'
+            'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json'
+            'scripts/check-production-p0-reviewer-repair-diagnose.mjs'
+            'scripts/production-p0-reviewer-repair-diagnose.sh'
+          )""":
+                  """expected_paths=(
+            'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json'
+            'scripts/check-production-p0-reviewer-repair-diagnose.mjs'
+            'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'
+            'scripts/production-p0-reviewer-repair-diagnose.sh'
+          )""",
+          }
+
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'exact diagnostic replacement cardinality invalid: {count}')
+              text = text.replace(old, new, 1)
+
+          for forbidden in (
+              "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
+              "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
+              "DIAGNOSTIC_BASE_SHA='fc7bea2b225ce88e5cf10230d0188ffb2952381e'",
+              "'.github/workflows/production-p0-reviewer-repair-diagnose.yml'\n  'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json'",
+          ):
+              if forbidden in text:
+                  raise SystemExit('stale diagnostic authority remained after bounded replacement')
+
+          target.write_text(text, encoding='utf-8')
           PY
-          chmod 0700 /tmp/p0-reviewer-stage-classifier-selfpatch.sh
-          bash -n /tmp/p0-reviewer-stage-classifier-selfpatch.sh
-          /tmp/p0-reviewer-stage-classifier-selfpatch.sh
+
+          chmod 0700 "$PATCHED"
+          bash -n "$PATCHED"
+          exec bash "$PATCHED"
+          '''
+          wrapper_path.write_text(wrapper, encoding='utf-8')
+
+          checker = r'''#!/usr/bin/env node
+          import fs from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+
+          const workflowPath = '.github/workflows/production-p0-reviewer-repair-diagnose.yml';
+          const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
+          const wrapperPath = 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh';
+          const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
+          const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
+          const branch = 'fix/p0-reviewer-repair-stage-classifier-3810';
+
+          const workflow = fs.readFileSync(workflowPath, 'utf8');
+          const runner = fs.readFileSync(runnerPath, 'utf8');
+          const wrapper = fs.readFileSync(wrapperPath, 'utf8');
+          const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
+
+          const requireMarkers = (label, source, markers) => {
+            for (const marker of markers) {
+              if (!source.includes(marker)) {
+                console.error(`Missing ${label} marker: ${marker}`);
+                process.exit(1);
+              }
+            }
+          };
+
+          requireMarkers('workflow', workflow, [
+            "github.event.issue.number == 3072",
+            "github.event.comment.user.login == github.repository_owner",
+            "github.actor == github.repository_owner",
+            "github.triggering_actor == github.repository_owner",
+            "github.event.comment.body == '/production p0-reviewer-membership-diagnose current-main'",
+            'permissions:\n  contents: read',
+            'contents: read\n      issues: write',
+            'cancel-in-progress: false',
+            'PC_PROD_SSH_HOST_FINGERPRINT',
+            `bash -n ${runnerPath}`,
+            `bash -n ${wrapperPath}`,
+            `bash ${wrapperPath}`,
+          ]);
+
+          const stages = [
+            ['reviewer membership repair structural precondition failed', 'STRUCTURAL_PRECONDITION_FAILED'],
+            ['unique active PLATFORM_OWNER identity is required', 'UNIQUE_ACTIVE_OWNER_IDENTITY_REQUIRED'],
+            ['reviewer membership pre-state is inconsistent', 'MEMBERSHIP_PRESTATE_INCONSISTENT'],
+            ['reviewer has a conflicting pre-existing membership state', 'CONFLICTING_PREEXISTING_MEMBERSHIP'],
+            ['reviewer membership repair postcondition failed', 'POSTCONDITION_FAILED'],
+          ];
+
+          requireMarkers('runner', runner, [
+            "COMMAND='/production p0-reviewer-membership-diagnose current-main'",
+            "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
+            "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
+            'const classifyRepairStage = (message) => {',
+            "return matches.length === 1 ? matches[0][1] : 'UNCLASSIFIED_23514';",
+            "stageCode: sqlState === '23514'",
+            '? classifyRepairStage(meta.message)',
+            'meta_keys stage_code',
+            '- repair stage: \\`$stage_code\\`',
+            'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
+          ]);
+          for (const [message, code] of stages) {
+            requireMarkers('fixed stage', runner, [message, code]);
+          }
+
+          requireMarkers('wrapper', wrapper, [
+            "SOURCE='scripts/production-p0-reviewer-repair-diagnose.sh'",
+            "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
+            "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
+            "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
+            "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
+            "'scripts/production-p0-reviewer-repair-diagnose.sh'",
+            "'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'",
+            'if count != 1:',
+            'text.replace(old, new, 1)',
+            'bash -n "$PATCHED"',
+            'exec bash "$PATCHED"',
+          ]);
+
+          const nodeMatch = runner.match(
+            /docker exec -i "\$api_id" \/nodejs\/bin\/node --input-type=commonjs - <<'NODE'\n([\s\S]*?)\nNODE/,
+          );
+          if (!nodeMatch) {
+            console.error('Bounded CommonJS diagnostic executor is missing.');
+            process.exit(1);
+          }
+          const embeddedNode = nodeMatch[1];
+          const nodeSyntax = spawnSync(process.execPath, ['--check'], {
+            input: embeddedNode,
+            encoding: 'utf8',
+          });
+          if (nodeSyntax.status !== 0) {
+            console.error('Embedded diagnostic Node executor is not syntactically valid.');
+            process.exit(1);
+          }
+          if ((embeddedNode.match(/meta\.message/g) || []).length !== 1) {
+            console.error('Raw database message must be consumed exactly once by the fixed classifier.');
+            process.exit(1);
+          }
+          for (const pattern of [
+            /console\.(?:log|error)\([^\n]*(?:meta\.message|error\.message)/,
+            /JSON\.stringify\(\s*(?:meta\.message|error\.message)/,
+            /diagnostic\.(?:message|rawMessage|errorMessage)/,
+          ]) {
+            if (pattern.test(embeddedNode)) {
+              console.error(`Raw database error output is forbidden: ${pattern}`);
+              process.exit(1);
+            }
+          }
+
+          const pythonMatch = wrapper.match(/python - "\$SOURCE" "\$PATCHED" <<'PY'\n([\s\S]*?)\nPY/);
+          if (!pythonMatch) {
+            console.error('Exact diagnostic wrapper patcher is missing.');
+            process.exit(1);
+          }
+          const pythonSyntax = spawnSync(
+            'python',
+            ['-c', 'import ast,sys; ast.parse(sys.stdin.read())'],
+            { input: pythonMatch[1], encoding: 'utf8' },
+          );
+          if (pythonSyntax.status !== 0) {
+            console.error('Diagnostic wrapper Python patcher is not syntactically valid.');
+            process.exit(1);
+          }
+
+          const expectedPaths = [runnerPath, wrapperPath, checkerPath, scopePath].sort();
+          const actualPaths = [...scope.allowedPaths].sort();
+          if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
+            console.error('Governed classifier scope does not match the exact four-file surface.');
+            process.exit(1);
+          }
+          if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
+              || scope.branch !== branch
+              || scope.status !== 'active'
+              || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_23514_STAGE_CLASSIFIER_BOUNDED'
+              || scope.issue !== 3810
+              || !Array.isArray(scope.acceptance)
+              || scope.acceptance.length < 7
+              || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
+              || scope.boundaries?.productionMutation !== 'ROLLBACK_ONLY_NONE_DURABLE'
+              || scope.boundaries?.piiOutput !== false
+              || scope.boundaries?.credentialOutput !== false
+              || scope.boundaries?.rawDatabaseMessageOutput !== false
+              || scope.boundaries?.deploymentMutation !== false
+              || scope.boundaries?.securityWeakening !== false
+              || scope.boundaries?.arbitrarySqlSurface !== false
+              || scope.boundaries?.newRecurringCostRub !== 0) {
+            console.error('Governed classifier scope or boundaries are incomplete or unsafe.');
+            process.exit(1);
+          }
+
+          console.log('PASS: SQLSTATE 23514 is mapped only to fixed non-sensitive stage codes inside forced rollback; raw database messages remain unpublished.');
+          '''
+          checker_path.write_text(checker, encoding='utf-8')
+
+          scope = {
+              'schemaVersion': 'platform-v7.concurrent-scope.v1',
+              'branch': 'fix/p0-reviewer-repair-stage-classifier-3810',
+              'status': 'active',
+              'operationalStatus': 'P0_REVIEWER_REPAIR_23514_STAGE_CLASSIFIER_BOUNDED',
+              'issue': 3810,
+              'title': 'Production P0 reviewer repair SQLSTATE 23514 fixed-stage classifier',
+              'allowedPaths': [
+                  'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json',
+                  'scripts/check-production-p0-reviewer-repair-diagnose.mjs',
+                  'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh',
+                  'scripts/production-p0-reviewer-repair-diagnose.sh',
+              ],
+              'boundaries': {
+                  'productionMutation': 'ROLLBACK_ONLY_NONE_DURABLE',
+                  'piiOutput': False,
+                  'credentialOutput': False,
+                  'rawDatabaseMessageOutput': False,
+                  'deploymentMutation': False,
+                  'securityWeakening': False,
+                  'arbitrarySqlSurface': False,
+                  'newRecurringCostRub': 0,
+              },
+              'acceptance': [
+                  'the classifier maps only the five fixed SQLSTATE 23514 messages already emitted by the bounded repair function to stable stage codes',
+                  'the raw PostgreSQL or Prisma error message is never printed, published, persisted or added to evidence',
+                  'an unclassified SQLSTATE 23514 fails closed before a PASS diagnostic can be published',
+                  'the owner-only command remains exact-current-main and exact-deployed-revision bound on pinned REG.RU SSH',
+                  'the existing repair function is called only inside one SERIALIZABLE transaction that always rolls back',
+                  'aggregate reviewer readiness remains identical before and after rollback',
+                  'the classifier introduces no durable production mutation, PII, credential output, arbitrary SQL surface, security weakening or recurring cost',
+                  'every exact-head required focused, repository and security check is terminal PASS',
+              ],
+              'productionHosting': 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY',
+          }
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          trigger_path.unlink()
+          selfpatch_path.unlink()
+          PY
+
+          bash -n scripts/production-p0-reviewer-repair-diagnose.sh
+          bash -n scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh
+          node --check scripts/check-production-p0-reviewer-repair-diagnose.mjs
+          node scripts/check-production-p0-reviewer-repair-diagnose.mjs
+          python -m json.tool docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json >/dev/null
+          git diff --check
+
+          mapfile -t changed < <(git status --short | sed -E 's/^.. //' | sort)
+          expected=(
+            '.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml'
+            '.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml'
+            'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json'
+            'scripts/check-production-p0-reviewer-repair-diagnose.mjs'
+            'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'
+            'scripts/production-p0-reviewer-repair-diagnose.sh'
+          )
+          mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
+          [[ "$(printf '%s\n' "${changed[@]}")" == "$(printf '%s\n' "${expected[@]}")" ]]
+
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git add -A
+          git commit -m 'P0: classify reviewer repair SQLSTATE 23514 without raw output'
+          git push origin HEAD:fix/p0-reviewer-repair-stage-classifier-3810
