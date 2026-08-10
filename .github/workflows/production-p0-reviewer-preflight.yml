@@ -220,7 +220,7 @@ jobs:
           api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
           web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
           [[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
-          docker exec "$api_id" /nodejs/bin/node - <<'NODE'
+          docker exec -i "$api_id" /nodejs/bin/node - <<'NODE'
           const { PrismaClient } = require('@prisma/client');
           const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
           if (!databaseUrl) {
