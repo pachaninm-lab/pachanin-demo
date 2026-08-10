@@ -77,7 +77,17 @@ else
     --name "$RUNNER_NAME" --labels "pc-prod,tai-readonly" --work _work
 fi
 
-install -d -m 0700 -o root -g root /etc/pc-release-authority /etc/transparent-price /var/lib/pc-release-authority /var/lib/pc-release-authority/repository /var/lib/pc-release-authority/controller-jobs
+install -d -m 0700 -o root -g root /etc/pc-release-authority /etc/transparent-price
+# The authority root is traverse-only for the runner group: 0710 grants `--x`, so
+# pcactions can reach the two directories it is entitled to and cannot list this
+# one or touch anything else beneath it. Provisioning it 0700 root:root instead
+# makes `runner-input` unreachable no matter how that child is moded, because a
+# denied ancestor stops path resolution first — and the controller that would
+# repair the boundary runs behind the very gate it repairs, so the runner can
+# never get far enough to invoke it. This mode is the contract
+# `pc-tai-release-controller` itself maintains; bootstrap must not contradict it.
+install -d -m 0710 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority
+install -d -m 0700 -o root -g root /var/lib/pc-release-authority/repository /var/lib/pc-release-authority/controller-jobs
 install -d -m 0730 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority/runner-input
 install -d -m 0750 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority/runner-output
 install -m 0750 -o root -g "$RUNNER_USER" "$CONTROLLER_SOURCE" "$CONTROLLER_TARGET"
