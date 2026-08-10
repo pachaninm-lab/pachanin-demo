@@ -15,11 +15,11 @@ test.describe('unified public modal sheet fullscreen control', () => {
     }
   });
 
-  test('rewritten public home keeps the unified AI, support and call dock visible', async ({ page }) => {
+  test('rewritten public home keeps the unified Gekta, support and call dock visible', async ({ page }) => {
     const dock = page.getByRole('navigation', { name: 'Связь и помощь' });
 
     await expect(dock).toBeVisible();
-    await expect(dock.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' })).toBeVisible();
+    await expect(dock.getByRole('button', { name: 'Открыть Гекту' })).toBeVisible();
     await expect(dock.getByRole('button', { name: 'Открыть поддержку' })).toBeVisible();
     await expect(dock.getByRole('link', { name: 'Позвонить по номеру 8 916 277-89-89' }))
       .toHaveAttribute('href', 'tel:+79162778989');
@@ -28,11 +28,11 @@ test.describe('unified public modal sheet fullscreen control', () => {
     await expect(page.locator('.p7-support-chat-button')).toBeHidden();
   });
 
-  test('platform assistant opens as a compact intent-first sheet and preserves fullscreen', async ({ page }) => {
+  test('Gekta opens as a compact intent-first sheet and preserves fullscreen', async ({ page }) => {
     const dock = page.getByRole('navigation', { name: 'Связь и помощь' });
-    await dock.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' }).click();
+    await dock.getByRole('button', { name: 'Открыть Гекту' }).click();
 
-    const dialog = page.getByRole('dialog', { name: 'Помощник по платформе' });
+    const dialog = page.getByRole('dialog', { name: 'Гекта' });
     const expand = dialog.getByRole('button', { name: 'На весь экран' });
     await expect(dialog).toBeVisible();
     await expect(expand).toBeVisible();
@@ -62,7 +62,7 @@ test.describe('unified public modal sheet fullscreen control', () => {
     await expand.click();
     await expect(dialog).toHaveAttribute('data-pc-fullscreen', 'true');
     await expect(dialog.getByRole('button', { name: 'Свернуть окно' })).toBeFocused();
-    await expect(dialog.getByRole('button', { name: 'Закрыть помощника по платформе' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Закрыть Гекту' })).toBeVisible();
 
     const expanded = await dialog.boundingBox();
     expect(expanded).not.toBeNull();
