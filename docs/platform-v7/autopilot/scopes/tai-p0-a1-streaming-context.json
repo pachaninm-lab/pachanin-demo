@@ -31,6 +31,8 @@
     "apps/web/tests/unit/taiConversationState.test.ts",
     "apps/web/tests/unit/taiInternalStreamRelay.test.ts",
     "apps/web/tests/unit/taiNoFakeStreamingAudit.test.ts",
+    "apps/web/tests/unit/taiLivePublicQwenInferenceAcceptance.test.ts",
+    "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts",
     "apps/web/tests/unit/taiPublicAssessmentContract.test.ts",
     "scripts/tai-public-assessment-contract.mjs",
     "scripts/tai-live-public-ai-acceptance.mjs",

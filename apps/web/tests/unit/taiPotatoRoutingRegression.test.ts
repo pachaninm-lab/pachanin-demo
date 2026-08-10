@@ -12,6 +12,12 @@ const acceptance = fs.readFileSync(
   path.join(root, 'scripts/tai-potato-mobile-live-acceptance.mjs'),
   'utf8',
 );
+// The assessment rules are shared with the other hosted acceptance script, so
+// they are pinned in the module both import rather than duplicated in each.
+const contract = fs.readFileSync(
+  path.join(root, 'scripts/tai-public-assessment-contract.mjs'),
+  'utf8',
+);
 
 describe('TAI broad agricultural production regression', () => {
   it('forces every public assistant POST request to the model-first agro route', () => {
@@ -57,8 +63,11 @@ describe('TAI broad agricultural production regression', () => {
   });
 
   it('requires real local Qwen, general agro mode, subject relevance and no platform-security misroute', () => {
-    expect(acceptance).toContain("assessment.source !== 'local_qwen'");
-    expect(acceptance).toContain("assessment.answerMode !== 'general_agro'");
+    expect(contract).toContain('assessment.source !== REAL_QWEN_SOURCE');
+    expect(contract).toContain("assessment.answerMode !== 'general_agro'");
+    // The potato script validates through the shared contract, so a future
+    // change that drops the call would leave these answers unchecked.
+    expect(acceptance).toContain('normalizePublicQwenAssessment(assessment, testCase.id)');
     expect(acceptance).toContain('assertAgriculturalAnswer');
     expect(acceptance).toContain("'как защищаются данные'");
     expect(acceptance).toContain("'доступ назначает сервер'");

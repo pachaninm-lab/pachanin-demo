@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest';
 const root = path.resolve(process.cwd(), '../..');
 const route = fs.readFileSync(path.join(root, 'apps/web/app/api/restricted-public-platform-assistant/route.ts'), 'utf8');
 const acceptance = fs.readFileSync(path.join(root, 'scripts/tai-live-public-ai-acceptance.mjs'), 'utf8');
+// The assessment rules moved out of the script and into a module both hosted
+// acceptance scripts import, so the guarantees below are pinned where they now
+// live. They are the same guarantees, checked once instead of twice.
+const contract = fs.readFileSync(path.join(root, 'scripts/tai-public-assessment-contract.mjs'), 'utf8');
 const stream = fs.readFileSync(path.join(root, 'apps/web/lib/platform-v7/ai-gateway-stream.ts'), 'utf8');
 const controller = fs.readFileSync(path.join(root, 'apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx'), 'utf8');
 
@@ -26,19 +30,52 @@ describe('real public Qwen exact-main acceptance', () => {
     expect(route).not.toContain("'MODEL_FAST_FALLBACK'");
   });
 
-  it('requires real multilingual Qwen assessment, identity and semantic relevance before acceptance', () => {
+  it('requires real multilingual Qwen assessment and semantic relevance before acceptance', () => {
     for (const fragment of [
-      "assessment.source !== 'local_qwen'",
-      "assessment.modelIdentity !== 'tai-qwen3-8b-q4km'",
-      "assessment.answerMode !== 'general_agro'",
+      "assessment.source !== REAL_QWEN_SOURCE",
+      "assessment.answerMode !== 'general_agro' || assessment.currentDataRequired !== false",
+      // Added with real streaming: a buffered route cannot satisfy these.
+      'assessment.streaming !== INCREMENTAL_STREAMING',
+      'sse_upstream_assessment_missing',
+      "upstream.finishReason !== 'stop'",
+      'upstream.truncated !== false',
       'sse_fallback_flag_present',
+      'sse_no_token_frames',
+    ]) expect(contract).toContain(fragment);
+
+    for (const fragment of [
       'sse_topic_relevance_invalid',
       'sse_language_invalid',
       "['ru', 'Что влияет на цену зерна?']",
       "['en', 'What affects grain prices?']",
       "['zh', '哪些因素影响粮食价格？']",
       'multilingualQwen = await verifyRealQwenSse()',
+      'assertRealGeneralQwen',
     ]) expect(acceptance).toContain(fragment);
+  });
+
+  /**
+   * Identity is asserted where it can be enforced, not where it is convenient.
+   *
+   * This used to require the acceptance script to compare the assessment's
+   * model identity against a constant. The public contour publishes no identity
+   * — `meta` carries null by design — so that comparison could only ever fail,
+   * and it did, on the live run. The guarantee itself did not go away: the relay
+   * refuses any upstream stream whose identity is not the admitted one, and
+   * protected activation verifies the binding before hosted acceptance runs.
+   * What is pinned now is that the public stream must carry no identity, and
+   * that no acceptance script writes one into evidence from a constant.
+   */
+  it('refuses a public model identity instead of restating one', () => {
+    expect(contract).toContain('sse_public_model_identity_exposed');
+    expect(contract).toContain("'modelIdentity' in assessment && assessment.modelIdentity !== null");
+    expect(contract).toContain('meta.modelIdentity !== null');
+    expect(contract).toContain("IDENTITY_AUTHORITY = 'protected_activation_dependency'");
+
+    // No acceptance reader may name the model, in a check or in evidence.
+    expect(contract).not.toContain('tai-qwen3-8b-q4km');
+    expect(acceptance).not.toContain('tai-qwen3-8b-q4km');
+    expect(acceptance).toContain('publicModelIdentityExposed: false');
   });
 
   it('keeps exact-main, UI, privacy and failure evidence gates intact', () => {
@@ -50,8 +87,13 @@ describe('real public Qwen exact-main acceptance', () => {
       'ui_overflow',
       'public-ai-window-failure.json',
       'public-ai-window-failure-390x844.png',
+    ]) expect(acceptance).toContain(fragment);
+
+    // Private material stays forbidden; the list moved with the assertion.
+    for (const fragment of [
       'AI_ASSISTANT_API_KEY',
       'TAI_PUBLIC_GATEWAY_HMAC_SECRET',
-    ]) expect(acceptance).toContain(fragment);
+      'sse_forbidden_material',
+    ]) expect(contract).toContain(fragment);
   });
 });
