@@ -39,13 +39,13 @@ export default async function AssistantPage() {
   const catalog = await getCatalog();
   const topics = catalog?.topics || [];
   return (
-    <PageAccessGuard allowedRoles={[...ALL_AUTHENTICATED_ROLES]} title="Помощник доступен только после входа" subtitle="После входа помощник работает с ролью, контекстом страницы и встроенной локальной базой знаний.">
-      <PageFrame title="Встроенный помощник" subtitle="Локальный помощник по платформе: объясняет логику, роли, документы, деньги, спор, логистику и ближайшие темы без обязательной зависимости от интернета.">
+    <PageAccessGuard allowedRoles={[...ALL_AUTHENTICATED_ROLES]} title="Гекта доступна только после входа" subtitle="После входа Гекта работает с ролью, контекстом страницы и встроенной локальной базой знаний.">
+      <PageFrame title="Гекта" subtitle="Аграрный интеллект по платформе: объясняет логику, роли, документы, деньги, спор, логистику и ближайшие темы без обязательной зависимости от интернета.">
         <section className="detail-grid" style={{ marginBottom: 18 }}>
           <div className="section-card-tight">
             <div className="eyebrow">Режим</div>
-            <div className="detail-title" style={{ marginTop: 8 }}>{catalog?.mode === 'hybrid' ? 'Гибридный режим помощника' : 'Локальный режим помощника'}</div>
-            <div className="muted" style={{ marginTop: 10 }}>{catalog?.note || 'Основной контур ответа — локальная база знаний по платформе.'}</div>
+            <div className="detail-title" style={{ marginTop: 8 }}>{catalog?.mode === 'hybrid' ? 'Гибридный режим Гекты' : 'Локальный режим Гекты'}</div>
+            <div className="muted" style={{ marginTop: 10 }}>{catalog?.note || 'Основной контур ответа Гекты — локальная база знаний по платформе.'}</div>
           </div>
           <div className="section-card-tight">
             <div className="eyebrow">Покрытие</div>
@@ -55,7 +55,7 @@ export default async function AssistantPage() {
           <div className="section-card-tight">
             <div className="eyebrow">Темы</div>
             <div className="detail-title" style={{ marginTop: 8 }}>{catalog?.platformTopicCount || topics.length || '—'}</div>
-            <div className="muted" style={{ marginTop: 10 }}>Ключевые product/operator темы, которые помощник знает без обязательного обращения наружу.</div>
+            <div className="muted" style={{ marginTop: 10 }}>Ключевые product/operator темы, которые Гекта знает без обязательного обращения наружу.</div>
           </div>
           <div className="section-card-tight">
             <div className="eyebrow">Матрица вопросов</div>
@@ -67,8 +67,8 @@ export default async function AssistantPage() {
         <section className="section-card" style={{ marginBottom: 18 }}>
           <div className="panel-title-row">
             <div>
-              <div className="dashboard-section-title">Что помощник уже умеет</div>
-              <div className="dashboard-section-subtitle">Не просто чат. Это внутренняя опора по платформе, экрану, роли и объекту сделки.</div>
+              <div className="dashboard-section-title">Что Гекта уже умеет</div>
+              <div className="dashboard-section-subtitle">Не просто чат. Гекта — внутренняя опора по платформе, экрану, роли и объекту сделки.</div>
             </div>
             <Link href="/deals" className="primary-link">Открыть сделку</Link>
           </div>
@@ -89,7 +89,7 @@ export default async function AssistantPage() {
           <div className="panel-title-row">
             <div>
               <div className="dashboard-section-title">Стартовые вопросы</div>
-              <div className="dashboard-section-subtitle">То, что можно задать в любой формулировке прямо из виджета внизу справа.</div>
+              <div className="dashboard-section-subtitle">То, что можно задать Гекте в любой формулировке прямо из виджета внизу справа.</div>
             </div>
           </div>
           <div className="detail-meta" style={{ marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
@@ -101,7 +101,7 @@ export default async function AssistantPage() {
           <div className="panel-title-row">
             <div>
               <div className="dashboard-section-title">Карта знаний</div>
-              <div className="dashboard-section-subtitle">Основные темы, которые помощник знает локально и использует как основу ответа.</div>
+              <div className="dashboard-section-subtitle">Основные темы, которые Гекта знает локально и использует как основу ответа.</div>
             </div>
           </div>
           <div className="detail-grid" style={{ marginTop: 16 }}>
