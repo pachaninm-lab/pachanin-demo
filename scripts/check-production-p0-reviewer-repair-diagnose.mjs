@@ -9,8 +9,8 @@ const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
 const wrapperPath = 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
-const branch = 'fix/p0-reviewer-diagnostic-failure-line-3821';
-const diagnosticBaseRevision = 'e367041a693b418ac27896f11abf8a190fb5ba52';
+const branch = 'fix/p0-reviewer-safe-runtime-marker-3821';
+const diagnosticBaseRevision = '67510071067f26832bcd770b186ef7c84cdb49d1';
 const deployedRevision = 'b81ee2e51f9fbf5ec66603211c3f32224532e782';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
@@ -55,6 +55,15 @@ requireMarkers('reason wrapper', wrapper, [
   `DEPLOYED_SHA='${deployedRevision}'`,
   'failure_line="${BASH_LINENO[0]:-0}"',
   '- failure line: \\`$failure_line\\`',
+  'ssh_rc=0',
+  'runtime_code=\'REMOTE_EXECUTION_FAILED\'',
+  'P0_REVIEWER_DIAG_STAFF_DB_URL_MISSING',
+  'P0_REVIEWER_DIAG_ROLLBACK_SENTINEL_NOT_RAISED',
+  'P0_REVIEWER_DIAG_ROLLBACK_PROOF_FAILED',
+  'P0_REVIEWER_DIAG_TRANSACTION_ERROR',
+  'P0_REVIEWER_DIAG_FATAL',
+  '- runtime code: \\`$runtime_code\\`',
+  '- raw runtime output: \\`NOT_PUBLISHED\\`',
   "['reviewer membership repair structural precondition failed', 'STRUCTURAL_PRECONDITION']",
   "['unique active PLATFORM_OWNER identity is required', 'OWNER_IDENTITY']",
   "['reviewer membership pre-state is inconsistent', 'MEMBERSHIP_PRESTATE_INCONSISTENT']",
@@ -74,7 +83,7 @@ if (!pythonMatch) process.exit(1);
 const pythonSyntax = spawnSync('python', ['-c', 'import ast,sys; ast.parse(sys.stdin.read())'], { input: pythonMatch[1], encoding: 'utf8' });
 if (pythonSyntax.status !== 0) process.exit(1);
 
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'p0-reviewer-line-'));
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'p0-reviewer-runtime-'));
 const sourcePath = path.join(tempRoot, 'source.sh');
 const patchedPath = path.join(tempRoot, 'patched.sh');
 try {
@@ -88,12 +97,24 @@ try {
     `DEPLOYED_SHA='${deployedRevision}'`,
     'failure_line="${BASH_LINENO[0]:-0}"',
     '- failure line: \\`$failure_line\\`',
+    'ssh_rc=0',
+    "runtime_code='REMOTE_EXECUTION_FAILED'",
+    'TRANSACTION_ERROR.${BASH_REMATCH[1]}',
+    'FATAL.${BASH_REMATCH[1]}',
+    '- runtime code: \\`$runtime_code\\`',
+    '- raw runtime output: \\`NOT_PUBLISHED\\`',
     "reasonCode: 'NONE'",
     "let reasonCode = 'UNCLASSIFIED'",
     'meta_keys reason_code',
     'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
   ]);
-  for (const unsafe of [/console\.(?:log|error)\([^\n]*safeMessage/, /JSON\.stringify\(\s*(?:meta|error)/, /\$safeMessage/]) {
+  for (const unsafe of [
+    /console\.(?:log|error)\([^\n]*safeMessage/,
+    /JSON\.stringify\(\s*(?:meta|error)/,
+    /\$safeMessage/,
+    /raw runtime output:\s*\\`\$output/,
+    /runtime code:\s*\\`\$runtime_line/,
+  ]) {
     if (unsafe.test(patched)) process.exit(1);
   }
 } finally {
@@ -105,7 +126,7 @@ if (JSON.stringify([...scope.allowedPaths].sort()) !== JSON.stringify(expectedPa
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.branch !== branch
     || scope.status !== 'active'
-    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_FAILURE_LINE'
+    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_SAFE_RUNTIME_MARKER'
     || scope.issue !== 3802
     || scope.trackingIssue !== 3810
     || scope.diagnosticBaseRevision !== diagnosticBaseRevision
@@ -114,9 +135,10 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.boundaries?.piiOutput !== false
     || scope.boundaries?.credentialOutput !== false
     || scope.boundaries?.rawDatabaseMessageOutput !== false
+    || scope.boundaries?.rawRuntimeOutput !== false
     || scope.boundaries?.deploymentMutation !== false
     || scope.boundaries?.securityWeakening !== false
     || scope.boundaries?.arbitrarySqlSurface !== false
     || scope.boundaries?.newRecurringCostRub !== 0) process.exit(1);
 
-console.log('PASS: diagnostic failure evidence is limited to a non-sensitive line number while rollback, reason-code and privacy boundaries remain unchanged.');
+console.log('PASS: non-zero reviewer diagnostic execution is converted only to an allowlisted runtime code; raw remote output remains private and production stays rollback-only.');
