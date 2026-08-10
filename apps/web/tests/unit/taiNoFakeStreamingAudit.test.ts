@@ -55,6 +55,23 @@ describe('no fake streaming on the active model paths', () => {
     expect(service.match(/stream: false/gu) ?? []).toHaveLength(1);
   });
 
+  it('the private authenticated assistant streams from its provider too', () => {
+    const service = read('apps/api/src/modules/ai-insights/ai-assistant.service.ts');
+    const controller = read('apps/api/src/modules/ai-insights/ai-assistant.controller.ts');
+
+    expect(service).toContain('async *chatStream');
+    expect(service).toContain('streamOpenAiCompatible');
+    expect(service).toContain('response.body.getReader()');
+    // The buffered `chat` remains for the non-streaming endpoint, so exactly one
+    // `stream: false` is expected — in that call and nowhere else.
+    expect(service.match(/^\s+stream: false,$/gmu) ?? []).toHaveLength(1);
+    expect(service.match(/^\s+stream: true,$/gmu) ?? []).toHaveLength(1);
+
+    expect(controller).toContain('this.assistant.chatStream(request, user, aborter.signal)');
+    expect(controller).not.toMatch(/await\s+this\.assistant\.chat\(/u);
+    expect(controller).not.toMatch(/setTimeout|setInterval/u);
+  });
+
   it('the boundary never accumulates the answer before forwarding it', () => {
     const relay = read('apps/web/lib/platform-v7/tai-internal-stream.ts');
 
