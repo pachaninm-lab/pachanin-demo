@@ -7,7 +7,9 @@ on:
       - '.github/workflows/production-p0-reviewer-membership-repair.yml'
       - 'scripts/production-p0-reviewer-membership-repair.sh'
       - 'scripts/check-production-p0-reviewer-membership-repair.mjs'
+      - 'scripts/check-production-p0-reviewer-membership-auth-rls.mjs'
       - 'apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql'
+      - 'apps/api/prisma/migrations/20260810193000_p0_reviewer_membership_repair_auth_rls/migration.sql'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json'
   push:
     branches: [main]
@@ -15,7 +17,9 @@ on:
       - '.github/workflows/production-p0-reviewer-membership-repair.yml'
       - 'scripts/production-p0-reviewer-membership-repair.sh'
       - 'scripts/check-production-p0-reviewer-membership-repair.mjs'
+      - 'scripts/check-production-p0-reviewer-membership-auth-rls.mjs'
       - 'apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql'
+      - 'apps/api/prisma/migrations/20260810193000_p0_reviewer_membership_repair_auth_rls/migration.sql'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json'
   issue_comment:
     types: [created]
@@ -53,6 +57,7 @@ jobs:
         with:
           node-version: '24'
       - run: node scripts/check-production-p0-reviewer-membership-repair.mjs
+      - run: node scripts/check-production-p0-reviewer-membership-auth-rls.mjs
       - run: bash -n scripts/production-p0-reviewer-membership-repair.sh
 
   repair:
