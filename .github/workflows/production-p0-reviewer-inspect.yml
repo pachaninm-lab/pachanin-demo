@@ -7,12 +7,14 @@ on:
       - '.github/workflows/production-p0-reviewer-inspect.yml'
       - 'scripts/production-p0-reviewer-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
+      - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
   push:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-reviewer-inspect.yml'
       - 'scripts/production-p0-reviewer-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
+      - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
   issue_comment:
     types: [created]
 
@@ -51,7 +53,7 @@ jobs:
       - run: node scripts/check-production-p0-reviewer-inspect.mjs
 
   inspect:
-    name: Read-only REG.RU reviewer state
+    name: Read-only REG.RU reviewer login readiness
     needs: contract
     if: >-
       needs.contract.result == 'success' &&
@@ -81,6 +83,6 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Inspect exact-main reviewer authority without mutation
+      - name: Inspect exact-main reviewer readiness without mutation
         shell: bash
         run: bash scripts/production-p0-reviewer-inspect.sh
