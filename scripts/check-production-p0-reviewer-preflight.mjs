@@ -25,6 +25,7 @@ const requiredWorkflow = [
   "--filter 'label=com.docker.compose.service=web'",
   "--filter 'label=com.docker.compose.service=api'",
   'org.opencontainers.image.revision',
+  'docker exec -i "$api_id" /nodejs/bin/node -',
   'STAFF_DATABASE_URL',
   "principal.user_name !== 'pc_staff_runtime'",
   'principal.rolsuper',
@@ -43,6 +44,16 @@ for (const marker of requiredWorkflow) {
     console.error(`Missing required reviewer-preflight marker: ${marker}`);
     process.exit(1);
   }
+}
+
+const stdinInspector = 'docker exec -i "$api_id" /nodejs/bin/node - <<\'NODE\'';
+if ((workflow.split(stdinInspector).length - 1) !== 1) {
+  console.error('Reviewer preflight must attach stdin exactly once for its heredoc-fed Node inspector.');
+  process.exit(1);
+}
+if (/docker exec\s+"\$api_id"\s+\/nodejs\/bin\/node\s+-\s+<<'NODE'/.test(workflow)) {
+  console.error('Reviewer preflight must not detach stdin from the heredoc-fed Node inspector.');
+  process.exit(1);
 }
 
 const forbiddenWorkflow = [
@@ -173,4 +184,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: production P0 reviewer preflight is owner-only, exact-main and aggregate-only; the forward ACL repair restores only the confined authority read while every staff runtime remains table-free.');
+console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only and stdin-safe; the forward ACL repair restores only the confined authority read while every staff runtime remains table-free.');
