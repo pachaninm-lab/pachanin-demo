@@ -3,8 +3,12 @@ import fs from 'node:fs';
 
 const workflowPath = '.github/workflows/production-p0-reviewer-preflight.yml';
 const migrationPath = 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql';
+const staffServicePath = 'apps/api/src/modules/staff-access/staff-authority-prisma.service.ts';
+const runtimeGrantsPath = 'infra/kind/production-like/postgresql-runtime-grants.sql';
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const staffService = fs.readFileSync(staffServicePath, 'utf8');
+const runtimeGrants = fs.readFileSync(runtimeGrantsPath, 'utf8');
 
 const requiredWorkflow = [
   "github.event.issue.number == 3072",
@@ -101,6 +105,34 @@ if (/RETURNS\s+TABLE\s*\([^)]*(?:email|user_id|membership|organization|tenant|se
   process.exit(1);
 }
 
+for (const marker of [
+  'reviewer_preflight_execute: boolean;',
+  "to_regprocedure('auth.staff_reviewer_preflight()')",
+  ') AS reviewer_preflight_execute',
+  "if (!row.reviewer_preflight_execute) errors.push('requires EXECUTE on auth.staff_reviewer_preflight')",
+  "if (row.direct_runtime_table_privileges) errors.push('must not have direct table privileges in public/auth')",
+]) {
+  if (!staffService.includes(marker)) {
+    console.error(`Strict staff principal assertion missing reviewer-preflight marker: ${marker}`);
+    process.exit(1);
+  }
+}
+
+for (const marker of [
+  'REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, auth FROM app_staff;',
+  'REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, auth FROM app_staff;',
+  'GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO app_staff;',
+]) {
+  if (!runtimeGrants.includes(marker)) {
+    console.error(`Production-like staff runtime grant contract missing marker: ${marker}`);
+    process.exit(1);
+  }
+}
+if (/GRANT\s+SELECT[^;]*auth\.staff_assignments[^;]*app_staff/is.test(runtimeGrants)) {
+  console.error('Production-like app_staff must not receive direct staff_assignments SELECT.');
+  process.exit(1);
+}
+
 if (!/permissions:\n\s+contents: read/.test(workflow)) {
   console.error('Top-level permissions must remain contents: read');
   process.exit(1);
@@ -110,4 +142,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: production P0 reviewer preflight is owner-only, exact-main and function-only under pc_staff_runtime.');
+console.log('PASS: production P0 reviewer preflight is owner-only, exact-main and function-only under strict staff principals.');
