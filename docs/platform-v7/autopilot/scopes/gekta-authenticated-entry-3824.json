@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-authenticated-entry-3824",
+  "branch": "agent/gekta-authenticated-entry-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "3c983b3100fd605bd8621da081044b2f1161e96a"
+  },
+  "purpose": "Apply the Gekta identity to authenticated assistant entry pages and the persistent private shortcut without changing routes, API contracts or assistant runtime behavior.",
+  "allowedPaths": [
+    "apps/web/app/assistant/page.tsx",
+    "apps/web/app/platform-v7/assistant/page.tsx",
+    "apps/web/components/platform-v7/PrivateAssistantShortcutLabel.tsx",
+    "apps/web/tests/unit/gektaAuthenticatedEntryBrand.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-authenticated-entry-3824.json"
+  ],
+  "compatibility": {
+    "routes": ["/assistant", "/platform-v7/assistant"],
+    "catalogEndpoint": "/ai-assistant/catalog",
+    "runtimePanel": "unchanged in this slice",
+    "analyticsEvents": "unchanged"
+  },
+  "forbiddenChanges": [
+    "apps/landing/**",
+    "AiAssistantPanel runtime or streaming behavior",
+    "API routes or backend contracts",
+    "role, tenant, database or money authority",
+    "production workflows or credentials",
+    "REG.RU deployment claim"
+  ],
+  "requiredChecks": [
+    "platform-v7 autopilot guard",
+    "focused Gekta authenticated-entry unit contract",
+    "web typecheck",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Authenticated entry copy only. Routes, API and assistant runtime remain compatibility identifiers until later phases."
+}
