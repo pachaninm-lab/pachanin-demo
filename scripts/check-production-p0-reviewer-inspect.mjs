@@ -4,10 +4,12 @@ import fs from 'node:fs';
 const workflowPath = '.github/workflows/production-p0-reviewer-inspect.yml';
 const runnerPath = 'scripts/production-p0-reviewer-inspect.sh';
 const migrationPath = 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql';
+const correctionPath = 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const correction = fs.readFileSync(correctionPath, 'utf8');
 
 const workflowMarkers = [
   "github.event.issue.number == 3072",
@@ -20,6 +22,7 @@ const workflowMarkers = [
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'bash scripts/production-p0-reviewer-inspect.sh',
   migrationPath,
+  correctionPath,
 ];
 
 for (const marker of workflowMarkers) {
@@ -136,7 +139,6 @@ const migrationMarkers = [
   'users_staff_reviewer_readiness',
   'user_orgs_staff_reviewer_readiness',
   'organizations_staff_reviewer_readiness',
-  'credential_states_staff_reviewer_readiness',
   "current_setting('app.staff_reviewer_readiness_scope', true) = 'aggregate'",
   'CREATE OR REPLACE FUNCTION auth.staff_reviewer_login_readiness()',
   'assignment_ready_count integer',
@@ -178,20 +180,46 @@ for (const marker of migrationMarkers) {
   }
 }
 
+const correctionMarkers = [
+  'DROP POLICY IF EXISTS credential_states_staff_reviewer_readiness',
+  'ON auth.credential_states',
+  "policy.schemaname = 'auth'",
+  "policy.tablename = 'credential_states'",
+  "policy.policyname = 'credential_states_staff_reviewer_readiness'",
+  'credential-state reviewer readiness policy must not remain inert',
+  "rolname = 'pc_staff_authority'",
+  'pc_staff_authority must remain membership-isolated',
+  "has_column_privilege(\n      'pc_staff_authority',\n      'auth.credential_states',",
+  "has_table_privilege('pc_staff_authority', 'auth.credential_states', 'UPDATE')",
+  "has_table_privilege('pc_staff_runtime', 'auth.credential_states', 'SELECT')",
+  "'auth.staff_reviewer_login_readiness()',",
+  'pc_staff_runtime readiness EXECUTE grant is missing',
+];
+for (const marker of correctionMarkers) {
+  if (!correction.includes(marker)) {
+    console.error(`Missing reviewer readiness ACL-correction marker: ${marker}`);
+    process.exit(1);
+  }
+}
+
 if (/RETURNS\s+TABLE\s*\([^)]*(?:email|user_id|membership_id|organization_id|tenant_id|session_id|password_hash|secret|ciphertext|backup|token)/is.test(migration)) {
   console.error('Reviewer login-readiness function must return aggregate counts only.');
   process.exit(1);
 }
-if (/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(migration)) {
-  console.error('No staff runtime may receive direct table privileges from the readiness migration.');
+if (/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(migration + '\n' + correction)) {
+  console.error('No staff runtime may receive direct table privileges from the readiness migrations.');
   process.exit(1);
 }
-if (/\b(?:INSERT\s+INTO|UPDATE\s+(?:auth|public)\.|DELETE\s+FROM\s+(?:auth|public)\.)\b/i.test(migration)) {
-  console.error('Reviewer login-readiness migration must not mutate business or identity rows.');
+if (/\b(?:INSERT\s+INTO|UPDATE\s+(?:auth|public)\.|DELETE\s+FROM\s+(?:auth|public)\.)\b/i.test(migration + '\n' + correction)) {
+  console.error('Reviewer login-readiness migrations must not mutate business or identity rows.');
   process.exit(1);
 }
-if (/\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\b/i.test(migration)) {
-  console.error('Reviewer login-readiness migration must reuse confined principals, not create/elevate them.');
+if (/\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\b/i.test(migration + '\n' + correction)) {
+  console.error('Reviewer login-readiness migrations must reuse confined principals, not create/elevate them.');
+  process.exit(1);
+}
+if (/CREATE\s+POLICY\s+[^;]*credential_states/is.test(correction)) {
+  console.error('The ACL correction must not recreate a policy on auth.credential_states.');
   process.exit(1);
 }
 if (!/permissions:\n\s+contents: read/.test(workflow)) {
@@ -203,4 +231,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: reviewer login-readiness inspect is owner-only, exact-main, pinned-SSH, aggregate-only, RLS-bounded, Node-24-safe and mutation-free.');
+console.log('PASS: reviewer login-readiness inspect is owner-only, exact-main, pinned-SSH, aggregate-only, identity-RLS-bounded, credential-state-ACL-bounded, Node-24-safe and mutation-free.');
