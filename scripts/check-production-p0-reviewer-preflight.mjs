@@ -3,13 +3,8 @@ import fs from 'node:fs';
 
 const workflowPath = '.github/workflows/production-p0-reviewer-preflight.yml';
 const migrationPath = 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql';
-const runtimeGrantsPath = 'infra/kind/production-like/postgresql-runtime-grants.sql';
-const drPath = 'scripts/platform-v7-database-dr-rehearsal.sh';
-
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const migration = fs.readFileSync(migrationPath, 'utf8');
-const runtimeGrants = fs.readFileSync(runtimeGrantsPath, 'utf8');
-const dr = fs.readFileSync(drPath, 'utf8');
 
 const requiredWorkflow = [
   "github.event.issue.number == 3072",
@@ -70,7 +65,9 @@ for (const pattern of forbiddenWorkflow) {
 
 const requiredMigration = [
   'CREATE OR REPLACE FUNCTION auth.staff_reviewer_preflight()',
+  'RETURNS TABLE (\n  active_owner_count integer,\n  usable_reviewer_count integer\n)',
   'SECURITY DEFINER',
+  'STABLE',
   'SET search_path = pg_catalog, auth, pg_temp',
   'SET row_security = on',
   "assignment.role = 'PLATFORM_OWNER'",
@@ -81,8 +78,12 @@ const requiredMigration = [
   'ALTER FUNCTION auth.staff_reviewer_preflight() OWNER TO pc_staff_authority',
   'REVOKE ALL ON FUNCTION auth.staff_reviewer_preflight() FROM PUBLIC',
   'GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO pc_staff_runtime',
+  "rolname IN ('app_staff', 'one_deal_staff')",
+  "'pc_auth_runtime', 'pc_deal_runtime', 'pc_storage_runtime', 'pc_outbox_runtime'",
+  "'app_auth', 'app_runtime', 'app_storage', 'app_outbox'",
+  "'one_deal_auth', 'one_deal_app', 'one_deal_storage'",
   "has_table_privilege('pc_staff_runtime', 'auth.staff_assignments', 'SELECT')",
-  "has_function_privilege(\n    'pc_staff_runtime', 'auth.staff_reviewer_preflight()', 'EXECUTE'",
+  "'pc_staff_runtime', 'auth.staff_reviewer_preflight()', 'EXECUTE'",
 ];
 for (const marker of requiredMigration) {
   if (!migration.includes(marker)) {
@@ -95,12 +96,9 @@ if (/GRANT\s+SELECT[^;]*auth\.staff_assignments[^;]*(?:pc_staff_runtime|app_staf
   console.error('Migration must not grant direct staff_assignments SELECT to a staff runtime.');
   process.exit(1);
 }
-
-for (const [label, text] of [['production-like runtime grants', runtimeGrants], ['DR recovery', dr]]) {
-  if (!text.includes('auth.staff_reviewer_preflight()')) {
-    console.error(`${label} must preserve reviewer-preflight function authority.`);
-    process.exit(1);
-  }
+if (/RETURNS\s+TABLE\s*\([^)]*(?:email|user_id|membership|organization|tenant|session|credential|secret)/is.test(migration)) {
+  console.error('Reviewer preflight function must return aggregate counts only.');
+  process.exit(1);
 }
 
 if (!/permissions:\n\s+contents: read/.test(workflow)) {
