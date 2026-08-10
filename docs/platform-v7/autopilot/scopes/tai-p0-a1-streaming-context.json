@@ -31,7 +31,10 @@
     "apps/web/tests/unit/taiConversationState.test.ts",
     "apps/web/tests/unit/taiInternalStreamRelay.test.ts",
     "apps/web/tests/unit/taiNoFakeStreamingAudit.test.ts",
+    "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
     "apps/web/tests/unit/taiLivePublicQwenInferenceAcceptance.test.ts",
+    "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
+    "apps/web/tests/unit/taiRollbackVerificationContract.test.ts",
     "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts",
     "apps/web/tests/unit/taiPublicAssessmentContract.test.ts",
     "scripts/tai-public-assessment-contract.mjs",
@@ -65,7 +68,13 @@
     "no acceptance reader or evidence file restates a model identity the public contour never published",
     "the browser resolves the model outcome from the upstream record and grounded answers from the top level",
     "a rollback whose verification cannot run is reported distinctly from a rollback that restored the wrong revision",
-    "a Go template that would be rejected by Docker at runtime fails the release contract in CI"
+    "a Go template that would be rejected by Docker at runtime fails the release contract in CI",
+    "retry regenerates an answer without appending a second copy of the question, on screen or on the wire",
+    "retry history is built from the turns before the question and excludes the answer being replaced",
+    "the hosted browser matrix proves semantic content is visible while the message is still streaming",
+    "New Conversation resets history in the next request body, not only in the visible transcript",
+    "Stop ends streaming promptly, keeps emitted text and leaves the panel usable",
+    "the assistant panel stays inside the viewport with reachable controls at 320, 390 and 430 px"
   ],
   "productionHosting": "REG_RU_VPS_ONLY"
 }

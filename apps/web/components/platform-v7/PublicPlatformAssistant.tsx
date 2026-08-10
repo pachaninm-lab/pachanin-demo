@@ -642,6 +642,36 @@ export function PublicPlatformAssistant() {
     return true;
   };
 
+  /**
+   * Run one generation for a question that is already on screen.
+   *
+   * Shared by asking and regenerating so the two cannot drift: the only thing
+   * that differs between them is whether a user turn is added first.
+   */
+  const runGeneration = async (question: string, history: HistoryTurn[]) => {
+    setError('');
+    sendingRef.current = true;
+    setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const result = await streamAnswer(question, history, controller);
+      if (result === 'answered' || result === 'handled') return;
+      if (!await knowledgeFallback(question, history, controller)) throw new Error('knowledge_fallback_failed');
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === 'AbortError') return;
+      setError(ui.error);
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        sendingRef.current = false;
+        setSending(false);
+        window.setTimeout(() => textareaRef.current?.focus(), 0);
+      }
+    }
+  };
+
   const submit = async (value: string) => {
     const normalized = value.replace(/\s+/gu, ' ').trim().slice(0, 1_200);
     if (!normalized || sendingRef.current) return;
@@ -656,28 +686,8 @@ export function PublicPlatformAssistant() {
     stickToBottomRef.current = true;
     setMessages((current) => [...current, userMessage]);
     setInput('');
-    setError('');
-    sendingRef.current = true;
-    setSending(true);
-    const controller = new AbortController();
-    abortRef.current = controller;
     trackEvent('public_platform_assistant_question', { length: normalized.length, locale, context: contextName });
-
-    try {
-      const result = await streamAnswer(normalized, history, controller);
-      if (result === 'answered' || result === 'handled') return;
-      if (!await knowledgeFallback(normalized, history, controller)) throw new Error('knowledge_fallback_failed');
-    } catch (reason) {
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
-      setError(ui.error);
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-        sendingRef.current = false;
-        setSending(false);
-        window.setTimeout(() => textareaRef.current?.focus(), 0);
-      }
-    }
+    await runGeneration(normalized, history);
   };
 
   const copyMessage = async (message: Message) => {
@@ -691,9 +701,48 @@ export function PublicPlatformAssistant() {
     }
   };
 
-  const retryMessage = (index: number) => {
-    const previous = [...messages.slice(0, index)].reverse().find((message) => message.role === 'user');
-    if (previous) void submit(previous.text);
+  /**
+   * Regenerate one assistant answer without re-asking the question.
+   *
+   * Retry used to call `submit()` with the earlier question's text, and
+   * `submit()` always appends a user turn — so every retry added a second copy
+   * of a question the reader had asked once. The duplicate was not only visual:
+   * `historyFrom` reads the message list, so the next request carried the same
+   * user turn twice and the derived conversation state saw the subject restated
+   * rather than revisited.
+   *
+   * So this replaces rather than re-asks. The user turn stays exactly where it
+   * was, the answer being retried is dropped, and history is built from the
+   * turns *before* the question — the answer under replacement cannot be part
+   * of the context used to replace it.
+   *
+   * Anything after the retried answer is dropped with it. Those turns were
+   * responses to an answer that no longer exists, and keeping them would leave
+   * a conversation whose visible history never happened in that order. Removing
+   * the invalidated branch is the deterministic reading; silently keeping it is
+   * not.
+   */
+  const regenerateAnswer = async (index: number) => {
+    if (sendingRef.current) return;
+
+    let userIndex = -1;
+    for (let i = Math.min(index, messages.length) - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'user') { userIndex = i; break; }
+    }
+    if (userIndex < 0) return;
+
+    const question = messages[userIndex].text;
+    if (!question.trim()) return;
+
+    // Only what preceded the question. Not the question itself — it is sent as
+    // the current request — and not the answer being replaced.
+    const history = historyFrom(messages.slice(0, userIndex));
+
+    stickToBottomRef.current = true;
+    setMessages((current) => current.slice(0, index));
+    freshConversationRef.current = false;
+    trackEvent('public_platform_assistant_retry', { length: question.length, locale, context: contextName });
+    await runGeneration(question, history);
   };
 
   const panelStyle: React.CSSProperties | undefined = fullscreen ? {
@@ -875,7 +924,7 @@ export function PublicPlatformAssistant() {
                           <button type='button' style={actionStyle} onClick={() => void copyMessage(message)} aria-label={ui.copy} title={ui.copy}>
                             <CopyIcon size={15} aria-hidden='true' />{copiedId === message.id ? ui.copied : ui.copy}
                           </button>
-                          <button type='button' style={actionStyle} onClick={() => retryMessage(index)} aria-label={ui.retry} title={ui.retry}>
+                          <button type='button' style={actionStyle} onClick={() => void regenerateAnswer(index)} aria-label={ui.retry} title={ui.retry}>
                             <RefreshCw size={15} aria-hidden='true' />{ui.retry}
                           </button>
                           <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'useful', origin: origin || 'unknown' })} aria-label={ui.useful} title={ui.useful}>
