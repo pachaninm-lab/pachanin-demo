@@ -585,6 +585,42 @@ export function PublicPlatformAssistant() {
       return 'answered';
     }
 
+    // Stopping keeps what the reader already saw.
+    //
+    // Cancellation used to be handled like every other non-answer: drop the
+    // provisional message and return. But a reader who presses Stop has already
+    // read the text on screen, and erasing it makes Stop look like a failure
+    // that lost the answer rather than a deliberate halt. Text that arrived is
+    // text the model produced; only its continuation was cancelled. It is left
+    // in place, marked `refused` so nothing downstream mistakes a halted answer
+    // for a complete one, and so the streaming indicator ends.
+    if (snapshot.refusal === 'CANCELLED') {
+      const partial = sanitizeDisplayText(snapshot.text);
+      if (!partial) {
+        dropProvisional();
+        return 'handled';
+      }
+      setMessages((current) => {
+        const next = opened ? current.filter((message) => message.id !== id) : current;
+        opened = true;
+        return [...next, {
+          id,
+          role: 'assistant',
+          text: partial,
+          origin: parseAssessment(snapshot.assessment).source,
+          createdAt: new Date().toISOString(),
+          stream: {
+            status: 'refused',
+            refusal: 'CANCELLED',
+            citations: [],
+            modelIdentity: null,
+            assessment: parseAssessment(snapshot.assessment),
+          },
+        }];
+      });
+      return 'handled';
+    }
+
     dropProvisional();
     if (
       snapshot.refusal === 'FEATURE_DISABLED'
@@ -594,7 +630,6 @@ export function PublicPlatformAssistant() {
     ) {
       return 'fallback';
     }
-    if (snapshot.refusal === 'CANCELLED') return 'handled';
 
     setMessages((current) => [...current, {
       id,

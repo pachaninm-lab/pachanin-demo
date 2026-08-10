@@ -232,6 +232,87 @@ describe('retry regenerates the answer without re-asking the question', () => {
   });
 });
 
+describe('stopping keeps what the reader already saw', () => {
+  beforeEach(() => {
+    document.documentElement.lang = 'ru';
+    window.sessionStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    window.sessionStorage.clear();
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: originalFetch });
+  });
+
+  /** A stream that emits some text and then hangs until the reader aborts. */
+  function installHangingStream(partial: string) {
+    const encoder = new TextEncoder();
+    const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (!url.includes('stream=1')) return catalogResponse();
+      const signal = init?.signal;
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode([meta, token(partial)].map(encodeFrame).join('')));
+            signal?.addEventListener('abort', () => { try { controller.close(); } catch { /* already closed */ } }, { once: true });
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+      );
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: spy });
+  }
+
+  it('leaves the emitted partial answer on screen after Stop', async () => {
+    const partial = 'Первая часть ответа про подкормку картофеля.';
+    installHangingStream(partial);
+    const user = await openAndAsk('Чем удобрять картофель?');
+
+    const assistantText = () => Array.from(
+      document.querySelectorAll('.pc-public-assistant-message[data-role="assistant"]'),
+    ).map(node => node.textContent || '').join(' ');
+
+    await waitFor(() => expect(assistantText()).toContain(partial), { timeout: 5_000 });
+    const stop = await screen.findByRole('button', { name: 'Остановить ответ' });
+    await user.click(stop);
+
+    // Erasing it would make a deliberate halt look like an answer that was lost.
+    await waitFor(() => expect(assistantText()).toContain(partial), { timeout: 5_000 });
+    // And it must not be mistakable for a completed answer.
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-stream-status="streaming"]')).toHaveLength(0);
+      expect(document.querySelectorAll('[data-stream-status="answered"]')).toHaveLength(0);
+    });
+  });
+
+  it('does not leave an empty assistant bubble when nothing was emitted', async () => {
+    const encoder = new TextEncoder();
+    const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (!url.includes('stream=1')) return catalogResponse();
+      const signal = init?.signal;
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode(encodeFrame(meta)));
+            signal?.addEventListener('abort', () => { try { controller.close(); } catch { /* already closed */ } }, { once: true });
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+      );
+    });
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: spy });
+
+    const user = await openAndAsk('Чем удобрять картофель?');
+    const stop = await screen.findByRole('button', { name: 'Остановить ответ' });
+    await user.click(stop);
+
+    await waitFor(() => {
+      expect(document.querySelectorAll('.pc-public-assistant-message[data-role="assistant"]')).toHaveLength(0);
+    });
+  });
+});
+
 describe('the component keeps the two paths distinct', () => {
   it('regenerates through a path that does not append a user message', () => {
     const source = readComponent();

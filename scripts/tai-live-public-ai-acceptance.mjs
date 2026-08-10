@@ -384,7 +384,17 @@ async function verifyRetry(dialog) {
   const answeredBefore = await answeredCount(dialog);
 
   await dialog.getByRole('button', { name: UI.retry }).last().click();
+
+  // The replacement lands at the same index the old answer occupied, so waiting
+  // for that index alone can match the answer still on screen. Wait for the
+  // regeneration to start, then for it to settle.
+  await dialog.locator(STREAMING).first().waitFor({ state: 'visible', timeout: 240_000 });
   await dialog.locator(ANSWERED).nth(answeredBefore - 1).waitFor({ state: 'visible', timeout: 240_000 });
+  await dialog.page().waitForFunction(
+    selector => document.querySelectorAll(selector).length === 0,
+    STREAMING,
+    { timeout: 240_000 },
+  );
 
   const userTurnsAfter = await dialog.locator(USER_TURN).count();
   const answeredAfter = await answeredCount(dialog);

@@ -206,7 +206,36 @@ describe('reading a whole stream', () => {
       signal: controller.signal,
     });
 
-    expect(snapshot).toMatchObject({ status: 'refused', text: '', refusal: 'CANCELLED' });
+    expect(snapshot).toMatchObject({ status: 'refused', refusal: 'CANCELLED' });
+  });
+
+  /**
+   * Cancellation keeps its text; every other failure does not.
+   *
+   * A stream that broke leaves an answer that was never finished, and showing
+   * it as though it were one is worse than showing nothing. But a reader who
+   * presses Stop has already read what is on screen — blanking it there
+   * protects nobody and makes a deliberate halt look like a lost answer.
+   */
+  it('keeps text the reader already saw when they cancelled', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const snapshot = await readGatewayStream(sseResponse([wire([meta(), token('половина')])]), {
+      mode: 'public',
+      signal: controller.signal,
+    });
+
+    expect(snapshot.text).toBe('половина');
+    // Still refused, so nothing downstream can read it as a complete answer.
+    expect(snapshot.status).toBe('refused');
+  });
+
+  it('still discards text when the stream failed rather than was stopped', async () => {
+    const snapshot = await readGatewayStream(sseResponse([wire([meta(), token('половина')])]), {
+      mode: 'public',
+    });
+
+    expect(snapshot).toMatchObject({ status: 'refused', text: '', refusal: 'UPSTREAM_ERROR' });
   });
 
   it('stops reading once the stream is sealed', async () => {
