@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-p0-reviewer-preflight-rls-3770",
+  "status": "active",
+  "purpose": "Repair the live P0 reviewer-preflight RLS failure on REG.RU without widening pc_staff_runtime: admit only the confined NOLOGIN pc_staff_authority to auth.staff_assignments while an internal aggregate-only scope marker is set by the fixed SECURITY DEFINER helper.",
+  "approvedBy": "owner-direct-registration-production-finish-2026-08-10",
+  "authorityBaseExactMain": "f81777080af499a47082317e703c10da30c0f804",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260810123000_p0_reviewer_preflight_rls_scope/migration.sql",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-preflight-rls-3770.json",
+    "scripts/check-production-p0-reviewer-preflight.mjs"
+  ],
+  "requiredBehavior": [
+    "pc_staff_runtime remains LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS with no direct table or sequence privileges",
+    "pc_staff_authority remains NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS with no members and is not a member of any other role",
+    "auth.staff_reviewer_preflight() remains aggregate-only and returns exactly active PLATFORM_OWNER count plus usable registration-reviewer count",
+    "the helper is SECURITY DEFINER owned by pc_staff_authority, revoked from PUBLIC and executable by pc_staff_runtime only through the existing function surface",
+    "the helper forces row_security=on and sets a transaction-local app.staff_reviewer_preflight_scope marker before reading auth.staff_assignments",
+    "the RLS SELECT policy is role-specific TO pc_staff_authority and admits rows only while app.staff_reviewer_preflight_scope equals aggregate",
+    "pc_staff_runtime, app_staff and one_deal_staff receive no direct auth.staff_assignments SELECT or write privilege",
+    "the repair does not alter staff assignment rows, users, organizations, credentials, sessions or reviewer identities",
+    "the forward migration verifies helper ownership/configuration, policy role/scope and executes the aggregate helper read-only",
+    "existing RLS enable/force state is not disabled or bypassed"
+  ],
+  "forbiddenCapabilities": [
+    "BYPASSRLS or SUPERUSER for pc_staff_authority or any runtime",
+    "GRANT SELECT or write privilege on auth.staff_assignments to pc_staff_runtime, app_staff or one_deal_staff",
+    "ALTER TABLE auth.staff_assignments DISABLE ROW LEVEL SECURITY",
+    "ALTER TABLE auth.staff_assignments NO FORCE ROW LEVEL SECURITY",
+    "table ownership transfer to pc_staff_authority or a runtime",
+    "PUBLIC reviewer-preflight RLS policy",
+    "returning user ids, emails, organization ids, credentials, sessions or TOTP material from reviewer preflight",
+    "creating, elevating or mutating PLATFORM_OWNER or any staff identity",
+    "ad-hoc production SQL outside exact-main migration authority",
+    "new paid provider, SaaS or recurring cost"
+  ],
+  "acceptanceEvidence": [
+    "static checker proves marker-scoped role-specific RLS policy and function-only runtime boundary",
+    "CI PostgreSQL authority applies the forward migration and executes the helper successfully",
+    "full exact-head repository/security/Kubernetes/immutable-release matrix is terminal PASS",
+    "merge uses the exact expected head SHA with behind_by=0",
+    "exact-main REG.RU release applies the migration and ends with migration/deployment/live/PostgreSQL acceptance PASS",
+    "owner-only production reviewer preflight returns aggregate counts under pc_staff_runtime with PRODUCTION_MUTATION=NONE"
+  ]
+}
