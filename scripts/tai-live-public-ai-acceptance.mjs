@@ -198,15 +198,72 @@ async function answeredCount(dialog) {
   return dialog.locator(ANSWERED).count();
 }
 
+/**
+ * All assistant turns, however they settled.
+ *
+ * Indexing by answered-count only holds while every prior turn answered; one
+ * refusal makes the two counts diverge and every later index points at the
+ * wrong message. The position of a turn is what identifies it, not its outcome.
+ */
+async function assistantCount(dialog) {
+  return dialog.locator(ASSISTANT).count();
+}
+
 /** Send one question through the composer and wait for a settled answer. */
 async function askInPanel(dialog, question, { timeout = 240_000, lang = 'ru' } = {}) {
   const ui = uiFor(lang);
-  const before = await answeredCount(dialog);
+  const before = await assistantCount(dialog);
   await dialog.getByRole('textbox', { name: ui.composer }).fill(question);
   await dialog.getByRole('button', { name: ui.send }).click();
-  await dialog.locator(ANSWERED).nth(before).waitFor({ state: 'visible', timeout });
-  const answer = ((await dialog.locator(ANSWERED).nth(before).locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+
+  try {
+    // Wait for the turn to *settle*, not specifically to succeed. A refusal
+    // settles as `refused`, and a knowledge-base fallback renders with no
+    // stream status at all — waiting only for `answered` cannot observe either,
+    // so a failed turn looked identical to a slow one and cost four minutes to
+    // report nothing. Settle first, then judge what settled.
+    await dialog.page().waitForFunction(
+      ({ assistant, streaming, want }) => {
+        const messages = document.querySelectorAll(`#pc-public-assistant-panel ${assistant}`);
+        if (messages.length <= want) return false;
+        return document.querySelectorAll(`#pc-public-assistant-panel ${streaming}`).length === 0;
+      },
+      { assistant: ASSISTANT, streaming: STREAMING, want: before },
+      { timeout, polling: 500 },
+    );
+  } catch (cause) {
+    const state = await panelState(dialog);
+    observe(`ask[${lang}] NEVER SETTLED`, question, JSON.stringify(state));
+    throw new Error(`ui_answer_never_settled:${lang}:${JSON.stringify(state)}`, { cause });
+  }
+
+  // Judged outside the wait, so a turn that settled the wrong way reports what
+  // it actually was instead of being reported as a timeout.
+  const settled = dialog.locator(ASSISTANT).nth(before);
+  const status = await settled.getAttribute('data-stream-status');
+  if (status !== 'answered') {
+    const text = ((await settled.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+    observe(`ask[${lang}] NOT ANSWERED (${status ?? 'no-stream-status'})`, question, text);
+    throw new Error(`ui_turn_not_answered:${lang}:${status ?? 'no-stream-status'}:${text.slice(0, 200)}`);
+  }
+
+  const answer = ((await settled.locator('.pc-public-assistant-bubble').textContent()) || '').trim();
   return observe(`ask[${lang}]`, question, answer);
+}
+
+/** What the panel is actually showing, for when a wait does not resolve. */
+async function panelState(dialog) {
+  return dialog.evaluate(node => ({
+    assistantMessages: Array.from(node.querySelectorAll('.pc-public-assistant-message[data-role="assistant"]'))
+      .map(message => ({
+        status: message.getAttribute('data-stream-status'),
+        text: (message.querySelector('.pc-public-assistant-bubble')?.textContent || '').trim().slice(0, 300),
+      })),
+    userMessages: node.querySelectorAll('.pc-public-assistant-message[data-role="user"]').length,
+    alert: (node.querySelector('[role="alert"]')?.textContent || '').trim().slice(0, 300),
+    processing: node.querySelectorAll('.pc-public-assistant-processing').length,
+    composerValue: (node.querySelector('textarea')?.value || '').slice(0, 120),
+  }));
 }
 
 /**

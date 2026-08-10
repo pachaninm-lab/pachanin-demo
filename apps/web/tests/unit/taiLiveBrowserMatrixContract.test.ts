@@ -185,6 +185,20 @@ describe('the controls behave', () => {
       .toBeLessThan(catchBlock.indexOf('public-ai-window-failure.json'));
   });
 
+  it('judges how a turn settled instead of timing out on one outcome', () => {
+    // A refusal settles as `refused` and a knowledge-base fallback renders with
+    // no stream status at all. Waiting only for `answered` cannot observe
+    // either, so a failed turn is indistinguishable from a slow one until the
+    // wait expires — four minutes to learn nothing.
+    expect(acceptance).toContain('ui_answer_never_settled');
+    expect(acceptance).toContain('ui_turn_not_answered');
+    expect(acceptance).toContain('async function panelState(dialog)');
+    expect(acceptance).toContain("if (status !== 'answered')");
+    // Turn position identifies a turn; its outcome does not.
+    expect(acceptance).toContain('async function assistantCount(dialog)');
+    expect(acceptance).toContain('const before = await assistantCount(dialog);');
+  });
+
   it('recognises both everyday Russian names for the corrected crop', () => {
     // A term list naming only `картофель` misses `картошка`. Widening the
     // current subject cannot mask a regression: dominance still requires the
