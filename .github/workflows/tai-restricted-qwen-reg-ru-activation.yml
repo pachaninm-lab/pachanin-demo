@@ -18,6 +18,7 @@ on:
       - "scripts/pc-tai-release-controller-core.sh"
       - "scripts/tai-restricted-qwen-reg-ru-activate.sh"
       - "scripts/tai-public-assessment-contract.mjs"
+      - "scripts/tai-conversation-subject-contract.mjs"
       - "scripts/tai-live-public-ai-acceptance.mjs"
       - "scripts/tai-potato-mobile-live-acceptance.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
@@ -200,6 +201,7 @@ jobs:
           bash -n scripts/tai-restricted-qwen-reg-ru-activate.sh
           bash -n scripts/install-pc-prod-actions-runner.sh
           node --check scripts/tai-public-assessment-contract.mjs
+          node --check scripts/tai-conversation-subject-contract.mjs
           node --check scripts/tai-live-public-ai-acceptance.mjs
           node --check scripts/tai-potato-mobile-live-acceptance.mjs
           node scripts/check-pc-tai-release-controller.mjs
@@ -423,6 +425,7 @@ jobs:
           # must land beside them here — they run from this scratch directory,
           # not from the checkout.
           cp "$GITHUB_WORKSPACE/scripts/tai-public-assessment-contract.mjs" "$work/tai-public-assessment-contract.mjs"
+          cp "$GITHUB_WORKSPACE/scripts/tai-conversation-subject-contract.mjs" "$work/tai-conversation-subject-contract.mjs"
           cp "$GITHUB_WORKSPACE/scripts/tai-live-public-ai-acceptance.mjs" "$work/acceptance.mjs"
           cp "$GITHUB_WORKSPACE/scripts/tai-potato-mobile-live-acceptance.mjs" "$work/potato-acceptance.mjs"
           LIVE_BASE="$LIVE_BASE" node "$work/acceptance.mjs"

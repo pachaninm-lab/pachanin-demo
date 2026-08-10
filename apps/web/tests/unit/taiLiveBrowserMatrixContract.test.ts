@@ -54,13 +54,20 @@ describe('conversation state is exercised across languages and turns', () => {
 
   it('requires the newest fact to win an explicit correction', () => {
     expect(acceptance).toContain('async function verifyExplicitCorrection(');
-    expect(acceptance).toContain('refuseSubject({ id: \'correction\'');
-    expect(acceptance).toContain('ui_stale_subject_present');
+    expect(acceptance).toContain("id: 'correction'");
+    expect(acceptance).toContain('requireSubjectDominance');
   });
 
   it('requires a topic shift to drop the previous subject', () => {
     expect(acceptance).toContain('async function verifyTopicShift(');
-    expect(acceptance).toContain("refuseSubject({ id: 'topic-shift'");
+    expect(acceptance).toContain("id: 'topic-shift'");
+    expect(acceptance).toContain("superseded: ['удой', 'дойн', 'коров']");
+  });
+
+  it('imports the subject rules rather than restating them', () => {
+    expect(acceptance).toContain("from './tai-conversation-subject-contract.mjs'");
+    expect(workflow).toContain('cp "$GITHUB_WORKSPACE/scripts/tai-conversation-subject-contract.mjs"');
+    expect(workflow).toContain('node --check scripts/tai-conversation-subject-contract.mjs');
   });
 
   it('proves New Conversation resets history on the wire, not just on screen', () => {

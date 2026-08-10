@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { IDENTITY_AUTHORITY, assertRealGeneralQwen } from './tai-public-assessment-contract.mjs';
+import { requireSubject, requireSubjectDominance } from './tai-conversation-subject-contract.mjs';
 
 const liveBase = process.env.LIVE_BASE;
 const targetSha = process.env.TARGET_SHA;
@@ -167,23 +168,6 @@ const STREAMING = `${ASSISTANT}[data-stream-status="streaming"]`;
 const ANSWERED = `${ASSISTANT}[data-stream-status="answered"]`;
 const USER_TURN = '.pc-public-assistant-message[data-role="user"]';
 
-/** Bounded term matching — the model's prose varies, its subject must not. */
-function matchedTerms(answer, terms) {
-  const normalized = answer.normalize('NFKC').toLowerCase();
-  return terms.filter(term => normalized.includes(term.toLowerCase()));
-}
-
-function requireSubject({ id, answer, expect: expected, minimum = 1 }) {
-  const hits = matchedTerms(answer, expected);
-  if (hits.length < minimum) throw new Error(`ui_subject_missing:${id}:${expected.join(',')}`);
-  return hits;
-}
-
-function refuseSubject({ id, answer, forbidden }) {
-  const hits = matchedTerms(answer, forbidden);
-  if (hits.length > 0) throw new Error(`ui_stale_subject_present:${id}:${hits.join(',')}`);
-}
-
 async function answeredCount(dialog) {
   return dialog.locator(ANSWERED).count();
 }
@@ -310,10 +294,20 @@ async function verifyExplicitCorrection(dialog) {
   await askInPanel(dialog, 'Извини, я ошибся: это не пшеница, а картофель, и площадь 40 гектаров.');
   const answer = await askInPanel(dialog, 'С учётом этого, как спланировать подкормку?');
 
-  const kept = requireSubject({ id: 'correction', answer, expect: ['картоф', 'клубн'] });
-  // The superseded subject must not still be driving the recommendation.
-  refuseSubject({ id: 'correction', answer, forbidden: ['озимой пшениц', 'озимая пшениц'] });
-  return { correctedSubjectTerms: kept, answerCharacters: answer.length, status: 'PASS' };
+  // The correction must have taken: potato leads, wheat does not.
+  const dominance = requireSubjectDominance({
+    id: 'correction',
+    answer,
+    current: ['картоф', 'клубн'],
+    superseded: ['пшениц'],
+  });
+  return {
+    correctedSubjectTerms: dominance.currentHits,
+    currentSubjectMentions: dominance.currentCount,
+    supersededSubjectMentions: dominance.supersededCount,
+    answerCharacters: answer.length,
+    status: 'PASS',
+  };
 }
 
 /** D. A topic shift clears subject-bound state instead of blending it. */
@@ -321,9 +315,20 @@ async function verifyTopicShift(dialog) {
   await askInPanel(dialog, 'Почему у коров снизился удой?');
   const answer = await askInPanel(dialog, 'Теперь другой вопрос: почему перегревается трактор под нагрузкой?');
 
-  const kept = requireSubject({ id: 'topic-shift', answer, expect: ['трактор', 'охлажд', 'радиатор', 'двигател', 'нагруз'], minimum: 2 });
-  refuseSubject({ id: 'topic-shift', answer, forbidden: ['удой', 'дойн', 'коров'] });
-  return { newSubjectTerms: kept, answerCharacters: answer.length, status: 'PASS' };
+  const dominance = requireSubjectDominance({
+    id: 'topic-shift',
+    answer,
+    current: ['трактор', 'охлажд', 'радиатор', 'двигател', 'нагруз'],
+    superseded: ['удой', 'дойн', 'коров'],
+    minimumCurrent: 2,
+  });
+  return {
+    newSubjectTerms: dominance.currentHits,
+    currentSubjectMentions: dominance.currentCount,
+    supersededSubjectMentions: dominance.supersededCount,
+    answerCharacters: answer.length,
+    status: 'PASS',
+  };
 }
 
 /**
