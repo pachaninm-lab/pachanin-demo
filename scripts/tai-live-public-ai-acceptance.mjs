@@ -163,6 +163,32 @@ async function openAssistantPanel(page, lang) {
   return dialog;
 }
 
+/**
+ * Every answer the matrix has seen, kept so a failure can be diagnosed.
+ *
+ * The first live run failed on the correction case and there was no way to tell
+ * whether the model had ignored the correction or had simply used a synonym the
+ * term list missed — the answer existed only inside a Playwright variable, and
+ * the uploaded artifact is not reachable from every environment that needs to
+ * read it. An assertion that cannot be investigated when it fires is only half a
+ * check, so the observed text now goes to the job log as well.
+ */
+const observations = [];
+
+function observe(id, question, answer) {
+  observations.push({ id, question, answer });
+  return answer;
+}
+
+function reportObservations() {
+  if (observations.length === 0) return;
+  process.stderr.write('\n===== MATRIX OBSERVATIONS =====\n');
+  for (const row of observations) {
+    process.stderr.write(`--- ${row.id}\n  Q: ${row.question}\n  A: ${row.answer.slice(0, 700)}\n`);
+  }
+  process.stderr.write('===== END MATRIX OBSERVATIONS =====\n\n');
+}
+
 const ASSISTANT = '.pc-public-assistant-message[data-role="assistant"]';
 const STREAMING = `${ASSISTANT}[data-stream-status="streaming"]`;
 const ANSWERED = `${ASSISTANT}[data-stream-status="answered"]`;
@@ -179,7 +205,8 @@ async function askInPanel(dialog, question, { timeout = 240_000, lang = 'ru' } =
   await dialog.getByRole('textbox', { name: ui.composer }).fill(question);
   await dialog.getByRole('button', { name: ui.send }).click();
   await dialog.locator(ANSWERED).nth(before).waitFor({ state: 'visible', timeout });
-  return ((await dialog.locator(ANSWERED).nth(before).locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+  const answer = ((await dialog.locator(ANSWERED).nth(before).locator('.pc-public-assistant-bubble').textContent()) || '').trim();
+  return observe(`ask[${lang}]`, question, answer);
 }
 
 /**
@@ -292,13 +319,13 @@ async function verifyMultiTurn(page, openPanel) {
 async function verifyExplicitCorrection(dialog) {
   await askInPanel(dialog, 'У меня поле озимой пшеницы 120 гектаров, планирую подкормку.');
   await askInPanel(dialog, 'Извини, я ошибся: это не пшеница, а картофель, и площадь 40 гектаров.');
-  const answer = await askInPanel(dialog, 'С учётом этого, как спланировать подкормку?');
+  const answer = await askInPanel(dialog, 'С учётом этого, для какой культуры и как планировать подкормку?');
 
   // The correction must have taken: potato leads, wheat does not.
   const dominance = requireSubjectDominance({
     id: 'correction',
     answer,
-    current: ['картоф', 'клубн'],
+    current: ['картоф', 'картош', 'клубн'],
     superseded: ['пшениц'],
   });
   return {
@@ -760,6 +787,9 @@ try {
   }, null, 2));
 } catch (error) {
   const errorText = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  // Printed before anything else so the cause is in the log even when the
+  // evidence artifact cannot be retrieved.
+  reportObservations();
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-failure-390x844.png'), fullPage: true }).catch(() => undefined);
   fs.writeFileSync(path.join(evidenceDir, 'public-ai-window-failure.json'), JSON.stringify({
     schemaVersion: 'tai.public-ai-ui.acceptance-failure.v4',

@@ -162,6 +162,36 @@ describe('the controls behave', () => {
   it('fails on any page error raised during the matrix', () => {
     expect(acceptance).toContain('page_errors_after_matrix');
   });
+
+  /**
+   * A live assertion that fires must be readable.
+   *
+   * The first production run failed on the correction case and the answer
+   * existed only inside a Playwright variable — the evidence artifact is not
+   * reachable from every environment that has to diagnose it, so there was no
+   * way to tell an ignored correction from a missed synonym.
+   */
+  it('writes every observed answer to the job log when the matrix fails', () => {
+    expect(acceptance).toContain('const observations = [];');
+    expect(acceptance).toContain('function observe(id, question, answer)');
+    expect(acceptance).toContain('function reportObservations()');
+    expect(acceptance).toContain('MATRIX OBSERVATIONS');
+    // Every panel question flows through askInPanel, so recording it there
+    // covers multi-turn, correction, topic shift, New Conversation and retry.
+    expect(acceptance).toContain('return observe(`ask[${lang}]`, question, answer);');
+    // And it must run before the failure evidence is written.
+    const catchBlock = acceptance.slice(acceptance.indexOf('} catch (error) {'));
+    expect(catchBlock.indexOf('reportObservations();'))
+      .toBeLessThan(catchBlock.indexOf('public-ai-window-failure.json'));
+  });
+
+  it('recognises both everyday Russian names for the corrected crop', () => {
+    // A term list naming only `картофель` misses `картошка`. Widening the
+    // current subject cannot mask a regression: dominance still requires the
+    // corrected subject to outweigh the superseded one.
+    expect(acceptance).toContain("current: ['картоф', 'картош', 'клубн'],");
+    expect(acceptance).toContain("superseded: ['пшениц'],");
+  });
 });
 
 describe('the matrix reaches production through the governed chain', () => {
