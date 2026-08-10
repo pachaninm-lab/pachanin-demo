@@ -20,7 +20,8 @@
  * is not reachable from CI, and the thing that actually regressed is the
  * agreement between these files.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const paths = {
   install: 'scripts/install-pc-prod-actions-runner.sh',
@@ -132,6 +133,8 @@ for (const [fragment, why] of [
   ['install -d -m 0700 "$input"', 'the attempt directory is created by the runner itself'],
   ["[[ \"$(stat -c '%U:%G:%a' \"$input\")\" == pcactions:pcactions:700 ]]", 'the attempt directory must end pcactions:pcactions:0700'],
   ['chmod 0600 "$input/model-user" "$input/model-port" "$input/backup-evidence-path"', 'attempt secrets must be 0600'],
+  ["if [[ \"$state_root_mode\" != 'root:pcactions:710' ]]", 'the shared root mode must be asserted before attempt input is created'],
+  ["if [[ \"$input_root_mode\" != 'root:pcactions:730' ]]", 'the runner-input mode must be asserted before attempt input is created'],
 ]) {
   require('activation', fragment, why);
 }
@@ -145,6 +148,79 @@ for (const [fragment, why] of [
   ['restore_runner_boundary', 'the controller must still restore the boundary on exit'],
 ]) {
   require('controller', fragment, why);
+}
+
+/**
+ * Every writer that can materialize the *shared* release-authority root.
+ *
+ * The boundary did not break once, it broke repeatedly, because three different
+ * scripts wrote this one path and only one of them agreed on the mode. The
+ * production release did `chmod 0700` (preserving the group, which is precisely
+ * the root:pcactions:700 the host was found in), the controller core asserted
+ * 0700 root:root mid-run, and the bootstrap created it 0700 root:root. Fixing
+ * them one at a time is how this comes back, so the whole tree is scanned here
+ * and any writer that asserts 0700 on the shared root fails the build.
+ *
+ * Per-run subdirectories under the root (`tai-qwen-<id>`, `tai-agro-os-<id>`,
+ * `tai-public-acl-<id>`) are deliberately exempt: those are private scratch
+ * state, 0700 is correct for them, and only the shared parent must stay
+ * traversable.
+ */
+const SHARED_ROOT_LITERAL = '/var/lib/pc-release-authority';
+
+function sharedRootWriters() {
+  const offenders = [];
+  const roots = ['scripts', '.github/workflows', 'infra', 'ops', 'automation'];
+  const files = [];
+  for (const root of roots) {
+    let entries;
+    try {
+      entries = readdirSync(root, { withFileTypes: true, recursive: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!/\.(?:sh|mjs|js|yml|yaml|service|conf)$/u.test(entry.name)) continue;
+      files.push(join(entry.parentPath ?? entry.path ?? root, entry.name));
+    }
+  }
+
+  for (const file of files) {
+    if (file.endsWith('check-pc-release-authority-boundary.mjs')) continue;
+    let text;
+    try {
+      text = readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    if (!text.includes(SHARED_ROOT_LITERAL)) continue;
+
+    // Does this file bind a variable to the shared root itself, rather than to a
+    // per-run subdirectory beneath it?
+    const bindsSharedRoot = /(?:^|\n)\s*(?:readonly\s+)?(STATE_ROOT|AUTHORITY_ROOT)=["']?\/var\/lib\/pc-release-authority["']?\s*(?:$|\n)/u.test(text);
+
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (line.startsWith('#') || line.startsWith('//')) continue;
+      const touchesShared = line.includes(`${SHARED_ROOT_LITERAL}"`)
+        || line.includes(`${SHARED_ROOT_LITERAL} `)
+        || line.endsWith(SHARED_ROOT_LITERAL)
+        || (bindsSharedRoot && (line.includes('"$STATE_ROOT"') || line.includes('"$AUTHORITY_ROOT"')));
+      if (!touchesShared) continue;
+      // A per-run subdirectory reference is not the shared root.
+      if (line.includes(`${SHARED_ROOT_LITERAL}/`)) continue;
+      if (!/\b(?:install -d|chmod|chown)\b/u.test(line)) continue;
+      if (line.includes('0700') || / 700\b/u.test(line)) {
+        offenders.push(`${file}: ${line}`);
+      }
+    }
+  }
+  return offenders;
+}
+
+for (const offender of sharedRootWriters()) {
+  violations.push(`the shared release-authority root must never be set 0700 — ${offender}`);
 }
 
 if (violations.length > 0) {

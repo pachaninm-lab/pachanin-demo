@@ -413,8 +413,12 @@ verify_image "$API_IMAGE"
 verify_image "$WEB_IMAGE"
 verify_image "$MIGRATION_IMAGE"
 
-mkdir -p "$STATE_ROOT"
-chmod 0700 "$STATE_ROOT"
+# Shared release-authority root: traverse-only for the runner group. `chmod 0700`
+# here preserved the group and stripped its `--x`, which is exactly the state the
+# host was found in — and it lands after the controller has set 0710, because this
+# release and the preflight both fire on the same image build. The runner then
+# cannot reach runner-input and activation dies before the controller is invoked.
+install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
 umask 077
 cat > "$STATE_FILE" <<STATE
 BASELINE_API_IMAGE='$baseline_api_image'
