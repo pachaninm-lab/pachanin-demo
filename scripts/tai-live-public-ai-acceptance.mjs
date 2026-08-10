@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { IDENTITY_AUTHORITY, assertRealGeneralQwen } from './tai-public-assessment-contract.mjs';
 
 const liveBase = process.env.LIVE_BASE;
 const targetSha = process.env.TARGET_SHA;
@@ -72,26 +73,6 @@ async function requestPublicSse({ locale, question, history = [] }) {
   return { text, frames, assessment, done, answer };
 }
 
-function assertRealGeneralQwen({ id, locale, text, frames, assessment, done, answer, minimumAnswerCharacters }) {
-  if (!assessment) throw new Error(`sse_assessment_missing:${id}`);
-  if (assessment.source !== 'local_qwen') throw new Error(`sse_source_invalid:${id}:${assessment.source}`);
-  if (assessment.modelIdentity !== 'tai-qwen3-8b-q4km') throw new Error(`sse_model_identity_invalid:${id}`);
-  if (assessment.answerMode !== 'general_agro' || assessment.currentDataRequired !== false) {
-    throw new Error(`sse_answer_mode_invalid:${id}`);
-  }
-  const flags = Array.isArray(assessment.safetyFlags) ? assessment.safetyFlags.map(String) : [];
-  if (flags.some(flag => /FALLBACK|RUNTIME_UNAVAILABLE/iu.test(flag))) {
-    throw new Error(`sse_fallback_flag_present:${id}:${flags.join(',')}`);
-  }
-  if (frames.some(frame => frame.event === 'citation')) throw new Error(`sse_fake_general_agro_citation:${id}`);
-  if (done?.event !== 'done' || done.complete !== true) throw new Error(`sse_incomplete:${id}`);
-  if (answer.length < minimumAnswerCharacters) throw new Error(`sse_answer_too_short:${id}:${answer.length}`);
-  for (const forbidden of ['192.168.0.206', 'tenantId', 'membershipId', 'subjectId', 'AI_ASSISTANT_API_KEY', 'TAI_PUBLIC_GATEWAY_HMAC_SECRET']) {
-    if (text.includes(forbidden)) throw new Error(`sse_forbidden_material:${id}:${forbidden}`);
-  }
-  return { flags };
-}
-
 function assertNoThematicRefusal({ id, locale, answer, expectedTerms = [] }) {
   const normalized = answer.normalize('NFKC').toLocaleLowerCase(locale === 'en' ? 'en-US' : locale === 'zh' ? 'zh-CN' : 'ru-RU');
   const refusalPatterns = locale === 'en'
@@ -115,7 +96,7 @@ async function verifyRealQwenSse() {
   const results = [];
   for (const [locale, question] of cases) {
     const response = await requestPublicSse({ locale, question });
-    const { flags } = assertRealGeneralQwen({
+    const verified = assertRealGeneralQwen({
       id: locale,
       locale,
       ...response,
@@ -126,10 +107,7 @@ async function verifyRealQwenSse() {
     results.push({
       locale,
       answerCharacters: response.answer.length,
-      source: response.assessment.source,
-      modelIdentity: response.assessment.modelIdentity,
-      latencyMs: typeof response.assessment.latencyMs === 'number' ? response.assessment.latencyMs : null,
-      safetyFlags: flags,
+      ...verified,
       ...evidence,
       status: 'PASS',
     });
@@ -229,17 +207,14 @@ async function verifyConversationalBreadth() {
   const results = [];
   for (const testCase of cases) {
     const response = await requestPublicSse(testCase);
-    const { flags } = assertRealGeneralQwen({ ...testCase, ...response });
+    const verified = assertRealGeneralQwen({ ...testCase, ...response });
     assertNoThematicRefusal({ ...testCase, answer: response.answer });
     results.push({
       id: testCase.id,
       locale: testCase.locale,
       question: testCase.question,
       answerCharacters: response.answer.length,
-      source: response.assessment.source,
-      modelIdentity: response.assessment.modelIdentity,
-      latencyMs: typeof response.assessment.latencyMs === 'number' ? response.assessment.latencyMs : null,
-      safetyFlags: flags,
+      ...verified,
       status: 'PASS',
     });
   }
@@ -305,7 +280,7 @@ try {
 
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-390x844.png'), fullPage: true });
   fs.writeFileSync(path.join(evidenceDir, 'public-ai-window.json'), JSON.stringify({
-    schemaVersion: 'tai.public-ai-ui.acceptance.v4',
+    schemaVersion: 'tai.public-ai-ui.acceptance.v5',
     targetSha,
     manifestSha,
     title,
@@ -313,6 +288,11 @@ try {
     answerCharacters,
     viewport: '390x844',
     mobileViewportAuthority: true,
+    // Not observed here and deliberately not restated: the public contour
+    // publishes no model identity, and the admitted model is enforced by the
+    // relay's identity check and by protected activation, upstream of this job.
+    identityAuthority: IDENTITY_AUTHORITY,
+    publicModelIdentityExposed: false,
     fullscreenDomCount,
     fullscreenVisible,
     multilingualQwen,
@@ -323,13 +303,15 @@ try {
   const errorText = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   await page.screenshot({ path: path.join(evidenceDir, 'public-ai-window-failure-390x844.png'), fullPage: true }).catch(() => undefined);
   fs.writeFileSync(path.join(evidenceDir, 'public-ai-window-failure.json'), JSON.stringify({
-    schemaVersion: 'tai.public-ai-ui.acceptance-failure.v3',
+    schemaVersion: 'tai.public-ai-ui.acceptance-failure.v4',
     targetSha,
     manifestSha,
     title,
     subtitle,
     answerCharacters,
     viewport: '390x844',
+    identityAuthority: IDENTITY_AUTHORITY,
+    publicModelIdentityExposed: false,
     fullscreenDomCount,
     fullscreenVisible,
     multilingualQwen,

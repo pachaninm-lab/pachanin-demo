@@ -259,6 +259,36 @@ for (const path of [paths.executor, paths.live]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
 }
+
+/**
+ * Go templates must reach Docker with real double quotes.
+ *
+ * A backslash inside a single-quoted shell word escapes nothing — the shell
+ * passes it through and Docker rejects the template with `unexpected "\" in
+ * operand`. `bash -n` cannot see this, because the shell syntax is valid; only
+ * Docker's parser objects, and only when the line actually runs. Both offending
+ * lines lived in the rollback path, which runs exclusively during an incident,
+ * so the defect stayed invisible until a production rollback needed it and then
+ * reported failure regardless of what happened to the containers.
+ */
+for (const [name, path] of [['executor', paths.executor], ['live', paths.live]]) {
+  const lines = String(text[name] ?? '').split(/\r?\n/);
+  lines.forEach((line, index) => {
+    const template = /--format\s+'([^']*)'/.exec(line) ?? /\binspect\s+-f\s+'([^']*)'/.exec(line);
+    if (template && template[1].includes('\\"')) {
+      failures.push(`${path}:${index + 1}: Go template escapes double quotes inside single quotes — Docker will reject it at runtime`);
+    }
+  });
+}
+
+/* The rollback verification says which check failed, and still fails on each. */
+requireAll('executor', [
+  'container_revision()',
+  "docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"$1\"",
+  'fail ROLLBACK_REVISION_UNREADABLE 57',
+  'fail ROLLBACK_REVISION_MISMATCH 58',
+  'fail AUTOMATIC_ROLLBACK_FAILED 50',
+]);
 try {
   const scope = JSON.parse(text.scope ?? '{}');
   if (scope.branch !== 'ops/production-full-stack-release-v1') failures.push(`${paths.scope}: branch mismatch`);

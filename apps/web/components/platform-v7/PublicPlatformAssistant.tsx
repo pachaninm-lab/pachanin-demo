@@ -285,6 +285,22 @@ function defaultAssessment(): StreamAssessment {
   };
 }
 
+/**
+ * The assessment has two layers and they answer different questions.
+ *
+ * The outer record is the route's own account: which grounding it used, which
+ * answer mode it resolved, whether it forwarded frames incrementally. When a
+ * real model answered, how *generation* ended lives one level down, under
+ * `upstream` — because the relay reports what it did, and the model reports what
+ * it did, and flattening the two would let a clean relay hide a truncated
+ * answer. The grounded paths (`policy`, `verified_knowledge`) have no upstream
+ * model, so they state their outcome at the top level and are read there.
+ *
+ * Reading only the top level is what stranded this component after the route
+ * moved to real streaming: it silently saw `truncated: false, finishReason:
+ * null, safetyFlags: []` for every model answer, so a truncated reply looked
+ * indistinguishable from a complete one.
+ */
 function parseAssessment(value: string | null): StreamAssessment {
   if (!value) return defaultAssessment();
   try {
@@ -298,16 +314,23 @@ function parseAssessment(value: string | null): StreamAssessment {
     const answerMode: AnswerMode = row.answerMode === 'verified_platform' || row.answerMode === 'general_agro'
       ? row.answerMode
       : null;
+    // Present only on the incremental model path; absent on grounded answers.
+    const upstream = row.upstream !== null && typeof row.upstream === 'object' && !Array.isArray(row.upstream)
+      ? row.upstream as Record<string, unknown>
+      : null;
+    const outcome = upstream ?? row;
     return {
       source,
       answerMode,
       currentDataRequired: row.currentDataRequired === true,
-      modelIdentity: typeof row.modelIdentity === 'string' ? row.modelIdentity : null,
-      latencyMs: typeof row.latencyMs === 'number' ? row.latencyMs : null,
-      truncated: row.truncated === true,
-      finishReason: typeof row.finishReason === 'string' ? row.finishReason : null,
-      safetyFlags: Array.isArray(row.safetyFlags)
-        ? row.safetyFlags.filter((item): item is string => typeof item === 'string').slice(0, 12)
+      // The public contour publishes no model identity. A string here would be
+      // a leak, not a value to display, so nothing is read into it.
+      modelIdentity: null,
+      latencyMs: null,
+      truncated: outcome.truncated === true,
+      finishReason: typeof outcome.finishReason === 'string' ? outcome.finishReason : null,
+      safetyFlags: Array.isArray(outcome.safetyFlags)
+        ? outcome.safetyFlags.filter((item): item is string => typeof item === 'string').slice(0, 12)
         : [],
     };
   } catch {

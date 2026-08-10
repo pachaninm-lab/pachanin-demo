@@ -225,6 +225,11 @@ is_revision() {
   [[ "${#revision}" == 40 && "$revision" != *[!0123456789abcdef]* ]]
 }
 
+# One container's build revision, or a non-zero status if it cannot be read.
+container_revision() {
+  docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$1"
+}
+
 rollback_images() {
   local restored_api_id restored_web_id
   [[ -f "$STATE_FILE" ]] || return 1
@@ -239,10 +244,22 @@ rollback_images() {
   restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"
   restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
   [[ -n "$restored_api_id" && -n "$restored_web_id" ]] || return 1
-  restored_api_revision="$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$restored_api_id")"
-  restored_web_revision="$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$restored_web_id")"
-  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" ]] || return 1
-  [[ "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 1
+  # The label name must reach Docker wrapped in real double quotes. Escaping
+  # them inside a single-quoted shell word does not escape anything — the shell
+  # passes the backslashes through literally and Go rejects the template with
+  # `unexpected "\" in operand`. That made both reads fail, left both variables
+  # empty, and so made the comparisons below unsatisfiable: this rollback path
+  # could never report success, whatever had actually happened to the
+  # containers. Every other template in this file already quotes it correctly.
+  restored_api_revision="$(container_revision "$restored_api_id")" || return 2
+  restored_web_revision="$(container_revision "$restored_web_id")" || return 2
+  # Unreadable and wrong are different failures and must not share an exit code.
+  # Conflating them is what let a broken verifier be reported as a failed
+  # restore, sending the investigation at the containers instead of the check.
+  is_revision "$restored_api_revision" || return 2
+  is_revision "$restored_web_revision" || return 2
+  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" ]] || return 3
+  [[ "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
 }
 
 verify_durable_intake_local_postgres() {
@@ -390,7 +407,19 @@ if [[ "$ACTION" == verify-intake ]]; then
 fi
 
 if [[ "$ACTION" == rollback ]]; then
-  rollback_images || fail AUTOMATIC_ROLLBACK_FAILED 50
+  # Distinguished on purpose. A rollback that restored the wrong revision and a
+  # rollback whose verification could not run are different incidents with
+  # different responses, and reporting both as AUTOMATIC_ROLLBACK_FAILED cost an
+  # investigation round. None of these is a success and none may be treated as
+  # one — the run still fails, it just says which check failed.
+  rollback_rc=0
+  rollback_images || rollback_rc=$?
+  case "$rollback_rc" in
+    0) : ;;
+    2) fail ROLLBACK_REVISION_UNREADABLE 57 ;;
+    3) fail ROLLBACK_REVISION_MISMATCH 58 ;;
+    *) fail AUTOMATIC_ROLLBACK_FAILED 50 ;;
+  esac
   printf 'ROLLBACK_COMPLETE=1\n'
   printf 'RESTORED_API_REVISION=%s\n' "$restored_api_revision"
   printf 'RESTORED_WEB_REVISION=%s\n' "$restored_web_revision"
