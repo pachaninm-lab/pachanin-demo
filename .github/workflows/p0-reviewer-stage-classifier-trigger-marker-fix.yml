@@ -1,0 +1,68 @@
+name: P0 Reviewer Stage Classifier Trigger Marker Fix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml'
+      - '.github/workflows/p0-reviewer-stage-classifier-trigger-marker-fix.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-reviewer-stage-classifier-trigger-marker-fix
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/p0-reviewer-repair-stage-classifier-3810'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-reviewer-repair-stage-classifier-3810
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Replace only the brittle contiguous permission marker and remove this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          trigger = Path('.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml')
+          self_path = Path('.github/workflows/p0-reviewer-stage-classifier-trigger-marker-fix.yml')
+          text = trigger.read_text(encoding='utf-8')
+          old = "            'contents: read\\n      issues: write',\n"
+          new = "            'issues: write',\n"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'permission marker replacement cardinality invalid: {count}')
+          text = text.replace(old, new, 1)
+          if "'contents: read\\n      issues: write'" in text:
+              raise SystemExit('brittle permission marker remained')
+          if "'permissions:\\n  contents: read'" not in text or "'issues: write'" not in text:
+              raise SystemExit('independent permission markers missing')
+          trigger.write_text(text, encoding='utf-8')
+          self_path.unlink()
+          PY
+
+          git diff --check
+          mapfile -t changed < <(git status --short | sed -E 's/^.. //' | sort)
+          expected=(
+            '.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml'
+            '.github/workflows/p0-reviewer-stage-classifier-trigger-marker-fix.yml'
+          )
+          mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
+          [[ "$(printf '%s\n' "${changed[@]}")" == "$(printf '%s\n' "${expected[@]}")" ]]
+
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git add -A
+          git commit -m 'FIX: validate reviewer diagnostic permissions independently'
+          git push origin HEAD:fix/p0-reviewer-repair-stage-classifier-3810
