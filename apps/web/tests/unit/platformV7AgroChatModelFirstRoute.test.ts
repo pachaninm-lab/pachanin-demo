@@ -25,6 +25,13 @@ describe('P0 model-first agricultural chat', () => {
     expect(route).not.toContain("outcome.decision === 'REDIRECT_UNRELATED'");
   });
 
+  it('keeps a self-contained agro question out of stale platform follow-up mode', () => {
+    expect(route).toContain("if (outcome.signals.includes('agro_term')) return 'general_agro';");
+    expect(route.indexOf("outcome.signals.includes('agro_term')"))
+      .toBeLessThan(route.indexOf('compactFollowUp && context.previousTopic'));
+    expect(liveAcceptance).toContain('Как хранить зерно после уборки?');
+  });
+
   it('downgrades missing platform knowledge to general expertise instead of a thematic redirect', () => {
     expect(route).toContain('let answerMode = resolveAnswerMode');
     expect(route).toContain("if (grounding.resolution === 'redirected') {");
