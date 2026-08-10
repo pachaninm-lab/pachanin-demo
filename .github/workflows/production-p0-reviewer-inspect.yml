@@ -51,6 +51,7 @@ jobs:
         with:
           node-version: '24'
       - run: node scripts/check-production-p0-reviewer-inspect.mjs
+      - run: bash -n scripts/production-p0-reviewer-inspect.sh
 
   inspect:
     name: Read-only REG.RU reviewer login readiness
