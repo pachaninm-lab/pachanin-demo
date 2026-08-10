@@ -4,6 +4,7 @@
   "status": "active",
   "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REASON_CLASSIFICATION",
   "issue": 3802,
+  "trackingIssue": 3810,
   "title": "Production P0 reviewer repair rollback-only static reason classification",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
