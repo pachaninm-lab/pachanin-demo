@@ -20,6 +20,7 @@
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/i18n/platform-v7-home-enhancements.ts",
+    "apps/web/i18n/platform-v7-home-story-gekta.ts",
     "apps/web/i18n/platform-v7-home-story-operating.ts",
     "apps/web/i18n/platform-v7-home-v3-operating.ts",
     "apps/web/i18n/platform-v7-home-v3.ts",
