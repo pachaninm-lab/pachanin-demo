@@ -95,7 +95,6 @@ try_key() {
 try_key "${PC_PROD_SSH_KEY:-}" \
   || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" \
   || try_key "${VPS_SSH_KEY:-}"
-
 guard_main
 
 domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
@@ -145,55 +144,67 @@ api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontai
 web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
 [[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
 
-docker exec -i "$api_id" /nodejs/bin/node - <<'NODE'
+docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
 const { PrismaClient } = require('@prisma/client');
-const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
-if (!databaseUrl) {
-  console.error('P0_STAFF_DATABASE_URL_MISSING');
-  process.exit(31);
-}
-const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-try {
-  const principals = await db.$queryRawUnsafe(`
-    SELECT current_user AS user_name,
-           rolsuper,
-           rolbypassrls,
-           has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals
-    FROM pg_roles
-    WHERE rolname = current_user
-  `);
-  const principal = principals[0];
-  if (!principal || principal.user_name !== 'pc_staff_runtime'
-      || principal.rolsuper || principal.rolbypassrls || principal.can_read_deals) {
-    console.error('P0_STAFF_PRINCIPAL_BOUNDARY_INVALID');
-    process.exit(32);
+
+async function inspectReviewerState() {
+  const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+  if (!databaseUrl) {
+    console.error('P0_STAFF_DATABASE_URL_MISSING');
+    process.exitCode = 31;
+    return;
   }
-  const rows = await db.$queryRawUnsafe(`
-    SELECT
-      COUNT(*) FILTER (
-        WHERE role = 'PLATFORM_OWNER'
-          AND status = 'ACTIVE'
-          AND valid_from <= NOW()
-          AND (valid_until IS NULL OR valid_until > NOW())
-      )::int AS active_owner_count,
-      COUNT(*) FILTER (
-        WHERE role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')
-          AND status IN ('ELIGIBLE', 'ACTIVE')
-          AND valid_from <= NOW()
-          AND (valid_until IS NULL OR valid_until > NOW())
-      )::int AS usable_reviewer_count
-    FROM auth.staff_assignments
-  `);
-  const counts = rows[0] || {};
-  const owners = Number(counts.active_owner_count || 0);
-  const reviewers = Number(counts.usable_reviewer_count || 0);
-  if (!Number.isInteger(owners) || owners < 0 || !Number.isInteger(reviewers) || reviewers < 0) {
-    process.exit(33);
+  const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  try {
+    const principals = await db.$queryRawUnsafe(`
+      SELECT current_user AS user_name,
+             rolsuper,
+             rolbypassrls,
+             has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals
+      FROM pg_roles
+      WHERE rolname = current_user
+    `);
+    const principal = principals[0];
+    if (!principal || principal.user_name !== 'pc_staff_runtime'
+        || principal.rolsuper || principal.rolbypassrls || principal.can_read_deals) {
+      console.error('P0_STAFF_PRINCIPAL_BOUNDARY_INVALID');
+      process.exitCode = 32;
+      return;
+    }
+    const rows = await db.$queryRawUnsafe(`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE role = 'PLATFORM_OWNER'
+            AND status = 'ACTIVE'
+            AND valid_from <= NOW()
+            AND (valid_until IS NULL OR valid_until > NOW())
+        )::int AS active_owner_count,
+        COUNT(*) FILTER (
+          WHERE role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')
+            AND status IN ('ELIGIBLE', 'ACTIVE')
+            AND valid_from <= NOW()
+            AND (valid_until IS NULL OR valid_until > NOW())
+        )::int AS usable_reviewer_count
+      FROM auth.staff_assignments
+    `);
+    const counts = rows[0] || {};
+    const owners = Number(counts.active_owner_count || 0);
+    const reviewers = Number(counts.usable_reviewer_count || 0);
+    if (!Number.isInteger(owners) || owners < 0 || !Number.isInteger(reviewers) || reviewers < 0) {
+      process.exitCode = 33;
+      return;
+    }
+    console.log(`REVIEWER_INSPECT|${principal.user_name}|${owners}|${reviewers}`);
+  } finally {
+    await db.$disconnect();
   }
-  console.log(`REVIEWER_INSPECT|${principal.user_name}|${owners}|${reviewers}`);
-} finally {
-  await db.$disconnect();
 }
+
+inspectReviewerState().catch((error) => {
+  console.error('P0_REVIEWER_INSPECT_QUERY_FAILED');
+  console.error(error);
+  process.exitCode = 34;
+});
 NODE
 printf 'PRODUCTION_MUTATION=NONE\n'
 REMOTE
