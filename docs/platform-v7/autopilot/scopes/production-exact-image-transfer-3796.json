@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-exact-images-pinned-ssh-3796",
+  "status": "active",
+  "operationalStatus": "PRODUCTION_EXACT_IMAGES_PINNED_SSH_AUTHORITY",
+  "issue": 3796,
+  "allowedPaths": [
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/check-production-exact-image-transfer.mjs",
+    "docs/platform-v7/autopilot/scopes/production-exact-image-transfer-3796.json"
+  ],
+  "boundaries": {
+    "persistentRegistryCredential": false,
+    "remoteRegistryPull": false,
+    "mutableImageTag": false,
+    "runtimeBusinessBehaviorChange": false,
+    "databaseSchemaChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the hosted runner pulls API, Web and Migration images and verifies the exact target revision",
+    "the hosted config IDs are captured as sha256 values",
+    "one combined Docker archive is transferred through the existing pinned REG.RU SSH identity before service mutation",
+    "the REG.RU Docker image store matches every hosted config ID and target revision before deployment",
+    "the executor pinned-ssh mode performs local image inspection only and never contacts a registry",
+    "normal explicit registry mode remains available for other governed callers",
+    "migration, target-only rollout, automatic rollback, live acceptance and durable PostgreSQL audit/outbox evidence remain unchanged",
+    "the exact-main REG.RU release reaches terminal PASS"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
