@@ -52,9 +52,11 @@ jobs:
           wrapper_path.write_text(wrapper.replace(old_base, new_base, 1), encoding='utf-8')
 
           checker = checker_path.read_text(encoding='utf-8')
-          if checker.count(old_base) != 1 or new_base in checker:
-              raise SystemExit('checker diagnostic-base marker mismatch')
-          checker = checker.replace(old_base, new_base, 1)
+          if checker.count(old_base) != 2 or new_base in checker:
+              raise SystemExit(
+                  f'checker diagnostic-base marker mismatch: {checker.count(old_base)}'
+              )
+          checker = checker.replace(old_base, new_base)
           anchor = "    || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'\n"
           insertion = (
               "    || scope.diagnosticBaseRevision !== 'b81ee2e51f9fbf5ec66603211c3f32224532e782'\n"
