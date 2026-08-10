@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "scopeId": "gekta-public-brand-3824",
+  "issue": 3824,
+  "status": "authorized",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "5c0020e1fb259929264cd27e25b0b7ad5435243a"
+  },
+  "purpose": "Replace the active public assistant identity and Deal Explorer CTA with Gekta in RU, EN and ZH while preserving assistant behavior and migrating session history without data loss.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/i18n/public-deal-journey-v5.ts",
+    "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
+    "apps/web/tests/unit/publicContactDockRuntime.test.tsx",
+    "apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
+    "apps/web/tests/e2e/platform-v7-unified-modal-fullscreen.spec.ts",
+    "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-public-brand-3824.json"
+  ],
+  "canonical": {
+    "ru": "Гекта",
+    "latin": "Gekta",
+    "technical": "gekta",
+    "ctaRu": "Спросить Гекту",
+    "ctaEn": "Ask Gekta",
+    "descriptorRu": "Аграрный интеллект для земли, урожая и решений"
+  },
+  "compatibility": {
+    "runtimeRoutes": "unchanged",
+    "analyticsEvents": "unchanged",
+    "domSelectors": "unchanged",
+    "legacySessionKey": "pc-public-assistant-v2:<locale>",
+    "newSessionKey": "pc-gekta-assistant-v1:<locale>",
+    "migration": "read new first; migrate validated legacy transcript once; write new only"
+  },
+  "forbiddenChanges": [
+    "apps/landing/**",
+    "API behavior or route authority",
+    "model routing or prompts",
+    "database or tenant authority",
+    "production workflows or credentials",
+    "generic replacement of the term artificial intelligence",
+    "REG.RU deployment claim"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "focused web unit tests for public assistant, contact dock and brand contract",
+    "focused Playwright unified-modal test",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Public identity slice only. Technical namespace remains TAI until later governed phases."
+}
