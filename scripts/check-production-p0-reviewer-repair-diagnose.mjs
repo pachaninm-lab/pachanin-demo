@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const workflowPath = '.github/workflows/production-p0-reviewer-repair-diagnose.yml';
@@ -7,7 +9,7 @@ const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
 const wrapperPath = 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
-const branch = 'fix/p0-reviewer-repair-diagnostic-deployed-sha-3802';
+const branch = 'fix/p0-reviewer-repair-reason-code-3802';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
@@ -32,39 +34,40 @@ requireMarkers('workflow', workflow, [
   'permissions:\n  contents: read',
   'contents: read\n      issues: write',
   'cancel-in-progress: false',
-  'PC_PROD_SSH_HOST_FINGERPRINT',
   `bash -n ${runnerPath}`,
   `bash -n ${wrapperPath}`,
   `bash ${wrapperPath}`,
 ]);
 
-requireMarkers('reviewed runner', runner, [
+requireMarkers('reviewed rollback runner', runner, [
   "COMMAND='/production p0-reviewer-membership-diagnose current-main'",
-  "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-  "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
   'Prisma.TransactionIsolationLevel.Serializable',
   'FROM auth.repair_single_reviewer_membership()',
   'P0_REVIEWER_ROLLBACK_ONLY',
+  'before.join(\'|\') !== after.join(\'|\')',
   'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
 ]);
 
-requireMarkers('deployed-sha wrapper', wrapper, [
-  "SOURCE='scripts/production-p0-reviewer-repair-diagnose.sh'",
-  "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-  "DIAGNOSTIC_BASE_SHA='fc7bea2b225ce88e5cf10230d0188ffb2952381e'",
-  "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
+requireMarkers('reason wrapper', wrapper, [
+  "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
   "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-  "'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'",
+  "['reviewer membership repair structural precondition failed', 'STRUCTURAL_PRECONDITION']",
+  "['unique active PLATFORM_OWNER identity is required', 'OWNER_IDENTITY']",
+  "['reviewer membership pre-state is inconsistent', 'MEMBERSHIP_PRESTATE_INCONSISTENT']",
+  "['reviewer has a conflicting pre-existing membership state', 'CONFLICTING_EXISTING_MEMBERSHIP']",
+  "['reviewer membership repair postcondition failed', 'POSTCONDITION']",
+  "reasonCode = 'DATABASE_CHECK_CONSTRAINT'",
+  "diagnostic.reasonCode",
+  'reason code: \\`$reason_code\\`',
   'if count != 1:',
   'text.replace(old, new, 1)',
-  "target.write_text(text, encoding='utf-8')",
   'bash -n "$PATCHED"',
   'exec bash "$PATCHED"',
 ]);
 
 const pythonMatch = wrapper.match(/python - "\$SOURCE" "\$PATCHED" <<'PY'\n([\s\S]*?)\nPY/);
 if (!pythonMatch) {
-  console.error('Exact diagnostic wrapper patcher is missing.');
+  console.error('Exact diagnostic reason patcher is missing.');
   process.exit(1);
 }
 const pythonSyntax = spawnSync(
@@ -73,52 +76,118 @@ const pythonSyntax = spawnSync(
   { input: pythonMatch[1], encoding: 'utf8' },
 );
 if (pythonSyntax.status !== 0) {
-  console.error('Diagnostic wrapper Python patcher is not syntactically valid.');
+  console.error('Diagnostic reason patcher is not syntactically valid Python.');
   process.exit(1);
 }
 
-for (const pattern of [
-  /\b(?:curl|wget|socat)\b|(?:^|\s)nc\s+/m,
-  /^\s*(?:eval|source|\.)\s+(?![=])/m,
-  /(?:PASSWORD|TOTP|TOKEN|COOKIE|DATABASE_URL)/i,
-  /\b(?:psql|UPDATE|DELETE|INSERT|ALTER|CREATE|DROP|TRUNCATE)\b/i,
-  /error\.(?:message|stack)/,
-]) {
-  if (pattern.test(wrapper)) {
-    console.error(`Diagnostic wrapper exceeds the exact SHA/file-list correction boundary: ${pattern}`);
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'p0-reviewer-reason-'));
+const sourcePath = path.join(tempRoot, 'source.sh');
+const patchedPath = path.join(tempRoot, 'patched.sh');
+try {
+  fs.writeFileSync(sourcePath, runner, 'utf8');
+  const patchResult = spawnSync(
+    'python',
+    ['-c', pythonMatch[1], sourcePath, patchedPath],
+    { encoding: 'utf8' },
+  );
+  if (patchResult.status !== 0 || !fs.existsSync(patchedPath)) {
+    console.error('Exact diagnostic reason patch did not materialize successfully.');
     process.exit(1);
   }
+
+  const patched = fs.readFileSync(patchedPath, 'utf8');
+  const shellSyntax = spawnSync('bash', ['-n', patchedPath], { encoding: 'utf8' });
+  if (shellSyntax.status !== 0) {
+    console.error('Patched diagnostic shell is not syntactically valid.');
+    process.exit(1);
+  }
+
+  requireMarkers('patched diagnostic', patched, [
+    "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
+    "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
+    "reasonCode: 'NONE'",
+    "let reasonCode = 'UNCLASSIFIED'",
+    "reasonCode = 'DATABASE_CHECK_CONSTRAINT'",
+    'diagnostic.reasonCode',
+    'meta_keys reason_code',
+    '"$reason_code"; do',
+    'reason code: \\`$reason_code\\`',
+    'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
+  ]);
+
+  const embeddedNodeMatch = patched.match(
+    /docker exec -i "\$api_id" \/nodejs\/bin\/node --input-type=commonjs - <<'NODE'\n([\s\S]*?)\nNODE/,
+  );
+  if (!embeddedNodeMatch) {
+    console.error('Patched CommonJS diagnostic executor is missing.');
+    process.exit(1);
+  }
+  const nodeSyntax = spawnSync(process.execPath, ['--check'], {
+    input: embeddedNodeMatch[1],
+    encoding: 'utf8',
+  });
+  if (nodeSyntax.status !== 0) {
+    console.error('Patched diagnostic Node executor is not syntactically valid.');
+    process.exit(1);
+  }
+
+  for (const unsafe of [
+    /console\.(?:log|error)\([^\n]*safeMessage/,
+    /JSON\.stringify\(\s*(?:meta|error)/,
+    /reasonCode\s*=\s*safeMessage/,
+    /\$safeMessage/,
+    /meta\.message[^\n]*(?:console|issue|body)/,
+  ]) {
+    if (unsafe.test(patched)) {
+      console.error(`Raw database diagnostic material could escape: ${unsafe}`);
+      process.exit(1);
+    }
+  }
+
+  const reasonCodes = [
+    'STRUCTURAL_PRECONDITION',
+    'OWNER_IDENTITY',
+    'MEMBERSHIP_PRESTATE_INCONSISTENT',
+    'CONFLICTING_EXISTING_MEMBERSHIP',
+    'POSTCONDITION',
+    'DATABASE_CHECK_CONSTRAINT',
+    'UNCLASSIFIED',
+    'NONE',
+  ];
+  for (const code of reasonCodes) {
+    if (!patched.includes(code)) {
+      console.error(`Reason-code allowlist is incomplete: ${code}`);
+      process.exit(1);
+    }
+  }
+} finally {
+  fs.rmSync(tempRoot, { recursive: true, force: true });
 }
 
-const replacementCount = (wrapper.match(/text\.replace\(old, new, 1\)/g) || []).length;
-if (replacementCount !== 1 || !wrapper.includes('for old, new in replacements.items():')) {
-  console.error('Diagnostic wrapper must apply only the declared exact replacement map.');
-  process.exit(1);
-}
-
-const expectedPaths = [workflowPath, wrapperPath, checkerPath, scopePath].sort();
+const expectedPaths = [wrapperPath, checkerPath, scopePath].sort();
 const actualPaths = [...scope.allowedPaths].sort();
 if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
-  console.error('Governed diagnostic correction scope does not match the exact four-file surface.');
+  console.error('Governed reason-classification scope does not match the exact three-file surface.');
   process.exit(1);
 }
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.branch !== branch
     || scope.status !== 'active'
-    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_DEPLOYED_SHA_CORRECTION'
+    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REASON_CLASSIFICATION'
     || scope.issue !== 3802
     || !Array.isArray(scope.acceptance)
-    || scope.acceptance.length < 7
+    || scope.acceptance.length < 8
     || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
     || scope.boundaries?.productionMutation !== 'ROLLBACK_ONLY_NONE_DURABLE'
     || scope.boundaries?.piiOutput !== false
     || scope.boundaries?.credentialOutput !== false
+    || scope.boundaries?.rawDatabaseMessageOutput !== false
     || scope.boundaries?.deploymentMutation !== false
     || scope.boundaries?.securityWeakening !== false
     || scope.boundaries?.arbitrarySqlSurface !== false
     || scope.boundaries?.newRecurringCostRub !== 0) {
-  console.error('Governed diagnostic correction scope or boundaries are incomplete or unsafe.');
+  console.error('Governed reason-classification scope or boundaries are incomplete or unsafe.');
   process.exit(1);
 }
 
-console.log('PASS: only the diagnostic base/deployed SHA pins and exact correction-file allowlist are changed; rollback and no-PII/no-credential boundaries remain intact.');
+console.log('PASS: the production repair failure is classified only through a static enum allowlist; raw database text remains internal and the transaction is forced to rollback.');
