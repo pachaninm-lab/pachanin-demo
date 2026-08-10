@@ -18,7 +18,7 @@ continuation = "\\" + "\n"
 replacements = [
     (
         "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-        "DIAGNOSTIC_BASE_SHA='5c0020e1fb259929264cd27e25b0b7ad5435243a'",
+        "DIAGNOSTIC_BASE_SHA='77afc6758bb585222074cde673046bc6d5b2d2cf'",
     ),
     (
         "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
@@ -170,10 +170,37 @@ printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=CONTAINERS_RESOLVED'
 api_revision="$(docker inspect""",
     ),
     (
-        """[[ "$api_revision" == "$deployed_sha" && "$web_revision" == "$deployed_sha" ]]
+        """api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+[[ "$api_revision" == "$deployed_sha" && "$web_revision" == "$deployed_sha" ]]
 
 docker exec -i "$api_id""",
-        """[[ "$api_revision" == "$deployed_sha" && "$web_revision" == "$deployed_sha" ]]
+        """api_revision=''
+if ! api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id" 2>/dev/null)"; then
+  printf '%s\\n' 'P0_REVIEWER_REVISION_GATE=API_INSPECT_FAILED'
+  exit 71
+fi
+web_revision=''
+if ! web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id" 2>/dev/null)"; then
+  printf '%s\\n' 'P0_REVIEWER_REVISION_GATE=WEB_INSPECT_FAILED'
+  exit 72
+fi
+if [[ ! "$api_revision" =~ ^[0-9a-f]{40}$ ]]; then
+  printf '%s\\n' 'P0_REVIEWER_REVISION_GATE=API_REVISION_INVALID'
+  exit 73
+fi
+if [[ ! "$web_revision" =~ ^[0-9a-f]{40}$ ]]; then
+  printf '%s\\n' 'P0_REVIEWER_REVISION_GATE=WEB_REVISION_INVALID'
+  exit 74
+fi
+if [[ "$api_revision" != "$deployed_sha" ]]; then
+  printf '%s\\n' 'P0_REVIEWER_REVISION_GATE=API_REVISION_MISMATCH'
+  exit 75
+fi
+if [[ "$web_revision" != "$deployed_sha" ]]; then
+  printf '%s\\n' 'P0_REVIEWER_REVISION_GATE=WEB_REVISION_MISMATCH'
+  exit 76
+fi
 printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=REVISIONS_CONFIRMED'
 printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=NODE_EXECUTION_STARTED'
 
@@ -192,6 +219,7 @@ else
 fi
 
 if (( ssh_rc != 0 )); then
+  revision_line="$(grep -E '^P0_REVIEWER_REVISION_GATE=(API_INSPECT_FAILED|WEB_INSPECT_FAILED|API_REVISION_INVALID|WEB_REVISION_INVALID|API_REVISION_MISMATCH|WEB_REVISION_MISMATCH)$' <<< "$output" | tail -n1 || true)"
   runtime_line="$(grep -E '^P0_REVIEWER_DIAG_(STAFF_DB_URL_MISSING|ROLLBACK_SENTINEL_NOT_RAISED|ROLLBACK_PROOF_FAILED|TRANSACTION_ERROR\\|[A-Za-z0-9_.-]{1,64}|FATAL\\|[A-Za-z0-9_.-]{1,64})$' <<< "$output" | tail -n1 || true)"
   stage_line="$(grep -E '^P0_REVIEWER_REMOTE_STAGE=(HOST_READY|CONTAINERS_RESOLVED|REVISIONS_CONFIRMED|NODE_EXECUTION_STARTED)$' <<< "$output" | tail -n1 || true)"
   remote_stage='SSH_NOT_CONFIRMED'
@@ -199,7 +227,9 @@ if (( ssh_rc != 0 )); then
     remote_stage="${BASH_REMATCH[1]}"
   fi
   runtime_code='REMOTE_EXECUTION_FAILED'
-  if [[ "$runtime_line" == 'P0_REVIEWER_DIAG_STAFF_DB_URL_MISSING' ]]; then
+  if [[ "$revision_line" =~ ^P0_REVIEWER_REVISION_GATE=(API_INSPECT_FAILED|WEB_INSPECT_FAILED|API_REVISION_INVALID|WEB_REVISION_INVALID|API_REVISION_MISMATCH|WEB_REVISION_MISMATCH)$ ]]; then
+    runtime_code="REVISION_GATE.${BASH_REMATCH[1]}"
+  elif [[ "$runtime_line" == 'P0_REVIEWER_DIAG_STAFF_DB_URL_MISSING' ]]; then
     runtime_code='STAFF_DB_URL_MISSING'
   elif [[ "$runtime_line" == 'P0_REVIEWER_DIAG_ROLLBACK_SENTINEL_NOT_RAISED' ]]; then
     runtime_code='ROLLBACK_SENTINEL_NOT_RAISED'
@@ -243,6 +273,7 @@ for forbidden in (
     "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
     "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
     "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
+    "DIAGNOSTIC_BASE_SHA='5c0020e1fb259929264cd27e25b0b7ad5435243a'",
     "console.log(safeMessage)",
     "console.error(safeMessage)",
     "JSON.stringify(meta)",
