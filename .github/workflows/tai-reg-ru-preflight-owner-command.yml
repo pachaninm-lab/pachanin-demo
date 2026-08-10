@@ -112,6 +112,7 @@ jobs:
           bash -n scripts/resume-pc-prod-actions-runner.sh
           node scripts/check-resume-pc-prod-actions-runner.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-reg-ru-preflight.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-bootstrap-preflight.mjs

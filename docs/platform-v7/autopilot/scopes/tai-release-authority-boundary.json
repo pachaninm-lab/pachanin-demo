@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/tai-p0-a1-release-authority-boundary",
+  "status": "active",
+  "operationalStatus": "TAI_RELEASE_AUTHORITY_TRAVERSAL_BOUNDARY_REPAIR",
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    ".github/workflows/tai-owner-reg-ru-deployment-command.yml",
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    ".github/workflows/tai-reg-ru-preflight.yml",
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "docs/platform-v7/autopilot/scopes/tai-release-authority-boundary.json",
+    "scripts/check-pc-release-authority-boundary.mjs",
+    "scripts/install-pc-prod-actions-runner.sh",
+    "scripts/resume-pc-prod-actions-runner.sh"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "bootstrap provisions the authority root 0710 root:pcactions, matching the mode the controller restores",
+    "pcactions can create its attempt-scoped runner-input directory without root, docker or broader sudo",
+    "protected repository and controller-jobs remain 0700 root:root and unreachable to the runner",
+    "runner-input remains write+traverse only and runner-output remains read-only for the runner group",
+    "the attempt directory ends pcactions:pcactions:0700 with 0600 secret files",
+    "a reused attempt id is still refused",
+    "exact-SHA target and image authority is unchanged",
+    "controller output and evidence integrity checks remain active",
+    "the checker fails when the 0700 root:root drift is reintroduced"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

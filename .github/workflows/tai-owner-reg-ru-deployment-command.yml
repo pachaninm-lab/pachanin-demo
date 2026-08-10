@@ -20,6 +20,9 @@ on:
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "scripts/check-tai-reg-ru-deploy.mjs"
       - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-pc-release-authority-boundary.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-tai-model-artifact-evidence.mjs"
       - "scripts/check-tai-exact-main-convergence.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
@@ -69,6 +72,7 @@ jobs:
           node scripts/check-tai-owner-deployment-status-selection.mjs
           node scripts/check-tai-owner-deployment-command.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-reg-ru-deploy.mjs
           node scripts/check-tai-model-artifact-evidence.mjs
           node scripts/check-tai-exact-main-convergence.mjs
@@ -168,6 +172,7 @@ jobs:
           bash -n scripts/tai-reg-ru-preflight.sh
           node scripts/check-tai-owner-deployment-command.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-reg-ru-deploy.mjs
           node scripts/check-tai-model-artifact-evidence.mjs
           node scripts/check-tai-exact-main-convergence.mjs
