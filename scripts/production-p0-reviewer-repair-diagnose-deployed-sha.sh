@@ -13,6 +13,7 @@ import sys
 source = Path(sys.argv[1])
 target = Path(sys.argv[2])
 text = source.read_text(encoding='utf-8')
+continuation = "\\" + "\n"
 
 replacements = [
     (
@@ -114,10 +115,8 @@ replacements = [
         """      + `|${diagnostic.metaKeys}|${diagnostic.reasonCode}|${before.join('|')}|${after.join('|')}`,""",
     ),
     (
-        """IFS='|' read -r tag outcome prisma_code sql_state constraint meta_keys \\
-  before_assignments before_identities before_memberships before_passwords before_mfa before_login \\""",
-        """IFS='|' read -r tag outcome prisma_code sql_state constraint meta_keys reason_code \\
-  before_assignments before_identities before_memberships before_passwords before_mfa before_login \\""",
+        "IFS='|' read -r tag outcome prisma_code sql_state constraint meta_keys " + continuation,
+        "IFS='|' read -r tag outcome prisma_code sql_state constraint meta_keys reason_code " + continuation,
     ),
     (
         """for value in "$outcome" "$prisma_code" "$sql_state" "$constraint" "$meta_keys"; do""",
