@@ -9,9 +9,17 @@ const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
 const wrapperPath = 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
-const branch = 'fix/p0-reviewer-remote-stage-marker-3822';
-const diagnosticBaseRevision = '5c0020e1fb259929264cd27e25b0b7ad5435243a';
+const branch = 'fix/p0-reviewer-revision-gate-3810';
+const diagnosticBaseRevision = '77afc6758bb585222074cde673046bc6d5b2d2cf';
 const deployedRevision = 'b81ee2e51f9fbf5ec66603211c3f32224532e782';
+const revisionGateValues = [
+  'API_INSPECT_FAILED',
+  'WEB_INSPECT_FAILED',
+  'API_REVISION_INVALID',
+  'WEB_REVISION_INVALID',
+  'API_REVISION_MISMATCH',
+  'WEB_REVISION_MISMATCH',
+];
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
@@ -64,6 +72,8 @@ requireMarkers('WRAPPER_MARKERS', wrapper, [
   'P0_REVIEWER_REMOTE_STAGE=CONTAINERS_RESOLVED',
   'P0_REVIEWER_REMOTE_STAGE=REVISIONS_CONFIRMED',
   'P0_REVIEWER_REMOTE_STAGE=NODE_EXECUTION_STARTED',
+  'P0_REVIEWER_REVISION_GATE=',
+  'runtime_code="REVISION_GATE.${BASH_REMATCH[1]}"',
   '- remote stage: \\`$remote_stage\\`',
   'P0_REVIEWER_DIAG_STAFF_DB_URL_MISSING',
   'P0_REVIEWER_DIAG_ROLLBACK_SENTINEL_NOT_RAISED',
@@ -84,6 +94,7 @@ requireMarkers('WRAPPER_MARKERS', wrapper, [
   'text.replace(old, new, 1)',
   'bash -n "$PATCHED"',
   'exec bash "$PATCHED"',
+  ...revisionGateValues,
 ]);
 
 const pythonMatch = wrapper.match(/python3 - "\$SOURCE" "\$PATCHED" <<'PY'\n([\s\S]*?)\nPY/);
@@ -92,7 +103,7 @@ const pythonSyntax = spawnSync('python3', ['-c', 'import ast,sys; ast.parse(sys.
 if (pythonSyntax.error) fail('PYTHON3_UNAVAILABLE');
 if (pythonSyntax.status !== 0) fail('PYTHON_SYNTAX');
 
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'p0-reviewer-stage-'));
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'p0-reviewer-revision-'));
 const sourcePath = path.join(tempRoot, 'source.sh');
 const patchedPath = path.join(tempRoot, 'patched.sh');
 try {
@@ -114,6 +125,7 @@ try {
     "printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=CONTAINERS_RESOLVED'",
     "printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=REVISIONS_CONFIRMED'",
     "printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=NODE_EXECUTION_STARTED'",
+    'runtime_code="REVISION_GATE.${BASH_REMATCH[1]}"',
     '- remote stage: \\`$remote_stage\\`',
     'TRANSACTION_ERROR.${BASH_REMATCH[1]}',
     'FATAL.${BASH_REMATCH[1]}',
@@ -123,6 +135,7 @@ try {
     "let reasonCode = 'UNCLASSIFIED'",
     'meta_keys reason_code',
     'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
+    ...revisionGateValues.map((value) => `P0_REVIEWER_REVISION_GATE=${value}`),
   ]);
   for (const unsafe of [
     /console\.(?:log|error)\([^\n]*safeMessage/,
@@ -131,9 +144,15 @@ try {
     /raw runtime output:\s*\\`\$output/,
     /runtime code:\s*\\`\$runtime_line/,
     /remote stage:\s*\\`\$stage_line/,
+    /(?:api|web) revision:\s*\\`\$(?:api|web)_revision/i,
+    /P0_REVIEWER_REVISION_GATE=[^\n]*\$(?:api|web)_revision/,
   ]) {
     if (unsafe.test(patched)) fail('UNSAFE_GUARD');
   }
+  const revisionGateOutputCount = revisionGateValues
+    .map((value) => patched.split(`P0_REVIEWER_REVISION_GATE=${value}`).length - 1)
+    .reduce((sum, value) => sum + value, 0);
+  if (revisionGateOutputCount !== revisionGateValues.length) fail('REVISION_GATE_CARDINALITY');
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }
@@ -143,7 +162,7 @@ if (JSON.stringify([...scope.allowedPaths].sort()) !== JSON.stringify(expectedPa
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.branch !== branch
     || scope.status !== 'active'
-    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REMOTE_STAGE_MARKER'
+    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REVISION_GATE'
     || scope.issue !== 3802
     || scope.trackingIssue !== 3810
     || scope.diagnosticBaseRevision !== diagnosticBaseRevision
@@ -153,10 +172,12 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.boundaries?.credentialOutput !== false
     || scope.boundaries?.rawDatabaseMessageOutput !== false
     || scope.boundaries?.rawRuntimeOutput !== false
+    || scope.boundaries?.rawRevisionOutput !== false
     || scope.boundaries?.remoteStageOnly !== true
+    || scope.boundaries?.revisionGateOnly !== true
     || scope.boundaries?.deploymentMutation !== false
     || scope.boundaries?.securityWeakening !== false
     || scope.boundaries?.arbitrarySqlSurface !== false
     || scope.boundaries?.newRecurringCostRub !== 0) fail('SCOPE_METADATA');
 
-console.log('PASS: reviewer remote preflight exposes only one fixed stage enum plus the existing allowlisted runtime code; all raw output and production mutations remain blocked.');
+console.log('PASS: reviewer revision preflight emits only one fixed failure enum; actual revisions, raw output and production mutations remain blocked.');
