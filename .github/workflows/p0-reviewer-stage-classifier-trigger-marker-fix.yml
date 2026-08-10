@@ -46,8 +46,8 @@ jobs:
           text = text.replace(old, new, 1)
           if "'contents: read\\n      issues: write'" in text:
               raise SystemExit('brittle permission marker remained')
-          if "'permissions:\\n  contents: read'" not in text or "'issues: write'" not in text:
-              raise SystemExit('independent permission markers missing')
+          if text.count("            'issues: write',\n") != 1:
+              raise SystemExit('independent issues-write marker missing or ambiguous')
           trigger.write_text(text, encoding='utf-8')
           self_path.unlink()
           PY
