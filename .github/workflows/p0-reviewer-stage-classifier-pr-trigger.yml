@@ -66,10 +66,12 @@ jobs:
                       raise SystemExit('invalid self-patch block indentation')
                   index += 1
               blocks.append('\n'.join(block))
-          if len(blocks) != 2:
-              raise SystemExit(f'expected exactly two self-patch run blocks, got {len(blocks)}')
+          if len(blocks) < 2:
+              raise SystemExit(f'expected outer apply/commit blocks, got {len(blocks)}')
 
-          script = '\n\n'.join(blocks) + '\n'
+          # The first and last blocks are the outer workflow steps. Any additional
+          # match can only come from source text embedded inside the apply block.
+          script = blocks[0] + '\n\n' + blocks[-1] + '\n'
           script = script.replace(
               'set -euo pipefail\n',
               "set -euo pipefail\nrm -f .github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml\n",
