@@ -70,7 +70,7 @@ const requiredMigration = [
   'RETURNS TABLE (\n  active_owner_count integer,\n  usable_reviewer_count integer\n)',
   'SECURITY DEFINER',
   'STABLE',
-  'SET search_path = pg_catalog, auth, pg_temp',
+  'SET search_path = pg_catalog, pg_temp',
   'SET row_security = on',
   "assignment.role = 'PLATFORM_OWNER'",
   "assignment.role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')",
@@ -94,6 +94,10 @@ for (const marker of requiredMigration) {
   }
 }
 
+if (/SET search_path\s*=\s*[^\n]*(?:\bauth\b|\bpublic\b)/i.test(migration)) {
+  console.error('Reviewer preflight SECURITY DEFINER search_path must not include application schemas.');
+  process.exit(1);
+}
 if (/GRANT\s+SELECT[^;]*auth\.staff_assignments[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(migration)) {
   console.error('Migration must not grant direct staff_assignments SELECT to a staff runtime.');
   process.exit(1);
@@ -127,4 +131,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only and function-only without becoming a product-runtime startup dependency.');
+console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only and function-only with a minimal SECURITY DEFINER search path.');
