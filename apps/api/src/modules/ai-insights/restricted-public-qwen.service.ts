@@ -4,6 +4,34 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { isIP } from 'node:net';
+import {
+  EXACT_CURRENT_CLAIM_PATTERN,
+  HIGH_RISK_ENTITY_PATTERNS,
+  LIVE_CAPABILITY_PATTERN,
+  SECRET_PATTERN,
+  WRITE_CLAIM_PATTERN,
+  continuationInstruction,
+  currentEvidenceCopy,
+  enforceCurrentEvidenceBoundary,
+  enforcePlatformGrounding,
+  needsDiseaseCompletenessFloor,
+  normalizeForComparison,
+  plantDiseaseCompletenessFloor,
+  sanitizeAnswer,
+  splitAnswerBlocks,
+  stripRawLinks,
+  truncationCopy,
+  verifiedFallback,
+  type PublicAnswerMode,
+  type PublicGrounding,
+  type PublicLocale,
+  type PublicSource,
+} from './restricted-public-qwen.safety';
+import {
+  ProviderStreamParser,
+  StreamingAnswerGate,
+  type ProviderFinishReason,
+} from './restricted-public-qwen.stream-gate';
 
 const MAX_QUESTION_CHARS = 1_200;
 const MAX_GROUNDING_CHARS = 20_000;
@@ -11,25 +39,13 @@ const MAX_RESPONSE_BYTES = 1_048_576;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
 const MAX_HISTORY_TOTAL_CHARS = 12_000;
+const MAX_CONVERSATION_STATE_CHARS = 2_400;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_TOKENS = 900;
 
-type PublicLocale = 'ru' | 'en' | 'zh';
-type PublicAnswerMode = 'verified_platform' | 'general_agro';
 type PublicHistoryTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 type ChatMessage = Readonly<{ role: 'system' | 'user' | 'assistant'; content: string }>;
 
-type PublicSource = Readonly<{ label: string; href: string }>;
-type PublicGrounding = Readonly<{
-  knowledgeVersion: string;
-  topic: string;
-  title: string;
-  answer: string;
-  facts: readonly string[];
-  maturity: string;
-  confidence: 'high' | 'medium';
-  sources: readonly PublicSource[];
-}>;
 type NormalizedRequest = Readonly<{
   question: string;
   originalQuestion: string;
@@ -37,6 +53,7 @@ type NormalizedRequest = Readonly<{
   answerMode: PublicAnswerMode;
   currentDataRequired: boolean;
   history: readonly PublicHistoryTurn[];
+  conversationState: string;
   grounding: PublicGrounding;
 }>;
 type ProviderConfig = Readonly<{
@@ -70,20 +87,6 @@ export type RestrictedPublicQwenResponse = Readonly<{
 
 const PRIVATE_KEY_PATTERN = /^(?:user|subject|tenant|org|organization|membership|role|staff|deal|document|payment|bank|laboratory|logistics|dispute|integration)(?:Id|Ids|Key|Keys|Secret|Token|Data|State)?$/i;
 const PRIVATE_PUBLIC_SOURCE = /^\/platform-v7\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\/|$)/u;
-const WRITE_CLAIM_PATTERN = /(?:я|i|我).{0,40}(?:изменил|удалил|подписал|выплатил|перев[её]л|подтвердил выплату|changed|deleted|signed|paid|transferred|released funds|修改了|删除了|签署了|付款了|转账了)/iu;
-const SECRET_PATTERN = /(?:\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b|\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b)/u;
-const HIGH_RISK_ENTITY_PATTERNS = [
-  /1с/iu,
-  /smartseeds/iu,
-  /(?:фгис\s*[«"']?зерно|fgis\s+grain)/iu,
-  /(?:эдо|edo|erp|tms)/iu,
-  /(?:банк\s+россии|центробанк|central\s+bank)/iu,
-] as const;
-const LIVE_CAPABILITY_PATTERN = /(?:уже\s+(?:работает|доступн\w*|подключен\w*)|интеграц\w*.{0,35}(?:работает|подключен\w*|доступн\w*)|в\s+реальном\s+времени|автоматически\s+(?:выгружает|переда[её]т|обменивает|подписывает|оплачивает)|is\s+live|already\s+available|real[-\s]?time|已上线|实时)/iu;
-// JavaScript word boundaries do not treat Cyrillic letters as Unicode words reliably.
-// Deliberately avoid \b around units such as "руб." and match only in the
-// already-classified current-evidence contour.
-const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(?:[.,]\d+)?\s*(?:%|₽|руб(?:\.|лей|ля)?|долл(?:\.|аров)?|т\/га|ц\/га|тонн(?:а|ы)?|тыс\.?|млн\.?|°c)|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/iu;
 
 @Injectable()
 export class RestrictedPublicQwenService {
@@ -141,9 +144,9 @@ export class RestrictedPublicQwenService {
         answer = enforceGeneralAgroCompleteness(answer, request, safetyFlags);
       }
 
-      const withoutLinks = answer.replace(/(?:https?:\/\/|www\.)\S+/giu, '').replace(/[ \t]+\n/gu, '\n').trim();
-      if (withoutLinks !== answer) safetyFlags.push('RAW_LINK_REMOVED');
-      answer = withoutLinks;
+      const linkFree = stripRawLinks(answer);
+      if (linkFree.removed) safetyFlags.push('RAW_LINK_REMOVED');
+      answer = linkFree.text;
 
       const truncated = finishReason === 'length';
       if (truncated) {
@@ -174,6 +177,258 @@ export class RestrictedPublicQwenService {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  /**
+   * The same answer, produced incrementally.
+   *
+   * This is the streaming path in the load-bearing sense: the model is asked for
+   * `stream: true` and text is released to the caller while generation is still
+   * running, so the first sentence reaches a reader long before the last token
+   * exists. It is not the buffered answer cut into pieces — there is no complete
+   * answer anywhere in this method until generation ends.
+   *
+   * The safety rules are not relaxed to make that possible. They run per block
+   * inside the gate, which withholds anything it cannot yet decide, and the two
+   * rules that are genuinely about the finished answer run at flush, where they
+   * only append.
+   */
+  async *generateStream(
+    raw: unknown,
+    readerSignal?: AbortSignal,
+  ): AsyncGenerator<PublicStreamEvent, void, undefined> {
+    if ((process.env.TAI_RESTRICTED_QWEN_PUBLIC_ENABLED || '').trim() !== 'true') {
+      throw new ServiceUnavailableException('Restricted public Qwen runtime is disabled.');
+    }
+
+    rejectPrivateShape(raw);
+    const request = normalizeRequest(raw);
+    const config = readProviderConfig();
+    const endpoint = new URL('chat/completions', ensureTrailingSlash(config.baseUrl));
+    const startedAt = Date.now();
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
+    // A reader that goes away must stop generation, not merely stop being read:
+    // an abandoned llama.cpp completion keeps a CPU busy producing an answer
+    // nobody will ever see.
+    const onReaderAbort = () => controller.abort();
+    if (readerSignal?.aborted) controller.abort();
+    readerSignal?.addEventListener('abort', onReaderAbort, { once: true });
+
+    const safetyFlags: string[] = [];
+    const gate = new StreamingAnswerGate({
+      answerMode: request.answerMode,
+      currentDataRequired: request.currentDataRequired,
+      grounding: request.grounding,
+    });
+
+    try {
+      yield { type: 'meta', modelIdentity: config.model, answerMode: request.answerMode };
+
+      // Deterministic from the request, so it leads the answer rather than
+      // waiting behind the model — the boundary is the point of the answer when
+      // the question needs current evidence nobody has governed.
+      if (request.currentDataRequired) {
+        safetyFlags.push('CURRENT_EVIDENCE_REQUIRED');
+        yield { type: 'delta', text: currentEvidenceCopy(request.locale) };
+      }
+
+      const messages = buildMessages(request);
+      // Held in one record rather than as separate locals: they are written by
+      // the nested consumer, and separate `let`s would stay narrowed to their
+      // initial literal by control-flow analysis that cannot see those writes.
+      const outcome = {
+        finishReason: 'other' as ProviderFinishReason,
+        promptTokens: null as number | null,
+        completionTokens: null as number | null,
+        rawAnswer: '',
+      };
+
+      const consume = async function* (
+        turn: readonly ChatMessage[],
+      ): AsyncGenerator<PublicStreamEvent, void, undefined> {
+        for await (const delta of callProviderStream(endpoint, config, turn, controller.signal)) {
+          if (delta.finishReason !== null) outcome.finishReason = delta.finishReason;
+          if (delta.promptTokens !== null) outcome.promptTokens = sumNullable(outcome.promptTokens, delta.promptTokens);
+          if (delta.completionTokens !== null) outcome.completionTokens = delta.completionTokens;
+          if (!delta.content) continue;
+
+          outcome.rawAnswer += delta.content;
+          const commit = gate.push(delta.content);
+          if (commit.violation !== null) {
+            throw new ServiceUnavailableException(
+              commit.violation === 'SECRET'
+                ? 'Restricted public model emitted secret-like material.'
+                : 'Restricted public model emitted a prohibited action claim.',
+            );
+          }
+          safetyFlags.push(...commit.flags);
+          if (commit.text) yield { type: 'delta', text: commit.text };
+        }
+      };
+
+      yield* consume(messages);
+
+      // A completion cut off by the token ceiling continues in a second stream,
+      // exactly as the buffered path does. The gate spans both, so the seam is
+      // not visible to the reader as a restart.
+      if (outcome.finishReason === 'length') {
+        yield* consume([
+          ...messages,
+          { role: 'assistant', content: outcome.rawAnswer },
+          { role: 'user', content: continuationInstruction(request.locale) },
+        ]);
+      }
+
+      const tail = gate.flush();
+      if (tail.violation !== null) {
+        throw new ServiceUnavailableException(
+          tail.violation === 'SECRET'
+            ? 'Restricted public model emitted secret-like material.'
+            : 'Restricted public model emitted a prohibited action claim.',
+        );
+      }
+      safetyFlags.push(...tail.flags);
+      if (tail.text) yield { type: 'delta', text: tail.text };
+
+      let emitted = gate.emitted;
+      if (!emitted) {
+        // Grounding may legitimately remove every block. The verified contour
+        // still owes the reader its governed answer; the general contour has
+        // nothing truthful left to say, so it refuses.
+        if (request.answerMode === 'verified_platform') {
+          const fallback = verifiedFallback(request.grounding);
+          if (fallback) {
+            emitted = fallback;
+            yield { type: 'delta', text: fallback };
+          }
+        }
+        if (!emitted) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
+      }
+
+      if (request.answerMode === 'general_agro'
+        && needsDiseaseCompletenessFloor(emitted, `${request.originalQuestion} ${request.question}`, request.locale)) {
+        safetyFlags.push('GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR');
+        const floor = plantDiseaseCompletenessFloor(request.locale);
+        emitted = `${emitted}\n\n${floor}`;
+        yield { type: 'delta', text: `\n\n${floor}` };
+      }
+
+      const truncated = outcome.finishReason === 'length';
+      if (truncated) {
+        safetyFlags.push('MODEL_OUTPUT_TRUNCATED');
+        yield { type: 'delta', text: `\n\n${truncationCopy(request.locale)}` };
+      }
+
+      yield {
+        type: 'done',
+        modelIdentity: config.model,
+        answerMode: request.answerMode,
+        latencyMs: Date.now() - startedAt,
+        promptTokens: outcome.promptTokens,
+        completionTokens: outcome.completionTokens,
+        finishReason: outcome.finishReason,
+        truncated,
+        safetyFlags: Object.freeze([...new Set(safetyFlags)]),
+      };
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException || error instanceof BadRequestException) throw error;
+      if (readerSignal?.aborted) throw new ServiceUnavailableException('The reader cancelled the answer.');
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ServiceUnavailableException('Restricted public model request timed out.');
+      }
+      throw new ServiceUnavailableException('Restricted public model request failed.');
+    } finally {
+      clearTimeout(timeout);
+      readerSignal?.removeEventListener('abort', onReaderAbort);
+      // Whatever ended the loop — completion, refusal, cancellation or the
+      // caller walking away from the generator — the upstream completion is
+      // cancelled rather than left running.
+      controller.abort();
+    }
+  }
+}
+
+/** What one streamed answer emits, in order. */
+export type PublicStreamEvent =
+  | Readonly<{ type: 'meta'; modelIdentity: string; answerMode: PublicAnswerMode }>
+  | Readonly<{ type: 'delta'; text: string }>
+  | Readonly<{
+    type: 'done';
+    modelIdentity: string;
+    answerMode: PublicAnswerMode;
+    latencyMs: number;
+    promptTokens: number | null;
+    completionTokens: number | null;
+    finishReason: ProviderFinishReason;
+    truncated: boolean;
+    safetyFlags: readonly string[];
+  }>;
+
+/**
+ * One `stream: true` completion, yielded as it arrives.
+ *
+ * The body is read chunk by chunk and never accumulated: buffering it here would
+ * reintroduce exactly the wait this path exists to remove, while looking like
+ * streaming from the outside.
+ */
+async function* callProviderStream(
+  endpoint: URL,
+  config: ProviderConfig,
+  messages: readonly ChatMessage[],
+  signal: AbortSignal,
+): AsyncGenerator<{
+  content: string;
+  finishReason: ProviderFinishReason | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+}, void, undefined> {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Accept: 'text/event-stream',
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${config.apiKey}`,
+      'User-Agent': 'transparent-price/restricted-public-qwen',
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages,
+      temperature: 0,
+      seed: 0,
+      max_tokens: config.maxTokens,
+      stream: true,
+      stream_options: { include_usage: true },
+      chat_template_kwargs: { enable_thinking: false },
+    }),
+    signal,
+  });
+
+  if (!response.ok) throw new ServiceUnavailableException(`Restricted public model returned HTTP ${response.status}.`);
+  if (!response.body) throw new ServiceUnavailableException('Restricted public model returned no stream body.');
+
+  const reader = response.body.getReader();
+  const parser = new ProviderStreamParser();
+  let bytes = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_RESPONSE_BYTES) {
+        throw new ServiceUnavailableException('Restricted public model response exceeded the byte limit.');
+      }
+      const delta = parser.push(value);
+      if (delta.content || delta.finishReason !== null || delta.promptTokens !== null || delta.completionTokens !== null) {
+        yield delta;
+      }
+    }
+    const tail = parser.end();
+    if (tail.content || tail.finishReason !== null) yield tail;
+  } finally {
+    await reader.cancel().catch(() => undefined);
   }
 }
 
@@ -244,6 +499,12 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
   const answerMode: PublicAnswerMode = row.answerMode === 'general_agro' ? 'general_agro' : 'verified_platform';
   const currentDataRequired = row.currentDataRequired === true;
   const history = normalizeHistory(row.history);
+  // Derived context the boundary computed, not raw history: bounded here as well
+  // so a caller cannot grow the prompt by growing the state it sends.
+  const conversationState = cleanMultilineText(row.conversationState, MAX_CONVERSATION_STATE_CHARS);
+  if (SECRET_PATTERN.test(conversationState)) {
+    throw new BadRequestException('Secret-like conversation state is forbidden in the public model contour.');
+  }
   const groundingRow = asRecord(row.grounding);
   if (!groundingRow) throw new BadRequestException('Verified public grounding is required.');
   const sources = Array.isArray(groundingRow.sources) ? groundingRow.sources.slice(0, 12).map(normalizeSource) : [];
@@ -261,7 +522,16 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
   if (JSON.stringify(grounding).length > MAX_GROUNDING_CHARS) {
     throw new BadRequestException('Verified public grounding exceeded the context limit.');
   }
-  return Object.freeze({ question, originalQuestion, locale, answerMode, currentDataRequired, history, grounding });
+  return Object.freeze({
+    question,
+    originalQuestion,
+    locale,
+    answerMode,
+    currentDataRequired,
+    history,
+    conversationState,
+    grounding,
+  });
 }
 
 function normalizeHistory(value: unknown): readonly PublicHistoryTurn[] {
@@ -348,6 +618,9 @@ function publicSystemPrompt(locale: PublicLocale, answerMode: PublicAnswerMode, 
 function buildGroundedPrompt(request: NormalizedRequest): string {
   return [
     `ANSWER_MODE: ${request.answerMode}`,
+    ...(request.conversationState
+      ? [request.conversationState, '']
+      : []),
     `CURRENT_DATA_REQUIRED: ${request.currentDataRequired ? 'yes' : 'no'}`,
     'PUBLIC_PLATFORM_CONTEXT_JSON:',
     JSON.stringify(request.grounding),
@@ -363,151 +636,28 @@ function buildGroundedPrompt(request: NormalizedRequest): string {
   ].join('\n');
 }
 
-function enforcePlatformGrounding(answer: string, grounding: PublicGrounding, safetyFlags: string[]): string {
-  const authority = normalizeForComparison([grounding.title, grounding.answer, grounding.maturity, ...grounding.facts].join(' '));
-  const kept: string[] = [];
-  for (const block of splitAnswerBlocks(answer)) {
-    const normalized = normalizeForComparison(block);
-    const unsupportedEntity = HIGH_RISK_ENTITY_PATTERNS.some((pattern) => pattern.test(normalized) && !pattern.test(authority));
-    const unsupportedLiveClaim = LIVE_CAPABILITY_PATTERN.test(normalized) && !LIVE_CAPABILITY_PATTERN.test(authority);
-    if (unsupportedEntity || unsupportedLiveClaim) {
-      if (unsupportedEntity) safetyFlags.push('UNSUPPORTED_PLATFORM_ENTITY_REMOVED');
-      if (unsupportedLiveClaim) safetyFlags.push('UNSUPPORTED_LIVE_CAPABILITY_REMOVED');
-      continue;
-    }
-    kept.push(block);
-  }
-  return kept.join('\n').trim();
-}
 
-function enforceCurrentEvidenceBoundary(answer: string, locale: PublicLocale, safetyFlags: string[]): string {
-  safetyFlags.push('CURRENT_EVIDENCE_REQUIRED');
-  const stable = splitAnswerBlocks(answer)
-    .filter((block) => !EXACT_CURRENT_CLAIM_PATTERN.test(block.replace(/^\s*\d+[.)]\s*/u, '')))
-    .join('\n')
-    .trim();
-  const boundary = currentEvidenceCopy(locale);
-  return stable ? `${boundary}\n\n${stable}` : boundary;
-}
 
 function enforceGeneralAgroCompleteness(
   answer: string,
   request: NormalizedRequest,
   safetyFlags: string[],
 ): string {
-  const question = normalizeCompletenessText(`${request.originalQuestion} ${request.question}`);
-  if (!isPlantDiseasePreventionQuestion(question, request.locale)) return answer;
-
-  const normalizedAnswer = normalizeCompletenessText(answer);
-  const matchedGroups = plantDiseaseFactorGroups(request.locale)
-    .filter((group) => group.some((term) => normalizedAnswer.includes(normalizeCompletenessText(term))));
-  if (matchedGroups.length >= 2) return answer;
+  const question = `${request.originalQuestion} ${request.question}`;
+  if (!needsDiseaseCompletenessFloor(answer, question, request.locale)) return answer;
 
   safetyFlags.push('GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR');
   return `${answer}\n\n${plantDiseaseCompletenessFloor(request.locale)}`.trim();
 }
 
-function isPlantDiseasePreventionQuestion(value: string, locale: PublicLocale): boolean {
-  const diseaseTerms = locale === 'en'
-    ? ['scab', 'disease', 'fung', 'infection', 'blight', 'mildew', 'rust', 'leaf spot']
-    : locale === 'zh'
-      ? ['病', '霉', '锈', '斑', '感染']
-      : ['парш', 'болезн', 'гриб', 'инфекц', 'фитофтор', 'мучнист', 'ржавчин', 'пятнист'];
-  const preventionTerms = locale === 'en'
-    ? ['prevent', 'reduce', 'risk', 'control', 'protect']
-    : locale === 'zh'
-      ? ['预防', '降低', '风险', '防治', '控制']
-      : ['сниз', 'предотврат', 'профилакт', 'защит', 'риск', 'борот', 'контрол'];
-  return includesAny(value, diseaseTerms) && includesAny(value, preventionTerms);
-}
 
-function plantDiseaseFactorGroups(locale: PublicLocale): readonly (readonly string[])[] {
-  if (locale === 'en') {
-    return [
-      ['sanitation', 'remove infected', 'fallen leaves', 'mummified fruit', 'crop residue', 'inoculum'],
-      ['canopy', 'prun', 'airflow', 'dry faster', 'leaf wetness'],
-      ['humidity', 'rain', 'rainfall', 'dew', 'temperature', 'weather'],
-      ['monitor', 'inspect', 'growth stage', 'timing', 'forecast', 'disease history'],
-      ['fungicide', 'registered product', 'label', 'crop protection', 'spray timing'],
-    ];
-  }
-  if (locale === 'zh') {
-    return [
-      ['清园', '清除病叶', '落叶', '僵果', '病残体', '菌源'],
-      ['树冠', '修剪', '通风', '叶面干燥', '叶片湿润时间'],
-      ['湿度', '降雨', '露水', '温度', '天气'],
-      ['监测', '检查', '生育期', '时机', '预报', '病史'],
-      ['杀菌剂', '登记药剂', '标签', '植保', '施药时机'],
-    ];
-  }
-  return [
-    ['санитар', 'удал', 'убир', 'опавш', 'мумифиц', 'остатк', 'запас инфекции', 'источник инфекции'],
-    ['крон', 'обрез', 'прореж', 'проветр', 'высых', 'увлажнение листьев', 'листовой влажности'],
-    ['влажност', 'дожд', 'осад', 'рос', 'температур', 'погод'],
-    ['монитор', 'осмотр', 'фаз', 'срок', 'прогноз', 'история болезни'],
-    ['фунгиц', 'зарегистрирован', 'этикет', 'защита растений', 'срок обработки'],
-  ];
-}
 
-function plantDiseaseCompletenessFloor(locale: PublicLocale): string {
-  if (locale === 'en') {
-    return 'Add a prevention plan aimed at the disease cycle itself: remove infected fallen leaves, mummified fruit and other inoculum sources, and manage the canopy so foliage dries quickly after rain or dew. Assess risk from leaf-wetness duration, rainfall, temperature, disease history and crop growth stage. If chemical protection is needed, use only a product currently registered for the crop and location and follow its label; without location, growth stage and registration evidence, do not select a product, dose or interval.';
-  }
-  if (locale === 'zh') {
-    return '还应建立针对病害循环的预防措施：清除病叶、落叶、僵果及其他菌源，并通过合理修剪和通风缩短雨后或露水后的叶片湿润时间。风险判断应结合叶片湿润持续时间、降雨、温度、既往病史和作物生育期。需要化学防治时，只能选择当地对该作物已登记的药剂并严格按标签使用；缺少地区、生育期和登记证据时，不应给出具体药剂、剂量或间隔。';
-  }
-  return 'Дополнительно нужен профилактический контур, направленный на цикл болезни: санитарная уборка поражённых опавших листьев, мумифицированных плодов и других источников инфекции, а также прореживание кроны, чтобы листва быстрее высыхала после дождя и росы. Риск оценивайте по длительности увлажнения листьев, осадкам, температуре, истории болезни в саду и фазе развития культуры. Если нужна фунгицидная обработка, выбирайте только зарегистрированный для культуры и региона препарат и действуйте строго по этикетке; без региона, фазы и подтверждённой регистрации нельзя безопасно назначать конкретный продукт, дозу или интервал.';
-}
 
-function normalizeCompletenessText(value: string): string {
-  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е');
-}
 
-function includesAny(value: string, terms: readonly string[]): boolean {
-  return terms.some((term) => value.includes(normalizeCompletenessText(term)));
-}
 
-function splitAnswerBlocks(value: string): string[] {
-  return value.split(/(?<=[.!?。！？])\s+|\n+/u).map((part) => part.trim()).filter(Boolean);
-}
 
-function verifiedFallback(grounding: PublicGrounding): string {
-  return [grounding.answer, grounding.maturity].filter(Boolean).join('\n\n');
-}
 
-function sanitizeAnswer(value: string): string {
-  return value
-    .replace(/\[([^\]]+)\]\((?:https?:\/\/|\/)[^)]+\)/gu, '$1')
-    .replace(/<[^>]+>/gu, ' ')
-    .replace(/```[\s\S]*?```/gu, (block) => block.replace(/```\w*/gu, '').replace(/```/gu, ''))
-    .replace(/`([^`]+)`/gu, '$1')
-    .replace(/\*\*([^*]+)\*\*/gu, '$1')
-    .replace(/__([^_]+)__/gu, '$1')
-    .replace(/^\s*#{1,6}\s+/gmu, '')
-    .replace(/^\s*\*\s+/gmu, '• ')
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-    .replace(/[ \t]+/gu, ' ')
-    .replace(/ *\n */gu, '\n')
-    .replace(/\n{3,}/gu, '\n\n')
-    .trim()
-    .slice(0, 12_000);
-}
 
-function continuationInstruction(locale: PublicLocale): string {
-  if (locale === 'en') return 'Continue exactly where the answer stopped. Do not repeat prior text. Finish in plain text.';
-  if (locale === 'zh') return '从中断处继续，不要重复之前的内容，并用纯文本完整结束回答。';
-  return 'Продолжи строго с места остановки, не повторяй предыдущий текст и закончи ответ обычным текстом.';
-}
-function truncationCopy(locale: PublicLocale): string {
-  if (locale === 'en') return 'The response reached the technical length limit. Ask for a specific section to continue.';
-  if (locale === 'zh') return '回答已达到技术长度限制。请指定需要继续展开的部分。';
-  return 'Ответ достиг технического ограничения по длине. Укажи раздел, который нужно продолжить.';
-}
-function currentEvidenceCopy(locale: PublicLocale): string {
-  if (locale === 'en') return 'I cannot confirm an exact current value without a governed source, publication date, geography and retrieval time. Below is the stable framework that can be used safely.';
-  if (locale === 'zh') return '在没有受控来源、发布日期、地区和获取时间的情况下，我无法确认精确的当前数值。下面仅给出可安全使用的稳定分析框架。';
-  return 'Я не могу подтвердить точное актуальное значение без управляемого источника, даты публикации, региона и времени получения. Ниже — только устойчивый практический ориентир.';
-}
 
 function readProviderConfig(): ProviderConfig {
   if ((process.env.AI_ASSISTANT_PROVIDER || '').trim().toLowerCase() !== 'openai-compatible') {
@@ -575,9 +725,6 @@ function requiredText(value: unknown, limit: number, field: string): string {
   const text = cleanMultilineText(value, limit);
   if (!text) throw new BadRequestException(`${field} is required.`);
   return text;
-}
-function normalizeForComparison(value: string): string {
-  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е').replace(/\s+/gu, ' ').trim();
 }
 function boundedInteger(raw: string | undefined, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(raw);
