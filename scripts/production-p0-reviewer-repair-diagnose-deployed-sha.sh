@@ -18,7 +18,7 @@ continuation = "\\" + "\n"
 replacements = [
     (
         "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-        "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
+        "DIAGNOSTIC_BASE_SHA='b81ee2e51f9fbf5ec66603211c3f32224532e782'",
     ),
     (
         "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
