@@ -338,14 +338,26 @@ export function absoluteCitationUri(href: string | null | undefined, base: strin
   }
 }
 
-/** Default token size. Bounded so one frame never carries a whole answer. */
-export const TOKEN_CHUNK_CHARS = 400;
+/** Largest text one token frame may carry, well under the contract's limit. */
+export const TOKEN_FRAME_CHARS = 400;
 
-/** Split an answer into token frames the client can render progressively. */
-export function chunkAnswer(text: string, size: number = TOKEN_CHUNK_CHARS): string[] {
+/**
+ * Cut already-final text into frames the wire can carry.
+ *
+ * This is framing, not streaming, and the distinction is the whole point. A
+ * frame is bounded by `MAX_TEXT`, so text that is already complete — a
+ * locally-resolved knowledge answer, a policy notice — has to be split to be
+ * sent at all. What it must never be used for is a model answer: releasing a
+ * finished generation in slices produces a typing animation on top of a wait the
+ * reader already paid in full, and reports it as streaming.
+ *
+ * Model answers go through the streaming gate instead, which emits text the
+ * model has produced so far while it is still producing the rest.
+ */
+export function frameText(text: string, size: number = TOKEN_FRAME_CHARS): string[] {
   // A non-positive size would either loop forever or produce the empty token
   // text the contract refuses, so it falls back to the bounded default.
-  const step = size > 0 ? size : TOKEN_CHUNK_CHARS;
+  const step = size > 0 ? size : TOKEN_FRAME_CHARS;
   const chunks: string[] = [];
   for (let index = 0; index < text.length; index += step) {
     chunks.push(text.slice(index, index + step));

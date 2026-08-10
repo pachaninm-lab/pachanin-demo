@@ -8,7 +8,7 @@ import type { RequestUser } from '../../common/types/request-user';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
-  chunkAnswer,
+  frameText,
   resolveAdmission,
   type GatewayMode,
 } from './ai-assistant-stream.contract';
@@ -172,7 +172,7 @@ export class AiAssistantController {
       if (!stream.emit({ event: 'citation', sourceId: citation.source, title: citation.label, uri })) break;
     }
 
-    for (const chunk of chunkAnswer(answer.answer)) {
+    for (const chunk of frameText(answer.answer)) {
       if (!stream.emit({ event: 'token', text: chunk })) break;
     }
 
