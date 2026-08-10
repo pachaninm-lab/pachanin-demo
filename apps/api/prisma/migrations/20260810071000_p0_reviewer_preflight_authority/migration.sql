@@ -62,7 +62,7 @@ RETURNS TABLE (
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
-SET search_path = pg_catalog, auth, pg_temp
+SET search_path = pg_catalog, pg_temp
 SET row_security = on
 AS $function$
   SELECT
