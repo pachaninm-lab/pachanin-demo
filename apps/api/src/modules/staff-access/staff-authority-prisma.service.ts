@@ -65,7 +65,6 @@ type StaffPrincipalInspectionRow = {
   organization_directory_execute: boolean;
   organization_users_execute: boolean;
   cabinet_deals_execute: boolean;
-  reviewer_preflight_execute: boolean;
   admission_capability_execute: boolean;
   projection_capability_execute: boolean;
   identity_bootstrap_execute: boolean;
@@ -174,11 +173,6 @@ export class StaffAuthorityPrismaService extends PrismaService {
         ), false) AS cabinet_deals_execute,
         coalesce(has_function_privilege(
           current_user,
-          to_regprocedure('auth.staff_reviewer_preflight()'),
-          'EXECUTE'
-        ), false) AS reviewer_preflight_execute,
-        coalesce(has_function_privilege(
-          current_user,
           to_regprocedure('auth.staff_admission_capability(text,text,text,text,text)'),
           'EXECUTE'
         ), false) AS admission_capability_execute,
@@ -225,7 +219,6 @@ export class StaffAuthorityPrismaService extends PrismaService {
     if (!row.organization_directory_execute) errors.push('requires EXECUTE on auth.staff_organization_directory');
     if (!row.organization_users_execute) errors.push('requires EXECUTE on auth.staff_organization_users');
     if (!row.cabinet_deals_execute) errors.push('requires EXECUTE on auth.staff_cabinet_deals');
-    if (!row.reviewer_preflight_execute) errors.push('requires EXECUTE on auth.staff_reviewer_preflight');
     if (row.admission_capability_execute) errors.push('must not EXECUTE auth.staff_admission_capability directly');
     if (row.projection_capability_execute) errors.push('must not EXECUTE auth.staff_projection_capability directly');
     if (row.identity_bootstrap_execute) errors.push('must not EXECUTE identity bootstrap functions');
