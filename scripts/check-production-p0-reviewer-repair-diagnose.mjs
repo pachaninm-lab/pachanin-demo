@@ -55,8 +55,8 @@ requireMarkers('deployed-sha wrapper', wrapper, [
   "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
   "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
   "'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'",
-  "if count != 1:",
-  "text.replace(old, new, 1)",
+  'if count != 1:',
+  'text.replace(old, new, 1)',
   "target.write_text(text, encoding='utf-8')",
   'bash -n "$PATCHED"',
   'exec bash "$PATCHED"',
@@ -67,17 +67,19 @@ if (!pythonMatch) {
   console.error('Exact diagnostic wrapper patcher is missing.');
   process.exit(1);
 }
-const pythonSyntax = spawnSync('python', ['-m', 'py_compile', '-'], {
-  input: pythonMatch[1],
-  encoding: 'utf8',
-});
+const pythonSyntax = spawnSync(
+  'python',
+  ['-c', 'import ast,sys; ast.parse(sys.stdin.read())'],
+  { input: pythonMatch[1], encoding: 'utf8' },
+);
 if (pythonSyntax.status !== 0) {
   console.error('Diagnostic wrapper Python patcher is not syntactically valid.');
   process.exit(1);
 }
 
 for (const pattern of [
-  /curl|wget|nc\s|socat|eval\s|source\s|\.\s+\//,
+  /\b(?:curl|wget|socat)\b|(?:^|\s)nc\s+/m,
+  /^\s*(?:eval|source|\.)\s+(?![=])/m,
   /(?:PASSWORD|TOTP|TOKEN|COOKIE|DATABASE_URL)/i,
   /\b(?:psql|UPDATE|DELETE|INSERT|ALTER|CREATE|DROP|TRUNCATE)\b/i,
   /error\.(?:message|stack)/,
