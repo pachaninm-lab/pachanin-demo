@@ -6,7 +6,7 @@ set -Eeuo pipefail
 SOURCE='scripts/production-p0-reviewer-repair-diagnose.sh'
 PATCHED="$RUNNER_TEMP/production-p0-reviewer-repair-diagnose-reason-code.sh"
 
-python - "$SOURCE" "$PATCHED" <<'PY'
+python3 - "$SOURCE" "$PATCHED" <<'PY'
 from pathlib import Path
 import sys
 
@@ -18,7 +18,7 @@ continuation = "\\" + "\n"
 replacements = [
     (
         "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-        "DIAGNOSTIC_BASE_SHA='67510071067f26832bcd770b186ef7c84cdb49d1'",
+        "DIAGNOSTIC_BASE_SHA='5c0020e1fb259929264cd27e25b0b7ad5435243a'",
     ),
     (
         "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
@@ -154,6 +154,32 @@ if output="$(ssh -i "$key_path" -p "$port" \\
   "$user@$host" "bash -s -- '$DEPLOYED_SHA'" 2>&1 <<'REMOTE'""",
     ),
     (
+        """command -v docker >/dev/null 2>&1
+
+mapfile -t web_ids""",
+        """command -v docker >/dev/null 2>&1
+printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=HOST_READY'
+
+mapfile -t web_ids""",
+    ),
+    (
+        """api_id="${api_ids[0]}"
+api_revision="$(docker inspect""",
+        """api_id="${api_ids[0]}"
+printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=CONTAINERS_RESOLVED'
+api_revision="$(docker inspect""",
+    ),
+    (
+        """[[ "$api_revision" == "$deployed_sha" && "$web_revision" == "$deployed_sha" ]]
+
+docker exec -i "$api_id""",
+        """[[ "$api_revision" == "$deployed_sha" && "$web_revision" == "$deployed_sha" ]]
+printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=REVISIONS_CONFIRMED'
+printf '%s\\n' 'P0_REVIEWER_REMOTE_STAGE=NODE_EXECUTION_STARTED'
+
+docker exec -i "$api_id""",
+    ),
+    (
         """REMOTE
 )"
 
@@ -167,6 +193,11 @@ fi
 
 if (( ssh_rc != 0 )); then
   runtime_line="$(grep -E '^P0_REVIEWER_DIAG_(STAFF_DB_URL_MISSING|ROLLBACK_SENTINEL_NOT_RAISED|ROLLBACK_PROOF_FAILED|TRANSACTION_ERROR\\|[A-Za-z0-9_.-]{1,64}|FATAL\\|[A-Za-z0-9_.-]{1,64})$' <<< "$output" | tail -n1 || true)"
+  stage_line="$(grep -E '^P0_REVIEWER_REMOTE_STAGE=(HOST_READY|CONTAINERS_RESOLVED|REVISIONS_CONFIRMED|NODE_EXECUTION_STARTED)$' <<< "$output" | tail -n1 || true)"
+  remote_stage='SSH_NOT_CONFIRMED'
+  if [[ "$stage_line" =~ ^P0_REVIEWER_REMOTE_STAGE=(HOST_READY|CONTAINERS_RESOLVED|REVISIONS_CONFIRMED|NODE_EXECUTION_STARTED)$ ]]; then
+    remote_stage="${BASH_REMATCH[1]}"
+  fi
   runtime_code='REMOTE_EXECUTION_FAILED'
   if [[ "$runtime_line" == 'P0_REVIEWER_DIAG_STAFF_DB_URL_MISSING' ]]; then
     runtime_code='STAFF_DB_URL_MISSING'
@@ -180,6 +211,7 @@ if (( ssh_rc != 0 )); then
     runtime_code="FATAL.${BASH_REMATCH[1]}"
   fi
   [[ "$runtime_code" =~ ^[A-Za-z0-9_.-]{1,96}$ ]]
+  [[ "$remote_stage" =~ ^[A-Z_]{1,32}$ ]]
   guard_main
   gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer repair bounded runtime diagnostic
 
@@ -188,6 +220,7 @@ if (( ssh_rc != 0 )); then
 - exact deployed revision: \`$DEPLOYED_SHA\`
 - result: \`FAIL\`
 - runtime code: \`$runtime_code\`
+- remote stage: \`$remote_stage\`
 - remote exit code: \`$ssh_rc\`
 - production mutation: \`NONE_CONFIRMED_ONLY_IF_DIAGNOSTIC_MARKER_ABSENT\`
 - raw runtime output: \`NOT_PUBLISHED\`" >/dev/null
