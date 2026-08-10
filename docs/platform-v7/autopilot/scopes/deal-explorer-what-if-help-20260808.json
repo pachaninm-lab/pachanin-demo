@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/deal-explorer-what-if-help-20260808",
+  "status": "active",
+  "purpose": "Complete the public Deal Explorer presentation UX with an explicit hypothetical consequence mode and a compact route-specific Help launcher, without changing TAI runtime or any transaction authority.",
+  "approvedBy": "owner-continue-deal-explorer-no-tai-2026-08-08",
+  "authorityBaseExactMain": "65d619b9ba1a8585dedecc9f5996b7358d9e88c1",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/components/platform-v7/PublicDealWhatIfBridge.tsx",
+    "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
+    "apps/web/i18n/public-deal-journey-v5.ts",
+    "apps/web/styles/platform-v7-public-deal-journey-v5.css",
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/tests/unit/platformV7PublicDealJourneyV5.test.ts",
+    "apps/web/tests/unit/publicContactDockRuntime.test.tsx",
+    "apps/web/tests/unit/platformV7UnifiedPublicContactDock.test.ts",
+    "apps/web/tests/e2e/platform-v7-public-deal-explorer-mobile.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-product-experience-v3.spec.ts",
+    "docs/platform-v7/autopilot/scopes/deal-explorer-what-if-help-20260808.json"
+  ],
+  "requiredBehavior": [
+    "reuse existing TourScenario URL state for hypothetical Deal consequence exploration; do not create a parallel transaction state machine",
+    "label hypothetical mode as demonstrational and non-predictive in RU EN and ZH",
+    "show the selected hypothetical consequence immediately and keep it synchronized with the scenario URL state",
+    "on /platform-v7/how-it-works only, replace the persistent three-action public contact dock with one compact Help launcher that expands the same AI Support and Call actions",
+    "keep all interactive targets at least 44px, preserve safe-area clearance, keyboard Escape/outside-click closing and aria-expanded/aria-controls",
+    "leave the contact dock presentation unchanged on every other public route",
+    "preserve mobile no-overflow and browser-history behavior"
+  ],
+  "forbiddenCapabilities": [
+    "TAI model runtime routing latency context knowledge activation deployment or acceptance changes",
+    "API database migration or PostgreSQL changes",
+    "transaction state-machine RBAC authentication tenant or money execution changes",
+    "Caddy environment secret or external integration changes",
+    "acceptance weakening",
+    "fake live claims",
+    "new mandatory paid services"
+  ]
+}

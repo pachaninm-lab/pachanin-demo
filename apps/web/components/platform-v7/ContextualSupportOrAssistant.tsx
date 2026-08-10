@@ -21,6 +21,7 @@ import '@/styles/platform-v7-public-assistant-attachments.css';
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const AI_IN_ACTION = '/platform-v7/ai-in-action';
 const PUBLIC_HOME = '/platform-v7';
+const DEAL_EXPLORER = '/platform-v7/how-it-works';
 const PUBLIC_ENTRY_REWRITE_PREFIX = '/pc-public-entry';
 
 const PUBLIC_EXACT = new Set([
@@ -29,7 +30,7 @@ const PUBLIC_EXACT = new Set([
   '/platform-v7/login',
   '/platform-v7/register',
   '/platform-v7/forgot-password',
-  '/platform-v7/how-it-works',
+  DEAL_EXPLORER,
   AI_IN_ACTION,
   '/platform-v7/help',
   '/platform-v7/pricing',
@@ -120,7 +121,9 @@ export function ContextualSupportOrAssistant({
       <PublicPlatformAssistant />
       <PublicAssistantAttachmentBridge />
       <ChatSupportWidget />
-      {renderDock ? <PublicContactDock /> : null}
+      {renderDock
+        ? <PublicContactDock presentation={path === DEAL_EXPLORER ? 'compact-help' : 'full'} />
+        : null}
     </>
   );
 }
