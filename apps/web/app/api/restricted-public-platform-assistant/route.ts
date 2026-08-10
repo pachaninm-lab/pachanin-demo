@@ -16,14 +16,11 @@ import {
   type AssistantRoutingContext,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
-import { streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
+import { resolveInternalStreamEndpoint, streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const SIGNATURE_VERSION = 'tai-public-qwen.v1';
-const INTERNAL_PATH = '/internal/tai/public-generate';
-const MAX_API_RESPONSE_BYTES = 1_048_576;
 const DEFAULT_TIMEOUT_MS = 130_000;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
@@ -416,7 +413,7 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   }
   return Object.freeze({
     enabled: true,
-    endpoint: new URL('internal/tai/public-generate', base),
+    endpoint: resolveInternalStreamEndpoint(base),
     secret,
     identity,
     timeoutMs,
