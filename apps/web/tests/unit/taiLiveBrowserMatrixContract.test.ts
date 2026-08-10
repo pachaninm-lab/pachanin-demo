@@ -73,6 +73,44 @@ describe('conversation state is exercised across languages and turns', () => {
     expect(acceptance).toContain('ui_new_conversation_not_empty');
   });
 
+  it('drives each localized panel with its own control labels', () => {
+    // The panel is fully localized, so a Russian aria-label finds nothing on
+    // the EN or ZH panel — and the multi-turn cases open exactly those.
+    expect(acceptance).toContain('const UI_COPY = {');
+    expect(acceptance).toContain("composer: 'Ask about agribusiness or the platform'");
+    expect(acceptance).toContain("composer: '询问农业商业或平台问题'");
+    expect(acceptance).toContain('function uiFor(lang)');
+    expect(acceptance).toContain('ui_copy_missing');
+    expect(acceptance).toContain('askInPanel(dlg, testCase.first, { lang: testCase.lang })');
+    expect(acceptance).toContain('askInPanel(dlg, testCase.followUp, { lang: testCase.lang })');
+  });
+
+  it('keeps the component copy and the matrix labels in agreement', () => {
+    // A copy change that leaves this script behind would fail only in
+    // production, at the end of a release.
+    const component = fs.readFileSync(
+      path.join(root, 'apps/web/components/platform-v7/PublicPlatformAssistant.tsx'),
+      'utf8',
+    );
+    for (const label of [
+      'Задай вопрос об агробизнесе или платформе',
+      'Ask about agribusiness or the platform',
+      '询问农业商业或平台问题',
+      'Остановить ответ',
+      'Stop answer',
+      '停止回答',
+      'Новый диалог',
+      'New chat',
+      '新对话',
+      'Повторить запрос',
+      'Retry request',
+      '重试问题',
+    ]) {
+      expect(component).toContain(label);
+      expect(acceptance).toContain(label);
+    }
+  });
+
   it('runs each case on a freshly opened panel', () => {
     // Session storage restores the transcript, so a reused page would let one
     // case answer another case's follow-up.

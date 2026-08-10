@@ -89,13 +89,45 @@ async function requestPublicSse({ locale, question, history = [] }) {
  * in this governed script rather than a parallel workflow.
  */
 
-const UI = {
-  composer: 'Задай вопрос об агробизнесе или платформе',
-  send: 'Отправить',
-  stop: 'Остановить ответ',
-  newChat: 'Новый диалог',
-  retry: 'Повторить запрос',
+/**
+ * Control labels per locale.
+ *
+ * The panel is fully localized, so a Russian aria-label finds nothing on the
+ * EN or ZH panel — and the multi-turn cases open exactly those. Keyed by the
+ * same locale the panel was opened with, so a case cannot silently drive the
+ * wrong panel.
+ */
+const UI_COPY = {
+  ru: {
+    composer: 'Задай вопрос об агробизнесе или платформе',
+    send: 'Отправить',
+    stop: 'Остановить ответ',
+    newChat: 'Новый диалог',
+    retry: 'Повторить запрос',
+  },
+  en: {
+    composer: 'Ask about agribusiness or the platform',
+    send: 'Send',
+    stop: 'Stop answer',
+    newChat: 'New chat',
+    retry: 'Retry request',
+  },
+  zh: {
+    composer: '询问农业商业或平台问题',
+    send: '发送',
+    stop: '停止回答',
+    newChat: '新对话',
+    retry: '重试问题',
+  },
 };
+
+function uiFor(lang) {
+  const copy = UI_COPY[lang];
+  if (!copy) throw new Error(`ui_copy_missing:${lang}`);
+  return copy;
+}
+
+const UI = UI_COPY.ru;
 
 /**
  * Open the assistant panel on a fresh page load in `lang`.
@@ -157,10 +189,11 @@ async function answeredCount(dialog) {
 }
 
 /** Send one question through the composer and wait for a settled answer. */
-async function askInPanel(dialog, question, { timeout = 240_000 } = {}) {
+async function askInPanel(dialog, question, { timeout = 240_000, lang = 'ru' } = {}) {
+  const ui = uiFor(lang);
   const before = await answeredCount(dialog);
-  await dialog.getByRole('textbox', { name: UI.composer }).fill(question);
-  await dialog.getByRole('button', { name: UI.send }).click();
+  await dialog.getByRole('textbox', { name: ui.composer }).fill(question);
+  await dialog.getByRole('button', { name: ui.send }).click();
   await dialog.locator(ANSWERED).nth(before).waitFor({ state: 'visible', timeout });
   return ((await dialog.locator(ANSWERED).nth(before).locator('.pc-public-assistant-bubble').textContent()) || '').trim();
 }
@@ -252,8 +285,8 @@ async function verifyMultiTurn(page, openPanel) {
   const results = [];
   for (const testCase of cases) {
     const dlg = await openPanel(testCase.lang);
-    const first = await askInPanel(dlg, testCase.first);
-    const followUp = await askInPanel(dlg, testCase.followUp);
+    const first = await askInPanel(dlg, testCase.first, { lang: testCase.lang });
+    const followUp = await askInPanel(dlg, testCase.followUp, { lang: testCase.lang });
 
     // The follow-up names no subject of its own, so a matching subject term can
     // only have come from retained conversation state.
