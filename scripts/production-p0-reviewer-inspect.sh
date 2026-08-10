@@ -23,7 +23,7 @@ publish_failure() {
   local rc="$?"
   trap - ERR
   if [[ "$result_published" == '0' ]]; then
-    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer inspect
+    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer login-readiness inspect
 
 - exact main: \`$TARGET_SHA\`
 - result: \`FAIL\`
@@ -145,75 +145,144 @@ api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontai
 web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
 [[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
 
-docker exec -i "$api_id" /nodejs/bin/node - <<'NODE'
+docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
 const { PrismaClient } = require('@prisma/client');
-const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
-if (!databaseUrl) {
-  console.error('P0_STAFF_DATABASE_URL_MISSING');
-  process.exit(31);
-}
-const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-try {
-  const principals = await db.$queryRawUnsafe(`
-    SELECT current_user AS user_name,
-           rolsuper,
-           rolbypassrls,
-           has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals
-    FROM pg_roles
-    WHERE rolname = current_user
-  `);
-  const principal = principals[0];
-  if (!principal || principal.user_name !== 'pc_staff_runtime'
-      || principal.rolsuper || principal.rolbypassrls || principal.can_read_deals) {
-    console.error('P0_STAFF_PRINCIPAL_BOUNDARY_INVALID');
-    process.exit(32);
+
+const sanitizeErrorCode = (error) => {
+  const raw = String(error && typeof error === 'object' && 'code' in error ? error.code : 'UNKNOWN');
+  return raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) || 'UNKNOWN';
+};
+
+(async () => {
+  const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+  if (!databaseUrl) {
+    console.error('P0_STAFF_DATABASE_URL_MISSING');
+    process.exitCode = 31;
+    return;
   }
-  const rows = await db.$queryRawUnsafe(`
-    SELECT
-      COUNT(*) FILTER (
-        WHERE role = 'PLATFORM_OWNER'
-          AND status = 'ACTIVE'
-          AND valid_from <= NOW()
-          AND (valid_until IS NULL OR valid_until > NOW())
-      )::int AS active_owner_count,
-      COUNT(*) FILTER (
-        WHERE role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')
-          AND status IN ('ELIGIBLE', 'ACTIVE')
-          AND valid_from <= NOW()
-          AND (valid_until IS NULL OR valid_until > NOW())
-      )::int AS usable_reviewer_count
-    FROM auth.staff_assignments
-  `);
-  const counts = rows[0] || {};
-  const owners = Number(counts.active_owner_count || 0);
-  const reviewers = Number(counts.usable_reviewer_count || 0);
-  if (!Number.isInteger(owners) || owners < 0 || !Number.isInteger(reviewers) || reviewers < 0) {
-    process.exit(33);
+
+  const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  try {
+    const principals = await db.$queryRawUnsafe(`
+      SELECT current_user AS user_name,
+             rolsuper,
+             rolbypassrls,
+             has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals,
+             has_table_privilege(current_user, 'public.users', 'SELECT') AS can_read_users,
+             has_table_privilege(current_user, 'public.user_orgs', 'SELECT') AS can_read_memberships,
+             has_table_privilege(current_user, 'public.organizations', 'SELECT') AS can_read_organizations,
+             has_table_privilege(current_user, 'auth.credential_states', 'SELECT') AS can_read_credentials,
+             has_table_privilege(current_user, 'auth.staff_assignments', 'SELECT') AS can_read_assignments,
+             coalesce(has_function_privilege(
+               current_user,
+               to_regprocedure('auth.staff_reviewer_preflight()'),
+               'EXECUTE'
+             ), false) AS reviewer_preflight_execute,
+             coalesce(has_function_privilege(
+               current_user,
+               to_regprocedure('auth.staff_reviewer_login_readiness()'),
+               'EXECUTE'
+             ), false) AS reviewer_readiness_execute
+      FROM pg_roles
+      WHERE rolname = current_user
+    `);
+    const principal = principals[0];
+    if (!principal || principal.user_name !== 'pc_staff_runtime'
+        || principal.rolsuper || principal.rolbypassrls
+        || principal.can_read_deals || principal.can_read_users
+        || principal.can_read_memberships || principal.can_read_organizations
+        || principal.can_read_credentials || principal.can_read_assignments
+        || !principal.reviewer_preflight_execute || !principal.reviewer_readiness_execute) {
+      console.error('P0_STAFF_PRINCIPAL_BOUNDARY_INVALID');
+      process.exitCode = 32;
+      return;
+    }
+
+    const rows = await db.$queryRawUnsafe(`
+      SELECT
+        preflight.active_owner_count,
+        preflight.usable_reviewer_count,
+        readiness.assignment_ready_count,
+        readiness.active_identity_ready_count,
+        readiness.membership_ready_count,
+        readiness.password_ready_count,
+        readiness.mfa_enrolled_ready_count,
+        readiness.login_ready_count
+      FROM auth.staff_reviewer_preflight() preflight
+      CROSS JOIN auth.staff_reviewer_login_readiness() readiness
+    `);
+    const counts = rows[0] || {};
+    const values = [
+      Number(counts.active_owner_count || 0),
+      Number(counts.usable_reviewer_count || 0),
+      Number(counts.assignment_ready_count || 0),
+      Number(counts.active_identity_ready_count || 0),
+      Number(counts.membership_ready_count || 0),
+      Number(counts.password_ready_count || 0),
+      Number(counts.mfa_enrolled_ready_count || 0),
+      Number(counts.login_ready_count || 0),
+    ];
+    if (values.some((value) => !Number.isInteger(value) || value < 0)) {
+      console.error('P0_REVIEWER_READINESS_INVALID_COUNTS');
+      process.exitCode = 33;
+      return;
+    }
+    const [owners, reviewers, assignments, identities, memberships, passwords, mfa, login] = values;
+    if (assignments > reviewers || identities > assignments || memberships > identities
+        || passwords > memberships || mfa > passwords || login > mfa) {
+      console.error('P0_REVIEWER_READINESS_NON_MONOTONIC');
+      process.exitCode = 34;
+      return;
+    }
+    console.log(
+      `REVIEWER_LOGIN_READINESS|${principal.user_name}|${owners}|${reviewers}`
+      + `|${assignments}|${identities}|${memberships}|${passwords}|${mfa}|${login}`,
+    );
+  } finally {
+    await db.$disconnect();
   }
-  console.log(`REVIEWER_INSPECT|${principal.user_name}|${owners}|${reviewers}`);
-} finally {
-  await db.$disconnect();
-}
+})().catch((error) => {
+  console.error(`P0_REVIEWER_INSPECT_DB_ERROR|${sanitizeErrorCode(error)}`);
+  process.exitCode = 35;
+});
 NODE
 printf 'PRODUCTION_MUTATION=NONE\n'
 REMOTE
 )"
 
-marker="$(grep '^REVIEWER_INSPECT|' <<< "$output" | tail -n1)"
+marker="$(grep '^REVIEWER_LOGIN_READINESS|' <<< "$output" | tail -n1)"
 mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
 [[ "$mutation" == 'PRODUCTION_MUTATION=NONE' ]]
-IFS='|' read -r tag principal owners reviewers <<< "$marker"
-[[ "$tag" == 'REVIEWER_INSPECT' && "$principal" == 'pc_staff_runtime' ]]
-[[ "$owners" =~ ^[0-9]+$ && "$reviewers" =~ ^[0-9]+$ ]]
+IFS='|' read -r tag principal owners reviewers assignments identities memberships passwords mfa login <<< "$marker"
+[[ "$tag" == 'REVIEWER_LOGIN_READINESS' && "$principal" == 'pc_staff_runtime' ]]
+for count in "$owners" "$reviewers" "$assignments" "$identities" "$memberships" "$passwords" "$mfa" "$login"; do
+  [[ "$count" =~ ^[0-9]+$ ]]
+done
+(( assignments <= reviewers ))
+(( identities <= assignments ))
+(( memberships <= identities ))
+(( passwords <= memberships ))
+(( mfa <= passwords ))
+(( login <= mfa ))
 
 guard_main
-if (( reviewers > 0 )); then
-  next='EXISTING_REVIEWER_ASSIGNMENT_PRESENT'
+if (( login > 0 )); then
+  next='HUMAN_REVIEWER_LOGIN_CEREMONY_REQUIRED'
+elif (( mfa > 0 )); then
+  next='REVIEWER_CREDENTIAL_UNLOCK_OR_WAIT_REQUIRED'
+elif (( passwords > 0 )); then
+  next='REVIEWER_MFA_ENROLLMENT_REQUIRED'
+elif (( memberships > 0 )); then
+  next='REVIEWER_PASSWORD_RESET_REQUIRED'
+elif (( identities > 0 )); then
+  next='REVIEWER_MEMBERSHIP_OR_ORGANIZATION_REPAIR_REQUIRED'
+elif (( assignments > 0 )); then
+  next='REVIEWER_IDENTITY_REPAIR_REQUIRED'
 else
   next='FIRST_REVIEWER_BOOTSTRAP_REQUIRED'
 fi
 
-gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer inspect
+gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer login-readiness inspect
 
 - command: \`$COMMAND\`
 - exact main: \`$TARGET_SHA\`
@@ -221,6 +290,11 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - staff principal: \`$principal\`
 - active PLATFORM_OWNER assignments: \`$owners\`
 - usable registration-reviewer assignments: \`$reviewers\`
+- active reviewer identities: \`$identities / $assignments\`
+- reviewer memberships in VERIFIED organizations: \`$memberships / $assignments\`
+- reviewer password credentials ready: \`$passwords / $assignments\`
+- reviewer TOTP enrollments ready: \`$mfa / $assignments\`
+- structurally login-ready and unlocked reviewers: \`$login / $assignments\`
 - production mutation: \`NONE\`
 - next: \`$next\`" >/dev/null
 result_published=1
