@@ -25,7 +25,10 @@ const requiredWorkflow = [
   "--filter 'label=com.docker.compose.service=web'",
   "--filter 'label=com.docker.compose.service=api'",
   'org.opencontainers.image.revision',
-  'docker exec -i "$api_id" /nodejs/bin/node -',
+  'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs -',
+  'async function inspectReviewerAuthority()',
+  'inspectReviewerAuthority().catch((error) =>',
+  'P0_REVIEWER_PREFLIGHT_QUERY_FAILED',
   'STAFF_DATABASE_URL',
   "principal.user_name !== 'pc_staff_runtime'",
   'principal.rolsuper',
@@ -46,13 +49,36 @@ for (const marker of requiredWorkflow) {
   }
 }
 
-const stdinInspector = 'docker exec -i "$api_id" /nodejs/bin/node - <<\'NODE\'';
+const stdinInspector = 'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<\'NODE\'';
 if ((workflow.split(stdinInspector).length - 1) !== 1) {
-  console.error('Reviewer preflight must attach stdin exactly once for its heredoc-fed Node inspector.');
+  console.error('Reviewer preflight must attach stdin exactly once and force CommonJS for its heredoc-fed Node inspector.');
   process.exit(1);
 }
-if (/docker exec\s+"\$api_id"\s+\/nodejs\/bin\/node\s+-\s+<<'NODE'/.test(workflow)) {
+if (/docker exec\s+"\$api_id"\s+\/nodejs\/bin\/node(?:\s+--input-type=commonjs)?\s+-\s+<<'NODE'/.test(workflow)) {
   console.error('Reviewer preflight must not detach stdin from the heredoc-fed Node inspector.');
+  process.exit(1);
+}
+if (workflow.includes('docker exec -i "$api_id" /nodejs/bin/node - <<\'NODE\'')) {
+  console.error('Reviewer preflight must not rely on Node module auto-detection for a CommonJS stdin inspector.');
+  process.exit(1);
+}
+
+const inspectorStart = workflow.indexOf(stdinInspector) + stdinInspector.length;
+const inspectorEnd = workflow.indexOf('\n          NODE', inspectorStart);
+if (inspectorEnd < inspectorStart) {
+  console.error('Reviewer preflight Node inspector heredoc is not bounded.');
+  process.exit(1);
+}
+const inspector = workflow.slice(inspectorStart, inspectorEnd);
+const asyncStart = inspector.indexOf('async function inspectReviewerAuthority()');
+const invocationStart = inspector.indexOf('inspectReviewerAuthority().catch((error) =>');
+if (asyncStart < 0 || invocationStart <= asyncStart) {
+  console.error('Reviewer preflight Node inspector must contain and invoke its async authority function.');
+  process.exit(1);
+}
+const outsideAsyncFunction = inspector.slice(0, asyncStart) + inspector.slice(invocationStart);
+if (/\bawait\b/.test(outsideAsyncFunction)) {
+  console.error('Reviewer preflight Node inspector must not contain top-level await outside its async function.');
   process.exit(1);
 }
 
@@ -184,4 +210,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only and stdin-safe; the forward ACL repair restores only the confined authority read while every staff runtime remains table-free.');
+console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only, stdin-safe and Node 24-safe; the forward ACL repair restores only the confined authority read while every staff runtime remains table-free.');
