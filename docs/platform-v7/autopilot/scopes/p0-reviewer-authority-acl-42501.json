@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-authority-acl-42501",
+  "status": "active",
+  "purpose": "Repair production P0 reviewer preflight 42501 by restoring the already-designed SELECT authority only to the NOLOGIN pc_staff_authority definer role, while preserving the function-only pc_staff_runtime boundary and aggregate-only preflight output.",
+  "approvedBy": "owner-direct-registration-production-finish-2026-08-10",
+  "authorityBaseExactMain": "be061e59915bec02eef0574d0065a647a8fb065b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260810122500_p0_reviewer_preflight_authority_acl/migration.sql",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-authority-acl-42501.json",
+    "scripts/check-production-p0-reviewer-preflight.mjs"
+  ],
+  "requiredBehavior": [
+    "pc_staff_authority remains NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE and membership-isolated",
+    "pc_staff_authority receives SELECT on auth.staff_assignments solely so its fixed SECURITY DEFINER reviewer-preflight function can compute aggregate counts",
+    "pc_staff_runtime remains unable to SELECT auth.staff_assignments and retains only EXECUTE on auth.staff_reviewer_preflight()",
+    "auth.staff_reviewer_preflight() remains SECURITY DEFINER owned by pc_staff_authority, revoked from PUBLIC and aggregate-only",
+    "non-staff runtimes remain unable to execute the preflight helper",
+    "migration proves authority SELECT, runtime no-SELECT and runtime EXECUTE in the same transaction"
+  ],
+  "forbiddenCapabilities": [
+    "GRANT SELECT on auth.staff_assignments to pc_staff_runtime, app_staff or one_deal_staff",
+    "BYPASSRLS, SUPERUSER, role membership or LOGIN for pc_staff_authority",
+    "returning user identifiers, email, credential, session, organization or tenant data",
+    "creating or elevating any reviewer or PLATFORM_OWNER",
+    "ad-hoc production SQL outside forward migration/release authority",
+    "new paid provider or recurring cost"
+  ],
+  "acceptanceEvidence": [
+    "static contract proves the exact authority/runtime ACL split",
+    "exact-head CI and PostgreSQL authority gates are terminal PASS",
+    "after merge exact-main REG.RU migration/deploy/live DB-audit-outbox acceptance is PASS",
+    "owner-only reviewer preflight returns aggregate counts with production mutation NONE"
+  ]
+}

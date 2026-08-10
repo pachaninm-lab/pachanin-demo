@@ -3,9 +3,11 @@ import fs from 'node:fs';
 
 const workflowPath = '.github/workflows/production-p0-reviewer-preflight.yml';
 const migrationPath = 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql';
+const aclMigrationPath = 'apps/api/prisma/migrations/20260810122500_p0_reviewer_preflight_authority_acl/migration.sql';
 const runtimeGrantsPath = 'infra/kind/production-like/postgresql-runtime-grants.sql';
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const aclMigration = fs.readFileSync(aclMigrationPath, 'utf8');
 const runtimeGrants = fs.readFileSync(runtimeGrantsPath, 'utf8');
 
 const requiredWorkflow = [
@@ -99,11 +101,52 @@ if (/SET search_path\s*=\s*[^\n]*(?:\bauth\b|\bpublic\b)/i.test(migration)) {
   process.exit(1);
 }
 if (/GRANT\s+SELECT[^;]*auth\.staff_assignments[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(migration)) {
-  console.error('Migration must not grant direct staff_assignments SELECT to a staff runtime.');
+  console.error('Reviewer-preflight creation migration must not grant direct staff_assignments SELECT to a staff runtime.');
   process.exit(1);
 }
 if (/RETURNS\s+TABLE\s*\([^)]*(?:email|user_id|membership|organization|tenant|session|credential|secret)/is.test(migration)) {
   console.error('Reviewer preflight function must return aggregate counts only.');
+  process.exit(1);
+}
+
+const requiredAclMigration = [
+  'GRANT SELECT ON auth.staff_assignments TO pc_staff_authority;',
+  'REVOKE ALL PRIVILEGES ON auth.staff_assignments FROM pc_staff_runtime;',
+  'GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO pc_staff_runtime;',
+  "has_table_privilege('pc_staff_authority', 'auth.staff_assignments', 'SELECT')",
+  "has_table_privilege('pc_staff_runtime', 'auth.staff_assignments', 'SELECT')",
+  "has_table_privilege('pc_staff_runtime', 'auth.staff_assignments', 'INSERT')",
+  "has_table_privilege('pc_staff_runtime', 'auth.staff_assignments', 'UPDATE')",
+  "has_table_privilege('pc_staff_runtime', 'auth.staff_assignments', 'DELETE')",
+  "'pc_staff_runtime', 'auth.staff_reviewer_preflight()', 'EXECUTE'",
+  "rolname IN ('app_staff', 'one_deal_staff')",
+  'REVOKE ALL PRIVILEGES ON auth.staff_assignments FROM %I',
+  'pc_staff_authority is not confined',
+  'pc_staff_runtime is not confined',
+  'staff authority/runtime roles must remain membership-isolated',
+];
+for (const marker of requiredAclMigration) {
+  if (!aclMigration.includes(marker)) {
+    console.error(`Missing reviewer authority ACL repair marker: ${marker}`);
+    process.exit(1);
+  }
+}
+
+if (/GRANT\s+SELECT\s+ON\s+auth\.staff_assignments\s+TO\s+(?:pc_staff_runtime|app_staff|one_deal_staff)/i.test(aclMigration)) {
+  console.error('ACL repair must never grant staff_assignments SELECT to a login-capable staff runtime.');
+  process.exit(1);
+}
+if (/\b(?:SUPERUSER|BYPASSRLS|INHERIT)\b/.test(
+  aclMigration
+    .split('\n')
+    .filter((line) => !/^\s*--/.test(line) && !/RAISE EXCEPTION/.test(line))
+    .join('\n')
+)) {
+  console.error('ACL repair must not grant or alter privileged PostgreSQL role attributes.');
+  process.exit(1);
+}
+if (/\b(?:INSERT\s+INTO|UPDATE\s+auth\.|DELETE\s+FROM\s+auth\.)/i.test(aclMigration)) {
+  console.error('ACL repair must not mutate staff identity data.');
   process.exit(1);
 }
 
@@ -131,4 +174,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only and function-only with a minimal SECURITY DEFINER search path.');
+console.log('PASS: reviewer preflight keeps runtime table-blind while restoring only the confined definer authority ACL.');
