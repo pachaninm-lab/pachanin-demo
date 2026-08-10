@@ -15,7 +15,7 @@ known_hosts="$RUNNER_TEMP/pc-p0-reviewer-repair-diagnose-known-hosts"
 result_published=0
 TARGET_SHA='unknown'
 DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'
-DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'
+DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'
 
 cleanup() {
   rm -f -- "$key_path" "$known_hosts"

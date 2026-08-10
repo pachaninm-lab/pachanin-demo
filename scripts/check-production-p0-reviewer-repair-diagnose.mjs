@@ -6,7 +6,7 @@ const workflowPath = '.github/workflows/production-p0-reviewer-repair-diagnose.y
 const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
-const branch = 'fix/p0-reviewer-repair-rollback-diagnostic-3802-v2';
+const branch = 'fix/p0-reviewer-diagnostic-deployed-revision-3802';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
@@ -38,7 +38,7 @@ requireMarkers('workflow', workflow, [
 requireMarkers('runner', runner, [
   "COMMAND='/production p0-reviewer-membership-diagnose current-main'",
   "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-  "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
+  "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
   'git merge-base --is-ancestor "$DEPLOYED_SHA" "$TARGET_SHA"',
   'git merge-base --is-ancestor "$DIAGNOSTIC_BASE_SHA" "$TARGET_SHA"',
   'git diff --name-only "$DIAGNOSTIC_BASE_SHA" "$TARGET_SHA"',
@@ -109,6 +109,7 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.issue !== 3802
     || !Array.isArray(scope.acceptance)
     || scope.acceptance.length < 6
+    || scope.deployedRevision !== '7677678dbd629a0938bd47ce421a66e80555fec3'
     || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
     || scope.boundaries?.productionMutation !== 'ROLLBACK_ONLY_NONE_DURABLE'
     || scope.boundaries?.piiOutput !== false

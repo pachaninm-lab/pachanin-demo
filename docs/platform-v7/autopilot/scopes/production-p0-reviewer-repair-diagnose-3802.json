@@ -1,6 +1,6 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-reviewer-repair-rollback-diagnostic-3802-v2",
+  "branch": "fix/p0-reviewer-diagnostic-deployed-revision-3802",
   "status": "active",
   "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_BOUNDED",
   "issue": 3802,
@@ -29,5 +29,6 @@
     "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface or recurring cost",
     "every exact-head required focused, repository, security and release check is terminal PASS"
   ],
-  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "deployedRevision": "7677678dbd629a0938bd47ce421a66e80555fec3"
 }
