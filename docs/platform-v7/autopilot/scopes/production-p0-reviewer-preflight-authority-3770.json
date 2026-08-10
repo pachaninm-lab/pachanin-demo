@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-p0-reviewer-preflight-authority-3770",
+  "status": "active",
+  "purpose": "Repair the production P0 reviewer preflight without widening pc_staff_runtime: expose only aggregate reviewer counts through a fixed SECURITY DEFINER function owned by pc_staff_authority, preserve the no-direct-table-privilege boundary, and make restore/runtime acceptance prove the same invariant.",
+  "approvedBy": "owner-direct-registration-production-finish-2026-08-10",
+  "authorityBaseExactMain": "e762512bb21f2d2183344cccef2775f77b5ef1fd",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-preflight.yml",
+    "apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql",
+    "apps/api/src/common/prisma/auth-principal-provisioning.spec.ts",
+    "apps/api/src/modules/staff-access/staff-authority-prisma.service.ts",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-preflight-authority-3770.json",
+    "infra/kind/production-like/postgresql-runtime-grants.sql",
+    "scripts/check-production-p0-reviewer-preflight.mjs",
+    "scripts/platform-v7-database-dr-rehearsal.sh"
+  ],
+  "requiredBehavior": [
+    "pc_staff_runtime remains NOSUPERUSER NOBYPASSRLS NOINHERIT and receives no direct table or sequence privileges",
+    "reviewer preflight returns only active PLATFORM_OWNER count and usable registration-reviewer count; it exposes no user id, email, membership, organization, credential or session material",
+    "the aggregate function is SECURITY DEFINER, owned by pc_staff_authority, revoked from PUBLIC and executable only by dedicated staff runtime aliases",
+    "non-staff auth, deal, storage and outbox runtimes are explicitly denied the aggregate function",
+    "production reviewer preflight uses only the aggregate function and proves it cannot directly SELECT auth.staff_assignments",
+    "DR restore re-establishes exact function ownership and EXECUTE grants without broadening staff runtime privileges",
+    "production principal startup assertion requires the aggregate EXECUTE surface and still rejects any direct runtime table privilege"
+  ],
+  "forbiddenCapabilities": [
+    "GRANT SELECT on auth.staff_assignments to pc_staff_runtime, app_staff or one_deal_staff",
+    "BYPASSRLS, SUPERUSER, role membership or table ownership for a staff runtime",
+    "returning reviewer identifiers, emails, credentials, TOTP secrets, sessions or customer data from preflight",
+    "creating, elevating or mutating PLATFORM_OWNER or any staff identity",
+    "direct ad-hoc production SQL outside the exact-main migration/release authority",
+    "new paid provider, SaaS subscription or recurring cost"
+  ],
+  "acceptanceEvidence": [
+    "static principal tests prove no direct table grants and exact aggregate EXECUTE grants",
+    "production-like PostgreSQL authority and DR rehearsal prove ownership/grants survive restore",
+    "exact-head CI is terminal PASS",
+    "after merge, exact-main REG.RU migration/deployment is PASS and API/Web revisions equal current main",
+    "owner-only production reviewer preflight publishes aggregate counts with production mutation NONE"
+  ]
+}
