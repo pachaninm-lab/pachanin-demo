@@ -104,6 +104,7 @@ REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(TEXT, TEXT, TEXT) FR
 REVOKE ALL ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) FROM app_auth;
 REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_auth;
+REVOKE ALL ON FUNCTION auth.staff_reviewer_preflight() FROM app_auth;
 
 -- Dedicated function-only staff runtime. It receives no table or sequence
 -- privilege at all: every cross-tenant identity/business scope read is bounded
@@ -119,6 +120,7 @@ GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, 
 GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) TO app_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) TO app_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO app_staff;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM app_staff;
@@ -267,6 +269,8 @@ REVOKE ALL ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT)
 REVOKE ALL ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT)
   FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT)
+  FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.staff_reviewer_preflight()
   FROM app_runtime, app_storage, app_outbox;
 
 -- Deal creation validates the confirmed seller and buyer without exposing
