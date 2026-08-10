@@ -9,8 +9,9 @@ const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
 const wrapperPath = 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
-const branch = 'fix/p0-reviewer-diagnostic-b81-pin-3810';
-const acceptedRevision = 'b81ee2e51f9fbf5ec66603211c3f32224532e782';
+const branch = 'fix/p0-reviewer-diagnostic-current-main-3820';
+const diagnosticBaseRevision = '98447a394ecd156a2a736574eb3d3ccdbac49bd9';
+const deployedRevision = 'b81ee2e51f9fbf5ec66603211c3f32224532e782';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
@@ -33,7 +34,7 @@ requireMarkers('workflow', workflow, [
   "github.triggering_actor == github.repository_owner",
   "github.event.comment.body == '/production p0-reviewer-membership-diagnose current-main'",
   'permissions:\n  contents: read',
-  'contents: read\n      issues: write',
+  'issues: write',
   'cancel-in-progress: false',
   `bash -n ${runnerPath}`,
   `bash -n ${wrapperPath}`,
@@ -50,8 +51,8 @@ requireMarkers('reviewed rollback runner', runner, [
 ]);
 
 requireMarkers('reason wrapper', wrapper, [
-  `DIAGNOSTIC_BASE_SHA='${acceptedRevision}'`,
-  `DEPLOYED_SHA='${acceptedRevision}'`,
+  `DIAGNOSTIC_BASE_SHA='${diagnosticBaseRevision}'`,
+  `DEPLOYED_SHA='${deployedRevision}'`,
   "['reviewer membership repair structural precondition failed', 'STRUCTURAL_PRECONDITION']",
   "['unique active PLATFORM_OWNER identity is required', 'OWNER_IDENTITY']",
   "['reviewer membership pre-state is inconsistent', 'MEMBERSHIP_PRESTATE_INCONSISTENT']",
@@ -104,8 +105,8 @@ try {
   }
 
   requireMarkers('patched diagnostic', patched, [
-    `DIAGNOSTIC_BASE_SHA='${acceptedRevision}'`,
-    `DEPLOYED_SHA='${acceptedRevision}'`,
+    `DIAGNOSTIC_BASE_SHA='${diagnosticBaseRevision}'`,
+    `DEPLOYED_SHA='${deployedRevision}'`,
     "reasonCode: 'NONE'",
     "let reasonCode = 'UNCLASSIFIED'",
     "reasonCode = 'DATABASE_CHECK_CONSTRAINT'",
@@ -115,18 +116,6 @@ try {
     "reason code: \\`$reason_code\\`",
     'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
   ]);
-
-  for (const stalePin of [
-    "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
-    "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-    "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
-    "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-  ]) {
-    if (patched.includes(stalePin)) {
-      console.error(`Stale diagnostic authority remained: ${stalePin}`);
-      process.exit(1);
-    }
-  }
 
   const embeddedNodeMatch = patched.match(
     /docker exec -i "\$api_id" \/nodejs\/bin\/node --input-type=commonjs - <<'NODE'\n([\s\S]*?)\nNODE/,
@@ -186,9 +175,11 @@ if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.branch !== branch
     || scope.status !== 'active'
-    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_B81_PIN_CORRECTION'
+    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_CURRENT_MAIN_PIN'
     || scope.issue !== 3802
     || scope.trackingIssue !== 3810
+    || scope.diagnosticBaseRevision !== diagnosticBaseRevision
+    || scope.deployedRevision !== deployedRevision
     || !Array.isArray(scope.acceptance)
     || scope.acceptance.length < 9
     || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
@@ -200,8 +191,8 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.boundaries?.securityWeakening !== false
     || scope.boundaries?.arbitrarySqlSurface !== false
     || scope.boundaries?.newRecurringCostRub !== 0) {
-  console.error('Governed B81 diagnostic-pin scope or boundaries are incomplete or unsafe.');
+  console.error('Governed current-main diagnostic-pin scope or boundaries are incomplete or unsafe.');
   process.exit(1);
 }
 
-console.log('PASS: the rollback-only reviewer diagnostic is bound to the exact healthy B81 deployment and exact three-file classifier delta; raw database text remains private.');
+console.log('PASS: rollback-only reviewer diagnostic is bound to the exact current-main base and exact healthy deployed revision; raw database text remains private.');
