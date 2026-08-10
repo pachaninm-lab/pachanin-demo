@@ -1,0 +1,90 @@
+name: P0 Reviewer Stage Classifier PR Trigger
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml'
+      - '.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-reviewer-stage-classifier-pr-trigger
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/p0-reviewer-repair-stage-classifier-3810'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-reviewer-repair-stage-classifier-3810
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Execute the source-controlled one-shot patch and remove both triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml')
+          target = Path('/tmp/p0-reviewer-stage-classifier-selfpatch.sh')
+          lines = source.read_text(encoding='utf-8').splitlines()
+          blocks = []
+          index = 0
+          while index < len(lines):
+              line = lines[index]
+              if line.strip() != 'run: |':
+                  index += 1
+                  continue
+              indent = len(line) - len(line.lstrip())
+              index += 1
+              block = []
+              while index < len(lines):
+                  current = lines[index]
+                  current_indent = len(current) - len(current.lstrip())
+                  if current.strip() and current_indent <= indent:
+                      break
+                  prefix = ' ' * (indent + 2)
+                  if current.startswith(prefix):
+                      block.append(current[len(prefix):])
+                  elif not current.strip():
+                      block.append('')
+                  else:
+                      raise SystemExit('invalid self-patch block indentation')
+                  index += 1
+              blocks.append('\n'.join(block))
+          if len(blocks) != 2:
+              raise SystemExit(f'expected exactly two self-patch run blocks, got {len(blocks)}')
+
+          script = '\n\n'.join(blocks) + '\n'
+          script = script.replace(
+              'set -euo pipefail\n',
+              "set -euo pipefail\nrm -f .github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml\n",
+              1,
+          )
+          anchor = "            '.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml'\n"
+          replacement = (
+              "            '.github/workflows/p0-reviewer-stage-classifier-pr-trigger.yml'\n"
+              "            '.github/workflows/p0-reviewer-stage-classifier-selfpatch.yml'\n"
+          )
+          if script.count(anchor) != 1:
+              raise SystemExit('working-tree allowlist anchor mismatch')
+          script = script.replace(anchor, replacement, 1)
+          target.write_text(script, encoding='utf-8')
+          PY
+          chmod 0700 /tmp/p0-reviewer-stage-classifier-selfpatch.sh
+          bash -n /tmp/p0-reviewer-stage-classifier-selfpatch.sh
+          /tmp/p0-reviewer-stage-classifier-selfpatch.sh
