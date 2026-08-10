@@ -32,7 +32,10 @@ const runnerMarkers = [
   'ssh-keyscan -T 10',
   'org.opencontainers.image.revision',
   'STAFF_DATABASE_URL',
-  'docker exec -i "$api_id" /nodejs/bin/node -',
+  'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs -',
+  'async function inspectReviewerState()',
+  'inspectReviewerState().catch((error) =>',
+  'P0_REVIEWER_INSPECT_QUERY_FAILED',
   "principal.user_name !== 'pc_staff_runtime'",
   'principal.rolsuper',
   'principal.rolbypassrls',
@@ -51,6 +54,39 @@ for (const marker of runnerMarkers) {
     console.error(`Missing reviewer inspect runner marker: ${marker}`);
     process.exit(1);
   }
+}
+
+const stdinInspector = 'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<\'NODE\'';
+if ((runner.split(stdinInspector).length - 1) !== 1) {
+  console.error('Reviewer inspect must attach stdin exactly once and force CommonJS for its heredoc-fed Node inspector.');
+  process.exit(1);
+}
+if (/docker exec\s+"\$api_id"\s+\/nodejs\/bin\/node(?:\s+--input-type=commonjs)?\s+-\s+<<'NODE'/.test(runner)) {
+  console.error('Reviewer inspect must not detach stdin from the heredoc-fed Node inspector.');
+  process.exit(1);
+}
+if (runner.includes('docker exec -i "$api_id" /nodejs/bin/node - <<\'NODE\'')) {
+  console.error('Reviewer inspect must not rely on Node module auto-detection for a CommonJS stdin inspector.');
+  process.exit(1);
+}
+
+const inspectorStart = runner.indexOf(stdinInspector) + stdinInspector.length;
+const inspectorEnd = runner.indexOf('\nNODE', inspectorStart);
+if (inspectorEnd < inspectorStart) {
+  console.error('Reviewer inspect Node inspector heredoc is not bounded.');
+  process.exit(1);
+}
+const inspector = runner.slice(inspectorStart, inspectorEnd);
+const asyncStart = inspector.indexOf('async function inspectReviewerState()');
+const invocationStart = inspector.indexOf('inspectReviewerState().catch((error) =>');
+if (asyncStart < 0 || invocationStart <= asyncStart) {
+  console.error('Reviewer inspect Node inspector must contain and invoke its async state function.');
+  process.exit(1);
+}
+const outsideAsyncFunction = inspector.slice(0, asyncStart) + inspector.slice(invocationStart);
+if (/\bawait\b/.test(outsideAsyncFunction)) {
+  console.error('Reviewer inspect Node inspector must not contain top-level await outside its async function.');
+  process.exit(1);
 }
 
 const forbidden = [
@@ -75,4 +111,4 @@ for (const pattern of forbidden) {
   }
 }
 
-console.log('PASS: reviewer inspect is owner-only, exact-main, pinned-SSH, aggregate-only and read-only.');
+console.log('PASS: reviewer inspect is owner-only, exact-main, pinned-SSH, aggregate-only, read-only and Node 24-safe.');
