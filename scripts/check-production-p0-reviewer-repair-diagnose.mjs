@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Exact-head CI retrigger after the governed one-shot commit.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
