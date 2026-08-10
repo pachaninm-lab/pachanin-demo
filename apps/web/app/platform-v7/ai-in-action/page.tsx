@@ -20,8 +20,8 @@ import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
 
 export const metadata: Metadata = {
-  title: 'Паспорт интеллектуального контура TAI — Прозрачная Цена',
-  description: 'Роль TAI в исполнении сделки: ролевой анализ, документы, государственные основания, риски, подготовленные действия, доказательства, безопасность и ограничения.',
+  title: 'Паспорт аграрного интеллекта Гекта — Прозрачная Цена',
+  description: 'Роль Гекты в исполнении сделки: ролевой анализ, документы, государственные основания, риски, подготовленные действия, доказательства, безопасность и ограничения.',
   alternates: {
     canonical: '/platform-v7/ai-in-action',
     languages: {
@@ -42,8 +42,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Паспорт интеллектуального контура TAI — Прозрачная Цена',
-    description: 'Как TAI формирует проверяемый вывод, готовит разрешённое действие и оставляет решение за человеком.',
+    title: 'Паспорт аграрного интеллекта Гекта — Прозрачная Цена',
+    description: 'Как Гекта формирует проверяемый вывод, готовит разрешённое действие и оставляет решение за человеком.',
     url: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/ai-in-action',
     siteName: 'Прозрачная Цена',
     locale: 'ru_RU',
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
 
 const PAGE_COPY = {
   ru: {
-    role: 'Роль TAI',
+    role: 'Роль Гекты',
     documents: 'Документы',
     government: 'Госданные',
     security: 'Безопасность',
@@ -61,7 +61,7 @@ const PAGE_COPY = {
     home: 'На главную',
   },
   en: {
-    role: 'TAI role',
+    role: 'Gekta role',
     documents: 'Documents',
     government: 'Government data',
     security: 'Security',
@@ -69,7 +69,7 @@ const PAGE_COPY = {
     home: 'Home',
   },
   zh: {
-    role: 'TAI 角色',
+    role: 'Gekta 角色',
     documents: '文件',
     government: '政府数据',
     security: '安全',
@@ -99,7 +99,7 @@ export default async function PublicAiInActionPage() {
 
   return (
     <main id='main-content' className='pc-ppe-page pc-ai-in-action-page' data-testid='platform-v7-ai-in-action-authority'>
-      <span data-ai-experience-route='/platform-v7/ai-in-action' hidden>tai-intelligence-contour-passport</span>
+      <span data-ai-experience-route='/platform-v7/ai-in-action' hidden>gekta-intelligence-contour-passport</span>
       <a className='pc-skip-link' href='#pc-ai-passport-title'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='ai_in_action_opened' />
       <PublicExperienceScrollCoordinator />
