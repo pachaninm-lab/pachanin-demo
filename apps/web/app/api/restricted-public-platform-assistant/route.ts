@@ -539,10 +539,10 @@ function readUpstreamAssessment(summary: string): Record<string, unknown> | null
   try {
     const row = JSON.parse(summary) as Record<string, unknown>;
     return {
-      finishReason: typeof row.finishReason === string ? row.finishReason : stop,
+      finishReason: typeof row.finishReason === 'string' ? row.finishReason : 'stop',
       truncated: row.truncated === true,
       safetyFlags: Array.isArray(row.safetyFlags)
-        ? row.safetyFlags.filter((flag) => typeof flag === string).slice(0, 12)
+        ? row.safetyFlags.filter((flag) => typeof flag === 'string').slice(0, 12)
         : [],
     };
   } catch {
