@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 
-const workflow = fs.readFileSync('.github/workflows/production-p0-reviewer-inspect.yml', 'utf8');
-const runner = fs.readFileSync('scripts/production-p0-reviewer-inspect.sh', 'utf8');
+const workflowPath = '.github/workflows/production-p0-reviewer-inspect.yml';
+const runnerPath = 'scripts/production-p0-reviewer-inspect.sh';
+const migrationPath = 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql';
+
+const workflow = fs.readFileSync(workflowPath, 'utf8');
+const runner = fs.readFileSync(runnerPath, 'utf8');
+const migration = fs.readFileSync(migrationPath, 'utf8');
 
 const workflowMarkers = [
   "github.event.issue.number == 3072",
@@ -14,6 +19,7 @@ const workflowMarkers = [
   'contents: read\n      issues: write',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'bash scripts/production-p0-reviewer-inspect.sh',
+  migrationPath,
 ];
 
 for (const marker of workflowMarkers) {
@@ -32,14 +38,30 @@ const runnerMarkers = [
   'ssh-keyscan -T 10',
   'org.opencontainers.image.revision',
   'STAFF_DATABASE_URL',
-  'docker exec -i "$api_id" /nodejs/bin/node -',
+  'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs -',
+  'sanitizeErrorCode',
+  '(async () => {',
+  '})().catch((error) => {',
   "principal.user_name !== 'pc_staff_runtime'",
   'principal.rolsuper',
   'principal.rolbypassrls',
   'principal.can_read_deals',
-  "role = 'PLATFORM_OWNER'",
-  "role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')",
-  "status IN ('ELIGIBLE', 'ACTIVE')",
+  'principal.can_read_users',
+  'principal.can_read_memberships',
+  'principal.can_read_organizations',
+  'principal.can_read_credentials',
+  'principal.can_read_assignments',
+  "to_regprocedure('auth.staff_reviewer_preflight()')",
+  "to_regprocedure('auth.staff_reviewer_login_readiness()')",
+  'FROM auth.staff_reviewer_preflight() preflight',
+  'CROSS JOIN auth.staff_reviewer_login_readiness() readiness',
+  'P0_REVIEWER_READINESS_INVALID_COUNTS',
+  'P0_REVIEWER_READINESS_NON_MONOTONIC',
+  'P0_REVIEWER_INSPECT_DB_ERROR|',
+  'REVIEWER_LOGIN_READINESS|',
+  'HUMAN_REVIEWER_LOGIN_CEREMONY_REQUIRED',
+  'REVIEWER_PASSWORD_RESET_REQUIRED',
+  'REVIEWER_MFA_ENROLLMENT_REQUIRED',
   'PRODUCTION_MUTATION=NONE',
   'REVIEWER_INSPECT_FAILED_CLOSED',
   'trap cleanup EXIT',
@@ -48,12 +70,41 @@ const runnerMarkers = [
 
 for (const marker of runnerMarkers) {
   if (!runner.includes(marker)) {
-    console.error(`Missing reviewer inspect runner marker: ${marker}`);
+    console.error(`Missing reviewer login-readiness runner marker: ${marker}`);
     process.exit(1);
   }
 }
 
-const forbidden = [
+const nodeInspectorMatch = runner.match(
+  /docker exec -i "\$api_id" \/nodejs\/bin\/node --input-type=commonjs - <<'NODE'\n([\s\S]*?)\nNODE/,
+);
+if (!nodeInspectorMatch) {
+  console.error('Reviewer login-readiness Node inspector is missing or not explicit CommonJS.');
+  process.exit(1);
+}
+const nodeInspector = nodeInspectorMatch[1];
+const asyncStart = nodeInspector.indexOf('(async () => {');
+const asyncEnd = nodeInspector.indexOf('})().catch((error) => {');
+const firstAwait = nodeInspector.indexOf('await ');
+const lastAwait = nodeInspector.lastIndexOf('await ');
+if (asyncStart < 0 || asyncEnd < 0 || firstAwait < asyncStart || lastAwait > asyncEnd) {
+  console.error('Every Prisma await must remain inside the bounded async IIFE.');
+  process.exit(1);
+}
+for (const pattern of [
+  /console\.error\(\s*error\s*\)/,
+  /error\.(?:message|stack)/,
+  /JSON\.stringify\(\s*error/,
+  /console\.log\([^\n]*(?:DATABASE_URL|STAFF_DATABASE_URL)/,
+]) {
+  if (pattern.test(nodeInspector)) {
+    console.error(`Reviewer inspector diagnostics may expose sensitive runtime detail: ${pattern}`);
+    process.exit(1);
+  }
+}
+
+const forbiddenRuntime = [
+  /FROM\s+auth\.staff_assignments/i,
   /\bINSERT\s+INTO\b/i,
   /\bUPDATE\s+(?:auth\.|public\.)/i,
   /\bDELETE\s+FROM\b/i,
@@ -66,13 +117,90 @@ const forbidden = [
   /PC_PROD_P0_STAFF_TOTP_SECRET/,
   /PC_PROD_P0_REVIEWER_PASSWORD/,
   /PC_PROD_P0_REVIEWER_TOTP_SECRET/,
+  /password_hash/i,
+  /mfa_secret_ciphertext/i,
+  /mfa_backup_hashes/i,
 ];
 
-for (const pattern of forbidden) {
+for (const pattern of forbiddenRuntime) {
   if (pattern.test(workflow) || pattern.test(runner)) {
-    console.error(`Reviewer inspect is not read-only or exceeds its credential boundary: ${pattern}`);
+    console.error(`Reviewer inspect is not aggregate-only/read-only: ${pattern}`);
     process.exit(1);
   }
 }
 
-console.log('PASS: reviewer inspect is owner-only, exact-main, pinned-SSH, aggregate-only and read-only.');
+const migrationMarkers = [
+  "rolname = 'pc_staff_authority'",
+  "rolname = 'pc_staff_runtime'",
+  'staff authority/runtime roles must remain membership-isolated',
+  'users_staff_reviewer_readiness',
+  'user_orgs_staff_reviewer_readiness',
+  'organizations_staff_reviewer_readiness',
+  'credential_states_staff_reviewer_readiness',
+  "current_setting('app.staff_reviewer_readiness_scope', true) = 'aggregate'",
+  'CREATE OR REPLACE FUNCTION auth.staff_reviewer_login_readiness()',
+  'assignment_ready_count integer',
+  'active_identity_ready_count integer',
+  'membership_ready_count integer',
+  'password_ready_count integer',
+  'mfa_enrolled_ready_count integer',
+  'login_ready_count integer',
+  'LANGUAGE plpgsql',
+  'SECURITY DEFINER',
+  'STABLE',
+  'SET search_path = pg_catalog, pg_temp',
+  'SET row_security = on',
+  "pg_catalog.set_config(\n    'app.staff_reviewer_readiness_scope',",
+  "assignment.status = 'ACTIVE'",
+  "subject.\"status\" = 'ACTIVE'",
+  "membership.\"status\" = 'ACTIVE'",
+  "organization.\"status\" = 'VERIFIED'",
+  "subject.\"passwordHash\" ~ '^\\$2[aby]\\$[0-9]{2}\\$[./A-Za-z0-9]{53}$'",
+  'credential.mfa_enabled = true',
+  'subject."mfaEnabled" = true',
+  "credential.mfa_key_version = 'v1'",
+  'credential.locked_until IS NULL',
+  'ALTER FUNCTION auth.staff_reviewer_login_readiness() OWNER TO pc_staff_authority',
+  'REVOKE ALL ON FUNCTION auth.staff_reviewer_login_readiness() FROM PUBLIC',
+  'GRANT EXECUTE ON FUNCTION auth.staff_reviewer_login_readiness() TO pc_staff_runtime',
+  "rolname IN ('app_staff', 'one_deal_staff')",
+  "'pc_auth_runtime', 'pc_deal_runtime', 'pc_storage_runtime', 'pc_outbox_runtime'",
+  "has_function_privilege(\n    'pc_staff_runtime',\n    'auth.staff_reviewer_login_readiness()',",
+  "has_table_privilege('pc_staff_runtime', table_name, 'SELECT')",
+  'FROM auth.staff_reviewer_login_readiness() AS result',
+  'reviewer login-readiness aggregate proof is invalid',
+];
+
+for (const marker of migrationMarkers) {
+  if (!migration.includes(marker)) {
+    console.error(`Missing reviewer login-readiness migration marker: ${marker}`);
+    process.exit(1);
+  }
+}
+
+if (/RETURNS\s+TABLE\s*\([^)]*(?:email|user_id|membership_id|organization_id|tenant_id|session_id|password_hash|secret|ciphertext|backup|token)/is.test(migration)) {
+  console.error('Reviewer login-readiness function must return aggregate counts only.');
+  process.exit(1);
+}
+if (/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(migration)) {
+  console.error('No staff runtime may receive direct table privileges from the readiness migration.');
+  process.exit(1);
+}
+if (/\b(?:INSERT\s+INTO|UPDATE\s+(?:auth|public)\.|DELETE\s+FROM\s+(?:auth|public)\.)\b/i.test(migration)) {
+  console.error('Reviewer login-readiness migration must not mutate business or identity rows.');
+  process.exit(1);
+}
+if (/\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\b/i.test(migration)) {
+  console.error('Reviewer login-readiness migration must reuse confined principals, not create/elevate them.');
+  process.exit(1);
+}
+if (!/permissions:\n\s+contents: read/.test(workflow)) {
+  console.error('Top-level workflow permissions must remain contents: read.');
+  process.exit(1);
+}
+if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
+  console.error('Production inspect may add only issues: write to contents: read.');
+  process.exit(1);
+}
+
+console.log('PASS: reviewer login-readiness inspect is owner-only, exact-main, pinned-SSH, aggregate-only, RLS-bounded, Node-24-safe and mutation-free.');
