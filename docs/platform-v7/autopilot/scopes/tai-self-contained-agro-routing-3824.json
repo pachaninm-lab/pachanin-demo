@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-self-contained-agro-routing-3824",
+  "status": "active",
+  "operationalStatus": "TAI_SELF_CONTAINED_AGRO_ROUTING_PRODUCTION_REPAIR",
+  "allowedPaths": [
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "docs/platform-v7/autopilot/scopes/tai-self-contained-agro-routing-3824.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": true,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "explicit Transparent Price questions continue to use verified platform grounding",
+    "a self-contained agricultural question is routed to general agricultural inference even when stale platform history exists",
+    "the compact follow-up heuristic cannot override a direct agricultural signal",
+    "RU EN and ZH streaming safety current-evidence and read-only boundaries remain unchanged",
+    "the live question Как хранить зерно после уборки receives substantive storage guidance rather than stale platform copy",
+    "the wheat to potato correction sequence remains authoritative after this routing repair"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
