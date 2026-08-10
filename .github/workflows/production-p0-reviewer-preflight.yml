@@ -6,11 +6,13 @@ on:
     paths:
       - '.github/workflows/production-p0-reviewer-preflight.yml'
       - 'scripts/check-production-p0-reviewer-preflight.mjs'
+      - 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql'
   push:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-reviewer-preflight.yml'
       - 'scripts/check-production-p0-reviewer-preflight.mjs'
+      - 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql'
   issue_comment:
     types: [created]
 
@@ -231,31 +233,26 @@ jobs:
               SELECT current_user AS user_name,
                      rolsuper,
                      rolbypassrls,
-                     has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals
+                     has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals,
+                     has_table_privilege(current_user, 'auth.staff_assignments', 'SELECT') AS can_read_staff_assignments,
+                     coalesce(has_function_privilege(
+                       current_user,
+                       to_regprocedure('auth.staff_reviewer_preflight()'),
+                       'EXECUTE'
+                     ), false) AS reviewer_preflight_execute
               FROM pg_roles
               WHERE rolname = current_user
             `);
             const principal = principals[0];
             if (!principal || principal.user_name !== 'pc_staff_runtime'
-                || principal.rolsuper || principal.rolbypassrls || principal.can_read_deals) {
+                || principal.rolsuper || principal.rolbypassrls || principal.can_read_deals
+                || principal.can_read_staff_assignments || !principal.reviewer_preflight_execute) {
               console.error('P0_STAFF_PRINCIPAL_BOUNDARY_INVALID');
               process.exit(32);
             }
             const rows = await db.$queryRawUnsafe(`
-              SELECT
-                COUNT(*) FILTER (
-                  WHERE role = 'PLATFORM_OWNER'
-                    AND status = 'ACTIVE'
-                    AND valid_from <= NOW()
-                    AND (valid_until IS NULL OR valid_until > NOW())
-                )::int AS active_owner_count,
-                COUNT(*) FILTER (
-                  WHERE role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')
-                    AND status IN ('ELIGIBLE', 'ACTIVE')
-                    AND valid_from <= NOW()
-                    AND (valid_until IS NULL OR valid_until > NOW())
-                )::int AS usable_reviewer_count
-              FROM auth.staff_assignments
+              SELECT active_owner_count, usable_reviewer_count
+              FROM auth.staff_reviewer_preflight()
             `);
             const counts = rows[0] || {};
             const owners = Number(counts.active_owner_count || 0);
