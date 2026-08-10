@@ -1,30 +1,22 @@
 import type { Metadata } from 'next';
 import { getLocale } from 'next-intl/server';
-import {
-  Children,
-  Fragment,
-  cloneElement,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import { Fragment } from 'react';
 import BaseTrustCenterPage from '../../trust/page';
 
 type Locale = 'ru' | 'en' | 'zh';
-type ElementProps = Record<string, unknown> & { children?: ReactNode };
 
 const METADATA: Record<Locale, Readonly<{ title: string; description: string }>> = {
   ru: {
     title: 'Trust Center — безопасность, данные и ИИ',
-    description: 'Публичные правила полномочий, доказательств, обработки данных, доступности и использования TAI в платформе Прозрачная Цена.',
+    description: 'Публичные правила полномочий, доказательств, обработки данных, доступности и использования Гекты в платформе Прозрачная Цена.',
   },
   en: {
     title: 'Trust Center — security, data and AI',
-    description: 'Public authority, evidence, data-processing, availability and TAI boundaries for the Transparent Price platform.',
+    description: 'Public authority, evidence, data-processing, availability and Gekta boundaries for the Transparent Price platform.',
   },
   zh: {
     title: '信任中心 — 安全、数据与 AI',
-    description: '透明价格平台公开的权限、证据、数据处理、可用性与 TAI 边界。',
+    description: '透明价格平台公开的权限、证据、数据处理、可用性与 Gekta 边界。',
   },
 };
 
@@ -34,23 +26,8 @@ function localeOf(value: string): Locale {
   return 'ru';
 }
 
-function clarifyTaiAuthority(node: ReactNode): ReactNode {
-  if (typeof node === 'string') {
-    return node.replace(
-      'TAI не получает самостоятельного права',
-      'У TAI нет самостоятельного права',
-    );
-  }
-  if (Array.isArray(node)) return Children.toArray(node).map(clarifyTaiAuthority);
-  if (!isValidElement(node)) return node;
-
-  const element = node as ReactElement<ElementProps>;
-  const children = Children.toArray(element.props.children).map(clarifyTaiAuthority);
-  return cloneElement(element, undefined, ...children);
-}
-
 export default async function PlatformV7TrustPage() {
-  const page = clarifyTaiAuthority(await BaseTrustCenterPage());
+  const page = await BaseTrustCenterPage();
   return (
     <Fragment>
       <style>{'.p7-ai-trigger,.p7-support-chat-button{display:none!important}'}</style>
