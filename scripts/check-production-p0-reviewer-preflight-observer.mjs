@@ -5,18 +5,23 @@ const path = '.github/workflows/production-p0-reviewer-preflight-observer.yml';
 const workflow = fs.readFileSync(path, 'utf8');
 
 const required = [
+  'pull_request:',
   "workflow_run:",
   "workflows: ['Production P0 Reviewer Preflight']",
   'types: [completed]',
-  'actions: read',
-  'contents: read',
-  'issues: write',
+  "name: Validate reviewer-preflight observer contract",
+  "if: github.event_name == 'pull_request'",
+  'node scripts/check-production-p0-reviewer-preflight-observer.mjs',
+  "github.event_name == 'workflow_run'",
   "github.event.workflow_run.event == 'issue_comment'",
   "github.event.workflow_run.conclusion != 'success'",
   'github.event.workflow_run.head_repository.full_name == github.repository',
   'github.event.workflow_run.head_branch == github.event.repository.default_branch',
   'github.event.workflow_run.actor.login == github.repository_owner',
   'github.event.workflow_run.triggering_actor.login == github.repository_owner',
+  'actions: read',
+  'contents: read',
+  'issues: write',
   'SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}',
   'SOURCE_RUN_URL: ${{ github.event.workflow_run.html_url }}',
   'SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}',
@@ -52,6 +57,8 @@ const forbidden = [
   /\bCREATE\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
   /\bALTER\s+(?:ROLE|USER|TABLE)\b/i,
   /\bDROP\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
+  /^\s*push:\s*$/m,
+  /^\s*issue_comment:\s*$/m,
 ];
 
 for (const pattern of forbidden) {
@@ -61,8 +68,19 @@ for (const pattern of forbidden) {
   }
 }
 
-if (/\bpull_request:|\bpush:|\bissue_comment:\s*\n\s*types:/m.test(workflow)) {
-  console.error('Observer must be triggered only by workflow_run completion.');
+const publishBlock = workflow.split(/\n  publish-terminal-failure:\n/)[1] ?? '';
+if (!publishBlock) {
+  console.error('Observer must have a dedicated publish-terminal-failure job.');
+  process.exit(1);
+}
+if (!/permissions:\n\s+actions: read\n\s+contents: read\n\s+issues: write/.test(publishBlock)) {
+  console.error('Only the workflow_run publication job may have issues:write.');
+  process.exit(1);
+}
+
+const contractBlock = workflow.split(/\n  contract:\n/)[1]?.split(/\n  publish-terminal-failure:\n/)[0] ?? '';
+if (!contractBlock || /issues:\s*write/.test(contractBlock)) {
+  console.error('PR validation job must not have issue write authority.');
   process.exit(1);
 }
 
@@ -72,4 +90,4 @@ if (issueNumber !== '3072') {
   process.exit(1);
 }
 
-console.log('PASS: reviewer preflight observer is terminal-only, owner-bound, read-only and bounded.');
+console.log('PASS: reviewer preflight observer is owner-bound, terminal-only, read-only and least-privilege.');
