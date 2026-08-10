@@ -8,10 +8,13 @@
     "branch": "main",
     "commit": "5c0020e1fb259929264cd27e25b0b7ad5435243a"
   },
-  "purpose": "Replace the active public assistant identity and Deal Explorer CTA with Gekta in RU, EN and ZH while preserving assistant behavior and migrating session history without data loss.",
+  "purpose": "Replace the active public product identity and public marketing copy with Gekta in RU, EN and ZH while preserving assistant behavior and migrating session history without data loss.",
   "allowedPaths": [
     "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/i18n/platform-v7-hero-message.ts",
+    "apps/web/i18n/platform-v7-home-v3-operating.ts",
+    "apps/web/i18n/platform-v7-home-enhancements.ts",
     "apps/web/i18n/public-deal-journey-v5.ts",
     "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
     "apps/web/tests/unit/publicContactDockRuntime.test.tsx",
@@ -53,5 +56,5 @@
     "git diff --check"
   ],
   "deploymentState": "not-deployed",
-  "maturityBoundary": "Public identity slice only. Technical namespace remains TAI until later governed phases."
+  "maturityBoundary": "Public identity and public marketing-copy slice only. Technical namespace remains TAI until later governed phases."
 }
