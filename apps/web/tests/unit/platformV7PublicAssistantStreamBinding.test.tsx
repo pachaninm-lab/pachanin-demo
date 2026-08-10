@@ -57,7 +57,7 @@ const knowledgeResponse = () => new Response(JSON.stringify(KNOWLEDGE_ANSWER), {
 async function ask(question = 'Как работает сделка?') {
   const user = userEvent.setup();
   render(<PublicPlatformAssistant />);
-  await user.click(screen.getByRole('button', { name: /Спросить о платформе/ }));
+  await user.click(screen.getByRole('button', { name: /Спросить Гекту/ }));
   const box = await screen.findByRole('textbox');
   await user.type(box, question);
   await user.keyboard('{Enter}');
