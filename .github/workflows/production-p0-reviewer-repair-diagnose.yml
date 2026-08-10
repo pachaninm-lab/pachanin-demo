@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/production-p0-reviewer-repair-diagnose.yml'
       - 'scripts/production-p0-reviewer-repair-diagnose.sh'
+      - 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'
       - 'scripts/check-production-p0-reviewer-repair-diagnose.mjs'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json'
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - '.github/workflows/production-p0-reviewer-repair-diagnose.yml'
       - 'scripts/production-p0-reviewer-repair-diagnose.sh'
+      - 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'
       - 'scripts/check-production-p0-reviewer-repair-diagnose.mjs'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json'
   issue_comment:
@@ -52,6 +54,7 @@ jobs:
           node-version: '24'
       - run: node scripts/check-production-p0-reviewer-repair-diagnose.mjs
       - run: bash -n scripts/production-p0-reviewer-repair-diagnose.sh
+      - run: bash -n scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh
 
   diagnose:
     name: Rollback-only REG.RU reviewer repair diagnostic
@@ -86,4 +89,4 @@ jobs:
           persist-credentials: false
       - name: Reproduce reviewer repair failure inside forced rollback
         shell: bash
-        run: bash scripts/production-p0-reviewer-repair-diagnose.sh
+        run: bash scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh
