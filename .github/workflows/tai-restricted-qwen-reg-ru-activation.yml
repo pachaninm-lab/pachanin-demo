@@ -404,6 +404,10 @@ jobs:
     needs: [image_authority, activate]
     if: needs.activate.result == 'success'
     runs-on: ubuntu-24.04
+    # The matrix drives roughly forty live generations against the local model.
+    # Generous for that, and bounded so a hung panel fails in an hour rather
+    # than holding the release open for the six-hour default.
+    timeout-minutes: 120
     permissions:
       contents: read
     steps:

@@ -132,6 +132,8 @@ describe('the controls behave', () => {
     expect(acceptance).toContain('ui_stop_spinner_stuck');
     expect(acceptance).toContain('ui_stop_discarded_partial_answer');
     expect(acceptance).toContain('ui_stop_recovery_failed');
+    // A deliberate halt must not surface to the reader as an error banner.
+    expect(acceptance).toContain('ui_stop_reported_as_error');
     expect(acceptance).toContain('const stopLatencyMs = Date.now() - stoppedAt;');
   });
 
@@ -158,6 +160,12 @@ describe('the controls behave', () => {
 });
 
 describe('the matrix reaches production through the governed chain', () => {
+  it('bounds the hosted run instead of inheriting the six-hour default', () => {
+    const job = workflow.slice(workflow.indexOf('\n  acceptance:'), workflow.indexOf('\n  finalize:'));
+
+    expect(job).toMatch(/timeout-minutes:\s*\d+/u);
+  });
+
   it('runs inside the existing activation workflow, not a parallel one', () => {
     expect(workflow).toContain('cp "$GITHUB_WORKSPACE/scripts/tai-live-public-ai-acceptance.mjs" "$work/acceptance.mjs"');
     expect(workflow).toContain('LIVE_BASE="$LIVE_BASE" node "$work/acceptance.mjs"');

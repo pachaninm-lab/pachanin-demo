@@ -395,6 +395,9 @@ async function verifyStop(page, dialog) {
   const stopLatencyMs = Date.now() - stoppedAt;
   await dialog.getByRole('button', { name: UI.send }).waitFor({ state: 'visible', timeout: 15_000 });
   if (await dialog.locator('.pc-public-assistant-processing').count()) throw new Error('ui_stop_spinner_stuck');
+  // A deliberate halt is not an error, and must not be reported to the reader
+  // as one.
+  if (await dialog.locator('[role="alert"]').count()) throw new Error('ui_stop_reported_as_error');
 
   // Whatever had already been emitted stays readable rather than vanishing.
   const retained = ((await dialog.locator(ASSISTANT).last().locator('.pc-public-assistant-bubble').textContent()) || '').trim();
