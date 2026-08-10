@@ -1,0 +1,19 @@
+{
+  "issue": 3802,
+  "title": "Production P0 reviewer repair rollback-only diagnostic",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-repair-diagnose.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
+    "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
+    "scripts/production-p0-reviewer-repair-diagnose.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "ROLLBACK_ONLY_NONE_DURABLE",
+    "piiOutput": false,
+    "credentialOutput": false,
+    "deploymentMutation": false,
+    "securityWeakening": false,
+    "arbitrarySqlSurface": false,
+    "newRecurringCostRub": 0
+  }
+}
