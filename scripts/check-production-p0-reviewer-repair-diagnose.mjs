@@ -6,6 +6,7 @@ const workflowPath = '.github/workflows/production-p0-reviewer-repair-diagnose.y
 const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
+const branch = 'fix/p0-reviewer-repair-rollback-diagnostic-3802-v2';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
@@ -101,13 +102,22 @@ if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
   console.error('Governed diagnostic scope does not match the exact four-file surface.');
   process.exit(1);
 }
-if (scope.issue !== 3802
+if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
+    || scope.branch !== branch
+    || scope.status !== 'active'
+    || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_BOUNDED'
+    || scope.issue !== 3802
+    || !Array.isArray(scope.acceptance)
+    || scope.acceptance.length < 6
+    || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
     || scope.boundaries?.productionMutation !== 'ROLLBACK_ONLY_NONE_DURABLE'
     || scope.boundaries?.piiOutput !== false
     || scope.boundaries?.credentialOutput !== false
     || scope.boundaries?.deploymentMutation !== false
+    || scope.boundaries?.securityWeakening !== false
+    || scope.boundaries?.arbitrarySqlSurface !== false
     || scope.boundaries?.newRecurringCostRub !== 0) {
-  console.error('Governed diagnostic boundaries are incomplete or unsafe.');
+  console.error('Governed diagnostic source-controlled scope or boundaries are incomplete or unsafe.');
   process.exit(1);
 }
 
