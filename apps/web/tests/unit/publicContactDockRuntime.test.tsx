@@ -17,6 +17,7 @@ function nativeButton(className: string, onClick = vi.fn()): HTMLButtonElement {
 describe('PublicContactDock runtime', () => {
   beforeEach(() => {
     document.documentElement.lang = 'ru';
+    window.sessionStorage.clear();
     Object.defineProperty(window, 'requestAnimationFrame', {
       configurable: true,
       value: (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 0),
@@ -26,6 +27,7 @@ describe('PublicContactDock runtime', () => {
   afterEach(() => {
     cleanup();
     document.body.replaceChildren();
+    window.sessionStorage.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -58,6 +60,39 @@ describe('PublicContactDock runtime', () => {
       expect.objectContaining({ cache: 'no-store' }),
     );
     expect(screen.getByRole('dialog', { name: 'Гекта' })).toBeVisible();
+  });
+
+  it('migrates a validated legacy transcript into the Gekta storage key', async () => {
+    const legacyMessage = {
+      id: 'legacy-user-1',
+      role: 'user',
+      text: 'Сохрани мой старый вопрос о картофеле',
+      createdAt: '2026-08-10T10:00:00.000Z',
+    };
+    window.sessionStorage.setItem('pc-public-assistant-v2:ru', JSON.stringify([legacyMessage]));
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        knowledgeVersion: 'test-v1',
+        dataMode: 'public_knowledge',
+        actionAllowed: false,
+        title: 'Test catalog',
+        description: 'Test catalog',
+        starterPrompts: [],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PublicPlatformAssistant />);
+    fireEvent.click(screen.getByRole('button', { name: 'Спросить Гекту Аграрный интеллект' }));
+
+    expect(await screen.findByText(legacyMessage.text)).toBeVisible();
+    await waitFor(() => {
+      expect(window.sessionStorage.getItem('pc-public-assistant-v2:ru')).toBeNull();
+      const migrated = JSON.parse(window.sessionStorage.getItem('pc-gekta-assistant-v1:ru') || '[]') as Array<{ text: string }>;
+      expect(migrated.some((message) => message.text === legacyMessage.text)).toBe(true);
+    });
   });
 
   it('delegates the Gekta and support actions to their internal workflows', () => {
