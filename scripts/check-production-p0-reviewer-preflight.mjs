@@ -28,7 +28,8 @@ const required = [
   "role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')",
   "status IN ('ELIGIBLE', 'ACTIVE')",
   'PRODUCTION_MUTATION=NONE',
-  'rm -f -- "$key_path" "$known_hosts"',
+  'rm -f -- "$key_path"',
+  'rm -f -- "$known_hosts"',
 ];
 
 for (const marker of required) {
