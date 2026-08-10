@@ -18,7 +18,7 @@ continuation = "\\" + "\n"
 replacements = [
     (
         "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-        "DIAGNOSTIC_BASE_SHA='98447a394ecd156a2a736574eb3d3ccdbac49bd9'",
+        "DIAGNOSTIC_BASE_SHA='e367041a693b418ac27896f11abf8a190fb5ba52'",
     ),
     (
         "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
@@ -36,6 +36,19 @@ replacements = [
   'scripts/check-production-p0-reviewer-repair-diagnose.mjs'
   'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh'
 )""",
+    ),
+    (
+        """  local rc="$?"
+  trap - ERR""",
+        """  local rc="$?" failure_line="${BASH_LINENO[0]:-0}"
+  trap - ERR""",
+    ),
+    (
+        """- blocker: \`REVIEWER_REPAIR_DIAGNOSTIC_FAILED_CLOSED\`
+- exit code: \`$rc\`""",
+        """- blocker: \`REVIEWER_REPAIR_DIAGNOSTIC_FAILED_CLOSED\`
+- failure line: \`$failure_line\`
+- exit code: \`$rc\`""",
     ),
     (
         """  let diagnostic = {
