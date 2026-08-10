@@ -255,15 +255,23 @@ export function stripPublicAssistantInternalArtifacts(value: string): string {
 /**
  * Produce the public UI projection.
  *
- * While the stream is open the user sees only the loading indicator; token text
- * is not rendered. The completed answer is scrubbed and public operational
- * metadata is removed before it is returned to the component.
+ * Token text is rendered as it arrives. It used to be withheld until `done`,
+ * which was the safe reading of a stream whose tokens were slices of an
+ * already-finished answer: nothing was gained by showing them early, and the
+ * scrubbers below wanted the whole text. Now the server releases only blocks it
+ * has already decided on, so showing them as they land is what makes the answer
+ * appear progressively instead of all at once at the end.
+ *
+ * The scrubbers still run on every projection, and they fail closed on partial
+ * input: an unterminated reasoning tag or an unbalanced tool envelope truncates
+ * the text at its opener rather than rendering what follows. Operational
+ * metadata stays hidden in both states.
  */
 export function publicSnapshotForDisplay(snapshot: GatewayStreamSnapshot): GatewayStreamSnapshot {
   if (snapshot.status === 'streaming') {
     return {
       ...snapshot,
-      text: '',
+      text: stripPublicAssistantInternalArtifacts(stripPublicAssistantBoilerplate(snapshot.text)),
       assessment: null,
       modelIdentity: null,
     };
