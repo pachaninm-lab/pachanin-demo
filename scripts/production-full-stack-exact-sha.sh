@@ -9,6 +9,10 @@ INTAKE_CORRELATION_ID="${5:-}"
 API_IMAGE="${PC_API_IMAGE:-}"
 WEB_IMAGE="${PC_WEB_IMAGE:-}"
 MIGRATION_IMAGE="${PC_MIGRATION_IMAGE:-}"
+EXACT_IMAGE_SOURCE="${PC_EXACT_IMAGE_SOURCE:-registry}"
+API_IMAGE_ID="${PC_API_IMAGE_ID:-}"
+WEB_IMAGE_ID="${PC_WEB_IMAGE_ID:-}"
+MIGRATION_IMAGE_ID="${PC_MIGRATION_IMAGE_ID:-}"
 PROD_DIR_B64="${PC_PROD_DIR_B64:-}"
 PROD_COMPOSE_B64="${PC_PROD_COMPOSE_B64:-}"
 PROD_PROJECT_B64="${PC_PROD_PROJECT_B64:-}"
@@ -23,6 +27,7 @@ trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]
 [[ "$ACTION" =~ ^(audit|deploy|rollback|verify-intake)$ ]] || fail INVALID_ACTION 2
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail INVALID_TARGET_SHA 3
 [[ "$RUN_ID" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail INVALID_RUN_ID 4
+[[ "$EXACT_IMAGE_SOURCE" =~ ^(registry|pinned-ssh)$ ]] || fail INVALID_EXACT_IMAGE_SOURCE 57
 
 prod_dir="$(decode "$PROD_DIR_B64")"
 prod_compose="$(decode "$PROD_COMPOSE_B64")"
@@ -164,9 +169,16 @@ YAML
 dc_target=("${dc[@]}" -f "$full_override")
 
 verify_image() {
-  local image="$1"
-  docker pull "$image" >/dev/null
-  [[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" == "$TARGET_SHA" ]] || fail IMAGE_REVISION_MISMATCH 20
+  local image="$1" expected_id="${2:-}" actual_id revision
+  if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then
+    docker pull "$image" >/dev/null
+  else
+    [[ "$expected_id" =~ ^sha256:[0-9a-f]{64}$ ]] || fail PRELOADED_IMAGE_ID_REQUIRED 58
+    actual_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+    [[ "$actual_id" == "$expected_id" ]] || fail PRELOADED_IMAGE_ID_MISMATCH 59
+  fi
+  revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+  [[ "$revision" == "$TARGET_SHA" ]] || fail IMAGE_REVISION_MISMATCH 20
 }
 
 wait_api() {
@@ -409,9 +421,10 @@ if [[ "$ACTION" == audit ]]; then
 fi
 
 [[ -n "$API_IMAGE" && -n "$WEB_IMAGE" && -n "$MIGRATION_IMAGE" ]] || fail EXACT_IMAGES_REQUIRED 21
-verify_image "$API_IMAGE"
-verify_image "$WEB_IMAGE"
-verify_image "$MIGRATION_IMAGE"
+verify_image "$API_IMAGE" "$API_IMAGE_ID"
+verify_image "$WEB_IMAGE" "$WEB_IMAGE_ID"
+verify_image "$MIGRATION_IMAGE" "$MIGRATION_IMAGE_ID"
+printf 'EXACT_IMAGE_SOURCE=%s\n' "$EXACT_IMAGE_SOURCE"
 
 # Shared release-authority root: traverse-only for the runner group. `chmod 0700`
 # here preserved the group and stripped its `--x`, which is exactly the state the
