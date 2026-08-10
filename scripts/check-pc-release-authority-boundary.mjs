@@ -41,12 +41,36 @@ const forbid = (key, pattern, why) => {
   if (pattern.test(source[key])) violations.push(`${paths[key]}: ${why}`);
 };
 
+/**
+ * Shell `install` invocations, one logical line each.
+ *
+ * Both bootstrap scripts wrap long invocations across backslash-continued lines,
+ * so the mode and the paths it applies to are not on the same physical line.
+ * Joining continuations first lets every assertion below be an exact token
+ * comparison. The earlier version matched across newlines with an alternation
+ * inside a quantifier, which is a backtracking hazard CodeQL is right to flag —
+ * and a parser that can hang is a poor way to guard a security boundary.
+ */
+function installInvocations(text) {
+  return text
+    .replace(/\\\n\s*/gu, ' ')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('install -d '));
+}
+
+/** The invocation that provisions `target` as one of its path arguments. */
+function invocationFor(text, target) {
+  return installInvocations(text).find((line) => line.split(/\s+/u).includes(target)) ?? null;
+}
+
+const AUTHORITY_ROOT = '/var/lib/pc-release-authority';
+
 /* 4. The authority root is traversable by the runner group, in every author. */
-const AUTHORITY_ROOT_MODE = /install -d -m 0710 -o root -g ["']?(?:\$RUNNER_USER|pcactions)["']? [\\\s]*\/var\/lib\/pc-release-authority(?![/\w])/u;
 for (const key of ['install', 'resume', 'controller']) {
   const declared = key === 'controller'
     ? source[key].includes('install -d -m 0710 -o root -g pcactions "$STATE_ROOT"')
-    : AUTHORITY_ROOT_MODE.test(source[key]);
+    : (invocationFor(source[key], AUTHORITY_ROOT) ?? '').startsWith('install -d -m 0710 -o root -g "$RUNNER_USER"');
   if (!declared) {
     violations.push(
       `${paths[key]}: the authority root must be provisioned 0710 root:pcactions so the runner can traverse to runner-input`,
@@ -55,13 +79,13 @@ for (const key of ['install', 'resume', 'controller']) {
 }
 
 /* The authority root must never be provisioned root:root-only again. */
-const ROOT_ONLY_AUTHORITY = /install -d -m 0700 -o root -g root(?:[^\n]|\n\s+)*\/var\/lib\/pc-release-authority(?![/\w])/u;
 for (const key of ['install', 'resume']) {
-  forbid(
-    key,
-    ROOT_ONLY_AUTHORITY,
-    'the authority root must not be provisioned 0700 root:root — it denies the runner the search permission it needs on the ancestor',
-  );
+  const invocation = invocationFor(source[key], AUTHORITY_ROOT);
+  if (invocation !== null && invocation.includes('-o root -g root')) {
+    violations.push(
+      `${paths[key]}: the authority root must not be provisioned 0700 root:root — it denies the runner the search permission it needs on the ancestor`,
+    );
+  }
 }
 
 /* 7. Everything else under the authority root stays closed to the runner. */
@@ -72,20 +96,29 @@ for (const key of ['install', 'resume']) {
   require(key, 'install -d -m 0750 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority/runner-output', 'runner-output stays read-only for the runner group');
 }
 for (const key of ['install', 'resume']) {
-  if (!/install -d -m 0700 -o root -g root(?:[^\n]|\n\s+)*\/var\/lib\/pc-release-authority\/repository/u.test(source[key])
-    || !/install -d -m 0700 -o root -g root(?:[^\n]|\n\s+)*\/var\/lib\/pc-release-authority\/controller-jobs/u.test(source[key])) {
-    violations.push(`${paths[key]}: repository and controller-jobs must remain 0700 root:root`);
+  for (const child of [`${AUTHORITY_ROOT}/repository`, `${AUTHORITY_ROOT}/controller-jobs`]) {
+    const invocation = invocationFor(source[key], child);
+    if (invocation === null || !invocation.startsWith('install -d -m 0700 -o root -g root')) {
+      violations.push(`${paths[key]}: ${child} must remain 0700 root:root and unreachable to the runner`);
+    }
   }
 }
 
 /* 3. The runner's only privileged authority is the one controller command. */
 for (const key of ['install', 'resume']) {
   require(key, 'pcactions ALL=(root) NOPASSWD: /usr/local/sbin/pc-tai-release-controller', 'the sudo grant must stay scoped to the controller');
-  forbid(key, /NOPASSWD:\s*ALL/u, 'unrestricted sudo must never be granted to the runner');
+  forbid(key, /NOPASSWD:\s{0,8}ALL/u, 'unrestricted sudo must never be granted to the runner');
   // Only *adding* is forbidden. Both scripts deliberately call `gpasswd -d` to
   // remove a docker membership a previous provisioning may have left behind, and
   // a pattern that cannot tell removal from addition would forbid the fix.
-  forbid(key, /usermod[^\n]*-a?G[^\n]*docker|gpasswd\s+-a[^\n]*docker|adduser\s+\S+\s+docker/u, 'the runner must never be added to the docker group');
+  // Checked per line rather than across the file so no pattern needs a wildcard
+  // that could backtrack over the whole script.
+  const grantsDocker = source[key]
+    .split('\n')
+    .map((line) => line.trim())
+    .some((line) => line.includes('docker')
+      && (/^usermod\b.*\B-a?G\b/u.test(line) || line.startsWith('gpasswd -a ') || /^adduser\s+\S+\s+docker$/u.test(line)));
+  if (grantsDocker) violations.push(`${paths[key]}: the runner must never be added to the docker group`);
   require(key, `! id -nG "$RUNNER_USER" | tr ' ' '\\n' | grep -Fxq docker`, 'the runner must be proven out of the docker group');
 }
 
