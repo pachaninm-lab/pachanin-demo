@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/tai-p0-a1-stream-endpoint-signing-path",
+  "status": "active",
+  "operationalStatus": "TAI_STREAM_ENDPOINT_DERIVED_FROM_SIGNED_CANONICAL_PATH",
+  "allowedPaths": [
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/lib/platform-v7/tai-internal-stream.ts",
+    "apps/web/tests/unit/taiInternalStreamEndpoint.test.ts",
+    "docs/platform-v7/autopilot/scopes/tai-stream-endpoint-signing-path.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": true,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "the relay endpoint is derived from the canonical path it signs",
+    "the production base path prefix /api/ is preserved in the resolved URL",
+    "a stream-signed request is accepted by the streaming controller",
+    "a stream-signed request sent to the buffered endpoint is rejected",
+    "neither active streaming route references the buffered public-generate URL",
+    "the buffered API controller contract and path-bound verification are unchanged",
+    "no fallback model identity, no suppressed UPSTREAM_ERROR, no weakened signature check"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

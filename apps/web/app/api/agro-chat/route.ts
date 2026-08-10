@@ -16,7 +16,7 @@ import {
   type AssistantRoutingContext,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
-import { streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
+import { resolveInternalStreamEndpoint, streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
 import {
   renderStateForPrompt,
   type ConversationLanguage,
@@ -471,7 +471,7 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   }
   return Object.freeze({
     enabled: true,
-    endpoint: new URL('internal/tai/public-generate', base),
+    endpoint: resolveInternalStreamEndpoint(base),
     secret,
     identity,
     timeoutMs,

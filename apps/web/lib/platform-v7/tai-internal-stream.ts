@@ -21,6 +21,26 @@ import {
 export const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 export const INTERNAL_STREAM_PATH = '/internal/tai/public-generate-stream';
 
+/**
+ * The address this relay talks to, derived from the path it signs.
+ *
+ * These two were allowed to drift apart once and it cost a production outage
+ * that looked like a model failure: the routes kept building a URL for the
+ * buffered `public-generate` endpoint while the signer had already moved to
+ * `public-generate-stream`. The request then arrived at the buffered controller
+ * carrying a signature over a different canonical path, verification failed in
+ * milliseconds, and the relay reported a generic `UPSTREAM_ERROR` — the same
+ * shape a dead model produces. Deriving the URL from the signed constant makes
+ * that class of mismatch unrepresentable.
+ *
+ * The leading slash is stripped deliberately. The production base carries a path
+ * prefix (`http://api:3001/api/`), and an absolute-path argument to `new URL`
+ * would discard it and address `/internal/...` on the origin instead.
+ */
+export function resolveInternalStreamEndpoint(base: URL): URL {
+  return new URL(INTERNAL_STREAM_PATH.replace(/^\/+/u, ''), base);
+}
+
 /** Largest unfinished SSE record the relay will hold before refusing. */
 const MAX_PENDING_RECORD_CHARS = 64 * 1024;
 /** Ceiling on one relayed answer. Bounded so a runaway upstream cannot exhaust us. */
