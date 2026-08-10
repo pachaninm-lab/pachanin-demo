@@ -83,7 +83,10 @@ validate_job_input() {
 
 sync_target() {
   local require_current="${1:-true}"
-  install -d -m 0700 -o root -g root "$STATE_ROOT"
+  # Must match the wrapper and `restore_runner_boundary`: 0710 root:pcactions.
+  # Asserting 0700 root:root here made the controller regress its own boundary
+  # mid-run; only the exit trap put it back, so any crash left it broken.
+  install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
   if [[ ! -d "$REPOSITORY_ROOT/.git" ]]; then
     rm -rf "$REPOSITORY_ROOT"
     git clone --filter=blob:none --no-checkout "$REPOSITORY_URL" "$REPOSITORY_ROOT" >/dev/null

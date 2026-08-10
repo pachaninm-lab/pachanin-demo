@@ -303,6 +303,22 @@ jobs:
           if docker version >/dev/null 2>&1; then exit 21; fi
           sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
           [[ "$CONTROLLER_RUN_ID" =~ ^[0-9]{2,20}$ ]]
+          # Assert the boundary before relying on it. Three different scripts have
+          # written this path with disagreeing modes, and when one regressed it the
+          # failure surfaced as an opaque EACCES from `install` that read like a
+          # model or SSE defect. Naming the actual state turns the next regression
+          # into one line instead of a multi-run investigation.
+          state_root_mode="$(stat -c '%U:%G:%a' /var/lib/pc-release-authority)"
+          input_root_mode="$(stat -c '%U:%G:%a' /var/lib/pc-release-authority/runner-input)"
+          if [[ "$state_root_mode" != 'root:pcactions:710' ]]; then
+            echo "Release-authority root is ${state_root_mode}, expected root:pcactions:710." >&2
+            echo 'A writer regressed the shared boundary; the runner cannot traverse to runner-input.' >&2
+            exit 24
+          fi
+          if [[ "$input_root_mode" != 'root:pcactions:730' ]]; then
+            echo "runner-input is ${input_root_mode}, expected root:pcactions:730." >&2
+            exit 25
+          fi
           input="/var/lib/pc-release-authority/runner-input/${CONTROLLER_RUN_ID}"
           [[ ! -e "$input" ]] || { echo 'Attempt-scoped controller input already exists.' >&2; exit 23; }
           install -d -m 0700 "$input"

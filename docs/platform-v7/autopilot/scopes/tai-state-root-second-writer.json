@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/tai-p0-a1-state-root-second-writer",
+  "status": "active",
+  "operationalStatus": "TAI_SHARED_RELEASE_AUTHORITY_ROOT_SINGLE_MODE_INVARIANT",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "docs/platform-v7/autopilot/scopes/tai-state-root-second-writer.json",
+    "scripts/check-pc-release-authority-boundary.mjs",
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/production-full-stack-exact-sha.sh"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "every writer of the shared release-authority root agrees on 0710 root:pcactions",
+    "the production full-stack release no longer chmods the shared root to 0700",
+    "the controller core no longer regresses the boundary mid-run",
+    "a repository-wide scan fails any writer that asserts 0700 on the shared root",
+    "per-run subdirectories under the root keep 0700 and are exempt",
+    "activation asserts the shared root and runner-input modes before creating attempt input",
+    "pcactions retains traverse-only on the shared root and cannot create files directly in it",
+    "no docker, no unrestricted sudo, no broadened write access"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
