@@ -6,9 +6,10 @@
   "issue": 3802,
   "title": "Production P0 reviewer repair rollback-only diagnostic deployed revision correction",
   "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-repair-diagnose.yml",
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
     "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
-    "scripts/production-p0-reviewer-repair-diagnose.sh"
+    "scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh"
   ],
   "boundaries": {
     "productionMutation": "ROLLBACK_ONLY_NONE_DURABLE",
@@ -20,7 +21,8 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "the only runtime change is the exact deployed API and Web revision pin from 159b597c512aa88f24ffe9a9f37863fe5892c02f to 7677678dbd629a0938bd47ce421a66e80555fec3",
+    "the wrapper changes only the diagnostic base SHA, exact deployed API and Web revision SHA and exact correction-file allowlist in the already reviewed rollback-only runner",
+    "the exact deployed revision pin is corrected from 159b597c512aa88f24ffe9a9f37863fe5892c02f to the healthy REG.RU revision 7677678dbd629a0938bd47ce421a66e80555fec3",
     "the command remains owner-only and exact-current-main bound on issue 3072",
     "the existing no-argument repair function is called only inside a SERIALIZABLE transaction that always rolls back",
     "only sanitized error-class metadata and aggregate reviewer readiness are published",
