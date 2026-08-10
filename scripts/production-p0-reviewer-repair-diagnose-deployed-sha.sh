@@ -18,7 +18,7 @@ continuation = "\\" + "\n"
 replacements = [
     (
         "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-        "DIAGNOSTIC_BASE_SHA='e367041a693b418ac27896f11abf8a190fb5ba52'",
+        "DIAGNOSTIC_BASE_SHA='67510071067f26832bcd770b186ef7c84cdb49d1'",
     ),
     (
         "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
@@ -141,6 +141,61 @@ replacements = [
         """- safe metadata keys: \`$meta_keys\`
 - reason code: \`$reason_code\`
 - reviewer readiness before:""",
+    ),
+    (
+        """output="$(ssh -i "$key_path" -p "$port" \\
+  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \\
+  -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \\
+  "$user@$host" "bash -s -- '$DEPLOYED_SHA'" <<'REMOTE'""",
+        """ssh_rc=0
+if output="$(ssh -i "$key_path" -p "$port" \\
+  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \\
+  -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \\
+  "$user@$host" "bash -s -- '$DEPLOYED_SHA'" 2>&1 <<'REMOTE'""",
+    ),
+    (
+        """REMOTE
+)"
+
+marker="$(grep '^REVIEWER_REPAIR_DIAGNOSTIC|' <<< "$output" | tail -n1)""",
+        """REMOTE
+)"; then
+  ssh_rc=0
+else
+  ssh_rc=$?
+fi
+
+if (( ssh_rc != 0 )); then
+  runtime_line="$(grep -E '^P0_REVIEWER_DIAG_(STAFF_DB_URL_MISSING|ROLLBACK_SENTINEL_NOT_RAISED|ROLLBACK_PROOF_FAILED|TRANSACTION_ERROR\\|[A-Za-z0-9_.-]{1,64}|FATAL\\|[A-Za-z0-9_.-]{1,64})$' <<< "$output" | tail -n1 || true)"
+  runtime_code='REMOTE_EXECUTION_FAILED'
+  if [[ "$runtime_line" == 'P0_REVIEWER_DIAG_STAFF_DB_URL_MISSING' ]]; then
+    runtime_code='STAFF_DB_URL_MISSING'
+  elif [[ "$runtime_line" == 'P0_REVIEWER_DIAG_ROLLBACK_SENTINEL_NOT_RAISED' ]]; then
+    runtime_code='ROLLBACK_SENTINEL_NOT_RAISED'
+  elif [[ "$runtime_line" == 'P0_REVIEWER_DIAG_ROLLBACK_PROOF_FAILED' ]]; then
+    runtime_code='ROLLBACK_PROOF_FAILED'
+  elif [[ "$runtime_line" =~ ^P0_REVIEWER_DIAG_TRANSACTION_ERROR\\|([A-Za-z0-9_.-]{1,64})$ ]]; then
+    runtime_code="TRANSACTION_ERROR.${BASH_REMATCH[1]}"
+  elif [[ "$runtime_line" =~ ^P0_REVIEWER_DIAG_FATAL\\|([A-Za-z0-9_.-]{1,64})$ ]]; then
+    runtime_code="FATAL.${BASH_REMATCH[1]}"
+  fi
+  [[ "$runtime_code" =~ ^[A-Za-z0-9_.-]{1,96}$ ]]
+  guard_main
+  gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer repair bounded runtime diagnostic
+
+- command: \`$COMMAND\`
+- exact diagnostic main: \`$TARGET_SHA\`
+- exact deployed revision: \`$DEPLOYED_SHA\`
+- result: \`FAIL\`
+- runtime code: \`$runtime_code\`
+- remote exit code: \`$ssh_rc\`
+- production mutation: \`NONE_CONFIRMED_ONLY_IF_DIAGNOSTIC_MARKER_ABSENT\`
+- raw runtime output: \`NOT_PUBLISHED\`" >/dev/null
+  result_published=1
+  exit "$ssh_rc"
+fi
+
+marker="$(grep '^REVIEWER_REPAIR_DIAGNOSTIC|' <<< "$output" | tail -n1)""",
     ),
 ]
 
