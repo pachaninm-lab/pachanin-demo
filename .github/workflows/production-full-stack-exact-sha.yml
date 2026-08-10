@@ -15,6 +15,8 @@ on:
       - 'scripts/production-full-stack-exact-sha.sh'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
+      - 'scripts/check-production-exact-image-transfer.mjs'
+      - 'docs/platform-v7/autopilot/scopes/production-exact-image-transfer-3796.json'
       - 'docs/ops/production-full-stack-release.md'
       - 'docs/ops/virtual-server-production-runbook.md'
       - 'docs/ops/vps-post-deploy-checklist.md'
@@ -26,6 +28,8 @@ on:
       - 'scripts/production-full-stack-exact-sha.sh'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
+      - 'scripts/check-production-exact-image-transfer.mjs'
+      - 'docs/platform-v7/autopilot/scopes/production-exact-image-transfer-3796.json'
   workflow_run:
     workflows: ['Build & Publish Canonical Docker Images']
     types: [completed]
@@ -94,6 +98,7 @@ jobs:
         with:
           node-version: '24'
       - run: node scripts/check-production-full-stack-release.mjs
+      - run: node scripts/check-production-exact-image-transfer.mjs
 
   deploy:
     name: Migrate, deploy API and web, verify live intake
@@ -163,8 +168,11 @@ jobs:
               sleep 10
             done
             (( ready == 1 )) || { echo "Exact $component image unavailable." >&2; exit 2; }
+            image_id="$(docker image inspect --format '{{.Id}}' "$image")"
+            [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
             docker image inspect "$image" > "$EVIDENCE_DIR/${component}-image.json"
             echo "${component}_image=$image" >> "$GITHUB_OUTPUT"
+            echo "${component}_image_id=$image_id" >> "$GITHUB_OUTPUT"
           done
           printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
 
@@ -227,7 +235,7 @@ jobs:
           rm -f "$scan"
           chmod 600 "$HOME/.ssh/known_hosts"
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
-            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; command -v gzip >/dev/null; echo SSH_AUTH_OK' \
             > "$EVIDENCE_DIR/ssh-auth.txt"
           grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
           echo "host=$host" >> "$GITHUB_OUTPUT"
@@ -243,19 +251,51 @@ jobs:
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
 
-      - name: Authenticate production host to exact private registry
+      - name: Transfer exact images over pinned SSH
+        id: transfer
         env:
-          GH_TOKEN: ${{ github.token }}
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          API_IMAGE: ${{ steps.images.outputs.api_image }}
+          WEB_IMAGE: ${{ steps.images.outputs.web_image }}
+          MIGRATION_IMAGE: ${{ steps.images.outputs.migration_image }}
+          API_IMAGE_ID: ${{ steps.images.outputs.api_image_id }}
+          WEB_IMAGE_ID: ${{ steps.images.outputs.web_image_id }}
+          MIGRATION_IMAGE_ID: ${{ steps.images.outputs.migration_image_id }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ -n "${GH_TOKEN:-}" ]]
-          registry_config="/tmp/pc-registry-${GITHUB_RUN_ID}"
-          printf '%s' "$GH_TOKEN" | ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "set -euo pipefail; rm -rf '$registry_config'; install -d -m 0700 '$registry_config'; DOCKER_CONFIG='$registry_config' docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin >/dev/null"
-          printf '%s\n' HOSTED_REGISTRY_LOGIN=PASS > "$EVIDENCE_DIR/registry-login.txt"
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          for image_id in "$API_IMAGE_ID" "$WEB_IMAGE_ID" "$MIGRATION_IMAGE_ID"; do
+            [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          done
+          docker save "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" \
+            | gzip -1 \
+            | ssh "${ssh_common[@]}" "$SSH_USER_SECRET@$HOST" \
+                'set -euo pipefail; gzip -dc | docker load >/dev/null'
+          ssh "${ssh_common[@]}" "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$TARGET_SHA' '$API_IMAGE' '$API_IMAGE_ID' '$WEB_IMAGE' '$WEB_IMAGE_ID' '$MIGRATION_IMAGE' '$MIGRATION_IMAGE_ID'" <<'REMOTE' \
+            | tee "$EVIDENCE_DIR/remote-exact-images.log"
+          set -euo pipefail
+          target_sha="$1"
+          shift
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          while (( $# == 2 || $# > 2 )); do
+            image="$1"
+            expected_id="$2"
+            shift 2
+            [[ "$expected_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+            actual_id="$(docker image inspect --format '{{.Id}}' "$image")"
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+            [[ "$actual_id" == "$expected_id" ]]
+            [[ "$revision" == "$target_sha" ]]
+            printf 'REMOTE_EXACT_IMAGE|%s|%s|%s\n' "$image" "$actual_id" "$revision"
+          done
+          printf 'PINNED_SSH_EXACT_IMAGES=PASS\n'
+          REMOTE
+          grep -Fxq PINNED_SSH_EXACT_IMAGES=PASS "$EVIDENCE_DIR/remote-exact-images.log"
+          echo 'result=PASS' >> "$GITHUB_OUTPUT"
 
       - name: Execute migration and exact API/web rollout
         id: production
@@ -266,6 +306,9 @@ jobs:
           API_IMAGE: ${{ steps.images.outputs.api_image }}
           WEB_IMAGE: ${{ steps.images.outputs.web_image }}
           MIGRATION_IMAGE: ${{ steps.images.outputs.migration_image }}
+          API_IMAGE_ID: ${{ steps.images.outputs.api_image_id }}
+          WEB_IMAGE_ID: ${{ steps.images.outputs.web_image_id }}
+          MIGRATION_IMAGE_ID: ${{ steps.images.outputs.migration_image_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -273,13 +316,13 @@ jobs:
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && PC_EXACT_IMAGE_SOURCE='pinned-ssh' PC_API_IMAGE_ID='$API_IMAGE_ID' PC_WEB_IMAGE_ID='$WEB_IMAGE_ID' PC_MIGRATION_IMAGE_ID='$MIGRATION_IMAGE_ID' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
           sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
           rm -f "$raw"
           cat "$clean"
-          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE; do
+          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE EXACT_IMAGE_SOURCE; do
             value="$(sed -n "s/^${field}=//p" "$clean" | tail -1)"
             echo "$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')=${value:-unknown}" >> "$GITHUB_OUTPUT"
           done
@@ -329,7 +372,7 @@ jobs:
             "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh rollback '$TARGET_SHA' '$GITHUB_RUN_ID'" \
             | tee "$EVIDENCE_DIR/live-failure-rollback.log"
 
-      - name: Remove production registry session and bounded assets
+      - name: Remove bounded production assets
         if: always()
         env:
           HOST: ${{ steps.ssh.outputs.host }}
@@ -339,7 +382,7 @@ jobs:
           set -euo pipefail
           if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh'" \
+              "rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh'" \
               || true
           fi
           docker logout ghcr.io >/dev/null 2>&1 || true
@@ -350,6 +393,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          TRANSFER_OUTCOME: ${{ steps.transfer.outcome }}
+          EXACT_IMAGE_SOURCE: ${{ steps.production.outputs.exact_image_source }}
           DEPLOYMENT_COMPLETE: ${{ steps.production.outputs.deployment_complete }}
           MIGRATION_COMPLETE: ${{ steps.production.outputs.migration_complete }}
           DEPLOYED_API_REVISION: ${{ steps.production.outputs.deployed_api_revision }}
@@ -374,6 +419,8 @@ jobs:
             echo "## Full-stack release run \`$GITHUB_RUN_ID\`"
             echo
             echo "- target SHA: \`${TARGET_SHA:-unknown}\`"
+            echo "- exact-image transfer: \`${TRANSFER_OUTCOME:-unknown}\`"
+            echo "- exact-image source: \`${EXACT_IMAGE_SOURCE:-unknown}\`"
             echo "- backup: \`${BACKUP_MODE:-unknown}\`"
             echo "- migration complete: \`${MIGRATION_COMPLETE:-0}\`"
             echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
@@ -391,7 +438,7 @@ jobs:
           } > "$record"
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
+          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${EXACT_IMAGE_SOURCE:-}" == pinned-ssh && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
             gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
           fi
 
@@ -400,6 +447,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          [[ '${{ steps.transfer.outcome }}' == success ]]
+          [[ '${{ steps.production.outputs.exact_image_source }}' == pinned-ssh ]]
           [[ '${{ steps.production.outputs.deployment_complete }}' == 1 ]]
           [[ '${{ steps.production.outputs.migration_complete }}' == 1 ]]
           [[ '${{ steps.live.outcome }}' == success ]]
