@@ -1,11 +1,11 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-reviewer-repair-reason-code-3802",
+  "branch": "fix/p0-reviewer-diagnostic-b81-pin-3810",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REASON_CLASSIFICATION",
+  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_B81_PIN_CORRECTION",
   "issue": 3802,
   "trackingIssue": 3810,
-  "title": "Production P0 reviewer repair rollback-only static reason classification",
+  "title": "Production P0 reviewer rollback diagnostic exact B81 deployment pin",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
     "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
@@ -22,13 +22,14 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "the deployed API and Web revision remains the accepted REG.RU revision 7677678dbd629a0938bd47ce421a66e80555fec3",
+    "the diagnostic base is the exact healthy B81 source revision b81ee2e51f9fbf5ec66603211c3f32224532e782, so the governed delta to the classifier head contains exactly three files",
+    "the deployed API and Web revision is pinned to the exact REG.RU revision b81ee2e51f9fbf5ec66603211c3f32224532e782 proven by full-stack run 31421886740",
     "the command remains owner-only and exact-current-main bound on issue 3072",
     "the existing no-argument repair function is called only inside a SERIALIZABLE transaction that always rolls back",
     "the raw database message is never printed, persisted or included in issue evidence",
     "only one enum from a fixed static allowlist classifies the known 23514 repair stage",
     "reviewer readiness is identical before and after the forced rollback",
-    "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface or recurring cost",
+    "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface, security weakening or recurring cost",
     "every exact-head required focused, repository and security check is terminal PASS"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
