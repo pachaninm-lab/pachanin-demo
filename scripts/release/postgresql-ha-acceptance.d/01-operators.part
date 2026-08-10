@@ -1,0 +1,102 @@
+sha256sum "$EXTERNAL_DIR/cloudnative-pg.yaml" | tee "$EXTERNAL_DIR/cloudnative-pg.sha256"
+sha256sum "$EXTERNAL_DIR/barman-cloud-plugin.yaml" | tee "$EXTERNAL_DIR/barman-cloud-plugin.sha256"
+CERT_MANAGER_SHA="$(awk '{print $1}' "$EXTERNAL_DIR/cert-manager.sha256")"
+CNPG_SHA="$(awk '{print $1}' "$EXTERNAL_DIR/cloudnative-pg.sha256")"
+BARMAN_PLUGIN_SHA="$(awk '{print $1}' "$EXTERNAL_DIR/barman-cloud-plugin.sha256")"
+
+FAILURE_REASON="cert-manager did not become ready"
+kubectl apply --server-side -f "$EXTERNAL_DIR/cert-manager.yaml" > "$RAW_DIR/cert-manager-apply.log" 2>&1
+kubectl rollout status deployment/cert-manager -n cert-manager --timeout=420s
+kubectl rollout status deployment/cert-manager-cainjector -n cert-manager --timeout=420s
+kubectl rollout status deployment/cert-manager-webhook -n cert-manager --timeout=420s
+
+FAILURE_REASON="CloudNativePG operator did not become ready"
+kubectl apply --server-side -f "$EXTERNAL_DIR/cloudnative-pg.yaml" > "$RAW_DIR/cnpg-apply.log" 2>&1
+kubectl wait --for=condition=Established crd/clusters.postgresql.cnpg.io --timeout=180s
+kubectl rollout status deployment/cnpg-controller-manager -n cnpg-system --timeout=420s
+
+FAILURE_REASON="Barman Cloud CNPG-I plugin did not become ready"
+kubectl apply --server-side -f "$EXTERNAL_DIR/barman-cloud-plugin.yaml" > "$RAW_DIR/barman-plugin-apply.log" 2>&1
+kubectl wait --for=condition=Established crd/objectstores.barmancloud.cnpg.io --timeout=180s
+kubectl rollout status deployment/barman-cloud -n cnpg-system --timeout=420s
+
+MINIO_ACCESS_KEY="ha$(openssl rand -hex 10)"
+MINIO_SECRET_KEY="$(openssl rand -hex 24)"
+SUPERUSER_PASSWORD="$(openssl rand -hex 24)"
+MIGRATION_PASSWORD="$(openssl rand -hex 24)"
+APP_PASSWORD="$(openssl rand -hex 24)"
+RESTORE_PASSWORD="$(openssl rand -hex 24)"
+for secret in \
+  "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" "$SUPERUSER_PASSWORD" \
+  "$MIGRATION_PASSWORD" "$APP_PASSWORD" "$RESTORE_PASSWORD"; do
+  mask "$secret"
+done
+
+kubectl create namespace "$NAMESPACE"
+kubectl label namespace "$NAMESPACE" \
+  environment=production-like evidence=postgresql-ha-pitr --overwrite
+kubectl create secret generic minio-credentials -n "$NAMESPACE" \
+  --from-literal=MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+  --from-literal=MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+  --from-literal=MINIO_ACCESS_KEY="$MINIO_ACCESS_KEY" \
+  --from-literal=MINIO_SECRET_KEY="$MINIO_SECRET_KEY"
+kubectl create secret generic grainflow-superuser -n "$NAMESPACE" \
+  --type=kubernetes.io/basic-auth \
+  --from-literal=username=postgres \
+  --from-literal=password="$SUPERUSER_PASSWORD"
+kubectl create secret generic grainflow-migration-user -n "$NAMESPACE" \
+  --type=kubernetes.io/basic-auth \
+  --from-literal=username=migration_runner \
+  --from-literal=password="$MIGRATION_PASSWORD"
+
+FAILURE_REASON="distributed S3-compatible backup store did not become ready"
+sed "s|__MINIO_IMAGE__|${MINIO_IMAGE}|g" \
+  infra/kind/postgresql-ha/minio.yaml > "$RAW_DIR/rendered-minio.yaml"
+kubectl apply -f "$RAW_DIR/rendered-minio.yaml" > "$RAW_DIR/minio-apply.log" 2>&1
+kubectl rollout status statefulset/minio -n "$NAMESPACE" --timeout=600s
+[[ "$(kubectl get statefulset minio -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')" = "4" ]]
+MINIO_DISTINCT_NODES="$(
+  kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=minio -o json |
+    jq '[.items[].spec.nodeName] | unique | length'
+)"
+[[ "$MINIO_DISTINCT_NODES" = "4" ]]
+
+kubectl run minio-init -n "$NAMESPACE" --restart=Never \
+  --image="$MINIO_MC_IMAGE" \
+  --env="MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}" \
+  --env="MINIO_SECRET_KEY=${MINIO_SECRET_KEY}" \
+  --command -- /bin/sh -ec \
+  'mc alias set acceptance http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"; mc mb --ignore-existing acceptance/grainflow-postgresql-ha; mc version enable acceptance/grainflow-postgresql-ha; mc stat acceptance/grainflow-postgresql-ha'
+for _ in $(seq 1 120); do
+  phase="$(kubectl get pod minio-init -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  [[ "$phase" = Succeeded ]] && break
+  [[ "$phase" = Failed ]] && { kubectl logs -n "$NAMESPACE" minio-init; false; }
+  sleep 2
+done
+[[ "$(kubectl get pod minio-init -n "$NAMESPACE" -o jsonpath='{.status.phase}')" = Succeeded ]]
+kubectl logs -n "$NAMESPACE" minio-init > "$RAW_DIR/minio-init.log"
+
+FAILURE_REASON="PostgreSQL HA Cluster did not become ready"
+sed "s|__POSTGRES_IMAGE__|${POSTGRES_IMAGE}|g" \
+  infra/kind/postgresql-ha/postgresql-ha.yaml > "$RAW_DIR/rendered-postgresql-ha.yaml"
+awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { exit } { print }' \
+  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-objectstore.yaml"
+awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { document++; next } document == 1 { print } document > 1 { exit }' \
+  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-cluster.yaml"
+awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { document++; next } document == 2 { print }' \
+  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-pooler.yaml"
+
+grep -q '^kind: ObjectStore$' "$RAW_DIR/rendered-postgresql-objectstore.yaml"
+grep -q '^kind: Cluster$' "$RAW_DIR/rendered-postgresql-cluster.yaml"
+grep -q '^kind: Pooler$' "$RAW_DIR/rendered-postgresql-pooler.yaml"
+
+kubectl apply -f "$RAW_DIR/rendered-postgresql-objectstore.yaml" > "$RAW_DIR/postgresql-objectstore-apply.log" 2>&1
+kubectl get objectstore grainflow-backup -n "$NAMESPACE" -o yaml > "$RAW_DIR/postgresql-objectstore.yaml"
+kubectl apply -f "$RAW_DIR/rendered-postgresql-cluster.yaml" > "$RAW_DIR/postgresql-cluster-apply.log" 2>&1
+
+wait_cluster_ready() {
+  local cluster="$1"
+  local expected="$2"
+  local timeout_seconds="${3:-900}"
+  local deadline=$((SECONDS + timeout_seconds))
+  while (( SECONDS < deadline )); do
