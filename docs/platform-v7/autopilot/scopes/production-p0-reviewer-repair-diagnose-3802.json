@@ -1,11 +1,13 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-reviewer-diagnostic-b81-pin-3810",
+  "branch": "fix/p0-reviewer-diagnostic-current-main-3820",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_B81_PIN_CORRECTION",
+  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_CURRENT_MAIN_PIN",
   "issue": 3802,
   "trackingIssue": 3810,
-  "title": "Production P0 reviewer rollback diagnostic exact B81 deployment pin",
+  "title": "Production P0 reviewer rollback diagnostic current-main pin",
+  "diagnosticBaseRevision": "98447a394ecd156a2a736574eb3d3ccdbac49bd9",
+  "deployedRevision": "b81ee2e51f9fbf5ec66603211c3f32224532e782",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
     "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
@@ -22,15 +24,15 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "the diagnostic base is the exact healthy B81 source revision b81ee2e51f9fbf5ec66603211c3f32224532e782, so the governed delta to the classifier head contains exactly three files",
-    "the deployed API and Web revision is pinned to the exact REG.RU revision b81ee2e51f9fbf5ec66603211c3f32224532e782 proven by full-stack run 31421886740",
+    "the governed diagnostic delta is measured from exact current main 98447a394ecd156a2a736574eb3d3ccdbac49bd9 and contains exactly these three files",
+    "the deployed API and Web revision remains pinned independently to exact healthy REG.RU revision b81ee2e51f9fbf5ec66603211c3f32224532e782",
+    "unrelated main commits do not become part of the diagnostic authority surface",
     "the command remains owner-only and exact-current-main bound on issue 3072",
-    "the existing no-argument repair function is called only inside a SERIALIZABLE transaction that always rolls back",
+    "the existing no-argument repair function is called only inside one SERIALIZABLE transaction that always rolls back",
     "the raw database message is never printed, persisted or included in issue evidence",
-    "only one enum from a fixed static allowlist classifies the known 23514 repair stage",
+    "only one enum from the fixed static allowlist classifies the known 23514 repair stage",
     "reviewer readiness is identical before and after the forced rollback",
-    "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface, security weakening or recurring cost",
-    "every exact-head required focused, repository and security check is terminal PASS"
+    "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface, security weakening or recurring cost"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
 }
