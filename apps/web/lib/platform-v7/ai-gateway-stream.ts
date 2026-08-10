@@ -291,7 +291,11 @@ export function publicSnapshotForDisplay(snapshot: GatewayStreamSnapshot): Gatew
 
   return {
     ...snapshot,
-    text: snapshot.status === 'answered' ? text : '',
+    // Refusals carry no text: a refusal's prose is chosen by the reader's own
+    // locale copy, never taken from a stream that failed part-way. Cancellation
+    // is the exception — the reader stopped it deliberately and is already
+    // looking at the text, so it survives the projection that discards the rest.
+    text: snapshot.status === 'answered' || snapshot.refusal === 'CANCELLED' ? text : '',
     assessment: null,
     modelIdentity: null,
   };
@@ -342,7 +346,17 @@ export function applyFrame(snapshot: GatewayStreamSnapshot, frame: GatewayFrame)
 /** A stream that ended without ever saying it was complete is a refusal. */
 export function sealSnapshot(snapshot: GatewayStreamSnapshot, fallback: GatewayRefusal): GatewayStreamSnapshot {
   if (snapshot.status !== 'streaming') return snapshot;
-  return { ...snapshot, status: 'refused', text: '', refusal: snapshot.refusal ?? fallback };
+  const refusal = snapshot.refusal ?? fallback;
+  // A stream that broke leaves text that was never finished, and presenting a
+  // truncated answer as an answer is worse than presenting none — so it goes.
+  //
+  // Cancellation is the exception, and the only one: the reader pressed Stop
+  // and has already read what is on screen. Blanking it there does not protect
+  // anyone from a half-answer they chose to stop; it just makes a deliberate
+  // halt look like a failure that lost their answer. The text stays, and the
+  // `refused` status keeps it from being mistaken for a completed answer.
+  const text = refusal === 'CANCELLED' ? snapshot.text : '';
+  return { ...snapshot, status: 'refused', text, refusal };
 }
 
 /** Read a gateway response to completion. */

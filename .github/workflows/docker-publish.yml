@@ -38,6 +38,14 @@ on:
       - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
       - "scripts/check-pc-release-authority-boundary.mjs"
+      # The hosted acceptance scripts and the contract they read decide whether
+      # a release is confirmed. A change to them that never rebuilds an image
+      # leaves the release chain judging production by a reader the images were
+      # never built with — which is how a stale assessment schema survived.
+      - "scripts/tai-live-public-ai-acceptance.mjs"
+      - "scripts/tai-potato-mobile-live-acceptance.mjs"
+      - "scripts/tai-public-assessment-contract.mjs"
+      - "scripts/tai-conversation-subject-contract.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-resume-pc-prod-actions-runner.mjs"
