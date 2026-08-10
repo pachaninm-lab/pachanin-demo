@@ -31,14 +31,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
           git fetch --no-tags origin main
           current_main="$(git rev-parse origin/main)"
           [[ "$current_main" =~ ^[0-9a-f]{40}$ ]]
           git merge --no-commit --no-ff "$current_main"
           rm -f .github/workflows/p0-reviewer-reason-code-sync.yml
           git diff --check
-          git config user.name 'pachaninm-lab'
-          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
           git add -A
           git commit -m "SYNC: current main into reviewer repair reason classifier"
           git push origin HEAD:fix/p0-reviewer-repair-reason-code-3802
