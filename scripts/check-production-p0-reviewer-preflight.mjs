@@ -26,6 +26,12 @@ const requiredWorkflow = [
   "--filter 'label=com.docker.compose.service=api'",
   'org.opencontainers.image.revision',
   'docker exec -i "$api_id" /nodejs/bin/node -',
+  'sanitizeErrorCode',
+  '(async () => {',
+  '})().catch((error) => {',
+  'P0_REVIEWER_PREFLIGHT_DB_ERROR|',
+  'P0_REVIEWER_PREFLIGHT_INVALID_COUNTS',
+  'process.exitCode = 34',
   'STAFF_DATABASE_URL',
   "principal.user_name !== 'pc_staff_runtime'",
   'principal.rolsuper',
@@ -54,6 +60,32 @@ if ((workflow.split(stdinInspector).length - 1) !== 1) {
 if (/docker exec\s+"\$api_id"\s+\/nodejs\/bin\/node\s+-\s+<<'NODE'/.test(workflow)) {
   console.error('Reviewer preflight must not detach stdin from the heredoc-fed Node inspector.');
   process.exit(1);
+}
+
+const inspectorMatch = workflow.match(/docker exec -i "\$api_id" \/nodejs\/bin\/node - <<'NODE'\n([\s\S]*?)\n\s*NODE/);
+if (!inspectorMatch) {
+  console.error('Reviewer preflight Node inspector block is missing.');
+  process.exit(1);
+}
+const inspector = inspectorMatch[1];
+const asyncStart = inspector.indexOf('(async () => {');
+const asyncEnd = inspector.indexOf('})().catch((error) => {');
+const firstAwait = inspector.indexOf('await ');
+const lastAwait = inspector.lastIndexOf('await ');
+if (asyncStart < 0 || asyncEnd < 0 || firstAwait < asyncStart || lastAwait > asyncEnd) {
+  console.error('Reviewer preflight Prisma awaits must remain inside the bounded async IIFE.');
+  process.exit(1);
+}
+for (const pattern of [
+  /console\.error\(\s*error\s*\)/,
+  /error\.(?:message|stack)/,
+  /JSON\.stringify\(\s*error/,
+  /console\.log\([^\n]*(?:DATABASE_URL|STAFF_DATABASE_URL)/,
+]) {
+  if (pattern.test(inspector)) {
+    console.error(`Reviewer preflight diagnostics may expose sensitive runtime detail: ${pattern}`);
+    process.exit(1);
+  }
 }
 
 const forbiddenWorkflow = [
@@ -184,4 +216,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only and stdin-safe; the forward ACL repair restores only the confined authority read while every staff runtime remains table-free.');
+console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, aggregate-only, stdin-safe and async-safe; diagnostics remain bounded while every staff runtime remains table-free.');
