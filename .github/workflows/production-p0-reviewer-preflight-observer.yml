@@ -1,6 +1,11 @@
 name: Production P0 Reviewer Preflight Observer
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-preflight-observer.yml'
+      - 'scripts/check-production-p0-reviewer-preflight-observer.mjs'
   workflow_run:
     workflows: ['Production P0 Reviewer Preflight']
     types: [completed]
@@ -8,19 +13,35 @@ on:
 permissions:
   actions: read
   contents: read
-  issues: write
 
 concurrency:
-  group: production-p0-reviewer-preflight-observer-${{ github.event.workflow_run.id }}
+  group: production-p0-reviewer-preflight-observer-${{ github.event_name }}-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 env:
   RELEASE_ISSUE_NUMBER: 3072
 
 jobs:
+  contract:
+    name: Validate reviewer-preflight observer contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-reviewer-preflight-observer.mjs
+
   publish-terminal-failure:
     name: Publish bounded reviewer-preflight failure
     if: >-
+      github.event_name == 'workflow_run' &&
       github.event.workflow_run.event == 'issue_comment' &&
       github.event.workflow_run.conclusion != 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
@@ -29,6 +50,10 @@ jobs:
       github.event.workflow_run.triggering_actor.login == github.repository_owner
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
     steps:
       - name: Resolve bounded failed job and step
         id: terminal
