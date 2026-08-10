@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
-  chunkAnswer,
+  frameText,
   resolveAdmission,
 } from '@pc/ai-assistant-stream-contract';
 import {
@@ -410,7 +410,7 @@ function streamPublicAnswer(
         if (!stream.emit({ event: 'citation', sourceId: source.href, title: source.label || source.href, uri })) break;
       }
 
-      for (const chunk of chunkAnswer(answer.answer)) {
+      for (const chunk of frameText(answer.answer)) {
         if (!stream.emit({ event: 'token', text: chunk })) break;
       }
 

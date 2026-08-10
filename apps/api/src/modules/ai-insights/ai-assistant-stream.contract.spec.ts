@@ -4,7 +4,7 @@ import {
   GatewayStreamWriter,
   PRIVATE_IDENTITY_KEYS,
   absoluteCitationUri,
-  chunkAnswer,
+  frameText,
   encodeFrame,
   isAcceptance,
   isRejection,
@@ -357,7 +357,7 @@ describe('citations must be openable and answers must be bounded', () => {
 
   it('splits an answer into chunks that reassemble exactly', () => {
     const text = 'я'.repeat(1_000);
-    const chunks = chunkAnswer(text, 400);
+    const chunks = frameText(text, 400);
 
     expect(chunks).toHaveLength(3);
     expect(chunks.join('')).toBe(text);
@@ -365,7 +365,7 @@ describe('citations must be openable and answers must be bounded', () => {
   });
 
   it('never produces the empty token the contract refuses', () => {
-    expect(chunkAnswer('')).toEqual([]);
-    expect(chunkAnswer('короткий', 0).join('')).toBe('короткий');
+    expect(frameText('')).toEqual([]);
+    expect(frameText('короткий', 0).join('')).toBe('короткий');
   });
 });

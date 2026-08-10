@@ -124,10 +124,13 @@ describe('reading a whole stream', () => {
     expect(texts).toEqual(['', 'а', 'аб', 'аб']);
   });
 
-  it('surfaces the admitted model identity from meta', async () => {
+  it('withholds the model identity from the public contour', async () => {
+    // The public projection removes operational metadata, and the refusal case
+    // below already asserts a null identity. Asserting the opposite here for the
+    // same mode described a contract the projection never implemented.
     const snapshot = await readGatewayStream(sseResponse([wire([meta('qwen@sha256:abc'), token('x'), done(true)])]), { mode: 'public' });
 
-    expect(snapshot.modelIdentity).toBe('qwen@sha256:abc');
+    expect(snapshot).toMatchObject({ status: 'answered', text: 'x', modelIdentity: null });
   });
 
   it('reports a refusal as a refusal rather than throwing at the caller', async () => {

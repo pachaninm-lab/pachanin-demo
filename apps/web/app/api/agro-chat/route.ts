@@ -1,9 +1,10 @@
-import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
-  chunkAnswer,
+  frameText,
+  type GatewayRefusal,
 } from '@pc/ai-assistant-stream-contract';
 import {
   GET as knowledgeGet,
@@ -15,13 +16,17 @@ import {
   type AssistantRoutingContext,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
+import { streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
+import {
+  renderStateForPrompt,
+  type ConversationLanguage,
+  type ConversationState,
+} from '@/lib/platform-v7/tai-conversation-state';
+import { conversationIdFrom, replayConversationState } from '@/lib/platform-v7/tai-conversation-session';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const SIGNATURE_VERSION = 'tai-public-qwen.v1';
-const INTERNAL_PATH = '/internal/tai/public-generate';
-const MAX_API_RESPONSE_BYTES = 1_048_576;
 const DEFAULT_TIMEOUT_MS = 130_000;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
@@ -49,21 +54,6 @@ type PublicKnowledgeAnswer = Readonly<{
   understanding?: Readonly<{ normalizedQuestion?: string; detectedLocale?: string }>;
 }>;
 
-type ModelResponse = Readonly<{
-  answer: string;
-  provider: 'openai-compatible';
-  modelIdentity: string;
-  latencyMs: number;
-  promptTokens: number | null;
-  completionTokens: number | null;
-  operationalStatus: 'NOT_ATTESTED';
-  mode: 'read_only';
-  answerMode?: PublicAnswerMode;
-  finishReason?: 'stop' | 'length' | 'other';
-  truncated?: boolean;
-  safetyFlags?: readonly string[];
-}>;
-
 type RuntimeConfig = Readonly<{
   enabled: boolean;
   endpoint: URL | null;
@@ -76,6 +66,7 @@ type PublicEnvelope = Readonly<{
   question: string;
   locale: PublicLocale;
   context: string;
+  conversationId: string;
   history: readonly HistoryTurn[];
 }>;
 
@@ -244,6 +235,18 @@ function streamModelFirstAnswer(
         const locale = resolveLocale(grounding, envelope.locale);
         const currentDataRequired = answerMode === 'general_agro' && requiresCurrentEvidence(envelope.question);
 
+        // Rebuilt from this request's own history every time. A short follow-up
+        // resolves against the subject this state carries instead of being sent
+        // to the model as a bare "а если весной?" with twelve raw turns behind
+        // it and no statement of what the conversation is actually about.
+        const conversationState: ConversationState = replayConversationState({
+          conversationId: envelope.conversationId,
+          history: envelope.history,
+          message: envelope.question,
+          requestedLanguage: locale as ConversationLanguage,
+          dealContext: null,
+        });
+
         if (grounding.resolution === 'refused') {
           writer.fail(
             'ABSTAINED_NO_DATA',
@@ -268,6 +271,9 @@ function streamModelFirstAnswer(
           answerMode,
           currentDataRequired,
           history: envelope.history,
+          // Public contour: no deal, tenant, organization or role context is
+          // ever derived into this state, so none can travel with it.
+          conversationState: renderStateForPrompt(conversationState),
           cabinetRole: routingContext.role,
           page: routingContext.page,
           selectedObject: routingContext.selectedObject,
@@ -283,31 +289,68 @@ function streamModelFirstAnswer(
           },
         };
 
-        let answer: ModelResponse;
+        // Sources first, so a reader has the citation list while the answer is
+        // still arriving rather than only once it has finished.
+        if (answerMode === 'verified_platform') emitSources(writer, grounding.sources);
+
+        let relayed = 0;
+        let assessment: string | null = null;
+        let terminal: { complete: boolean; refusal: GatewayRefusal | null } | null = null;
+
         try {
-          answer = await callInternalModel(runtimeConfig, payload, request.signal, runtimeConfig.timeoutMs);
+          for await (const event of streamInternalModel(
+            { endpoint: runtimeConfig.endpoint, secret: runtimeConfig.secret, identity: runtimeConfig.identity, timeoutMs: runtimeConfig.timeoutMs },
+            payload,
+            request.signal,
+          )) {
+            if (event.kind === 'token') {
+              // Forwarded the moment it arrives. Nothing accumulates here: the
+              // whole point of this path is that the reader sees the model's
+              // first sentence while the model is still writing the rest.
+              relayed += 1;
+              if (!writer.emit({ event: 'token', text: event.text })) return;
+              continue;
+            }
+            if (event.kind === 'assessment') {
+              assessment = event.summary;
+              continue;
+            }
+            if (event.kind === 'terminal') {
+              terminal = { complete: event.complete, refusal: event.refusal };
+              break;
+            }
+          }
         } catch {
           if (request.signal.aborted) return;
+          terminal = { complete: false, refusal: 'UPSTREAM_ERROR' };
+        }
+
+        if (request.signal.aborted) return;
+
+        // Falling back after tokens have already been relayed would splice a
+        // second, unrelated answer onto a partial one, so the fallback is only
+        // available while nothing has reached the reader.
+        if (!terminal || !terminal.complete || relayed === 0) {
+          if (relayed > 0) {
+            writer.fail(terminal?.refusal ?? 'UPSTREAM_ERROR', modelUnavailableCopy(locale));
+            return;
+          }
           if (answerMode === 'verified_platform') {
             emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_RUNTIME_FALLBACK');
           } else {
-            writer.fail('UPSTREAM_ERROR', modelUnavailableCopy(locale));
+            writer.fail(terminal?.refusal ?? 'UPSTREAM_ERROR', modelUnavailableCopy(locale));
           }
           return;
         }
 
-        if (answerMode === 'verified_platform') emitSources(writer, grounding.sources);
-        for (const chunk of chunkAnswer(answer.answer)) {
-          if (!writer.emit({ event: 'token', text: chunk })) return;
-        }
         writer.emit({
           event: 'assessment',
           summary: JSON.stringify({
-            source: 'local_qwen', answerMode, currentDataRequired,
-            modelIdentity: answer.modelIdentity, latencyMs: answer.latencyMs,
-            truncated: answer.truncated === true,
-            finishReason: answer.finishReason || 'other',
-            safetyFlags: answer.safetyFlags || [],
+            source: 'local_qwen',
+            answerMode,
+            currentDataRequired,
+            streaming: 'incremental',
+            upstream: assessment ? safeAssessment(assessment) : null,
           }),
           operationalStatus: 'NOT_ATTESTED',
         });
@@ -378,7 +421,7 @@ function emitDirectAnswer(
   answer: string,
   assessment: Readonly<Record<string, unknown>>,
 ): void {
-  for (const chunk of chunkAnswer(answer)) {
+  for (const chunk of frameText(answer)) {
     if (!writer.emit({ event: 'token', text: chunk })) return;
   }
   writer.emit({ event: 'assessment', summary: JSON.stringify(assessment), operationalStatus: 'NOT_ATTESTED' });
@@ -401,58 +444,6 @@ function emitGroundedFallback(
     truncated: false,
     safetyFlags: [safetyFlag],
   });
-}
-
-async function callInternalModel(
-  config: RuntimeConfig,
-  payload: unknown,
-  readerSignal: AbortSignal,
-  timeoutMs = config.timeoutMs,
-): Promise<ModelResponse> {
-  if (!config.endpoint) throw new Error('restricted_runtime_endpoint_missing');
-  const timestamp = String(Math.floor(Date.now() / 1_000));
-  const body = canonicalJson(payload);
-  const bodyHash = createHash('sha256').update(body, 'utf8').digest('hex');
-  const signature = createHmac('sha256', config.secret)
-    .update([SIGNATURE_VERSION, 'POST', INTERNAL_PATH, timestamp, bodyHash].join('\n'), 'utf8')
-    .digest('hex');
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const onReaderAbort = () => controller.abort();
-  readerSignal.addEventListener('abort', onReaderAbort, { once: true });
-
-  try {
-    const response = await fetch(config.endpoint, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json; charset=utf-8',
-        'X-TAI-Signature-Version': SIGNATURE_VERSION,
-        'X-TAI-Timestamp': timestamp,
-        'X-TAI-Signature': signature,
-      },
-      body,
-      signal: controller.signal,
-    });
-    const raw = await response.text();
-    if (Buffer.byteLength(raw, 'utf8') > MAX_API_RESPONSE_BYTES) throw new Error('restricted_runtime_response_too_large');
-    if (!response.ok) throw new Error(`restricted_runtime_http_${response.status}`);
-    const decoded = JSON.parse(raw) as Partial<ModelResponse>;
-    if (
-      decoded.provider !== 'openai-compatible'
-      || decoded.mode !== 'read_only'
-      || decoded.operationalStatus !== 'NOT_ATTESTED'
-      || typeof decoded.answer !== 'string'
-      || !decoded.answer.trim()
-      || typeof decoded.modelIdentity !== 'string'
-      || decoded.modelIdentity.trim() !== config.identity
-    ) throw new Error('restricted_runtime_contract_invalid');
-    return decoded as ModelResponse;
-  } finally {
-    clearTimeout(timeout);
-    readerSignal.removeEventListener('abort', onReaderAbort);
-  }
 }
 
 function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): RuntimeConfig {
@@ -530,14 +521,49 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
     const question = typeof row.message === 'string' ? row.message.trim().slice(0, 1_200) : '';
     const locale: PublicLocale = row.locale === 'en' || row.locale === 'zh' ? row.locale : 'ru';
     const context = typeof row.context === 'string' ? row.context.trim().slice(0, 120) : 'platform';
-    return Object.freeze({ question, locale, context, history: normalizeHistory(row.history) });
+    const history = normalizeHistory(row.history);
+    return Object.freeze({
+      question,
+      locale,
+      context,
+      // A label only: nothing is looked up by it, so a forged value reaches no
+      // context beyond the history this same request already carried.
+      conversationId: conversationIdFrom(row.conversationId, `${context}-${locale}-${history.length}`),
+      history,
+    });
   } catch {
     return emptyEnvelope();
   }
 }
 
 function emptyEnvelope(): PublicEnvelope {
-  return Object.freeze({ question: '', locale: 'ru', context: 'platform', history: [] });
+  return Object.freeze({
+    question: '',
+    locale: 'ru',
+    context: 'platform',
+    conversationId: conversationIdFrom(null, 'empty-envelope'),
+    history: [],
+  });
+}
+
+/**
+ * The upstream assessment, reduced to what the public contour may repeat.
+ *
+ * It is model-adjacent operational metadata, so it is parsed and re-projected
+ * rather than forwarded verbatim: a field added upstream should not reach a
+ * public reader because nobody remembered this relay existed.
+ */
+function safeAssessment(summary: string): Record<string, unknown> | null {
+  try {
+    const row = JSON.parse(summary) as Record<string, unknown>;
+    return {
+      finishReason: typeof row.finishReason === 'string' ? row.finishReason : 'other',
+      truncated: row.truncated === true,
+      safetyFlags: Array.isArray(row.safetyFlags) ? row.safetyFlags.filter((flag) => typeof flag === 'string').slice(0, 12) : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 function normalizeHistory(value: unknown): readonly HistoryTurn[] {
@@ -604,19 +630,6 @@ function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): Nex
   return new NextRequest(url, { method: 'POST', headers, body: rawBody });
 }
 
-function canonicalJson(value: unknown): string {
-  if (value === null) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new Error('non_finite_number');
-    return JSON.stringify(value);
-  }
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
-  if (typeof value !== 'object') throw new Error('unsupported_signed_value');
-  const row = value as Record<string, unknown>;
-  return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(row[key])}`).join(',')}}`;
-}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;

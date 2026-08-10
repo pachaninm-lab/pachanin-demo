@@ -117,14 +117,25 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toMatch(/return \(\) => \{\s+stopActiveRequest\(\);\s+observer\.disconnect\(\);/u);
   });
 
-  it('never projects provisional tokens or operational metadata while thinking', () => {
+  it('projects streamed answer text while hiding reasoning and operational metadata', () => {
+    // Partial text is now rendered as it arrives — that is what makes the answer
+    // appear progressively rather than all at once at the end. What must never
+    // appear is the reasoning block or the operational metadata beside it.
     const result = publicSnapshotForDisplay(snapshot('streaming', '<think>private reasoning</think> partial answer'));
     expect(result).toMatchObject({
       status: 'streaming',
-      text: '',
+      text: 'partial answer',
       assessment: null,
       modelIdentity: null,
     });
+  });
+
+  it('withholds a reasoning block that has not closed yet', () => {
+    // Mid-arrival the closing tag may simply not have been sent, so everything
+    // from the opener onward is dropped rather than guessed at.
+    const result = publicSnapshotForDisplay(snapshot('streaming', 'Видимый ответ. <think>ещё не закрыт'));
+
+    expect(result.text).toBe('Видимый ответ.');
   });
 
   it('removes reasoning blocks and nested tool envelopes from a completed answer', () => {
