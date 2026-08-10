@@ -30,7 +30,7 @@ describe('PublicContactDock runtime', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps public pages API-isolated until the assistant is explicitly opened', async () => {
+  it('keeps public pages API-isolated until Gekta is explicitly opened', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -46,7 +46,7 @@ describe('PublicContactDock runtime', () => {
 
     render(<PublicPlatformAssistant />);
     const launcher = screen.getByRole('button', {
-      name: 'Спросить о платформе Нет доступа к данным ЛК',
+      name: 'Спросить Гекту Аграрный интеллект',
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -57,10 +57,10 @@ describe('PublicContactDock runtime', () => {
       '/api/public-platform-assistant?locale=ru',
       expect.objectContaining({ cache: 'no-store' }),
     );
-    expect(screen.getByRole('dialog', { name: 'Помощник по платформе' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Гекта' })).toBeVisible();
   });
 
-  it('delegates the public AI and support actions to their internal workflows', () => {
+  it('delegates the Gekta and support actions to their internal workflows', () => {
     const assistantClick = vi.fn();
     const supportClick = vi.fn();
     const assistant = nativeButton('pc-public-assistant-shortcut', assistantClick);
@@ -68,7 +68,7 @@ describe('PublicContactDock runtime', () => {
 
     render(<PublicContactDock />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть Гекту' }));
     fireEvent.click(screen.getByRole('button', { name: 'Открыть поддержку' }));
 
     expect(assistantClick).toHaveBeenCalledOnce();
@@ -79,7 +79,7 @@ describe('PublicContactDock runtime', () => {
       .toHaveAttribute('href', 'tel:+79162778989');
   });
 
-  it('keeps the public AI action visible and enabled at the top of a mobile homepage', () => {
+  it('keeps the Gekta action visible and enabled at the top of a mobile homepage', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
       matches: true,
       media: '(max-width: 767px)',
@@ -96,13 +96,13 @@ describe('PublicContactDock runtime', () => {
     render(<PublicContactDock />);
 
     const dock = screen.getByRole('navigation', { name: 'Связь и помощь' });
-    const assistant = screen.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' });
+    const assistant = screen.getByRole('button', { name: 'Открыть Гекту' });
     expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
     expect(assistant).toBeEnabled();
     expect(assistant).toHaveAttribute('tabindex', '0');
   });
 
-  it('delegates the private AI action and stays above the cabinet navigation', () => {
+  it('delegates the private Gekta action and stays above the cabinet navigation', () => {
     const assistantClick = vi.fn();
     nativeButton('p7-ai-trigger', assistantClick);
     nativeButton('p7-support-chat-button');
@@ -110,13 +110,13 @@ describe('PublicContactDock runtime', () => {
     render(<PublicContactDock assistantContext='private' />);
     const dock = screen.getByRole('navigation', { name: 'Связь и помощь' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть Гекту' }));
 
     expect(assistantClick).toHaveBeenCalledOnce();
     expect(dock).toHaveAttribute('data-assistant-context', 'private');
   });
 
-  it('focuses the existing full-page assistant instead of mounting a second one', async () => {
+  it('focuses the existing full-page Gekta workspace instead of mounting a second one', async () => {
     nativeButton('p7-support-chat-button');
     const workspace = document.createElement('section');
     workspace.id = 'p7-private-ai-assistant-workspace';
@@ -126,7 +126,7 @@ describe('PublicContactDock runtime', () => {
     document.body.append(workspace);
 
     render(<PublicContactDock assistantContext='workspace' />);
-    fireEvent.click(screen.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть Гекту' }));
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
     await waitFor(() => expect(document.activeElement).toBe(workspace));
