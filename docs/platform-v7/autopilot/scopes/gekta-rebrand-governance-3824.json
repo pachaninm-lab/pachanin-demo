@@ -1,8 +1,9 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "scopeId": "gekta-rebrand-governance-3824",
+  "branch": "agent/gekta-rebrand-governance-3824",
   "issue": 3824,
-  "status": "authorized",
+  "status": "active",
   "authorizedBy": "explicit-user-instruction",
   "baseline": {
     "branch": "main",
@@ -26,10 +27,10 @@
     "TAI Гекта"
   ],
   "allowedPaths": [
-    "docs/platform-v7/autopilot/scopes/gekta-rebrand-governance-3824.json",
     "docs/gekta/REBRAND_MIGRATION.md",
-    "docs/gekta/rebrand-manifest.v1.json",
     "docs/gekta/legacy-allowlist.v1.json",
+    "docs/gekta/rebrand-manifest.v1.json",
+    "docs/platform-v7/autopilot/scopes/gekta-rebrand-governance-3824.json",
     "scripts/gekta-rebrand-inventory.mjs"
   ],
   "forbiddenChanges": [
