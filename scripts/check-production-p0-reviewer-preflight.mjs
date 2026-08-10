@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 
-const path = '.github/workflows/production-p0-reviewer-preflight.yml';
-const workflow = fs.readFileSync(path, 'utf8');
+const workflowPath = '.github/workflows/production-p0-reviewer-preflight.yml';
+const migrationPath = 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql';
+const runtimeGrantsPath = 'infra/kind/production-like/postgresql-runtime-grants.sql';
+const drPath = 'scripts/platform-v7-database-dr-rehearsal.sh';
 
-const required = [
+const workflow = fs.readFileSync(workflowPath, 'utf8');
+const migration = fs.readFileSync(migrationPath, 'utf8');
+const runtimeGrants = fs.readFileSync(runtimeGrantsPath, 'utf8');
+const dr = fs.readFileSync(drPath, 'utf8');
+
+const requiredWorkflow = [
   "github.event.issue.number == 3072",
   "github.event.comment.user.login == github.repository_owner",
   "github.actor == github.repository_owner",
@@ -24,22 +31,23 @@ const required = [
   'principal.rolsuper',
   'principal.rolbypassrls',
   'principal.can_read_deals',
-  "role = 'PLATFORM_OWNER'",
-  "role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')",
-  "status IN ('ELIGIBLE', 'ACTIVE')",
+  'principal.can_read_staff_assignments',
+  "to_regprocedure('auth.staff_reviewer_preflight()')",
+  'principal.reviewer_preflight_execute',
+  'FROM auth.staff_reviewer_preflight()',
   'PRODUCTION_MUTATION=NONE',
   'rm -f -- "$key_path"',
   'rm -f -- "$known_hosts"',
 ];
-
-for (const marker of required) {
+for (const marker of requiredWorkflow) {
   if (!workflow.includes(marker)) {
     console.error(`Missing required reviewer-preflight marker: ${marker}`);
     process.exit(1);
   }
 }
 
-const forbidden = [
+const forbiddenWorkflow = [
+  /FROM\s+auth\.staff_assignments/i,
   /\bINSERT\s+INTO\b/i,
   /\bUPDATE\s+(?:auth\.|public\.)/i,
   /\bDELETE\s+FROM\b/i,
@@ -53,9 +61,44 @@ const forbidden = [
   /secrets\.PC_PROD_P0_REVIEWER_PASSWORD/,
   /secrets\.PC_PROD_P0_REVIEWER_TOTP_SECRET/,
 ];
-for (const pattern of forbidden) {
+for (const pattern of forbiddenWorkflow) {
   if (pattern.test(workflow)) {
-    console.error(`Reviewer preflight is not read-only: ${pattern}`);
+    console.error(`Reviewer preflight is not bounded/read-only: ${pattern}`);
+    process.exit(1);
+  }
+}
+
+const requiredMigration = [
+  'CREATE OR REPLACE FUNCTION auth.staff_reviewer_preflight()',
+  'SECURITY DEFINER',
+  'SET search_path = pg_catalog, auth, pg_temp',
+  'SET row_security = on',
+  "assignment.role = 'PLATFORM_OWNER'",
+  "assignment.role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF')",
+  "assignment.status IN ('ELIGIBLE', 'ACTIVE')",
+  'assignment.revoked_at IS NULL',
+  'assignment.suspended_at IS NULL',
+  'ALTER FUNCTION auth.staff_reviewer_preflight() OWNER TO pc_staff_authority',
+  'REVOKE ALL ON FUNCTION auth.staff_reviewer_preflight() FROM PUBLIC',
+  'GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO pc_staff_runtime',
+  "has_table_privilege('pc_staff_runtime', 'auth.staff_assignments', 'SELECT')",
+  "has_function_privilege(\n    'pc_staff_runtime', 'auth.staff_reviewer_preflight()', 'EXECUTE'",
+];
+for (const marker of requiredMigration) {
+  if (!migration.includes(marker)) {
+    console.error(`Missing bounded reviewer authority marker: ${marker}`);
+    process.exit(1);
+  }
+}
+
+if (/GRANT\s+SELECT[^;]*auth\.staff_assignments[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(migration)) {
+  console.error('Migration must not grant direct staff_assignments SELECT to a staff runtime.');
+  process.exit(1);
+}
+
+for (const [label, text] of [['production-like runtime grants', runtimeGrants], ['DR recovery', dr]]) {
+  if (!text.includes('auth.staff_reviewer_preflight()')) {
+    console.error(`${label} must preserve reviewer-preflight function authority.`);
     process.exit(1);
   }
 }
@@ -69,4 +112,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: production P0 reviewer preflight is owner-only, exact-main, pinned-SSH and read-only.');
+console.log('PASS: production P0 reviewer preflight is owner-only, exact-main and function-only under pc_staff_runtime.');
