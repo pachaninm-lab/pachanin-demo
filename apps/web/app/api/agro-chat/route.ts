@@ -100,6 +100,17 @@ const CURRENT_EVIDENCE_PATTERNS = [
   /(?:今天|当前|最新|新闻|天气|汇率|关税|统计)/u,
 ] as const;
 
+// A correction is an authority boundary for raw chat history. The derived
+// ConversationState already applies "newest explicit statement wins"; sending
+// contradictory turns from before the correction alongside that state gives a
+// small local model two competing subjects and can make stale history win again.
+const CORRECTION_HISTORY_PATTERNS = [
+  /(?:^|\s)нет[,;.\s]/iu,
+  /(?:не\s+\w+,?\s*а\s)|(?:речь\s+(?:идёт|идет|про|о))|(?:я\s+имел\s+в\s+виду)|(?:на\s+самом\s+деле)|(?:ошиб(?:ся|лась|лись))/iu,
+  /(?:^|\s)no[,;.\s]|(?:i\s+meant)|(?:actually)|(?:rather\s+than)|(?:not\s+\w+\s+but)|(?:i\s+was\s+wrong)/iu,
+  /(?:不是)|(?:我是说)|(?:其实)|(?:应该是)|(?:我错了)/u,
+] as const;
+
 export async function GET(request: NextRequest) {
   return knowledgeGet(request);
 }
@@ -270,7 +281,10 @@ function streamModelFirstAnswer(
           locale,
           answerMode,
           currentDataRequired,
-          history: envelope.history,
+          // Raw turns before the newest explicit correction are retired from the
+          // model prompt. They remain available to state replay above, where the
+          // newest statement deterministically overwrites stale subject facts.
+          history: historyAfterLatestCorrection(envelope.history),
           // Public contour: no deal, tenant, organization or role context is
           // ever derived into this state, so none can travel with it.
           conversationState: renderStateForPrompt(conversationState),
@@ -582,6 +596,16 @@ function normalizeHistory(value: unknown): readonly HistoryTurn[] {
     total += text.length;
   }
   return Object.freeze(turns);
+}
+
+function historyAfterLatestCorrection(history: readonly HistoryTurn[]): readonly HistoryTurn[] {
+  let correctionIndex = -1;
+  for (let index = 0; index < history.length; index += 1) {
+    const turn = history[index];
+    if (turn.role !== 'user') continue;
+    if (CORRECTION_HISTORY_PATTERNS.some((pattern) => pattern.test(turn.text))) correctionIndex = index;
+  }
+  return correctionIndex >= 0 ? Object.freeze(history.slice(correctionIndex)) : history;
 }
 
 function requiresCurrentEvidence(question: string): boolean {
