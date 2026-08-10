@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/production-p0-reviewer-preflight-authority-3770",
   "status": "active",
-  "purpose": "Repair the production P0 reviewer preflight without widening pc_staff_runtime: expose only aggregate reviewer counts through a fixed SECURITY DEFINER function owned by pc_staff_authority and preserve the no-direct-table-privilege boundary.",
+  "purpose": "Repair the production P0 reviewer preflight without widening pc_staff_runtime: expose only aggregate reviewer counts through a fixed SECURITY DEFINER function owned by pc_staff_authority, preserve the no-direct-table-privilege boundary, and keep the acceptance helper out of product-runtime startup dependencies.",
   "approvedBy": "owner-direct-registration-production-finish-2026-08-10",
   "authorityBaseExactMain": "e762512bb21f2d2183344cccef2775f77b5ef1fd",
   "productionHosting": "REG_RU_VPS_ONLY",
@@ -10,7 +10,6 @@
   "allowedPaths": [
     ".github/workflows/production-p0-reviewer-preflight.yml",
     "apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql",
-    "apps/api/src/modules/staff-access/staff-authority-prisma.service.ts",
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-preflight-authority-3770.json",
     "infra/kind/production-like/postgresql-runtime-grants.sql",
     "scripts/check-production-p0-reviewer-preflight.mjs"
@@ -21,22 +20,23 @@
     "the aggregate function is SECURITY DEFINER, owned by pc_staff_authority, revoked from PUBLIC and executable only by dedicated staff runtime aliases",
     "non-staff auth, deal, storage and outbox runtimes are explicitly denied the aggregate function",
     "production reviewer preflight uses only the aggregate function and proves it cannot directly SELECT auth.staff_assignments",
-    "strict API startup requires EXECUTE on the aggregate function while still rejecting every direct runtime table privilege",
     "production-like app_staff retains zero direct table/sequence privileges and receives only the new function EXECUTE alongside the existing bounded staff surface",
+    "the acceptance-only helper is not required for API startup or ordinary customer/staff product availability",
     "the exact-main forward migration fails closed if the staff authority/runtime boundary is not already confined"
   ],
   "forbiddenCapabilities": [
     "GRANT SELECT on auth.staff_assignments to pc_staff_runtime, app_staff or one_deal_staff",
     "BYPASSRLS, SUPERUSER, role membership or table ownership for a staff runtime",
     "returning reviewer identifiers, emails, credentials, TOTP secrets, sessions or customer data from preflight",
+    "making production API startup depend on the reviewer-preflight helper",
     "creating, elevating or mutating PLATFORM_OWNER or any staff identity",
     "direct ad-hoc production SQL outside the exact-main migration/release authority",
     "new paid provider, SaaS subscription or recurring cost"
   ],
   "acceptanceEvidence": [
-    "static checker proves function-only workflow, migration, strict principal assertion and production-like grant contract",
+    "static checker proves function-only workflow, aggregate-only migration and production-like grant contract",
     "CI PostgreSQL authority applies the migration without direct table grants",
-    "strict API startup and runtime-context gates remain PASS",
+    "existing strict API/runtime principal boundary remains unchanged",
     "exact-head CI is terminal PASS",
     "after merge, exact-main REG.RU migration/deployment is PASS and API/Web revisions equal current main",
     "owner-only production reviewer preflight publishes aggregate counts with production mutation NONE"
