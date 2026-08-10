@@ -12,7 +12,7 @@ type LensCopy = {
 
 const COPY = {
   ru: {
-    title: 'TAI · Сводка для покупателя',
+    title: 'Гекта · Сводка для покупателя',
     demo: 'Публичный пример',
     attention: 'Требует внимания',
     labels: { impact: 'Влияние', risk: 'Под риском', action: 'Следующее действие', evidence: 'Основания и актуальность' },
@@ -31,7 +31,7 @@ const COPY = {
     safety: 'Ничего не отправлено и не изменено без подтверждения пользователя.',
   },
   en: {
-    title: 'TAI · Buyer summary',
+    title: 'Gekta · Buyer summary',
     demo: 'Public example',
     attention: 'Needs attention',
     labels: { impact: 'Impact', risk: 'At risk', action: 'Next action', evidence: 'Grounds and freshness' },
@@ -50,7 +50,7 @@ const COPY = {
     safety: 'Nothing was sent or changed without user confirmation.',
   },
   zh: {
-    title: 'TAI · 买方摘要',
+    title: 'Gekta · 买方摘要',
     demo: '公开示例',
     attention: '需要处理',
     labels: { impact: '影响', risk: '风险', action: '下一步', evidence: '依据与时效' },
