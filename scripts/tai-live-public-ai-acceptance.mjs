@@ -338,9 +338,17 @@ async function verifyTopicShift(dialog) {
  * a populated history would still leak the old subject into the model.
  */
 async function verifyNewConversation(page, dialog) {
+  // Two exchanges, not one: the panel only asks for confirmation once the
+  // conversation is longer than a single turn, so a shorter setup would skip
+  // the dialog a reader actually meets.
   await askInPanel(dialog, 'Почему желтеют листья у огурцов в теплице?');
+  await askInPanel(dialog, 'А если полив нормальный?');
 
-  page.once('dialog', confirmation => confirmation.accept().catch(() => undefined));
+  let confirmed = false;
+  page.once('dialog', confirmation => {
+    confirmed = true;
+    confirmation.accept().catch(() => undefined);
+  });
   await dialog.getByRole('button', { name: UI.newChat }).click();
 
   await page.waitForFunction(
@@ -367,7 +375,7 @@ async function verifyNewConversation(page, dialog) {
   if (JSON.stringify(body).includes('огурц')) throw new Error('ui_new_conversation_subject_inherited');
 
   await dialog.locator(ANSWERED).first().waitFor({ state: 'visible', timeout: 240_000 });
-  return { historyLength: history.length, inheritedSubject: false, status: 'PASS' };
+  return { historyLength: history.length, inheritedSubject: false, confirmationAccepted: confirmed, status: 'PASS' };
 }
 
 /** F. Stop ends generation promptly and leaves the panel usable. */

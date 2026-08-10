@@ -78,6 +78,11 @@ describe('conversation state is exercised across languages and turns', () => {
     expect(acceptance).toContain('ui_new_conversation_history_inherited');
     expect(acceptance).toContain('ui_new_conversation_subject_inherited');
     expect(acceptance).toContain('ui_new_conversation_not_empty');
+    // The confirmation only appears past a single turn, so the setup must be
+    // long enough to meet the dialog a reader actually sees.
+    expect(acceptance).toContain("await askInPanel(dialog, 'А если полив нормальный?')");
+    expect(acceptance).toContain("page.once('dialog'");
+    expect(acceptance).toContain('confirmationAccepted: confirmed');
   });
 
   it('drives each localized panel with its own control labels', () => {
