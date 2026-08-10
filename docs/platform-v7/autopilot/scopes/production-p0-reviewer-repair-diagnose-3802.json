@@ -1,4 +1,8 @@
 {
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-repair-rollback-diagnostic-3802-v2",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_BOUNDED",
   "issue": 3802,
   "title": "Production P0 reviewer repair rollback-only diagnostic",
   "allowedPaths": [
@@ -15,5 +19,15 @@
     "securityWeakening": false,
     "arbitrarySqlSurface": false,
     "newRecurringCostRub": 0
-  }
+  },
+  "acceptance": [
+    "the command is owner-only and exact-current-main bound on issue 3072",
+    "the live API and Web revisions remain the exact deployed reviewer repair revision",
+    "the existing no-argument repair function is called only inside a SERIALIZABLE transaction that always rolls back",
+    "only sanitized error-class metadata and aggregate reviewer readiness are published",
+    "reviewer readiness is identical before and after the forced rollback",
+    "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface or recurring cost",
+    "every exact-head required focused, repository, security and release check is terminal PASS"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
 }
