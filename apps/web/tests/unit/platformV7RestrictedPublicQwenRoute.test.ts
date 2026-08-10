@@ -37,21 +37,40 @@ function parseFrames(text: string) {
     });
 }
 
+/**
+ * The internal runtime answers with a stream of contract frames now, not a
+ * finished JSON answer, so the double is a stream too. A buffered double would
+ * keep passing while the relay it is standing in for had regressed to waiting
+ * for a whole answer.
+ */
 function modelResponse(answer: string, extra: Record<string, unknown> = {}) {
-  return new Response(JSON.stringify({
-    answer,
-    provider: 'openai-compatible',
-    modelIdentity: 'tai-qwen3-8b-q4km',
-    latencyMs: 850,
-    promptTokens: 200,
-    completionTokens: 24,
-    operationalStatus: 'NOT_ATTESTED',
-    mode: 'read_only',
-    finishReason: 'stop',
-    truncated: false,
-    safetyFlags: [],
-    ...extra,
-  }), { status: 200, headers: { 'content-type': 'application/json' } });
+  const streamId = 'stream-internal01';
+  const encoder = new TextEncoder();
+  const frame = (body: Record<string, unknown>) => `event: ${body.event}\ndata: ${JSON.stringify(body)}\n\n`;
+  // Split into sentences so the double delivers the answer over several frames,
+  // the way the gate releases it block by block.
+  const blocks = answer.split(/(?<=[.!?。！？])\s+/u).filter(Boolean);
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(frame({
+        event: 'meta', mode: 'public', streamId, modelIdentity: 'tai-qwen3-8b-q4km',
+      })));
+      for (const block of blocks.length > 0 ? blocks : [answer]) {
+        controller.enqueue(encoder.encode(frame({ event: 'token', streamId, text: block })));
+      }
+      controller.enqueue(encoder.encode(frame({
+        event: 'assessment',
+        streamId,
+        summary: JSON.stringify({ finishReason: 'stop', truncated: false, safetyFlags: [], ...extra }),
+        operationalStatus: 'NOT_ATTESTED',
+      })));
+      controller.enqueue(encoder.encode(frame({ event: 'done', streamId, complete: true })));
+      controller.close();
+    },
+  });
+
+  return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
 }
 
 async function loadRoute() {
@@ -188,9 +207,18 @@ describe('restricted public Qwen route', () => {
     const frames = parseFrames(await (await POST(request('Привет'))).text());
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(frames.map((frame) => frame.event)).toEqual(['meta', 'token', 'assessment', 'done']);
-    expect(frames.some((frame) => frame.event === 'citation')).toBe(false);
-    expect(JSON.parse(String(frames[2].summary))).toMatchObject({ answerMode: 'general_agro' });
+    // A relayed answer arrives in as many token frames as the model produced
+    // blocks, so the shape is asserted rather than a fixed frame count.
+    const events = frames.map((frame) => frame.event);
+    expect(events[0]).toBe('meta');
+    expect(events.slice(-2)).toEqual(['assessment', 'done']);
+    expect(events.filter((event) => event === 'token').length).toBeGreaterThanOrEqual(1);
+    expect(events.some((event) => event === 'citation')).toBe(false);
+
+    const assessment = frames.find((frame) => frame.event === 'assessment');
+    expect(JSON.parse(String(assessment?.summary))).toMatchObject({ answerMode: 'general_agro' });
+    expect(frames.filter((frame) => frame.event === 'token').map((frame) => String(frame.text)).join(''))
+      .toContain('Я помогу с сельским хозяйством');
     for (const frame of frames) expect(validateFrame(frame, 'public').ok).toBe(true);
   });
 
