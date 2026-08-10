@@ -44,7 +44,7 @@ requireMarkers('reviewed rollback runner', runner, [
   'Prisma.TransactionIsolationLevel.Serializable',
   'FROM auth.repair_single_reviewer_membership()',
   'P0_REVIEWER_ROLLBACK_ONLY',
-  'before.join(\'|\') !== after.join(\'|\')',
+  "before.join('|') !== after.join('|')",
   'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
 ]);
 
@@ -57,8 +57,8 @@ requireMarkers('reason wrapper', wrapper, [
   "['reviewer has a conflicting pre-existing membership state', 'CONFLICTING_EXISTING_MEMBERSHIP']",
   "['reviewer membership repair postcondition failed', 'POSTCONDITION']",
   "reasonCode = 'DATABASE_CHECK_CONSTRAINT'",
-  "diagnostic.reasonCode",
-  'reason code: \\`$reason_code\\`',
+  'diagnostic.reasonCode',
+  "reason code: \\`$reason_code\\`",
   'if count != 1:',
   'text.replace(old, new, 1)',
   'bash -n "$PATCHED"',
@@ -111,7 +111,7 @@ try {
     'diagnostic.reasonCode',
     'meta_keys reason_code',
     '"$reason_code"; do',
-    'reason code: \\`$reason_code\\`',
+    "reason code: \\`$reason_code\\`",
     'PRODUCTION_MUTATION=ROLLBACK_ONLY_NONE_DURABLE',
   ]);
 
