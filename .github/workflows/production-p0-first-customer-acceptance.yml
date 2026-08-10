@@ -246,6 +246,11 @@ jobs:
         run: |
           set -euo pipefail
           test -f "$EVIDENCE_DIR/result.json"
+          if ! command -v rg >/dev/null 2>&1; then
+            rg() {
+              grep -PR --binary-files=text "$@"
+            }
+          fi
           set +e
           rg --quiet --ignore-case \
             'verify=|statusToken|setupSecret|mfaSecret|totpSecret|backupCodes|otpAuthUri|otpauth://|postgres(?:ql)?://|DATABASE_URL=|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|staffAccessToken|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|"password"[[:space:]]*:' \
