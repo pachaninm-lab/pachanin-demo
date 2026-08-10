@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-trust-center-3824",
+  "branch": "agent/gekta-trust-center-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "3c983b3100fd605bd8621da081044b2f1161e96a"
+  },
+  "purpose": "Replace the retired TAI public identity with Gekta in the canonical and platform-v7 Trust Center pages without changing security, authority or integration claims.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/trust/page.tsx",
+    "apps/web/app/trust/page.tsx",
+    "apps/web/tests/unit/gektaTrustCenterBrand.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-trust-center-3824.json"
+  ],
+  "canonical": {
+    "ru": "Гекта",
+    "latin": "Gekta",
+    "descriptorRu": "Аграрный интеллект для земли, урожая и решений"
+  },
+  "preservedBoundaries": [
+    "critical actions remain human-authorized",
+    "public pages expose no private workspace data",
+    "Gekta cannot change a Deal, move money or confirm critical actions independently",
+    "external integrations remain unconfirmed without production evidence"
+  ],
+  "forbiddenChanges": [
+    "apps/landing/**",
+    "runtime or API behavior",
+    "role, tenant or database authority",
+    "production workflow or credentials",
+    "certification, SLA or external-connectivity claims",
+    "REG.RU deployment claim"
+  ],
+  "requiredChecks": [
+    "node or web unit test for Gekta Trust Center brand contract",
+    "platform-v7 autopilot guard",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Public Trust Center copy only. No security maturity, certification, external integration or production status changes."
+}
