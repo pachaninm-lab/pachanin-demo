@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Exact-head CI retrigger after the governed one-shot commit.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -49,7 +50,7 @@ requireMarkers('reviewed rollback runner', runner, [
 ]);
 
 requireMarkers('reason wrapper', wrapper, [
-  "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
+  "DIAGNOSTIC_BASE_SHA='b81ee2e51f9fbf5ec66603211c3f32224532e782'",
   "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
   "['reviewer membership repair structural precondition failed', 'STRUCTURAL_PRECONDITION']",
   "['unique active PLATFORM_OWNER identity is required', 'OWNER_IDENTITY']",
@@ -103,7 +104,7 @@ try {
   }
 
   requireMarkers('patched diagnostic', patched, [
-    "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
+    "DIAGNOSTIC_BASE_SHA='b81ee2e51f9fbf5ec66603211c3f32224532e782'",
     "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
     "reasonCode: 'NONE'",
     "let reasonCode = 'UNCLASSIFIED'",
@@ -177,6 +178,7 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.issue !== 3802
     || !Array.isArray(scope.acceptance)
     || scope.acceptance.length < 8
+    || scope.diagnosticBaseRevision !== 'b81ee2e51f9fbf5ec66603211c3f32224532e782'
     || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
     || scope.boundaries?.productionMutation !== 'ROLLBACK_ONLY_NONE_DURABLE'
     || scope.boundaries?.piiOutput !== false

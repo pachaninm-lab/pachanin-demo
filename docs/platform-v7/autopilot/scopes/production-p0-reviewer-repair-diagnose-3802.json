@@ -31,5 +31,6 @@
     "the diagnostic introduces no durable production mutation, PII, credential output, arbitrary SQL surface or recurring cost",
     "every exact-head required focused, repository and security check is terminal PASS"
   ],
-  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "diagnosticBaseRevision": "b81ee2e51f9fbf5ec66603211c3f32224532e782"
 }
