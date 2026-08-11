@@ -78,10 +78,11 @@ describe('internal stream signing', () => {
     expect(other.signature).not.toBe(signed.signature);
   });
 
-  it('adds a bounded complete-answer instruction only to general-agro model questions', () => {
+  it('adds a typed completion profile without mutating the user question or state', () => {
+    const question = 'Как интерпретировать коэффициент кущения?';
     const general = applyGeneralAgroResponseBudget({
-      question: 'Как интерпретировать коэффициент кущения?',
-      originalQuestion: 'Как интерпретировать коэффициент кущения?',
+      question,
+      originalQuestion: question,
       locale: 'ru',
       answerMode: 'general_agro',
       conversationState: 'topic: crop:wheat',
@@ -93,22 +94,42 @@ describe('internal stream signing', () => {
       answerMode: 'verified_platform',
     };
 
-    expect(general.question).toContain('Как интерпретировать коэффициент кущения?');
-    expect(general.question).toContain('не более 180 слов');
-    expect(general.question).toContain('не более 260 слов');
-    expect(general.originalQuestion).toBe('Как интерпретировать коэффициент кущения?');
+    expect(general.question).toBe(question);
+    expect(general.originalQuestion).toBe(question);
     expect(general.conversationState).toBe('topic: crop:wheat');
+    expect(general.responseBudget).toEqual({ profile: 'concise' });
     expect(applyGeneralAgroResponseBudget(verified)).toBe(verified);
   });
 
-  it('uses locale-specific bounded answer instructions', () => {
-    const en = applyGeneralAgroResponseBudget({ question: 'How should I store grain?', locale: 'en', answerMode: 'general_agro' }) as Record<string, unknown>;
-    const zh = applyGeneralAgroResponseBudget({ question: '粮食收获后怎么储存？', locale: 'zh', answerMode: 'general_agro' }) as Record<string, unknown>;
+  it('selects a detailed profile in RU, EN and ZH without appending prompt text', () => {
+    for (const [question, locale] of [
+      ['Объясни подробно, как хранить зерно после уборки', 'ru'],
+      ['Explain grain storage in detail', 'en'],
+      ['请详细说明粮食收获后如何储存', 'zh'],
+    ] as const) {
+      const budgeted = applyGeneralAgroResponseBudget({
+        question,
+        originalQuestion: question,
+        locale,
+        answerMode: 'general_agro',
+      }) as Record<string, unknown>;
+      expect(budgeted.question).toBe(question);
+      expect(budgeted.responseBudget).toEqual({ profile: 'detailed' });
+    }
+  });
 
-    expect(en.question).toContain('at most 180 words');
-    expect(en.question).toContain('at most 260 words');
-    expect(zh.question).toContain('300 个汉字');
-    expect(zh.question).toContain('450 个汉字');
+  it('preserves a valid 1200-character question exactly', () => {
+    const question = 'п'.repeat(1_200);
+    const budgeted = applyGeneralAgroResponseBudget({
+      question,
+      originalQuestion: question,
+      locale: 'ru',
+      answerMode: 'general_agro',
+    }) as Record<string, unknown>;
+
+    expect(budgeted.question).toBe(question);
+    expect((budgeted.question as string)).toHaveLength(1_200);
+    expect(budgeted.responseBudget).toEqual({ profile: 'concise' });
   });
 });
 
