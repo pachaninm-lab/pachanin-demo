@@ -1,0 +1,256 @@
+name: Gekta P0 SPEED G3B Candidate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3b-candidate.yml'
+      - 'scripts/gekta-qwen-g3b-runtime.py'
+      - 'scripts/gekta-qwen-g3b-bootstrap.sh'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-bootstrap-3896.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-g3b-candidate
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove helper transform and installer syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/gekta-qwen-g3b-runtime.py self-test | grep -qx 'GEKTA_G3B_SELF_TEST=PASS'
+          bash -n scripts/gekta-qwen-g3b-bootstrap.sh
+
+      - name: Prove bounded privilege and transport contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const workflow = fs.readFileSync('.github/workflows/gekta-p0-speed-g3b-candidate.yml', 'utf8');
+          const bootstrap = fs.readFileSync('scripts/gekta-qwen-g3b-bootstrap.sh', 'utf8');
+          const runtime = fs.readFileSync('scripts/gekta-qwen-g3b-runtime.py', 'utf8');
+
+          for (const credential of ['PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY', 'TAI_MODEL_ROOT_SSH_KEY']) {
+            if (workflow.includes(`secrets.${credential}`)) throw new Error(`forbidden credential authority: ${credential}`);
+          }
+          for (const required of [
+            'secrets.TAI_MODEL_SSH_KEY',
+            'secrets.TAI_MODEL_SSH_HOST_KEY',
+            'does not match the pinned TAI_MODEL_SSH_HOST_KEY',
+            'StrictHostKeyChecking=yes',
+          ]) {
+            if (!workflow.includes(required)) throw new Error(`missing protected transport control: ${required}`);
+          }
+          const sudoersLine = 'Cmnd_Alias GEKTA_QWEN_G3B = /usr/local/sbin/gekta-qwen-g3b threads16, /usr/local/sbin/gekta-qwen-g3b rollback, /usr/local/sbin/gekta-qwen-g3b status';
+          if (!bootstrap.includes(sudoersLine)) throw new Error('exact three-command sudoers allowlist missing');
+          for (const forbidden of [
+            'NOPASSWD' + ': ALL',
+            'ALL=' + '(ALL)',
+            'SETENV' + ':',
+            'sudo' + ' -s',
+            'sudo' + ' bash',
+            'sudo' + ' sh',
+          ]) {
+            if (bootstrap.includes(forbidden)) throw new Error(`broad privilege token: ${forbidden}`);
+          }
+          for (const required of [
+            'BASELINE_EXPECTED',
+            '"threads": b"8"',
+            '"threads_batch": b"8"',
+            '"parallel": b"1"',
+            '"ctx_size": b"8192"',
+            '_replace_flag(argv, "threads", b"8", b"16")',
+            '_replace_flag(candidate, "threads_batch", b"8", b"16")',
+            'candidate_unrelated_argv_changed',
+            'GEKTA_G3B_AUTO_ROLLBACK',
+          ]) {
+            if (!runtime.includes(required)) throw new Error(`missing fail-closed runtime invariant: ${required}`);
+          }
+          NODE
+          GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-bootstrap-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+
+  candidate:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (
+        github.event.comment.body == '/gekta speed-g3b threads16 current-main' ||
+        github.event.comment.body == '/gekta speed-g3b rollback current-main' ||
+        github.event.comment.body == '/gekta speed-g3b status current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact main and fixed action
+        id: target
+        shell: bash
+        env:
+          COMMAND: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$sha" == "$(git rev-parse HEAD)" ]]
+          case "$COMMAND" in
+            '/gekta speed-g3b threads16 current-main') action=threads16 ;;
+            '/gekta speed-g3b rollback current-main') action=rollback ;;
+            '/gekta speed-g3b status current-main') action=status ;;
+            *) echo 'unreachable command' >&2; exit 20 ;;
+          esac
+          helper_sha="$(sha256sum scripts/gekta-qwen-g3b-runtime.py | awk '{print $1}')"
+          [[ "$helper_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "helper_sha=$helper_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$(trim "${MODEL_KEY_SECRET:-}")"
+          [[ -n "$key" ]] || { echo 'TAI_MODEL_SSH_KEY is required.' >&2; exit 21; }
+          write_key "$key" "$HOME/.ssh/id_tai_model"
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          [[ -n "$pin" ]] || { echo 'TAI_MODEL_SSH_HOST_KEY is required.' >&2; exit 22; }
+          pin_type="$(printf '%s' "$pin" | awk '{ print $(NF-1) }')"
+          pin_material="$(printf '%s' "$pin" | awk '{ print $NF }')"
+          [[ -n "$pin_type" && -n "$pin_material" ]] || exit 22
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          if ! printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned { matched = 1 } END { exit matched ? 0 : 1 }'; then
+            echo 'model host key does not match the pinned TAI_MODEL_SSH_HOST_KEY' >&2
+            exit 22
+          fi
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Verify installed helper and execute exact command
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          EXPECTED_HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_base=(
+            ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT"
+            -o BatchMode=yes -o IdentitiesOnly=yes
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts"
+            -o StrictHostKeyChecking=yes
+            "$MODEL_USER@$MODEL_HOST"
+          )
+          remote_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3b 2>/dev/null' | awk '{print $1}' || true)"
+          if [[ ! "$remote_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo 'GEKTA_G3B_ERROR=bootstrap_required' > "$RUNNER_TEMP/g3b-result"
+            cat "$RUNNER_TEMP/g3b-result"
+            exit 30
+          fi
+          if [[ "$remote_sha" != "$EXPECTED_HELPER_SHA" ]]; then
+            echo 'GEKTA_G3B_ERROR=bootstrap_helper_sha_mismatch' > "$RUNNER_TEMP/g3b-result"
+            cat "$RUNNER_TEMP/g3b-result"
+            exit 31
+          fi
+          case "$ACTION" in
+            threads16|rollback|status) ;;
+            *) echo 'unreachable action' >&2; exit 32 ;;
+          esac
+          set +e
+          "${ssh_base[@]}" "sudo -n /usr/local/sbin/gekta-qwen-g3b $ACTION" > "$RUNNER_TEMP/g3b-raw" 2>&1
+          rc=$?
+          set -e
+          grep -E '^GEKTA_G3B_[A-Z0-9_]+=([A-Z0-9_.:-]+|[0-9]+)$' "$RUNNER_TEMP/g3b-raw" > "$RUNNER_TEMP/g3b-result" || true
+          if [[ ! -s "$RUNNER_TEMP/g3b-result" ]]; then
+            echo 'GEKTA_G3B_ERROR=bounded_evidence_missing' > "$RUNNER_TEMP/g3b-result"
+          fi
+          cat "$RUNNER_TEMP/g3b-result"
+          exit "$rc"
+
+      - name: Publish bounded G3B evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo '## Gekta P0 SPEED G3B candidate controller'
+            echo
+            echo "- exact repository main: \`$TARGET_SHA\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo "- action: \`$ACTION\`"
+            echo '- transport: `DEDICATED_MODEL_SSH_PINNED_HOST`'
+            echo '- root SSH credential in GitHub: `NONE`'
+            echo
+            echo '```text'
+            if [[ -s "$RUNNER_TEMP/g3b-result" ]]; then cat "$RUNNER_TEMP/g3b-result"; else echo 'GEKTA_G3B_ERROR=execution_not_reached'; fi
+            echo '```'
+          } > "$body"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"
