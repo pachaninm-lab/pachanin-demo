@@ -9,7 +9,7 @@
     "branch": "main",
     "commit": "44f2d4f7e79bdad192958e72a50a884891a3e51e"
   },
-  "purpose": "Publish Gekta as an independent top-level public AI product at /gekta with its own ChatGPT-like shell, product positioning, RU/EN/ZH copy, anonymous public route authority, SEO authority and session UX while reusing the existing governed public agro-chat streaming boundary and keeping platform workspaces, Deals, tenant authority and registration P0 out of this surface.",
+  "purpose": "Publish Gekta as an independent top-level public AI product at /gekta with its own ChatGPT-like shell, product positioning, RU/EN/ZH copy, anonymous public route authority, SEO authority, exact live release acceptance and session UX while reusing the existing governed public agro-chat streaming boundary and keeping platform workspaces, Deals, tenant authority and registration P0 out of this surface.",
   "allowedPaths": [
     "apps/web/app/gekta/page.tsx",
     "apps/web/components/gekta/GektaChatApp.tsx",
@@ -17,6 +17,7 @@
     "apps/web/lib/platform-v7/public-seo-routes.json",
     "apps/web/middleware.ts",
     "apps/web/tests/unit/gektaStandaloneExperience.test.ts",
+    "scripts/production-web-live-acceptance.sh",
     "docs/platform-v7/autopilot/scopes/gekta-standalone-experience-3824.json"
   ],
   "productBoundary": {
@@ -35,12 +36,23 @@
     "indexableRegistry": "/gekta",
     "privateMode": "unchanged"
   },
+  "liveAcceptance": {
+    "protectedController": "Production Web Exact-SHA Release",
+    "routes": [
+      "/gekta?lang=ru",
+      "/gekta?lang=en",
+      "/gekta?lang=zh"
+    ],
+    "requiresSitemap": true,
+    "requiresIndexableHeaders": true,
+    "failureBoundary": "existing exact-revision rollback"
+  },
   "forbiddenChanges": [
     "PC-CROP registration, reviewer, MFA or password-reset runtime",
     "Deal, role, tenant, RBAC, RLS or PostgreSQL authority",
     "model runtime, system prompt, inference routing or Qwen deployment",
     "agro-chat handler behavior, payload contract or private AI endpoints",
-    "REG.RU deployment workflow, credentials or protected release authority",
+    "production mutation logic, credentials or protected release authority",
     "paid external AI, vector database or new server",
     "claims that unaccepted future Gekta capabilities are already live"
   ],
@@ -51,6 +63,7 @@
     "web build",
     "public AI stream contract tests",
     "middleware public-route authority tests",
+    "production web live-acceptance contract",
     "mobile 320/390/430 no-horizontal-overflow and >=44px controls",
     "git diff --check"
   ],
