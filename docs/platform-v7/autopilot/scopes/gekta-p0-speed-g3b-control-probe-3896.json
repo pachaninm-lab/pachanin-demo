@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-p0-speed-g3b-control-probe-3896",
+  "status": "active",
+  "purpose": "Read-only proof of the existing tai-qwen3-8b systemd control boundary required to choose a safe G3B mutation path after the capacity diagnostic proved 16 physical cores, threads=8 and parallel=1.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
+  "authorityBaseExactMain": "2c2e1c2a043d380a5798dd12a9e31b938a6a57ed",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-control-probe-3896.json",
+    ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+  ],
+  "requiredBehavior": [
+    "owner-only issue command on #3896",
+    "dedicated TAI model SSH key and pinned model-host identity only",
+    "read-only inspection of systemd unit source and noninteractive authorization state",
+    "publish only booleans counts hashes or bounded enums; never publish paths commands environment values credentials prompts responses model bytes or customer data",
+    "fail closed on any ambiguity"
+  ],
+  "forbiddenCapabilities": [
+    "production VPS credentials as model-host authority",
+    "trust-on-first-use host identity",
+    "sudo su doas root shell or privilege escalation",
+    "systemctl restart start stop enable disable daemon-reload set-property edit or write",
+    "kill pkill signal process replacement or alternate model process",
+    "filesystem mutation on model host",
+    "database REG.RU application or production model mutation",
+    "new server paid API SaaS or recurring cost"
+  ]
+}
