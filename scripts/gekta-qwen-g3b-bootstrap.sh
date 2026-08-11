@@ -36,6 +36,16 @@ service_user="$($SYSTEMCTL show "$SERVICE" --property=User --value)"
 [[ "$service_user" != root ]] || fail service_user_must_not_be_root
 id "$service_user" >/dev/null 2>&1 || fail service_user_missing
 
+# Directly replacing ExecStart for a transient candidate is only safe when the
+# service does not rely on sd_notify semantics. The root-owned unit cannot be
+# changed by the model user, so proving this at bootstrap establishes the
+# control boundary for the helper.
+service_type="$($SYSTEMCTL show "$SERVICE" --property=Type --value)"
+case "$service_type" in
+  simple|exec) ;;
+  *) fail unsupported_service_type ;;
+esac
+
 # Prove the exact helper source before giving it any privileged execution path.
 "$PYTHON3" "$HELPER_SOURCE" self-test >/tmp/gekta-g3b-self-test.$$ 2>&1 || {
   cat /tmp/gekta-g3b-self-test.$$ >&2 || true
