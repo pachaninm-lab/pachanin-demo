@@ -25,13 +25,13 @@
     },
     "en": {
       "title": "Gekta",
-      "subtitle": "Agricultural intelligence for land, harvests, and decisions.",
-      "composer": "Ask Gekta about land, harvests, or agribusiness"
+      "subtitle": "Agricultural intelligence for land, crops and decisions.",
+      "composer": "Ask Gekta about land, crops or agribusiness"
     },
     "zh": {
       "title": "Gekta",
-      "subtitle": "面向土地、收成与决策的农业智能。",
-      "composer": "向 Gekta 咨询土地、收成或农业经营"
+      "subtitle": "服务于土地、作物与决策的农业智能。",
+      "composer": "向 Gekta 咨询土地、作物或农业经营"
     }
   },
   "requiredInvariants": [
