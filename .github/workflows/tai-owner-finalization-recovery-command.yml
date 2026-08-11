@@ -236,12 +236,13 @@ jobs:
           set -Eeuo pipefail
           umask 077
           export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
-          target="$1" current="$2" controller_run="$3" activation_run="$4" recovery_run="$5" output="$6"
-          activation_job_id="$7" hosted_job_id="$8" artifact_id="$9" artifact_digest="${10}"
+          target="$1" current="$2" controller_run="$3" activation_run="$4" recovery_run="$5" recovery_attempt="$6" output="$7"
+          activation_job_id="$8" hosted_job_id="$9" artifact_id="${10}" artifact_digest="${11}"
           [[ "$(id -u)" -eq 0 ]]
           [[ "$target" =~ ^[0-9a-f]{40}$ && "$current" =~ ^[0-9a-f]{40}$ ]]
           [[ "$controller_run" == 314812670581 && "$activation_run" == 31481267058 ]]
           [[ "$recovery_run" =~ ^[0-9]{2,20}$ ]]
+          [[ "$recovery_attempt" =~ ^[1-9][0-9]*$ ]]
           [[ "$activation_job_id" == 93746825204 && "$hosted_job_id" == 93747517497 ]]
           [[ "$artifact_id" == 9098297919 && "$artifact_digest" == sha256:1777d4300744555ae3ffc2abd614a34b0830d974b851c0e169917b4b723044ee ]]
           state_root=/var/lib/pc-release-authority
@@ -314,10 +315,10 @@ jobs:
           original_path="$original_output/finalization.json"
           canonical_recovery="$original_output/finalization-recovery.json"
           marker_path="$qwen_state/FINAL_ACCEPTED"
-          resume_state="$(python3 - "$finalization_path" "$original_path" "$canonical_recovery" "$marker_path" "$target" "$current" "$controller_run" "$activation_run" "$recovery_run" "$installed_controller_sha" "$activation_job_id" "$hosted_job_id" "$artifact_id" "$artifact_digest" <<'PY'
+          resume_state="$(python3 - "$finalization_path" "$original_path" "$canonical_recovery" "$marker_path" "$target" "$current" "$controller_run" "$activation_run" "$recovery_run" "$recovery_attempt" "$installed_controller_sha" "$activation_job_id" "$hosted_job_id" "$artifact_id" "$artifact_digest" <<'PY'
           import grp,json,os,re,stat,sys
           (final_path,original_path,recovery_path,marker_path,target,current,controller_run,activation_run,
-           current_run,controller_sha,activation_job_id,hosted_job_id,artifact_id,artifact_digest)=sys.argv[1:]
+           current_run,current_attempt,controller_sha,activation_job_id,hosted_job_id,artifact_id,artifact_digest)=sys.argv[1:]
           pcactions_gid=grp.getgrnam('pcactions').gr_gid
           candidates=[]
           def load_regular(path,mode,gid):
@@ -332,15 +333,18 @@ jobs:
             assert value.get('recoveredAfterMainDrift') is True
             assert value.get('controllerRunId') == int(controller_run) and value.get('activationRunId') == int(activation_run)
             assert isinstance(value.get('recoveryRunId'),int) and value['recoveryRunId'] > 0
+            assert isinstance(value.get('recoveryRunAttempt'),int) and value['recoveryRunAttempt'] > 0
             assert re.fullmatch(r'[0-9a-f]{40}',value.get('currentMain',''))
             for key in ('applicationDeploymentPerformed','databaseMutationPerformed','modelMutationPerformed','rollbackPerformed'):
               assert value.get(key) is False
-            candidates.append((value['recoveryRunId'],value['currentMain']))
+            candidates.append((value['recoveryRunId'],value['recoveryRunAttempt'],value['currentMain']))
           def validate_recovery(value):
             assert value.get('schemaVersion') == 'tai.finalization-main-drift-recovery.v1' and value.get('targetSha') == target
             assert value.get('controllerRunId') == int(controller_run) and value.get('activationRunId') == int(activation_run)
             assert isinstance(value.get('recoveryRunId'),int) and value['recoveryRunId'] > 0
+            assert isinstance(value.get('recoveryRunAttempt'),int) and value['recoveryRunAttempt'] > 0
             assert value.get('finalizationCommitRunId') == value['recoveryRunId']
+            assert value.get('finalizationCommitRunAttempt') == value['recoveryRunAttempt']
             assert re.fullmatch(r'[0-9a-f]{40}',value.get('currentMain',''))
             assert value.get('finalizationCurrentMain') == value['currentMain']
             assert value.get('activationJobId') == int(activation_job_id) and value.get('hostedAcceptanceJobId') == int(hosted_job_id)
@@ -351,7 +355,7 @@ jobs:
             assert value.get('finalDecision') == 'ACCEPT' and value.get('passed') is True
             for key in ('applicationDeploymentPerformed','databaseMutationPerformed','modelMutationPerformed','rollbackPerformed','runnerAuthorityChanged'):
               assert value.get(key) is False
-            candidates.append((value['recoveryRunId'],value['currentMain']))
+            candidates.append((value['recoveryRunId'],value['recoveryRunAttempt'],value['currentMain']))
           final=load_regular(final_path,0o600,0)
           original=load_regular(original_path,0o640,pcactions_gid)
           recovery=load_regular(recovery_path,0o640,pcactions_gid)
@@ -367,32 +371,34 @@ jobs:
             assert final is not None and original is not None and recovery is not None
           if candidates:
             assert len(set(candidates)) == 1
-            commit_run,committed_current=candidates[0]
+            commit_run,commit_attempt,committed_current=candidates[0]
           else:
             assert not marker_exists
-            commit_run,committed_current=int(current_run),current
+            commit_run,commit_attempt,committed_current=int(current_run),int(current_attempt),current
           print(commit_run)
+          print(commit_attempt)
           print(committed_current)
           PY
           )"
           mapfile -t committed_state <<< "$resume_state"
-          (( ${#committed_state[@]} == 2 ))
+          (( ${#committed_state[@]} == 3 ))
           commit_run="${committed_state[0]}"
-          committed_current="${committed_state[1]}"
-          [[ "$commit_run" =~ ^[0-9]{2,20}$ && "$committed_current" =~ ^[0-9a-f]{40}$ ]]
+          commit_attempt="${committed_state[1]}"
+          committed_current="${committed_state[2]}"
+          [[ "$commit_run" =~ ^[0-9]{2,20}$ && "$commit_attempt" =~ ^[1-9][0-9]*$ && "$committed_current" =~ ^[0-9a-f]{40}$ ]]
           git -C "$repository" merge-base --is-ancestor "$target" "$committed_current"
           git -C "$repository" merge-base --is-ancestor "$committed_current" "$current"
-          finalization_tmp="$job_state/.finalization.json.tmp-$recovery_run"
-          original_tmp="$original_output/.finalization.json.tmp-$recovery_run"
-          canonical_tmp="$original_output/.finalization-recovery.json.tmp-$recovery_run"
-          output_tmp="$output.tmp-$recovery_run"
-          marker_tmp="$qwen_state/.FINAL_ACCEPTED.tmp-$recovery_run"
+          finalization_tmp="$job_state/.finalization.json.tmp-$recovery_run-$recovery_attempt"
+          original_tmp="$original_output/.finalization.json.tmp-$recovery_run-$recovery_attempt"
+          canonical_tmp="$original_output/.finalization-recovery.json.tmp-$recovery_run-$recovery_attempt"
+          output_tmp="$output.tmp-$recovery_run-$recovery_attempt"
+          marker_tmp="$qwen_state/.FINAL_ACCEPTED.tmp-$recovery_run-$recovery_attempt"
           rm -f "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$marker_tmp"
           trap 'rm -f "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$marker_tmp"' EXIT
-          python3 - "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$target" "$current" "$committed_current" "$controller_run" "$activation_run" "$recovery_run" "$commit_run" "$api_revision" "$web_revision" "$tai_revision" "$installed_controller_sha" "$activation_job_id" "$hosted_job_id" "$artifact_id" "$artifact_digest" <<'PY'
+          python3 - "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$target" "$current" "$committed_current" "$controller_run" "$activation_run" "$recovery_run" "$recovery_attempt" "$commit_run" "$commit_attempt" "$api_revision" "$web_revision" "$tai_revision" "$installed_controller_sha" "$activation_job_id" "$hosted_job_id" "$artifact_id" "$artifact_digest" <<'PY'
           import json,os,sys
           (final_path,original_path,canonical_path,output_path,target,current,committed_current,controller_run,
-           activation_run,recovery_run,commit_run,api_revision,web_revision,tai_revision,controller_sha,
+           activation_run,recovery_run,recovery_attempt,commit_run,commit_attempt,api_revision,web_revision,tai_revision,controller_sha,
            activation_job_id,hosted_job_id,artifact_id,artifact_digest)=sys.argv[1:]
           def write(path,payload,mode):
             with open(path,'x',encoding='utf-8') as handle:
@@ -401,13 +407,16 @@ jobs:
           final={
             'schemaVersion':'tai.restricted-qwen.finalization.v1','targetSha':target,'decision':'ACCEPT','passed':True,
             'recoveredAfterMainDrift':True,'currentMain':committed_current,'controllerRunId':int(controller_run),
-            'activationRunId':int(activation_run),'recoveryRunId':int(commit_run),'applicationDeploymentPerformed':False,
+            'activationRunId':int(activation_run),'recoveryRunId':int(commit_run),'recoveryRunAttempt':int(commit_attempt),
+            'applicationDeploymentPerformed':False,
             'databaseMutationPerformed':False,'modelMutationPerformed':False,'rollbackPerformed':False,
           }
           canonical={
             'schemaVersion':'tai.finalization-main-drift-recovery.v1','targetSha':target,'currentMain':committed_current,
             'finalizationCurrentMain':committed_current,'controllerRunId':int(controller_run),'activationRunId':int(activation_run),
-            'recoveryRunId':int(commit_run),'finalizationCommitRunId':int(commit_run),'activationJobId':int(activation_job_id),
+            'recoveryRunId':int(commit_run),'recoveryRunAttempt':int(commit_attempt),
+            'finalizationCommitRunId':int(commit_run),'finalizationCommitRunAttempt':int(commit_attempt),
+            'activationJobId':int(activation_job_id),
             'hostedAcceptanceJobId':int(hosted_job_id),'hostedArtifactId':int(artifact_id),'hostedArtifactDigest':artifact_digest,
             'apiRevision':api_revision,'webRevision':web_revision,'taiRevision':tai_revision,'controllerSha256':controller_sha,
             'controllerAuthorityAttested':True,'activationEvidencePassed':True,'hostedAcceptancePassed':True,
@@ -417,8 +426,10 @@ jobs:
           output=dict(canonical)
           output.update({
             'currentMain':current,'finalizationCurrentMain':committed_current,'recoveryRunId':int(recovery_run),
-            'finalizationCommitRunId':int(commit_run),
-            'resumedExistingFinalization':int(commit_run) != int(recovery_run) or committed_current != current,
+            'recoveryRunAttempt':int(recovery_attempt),'finalizationCommitRunId':int(commit_run),
+            'finalizationCommitRunAttempt':int(commit_attempt),
+            'resumedExistingFinalization':int(commit_run) != int(recovery_run)
+              or int(commit_attempt) != int(recovery_attempt) or committed_current != current,
           })
           write(final_path,final,0o600)
           write(original_path,final,0o640)
@@ -479,12 +490,12 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
-          remote_script="/tmp/tai-finalization-recovery-${GITHUB_RUN_ID}.sh"
-          remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/finalization-recovery.json"
+          remote_script="/tmp/tai-finalization-recovery-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
+          remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/finalization-recovery.json"
           scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             "$RUNNER_TEMP/recover-finalization.sh" "$USER@$HOST:$remote_script"
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            "chmod 0700 '$remote_script' && '$remote_script' '$ACTIVATION_TARGET_SHA' '$CURRENT_SHA' '$CONTROLLER_RUN_ID' '$ACTIVATION_RUN_ID' '$GITHUB_RUN_ID' '$remote_evidence' '$ACTIVATION_JOB_ID' '$HOSTED_ACCEPTANCE_JOB_ID' '$HOSTED_ARTIFACT_ID' '$HOSTED_ARTIFACT_DIGEST'" \
+            "chmod 0700 '$remote_script' && '$remote_script' '$ACTIVATION_TARGET_SHA' '$CURRENT_SHA' '$CONTROLLER_RUN_ID' '$ACTIVATION_RUN_ID' '$GITHUB_RUN_ID' '$GITHUB_RUN_ATTEMPT' '$remote_evidence' '$ACTIVATION_JOB_ID' '$HOSTED_ACCEPTANCE_JOB_ID' '$HOSTED_ARTIFACT_ID' '$HOSTED_ARTIFACT_DIGEST'" \
             | tee "$EVIDENCE_DIR/recovery.log"
           grep -Fxq TAI_FINALIZATION_MAIN_DRIFT_RECOVERY=PASS "$EVIDENCE_DIR/recovery.log"
           scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -495,17 +506,19 @@ jobs:
       - name: Validate recovered finalization evidence
         run: |
           set -Eeuo pipefail
-          node - "$EVIDENCE_DIR/finalization-recovery.json" "$EVIDENCE_DIR/finalization.json" "$ACTIVATION_TARGET_SHA" "$CURRENT_SHA" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
+          node - "$EVIDENCE_DIR/finalization-recovery.json" "$EVIDENCE_DIR/finalization.json" "$ACTIVATION_TARGET_SHA" "$CURRENT_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
           const fs = require('node:fs');
-          const [recoveryPath, finalizationPath, target, current, artifactDigest] = process.argv.slice(2);
+          const [recoveryPath, finalizationPath, target, current, runId, runAttempt, artifactDigest] = process.argv.slice(2);
           const recovery = JSON.parse(fs.readFileSync(recoveryPath, 'utf8'));
           const finalization = JSON.parse(fs.readFileSync(finalizationPath, 'utf8'));
           if (recovery.schemaVersion !== 'tai.finalization-main-drift-recovery.v1'
             || recovery.targetSha !== target || recovery.currentMain !== current
+            || recovery.recoveryRunId !== Number(runId) || recovery.recoveryRunAttempt !== Number(runAttempt)
             || recovery.activationRunId !== 31481267058 || recovery.controllerRunId !== 314812670581
             || recovery.activationJobId !== 93746825204 || recovery.hostedAcceptanceJobId !== 93747517497
             || recovery.hostedArtifactId !== 9098297919 || recovery.hostedArtifactDigest !== artifactDigest
             || !Number.isInteger(recovery.finalizationCommitRunId) || recovery.finalizationCommitRunId <= 0
+            || !Number.isInteger(recovery.finalizationCommitRunAttempt) || recovery.finalizationCommitRunAttempt <= 0
             || !/^[0-9a-f]{40}$/.test(recovery.finalizationCurrentMain || '')
             || typeof recovery.resumedExistingFinalization !== 'boolean'
             || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.taiRevision !== target
@@ -520,6 +533,7 @@ jobs:
             || finalization.targetSha !== target || finalization.decision !== 'ACCEPT'
             || finalization.passed !== true || finalization.recoveredAfterMainDrift !== true
             || finalization.recoveryRunId !== recovery.finalizationCommitRunId
+            || finalization.recoveryRunAttempt !== recovery.finalizationCommitRunAttempt
             || finalization.currentMain !== recovery.finalizationCurrentMain) process.exit(3);
           NODE
       - name: Remove transient remote and local key material
@@ -532,13 +546,13 @@ jobs:
           set +e
           if [[ -n "${HOST:-}" && -n "${USER:-}" && "${PORT:-}" =~ ^[0-9]+$ && -f "$HOME/.ssh/id_pc_prod" ]]; then
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
-              "rm -f '/tmp/tai-finalization-recovery-${GITHUB_RUN_ID}.sh'" >/dev/null 2>&1
+              "rm -f '/tmp/tai-finalization-recovery-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh'" >/dev/null 2>&1
           fi
           rm -rf "$HOME/.ssh" "$RUNNER_TEMP/recover-finalization.sh"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: tai-finalization-main-drift-recovery-${{ github.run_id }}
+          name: tai-finalization-main-drift-recovery-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 30
@@ -560,7 +574,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: tai-finalization-main-drift-recovery-${{ github.run_id }}
+          name: tai-finalization-main-drift-recovery-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/tai-finalization-recovery-publish
       - name: Publish exact accepted result
         env:
@@ -570,9 +584,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$RECOVER_RESULT" == success ]]
-          current_sha="$(node - "$PUBLISH_EVIDENCE_DIR/finalization-recovery.json" "$ACTIVATION_TARGET_SHA" "$GITHUB_RUN_ID" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
+          current_sha="$(node - "$PUBLISH_EVIDENCE_DIR/finalization-recovery.json" "$ACTIVATION_TARGET_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
           const fs = require('node:fs');
-          const [evidencePath, target, runId, artifactDigest] = process.argv.slice(2);
+          const [evidencePath, target, runId, runAttempt, artifactDigest] = process.argv.slice(2);
           const recovery = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
           if (recovery.schemaVersion !== 'tai.finalization-main-drift-recovery.v1'
             || recovery.targetSha !== target
@@ -580,11 +594,13 @@ jobs:
             || recovery.activationRunId !== 31481267058
             || recovery.controllerRunId !== 314812670581
             || recovery.recoveryRunId !== Number(runId)
+            || recovery.recoveryRunAttempt !== Number(runAttempt)
             || recovery.activationJobId !== 93746825204
             || recovery.hostedAcceptanceJobId !== 93747517497
             || recovery.hostedArtifactId !== 9098297919
             || recovery.hostedArtifactDigest !== artifactDigest
             || !Number.isInteger(recovery.finalizationCommitRunId) || recovery.finalizationCommitRunId <= 0
+            || !Number.isInteger(recovery.finalizationCommitRunAttempt) || recovery.finalizationCommitRunAttempt <= 0
             || !/^[0-9a-f]{40}$/.test(recovery.finalizationCurrentMain || '')
             || typeof recovery.resumedExistingFinalization !== 'boolean'
             || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.taiRevision !== target
