@@ -100,6 +100,14 @@ for (const fragment of [
   'name: tai-finalization-main-drift-recovery-${{ github.run_id }}-${{ github.run_attempt }}',
   'remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/finalization-recovery.json"',
   "'$GITHUB_RUN_ID' '$GITHUB_RUN_ATTEMPT' '$remote_evidence'",
+  'id: recovery_artifact',
+  'actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100',
+  'report.total_count !== report.artifacts.length',
+  'artifact.workflow_run?.id !== runId',
+  'candidates.sort((left, right) => right.attempt - left.attempt)',
+  'name: ${{ steps.recovery_artifact.outputs.name }}',
+  'PRODUCING_RUN_ATTEMPT: ${{ steps.recovery_artifact.outputs.attempt }}',
+  '"$GITHUB_RUN_ID" "$PRODUCING_RUN_ATTEMPT" "$HOSTED_ARTIFACT_DIGEST"',
   "run.name !== 'TAI Restricted Qwen REG.RU Activation'",
   "run.event !== 'workflow_dispatch'",
   "run.head_repository?.full_name !== repository",
@@ -200,9 +208,12 @@ const finalizationEvidenceIndex = workflow.indexOf('install_or_validate "$finali
 const canonicalEvidenceIndex = workflow.indexOf('install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions');
 const recoveryEvidenceIndex = workflow.indexOf('install_or_validate "$output_tmp" "$output" 640 pcactions');
 const finalMarkerIndex = workflow.indexOf('mv -Tf "$marker_tmp" "$marker_path"');
+const producingArtifactIndex = workflow.indexOf('Resolve artifact from the producing recovery attempt');
+const producingDownloadIndex = workflow.indexOf('name: ${{ steps.recovery_artifact.outputs.name }}');
 const publishIndex = workflow.indexOf('Publish exact accepted result');
 if ([authorityIndex, artifactEvidenceIndex, controllerAuthorityIndex, activationEvidenceIndex, liveRevisionIndex,
-  finalizationEvidenceIndex, canonicalEvidenceIndex, recoveryEvidenceIndex, finalMarkerIndex, publishIndex].some((index) => index < 0)
+  finalizationEvidenceIndex, canonicalEvidenceIndex, recoveryEvidenceIndex, finalMarkerIndex,
+  producingArtifactIndex, producingDownloadIndex, publishIndex].some((index) => index < 0)
   || !(authorityIndex < artifactEvidenceIndex
     && artifactEvidenceIndex < controllerAuthorityIndex
     && controllerAuthorityIndex < activationEvidenceIndex
@@ -211,8 +222,10 @@ if ([authorityIndex, artifactEvidenceIndex, controllerAuthorityIndex, activation
     && finalizationEvidenceIndex < canonicalEvidenceIndex
     && canonicalEvidenceIndex < recoveryEvidenceIndex
     && recoveryEvidenceIndex < finalMarkerIndex
-    && finalMarkerIndex < publishIndex)) {
-  violations.push(`${paths.workflow}: authority, exact artifact, controller, live-revision, resumable durable evidence, final-marker and publication order is invalid`);
+    && finalMarkerIndex < producingArtifactIndex
+    && producingArtifactIndex < producingDownloadIndex
+    && producingDownloadIndex < publishIndex)) {
+  violations.push(`${paths.workflow}: authority, exact artifact, controller, live-revision, resumable durable evidence, final-marker, producing-attempt artifact and publication order is invalid`);
 }
 
 const remoteStartMarker = '          cat > "$RUNNER_TEMP/recover-finalization.sh" <<\'RECOVERY\'\n';
@@ -239,4 +252,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, attempt-specific resumable durable evidence before atomic final marker, and no deployment/rollback mutation.');
+console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, attempt-specific resumable durable evidence before atomic final marker, producing-attempt artifact resolution, and no deployment/rollback mutation.');
