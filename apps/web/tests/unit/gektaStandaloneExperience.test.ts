@@ -7,6 +7,8 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 const page = read('app/gekta/page.tsx');
 const app = read('components/gekta/GektaChatApp.tsx');
 const css = read('components/gekta/GektaChatApp.module.css');
+const middleware = read('middleware.ts');
+const seoAuthority = read('lib/platform-v7/public-seo-routes.json');
 
 describe('Gekta standalone public experience', () => {
   it('publishes Gekta as a top-level product route with independent metadata', () => {
@@ -16,6 +18,13 @@ describe('Gekta standalone public experience', () => {
     expect(page).toContain("name: 'Гекта'");
     expect(page).toContain("alternateName: ['Gekta', 'ГЕКТА']");
     expect(page).toContain('<GektaChatApp />');
+  });
+
+  it('is anonymously reachable and indexable without entering platform cabinet authority', () => {
+    expect(middleware).toContain("const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta']);");
+    expect(middleware).toContain("'/api/agro-chat'");
+    expect(middleware).toContain("(p === '/' || PLATFORM_V7_INDEXABLE_EXACT.has(p)) && !privateModeEnabled");
+    expect(seoAuthority).toContain('{ "path": "/gekta", "priority": 0.95, "changeFrequency": "weekly" }');
   });
 
   it('uses a dedicated ChatGPT-like shell rather than the platform assistant component', () => {
