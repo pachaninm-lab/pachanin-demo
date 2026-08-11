@@ -21,9 +21,7 @@ env:
   MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
   MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
   MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
-  PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
 
 jobs:
   contract:
@@ -55,11 +53,45 @@ jobs:
           ]) {
             if (remote.includes(forbidden)) throw new Error(`forbidden remote mutation token: ${forbidden}`);
           }
+
+          // A production VPS credential must never be an authority for the
+          // separate model host. This diagnostic once accepted three of them as
+          // fallbacks, which made one compromised diagnostic a path into
+          // production.
+          // Matched as a wiring, `secrets.` plus the name, rather than as the
+          // bare word: the names have to be nameable here to be forbidden.
+          for (const credential of ['PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY']) {
+            if (text.includes(`secrets.${credential}`)) {
+              throw new Error(`production credential in the model-host chain: ${credential}`);
+            }
+          }
+
+          // The host identity is pinned, not discovered. ssh-keyscan may only
+          // observe; the presented key has to be compared against the pin
+          // before anything is written to known_hosts, or StrictHostKeyChecking
+          // verifies a file built from whatever answered.
+          for (const required of [
+            'secrets.TAI_MODEL_SSH_KEY',
+            'secrets.TAI_MODEL_SSH_HOST_KEY',
+            'TAI_MODEL_SSH_HOST_KEY is required',
+            'does not match the pinned TAI_MODEL_SSH_HOST_KEY',
+            'StrictHostKeyChecking=yes',
+          ]) {
+            if (!text.includes(required)) throw new Error(`missing model-host identity control: ${required}`);
+          }
+          if (/ssh-keyscan[^\n]*>\s*"?\$HOME\/\.ssh\/model_known_hosts/u.test(text)) {
+            throw new Error('trust-on-first-use: ssh-keyscan output written straight into known_hosts');
+          }
+
+          // A read-only diagnostic must not require a privileged shell. The
+          // configured model-host principal is deliberately least-privilege.
           const readStepStart = text.indexOf('      - name: Read whitelisted active service facts');
           if (readStepStart < 0 || readStepStart >= begin) throw new Error('diagnostic step not found before remote heredoc');
           const readStepPreamble = text.slice(readStepStart, begin);
           for (const forbidden of ['sudo ', 'su ', 'doas ']) {
-            if (readStepPreamble.includes(forbidden)) throw new Error(`privilege escalation is forbidden: ${forbidden.trim()}`);
+            if (readStepPreamble.includes(forbidden)) {
+              throw new Error(`privilege escalation is forbidden: ${forbidden.trim()}`);
+            }
           }
           NODE
           GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-nonroot-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
@@ -124,10 +156,40 @@ jobs:
           [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
           [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
           mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
-          key="${MODEL_KEY_SECRET:-${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}}"
+          # The model host authenticates with its own credential and nothing
+          # else. A production VPS key must never become the authority for a
+          # separate host: one compromised diagnostic would then reach the
+          # production contour. Missing credential fails closed.
+          key="$(trim "${MODEL_KEY_SECRET:-}")"
+          if [[ -z "$key" ]]; then
+            echo "TAI_MODEL_SSH_KEY is required for the model host diagnostic." >&2
+            exit 20
+          fi
           write_key "$key" "$HOME/.ssh/id_tai_model"
-          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$HOME/.ssh/model_known_hosts"
-          [[ -s "$HOME/.ssh/model_known_hosts" ]]
+
+          # ssh-keyscan is an observation, never an authority. Trusting whatever
+          # answers on the wire is trust-on-first-use, and StrictHostKeyChecking
+          # against a file built from that same answer proves nothing. The
+          # presented key must match the pinned identity before it is written.
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          if [[ -z "$pin" ]]; then
+            echo "TAI_MODEL_SSH_HOST_KEY is required: the model host identity must be pinned, not discovered." >&2
+            exit 21
+          fi
+          pin_type="$(printf '%s' "$pin" | awk '{ print $(NF-1) }')"
+          pin_material="$(printf '%s' "$pin" | awk '{ print $NF }')"
+          if [[ -z "$pin_type" || -z "$pin_material" ]]; then
+            echo "TAI_MODEL_SSH_HOST_KEY is malformed; expected a host key line." >&2
+            exit 21
+          fi
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          if ! printf '%s\n' "$scanned" \
+            | awk -v pinned="$pin_material" '$3 == pinned { matched = 1 } END { exit matched ? 0 : 1 }'; then
+            echo "model host key does not match the pinned TAI_MODEL_SSH_HOST_KEY" >&2
+            exit 21
+          fi
+          # Written from the pin that matched, so the file is the pin itself.
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
           chmod 600 "$HOME/.ssh/model_known_hosts"
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "user=$user" >> "$GITHUB_OUTPUT"

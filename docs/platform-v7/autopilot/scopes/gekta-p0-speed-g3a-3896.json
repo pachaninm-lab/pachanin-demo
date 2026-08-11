@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-p0-speed-g3a-3896",
+  "status": "active",
+  "purpose": "Reduce measured user-visible Gekta first-meaningful-text latency by shortening the first safe completed answer block without weakening the existing streaming safety gate, semantic coverage, context handling or production authority.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
+  "authorityBaseExactMain": "c801f913525437fba76b11de8ab344032d440256",
+  "productionEvidence": {
+    "beforeRunId": 31512618588,
+    "beforeArtifactId": 9111025426,
+    "deployedWebRevision": "148407e9345f5f5a5edb53465cff0b1e2f5b9ba1"
+  },
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3a-3896.json",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+  ],
+  "requiredBehavior": [
+    "StreamingAnswerGate remains unchanged and continues to release only syntactically complete safe blocks",
+    "Qwen thinking remains disabled",
+    "every general-agro response starts with one short self-contained complete sentence before longer analysis unless a deterministic current-evidence boundary must lead",
+    "RU EN and ZH remain supported",
+    "bounded history correction topic shift disease completeness current-information privacy write and secret boundaries remain semantically equivalent or stronger",
+    "concise and detailed response modes remain distinct",
+    "focused tests prove the first-sentence instruction and all critical safety/domain instructions remain present",
+    "production acceptance uses the same Gekta SPEED corpus and before artifact from issue #3896"
+  ],
+  "forbiddenCapabilities": [
+    "changing StreamingAnswerGate or lowering its safety threshold",
+    "raising model or gateway timeouts to hide overload",
+    "dropping difficult benchmark cases locales history correction or topic shift",
+    "changing llama.cpp model-host settings in G3A",
+    "database migration read or write",
+    "registration authentication tenant role Deal settlement payment or money behavior",
+    "external model API SaaS new server or recurring cost"
+  ],
+  "acceptance": [
+    "focused Qwen service tests pass",
+    "full existing restricted-public-Qwen safety and quality tests pass",
+    "exact-head CI and security gates pass",
+    "after production release the same baseline shows material c=1 firstMeaningfulText improvement without quality regression",
+    "candidate is rejected if c=1 p95 worsens or any safety semantic or RU EN ZH gate regresses"
+  ]
+}
