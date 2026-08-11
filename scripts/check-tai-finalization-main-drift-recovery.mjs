@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const paths = {
   workflow: '.github/workflows/tai-owner-finalization-recovery-command.yml',
   checker: 'scripts/check-tai-finalization-main-drift-recovery.mjs',
-  scope: 'docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-20260811.json',
+  scope: 'docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-2-20260811.json',
 };
 
 const workflow = readFileSync(paths.workflow, 'utf8');
@@ -20,12 +20,12 @@ const forbid = (source, pattern, label) => {
 for (const fragment of [
   'name: TAI Owner Exact Finalization Recovery',
   "github.event.issue.number == 3365",
-  "github.event.comment.body == '/tai recover-finalization 31478303771'",
-  'RECOVERY_COMMAND: /tai recover-finalization 31478303771',
-  'ACTIVATION_RUN_ID: "31478303771"',
-  'CONTROLLER_RUN_ID: "314783037711"',
-  'ACTIVATION_TARGET_SHA: b57b1e4e6c50e01acefc1a1da0deea05a0099a92',
-  'FAILED_FINALIZATION_JOB_ID: "93746092416"',
+  "github.event.comment.body == '/tai recover-finalization 31481267058'",
+  'RECOVERY_COMMAND: /tai recover-finalization 31481267058',
+  'ACTIVATION_RUN_ID: "31481267058"',
+  'CONTROLLER_RUN_ID: "314812670581"',
+  'ACTIVATION_TARGET_SHA: 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d',
+  'FAILED_FINALIZATION_JOB_ID: "93754807742"',
   '[[ "$COMMENTER" == "$OWNER" ]]',
   '[[ "$ACTOR" == "$OWNER" ]]',
   '[[ "$TRIGGERING_ACTOR" == "$OWNER" ]]',
@@ -72,7 +72,7 @@ forbid(workflow, /pull_request_target:/u, `${paths.workflow}: pull_request_targe
 forbid(workflow, /continue-on-error:\s*true/mu, `${paths.workflow}: continue-on-error is forbidden`);
 forbid(workflow, /StrictHostKeyChecking=(?:no|accept-new)/u, `${paths.workflow}: unpinned SSH host acceptance is forbidden`);
 forbid(workflow, /runs-on:\s*\[self-hosted/iu, `${paths.workflow}: recovery must not run through the restricted self-hosted runner`);
-forbid(workflow, /\/tai\s+recover-finalization\s+(?!31478303771)/u,
+forbid(workflow, /\/tai\s+recover-finalization\s+(?!31481267058)/u,
   `${paths.workflow}: alternate activation recovery target is forbidden`);
 forbid(workflow, /\bdocker\s+(?:run|rm|rmi|compose|pull|push|login|exec|stop|start|restart|create|network|volume|system|image\s+rm)\b/iu,
   `${paths.workflow}: Docker mutation is forbidden`);
@@ -87,8 +87,8 @@ forbid(workflow, /\b(?:netlify|vercel|railway|openai[.]com|anthropic[.]com)\b/iu
   `${paths.workflow}: external hosting or paid LLM dependency is forbidden`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${paths.scope}: invalid schemaVersion`);
-if (scope.branch !== 'fix/tai-finalization-main-drift-recovery-20260811') violations.push(`${paths.scope}: branch mismatch`);
-if (scope.baselineExactMain !== '10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d') violations.push(`${paths.scope}: baseline mismatch`);
+if (scope.branch !== 'fix/tai-finalization-main-drift-recovery-2-20260811') violations.push(`${paths.scope}: branch mismatch`);
+if (scope.baselineExactMain !== '696f8d00f6fb05426e55d2636a5a22a7543d939e') violations.push(`${paths.scope}: baseline mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) {
   violations.push(`${paths.scope}: hosting or cost boundary changed`);
 }
@@ -96,11 +96,13 @@ for (const path of [paths.workflow, paths.checker, paths.scope]) {
   if (!scope.allowedPaths.includes(path)) violations.push(`${paths.scope}: ${path} outside allowedPaths`);
 }
 const evidence = scope.productionEvidence || {};
-if (evidence.activationRun !== 31478303771
-  || evidence.targetSha !== 'b57b1e4e6c50e01acefc1a1da0deea05a0099a92'
-  || evidence.activationJob !== 93737449372
-  || evidence.hostedAcceptanceJob !== 93738361753
-  || evidence.failedFinalizationJob !== 93746092416
+if (evidence.activationRun !== 31481267058
+  || evidence.targetSha !== '10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d'
+  || evidence.activationJob !== 93746825204
+  || evidence.hostedAcceptanceJob !== 93747517497
+  || evidence.failedFinalizationJob !== 93754807742
+  || evidence.controllerRun !== 314812670581
+  || evidence.currentMainAtFailure !== '696f8d00f6fb05426e55d2636a5a22a7543d939e'
   || evidence.failureCode !== 'TARGET_IS_NOT_CURRENT_MAIN') {
   violations.push(`${paths.scope}: production evidence does not match the exact failed finalization`);
 }

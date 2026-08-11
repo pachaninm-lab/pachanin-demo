@@ -5,7 +5,7 @@ on:
     paths:
       - ".github/workflows/tai-owner-finalization-recovery-command.yml"
       - "scripts/check-tai-finalization-main-drift-recovery.mjs"
-      - "docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-20260811.json"
+      - "docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-2-20260811.json"
   issue_comment:
     types: [created]
 
@@ -26,11 +26,11 @@ env:
   SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
   SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
   SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
-  RECOVERY_COMMAND: /tai recover-finalization 31478303771
-  ACTIVATION_RUN_ID: "31478303771"
-  CONTROLLER_RUN_ID: "314783037711"
-  ACTIVATION_TARGET_SHA: b57b1e4e6c50e01acefc1a1da0deea05a0099a92
-  FAILED_FINALIZATION_JOB_ID: "93746092416"
+  RECOVERY_COMMAND: /tai recover-finalization 31481267058
+  ACTIVATION_RUN_ID: "31481267058"
+  CONTROLLER_RUN_ID: "314812670581"
+  ACTIVATION_TARGET_SHA: 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d
+  FAILED_FINALIZATION_JOB_ID: "93754807742"
 
 jobs:
   authority:
@@ -40,7 +40,7 @@ jobs:
       (
         github.event_name == 'issue_comment' &&
         github.event.issue.number == 3365 &&
-        github.event.comment.body == '/tai recover-finalization 31478303771'
+        github.event.comment.body == '/tai recover-finalization 31481267058'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -96,7 +96,7 @@ jobs:
           const [runPath, jobsPath, target, failedFinalizationJobId] = process.argv.slice(2);
           const run = JSON.parse(fs.readFileSync(runPath, 'utf8'));
           const report = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));
-          if (run.id !== 31478303771 || run.head_sha !== target || run.status !== 'completed' || run.conclusion !== 'failure') process.exit(2);
+          if (run.id !== 31481267058 || run.head_sha !== target || run.status !== 'completed' || run.conclusion !== 'failure') process.exit(2);
           if (!report || !Array.isArray(report.jobs) || report.total_count !== report.jobs.length) process.exit(3);
           const required = new Map([
             ['Activate through protected REG.RU controller', 'success'],
@@ -213,7 +213,7 @@ jobs:
           target="$1" current="$2" controller_run="$3" activation_run="$4" recovery_run="$5" output="$6"
           [[ "$(id -u)" -eq 0 ]]
           [[ "$target" =~ ^[0-9a-f]{40}$ && "$current" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$controller_run" == 314783037711 && "$activation_run" == 31478303771 ]]
+          [[ "$controller_run" == 314812670581 && "$activation_run" == 31481267058 ]]
           [[ "$recovery_run" =~ ^[0-9]{2,20}$ ]]
           state_root=/var/lib/pc-release-authority
           repository="$state_root/repository"
@@ -340,7 +340,7 @@ jobs:
           const finalization = JSON.parse(fs.readFileSync(finalizationPath, 'utf8'));
           if (recovery.schemaVersion !== 'tai.finalization-main-drift-recovery.v1'
             || recovery.targetSha !== target || recovery.currentMain !== current
-            || recovery.activationRunId !== 31478303771 || recovery.controllerRunId !== 314783037711
+            || recovery.activationRunId !== 31481267058 || recovery.controllerRunId !== 314812670581
             || recovery.finalDecision !== 'ACCEPT' || recovery.passed !== true
             || recovery.applicationDeploymentPerformed !== false
             || recovery.databaseMutationPerformed !== false
@@ -379,7 +379,7 @@ jobs:
       always() &&
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 3365 &&
-      github.event.comment.body == '/tai recover-finalization 31478303771'
+      github.event.comment.body == '/tai recover-finalization 31481267058'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -410,7 +410,7 @@ jobs:
       always() &&
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 3365 &&
-      github.event.comment.body == '/tai recover-finalization 31478303771'
+      github.event.comment.body == '/tai recover-finalization 31481267058'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
