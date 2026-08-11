@@ -36,6 +36,7 @@ describe('Gekta public brand contract', () => {
     expect(sources.homeOperating).toContain("tertiary: 'Посмотреть Гекту в работе'");
     expect(sources.homeStory).toContain("title: 'Гекта — интеллектуальный слой конкретной Сделки'");
     expect(sources.homeStory).toContain("title: 'Гекта воздержалась от вывода'");
+    expect(sources.homeStory).toContain("cta: 'Посмотреть Гекту в работе'");
     expect(sources.homeEnhancements).toContain("name: 'Гекта'");
     expect(sources.productPassport).toContain("title: 'Гекта — доказательный уровень исполнения сделки'");
     expect(sources.dealIntelligence).toContain("title: 'Гекта · Сводка для покупателя'");
