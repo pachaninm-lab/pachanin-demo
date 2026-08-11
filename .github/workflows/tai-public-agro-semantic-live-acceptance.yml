@@ -224,12 +224,12 @@ jobs:
               await trigger.evaluate((node) => node.click());
               await dialog.waitFor({ state: 'visible', timeout: 30000 });
 
-              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'ИИ для агробизнеса') {
+              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'Гекта') {
                 throw new Error('semantic_title_missing');
               }
               const semanticSubtitle = dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible');
               await semanticSubtitle.waitFor({ state: 'visible', timeout: 30000 });
-              if (((await semanticSubtitle.textContent()) || '').trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') {
+              if (((await semanticSubtitle.textContent()) || '').trim() !== 'Аграрный интеллект для земли, урожая и решений.') {
                 throw new Error('semantic_subtitle_missing');
               }
               const aiMark = dialog.locator('[data-pc-public-assistant-ai-mark="true"]:visible');

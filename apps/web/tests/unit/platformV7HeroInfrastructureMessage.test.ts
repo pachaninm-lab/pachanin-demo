@@ -15,7 +15,7 @@ describe('platform-v7 final design project v4 homepage', () => {
     expect(heroCopy).toContain("kicker: 'Платформа управления агросделками в растениеводстве'");
     expect(heroCopy).toContain("title: 'Управляйте агросделкой'");
     expect(heroCopy).toContain("accent: 'от цены до расчёта'");
-    expect(heroCopy).toContain('TAI находит отклонения и объясняет следующий шаг');
+    expect(heroCopy).toContain('Гекта сопоставляет факты, объясняет отклонения и показывает следующий шаг с источниками');
     expect(component).toContain("href='#live'");
     expect(component).toContain("href='#connect-organization'");
     expect(component).toContain("data-testid='platform-v7-deal-card'");
@@ -61,8 +61,8 @@ describe('platform-v7 final design project v4 homepage', () => {
     expect(storyCopy).toContain("tab: 'Норма'");
     expect(storyCopy).toContain("tab: 'Отклонение'");
     expect(storyCopy).toContain("tab: 'Спор / нет данных'");
-    expect(storyCopy).toContain('TAI воздержался от вывода');
-    expect(storyCopy).toContain('TAI не меняет договор и не разрешает расчёт самостоятельно');
+    expect(storyCopy).toContain('Гекта воздержалась от вывода');
+    expect(storyCopy).toContain('Гекта не меняет договор и не разрешает расчёт самостоятельно');
     expect(storyCopy).toContain('не разрешает платёж и не выносит юридическое решение');
   });
 
