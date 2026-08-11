@@ -30,6 +30,7 @@
     "apps/api/src/modules/auth/dto/register.dto.ts",
     "apps/api/src/modules/auth/dto/registration-application.dto.ts",
     "apps/api/src/modules/auth/dto/password-reset.dto.ts",
+    "apps/api/src/modules/auth/dto/organization-access.dto.ts",
     "apps/web/lib/server/transactional-mail.ts",
     "apps/web/app/api/auth/register/route.ts",
     "apps/web/app/api/auth/registration/resend/route.ts",
