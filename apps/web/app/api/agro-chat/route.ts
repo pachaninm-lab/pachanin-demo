@@ -191,6 +191,12 @@ function resolveAnswerMode(
   if (outcome.section || outcome.signals.includes('platform_term')) return 'verified_platform';
   if (EXPLICIT_PLATFORM_PATTERNS.some((pattern) => pattern.test(normalized))) return 'verified_platform';
 
+  // A self-contained agricultural subject is not a platform follow-up merely
+  // because it is short or because an older platform topic exists in history.
+  // This protects questions such as "Как хранить зерно после уборки?" from
+  // being answered with stale Transparent Price copy.
+  if (outcome.signals.includes('agro_term')) return 'general_agro';
+
   const compactFollowUp = normalized.split(' ').filter(Boolean).length <= 7;
   if (compactFollowUp && context.previousTopic) return 'verified_platform';
   if (compactFollowUp) {
