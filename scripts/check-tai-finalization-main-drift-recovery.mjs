@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
 const paths = {
   workflow: '.github/workflows/tai-owner-finalization-recovery-command.yml',
@@ -68,9 +69,17 @@ for (const fragment of [
   "grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'",
   "grep -Fxq 'AI_ASSISTANT_MODEL=tai-qwen3-8b-q4km'",
   "grep -Fxq 'TAI_RESTRICTED_QWEN_MODEL_IDENTITY=tai-qwen3-8b-q4km'",
-  'mv -Tf "$finalization_tmp" "$job_state/finalization.json"',
-  'mv -Tf "$recovery_tmp" "$output"',
-  'mv -Tf "$marker_tmp" "$qwen_state/FINAL_ACCEPTED"',
+  'canonical_recovery="$original_output/finalization-recovery.json"',
+  'git -C "$repository" merge-base --is-ancestor "$committed_current" "$current"',
+  'install_or_validate "$finalization_tmp" "$finalization_path" 600 root',
+  'install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions',
+  'install_or_validate "$output_tmp" "$output" 640 pcactions',
+  'mv -Tf "$marker_tmp" "$marker_path"',
+  "'recoveryRunAttempt':int(recovery_attempt)",
+  "'finalizationCommitRunId':int(commit_run)",
+  "'finalizationCommitRunAttempt':int(commit_attempt)",
+  "'resumedExistingFinalization':int(commit_run) != int(recovery_run)",
+  "or int(commit_attempt) != int(recovery_attempt) or committed_current != current",
   "'taiRevision':tai_revision",
   "'controllerAuthorityAttested':True",
   "'hostedArtifactDigest':artifact_digest",
@@ -88,7 +97,17 @@ for (const fragment of [
   'ref: ${{ github.event.repository.default_branch }}',
   'printf \'CURRENT_SHA=%s\\n\' "$current_sha" >> "$GITHUB_ENV"',
   'actions/download-artifact@v4',
-  'name: tai-finalization-main-drift-recovery-${{ github.run_id }}',
+  'name: tai-finalization-main-drift-recovery-${{ github.run_id }}-${{ github.run_attempt }}',
+  'remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/finalization-recovery.json"',
+  "'$GITHUB_RUN_ID' '$GITHUB_RUN_ATTEMPT' '$remote_evidence'",
+  'id: recovery_artifact',
+  'actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100',
+  'report.total_count !== report.artifacts.length',
+  'artifact.workflow_run?.id !== runId',
+  'candidates.sort((left, right) => right.attempt - left.attempt)',
+  'name: ${{ steps.recovery_artifact.outputs.name }}',
+  'PRODUCING_RUN_ATTEMPT: ${{ steps.recovery_artifact.outputs.attempt }}',
+  '"$GITHUB_RUN_ID" "$PRODUCING_RUN_ATTEMPT" "$HOSTED_ARTIFACT_DIGEST"',
   "run.name !== 'TAI Restricted Qwen REG.RU Activation'",
   "run.event !== 'workflow_dispatch'",
   "run.head_repository?.full_name !== repository",
@@ -96,6 +115,8 @@ for (const fragment of [
   "assert report.get('schemaVersion') == 'tai.restricted-qwen.activation.v1'",
   "assert report.get('runId') == sys.argv[3]",
   "recovery.recoveryRunId !== Number(runId)",
+  "recovery.recoveryRunAttempt !== Number(runAttempt)",
+  "finalization.recoveryRunAttempt !== recovery.finalizationCommitRunAttempt",
   'process.stdout.write(recovery.currentMain);',
 ]) requireFragment(workflow, fragment, paths.workflow);
 
@@ -121,12 +142,18 @@ else {
 const secretReferences = workflow.match(/\$\{\{\s*secrets[.][^}]+\}\}/gu) || [];
 if (secretReferences.length !== 7) violations.push(`${paths.workflow}: SSH secrets must occur exactly once and only in the exact SSH step`);
 
+forbid(workflow, /runner-output\/\$\{GITHUB_RUN_ID\}\/finalization-recovery[.]json/u,
+  `${paths.workflow}: run-scoped recovery evidence path must include the GitHub run attempt`);
+forbid(workflow, /name:\s+tai-finalization-main-drift-recovery-\$\{\{ github[.]run_id \}\}\s*$/mu,
+  `${paths.workflow}: recovery artifact identity must include the GitHub run attempt`);
 forbid(workflow, /needs[.]authority[.]outputs[.]current_sha/u,
   `${paths.workflow}: current main SHA must not cross a job-output boundary`);
 forbid(workflow, /^\s*outputs:\s*\n\s*current_sha:/mu,
   `${paths.workflow}: current main SHA job output is forbidden`);
 forbid(workflow, /current_sha=.*GITHUB_OUTPUT/u,
   `${paths.workflow}: current main SHA step output is forbidden`);
+forbid(workflow, /\[\[ ! -e "\$job_state\/finalization[.]json" && ! -e "\$original_output\/finalization[.]json"/u,
+  `${paths.workflow}: non-resumable all-evidence absence guard is forbidden`);
 forbid(workflow, /pull_request_target:/u, `${paths.workflow}: pull_request_target is forbidden`);
 forbid(workflow, /continue-on-error:\s*true/mu, `${paths.workflow}: continue-on-error is forbidden`);
 forbid(workflow, /StrictHostKeyChecking=(?:no|accept-new)/u, `${paths.workflow}: unpinned SSH host acceptance is forbidden`);
@@ -177,21 +204,46 @@ const artifactEvidenceIndex = workflow.indexOf('artifact?.digest !== artifactDig
 const controllerAuthorityIndex = workflow.indexOf('runner_authority=/etc/pc-release-authority/actions-runner.json');
 const activationEvidenceIndex = workflow.indexOf("assert report.get('passed') is True");
 const liveRevisionIndex = workflow.indexOf('[[ "$api_revision" == "$target" && "$web_revision" == "$target" && "$tai_revision" == "$target" ]]');
-const finalizationEvidenceIndex = workflow.indexOf('mv -Tf "$finalization_tmp" "$job_state/finalization.json"');
-const recoveryEvidenceIndex = workflow.indexOf('mv -Tf "$recovery_tmp" "$output"');
-const finalMarkerIndex = workflow.indexOf('mv -Tf "$marker_tmp" "$qwen_state/FINAL_ACCEPTED"');
+const finalizationEvidenceIndex = workflow.indexOf('install_or_validate "$finalization_tmp" "$finalization_path" 600 root');
+const canonicalEvidenceIndex = workflow.indexOf('install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions');
+const recoveryEvidenceIndex = workflow.indexOf('install_or_validate "$output_tmp" "$output" 640 pcactions');
+const finalMarkerIndex = workflow.indexOf('mv -Tf "$marker_tmp" "$marker_path"');
+const producingArtifactIndex = workflow.indexOf('Resolve artifact from the producing recovery attempt');
+const producingDownloadIndex = workflow.indexOf('name: ${{ steps.recovery_artifact.outputs.name }}');
 const publishIndex = workflow.indexOf('Publish exact accepted result');
 if ([authorityIndex, artifactEvidenceIndex, controllerAuthorityIndex, activationEvidenceIndex, liveRevisionIndex,
-  finalizationEvidenceIndex, recoveryEvidenceIndex, finalMarkerIndex, publishIndex].some((index) => index < 0)
+  finalizationEvidenceIndex, canonicalEvidenceIndex, recoveryEvidenceIndex, finalMarkerIndex,
+  producingArtifactIndex, producingDownloadIndex, publishIndex].some((index) => index < 0)
   || !(authorityIndex < artifactEvidenceIndex
     && artifactEvidenceIndex < controllerAuthorityIndex
     && controllerAuthorityIndex < activationEvidenceIndex
     && activationEvidenceIndex < liveRevisionIndex
     && liveRevisionIndex < finalizationEvidenceIndex
-    && finalizationEvidenceIndex < recoveryEvidenceIndex
+    && finalizationEvidenceIndex < canonicalEvidenceIndex
+    && canonicalEvidenceIndex < recoveryEvidenceIndex
     && recoveryEvidenceIndex < finalMarkerIndex
-    && finalMarkerIndex < publishIndex)) {
-  violations.push(`${paths.workflow}: authority, exact artifact, controller, live-revision, durable evidence, final-marker and publication order is invalid`);
+    && finalMarkerIndex < producingArtifactIndex
+    && producingArtifactIndex < producingDownloadIndex
+    && producingDownloadIndex < publishIndex)) {
+  violations.push(`${paths.workflow}: authority, exact artifact, controller, live-revision, resumable durable evidence, final-marker, producing-attempt artifact and publication order is invalid`);
+}
+
+const remoteStartMarker = '          cat > "$RUNNER_TEMP/recover-finalization.sh" <<\'RECOVERY\'\n';
+const remoteStart = workflow.indexOf(remoteStartMarker);
+const remoteEnd = workflow.indexOf('\n          RECOVERY\n', remoteStart + remoteStartMarker.length);
+if (remoteStart < 0 || remoteEnd < 0) {
+  violations.push(`${paths.workflow}: embedded recovery script boundary is missing`);
+} else {
+  const rawLines = workflow.slice(remoteStart + remoteStartMarker.length, remoteEnd).split('\n');
+  if (rawLines.some((line) => !line.startsWith('          '))) {
+    violations.push(`${paths.workflow}: embedded recovery script indentation is invalid`);
+  } else {
+    const remoteScript = `${rawLines.map((line) => line.slice(10)).join('\n')}\n`;
+    const syntax = spawnSync('bash', ['-n'], { input: remoteScript, encoding: 'utf8' });
+    if (syntax.status !== 0) {
+      violations.push(`${paths.workflow}: embedded recovery script syntax failed: ${(syntax.stderr || syntax.stdout || '').trim()}`);
+    }
+  }
 }
 
 if (violations.length) {
@@ -200,4 +252,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, durable evidence before atomic final marker, and no deployment/rollback mutation.');
+console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, attempt-specific resumable durable evidence before atomic final marker, producing-attempt artifact resolution, and no deployment/rollback mutation.');
