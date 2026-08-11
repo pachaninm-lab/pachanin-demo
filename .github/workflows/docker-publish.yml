@@ -1,14 +1,63 @@
 name: Build & Publish Canonical Docker Images
 
 on:
-  # Canonical images must exist for every commit that could be released.
-  # The exact-SHA release contract requires an image whose OCI revision equals
-  # the target commit, so a path filter here makes any main commit outside those
-  # paths permanently unreleasable — a governance-only commit could never be
-  # deployed, however correct it was. Building on every main push keeps the two
-  # contracts consistent.
   push:
     branches: [main]
+    paths:
+      - "apps/api/**"
+      - "apps/web/**"
+      - "apps/tai/**"
+      - "infra/docker/Dockerfile.api"
+      - "infra/docker/Dockerfile.web"
+      - "infra/docker/Dockerfile.migrations"
+      - "infra/docker/Dockerfile.tai"
+      - ".github/workflows/docker-publish.yml"
+      - ".github/workflows/production-full-stack-exact-sha.yml"
+      - ".github/workflows/tai-reg-ru-preflight.yml"
+      - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - ".github/workflows/tai-automatic-reg-ru-preflight.yml"
+      - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
+      - ".github/workflows/tai-reg-ru-deploy.yml"
+      - ".github/workflows/tai-owner-reg-ru-deployment-command.yml"
+      - ".github/workflows/tai-owner-controller-sync-command.yml"
+      - "scripts/production-full-stack-exact-sha.sh"
+      - "scripts/production-full-stack-live-acceptance.sh"
+      - "scripts/check-production-full-stack-release.mjs"
+      - "scripts/tai-reg-ru-preflight.sh"
+      - "scripts/check-tai-reg-ru-preflight.mjs"
+      - "scripts/verify-tai-preflight-report.mjs"
+      - "scripts/check-tai-bootstrap-preflight.mjs"
+      - "scripts/check-tai-automatic-release-chain.mjs"
+      - "scripts/tai-restricted-qwen-reg-ru-activate.sh"
+      - "scripts/tai-reg-ru-deploy.sh"
+      - "scripts/pc-tai-release-controller.sh"
+      - "scripts/pc-tai-release-controller-core.sh"
+      - "scripts/pc-tai-controller-sync.sh"
+      - "scripts/check-tai-controller-sync.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
+      - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-pc-release-authority-boundary.mjs"
+      # The hosted acceptance scripts and the contract they read decide whether
+      # a release is confirmed. A change to them that never rebuilds an image
+      # leaves the release chain judging production by a reader the images were
+      # never built with — which is how a stale assessment schema survived.
+      - "scripts/tai-live-public-ai-acceptance.mjs"
+      - "scripts/tai-potato-mobile-live-acceptance.mjs"
+      - "scripts/tai-public-assessment-contract.mjs"
+      - "scripts/tai-conversation-subject-contract.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
+      - "scripts/check-resume-pc-prod-actions-runner.mjs"
+      - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
+      - "docs/platform-v7/autopilot/scopes/*reg-ru-preflight*.json"
+      - "docs/platform-v7/autopilot/scopes/*bootstrap-preflight*.json"
+      - "docs/platform-v7/autopilot/scopes/*bootstrap-canonical-images*.json"
+      - "docs/platform-v7/autopilot/scopes/*automatic-exact-release-chain*.json"
+      - "docs/platform-v7/autopilot/scopes/*tai-runner*.json"
+      - "docs/platform-v7/autopilot/scopes/*least-privilege-controller*.json"
+      - "docs/platform-v7/autopilot/scopes/*controller-canonical-trigger*.json"
+      - "docs/platform-v7/autopilot/scopes/*controller-sync*.json"
   workflow_dispatch:
     inputs:
       services:
