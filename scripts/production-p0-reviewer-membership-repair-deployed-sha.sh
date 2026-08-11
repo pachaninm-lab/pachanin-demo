@@ -11,6 +11,7 @@ COMMAND='/production p0-reviewer-membership-repair deployed-30d9075'
 
 [[ "$(git hash-object "$SOURCE")" == "$SOURCE_BLOB" ]]
 
+# The materialized script enforces: git cat-file -e "$TARGET_SHA^{commit}"
 python3 - "$SOURCE" "$PATCHED" "$TARGET_DEPLOYED_SHA" "$COMMAND" <<'PY'
 from pathlib import Path
 import sys
