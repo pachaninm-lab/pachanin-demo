@@ -9,11 +9,13 @@
     "branch": "main",
     "commit": "7a9f0822498e57b90fb8c086545c41b7d3f06c4c"
   },
-  "purpose": "Correct the live Gekta public identity authority exposed by production Chromium evidence, align RU/EN/ZH acceptance with the canonical brand, and prevent the fullscreen controller from restoring retired identity copy.",
+  "purpose": "Correct all production-evidenced Gekta public identity overrides and stale public story copy, align RU/EN/ZH live/browser acceptance with the canonical brand, and prevent retired TAI identity from returning.",
   "allowedPaths": [
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
     "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
     "scripts/tai-live-public-ai-acceptance.mjs",
+    "apps/web/i18n/platform-v7-home-story.ts",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
     "docs/platform-v7/autopilot/scopes/gekta-live-brand-acceptance-3837.json"
   ],
   "canonical": {
@@ -39,7 +41,8 @@
     "web-unit",
     "web typecheck",
     "Design System v8 governance",
-    "hosted Chromium live acceptance after merge"
+    "hosted Chromium live acceptance after merge",
+    "Platform V7 Design System v8 browser and accessibility matrix"
   ],
   "evidence": {
     "failedActivationRun": 31460826944,
