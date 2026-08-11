@@ -7,6 +7,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 const sources = {
   assistant: read('components/platform-v7/PublicPlatformAssistant.tsx'),
   fullscreenController: read('components/platform-v7/UnifiedModalSheetFullscreenController.tsx'),
+  internationalHome: read('components/platform-v7/PlatformV7StrategicHomeInternational.tsx'),
   contactDock: read('components/platform-v7/PublicContactDock.tsx'),
   dealIntelligence: read('components/platform-v7/PublicDealIntelligencePanel.tsx'),
   productPassport: read('components/platform-v7/PublicAiInActionSimpleExperience.tsx'),
@@ -34,6 +35,7 @@ describe('Gekta public brand contract', () => {
     expect(sources.dealJourney).toContain('Гекта объясняет текущий статус и риск');
     expect(sources.hero).toContain('Гекта сопоставляет факты');
     expect(sources.homeOperating).toContain("tertiary: 'Посмотреть Гекту в работе'");
+    expect(sources.internationalHome).toContain("title: 'Гекта в процессе'");
     expect(sources.homeStory).toContain("title: 'Гекта — интеллектуальный слой конкретной Сделки'");
     expect(sources.homeStory).toContain("title: 'Гекта воздержалась от вывода'");
     expect(sources.homeStory).toContain("cta: 'Посмотреть Гекту в работе'");
@@ -53,6 +55,8 @@ describe('Gekta public brand contract', () => {
     expect(sources.homeStory).toContain("title: 'Gekta is the intelligence layer of a specific Deal'");
     expect(sources.homeStory).toContain("title: 'Gekta 是具体交易的智能层'");
     expect(sources.hero).toContain('Gekta 对照事实');
+    expect(sources.internationalHome).toContain("title: 'Gekta in the workflow'");
+    expect(sources.internationalHome).toContain("title: '流程内的 Gekta'");
     expect(sources.productPassport).toContain("title: 'Gekta is the evidence layer of deal execution'");
     expect(sources.productPassport).toContain("title: 'Gekta 是交易执行的证据层'");
   });
