@@ -1,0 +1,345 @@
+name: Production P0 REG.RU Live Container Mail Recovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-regru-live-container-mail-recover.yml'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-regru-live-container-mail-recover-3785.json'
+      - 'scripts/provision-production-p0-password-reset-runtime.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-regru-live-container-mail-recover
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-regru-live-container-mail-recover
+  SMTP_HOST: sm38.hosting.reg.ru
+  SMTP_PORT: '465'
+  SMTP_USER_ASCII: access@xn----8sbjf4befbjgs9b.xn--p1ai
+  SMTP_USER_UNICODE: access@процент-агро.рф
+
+jobs:
+  contract:
+    name: Validate live-container mail recovery contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-regru-live-container-mail-recover current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bounded contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-production-p0-password-reset-runtime-provision.mjs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/production-p0-regru-live-container-mail-recover-3785.json').read_text())
+          assert scope['schemaVersion'] == 'platform-v7.concurrent-scope.v1'
+          assert scope['issue'] == 3785 and scope['releaseIssue'] == 3072
+          assert scope['productionHosting'] == 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
+          b = scope['boundaries']
+          assert b['newRecurringCostRub'] == 0
+          assert b['ownerOnly'] is True and b['exactMainGuard'] is True
+          assert b['databaseMutation'] is False and b['deploymentMutation'] is False
+          assert b['credentialOutput'] is False and b['rawEnvironmentOutput'] is False and b['rawLogOutput'] is False
+          assert b['liveContainerEnvironmentReadOnlyUntilSmtpAuth'] is True
+          PY
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  recover:
+    name: Recover auth-mail runtime from active REG.RU Web container
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != '' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-regru-live-container-mail-recover current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Resolve pinned REG.RU root SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ -n "$host" && -n "$user" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          (( ${#dns_ipv4[@]} >= 1 ))
+          printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$host"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 40
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; python3 --version >/dev/null; echo ROOT_SSH_AUTH_OK' > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Recover only a live canonical REG.RU SMTP authority without disclosure
+        id: recover
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          remote_provisioner="/tmp/pc-live-mail-provision-${GITHUB_RUN_ID}.sh"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            scripts/provision-production-p0-password-reset-runtime.sh "$USER@$HOST:$remote_provisioner"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            "$USER@$HOST" "bash -s -- '$remote_provisioner' '$SMTP_HOST' '$SMTP_PORT' '$SMTP_USER_ASCII' '$SMTP_USER_UNICODE'" <<'REMOTE' \
+            | tee "$EVIDENCE_DIR/recovery.txt"
+          set -Eeuo pipefail
+          provisioner="$1"; expected_host="$2"; expected_port="$3"; expected_ascii="$4"; expected_unicode="$5"
+          [[ "$(id -u)" -eq 0 ]]
+          command -v docker >/dev/null 2>&1
+          command -v python3 >/dev/null 2>&1
+          chmod 0700 "$provisioner"
+          mail_input="/tmp/pc-live-mail-input-$$.env"
+          cleanup(){ rm -f "$mail_input" "$provisioner"; }
+          trap cleanup EXIT
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          if (( ${#web_ids[@]} != 1 )); then
+            printf 'LIVE_MAIL_RECOVERY|FAIL|WEB_AUTHORITY_CARDINALITY\n'
+            exit 0
+          fi
+          web_id="${web_ids[0]}"
+
+          classifier="$(cat <<'PY'
+          import json, os, smtplib, ssl, sys
+          out_path, expected_host, expected_port, expected_ascii, expected_unicode = sys.argv[1:6]
+          env_items = json.load(sys.stdin)
+          env = {}
+          for item in env_items or []:
+              key, sep, value = str(item).partition('=')
+              if sep: env[key] = value
+          def clean(value):
+              value = str(value or '').strip()
+              return value if value and '\n' not in value and '\r' not in value else ''
+          def candidate(source, host, port, user, password, sender):
+              host, port, user, password, sender = map(clean, (host, port, user, password, sender))
+              if user == expected_unicode: user = expected_ascii
+              if sender == expected_unicode: sender = expected_ascii
+              port = port or expected_port
+              sender = sender or user
+              if not all((host, user, password)): return None
+              if host != expected_host or port != expected_port or user != expected_ascii or sender != expected_ascii: return None
+              return (source, password)
+          candidates = []
+          current = candidate('CURRENT', env.get('PC_SMTP_HOST'), env.get('PC_SMTP_PORT'), env.get('PC_SMTP_USER'), env.get('PC_SMTP_PASS'), env.get('PC_MAIL_FROM'))
+          legacy = candidate('LEGACY', env.get('SMTP_HOST'), env.get('SMTP_PORT'), env.get('SMTP_USER') or env.get('SMTP_USERNAME'), env.get('SMTP_PASS') or env.get('SMTP_PASSWORD'), env.get('SMTP_FROM'))
+          for item in (current, legacy):
+              if item: candidates.append(item)
+          if not candidates:
+              print('LIVE_MAIL_RECOVERY|FAIL|NO_COMPLETE_CANONICAL_SMTP_ENV')
+              raise SystemExit(0)
+          chosen = None
+          for source, password in candidates:
+              try:
+                  context = ssl.create_default_context()
+                  with smtplib.SMTP_SSL(expected_host, int(expected_port), timeout=10, context=context) as client:
+                      client.login(expected_ascii, password)
+                  chosen = (source, password)
+                  break
+              except Exception:
+                  continue
+          if chosen is None:
+              print('LIVE_MAIL_RECOVERY|FAIL|LIVE_SMTP_AUTH_FAILED')
+              raise SystemExit(0)
+          source, password = chosen
+          flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+          fd = os.open(out_path, flags, 0o600)
+          with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+              handle.write(f'PC_SMTP_HOST={expected_host}\n')
+              handle.write(f'PC_SMTP_USER={expected_ascii}\n')
+              handle.write(f'PC_SMTP_PASS={password}\n')
+              handle.write(f'PC_SMTP_PORT={expected_port}\n')
+              handle.write(f'PC_MAIL_FROM={expected_ascii}\n')
+          print(f'LIVE_MAIL_AUTH|PASS|{source}')
+          PY
+          )"
+          auth_marker="$(docker inspect --format '{{json .Config.Env}}' "$web_id" | python3 -c "$classifier" "$mail_input" "$expected_host" "$expected_port" "$expected_ascii" "$expected_unicode")"
+          printf '%s\n' "$auth_marker"
+          if [[ "$auth_marker" == LIVE_MAIL_RECOVERY\|FAIL\|* ]]; then
+            exit 0
+          fi
+          [[ "$auth_marker" =~ ^LIVE_MAIL_AUTH\|PASS\|(CURRENT|LEGACY)$ ]]
+          source_name="${BASH_REMATCH[1]}"
+          [[ -f "$mail_input" && "$(stat -c '%a:%u:%g' "$mail_input")" == '600:0:0' ]]
+          printf 'LIVE_MAIL_RECOVERY|PROVISION_STARTED|%s\n' "$source_name"
+          PC_RECONCILE_ACTIVE_RUNTIME=1 "$provisioner" provision "$mail_input"
+          printf 'LIVE_MAIL_RECOVERY|PASS|%s\n' "$source_name"
+          REMOTE
+          remote_rc=${PIPESTATUS[0]}
+          set -e
+          [[ "$remote_rc" == 0 ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          marker="$(grep '^LIVE_MAIL_RECOVERY|' "$EVIDENCE_DIR/recovery.txt" | tail -n1 || true)"
+          [[ "$marker" =~ ^LIVE_MAIL_RECOVERY\|(FAIL|PASS|PROVISION_STARTED)\|[A-Z0-9_]+$ ]]
+          echo "marker=$marker" >> "$GITHUB_OUTPUT"
+
+      - name: Publish bounded recovery result
+        if: always()
+        env:
+          MARKER: ${{ steps.recover.outputs.marker }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          marker="${MARKER:-}"
+          result=FAIL
+          blocker=RECOVERY_RESULT_UNAVAILABLE
+          mutation=UNCONFIRMED_RECHECK_REQUIRED
+          if [[ "$marker" =~ ^LIVE_MAIL_RECOVERY\|FAIL\|([A-Z0-9_]+)$ ]]; then
+            blocker="${BASH_REMATCH[1]}"; mutation=NONE
+          elif [[ "$marker" =~ ^LIVE_MAIL_RECOVERY\|PASS\|([A-Z0-9_]+)$ ]]; then
+            result=PASS; blocker=NONE; mutation=ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES
+          elif [[ "$marker" =~ ^LIVE_MAIL_RECOVERY\|PROVISION_STARTED\|([A-Z0-9_]+)$ ]]; then
+            blocker=PROVISIONER_DID_NOT_REACH_TERMINAL_PASS
+          fi
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null || true)"
+          [[ "$current" == "$TARGET_SHA" ]] || { result=FAIL; blocker=MAIN_ADVANCED; }
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 live-container mail recovery
+
+          - exact main: \`$TARGET_SHA\`
+          - result: \`$result\`
+          - blocker: \`$blocker\`
+          - SMTP authority: \`REG_RU_ACTIVE_WEB_CONTAINER_CANONICAL_ONLY\`
+          - SMTP probe: \`AUTH_ONLY_NO_MESSAGE\`
+          - production mutation: \`$mutation\`
+          - database/deployment mutation: \`NONE\`
+          - raw environment, credentials and protected paths: \`NOT_PUBLISHED\`" >/dev/null || true
+
+      - name: Enforce terminal recovery PASS
+        if: always()
+        env:
+          MARKER: ${{ steps.recover.outputs.marker }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${MARKER:-}" =~ ^LIVE_MAIL_RECOVERY\|PASS\|(CURRENT|LEGACY)$ ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Cleanup runner credentials
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+
+      - name: Upload bounded recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-regru-live-container-mail-recover-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: ignore
+          retention-days: 90
