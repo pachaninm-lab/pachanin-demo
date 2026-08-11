@@ -84,6 +84,12 @@ print('SMTP')
 PY
 }
 
+valid_mail_file() {
+  [[ -f "$mail_file" && ! -L "$mail_file" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$mail_file")" == '600:0:0' ]] || return 1
+  validate_mail_file "$mail_file"
+}
+
 input_channel="$(validate_mail_file "$MAIL_INPUT")" || fail MAIL_INPUT_CONTENT_INVALID 10
 [[ "$input_channel" =~ ^(RESEND|SMTP)$ ]] || fail MAIL_INPUT_CONTENT_INVALID 10
 
@@ -96,7 +102,7 @@ else
   delivery_exists=0
 fi
 if [[ -e "$mail_file" ]]; then
-  existing_channel="$(validate_mail_file "$mail_file")" || fail EXISTING_MAIL_FILE_INVALID 13
+  existing_channel="$(valid_mail_file)" || fail EXISTING_MAIL_FILE_INVALID 13
   [[ "$existing_channel" =~ ^(RESEND|SMTP)$ ]] || fail EXISTING_MAIL_FILE_INVALID 13
   mail_exists=1
 else
@@ -129,7 +135,7 @@ else
 fi
 
 valid_delivery_file || fail DELIVERY_FILE_VERIFICATION_FAILED 14
-verified_channel="$(validate_mail_file "$mail_file")" || fail MAIL_FILE_VERIFICATION_FAILED 15
+verified_channel="$(valid_mail_file)" || fail MAIL_FILE_VERIFICATION_FAILED 15
 [[ "$verified_channel" == "$mail_channel" ]] || fail MAIL_FILE_VERIFICATION_FAILED 15
 trap - EXIT
 printf 'PASSWORD_RESET_DELIVERY_PROVISION=%s\n' "$delivery_status"
