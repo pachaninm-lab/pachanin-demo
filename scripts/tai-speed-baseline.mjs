@@ -181,10 +181,13 @@ export async function measureStream({
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         Accept: 'text/event-stream',
-        // The route serves the buffered contract to cross-site callers.
+        // The real Gekta browser request is same-origin and therefore reaches
+        // the incremental SSE path rather than the buffered cross-site fallback.
         'sec-fetch-site': 'same-origin',
       },
-      body: JSON.stringify({ question, locale, history }),
+      // Match the public /gekta client contract exactly. `question` is an
+      // internal benchmark field only; the route reads `message` on the wire.
+      body: JSON.stringify({ message: question, locale, context: 'gekta-standalone', history }),
       signal: controller.signal,
     });
     sample.headersMs = round(performance.now() - startedAt);
