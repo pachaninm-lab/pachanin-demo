@@ -40,6 +40,8 @@ permissions:
 concurrency:
   group: >-
     ${{
+      github.event_name == 'pull_request' &&
+      format('tai-public-agro-semantic-pr-{0}', github.event.pull_request.number) ||
       github.event_name == 'issue_comment' &&
       !(
         github.event.issue.number == 3365 &&
@@ -127,6 +129,7 @@ jobs:
           grep -Fq "'tai-restricted-qwen-reg-ru-activation-production'" "$workflow"
           grep -Fq "group: tai-restricted-qwen-reg-ru-activation-" "$activation_workflow"
           grep -Fq "github.event.pull_request.number || 'production'" "$activation_workflow"
+          grep -Fq "format('tai-public-agro-semantic-pr-{0}', github.event.pull_request.number)" "$workflow"
           grep -Fq "format('tai-public-agro-semantic-ignored-{0}', github.run_id)" "$workflow"
           grep -Fq "github.event.comment.body == '/tai recover-semantic 31481267058'" "$workflow"
           grep -Fq 'TAI Restricted Qwen REG.RU Activation' "$workflow"
