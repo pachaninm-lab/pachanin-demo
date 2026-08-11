@@ -6,8 +6,8 @@ const operatingCopy = {
     hero: {
       primary: 'Посмотреть Сделку в работе',
       secondary: 'Начать работу с платформой',
-      tertiary: 'Посмотреть ИИ в работе',
-      proofLabel: '12 ролей · 19 этапов · RU/EN/ZH · TAI',
+      tertiary: 'Посмотреть Гекту в работе',
+      proofLabel: '12 ролей · 19 этапов · RU/EN/ZH · Гекта',
     },
     lifecycle: {
       lead: 'Все 19 этапов связаны с одной Сделкой: видны факты, ответственный, основание, влияние на расчёт и следующий шаг.',
@@ -19,7 +19,7 @@ const operatingCopy = {
       secondary: 'Посмотреть 7 шагов Сделки',
     },
     footer: {
-      note: 'Единая система управления агросделкой: 12 ролей, 19 этапов и собственный ИИ TAI — от лота и торгов до расчёта, спора и закрытия.',
+      note: 'Единая система управления агросделкой: 12 ролей, 19 этапов и аграрный интеллект Гекта — от лота и торгов до расчёта, спора и закрытия.',
     },
   },
   en: {
@@ -27,8 +27,8 @@ const operatingCopy = {
     hero: {
       primary: 'See a Deal in action',
       secondary: 'Start using the platform',
-      tertiary: 'See AI in action',
-      proofLabel: '12 roles · 19 stages · RU/EN/ZH · TAI',
+      tertiary: 'See Gekta in action',
+      proofLabel: '12 roles · 19 stages · RU/EN/ZH · Gekta',
     },
     lifecycle: {
       lead: 'All 19 stages belong to one Deal and show facts, owner, evidence, settlement impact and the next step.',
@@ -40,7 +40,7 @@ const operatingCopy = {
       secondary: 'See the 7 Deal steps',
     },
     footer: {
-      note: 'One agricultural Deal management system: 12 roles, 19 stages and proprietary TAI — from lot and bidding to settlement, dispute and closure.',
+      note: 'One agricultural Deal management system: 12 roles, 19 stages and Gekta agricultural intelligence — from lot and bidding to settlement, dispute and closure.',
     },
   },
   zh: {
@@ -48,8 +48,8 @@ const operatingCopy = {
     hero: {
       primary: '查看交易运行',
       secondary: '开始使用平台',
-      tertiary: '查看 AI 如何工作',
-      proofLabel: '12 个角色 · 19 个阶段 · RU/EN/ZH · TAI',
+      tertiary: '查看 Gekta 如何工作',
+      proofLabel: '12 个角色 · 19 个阶段 · RU/EN/ZH · Gekta',
     },
     lifecycle: {
       lead: '全部 19 个阶段属于同一笔交易，并显示事实、责任方、依据、结算影响与下一步。',
@@ -61,7 +61,7 @@ const operatingCopy = {
       secondary: '查看交易七步',
     },
     footer: {
-      note: '统一农业交易管理系统：12 个角色、19 个阶段和自主 TAI，覆盖批次、竞价、结算、争议与关闭。',
+      note: '统一农业交易管理系统：12 个角色、19 个阶段和 Gekta 农业智能，覆盖批次、竞价、结算、争议与关闭。',
     },
   },
 } as const;

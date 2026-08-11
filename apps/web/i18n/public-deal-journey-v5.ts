@@ -78,7 +78,7 @@ const copy = {
       documents: 'Документы',
       risk: 'Риск',
       next: 'Дальше',
-      askTai: 'Спросить TAI об этом этапе',
+      askTai: 'Спросить Гекту об этом этапе',
       startQuick: 'Начать быстрый показ',
       pause: 'Пауза',
       continue: 'Продолжить',
@@ -149,7 +149,7 @@ const copy = {
     },
     finalChecks: ['Поставка и ключевые события связаны со Сделкой', 'Документы собраны в едином контексте', 'Расчётные основания проверены', 'Отклонения и решения остаются в хронологии', 'Доказательная история сохранена'],
     before: ['Договор отдельно', 'Перевозка отдельно', 'Лаборатория отдельно', 'Документы отдельно', 'Расчёт отдельно', 'Спор собирается вручную'],
-    after: ['Одна Сделка связывает участников и события', 'Каждый этап имеет ответственного и следующий шаг', 'Документы связаны с событиями исполнения', 'Деньги зависят от подтверждённых оснований', 'Отклонения переходят в доказательный контур', 'TAI объясняет текущий статус и риск'],
+    after: ['Одна Сделка связывает участников и события', 'Каждый этап имеет ответственного и следующий шаг', 'Документы связаны с событиями исполнения', 'Деньги зависят от подтверждённых оснований', 'Отклонения переходят в доказательный контур', 'Гекта объясняет текущий статус и риск'],
   },
   en: {
     intro: {
@@ -161,7 +161,7 @@ const copy = {
       connect: 'Connect an organisation',
     },
     labels: {
-      intentQuestion: 'What do you want to do?', intentLead: 'You do not need to understand system roles — choose your task.', otherParticipant: 'Another Deal participant', chooseParticipant: 'Choose a participant', changeIntent: 'Change task', quickMode: 'Quick view', detailedMode: 'Explore in detail', quickModeNote: 'The platform walks through the key stages and shows only what matters to you now.', detailedModeNote: 'All stages, documents, money, risks and roles of one Deal.', scenarioQuestion: 'What happens in this Deal?', formalScenario: 'Operational scenario', yourDeal: 'Your demonstration Deal', demonstration: 'Demonstration', stage: 'Stage', of: 'of', whatHappened: 'What happened', yourAction: 'What you need to do', noAction: 'No action is required from you right now.', platformAction: 'What the platform does', nowActs: 'Acting now', money: 'Money', documents: 'Documents', risk: 'Risk', next: 'Next', askTai: 'Ask TAI about this stage', startQuick: 'Start quick walkthrough', pause: 'Pause', continue: 'Continue', stop: 'Stop', restart: 'Start from the beginning', previous: 'Back', nextStage: 'Next stage', detailedOpen: 'Open detailed review', detailedBack: 'Return to quick view', completeTitle: 'Deal completed', completeLead: 'The entire demonstration chain has passed through one digital Deal contour.', oneContour: 'One Deal connects execution, documents, settlement grounds, risks and evidence.', anotherScenario: 'View another scenario', beforeTitle: 'Without one digital contour', afterTitle: 'With Transparent Price', roleContext: 'Your context', scenarioRiskNone: 'No critical deviations in this scenario.'
+      intentQuestion: 'What do you want to do?', intentLead: 'You do not need to understand system roles — choose your task.', otherParticipant: 'Another Deal participant', chooseParticipant: 'Choose a participant', changeIntent: 'Change task', quickMode: 'Quick view', detailedMode: 'Explore in detail', quickModeNote: 'The platform walks through the key stages and shows only what matters to you now.', detailedModeNote: 'All stages, documents, money, risks and roles of one Deal.', scenarioQuestion: 'What happens in this Deal?', formalScenario: 'Operational scenario', yourDeal: 'Your demonstration Deal', demonstration: 'Demonstration', stage: 'Stage', of: 'of', whatHappened: 'What happened', yourAction: 'What you need to do', noAction: 'No action is required from you right now.', platformAction: 'What the platform does', nowActs: 'Acting now', money: 'Money', documents: 'Documents', risk: 'Risk', next: 'Next', askTai: 'Ask Gekta about this stage', startQuick: 'Start quick walkthrough', pause: 'Pause', continue: 'Continue', stop: 'Stop', restart: 'Start from the beginning', previous: 'Back', nextStage: 'Next stage', detailedOpen: 'Open detailed review', detailedBack: 'Return to quick view', completeTitle: 'Deal completed', completeLead: 'The entire demonstration chain has passed through one digital Deal contour.', oneContour: 'One Deal connects execution, documents, settlement grounds, risks and evidence.', anotherScenario: 'View another scenario', beforeTitle: 'Without one digital contour', afterTitle: 'With Transparent Price', roleContext: 'Your context', scenarioRiskNone: 'No critical deviations in this scenario.'
     },
     intents: {
       sell: { label: 'Sell produce', description: 'See the path from sale terms to acceptance, documents and settlement.', perspective: 'seller' }, buy: { label: 'Buy produce', description: 'Check delivery execution, quality, documents and settlement grounds.', perspective: 'buyer' }, transport: { label: 'Organise transport', description: 'Understand when the carrier, driver and transport documents enter the Deal.', perspective: 'logistics' }, receive: { label: 'Receive and inspect cargo', description: 'See acceptance, weight, laboratory checks, deviations and confirmations.', perspective: 'elevator' }, settle: { label: 'Handle settlement', description: 'Understand which verified events create grounds for the money stage.', perspective: 'bank' }, control: { label: 'Control execution', description: 'Review the whole Deal, exceptions, risks and evidence history.', perspective: 'executive' }
@@ -179,14 +179,14 @@ const copy = {
     },
     finalChecks: ['Delivery and key events are linked to the Deal', 'Documents are assembled in one context', 'Settlement grounds are checked', 'Deviations and decisions remain in chronology', 'Evidence history is retained'],
     before: ['Contract separate', 'Transport separate', 'Laboratory separate', 'Documents separate', 'Settlement separate', 'Dispute evidence assembled manually'],
-    after: ['One Deal connects participants and events', 'Every stage has an owner and next step', 'Documents are linked to execution events', 'Money depends on verified grounds', 'Deviations enter the evidence contour', 'TAI explains current status and risk'],
+    after: ['One Deal connects participants and events', 'Every stage has an owner and next step', 'Documents are linked to execution events', 'Money depends on verified grounds', 'Deviations enter the evidence contour', 'Gekta explains current status and risk'],
   },
   zh: {
     intro: {
       kicker: '交易内部 · 演示', title: '查看你的交易将如何推进', lead: '先选择你要做什么。平台随后展示从交易条件和履约，到文件、结算和交易关闭的完整路径。', demoNotice: '仅使用虚构演示数据。不会读取真实交易，不会执行真实银行操作，也不会把尚未接入的外部集成展示为在线能力。', backHome: '返回首页', connect: '接入组织'
     },
     labels: {
-      intentQuestion: '你想做什么？', intentLead: '无需理解系统角色，直接选择你的任务。', otherParticipant: '其他交易参与方', chooseParticipant: '选择参与方', changeIntent: '更换任务', quickMode: '快速查看', detailedMode: '详细查看', quickModeNote: '平台带你经过关键阶段，只展示当前与你最相关的信息。', detailedModeNote: '查看同一笔交易的全部阶段、文件、资金、风险和角色。', scenarioQuestion: '这笔交易发生什么情况？', formalScenario: '运营场景', yourDeal: '你的演示交易', demonstration: '演示', stage: '阶段', of: '/', whatHappened: '发生了什么', yourAction: '你需要做什么', noAction: '当前不需要你执行操作。', platformAction: '平台做什么', nowActs: '当前执行方', money: '资金', documents: '文件', risk: '风险', next: '下一步', askTai: '询问 TAI 当前阶段', startQuick: '开始快速演示', pause: '暂停', continue: '继续', stop: '停止', restart: '从头开始', previous: '返回', nextStage: '下一阶段', detailedOpen: '打开详细解析', detailedBack: '返回快速查看', completeTitle: '交易已完成', completeLead: '整个演示链路在同一个数字交易闭环中完成。', oneContour: '一笔交易连接履约、文件、结算依据、风险和证据。', anotherScenario: '查看其他场景', beforeTitle: '没有统一数字闭环', afterTitle: '使用“透明价格”', roleContext: '你的上下文', scenarioRiskNone: '当前场景没有重大偏差。'
+      intentQuestion: '你想做什么？', intentLead: '无需理解系统角色，直接选择你的任务。', otherParticipant: '其他交易参与方', chooseParticipant: '选择参与方', changeIntent: '更换任务', quickMode: '快速查看', detailedMode: '详细查看', quickModeNote: '平台带你经过关键阶段，只展示当前与你最相关的信息。', detailedModeNote: '查看同一笔交易的全部阶段、文件、资金、风险和角色。', scenarioQuestion: '这笔交易发生什么情况？', formalScenario: '运营场景', yourDeal: '你的演示交易', demonstration: '演示', stage: '阶段', of: '/', whatHappened: '发生了什么', yourAction: '你需要做什么', noAction: '当前不需要你执行操作。', platformAction: '平台做什么', nowActs: '当前执行方', money: '资金', documents: '文件', risk: '风险', next: '下一步', askTai: '向 Gekta 询问当前阶段', startQuick: '开始快速演示', pause: '暂停', continue: '继续', stop: '停止', restart: '从头开始', previous: '返回', nextStage: '下一阶段', detailedOpen: '打开详细解析', detailedBack: '返回快速查看', completeTitle: '交易已完成', completeLead: '整个演示链路在同一个数字交易闭环中完成。', oneContour: '一笔交易连接履约、文件、结算依据、风险和证据。', anotherScenario: '查看其他场景', beforeTitle: '没有统一数字闭环', afterTitle: '使用“透明价格”', roleContext: '你的上下文', scenarioRiskNone: '当前场景没有重大偏差。'
     },
     intents: {
       sell: { label: '出售农产品', description: '查看从销售条件到收货、文件和结算的路径。', perspective: 'seller' }, buy: { label: '购买农产品', description: '检查交付履约、质量、文件和结算依据。', perspective: 'buyer' }, transport: { label: '组织运输', description: '了解承运方、司机和运输文件何时进入交易。', perspective: 'logistics' }, receive: { label: '收货并检查', description: '查看收货、重量、实验室、偏差和确认过程。', perspective: 'elevator' }, settle: { label: '处理结算', description: '了解哪些已核验事件形成资金阶段的依据。', perspective: 'bank' }, control: { label: '控制履约', description: '查看整笔交易、异常、风险和证据历史。', perspective: 'executive' }
@@ -204,7 +204,7 @@ const copy = {
     },
     finalChecks: ['交付和关键事件与交易关联', '文件汇总在统一上下文', '结算依据已检查', '偏差和决定保留在时间线', '证据历史已保存'],
     before: ['合同独立存在', '运输独立存在', '实验室独立存在', '文件独立存在', '结算独立存在', '争议证据需手工汇总'],
-    after: ['一笔交易连接参与方和事件', '每个阶段都有责任方和下一步', '文件与履约事件绑定', '资金取决于已核验依据', '偏差进入证据闭环', 'TAI 解释当前状态和风险'],
+    after: ['一笔交易连接参与方和事件', '每个阶段都有责任方和下一步', '文件与履约事件绑定', '资金取决于已核验依据', '偏差进入证据闭环', 'Gekta 解释当前状态和风险'],
   },
 } as const;
 

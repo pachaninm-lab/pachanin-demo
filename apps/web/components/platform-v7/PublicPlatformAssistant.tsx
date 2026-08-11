@@ -115,14 +115,14 @@ type Copy = {
 
 const COPY: Record<Locale, Copy> = {
   ru: {
-    open: 'Спросить ИИ',
-    shortcutHint: 'ИИ-помощник',
-    close: 'Закрыть ИИ-помощника',
-    title: 'ИИ для агробизнеса',
-    subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.',
+    open: 'Спросить Гекту',
+    shortcutHint: 'Аграрный интеллект',
+    close: 'Закрыть Гекту',
+    title: 'Гекта',
+    subtitle: 'Аграрный интеллект для земли, урожая и решений.',
     emptyTitle: 'Чем помочь?',
-    emptyBody: 'Отвечу по сельскому хозяйству, агробизнесу и возможностям «Прозрачной Цены».',
-    placeholder: 'Задай вопрос об агробизнесе или платформе',
+    emptyBody: 'Разберу вопрос по земле, растениям, урожаю, сельскому хозяйству, агробизнесу и возможностям «Прозрачной Цены».',
+    placeholder: 'Спроси Гекту о земле, урожае или агробизнесе',
     send: 'Отправить',
     stop: 'Остановить ответ',
     newChat: 'Новый диалог',
@@ -133,7 +133,7 @@ const COPY: Record<Locale, Copy> = {
     sources: 'Источники',
     details: 'Основание ответа',
     privacy: 'Публичный режим · без доступа к данным личных кабинетов · не вводи пароли, токены и персональные данные',
-    processing: 'Формирую ответ…',
+    processing: 'Гекта анализирует…',
     copy: 'Копировать ответ',
     copied: 'Скопировано',
     retry: 'Повторить запрос',
@@ -143,14 +143,14 @@ const COPY: Record<Locale, Copy> = {
     currentLimited: 'Нет подтверждённых актуальных данных',
   },
   en: {
-    open: 'Ask AI',
-    shortcutHint: 'AI assistant',
-    close: 'Close AI assistant',
-    title: 'AI for agribusiness',
-    subtitle: 'Developed by Transparent Price for agriculture.',
+    open: 'Ask Gekta',
+    shortcutHint: 'Agricultural intelligence',
+    close: 'Close Gekta',
+    title: 'Gekta',
+    subtitle: 'Agricultural intelligence for land, crops and decisions.',
     emptyTitle: 'What would you like to know?',
-    emptyBody: 'Ask about agriculture, agribusiness, or Transparent Price capabilities.',
-    placeholder: 'Ask about agribusiness or the platform',
+    emptyBody: 'Ask Gekta about land, crops, agriculture, agribusiness, or Transparent Price capabilities.',
+    placeholder: 'Ask Gekta about land, crops or agribusiness',
     send: 'Send',
     stop: 'Stop answer',
     newChat: 'New chat',
@@ -161,7 +161,7 @@ const COPY: Record<Locale, Copy> = {
     sources: 'Sources',
     details: 'Basis of the answer',
     privacy: 'Public mode · no access to workspace data · do not enter passwords, tokens or personal data',
-    processing: 'Preparing the answer…',
+    processing: 'Gekta is analysing…',
     copy: 'Copy answer',
     copied: 'Copied',
     retry: 'Retry request',
@@ -171,14 +171,14 @@ const COPY: Record<Locale, Copy> = {
     currentLimited: 'No verified current data',
   },
   zh: {
-    open: '询问 AI',
-    shortcutHint: 'AI 助手',
-    close: '关闭 AI 助手',
-    title: '农业商业人工智能',
-    subtitle: '由“透明价格”为农业打造。',
+    open: '询问 Gekta',
+    shortcutHint: '农业智能',
+    close: '关闭 Gekta',
+    title: 'Gekta',
+    subtitle: '服务于土地、作物与决策的农业智能。',
     emptyTitle: '你想了解什么？',
-    emptyBody: '我可以回答农业、农业商业和“透明价格”平台相关问题。',
-    placeholder: '询问农业商业或平台问题',
+    emptyBody: '可以向 Gekta 咨询土地、作物、农业、农业经营或“透明价格”平台。',
+    placeholder: '向 Gekta 咨询土地、作物或农业经营',
     send: '发送',
     stop: '停止回答',
     newChat: '新对话',
@@ -189,7 +189,7 @@ const COPY: Record<Locale, Copy> = {
     sources: '来源',
     details: '回答依据',
     privacy: '公共模式 · 无法访问工作区数据 · 请勿输入密码、令牌或个人数据',
-    processing: '正在生成回答…',
+    processing: 'Gekta 正在分析…',
     copy: '复制回答',
     copied: '已复制',
     retry: '重试问题',
@@ -339,7 +339,11 @@ function parseAssessment(value: string | null): StreamAssessment {
 }
 
 function sessionKey(locale: Locale) {
-  return `pc-public-assistant-v2:${locale}`;
+  return `pc-gekta-assistant-v1:${locale}`;
+}
+
+function legacySessionKeys(locale: Locale) {
+  return [`pc-public-assistant-v2:${locale}`] as const;
 }
 
 function safeStoredMessages(value: unknown): Message[] {
@@ -386,6 +390,7 @@ export function PublicPlatformAssistant() {
   const freshConversationRef = React.useRef(false);
   const stickToBottomRef = React.useRef(true);
   const hydratedStorageRef = React.useRef<Locale | null>(null);
+  const skipNextStorageWriteRef = React.useRef(false);
   const ui = COPY[locale];
   const starterPrompts = (contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || [])).slice(0, 3);
   const hasConversation = messages.length > 0;
@@ -398,20 +403,41 @@ export function PublicPlatformAssistant() {
   React.useEffect(() => {
     if (hydratedStorageRef.current === locale) return;
     hydratedStorageRef.current = locale;
+    const primaryKey = sessionKey(locale);
     try {
-      const stored = window.sessionStorage.getItem(sessionKey(locale));
-      if (stored) setMessages(safeStoredMessages(JSON.parse(stored)));
+      const stored = window.sessionStorage.getItem(primaryKey);
+      if (stored) {
+        skipNextStorageWriteRef.current = true;
+        setMessages(safeStoredMessages(JSON.parse(stored)));
+        return;
+      }
+
+      for (const legacyKey of legacySessionKeys(locale)) {
+        const legacyStored = window.sessionStorage.getItem(legacyKey);
+        if (!legacyStored) continue;
+        const migrated = safeStoredMessages(JSON.parse(legacyStored));
+        window.sessionStorage.setItem(primaryKey, JSON.stringify(migrated));
+        window.sessionStorage.removeItem(legacyKey);
+        skipNextStorageWriteRef.current = true;
+        setMessages(migrated);
+        break;
+      }
     } catch {
-      window.sessionStorage.removeItem(sessionKey(locale));
+      window.sessionStorage.removeItem(primaryKey);
+      for (const legacyKey of legacySessionKeys(locale)) window.sessionStorage.removeItem(legacyKey);
     }
   }, [locale]);
 
   React.useEffect(() => {
     if (hydratedStorageRef.current !== locale) return;
+    if (skipNextStorageWriteRef.current) {
+      skipNextStorageWriteRef.current = false;
+      return;
+    }
     try {
       window.sessionStorage.setItem(sessionKey(locale), JSON.stringify(messages.slice(-40)));
     } catch {
-      // Session persistence is optional; the assistant remains usable without it.
+      // Session persistence is optional; Gekta remains usable without it.
     }
   }, [locale, messages]);
 
@@ -504,6 +530,7 @@ export function PublicPlatformAssistant() {
     setSending(false);
     setCopiedId('');
     window.sessionStorage.removeItem(sessionKey(locale));
+    for (const legacyKey of legacySessionKeys(locale)) window.sessionStorage.removeItem(legacyKey);
     window.setTimeout(() => textareaRef.current?.focus(), 0);
     trackEvent('public_platform_assistant_reset');
   };

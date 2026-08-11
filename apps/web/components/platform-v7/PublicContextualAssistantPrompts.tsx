@@ -7,21 +7,21 @@ type ContextKey = 'platform' | 'deal' | 'roles' | 'evidence' | 'government';
 
 const COPY: Record<Locale, Record<ContextKey, readonly string[]>> = {
   ru: {
-    platform: ['Как работает платформа?', 'Что контролирует TAI?', 'Что ИИ не может делать?'],
+    platform: ['Как работает платформа?', 'Что контролирует Гекта?', 'Что Гекта не может делать?'],
     deal: ['Что блокирует расчёт?', 'Какие документы отсутствуют?', 'Какие данные не совпадают?'],
     roles: ['Что видит покупатель?', 'Что должен сделать элеватор?', 'Какие действия доступны банку?'],
     evidence: ['На чём основан вывод?', 'Какое событие создало ограничение?', 'Кто подтвердил документ?'],
     government: ['Что проверяется во ФГИС «Зерно»?', 'Подлинный ли сертификат?', 'Когда обновлялись данные?', 'Какая система не подключена?'],
   },
   en: {
-    platform: ['How does the platform work?', 'What does TAI control?', 'What is AI not allowed to do?'],
+    platform: ['How does the platform work?', 'What does Gekta control?', 'What is Gekta not allowed to do?'],
     deal: ['What blocks settlement?', 'Which documents are missing?', 'Which data does not match?'],
     roles: ['What can the buyer see?', 'What must the elevator do?', 'Which actions are available to the bank?'],
     evidence: ['What is the conclusion based on?', 'Which event created the restriction?', 'Who confirmed the document?'],
     government: ['What is checked in FGIS Grain?', 'Is the certificate authentic?', 'When was the data updated?', 'Which system is not connected?'],
   },
   zh: {
-    platform: ['平台如何运作？', 'TAI 控制什么？', 'AI 不能做什么？'],
+    platform: ['平台如何运作？', 'Gekta 控制什么？', 'Gekta 不能做什么？'],
     deal: ['什么阻塞了结算？', '缺少哪些文件？', '哪些数据不一致？'],
     roles: ['买方能看到什么？', '粮库需要做什么？', '银行可以执行哪些操作？'],
     evidence: ['结论基于什么？', '哪个事件产生了限制？', '谁确认了文件？'],

@@ -80,7 +80,7 @@ function installFetch(answers: readonly string[]) {
 async function openAndAsk(question: string) {
   const user = userEvent.setup();
   render(<PublicPlatformAssistant />);
-  await user.click(screen.getByRole('button', { name: /Спросить ИИ/ }));
+  await user.click(screen.getByRole('button', { name: /Спросить Гекту/ }));
   const box = await screen.findByRole('textbox');
   await user.type(box, question);
   await user.keyboard('{Enter}');
