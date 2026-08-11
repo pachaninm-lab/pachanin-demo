@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-home-cta-20260811",
+  "status": "active",
+  "purpose": "Route the primary public Gekta call-to-action on the Platform V7 homepage to the already accepted standalone /gekta public experience, while preserving the legacy /platform-v7/ai-in-action route for backward compatibility. This is a bounded public-web navigation correction only.",
+  "approvedBy": "owner-instruction-2026-08-11-gekta-home-cta",
+  "authorityBaseExactMain": "48bf297636e5f99c27d8fdd0d8609ff83323f13e",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "concurrentWith": "IR-10.4 Settlement PostgreSQL Authority",
+  "concurrencyBoundary": "This scope is additive and must not modify, reorder, pause or reinterpret the active IR-10.4 settlement scope. It changes only the public Gekta CTA and its focused regression contract.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-home-cta-20260811.json"
+  ],
+  "requiredBehavior": [
+    "the public homepage Gekta CTA resolves directly to /gekta while preserving the active locale query parameter",
+    "the focused unit contract pins the canonical /gekta CTA route",
+    "the legacy /platform-v7/ai-in-action route remains available for backward compatibility",
+    "production release, if performed after merge, must use the protected exact-SHA REG.RU web release authority and require live acceptance"
+  ],
+  "forbiddenCapabilities": [
+    "any API, model, Qwen runtime, authentication, registration, settlement, RLS or database behavior change",
+    "any weakening or bypass of CI, branch protection, release authority, exact-SHA validation or live acceptance",
+    "any production mutation from this pull request",
+    "any new server, paid external service or recurring cost"
+  ],
+  "acceptance": [
+    "all changed files remain inside allowedPaths",
+    "web-unit passes",
+    "platform-v7 autopilot guard passes using this source-controlled branch scope",
+    "all required protected PR checks pass before merge"
+  ]
+}
