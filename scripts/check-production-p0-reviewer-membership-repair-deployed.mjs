@@ -31,6 +31,8 @@ const requireMarkers = (code, text, markers) => {
   }
 };
 
+const countPattern = (text, pattern) => (text.match(pattern) || []).length;
+
 const sourceGitBlob = crypto
   .createHash('sha1')
   .update(`blob ${Buffer.byteLength(source, 'utf8')}\0`)
@@ -73,7 +75,7 @@ requireMarkers('WRAPPER_MARKERS', wrapper, [
   'api_revision_after=',
   'web_revision_after=',
   '[[ "$api_revision_after" == "$target_sha" && "$web_revision_after" == "$target_sha" ]]',
-  "bash -n \"$PATCHED\"",
+  'bash -n "$PATCHED"',
   'exec bash "$PATCHED"',
 ]);
 
@@ -129,12 +131,21 @@ try {
     "COMMAND='/production p0-reviewer-membership-repair current-main'",
     'TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"',
     '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
-    /email/i,
-    /passwordHash/,
-    /mfa_secret_ciphertext/,
   ]) {
-    if (typeof forbidden === 'string' ? patched.includes(forbidden) : forbidden.test(patched)) {
-      fail('PATCHED_FORBIDDEN_MARKER');
+    if (patched.includes(forbidden)) fail('PATCHED_FORBIDDEN_MARKER');
+  }
+
+  // The reviewed source legitimately validates identity fields internally.
+  // The wrapper may not add, remove, publish or otherwise alter any reference
+  // to those sensitive fields; the exact source blob remains the authority.
+  const sensitivePatterns = [
+    /email/gi,
+    /passwordHash/g,
+    /mfa_secret_ciphertext/g,
+  ];
+  for (const pattern of sensitivePatterns) {
+    if (countPattern(patched, pattern) !== countPattern(source, pattern)) {
+      fail('SENSITIVE_MARKER_DRIFT');
     }
   }
 
