@@ -85,6 +85,18 @@ for (const fragment of [
   'TAI_FINALIZATION_MAIN_DRIFT_RECOVERY=PASS',
   "context='TAI Restricted Qwen REG.RU Activation'",
   'name: Confirm exact finalization recovery result',
+  'ref: ${{ github.event.repository.default_branch }}',
+  'printf \'CURRENT_SHA=%s\\n\' "$current_sha" >> "$GITHUB_ENV"',
+  'actions/download-artifact@v4',
+  'name: tai-finalization-main-drift-recovery-${{ github.run_id }}',
+  "run.name !== 'TAI Restricted Qwen REG.RU Activation'",
+  "run.event !== 'workflow_dispatch'",
+  "run.head_repository?.full_name !== repository",
+  "run.run_attempt !== 1",
+  "assert report.get('schemaVersion') == 'tai.restricted-qwen.activation.v1'",
+  "assert report.get('runId') == sys.argv[3]",
+  "recovery.recoveryRunId !== Number(runId)",
+  'process.stdout.write(recovery.currentMain);',
 ]) requireFragment(workflow, fragment, paths.workflow);
 
 const jobsIndex = workflow.indexOf('\njobs:\n');
@@ -109,6 +121,12 @@ else {
 const secretReferences = workflow.match(/\$\{\{\s*secrets[.][^}]+\}\}/gu) || [];
 if (secretReferences.length !== 7) violations.push(`${paths.workflow}: SSH secrets must occur exactly once and only in the exact SSH step`);
 
+forbid(workflow, /needs[.]authority[.]outputs[.]current_sha/u,
+  `${paths.workflow}: current main SHA must not cross a job-output boundary`);
+forbid(workflow, /^\s*outputs:\s*\n\s*current_sha:/mu,
+  `${paths.workflow}: current main SHA job output is forbidden`);
+forbid(workflow, /current_sha=.*GITHUB_OUTPUT/u,
+  `${paths.workflow}: current main SHA step output is forbidden`);
 forbid(workflow, /pull_request_target:/u, `${paths.workflow}: pull_request_target is forbidden`);
 forbid(workflow, /continue-on-error:\s*true/mu, `${paths.workflow}: continue-on-error is forbidden`);
 forbid(workflow, /StrictHostKeyChecking=(?:no|accept-new)/u, `${paths.workflow}: unpinned SSH host acceptance is forbidden`);
