@@ -75,6 +75,7 @@ requireAll('provisioner', [
   'TRANSACTIONAL_MAIL_PROVISION=%s',
   'TRANSACTIONAL_MAIL_CHANNEL=%s',
   'PASSWORD_RESET_RUNTIME_VALID=1',
+  'valid_mail_file()',
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   'COMPOSE_WEB_AUTHORITY_AMBIGUOUS',
 ]);
@@ -205,9 +206,15 @@ const inputPaths = [];
 const resendFixtureName = ['RESEND', 'API', 'KEY'].join('_');
 const smtpFixturePasswordName = ['PC', 'SMTP', 'PASS'].join('_');
 const fixtureCredential = (prefix) => `${prefix}_${'x'.repeat(32)}`;
-const runFixture = ({ name, mail, expectedChannel, expectSuccess }) => {
+const runFixture = ({ name, mail, expectedChannel, expectSuccess, preexistingMailMode }) => {
   const productionDir = path.join(fixtureRoot, name);
   fs.mkdirSync(productionDir);
+  const delivery = path.join(productionDir, '.pc-password-reset-delivery.env');
+  const mailFile = path.join(productionDir, '.pc-transactional-mail.env');
+  if (preexistingMailMode !== undefined) {
+    fs.writeFileSync(mailFile, mail, { mode: preexistingMailMode });
+    fs.chmodSync(mailFile, preexistingMailMode);
+  }
   const input = path.join(os.tmpdir(), `pc-password-reset-mail-${process.pid}-${name}.env`);
   inputPaths.push(input);
   fs.writeFileSync(input, mail, { mode: 0o600 });
@@ -227,8 +234,12 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess }) => {
   }
   if (!expectSuccess) {
     if (result.status === 0) failures.push(`${paths.provisioner}: ${name} invalid fixture unexpectedly passed`);
-    if (fs.existsSync(path.join(productionDir, '.pc-password-reset-delivery.env'))
-      || fs.existsSync(path.join(productionDir, '.pc-transactional-mail.env'))) {
+    const mailMutated = preexistingMailMode === undefined
+      ? fs.existsSync(mailFile)
+      : !fs.existsSync(mailFile)
+        || fs.readFileSync(mailFile, 'utf8') !== mail
+        || (fs.statSync(mailFile).mode & 0o777) !== preexistingMailMode;
+    if (fs.existsSync(delivery) || mailMutated) {
       failures.push(`${paths.provisioner}: ${name} invalid fixture mutated runtime files`);
     }
     return;
@@ -238,8 +249,6 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess }) => {
     failures.push(`${paths.provisioner}: ${name} fixture failed: ${result.stderr.trim()}`);
     return;
   }
-  const delivery = path.join(productionDir, '.pc-password-reset-delivery.env');
-  const mailFile = path.join(productionDir, '.pc-transactional-mail.env');
   for (const file of [delivery, mailFile]) {
     if (!fs.existsSync(file) || (fs.statSync(file).mode & 0o777) !== 0o600) failures.push(`${paths.provisioner}: ${name} protected file mode regression`);
   }
@@ -278,6 +287,14 @@ try {
     mail: 'RESEND_API_KEY=invalid#secret\nRESEND_FROM_EMAIL=noreply@example.test\n',
     expectedChannel: '',
     expectSuccess: false,
+  });
+  runFixture({
+    name: 'unsafe-mail-mode',
+    mail: `${resendFixtureName}=${fixtureCredential('unsafe')}`
+      + '\nRESEND_FROM_EMAIL=noreply@example.test\n',
+    expectedChannel: '',
+    expectSuccess: false,
+    preexistingMailMode: 0o644,
   });
 } finally {
   for (const file of inputPaths) fs.rmSync(file, { force: true });
