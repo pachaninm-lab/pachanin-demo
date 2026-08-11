@@ -1,5 +1,5 @@
-import '@/styles/platform-v7-public-header.css';
 import type { Metadata } from 'next';
+import { StatusChip } from '@pc/design-system-v8';
 import { Activity, AlertTriangle, Bot, Clock3, Database, Gauge, ShieldCheck, Wrench } from 'lucide-react';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
@@ -127,7 +127,7 @@ export default async function PlatformV7StatusPage() {
                 <Icon size={19} aria-hidden="true" />
                 <h2>{title}</h2>
               </div>
-              <strong>{state}</strong>
+              <StatusChip tone={tone === 'ready' ? 'success' : 'warning'}>{state}</StatusChip>
               <p>{note}</p>
             </article>
           ))}
