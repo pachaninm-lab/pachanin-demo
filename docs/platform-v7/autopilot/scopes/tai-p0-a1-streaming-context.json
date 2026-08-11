@@ -3,6 +3,7 @@
   "branch": "claude/tai-p0-a1-streaming-context-rvrr8t",
   "status": "active",
   "operationalStatus": "TAI_P0_A1_TRUE_TOKEN_STREAMING_AND_CONVERSATION_STATE",
+  "authorityBaseExactMain": "1f9a6a92ce2db509d442c1e2b00c0243b27a5ebc",
   "allowedPaths": [
     ".github/workflows/docker-publish.yml",
     ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
@@ -66,6 +67,8 @@
     "a topic shift clears subject-bound state and a new conversation inherits nothing",
     "public state carries no deal tenant organization or role context",
     "recent context, summary, facts and entity lists stay bounded",
+    "general-agro answers are concise and complete by default so a verbose completion does not consume the full existing provider timeout",
+    "general-agro completion and continuation budgets are bounded below verified-platform authority while verified-platform token authority remains unchanged",
     "the hosted acceptance readers validate the assessment the streaming route actually emits",
     "no acceptance reader or evidence file restates a model identity the public contour never published",
     "the browser resolves the model outcome from the upstream record and grounded answers from the top level",
@@ -79,7 +82,15 @@
     "the assistant panel stays inside the viewport with reachable controls at 320, 390 and 430 px",
     "a stopped answer keeps the text the reader already saw, and a broken stream still discards it",
     "the live matrix drives each localized panel with that locale's own control labels",
-    "a correction or topic shift is judged by which subject leads the answer, not by absolute absence of the old one"
+    "a correction or topic shift is judged by which subject leads the answer, not by absolute absence of the old one",
+    "hosted semantic acceptance is not weakened to hide provider latency"
   ],
+  "productionEvidence": {
+    "failedActivationRun": 31461208306,
+    "failedHostedJob": 93686881500,
+    "failure": "sse_assessment_missing:rare_crop_term",
+    "observedElapsedSeconds": 120,
+    "sameRunRuEnZhAndPotatoSse": "PASS"
+  },
   "productionHosting": "REG_RU_VPS_ONLY"
 }
