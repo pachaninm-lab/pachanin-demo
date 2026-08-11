@@ -9,11 +9,14 @@
     "branch": "main",
     "commit": "5c0020e1fb259929264cd27e25b0b7ad5435243a"
   },
-  "purpose": "Replace the active public product identity, SEO metadata and public marketing copy with Gekta in RU, EN and ZH while preserving assistant behavior and migrating session history without data loss.",
+  "purpose": "Replace the active public product identity, SEO metadata, Trust Center, service status and public marketing copy with Gekta in RU, EN and ZH while preserving assistant behavior and migrating session history without data loss.",
   "allowedPaths": [
     "apps/web/app/platform-v7/ai-in-action/page.tsx",
     "apps/web/app/platform-v7/head.tsx",
     "apps/web/app/platform-v7/page.tsx",
+    "apps/web/app/platform-v7/status/page.tsx",
+    "apps/web/app/platform-v7/trust/page.tsx",
+    "apps/web/app/trust/page.tsx",
     "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
     "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/components/platform-v7/PublicContextualAssistantPrompts.tsx",
@@ -70,5 +73,5 @@
     "git diff --check"
   ],
   "deploymentState": "not-deployed",
-  "maturityBoundary": "Public identity, SEO and public marketing-copy slice only. Technical namespace remains TAI until later governed phases."
+  "maturityBoundary": "Public identity, SEO, Trust Center, service status and public marketing-copy slice only. Technical namespace remains TAI until later governed phases."
 }
