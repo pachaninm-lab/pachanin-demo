@@ -6,6 +6,8 @@ const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const statusPage = read('apps/web/app/platform-v7/status/page.tsx');
+const maturitySource = read('apps/web/lib/platform-v7/public-operational-maturity.ts');
+const publicStatusAuthority = `${statusPage}\n${maturitySource}`;
 const healthPage = read('apps/web/app/platform-v7/health/page.tsx');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
 const governance = JSON.parse(read('design-governance-v8.json'));
@@ -13,20 +15,21 @@ const scopePolicy = read('scripts/check-design-system-v8-pr-scope.mjs');
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
 
 describe('platform-v7 system status authority', () => {
-  it('renders status through the governed v8 cockpit without local presentation overrides', () => {
-    expect(statusPage).toContain('OperationalDecisionCockpit');
-    expect(statusPage).toContain('OperationalQueueLink');
-    expect(statusPage).toContain('InlineNotice');
+  it('renders the accepted public status surface without local presentation overrides', () => {
+    expect(statusPage).toContain('data-testid="platform-v7-status-authority"');
+    expect(statusPage).toContain('PublicSiteHeader');
     expect(statusPage).toContain('StatusChip');
+    expect(statusPage).toContain('getPublicOperationalMaturity');
     expect(statusPage).not.toMatch(forbiddenPresentation);
   });
 
-  it('uses a server-confirmed internal signal and never invents external uptime', () => {
-    expect(statusPage).toContain('getOutboxStatus');
-    expect(statusPage).toContain('outbox.isApiAvailable');
-    expect(statusPage).toContain('outbox.totalPending');
-    expect(statusPage).toContain('outbox.manualReview.length');
-    expect(statusPage).toContain('externalRequired');
+  it('keeps the public contour bounded and never invents external uptime', () => {
+    expect(publicStatusAuthority).toContain('Нет заявления о полной промышленной аттестации');
+    expect(publicStatusAuthority).toContain('No claim of full industrial attestation');
+    expect(publicStatusAuthority).toContain('不声明已完成完整工业认证');
+    expect(publicStatusAuthority).toContain('только после подтверждённого обмена');
+    expect(publicStatusAuthority).toContain('only after confirmed data exchange');
+    expect(publicStatusAuthority).toContain('仅在确认数据交换后');
 
     for (const forbidden of [
       'const SERVICES',
@@ -34,22 +37,20 @@ describe('platform-v7 system status authority', () => {
       "uptime: 'Проверка'",
       "status: 'degraded'",
       "status: 'test_mode'",
-      'Controlled-pilot / pre-integration',
-      'Server-side RBAC остаётся отдельным этапом',
-      "value='0'",
-      "value='2'",
+      '99.9%',
+      '100% uptime',
+      'fully industrially attested',
     ]) {
-      expect(statusPage).not.toContain(forbidden);
+      expect(publicStatusAuthority).not.toContain(forbidden);
     }
   });
 
-  it('keeps external integration boundaries explicit in RU, EN and ZH', () => {
-    expect(statusPage).toContain('production-доступ');
-    expect(statusPage).toContain('production access');
-    expect(statusPage).toContain('生产访问');
-    expect(statusPage).toContain('не измеряет uptime внешних систем');
-    expect(statusPage).toContain('does not measure external-system uptime');
-    expect(statusPage).toContain('不测量外部系统在线率');
+  it('keeps RU, EN and ZH maturity copy on the canonical trust boundary', () => {
+    expect(maturitySource).toContain("cardLabel: 'Эксплуатационная зрелость'");
+    expect(maturitySource).toContain("cardLabel: 'Operational maturity'");
+    expect(maturitySource).toContain("cardLabel: '运行成熟度'");
+    expect(maturitySource).toContain("ctaHref: '/platform-v7/trust'");
+    expect(statusPage).toContain('<a href={maturity.ctaHref}>{maturity.cta}</a>');
   });
 
   it('migrates execution health without browser fixtures or fake telemetry', () => {
