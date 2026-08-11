@@ -13,6 +13,10 @@ from email.policy import default
 from email.utils import formatdate, getaddresses, make_msgid
 
 
+CANONICAL_REG_RU_MAIL_HOST = "mail.hosting.reg.ru"
+CANONICAL_REG_RU_IMAP_PORT = 993
+
+
 def required(name: str) -> str:
     value = os.environ.get(name, "")
     if not value or "\n" in value or "\r" in value or "\x00" in value:
@@ -52,14 +56,16 @@ def main() -> int:
     mailbox_user_raw = required("PC_PROBE_MAILBOX_USER")
     mailbox_password = required("PC_PROBE_MAILBOX_PASSWORD")
     mail_from_raw = required("PC_PROBE_MAIL_FROM")
-    imap_host = required("PC_PROBE_IMAP_HOST")
-    imap_port_raw = os.environ.get("PC_PROBE_IMAP_PORT", "993").strip() or "993"
+    # REG.RU documents one canonical SSL/TLS mail authority for both directions.
+    # Do not inherit a historical per-host IMAP endpoint from repository secrets.
+    imap_host = CANONICAL_REG_RU_MAIL_HOST
+    imap_port_raw = str(CANONICAL_REG_RU_IMAP_PORT)
     imap_folder = os.environ.get("PC_PROBE_IMAP_FOLDER", "INBOX").strip() or "INBOX"
     target_sha = required("PC_PROBE_TARGET_SHA")
     run_id = required("PC_PROBE_RUN_ID")
     login_output = required("PC_PROBE_LOGIN_OUTPUT")
 
-    if not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", smtp_host):
+    if smtp_host != CANONICAL_REG_RU_MAIL_HOST:
         return 21
     if not smtp_port_raw.isdigit() or not 1 <= int(smtp_port_raw) <= 65535:
         return 22
@@ -157,7 +163,16 @@ def main() -> int:
                 print("IMAP_PROBE_RECEIPT_OK=1")
                 return 0
             mailbox.logout()
-        except (imaplib.IMAP4.error, OSError, ssl.SSLError, ValueError):
+        except imaplib.IMAP4.error:
+            # Authentication/protocol failures are deterministic configuration
+            # failures and must not be misreported as a delivery timeout.
+            if mailbox is not None:
+                try:
+                    mailbox.logout()
+                except Exception:
+                    pass
+            return 41
+        except (OSError, ssl.SSLError, ValueError):
             if mailbox is not None:
                 try:
                     mailbox.logout()
