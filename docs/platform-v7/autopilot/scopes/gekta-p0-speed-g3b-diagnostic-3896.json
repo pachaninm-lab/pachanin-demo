@@ -8,14 +8,17 @@
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-diagnostic-3896.json",
-    ".github/workflows/gekta-p0-speed-model-host-diagnostic.yml"
+    ".github/workflows/gekta-p0-speed-model-host-diagnostic.yml",
+    ".github/workflows/gekta-p0-speed-g3b-diagnostic-materialize.yml",
+    "scripts/materialize-gekta-g3b-diagnostic.mjs"
   ],
   "requiredBehavior": [
     "owner-only issue command on #3896",
     "reuse the existing protected model-host SSH transport variables",
     "perform read-only commands only",
     "publish only whitelisted CPU memory process and llama.cpp scheduling fields",
-    "never print environment contents credentials raw command line prompt response model bytes or customer data"
+    "never print environment contents credentials raw command line prompt response model bytes or customer data",
+    "the one-shot materializer corrects only the static contract and removes itself before merge"
   ],
   "forbiddenCapabilities": [
     "systemctl restart start stop enable disable daemon-reload or edit",
