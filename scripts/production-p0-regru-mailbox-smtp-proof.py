@@ -67,7 +67,7 @@ def message_text(message) -> str:
             parts.append(part.get_content())
         except Exception:
             payload = part.get_payload(decode=True) or b""
-            parts.append(part.decode(part.get_content_charset() or "utf-8", errors="replace"))
+            parts.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
     return "\n".join(parts)
 
 
