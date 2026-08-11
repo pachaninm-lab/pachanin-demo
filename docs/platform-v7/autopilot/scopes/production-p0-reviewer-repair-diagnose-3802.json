@@ -6,8 +6,8 @@
   "issue": 3802,
   "trackingIssue": 3799,
   "title": "Production P0 reviewer rollback diagnostic on current deployed revision",
-  "diagnosticBaseRevision": "d87d89694bd32c8dbd90b57fdde15b69b060c0ba",
-  "deployedRevision": "0e7b3db076f0f55c8da303d6d3d3b09a54c14788",
+  "diagnosticBaseRevision": "479ecd970bd5e75e81f245dbe8987e08aca08d9f",
+  "deployedRevision": "d87d89694bd32c8dbd90b57fdde15b69b060c0ba",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
     "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
@@ -28,8 +28,8 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "the governed diagnostic delta is measured from exact current main d87d89694bd32c8dbd90b57fdde15b69b060c0ba and contains exactly these three files",
-    "the deployed API and Web revision remains pinned independently to terminal-PASS REG.RU revision 0e7b3db076f0f55c8da303d6d3d3b09a54c14788",
+    "the governed diagnostic delta is measured from exact current main 479ecd970bd5e75e81f245dbe8987e08aca08d9f and contains exactly these three files",
+    "the deployed API and Web revision remains pinned independently to terminal-PASS REG.RU revision d87d89694bd32c8dbd90b57fdde15b69b060c0ba",
     "the revision preflight emits only one fixed failure enum from API_INSPECT_FAILED, WEB_INSPECT_FAILED, API_REVISION_INVALID, WEB_REVISION_INVALID, API_REVISION_MISMATCH, WEB_REVISION_MISMATCH",
     "actual revision values, container IDs, image names, commands, host or user strings, environment, raw ssh output and database messages are never published",
     "the existing remote stage enum remains bounded to SSH_NOT_CONFIRMED, HOST_READY, CONTAINERS_RESOLVED, REVISIONS_CONFIRMED, NODE_EXECUTION_STARTED",
