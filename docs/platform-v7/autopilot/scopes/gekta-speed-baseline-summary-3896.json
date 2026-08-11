@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-speed-baseline-summary-3896",
+  "status": "active",
+  "purpose": "Fix the post-measurement summary process exit so a successfully completed Gekta SPEED corpus is not reported as a failed workflow after its artifact has already been produced.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
+  "authorityBaseExactMain": "cfbc1825115c90c3a2adf4d00745b50372b5e120",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-speed-baseline-summary-3896.json",
+    ".github/workflows/gekta-speed-production-baseline.yml"
+  ],
+  "requiredBehavior": [
+    "measurement inputs percentiles corpus concurrency and failure classification remain unchanged",
+    "a missing first wave exits the Node summary process cleanly instead of using an illegal top-level return",
+    "workflow remains read-only and holds no production secret"
+  ],
+  "forbiddenCapabilities": [
+    "production mutation",
+    "changing latency values thresholds corpus or timeout",
+    "changing Qwen runtime API gateway or safety behavior"
+  ]
+}
