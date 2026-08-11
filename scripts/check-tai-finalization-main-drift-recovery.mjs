@@ -75,8 +75,11 @@ for (const fragment of [
   'install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions',
   'install_or_validate "$output_tmp" "$output" 640 pcactions',
   'mv -Tf "$marker_tmp" "$marker_path"',
+  "'recoveryRunAttempt':int(recovery_attempt)",
   "'finalizationCommitRunId':int(commit_run)",
-  "'resumedExistingFinalization':int(commit_run) != int(recovery_run) or committed_current != current",
+  "'finalizationCommitRunAttempt':int(commit_attempt)",
+  "'resumedExistingFinalization':int(commit_run) != int(recovery_run)",
+  "or int(commit_attempt) != int(recovery_attempt) or committed_current != current",
   "'taiRevision':tai_revision",
   "'controllerAuthorityAttested':True",
   "'hostedArtifactDigest':artifact_digest",
@@ -94,7 +97,9 @@ for (const fragment of [
   'ref: ${{ github.event.repository.default_branch }}',
   'printf \'CURRENT_SHA=%s\\n\' "$current_sha" >> "$GITHUB_ENV"',
   'actions/download-artifact@v4',
-  'name: tai-finalization-main-drift-recovery-${{ github.run_id }}',
+  'name: tai-finalization-main-drift-recovery-${{ github.run_id }}-${{ github.run_attempt }}',
+  'remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/finalization-recovery.json"',
+  "'$GITHUB_RUN_ID' '$GITHUB_RUN_ATTEMPT' '$remote_evidence'",
   "run.name !== 'TAI Restricted Qwen REG.RU Activation'",
   "run.event !== 'workflow_dispatch'",
   "run.head_repository?.full_name !== repository",
@@ -102,6 +107,8 @@ for (const fragment of [
   "assert report.get('schemaVersion') == 'tai.restricted-qwen.activation.v1'",
   "assert report.get('runId') == sys.argv[3]",
   "recovery.recoveryRunId !== Number(runId)",
+  "recovery.recoveryRunAttempt !== Number(runAttempt)",
+  "finalization.recoveryRunAttempt !== recovery.finalizationCommitRunAttempt",
   'process.stdout.write(recovery.currentMain);',
 ]) requireFragment(workflow, fragment, paths.workflow);
 
@@ -127,6 +134,10 @@ else {
 const secretReferences = workflow.match(/\$\{\{\s*secrets[.][^}]+\}\}/gu) || [];
 if (secretReferences.length !== 7) violations.push(`${paths.workflow}: SSH secrets must occur exactly once and only in the exact SSH step`);
 
+forbid(workflow, /runner-output\/\$\{GITHUB_RUN_ID\}\/finalization-recovery[.]json/u,
+  `${paths.workflow}: run-scoped recovery evidence path must include the GitHub run attempt`);
+forbid(workflow, /name:\s+tai-finalization-main-drift-recovery-\$\{\{ github[.]run_id \}\}\s*$/mu,
+  `${paths.workflow}: recovery artifact identity must include the GitHub run attempt`);
 forbid(workflow, /needs[.]authority[.]outputs[.]current_sha/u,
   `${paths.workflow}: current main SHA must not cross a job-output boundary`);
 forbid(workflow, /^\s*outputs:\s*\n\s*current_sha:/mu,
@@ -228,4 +239,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, resumable durable evidence before atomic final marker, and no deployment/rollback mutation.');
+console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, attempt-specific resumable durable evidence before atomic final marker, and no deployment/rollback mutation.');
