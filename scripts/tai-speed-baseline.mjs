@@ -172,6 +172,10 @@ export async function measureStream({
     meaningfulChars: 0,
     tokenFrames: 0,
     charsPerSecond: null,
+    source: null,
+    answerMode: null,
+    streaming: null,
+    modelBacked: false,
     answerText: '',
   };
 
@@ -218,6 +222,21 @@ export async function measureStream({
           if (!event) continue;
           if (event.event === 'error') {
             sample.error = String(event.refusal || 'stream_error');
+            continue;
+          }
+          // The assessment frame says which contour actually answered. A
+          // deterministic or knowledge-backed reply returns in milliseconds and
+          // would flatter the model's time-to-first-text if the two were pooled.
+          if (event.event === 'assessment') {
+            try {
+              const assessment = JSON.parse(String(event.summary || '{}'));
+              sample.source = typeof assessment.source === 'string' ? assessment.source : null;
+              sample.answerMode = typeof assessment.answerMode === 'string' ? assessment.answerMode : null;
+              sample.streaming = typeof assessment.streaming === 'string' ? assessment.streaming : null;
+              sample.modelBacked = sample.source === 'local_qwen';
+            } catch {
+              sample.source = 'unparsed_assessment';
+            }
             continue;
           }
           if (event.event !== 'token' || typeof event.text !== 'string') continue;
@@ -464,6 +483,68 @@ export async function probeContour({ baseUrl, fetchImpl = fetch, timeoutMs = 30_
   return results;
 }
 
+/**
+ * Render the human summary of a finished report.
+ *
+ * This lives in the tool rather than in an inline `node -e` in the workflow.
+ * The inline form carried a top-level `return`, which is a syntax error, so a
+ * measurement that had succeeded and uploaded its evidence was reported as a
+ * failed job. A summary must never be able to fail a measurement that passed.
+ */
+export function renderSummary(report) {
+  const lines = [];
+  const value = (label, amount) => lines.push(`${label}: ${amount ?? 'not measured'}`);
+  const revision = report?.revision || {};
+  lines.push(`attestation: ${revision.attestation || 'unknown'}`);
+  value('deployed web revision', revision.webRevision);
+  value('repository main', revision.repositoryMainSha);
+  lines.push(`EXACT_MAIN_BEFORE=${revision.attestation === 'web_revision_matches_main'}`);
+
+  for (const [key, probe] of Object.entries(report?.probe || {})) {
+    if (!probe || typeof probe !== 'object') continue;
+    lines.push(`${key}_HTTP=${probe.status} ${key}_LAYER=${probe.layer}`);
+  }
+
+  const waves = Array.isArray(report?.singleTurn) ? report.singleTurn : [];
+  if (!waves.length) {
+    lines.push('No wave completed.');
+    return lines.join('\n');
+  }
+
+  for (const wave of waves) {
+    const overall = wave.overall || {};
+    lines.push('');
+    lines.push(`concurrency ${wave.concurrency}: ${overall.completed}/${overall.requests} completed`);
+    // Model-backed percentiles are the headline. A deterministic or knowledge
+    // reply answers in milliseconds, and pooling the two would let a fast
+    // fallback flatter the model's real time to first meaningful text.
+    const model = wave.bySource?.local_qwen;
+    if (model) {
+      lines.push(`  model-backed ${model.completed}/${model.requests}`);
+      value('  model first meaningful p50 ms', model.firstMeaningfulTextMs?.p50);
+      value('  model first meaningful p95 ms', model.firstMeaningfulTextMs?.p95);
+      value('  model total p50 ms', model.totalMs?.p50);
+      value('  model total p95 ms', model.totalMs?.p95);
+    } else {
+      lines.push('  model-backed: none observed');
+    }
+    for (const [source, group] of Object.entries(wave.bySource || {})) {
+      if (source === 'local_qwen') continue;
+      lines.push(`  non-model source ${source}: ${group.completed}/${group.requests}`
+        + ` first meaningful p50 ${group.firstMeaningfulTextMs?.p50 ?? 'n/a'} ms`);
+    }
+    value('  all-sample first meaningful p50 ms', overall.firstMeaningfulTextMs?.p50);
+    lines.push(`  errors: ${JSON.stringify(overall.errors || {})}`);
+  }
+
+  if (revision.attestation !== 'web_revision_matches_main') {
+    lines.push('');
+    lines.push('This run is a network measurement, not an exact-main baseline:');
+    for (const note of revision.notes || []) lines.push(`  - ${note}`);
+  }
+  return lines.join('\n');
+}
+
 async function runWave(cases, concurrency, options) {
   const queue = [...cases];
   const results = [];
@@ -515,6 +596,13 @@ export function summarizeMultiTurn(scenarios) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const summarizePath = args.get("summarize");
+  if (summarizePath) {
+    const { readFile } = await import("node:fs/promises");
+    const report = JSON.parse(await readFile(summarizePath, "utf8"));
+    process.stdout.write(`${renderSummary(report)}\n`);
+    return;
+  }
   const baseUrl = args.get('base-url');
   if (!baseUrl) {
     console.error('Refusing to run without --base-url. A baseline against nothing is not a baseline.');
@@ -566,6 +654,7 @@ async function main() {
       overall: summarize(samples),
       byType: groupBy(samples, 'type'),
       byLocale: groupBy(samples, 'locale'),
+      bySource: groupBy(samples, 'source'),
       samples,
     });
   }
