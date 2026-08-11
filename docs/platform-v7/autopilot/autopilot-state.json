@@ -1047,6 +1047,12 @@
       "scripts/check-production-p0-password-reset-runtime-provision.mjs",
       "scripts/production-full-stack-exact-sha.sh",
       "scripts/provision-production-p0-password-reset-runtime.sh"
+    ],
+    "claude/gekta-p0-speed-20260811": [
+      ".github/workflows/gekta-speed-production-baseline.yml",
+      "scripts/tai-speed-baseline.mjs",
+      "apps/web/tests/unit/taiSpeedBaseline.test.ts",
+      "docs/platform-v7/autopilot/scopes/gekta-p0-speed-20260811.json"
     ]
   },
   "currentAcceptance": [
