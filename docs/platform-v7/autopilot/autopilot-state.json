@@ -1001,6 +1001,11 @@
       "docs/platform-v7/autopilot/scopes/gekta-live-acceptance-copy-20260811.json",
       "scripts/tai-live-public-ai-acceptance.mjs",
       "scripts/tai-potato-mobile-live-acceptance.mjs"
+    ],
+    "fix/p0-reviewer-current-deployed-diagnostic-3846": [
+      "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
+      "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
+      "scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh"
     ]
   },
   "currentAcceptance": [
