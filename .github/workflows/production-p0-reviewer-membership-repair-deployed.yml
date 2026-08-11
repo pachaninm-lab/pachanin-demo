@@ -8,6 +8,7 @@ on:
       - 'scripts/production-p0-reviewer-membership-repair-deployed-sha.sh'
       - 'scripts/check-production-p0-reviewer-membership-repair-deployed.mjs'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-deployed-3799.json'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
   push:
     branches: [main]
     paths:
@@ -15,6 +16,7 @@ on:
       - 'scripts/production-p0-reviewer-membership-repair-deployed-sha.sh'
       - 'scripts/check-production-p0-reviewer-membership-repair-deployed.mjs'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-deployed-3799.json'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
   issue_comment:
     types: [created]
 
