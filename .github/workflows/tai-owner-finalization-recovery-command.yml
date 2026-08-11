@@ -305,15 +305,32 @@ jobs:
           assert report.get('publicModelPortPublished') is False
           PY
           recovery_stage=LIVE_REVISIONS
-          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
-          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-          mapfile -t tai_ids < <(docker ps -q --filter 'label=com.docker.compose.service=tai')
+          filter_exact_revision() {
+            local id revision
+            while IFS= read -r id; do
+              [[ -n "$id" ]] || continue
+              revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id")"
+              if [[ "$revision" == "$target" ]]; then printf '%s\n' "$id"; fi
+            done
+          }
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api' | filter_exact_revision)
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web' | filter_exact_revision)
+          mapfile -t tai_ids < <(docker ps -q --filter 'label=com.docker.compose.service=tai' | filter_exact_revision)
           (( ${#api_ids[@]} == 1 && ${#web_ids[@]} == 1 && ${#tai_ids[@]} == 1 ))
           api_id="${api_ids[0]}"; web_id="${web_ids[0]}"; tai_id="${tai_ids[0]}"
           api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
           web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
           tai_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$tai_id")"
           [[ "$api_revision" == "$target" && "$web_revision" == "$target" && "$tai_revision" == "$target" ]]
+          api_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$api_id")"
+          web_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          api_working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$api_id")"
+          web_working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+          api_config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$api_id")"
+          web_config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+          [[ -n "$api_project" && "$api_project" == "$web_project" ]]
+          [[ -n "$api_working_dir" && "$api_working_dir" == "$web_working_dir" ]]
+          [[ -n "$api_config_files" && "$api_config_files" == "$web_config_files" ]]
           api_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$api_id")"
           web_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")"
           tai_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$tai_id")"
