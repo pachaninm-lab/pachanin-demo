@@ -38,4 +38,8 @@ export class RegistrationDecisionDto {
   @MinLength(8)
   @MaxLength(1000)
   reason!: string;
+
+  @IsOptional()
+  @IsIn(['ru', 'en', 'zh'])
+  locale?: 'ru' | 'en' | 'zh';
 }
