@@ -38,7 +38,7 @@ export const INTERNAL_STREAM_PATH = '/internal/tai/public-generate-stream';
  * would discard it and address `/internal/...` on the origin instead.
  */
 export function resolveInternalStreamEndpoint(base: URL): URL {
-  return new URL(INTERNAL_STREAM_PATH.replace(/^\/+\/u, ''), base);
+  return new URL(INTERNAL_STREAM_PATH.replace(/^\/+/u, ''), base);
 }
 
 /** Largest unfinished SSE record the relay will hold before refusing. */
