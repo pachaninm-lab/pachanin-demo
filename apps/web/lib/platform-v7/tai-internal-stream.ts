@@ -38,7 +38,7 @@ export const INTERNAL_STREAM_PATH = '/internal/tai/public-generate-stream';
  * would discard it and address `/internal/...` on the origin instead.
  */
 export function resolveInternalStreamEndpoint(base: URL): URL {
-  return new URL(INTERNAL_STREAM_PATH.replace(/^\/+/u, ''), base);
+  return new URL(INTERNAL_STREAM_PATH.replace(/^\/+\/u, ''), base);
 }
 
 /** Largest unfinished SSE record the relay will hold before refusing. */
@@ -46,11 +46,11 @@ const MAX_PENDING_RECORD_CHARS = 64 * 1024;
 /** Ceiling on one relayed answer. Bounded so a runaway upstream cannot exhaust us. */
 const MAX_STREAM_BYTES = 1_048_576;
 
-const GENERAL_AGRO_RESPONSE_BUDGET = Object.freeze({
-  ru: 'ФОРМАТ ОТВЕТА: дай законченный ответ по существу. По умолчанию — не более 180 слов; если пользователь явно просит подробно — не более 260 слов. Не повторяй вопрос и не добавляй длинное введение.',
-  en: 'ANSWER FORMAT: give a complete substantive answer. Default to at most 180 words; if the user explicitly asks for detail, use at most 260 words. Do not repeat the question or add a long preamble.',
-  zh: '回答格式：给出完整、实质性的回答。默认控制在约 300 个汉字以内；如果用户明确要求详细说明，控制在约 450 个汉字以内。不要重复问题，也不要添加冗长的开场白。',
-} as const);
+const DETAILED_RESPONSE_PATTERNS = [
+  /(?:подробн|детальн|разв[её]рнут|пошагов)/iu,
+  /(?:in\s+detail|detailed|comprehensive|step[-\s]?by[-\s]?step)/iu,
+  /(?:详细|详尽|全面|一步一步)/u,
+] as const;
 
 export interface InternalStreamConfig {
   readonly endpoint: URL;
@@ -80,22 +80,28 @@ export function signInternalStreamRequest(
 }
 
 /**
- * Keep the public general-agro path inside the existing provider deadline by
- * telling the model what a complete answer should cost before the signed request
- * leaves the web boundary. The originalQuestion and derived ConversationState
- * remain untouched, so routing, correction and evidence logic still see exactly
- * what the user asked. Verified-platform requests are byte-for-byte unchanged.
+ * Add a typed, signed completion profile to model-backed general-agro requests.
+ *
+ * This does not mutate the user's question, originalQuestion or ConversationState.
+ * The API is the authority that converts the profile into hard provider token
+ * ceilings. Verified-platform payloads are returned byte-for-byte unchanged.
  */
 export function applyGeneralAgroResponseBudget(payload: unknown): unknown {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return payload;
   const row = payload as Record<string, unknown>;
-  if (row.answerMode !== 'general_agro' || typeof row.question !== 'string') return payload;
-  const question = row.question.trim();
+  if (row.answerMode !== 'general_agro') return payload;
+  const question = typeof row.originalQuestion === 'string'
+    ? row.originalQuestion.trim()
+    : typeof row.question === 'string'
+      ? row.question.trim()
+      : '';
   if (!question) return payload;
-  const locale = row.locale === 'en' || row.locale === 'zh' ? row.locale : 'ru';
+  const profile = DETAILED_RESPONSE_PATTERNS.some((pattern) => pattern.test(question))
+    ? 'detailed'
+    : 'concise';
   return Object.freeze({
     ...row,
-    question: `${question}\n\n${GENERAL_AGRO_RESPONSE_BUDGET[locale]}`,
+    responseBudget: Object.freeze({ profile }),
   });
 }
 
