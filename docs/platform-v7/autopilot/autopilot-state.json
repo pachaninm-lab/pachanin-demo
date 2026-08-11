@@ -871,12 +871,20 @@
       "docs/platform-v7/autopilot/autopilot-state.json",
       "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-acceptance-3824.json"
     ],
+    "governance/gekta-live-brand-complete-3824": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-acceptance-3824.json"
+    ],
     "fix/gekta-live-brand-acceptance-3824": [
       ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
       "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+      "apps/web/i18n/platform-v7-home-story.ts",
       "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+      "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+      "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
       "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
       "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
+      "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-acceptance-3824.json",
       "scripts/tai-live-public-ai-acceptance.mjs",
       "scripts/tai-potato-mobile-live-acceptance.mjs"
     ],
