@@ -1,24 +1,20 @@
 #!/usr/bin/env node
-import crypto from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const workflowPath = '.github/workflows/production-p0-reviewer-membership-repair-deployed.yml';
-const sourcePath = 'scripts/production-p0-reviewer-membership-repair.sh';
-const wrapperPath = 'scripts/production-p0-reviewer-membership-repair-deployed-sha.sh';
+const runnerPath = 'scripts/production-p0-reviewer-membership-repair-deployed-sha.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-membership-repair-deployed.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-deployed-3799.json';
+const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
 const branch = 'fix/p0-reviewer-exact-deployed-repair-3799';
 const deployedRevision = '30d9075d8867fa60b3ec275b1e244f151debf0f4';
-const sourceBlob = '0b55b5b9a8ae36c37ac5974d9ee80ea77cb5df7c';
 const command = '/production p0-reviewer-membership-repair deployed-30d9075';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
-const source = fs.readFileSync(sourcePath, 'utf8');
-const wrapper = fs.readFileSync(wrapperPath, 'utf8');
+const runner = fs.readFileSync(runnerPath, 'utf8');
 const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
+const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
 
 const fail = (code) => {
   console.error(`CHECKER_FAIL=${code}`);
@@ -31,15 +27,6 @@ const requireMarkers = (code, text, markers) => {
   }
 };
 
-const countPattern = (text, pattern) => (text.match(pattern) || []).length;
-
-const sourceGitBlob = crypto
-  .createHash('sha1')
-  .update(`blob ${Buffer.byteLength(source, 'utf8')}\0`)
-  .update(source)
-  .digest('hex');
-if (sourceGitBlob !== sourceBlob) fail('SOURCE_BLOB_DRIFT');
-
 requireMarkers('WORKFLOW_MARKERS', workflow, [
   "github.event.issue.number == 3072",
   "github.event.comment.user.login == github.repository_owner",
@@ -51,134 +38,83 @@ requireMarkers('WORKFLOW_MARKERS', workflow, [
   'group: production-p0-reviewer-membership-repair',
   'cancel-in-progress: false',
   `node ${checkerPath}`,
-  `bash -n ${wrapperPath}`,
-  `bash ${wrapperPath}`,
+  `bash -n ${runnerPath}`,
+  `bash ${runnerPath}`,
 ]);
 
-requireMarkers('SOURCE_MARKERS', source, [
-  "COMMAND='/production p0-reviewer-membership-repair current-main'",
+requireMarkers('RUNNER_MARKERS', runner, [
+  `COMMAND='${command}'`,
+  `TARGET_SHA='${deployedRevision}'`,
+  'guard_repository_ancestry() {',
+  'git merge-base --is-ancestor "$TARGET_SHA" "$live_main"',
+  'git cat-file -e "$TARGET_SHA^{commit}"',
   'FROM auth.repair_single_reviewer_membership()',
   'Prisma.TransactionIsolationLevel.Serializable',
-  'PRODUCTION_MUTATION=REVIEWER_MEMBERSHIP_ONLY',
-  "['REPAIRED', 'ALREADY_REPAIRED']",
   "principal.user_name !== 'pc_staff_runtime'",
-]);
-
-requireMarkers('WRAPPER_MARKERS', wrapper, [
-  `SOURCE_BLOB='${sourceBlob}'`,
-  `TARGET_DEPLOYED_SHA='${deployedRevision}'`,
-  `COMMAND='${command}'`,
-  'git hash-object "$SOURCE"',
-  'git merge-base --is-ancestor "$TARGET_SHA" "$live_main"',
-  'git merge-base --is-ancestor "$TARGET_SHA" origin/main',
-  'git cat-file -e "$TARGET_SHA^{commit}"',
+  "['REPAIRED', 'ALREADY_REPAIRED']",
   'api_revision_after=',
   'web_revision_after=',
   '[[ "$api_revision_after" == "$target_sha" && "$web_revision_after" == "$target_sha" ]]',
-  'bash -n "$PATCHED"',
-  'exec bash "$PATCHED"',
+  'PRODUCTION_MUTATION=REVIEWER_MEMBERSHIP_ONLY',
+  '- exact deployed revision: \\`$TARGET_SHA\\`',
+  '- next: \\`REVIEWER_PASSWORD_RESET_REQUIRED\\`',
 ]);
 
-const pythonMatch = wrapper.match(
-  /python3 - "\$SOURCE" "\$PATCHED" "\$TARGET_DEPLOYED_SHA" "\$COMMAND" <<'PY'\n([\s\S]*?)\nPY/,
-);
-if (!pythonMatch) fail('PYTHON_EXTRACT');
-const pythonSyntax = spawnSync(
-  'python3',
-  ['-c', 'import ast,sys; ast.parse(sys.stdin.read())'],
-  { input: pythonMatch[1], encoding: 'utf8' },
-);
-if (pythonSyntax.error) fail('PYTHON3_UNAVAILABLE');
-if (pythonSyntax.status !== 0) fail('PYTHON_SYNTAX');
-
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'p0-reviewer-exact-deployed-'));
-const tempSource = path.join(tempRoot, 'source.sh');
-const patchedPath = path.join(tempRoot, 'patched.sh');
-try {
-  fs.writeFileSync(tempSource, source, 'utf8');
-  const patchResult = spawnSync(
-    'python3',
-    ['-c', pythonMatch[1], tempSource, patchedPath, deployedRevision, command],
-    { encoding: 'utf8' },
-  );
-  if (patchResult.error) fail('PYTHON3_UNAVAILABLE');
-  if (patchResult.status !== 0 || !fs.existsSync(patchedPath)) {
-    console.error(patchResult.stdout || patchResult.stderr || '');
-    fail('PATCH_MATERIALIZE');
-  }
-
-  const patched = fs.readFileSync(patchedPath, 'utf8');
-  const bashSyntax = spawnSync('bash', ['-n', patchedPath], { encoding: 'utf8' });
-  if (bashSyntax.status !== 0) fail('PATCHED_BASH_SYNTAX');
-
-  requireMarkers('PATCHED_MARKERS', patched, [
-    `COMMAND='${command}'`,
-    `TARGET_SHA='${deployedRevision}'`,
-    'git merge-base --is-ancestor "$TARGET_SHA" "$live_main"',
-    'git merge-base --is-ancestor "$TARGET_SHA" origin/main',
-    'git cat-file -e "$TARGET_SHA^{commit}"',
-    '- exact deployed revision: \\`$TARGET_SHA\\`',
-    'api_revision_after=',
-    'web_revision_after=',
-    '[[ "$api_revision_after" == "$target_sha" && "$web_revision_after" == "$target_sha" ]]',
-    'FROM auth.repair_single_reviewer_membership()',
-    'Prisma.TransactionIsolationLevel.Serializable',
-    'PRODUCTION_MUTATION=REVIEWER_MEMBERSHIP_ONLY',
-    '- next: \\`REVIEWER_PASSWORD_RESET_REQUIRED\\`',
-  ]);
-
-  for (const forbidden of [
-    "COMMAND='/production p0-reviewer-membership-repair current-main'",
-    'TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"',
-    '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
-  ]) {
-    if (patched.includes(forbidden)) fail('PATCHED_FORBIDDEN_MARKER');
-  }
-
-  // The reviewed source legitimately validates identity fields internally.
-  // The wrapper may not add, remove, publish or otherwise alter any reference
-  // to those sensitive fields; the exact source blob remains the authority.
-  const sensitivePatterns = [
-    /email/gi,
-    /passwordHash/g,
-    /mfa_secret_ciphertext/g,
-  ];
-  for (const pattern of sensitivePatterns) {
-    if (countPattern(patched, pattern) !== countPattern(source, pattern)) {
-      fail('SENSITIVE_MARKER_DRIFT');
-    }
-  }
-
-  if ((patched.match(new RegExp(deployedRevision, 'g')) || []).length !== 1) {
-    fail('DEPLOYED_SHA_CARDINALITY');
-  }
-  if ((patched.match(new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length !== 1) {
-    fail('COMMAND_CARDINALITY');
-  }
-} finally {
-  fs.rmSync(tempRoot, { recursive: true, force: true });
+for (const forbidden of [
+  'python3 - "$SOURCE"',
+  'SOURCE_BLOB=',
+  'PATCHED=',
+  'target.write_text(',
+  "COMMAND='/production p0-reviewer-membership-repair current-main'",
+  'TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"',
+  '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
+]) {
+  if (runner.includes(forbidden)) fail('RUNNER_FORBIDDEN_MARKER');
 }
 
-const expectedPaths = [workflowPath, wrapperPath, checkerPath, scopePath];
-const actualPaths = Array.isArray(scope.allowedPaths) ? scope.allowedPaths : [];
-const expectedPathSet = new Set(expectedPaths);
-const actualPathSet = new Set(actualPaths);
-if (actualPaths.length !== expectedPaths.length
-    || actualPathSet.size !== actualPaths.length
-    || expectedPathSet.size !== expectedPaths.length
-    || expectedPaths.some((entry) => !actualPathSet.has(entry))
-    || actualPaths.some((entry) => !expectedPathSet.has(entry))) {
-  fail('SCOPE_PATHS');
+const shellSyntax = spawnSync('bash', ['-n', runnerPath], { encoding: 'utf8' });
+if (shellSyntax.error || shellSyntax.status !== 0) fail('RUNNER_BASH_SYNTAX');
+
+const embeddedNodeMatch = runner.match(
+  /docker exec -i "\$api_id" \/nodejs\/bin\/node --input-type=commonjs - <<'NODE'\n([\s\S]*?)\nNODE/,
+);
+if (!embeddedNodeMatch) fail('EMBEDDED_NODE_EXTRACT');
+const nodeSyntax = spawnSync(process.execPath, ['--check'], {
+  input: embeddedNodeMatch[1],
+  encoding: 'utf8',
+});
+if (nodeSyntax.error || nodeSyntax.status !== 0) fail('EMBEDDED_NODE_SYNTAX');
+
+for (const unsafe of [
+  /console\.(?:log|error)\([^\n]*(?:databaseUrl|password|secret|token|email)/i,
+  /gh issue comment[^\n]*(?:databaseUrl|password|secret|token|email)/i,
+  /JSON\.stringify\(\s*(?:process\.env|error)/,
+  /postgres(?:ql)?:\/\//i,
+]) {
+  if (unsafe.test(runner)) fail('SENSITIVE_OUTPUT_GUARD');
 }
+
+const expectedPaths = [workflowPath, runnerPath, checkerPath, scopePath, statePath];
+const exactSet = (value) => {
+  if (!Array.isArray(value) || value.length !== expectedPaths.length) return false;
+  const actual = new Set(value);
+  return actual.size === expectedPaths.length
+    && expectedPaths.every((entry) => actual.has(entry));
+};
+
+if (!exactSet(scope.allowedPaths)) fail('SCOPE_PATHS');
+if (!exactSet(state.approvedConcurrentScopes?.[branch])) fail('AUTHORITATIVE_SCOPE');
+
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.branch !== branch
     || scope.status !== 'active'
     || scope.operationalStatus !== 'P0_REVIEWER_MEMBERSHIP_REPAIR_EXACT_DEPLOYED_SHA'
     || scope.issue !== 3799
     || scope.deployedRevision !== deployedRevision
-    || scope.sourceScriptBlob !== sourceBlob
     || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
     || scope.boundaries?.productionMutation !== 'REVIEWER_MEMBERSHIP_ONLY'
+    || scope.boundaries?.immutableCheckedInRunner !== true
+    || scope.boundaries?.runtimeRewriting !== false
     || scope.boundaries?.arbitraryTarget !== false
     || scope.boundaries?.currentMainDeploymentRequired !== false
     || scope.boundaries?.deployedRevisionMustBeAncestorOfMain !== true
@@ -192,4 +128,4 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
   fail('SCOPE_METADATA');
 }
 
-console.log('PASS: reviewer repair is fixed to the already deployed 30d9075 revision, remains ancestor-guarded, function-only, exact-revision checked before and after, and cannot deploy unrelated moving-main changes.');
+console.log('PASS: immutable owner-only reviewer repair is fixed to deployed 30d9075, exact-revision checked before and after, ancestor-guarded against moving main, and authorized by the repository state.');
