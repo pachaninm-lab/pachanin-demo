@@ -2,11 +2,6 @@ import { createHash, randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '../../../../lib/auth-cookies';
-import {
-  deliverOrganizationInvitation,
-  organizationInvitationMailConfigured,
-  type OrganizationInvitationDelivery,
-} from '../../../../lib/server/organization-invitation-mail';
 import { assertCsrf } from '../../../../lib/server-request-security';
 
 export const runtime = 'nodejs';
@@ -23,7 +18,7 @@ type ApiPayload = {
   expiresAt?: string;
   correlationId?: string;
   replayed?: boolean;
-  emailDelivery?: Partial<OrganizationInvitationDelivery>;
+  emailQueued?: boolean;
   code?: string;
 };
 
@@ -55,7 +50,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
   const role = String(body.role || '').trim();
-  const locale = String(body.locale || 'ru');
+  const locale = body.locale === 'en' || body.locale === 'zh' ? body.locale : 'ru';
   const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
   if (
     !/^\S+@\S+\.\S+$/.test(email)
@@ -68,15 +63,12 @@ export async function POST(request: Request) {
   }
 
   const upstream = String(process.env.API_URL || '').trim().replace(/\/$/, '');
-  const deliveryKey = String(process.env.ORGANIZATION_INVITATION_DELIVERY_KEY || '').trim();
   const accessToken = (await cookies()).get(ACCESS_COOKIE)?.value || '';
-  if (!upstream || !accessToken || deliveryKey.length < 32 || !organizationInvitationMailConfigured()) {
+  if (!upstream || !accessToken) {
     console.error('organization_invitation_configuration_error', JSON.stringify({
       correlationId,
       apiConfigured: Boolean(upstream),
       authenticated: Boolean(accessToken),
-      deliveryBoundaryConfigured: deliveryKey.length >= 32,
-      mailConfigured: organizationInvitationMailConfigured(),
     }));
     return json({ ok: false, code: accessToken ? 'INVITATION_SERVICE_UNAVAILABLE' : 'AUTH_REQUIRED', correlationId }, accessToken ? 503 : 401);
   }
@@ -89,9 +81,8 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
         'idempotency-key': idempotencyKey,
         'x-correlation-id': correlationId,
-        'x-organization-invitation-delivery-key': deliveryKey,
       },
-      body: JSON.stringify({ email, role }),
+      body: JSON.stringify({ email, role, locale }),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
     });
@@ -100,26 +91,13 @@ export async function POST(request: Request) {
       const status = upstreamStatus(apiResponse.status);
       return json({ ok: false, code: payload.code || 'INVITATION_REQUEST_REJECTED', correlationId }, status);
     }
-
-    const delivery = payload.emailDelivery;
-    if (delivery?.email && delivery.token) {
-      const mail = await deliverOrganizationInvitation(request, delivery as OrganizationInvitationDelivery, locale);
-      console.info('organization_invitation_delivery_result', JSON.stringify({
+    if (!payload.replayed && payload.emailQueued !== true) {
+      console.error('organization_invitation_mail_queue_contract_invalid', JSON.stringify({
         correlationId,
-        invitationId: payload.invitationId,
+        invitationId: payload.invitationId || null,
         accountHash: accountHash(email),
-        delivered: mail.delivered,
-        provider: mail.provider,
-        reason: mail.reason,
       }));
-      if (!mail.delivered) {
-        return json({
-          ok: false,
-          code: 'INVITATION_EMAIL_UNAVAILABLE',
-          invitationId: payload.invitationId,
-          correlationId,
-        }, 503);
-      }
+      return json({ ok: false, code: 'INVITATION_SERVICE_UNAVAILABLE', correlationId }, 503);
     }
 
     return json({
