@@ -62,7 +62,7 @@ async function expectMinimumTargets(page: Page, locator: string) {
   }, { timeout: 15_000, intervals: [100, 250, 500], message: `${locator} must remain at least 44×44 CSS px` }).toBe(true);
 }
 
-test.describe('Final v4 public Deal and TAI intelligence layer', () => {
+test.describe('Final v4 public Deal and Gekta intelligence layer', () => {
   test('home presents the approved Deal-first argument and fails closed', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     const forbiddenRequests: string[] = [];
@@ -120,7 +120,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.locator('#public-deal-state-normal')).toBeChecked();
     await expect(page.locator('#live [data-state="normal"]')).toContainText('Поставка подтверждена');
     await page.locator('label[for="public-deal-state-dispute"]').click();
-    await expect(page.locator('#live [data-state="dispute"]')).toContainText('TAI воздержался от вывода');
+    await expect(page.locator('#live [data-state="dispute"]')).toContainText('Гекта воздержалась от вывода');
 
     const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(perspectives).toBeVisible();
@@ -130,8 +130,8 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
 
     await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории');
     await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Готовность расчёта нельзя подтвердить');
-    const taiProductLink = page.getByRole('link', { name: 'Посмотреть ИИ в работе' }).first();
-    await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
+    const gektaProductLink = page.getByRole('link', { name: 'Посмотреть Гекту в работе' }).first();
+    await expect(gektaProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
     await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
     await expect(page.locator('#faq details')).toHaveCount(4);
@@ -192,7 +192,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('TAI passport exposes controlled layers without overstating maturity', async ({ page }) => {
+  test('Gekta passport exposes controlled layers without overstating maturity', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const response = await page.goto('/platform-v7/ai-in-action?lang=ru', { waitUntil: 'load' });
