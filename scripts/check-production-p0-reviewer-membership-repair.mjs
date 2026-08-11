@@ -41,6 +41,14 @@ requireMarkers('workflow', workflow, [
   ownerIdentityMigrationPath,
   candidateScopeMigrationPath,
   scopePath,
+  'postgresql-candidate-scope:',
+  'PostgreSQL 16 unrelated-membership repair proof',
+  'prisma migrate deploy --schema prisma/schema.prisma',
+  'SET SESSION AUTHORIZATION pc_staff_runtime',
+  "1|1|0|0|0|0",
+  "REPAIRED|1|1|1|0|0|0|1|1|1|1",
+  "ALREADY_REPAIRED|1|1|1|0|0|0|1|1|1|1",
+  "2|1|1|1|1|1",
 ]);
 
 requireMarkers('runner', runner, [
@@ -198,7 +206,7 @@ requireMarkers('candidate-scope correction migration', candidateScopeMigration, 
 ]);
 
 for (const pattern of [
-  /\b(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+(?:TABLE|POLICY))\b/i,
+  /\b(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|TRUNCATE\s+|ALTER\s+(?:TABLE|POLICY|ROLE)|CREATE\s+ROLE|DROP\s+ROLE)\b/i,
   /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)/i,
   /\b(?:BYPASSRLS|SUPERUSER)\b/i,
 ]) {
@@ -206,6 +214,10 @@ for (const pattern of [
     console.error(`Candidate-scope correction migration is broader than function-definition replacement: ${pattern}`);
     process.exit(1);
   }
+}
+if ((candidateScopeMigration.match(/EXECUTE replace\(v_definition, v_old_query, v_new_query\)/g) || []).length !== 1) {
+  console.error('Candidate-scope correction must replace exactly one bounded function query.');
+  process.exit(1);
 }
 
 if (!/CREATE OR REPLACE FUNCTION auth\.repair_single_reviewer_membership\(\)\s*RETURNS TABLE/.test(migration)) {
@@ -280,6 +292,8 @@ if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
   process.exit(1);
 }
 if (scope.issue !== 3799
+    || scope.branch !== 'fix/p0-reviewer-unrelated-membership-3799'
+    || scope.operationalStatus !== 'P0_REVIEWER_MEMBERSHIP_REPAIR_BOUNDED'
     || scope.boundaries?.productionMutation !== 'REVIEWER_MEMBERSHIP_ONLY'
     || scope.boundaries?.identityMutation !== false
     || scope.boundaries?.staffAssignmentMutation !== false
