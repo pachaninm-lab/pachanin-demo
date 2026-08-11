@@ -42,6 +42,10 @@ describe('platform-v7 international homepage completion', () => {
     expect(wrapper).toContain('Сделка управляется по одной версии фактов');
     expect(wrapper).toContain('Начните работу с платформой');
     expect(wrapper).toContain('Получите зафиксированный следующий шаг');
+    expect(wrapper).toContain("title: 'Гекта в процессе'");
+    expect(wrapper).toContain("title: 'Gekta in the workflow'");
+    expect(wrapper).toContain("title: '流程内的 Gekta'");
+    expect(wrapper).not.toMatch(/\bTAI\b/u);
     expect(wrapper).toContain("<a href='#live'>{copy.deal}</a>");
     expect(wrapper).toContain("<a href='#connect-organization'>{copy.connect}</a>");
     expect(wrapper).not.toContain('Честный статус контуров');
@@ -52,7 +56,8 @@ describe('platform-v7 international homepage completion', () => {
 
   it('publishes a canonical public RU EN ZH Trust Center without unsupported certification claims', () => {
     expect(trustContent).toContain("type Locale = 'ru' | 'en' | 'zh'");
-    expect(trustRoute).toContain("export { default } from '../../trust/page'");
+    expect(trustRoute).toContain("import BaseTrustCenterPage from '../../trust/page'");
+    expect(trustRoute).toContain('rebrandTrustCopy(await BaseTrustCenterPage(), locale)');
     expect(trustRoute).toContain("canonical: '/platform-v7/trust'");
     expect(platformLayout).toContain("'/platform-v7/trust',");
     const publicStart = platformLayout.indexOf('const PUBLIC_EXACT_PATHS');
@@ -63,7 +68,7 @@ describe('platform-v7 international homepage completion', () => {
     expect(publicSeoRegistry).toContain('"path": "/platform-v7/trust"');
     expect(trustContent).toContain('Что платформа не заявляет без доказательств');
     expect(trustContent).toContain('ISO, SOC 2 или иная сертификация — без опубликованного подтверждения');
-    expect(trustContent).toContain('TAI не получает самостоятельного права менять Сделку');
+    expect(trustContent).toContain('У Гекты нет самостоятельного права менять Сделку');
     expect(browserAcceptance).toContain("page.goto('/platform-v7/trust?lang=ru'");
   });
 

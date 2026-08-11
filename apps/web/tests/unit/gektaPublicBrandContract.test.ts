@@ -14,6 +14,7 @@ const sources = {
   hero: read('i18n/platform-v7-hero-message.ts'),
   homeOperating: read('i18n/platform-v7-home-v3-operating.ts'),
   homeStory: read('i18n/platform-v7-home-story.ts'),
+  homeInternational: read('components/platform-v7/PlatformV7StrategicHomeInternational.tsx'),
   homeEnhancements: read('i18n/platform-v7-home-enhancements.ts'),
   platformPage: read('app/platform-v7/page.tsx'),
   platformHead: read('app/platform-v7/head.tsx'),
@@ -37,6 +38,7 @@ describe('Gekta public brand contract', () => {
     expect(sources.homeStory).toContain("title: 'Гекта — интеллектуальный слой конкретной Сделки'");
     expect(sources.homeStory).toContain("title: 'Гекта воздержалась от вывода'");
     expect(sources.homeStory).toContain("cta: 'Посмотреть Гекту в работе'");
+    expect(sources.homeInternational).toContain("title: 'Гекта в процессе'");
     expect(sources.homeEnhancements).toContain("name: 'Гекта'");
     expect(sources.productPassport).toContain("title: 'Гекта — доказательный уровень исполнения сделки'");
     expect(sources.dealIntelligence).toContain("title: 'Гекта · Сводка для покупателя'");
@@ -52,6 +54,8 @@ describe('Gekta public brand contract', () => {
     expect(sources.hero).toContain('Gekta matches facts');
     expect(sources.homeStory).toContain("title: 'Gekta is the intelligence layer of a specific Deal'");
     expect(sources.homeStory).toContain("title: 'Gekta 是具体交易的智能层'");
+    expect(sources.homeInternational).toContain("title: 'Gekta in the workflow'");
+    expect(sources.homeInternational).toContain("title: '流程内的 Gekta'");
     expect(sources.hero).toContain('Gekta 对照事实');
     expect(sources.productPassport).toContain("title: 'Gekta is the evidence layer of deal execution'");
     expect(sources.productPassport).toContain("title: 'Gekta 是交易执行的证据层'");
