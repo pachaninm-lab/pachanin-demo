@@ -85,7 +85,7 @@ jobs:
 
           // A read-only diagnostic must not require a privileged shell. The
           // configured model-host principal is deliberately least-privilege.
-          const readStepStart = text.indexOf('      - name: Read whitelisted active service facts');
+          const readStepStart = text.lastIndexOf('      - name: Read whitelisted active service facts', begin);
           if (readStepStart < 0 || readStepStart >= begin) throw new Error('diagnostic step not found before remote heredoc');
           const readStepPreamble = text.slice(readStepStart, begin);
           for (const forbidden of ['sudo ', 'su ', 'doas ']) {
