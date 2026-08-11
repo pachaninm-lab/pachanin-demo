@@ -775,7 +775,7 @@ try {
   fullscreenVisible = await fullscreen.isVisible();
   if (fullscreenVisible) throw new Error('mobile_fullscreen_control_visible');
 
-  const composer = dialog.getByRole('textbox', { name: UI.composer });
+  const composer = dialog.getByRole('textbox', { name: 'Спроси Гекту о земле, урожае или агробизнесе' });
   await composer.fill('Что влияет на цену зерна?');
   await dialog.getByRole('button', { name: 'Отправить' }).click();
   const answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
