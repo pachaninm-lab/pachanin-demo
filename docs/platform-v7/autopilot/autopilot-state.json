@@ -200,6 +200,14 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "fix/tai-finalization-main-drift-recovery-20260811": [
+      ".github/workflows/tai-owner-finalization-recovery-command.yml",
+      "scripts/pc-tai-release-controller.sh",
+      "scripts/pc-tai-release-controller-core.sh",
+      "scripts/check-pc-tai-release-controller.mjs",
+      "scripts/check-tai-finalization-main-drift-recovery.mjs",
+      "docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-20260811.json"
+    ],
     "fix/production-p0-human-reviewer-ceremony-3785": [
       ".github/workflows/production-p0-first-customer-acceptance.yml",
       "apps/web/app/api/staff/[...path]/route.ts",
