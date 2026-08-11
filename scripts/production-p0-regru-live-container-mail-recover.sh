@@ -11,7 +11,7 @@ TARGET_SHA="${1:?exact current main SHA is required}"
 LIVE_DOMAIN="${LIVE_DOMAIN:-xn----8sbjf4befbjgs9b.xn--p1ai}"
 RELEASE_ISSUE_NUMBER="${RELEASE_ISSUE_NUMBER:-3072}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-artifacts/production-p0-regru-live-container-mail-recover}"
-SMTP_HOST="${SMTP_HOST:-sm38.hosting.reg.ru}"
+SMTP_HOST="${SMTP_HOST:-mail.hosting.reg.ru}"
 SMTP_PORT="${SMTP_PORT:-465}"
 SMTP_USER_ASCII="${SMTP_USER_ASCII:-access@xn----8sbjf4befbjgs9b.xn--p1ai}"
 SMTP_USER_UNICODE="${SMTP_USER_UNICODE:-access@процент-агро.рф}"
@@ -179,6 +179,7 @@ web_id="${web_ids[0]}"
 classifier="$(cat <<'PY'
 import json, os, smtplib, ssl, sys
 out_path, expected_host, expected_port, expected_ascii, expected_unicode = sys.argv[1:6]
+legacy_source_host = 'sm38.hosting.reg.ru'
 env_items = json.load(sys.stdin)
 env = {}
 for item in env_items or []:
@@ -200,7 +201,7 @@ def candidate(source, host, port, user, password, sender):
     sender = sender or user
     if not all((host, user, password)):
         return None
-    if host != expected_host or port != expected_port or user != expected_ascii or sender != expected_ascii:
+    if host not in {expected_host, legacy_source_host} or port != expected_port or user != expected_ascii or sender != expected_ascii:
         return None
     return source, password
 
