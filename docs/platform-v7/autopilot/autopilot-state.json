@@ -1053,6 +1053,11 @@
       "scripts/tai-speed-baseline.mjs",
       "apps/web/tests/unit/taiSpeedBaseline.test.ts",
       "docs/platform-v7/autopilot/scopes/gekta-p0-speed-20260811.json"
+    ],
+    "claude/gekta-p0-speed-revert-g3a": [
+      "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3a-3896.json",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
     ]
   },
   "currentAcceptance": [

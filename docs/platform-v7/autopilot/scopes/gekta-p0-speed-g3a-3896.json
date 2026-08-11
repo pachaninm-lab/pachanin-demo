@@ -1,7 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/gekta-p0-speed-g3a-3896",
-  "status": "active",
+  "status": "reverted-candidate-pending-baseline",
   "purpose": "Reduce measured user-visible Gekta first-meaningful-text latency by shortening the first safe completed answer block without weakening the existing streaming safety gate, semantic coverage, context handling or production authority.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
   "authorityBaseExactMain": "c801f913525437fba76b11de8ab344032d440256",
@@ -41,5 +41,7 @@
     "exact-head CI and security gates pass",
     "after production release the same baseline shows material c=1 firstMeaningfulText improvement without quality regression",
     "candidate is rejected if c=1 p95 worsens or any safety semantic or RU EN ZH gate regresses"
-  ]
+  ],
+  "revertedBy": "premature-merge-before-exact-main-before",
+  "revertNote": "Merged into main before an accepted EXACT_MAIN_BEFORE existed. Releasing it would have put the tuning into production ahead of its own baseline, leaving nothing to compare it against. The functional diff is reverted and this scope is not an accepted tuning; it returns as a candidate once the exact-main BEFORE is accepted."
 }
