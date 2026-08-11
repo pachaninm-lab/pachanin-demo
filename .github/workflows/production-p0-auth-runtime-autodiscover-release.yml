@@ -194,13 +194,18 @@ jobs:
           active_dir="$(realpath -e -- "$active_dir")"
           active_delivery="$active_dir/.pc-password-reset-delivery.env"
           active_mail="$active_dir/.pc-transactional-mail.env"
-          [[ -f "$active_delivery" && ! -L "$active_delivery" ]]
+          [[ ! -L "$active_delivery" ]]
           [[ -f "$active_mail" && ! -L "$active_mail" ]]
-          [[ "$(stat -c '%a:%u:%g' "$active_delivery")" == '600:0:0' ]]
+          if [[ -e "$active_delivery" ]]; then
+            [[ -f "$active_delivery" ]]
+            [[ "$(stat -c '%a:%u:%g' "$active_delivery")" == '600:0:0' ]]
+          fi
           [[ "$(stat -c '%a:%u:%g' "$active_mail")" == '600:0:0' ]]
           /usr/bin/install -m 0600 -o 0 -g 0 "$active_mail" "$REMOTE_MAIL"
           chmod 0700 "$REMOTE_SCRIPT"
           PC_RECONCILE_ACTIVE_RUNTIME=1 "$REMOTE_SCRIPT" provision "$REMOTE_MAIL"
+          [[ -f "$active_delivery" && ! -L "$active_delivery" ]]
+          [[ "$(stat -c '%a:%u:%g' "$active_delivery")" == '600:0:0' ]]
           REMOTE
           grep -Eq '^PASSWORD_RESET_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/runtime.log"
           grep -Eq '^REGISTRATION_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/runtime.log"
