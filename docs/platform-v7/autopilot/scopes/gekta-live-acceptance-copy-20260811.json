@@ -13,6 +13,7 @@
   "allowedPaths": [
     ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
     "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
+    "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/scopes/gekta-live-acceptance-copy-20260811.json",
     "scripts/tai-live-public-ai-acceptance.mjs",
     "scripts/tai-potato-mobile-live-acceptance.mjs"
@@ -30,7 +31,8 @@
     "node --check scripts/tai-potato-mobile-live-acceptance.mjs",
     "apps/web focused taiLiveBrowserMatrixContract test",
     "Workflow Syntax Guard",
-    "git diff --check"
+    "git diff --check",
+    "platform-v7 autopilot guard"
   ],
   "deploymentState": "not-deployed",
   "maturityBoundary": "Acceptance-copy alignment only; no live deployment claim until the protected activation and hosted acceptance both pass."
