@@ -451,9 +451,7 @@ jobs:
       PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
       PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
       PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
-      PC_P0_REVIEWER_EMAIL: ${{ secrets.PC_PROD_P0_STAFF_EMAIL || secrets.PC_PROD_P0_REVIEWER_EMAIL }}
-      PC_P0_REVIEWER_PASSWORD: ${{ secrets.PC_PROD_P0_STAFF_PASSWORD || secrets.PC_PROD_P0_REVIEWER_PASSWORD }}
-      PC_P0_REVIEWER_TOTP_SECRET: ${{ secrets.PC_PROD_P0_STAFF_TOTP_SECRET || secrets.PC_PROD_P0_REVIEWER_TOTP_SECRET }}
+      PC_P0_HUMAN_APPROVAL_TIMEOUT_SECONDS: 1800
       SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
       SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
       SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -512,12 +510,6 @@ jobs:
             echo MISSING_P0_MAILBOX_PREREQUISITE >&2
             exit 24
           fi
-          if [[ -z "$PC_P0_REVIEWER_EMAIL" || -z "$PC_P0_REVIEWER_PASSWORD" \
-            || -z "$PC_P0_REVIEWER_TOTP_SECRET" ]]; then
-            echo MISSING_P0_REVIEWER_PREREQUISITE >&2
-            exit 25
-          fi
-
           key_path="$RUNNER_TEMP/pc-p0-production-key"
           known_hosts="$RUNNER_TEMP/pc-p0-known-hosts"
           validate_key() {

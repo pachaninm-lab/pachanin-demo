@@ -424,6 +424,19 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
         reason: delivery.reason,
       }));
     }
+    if (upstream.ok && registrationDecision && correlationId.startsWith('p0-human-')) {
+      const applicationId = path.split('/')[2] || '';
+      const replayed = payloadObject.replayed === true;
+      const notificationDelivered = safePayload.notificationDelivered === true;
+      console.info('p0_human_reviewer_ceremony', JSON.stringify({
+        marker: 'P0_HUMAN_REVIEWER_CEREMONY',
+        applicationId,
+        correlationId,
+        replayed,
+        notificationDelivered,
+        notificationSuppressed: replayed && !Object.hasOwn(safePayload, 'notificationDelivered'),
+      }));
+    }
     let response = json(Array.isArray(payload) ? payload : safePayload, upstream.status);
 
     if (upstream.ok && /^access\/grants\/[^/]+\/activate$/.test(path)) {

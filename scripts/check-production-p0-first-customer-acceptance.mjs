@@ -19,6 +19,8 @@ const paths = {
   mfaBff: 'apps/web/app/api/auth/mfa-login/route.ts',
   logoutBff: 'apps/web/app/api/auth/logout/route.ts',
   staffBff: 'apps/web/app/api/staff/[...path]/route.ts',
+  reviewQueue: 'apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx',
+  humanCeremonyTest: 'apps/web/tests/unit/p0HumanReviewerCeremony.test.ts',
 };
 
 const failures = [];
@@ -61,14 +63,8 @@ requireAll('workflow', [
   'PC_PROD_P0_MAILBOX_IMAP_USER',
   'PC_PROD_P0_IMAP_PASSWORD',
   'PC_PROD_P0_MAILBOX_IMAP_PASSWORD',
-  'PC_PROD_P0_REVIEWER_EMAIL',
-  'PC_PROD_P0_STAFF_EMAIL',
-  'PC_PROD_P0_REVIEWER_PASSWORD',
-  'PC_PROD_P0_STAFF_PASSWORD',
-  'PC_PROD_P0_REVIEWER_TOTP_SECRET',
-  'PC_PROD_P0_STAFF_TOTP_SECRET',
   'MISSING_P0_MAILBOX_PREREQUISITE',
-  'MISSING_P0_REVIEWER_PREREQUISITE',
+  'PC_P0_HUMAN_APPROVAL_TIMEOUT_SECONDS: 1800',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'StrictHostKeyChecking=yes',
   'Reconfirm exact main immediately before production mutation',
@@ -105,6 +101,7 @@ forbid('workflow', [
   /BEGIN (?:OPENSSH |RSA |EC )?PRIVATE KEY/,
   /github\.actor\s*==\s*['"]github-actions\[bot\]['"]/,
   /Netlify|Vercel/,
+  /PC_PROD_P0_(?:STAFF|REVIEWER)_(?:EMAIL|PASSWORD|TOTP_SECRET)/,
 ]);
 
 requireAll('executor', [
@@ -119,7 +116,7 @@ requireAll('executor', [
   "template.count('{run}') == 1",
   "template.count('{slot}') == 1",
   'MISSING_P0_MAILBOX_PREREQUISITE',
-  'MISSING_P0_REVIEWER_PREREQUISITE',
+  'P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN',
   'MISSING_P0_CAUSAL_OUTBOX_PRODUCER',
   'register_identity a seller',
   'register_identity b buyer',
@@ -128,28 +125,27 @@ requireAll('executor', [
   'p0-email-verify-replay:',
   'REGISTRATION_EMAIL_TOKEN_INVALID',
   '$LIVE_BASE/api/auth/login',
-  '$LIVE_BASE/api/auth/membership-select',
   '$LIVE_BASE/api/auth/mfa-login',
   '$LIVE_BASE/api/auth/logout',
-  '$LIVE_BASE/api/staff/registration/applications',
-  '[[ "$status" == 201 ]] || fail "P0_REVIEWER_APPROVAL_${label^^}_FAILED"',
+  'wait_for_human_approvals',
+  'P0_HUMAN_REVIEW_AUTHORITY=EXISTING_PLATFORM_OWNER_FRESH_MFA_CONTROL_PLANE',
+  'remote_authority approval_wait',
+  'P0_HUMAN_APPROVAL_STATE=READY',
+  'ADMIN_APPROVALS_READY',
+  'humanApprovalProof',
+  "event.actor_kind = 'PLATFORM_REVIEWER'",
+  "event.previous_status = 'ORGANIZATION_VERIFICATION_PENDING'",
+  "event.new_status = 'APPROVED'",
+  "row.status !== 'ACTIVATED'",
+  "docker logs --since \"$started_epoch\" \"$web_id\"",
+  'P0_HUMAN_REVIEWER_CEREMONY',
   'notificationDelivered',
-  "payload.get('replayed') is not False",
-  "payload.get('replayed') is not True",
-  "if 'notificationDelivered' in payload",
+  "payload.get('replayed') is False",
+  "payload.get('replayed') is True",
+  "payload.get('notificationSuppressed') is True",
   'P0_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED',
   'DECISION_REPLAY_NOTIFICATION_SUPPRESSED=1',
   'P0_DECISION_REPLAY_NOTIFICATION=PASS',
-  'P0_REVIEWER_CONTROL_PLANE_CONTEXT_INVALID',
-  "row.get('role') == 'PLATFORM_OWNER'",
-  'activate_reviewer_control_plane',
-  '$LIVE_BASE/api/staff/access/requests',
-  "'accessMode': 'CONTROL_PLANE'",
-  "'staff-request:read', 'staff-request:approve'",
-  '$LIVE_BASE/api/staff/access/grants/$grant_id/activate',
-  '$LIVE_BASE/api/staff/session-context',
-  'end_reviewer_control_plane',
-  '$LIVE_BASE/api/staff/access/sessions/$REVIEWER_STAFF_SESSION_ID/end',
   'customer_login a initial',
   'customer_login b initial',
   'customer_login a relogin',
@@ -235,6 +231,10 @@ forbid('executor', [
   /sshpass/i,
   /(?:echo|printf)[^\n]*(?:PASSWORD|TOTP_SECRET|VERIFY_TOKEN|MFA_SECRET)/i,
   /gh\s+(?:secret|variable)\s+set/i,
+  /reviewer_login\(\)/,
+  /activate_reviewer_control_plane\(\)/,
+  /approve_registrations\(\)/,
+  /totp\s+"?\$PC_P0_REVIEWER_TOTP_SECRET"?/,
 ]);
 
 requireAll('decision', [
@@ -304,7 +304,35 @@ requireAll('staffBff', [
   'staffAccessToken',
   "'x-staff-access-session': staffAccessToken",
   'notificationDelivered',
+  "correlationId.startsWith('p0-human-')",
+  "'p0_human_reviewer_ceremony'",
+  "marker: 'P0_HUMAN_REVIEWER_CEREMONY'",
+  "notificationSuppressed: replayed && !Object.hasOwn(safePayload, 'notificationDelivered')",
   'assertCsrf(request)',
+]);
+
+requireAll('reviewQueue', [
+  "P0_ACCEPTANCE_LEGAL_NAME_PREFIX = 'Production P0 exact-run organization '",
+  "p0CeremonyHeaders(application.applicationId, 'approve')",
+  "p0CeremonyHeaders(application.applicationId, 'replay')",
+  "'Idempotency-Key': replayHeaders.idempotencyKey",
+  "'X-Correlation-Id': replayHeaders.correlationId",
+  'replayPayload.replayed !== true',
+  "Object.hasOwn(replayPayload, 'notificationDelivered')",
+]);
+forbid('reviewQueue', [
+  /PC_PROD_P0_(?:STAFF|REVIEWER)_(?:EMAIL|PASSWORD|TOTP_SECRET)/,
+  /document\.cookie/,
+  /localStorage/,
+]);
+requireAll('humanCeremonyTest', [
+  "await import('@/app/api/staff/[...path]/route')",
+  "await POST(decisionRequest('p0-human-approve:reg_p0_human_ceremony'), context)",
+  "await POST(decisionRequest('p0-human-replay:reg_p0_human_ceremony'), context)",
+  "expect(sendTransactionalMail).toHaveBeenCalledWith",
+  "expect(sendTransactionalMail).not.toHaveBeenCalled()",
+  "expect(payload).not.toHaveProperty('notificationDelivered')",
+  'notificationSuppressed: true',
 ]);
 
 requireAll('staffController', [
@@ -334,7 +362,8 @@ requireAll('runbook', [
   'REG.RU',
   '/production p0-first-customer current-main',
   'PC_PROD_P0_EMAIL_TEMPLATE',
-  'PC_PROD_P0_REVIEWER_TOTP_SECRET',
+  'reviewer password and TOTP never enter GitHub Actions',
+  'human reviewer ceremony',
   'PLATFORM_OWNER',
   'CONTROL_PLANE',
   'staff-request:approve',
@@ -359,13 +388,16 @@ try {
   const scope = JSON.parse(source.scope ?? '{}');
   const expectedPaths = [
     '.github/workflows/production-p0-first-customer-acceptance.yml',
+    'apps/web/app/api/staff/[...path]/route.ts',
+    'apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx',
+    'apps/web/tests/unit/p0HumanReviewerCeremony.test.ts',
     'scripts/production-p0-first-customer-acceptance.sh',
     'scripts/check-production-p0-first-customer-acceptance.mjs',
     'docs/ops/production-p0-first-customer-acceptance.md',
     'docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json',
   ];
   if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schema mismatch`);
-  if (scope.branch !== 'fix/production-p0-first-customer-acceptance-3750') failures.push(`${paths.scope}: branch mismatch`);
+  if (scope.branch !== 'fix/production-p0-human-reviewer-ceremony-3785') failures.push(`${paths.scope}: branch mismatch`);
   if (scope.status !== 'active') failures.push(`${paths.scope}: scope is not active`);
   if (scope.productionHosting !== 'REG_RU_VPS_ONLY') failures.push(`${paths.scope}: hosting mismatch`);
   if (scope.newRecurringCostRub !== 0) failures.push(`${paths.scope}: recurring cost must remain zero`);
@@ -374,6 +406,8 @@ try {
     'owner-authenticated issue command',
     'public production Web BFF',
     'two unique run-scoped public customer identities',
+    'human reviewer ceremony',
+    'no reviewer password or TOTP secret in GitHub Actions',
     'read-only PostgreSQL RLS assertion',
     'auth.registration.lifecycle.receipt',
     'MISSING_P0_CAUSAL_OUTBOX_PRODUCER',
@@ -490,4 +524,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('PASS: owner-only exact-main REG.RU acceptance requires two mail-delivered public BFF registrations, single-use verification, existing staff approval with recent MFA, customer MFA and relogin, a permitted action, authenticated cross-tenant BFF denial, paired read-only PostgreSQL RLS A=1/B=0, and exact causal registration audit/outbox receipts without exposing secrets.');
+console.log('PASS: owner-only exact-main REG.RU acceptance uses no CI-held reviewer credential; two mail-delivered public BFF registrations wait for a visible existing PLATFORM_OWNER fresh-MFA CONTROL_PLANE ceremony, prove bounded idempotent replay suppression, customer MFA/relogin, a permitted action, cross-tenant denial, paired read-only PostgreSQL RLS A=1/B=0, and exact causal audit/outbox receipts without exposing secrets.');
