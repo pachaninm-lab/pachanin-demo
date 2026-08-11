@@ -51,7 +51,7 @@ concurrency:
         github.event.comment.body == '/tai recover-semantic 31481267058'
       ) &&
       format('tai-public-agro-semantic-ignored-{0}', github.run_id) ||
-      'tai-restricted-qwen-reg-ru-activation'
+      'tai-restricted-qwen-reg-ru-activation-production'
     }}
   cancel-in-progress: false
 
@@ -120,10 +120,12 @@ jobs:
         run: |
           set -euo pipefail
           workflow='.github/workflows/tai-public-agro-semantic-live-acceptance.yml'
+          activation_workflow='.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
           grep -Fq "workflow_run:" "$workflow"
           grep -Fq "workflows: ['TAI Restricted Qwen REG.RU Activation']" "$workflow"
           grep -Fq "github.event.workflow_run.conclusion == 'success'" "$workflow"
-          grep -Fq "'tai-restricted-qwen-reg-ru-activation'" "$workflow"
+          grep -Fq "'tai-restricted-qwen-reg-ru-activation-production'" "$workflow"
+          grep -Fq "group: tai-restricted-qwen-reg-ru-activation-\${{ github.event.pull_request.number || 'production' }}" "$activation_workflow"
           grep -Fq "format('tai-public-agro-semantic-ignored-{0}', github.run_id)" "$workflow"
           grep -Fq "github.event.comment.body == '/tai recover-semantic 31481267058'" "$workflow"
           grep -Fq 'TAI Restricted Qwen REG.RU Activation' "$workflow"
