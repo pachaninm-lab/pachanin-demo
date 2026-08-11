@@ -572,19 +572,56 @@ jobs:
       issues: write
       statuses: write
     steps:
+      - name: Resolve artifact from the producing recovery attempt
+        id: recovery_artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVER_RESULT: ${{ needs.recover.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$RECOVER_RESULT" == success ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" \
+            > "$RUNNER_TEMP/recovery-artifacts.json"
+          node - "$RUNNER_TEMP/recovery-artifacts.json" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const [reportPath, runIdRaw, currentAttemptRaw] = process.argv.slice(2);
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+          const runId = Number(runIdRaw);
+          const currentAttempt = Number(currentAttemptRaw);
+          if (!Number.isInteger(runId) || runId <= 0 || !Number.isInteger(currentAttempt) || currentAttempt <= 0
+            || !report || !Array.isArray(report.artifacts) || report.total_count !== report.artifacts.length) process.exit(2);
+          const prefix = `tai-finalization-main-drift-recovery-${runId}-`;
+          const candidates = report.artifacts.flatMap((artifact) => {
+            if (typeof artifact?.name !== 'string' || !artifact.name.startsWith(prefix)) return [];
+            const suffix = artifact.name.slice(prefix.length);
+            if (!/^[1-9][0-9]*$/.test(suffix)) process.exit(3);
+            const attempt = Number(suffix);
+            if (!Number.isInteger(attempt) || attempt > currentAttempt || artifact.expired !== false
+              || !Number.isInteger(artifact.id) || artifact.id <= 0
+              || !Number.isInteger(artifact.size_in_bytes) || artifact.size_in_bytes <= 0
+              || artifact.workflow_run?.id !== runId) process.exit(4);
+            return [{ artifact, attempt }];
+          });
+          if (candidates.length === 0 || new Set(candidates.map(({ attempt }) => attempt)).size !== candidates.length) process.exit(5);
+          candidates.sort((left, right) => right.attempt - left.attempt);
+          const selected = candidates[0];
+          process.stdout.write(`name=${selected.artifact.name}\nattempt=${selected.attempt}\n`);
+          NODE
       - uses: actions/download-artifact@v4
         with:
-          name: tai-finalization-main-drift-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ steps.recovery_artifact.outputs.name }}
           path: artifacts/tai-finalization-recovery-publish
       - name: Publish exact accepted result
         env:
           GH_TOKEN: ${{ github.token }}
           RECOVER_RESULT: ${{ needs.recover.result }}
           PUBLISH_EVIDENCE_DIR: artifacts/tai-finalization-recovery-publish
+          PRODUCING_RUN_ATTEMPT: ${{ steps.recovery_artifact.outputs.attempt }}
         run: |
           set -Eeuo pipefail
           [[ "$RECOVER_RESULT" == success ]]
-          current_sha="$(node - "$PUBLISH_EVIDENCE_DIR/finalization-recovery.json" "$ACTIVATION_TARGET_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
+          current_sha="$(node - "$PUBLISH_EVIDENCE_DIR/finalization-recovery.json" "$ACTIVATION_TARGET_SHA" "$GITHUB_RUN_ID" "$PRODUCING_RUN_ATTEMPT" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
           const fs = require('node:fs');
           const [evidencePath, target, runId, runAttempt, artifactDigest] = process.argv.slice(2);
           const recovery = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
