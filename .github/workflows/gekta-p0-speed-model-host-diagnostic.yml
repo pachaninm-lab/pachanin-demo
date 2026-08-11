@@ -55,8 +55,14 @@ jobs:
           ]) {
             if (remote.includes(forbidden)) throw new Error(`forbidden remote mutation token: ${forbidden}`);
           }
+          const readStepStart = text.indexOf('      - name: Read whitelisted active service facts');
+          if (readStepStart < 0 || readStepStart >= begin) throw new Error('diagnostic step not found before remote heredoc');
+          const readStepPreamble = text.slice(readStepStart, begin);
+          for (const forbidden of ['sudo ', 'su ', 'doas ']) {
+            if (readStepPreamble.includes(forbidden)) throw new Error(`privilege escalation is forbidden: ${forbidden.trim()}`);
+          }
           NODE
-          GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-diagnostic-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+          GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-nonroot-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
   diagnose:
     if: >-
@@ -135,15 +141,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bootstrap='if [ "$(id -u)" -eq 0 ]; then exec /bin/bash -s; fi
-          command -v sudo >/dev/null 2>&1 || exit 31
-          sudo -n true >/dev/null 2>&1 || exit 32
-          exec sudo -n /bin/bash -s'
           ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
             -o StrictHostKeyChecking=yes \
-            "$MODEL_USER@$MODEL_HOST" "$bootstrap" > "$RUNNER_TEMP/raw-diag" <<'REMOTE'
+            "$MODEL_USER@$MODEL_HOST" /bin/bash -s > "$RUNNER_TEMP/raw-diag" <<'REMOTE'
           set -Eeuo pipefail
           service=tai-qwen3-8b.service
           systemctl is-active --quiet "$service"
