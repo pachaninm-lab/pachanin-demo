@@ -316,7 +316,11 @@ jobs:
           mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api' | filter_exact_revision)
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web' | filter_exact_revision)
           mapfile -t tai_ids < <(docker ps -q --filter 'label=com.docker.compose.service=tai' | filter_exact_revision)
-          (( ${#api_ids[@]} == 1 && ${#web_ids[@]} == 1 && ${#tai_ids[@]} == 1 ))
+          if (( ${#api_ids[@]} != 1 || ${#web_ids[@]} != 1 || ${#tai_ids[@]} != 1 )); then
+            printf 'RECOVERY_API_EXACT_COUNT=%s\nRECOVERY_WEB_EXACT_COUNT=%s\nRECOVERY_TAI_EXACT_COUNT=%s\n' \
+              "${#api_ids[@]}" "${#web_ids[@]}" "${#tai_ids[@]}" >&2
+            false
+          fi
           api_id="${api_ids[0]}"; web_id="${web_ids[0]}"; tai_id="${tai_ids[0]}"
           api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
           web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
