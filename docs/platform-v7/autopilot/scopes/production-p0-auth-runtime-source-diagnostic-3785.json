@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-auth-runtime-source-diagnostic-3785",
+  "status": "active",
+  "operationalStatus": "P0_AUTH_RUNTIME_SOURCE_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Read-only production auth runtime source diagnostic",
+  "allowedPaths": [
+    ".github/workflows/production-p0-auth-runtime-source-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-auth-runtime-source-diagnostic-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "only the repository owner can issue the exact diagnostic command on release issue 3072",
+    "exact current main is resolved and rechecked before and after protected production inspection",
+    "the protected REG.RU host must be a current live-domain IPv4 answer and present the pinned SSH host fingerprint",
+    "only boolean validity for active and canonical runtime pairs, same-directory status, deployed revision and source classification are published",
+    "protected paths, delivery keys, mail credentials, raw environment, raw logs, passwords, tokens and cookies are never published",
+    "the diagnostic performs no production, database, deployment, credential, session or MFA mutation",
+    "production remains the existing REG.RU contour and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
