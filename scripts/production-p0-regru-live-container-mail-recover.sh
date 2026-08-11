@@ -52,7 +52,7 @@ publish_result() {
 - exact main: \`$TARGET_SHA\`
 - result: \`$RESULT\`
 - blocker: \`$BLOCKER\`
-- SMTP authority: \`REG_RU_ACTIVE_WEB_CONTAINER_CANONICAL_ONLY\`
+- SMTP authority: \`REG_RU_SERVER_SIDE_AUTODISCOVERY_CANONICAL_AUTH_ONLY\`
 - SMTP probe: \`AUTH_ONLY_NO_MESSAGE\`
 - production mutation: \`$MUTATION\`
 - database/deployment mutation: \`NONE\`
@@ -147,7 +147,7 @@ guard_main
 ssh_common=(-i "$key_path" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15)
 scp_common=(-i "$key_path" -P "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
 ssh "${ssh_common[@]}" "$user@$host" \
-  'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; python3 --version >/dev/null; echo ROOT_SSH_AUTH_OK' \
+  'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null; echo ROOT_SSH_AUTH_OK' \
   > "$EVIDENCE_DIR/ssh-auth.txt"
 grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
 
@@ -166,7 +166,9 @@ command -v docker >/dev/null 2>&1
 command -v python3 >/dev/null 2>&1
 chmod 0700 "$provisioner"
 mail_input="/tmp/pc-live-mail-input-$$.env"
-cleanup_remote(){ rm -f "$mail_input" "$provisioner"; }
+compose_json="/tmp/pc-live-mail-compose-$$.json"
+env_json="/tmp/pc-live-mail-env-$$.json"
+cleanup_remote(){ rm -f "$mail_input" "$compose_json" "$env_json" "$provisioner"; }
 trap cleanup_remote EXIT
 
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
@@ -175,23 +177,38 @@ if (( ${#web_ids[@]} != 1 )); then
   exit 0
 fi
 web_id="${web_ids[0]}"
+project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+active_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+config_files_raw="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+if [[ -z "$project" || -z "$active_dir" || "$active_dir" != /* || "$active_dir" == / || ! -d "$active_dir" || -L "$active_dir" ]]; then
+  printf 'LIVE_MAIL_RECOVERY|FAIL|WEB_COMPOSE_AUTHORITY_INVALID\n'
+  exit 0
+fi
+active_dir="$(realpath -e -- "$active_dir")"
 
 classifier="$(cat <<'PY'
-import json, os, smtplib, ssl, sys
-out_path, expected_host, expected_port, expected_ascii, expected_unicode = sys.argv[1:6]
+import json, os, re, smtplib, ssl, sys
+out_path, expected_host, expected_port, expected_ascii, expected_unicode, source_prefix = sys.argv[1:7]
 legacy_source_host = 'sm38.hosting.reg.ru'
-env_items = json.load(sys.stdin)
-env = {}
-for item in env_items or []:
-    key, sep, value = str(item).partition('=')
-    if sep:
-        env[key] = value
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    print(f'LIVE_MAIL_SOURCE|MISS|{source_prefix}')
+    raise SystemExit(0)
+if isinstance(payload, dict):
+    env = {str(k): '' if v is None else str(v) for k, v in payload.items()}
+else:
+    env = {}
+    for item in payload or []:
+        key, sep, value = str(item).partition('=')
+        if sep:
+            env[key] = value
 
 def clean(value):
     value = str(value or '').strip()
-    return value if value and '\n' not in value and '\r' not in value else ''
+    return value if value and '\n' not in value and '\r' not in value and '\x00' not in value else ''
 
-def candidate(source, host, port, user, password, sender):
+def candidate(kind, host, port, user, password, sender):
     host, port, user, password, sender = map(clean, (host, port, user, password, sender))
     if user == expected_unicode:
         user = expected_ascii
@@ -199,11 +216,15 @@ def candidate(source, host, port, user, password, sender):
         sender = expected_ascii
     port = port or expected_port
     sender = sender or user
-    if not all((host, user, password)):
+    if not all((user, password)):
         return None
-    if host not in {expected_host, legacy_source_host} or port != expected_port or user != expected_ascii or sender != expected_ascii:
+    if host and host not in {expected_host, legacy_source_host}:
         return None
-    return source, password
+    if port != expected_port or user != expected_ascii or sender != expected_ascii:
+        return None
+    if len(password) > 512:
+        return None
+    return kind, password
 
 candidates = []
 for item in (
@@ -212,50 +233,151 @@ for item in (
 ):
     if item:
         candidates.append(item)
-
 if not candidates:
-    print('LIVE_MAIL_RECOVERY|FAIL|NO_COMPLETE_CANONICAL_SMTP_ENV')
+    print(f'LIVE_MAIL_SOURCE|MISS|{source_prefix}')
     raise SystemExit(0)
 
-chosen = None
-for source, password in candidates:
+context = ssl.create_default_context()
+for kind, password in candidates:
     try:
-        context = ssl.create_default_context()
         with smtplib.SMTP_SSL(expected_host, int(expected_port), timeout=10, context=context) as client:
             client.login(expected_ascii, password)
-        chosen = source, password
-        break
     except Exception:
         continue
-
-if chosen is None:
-    print('LIVE_MAIL_RECOVERY|FAIL|LIVE_SMTP_AUTH_FAILED')
+    source = f'{source_prefix}_{kind}'
+    if not re.fullmatch(r'[A-Z0-9_]{1,64}', source):
+        raise SystemExit(2)
+    fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+        handle.write(f'PC_SMTP_HOST={expected_host}\n')
+        handle.write(f'PC_SMTP_USER={expected_ascii}\n')
+        handle.write(f'PC_SMTP_PASS={password}\n')
+        handle.write(f'PC_SMTP_PORT={expected_port}\n')
+        handle.write(f'PC_MAIL_FROM={expected_ascii}\n')
+    print(f'LIVE_MAIL_AUTH|PASS|{source}')
     raise SystemExit(0)
-
-source, password = chosen
-fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-with os.fdopen(fd, 'w', encoding='utf-8') as handle:
-    handle.write(f'PC_SMTP_HOST={expected_host}\n')
-    handle.write(f'PC_SMTP_USER={expected_ascii}\n')
-    handle.write(f'PC_SMTP_PASS={password}\n')
-    handle.write(f'PC_SMTP_PORT={expected_port}\n')
-    handle.write(f'PC_MAIL_FROM={expected_ascii}\n')
-print(f'LIVE_MAIL_AUTH|PASS|{source}')
+print(f'LIVE_MAIL_SOURCE|AUTH_FAIL|{source_prefix}')
 PY
 )"
 
-auth_marker="$(docker inspect --format '{{json .Config.Env}}' "$web_id" \
-  | python3 -c "$classifier" "$mail_input" "$expected_host" "$expected_port" "$expected_ascii" "$expected_unicode")"
-printf '%s\n' "$auth_marker"
-if [[ "$auth_marker" == LIVE_MAIL_RECOVERY\|FAIL\|* ]]; then
+chosen=''
+saw_candidate=0
+try_payload() {
+  local source="$1" marker
+  [[ -f "$mail_input" ]] && return 0
+  marker="$(python3 -c "$classifier" "$mail_input" "$expected_host" "$expected_port" "$expected_ascii" "$expected_unicode" "$source")"
+  if [[ "$marker" =~ ^LIVE_MAIL_AUTH\|PASS\|([A-Z0-9_]+)$ ]]; then
+    chosen="${BASH_REMATCH[1]}"
+    printf '%s\n' "$marker"
+    return 0
+  fi
+  if [[ "$marker" =~ ^LIVE_MAIL_SOURCE\|AUTH_FAIL\|([A-Z0-9_]+)$ ]]; then
+    saw_candidate=1
+  fi
+  return 0
+}
+
+# 1. The active Web container is the primary source. Values stay in the server-side pipe.
+docker inspect --format '{{json .Config.Env}}' "$web_id" > "$env_json"
+try_payload ACTIVE < "$env_json"
+
+# 2. Replaced/stopped Web containers from the same production working directory may retain
+# the previously working mail credential in Docker metadata. Inspect at most 20, newest first.
+if [[ -z "$chosen" ]]; then
+  inspected=0
+  while IFS= read -r historical_id; do
+    [[ -n "$historical_id" && "$historical_id" != "$web_id" ]] || continue
+    historical_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$historical_id" 2>/dev/null || true)"
+    [[ -n "$historical_dir" && "$historical_dir" == /* && -d "$historical_dir" && ! -L "$historical_dir" ]] || continue
+    historical_dir="$(realpath -e -- "$historical_dir" 2>/dev/null || true)"
+    [[ "$historical_dir" == "$active_dir" ]] || continue
+    docker inspect --format '{{json .Config.Env}}' "$historical_id" > "$env_json"
+    try_payload STOPPED < "$env_json"
+    (( inspected += 1 ))
+    [[ -z "$chosen" && $inspected -lt 20 ]] || break
+  done < <(docker ps -aq --filter 'label=com.docker.compose.service=web')
+fi
+
+# 3. Resolve the active Compose configuration server-side. This can recover a credential
+# still present in a protected Compose/.env authority even when it is absent from the live
+# container. The resolved config is never emitted to Actions logs or artifacts.
+if [[ -z "$chosen" && -n "$config_files_raw" ]]; then
+  IFS=',' read -r -a raw_files <<< "$config_files_raw"
+  dc=(docker compose --project-directory "$active_dir" --project-name "$project")
+  config_count=0
+  for raw in "${raw_files[@]}"; do
+    file="${raw#"${raw%%[![:space:]]*}"}"
+    file="${file%"${file##*[![:space:]]}"}"
+    [[ -n "$file" ]] || continue
+    [[ "$file" == /* ]] || file="$active_dir/$file"
+    [[ -f "$file" && ! -L "$file" ]] || continue
+    dc+=(-f "$file")
+    (( config_count += 1 ))
+  done
+  if (( config_count > 0 )) && "${dc[@]}" config --format json > "$compose_json" 2>/dev/null; then
+    python3 - "$compose_json" > "$env_json" <<'PY'
+import json, sys
+cfg = json.load(open(sys.argv[1], encoding='utf-8'))
+web = (cfg.get('services') or {}).get('web') or {}
+env = web.get('environment') or {}
+if isinstance(env, list):
+    print(json.dumps(env))
+elif isinstance(env, dict):
+    print(json.dumps(env))
+else:
+    print('{}')
+PY
+    try_payload COMPOSE < "$env_json"
+  fi
+fi
+
+# 4. Inspect only a small allowlist of production-directory env authorities. No file is
+# printed; only candidate keys are parsed and the password is accepted solely after a
+# successful TLS SMTP authentication against the canonical REG.RU endpoint.
+if [[ -z "$chosen" ]]; then
+  for candidate_file in \
+    "$active_dir/.env" \
+    "$active_dir/.env.production" \
+    "$active_dir/.env.prod" \
+    "$active_dir/production.env" \
+    "$active_dir/.pc-transactional-mail.env"; do
+    [[ -f "$candidate_file" && ! -L "$candidate_file" ]] || continue
+    python3 - "$candidate_file" > "$env_json" <<'PY'
+import json, sys
+values = {}
+for raw in open(sys.argv[1], encoding='utf-8', errors='strict'):
+    line = raw.rstrip('\n')
+    if not line or line.lstrip().startswith('#'):
+        continue
+    name, sep, value = line.partition('=')
+    if not sep:
+        continue
+    name = name.strip()
+    if name in {
+        'PC_SMTP_HOST','PC_SMTP_PORT','PC_SMTP_USER','PC_SMTP_PASS','PC_MAIL_FROM',
+        'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_USERNAME','SMTP_PASS','SMTP_PASSWORD','SMTP_FROM',
+    }:
+        values[name] = value.strip().strip('"').strip("'")
+print(json.dumps(values))
+PY
+    try_payload FILE < "$env_json"
+    [[ -z "$chosen" ]] || break
+  done
+fi
+
+if [[ -z "$chosen" ]]; then
+  if (( saw_candidate == 1 )); then
+    printf 'LIVE_MAIL_RECOVERY|FAIL|LIVE_SMTP_AUTH_FAILED\n'
+  else
+    printf 'LIVE_MAIL_RECOVERY|FAIL|NO_COMPLETE_CANONICAL_SMTP_ENV\n'
+  fi
   exit 0
 fi
-[[ "$auth_marker" =~ ^LIVE_MAIL_AUTH\|PASS\|(CURRENT|LEGACY)$ ]]
-source_name="${BASH_REMATCH[1]}"
-[[ -f "$mail_input" && "$(stat -c '%a:%u:%g' "$mail_input")" == '600:0:0' ]]
-printf 'LIVE_MAIL_RECOVERY|PROVISION_STARTED|%s\n' "$source_name"
+
+[[ -f "$mail_input" && ! -L "$mail_input" && "$(stat -c '%a:%u:%g' "$mail_input")" == '600:0:0' ]]
+printf 'LIVE_MAIL_RECOVERY|PROVISION_STARTED|%s\n' "$chosen"
 PC_RECONCILE_ACTIVE_RUNTIME=1 "$provisioner" provision "$mail_input"
-printf 'LIVE_MAIL_RECOVERY|PASS|%s\n' "$source_name"
+printf 'LIVE_MAIL_RECOVERY|PASS|%s\n' "$chosen"
 REMOTE
 remote_rc=${PIPESTATUS[0]}
 set -e
@@ -280,7 +402,7 @@ if [[ "$marker" =~ ^LIVE_MAIL_RECOVERY\|FAIL\|([A-Z0-9_]+)$ ]]; then
   publish_result
   exit 51
 fi
-[[ "$marker" =~ ^LIVE_MAIL_RECOVERY\|PASS\|(CURRENT|LEGACY)$ ]] || {
+[[ "$marker" =~ ^LIVE_MAIL_RECOVERY\|PASS\|([A-Z0-9_]+)$ ]] || {
   BLOCKER=RECOVERY_RESULT_INVALID
   MUTATION=UNCONFIRMED_RECHECK_REQUIRED
   publish_result
