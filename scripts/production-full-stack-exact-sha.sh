@@ -30,6 +30,8 @@ prod_project="$(decode "$PROD_PROJECT_B64")"
 backup_evidence="$(decode "$BACKUP_EVIDENCE_B64")"
 auth_opaque_token_env_file=""
 staff_database_env_file=""
+password_reset_delivery_env_file=""
+transactional_mail_env_file=""
 
 resolve_compose_authority() {
   if [[ -n "$prod_dir" && -n "$prod_compose" ]]; then return; fi
@@ -76,6 +78,80 @@ PY
 }
 
 resolve_staff_database_env_file
+
+resolve_password_reset_runtime_env_files() {
+  password_reset_delivery_env_file="${PC_PASSWORD_RESET_DELIVERY_ENV_FILE:-$prod_dir/.pc-password-reset-delivery.env}"
+  transactional_mail_env_file="${PC_TRANSACTIONAL_MAIL_ENV_FILE:-$prod_dir/.pc-transactional-mail.env}"
+  [[ "$password_reset_delivery_env_file" == "$prod_dir"/* ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 59
+  [[ "$transactional_mail_env_file" == "$prod_dir"/* ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 60
+  [[ -f "$password_reset_delivery_env_file" && ! -L "$password_reset_delivery_env_file" ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_MISSING 61
+  [[ -f "$transactional_mail_env_file" && ! -L "$transactional_mail_env_file" ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_MISSING 62
+  [[ "$(stat -c '%a:%u:%g' "$password_reset_delivery_env_file")" == '600:0:0' ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_PERMISSIONS_INVALID 63
+  [[ "$(stat -c '%a:%u:%g' "$transactional_mail_env_file")" == '600:0:0' ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_PERMISSIONS_INVALID 64
+  python3 - "$password_reset_delivery_env_file" <<'PY' || fail PASSWORD_RESET_DELIVERY_ENV_FILE_CONTENT_INVALID 65
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values or not re.fullmatch(r'[A-Fa-f0-9]{96}', value):
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'PASSWORD_RESET_DELIVERY_KEY', 'REGISTRATION_DELIVERY_KEY'}:
+    raise SystemExit(1)
+if values['PASSWORD_RESET_DELIVERY_KEY'] == values['REGISTRATION_DELIVERY_KEY']:
+    raise SystemExit(1)
+PY
+  python3 - "$transactional_mail_env_file" <<'PY' || fail TRANSACTIONAL_MAIL_ENV_FILE_CONTENT_INVALID 66
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if not 2 <= len(lines) <= 5:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values or not value or value != value.strip():
+        raise SystemExit(1)
+    if not re.fullmatch(r'[A-Z][A-Z0-9_]*', name):
+        raise SystemExit(1)
+    if any(ord(char) < 33 or ord(char) > 126 for char in value) or any(char in value for char in "#'\"\\"):
+        raise SystemExit(1)
+    values[name] = value
+email = re.compile(r'^[^@\s]{1,64}@[^@\s]{1,189}$')
+if set(values) == {'RESEND_API_KEY', 'RESEND_FROM_EMAIL'}:
+    if len(values['RESEND_API_KEY']) < 20 or len(values['RESEND_API_KEY']) > 512 or not email.fullmatch(values['RESEND_FROM_EMAIL']):
+        raise SystemExit(1)
+    raise SystemExit(0)
+required = {'PC_SMTP_HOST', 'PC_SMTP_USER', 'PC_SMTP_PASS'}
+allowed = required | {'PC_SMTP_PORT', 'PC_MAIL_FROM'}
+if not required.issubset(values) or not set(values).issubset(allowed):
+    raise SystemExit(1)
+if not re.fullmatch(r'[A-Za-z0-9.-]{1,253}', values['PC_SMTP_HOST']):
+    raise SystemExit(1)
+if len(values['PC_SMTP_USER']) > 254 or len(values['PC_SMTP_PASS']) > 512:
+    raise SystemExit(1)
+port = values.get('PC_SMTP_PORT', '465')
+sender = values.get('PC_MAIL_FROM', values['PC_SMTP_USER'])
+if not port.isdigit() or not 1 <= int(port) <= 65535 or not email.fullmatch(sender):
+    raise SystemExit(1)
+PY
+}
+
+if [[ "$ACTION" == deploy ]]; then
+  resolve_password_reset_runtime_env_files
+fi
 
 IFS=',' read -r -a raw_files <<< "$prod_compose"
 compose_files=()
@@ -140,9 +216,31 @@ snapshot_unrelated() {
 }
 
 write_override() {
-  local api_image="$1" web_image="$2" migration_image="$3" destination="$4"
+  local api_image="$1" web_image="$2" migration_image="$3" destination="$4" include_password_reset_runtime="${5:-0}"
+  [[ "$include_password_reset_runtime" =~ ^[01]$ ]] || fail PASSWORD_RESET_RUNTIME_OVERRIDE_MODE_INVALID 67
   umask 077
-  cat > "$destination.tmp" <<YAML
+  if [[ "$include_password_reset_runtime" == 1 ]]; then
+    cat > "$destination.tmp" <<YAML
+services:
+  api:
+    image: ${api_image}
+    pull_policy: never
+    env_file:
+      - ${auth_opaque_token_env_file}
+      - ${staff_database_env_file}
+      - ${password_reset_delivery_env_file}
+  web:
+    image: ${web_image}
+    pull_policy: never
+    env_file:
+      - ${password_reset_delivery_env_file}
+      - ${transactional_mail_env_file}
+  ${migration_service}:
+    image: ${migration_image}
+    pull_policy: never
+YAML
+  else
+    cat > "$destination.tmp" <<YAML
 services:
   api:
     image: ${api_image}
@@ -157,6 +255,7 @@ services:
     image: ${migration_image}
     pull_policy: never
 YAML
+  fi
   mv "$destination.tmp" "$destination"
   chmod 0600 "$destination"
 }
@@ -494,7 +593,7 @@ else
   fail BACKUP_AUTHORITY_UNAVAILABLE 26
 fi
 
-write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
+write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1
 "${dc_target[@]}" config --quiet
 mutated=1
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
