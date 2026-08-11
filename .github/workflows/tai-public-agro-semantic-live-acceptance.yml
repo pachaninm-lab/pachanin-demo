@@ -38,7 +38,21 @@ permissions:
 # A later activation therefore queues behind a running semantic probe instead
 # of contending for the single private Qwen runtime.
 concurrency:
-  group: tai-restricted-qwen-reg-ru-activation
+  group: >-
+    ${{
+      github.event_name == 'issue_comment' &&
+      !(
+        github.event.issue.number == 3365 &&
+        github.event.issue.pull_request == null &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/tai recover-semantic 31481267058'
+      ) &&
+      format('tai-public-agro-semantic-ignored-{0}', github.run_id) ||
+      'tai-restricted-qwen-reg-ru-activation'
+    }}
   cancel-in-progress: false
 
 env:
@@ -109,7 +123,8 @@ jobs:
           grep -Fq "workflow_run:" "$workflow"
           grep -Fq "workflows: ['TAI Restricted Qwen REG.RU Activation']" "$workflow"
           grep -Fq "github.event.workflow_run.conclusion == 'success'" "$workflow"
-          grep -Fq "group: tai-restricted-qwen-reg-ru-activation" "$workflow"
+          grep -Fq "'tai-restricted-qwen-reg-ru-activation'" "$workflow"
+          grep -Fq "format('tai-public-agro-semantic-ignored-{0}', github.run_id)" "$workflow"
           grep -Fq "github.event.comment.body == '/tai recover-semantic 31481267058'" "$workflow"
           grep -Fq 'TAI Restricted Qwen REG.RU Activation' "$workflow"
           grep -Fq "git merge-base --is-ancestor" "$workflow"
