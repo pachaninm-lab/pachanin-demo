@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-rolling-update-preflight-20260811",
+  "status": "active",
+  "title": "TAI rolling-update preflight authority",
+  "priority": "P0",
+  "baselineExactMain": "f4ff58406e4c9e1bcd07456f30146521458cbfa2",
+  "objective": "Allow the protected REG.RU activation controller to update an already-materialized, healthy and isolated TAI runtime only when the exact blocker set is expected revision drift, while preserving every bootstrap, strict-pass, security, no-mutation and rollback authority.",
+  "allowedPaths": [
+    ".github/workflows/tai-automatic-reg-ru-preflight.yml",
+    ".github/workflows/tai-reg-ru-preflight-owner-command.yml",
+    "scripts/check-tai-bootstrap-preflight.mjs",
+    "scripts/verify-tai-preflight-report.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-rolling-update-preflight-20260811.json"
+  ],
+  "boundaries": [
+    "Full-stack rolling-update eligibility requires exactly API_WEB_NOT_EXACT_MAIN and TAI_RUNTIME_NOT_EXACT_MAIN",
+    "Post-full-stack rolling-update eligibility requires exactly TAI_RUNTIME_NOT_EXACT_MAIN and API_WEB_EXACT_MAIN PASS",
+    "Rolling-update eligibility additionally requires TAI_SERVICE_DECLARED, TAI_RUNTIME_HEALTHY, TAI_RUNTIME_ISOLATED, TAI_DEDICATED_ENV_MATERIALIZED, TAI_DEDICATED_DB_PRINCIPAL_ATTESTED and TAI_READINESS_READY",
+    "Initial four-blocker bootstrap and post-full-stack three-blocker bootstrap classifications remain unchanged",
+    "Any additional blocker, unhealthy baseline, missing rollback authority, capacity failure, model-connectivity failure, malformed evidence or detected mutation fails closed",
+    "The provider timeout, semantic acceptance, HMAC boundary, private model endpoint, non-root runner, no-Docker runner and restricted root-controller authority are unchanged",
+    "The protected activation workflow remains the only production mutation authority and must finish with hosted acceptance plus strict zero-blocker postflight or rollback",
+    "No production mutation, credential, database change, hosting service or recurring expense is introduced by this scope",
+    "Zero new recurring cost"
+  ]
+}
