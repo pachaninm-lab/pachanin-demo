@@ -36,6 +36,26 @@ def ascii_email(value: str) -> str:
     return result
 
 
+def render_control_recipient(template: str, run_id: str) -> str:
+    identity_format = (
+        template.count("{identity}") == 1
+        and "{run}" not in template
+        and "{slot}" not in template
+    )
+    run_slot_format = (
+        template.count("{identity}") == 0
+        and template.count("{run}") == 1
+        and template.count("{slot}") == 1
+    )
+    if identity_format:
+        rendered = template.replace("{identity}", f"smtp-{run_id}")
+    elif run_slot_format:
+        rendered = template.replace("{run}", run_id).replace("{slot}", "smtp")
+    else:
+        raise ValueError("email-template")
+    return ascii_email(rendered.lower())
+
+
 def message_text(message) -> str:
     parts = []
     iterator = message.walk() if message.is_multipart() else (message,)
@@ -55,6 +75,7 @@ def main() -> int:
     smtp_port_raw = required("PC_PROBE_SMTP_PORT")
     mailbox_user_raw = required("PC_PROBE_MAILBOX_USER")
     mailbox_password = required("PC_PROBE_MAILBOX_PASSWORD")
+    email_template = required("PC_PROBE_EMAIL_TEMPLATE")
     mail_from_raw = required("PC_PROBE_MAIL_FROM")
     # REG.RU documents one canonical SSL/TLS mail authority for both directions.
     # Do not inherit a historical per-host IMAP endpoint from repository secrets.
@@ -82,7 +103,7 @@ def main() -> int:
 
     try:
         smtp_login = ascii_email(mailbox_user_raw)
-        recipient = ascii_email(mailbox_user_raw)
+        recipient = render_control_recipient(email_template, run_id)
         mail_from = ascii_email(mail_from_raw)
     except Exception:
         return 28
@@ -153,7 +174,13 @@ def main() -> int:
                     continue
                 try:
                     senders = [ascii_email(address) for _, address in getaddresses(parsed.get_all("from", [])) if address]
-                    recipients = [ascii_email(address) for _, address in getaddresses(parsed.get_all("to", [])) if address]
+                    recipients = []
+                    for header in ("to", "cc", "delivered-to", "x-original-to", "envelope-to"):
+                        recipients.extend(
+                            ascii_email(address)
+                            for _, address in getaddresses(parsed.get_all(header, []))
+                            if address
+                        )
                 except Exception:
                     return 43
                 if mail_from not in senders or recipient not in recipients:
