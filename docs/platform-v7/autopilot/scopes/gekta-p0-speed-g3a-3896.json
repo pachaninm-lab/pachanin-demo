@@ -1,7 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/gekta-p0-speed-g3a-3896",
-  "status": "candidate",
+  "status": "active",
   "purpose": "Reduce measured user-visible Gekta first-meaningful-text latency by shortening the first safe completed answer block without weakening the existing streaming safety gate, semantic coverage, context handling or production authority.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
   "authorityBaseExactMain": "cfbc1825115c90c3a2adf4d00745b50372b5e120",
