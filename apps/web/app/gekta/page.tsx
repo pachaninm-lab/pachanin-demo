@@ -61,12 +61,6 @@ const structuredData = {
   operatingSystem: 'Web',
   inLanguage: ['ru', 'en', 'zh'],
   description: 'Аграрный AI-интерфейс для сельского хозяйства и агробизнеса.',
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'RUB',
-    availability: 'https://schema.org/OnlineOnly',
-  },
 } as const;
 
 export default function GektaPage() {
