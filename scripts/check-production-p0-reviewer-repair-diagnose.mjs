@@ -10,8 +10,8 @@ const wrapperPath = 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
 const branch = 'fix/p0-reviewer-post-30d-diagnostic-3846';
-const diagnosticBaseRevision = 'd87d89694bd32c8dbd90b57fdde15b69b060c0ba';
-const deployedRevision = '0e7b3db076f0f55c8da303d6d3d3b09a54c14788';
+const diagnosticBaseRevision = '479ecd970bd5e75e81f245dbe8987e08aca08d9f';
+const deployedRevision = 'd87d89694bd32c8dbd90b57fdde15b69b060c0ba';
 const revisionGateValues = [
   'API_INSPECT_FAILED',
   'WEB_INSPECT_FAILED',
