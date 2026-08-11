@@ -9,6 +9,7 @@ const app = read('components/gekta/GektaChatApp.tsx');
 const css = read('components/gekta/GektaChatApp.module.css');
 const middleware = read('middleware.ts');
 const seoAuthority = read('lib/platform-v7/public-seo-routes.json');
+const liveAcceptance = read('../../scripts/production-web-live-acceptance.sh');
 
 describe('Gekta standalone public experience', () => {
   it('publishes Gekta as a top-level product route with independent metadata', () => {
@@ -85,5 +86,15 @@ describe('Gekta standalone public experience', () => {
     expect(app).toContain("aria-expanded={sidebarOpen}");
     expect(app).toContain("aria-live='polite'");
     expect(app).toContain("maxLength={1_200}");
+  });
+
+  it('makes protected exact-SHA live acceptance fail closed on the Gekta surface', () => {
+    for (const locale of ['ru', 'en', 'zh']) {
+      expect(liveAcceptance).toContain(`$LIVE_BASE/gekta?lang=${locale}&release=$cache_bust`);
+    }
+    expect(liveAcceptance).toContain('grep -Fq "$LIVE_BASE/gekta" <<< "$sitemap_body"');
+    expect(liveAcceptance).toContain('! grep -Eiq \'^x-robots-tag:.*noindex\' <<< "$gekta_headers"');
+    expect(liveAcceptance).toContain('LIVE_GEKTA_CODES=ru:%s,en:%s,zh:%s');
+    expect(liveAcceptance).toContain('&& [[ "$gekta_ru_code" == 200 && "$gekta_en_code" == 200 && "$gekta_zh_code" == 200 ]]');
   });
 });
