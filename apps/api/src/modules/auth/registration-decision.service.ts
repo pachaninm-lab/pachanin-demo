@@ -6,8 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { randomUUID, timingSafeEqual } from 'crypto';
+import { randomUUID } from 'crypto';
 import type { RequestUser, Role } from '../../common/types/request-user';
+import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
+import { normalizeAuthMailLocale } from '../auth-mail/auth-mail-templates';
 import { AuthPrismaService } from './auth-prisma.service';
 import { sha256, stableJson } from './auth-crypto';
 import { PUBLIC_WORKSPACE_CLASSES, type PublicWorkspaceClass } from './dto/register.dto';
@@ -24,12 +26,7 @@ export type RegistrationDecision = 'APPROVE' | 'REJECT' | 'REQUEST_INFORMATION' 
 type DecisionActorKind = 'ORGANIZATION_ADMIN' | 'PLATFORM_REVIEWER';
 const REVIEW_MFA_FRESHNESS_MS = 15 * 60 * 1000;
 const PLATFORM_REVIEWER_ROLES = new Set(['PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF']);
-
-function deliveryAuthorized(provided?: string): boolean {
-  const expected = Buffer.from(String(process.env.REGISTRATION_DELIVERY_KEY || '').trim(), 'utf8');
-  const candidate = Buffer.from(String(provided || '').trim(), 'utf8');
-  return expected.length >= 32 && candidate.length === expected.length && timingSafeEqual(candidate, expected);
-}
+const DECISION_NOTICE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 type LockedApplication = {
   id: string;
@@ -58,6 +55,7 @@ export class RegistrationDecisionService {
   constructor(
     private readonly prisma: AuthPrismaService,
     private readonly authRepository: PersistentAuthRepository,
+    private readonly mailOutbox: AuthMailOutboxService,
   ) {}
 
   async listPlatformReviewQueue(reviewer: RequestUser) {
@@ -183,9 +181,10 @@ export class RegistrationDecisionService {
     reviewer: RequestUser,
     idempotencyKeyInput: string,
     correlationId: string,
-    deliveryKey?: string,
+    localeInput?: unknown,
   ) {
     const { reason, idempotencyKey } = this.validateDecisionInput(reasonInput, idempotencyKeyInput);
+    const locale = normalizeAuthMailLocale(localeInput);
     return this.prisma.$transaction(async (tx) => {
       const administrator = await this.requireOrganizationAdmin(reviewer, tx);
       const eventKey = `org-join-decision:${idempotencyKey}`;
@@ -201,7 +200,7 @@ export class RegistrationDecisionService {
         if (existing[0].application_id !== applicationId) {
           throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_TARGET' });
         }
-        return this.readResult(tx, applicationId, deliveryKey, true);
+        return this.readResult(tx, applicationId, true);
       }
 
       const application = await this.lockApplication(
@@ -267,7 +266,8 @@ export class RegistrationDecisionService {
       if (decision === 'APPROVE') {
         await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);
       }
-      return this.readResult(tx, applicationId, deliveryKey);
+      await this.queueDecisionNotification(tx, applicationId, idempotencyKey, correlationId, locale);
+      return this.readResult(tx, applicationId);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
   }
 
@@ -278,9 +278,10 @@ export class RegistrationDecisionService {
     reviewer: RequestUser,
     idempotencyKeyInput: string,
     correlationId: string,
-    deliveryKey?: string,
+    localeInput?: unknown,
   ) {
     const { reason, idempotencyKey } = this.validateDecisionInput(reasonInput, idempotencyKeyInput);
+    const locale = normalizeAuthMailLocale(localeInput);
     this.requireFreshMfa(reviewer);
     this.requirePlatformReviewer(reviewer);
 
@@ -297,7 +298,7 @@ export class RegistrationDecisionService {
         if (existing[0].application_id !== applicationId) {
           throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_TARGET' });
         }
-        return this.readResult(tx, applicationId, deliveryKey, true);
+        return this.readResult(tx, applicationId, true);
       }
 
       const application = await this.lockApplication(
@@ -307,9 +308,6 @@ export class RegistrationDecisionService {
         'PLATFORM_REVIEWER',
       );
       if (application.kind !== 'NEW_ORGANIZATION') {
-        // Existing-organization joins belong exclusively to the verified
-        // administrator of that same tenant. A platform reviewer must not be
-        // able to bypass that organization-scoped approval boundary by ID.
         throw new ForbiddenException({ code: 'ORGANIZATION_ADMIN_DECISION_REQUIRED' });
       }
       if (application.user_id === reviewer.id) {
@@ -351,8 +349,8 @@ export class RegistrationDecisionService {
       if (decision === 'APPROVE') {
         await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);
       }
-
-      return this.readResult(tx, application.id, deliveryKey);
+      await this.queueDecisionNotification(tx, application.id, idempotencyKey, correlationId, locale);
+      return this.readResult(tx, application.id);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
   }
 
@@ -724,10 +722,57 @@ export class RegistrationDecisionService {
     };
   }
 
+  private async queueDecisionNotification(
+    client: AuthSqlClient,
+    applicationId: string,
+    idempotencyKey: string,
+    correlationId: string,
+    locale: 'ru' | 'en' | 'zh',
+  ): Promise<void> {
+    const rows = await client.$queryRaw<Array<{
+      email: string;
+      status: string;
+      decision_reason: string | null;
+    }>>(Prisma.sql`
+      SELECT email, status, decision_reason
+      FROM auth.registration_applications
+      WHERE id = ${applicationId}
+      LIMIT 1
+    `);
+    const application = rows[0];
+    if (!application) throw new NotFoundException({ code: 'REGISTRATION_APPLICATION_NOT_FOUND' });
+
+    const copy = {
+      ru: {
+        subject: 'Прозрачная Цена — статус заявки изменён',
+        text: (status: string, reason: string) => `Статус регистрационной заявки: ${status}. Основание: ${reason}. Откройте страницу статуса по исходной защищённой ссылке.`,
+      },
+      en: {
+        subject: 'Transparent Price — application status changed',
+        text: (status: string, reason: string) => `Registration application status: ${status}. Basis: ${reason}. Open the status page using the original protected link.`,
+      },
+      zh: {
+        subject: '透明价格 — 申请状态已更新',
+        text: (status: string, reason: string) => `注册申请状态：${status}。依据：${reason}。请使用原始安全链接打开状态页面。`,
+      },
+    } as const;
+    const selected = copy[locale];
+    await this.mailOutbox.enqueue(client, {
+      kind: 'REGISTRATION_DECISION',
+      idempotencyKey: `auth-mail:registration-decision:${applicationId}:${idempotencyKey}`,
+      correlationId,
+      envelope: {
+        to: application.email,
+        subject: selected.subject,
+        text: selected.text(application.status, application.decision_reason || 'RECORDED'),
+      },
+      expiresAt: new Date(Date.now() + DECISION_NOTICE_TTL_MS),
+    });
+  }
+
   private async readResult(
     client: AuthSqlClient,
     applicationId: string,
-    deliveryKey?: string,
     replayed = false,
   ) {
     const rows = await client.$queryRaw<Array<{
@@ -735,10 +780,8 @@ export class RegistrationDecisionService {
       status: string;
       version: bigint;
       correlation_id: string;
-      email: string;
-      decision_reason: string | null;
     }>>(Prisma.sql`
-      SELECT id, status, version, correlation_id, email, decision_reason
+      SELECT id, status, version, correlation_id
       FROM auth.registration_applications
       WHERE id = ${applicationId}
       LIMIT 1
@@ -750,19 +793,16 @@ export class RegistrationDecisionService {
     return {
       applicationId: application.id,
       status: application.status,
-      nextAction: application.status === 'ACTIVATED' ? 'LOGIN' : 'WAIT',
+      nextAction: application.status === 'ACTIVATED'
+        ? 'LOGIN'
+        : application.status === 'ADDITIONAL_INFORMATION_REQUIRED'
+          ? 'PROVIDE_ADDITIONAL_INFORMATION'
+          : 'WAIT',
       version: application.version.toString(),
       correlationId: application.correlation_id,
       replayed,
-      ...(!replayed && deliveryAuthorized(deliveryKey)
-        ? {
-            notificationDelivery: {
-              email: application.email,
-              status: application.status,
-              reason: application.decision_reason,
-            },
-          }
-        : {}),
+      notificationQueued: !replayed,
+      notificationSuppressed: replayed,
     };
   }
 
