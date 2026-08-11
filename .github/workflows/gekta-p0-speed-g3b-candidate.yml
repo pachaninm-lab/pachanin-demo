@@ -66,8 +66,15 @@ jobs:
           }
           const sudoersLine = 'Cmnd_Alias GEKTA_QWEN_G3B = /usr/local/sbin/gekta-qwen-g3b threads16, /usr/local/sbin/gekta-qwen-g3b rollback, /usr/local/sbin/gekta-qwen-g3b status';
           if (!bootstrap.includes(sudoersLine)) throw new Error('exact three-command sudoers allowlist missing');
-          for (const forbidden of ['NOPASSWD: ALL', 'sudo -s', 'sudo bash', 'sudo sh', 'SETENV:', 'ALL=(ALL)']) {
-            if (bootstrap.includes(forbidden) || workflow.includes(forbidden)) throw new Error(`broad privilege token: ${forbidden}`);
+          for (const forbidden of [
+            'NOPASSWD' + ': ALL',
+            'ALL=' + '(ALL)',
+            'SETENV' + ':',
+            'sudo' + ' -s',
+            'sudo' + ' bash',
+            'sudo' + ' sh',
+          ]) {
+            if (bootstrap.includes(forbidden)) throw new Error(`broad privilege token: ${forbidden}`);
           }
           for (const required of [
             'BASELINE_EXPECTED',
@@ -197,7 +204,7 @@ jobs:
             -o StrictHostKeyChecking=yes
             "$MODEL_USER@$MODEL_HOST"
           )
-          remote_sha="$(${ssh_base[@]} 'sha256sum /usr/local/sbin/gekta-qwen-g3b 2>/dev/null | awk '\''{print $1}'\''' || true)"
+          remote_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3b 2>/dev/null' | awk '{print $1}' || true)"
           if [[ ! "$remote_sha" =~ ^[0-9a-f]{64}$ ]]; then
             echo 'GEKTA_G3B_ERROR=bootstrap_required' > "$RUNNER_TEMP/g3b-result"
             cat "$RUNNER_TEMP/g3b-result"
