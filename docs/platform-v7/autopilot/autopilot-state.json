@@ -1029,6 +1029,11 @@
       "apps/api/prisma/migrations/20260811090000_p0_reviewer_membership_candidate_scope/migration.sql",
       "docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json",
       "scripts/check-production-p0-reviewer-membership-repair.mjs"
+    ],
+    "fix/tai-finalization-main-drift-recovery-2-20260811": [
+      ".github/workflows/tai-owner-finalization-recovery-command.yml",
+      "scripts/check-tai-finalization-main-drift-recovery.mjs",
+      "docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-2-20260811.json"
     ]
   },
   "currentAcceptance": [
