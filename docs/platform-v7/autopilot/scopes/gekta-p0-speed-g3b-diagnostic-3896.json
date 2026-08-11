@@ -4,21 +4,18 @@
   "status": "active",
   "purpose": "Read the active private Qwen model-host capacity configuration needed for measured Gekta P0 SPEED tuning without changing the service, filesystem, runtime, network or production application.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
-  "authorityBaseExactMain": "cfbc1825115c90c3a2adf4d00745b50372b5e120",
+  "authorityBaseExactMain": "e8762ce7e309ad42abfb36d01fbef1d7ce49a6ea",
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-diagnostic-3896.json",
-    ".github/workflows/gekta-p0-speed-model-host-diagnostic.yml",
-    ".github/workflows/gekta-p0-speed-g3b-diagnostic-materialize.yml",
-    "scripts/materialize-gekta-g3b-diagnostic.mjs"
+    ".github/workflows/gekta-p0-speed-model-host-diagnostic.yml"
   ],
   "requiredBehavior": [
     "owner-only issue command on #3896",
     "reuse the existing protected model-host SSH transport variables",
     "perform read-only commands only",
     "publish only whitelisted CPU memory process and llama.cpp scheduling fields",
-    "never print environment contents credentials raw command line prompt response model bytes or customer data",
-    "the one-shot materializer corrects only the static contract and removes itself before merge"
+    "never print environment contents credentials raw command line prompt response model bytes or customer data"
   ],
   "forbiddenCapabilities": [
     "systemctl restart start stop enable disable daemon-reload or edit",
