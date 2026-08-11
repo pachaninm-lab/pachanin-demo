@@ -68,9 +68,14 @@ for (const fragment of [
   "grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'",
   "grep -Fxq 'AI_ASSISTANT_MODEL=tai-qwen3-8b-q4km'",
   "grep -Fxq 'TAI_RESTRICTED_QWEN_MODEL_IDENTITY=tai-qwen3-8b-q4km'",
-  'mv -Tf "$finalization_tmp" "$job_state/finalization.json"',
-  'mv -Tf "$recovery_tmp" "$output"',
-  'mv -Tf "$marker_tmp" "$qwen_state/FINAL_ACCEPTED"',
+  'canonical_recovery="$original_output/finalization-recovery.json"',
+  'git -C "$repository" merge-base --is-ancestor "$committed_current" "$current"',
+  'install_or_validate "$finalization_tmp" "$finalization_path" 600 root',
+  'install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions',
+  'install_or_validate "$output_tmp" "$output" 640 pcactions',
+  'mv -Tf "$marker_tmp" "$marker_path"',
+  "'finalizationCommitRunId':int(commit_run)",
+  "'resumedExistingFinalization':int(commit_run) != int(recovery_run) or committed_current != current",
   "'taiRevision':tai_revision",
   "'controllerAuthorityAttested':True",
   "'hostedArtifactDigest':artifact_digest",
@@ -127,6 +132,8 @@ forbid(workflow, /^\s*outputs:\s*\n\s*current_sha:/mu,
   `${paths.workflow}: current main SHA job output is forbidden`);
 forbid(workflow, /current_sha=.*GITHUB_OUTPUT/u,
   `${paths.workflow}: current main SHA step output is forbidden`);
+forbid(workflow, /\[\[ ! -e "\$job_state\/finalization[.]json" && ! -e "\$original_output\/finalization[.]json"/u,
+  `${paths.workflow}: non-resumable all-evidence absence guard is forbidden`);
 forbid(workflow, /pull_request_target:/u, `${paths.workflow}: pull_request_target is forbidden`);
 forbid(workflow, /continue-on-error:\s*true/mu, `${paths.workflow}: continue-on-error is forbidden`);
 forbid(workflow, /StrictHostKeyChecking=(?:no|accept-new)/u, `${paths.workflow}: unpinned SSH host acceptance is forbidden`);
@@ -177,21 +184,23 @@ const artifactEvidenceIndex = workflow.indexOf('artifact?.digest !== artifactDig
 const controllerAuthorityIndex = workflow.indexOf('runner_authority=/etc/pc-release-authority/actions-runner.json');
 const activationEvidenceIndex = workflow.indexOf("assert report.get('passed') is True");
 const liveRevisionIndex = workflow.indexOf('[[ "$api_revision" == "$target" && "$web_revision" == "$target" && "$tai_revision" == "$target" ]]');
-const finalizationEvidenceIndex = workflow.indexOf('mv -Tf "$finalization_tmp" "$job_state/finalization.json"');
-const recoveryEvidenceIndex = workflow.indexOf('mv -Tf "$recovery_tmp" "$output"');
-const finalMarkerIndex = workflow.indexOf('mv -Tf "$marker_tmp" "$qwen_state/FINAL_ACCEPTED"');
+const finalizationEvidenceIndex = workflow.indexOf('install_or_validate "$finalization_tmp" "$finalization_path" 600 root');
+const canonicalEvidenceIndex = workflow.indexOf('install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions');
+const recoveryEvidenceIndex = workflow.indexOf('install_or_validate "$output_tmp" "$output" 640 pcactions');
+const finalMarkerIndex = workflow.indexOf('mv -Tf "$marker_tmp" "$marker_path"');
 const publishIndex = workflow.indexOf('Publish exact accepted result');
 if ([authorityIndex, artifactEvidenceIndex, controllerAuthorityIndex, activationEvidenceIndex, liveRevisionIndex,
-  finalizationEvidenceIndex, recoveryEvidenceIndex, finalMarkerIndex, publishIndex].some((index) => index < 0)
+  finalizationEvidenceIndex, canonicalEvidenceIndex, recoveryEvidenceIndex, finalMarkerIndex, publishIndex].some((index) => index < 0)
   || !(authorityIndex < artifactEvidenceIndex
     && artifactEvidenceIndex < controllerAuthorityIndex
     && controllerAuthorityIndex < activationEvidenceIndex
     && activationEvidenceIndex < liveRevisionIndex
     && liveRevisionIndex < finalizationEvidenceIndex
-    && finalizationEvidenceIndex < recoveryEvidenceIndex
+    && finalizationEvidenceIndex < canonicalEvidenceIndex
+    && canonicalEvidenceIndex < recoveryEvidenceIndex
     && recoveryEvidenceIndex < finalMarkerIndex
     && finalMarkerIndex < publishIndex)) {
-  violations.push(`${paths.workflow}: authority, exact artifact, controller, live-revision, durable evidence, final-marker and publication order is invalid`);
+  violations.push(`${paths.workflow}: authority, exact artifact, controller, live-revision, resumable durable evidence, final-marker and publication order is invalid`);
 }
 
 if (violations.length) {
@@ -200,4 +209,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, durable evidence before atomic final marker, and no deployment/rollback mutation.');
+console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, resumable durable evidence before atomic final marker, and no deployment/rollback mutation.');
