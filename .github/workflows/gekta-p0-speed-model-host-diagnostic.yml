@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/gekta-p0-speed-model-host-diagnostic.yml'
-      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-diagnostic-3896.json'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-nonroot-3896.json'
   issue_comment:
     types: [created]
 
