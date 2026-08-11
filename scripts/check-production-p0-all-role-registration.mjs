@@ -42,6 +42,11 @@ requireAll('workflow', [
   'PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE',
   'PC_PROD_P0_MAILBOX_IMAP_PASSWORD',
   'PC_PROD_SSH_HOST_FINGERPRINT',
+  'host="$(trim "${SSH_HOST_SECRET:-}")"',
+  'mapfile -t dns_ipv4 < <(',
+  'getent ahostsv4 "$LIVE_DOMAIN"',
+  '(( ${#dns_ipv4[@]} >= 1 ))',
+  'printf \'%s\\n\' "${dns_ipv4[@]}" | grep -Fxq "$host"',
   'StrictHostKeyChecking=yes',
   "bash scripts/production-p0-all-role-registration.sh",
   'P0_ALL_ROLE_REGISTRATION=PASS',
@@ -119,6 +124,11 @@ for (const name of ['workflow', 'runner']) {
   forbid(name, /(?:demo\.|@demo\.|localStorage|role-preview)/iu, 'demo or client-selected role authority is forbidden');
   forbid(name, /(?:netlify|vercel|railway)/iu, 'non-canonical production hosting is forbidden');
 }
+
+forbid('workflow', /\bDEFAULT_HOST\b/u,
+  'a historical production host constant is forbidden; protected host must match current DNS');
+forbid('workflow', /\b195[.]19[.]12[.]120\b/u,
+  'a historical REG.RU address is forbidden; resolve current DNS at execution time');
 
 forbid('runner', /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\s+(?:INTO\s+)?auth\./iu,
   'direct production auth SQL mutation is forbidden');

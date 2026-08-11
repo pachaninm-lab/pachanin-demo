@@ -12,6 +12,8 @@ The repository owner starts the matrix on release issue #3072 with:
 
 The workflow first resolves immutable current `main`, then downloads and validates a successful `Production P0 First-Customer Acceptance` artifact for that exact SHA. This prerequisite cannot be replaced by the matrix itself. The live API and Web OCI revisions must also equal the same SHA.
 
+The protected `PC_PROD_HOST` must be one of the production domain's current IPv4 DNS answers, and its scanned SSH host key must match the protected pinned fingerprint. A historical hard-coded address is not accepted.
+
 The reviewer decision rate window from the deep prerequisite is allowed to expire before new registrations begin. The runner checks that `main` has not moved throughout that wait and throughout every subsequent external action.
 
 ## Human reviewer ceremony
