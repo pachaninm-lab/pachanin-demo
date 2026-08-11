@@ -2,11 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
-import {
-  deliverMfaRecovery,
-  mfaRecoveryMailConfigured,
-  type MfaRecoveryDelivery,
-} from '@/lib/server/mfa-recovery-mail';
 import { assertCsrf } from '@/lib/server-request-security';
 
 export const runtime = 'nodejs';
@@ -21,7 +16,7 @@ type ApiPayload = {
   version?: string;
   correlationId?: string;
   replayed?: boolean;
-  recoveryDelivery?: Partial<MfaRecoveryDelivery>;
+  emailQueued?: boolean;
   code?: string;
 };
 
@@ -53,7 +48,7 @@ export async function POST(
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const version = String(body.version || '').trim();
   const reason = String(body.reason || '').trim();
-  const locale = String(body.locale || 'ru');
+  const locale = body.locale === 'en' || body.locale === 'zh' ? body.locale : 'ru';
   const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
   if (
     !membershipId
@@ -68,15 +63,12 @@ export async function POST(
   }
 
   const upstream = String(process.env.API_URL || '').trim().replace(/\/$/, '');
-  const deliveryKey = String(process.env.ORGANIZATION_INVITATION_DELIVERY_KEY || '').trim();
   const accessToken = (await cookies()).get(ACCESS_COOKIE)?.value || '';
-  if (!upstream || !accessToken || deliveryKey.length < 32 || !mfaRecoveryMailConfigured()) {
+  if (!upstream || !accessToken) {
     console.error('mfa_recovery_initiate_configuration_error', JSON.stringify({
       correlationId,
       apiConfigured: Boolean(upstream),
       authenticated: Boolean(accessToken),
-      deliveryBoundaryConfigured: deliveryKey.length >= 32,
-      mailConfigured: mfaRecoveryMailConfigured(),
     }));
     return json({ ok: false, code: accessToken ? 'MFA_RECOVERY_UNAVAILABLE' : 'AUTH_REQUIRED', correlationId }, accessToken ? 503 : 401);
   }
@@ -89,9 +81,8 @@ export async function POST(
         'Content-Type': 'application/json',
         'idempotency-key': idempotencyKey,
         'x-correlation-id': correlationId,
-        'x-organization-invitation-delivery-key': deliveryKey,
       },
-      body: JSON.stringify({ version, reason }),
+      body: JSON.stringify({ version, reason, locale }),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
     });
@@ -100,22 +91,8 @@ export async function POST(
       const status = upstreamStatus(apiResponse.status);
       return json({ ok: false, code: payload.code || 'MFA_RECOVERY_REJECTED', correlationId }, status);
     }
-
-    const delivery = payload.recoveryDelivery;
-    if (delivery?.email && delivery.token) {
-      const mail = await deliverMfaRecovery(request, delivery as MfaRecoveryDelivery, locale);
-      console.info('mfa_recovery_link_delivery_result', JSON.stringify({
-        correlationId,
-        membershipId,
-        delivered: mail.delivered,
-        provider: mail.provider,
-        reason: mail.reason,
-      }));
-      if (!mail.delivered) {
-        return json({ ok: false, code: 'MFA_RECOVERY_EMAIL_UNAVAILABLE', correlationId }, 503);
-      }
-    } else if (!payload.replayed) {
-      return json({ ok: false, code: 'MFA_RECOVERY_DELIVERY_UNAVAILABLE', correlationId }, 503);
+    if (!payload.replayed && payload.emailQueued !== true) {
+      return json({ ok: false, code: 'MFA_RECOVERY_UNAVAILABLE', correlationId }, 503);
     }
 
     return json({
