@@ -3,10 +3,6 @@ import { NextResponse } from 'next/server';
 import { clearAuthenticatedSession } from '@/lib/server/auth-session-response';
 import { MFA_PENDING_COOKIE, clearMfaPendingCookieOptions } from '@/lib/server/mfa-login-ticket';
 import { MFA_STEP_UP_COOKIE, clearMfaStepUpCookieOptions } from '@/lib/server/mfa-step-up-cookie';
-import {
-  deliverMfaRecoveryCompleted,
-  mfaRecoveryMailConfigured,
-} from '@/lib/server/mfa-recovery-mail';
 import { assertCsrf } from '@/lib/server-request-security';
 
 export const runtime = 'nodejs';
@@ -44,14 +40,8 @@ export async function POST(request: Request) {
   }
 
   const upstream = String(process.env.API_URL || '').trim().replace(/\/$/, '');
-  const deliveryKey = String(process.env.ORGANIZATION_INVITATION_DELIVERY_KEY || '').trim();
-  if (!upstream || deliveryKey.length < 32 || !mfaRecoveryMailConfigured()) {
-    console.error('mfa_recovery_confirm_configuration_error', JSON.stringify({
-      correlationId,
-      apiConfigured: Boolean(upstream),
-      deliveryBoundaryConfigured: deliveryKey.length >= 32,
-      mailConfigured: mfaRecoveryMailConfigured(),
-    }));
+  if (!upstream) {
+    console.error('mfa_recovery_confirm_configuration_error', JSON.stringify({ correlationId, apiConfigured: false }));
     return json({ ok: false, code: 'MFA_RECOVERY_UNAVAILABLE', correlationId }, 503);
   }
 
@@ -63,35 +53,26 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'application/json',
         'x-correlation-id': correlationId,
-        'x-organization-invitation-delivery-key': deliveryKey,
         ...(ip ? { 'x-forwarded-for': ip } : {}),
         ...(userAgent ? { 'user-agent': userAgent } : {}),
       },
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ token, password, locale }),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
     });
     const payload = await apiResponse.json().catch(() => ({} as Record<string, unknown>));
-    if (!apiResponse.ok || payload.ok !== true || payload.mfaReenrollmentRequired !== true) {
+    if (
+      !apiResponse.ok
+      || payload.ok !== true
+      || payload.mfaReenrollmentRequired !== true
+      || payload.securityNoticeQueued !== true
+    ) {
       const status = apiResponse.status === 429 ? 429 : apiResponse.status >= 500 ? 503 : 400;
       return json({
         ok: false,
         code: status === 429 ? 'RATE_LIMITED' : status === 503 ? 'MFA_RECOVERY_UNAVAILABLE' : 'MFA_RECOVERY_INVALID',
         correlationId,
       }, status);
-    }
-
-    const notification = payload.notificationDelivery && typeof payload.notificationDelivery === 'object'
-      ? payload.notificationDelivery as { email?: unknown }
-      : null;
-    if (typeof notification?.email === 'string' && notification.email) {
-      const mail = await deliverMfaRecoveryCompleted(notification.email, locale);
-      console.info('mfa_recovery_completed_notification_result', JSON.stringify({
-        correlationId,
-        delivered: mail.delivered,
-        provider: mail.provider,
-        reason: mail.reason,
-      }));
     }
 
     const response = json({
