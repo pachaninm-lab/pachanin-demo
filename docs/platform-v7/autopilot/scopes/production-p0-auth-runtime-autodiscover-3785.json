@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-auth-runtime-autodiscover-3785",
+  "status": "active",
+  "operationalStatus": "P0_AUTH_RUNTIME_AUTODISCOVERY_RELEASE",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Recover production auth-mail runtime through active Compose authority when optional directory secrets are absent",
+  "allowedPaths": [
+    ".github/workflows/production-p0-auth-runtime-autodiscover-release.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-auth-runtime-autodiscover-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "OWNER_ONLY_EXISTING_RUNTIME_REVALIDATION_THEN_EXISTING_EXACT_RELEASE_AUTHORITY",
+    "databaseMutation": "ONLY_THROUGH_EXISTING_EXACT_RELEASE_MIGRATION_AUTHORITY",
+    "deploymentMutation": "ONLY_THROUGH_EXISTING_PRODUCTION_FULL_STACK_EXACT_SHA_WORKFLOW",
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "owner-only command resolves exact current main",
+    "active REG.RU Compose working directory is discovered from the running web service label without requiring PC_PROD_DIR or PC_PROD_COMPOSE secrets",
+    "existing root-only password-reset delivery and transactional-mail files are validated without printing values",
+    "no new mail credential is created or requested",
+    "exact current-main API web and migration images are published before release",
+    "release is delegated unchanged to production-full-stack-exact-sha.yml",
+    "production remains the existing REG.RU contour and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
