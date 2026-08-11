@@ -12,6 +12,7 @@
   "allowedPaths": [
     ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
     "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
     "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
     "scripts/tai-live-public-ai-acceptance.mjs",
@@ -32,7 +33,8 @@
       "title": "Gekta",
       "subtitle": "服务于土地、作物与决策的农业智能。",
       "composer": "向 Gekta 咨询土地、作物或农业经营"
-    }
+    },
+    "ctaRu": "Посмотреть Гекту в работе"
   },
   "requiredInvariants": [
     "PublicPlatformAssistant remains the sole source of visible Gekta title and subtitle copy.",
@@ -53,6 +55,7 @@
   ],
   "requiredChecks": [
     "focused web unit tests for branding cleanup, domain copy and live browser matrix contracts",
+    "full Design System v8 browser and accessibility matrix with the canonical Gekta CTA",
     "JavaScript syntax validation for both live browser acceptance scripts",
     "web typecheck",
     "git diff --check",
