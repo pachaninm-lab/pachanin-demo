@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reuse-existing-auth-runtime-3785",
+  "status": "active",
+  "operationalStatus": "P0_REUSE_EXISTING_AUTH_RUNTIME",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Reuse the already-created protected production auth runtime and release exact main",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reuse-existing-auth-runtime.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reuse-existing-auth-runtime-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "BOUNDED_EXISTING_SECRET_FILE_RECONCILIATION_THEN_EXACT_RELEASE",
+    "databaseMutation": true,
+    "deploymentMutation": true,
+    "credentialMutation": true,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "only the repository owner can issue the exact command on release issue 3072 and current main is rechecked before every REG.RU mutation",
+    "no new Resend or SMTP credential is requested or generated; only an already-present root-owned 0600 production mail runtime is reused without disclosure",
+    "the active Web working directory must contain both protected runtime files as regular non-symlink root-owned 0600 files before any reconciliation attempt",
+    "the existing provisioner validates the registration and password-reset delivery keys, validates the transactional mail channel, and reconciles the complete runtime pair into the protected canonical PC_PROD_DIR without regenerating values",
+    "the protected host must be a current DNS IPv4 answer for the live domain and must present the pinned SSH host fingerprint before root SSH is used",
+    "exact current-main API, Web and migration images are published after reconciliation and the existing reusable full-stack exact-SHA release performs migration, deployment, live intake and durable PostgreSQL audit/outbox acceptance",
+    "only bounded safe markers are retained; secret values, raw environment output, passwords, tokens and mail credentials are never published",
+    "production remains the existing REG.RU contour and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
