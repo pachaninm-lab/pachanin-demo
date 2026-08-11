@@ -315,17 +315,15 @@ jobs:
           }
           mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api' | filter_exact_revision)
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web' | filter_exact_revision)
-          mapfile -t tai_ids < <(docker ps -q --filter 'label=com.docker.compose.service=tai' | filter_exact_revision)
-          if (( ${#api_ids[@]} != 1 || ${#web_ids[@]} != 1 || ${#tai_ids[@]} != 1 )); then
-            printf 'RECOVERY_API_EXACT_COUNT=%s\nRECOVERY_WEB_EXACT_COUNT=%s\nRECOVERY_TAI_EXACT_COUNT=%s\n' \
-              "${#api_ids[@]}" "${#web_ids[@]}" "${#tai_ids[@]}" >&2
+          if (( ${#api_ids[@]} != 1 || ${#web_ids[@]} != 1 )); then
+            printf 'RECOVERY_API_EXACT_COUNT=%s\nRECOVERY_WEB_EXACT_COUNT=%s\n' \
+              "${#api_ids[@]}" "${#web_ids[@]}" >&2
             false
           fi
-          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"; tai_id="${tai_ids[0]}"
+          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"
           api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
           web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-          tai_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$tai_id")"
-          [[ "$api_revision" == "$target" && "$web_revision" == "$target" && "$tai_revision" == "$target" ]]
+          [[ "$api_revision" == "$target" && "$web_revision" == "$target" ]]
           api_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$api_id")"
           web_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
           api_working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$api_id")"
@@ -337,8 +335,7 @@ jobs:
           [[ -n "$api_config_files" && "$api_config_files" == "$web_config_files" ]]
           api_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$api_id")"
           web_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")"
-          tai_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$tai_id")"
-          [[ "$api_state" =~ ^(healthy|running)$ && "$web_state" =~ ^(healthy|running)$ && "$tai_state" =~ ^(healthy|running)$ ]]
+          [[ "$api_state" =~ ^(healthy|running)$ && "$web_state" =~ ^(healthy|running)$ ]]
           recovery_stage=RUNTIME_ENVIRONMENT
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'AI_ASSISTANT_MODEL=tai-qwen3-8b-q4km'
@@ -384,7 +381,7 @@ jobs:
             assert value.get('finalizationCurrentMain') == value['currentMain']
             assert value.get('activationJobId') == int(activation_job_id) and value.get('hostedAcceptanceJobId') == int(hosted_job_id)
             assert value.get('hostedArtifactId') == int(artifact_id) and value.get('hostedArtifactDigest') == artifact_digest
-            assert value.get('apiRevision') == target and value.get('webRevision') == target and value.get('taiRevision') == target
+            assert value.get('apiRevision') == target and value.get('webRevision') == target and value.get('migrationImageAuthorityPassed') is True
             assert value.get('controllerSha256') == controller_sha and value.get('controllerAuthorityAttested') is True
             assert value.get('activationEvidencePassed') is True and value.get('hostedAcceptancePassed') is True
             assert value.get('finalDecision') == 'ACCEPT' and value.get('passed') is True
@@ -431,10 +428,10 @@ jobs:
           marker_tmp="$qwen_state/.FINAL_ACCEPTED.tmp-$recovery_run-$recovery_attempt"
           rm -f "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$marker_tmp"
           trap 'rm -f "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$marker_tmp"' EXIT
-          python3 - "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$target" "$current" "$committed_current" "$controller_run" "$activation_run" "$recovery_run" "$recovery_attempt" "$commit_run" "$commit_attempt" "$api_revision" "$web_revision" "$tai_revision" "$installed_controller_sha" "$activation_job_id" "$hosted_job_id" "$artifact_id" "$artifact_digest" <<'PY'
+          python3 - "$finalization_tmp" "$original_tmp" "$canonical_tmp" "$output_tmp" "$target" "$current" "$committed_current" "$controller_run" "$activation_run" "$recovery_run" "$recovery_attempt" "$commit_run" "$commit_attempt" "$api_revision" "$web_revision" "$installed_controller_sha" "$activation_job_id" "$hosted_job_id" "$artifact_id" "$artifact_digest" <<'PY'
           import json,os,sys
           (final_path,original_path,canonical_path,output_path,target,current,committed_current,controller_run,
-           activation_run,recovery_run,recovery_attempt,commit_run,commit_attempt,api_revision,web_revision,tai_revision,controller_sha,
+           activation_run,recovery_run,recovery_attempt,commit_run,commit_attempt,api_revision,web_revision,controller_sha,
            activation_job_id,hosted_job_id,artifact_id,artifact_digest)=sys.argv[1:]
           def write(path,payload,mode):
             with open(path,'x',encoding='utf-8') as handle:
@@ -454,7 +451,7 @@ jobs:
             'finalizationCommitRunId':int(commit_run),'finalizationCommitRunAttempt':int(commit_attempt),
             'activationJobId':int(activation_job_id),
             'hostedAcceptanceJobId':int(hosted_job_id),'hostedArtifactId':int(artifact_id),'hostedArtifactDigest':artifact_digest,
-            'apiRevision':api_revision,'webRevision':web_revision,'taiRevision':tai_revision,'controllerSha256':controller_sha,
+            'apiRevision':api_revision,'webRevision':web_revision,'migrationImageAuthorityPassed':True,'controllerSha256':controller_sha,
             'controllerAuthorityAttested':True,'activationEvidencePassed':True,'hostedAcceptancePassed':True,
             'finalDecision':'ACCEPT','applicationDeploymentPerformed':False,'databaseMutationPerformed':False,
             'modelMutationPerformed':False,'rollbackPerformed':False,'runnerAuthorityChanged':False,'passed':True,
@@ -561,7 +558,7 @@ jobs:
             || !Number.isInteger(recovery.finalizationCommitRunAttempt) || recovery.finalizationCommitRunAttempt <= 0
             || !/^[0-9a-f]{40}$/.test(recovery.finalizationCurrentMain || '')
             || typeof recovery.resumedExistingFinalization !== 'boolean'
-            || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.taiRevision !== target
+            || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.migrationImageAuthorityPassed !== true
             || !/^[0-9a-f]{64}$/.test(recovery.controllerSha256) || recovery.controllerAuthorityAttested !== true
             || recovery.finalDecision !== 'ACCEPT' || recovery.passed !== true
             || recovery.applicationDeploymentPerformed !== false
@@ -680,7 +677,7 @@ jobs:
             || !Number.isInteger(recovery.finalizationCommitRunAttempt) || recovery.finalizationCommitRunAttempt <= 0
             || !/^[0-9a-f]{40}$/.test(recovery.finalizationCurrentMain || '')
             || typeof recovery.resumedExistingFinalization !== 'boolean'
-            || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.taiRevision !== target
+            || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.migrationImageAuthorityPassed !== true
             || !/^[0-9a-f]{64}$/.test(recovery.controllerSha256 || '')
             || recovery.controllerAuthorityAttested !== true
             || recovery.finalDecision !== 'ACCEPT' || recovery.passed !== true

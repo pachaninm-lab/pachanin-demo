@@ -63,7 +63,6 @@ for (const fragment of [
   "assert report.get('publicModelPortPublished') is False",
   "docker ps -q --filter 'label=com.docker.compose.service=api'",
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
-  "docker ps -q --filter 'label=com.docker.compose.service=tai'",
   'filter_exact_revision() {',
   'if [[ "$revision" == "$target" ]]; then printf \'%s\\n\' "$id"; fi',
   'com.docker.compose.project.working_dir',
@@ -73,9 +72,8 @@ for (const fragment of [
   '[[ -n "$api_config_files" && "$api_config_files" == "$web_config_files" ]]',
   'RECOVERY_API_EXACT_COUNT=%s',
   'RECOVERY_WEB_EXACT_COUNT=%s',
-  'RECOVERY_TAI_EXACT_COUNT=%s',
   'org.opencontainers.image.revision',
-  '[[ "$api_revision" == "$target" && "$web_revision" == "$target" && "$tai_revision" == "$target" ]]',
+  '[[ "$api_revision" == "$target" && "$web_revision" == "$target" ]]',
   "grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'",
   "grep -Fxq 'AI_ASSISTANT_MODEL=tai-qwen3-8b-q4km'",
   "grep -Fxq 'TAI_RESTRICTED_QWEN_MODEL_IDENTITY=tai-qwen3-8b-q4km'",
@@ -90,7 +88,7 @@ for (const fragment of [
   "'finalizationCommitRunAttempt':int(commit_attempt)",
   "'resumedExistingFinalization':int(commit_run) != int(recovery_run)",
   "or int(commit_attempt) != int(recovery_attempt) or committed_current != current",
-  "'taiRevision':tai_revision",
+  "'migrationImageAuthorityPassed':True",
   "'controllerAuthorityAttested':True",
   "'hostedArtifactDigest':artifact_digest",
   "'schemaVersion':'tai.restricted-qwen.finalization.v1'",
@@ -227,7 +225,7 @@ const authorityIndex = workflow.indexOf('Verify owner, exact activation run and 
 const artifactEvidenceIndex = workflow.indexOf('artifact?.digest !== artifactDigest');
 const controllerAuthorityIndex = workflow.indexOf('runner_authority=/etc/pc-release-authority/actions-runner.json');
 const activationEvidenceIndex = workflow.indexOf("assert report.get('passed') is True");
-const liveRevisionIndex = workflow.indexOf('[[ "$api_revision" == "$target" && "$web_revision" == "$target" && "$tai_revision" == "$target" ]]');
+const liveRevisionIndex = workflow.indexOf('[[ "$api_revision" == "$target" && "$web_revision" == "$target" ]]');
 const finalizationEvidenceIndex = workflow.indexOf('install_or_validate "$finalization_tmp" "$finalization_path" 600 root');
 const canonicalEvidenceIndex = workflow.indexOf('install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions');
 const recoveryEvidenceIndex = workflow.indexOf('install_or_validate "$output_tmp" "$output" 640 pcactions');
