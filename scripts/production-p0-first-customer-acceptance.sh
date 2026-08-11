@@ -3,16 +3,14 @@ set -Eeuo pipefail
 
 TARGET_SHA="${1:?exact current main SHA is required}"
 RUN_ID="${PC_P0_RUN_ID:-manual}"
+RUN_STARTED_EPOCH="${PC_P0_RUN_STARTED_EPOCH:-$(date +%s)}"
 LIVE_BASE="${PC_P0_LIVE_BASE:-https://xn----8sbjf4befbjgs9b.xn--p1ai}"
 EVIDENCE_DIR="${PC_P0_EVIDENCE_DIR:-artifacts/production-p0-first-customer}"
 CURRENT_STAGE=bootstrap
 BLOCKER_CODE=UNEXPECTED_P0_ACCEPTANCE_FAILURE
 FINISHED=0
 TMP_ROOT=''
-REVIEWER_JAR=''
 REVIEWER_USER_ID=''
-REVIEWER_ASSIGNMENT_ID=''
-REVIEWER_STAFF_SESSION_ID=''
 
 declare -A EMAIL PASSWORD INN PHONE APP_ID APPROVAL_VERSION APPROVAL_CORRELATION
 declare -A USER_ID ORG_ID TENANT_ID MEMBERSHIP_ID MEMBER_VERSION USER_ROLE MFA_SECRET
@@ -45,59 +43,8 @@ PY
 }
 
 cleanup() {
-  local rc=$? csrf='' context_status=''
+  local rc=$?
   set +e
-  if [[ "$FINISHED" != 1 && -z "$REVIEWER_STAFF_SESSION_ID" && -n "$TMP_ROOT" \
-    && -s "$TMP_ROOT/reviewer-access-activate-response.json" ]]; then
-    REVIEWER_STAFF_SESSION_ID="$(python3 - "$TMP_ROOT/reviewer-access-activate-response.json" <<'PY'
-import json, re, sys
-try:
-    value = json.load(open(sys.argv[1], encoding='utf-8')).get('accessSessionId', '')
-except Exception:
-    value = ''
-if isinstance(value, str) and re.fullmatch(r'sas_[A-Za-z0-9-]+', value): print(value)
-PY
-)"
-  fi
-  if [[ "$FINISHED" != 1 && -z "$REVIEWER_STAFF_SESSION_ID" && -n "$TMP_ROOT" \
-    && -s "$TMP_ROOT/reviewer.cookies" ]]; then
-    context_status="$(curl --silent --show-error --connect-timeout 5 --max-time 12 \
-      --output "$TMP_ROOT/reviewer-cleanup-context.json" --write-out '%{http_code}' \
-      --cookie "$TMP_ROOT/reviewer.cookies" --cookie-jar "$TMP_ROOT/reviewer.cookies" \
-      -H 'Accept: application/json' \
-      "$LIVE_BASE/api/staff/session-context" 2>/dev/null)"
-    if [[ "$context_status" == 200 ]]; then
-      REVIEWER_STAFF_SESSION_ID="$(python3 - "$TMP_ROOT/reviewer-cleanup-context.json" <<'PY'
-import json, re, sys
-try:
-    payload = json.load(open(sys.argv[1], encoding='utf-8'))
-    value = payload.get('session', {}).get('accessSessionId', '') if payload.get('active') is True else ''
-except Exception:
-    value = ''
-if isinstance(value, str) and re.fullmatch(r'sas_[A-Za-z0-9-]+', value): print(value)
-PY
-)"
-    fi
-  fi
-  if [[ "$FINISHED" != 1 && -n "$REVIEWER_STAFF_SESSION_ID" && -n "$TMP_ROOT" \
-    && -s "$TMP_ROOT/reviewer.cookies" ]]; then
-    csrf="$(awk -F '\t' '$6 == "pc_csrf_token" { value=$7 } END { print value }' \
-      "$TMP_ROOT/reviewer.cookies")"
-    if [[ "$csrf" =~ ^[A-Za-z0-9_-]{24,128}$ ]]; then
-      curl --silent --show-error --connect-timeout 5 --max-time 12 \
-        --output /dev/null \
-        --cookie "$TMP_ROOT/reviewer.cookies" \
-        --cookie-jar "$TMP_ROOT/reviewer.cookies" \
-        -X POST "$LIVE_BASE/api/staff/access/sessions/$REVIEWER_STAFF_SESSION_ID/end" \
-        -H 'Accept: application/json' \
-        -H 'Content-Type: application/json' \
-        -H "Origin: $LIVE_BASE" \
-        -H "x-csrf-token: $csrf" \
-        -H "x-correlation-id: p0-reviewer-cleanup:${TARGET_SHA:0:12}:$RUN_ID" \
-        --data '{"reason":"Production P0 acceptance cleanup"}' \
-        >/dev/null 2>&1 || true
-    fi
-  fi
   if [[ "$FINISHED" != 1 ]]; then
     safe_failure_record || true
     printf 'P0_FIRST_CUSTOMER_ACCEPTANCE=FAIL\n'
@@ -332,6 +279,7 @@ validate_prerequisites() {
   require_commands
   [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail P0_TARGET_SHA_INVALID 20
   [[ "$RUN_ID" =~ ^[A-Za-z0-9._:-]{1,48}$ ]] || fail P0_RUN_ID_INVALID 21
+  [[ "$RUN_STARTED_EPOCH" =~ ^[0-9]{10}$ ]] || fail P0_RUN_STARTED_EPOCH_INVALID 21
   [[ "$LIVE_BASE" == 'https://xn----8sbjf4befbjgs9b.xn--p1ai' ]] || fail P0_CANONICAL_LIVE_BASE_MISMATCH 22
   [[ -n "${GITHUB_REPOSITORY:-}" && -n "${GH_TOKEN:-}" ]] || fail P0_GITHUB_AUTHORITY_MISSING 23
 
@@ -347,10 +295,10 @@ validate_prerequisites() {
   fi
   [[ "${PC_P0_IMAP_PORT:-993}" =~ ^[0-9]+$ ]] || fail MISSING_P0_MAILBOX_PREREQUISITE 24
 
-  if [[ -z "${PC_P0_REVIEWER_EMAIL:-}" \
-    || -z "${PC_P0_REVIEWER_PASSWORD:-}" \
-    || -z "${PC_P0_REVIEWER_TOTP_SECRET:-}" ]]; then
-    fail MISSING_P0_REVIEWER_PREREQUISITE 25
+  if [[ -n "${PC_P0_REVIEWER_EMAIL:-}" \
+    || -n "${PC_P0_REVIEWER_PASSWORD:-}" \
+    || -n "${PC_P0_REVIEWER_TOTP_SECRET:-}" ]]; then
+    fail P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN 25
   fi
 
   if [[ "${PC_P0_SSH_HOST:-}" != 195.19.12.120 \
@@ -522,379 +470,61 @@ PY
   rm -f "$verify_replay_response"
 }
 
-reviewer_login() {
-  local jar="$TMP_ROOT/reviewer.cookies" login_request="$TMP_ROOT/reviewer-login.json"
-  local login_response="$TMP_ROOT/reviewer-login-response.json" mfa_request="$TMP_ROOT/reviewer-mfa.json"
-  local mfa_response="$TMP_ROOT/reviewer-mfa-response.json" me_response="$TMP_ROOT/reviewer-me.json"
-  local assignments_response="$TMP_ROOT/reviewer-assignments.json"
-  local membership_request="$TMP_ROOT/reviewer-membership.json"
-  local membership_response="$TMP_ROOT/reviewer-membership-response.json"
-  local status csrf code reviewer_id login_next membership_id
+wait_for_human_approvals() {
+  local deadline_seconds="${PC_P0_HUMAN_APPROVAL_TIMEOUT_SECONDS:-1800}"
+  local deadline output state result reviewer a_version a_correlation b_version b_correlation
 
-  CURRENT_STAGE=reviewer-login
-  prime_csrf "$jar"
-  P0_LOGIN_EMAIL="$PC_P0_REVIEWER_EMAIL" \
-  P0_LOGIN_PASSWORD="$PC_P0_REVIEWER_PASSWORD" \
-    python3 - "$login_request" <<'PY'
-import json, os, sys
-with open(sys.argv[1], 'w', encoding='utf-8') as handle:
-    json.dump({'email': os.environ['P0_LOGIN_EMAIL'], 'password': os.environ['P0_LOGIN_PASSWORD']}, handle, separators=(',', ':'))
-PY
-  chmod 0600 "$login_request"
-  csrf="$(csrf_token "$jar")"
-  status="$(http_request "$login_response" "$jar" \
-    -X POST "$LIVE_BASE/api/auth/login" \
-    -H 'Content-Type: application/json' \
-    -H "Origin: $LIVE_BASE" \
-    -H "x-csrf-token: $csrf" \
-    -H "x-correlation-id: p0-reviewer-login:${TARGET_SHA:0:12}:$RUN_ID" \
-    --data-binary "@$login_request")"
-  rm -f "$login_request"
-  [[ "$status" == 200 ]] || fail P0_REVIEWER_LOGIN_FAILED 40
+  [[ "$deadline_seconds" =~ ^[0-9]+$ ]]     && (( deadline_seconds >= 300 && deadline_seconds <= 3600 ))     || fail P0_HUMAN_REVIEW_TIMEOUT_INVALID 49
 
-  login_next="$(python3 - "$login_response" <<'PY'
-import json, re, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('ok') is not True: raise SystemExit(1)
-if payload.get('mfaRequired') is True and payload.get('membershipSelectionRequired') is not True:
-    print('DIRECT')
-    raise SystemExit(0)
-if payload.get('membershipSelectionRequired') is not True: raise SystemExit(1)
-memberships = payload.get('memberships')
-if not isinstance(memberships, list) or not 2 <= len(memberships) <= 50: raise SystemExit(1)
-valid = [row for row in memberships if isinstance(row, dict) and isinstance(row.get('membershipId'), str)]
-valid = [row for row in valid if re.fullmatch(r'[A-Za-z0-9_-]{8,160}', row['membershipId'])]
-if len(valid) != len(memberships): raise SystemExit(1)
-valid.sort(key=lambda row: row.get('isOrgAdmin') is not True)
-print('MEMBERSHIP:' + valid[0]['membershipId'])
-PY
-)" || fail P0_REVIEWER_LOGIN_CONTRACT_INVALID 41
-  if [[ "$login_next" == MEMBERSHIP:* ]]; then
-    CURRENT_STAGE=reviewer-membership-selection
-    membership_id="${login_next#MEMBERSHIP:}"
-    P0_MEMBERSHIP_ID="$membership_id" python3 - "$membership_request" <<'PY'
-import json, os, sys
-with open(sys.argv[1], 'w', encoding='utf-8') as handle:
-    json.dump({'membershipId': os.environ['P0_MEMBERSHIP_ID']}, handle, separators=(',', ':'))
-PY
-    chmod 0600 "$membership_request"
-    csrf="$(csrf_token "$jar")"
-    status="$(http_request "$membership_response" "$jar" \
-      -X POST "$LIVE_BASE/api/auth/membership-select" \
-      -H 'Content-Type: application/json' \
-      -H "Origin: $LIVE_BASE" \
-      -H "x-csrf-token: $csrf" \
-      -H "x-correlation-id: p0-reviewer-membership:${TARGET_SHA:0:12}:$RUN_ID" \
-      --data-binary "@$membership_request")"
-    rm -f "$membership_request"
-    [[ "$status" == 200 ]] || fail P0_REVIEWER_MEMBERSHIP_SELECTION_FAILED 41
-    mv "$membership_response" "$login_response"
-  elif [[ "$login_next" != DIRECT ]]; then
-    fail P0_REVIEWER_LOGIN_CONTRACT_INVALID 41
+  CURRENT_STAGE=human-reviewer-ceremony
+  assert_exact_main
+  printf 'P0_HUMAN_REVIEW_REQUIRED=2\n'
+  printf 'P0_HUMAN_REVIEW_AUTHORITY=EXISTING_PLATFORM_OWNER_FRESH_MFA_CONTROL_PLANE\n'
+  if [[ "${RELEASE_ISSUE_NUMBER:-}" =~ ^[0-9]+$ ]]; then
+    {
+      printf '## Production P0 human reviewer ceremony\n\n'
+      printf -- '- exact main: `%s`\n' "$TARGET_SHA"
+      printf -- '- verified applications waiting: `2`\n'
+      printf -- '- reviewer credentials in Actions: `0`\n'
+      printf -- '- required action: approve the two marked production acceptance applications in the visible CONTROL_PLANE registration queue with fresh MFA\n'
+      printf -- '- application identifiers and applicant data: `NOT_PUBLISHED`\n'
+      printf -- '- timeout: `%s seconds`\n' "$deadline_seconds"
+    } > "$TMP_ROOT/human-review-comment.md"
+    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$TMP_ROOT/human-review-comment.md" >/dev/null
+    rm -f "$TMP_ROOT/human-review-comment.md"
   fi
-  python3 - "$login_response" <<'PY' || fail P0_REVIEWER_MFA_PREREQUISITE_INVALID 41
-import json, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('ok') is not True or payload.get('mfaRequired') is not True: raise SystemExit(1)
-if payload.get('enrollmentRequired') is not False: raise SystemExit(1)
-if payload.get('setupSecret') not in (None, ''): raise SystemExit(1)
-if payload.get('otpAuthUri') not in (None, ''): raise SystemExit(1)
-PY
-  rm -f "$login_response"
 
-  code="$(totp "$PC_P0_REVIEWER_TOTP_SECRET")" || fail P0_REVIEWER_TOTP_SECRET_INVALID 42
-  P0_MFA_CODE="$code" python3 - "$mfa_request" <<'PY'
-import json, os, sys
-with open(sys.argv[1], 'w', encoding='utf-8') as handle:
-    json.dump({'code': os.environ['P0_MFA_CODE']}, handle, separators=(',', ':'))
-PY
-  unset code P0_MFA_CODE
-  chmod 0600 "$mfa_request"
-  csrf="$(csrf_token "$jar")"
-  status="$(http_request "$mfa_response" "$jar" \
-    -X POST "$LIVE_BASE/api/auth/mfa-login" \
-    -H 'Content-Type: application/json' \
-    -H "Origin: $LIVE_BASE" \
-    -H "x-csrf-token: $csrf" \
-    -H "x-correlation-id: p0-reviewer-mfa:${TARGET_SHA:0:12}:$RUN_ID" \
-    --data-binary "@$mfa_request")"
-  rm -f "$mfa_request"
-  [[ "$status" == 200 ]] || fail P0_REVIEWER_MFA_FAILED 43
-  python3 - "$mfa_response" <<'PY' || fail P0_REVIEWER_MFA_RESPONSE_INVALID 44
-import json, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('ok') is not True: raise SystemExit(1)
-if not isinstance(payload.get('redirectTo'), str) or not payload['redirectTo'].startswith('/platform-v7/'): raise SystemExit(1)
-if payload.get('backupCodes') not in (None, []): raise SystemExit(1)
-PY
-  rm -f "$mfa_response"
-
-  CURRENT_STAGE=reviewer-authority
-  status="$(http_request "$me_response" "$jar" \
-    "$LIVE_BASE/api/auth/me" \
-    -H "x-correlation-id: p0-reviewer-me:${TARGET_SHA:0:12}:$RUN_ID")"
-  [[ "$status" == 200 ]] || fail P0_REVIEWER_SESSION_MISSING 45
-  reviewer_id="$(python3 - "$me_response" <<'PY'
-import datetime, json, re, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('authenticated') is not True: raise SystemExit(1)
-user_id = payload.get('id')
-if not isinstance(user_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,160}', user_id): raise SystemExit(1)
-verified = payload.get('mfaVerifiedAt')
-if not isinstance(verified, str): raise SystemExit(1)
-stamp = datetime.datetime.fromisoformat(verified.replace('Z', '+00:00'))
-age = (datetime.datetime.now(datetime.timezone.utc) - stamp).total_seconds()
-if age < -30 or age > 900: raise SystemExit(1)
-print(user_id)
-PY
-)" || fail P0_REVIEWER_SESSION_NOT_RECENT_MFA 46
-  REVIEWER_USER_ID="$reviewer_id"
-  rm -f "$me_response"
-
-  status="$(http_request "$assignments_response" "$jar" \
-    "$LIVE_BASE/api/staff/assignments/me" \
-    -H "x-correlation-id: p0-reviewer-assignments:${TARGET_SHA:0:12}:$RUN_ID")"
-  [[ "$status" == 200 ]] || fail P0_REVIEWER_ASSIGNMENT_UNAVAILABLE 47
-  REVIEWER_ASSIGNMENT_ID="$(python3 - "$assignments_response" <<'PY'
-import json, re, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if not isinstance(payload, list): raise SystemExit(1)
-active = [row for row in payload if isinstance(row, dict)
-          and row.get('status') in {'ELIGIBLE', 'ACTIVE'}
-          and row.get('role') == 'PLATFORM_OWNER'
-          and isinstance(row.get('id'), str)
-          and re.fullmatch(r'[A-Za-z0-9_-]{8,160}', row['id'])]
-if len(active) < 1: raise SystemExit(1)
-print(active[0]['id'])
-PY
-)" || fail P0_REVIEWER_PLATFORM_OWNER_ASSIGNMENT_MISSING 48
-  rm -f "$assignments_response"
-  REVIEWER_JAR="$jar"
-}
-
-activate_reviewer_control_plane() {
-  local request="$TMP_ROOT/reviewer-access-request.json"
-  local response="$TMP_ROOT/reviewer-access-request-response.json"
-  local activate_response="$TMP_ROOT/reviewer-access-activate-response.json"
-  local context_response="$TMP_ROOT/reviewer-access-context.json"
-  local status csrf grant_id session_id
-
-  CURRENT_STAGE=reviewer-control-plane-request
-  P0_ASSIGNMENT_ID="$REVIEWER_ASSIGNMENT_ID" P0_TICKET_ID="P0-$RUN_ID" \
-    python3 - "$request" <<'PY'
-import json, os, sys
-with open(sys.argv[1], 'w', encoding='utf-8') as handle:
-    json.dump({
-        'assignmentId': os.environ['P0_ASSIGNMENT_ID'],
-        'accessMode': 'CONTROL_PLANE',
-        'permissions': ['staff-request:read', 'staff-request:approve'],
-        'reason': 'Production P0 first-customer registration acceptance',
-        'ticketId': os.environ['P0_TICKET_ID'],
-        'durationSeconds': 1800,
-    }, handle, separators=(',', ':'))
-PY
-  chmod 0600 "$request"
-  csrf="$(csrf_token "$REVIEWER_JAR")"
-  status="$(http_request "$response" "$REVIEWER_JAR" \
-    -X POST "$LIVE_BASE/api/staff/access/requests" \
-    -H 'Content-Type: application/json' \
-    -H "Origin: $LIVE_BASE" \
-    -H "x-csrf-token: $csrf" \
-    -H "x-correlation-id: p0-reviewer-access-request:${TARGET_SHA:0:12}:$RUN_ID" \
-    --data-binary "@$request")"
-  rm -f "$request"
-  [[ "$status" == 201 ]] || fail P0_REVIEWER_CONTROL_PLANE_REQUEST_FAILED 49
-  grant_id="$(python3 - "$response" <<'PY'
-import json, re, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('status') != 'GRANTED': raise SystemExit(1)
-request_id = payload.get('requestId')
-grant_id = payload.get('grantId')
-if not isinstance(request_id, str) or not re.fullmatch(r'sar_[A-Za-z0-9-]+', request_id): raise SystemExit(1)
-if not isinstance(grant_id, str) or not re.fullmatch(r'sag_[A-Za-z0-9-]+', grant_id): raise SystemExit(1)
-print(grant_id)
-PY
-)" || fail P0_REVIEWER_CONTROL_PLANE_GRANT_MISSING 49
-  rm -f "$response"
-
-  CURRENT_STAGE=reviewer-control-plane-activation
-  csrf="$(csrf_token "$REVIEWER_JAR")"
-  status="$(http_request "$activate_response" "$REVIEWER_JAR" \
-    -X POST "$LIVE_BASE/api/staff/access/grants/$grant_id/activate" \
-    -H 'Content-Type: application/json' \
-    -H "Origin: $LIVE_BASE" \
-    -H "x-csrf-token: $csrf" \
-    -H "x-correlation-id: p0-reviewer-access-activate:${TARGET_SHA:0:12}:$RUN_ID" \
-    --data '{}')"
-  [[ "$status" == 201 ]] || fail P0_REVIEWER_CONTROL_PLANE_ACTIVATION_FAILED 49
-  session_id="$(python3 - "$activate_response" <<'PY'
-import datetime, json, re, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-session_id = payload.get('accessSessionId')
-if not isinstance(session_id, str) or not re.fullmatch(r'sas_[A-Za-z0-9-]+', session_id): raise SystemExit(1)
-if payload.get('staffRole') != 'PLATFORM_OWNER' or payload.get('accessMode') != 'CONTROL_PLANE': raise SystemExit(1)
-if set(payload.get('permissions') or []) != {'staff-request:read', 'staff-request:approve'}: raise SystemExit(1)
-expires = payload.get('expiresAt')
-if not isinstance(expires, str): raise SystemExit(1)
-expiry = datetime.datetime.fromisoformat(expires.replace('Z', '+00:00'))
-remaining = (expiry - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
-if remaining < 120 or remaining > 1860: raise SystemExit(1)
-print(session_id)
-PY
-)" || fail P0_REVIEWER_CONTROL_PLANE_ACTIVATION_INVALID 49
-  rm -f "$activate_response"
-  REVIEWER_STAFF_SESSION_ID="$session_id"
-
-  CURRENT_STAGE=reviewer-control-plane-verification
-  status="$(http_request "$context_response" "$REVIEWER_JAR" \
-    "$LIVE_BASE/api/staff/session-context" \
-    -H "x-correlation-id: p0-reviewer-access-context:${TARGET_SHA:0:12}:$RUN_ID")"
-  [[ "$status" == 200 ]] || fail P0_REVIEWER_CONTROL_PLANE_CONTEXT_FAILED 49
-  P0_STAFF_SESSION_ID="$REVIEWER_STAFF_SESSION_ID" \
-    python3 - "$context_response" <<'PY' || fail P0_REVIEWER_CONTROL_PLANE_CONTEXT_INVALID 49
-import json, os, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-session = payload.get('session')
-if payload.get('active') is not True or not isinstance(session, dict): raise SystemExit(1)
-if session.get('accessSessionId') != os.environ['P0_STAFF_SESSION_ID']: raise SystemExit(1)
-if session.get('staffRole') != 'PLATFORM_OWNER' or session.get('accessMode') != 'CONTROL_PLANE': raise SystemExit(1)
-if set(session.get('permissions') or []) != {'staff-request:read', 'staff-request:approve'}: raise SystemExit(1)
-PY
-  rm -f "$context_response"
-}
-
-end_reviewer_control_plane() {
-  local request="$TMP_ROOT/reviewer-access-end.json"
-  local response="$TMP_ROOT/reviewer-access-end-response.json"
-  local status csrf
-  [[ -n "$REVIEWER_STAFF_SESSION_ID" ]] || fail P0_REVIEWER_CONTROL_PLANE_SESSION_MISSING 49
-  CURRENT_STAGE=reviewer-control-plane-end
-  printf '%s' '{"reason":"Production P0 first-customer acceptance completed"}' > "$request"
-  chmod 0600 "$request"
-  csrf="$(csrf_token "$REVIEWER_JAR")"
-  status="$(http_request "$response" "$REVIEWER_JAR" \
-    -X POST "$LIVE_BASE/api/staff/access/sessions/$REVIEWER_STAFF_SESSION_ID/end" \
-    -H 'Content-Type: application/json' \
-    -H "Origin: $LIVE_BASE" \
-    -H "x-csrf-token: $csrf" \
-    -H "x-correlation-id: p0-reviewer-access-end:${TARGET_SHA:0:12}:$RUN_ID" \
-    --data-binary "@$request")"
-  rm -f "$request"
-  [[ "$status" == 201 ]] || fail P0_REVIEWER_CONTROL_PLANE_END_FAILED 49
-  P0_STAFF_SESSION_ID="$REVIEWER_STAFF_SESSION_ID" \
-    python3 - "$response" <<'PY' || fail P0_REVIEWER_CONTROL_PLANE_END_INVALID 49
-import json, os, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('success') is not True or payload.get('sessionId') != os.environ['P0_STAFF_SESSION_ID']:
-    raise SystemExit(1)
-PY
-  rm -f "$response"
-  REVIEWER_STAFF_SESSION_ID=''
-}
-
-approve_registrations() {
-  local queue_response="$TMP_ROOT/reviewer-queue.json" decision_request decision_response decision_replay_response
-  local status csrf label correlation idempotency result replay_correlation
-
-  CURRENT_STAGE=reviewer-queue
-  status="$(http_request "$queue_response" "$REVIEWER_JAR" \
-    "$LIVE_BASE/api/staff/registration/applications" \
-    -H "x-correlation-id: p0-reviewer-queue:${TARGET_SHA:0:12}:$RUN_ID")"
-  [[ "$status" == 200 ]] || fail P0_REVIEWER_QUEUE_FAILED 50
-  P0_APP_A="${APP_ID[a]}" P0_APP_B="${APP_ID[b]}" \
-    python3 - "$queue_response" <<'PY' || fail P0_REGISTRATIONS_NOT_IN_REVIEW_QUEUE 51
-import json, os, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-items = payload.get('applications')
-if not isinstance(items, list): raise SystemExit(1)
-by_id = {item.get('applicationId'): item for item in items if isinstance(item, dict)}
-for app_id in (os.environ['P0_APP_A'], os.environ['P0_APP_B']):
-    item = by_id.get(app_id)
-    if not item or item.get('status') != 'ORGANIZATION_VERIFICATION_PENDING': raise SystemExit(1)
-    if item.get('kind') != 'NEW_ORGANIZATION': raise SystemExit(1)
-    if item.get('checks', {}).get('emailVerified') is not True: raise SystemExit(1)
-    if item.get('riskFlags') not in ([], None): raise SystemExit(1)
-PY
-  rm -f "$queue_response"
-
-  for label in a b; do
-    CURRENT_STAGE="reviewer-approval-$label"
-    decision_request="$TMP_ROOT/$label-decision.json"
-    decision_response="$TMP_ROOT/$label-decision-response.json"
-    python3 - "$decision_request" <<'PY'
-import json, sys
-with open(sys.argv[1], 'w', encoding='utf-8') as handle:
-    json.dump({
-        'decision': 'APPROVE',
-        'reason': 'Production P0 first-customer exact-run acceptance',
-        'locale': 'ru',
-    }, handle, separators=(',', ':'))
-PY
-    chmod 0600 "$decision_request"
-    csrf="$(csrf_token "$REVIEWER_JAR")"
-    correlation="p0-registration-approve:${TARGET_SHA:0:12}:$RUN_ID:$label"
-    idempotency="p0-registration-approve:$TARGET_SHA:$RUN_ID:$label"
-    status="$(http_request "$decision_response" "$REVIEWER_JAR" \
-      -X POST "$LIVE_BASE/api/staff/registration/applications/${APP_ID[$label]}/decision" \
-      -H 'Content-Type: application/json' \
-      -H "Origin: $LIVE_BASE" \
-      -H "x-csrf-token: $csrf" \
-      -H "Idempotency-Key: $idempotency" \
-      -H "x-correlation-id: $correlation" \
-      --data-binary "@$decision_request")"
-    [[ "$status" == 201 ]] || fail "P0_REVIEWER_APPROVAL_${label^^}_FAILED" 52
-    result="$(P0_EXPECTED_APP="${APP_ID[$label]}" P0_EXPECTED_CORRELATION="$correlation" \
-      python3 - "$decision_response" <<'PY'
-import json, os, re, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('applicationId') != os.environ['P0_EXPECTED_APP']: raise SystemExit(1)
-if payload.get('status') != 'ACTIVATED' or payload.get('nextAction') != 'LOGIN': raise SystemExit(1)
-if payload.get('notificationDelivered') is not True: raise SystemExit(1)
-if payload.get('replayed') is not False: raise SystemExit(1)
-if payload.get('correlationId') != os.environ['P0_EXPECTED_CORRELATION']: raise SystemExit(1)
-version = str(payload.get('version', ''))
-if not re.fullmatch(r'[1-9][0-9]*', version): raise SystemExit(1)
-print(version + '\t' + payload['correlationId'])
-PY
-)" || fail "P0_REVIEWER_APPROVAL_${label^^}_CONTRACT_INVALID" 53
-    local approval_version approval_correlation
-    IFS=$'\t' read -r approval_version approval_correlation <<< "$result"
-    APPROVAL_VERSION[$label]="$approval_version"
-    APPROVAL_CORRELATION[$label]="$approval_correlation"
-    if [[ "$label" == a ]]; then
-      CURRENT_STAGE="reviewer-approval-replay-$label"
-      decision_replay_response="$TMP_ROOT/$label-decision-replay-response.json"
-      replay_correlation="p0-registration-approve-replay:${TARGET_SHA:0:12}:$RUN_ID:$label"
-      status="$(http_request "$decision_replay_response" "$REVIEWER_JAR" \
-        -X POST "$LIVE_BASE/api/staff/registration/applications/${APP_ID[$label]}/decision" \
-        -H 'Content-Type: application/json' \
-        -H "Origin: $LIVE_BASE" \
-        -H "x-csrf-token: $csrf" \
-        -H "Idempotency-Key: $idempotency" \
-        -H "x-correlation-id: $replay_correlation" \
-        --data-binary "@$decision_request")"
-      [[ "$status" == 201 ]] || fail P0_DECISION_REPLAY_REQUEST_FAILED 54
-      P0_EXPECTED_APP="${APP_ID[$label]}" \
-      P0_EXPECTED_CORRELATION="$replay_correlation" \
-      P0_EXPECTED_VERSION="$approval_version" \
-        python3 - "$decision_replay_response" <<'PY' \
-        || fail P0_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED 55
-import json, os, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-if payload.get('applicationId') != os.environ['P0_EXPECTED_APP']: raise SystemExit(1)
-if payload.get('status') != 'ACTIVATED' or payload.get('nextAction') != 'LOGIN': raise SystemExit(1)
-if payload.get('replayed') is not True: raise SystemExit(1)
-if 'notificationDelivered' in payload: raise SystemExit(1)
-if payload.get('correlationId') != os.environ['P0_EXPECTED_CORRELATION']: raise SystemExit(1)
-if str(payload.get('version', '')) != os.environ['P0_EXPECTED_VERSION']: raise SystemExit(1)
-PY
-      DECISION_REPLAY_NOTIFICATION_SUPPRESSED=1
-      rm -f "$decision_replay_response"
-    fi
-    rm -f "$decision_request" "$decision_response"
+  deadline=$(( $(date +%s) + deadline_seconds ))
+  while (( $(date +%s) < deadline )); do
+    output="$(remote_authority approval_wait       "${APP_ID[a]}" "${APP_ID[b]}" "$RUN_STARTED_EPOCH")"
+    state="$(sed -n 's/^P0_HUMAN_APPROVAL_STATE=//p' <<< "$output" | tail -1)"
+    case "$state" in
+      PENDING)
+        sleep 10
+        ;;
+      READY)
+        result="$(sed -n 's/^P0_HUMAN_APPROVALS=//p' <<< "$output" | tail -1)"
+        IFS='|' read -r reviewer a_version a_correlation b_version b_correlation <<< "$result"
+        [[ "$reviewer" =~ ^[A-Za-z0-9_-]{8,180}$           && "$a_version" =~ ^[1-9][0-9]*$           && "$b_version" =~ ^[1-9][0-9]*$           && "$a_correlation" =~ ^[A-Za-z0-9._:-]{8,128}$           && "$b_correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]]           || fail P0_HUMAN_APPROVAL_EVIDENCE_INVALID 50
+        grep -Fxq P0_HUMAN_REVIEWER_REPLAY=PASS <<< "$output"           || fail P0_DECISION_REPLAY_NOTIFICATION_NOT_SUPPRESSED 55
+        REVIEWER_USER_ID="$reviewer"
+        APPROVAL_VERSION[a]="$a_version"
+        APPROVAL_VERSION[b]="$b_version"
+        APPROVAL_CORRELATION[a]="$a_correlation"
+        APPROVAL_CORRELATION[b]="$b_correlation"
+        DECISION_REPLAY_NOTIFICATION_SUPPRESSED=1
+        printf 'P0_HUMAN_REVIEWER_CEREMONY=PASS\n'
+        return
+        ;;
+      BLOCKED)
+        fail P0_HUMAN_REVIEWER_DECISION_BLOCKED 51
+        ;;
+      *)
+        fail P0_HUMAN_APPROVAL_EVIDENCE_INVALID 50
+        ;;
+    esac
   done
-  (( DECISION_REPLAY_NOTIFICATION_SUPPRESSED == 1 )) \
-    || fail P0_DECISION_REPLAY_NOTIFICATION_NOT_PROVED 56
+  fail P0_HUMAN_REVIEWER_CEREMONY_TIMEOUT 52
 }
 
 customer_login() {
@@ -1125,7 +755,8 @@ remote_fail() {
   exit "${2:-1}"
 }
 
-[[ "$mode" == preflight || "$mode" == evidence ]] || remote_fail P0_REMOTE_MODE_INVALID 2
+[[ "$mode" == preflight || "$mode" == evidence || "$mode" == approval_wait ]] \
+  || remote_fail P0_REMOTE_MODE_INVALID 2
 [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || remote_fail P0_REMOTE_TARGET_INVALID 3
 [[ "$(id -u)" == 0 ]] || remote_fail P0_PROTECTED_SSH_PRINCIPAL_INVALID 4
 command -v docker >/dev/null 2>&1 || remote_fail P0_REMOTE_DOCKER_MISSING 5
@@ -1427,8 +1058,77 @@ async function receiptProof(tx, values, workspace) {
   return `${row?.verdict}|${row?.audit_id}|${row?.outbox_id}`;
 }
 
+async function humanApprovalProof(tx, values) {
+  if (values.length !== 3) fail('P0_HUMAN_APPROVAL_ARGUMENTS_INVALID');
+  const [aApp, bApp, startedEpoch] = values;
+  if (!identifier.test(aApp ?? '') || !identifier.test(bApp ?? '')
+    || !/^[0-9]{10}$/.test(startedEpoch ?? '')) {
+    fail('P0_HUMAN_APPROVAL_ARGUMENT_INVALID');
+  }
+  const rows = await tx.$queryRawUnsafe(`
+    SELECT application.id, application.kind, application.status,
+      application.version::text AS version,
+      application.requested_workspace, application.requested_role,
+      application.decision_actor_user_id,
+      approval.actor_user_id AS approval_actor_user_id,
+      approval.correlation_id AS approval_correlation_id
+    FROM auth.registration_applications application
+    LEFT JOIN LATERAL (
+      SELECT event.actor_user_id, event.correlation_id
+      FROM auth.registration_application_events event
+      WHERE event.application_id = application.id
+        AND event.actor_kind = 'PLATFORM_REVIEWER'
+        AND event.previous_status = 'ORGANIZATION_VERIFICATION_PENDING'
+        AND event.new_status = 'APPROVED'
+        AND event.application_version = application.version - 1
+        AND event.created_at >= to_timestamp($3::double precision)
+      ORDER BY event.created_at DESC, event.id DESC
+      LIMIT 1
+    ) approval ON true
+    WHERE application.id IN ($1, $2)
+      AND application.created_at >= to_timestamp($3::double precision)
+    ORDER BY application.id
+  `, aApp, bApp, startedEpoch);
+  if (rows.length !== 2) fail('P0_HUMAN_APPROVAL_APPLICATIONS_MISSING');
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const expected = [
+    [aApp, 'seller', 'FARMER'],
+    [bApp, 'buyer', 'BUYER'],
+  ];
+  let pending = 0;
+  const ready = [];
+  for (const [applicationId, workspace, role] of expected) {
+    const row = byId.get(applicationId);
+    if (!row || row.kind !== 'NEW_ORGANIZATION'
+      || row.requested_workspace !== workspace || row.requested_role !== role) {
+      fail('P0_HUMAN_APPROVAL_APPLICATION_INVALID');
+    }
+    if (row.status === 'ORGANIZATION_VERIFICATION_PENDING') {
+      pending += 1;
+      continue;
+    }
+    if (row.status !== 'ACTIVATED') return { state: 'BLOCKED' };
+    const reviewer = row.decision_actor_user_id;
+    const correlationId = row.approval_correlation_id;
+    if (!identifier.test(reviewer ?? '')
+      || row.approval_actor_user_id !== reviewer
+      || !/^[1-9][0-9]*$/.test(row.version ?? '')
+      || !correlation.test(correlationId ?? '')) {
+      fail('P0_HUMAN_APPROVAL_ACTIVATION_INVALID');
+    }
+    ready.push({ reviewer, version: row.version, correlationId });
+  }
+  if (pending > 0) return { state: 'PENDING', pending };
+  if (ready.length !== 2 || ready[0].reviewer !== ready[1].reviewer) {
+    fail('P0_HUMAN_APPROVAL_REVIEWER_INVALID');
+  }
+  return { state: 'READY', ready };
+}
+
 (async () => {
-  if (!databaseUrl || !['preflight', 'evidence'].includes(mode)) fail('P0_ADMIN_EVIDENCE_INPUT_INVALID');
+  if (!databaseUrl || !['preflight', 'evidence', 'approval_wait'].includes(mode)) {
+    fail('P0_ADMIN_EVIDENCE_INPUT_INVALID');
+  }
   prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
@@ -1571,6 +1271,7 @@ async function receiptProof(tx, values, workspace) {
       fail('MISSING_P0_CAUSAL_OUTBOX_PRODUCER');
     }
     if (mode === 'preflight') return { roleName: principal.role_name };
+    if (mode === 'approval_wait') return humanApprovalProof(tx, args);
     if (args.length !== 17) fail('P0_ADMIN_EVIDENCE_ARGUMENTS_INVALID');
     const [aUser, aOrg, aTenant, aMembership, aRole, aApp, aVersion, aCorrelation,
       bUser, bOrg, bTenant, bMembership, bRole, bApp, bVersion, bCorrelation, reviewer] = args;
@@ -1590,6 +1291,17 @@ async function receiptProof(tx, values, workspace) {
   });
   if (mode === 'preflight') {
     process.stdout.write(`ADMIN_PRINCIPAL|${result.roleName}\n`);
+  } else if (mode === 'approval_wait') {
+    if (result.state === 'PENDING') {
+      process.stdout.write(`ADMIN_APPROVALS_PENDING|${result.pending}\n`);
+    } else if (result.state === 'BLOCKED') {
+      process.stdout.write('ADMIN_APPROVALS_BLOCKED\n');
+    } else {
+      const [a, b] = result.ready;
+      process.stdout.write(
+        `ADMIN_APPROVALS_READY|${a.reviewer}|${a.version}|${a.correlationId}|${b.version}|${b.correlationId}\n`,
+      );
+    }
   } else {
     process.stdout.write(`ADMIN_RECEIPTS|${result.aReceipt}|${result.bReceipt}\n`);
   }
@@ -1624,6 +1336,89 @@ if [[ "$mode" == preflight ]]; then
   printf 'P0_MIGRATION_IMAGE_REVISION=PASS\n'
   printf 'P0_CAUSAL_OUTBOX_PRODUCER=PASS\n'
   printf 'P0_POSTGRES_RLS_RUNTIME=PASS\n'
+  exit 0
+fi
+
+if [[ "$mode" == approval_wait ]]; then
+  (( $# == 3 )) || remote_fail P0_HUMAN_APPROVAL_ARGUMENTS_INVALID 23
+  a_app="$1"; b_app="$2"; started_epoch="$3"
+  [[ "$a_app" =~ ^[A-Za-z0-9_-]{8,180}$ ]] || remote_fail P0_HUMAN_APPROVAL_ARGUMENT_INVALID 24
+  [[ "$b_app" =~ ^[A-Za-z0-9_-]{8,180}$ ]] || remote_fail P0_HUMAN_APPROVAL_ARGUMENT_INVALID 24
+  [[ "$started_epoch" =~ ^[0-9]{10}$ ]] || remote_fail P0_HUMAN_APPROVAL_ARGUMENT_INVALID 24
+  admin_output="$(run_admin_evidence approval_wait "$a_app" "$b_app" "$started_epoch")" || remote_fail P0_HUMAN_APPROVAL_READ_FAILED 25
+  if [[ "$admin_output" =~ ^ADMIN_APPROVALS_PENDING\|[0-2]$ ]]; then
+    printf 'P0_REMOTE_EXACT_REVISIONS=PASS\n'
+    printf 'P0_HUMAN_APPROVAL_STATE=PENDING\n'
+    exit 0
+  fi
+  if [[ "$admin_output" == ADMIN_APPROVALS_BLOCKED ]]; then
+    printf 'P0_REMOTE_EXACT_REVISIONS=PASS\n'
+    printf 'P0_HUMAN_APPROVAL_STATE=BLOCKED\n'
+    exit 0
+  fi
+  IFS='|' read -r approval_marker reviewer_user a_version a_correlation b_version b_correlation <<< "$admin_output"
+  [[ "$approval_marker" == ADMIN_APPROVALS_READY ]] || remote_fail P0_HUMAN_APPROVAL_OUTPUT_INVALID 26
+  [[ "$reviewer_user" =~ ^[A-Za-z0-9_-]{8,180}$ ]] || remote_fail P0_HUMAN_APPROVAL_OUTPUT_INVALID 26
+  [[ "$a_version" =~ ^[1-9][0-9]*$ && "$b_version" =~ ^[1-9][0-9]*$ ]] || remote_fail P0_HUMAN_APPROVAL_OUTPUT_INVALID 26
+  [[ "$a_correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || remote_fail P0_HUMAN_APPROVAL_OUTPUT_INVALID 26
+  [[ "$b_correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || remote_fail P0_HUMAN_APPROVAL_OUTPUT_INVALID 26
+
+  read -r -d '' log_parser <<'PY' || true
+import json
+import re
+import sys
+
+applications = {sys.argv[1], sys.argv[2]}
+proof = {application: {'approve': False, 'replay': False} for application in applications}
+blocked = False
+pattern = re.compile(r'p0_human_reviewer_ceremony\s+(\{.*\})')
+for line in sys.stdin:
+    match = pattern.search(line)
+    if not match:
+        continue
+    try:
+        payload = json.loads(match.group(1))
+    except Exception:
+        continue
+    application = payload.get('applicationId')
+    if application not in applications or payload.get('marker') != 'P0_HUMAN_REVIEWER_CEREMONY':
+        continue
+    correlation = str(payload.get('correlationId') or '')
+    if correlation.startswith('p0-human-approve:'):
+        valid = payload.get('replayed') is False and payload.get('notificationDelivered') is True
+        proof[application]['approve'] = proof[application]['approve'] or valid
+        blocked = blocked or not valid
+    elif correlation.startswith('p0-human-replay:'):
+        valid = payload.get('replayed') is True and payload.get('notificationSuppressed') is True
+        proof[application]['replay'] = proof[application]['replay'] or valid
+        blocked = blocked or not valid
+if blocked:
+    print('BLOCKED')
+elif all(row['approve'] and row['replay'] for row in proof.values()):
+    print('READY')
+else:
+    print('PENDING')
+PY
+  log_state="$(docker logs --since "$started_epoch" "$web_id" 2>&1 | python3 -c "$log_parser" "$a_app" "$b_app")" || remote_fail P0_HUMAN_REVIEWER_LOG_PROOF_FAILED 27
+  unset log_parser
+  case "$log_state" in
+    PENDING)
+      printf 'P0_REMOTE_EXACT_REVISIONS=PASS\n'
+      printf 'P0_HUMAN_APPROVAL_STATE=PENDING\n'
+      exit 0
+      ;;
+    BLOCKED)
+      printf 'P0_REMOTE_EXACT_REVISIONS=PASS\n'
+      printf 'P0_HUMAN_APPROVAL_STATE=BLOCKED\n'
+      exit 0
+      ;;
+    READY) ;;
+    *) remote_fail P0_HUMAN_REVIEWER_LOG_PROOF_INVALID 28 ;;
+  esac
+  printf 'P0_REMOTE_EXACT_REVISIONS=PASS\n'
+  printf 'P0_HUMAN_APPROVAL_STATE=READY\n'
+  printf 'P0_HUMAN_APPROVALS=%s|%s|%s|%s|%s\n' "$reviewer_user" "$a_version" "$a_correlation" "$b_version" "$b_correlation"
+  printf 'P0_HUMAN_REVIEWER_REPLAY=PASS\n'
   exit 0
 fi
 
@@ -1904,9 +1699,7 @@ main() {
     && "${APP_ID[a]}" != "${APP_ID[b]}" ]] \
     || fail P0_REGISTRATION_APPLICATIONS_NOT_DISTINCT 100
 
-  reviewer_login
-  activate_reviewer_control_plane
-  approve_registrations
+  wait_for_human_approvals
 
   customer_login a initial
   customer_login b initial
@@ -1927,9 +1720,6 @@ main() {
   read_customer_resource b
   logout_session customer-a-final "$TMP_ROOT/a.cookies"
   logout_session customer-b-final "$TMP_ROOT/b.cookies"
-  end_reviewer_control_plane
-  logout_session reviewer "$REVIEWER_JAR"
-
   CURRENT_STAGE=evidence-finalization
   assert_exact_main
   write_success_record

@@ -51,6 +51,13 @@ type QueueResponse = {
   correlationId?: string;
 };
 
+type DecisionResponse = QueueResponse & {
+  replayed?: boolean;
+  notificationDelivered?: boolean;
+};
+
+const P0_ACCEPTANCE_LEGAL_NAME_PREFIX = 'Production P0 exact-run organization ';
+
 const COPY = {
   ru: {
     eyebrow: 'P0 · Допуск организаций',
@@ -151,6 +158,19 @@ function newIdempotencyKey(applicationId: string) {
   return `registration-review:${applicationId}:${crypto.randomUUID()}`;
 }
 
+async function p0CeremonyHeaders(applicationId: string, phase: 'approve' | 'replay') {
+  const bytes = new TextEncoder().encode(applicationId);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const marker = Array.from(new Uint8Array(digest))
+    .slice(0, 16)
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
+  return {
+    idempotencyKey: `p0-human-review:${marker}`,
+    correlationId: `p0-human-${phase}:${marker}`,
+  };
+}
+
 export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLocale; csrfToken: string }) {
   const copy = COPY[locale];
   const [applications, setApplications] = useState<ReviewApplication[]>([]);
@@ -208,7 +228,15 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
     setError(null);
     setNotice(null);
     try {
-      const response = await fetch(`/api/staff/registration/applications/${encodeURIComponent(application.applicationId)}/decision`, {
+      const p0Ceremony = decision === 'APPROVE'
+        && application.organization.legalName.startsWith(P0_ACCEPTANCE_LEGAL_NAME_PREFIX);
+      const ordinaryKey = newIdempotencyKey(application.applicationId);
+      const firstHeaders = p0Ceremony
+        ? await p0CeremonyHeaders(application.applicationId, 'approve')
+        : { idempotencyKey: ordinaryKey, correlationId: '' };
+      const endpoint = `/api/staff/registration/applications/${encodeURIComponent(application.applicationId)}/decision`;
+      const requestBody = JSON.stringify({ decision, reason, locale });
+      const response = await fetch(endpoint, {
         method: 'POST',
         credentials: 'same-origin',
         cache: 'no-store',
@@ -216,12 +244,41 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
           Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrfToken,
-          'Idempotency-Key': newIdempotencyKey(application.applicationId),
+          'Idempotency-Key': firstHeaders.idempotencyKey,
+          ...(firstHeaders.correlationId ? { 'X-Correlation-Id': firstHeaders.correlationId } : {}),
         },
-        body: JSON.stringify({ decision, reason, locale }),
+        body: requestBody,
       });
-      const payload = await response.json().catch(() => ({})) as QueueResponse;
+      const payload = await response.json().catch(() => ({})) as DecisionResponse;
       if (!response.ok) throw new Error(payload.message || payload.code || copy.unavailable);
+      if (p0Ceremony) {
+        if (payload.replayed === false && payload.notificationDelivered !== true) {
+          throw new Error('P0_HUMAN_APPROVAL_NOTIFICATION_NOT_DELIVERED');
+        }
+        if (payload.replayed !== false && payload.replayed !== true) {
+          throw new Error('P0_HUMAN_APPROVAL_RESPONSE_INVALID');
+        }
+        const replayHeaders = await p0CeremonyHeaders(application.applicationId, 'replay');
+        const replayResponse = await fetch(endpoint, {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+            'Idempotency-Key': replayHeaders.idempotencyKey,
+            'X-Correlation-Id': replayHeaders.correlationId,
+          },
+          body: requestBody,
+        });
+        const replayPayload = await replayResponse.json().catch(() => ({})) as DecisionResponse;
+        if (!replayResponse.ok
+          || replayPayload.replayed !== true
+          || Object.hasOwn(replayPayload, 'notificationDelivered')) {
+          throw new Error(replayPayload.message || replayPayload.code || 'P0_HUMAN_APPROVAL_REPLAY_INVALID');
+        }
+      }
       setApplications((current) => current.filter((item) => item.applicationId !== application.applicationId));
       setNotice(copy.success);
       formElement.reset();
