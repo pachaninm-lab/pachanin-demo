@@ -70,7 +70,7 @@ export async function PlatformV7StrategicHome() {
   const chrome = await getTranslations('publicEntry.chrome');
 
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
-  const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
+  const taiHref = `/gekta?lang=${encodeURIComponent(locale)}`;
 
   const nav = (
     <>
