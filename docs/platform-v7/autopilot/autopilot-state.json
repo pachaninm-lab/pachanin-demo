@@ -1058,6 +1058,9 @@
       "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3a-3896.json",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+    ],
+    "claude/gekta-canonical-images-every-main": [
+      ".github/workflows/docker-publish.yml"
     ]
   },
   "currentAcceptance": [
