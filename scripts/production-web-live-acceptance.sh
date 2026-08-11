@@ -34,12 +34,16 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   deal_ru_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/platform-v7/how-it-works?lang=ru&release=$cache_bust" || true)"
   deal_en_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/platform-v7/how-it-works?lang=en&release=$cache_bust" || true)"
   deal_zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/platform-v7/how-it-works?lang=zh&release=$cache_bust" || true)"
+  gekta_ru_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/gekta?lang=ru&release=$cache_bust" || true)"
+  gekta_en_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/gekta?lang=en&release=$cache_bust" || true)"
+  gekta_zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/gekta?lang=zh&release=$cache_bust" || true)"
 
   robots_body="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/robots.txt?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
   robots_headers="$(curl -fsS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/robots.txt?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
   sitemap_body="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/sitemap.xml?release=$cache_bust" 2>/dev/null || true)"
   root_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
   public_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/platform-v7?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
+  gekta_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/gekta?lang=ru&release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
 
   manifest_ok=0
   if grep -Fq "$TARGET_SHA" <<< "$manifest"; then
@@ -51,31 +55,36 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     && ! grep -Eiq '^disallow:[[:space:]]*/[[:space:]]*$' <<< "$robots_body" \
     && grep -Fq "Sitemap: $LIVE_BASE/sitemap.xml" <<< "$robots_body" \
     && grep -Fq "$LIVE_BASE/platform-v7" <<< "$sitemap_body" \
+    && grep -Fq "$LIVE_BASE/gekta" <<< "$sitemap_body" \
     && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$robots_headers" \
     && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$root_headers" \
-    && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$public_headers"; then
+    && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$public_headers" \
+    && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$gekta_headers"; then
     indexation_ok=1
   fi
 
   if (( manifest_ok == 1 && indexation_ok == 1 )) \
     && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]] \
-    && [[ "$deal_ru_code" == 200 && "$deal_en_code" == 200 && "$deal_zh_code" == 200 ]]; then
+    && [[ "$deal_ru_code" == 200 && "$deal_en_code" == 200 && "$deal_zh_code" == 200 ]] \
+    && [[ "$gekta_ru_code" == 200 && "$gekta_en_code" == 200 && "$gekta_zh_code" == 200 ]]; then
     printf 'LIVE_ACCEPTANCE=PASS\n'
     printf 'LIVE_ACTION=%s\n' "$ACTION"
     printf 'LIVE_REVISION=%s\n' "$TARGET_SHA"
     printf 'LIVE_HEALTH_ROUTE_CODE=%s\n' "${health_code:-missing}"
     printf 'LIVE_LANG_CODES=ru:%s,en:%s,zh:%s\n' "$ru_code" "$en_code" "$zh_code"
     printf 'LIVE_DEAL_JOURNEY_CODES=ru:%s,en:%s,zh:%s\n' "$deal_ru_code" "$deal_en_code" "$deal_zh_code"
-    printf 'LIVE_INDEXATION=robots:allow,sitemap:present,public:noindex-absent\n'
+    printf 'LIVE_GEKTA_CODES=ru:%s,en:%s,zh:%s\n' "$gekta_ru_code" "$gekta_en_code" "$gekta_zh_code"
+    printf 'LIVE_INDEXATION=robots:allow,sitemap:platform+gekta,public:noindex-absent\n'
     exit 0
   fi
 
-  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s codes=ru:%s,en:%s,zh:%s deal_journey=ru:%s,en:%s,zh:%s\n' \
+  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s codes=ru:%s,en:%s,zh:%s deal_journey=ru:%s,en:%s,zh:%s gekta=ru:%s,en:%s,zh:%s\n' \
     "$attempt" "$ATTEMPTS" "$ACTION" "${health_code:-missing}" \
     "$([[ "$manifest_ok" == 1 ]] && echo match || echo mismatch)" \
     "$([[ "$indexation_ok" == 1 ]] && echo pass || echo fail)" \
     "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}" \
-    "${deal_ru_code:-missing}" "${deal_en_code:-missing}" "${deal_zh_code:-missing}"
+    "${deal_ru_code:-missing}" "${deal_en_code:-missing}" "${deal_zh_code:-missing}" \
+    "${gekta_ru_code:-missing}" "${gekta_en_code:-missing}" "${gekta_zh_code:-missing}"
   sleep "$DELAY_SECONDS"
 done
 
