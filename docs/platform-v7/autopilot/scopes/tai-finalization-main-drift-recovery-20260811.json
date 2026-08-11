@@ -8,6 +8,7 @@
   "objective": "Close the proven activation run 31478303771 safely after main advanced during its long hosted acceptance, and prevent the same exact-SHA finalization race from recurring without weakening current-main activation authority.",
   "allowedPaths": [
     ".github/workflows/tai-owner-finalization-recovery-command.yml",
+    ".github/workflows/tai-owner-finalization-recovery-diagnostic.yml",
     "scripts/pc-tai-release-controller.sh",
     "scripts/pc-tai-release-controller-core.sh",
     "scripts/check-pc-tai-release-controller.mjs",
@@ -19,6 +20,8 @@
     "A stale-target accept is permitted only when the activation target is an ancestor of current main, the exact controller job state still names that target, activation evidence passed, hosted acceptance passed, and live API, web and TAI revisions still equal that target",
     "Any divergent target, missing state, failed or skipped acceptance, changed live revision, malformed evidence or unverified controller digest fails closed",
     "The one-time recovery command is owner-only and fixed to activation run 31478303771 and target b57b1e4e6c50e01acefc1a1da0deea05a0099a92",
+    "The recovery diagnostic command is owner-only, read-only and fixed to the same activation target; it may list only the bounded recovery workflow runs and job conclusions, download only failed job logs, redact secret-like content and publish only a bounded diagnosis to issue 3365",
+    "Recovery diagnostics may not write commit statuses, deploy, connect to REG.RU, read repository secrets, mutate application, Docker, database or model state, or widen runner authority",
     "The recovery may atomically synchronize only the exact current root-controller wrapper through the existing bounded controller-sync script, then write the already-proven final acceptance marker and bounded evidence",
     "The recovery must not run application deployment, Docker mutation, database mutation, model mutation, rollback, migration, inbound production SSH from the restricted runner, or widen runner sudo/Docker authority",
     "Provider timeout, response budgets, HMAC signing, private model transport, semantic acceptance, rollback scripts and hosted Chromium criteria remain unchanged",
