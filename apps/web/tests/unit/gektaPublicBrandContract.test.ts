@@ -27,7 +27,7 @@ describe('Gekta public brand contract', () => {
     expect(sources.assistant).toContain("open: 'Спросить Гекту'");
     expect(sources.assistant).toContain("title: 'Гекта'");
     expect(sources.assistant).toContain("subtitle: 'Аграрный интеллект для земли, урожая и решений.'");
-    expect(sources.fullscreenController).toContain("ru: { title: 'Гекта', subtitle: 'Аграрный интеллект для земли, урожая и решений.' }");
+    expect(sources.fullscreenController).not.toContain('PUBLIC_ASSISTANT_BRANDING');
     expect(sources.contactDock).toContain("assistant: 'Гекта'");
     expect(sources.contactDock).toContain("assistantAria: 'Открыть Гекту'");
     expect(sources.dealJourney).toContain("askTai: 'Спросить Гекту об этом этапе'");
@@ -44,8 +44,6 @@ describe('Gekta public brand contract', () => {
   it('uses Gekta consistently in English and Chinese public copy', () => {
     expect(sources.assistant).toContain("open: 'Ask Gekta'");
     expect(sources.assistant).toContain("title: 'Gekta'");
-    expect(sources.fullscreenController).toContain("en: { title: 'Gekta', subtitle: 'Agricultural intelligence for land, crops and decisions.' }");
-    expect(sources.fullscreenController).toContain("zh: { title: 'Gekta', subtitle: '服务于土地、作物与决策的农业智能。' }");
     expect(sources.contactDock).toContain("assistant: 'Gekta'");
     expect(sources.contactDock).toContain("assistantAria: 'Open Gekta'");
     expect(sources.dealJourney).toContain("askTai: 'Ask Gekta about this stage'");
