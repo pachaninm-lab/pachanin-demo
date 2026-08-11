@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-finalization-main-drift-recovery-2-20260811",
+  "status": "active",
+  "title": "TAI exact activation finalization recovery for run 31481267058",
+  "priority": "P0",
+  "baselineExactMain": "696f8d00f6fb05426e55d2636a5a22a7543d939e",
+  "objective": "Close the proven activation run 31481267058 safely after main advanced during its hosted acceptance, without another application deployment.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-finalization-recovery-command.yml",
+    "scripts/check-tai-finalization-main-drift-recovery.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-2-20260811.json"
+  ],
+  "boundaries": [
+    "The command is owner-only and fixed to activation run 31481267058, controller run 314812670581, target 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d and failed finalization job 93754807742",
+    "Recovery is permitted only when the activation target is an ancestor of current main, exact activation and hosted Chromium jobs passed, finalization failed only with TARGET_IS_NOT_CURRENT_MAIN, and live API and web revisions still equal the activation target",
+    "Any divergent target, changed live revision, missing controller state, malformed evidence, failed acceptance or unverified host identity fails closed",
+    "Recovery may write only the already-earned final acceptance marker and bounded finalization evidence under the existing controller lock",
+    "Recovery must not run application deployment, Docker mutation, database mutation, model mutation, migration, rollback, or widen runner sudo or Docker authority",
+    "Provider timeout, response budgets, HMAC signing, private model transport, semantic acceptance, rollback scripts and hosted Chromium criteria remain unchanged",
+    "No Netlify, Vercel, Railway or paid LLM dependency is introduced",
+    "New recurring cost is 0 RUB"
+  ],
+  "productionEvidence": {
+    "activationRun": 31481267058,
+    "targetSha": "10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d",
+    "activationJob": 93746825204,
+    "hostedAcceptanceJob": 93747517497,
+    "failedFinalizationJob": 93754807742,
+    "controllerRun": 314812670581,
+    "failureCode": "TARGET_IS_NOT_CURRENT_MAIN",
+    "currentMainAtFailure": "696f8d00f6fb05426e55d2636a5a22a7543d939e"
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
