@@ -185,7 +185,7 @@ describe('tai speed baseline', () => {
       expect(sample.error).toContain('request_failed');
     });
 
-    it('sends prior turns as history so follow-up latency is measured in context', async () => {
+    it('uses the exact Gekta wire contract and sends prior turns for follow-up latency', async () => {
       let sentBody: Record<string, unknown> = {};
       const fetchImpl = async (_url: string, init: { body: string }) => {
         sentBody = JSON.parse(init.body);
@@ -200,7 +200,9 @@ describe('tai speed baseline', () => {
       });
 
       expect(sentBody.history).toHaveLength(1);
-      expect(sentBody.question).toBe('А что проверить сначала?');
+      expect(sentBody.message).toBe('А что проверить сначала?');
+      expect(sentBody.context).toBe('gekta-standalone');
+      expect(sentBody).not.toHaveProperty('question');
     });
   });
 
