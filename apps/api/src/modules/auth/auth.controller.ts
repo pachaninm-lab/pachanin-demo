@@ -68,10 +68,10 @@ export class AuthController {
   @Post('password-reset/request')
   requestPasswordReset(
     @Body() dto: RequestPasswordResetDto,
-    @Headers('x-password-reset-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Ip() ip?: string,
   ) {
-    return this.passwordReset.request(dto.email, ip, deliveryKey);
+    return this.passwordReset.request(dto.email, ip, correlationId || randomUUID(), dto.locale);
   }
 
   @Public()
@@ -80,10 +80,10 @@ export class AuthController {
   @Post('password-reset/confirm')
   confirmPasswordReset(
     @Body() dto: ConfirmPasswordResetDto,
-    @Headers('x-password-reset-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Ip() ip?: string,
   ) {
-    return this.passwordReset.confirm(dto.token, dto.newPassword, ip, deliveryKey);
+    return this.passwordReset.confirm(dto.token, dto.newPassword, ip, correlationId || randomUUID());
   }
 
   @Public()
@@ -128,7 +128,7 @@ export class AuthController {
   }
 
   @Public()
-  @RateLimit({ name: 'auth_registration_status', scope: 'ip', limit: 30, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @RateLimit({ name: 'auth_registration_status', scope: 'ip', limit: 30, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS', windowEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS_WINDOW_SECONDS' })
   @Get('registration/status')
   registrationStatus(@Query('token') token?: string) {
     return this.registrationApplications.status(String(token || ''));
