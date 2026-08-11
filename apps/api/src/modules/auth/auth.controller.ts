@@ -94,14 +94,12 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-registration-delivery-key') deliveryKey?: string,
     @Headers('user-agent') userAgent?: string,
     @Ip() ip?: string,
   ) {
     return this.registrationApplications.submit(dto, {
       idempotencyKey,
       correlationId: correlationId || randomUUID(),
-      deliveryKey,
       userAgent,
       ip,
     });
@@ -114,9 +112,8 @@ export class AuthController {
   verifyRegistrationEmail(
     @Body() dto: VerifyRegistrationEmailDto,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-registration-delivery-key') deliveryKey?: string,
   ) {
-    return this.registrationApplications.verifyEmail(dto.token, correlationId || randomUUID(), deliveryKey);
+    return this.registrationApplications.verifyEmail(dto.token, correlationId || randomUUID());
   }
 
   @Public()
@@ -126,13 +123,12 @@ export class AuthController {
   resendRegistrationEmail(
     @Body() dto: ResendRegistrationEmailDto,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-registration-delivery-key') deliveryKey?: string,
   ) {
-    return this.registrationApplications.resendEmail(dto.email, correlationId || randomUUID(), deliveryKey);
+    return this.registrationApplications.resendEmail(dto.email, correlationId || randomUUID(), dto.locale);
   }
 
   @Public()
-  @RateLimit({ name: 'auth_registration_status', scope: 'ip', limit: 30, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS', windowEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS_WINDOW_SECONDS' })
+  @RateLimit({ name: 'auth_registration_status', scope: 'ip', limit: 30, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
   @Get('registration/status')
   registrationStatus(@Query('token') token?: string) {
     return this.registrationApplications.status(String(token || ''));
