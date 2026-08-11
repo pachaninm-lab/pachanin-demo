@@ -110,6 +110,7 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     process.env.AI_ASSISTANT_BASE_URL = 'http://127.0.0.1:8080/v1/';
     process.env.AI_ASSISTANT_MODEL = 'qwen2.5-7b-instruct';
     process.env.AI_ASSISTANT_API_KEY = 'k'.repeat(40);
+    process.env.AI_ASSISTANT_MAX_TOKENS = '900';
   });
 
   afterEach(() => {
@@ -117,12 +118,47 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     global.fetch = ORIGINAL_FETCH;
   });
 
-  it('asks the runtime for a streamed completion rather than a finished one', async () => {
+  it('asks the runtime for a streamed completion with the hard concise general-agro ceiling', async () => {
     const probe = installRuntime({ deltas: ['Готовый ответ. '] });
 
     for await (const _event of service.generateStream(request())) { /* drain */ }
 
     expect(probe.requests[0].body.stream).toBe(true);
+    expect(probe.requests[0].body.max_tokens).toBe(256);
+  });
+
+  it('enforces the signed detailed general-agro profile at the provider call', async () => {
+    const probe = installRuntime({ deltas: ['Подробный, но ограниченный ответ. '] });
+
+    for await (const _event of service.generateStream(request({
+      responseBudget: { profile: 'detailed' },
+    }))) { /* drain */ }
+
+    expect(probe.requests[0].body.max_tokens).toBe(320);
+  });
+
+  it('keeps verified-platform provider token authority unchanged', async () => {
+    process.env.AI_ASSISTANT_MAX_TOKENS = '500';
+    const probe = installRuntime({ deltas: ['Аукцион работает по подтверждённым условиям. '] });
+
+    for await (const _event of service.generateStream(request({
+      answerMode: 'verified_platform',
+      responseBudget: undefined,
+    }))) { /* drain */ }
+
+    expect(probe.requests[0].body.max_tokens).toBe(500);
+  });
+
+  it('rejects an invalid general-agro response profile before provider execution', async () => {
+    const probe = installRuntime({ deltas: ['Не должен быть вызван. '] });
+
+    await expect((async () => {
+      for await (const _event of service.generateStream(request({
+        responseBudget: { profile: 'unbounded' },
+      }))) { /* drain */ }
+    })()).rejects.toThrow(/response budget profile is invalid/iu);
+
+    expect(probe.requests).toHaveLength(0);
   });
 
   it('delivers content to the reader before generation has finished', async () => {
@@ -174,7 +210,7 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(text.replace(/\n/gu, ' ')).toBe('Первое предложение. Второе предложение. Третье предложение.');
   });
 
-  it('continues into a second stream when the first hits the token ceiling', async () => {
+  it('continues into a second stream with a smaller hard ceiling when the first hits the token ceiling', async () => {
     const probe = installRuntime({ deltas: ['Обрезанный ответ. '], finishReason: 'length' });
 
     let text = '';
@@ -185,8 +221,22 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     }
 
     expect(probe.requests).toHaveLength(2);
+    expect(probe.requests[0].body.max_tokens).toBe(256);
+    expect(probe.requests[1].body.max_tokens).toBe(64);
     expect(text).toContain('Продолжение ответа.');
     expect(truncated).toBe(false);
+  });
+
+  it('uses the bounded detailed continuation ceiling too', async () => {
+    const probe = installRuntime({ deltas: ['Обрезанный подробный ответ. '], finishReason: 'length' });
+
+    for await (const _event of service.generateStream(request({
+      responseBudget: { profile: 'detailed' },
+    }))) { /* drain */ }
+
+    expect(probe.requests).toHaveLength(2);
+    expect(probe.requests[0].body.max_tokens).toBe(320);
+    expect(probe.requests[1].body.max_tokens).toBe(96);
   });
 
   it('leads with the current-evidence boundary before the model says anything', async () => {

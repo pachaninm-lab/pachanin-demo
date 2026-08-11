@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encodeFrame, type GatewayFrame } from '@pc/ai-assistant-stream-contract';
 import {
+  applyGeneralAgroResponseBudget,
   signInternalStreamRequest,
   streamInternalModel,
   type InternalStreamEvent,
@@ -75,6 +76,60 @@ describe('internal stream signing', () => {
     // A signature over the buffered path must not be reusable here.
     const other = signInternalStreamRequest(`${config.secret}x`, '{"a":1}', 1_700_000_000);
     expect(other.signature).not.toBe(signed.signature);
+  });
+
+  it('adds a typed completion profile without mutating the user question or state', () => {
+    const question = 'Как интерпретировать коэффициент кущения?';
+    const general = applyGeneralAgroResponseBudget({
+      question,
+      originalQuestion: question,
+      locale: 'ru',
+      answerMode: 'general_agro',
+      conversationState: 'topic: crop:wheat',
+    }) as Record<string, unknown>;
+    const verified = {
+      question: 'Как работает аукцион?',
+      originalQuestion: 'Как работает аукцион?',
+      locale: 'ru',
+      answerMode: 'verified_platform',
+    };
+
+    expect(general.question).toBe(question);
+    expect(general.originalQuestion).toBe(question);
+    expect(general.conversationState).toBe('topic: crop:wheat');
+    expect(general.responseBudget).toEqual({ profile: 'concise' });
+    expect(applyGeneralAgroResponseBudget(verified)).toBe(verified);
+  });
+
+  it('selects a detailed profile in RU, EN and ZH without appending prompt text', () => {
+    for (const [question, locale] of [
+      ['Объясни подробно, как хранить зерно после уборки', 'ru'],
+      ['Explain grain storage in detail', 'en'],
+      ['请详细说明粮食收获后如何储存', 'zh'],
+    ] as const) {
+      const budgeted = applyGeneralAgroResponseBudget({
+        question,
+        originalQuestion: question,
+        locale,
+        answerMode: 'general_agro',
+      }) as Record<string, unknown>;
+      expect(budgeted.question).toBe(question);
+      expect(budgeted.responseBudget).toEqual({ profile: 'detailed' });
+    }
+  });
+
+  it('preserves a valid 1200-character question exactly', () => {
+    const question = 'п'.repeat(1_200);
+    const budgeted = applyGeneralAgroResponseBudget({
+      question,
+      originalQuestion: question,
+      locale: 'ru',
+      answerMode: 'general_agro',
+    }) as Record<string, unknown>;
+
+    expect(budgeted.question).toBe(question);
+    expect((budgeted.question as string)).toHaveLength(1_200);
+    expect(budgeted.responseBudget).toEqual({ profile: 'concise' });
   });
 });
 

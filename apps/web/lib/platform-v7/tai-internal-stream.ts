@@ -46,6 +46,12 @@ const MAX_PENDING_RECORD_CHARS = 64 * 1024;
 /** Ceiling on one relayed answer. Bounded so a runaway upstream cannot exhaust us. */
 const MAX_STREAM_BYTES = 1_048_576;
 
+const DETAILED_RESPONSE_PATTERNS = [
+  /(?:подробн|детальн|разв[её]рнут|пошагов)/iu,
+  /(?:in\s+detail|detailed|comprehensive|step[-\s]?by[-\s]?step)/iu,
+  /(?:详细|详尽|全面|一步一步)/u,
+] as const;
+
 export interface InternalStreamConfig {
   readonly endpoint: URL;
   readonly secret: string;
@@ -74,6 +80,32 @@ export function signInternalStreamRequest(
 }
 
 /**
+ * Add a typed, signed completion profile to model-backed general-agro requests.
+ *
+ * This does not mutate the user's question, originalQuestion or ConversationState.
+ * The API is the authority that converts the profile into hard provider token
+ * ceilings. Verified-platform payloads are returned byte-for-byte unchanged.
+ */
+export function applyGeneralAgroResponseBudget(payload: unknown): unknown {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return payload;
+  const row = payload as Record<string, unknown>;
+  if (row.answerMode !== 'general_agro') return payload;
+  const question = typeof row.originalQuestion === 'string'
+    ? row.originalQuestion.trim()
+    : typeof row.question === 'string'
+      ? row.question.trim()
+      : '';
+  if (!question) return payload;
+  const profile = DETAILED_RESPONSE_PATTERNS.some((pattern) => pattern.test(question))
+    ? 'detailed'
+    : 'concise';
+  return Object.freeze({
+    ...row,
+    responseBudget: Object.freeze({ profile }),
+  });
+}
+
+/**
  * Relay one internal answer.
  *
  * Cancellation is wired in both directions: the reader's signal aborts the
@@ -86,7 +118,7 @@ export async function* streamInternalModel(
   payload: unknown,
   readerSignal: AbortSignal,
 ): AsyncGenerator<InternalStreamEvent, void, undefined> {
-  const body = canonicalJson(payload);
+  const body = canonicalJson(applyGeneralAgroResponseBudget(payload));
   const signed = signInternalStreamRequest(config.secret, body);
 
   const controller = new AbortController();
