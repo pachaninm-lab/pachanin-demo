@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-live-brand-acceptance-3837",
+  "branch": "agent/gekta-live-brand-acceptance",
+  "issue": 3837,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "7a9f0822498e57b90fb8c086545c41b7d3f06c4c"
+  },
+  "purpose": "Correct the live Gekta public identity authority exposed by production Chromium evidence, align RU/EN/ZH acceptance with the canonical brand, and prevent the fullscreen controller from restoring retired identity copy.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-live-brand-acceptance-3837.json"
+  ],
+  "canonical": {
+    "ru": "Гекта",
+    "latin": "Gekta",
+    "descriptorRu": "Аграрный интеллект для земли, урожая и решений"
+  },
+  "compatibility": {
+    "runtimeRoutes": "unchanged",
+    "analyticsEvents": "unchanged",
+    "modelRouting": "unchanged",
+    "deploymentController": "unchanged"
+  },
+  "forbiddenChanges": [
+    "API behavior or route authority",
+    "model routing or prompts",
+    "database or tenant authority",
+    "production workflows or credentials",
+    "generic replacement of artificial-intelligence terminology"
+  ],
+  "requiredChecks": [
+    "platform-v7 autopilot guard",
+    "web-unit",
+    "web typecheck",
+    "Design System v8 governance",
+    "hosted Chromium live acceptance after merge"
+  ],
+  "evidence": {
+    "failedActivationRun": 31460826944,
+    "terminalCode": "ACTIVATION_ROLLED_BACK",
+    "productionMutationState": "rolled-back"
+  },
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Corrective public Gekta identity and acceptance slice only; no production claim until exact-main activation and hosted Chromium acceptance pass."
+}
