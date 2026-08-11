@@ -73,7 +73,7 @@ const COPY: Record<Locale, LocalizedCopy> = {
           text: 'Условия, события, документы, отклонения и решения сохраняются в хронологии одной Сделки.',
         },
         {
-          title: 'TAI в процессе',
+          title: 'Гекта в процессе',
           text: 'ИИ сопоставляет факты, объясняет влияние на риск и расчёт и готовит допустимый следующий шаг.',
         },
         {
@@ -127,7 +127,7 @@ const COPY: Record<Locale, LocalizedCopy> = {
           text: 'Terms, events, documents, deviations and decisions remain in one Deal timeline.',
         },
         {
-          title: 'TAI in the workflow',
+          title: 'Gekta in the workflow',
           text: 'AI matches facts, explains the impact on risk and settlement and prepares a permitted next step.',
         },
         {
@@ -181,7 +181,7 @@ const COPY: Record<Locale, LocalizedCopy> = {
           text: '条件、事件、文件、偏差和决定保存在同一笔交易时间线中。',
         },
         {
-          title: '流程内的 TAI',
+          title: '流程内的 Gekta',
           text: 'AI 对照事实，说明对风险和结算的影响，并准备允许的下一步。',
         },
         {
