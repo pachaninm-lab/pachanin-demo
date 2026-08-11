@@ -159,8 +159,15 @@ try {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }
 
-const expectedPaths = [workflowPath, wrapperPath, checkerPath, scopePath].sort();
-if (JSON.stringify([...scope.allowedPaths].sort()) !== JSON.stringify(expectedPaths)) {
+const expectedPaths = [workflowPath, wrapperPath, checkerPath, scopePath];
+const actualPaths = Array.isArray(scope.allowedPaths) ? scope.allowedPaths : [];
+const expectedPathSet = new Set(expectedPaths);
+const actualPathSet = new Set(actualPaths);
+if (actualPaths.length !== expectedPaths.length
+    || actualPathSet.size !== actualPaths.length
+    || expectedPathSet.size !== expectedPaths.length
+    || expectedPaths.some((entry) => !actualPathSet.has(entry))
+    || actualPaths.some((entry) => !expectedPathSet.has(entry))) {
   fail('SCOPE_PATHS');
 }
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
