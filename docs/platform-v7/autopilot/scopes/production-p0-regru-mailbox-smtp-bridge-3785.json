@@ -1,21 +1,24 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-regru-smtp-secret-discovery-20260811",
+  "branch": "fix/p0-regru-mailbox-smtp-bridge-v2-20260811",
   "status": "active",
-  "operationalStatus": "P0_REGRU_MAILBOX_SMTP_BRIDGE",
+  "operationalStatus": "P0_REG_RU_MAILBOX_SMTP_BRIDGE_V2",
   "issue": 3785,
   "releaseIssue": 3072,
-  "title": "Reuse the existing REG.RU acceptance mailbox credential only when it is the canonical access sender",
+  "title": "Prove existing mailbox SMTP authorization for the canonical sender and materialize auth-mail runtime",
   "allowedPaths": [
     ".github/workflows/production-p0-regru-mailbox-smtp-bridge.yml",
+    "scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh",
+    "scripts/production-p0-regru-mailbox-smtp-proof.py",
     "docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
   "boundaries": {
-    "productionMutation": "ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES_AFTER_CANONICAL_IDENTITY_AND_SMTP_AUTH",
+    "productionMutation": "ONE_CONTROL_EMAIL_THEN_ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES_AFTER_DELIVERY_PROOF",
+    "probeEmailMutation": true,
+    "runtimeFileMutationAfterProbeOnly": true,
     "databaseMutation": false,
     "deploymentMutation": false,
-    "credentialMutation": true,
     "credentialOutput": false,
     "piiOutput": false,
     "rawEnvironmentOutput": false,
@@ -25,15 +28,15 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "use only existing protected REG.RU mailbox secrets already required by first-customer acceptance",
-    "require the protected IMAP user to equal the canonical access@процент-агро.рф sender before reusing its password",
-    "authenticate to sm38.hosting.reg.ru:465 with TLS and send no message during the credential proof",
-    "fail before SSH when mailbox credential is missing or belongs to another mailbox",
-    "require pinned REG.RU root SSH identity before any production file mutation",
-    "reuse scripts/provision-production-p0-password-reset-runtime.sh",
-    "create or validate only root-owned mode-0600 auth-mail runtime files in the active Compose working directory",
-    "perform no database or deployment mutation",
-    "never publish credential values, protected paths, raw SMTP responses or raw environment values",
+    "do not require the protected mailbox login to equal the public sender address",
+    "canonicalize the mailbox login domain to ASCII IDNA only for REG.RU SMTP authentication and preserve the protected mailbox login for IMAP",
+    "authenticate to sm38.hosting.reg.ru on TLS port 465 using the already-existing protected mailbox credential",
+    "send exactly one controlled message with envelope/header From access@процент-агро.рф to the same protected control mailbox",
+    "prove the uniquely marked message is readable back through the existing protected IMAP mailbox before any runtime file mutation",
+    "publish no mailbox identity, credential, raw SMTP response, raw IMAP content or protected filesystem path",
+    "pin the existing REG.RU DNS and SSH host identity and require root before runtime file mutation",
+    "reuse scripts/provision-production-p0-password-reset-runtime.sh with distinct PC_SMTP_USER and PC_MAIL_FROM",
+    "perform no database mutation and no deployment mutation",
     "add zero recurring cost"
   ]
 }
