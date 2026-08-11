@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
 const paths = {
   workflow: '.github/workflows/tai-owner-finalization-recovery-command.yml',
@@ -201,6 +202,24 @@ if ([authorityIndex, artifactEvidenceIndex, controllerAuthorityIndex, activation
     && recoveryEvidenceIndex < finalMarkerIndex
     && finalMarkerIndex < publishIndex)) {
   violations.push(`${paths.workflow}: authority, exact artifact, controller, live-revision, resumable durable evidence, final-marker and publication order is invalid`);
+}
+
+const remoteStartMarker = '          cat > "$RUNNER_TEMP/recover-finalization.sh" <<\'RECOVERY\'\n';
+const remoteStart = workflow.indexOf(remoteStartMarker);
+const remoteEnd = workflow.indexOf('\n          RECOVERY\n', remoteStart + remoteStartMarker.length);
+if (remoteStart < 0 || remoteEnd < 0) {
+  violations.push(`${paths.workflow}: embedded recovery script boundary is missing`);
+} else {
+  const rawLines = workflow.slice(remoteStart + remoteStartMarker.length, remoteEnd).split('\n');
+  if (rawLines.some((line) => !line.startsWith('          '))) {
+    violations.push(`${paths.workflow}: embedded recovery script indentation is invalid`);
+  } else {
+    const remoteScript = `${rawLines.map((line) => line.slice(10)).join('\n')}\n`;
+    const syntax = spawnSync('bash', ['-n'], { input: remoteScript, encoding: 'utf8' });
+    if (syntax.status !== 0) {
+      violations.push(`${paths.workflow}: embedded recovery script syntax failed: ${(syntax.stderr || syntax.stdout || '').trim()}`);
+    }
+  }
 }
 
 if (violations.length) {
