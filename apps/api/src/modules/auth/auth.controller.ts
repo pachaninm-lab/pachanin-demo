@@ -247,7 +247,6 @@ export class AuthController {
     @CurrentUser() user: RequestUser,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
   ) {
     return this.organizationInvitations.create(
       user,
@@ -255,7 +254,7 @@ export class AuthController {
       dto.role,
       String(idempotencyKey || ''),
       correlationId || randomUUID(),
-      deliveryKey,
+      dto.locale,
     );
   }
 
@@ -267,7 +266,6 @@ export class AuthController {
     @CurrentUser() user: RequestUser,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
   ) {
     return this.organizationInvitations.resend(
       user,
@@ -275,7 +273,7 @@ export class AuthController {
       dto.reason,
       String(idempotencyKey || ''),
       correlationId || randomUUID(),
-      deliveryKey,
+      dto.locale,
     );
   }
 
@@ -356,7 +354,6 @@ export class AuthController {
     @CurrentUser() user: RequestUser,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
   ) {
     return this.organizationInvitations.resetMembershipMfa(
       user,
@@ -365,7 +362,7 @@ export class AuthController {
       dto.reason,
       String(idempotencyKey || ''),
       correlationId || randomUUID(),
-      deliveryKey,
+      dto.locale,
     );
   }
 
@@ -375,14 +372,12 @@ export class AuthController {
   confirmMfaRecovery(
     @Body() dto: ConfirmMfaRecoveryDto,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
     @Headers('user-agent') userAgent?: string,
     @Ip() ip?: string,
   ) {
     return this.organizationInvitations.confirmMfaRecovery(
       dto,
       correlationId || randomUUID(),
-      deliveryKey,
       ip,
       userAgent,
     );
