@@ -59,33 +59,25 @@ jobs:
           import json
           from pathlib import Path
 
-          workflow = Path('.github/workflows/production-p0-regru-smtp-runtime-recover.yml').read_text()
-          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/production-p0-regru-smtp-runtime-recover-3785.json').read_text())
+          scope_path = Path('docs/platform-v7/autopilot/scopes/production-p0-regru-smtp-runtime-recover-3785.json')
+          scope = json.loads(scope_path.read_text())
           assert scope['schemaVersion'] == 'platform-v7.concurrent-scope.v1'
           assert scope['issue'] == 3785 and scope['releaseIssue'] == 3072
+          assert scope['productionHosting'] == 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
           assert scope['boundaries']['newRecurringCostRub'] == 0
           assert scope['boundaries']['ownerOnly'] is True
           assert scope['boundaries']['exactMainGuard'] is True
           assert scope['boundaries']['databaseMutation'] is False
           assert scope['boundaries']['deploymentMutation'] is False
           assert scope['boundaries']['credentialOutput'] is False
+          assert scope['boundaries']['piiOutput'] is False
           assert scope['boundaries']['rawEnvironmentOutput'] is False
-          required = [
-              '/production p0-regru-smtp-runtime-recover current-main',
-              'sm38.hosting.reg.ru',
-              'access@xn----8sbjf4befbjgs9b.xn--p1ai',
-              'secrets.SMTP_PASSWORD',
-              'secrets.PC_SMTP_PASS',
-              'REG_RU_SMTP_AUTH_OK=1',
-              'PC_RECONCILE_ACTIVE_RUNTIME=1',
-              'AUTH_MAIL_RUNTIME_VALID=1',
-              'StrictHostKeyChecking=yes',
-          ]
-          for marker in required:
-              assert marker in workflow, marker
-          forbidden = ['StrictHostKeyChecking=no', 'sshpass', 'set -x']
-          for marker in forbidden:
-              assert marker not in workflow, marker
+          assert scope['boundaries']['rawLogOutput'] is False
+          expected_paths = {
+              '.github/workflows/production-p0-regru-smtp-runtime-recover.yml',
+              'docs/platform-v7/autopilot/scopes/production-p0-regru-smtp-runtime-recover-3785.json',
+          }
+          assert set(scope['allowedPaths']) == expected_paths
           PY
       - name: Resolve exact current main
         id: target
