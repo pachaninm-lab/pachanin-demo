@@ -37,15 +37,22 @@ jobs:
         run: |
           set -euo pipefail
           file=.github/workflows/gekta-p0-speed-model-host-diagnostic.yml
-          for forbidden in \
-            'systemctl restart' 'systemctl start' 'systemctl stop' \
-            'systemctl enable' 'systemctl disable' 'systemctl daemon-reload' \
-            'apt ' 'apt-get ' 'dnf ' 'yum ' 'chmod ' 'chown ' 'kill ' 'pkill ' 'rm -' 'tee /'; do
-            if grep -F -- "$forbidden" "$file"; then
-              echo "Forbidden mutation token in read-only diagnostic: $forbidden" >&2
-              exit 1
-            fi
-          done
+          node - "$file" <<'NODE'
+          const fs = require('node:fs');
+          const text = fs.readFileSync(process.argv[2], 'utf8');
+          const begin = text.indexOf("<<'REMOTE'\n");
+          const end = begin < 0 ? -1 : text.indexOf('\n          REMOTE', begin);
+          if (begin < 0 || end < 0) throw new Error('remote diagnostic heredoc not found');
+          const remote = text.slice(begin, end);
+          for (const forbidden of [
+            'systemctl restart', 'systemctl start', 'systemctl stop',
+            'systemctl enable', 'systemctl disable', 'systemctl daemon-reload',
+            'apt ', 'apt-get ', 'dnf ', 'yum ', 'chmod ', 'chown ',
+            'kill ', 'pkill ', 'rm -', 'tee /'
+          ]) {
+            if (remote.includes(forbidden)) throw new Error(`forbidden remote mutation token: ${forbidden}`);
+          }
+          NODE
           GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-diagnostic-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
   diagnose:
