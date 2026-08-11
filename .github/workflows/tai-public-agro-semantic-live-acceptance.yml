@@ -1,6 +1,8 @@
 name: TAI Public Agro Semantic Live Acceptance
 
 on:
+  issue_comment:
+    types: [created]
   pull_request:
     branches: [main]
     paths:
@@ -30,6 +32,7 @@ permissions:
   actions: read
   contents: read
   issues: write
+  statuses: read
 
 # This group is deliberately identical to the activation workflow group.
 # A later activation therefore queues behind a running semantic probe instead
@@ -57,6 +60,16 @@ jobs:
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
         inputs.confirmation == 'VERIFY-PUBLIC-AGRO-SEMANTICS'
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.issue.pull_request == null &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/tai recover-semantic 31481267058'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 55
@@ -97,6 +110,9 @@ jobs:
           grep -Fq "workflows: ['TAI Restricted Qwen REG.RU Activation']" "$workflow"
           grep -Fq "github.event.workflow_run.conclusion == 'success'" "$workflow"
           grep -Fq "group: tai-restricted-qwen-reg-ru-activation" "$workflow"
+          grep -Fq "github.event.comment.body == '/tai recover-semantic 31481267058'" "$workflow"
+          grep -Fq 'TAI Restricted Qwen REG.RU Activation' "$workflow"
+          grep -Fq "git merge-base --is-ancestor" "$workflow"
           grep -Fq "apps/web/components/platform-v7/PublicPlatformAssistant.tsx" "$workflow"
           grep -Fq "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx" "$workflow"
           echo 'SEMANTIC_ACCEPTANCE_SERIALIZATION=PASS'
@@ -104,6 +120,8 @@ jobs:
       - name: Resolve exact production target
         if: steps.mode.outputs.live == '1'
         id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -112,11 +130,31 @@ jobs:
             target='${{ github.event.workflow_run.head_sha }}'
           elif [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then
             target='${{ inputs.target_sha }}'
+          elif [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            target='10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d'
           else
             target='${{ github.sha }}'
           fi
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          current_main="$(git rev-parse origin/main)"
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            [[ "$target" == '10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d' ]]
+            git merge-base --is-ancestor "$target" "$current_main"
+            activation_state="$(
+              gh api "repos/$GITHUB_REPOSITORY/commits/$target/status" \
+                --jq '[.statuses[] | select(.context == "TAI Restricted Qwen REG.RU Activation")][0].state // ""'
+            )"
+            [[ "$activation_state" == 'success' ]]
+            accepted_marker="$(
+              gh api --paginate "repos/$GITHUB_REPOSITORY/issues/3365/comments" \
+                --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("Restricted Qwen accepted on REG.RU for exact target `10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d` after activation run `31481267058`"))) | .id' \
+                | tail -n 1
+            )"
+            [[ "$accepted_marker" =~ ^[0-9]+$ ]]
+            echo 'SEMANTIC_RECOVERY_AUTHORITY=PASS activation_run=31481267058'
+          else
+            [[ "$target" == "$current_main" ]]
+          fi
           echo "sha=$target" >> "$GITHUB_OUTPUT"
 
       - name: Wait for exact REG.RU deployment manifest
@@ -312,7 +350,11 @@ jobs:
         run: |
           set -euo pipefail
           gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" || true
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance failed closed for \`$TARGET_SHA\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Accepted-activation public agro semantic recovery failed closed for \`$TARGET_SHA\` after activation run \`31481267058\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
+          else
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance failed closed for \`$TARGET_SHA\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
+          fi
 
       - name: Record semantic acceptance success
         if: success() && steps.mode.outputs.live == '1'
@@ -322,5 +364,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance passed for \`$TARGET_SHA\` after serialized production verification. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Accepted-activation public agro semantic acceptance passed for \`$TARGET_SHA\` after activation run \`31481267058\` and finalization recovery. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+            gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Public agro semantic live acceptance PASS for accepted target \`$TARGET_SHA\` after activation run \`31481267058\`. Read-only live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          else
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance passed for \`$TARGET_SHA\` after serialized production verification. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          fi
           gh issue close 3372 --repo "$GITHUB_REPOSITORY" --reason completed
