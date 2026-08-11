@@ -46,8 +46,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-    outputs:
-      current_sha: ${{ steps.authority.outputs.current_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,13 +91,16 @@ jobs:
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${ACTIVATION_RUN_ID}/artifacts?per_page=100" \
             > "$RUNNER_TEMP/activation-artifacts.json"
-          node - "$RUNNER_TEMP/activation-run.json" "$RUNNER_TEMP/activation-jobs.json" "$RUNNER_TEMP/activation-artifacts.json" "$ACTIVATION_TARGET_SHA" "$ACTIVATION_JOB_ID" "$HOSTED_ACCEPTANCE_JOB_ID" "$FAILED_FINALIZATION_JOB_ID" "$HOSTED_ARTIFACT_ID" "$HOSTED_ARTIFACT_NAME" "$HOSTED_ARTIFACT_SIZE" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
+          node - "$RUNNER_TEMP/activation-run.json" "$RUNNER_TEMP/activation-jobs.json" "$RUNNER_TEMP/activation-artifacts.json" "$ACTIVATION_TARGET_SHA" "$ACTIVATION_JOB_ID" "$HOSTED_ACCEPTANCE_JOB_ID" "$FAILED_FINALIZATION_JOB_ID" "$HOSTED_ARTIFACT_ID" "$HOSTED_ARTIFACT_NAME" "$HOSTED_ARTIFACT_SIZE" "$HOSTED_ARTIFACT_DIGEST" "$GITHUB_REPOSITORY" <<'NODE'
           const fs = require('node:fs');
-          const [runPath, jobsPath, artifactsPath, target, activationJobId, hostedJobId, failedFinalizationJobId, artifactId, artifactName, artifactSize, artifactDigest] = process.argv.slice(2);
+          const [runPath, jobsPath, artifactsPath, target, activationJobId, hostedJobId, failedFinalizationJobId, artifactId, artifactName, artifactSize, artifactDigest, repository] = process.argv.slice(2);
           const run = JSON.parse(fs.readFileSync(runPath, 'utf8'));
           const report = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));
           const artifactReport = JSON.parse(fs.readFileSync(artifactsPath, 'utf8'));
-          if (run.id !== 31481267058 || run.head_sha !== target || run.status !== 'completed' || run.conclusion !== 'failure') process.exit(2);
+          if (run.id !== 31481267058 || run.name !== 'TAI Restricted Qwen REG.RU Activation'
+            || run.event !== 'workflow_dispatch' || run.head_sha !== target || run.head_branch !== 'main'
+            || run.head_repository?.full_name !== repository || run.run_attempt !== 1
+            || run.status !== 'completed' || run.conclusion !== 'failure') process.exit(2);
           if (!report || !Array.isArray(report.jobs) || report.total_count !== report.jobs.length) process.exit(3);
           const required = new Map([
             ['Activate through protected REG.RU controller', 'success'],
@@ -127,28 +128,27 @@ jobs:
 
           gh run view "$ACTIVATION_RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed \
             > "$RUNNER_TEMP/finalization-failure.log"
-          grep -Fxq 'ERROR_CODE=TARGET_IS_NOT_CURRENT_MAIN' \
-            <(sed -n 's/^.*ERROR_CODE=/ERROR_CODE=/p' "$RUNNER_TEMP/finalization-failure.log")
-          echo "current_sha=$current_sha" >> "$GITHUB_OUTPUT"
+          mapfile -t failure_codes < <(sed -n 's/^.*ERROR_CODE=/ERROR_CODE=/p' \
+            "$RUNNER_TEMP/finalization-failure.log" | sort -u)
+          (( ${#failure_codes[@]} == 1 ))
+          [[ "${failure_codes[0]}" == ERROR_CODE=TARGET_IS_NOT_CURRENT_MAIN ]]
 
   recover:
     name: Recover exact accepted finalization on REG.RU
     needs: authority
     if: >-
       github.event_name == 'issue_comment' &&
-      needs.authority.result == 'success' &&
-      needs.authority.outputs.current_sha != ''
+      needs.authority.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
     env:
-      CURRENT_SHA: ${{ needs.authority.outputs.current_sha }}
       EVIDENCE_DIR: artifacts/tai-finalization-recovery
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.authority.outputs.current_sha }}
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -157,8 +157,14 @@ jobs:
       - name: Confirm exact checkout and contract
         run: |
           set -Eeuo pipefail
-          [[ "$(git rev-parse HEAD)" == "$CURRENT_SHA" ]]
-          git merge-base --is-ancestor "$ACTIVATION_TARGET_SHA" "$CURRENT_SHA"
+          current_sha="$(git rev-parse HEAD)"
+          [[ "$current_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --force --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "$ACTIVATION_TARGET_SHA"
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$current_sha" ]]
+          git merge-base --is-ancestor "$ACTIVATION_TARGET_SHA" "$current_sha"
+          printf 'CURRENT_SHA=%s\n' "$current_sha" >> "$GITHUB_ENV"
           node scripts/check-tai-finalization-main-drift-recovery.mjs
       - name: Resolve protected root key and pinned REG.RU identity
         id: ssh
@@ -270,11 +276,18 @@ jobs:
           PY
           [[ -s "$job_state/target-sha" && "$(cat "$job_state/target-sha")" == "$target" ]]
           [[ -s "$job_state/PENDING_UI_ACCEPTANCE" && "$(cat "$job_state/PENDING_UI_ACCEPTANCE")" == "$target" ]]
-          [[ -s "$qwen_state/evidence.json" ]]
-          python3 - "$qwen_state/evidence.json" "$target" <<'PY'
+          [[ -f "$qwen_state/PENDING_ACCEPTANCE" && ! -L "$qwen_state/PENDING_ACCEPTANCE" ]]
+          [[ -s "$qwen_state/evidence.json" && ! -L "$qwen_state/evidence.json" ]]
+          python3 - "$qwen_state/evidence.json" "$target" "$controller_run" <<'PY'
           import json,sys
           report=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert report.get('schemaVersion') == 'tai.restricted-qwen.activation.v1'
           assert report.get('targetSha') == sys.argv[2]
+          assert report.get('runId') == sys.argv[3]
+          assert report.get('modelIdentity') == 'tai-qwen3-8b-q4km'
+          assert report.get('modelTransport') == 'PRIVATE_REG_RU_NETWORK'
+          assert report.get('apiWebExactMain') is True
+          assert report.get('pendingHostedAcceptance') is True
           assert report.get('passed') is True
           assert report.get('productionInboundSshUsed') is False
           assert report.get('publicModelPortPublished') is False
@@ -487,18 +500,50 @@ jobs:
       github.event.comment.body == '/tai recover-finalization 31481267058'
     runs-on: ubuntu-24.04
     permissions:
+      actions: read
       contents: read
       issues: write
       statuses: write
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tai-finalization-main-drift-recovery-${{ github.run_id }}
+          path: artifacts/tai-finalization-recovery-publish
       - name: Publish exact accepted result
         env:
           GH_TOKEN: ${{ github.token }}
           RECOVER_RESULT: ${{ needs.recover.result }}
-          CURRENT_SHA: ${{ needs.authority.outputs.current_sha }}
+          PUBLISH_EVIDENCE_DIR: artifacts/tai-finalization-recovery-publish
         run: |
           set -Eeuo pipefail
           [[ "$RECOVER_RESULT" == success ]]
+          current_sha="$(node - "$PUBLISH_EVIDENCE_DIR/finalization-recovery.json" "$ACTIVATION_TARGET_SHA" "$GITHUB_RUN_ID" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
+          const fs = require('node:fs');
+          const [evidencePath, target, runId, artifactDigest] = process.argv.slice(2);
+          const recovery = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+          if (recovery.schemaVersion !== 'tai.finalization-main-drift-recovery.v1'
+            || recovery.targetSha !== target
+            || !/^[0-9a-f]{40}$/.test(recovery.currentMain || '')
+            || recovery.activationRunId !== 31481267058
+            || recovery.controllerRunId !== 314812670581
+            || recovery.recoveryRunId !== Number(runId)
+            || recovery.activationJobId !== 93746825204
+            || recovery.hostedAcceptanceJobId !== 93747517497
+            || recovery.hostedArtifactId !== 9098297919
+            || recovery.hostedArtifactDigest !== artifactDigest
+            || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.taiRevision !== target
+            || !/^[0-9a-f]{64}$/.test(recovery.controllerSha256 || '')
+            || recovery.controllerAuthorityAttested !== true
+            || recovery.finalDecision !== 'ACCEPT' || recovery.passed !== true
+            || recovery.applicationDeploymentPerformed !== false
+            || recovery.databaseMutationPerformed !== false
+            || recovery.modelMutationPerformed !== false
+            || recovery.rollbackPerformed !== false
+            || recovery.runnerAuthorityChanged !== false) process.exit(2);
+          process.stdout.write(recovery.currentMain);
+          NODE
+          )"
+          [[ "$current_sha" =~ ^[0-9a-f]{40}$ ]]
           gh api --method POST -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/statuses/${ACTIVATION_TARGET_SHA}" \
             -f state=success \
@@ -506,7 +551,7 @@ jobs:
             -f description='Restricted Qwen REG.RU activation PASS; finalization recovered after descendant main drift' \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body \
-            "Restricted Qwen accepted on REG.RU for exact target \`$ACTIVATION_TARGET_SHA\` after activation run \`$ACTIVATION_RUN_ID\`: protected activation PASS, RU/EN/ZH and potato SSE PASS, hosted Chromium matrix PASS, and fail-closed finalization recovery PASS after descendant main advanced to \`$CURRENT_SHA\`. No application, database, model or rollback mutation was performed by recovery."
+            "Restricted Qwen accepted on REG.RU for exact target \`$ACTIVATION_TARGET_SHA\` after activation run \`$ACTIVATION_RUN_ID\`: protected activation PASS, RU/EN/ZH and potato SSE PASS, hosted Chromium matrix PASS, and fail-closed finalization recovery PASS after descendant main advanced to \`$current_sha\`. No application, database, model or rollback mutation was performed by recovery."
 
   result_gate:
     name: Confirm exact finalization recovery result
