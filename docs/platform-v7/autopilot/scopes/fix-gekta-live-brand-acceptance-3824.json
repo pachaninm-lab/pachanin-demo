@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "fix-gekta-live-brand-acceptance-3824",
+  "branch": "fix/gekta-live-brand-acceptance-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-to-finish-production-release",
+  "authorityBaseExactMain": "7a9f0822498e57b90fb8c086545c41b7d3f06c4c",
+  "purpose": "Remove the legacy public-assistant DOM branding override and align exact-main RU, EN and ZH live acceptance with the canonical Gekta identity before retrying the protected REG.RU release.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
+    "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
+    "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "scripts/tai-potato-mobile-live-acceptance.mjs"
+  ],
+  "canonical": {
+    "ru": {
+      "title": "Гекта",
+      "subtitle": "Аграрный интеллект для земли, урожая и решений.",
+      "composer": "Спроси Гекту о земле, урожае или агробизнесе"
+    },
+    "en": {
+      "title": "Gekta",
+      "subtitle": "Agricultural intelligence for land, harvests, and decisions.",
+      "composer": "Ask Gekta about land, harvests, or agribusiness"
+    },
+    "zh": {
+      "title": "Gekta",
+      "subtitle": "面向土地、收成与决策的农业智能。",
+      "composer": "向 Gekta 咨询土地、收成或农业经营"
+    }
+  },
+  "requiredInvariants": [
+    "PublicPlatformAssistant remains the sole source of visible Gekta title and subtitle copy.",
+    "The fullscreen controller does not replace canonical Gekta title or subtitle text.",
+    "RU, EN and ZH live browser acceptance uses the same canonical composer labels rendered by the product.",
+    "Existing DOM selectors, runtime routes, analytics events, technical TAI namespace and session migration behavior remain unchanged.",
+    "Exact-main API, web and migration image authority remains mandatory before activation.",
+    "Protected REG.RU activation, mobile Chromium acceptance and rollback-on-failure remain mandatory.",
+    "No production deployment claim is made until exact-SHA live acceptance passes."
+  ],
+  "forbiddenChanges": [
+    "API behavior, prompts or model routing",
+    "database or tenant authority",
+    "production topology, credentials or secrets",
+    "runtime routes, analytics events or technical TAI namespace",
+    "apps/landing/**",
+    "acceptance-gate weakening"
+  ],
+  "requiredChecks": [
+    "focused web unit tests for branding cleanup, domain copy and live browser matrix contracts",
+    "JavaScript syntax validation for both live browser acceptance scripts",
+    "web typecheck",
+    "git diff --check",
+    "canonical exact-main build and protected REG.RU live acceptance"
+  ],
+  "deploymentState": "rolled-back-after-mixed-brand-browser-failure"
+}
