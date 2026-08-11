@@ -1040,6 +1040,13 @@
       "docs/platform-v7/autopilot/scopes/production-p0-password-reset-diagnostic-3785.json",
       "scripts/check-production-p0-password-reset-diagnostic.mjs",
       "scripts/production-p0-password-reset-diagnostic.sh"
+    ],
+    "fix/p0-password-reset-runtime-provision-3785": [
+      ".github/workflows/production-p0-password-reset-runtime-provision.yml",
+      "docs/platform-v7/autopilot/scopes/production-p0-password-reset-runtime-provision-3785.json",
+      "scripts/check-production-p0-password-reset-runtime-provision.mjs",
+      "scripts/production-full-stack-exact-sha.sh",
+      "scripts/provision-production-p0-password-reset-runtime.sh"
     ]
   },
   "currentAcceptance": [
