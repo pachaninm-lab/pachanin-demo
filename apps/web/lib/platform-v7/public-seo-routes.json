@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "routes": [
     { "path": "/platform-v7", "priority": 1, "changeFrequency": "daily" },
+    { "path": "/gekta", "priority": 0.95, "changeFrequency": "weekly" },
     { "path": "/platform-v7/how-it-works", "priority": 0.95, "changeFrequency": "weekly" },
     { "path": "/platform-v7/ai-in-action", "priority": 0.95, "changeFrequency": "weekly" },
     { "path": "/platform-v7/secure-grain-deal", "priority": 0.95, "changeFrequency": "weekly" },
