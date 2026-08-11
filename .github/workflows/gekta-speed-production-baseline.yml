@@ -125,7 +125,7 @@ jobs:
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
-        github.event.comment.body == '/gekta speed-baseline current-main'
+        startsWith(github.event.comment.body, '/gekta speed-baseline current-main')
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 60
