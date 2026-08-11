@@ -81,6 +81,9 @@ requireAll('provisioner', [
   'TRANSACTIONAL_MAIL_CHANNEL=%s',
   'PASSWORD_RESET_RUNTIME_VALID=1',
   'AUTH_MAIL_RUNTIME_VALID=1',
+  'RUNTIME_AUTHORITY_RECONCILED=%s',
+  'PC_RECONCILE_ACTIVE_RUNTIME',
+  'valid_delivery_path()',
   'valid_mail_file()',
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   'COMPOSE_WEB_AUTHORITY_AMBIGUOUS',
@@ -95,6 +98,8 @@ requireAll('workflow', [
   '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
   '[[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]',
   'ERROR_CODE=MAIL_CREDENTIALS_MISSING',
+  'secrets.PC_PROD_DIR',
+  'secrets.PC_PROD_COMPOSE',
   'secrets.PC_PROD_RESEND_API_KEY',
   'secrets.PC_PROD_RESEND_FROM_EMAIL',
   'secrets.RESEND_API_KEY',
@@ -109,6 +114,10 @@ requireAll('workflow', [
   'provision-production-p0-password-reset-runtime.sh',
   'PASSWORD_RESET_RUNTIME_VALID=1',
   'AUTH_MAIL_RUNTIME_VALID=1',
+  'PC_PROD_DIR_B64=',
+  'PC_RECONCILE_ACTIVE_RUNTIME=1',
+  'prod_dir_authority="$PROD_DIR_SECRET"',
+  'RUNTIME_AUTHORITY_RECONCILED=[01]',
   'REGISTRATION_DELIVERY_PROVISION=(CREATED|EXISTING)',
   'actions/upload-artifact@v4',
   'retention-days: 90',
@@ -141,6 +150,7 @@ forbid('workflow', [
   /sshpass/i,
   /set\s+-[A-Za-z]*x[A-Za-z]*/,
   /echo\s+.*(?:RESEND_API_KEY_SECRET|SMTP_PASS_SECRET)/i,
+  /echo\s+.*PROD_DIR_SECRET/i,
   /GITHUB_OUTPUT[^\n]*(?:RESEND_API_KEY|SMTP_PASS)/i,
 ]);
 
@@ -241,6 +251,19 @@ done
 [[ -n "$mode" && -n "$source_file" && -n "$destination" ]]
 exec /usr/bin/install -m "$mode" "$source_file" "$destination"
 `, { mode: 0o700 });
+fs.writeFileSync(path.join(fixtureBin, 'docker'), `#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ "$1" == ps ]]; then
+  printf 'fixture-web-id\\n'
+  exit 0
+fi
+if [[ "$1" == inspect ]]; then
+  [[ -n "\${PC_FIXTURE_ACTIVE_DIR:-}" ]]
+  printf '%s\\n' "$PC_FIXTURE_ACTIVE_DIR"
+  exit 0
+fi
+exit 1
+`, { mode: 0o700 });
 const inputPaths = [];
 const resendFixtureName = ['RESEND', 'API', 'KEY'].join('_');
 const smtpFixturePasswordName = ['PC', 'SMTP', 'PASS'].join('_');
@@ -314,6 +337,63 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess, preexistingMai
   }
 };
 
+const runAuthorityReconcileFixture = () => {
+  const activeDir = path.join(fixtureRoot, 'authority-active');
+  const canonicalDir = path.join(fixtureRoot, 'authority-canonical');
+  fs.mkdirSync(activeDir);
+  fs.mkdirSync(canonicalDir);
+  const activeDelivery = path.join(activeDir, '.pc-password-reset-delivery.env');
+  const activeMail = path.join(activeDir, '.pc-transactional-mail.env');
+  const canonicalDelivery = path.join(canonicalDir, '.pc-password-reset-delivery.env');
+  const canonicalMail = path.join(canonicalDir, '.pc-transactional-mail.env');
+  const delivery = `PASSWORD_RESET_DELIVERY_KEY=${'d'.repeat(96)}\n`
+    + `REGISTRATION_DELIVERY_KEY=${'e'.repeat(96)}\n`;
+  const mail = `${resendFixtureName}=${fixtureCredential('reconcile')}\n`
+    + 'RESEND_FROM_EMAIL=noreply@example.test\n';
+  fs.writeFileSync(activeDelivery, delivery, { mode: 0o600 });
+  fs.writeFileSync(activeMail, mail, { mode: 0o600 });
+  fs.chmodSync(activeDelivery, 0o600);
+  fs.chmodSync(activeMail, 0o600);
+  const input = path.join(os.tmpdir(), `pc-password-reset-mail-${process.pid}-authority.env`);
+  inputPaths.push(input);
+  fs.writeFileSync(input, mail, { mode: 0o600 });
+  fs.chmodSync(input, 0o600);
+  const result = spawnSync('bash', [paths.provisioner, 'provision', input], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${fixtureBin}:${process.env.PATH}`,
+      PC_PROD_DIR_B64: Buffer.from(canonicalDir).toString('base64'),
+      PC_RECONCILE_ACTIVE_RUNTIME: '1',
+      PC_FIXTURE_ACTIVE_DIR: activeDir,
+    },
+  });
+  const output = `${result.stdout}\n${result.stderr}`;
+  for (const sentinel of mail.split('\n').filter(Boolean).map((line) => line.split('=', 2)[1]).filter(Boolean)) {
+    if (output.includes(sentinel)) failures.push(`${paths.provisioner}: authority fixture disclosed protected input`);
+  }
+  if (result.status !== 0
+    || !result.stdout.includes('RUNTIME_AUTHORITY_RECONCILED=1')
+    || !result.stdout.includes('PASSWORD_RESET_DELIVERY_PROVISION=EXISTING')
+    || !result.stdout.includes('TRANSACTIONAL_MAIL_PROVISION=EXISTING')) {
+    failures.push(`${paths.provisioner}: authority reconciliation fixture failed: ${result.stderr.trim()}`);
+    return;
+  }
+  if (fs.existsSync(activeDelivery) || fs.existsSync(activeMail)) {
+    failures.push(`${paths.provisioner}: authority reconciliation left duplicate protected files`);
+  }
+  if (!fs.existsSync(canonicalDelivery) || !fs.existsSync(canonicalMail)
+    || fs.readFileSync(canonicalDelivery, 'utf8') !== delivery
+    || fs.readFileSync(canonicalMail, 'utf8') !== mail) {
+    failures.push(`${paths.provisioner}: authority reconciliation regenerated or lost protected values`);
+  }
+  for (const file of [canonicalDelivery, canonicalMail]) {
+    if (fs.existsSync(file) && (fs.statSync(file).mode & 0o777) !== 0o600) {
+      failures.push(`${paths.provisioner}: authority reconciliation mode regression`);
+    }
+  }
+};
+
 try {
   runFixture({
     name: 'resend',
@@ -341,6 +421,7 @@ try {
     expectSuccess: false,
     preexistingMailMode: 0o644,
   });
+  runAuthorityReconcileFixture();
 } finally {
   for (const file of inputPaths) fs.rmSync(file, { force: true });
   fs.rmSync(fixtureRoot, { recursive: true, force: true });
@@ -348,13 +429,14 @@ try {
 
 try {
   const scope = JSON.parse(content.scope || '{}');
-  if (scope.branch !== 'fix/p0-password-reset-runtime-provision-3785') failures.push(`${paths.scope}: branch mismatch`);
+  if (scope.branch !== 'fix/p0-auth-runtime-authority-reconcile-3785') failures.push(`${paths.scope}: branch mismatch`);
   if (scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY') failures.push(`${paths.scope}: production hosting mismatch`);
   if (scope.boundaries?.newRecurringCostRub !== 0) failures.push(`${paths.scope}: recurring cost must be zero`);
   if (scope.boundaries?.ownerOnly !== true || scope.boundaries?.exactMainGuard !== true) failures.push(`${paths.scope}: owner/exact-main boundary missing`);
   const acceptance = Array.isArray(scope.acceptance) ? scope.acceptance.join('\n') : '';
-  if (!acceptance.includes('REGISTRATION_DELIVERY_KEY') || !acceptance.includes('current DNS IPv4 answers')) {
-    failures.push(`${paths.scope}: registration-key or protected-host acceptance is missing`);
+  if (!acceptance.includes('REGISTRATION_DELIVERY_KEY') || !acceptance.includes('current DNS IPv4 answers')
+    || !acceptance.includes('PC_PROD_DIR')) {
+    failures.push(`${paths.scope}: registration-key, protected-host or canonical-directory acceptance is missing`);
   }
   if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(Object.values(paths).sort())) {
     failures.push(`${paths.scope}: allowed paths must exactly match the governed implementation paths`);
