@@ -8,6 +8,8 @@ on:
       - 'scripts/production-p0-reviewer-membership-repair.sh'
       - 'scripts/check-production-p0-reviewer-membership-repair.mjs'
       - 'apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql'
+      - 'apps/api/prisma/migrations/20260811023000_p0_reviewer_owner_identity_semantics/migration.sql'
+      - 'apps/api/prisma/migrations/20260811090000_p0_reviewer_membership_candidate_scope/migration.sql'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json'
   push:
     branches: [main]
@@ -16,6 +18,8 @@ on:
       - 'scripts/production-p0-reviewer-membership-repair.sh'
       - 'scripts/check-production-p0-reviewer-membership-repair.mjs'
       - 'apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql'
+      - 'apps/api/prisma/migrations/20260811023000_p0_reviewer_owner_identity_semantics/migration.sql'
+      - 'apps/api/prisma/migrations/20260811090000_p0_reviewer_membership_candidate_scope/migration.sql'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json'
   issue_comment:
     types: [created]
