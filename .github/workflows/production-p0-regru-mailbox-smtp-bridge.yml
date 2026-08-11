@@ -23,7 +23,7 @@ env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   RELEASE_ISSUE_NUMBER: 3072
   EVIDENCE_DIR: artifacts/production-p0-regru-mailbox-smtp-bridge-v2
-  SMTP_HOST: sm38.hosting.reg.ru
+  SMTP_HOST: mail.hosting.reg.ru
   SMTP_PORT: '465'
   SMTP_FROM: access@xn----8sbjf4befbjgs9b.xn--p1ai
 
@@ -69,7 +69,7 @@ jobs:
           from pathlib import Path
           scope = json.loads(Path('docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json').read_text())
           assert scope['schemaVersion'] == 'platform-v7.concurrent-scope.v1'
-          assert scope['branch'] == 'fix/p0-regru-mailbox-smtp-bridge-v2-20260811'
+          assert scope['branch'] == 'fix/p0-regru-official-mail-host-20260811'
           assert scope['issue'] == 3785 and scope['releaseIssue'] == 3072
           assert scope['productionHosting'] == 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
           assert set(scope['allowedPaths']) == {

@@ -5,7 +5,7 @@ MODE="${1:-}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-artifacts/production-p0-regru-mailbox-smtp-bridge-v2}"
 TARGET_SHA="${TARGET_SHA:-}"
 LIVE_DOMAIN="${LIVE_DOMAIN:-xn----8sbjf4befbjgs9b.xn--p1ai}"
-SMTP_HOST="${SMTP_HOST:-sm38.hosting.reg.ru}"
+SMTP_HOST="${SMTP_HOST:-mail.hosting.reg.ru}"
 SMTP_PORT="${SMTP_PORT:-465}"
 SMTP_FROM="${SMTP_FROM:-access@xn----8sbjf4befbjgs9b.xn--p1ai}"
 MAILBOX_USER="${MAILBOX_USER:-}"
@@ -66,7 +66,7 @@ guard_main() {
 [[ "$MODE" == run ]] || fail INVALID_MODE 2
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail TARGET_SHA_INVALID 3
 [[ "$LIVE_DOMAIN" == 'xn----8sbjf4befbjgs9b.xn--p1ai' ]] || fail LIVE_DOMAIN_INVALID 4
-[[ "$SMTP_HOST" == 'sm38.hosting.reg.ru' && "$SMTP_PORT" == '465' ]] || fail SMTP_AUTHORITY_INVALID 5
+[[ "$SMTP_HOST" == 'mail.hosting.reg.ru' && "$SMTP_PORT" == '465' ]] || fail SMTP_AUTHORITY_INVALID 5
 [[ "$SMTP_FROM" == 'access@xn----8sbjf4befbjgs9b.xn--p1ai' ]] || fail SMTP_FROM_INVALID 6
 safe_scalar "$MAILBOX_USER" || fail MAILBOX_USER_MISSING 7
 safe_scalar "$MAILBOX_PASSWORD" || fail MAILBOX_PASSWORD_MISSING 8
