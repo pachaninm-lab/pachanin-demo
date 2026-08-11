@@ -19,6 +19,7 @@
   ],
   "boundaries": [
     "The recovery command is owner-only and fixed to issue 3365, activation run 31481267058 and target 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d",
+    "Only the fully qualified owner recovery command may enter the shared Qwen concurrency group; every unrelated issue or pull-request comment is isolated by its own run-scoped group and cannot replace a pending activation or recovery run",
     "Recovery is eligible only when the target is an ancestor of current main, the exact activation commit status is success, the canonical acceptance marker names the exact target and activation run, and the live REG.RU manifest still equals the target",
     "The recovery performs only a public read-only Chromium semantic probe and bounded issue/evidence publication",
     "Any divergent command, actor, target, ancestry, activation status, acceptance marker, live manifest, assistant refusal, insufficient semantic coverage, fake citation, page error or mobile overflow fails closed",
