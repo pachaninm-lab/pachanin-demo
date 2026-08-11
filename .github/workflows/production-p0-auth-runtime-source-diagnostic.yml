@@ -1,0 +1,299 @@
+name: Production P0 Auth Runtime Source Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-runtime-source-diagnostic.yml'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-auth-runtime-source-diagnostic-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-auth-runtime-source-diagnostic
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+
+jobs:
+  contract:
+    name: Validate bounded read-only diagnostic contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production diagnose-auth-runtime-source current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate scope contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = 'docs/platform-v7/autopilot/scopes/production-p0-auth-runtime-source-diagnostic-3785.json';
+          const scope = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const expected = [
+            '.github/workflows/production-p0-auth-runtime-source-diagnostic.yml',
+            path,
+          ].sort();
+          if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') process.exit(2);
+          if (scope.issue !== 3785 || scope.releaseIssue !== 3072) process.exit(3);
+          if (scope.boundaries?.productionMutation !== 'NONE' || scope.boundaries?.databaseMutation !== false) process.exit(4);
+          if (scope.boundaries?.credentialOutput !== false || scope.boundaries?.rawEnvironmentOutput !== false) process.exit(5);
+          if (scope.boundaries?.ownerOnly !== true || scope.boundaries?.exactMainGuard !== true) process.exit(6);
+          if (scope.boundaries?.newRecurringCostRub !== 0) process.exit(7);
+          if (JSON.stringify([...scope.allowedPaths].sort()) !== JSON.stringify(expected)) process.exit(8);
+          NODE
+
+  diagnose:
+    name: Inspect active and canonical auth runtime without values
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production diagnose-auth-runtime-source current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          [[ -n "${PROD_DIR_SECRET:-}" && -n "${PROD_COMPOSE_SECRET:-}" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected root key and pinned REG.RU identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ -n "$host" && "$host" == "${SSH_HOST_SECRET:-}" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          (( ${#dns_ipv4[@]} >= 1 ))
+          printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$host"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          key_path="$HOME/.ssh/id_pc_prod"
+          validate_key(){
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key_path"
+            chmod 0600 "$key_path"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key_path" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null && validate_key "$decoded" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 0600 "$HOME/.ssh/known_hosts"
+          ssh -i "$key_path" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null' >/dev/null
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect only safe runtime metadata
+        id: inspect
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          canonical_b64="$(printf '%s' "$PROD_DIR_SECRET" | base64 -w0)"
+          output="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$USER@$HOST" \
+            "CANONICAL_B64='$canonical_b64' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          canonical_dir="$(printf '%s' "$CANONICAL_B64" | base64 -d)"
+          [[ -n "$canonical_dir" && "$canonical_dir" == /* && "$canonical_dir" != / && -d "$canonical_dir" && ! -L "$canonical_dir" ]]
+          canonical_dir="$(realpath -e -- "$canonical_dir")"
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          active_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+          [[ -n "$active_dir" && "$active_dir" == /* && "$active_dir" != / && -d "$active_dir" && ! -L "$active_dir" ]]
+          active_dir="$(realpath -e -- "$active_dir")"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 ))
+          api_id="${api_ids[0]}"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          [[ "$web_revision" =~ ^[0-9a-f]{40}$ && "$api_revision" =~ ^[0-9a-f]{40}$ && "$web_revision" == "$api_revision" ]]
+
+          pair_ready(){
+            local dir="$1" delivery="$1/.pc-password-reset-delivery.env" mail="$1/.pc-transactional-mail.env"
+            [[ -f "$delivery" && ! -L "$delivery" && -f "$mail" && ! -L "$mail" ]] || return 1
+            [[ "$(stat -c '%a:%u:%g' "$delivery")" == '600:0:0' ]] || return 1
+            [[ "$(stat -c '%a:%u:%g' "$mail")" == '600:0:0' ]] || return 1
+            python3 - "$delivery" "$mail" <<'PY'
+          import re
+          import sys
+          delivery_path, mail_path = sys.argv[1:]
+          raw = open(delivery_path, encoding='utf-8').read()
+          if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+              raise SystemExit(1)
+          values = {}
+          for line in raw.rstrip('\n').split('\n'):
+              name, sep, value = line.partition('=')
+              if not sep or name in values or not re.fullmatch(r'[A-Fa-f0-9]{96}', value):
+                  raise SystemExit(1)
+              values[name] = value
+          if set(values) != {'PASSWORD_RESET_DELIVERY_KEY', 'REGISTRATION_DELIVERY_KEY'}:
+              raise SystemExit(1)
+          if values['PASSWORD_RESET_DELIVERY_KEY'] == values['REGISTRATION_DELIVERY_KEY']:
+              raise SystemExit(1)
+          mail_raw = open(mail_path, encoding='utf-8').read()
+          if not mail_raw.endswith('\n') or '\r' in mail_raw or '\0' in mail_raw:
+              raise SystemExit(1)
+          mail = {}
+          for line in mail_raw.rstrip('\n').split('\n'):
+              name, sep, value = line.partition('=')
+              if not sep or name in mail or not value or value != value.strip():
+                  raise SystemExit(1)
+              mail[name] = value
+          resend = set(mail) == {'RESEND_API_KEY', 'RESEND_FROM_EMAIL'} and len(mail['RESEND_API_KEY']) >= 20 and '@' in mail['RESEND_FROM_EMAIL']
+          smtp_required = {'PC_SMTP_HOST', 'PC_SMTP_USER', 'PC_SMTP_PASS'}
+          smtp_allowed = smtp_required | {'PC_SMTP_PORT', 'PC_MAIL_FROM'}
+          smtp = smtp_required.issubset(mail) and set(mail).issubset(smtp_allowed)
+          if not (resend or smtp):
+              raise SystemExit(1)
+          PY
+          }
+
+          active_ready=0; canonical_ready=0; same_dir=0
+          pair_ready "$active_dir" && active_ready=1
+          pair_ready "$canonical_dir" && canonical_ready=1
+          [[ "$active_dir" != "$canonical_dir" ]] || same_dir=1
+          printf 'AUTH_RUNTIME_SOURCE|%s|%s|%s\n' "$active_ready" "$canonical_ready" "$same_dir"
+          printf 'DEPLOYED_REVISION|%s\n' "$web_revision"
+          printf 'PRODUCTION_MUTATION=NONE\n'
+          REMOTE
+          )"
+          source_marker="$(grep '^AUTH_RUNTIME_SOURCE|' <<< "$output" | tail -n1)"
+          revision_marker="$(grep '^DEPLOYED_REVISION|' <<< "$output" | tail -n1)"
+          mutation_marker="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
+          IFS='|' read -r _ active_ready canonical_ready same_dir <<< "$source_marker"
+          IFS='|' read -r _ deployed_revision <<< "$revision_marker"
+          [[ "$active_ready" =~ ^[01]$ && "$canonical_ready" =~ ^[01]$ && "$same_dir" =~ ^[01]$ ]]
+          [[ "$deployed_revision" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$mutation_marker" == 'PRODUCTION_MUTATION=NONE' ]]
+          source='MISSING'
+          [[ "$canonical_ready" == 0 ]] || source='CANONICAL'
+          if [[ "$canonical_ready" == 0 && "$active_ready" == 1 ]]; then source='ACTIVE'; fi
+          echo "active=$active_ready" >> "$GITHUB_OUTPUT"
+          echo "canonical=$canonical_ready" >> "$GITHUB_OUTPUT"
+          echo "same=$same_dir" >> "$GITHUB_OUTPUT"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+          echo "deployed=$deployed_revision" >> "$GITHUB_OUTPUT"
+
+      - name: Publish safe diagnostic result
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACTIVE_READY: ${{ steps.inspect.outputs.active }}
+          CANONICAL_READY: ${{ steps.inspect.outputs.canonical }}
+          SAME_DIR: ${{ steps.inspect.outputs.same }}
+          SOURCE: ${{ steps.inspect.outputs.source }}
+          DEPLOYED_REVISION: ${{ steps.inspect.outputs.deployed }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 auth-runtime source diagnostic
+
+          - exact diagnostic main: \`$TARGET_SHA\`
+          - exact deployed API/Web revision: \`$DEPLOYED_REVISION\`
+          - active runtime pair valid: \`$ACTIVE_READY\`
+          - canonical runtime pair valid: \`$CANONICAL_READY\`
+          - active/canonical directory same: \`$SAME_DIR\`
+          - reusable source: \`$SOURCE\`
+          - production mutation: \`NONE\`
+          - secret/path/raw environment output: \`NONE\`" >/dev/null
+
+      - name: Remove local SSH credential
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
