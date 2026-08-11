@@ -1,0 +1,427 @@
+name: TAI Owner Exact Finalization Recovery
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-finalization-recovery-command.yml"
+      - "scripts/check-tai-finalization-main-drift-recovery.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-20260811.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-finalization-recovery-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  RECOVERY_COMMAND: /tai recover-finalization 31478303771
+  ACTIVATION_RUN_ID: "31478303771"
+  CONTROLLER_RUN_ID: "314783037711"
+  ACTIVATION_TARGET_SHA: b57b1e4e6c50e01acefc1a1da0deea05a0099a92
+  FAILED_FINALIZATION_JOB_ID: "93746092416"
+
+jobs:
+  authority:
+    name: Verify exact accepted activation and main-drift failure
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai recover-finalization 31478303771'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      current_sha: ${{ steps.authority.outputs.current_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate bounded recovery contract
+        run: node scripts/check-tai-finalization-main-drift-recovery.mjs
+      - name: Verify owner, exact activation run and descendant current main
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          [[ "${{ github.event.comment.body }}" == "$RECOVERY_COMMAND" ]]
+
+          current_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$current_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --force --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "$ACTIVATION_TARGET_SHA"
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$current_sha" ]]
+          git merge-base --is-ancestor "$ACTIVATION_TARGET_SHA" "$current_sha"
+
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${ACTIVATION_RUN_ID}" \
+            > "$RUNNER_TEMP/activation-run.json"
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${ACTIVATION_RUN_ID}/jobs?per_page=100" \
+            > "$RUNNER_TEMP/activation-jobs.json"
+          node - "$RUNNER_TEMP/activation-run.json" "$RUNNER_TEMP/activation-jobs.json" "$ACTIVATION_TARGET_SHA" "$FAILED_FINALIZATION_JOB_ID" <<'NODE'
+          const fs = require('node:fs');
+          const [runPath, jobsPath, target, failedFinalizationJobId] = process.argv.slice(2);
+          const run = JSON.parse(fs.readFileSync(runPath, 'utf8'));
+          const report = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));
+          if (run.id !== 31478303771 || run.head_sha !== target || run.status !== 'completed' || run.conclusion !== 'failure') process.exit(2);
+          if (!report || !Array.isArray(report.jobs) || report.total_count !== report.jobs.length) process.exit(3);
+          const required = new Map([
+            ['Activate through protected REG.RU controller', 'success'],
+            ['Hosted live public AI acceptance', 'success'],
+            ['Finalize or roll back activation', 'failure'],
+            ['Publish restricted Qwen activation result', 'success'],
+            ['Confirm restricted Qwen activation chain result', 'failure'],
+          ]);
+          for (const [name, conclusion] of required) {
+            const matches = report.jobs.filter((job) => job?.name === name);
+            if (matches.length !== 1 || matches[0].status !== 'completed' || matches[0].conclusion !== conclusion) process.exit(4);
+          }
+          const finalization = report.jobs.find((job) => job?.name === 'Finalize or roll back activation');
+          if (String(finalization?.id) !== failedFinalizationJobId) process.exit(5);
+          NODE
+
+          gh run view "$ACTIVATION_RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed \
+            > "$RUNNER_TEMP/finalization-failure.log"
+          grep -Fxq 'ERROR_CODE=TARGET_IS_NOT_CURRENT_MAIN' \
+            <(sed -n 's/^.*ERROR_CODE=/ERROR_CODE=/p' "$RUNNER_TEMP/finalization-failure.log")
+          echo "current_sha=$current_sha" >> "$GITHUB_OUTPUT"
+
+  recover:
+    name: Recover exact accepted finalization on REG.RU
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.current_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      CURRENT_SHA: ${{ needs.authority.outputs.current_sha }}
+      EVIDENCE_DIR: artifacts/tai-finalization-recovery
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authority.outputs.current_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Confirm exact checkout and contract
+        run: |
+          set -Eeuo pipefail
+          [[ "$(git rev-parse HEAD)" == "$CURRENT_SHA" ]]
+          git merge-base --is-ancestor "$ACTIVATION_TARGET_SHA" "$CURRENT_SHA"
+          node scripts/check-tai-finalization-main-drift-recovery.mjs
+      - name: Resolve protected root key and pinned REG.RU identity
+        id: ssh
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            ssh-keygen -lf "$public_key" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && { rm -f "$first" "$second" "$third"; return 0; }
+            rm -f "$first" "$second" "$third"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; echo ROOT_SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Materialize bounded one-time recovery script
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/recover-finalization.sh" <<'RECOVERY'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          umask 077
+          export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+          target="$1" current="$2" controller_run="$3" activation_run="$4" recovery_run="$5" output="$6"
+          [[ "$(id -u)" -eq 0 ]]
+          [[ "$target" =~ ^[0-9a-f]{40}$ && "$current" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$controller_run" == 314783037711 && "$activation_run" == 31478303771 ]]
+          [[ "$recovery_run" =~ ^[0-9]{2,20}$ ]]
+          state_root=/var/lib/pc-release-authority
+          repository="$state_root/repository"
+          job_state="$state_root/controller-jobs/$controller_run"
+          qwen_state="$state_root/tai-qwen-$controller_run"
+          original_output="$state_root/runner-output/$controller_run"
+          install -d -m 0750 -o root -g pcactions "$state_root/runner-output"
+          exec 9>/run/lock/pc-tai-release-controller.lock
+          flock -n 9
+          git -C "$repository" fetch --force --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main' >/dev/null
+          git -C "$repository" fetch --force --no-tags origin "$target" >/dev/null
+          [[ "$(git -C "$repository" rev-parse refs/remotes/origin/main)" == "$current" ]]
+          git -C "$repository" merge-base --is-ancestor "$target" "$current"
+          [[ -s "$job_state/target-sha" && "$(cat "$job_state/target-sha")" == "$target" ]]
+          [[ -s "$job_state/PENDING_UI_ACCEPTANCE" && "$(cat "$job_state/PENDING_UI_ACCEPTANCE")" == "$target" ]]
+          [[ -s "$qwen_state/evidence.json" ]]
+          python3 - "$qwen_state/evidence.json" "$target" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert report.get('targetSha') == sys.argv[2]
+          assert report.get('passed') is True
+          assert report.get('productionInboundSshUsed') is False
+          assert report.get('publicModelPortPublished') is False
+          PY
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#api_ids[@]} == 1 && ${#web_ids[@]} == 1 ))
+          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$api_revision" == "$target" && "$web_revision" == "$target" ]]
+          api_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$api_id")"
+          web_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")"
+          [[ "$api_state" =~ ^(healthy|running)$ && "$web_state" =~ ^(healthy|running)$ ]]
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'AI_ASSISTANT_MODEL=tai-qwen3-8b-q4km'
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_MODEL_IDENTITY=tai-qwen3-8b-q4km'
+          install -m 0600 -o root -g root /dev/null "$qwen_state/FINAL_ACCEPTED"
+          tmp="$job_state/finalization.json.tmp-$recovery_run"
+          python3 - "$tmp" "$target" "$current" "$activation_run" "$recovery_run" <<'PY'
+          import json,os,sys
+          path,target,current,activation_run,recovery_run=sys.argv[1:]
+          payload={
+            'schemaVersion':'tai.restricted-qwen.finalization.v1',
+            'targetSha':target,
+            'decision':'ACCEPT',
+            'passed':True,
+            'recoveredAfterMainDrift':True,
+            'currentMain':current,
+            'activationRunId':int(activation_run),
+            'recoveryRunId':int(recovery_run),
+            'applicationDeploymentPerformed':False,
+            'databaseMutationPerformed':False,
+            'modelMutationPerformed':False,
+            'rollbackPerformed':False,
+          }
+          with open(path,'w',encoding='utf-8') as handle:
+            json.dump(payload,handle,ensure_ascii=True,separators=(',',':')); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
+          os.chmod(path,0o600)
+          PY
+          mv -Tf "$tmp" "$job_state/finalization.json"
+          install -d -m 0750 -o root -g pcactions "$original_output"
+          install -m 0640 -o root -g pcactions "$job_state/finalization.json" "$original_output/finalization.json"
+          install -d -m 0750 -o root -g pcactions "$(dirname "$output")"
+          python3 - "$output" "$target" "$current" "$controller_run" "$activation_run" "$recovery_run" "$api_revision" "$web_revision" <<'PY'
+          import json,os,sys
+          path,target,current,controller_run,activation_run,recovery_run,api_revision,web_revision=sys.argv[1:]
+          payload={
+            'schemaVersion':'tai.finalization-main-drift-recovery.v1',
+            'targetSha':target,
+            'currentMain':current,
+            'controllerRunId':int(controller_run),
+            'activationRunId':int(activation_run),
+            'recoveryRunId':int(recovery_run),
+            'apiRevision':api_revision,
+            'webRevision':web_revision,
+            'activationEvidencePassed':True,
+            'hostedAcceptancePassed':True,
+            'finalDecision':'ACCEPT',
+            'applicationDeploymentPerformed':False,
+            'databaseMutationPerformed':False,
+            'modelMutationPerformed':False,
+            'rollbackPerformed':False,
+            'runnerAuthorityChanged':False,
+            'passed':True,
+          }
+          with open(path,'w',encoding='utf-8') as handle:
+            json.dump(payload,handle,ensure_ascii=True,separators=(',',':')); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
+          os.chmod(path,0o640)
+          PY
+          chown root:pcactions "$output"
+          printf 'TAI_FINALIZATION_MAIN_DRIFT_RECOVERY=PASS\n'
+          RECOVERY
+          chmod 0700 "$RUNNER_TEMP/recover-finalization.sh"
+          bash -n "$RUNNER_TEMP/recover-finalization.sh"
+      - name: Copy and execute exact bounded recovery
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          remote_script="/tmp/tai-finalization-recovery-${GITHUB_RUN_ID}.sh"
+          remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/finalization-recovery.json"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$RUNNER_TEMP/recover-finalization.sh" "$USER@$HOST:$remote_script"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "chmod 0700 '$remote_script' && '$remote_script' '$ACTIVATION_TARGET_SHA' '$CURRENT_SHA' '$CONTROLLER_RUN_ID' '$ACTIVATION_RUN_ID' '$GITHUB_RUN_ID' '$remote_evidence'" \
+            | tee "$EVIDENCE_DIR/recovery.log"
+          grep -Fxq TAI_FINALIZATION_MAIN_DRIFT_RECOVERY=PASS "$EVIDENCE_DIR/recovery.log"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$USER@$HOST:$remote_evidence" "$EVIDENCE_DIR/finalization-recovery.json"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$USER@$HOST:/var/lib/pc-release-authority/runner-output/${CONTROLLER_RUN_ID}/finalization.json" \
+            "$EVIDENCE_DIR/finalization.json"
+      - name: Validate recovered finalization evidence
+        run: |
+          set -Eeuo pipefail
+          node - "$EVIDENCE_DIR/finalization-recovery.json" "$EVIDENCE_DIR/finalization.json" "$ACTIVATION_TARGET_SHA" "$CURRENT_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const [recoveryPath, finalizationPath, target, current] = process.argv.slice(2);
+          const recovery = JSON.parse(fs.readFileSync(recoveryPath, 'utf8'));
+          const finalization = JSON.parse(fs.readFileSync(finalizationPath, 'utf8'));
+          if (recovery.schemaVersion !== 'tai.finalization-main-drift-recovery.v1'
+            || recovery.targetSha !== target || recovery.currentMain !== current
+            || recovery.activationRunId !== 31478303771 || recovery.controllerRunId !== 314783037711
+            || recovery.finalDecision !== 'ACCEPT' || recovery.passed !== true
+            || recovery.applicationDeploymentPerformed !== false
+            || recovery.databaseMutationPerformed !== false
+            || recovery.modelMutationPerformed !== false
+            || recovery.rollbackPerformed !== false
+            || recovery.runnerAuthorityChanged !== false) process.exit(2);
+          if (finalization.schemaVersion !== 'tai.restricted-qwen.finalization.v1'
+            || finalization.targetSha !== target || finalization.decision !== 'ACCEPT'
+            || finalization.passed !== true || finalization.recoveredAfterMainDrift !== true) process.exit(3);
+          NODE
+      - name: Remove transient remote and local key material
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set +e
+          if [[ -n "${HOST:-}" && -n "${USER:-}" && "${PORT:-}" =~ ^[0-9]+$ && -f "$HOME/.ssh/id_pc_prod" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+              "rm -f '/tmp/tai-finalization-recovery-${GITHUB_RUN_ID}.sh'" >/dev/null 2>&1
+          fi
+          rm -rf "$HOME/.ssh" "$RUNNER_TEMP/recover-finalization.sh"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tai-finalization-main-drift-recovery-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish recovered terminal activation result
+    needs: [authority, recover]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai recover-finalization 31478303771'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - name: Publish exact accepted result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVER_RESULT: ${{ needs.recover.result }}
+          CURRENT_SHA: ${{ needs.authority.outputs.current_sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$RECOVER_RESULT" == success ]]
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${ACTIVATION_TARGET_SHA}" \
+            -f state=success \
+            -f context='TAI Restricted Qwen REG.RU Activation' \
+            -f description='Restricted Qwen REG.RU activation PASS; finalization recovered after descendant main drift' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body \
+            "Restricted Qwen accepted on REG.RU for exact target \`$ACTIVATION_TARGET_SHA\` after activation run \`$ACTIVATION_RUN_ID\`: protected activation PASS, RU/EN/ZH and potato SSE PASS, hosted Chromium matrix PASS, and fail-closed finalization recovery PASS after descendant main advanced to \`$CURRENT_SHA\`. No application, database, model or rollback mutation was performed by recovery."
+
+  result_gate:
+    name: Confirm exact finalization recovery result
+    needs: [authority, recover, publish]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai recover-finalization 31478303771'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped recovery jobs
+        env:
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          RECOVER_RESULT: ${{ needs.recover.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$AUTHORITY_RESULT" == success ]]
+          [[ "$RECOVER_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]
