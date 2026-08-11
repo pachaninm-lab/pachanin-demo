@@ -1061,6 +1061,9 @@
     ],
     "claude/gekta-canonical-images-every-main": [
       ".github/workflows/docker-publish.yml"
+    ],
+    "claude/revert-image-paths-filter": [
+      ".github/workflows/docker-publish.yml"
     ]
   },
   "currentAcceptance": [
