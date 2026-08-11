@@ -424,7 +424,7 @@ try {
   await hidden.evaluate(node => node.click());
   const dialog = page.locator('#pc-public-assistant-panel');
   await dialog.waitFor({ state: 'visible', timeout: 30_000 });
-  const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
+  const composer = dialog.getByRole('textbox', { name: 'Спроси Гекту о земле, урожае или агробизнесе' });
 
   const answeredMessages = dialog.locator(
     '.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]',
