@@ -217,27 +217,10 @@ jobs:
           else
             echo "MEASUREMENT_FAILED_WITH_ARTIFACT"
           fi
-          node -e '
-            const report = require(process.env.BASELINE_ARTIFACT);
-            const wave = report.singleTurn?.[0];
-            const line = (label, value) => console.log(`${label}: ${value ?? "not measured"}`);
-            console.log(`attestation: ${report.revision.attestation}`);
-            line("deployed web revision", report.revision.webRevision);
-            line("repository main", report.revision.repositoryMainSha);
-            console.log("");
-            if (!wave) { console.log("No wave completed."); return; }
-            console.log(`concurrency ${wave.concurrency}: ${wave.overall.completed}/${wave.overall.requests} completed`);
-            line("first meaningful text p50 ms", wave.overall.firstMeaningfulTextMs.p50);
-            line("first meaningful text p95 ms", wave.overall.firstMeaningfulTextMs.p95);
-            line("total p50 ms", wave.overall.totalMs.p50);
-            line("total p95 ms", wave.overall.totalMs.p95);
-            console.log(`errors: ${JSON.stringify(wave.overall.errors)}`);
-            if (report.revision.attestation !== "web_revision_matches_main") {
-              console.log("");
-              console.log("This run is a network measurement, not an exact-main baseline:");
-              for (const note of report.revision.notes) console.log(`  - ${note}`);
-            }
-          '
+          # Rendered by the tool, not by an inline script. An inline summary
+          # once carried a top-level return, and that syntax error reported a
+          # measurement that had passed as a failed job.
+          node scripts/tai-speed-baseline.mjs --summarize "$BASELINE_ARTIFACT"
 
       - name: Upload bounded baseline evidence
         if: always()
