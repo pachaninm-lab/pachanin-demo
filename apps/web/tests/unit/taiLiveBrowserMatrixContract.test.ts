@@ -89,8 +89,8 @@ describe('conversation state is exercised across languages and turns', () => {
     // The panel is fully localized, so a Russian aria-label finds nothing on
     // the EN or ZH panel — and the multi-turn cases open exactly those.
     expect(acceptance).toContain('const UI_COPY = {');
-    expect(acceptance).toContain("composer: 'Ask about agribusiness or the platform'");
-    expect(acceptance).toContain("composer: '询问农业商业或平台问题'");
+    expect(acceptance).toContain("composer: 'Ask Gekta about land, crops or agribusiness'");
+    expect(acceptance).toContain("composer: '向 Gekta 咨询土地、作物或农业经营'");
     expect(acceptance).toContain('function uiFor(lang)');
     expect(acceptance).toContain('ui_copy_missing');
     expect(acceptance).toContain('askInPanel(dlg, testCase.first, { lang: testCase.lang })');
@@ -105,9 +105,9 @@ describe('conversation state is exercised across languages and turns', () => {
       'utf8',
     );
     for (const label of [
-      'Задай вопрос об агробизнесе или платформе',
-      'Ask about agribusiness or the platform',
-      '询问农业商业或平台问题',
+      'Спроси Гекту о земле, урожае или агробизнесе',
+      'Ask Gekta about land, crops or agribusiness',
+      '向 Gekta 咨询土地、作物或农业经营',
       'Остановить ответ',
       'Stop answer',
       '停止回答',

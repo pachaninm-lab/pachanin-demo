@@ -236,7 +236,7 @@ jobs:
               if (await aiMark.count() !== 1 || await aiMark.locator('svg').count() !== 1) {
                 throw new Error('semantic_ai_mark_missing');
               }
-              const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
+              const composer = dialog.getByRole('textbox', { name: 'Спроси Гекту о земле, урожае или агробизнесе' });
               await composer.fill('Что влияет на цену зерна?');
               await dialog.getByRole('button', { name: 'Отправить' }).click();
               await dialog.locator('.pc-public-assistant-message[data-role="user"]').last().waitFor({ state: 'visible', timeout: 30000 });

@@ -970,6 +970,14 @@
     "fix/production-p0-registration-decision-replay-notification-3750": [
       "apps/api/src/modules/auth/registration-decision.service.spec.ts",
       "apps/api/src/modules/auth/registration-decision.service.ts"
+    ],
+    "agent/gekta-live-acceptance-copy-20260811": [
+      ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
+      "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/gekta-live-acceptance-copy-20260811.json",
+      "scripts/tai-live-public-ai-acceptance.mjs",
+      "scripts/tai-potato-mobile-live-acceptance.mjs"
     ]
   },
   "currentAcceptance": [
