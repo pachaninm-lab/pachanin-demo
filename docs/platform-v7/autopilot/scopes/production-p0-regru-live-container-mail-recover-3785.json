@@ -8,6 +8,7 @@
   "title": "Recover auth-mail runtime from the already-running canonical REG.RU Web container",
   "allowedPaths": [
     ".github/workflows/production-p0-regru-live-container-mail-recover.yml",
+    "scripts/production-p0-regru-live-container-mail-recover.sh",
     "docs/platform-v7/autopilot/scopes/production-p0-regru-live-container-mail-recover-3785.json"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
