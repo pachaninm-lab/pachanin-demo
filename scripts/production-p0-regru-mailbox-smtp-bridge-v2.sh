@@ -8,6 +8,8 @@ LIVE_DOMAIN="${LIVE_DOMAIN:-xn----8sbjf4befbjgs9b.xn--p1ai}"
 SMTP_HOST="${SMTP_HOST:-mail.hosting.reg.ru}"
 SMTP_PORT="${SMTP_PORT:-465}"
 SMTP_FROM="${SMTP_FROM:-access@xn----8sbjf4befbjgs9b.xn--p1ai}"
+SMTP_USER="${SMTP_USER:-$SMTP_FROM}"
+SMTP_PASSWORD="${SMTP_PASSWORD:-}"
 MAILBOX_USER="${MAILBOX_USER:-}"
 MAILBOX_PASSWORD="${MAILBOX_PASSWORD:-}"
 IMAP_HOST="${IMAP_HOST:-}"
@@ -42,7 +44,7 @@ cleanup() {
   if [[ "$FINISHED" != 1 ]]; then
     write_result FAIL || true
   fi
-  unset MAILBOX_PASSWORD PC_PROD_SSH_KEY PC_PROD_SSH_PRIVATE_KEY VPS_SSH_KEY
+  unset SMTP_PASSWORD MAILBOX_PASSWORD PC_PROD_SSH_KEY PC_PROD_SSH_PRIVATE_KEY VPS_SSH_KEY
   exit "$rc"
 }
 trap cleanup EXIT
@@ -68,6 +70,8 @@ guard_main() {
 [[ "$LIVE_DOMAIN" == 'xn----8sbjf4befbjgs9b.xn--p1ai' ]] || fail LIVE_DOMAIN_INVALID 4
 [[ "$SMTP_HOST" == 'mail.hosting.reg.ru' && "$SMTP_PORT" == '465' ]] || fail SMTP_AUTHORITY_INVALID 5
 [[ "$SMTP_FROM" == 'access@xn----8sbjf4befbjgs9b.xn--p1ai' ]] || fail SMTP_FROM_INVALID 6
+safe_scalar "$SMTP_USER" || fail SMTP_USER_MISSING 14
+safe_scalar "$SMTP_PASSWORD" || fail SMTP_PASSWORD_MISSING 15
 safe_scalar "$MAILBOX_USER" || fail MAILBOX_USER_MISSING 7
 safe_scalar "$MAILBOX_PASSWORD" || fail MAILBOX_PASSWORD_MISSING 8
 safe_scalar "$IMAP_HOST" || fail IMAP_HOST_MISSING 9
@@ -80,6 +84,8 @@ LOGIN_FILE="$RUNNER_TEMP/pc-regru-mailbox-smtp-login-${GITHUB_RUN_ID}.txt"
 set +e
 PC_PROBE_SMTP_HOST="$SMTP_HOST" \
 PC_PROBE_SMTP_PORT="$SMTP_PORT" \
+PC_PROBE_SMTP_USER="$SMTP_USER" \
+PC_PROBE_SMTP_PASSWORD="$SMTP_PASSWORD" \
 PC_PROBE_MAILBOX_USER="$MAILBOX_USER" \
 PC_PROBE_MAILBOX_PASSWORD="$MAILBOX_PASSWORD" \
 PC_PROBE_MAIL_FROM="$SMTP_FROM" \
@@ -95,6 +101,7 @@ set -e
 case "$proof_rc" in
   0) ;;
   20|21|22|23|24|25|26|27|28) fail MAIL_PROBE_INPUT_INVALID 20 ;;
+  29) fail REG_RU_SMTP_IDENTITY_INVALID 29 ;;
   31) fail REG_RU_SMTP_EHLO_FAILED 31 ;;
   32) fail REG_RU_SMTP_AUTH_FAILED 32 ;;
   33) fail REG_RU_CANONICAL_SENDER_REFUSED 33 ;;
@@ -119,7 +126,7 @@ guard_main
 LOCAL_MAIL="$RUNNER_TEMP/pc-password-reset-mail-${GITHUB_RUN_ID}.env"
 umask 077
 printf 'PC_SMTP_HOST=%s\nPC_SMTP_USER=%s\nPC_SMTP_PASS=%s\nPC_SMTP_PORT=%s\nPC_MAIL_FROM=%s\n' \
-  "$SMTP_HOST" "$SMTP_LOGIN" "$MAILBOX_PASSWORD" "$SMTP_PORT" "$SMTP_FROM" > "$LOCAL_MAIL"
+  "$SMTP_HOST" "$SMTP_LOGIN" "$SMTP_PASSWORD" "$SMTP_PORT" "$SMTP_FROM" > "$LOCAL_MAIL"
 chmod 0600 "$LOCAL_MAIL"
 
 trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
