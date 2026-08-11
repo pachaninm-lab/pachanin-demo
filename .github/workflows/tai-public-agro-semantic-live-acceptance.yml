@@ -224,19 +224,19 @@ jobs:
               await trigger.evaluate((node) => node.click());
               await dialog.waitFor({ state: 'visible', timeout: 30000 });
 
-              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'ИИ для агробизнеса') {
+              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'Гекта') {
                 throw new Error('semantic_title_missing');
               }
               const semanticSubtitle = dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible');
               await semanticSubtitle.waitFor({ state: 'visible', timeout: 30000 });
-              if (((await semanticSubtitle.textContent()) || '').trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') {
+              if (((await semanticSubtitle.textContent()) || '').trim() !== 'Аграрный интеллект для земли, урожая и решений.') {
                 throw new Error('semantic_subtitle_missing');
               }
               const aiMark = dialog.locator('[data-pc-public-assistant-ai-mark="true"]:visible');
               if (await aiMark.count() !== 1 || await aiMark.locator('svg').count() !== 1) {
                 throw new Error('semantic_ai_mark_missing');
               }
-              const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
+              const composer = dialog.getByRole('textbox', { name: 'Спроси Гекту о земле, урожае или агробизнесе' });
               await composer.fill('Что влияет на цену зерна?');
               await dialog.getByRole('button', { name: 'Отправить' }).click();
               await dialog.locator('.pc-public-assistant-message[data-role="user"]').last().waitFor({ state: 'visible', timeout: 30000 });

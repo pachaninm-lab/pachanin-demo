@@ -100,21 +100,21 @@ async function requestPublicSse({ locale, question, history = [] }) {
  */
 const UI_COPY = {
   ru: {
-    composer: 'Задай вопрос об агробизнесе или платформе',
+    composer: 'Спроси Гекту о земле, урожае или агробизнесе',
     send: 'Отправить',
     stop: 'Остановить ответ',
     newChat: 'Новый диалог',
     retry: 'Повторить запрос',
   },
   en: {
-    composer: 'Ask about agribusiness or the platform',
+    composer: 'Ask Gekta about land, crops or agribusiness',
     send: 'Send',
     stop: 'Stop answer',
     newChat: 'New chat',
     retry: 'Retry request',
   },
   zh: {
-    composer: '询问农业商业或平台问题',
+    composer: '向 Gekta 咨询土地、作物或农业经营',
     send: '发送',
     stop: '停止回答',
     newChat: '新对话',
@@ -765,8 +765,8 @@ try {
 
   title = ((await page.locator('#pc-public-assistant-title').textContent()) || '').trim();
   subtitle = ((await dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible').textContent()) || '').trim();
-  if (title !== 'ИИ для агробизнеса') throw new Error('approved_title_missing');
-  if (subtitle !== 'Разработан Прозрачной ценой для сельского хозяйства.') throw new Error('approved_subtitle_missing');
+  if (title !== 'Гекта') throw new Error('approved_title_missing');
+  if (subtitle !== 'Аграрный интеллект для земли, урожая и решений.') throw new Error('approved_subtitle_missing');
   if (await dialog.locator('.pc-modal-sheet-fullscreen-button').count()) throw new Error('duplicate_fullscreen_control_present');
 
   const fullscreen = dialog.locator('button[aria-label="Развернуть на весь экран"]');
@@ -775,7 +775,7 @@ try {
   fullscreenVisible = await fullscreen.isVisible();
   if (fullscreenVisible) throw new Error('mobile_fullscreen_control_visible');
 
-  const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
+  const composer = dialog.getByRole('textbox', { name: UI.composer });
   await composer.fill('Что влияет на цену зерна?');
   await dialog.getByRole('button', { name: 'Отправить' }).click();
   const answered = dialog.locator('.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]').last();
