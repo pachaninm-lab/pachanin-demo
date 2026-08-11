@@ -23,6 +23,13 @@ describe('platform-v7 international homepage completion', () => {
     expect(wrapper).toContain('BasePlatformV7StrategicHome');
   });
 
+  it('uses canonical Gekta identity in every localized trust card', () => {
+    expect(wrapper).toContain("title: 'Гекта в процессе'");
+    expect(wrapper).toContain("title: 'Gekta in the workflow'");
+    expect(wrapper).toContain("title: '流程内的 Gekta'");
+    expect(wrapper).not.toMatch(/\\bTAI\\b/u);
+  });
+
   it('renders exactly seven numbered Deal steps and removes the duplicate path section', () => {
     expect(wrapper).toContain("props.id === 'deal-path'");
     expect(wrapper).toContain("normalizedKey(element.key) === '08'");
