@@ -49,8 +49,19 @@ on:
 permissions:
   contents: read
 
+# Only real measurement commands share a group, so at most one benchmark ever
+# runs against production at a time. Everything else — and `issue_comment` fires
+# for every comment in the repository, not just this command — gets a group of
+# its own, because a queued run that will immediately skip must never supersede
+# a queued measurement. A shared group cancels pending runs even when
+# cancel-in-progress is false, which silently cancelled the first attempts.
 concurrency:
-  group: gekta-speed-production-baseline
+  group: >-
+    gekta-speed-production-baseline-${{
+      (github.event_name == 'workflow_dispatch'
+        || (github.event_name == 'issue_comment'
+            && startsWith(github.event.comment.body, '/gekta speed-baseline current-main')))
+      && 'measurement' || github.run_id }}
   cancel-in-progress: false
 
 env:
