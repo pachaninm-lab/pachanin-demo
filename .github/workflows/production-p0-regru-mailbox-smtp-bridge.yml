@@ -1,0 +1,312 @@
+name: Production P0 REG.RU Mailbox SMTP Bridge
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-regru-mailbox-smtp-bridge.yml'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json'
+      - 'scripts/provision-production-p0-password-reset-runtime.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-regru-mailbox-smtp-bridge
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-regru-mailbox-smtp-bridge
+  SMTP_HOST: sm38.hosting.reg.ru
+  SMTP_PORT: '465'
+  SMTP_USER_ASCII: access@xn----8sbjf4befbjgs9b.xn--p1ai
+  SMTP_USER_UNICODE: access@процент-агро.рф
+
+jobs:
+  contract:
+    name: Validate bounded REG.RU mailbox bridge contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-regru-mailbox-smtp-bridge current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bounded contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-production-p0-password-reset-runtime-provision.mjs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json').read_text())
+          assert scope['schemaVersion'] == 'platform-v7.concurrent-scope.v1'
+          assert scope['branch'] == 'fix/p0-regru-smtp-secret-discovery-20260811'
+          assert scope['issue'] == 3785 and scope['releaseIssue'] == 3072
+          assert scope['productionHosting'] == 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
+          b = scope['boundaries']
+          assert b['newRecurringCostRub'] == 0
+          assert b['ownerOnly'] is True and b['exactMainGuard'] is True
+          assert b['databaseMutation'] is False and b['deploymentMutation'] is False
+          assert b['credentialOutput'] is False and b['rawEnvironmentOutput'] is False and b['rawLogOutput'] is False
+          PY
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  bridge:
+    name: Reuse canonical REG.RU mailbox credential and materialize auth mail runtime
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != '' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-regru-mailbox-smtp-bridge current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      MAILBOX_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      MAILBOX_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Prove mailbox identity and REG.RU SMTP authentication without sending mail
+        id: mail
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          safe_scalar(){ [[ -n "$1" && "$1" != *$'\n'* && "$1" != *$'\r'* ]]; }
+          user="${MAILBOX_USER:-}"
+          pass="${MAILBOX_PASSWORD:-}"
+          safe_scalar "$user" || { echo 'ERROR_CODE=REG_RU_MAILBOX_USER_MISSING' >&2; exit 20; }
+          safe_scalar "$pass" || { echo 'ERROR_CODE=REG_RU_MAILBOX_PASSWORD_MISSING' >&2; exit 21; }
+          if [[ "$user" == "$SMTP_USER_UNICODE" ]]; then user="$SMTP_USER_ASCII"; fi
+          [[ "$user" == "$SMTP_USER_ASCII" ]] || { echo 'ERROR_CODE=REG_RU_MAILBOX_NOT_CANONICAL_SENDER' >&2; exit 22; }
+
+          mkdir -p "$EVIDENCE_DIR"
+          input="$RUNNER_TEMP/pc-regru-mailbox-smtp.env"
+          umask 077
+          printf 'PC_SMTP_HOST=%s\nPC_SMTP_USER=%s\nPC_SMTP_PASS=%s\nPC_SMTP_PORT=%s\nPC_MAIL_FROM=%s\n' \
+            "$SMTP_HOST" "$SMTP_USER_ASCII" "$pass" "$SMTP_PORT" "$SMTP_USER_ASCII" > "$input"
+          chmod 0600 "$input"
+          echo "input=$input" >> "$GITHUB_OUTPUT"
+
+          SMTP_PASSWORD="$pass" node <<'NODE' > "$EVIDENCE_DIR/smtp-auth.txt"
+          const tls = require('node:tls');
+          const host = process.env.SMTP_HOST;
+          const port = Number(process.env.SMTP_PORT);
+          const user = process.env.SMTP_USER_ASCII;
+          const pass = process.env.SMTP_PASSWORD;
+          let buffer = '';
+          let waiter = null;
+          const socket = tls.connect({ host, port, servername: host, rejectUnauthorized: true });
+          const timer = setTimeout(() => fail(30), 10000);
+          function fail(code) { clearTimeout(timer); try { socket.destroy(); } catch {} process.exit(code); }
+          function drain() {
+            if (!waiter) return;
+            const lines = buffer.split(/\r?\n/);
+            const end = lines.findIndex((line) => /^\d{3} /.test(line));
+            if (end < 0) return;
+            const response = lines.slice(0, end + 1).join('\n');
+            buffer = lines.slice(end + 1).join('\n');
+            const resolve = waiter; waiter = null; resolve(response);
+          }
+          function nextResponse() { return new Promise((resolve) => { waiter = resolve; drain(); }); }
+          function code(response) { return Number(String(response).slice(0, 3)); }
+          async function command(value, expected) {
+            socket.write(`${value}\r\n`);
+            const response = await nextResponse();
+            if (!expected.includes(code(response))) fail(31);
+          }
+          socket.on('data', (chunk) => { buffer += chunk.toString('utf8'); drain(); });
+          socket.on('error', () => fail(32));
+          socket.once('secureConnect', async () => {
+            const greeting = await nextResponse();
+            if (code(greeting) !== 220) fail(33);
+            await command('EHLO transparent-price.local', [250]);
+            const auth = Buffer.from(`\u0000${user}\u0000${pass}`, 'utf8').toString('base64');
+            await command(`AUTH PLAIN ${auth}`, [235]);
+            socket.write('QUIT\r\n');
+            clearTimeout(timer);
+            socket.end();
+            process.stdout.write('REG_RU_MAILBOX_SMTP_AUTH_OK=1\n');
+          });
+          NODE
+          grep -Fxq REG_RU_MAILBOX_SMTP_AUTH_OK=1 "$EVIDENCE_DIR/smtp-auth.txt"
+
+      - name: Resolve pinned REG.RU root SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ -n "$host" && -n "$user" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$host"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 40
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; echo ROOT_SSH_AUTH_OK' > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize root-only auth mail runtime through existing provisioner
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          MAIL_INPUT: ${{ steps.mail.outputs.input }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -f "$MAIL_INPUT" && "$(stat -c '%a' "$MAIL_INPUT")" == 600 ]]
+          remote_script="/tmp/pc-regru-mailbox-bridge-${GITHUB_RUN_ID}.sh"
+          remote_mail="/tmp/pc-regru-mailbox-bridge-${GITHUB_RUN_ID}.env"
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          scp "${scp_common[@]}" scripts/provision-production-p0-password-reset-runtime.sh "$USER@$HOST:$remote_script"
+          scp "${scp_common[@]}" "$MAIL_INPUT" "$USER@$HOST:$remote_mail"
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "chmod 0700 '$remote_script' && chmod 0600 '$remote_mail' && PC_RECONCILE_ACTIVE_RUNTIME=1 '$remote_script' provision '$remote_mail'" | tee "$EVIDENCE_DIR/provision.log"
+          grep -Eq '^PASSWORD_RESET_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.log"
+          grep -Eq '^REGISTRATION_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.log"
+          grep -Fxq PASSWORD_RESET_RUNTIME_VALID=1 "$EVIDENCE_DIR/provision.log"
+          grep -Fxq AUTH_MAIL_RUNTIME_VALID=1 "$EVIDENCE_DIR/provision.log"
+          grep -Eq '^TRANSACTIONAL_MAIL_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.log"
+          grep -Fxq TRANSACTIONAL_MAIL_CHANNEL=SMTP "$EVIDENCE_DIR/provision.log"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Publish bounded bridge result
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 REG.RU mailbox SMTP bridge
+
+          - exact main: \`$TARGET_SHA\`
+          - result: \`PASS\`
+          - mailbox identity: \`CANONICAL_ACCESS_SENDER_MATCH\`
+          - REG.RU SMTP auth: \`PASS_NO_MESSAGE_SENT\`
+          - auth-mail runtime: \`READY_SMTP\`
+          - production mutation: \`ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES\`
+          - database/deployment mutation: \`NONE\`
+          - credentials and protected paths: \`NOT_PUBLISHED\`
+          - next: \`P0_AUTH_RUNTIME_AUTODISCOVERY_RELEASE\`" >/dev/null
+
+      - name: Cleanup credentials and bounded remote assets
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -n "${HOST:-}" && -n "${USER:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$USER@$HOST" \
+              "rm -f '/tmp/pc-regru-mailbox-bridge-${GITHUB_RUN_ID}.sh' '/tmp/pc-regru-mailbox-bridge-${GITHUB_RUN_ID}.env'" || true
+          fi
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/pc-regru-mailbox-smtp.env"
+
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-regru-mailbox-smtp-bridge-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: ignore
+          retention-days: 90
