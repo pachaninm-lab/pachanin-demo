@@ -18,11 +18,11 @@ continuation = "\\" + "\n"
 replacements = [
     (
         "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
-        "DIAGNOSTIC_BASE_SHA='77afc6758bb585222074cde673046bc6d5b2d2cf'",
+        "DIAGNOSTIC_BASE_SHA='3c983b3100fd605bd8621da081044b2f1161e96a'",
     ),
     (
         "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
-        "DEPLOYED_SHA='b81ee2e51f9fbf5ec66603211c3f32224532e782'",
+        "DEPLOYED_SHA='5c0020e1fb259929264cd27e25b0b7ad5435243a'",
     ),
     (
         """expected_paths=(
@@ -271,9 +271,11 @@ for old, new in replacements:
 for forbidden in (
     "DEPLOYED_SHA='159b597c512aa88f24ffe9a9f37863fe5892c02f'",
     "DEPLOYED_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
+    "DEPLOYED_SHA='b81ee2e51f9fbf5ec66603211c3f32224532e782'",
     "DIAGNOSTIC_BASE_SHA='7677678dbd629a0938bd47ce421a66e80555fec3'",
     "DIAGNOSTIC_BASE_SHA='0a9bbe85951a59ac7613a0a074c3abb3d398a784'",
     "DIAGNOSTIC_BASE_SHA='5c0020e1fb259929264cd27e25b0b7ad5435243a'",
+    "DIAGNOSTIC_BASE_SHA='77afc6758bb585222074cde673046bc6d5b2d2cf'",
     "console.log(safeMessage)",
     "console.error(safeMessage)",
     "JSON.stringify(meta)",
