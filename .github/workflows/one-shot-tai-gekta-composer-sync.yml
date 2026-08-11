@@ -45,7 +45,7 @@ jobs:
               ],
               Path('apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts'): [
                   ('Задай вопрос об агробизнесе или платформе', 'Спроси Гекту о земле, урожае или агробизнесе', 2),
-                  ('Ask about agribusiness or the platform', 'Ask Gekta about land, crops or agribusiness', 2),
+                  ('Ask about agribusiness or the platform', 'Ask Gekta about land, crops or agribusiness', 1),
                   ('询问农业商业或平台问题', '向 Gekta 咨询土地、作物或农业经营', 2),
               ],
               Path('.github/workflows/tai-public-agro-semantic-live-acceptance.yml'): [
