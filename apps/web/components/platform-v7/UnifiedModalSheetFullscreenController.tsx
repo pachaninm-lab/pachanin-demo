@@ -27,9 +27,9 @@ const LABELS: Record<Locale, { expand: string; collapse: string }> = {
 };
 
 const PUBLIC_ASSISTANT_BRANDING: Record<Locale, { title: string; subtitle: string }> = {
-  ru: { title: 'ИИ для агробизнеса', subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.' },
-  en: { title: 'AI for agribusiness', subtitle: 'Developed by Transparent Price for agriculture.' },
-  zh: { title: '农业商业人工智能', subtitle: '由“透明价格”为农业打造。' },
+  ru: { title: 'Гекта', subtitle: 'Аграрный интеллект для земли, урожая и решений.' },
+  en: { title: 'Gekta', subtitle: 'Agricultural intelligence for land, crops and decisions.' },
+  zh: { title: 'Gekta', subtitle: '服务于土地、作物与决策的农业智能。' },
 };
 
 const PUBLIC_ASSISTANT_TIMEOUT_COPY: Record<Locale, { message: string; retry: string }> = {
