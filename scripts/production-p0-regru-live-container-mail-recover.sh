@@ -165,6 +165,7 @@ provisioner="$1"; expected_host="$2"; expected_port="$3"; expected_ascii="$4"; e
 command -v docker >/dev/null 2>&1
 command -v python3 >/dev/null 2>&1
 chmod 0700 "$provisioner"
+umask 077
 mail_input="/tmp/pc-live-mail-input-$$.env"
 compose_json="/tmp/pc-live-mail-compose-$$.json"
 env_json="/tmp/pc-live-mail-env-$$.json"
@@ -282,7 +283,7 @@ docker inspect --format '{{json .Config.Env}}' "$web_id" > "$env_json"
 try_payload ACTIVE < "$env_json"
 
 # 2. Replaced/stopped Web containers from the same production working directory may retain
-# the previously working mail credential in Docker metadata. Inspect at most 20, newest first.
+# the previously working mail credential in Docker metadata. Inspect at most 20.
 if [[ -z "$chosen" ]]; then
   inspected=0
   while IFS= read -r historical_id; do
@@ -298,9 +299,8 @@ if [[ -z "$chosen" ]]; then
   done < <(docker ps -aq --filter 'label=com.docker.compose.service=web')
 fi
 
-# 3. Resolve the active Compose configuration server-side. This can recover a credential
-# still present in a protected Compose/.env authority even when it is absent from the live
-# container. The resolved config is never emitted to Actions logs or artifacts.
+# 3. Resolve the active Compose configuration server-side. The resolved config is never
+# emitted to Actions logs or artifacts.
 if [[ -z "$chosen" && -n "$config_files_raw" ]]; then
   IFS=',' read -r -a raw_files <<< "$config_files_raw"
   dc=(docker compose --project-directory "$active_dir" --project-name "$project")
@@ -320,20 +320,14 @@ import json, sys
 cfg = json.load(open(sys.argv[1], encoding='utf-8'))
 web = (cfg.get('services') or {}).get('web') or {}
 env = web.get('environment') or {}
-if isinstance(env, list):
-    print(json.dumps(env))
-elif isinstance(env, dict):
-    print(json.dumps(env))
-else:
-    print('{}')
+print(json.dumps(env if isinstance(env, (list, dict)) else {}))
 PY
     try_payload COMPOSE < "$env_json"
   fi
 fi
 
 # 4. Inspect only a small allowlist of production-directory env authorities. No file is
-# printed; only candidate keys are parsed and the password is accepted solely after a
-# successful TLS SMTP authentication against the canonical REG.RU endpoint.
+# printed; only mail keys are parsed and any password is accepted solely after canonical auth.
 if [[ -z "$chosen" ]]; then
   for candidate_file in \
     "$active_dir/.env" \
