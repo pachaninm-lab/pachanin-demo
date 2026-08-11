@@ -101,9 +101,9 @@ jobs:
           const fs = require('node:fs');
           const path = '.github/workflows/production-full-stack-exact-sha.yml';
           const text = fs.readFileSync(path, 'utf8');
-          const start = text.indexOf('      - name: Resolve protected key and pinned VPS identity');
-          const end = text.indexOf('      - name: Copy bounded release assets', start);
-          if (start < 0 || end < 0) throw new Error('SSH authority step not found');
+          const start = text.lastIndexOf('      - name: Resolve protected key and pinned VPS identity');
+          const end = text.lastIndexOf('      - name: Copy bounded release assets');
+          if (start < 0 || end <= start) throw new Error('SSH authority step not found');
           const ssh = text.slice(start, end);
           if (ssh.includes('DEFAULT_HOST')) throw new Error('historical DEFAULT_HOST fallback is forbidden');
           for (const required of [
