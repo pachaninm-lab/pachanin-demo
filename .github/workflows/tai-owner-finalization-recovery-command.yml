@@ -238,6 +238,14 @@ jobs:
           export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
           target="$1" current="$2" controller_run="$3" activation_run="$4" recovery_run="$5" recovery_attempt="$6" output="$7"
           activation_job_id="$8" hosted_job_id="$9" artifact_id="${10}" artifact_digest="${11}"
+          recovery_stage=ARGUMENT_VALIDATION
+          report_recovery_error() {
+            local rc="$1" line="${BASH_LINENO[0]:-$LINENO}"
+            trap - ERR
+            printf 'ERROR_CODE=TAI_FINALIZATION_RECOVERY_FAILED\nRECOVERY_STAGE=%s\nRECOVERY_LINE=%s\n' "$recovery_stage" "$line" >&2
+            exit "$rc"
+          }
+          trap 'report_recovery_error "$?"' ERR
           [[ "$(id -u)" -eq 0 ]]
           [[ "$target" =~ ^[0-9a-f]{40}$ && "$current" =~ ^[0-9a-f]{40}$ ]]
           [[ "$controller_run" == 314812670581 && "$activation_run" == 31481267058 ]]
@@ -245,6 +253,7 @@ jobs:
           [[ "$recovery_attempt" =~ ^[1-9][0-9]*$ ]]
           [[ "$activation_job_id" == 93746825204 && "$hosted_job_id" == 93747517497 ]]
           [[ "$artifact_id" == 9098297919 && "$artifact_digest" == sha256:1777d4300744555ae3ffc2abd614a34b0830d974b851c0e169917b4b723044ee ]]
+          recovery_stage=REPOSITORY_AUTHORITY
           state_root=/var/lib/pc-release-authority
           repository="$state_root/repository"
           job_state="$state_root/controller-jobs/$controller_run"
@@ -257,6 +266,7 @@ jobs:
           git -C "$repository" fetch --force --no-tags origin "$target" >/dev/null
           [[ "$(git -C "$repository" rev-parse refs/remotes/origin/main)" == "$current" ]]
           git -C "$repository" merge-base --is-ancestor "$target" "$current"
+          recovery_stage=CONTROLLER_AUTHORITY
           installed_controller=/usr/local/sbin/pc-tai-release-controller
           runner_authority=/etc/pc-release-authority/actions-runner.json
           [[ -f "$installed_controller" && ! -L "$installed_controller" && -x "$installed_controller" ]]
@@ -275,6 +285,7 @@ jobs:
           assert report.get('productionInboundSshRequired') is False
           assert report.get('dockerSocketAccess') is False
           PY
+          recovery_stage=ACTIVATION_STATE
           [[ -s "$job_state/target-sha" && "$(cat "$job_state/target-sha")" == "$target" ]]
           [[ -s "$job_state/PENDING_UI_ACCEPTANCE" && "$(cat "$job_state/PENDING_UI_ACCEPTANCE")" == "$target" ]]
           [[ -f "$qwen_state/PENDING_ACCEPTANCE" && ! -L "$qwen_state/PENDING_ACCEPTANCE" ]]
@@ -293,6 +304,7 @@ jobs:
           assert report.get('productionInboundSshUsed') is False
           assert report.get('publicModelPortPublished') is False
           PY
+          recovery_stage=LIVE_REVISIONS
           mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
           mapfile -t tai_ids < <(docker ps -q --filter 'label=com.docker.compose.service=tai')
@@ -306,10 +318,12 @@ jobs:
           web_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")"
           tai_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$tai_id")"
           [[ "$api_state" =~ ^(healthy|running)$ && "$web_state" =~ ^(healthy|running)$ && "$tai_state" =~ ^(healthy|running)$ ]]
+          recovery_stage=RUNTIME_ENVIRONMENT
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'AI_ASSISTANT_MODEL=tai-qwen3-8b-q4km'
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_MODEL_IDENTITY=tai-qwen3-8b-q4km'
+          recovery_stage=RESUME_STATE
           install -d -m 0750 -o root -g pcactions "$original_output" "$(dirname "$output")"
           finalization_path="$job_state/finalization.json"
           original_path="$original_output/finalization.json"
@@ -388,6 +402,7 @@ jobs:
           [[ "$commit_run" =~ ^[0-9]{2,20}$ && "$commit_attempt" =~ ^[1-9][0-9]*$ && "$committed_current" =~ ^[0-9a-f]{40}$ ]]
           git -C "$repository" merge-base --is-ancestor "$target" "$committed_current"
           git -C "$repository" merge-base --is-ancestor "$committed_current" "$current"
+          recovery_stage=MATERIALIZE_EVIDENCE
           finalization_tmp="$job_state/.finalization.json.tmp-$recovery_run-$recovery_attempt"
           original_tmp="$original_output/.finalization.json.tmp-$recovery_run-$recovery_attempt"
           canonical_tmp="$original_output/.finalization-recovery.json.tmp-$recovery_run-$recovery_attempt"
@@ -449,10 +464,12 @@ jobs:
               mv -Tf "$source" "$destination"
             fi
           }
+          recovery_stage=INSTALL_EVIDENCE
           install_or_validate "$finalization_tmp" "$finalization_path" 600 root
           install_or_validate "$original_tmp" "$original_path" 640 pcactions
           install_or_validate "$canonical_tmp" "$canonical_recovery" 640 pcactions
           install_or_validate "$output_tmp" "$output" 640 pcactions
+          recovery_stage=SYNC_EVIDENCE
           python3 - "$job_state" "$original_output" "$(dirname "$output")" <<'PY'
           import os,sys
           for path in dict.fromkeys(sys.argv[1:]):
@@ -460,6 +477,7 @@ jobs:
             try: os.fsync(descriptor)
             finally: os.close(descriptor)
           PY
+          recovery_stage=FINAL_MARKER
           if [[ -e "$marker_path" || -L "$marker_path" ]]; then
             [[ -f "$marker_path" && ! -L "$marker_path" && "$(stat -c '%U:%G:%a:%s' "$marker_path")" == root:root:600:0 ]]
           else
@@ -478,7 +496,8 @@ jobs:
           finally: os.close(descriptor)
           PY
           fi
-          trap - EXIT
+          recovery_stage=COMPLETE
+          trap - ERR EXIT
           printf 'TAI_FINALIZATION_MAIN_DRIFT_RECOVERY=PASS\n'
           RECOVERY
           chmod 0700 "$RUNNER_TEMP/recover-finalization.sh"
