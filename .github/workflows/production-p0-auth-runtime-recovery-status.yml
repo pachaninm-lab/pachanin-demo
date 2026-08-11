@@ -53,7 +53,7 @@ jobs:
           grep -Fq 'issues: write' "$file"
           grep -Fq 'RECOVERY_WORKFLOW: production-p0-reuse-existing-auth-runtime.yml' "$file"
           grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
-          ! grep -Eq '(^|[[:space:]])ssh([[:space:]]|$)|(^|[[:space:]])scp([[:space:]]|$)|docker[[:space:]]+(compose|run|exec)|workflow run' "$file"
+          ! grep -Eq '(^|[[:space:]])ssh([[:space:]]|$)|(^|[[:space:]])scp([[:space:]]|$)|docker[[:space:]]+(compose|run|exec)|gh[[:space:]]+workflow[[:space:]]+run' "$file"
 
   status:
     name: Read recovery workflow run status only
