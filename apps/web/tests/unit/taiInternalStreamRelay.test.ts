@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encodeFrame, type GatewayFrame } from '@pc/ai-assistant-stream-contract';
 import {
+  applyGeneralAgroResponseBudget,
   signInternalStreamRequest,
   streamInternalModel,
   type InternalStreamEvent,
@@ -75,6 +76,39 @@ describe('internal stream signing', () => {
     // A signature over the buffered path must not be reusable here.
     const other = signInternalStreamRequest(`${config.secret}x`, '{"a":1}', 1_700_000_000);
     expect(other.signature).not.toBe(signed.signature);
+  });
+
+  it('adds a bounded complete-answer instruction only to general-agro model questions', () => {
+    const general = applyGeneralAgroResponseBudget({
+      question: 'Как интерпретировать коэффициент кущения?',
+      originalQuestion: 'Как интерпретировать коэффициент кущения?',
+      locale: 'ru',
+      answerMode: 'general_agro',
+      conversationState: 'topic: crop:wheat',
+    }) as Record<string, unknown>;
+    const verified = {
+      question: 'Как работает аукцион?',
+      originalQuestion: 'Как работает аукцион?',
+      locale: 'ru',
+      answerMode: 'verified_platform',
+    };
+
+    expect(general.question).toContain('Как интерпретировать коэффициент кущения?');
+    expect(general.question).toContain('не более 180 слов');
+    expect(general.question).toContain('не более 260 слов');
+    expect(general.originalQuestion).toBe('Как интерпретировать коэффициент кущения?');
+    expect(general.conversationState).toBe('topic: crop:wheat');
+    expect(applyGeneralAgroResponseBudget(verified)).toBe(verified);
+  });
+
+  it('uses locale-specific bounded answer instructions', () => {
+    const en = applyGeneralAgroResponseBudget({ question: 'How should I store grain?', locale: 'en', answerMode: 'general_agro' }) as Record<string, unknown>;
+    const zh = applyGeneralAgroResponseBudget({ question: '粮食收获后怎么储存？', locale: 'zh', answerMode: 'general_agro' }) as Record<string, unknown>;
+
+    expect(en.question).toContain('at most 180 words');
+    expect(en.question).toContain('at most 260 words');
+    expect(zh.question).toContain('300 个汉字');
+    expect(zh.question).toContain('450 个汉字');
   });
 });
 
