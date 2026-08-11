@@ -67,8 +67,12 @@
     "a topic shift clears subject-bound state and a new conversation inherits nothing",
     "public state carries no deal tenant organization or role context",
     "recent context, summary, facts and entity lists stay bounded",
-    "general-agro answers are concise and complete by default so a verbose completion does not consume the full existing provider timeout",
-    "general-agro completion and continuation budgets are bounded below verified-platform authority while verified-platform token authority remains unchanged",
+    "general-agro response length is carried as a typed signed responseBudget profile without modifying question originalQuestion or ConversationState",
+    "the API hard-enforces bounded initial and continuation max_tokens for general-agro provider calls rather than relying on an advisory prompt suffix",
+    "concise general-agro uses hard provider ceilings of 256 initial tokens and 64 continuation tokens; explicitly detailed general-agro uses 320 and 96 respectively",
+    "verified-platform requests preserve their existing configured provider token authority and receive no injected responseBudget from the public relay",
+    "a valid 1200-character public question remains intact end-to-end when the response budget is applied",
+    "general-agro answers are instructed to be concise and complete so the hard token budget is used for a finished answer rather than verbose filler",
     "the hosted acceptance readers validate the assessment the streaming route actually emits",
     "no acceptance reader or evidence file restates a model identity the public contour never published",
     "the browser resolves the model outcome from the upstream record and grounded answers from the top level",
@@ -83,7 +87,7 @@
     "a stopped answer keeps the text the reader already saw, and a broken stream still discards it",
     "the live matrix drives each localized panel with that locale's own control labels",
     "a correction or topic shift is judged by which subject leads the answer, not by absolute absence of the old one",
-    "hosted semantic acceptance is not weakened to hide provider latency"
+    "hosted semantic acceptance is not weakened and the existing provider timeout is not increased to hide latency"
   ],
   "productionEvidence": {
     "failedActivationRun": 31461208306,
