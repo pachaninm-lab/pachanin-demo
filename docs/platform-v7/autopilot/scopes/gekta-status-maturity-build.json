@@ -7,9 +7,10 @@
     "branch": "main",
     "commit": "b1e104f4280818cc4034a3055a62e17dfec2fa4a"
   },
-  "purpose": "Restore the missing source module required by the public service-status page so the canonical web image can build, without changing runtime authority or making unsupported operational claims.",
+  "purpose": "Restore the missing source module required by the public service-status page and realign its stale pre-rebrand authority regression so the canonical web image and governed Design System checks can pass without unsupported operational claims.",
   "allowedPaths": [
     "apps/web/lib/platform-v7/public-operational-maturity.ts",
+    "apps/web/tests/unit/platformV7StatusAuthority.test.ts",
     "apps/web/tests/unit/publicOperationalMaturity.test.ts",
     "docs/platform-v7/autopilot/scopes/gekta-status-maturity-build.json"
   ],
@@ -24,6 +25,7 @@
   "acceptance": [
     "the missing module resolves during the canonical Next.js production build",
     "RU, EN and ZH return bounded operational-maturity copy with a deterministic Russian fallback",
+    "the status authority regression validates the accepted public status implementation instead of the removed private outbox cockpit",
     "the copy does not claim universal SLA, full industrial attestation or unverified external integrations",
     "the trust CTA stays on the canonical /platform-v7/trust route"
   ]
