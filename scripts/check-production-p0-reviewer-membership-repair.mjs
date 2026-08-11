@@ -6,11 +6,15 @@ const workflowPath = '.github/workflows/production-p0-reviewer-membership-repair
 const runnerPath = 'scripts/production-p0-reviewer-membership-repair.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-membership-repair.mjs';
 const migrationPath = 'apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql';
+const ownerIdentityMigrationPath = 'apps/api/prisma/migrations/20260811023000_p0_reviewer_owner_identity_semantics/migration.sql';
+const candidateScopeMigrationPath = 'apps/api/prisma/migrations/20260811090000_p0_reviewer_membership_candidate_scope/migration.sql';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const ownerIdentityMigration = fs.readFileSync(ownerIdentityMigrationPath, 'utf8');
+const candidateScopeMigration = fs.readFileSync(candidateScopeMigrationPath, 'utf8');
 const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
 
 const requireMarkers = (label, source, markers) => {
@@ -34,7 +38,17 @@ requireMarkers('workflow', workflow, [
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'bash scripts/production-p0-reviewer-membership-repair.sh',
   migrationPath,
+  ownerIdentityMigrationPath,
+  candidateScopeMigrationPath,
   scopePath,
+  'postgresql-candidate-scope:',
+  'PostgreSQL 16 unrelated-membership repair proof',
+  'prisma migrate deploy --schema prisma/schema.prisma',
+  'SET SESSION AUTHORIZATION pc_staff_runtime',
+  "1|1|0|0|0|0",
+  "REPAIRED|1|1|1|0|0|0|1|1|1|1",
+  "ALREADY_REPAIRED|1|1|1|0|0|0|1|1|1|1",
+  "2|1|1|1|1|1",
 ]);
 
 requireMarkers('runner', runner, [
@@ -152,6 +166,60 @@ requireMarkers('migration', migration, [
   'reviewer membership repair RLS policy set is incomplete',
 ]);
 
+for (const migrationFilterPath of [
+  migrationPath,
+  ownerIdentityMigrationPath,
+  candidateScopeMigrationPath,
+]) {
+  const workflowReferences = workflow.split(migrationFilterPath).length - 1;
+  if (workflowReferences !== 2) {
+    console.error(`Reviewer repair workflow must cover ${migrationFilterPath} on pull_request and push.`);
+    process.exit(1);
+  }
+}
+
+requireMarkers('owner-identity correction migration', ownerIdentityMigration, [
+  "v_needle constant text := 'assignment.activated_at IS NOT NULL'",
+  "EXECUTE replace(v_definition, v_needle, 'TRUE')",
+  "owner.rolname = 'pc_reviewer_membership_repair_authority'",
+  "'pc_staff_runtime'",
+  "'auth.repair_single_reviewer_membership()'",
+  "'EXECUTE'",
+]);
+
+requireMarkers('candidate-scope correction migration', candidateScopeMigration, [
+  'CONFLICTING_EXISTING_MEMBERSHIP',
+  'v_old_query constant text',
+  'WHERE membership."userId" = v_user_id;',
+  'v_new_query constant text',
+  'membership."id" = \'membership_pc_reviewer_internal_v1\'',
+  'membership."organizationId" = \'org_pc_internal_platform_v1\'',
+  'v_occurrences <> 1',
+  'EXECUTE replace(v_definition, v_old_query, v_new_query)',
+  'global reviewer membership candidate scan remains',
+  'v_new_occurrences <> 1',
+  "owner.rolname = 'pc_reviewer_membership_repair_authority'",
+  "'pc_staff_runtime'",
+  "'auth.repair_single_reviewer_membership()'",
+  "'EXECUTE'",
+  'rolcanlogin OR rolinherit OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole',
+]);
+
+for (const pattern of [
+  /\b(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|TRUNCATE\s+|ALTER\s+(?:TABLE|POLICY|ROLE)|CREATE\s+ROLE|DROP\s+ROLE)\b/i,
+  /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)/i,
+  /\b(?:BYPASSRLS|SUPERUSER)\b/i,
+]) {
+  if (pattern.test(candidateScopeMigration)) {
+    console.error(`Candidate-scope correction migration is broader than function-definition replacement: ${pattern}`);
+    process.exit(1);
+  }
+}
+if ((candidateScopeMigration.match(/EXECUTE replace\(v_definition, v_old_query, v_new_query\)/g) || []).length !== 1) {
+  console.error('Candidate-scope correction must replace exactly one bounded function query.');
+  process.exit(1);
+}
+
 if (!/CREATE OR REPLACE FUNCTION auth\.repair_single_reviewer_membership\(\)\s*RETURNS TABLE/.test(migration)) {
   console.error('Repair authority must expose exactly one no-argument function.');
   process.exit(1);
@@ -214,14 +282,18 @@ const expectedPaths = [
   runnerPath,
   checkerPath,
   migrationPath,
+  ownerIdentityMigrationPath,
+  candidateScopeMigrationPath,
   scopePath,
 ].sort();
 const actualPaths = [...scope.allowedPaths].sort();
 if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
-  console.error('Governed scope does not match the exact five-file repair surface.');
+  console.error('Governed scope does not match the exact seven-file repair surface.');
   process.exit(1);
 }
 if (scope.issue !== 3799
+    || scope.branch !== 'fix/p0-reviewer-unrelated-membership-3799'
+    || scope.operationalStatus !== 'P0_REVIEWER_MEMBERSHIP_REPAIR_BOUNDED'
     || scope.boundaries?.productionMutation !== 'REVIEWER_MEMBERSHIP_ONLY'
     || scope.boundaries?.identityMutation !== false
     || scope.boundaries?.staffAssignmentMutation !== false
@@ -232,4 +304,4 @@ if (scope.issue !== 3799
   process.exit(1);
 }
 
-console.log('PASS: owner-only exact-main reviewer membership repair is no-argument, SERIALIZABLE, FORCE-RLS-bounded, function-only, PII-free at output, audit/outbox-backed and limited to the fixed internal organization plus one GUEST membership.');
+console.log('PASS: owner-only exact-main reviewer membership repair is no-argument, SERIALIZABLE, FORCE-RLS-bounded, function-only, PII-free at output, audit/outbox-backed and limited to the fixed internal organization plus one GUEST membership while preserving unrelated memberships.');
