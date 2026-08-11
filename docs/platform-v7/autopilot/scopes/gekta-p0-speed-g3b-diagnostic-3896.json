@@ -4,7 +4,7 @@
   "status": "active",
   "purpose": "Read the active private Qwen model-host capacity configuration needed for measured Gekta P0 SPEED tuning without changing the service, filesystem, runtime, network or production application.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
-  "authorityBaseExactMain": "e8762ce7e309ad42abfb36d01fbef1d7ce49a6ea",
+  "authorityBaseExactMain": "c801f913525437fba76b11de8ab344032d440256",
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-diagnostic-3896.json",
