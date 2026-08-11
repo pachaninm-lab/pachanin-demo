@@ -1,0 +1,415 @@
+name: Production P0 All-Role Registration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-all-role-registration.yml'
+      - 'scripts/production-p0-all-role-registration.sh'
+      - 'scripts/check-production-p0-all-role-registration.mjs'
+      - 'docs/ops/production-p0-all-role-registration.md'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-all-role-registration.yml'
+      - 'scripts/production-p0-all-role-registration.sh'
+      - 'scripts/check-production-p0-all-role-registration.mjs'
+      - 'docs/ops/production-p0-all-role-registration.md'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-all-role-registration
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-all-role-registration
+
+jobs:
+  contract:
+    name: Validate production 9-role contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-all-role-registration current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-all-role-registration.mjs
+
+  acceptance:
+    name: Nine roles · real mail · desktop/mobile Chromium
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-all-role-registration current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Require same-revision deep First Customer Acceptance
+        id: deep
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          runs="$RUNNER_TEMP/deep-runs.json"
+          gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/production-p0-first-customer-acceptance.yml/runs?event=issue_comment&status=success&per_page=100" \
+            > "$runs"
+          read -r deep_run_id deep_updated_at < <(node - "$runs" "$TARGET_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const [path, target] = process.argv.slice(2);
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const matches = (report.workflow_runs || []).filter((run) =>
+            run.head_sha === target &&
+            run.status === 'completed' &&
+            run.conclusion === 'success'
+          ).sort((a, b) => Number(b.id) - Number(a.id));
+          if (matches.length < 1) process.exit(2);
+          process.stdout.write(`${matches[0].id} ${matches[0].updated_at}\n`);
+          NODE
+          )
+          [[ "$deep_run_id" =~ ^[0-9]{2,20}$ ]]
+          [[ "$deep_updated_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+          artifact_name="production-p0-first-customer-$TARGET_SHA-$deep_run_id"
+          deep_dir="$RUNNER_TEMP/deep-first-customer"
+          mkdir -p "$deep_dir"
+          gh run download "$deep_run_id" --repo "$GITHUB_REPOSITORY" \
+            --name "$artifact_name" --dir "$deep_dir"
+          result="$(find "$deep_dir" -type f -name result.json -print -quit)"
+          [[ -n "$result" && -f "$result" ]]
+          node - "$result" "$TARGET_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const [path, target] = process.argv.slice(2);
+          const result = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (result.schemaVersion !== 'production.p0.first-customer.acceptance.v1'
+            || result.passed !== true || result.targetSha !== target
+            || result.decisionReplayNotificationSuppressed !== true
+            || !Array.isArray(result.identities) || result.identities.length !== 2
+            || result.production?.apiRevisionExact !== true
+            || result.production?.webRevisionExact !== true
+            || result.production?.migrationImageRevisionExact !== true
+            || result.secretsOrRawTokensInEvidence !== false) process.exit(3);
+          NODE
+          not_before="$(node -e \
+            "const t=Date.parse(process.argv[1]); if(!Number.isFinite(t)) process.exit(1); process.stdout.write(String(Math.floor(t/1000)+905))" \
+            "$deep_updated_at")"
+          [[ "$not_before" =~ ^[0-9]{10}$ ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          echo "run_id=$deep_run_id" >> "$GITHUB_OUTPUT"
+          echo "reviewer_window_not_before_epoch=$not_before" >> "$GITHUB_OUTPUT"
+          rm -rf "$deep_dir" "$runs"
+
+      - name: Install pinned live Chromium runtime without protected credentials
+        id: browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          pnpm install --filter @pc/web... --frozen-lockfile --ignore-scripts
+          pnpm --filter @pc/web exec playwright install --with-deps chromium
+          module="$(pnpm --filter @pc/web exec node -p "require.resolve('playwright')")"
+          [[ "$module" == /* && -f "$module" ]]
+          echo "module=$module" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned REG.RU identity
+        id: ssh
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+          SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+          SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+          SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+          SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+        run: |
+          set -euo pipefail
+          guard_main() {
+            [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          }
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          key_path="$RUNNER_TEMP/pc-p0-all-role-key"
+          known_hosts="$RUNNER_TEMP/pc-p0-all-role-known-hosts"
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key_path"
+            chmod 0600 "$key_path"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key_path" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null \
+              || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot() {
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" \
+            || try_slot "${SSH_KEY_SECONDARY:-}" \
+            || try_slot "${SSH_KEY_FALLBACK:-}"
+          guard_main
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$known_hosts"
+          rm -f "$scan"
+          chmod 0600 "$known_hosts"
+          guard_main
+          ssh -i "$key_path" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' \
+            >/dev/null
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "key_path=$key_path" >> "$GITHUB_OUTPUT"
+          echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
+
+      - name: Execute exact-main production 9-role matrix
+        id: matrix
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PC_P0_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          PC_P0_LIVE_BASE: ${{ env.LIVE_BASE }}
+          PC_P0_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}
+          PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH: ${{ steps.deep.outputs.reviewer_window_not_before_epoch }}
+          PC_P0_PLAYWRIGHT_MODULE: ${{ steps.browser.outputs.module }}
+          PC_P0_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
+          PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+          PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+          PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+          PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+          PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_FOLDER }}
+          PC_P0_HUMAN_APPROVAL_TIMEOUT_SECONDS: 1800
+          PC_P0_SSH_HOST: ${{ steps.ssh.outputs.host }}
+          PC_P0_SSH_USER: ${{ steps.ssh.outputs.user }}
+          PC_P0_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          PC_P0_SSH_KEY_PATH: ${{ steps.ssh.outputs.key_path }}
+          PC_P0_SSH_KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          bash scripts/production-p0-all-role-registration.sh '${{ steps.target.outputs.sha }}' \
+            | tee "$EVIDENCE_DIR/run.log"
+
+      - name: Enforce bounded redacted 9-role evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$EVIDENCE_DIR/result.json"
+          if ! command -v rg >/dev/null 2>&1; then
+            rg() { grep -PR --binary-files=text "$@"; }
+          fi
+          set +e
+          rg --quiet --ignore-case \
+            'verify=|statusToken|setupSecret|mfaSecret|totpSecret|backupCodes|otpAuthUri|otpauth://|postgres(?:ql)?://|DATABASE_URL=|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|"password"[[:space:]]*:' \
+            "$EVIDENCE_DIR"
+          scan_status=$?
+          set -e
+          case "$scan_status" in
+            0) echo P0_ALL_ROLE_EVIDENCE_CONTAINS_SECRET_MATERIAL >&2; exit 30 ;;
+            1) ;;
+            *) echo P0_ALL_ROLE_EVIDENCE_SCAN_FAILED >&2; exit 31 ;;
+          esac
+          node - "$EVIDENCE_DIR/result.json" '${{ steps.target.outputs.sha }}' <<'NODE'
+          const fs = require('node:fs');
+          const [path, target] = process.argv.slice(2);
+          const result = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (result.schemaVersion !== 'production.p0.all-role-registration.v1'
+            || result.passed !== true || result.targetSha !== target
+            || result.completed !== 9 || result.required !== 9
+            || result.topology?.organizations !== 8 || result.topology?.tenants !== 8
+            || result.topology?.memberships !== 9
+            || !Array.isArray(result.roles) || result.roles.length !== 9
+            || result.desktopChromium !== true || result.mobileChromium !== true
+            || result.logoutRelogin !== true || result.secretsOrPiiInEvidence !== false) process.exit(2);
+          NODE
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Guard exact main before artifact publication
+        id: artifact_guard
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Upload bounded production 9-role evidence
+        id: upload
+        if: >-
+          always() &&
+          steps.evidence.outcome == 'success' &&
+          steps.artifact_guard.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-all-role-${{ steps.target.outputs.sha }}-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Remove protected runner credentials
+        id: cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for protected_path in \
+            '${{ steps.ssh.outputs.key_path }}' \
+            '${{ steps.ssh.outputs.known_hosts }}' \
+            "$RUNNER_TEMP/pc-p0-all-role-key" \
+            "$RUNNER_TEMP/pc-p0-all-role-known-hosts"; do
+            [[ -z "$protected_path" ]] || rm -f -- "$protected_path"
+          done
+          rm -rf "$EVIDENCE_DIR/browser-private" "$RUNNER_TEMP/deep-first-customer"
+
+      - name: Publish bounded terminal 9-role result
+        id: publish
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          result=FAIL
+          blocker=UNKNOWN
+          if [[ -f "$EVIDENCE_DIR/run.log" ]]; then
+            blocker="$(sed -n 's/^P0_BLOCKER=//p' "$EVIDENCE_DIR/run.log" | tail -1)"
+            grep -Fxq P0_ALL_ROLE_REGISTRATION=PASS "$EVIDENCE_DIR/run.log" && result=PASS
+          fi
+          [[ "${{ steps.matrix.outcome }}" == success ]] || result=FAIL
+          [[ "${{ steps.evidence.outcome }}" == success ]] || result=FAIL
+          [[ "${{ steps.artifact_guard.outcome }}" == success ]] || result=FAIL
+          [[ "${{ steps.upload.outcome }}" == success ]] || result=FAIL
+          [[ "${{ steps.cleanup.outcome }}" == success ]] || result=FAIL
+          record="$(mktemp)"
+          {
+            echo "## Production P0 all-role registration"
+            echo
+            echo "- exact main: `$TARGET_SHA`"
+            echo "- result: `$result`"
+            echo "- matrix: `9/9 required`"
+            echo "- topology: `8 organizations / 8 tenants / 9 memberships`"
+            echo "- desktop Chromium: `${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}`"
+            echo "- mobile Chromium and relogin: `${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}`"
+            echo "- blocker: `${blocker:-none}`"
+            echo "- raw identity or credential data published: `0`"
+            echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+          [[ "$result" == PASS ]]
+
+      - name: Enforce terminal production 9-role result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ '${{ steps.matrix.outcome }}' == success ]]
+          [[ '${{ steps.evidence.outcome }}' == success ]]
+          [[ '${{ steps.artifact_guard.outcome }}' == success ]]
+          [[ '${{ steps.upload.outcome }}' == success ]]
+          [[ '${{ steps.cleanup.outcome }}' == success ]]
+          [[ '${{ steps.publish.outcome }}' == success ]]
+          grep -Fxq P0_ALL_ROLE_REGISTRATION=PASS "$EVIDENCE_DIR/run.log"
