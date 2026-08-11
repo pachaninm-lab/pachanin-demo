@@ -120,7 +120,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.locator('#public-deal-state-normal')).toBeChecked();
     await expect(page.locator('#live [data-state="normal"]')).toContainText('Поставка подтверждена');
     await page.locator('label[for="public-deal-state-dispute"]').click();
-    await expect(page.locator('#live [data-state="dispute"]')).toContainText('TAI воздержался от вывода');
+    await expect(page.locator('#live [data-state="dispute"]')).toContainText('Гекта воздержалась от вывода');
 
     const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
     await expect(perspectives).toBeVisible();
