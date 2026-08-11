@@ -274,4 +274,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact jobs/artifact, step-scoped SSH, controller digest, API/Web/TAI live revisions, attempt-specific resumable durable evidence before atomic final marker, producing-attempt artifact resolution, and no deployment/rollback mutation.');
+console.log('TAI exact finalization recovery contract PASS: registered owner-only activation, exact API/Web/Migration image authority and hosted artifact, step-scoped SSH, controller digest, exact API/Web live revisions, attempt-specific resumable durable evidence before atomic final marker, producing-attempt artifact resolution, and no deployment/rollback mutation.');
