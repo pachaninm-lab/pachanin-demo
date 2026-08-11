@@ -1006,6 +1006,13 @@
       "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
       "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
       "scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh"
+    ],
+    "fix/p0-reviewer-membership-conflict-correction-3799": [
+      ".github/workflows/production-p0-reviewer-membership-repair.yml",
+      "apps/api/prisma/migrations/20260811110000_p0_reviewer-membership-conflict-correction/migration.sql",
+      "docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-conflict-correction-3799.json",
+      "scripts/check-production-p0-reviewer-membership-repair.mjs",
+      "scripts/production-p0-reviewer-membership-conflict-correction-postgresql.sh"
     ]
   },
   "currentAcceptance": [
