@@ -1,11 +1,11 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-regru-mailbox-smtp-bridge-v2-20260811",
+  "branch": "fix/p0-regru-mailbox-smtp-official-authority-20260811",
   "status": "active",
-  "operationalStatus": "P0_REG_RU_MAILBOX_SMTP_BRIDGE_V2",
+  "operationalStatus": "P0_REG_RU_MAILBOX_SMTP_OFFICIAL_AUTHORITY",
   "issue": 3785,
   "releaseIssue": 3072,
-  "title": "Prove existing mailbox SMTP authorization for the canonical sender and materialize auth-mail runtime",
+  "title": "Prove existing mailbox SMTP authorization through the official REG.RU mail authority and materialize auth-mail runtime",
   "allowedPaths": [
     ".github/workflows/production-p0-regru-mailbox-smtp-bridge.yml",
     "scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh",
@@ -30,7 +30,7 @@
   "acceptance": [
     "do not require the protected mailbox login to equal the public sender address",
     "canonicalize the mailbox login domain to ASCII IDNA only for REG.RU SMTP authentication and preserve the protected mailbox login for IMAP",
-    "authenticate to sm38.hosting.reg.ru on TLS port 465 using the already-existing protected mailbox credential",
+    "authenticate to the official REG.RU mail.hosting.reg.ru authority on TLS port 465 using the already-existing protected mailbox credential",
     "send exactly one controlled message with envelope/header From access@процент-агро.рф to the same protected control mailbox",
     "prove the uniquely marked message is readable back through the existing protected IMAP mailbox before any runtime file mutation",
     "publish no mailbox identity, credential, raw SMTP response, raw IMAP content or protected filesystem path",
