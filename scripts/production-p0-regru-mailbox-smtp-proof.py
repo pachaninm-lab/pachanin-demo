@@ -15,6 +15,7 @@ from email.utils import formatdate, getaddresses, make_msgid
 
 CANONICAL_REG_RU_MAIL_HOST = "mail.hosting.reg.ru"
 CANONICAL_REG_RU_IMAP_PORT = 993
+CANONICAL_SMTP_LOGIN = "access@xn----8sbjf4befbjgs9b.xn--p1ai"
 
 
 def required(name: str) -> str:
@@ -66,13 +67,15 @@ def message_text(message) -> str:
             parts.append(part.get_content())
         except Exception:
             payload = part.get_payload(decode=True) or b""
-            parts.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
+            parts.append(part.decode(part.get_content_charset() or "utf-8", errors="replace"))
     return "\n".join(parts)
 
 
 def main() -> int:
     smtp_host = required("PC_PROBE_SMTP_HOST")
     smtp_port_raw = required("PC_PROBE_SMTP_PORT")
+    smtp_user_raw = required("PC_PROBE_SMTP_USER")
+    smtp_password = required("PC_PROBE_SMTP_PASSWORD")
     mailbox_user_raw = required("PC_PROBE_MAILBOX_USER")
     mailbox_password = required("PC_PROBE_MAILBOX_PASSWORD")
     email_template = required("PC_PROBE_EMAIL_TEMPLATE")
@@ -102,11 +105,13 @@ def main() -> int:
         return 27
 
     try:
-        smtp_login = ascii_email(mailbox_user_raw)
+        smtp_login = ascii_email(smtp_user_raw)
         recipient = render_control_recipient(email_template, run_id)
         mail_from = ascii_email(mail_from_raw)
     except Exception:
         return 28
+    if smtp_login != CANONICAL_SMTP_LOGIN or mail_from != CANONICAL_SMTP_LOGIN:
+        return 29
 
     old_umask = os.umask(0o077)
     try:
@@ -135,7 +140,7 @@ def main() -> int:
             code, _ = client.ehlo()
             if code != 250:
                 return 31
-            client.login(smtp_login, mailbox_password)
+            client.login(smtp_login, smtp_password)
             client.send_message(msg, from_addr=mail_from, to_addrs=[recipient])
     except smtplib.SMTPAuthenticationError:
         return 32
