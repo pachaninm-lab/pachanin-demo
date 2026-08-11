@@ -225,7 +225,7 @@ jobs:
             line("deployed web revision", report.revision.webRevision);
             line("repository main", report.revision.repositoryMainSha);
             console.log("");
-            if (!wave) { console.log("No wave completed."); return; }
+            if (!wave) { console.log("No wave completed."); process.exit(0); }
             console.log(`concurrency ${wave.concurrency}: ${wave.overall.completed}/${wave.overall.requests} completed`);
             line("first meaningful text p50 ms", wave.overall.firstMeaningfulTextMs.p50);
             line("first meaningful text p95 ms", wave.overall.firstMeaningfulTextMs.p95);
