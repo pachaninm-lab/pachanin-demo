@@ -9,7 +9,7 @@ import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const CSRF_COOKIE = 'pc_csrf_token';
 
-const PUBLIC_EXACT = new Set(['/', '/login', '/register']);
+const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta']);
 const PUBLIC_PREFIX = [
   '/_next/',
   '/favicon',
@@ -99,6 +99,7 @@ const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 const PUBLIC_API_EXACT = new Set([
   // No-secret exact-SHA authority required by the production runbook and release gates.
   '/api/health/ready',
+  '/api/agro-chat',
   '/api/public-platform-assistant',
   '/api/public-platform-assistant/attachments',
   '/api/restricted-public-platform-assistant',
@@ -489,7 +490,7 @@ export async function middleware(req: NextRequest) {
     || p.startsWith('/api/runtime-')
     || isTokenAuthenticatedInternalPath(p)
   ) {
-    const isIndexable = p === '/' && !privateModeEnabled;
+    const isIndexable = (p === '/' || PLATFORM_V7_INDEXABLE_EXACT.has(p)) && !privateModeEnabled;
     const routeRole = isPublicRegistrationPath(p) ? 'organization' : presentationRole;
     const response = withRoleHeaders(req, routeRole, privateModeEnabled && protectedPath, isIndexable);
     if (isPublicRegistrationPath(p)) clearPresentationRoleCookie(response);
