@@ -136,6 +136,14 @@ function uiFor(lang) {
 
 const UI = UI_COPY.ru;
 
+const RETIRED_PUBLIC_IDENTITY_PATTERN = /\bTAI\b|Transparent Agro Intelligence|ИИ для агробизнеса|AI for agribusiness|农业商业人工智能/u;
+
+async function assertNoRetiredPublicIdentity(page, lang) {
+  const visibleText = await page.locator('body').innerText();
+  const retiredIdentity = visibleText.match(RETIRED_PUBLIC_IDENTITY_PATTERN)?.[0];
+  if (retiredIdentity) throw new Error(`retired_public_identity_visible:${lang}:${retiredIdentity}`);
+}
+
 /**
  * Open the assistant panel on a fresh page load in `lang`.
  *
@@ -171,6 +179,7 @@ async function openAssistantPanel(page, lang) {
   const panelSubtitle = ((await dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible').textContent()) || '').trim();
   if (panelTitle !== copy.title) throw new Error(`gekta_title_mismatch:${lang}:${panelTitle}`);
   if (panelSubtitle !== copy.subtitle) throw new Error(`gekta_subtitle_mismatch:${lang}:${panelSubtitle}`);
+  await assertNoRetiredPublicIdentity(page, lang);
   return dialog;
 }
 
@@ -778,6 +787,7 @@ try {
   subtitle = ((await dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible').textContent()) || '').trim();
   if (title !== UI.title) throw new Error(`gekta_title_mismatch:ru:${title}`);
   if (subtitle !== UI.subtitle) throw new Error(`gekta_subtitle_mismatch:ru:${subtitle}`);
+  await assertNoRetiredPublicIdentity(page, 'ru');
   if (await dialog.locator('.pc-modal-sheet-fullscreen-button').count()) throw new Error('duplicate_fullscreen_control_present');
 
   const fullscreen = dialog.locator('button[aria-label="Развернуть на весь экран"]');
