@@ -1,11 +1,11 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-regru-official-mail-host-3785",
+  "branch": "fix/p0-regru-official-mail-host-guard-3785",
   "status": "active",
-  "operationalStatus": "P0_REG_RU_OFFICIAL_MAIL_HOST",
+  "operationalStatus": "P0_REG_RU_OFFICIAL_MAIL_HOST_GUARD",
   "issue": 3785,
   "releaseIssue": 3072,
-  "title": "Use the official REG.RU mail host for protected mailbox SMTP proof",
+  "title": "Bind the mailbox bridge runtime guard to the official REG.RU mail host",
   "allowedPaths": [
     ".github/workflows/production-p0-regru-mailbox-smtp-bridge.yml",
     "scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh",
@@ -30,7 +30,8 @@
   "acceptance": [
     "do not require the protected mailbox login to equal the public sender address",
     "canonicalize the mailbox login domain to ASCII IDNA only for REG.RU SMTP authentication and preserve the protected mailbox login for IMAP",
-    "authenticate to the official REG.RU mail.hosting.reg.ru endpoint on TLS port 465 using the already-existing protected mailbox credential",
+    "workflow and runtime script must both pin mail.hosting.reg.ru as the official REG.RU SMTP authority on TLS port 465",
+    "authenticate to mail.hosting.reg.ru on TLS port 465 using the already-existing protected mailbox credential",
     "send exactly one controlled message with envelope/header From access@процент-агро.рф to the same protected control mailbox",
     "prove the uniquely marked message is readable back through the existing protected IMAP mailbox before any runtime file mutation",
     "publish no mailbox identity, credential, raw SMTP response, raw IMAP content or protected filesystem path",

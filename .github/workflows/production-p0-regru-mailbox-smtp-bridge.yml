@@ -58,6 +58,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash -n scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh
+          grep -Fqx "OFFICIAL_SMTP_HOST='mail.hosting.reg.ru'" <(grep '^OFFICIAL_SMTP_HOST=' scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh)
+          grep -Fqx '  SMTP_HOST: mail.hosting.reg.ru' <(grep '^  SMTP_HOST:' .github/workflows/production-p0-regru-mailbox-smtp-bridge.yml)
           python3 - <<'PY'
           from pathlib import Path
           path = Path('scripts/production-p0-regru-mailbox-smtp-proof.py')
@@ -69,7 +71,7 @@ jobs:
           from pathlib import Path
           scope = json.loads(Path('docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json').read_text())
           assert scope['schemaVersion'] == 'platform-v7.concurrent-scope.v1'
-          assert scope['branch'] == 'fix/p0-regru-official-mail-host-3785'
+          assert scope['branch'] == 'fix/p0-regru-official-mail-host-guard-3785'
           assert scope['issue'] == 3785 and scope['releaseIssue'] == 3072
           assert scope['productionHosting'] == 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
           assert set(scope['allowedPaths']) == {
