@@ -26,7 +26,8 @@ const forbid = (name, patterns) => patterns.forEach((pattern) => {
 requireAll('executor', [
   '.pc-password-reset-delivery.env',
   '.pc-transactional-mail.env',
-  'PASSWORD_RESET_DELIVERY_KEY=[A-Fa-f0-9]{96}',
+  "{'PASSWORD_RESET_DELIVERY_KEY', 'REGISTRATION_DELIVERY_KEY'}",
+  "values['PASSWORD_RESET_DELIVERY_KEY'] == values['REGISTRATION_DELIVERY_KEY']",
   'PASSWORD_RESET_DELIVERY_ENV_FILE_PERMISSIONS_INVALID',
   'TRANSACTIONAL_MAIL_ENV_FILE_PERMISSIONS_INVALID',
   'password_reset_delivery_env_file',
@@ -46,10 +47,10 @@ if (apiStart === -1 || webStart === -1 || migrationStart === -1 || !(apiStart < 
 } else {
   const apiBlock = override.slice(apiStart, webStart);
   const webBlock = override.slice(webStart, migrationStart);
-  if (!apiBlock.includes('${password_reset_delivery_env_file}')) failures.push(`${paths.executor}: API does not consume the shared delivery key`);
+  if (!apiBlock.includes('${password_reset_delivery_env_file}')) failures.push(`${paths.executor}: API does not consume the shared auth delivery keys`);
   if (apiBlock.includes('${transactional_mail_env_file}')) failures.push(`${paths.executor}: API must not receive transactional mail credentials`);
   if (!webBlock.includes('${password_reset_delivery_env_file}') || !webBlock.includes('${transactional_mail_env_file}')) {
-    failures.push(`${paths.executor}: Web does not consume both protected reset runtime files`);
+    failures.push(`${paths.executor}: Web does not consume both protected auth-mail runtime files`);
   }
 }
 const rollbackStart = content.executor.indexOf('rollback_images()');
@@ -65,6 +66,9 @@ if (rollbackBlock.includes('"$full_override" 1')) {
 requireAll('provisioner', [
   'openssl rand -hex 48',
   'PASSWORD_RESET_DELIVERY_KEY=%s',
+  'REGISTRATION_DELIVERY_KEY=%s',
+  "{'PASSWORD_RESET_DELIVERY_KEY', 'REGISTRATION_DELIVERY_KEY'}",
+  "values['PASSWORD_RESET_DELIVERY_KEY'] == values['REGISTRATION_DELIVERY_KEY']",
   '.pc-password-reset-delivery.env',
   '.pc-transactional-mail.env',
   "stat -c '%a:%u:%g'",
@@ -72,13 +76,18 @@ requireAll('provisioner', [
   'chown 0:0',
   'MAIL_INPUT_CONTENT_INVALID',
   'PASSWORD_RESET_DELIVERY_PROVISION=%s',
+  'REGISTRATION_DELIVERY_PROVISION=%s',
   'TRANSACTIONAL_MAIL_PROVISION=%s',
   'TRANSACTIONAL_MAIL_CHANNEL=%s',
   'PASSWORD_RESET_RUNTIME_VALID=1',
+  'AUTH_MAIL_RUNTIME_VALID=1',
   'valid_mail_file()',
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   'COMPOSE_WEB_AUTHORITY_AMBIGUOUS',
 ]);
+if ((content.provisioner.match(/openssl rand -hex 48/g) || []).length !== 2) {
+  failures.push(`${paths.provisioner}: must generate exactly two independent 96-hex delivery keys`);
+}
 requireAll('workflow', [
   'github.event.issue.number == 3072',
   "github.event.comment.body == '/production provision-password-reset-runtime current-main'",
@@ -86,14 +95,21 @@ requireAll('workflow', [
   '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
   '[[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]',
   'ERROR_CODE=MAIL_CREDENTIALS_MISSING',
+  'secrets.PC_PROD_RESEND_API_KEY',
+  'secrets.PC_PROD_RESEND_FROM_EMAIL',
   'secrets.RESEND_API_KEY',
   'secrets.RESEND_FROM_EMAIL',
   'secrets.PC_SMTP_HOST',
   'secrets.PC_SMTP_USER',
   'secrets.PC_SMTP_PASS',
   'StrictHostKeyChecking=yes',
+  'SSH_HOST_FINGERPRINT_SECRET',
+  'mapfile -t dns_ipv4',
+  `grep -Fxq "$host"`,
   'provision-production-p0-password-reset-runtime.sh',
   'PASSWORD_RESET_RUNTIME_VALID=1',
+  'AUTH_MAIL_RUNTIME_VALID=1',
+  'REGISTRATION_DELIVERY_PROVISION=(CREATED|EXISTING)',
   'actions/upload-artifact@v4',
   'retention-days: 90',
   'publish_images:',
@@ -104,7 +120,10 @@ requireAll('workflow', [
   'owner_release_authorized: true',
   'post_release_readiness:',
   "needs.release.result == 'success'",
-  'POST_RELEASE_PASSWORD_RESET_READY|1|1|1|1|1',
+  'POST_RELEASE_AUTH_MAIL_READY|1|1|1|1|1|1|1|1|1',
+  "web.get('REGISTRATION_DELIVERY_KEY', '').strip()",
+  "api.get('REGISTRATION_DELIVERY_KEY', '').strip()",
+  'purpose_keys_distinct',
   'docker inspect "$web_id" "$api_id" | python3 -c "$classifier"',
 ]);
 forbid('provisioner', [
@@ -116,6 +135,8 @@ forbid('provisioner', [
   /set\s+-[A-Za-z]*x[A-Za-z]*/,
 ]);
 forbid('workflow', [
+  /195\.19\.12\.120/,
+  /\bDEFAULT_HOST\b/,
   /StrictHostKeyChecking=no/,
   /sshpass/i,
   /set\s+-[A-Za-z]*x[A-Za-z]*/,
@@ -143,34 +164,52 @@ if (classifierStart === -1 || classifierEnd === -1) {
     .split('\n')
     .map((line) => line.startsWith('          ') ? line.slice(10) : line)
     .join('\n');
-  const sharedKey = 'a'.repeat(96);
+  const resetKey = 'a'.repeat(96);
+  const registrationKey = 'b'.repeat(96);
   const mailSentinel = 'fixture-mail-value-that-must-not-leak';
   const readyDocuments = [
     { Config: { Env: [
       'API_URL=http://api:3001',
-      `PASSWORD_RESET_DELIVERY_KEY=${sharedKey}`,
+      `PASSWORD_RESET_DELIVERY_KEY=${resetKey}`,
+      `REGISTRATION_DELIVERY_KEY=${registrationKey}`,
       `RESEND_API_KEY=${mailSentinel}`,
       'RESEND_FROM_EMAIL=noreply@example.test',
     ] } },
-    { Config: { Env: [`PASSWORD_RESET_DELIVERY_KEY=${sharedKey}`] } },
+    { Config: { Env: [
+      `PASSWORD_RESET_DELIVERY_KEY=${resetKey}`,
+      `REGISTRATION_DELIVERY_KEY=${registrationKey}`,
+    ] } },
   ];
   const ready = spawnSync('python3', ['-c', classifierSource], {
     encoding: 'utf8',
     input: JSON.stringify(readyDocuments),
   });
-  if (ready.status !== 0 || ready.stdout.trim() !== 'POST_RELEASE_PASSWORD_RESET_READY|1|1|1|1|1') {
+  if (ready.status !== 0 || ready.stdout.trim() !== 'POST_RELEASE_AUTH_MAIL_READY|1|1|1|1|1|1|1|1|1') {
     failures.push(`${paths.workflow}: post-release ready classifier regression: ${ready.stderr.trim()}`);
   }
   if (ready.stdout.includes(mailSentinel) || ready.stderr.includes(mailSentinel)) {
     failures.push(`${paths.workflow}: post-release classifier disclosed a protected value`);
   }
-  readyDocuments[0].Config.Env = readyDocuments[0].Config.Env.filter((line) => !line.startsWith('RESEND_'));
+  const missingMailDocuments = JSON.parse(JSON.stringify(readyDocuments));
+  missingMailDocuments[0].Config.Env = missingMailDocuments[0].Config.Env.filter((line) => !line.startsWith('RESEND_'));
   const missingMail = spawnSync('python3', ['-c', classifierSource], {
     encoding: 'utf8',
-    input: JSON.stringify(readyDocuments),
+    input: JSON.stringify(missingMailDocuments),
   });
-  if (missingMail.status !== 0 || missingMail.stdout.trim() !== 'POST_RELEASE_PASSWORD_RESET_READY|1|1|1|1|0') {
+  if (missingMail.status !== 0 || missingMail.stdout.trim() !== 'POST_RELEASE_AUTH_MAIL_READY|1|1|1|1|1|1|1|1|0') {
     failures.push(`${paths.workflow}: post-release missing-mail classifier regression`);
+  }
+  const mismatchedRegistrationDocuments = JSON.parse(JSON.stringify(readyDocuments));
+  mismatchedRegistrationDocuments[1].Config.Env = mismatchedRegistrationDocuments[1].Config.Env.map((line) => (
+    line.startsWith('REGISTRATION_DELIVERY_KEY=') ? `REGISTRATION_DELIVERY_KEY=${'c'.repeat(96)}` : line
+  ));
+  const mismatchedRegistration = spawnSync('python3', ['-c', classifierSource], {
+    encoding: 'utf8',
+    input: JSON.stringify(mismatchedRegistrationDocuments),
+  });
+  if (mismatchedRegistration.status !== 0
+    || mismatchedRegistration.stdout.trim() !== 'POST_RELEASE_AUTH_MAIL_READY|1|1|1|1|1|1|0|0|1') {
+    failures.push(`${paths.workflow}: post-release registration-key mismatch classifier regression`);
   }
 }
 
@@ -245,6 +284,8 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess, preexistingMai
     return;
   }
   if (result.status !== 0 || !result.stdout.includes('PASSWORD_RESET_RUNTIME_VALID=1')
+    || !result.stdout.includes('AUTH_MAIL_RUNTIME_VALID=1')
+    || !result.stdout.includes('REGISTRATION_DELIVERY_PROVISION=CREATED')
     || !result.stdout.includes(`TRANSACTIONAL_MAIL_CHANNEL=${expectedChannel}`)) {
     failures.push(`${paths.provisioner}: ${name} fixture failed: ${result.stderr.trim()}`);
     return;
@@ -252,8 +293,11 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess, preexistingMai
   for (const file of [delivery, mailFile]) {
     if (!fs.existsSync(file) || (fs.statSync(file).mode & 0o777) !== 0o600) failures.push(`${paths.provisioner}: ${name} protected file mode regression`);
   }
-  if (!/^PASSWORD_RESET_DELIVERY_KEY=[A-Fa-f0-9]{96}\n$/.test(fs.readFileSync(delivery, 'utf8'))) {
-    failures.push(`${paths.provisioner}: ${name} delivery key format regression`);
+  const deliveryMatch = /^PASSWORD_RESET_DELIVERY_KEY=([A-Fa-f0-9]{96})\nREGISTRATION_DELIVERY_KEY=([A-Fa-f0-9]{96})\n$/.exec(
+    fs.readFileSync(delivery, 'utf8'),
+  );
+  if (!deliveryMatch || deliveryMatch[1] === deliveryMatch[2]) {
+    failures.push(`${paths.provisioner}: ${name} delivery key format or purpose separation regression`);
   }
   const second = spawnSync('bash', [paths.provisioner, 'provision', input], {
     encoding: 'utf8',
@@ -264,6 +308,7 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess, preexistingMai
     },
   });
   if (second.status !== 0 || !second.stdout.includes('PASSWORD_RESET_DELIVERY_PROVISION=EXISTING')
+    || !second.stdout.includes('REGISTRATION_DELIVERY_PROVISION=EXISTING')
     || !second.stdout.includes('TRANSACTIONAL_MAIL_PROVISION=EXISTING')) {
     failures.push(`${paths.provisioner}: ${name} idempotence regression: ${second.stderr.trim()}`);
   }
@@ -307,6 +352,10 @@ try {
   if (scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY') failures.push(`${paths.scope}: production hosting mismatch`);
   if (scope.boundaries?.newRecurringCostRub !== 0) failures.push(`${paths.scope}: recurring cost must be zero`);
   if (scope.boundaries?.ownerOnly !== true || scope.boundaries?.exactMainGuard !== true) failures.push(`${paths.scope}: owner/exact-main boundary missing`);
+  const acceptance = Array.isArray(scope.acceptance) ? scope.acceptance.join('\n') : '';
+  if (!acceptance.includes('REGISTRATION_DELIVERY_KEY') || !acceptance.includes('current DNS IPv4 answers')) {
+    failures.push(`${paths.scope}: registration-key or protected-host acceptance is missing`);
+  }
   if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(Object.values(paths).sort())) {
     failures.push(`${paths.scope}: allowed paths must exactly match the governed implementation paths`);
   }
@@ -319,4 +368,4 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
-console.log('PASS: owner-only exact-main provisioning creates or validates a shared 0600 password-reset delivery key and Web-only 0600 transactional mail channel without secret disclosure; exact releases consume them with zero new recurring cost.');
+console.log('PASS: owner-only exact-main provisioning creates or validates distinct shared 0600 registration and password-reset delivery keys plus a Web-only 0600 transactional mail channel without secret disclosure; exact releases consume and verify them with zero new recurring cost.');

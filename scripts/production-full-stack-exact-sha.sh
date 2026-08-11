@@ -88,8 +88,27 @@ resolve_password_reset_runtime_env_files() {
   [[ -f "$transactional_mail_env_file" && ! -L "$transactional_mail_env_file" ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_MISSING 62
   [[ "$(stat -c '%a:%u:%g' "$password_reset_delivery_env_file")" == '600:0:0' ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_PERMISSIONS_INVALID 63
   [[ "$(stat -c '%a:%u:%g' "$transactional_mail_env_file")" == '600:0:0' ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_PERMISSIONS_INVALID 64
-  [[ "$(wc -l < "$password_reset_delivery_env_file" | tr -d '[:space:]')" == 1 ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_CONTENT_INVALID 65
-  grep -Eq '^PASSWORD_RESET_DELIVERY_KEY=[A-Fa-f0-9]{96}$' "$password_reset_delivery_env_file" || fail PASSWORD_RESET_DELIVERY_ENV_FILE_CONTENT_INVALID 65
+  python3 - "$password_reset_delivery_env_file" <<'PY' || fail PASSWORD_RESET_DELIVERY_ENV_FILE_CONTENT_INVALID 65
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values or not re.fullmatch(r'[A-Fa-f0-9]{96}', value):
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'PASSWORD_RESET_DELIVERY_KEY', 'REGISTRATION_DELIVERY_KEY'}:
+    raise SystemExit(1)
+if values['PASSWORD_RESET_DELIVERY_KEY'] == values['REGISTRATION_DELIVERY_KEY']:
+    raise SystemExit(1)
+PY
   python3 - "$transactional_mail_env_file" <<'PY' || fail TRANSACTIONAL_MAIL_ENV_FILE_CONTENT_INVALID 66
 import re
 import sys
