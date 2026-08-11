@@ -19,18 +19,17 @@ concurrency:
 env:
   DEFAULT_HOST: 195.19.12.120
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
-  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
   RECOVERY_COMMAND: /tai recover-finalization 31481267058
   ACTIVATION_RUN_ID: "31481267058"
   CONTROLLER_RUN_ID: "314812670581"
   ACTIVATION_TARGET_SHA: 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d
+  ACTIVATION_JOB_ID: "93746825204"
+  HOSTED_ACCEPTANCE_JOB_ID: "93747517497"
   FAILED_FINALIZATION_JOB_ID: "93754807742"
+  HOSTED_ARTIFACT_ID: "9098297919"
+  HOSTED_ARTIFACT_NAME: tai-live-public-ai-ui-31481267058
+  HOSTED_ARTIFACT_SIZE: "4805479"
+  HOSTED_ARTIFACT_DIGEST: sha256:1777d4300744555ae3ffc2abd614a34b0830d974b851c0e169917b4b723044ee
 
 jobs:
   authority:
@@ -91,11 +90,15 @@ jobs:
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${ACTIVATION_RUN_ID}/jobs?per_page=100" \
             > "$RUNNER_TEMP/activation-jobs.json"
-          node - "$RUNNER_TEMP/activation-run.json" "$RUNNER_TEMP/activation-jobs.json" "$ACTIVATION_TARGET_SHA" "$FAILED_FINALIZATION_JOB_ID" <<'NODE'
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${ACTIVATION_RUN_ID}/artifacts?per_page=100" \
+            > "$RUNNER_TEMP/activation-artifacts.json"
+          node - "$RUNNER_TEMP/activation-run.json" "$RUNNER_TEMP/activation-jobs.json" "$RUNNER_TEMP/activation-artifacts.json" "$ACTIVATION_TARGET_SHA" "$ACTIVATION_JOB_ID" "$HOSTED_ACCEPTANCE_JOB_ID" "$FAILED_FINALIZATION_JOB_ID" "$HOSTED_ARTIFACT_ID" "$HOSTED_ARTIFACT_NAME" "$HOSTED_ARTIFACT_SIZE" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
           const fs = require('node:fs');
-          const [runPath, jobsPath, target, failedFinalizationJobId] = process.argv.slice(2);
+          const [runPath, jobsPath, artifactsPath, target, activationJobId, hostedJobId, failedFinalizationJobId, artifactId, artifactName, artifactSize, artifactDigest] = process.argv.slice(2);
           const run = JSON.parse(fs.readFileSync(runPath, 'utf8'));
           const report = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));
+          const artifactReport = JSON.parse(fs.readFileSync(artifactsPath, 'utf8'));
           if (run.id !== 31481267058 || run.head_sha !== target || run.status !== 'completed' || run.conclusion !== 'failure') process.exit(2);
           if (!report || !Array.isArray(report.jobs) || report.total_count !== report.jobs.length) process.exit(3);
           const required = new Map([
@@ -109,8 +112,17 @@ jobs:
             const matches = report.jobs.filter((job) => job?.name === name);
             if (matches.length !== 1 || matches[0].status !== 'completed' || matches[0].conclusion !== conclusion) process.exit(4);
           }
+          const activation = report.jobs.find((job) => job?.name === 'Activate through protected REG.RU controller');
+          const hosted = report.jobs.find((job) => job?.name === 'Hosted live public AI acceptance');
           const finalization = report.jobs.find((job) => job?.name === 'Finalize or roll back activation');
-          if (String(finalization?.id) !== failedFinalizationJobId) process.exit(5);
+          if (String(activation?.id) !== activationJobId || String(hosted?.id) !== hostedJobId || String(finalization?.id) !== failedFinalizationJobId) process.exit(5);
+          if (!artifactReport || !Array.isArray(artifactReport.artifacts)
+            || artifactReport.total_count !== 1 || artifactReport.artifacts.length !== 1) process.exit(6);
+          const artifact = artifactReport.artifacts[0];
+          if (String(artifact?.id) !== artifactId || artifact?.name !== artifactName
+            || String(artifact?.size_in_bytes) !== artifactSize || artifact?.digest !== artifactDigest
+            || artifact?.expired !== false || artifact?.workflow_run?.id !== 31481267058
+            || artifact?.workflow_run?.head_sha !== target) process.exit(7);
           NODE
 
           gh run view "$ACTIVATION_RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed \
@@ -150,6 +162,14 @@ jobs:
           node scripts/check-tai-finalization-main-drift-recovery.mjs
       - name: Resolve protected root key and pinned REG.RU identity
         id: ssh
+        env:
+          SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+          SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+          SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+          SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+          SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
         run: |
           set -Eeuo pipefail
           trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
@@ -211,10 +231,13 @@ jobs:
           umask 077
           export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
           target="$1" current="$2" controller_run="$3" activation_run="$4" recovery_run="$5" output="$6"
+          activation_job_id="$7" hosted_job_id="$8" artifact_id="$9" artifact_digest="${10}"
           [[ "$(id -u)" -eq 0 ]]
           [[ "$target" =~ ^[0-9a-f]{40}$ && "$current" =~ ^[0-9a-f]{40}$ ]]
           [[ "$controller_run" == 314812670581 && "$activation_run" == 31481267058 ]]
           [[ "$recovery_run" =~ ^[0-9]{2,20}$ ]]
+          [[ "$activation_job_id" == 93746825204 && "$hosted_job_id" == 93747517497 ]]
+          [[ "$artifact_id" == 9098297919 && "$artifact_digest" == sha256:1777d4300744555ae3ffc2abd614a34b0830d974b851c0e169917b4b723044ee ]]
           state_root=/var/lib/pc-release-authority
           repository="$state_root/repository"
           job_state="$state_root/controller-jobs/$controller_run"
@@ -227,6 +250,24 @@ jobs:
           git -C "$repository" fetch --force --no-tags origin "$target" >/dev/null
           [[ "$(git -C "$repository" rev-parse refs/remotes/origin/main)" == "$current" ]]
           git -C "$repository" merge-base --is-ancestor "$target" "$current"
+          installed_controller=/usr/local/sbin/pc-tai-release-controller
+          runner_authority=/etc/pc-release-authority/actions-runner.json
+          [[ -f "$installed_controller" && ! -L "$installed_controller" && -x "$installed_controller" ]]
+          [[ "$(stat -c '%U:%G:%a' "$installed_controller")" == root:pcactions:750 ]]
+          [[ -f "$runner_authority" && ! -L "$runner_authority" ]]
+          target_controller_sha="$(git -C "$repository" show "$target:scripts/pc-tai-release-controller.sh" | sha256sum | awk '{print $1}')"
+          current_controller_sha="$(git -C "$repository" show "$current:scripts/pc-tai-release-controller.sh" | sha256sum | awk '{print $1}')"
+          installed_controller_sha="$(sha256sum "$installed_controller" | awk '{print $1}')"
+          [[ "$target_controller_sha" =~ ^[0-9a-f]{64}$ && "$target_controller_sha" == "$current_controller_sha" && "$target_controller_sha" == "$installed_controller_sha" ]]
+          python3 - "$runner_authority" "$installed_controller_sha" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert report.get('schemaVersion') == 'pc.actions-runner-authority.v3'
+          assert report.get('sudoController') == '/usr/local/sbin/pc-tai-release-controller'
+          assert report.get('sudoControllerSha256') == sys.argv[2]
+          assert report.get('productionInboundSshRequired') is False
+          assert report.get('dockerSocketAccess') is False
+          PY
           [[ -s "$job_state/target-sha" && "$(cat "$job_state/target-sha")" == "$target" ]]
           [[ -s "$job_state/PENDING_UI_ACCEPTANCE" && "$(cat "$job_state/PENDING_UI_ACCEPTANCE")" == "$target" ]]
           [[ -s "$qwen_state/evidence.json" ]]
@@ -240,23 +281,32 @@ jobs:
           PY
           mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-          (( ${#api_ids[@]} == 1 && ${#web_ids[@]} == 1 ))
-          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"
+          mapfile -t tai_ids < <(docker ps -q --filter 'label=com.docker.compose.service=tai')
+          (( ${#api_ids[@]} == 1 && ${#web_ids[@]} == 1 && ${#tai_ids[@]} == 1 ))
+          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"; tai_id="${tai_ids[0]}"
           api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
           web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-          [[ "$api_revision" == "$target" && "$web_revision" == "$target" ]]
+          tai_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$tai_id")"
+          [[ "$api_revision" == "$target" && "$web_revision" == "$target" && "$tai_revision" == "$target" ]]
           api_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$api_id")"
           web_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")"
-          [[ "$api_state" =~ ^(healthy|running)$ && "$web_state" =~ ^(healthy|running)$ ]]
+          tai_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$tai_id")"
+          [[ "$api_state" =~ ^(healthy|running)$ && "$web_state" =~ ^(healthy|running)$ && "$tai_state" =~ ^(healthy|running)$ ]]
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | grep -Fxq 'AI_ASSISTANT_MODEL=tai-qwen3-8b-q4km'
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true'
           docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -Fxq 'TAI_RESTRICTED_QWEN_MODEL_IDENTITY=tai-qwen3-8b-q4km'
-          install -m 0600 -o root -g root /dev/null "$qwen_state/FINAL_ACCEPTED"
-          tmp="$job_state/finalization.json.tmp-$recovery_run"
-          python3 - "$tmp" "$target" "$current" "$activation_run" "$recovery_run" <<'PY'
+          [[ ! -e "$qwen_state/FINAL_ACCEPTED" ]]
+          install -d -m 0750 -o root -g pcactions "$original_output" "$(dirname "$output")"
+          finalization_tmp="$job_state/.finalization.json.tmp-$recovery_run"
+          original_tmp="$original_output/.finalization.json.tmp-$recovery_run"
+          recovery_tmp="$output.tmp-$recovery_run"
+          marker_tmp="$qwen_state/.FINAL_ACCEPTED.tmp-$recovery_run"
+          [[ ! -e "$job_state/finalization.json" && ! -e "$original_output/finalization.json" && ! -e "$output" ]]
+          trap 'rm -f "$finalization_tmp" "$original_tmp" "$recovery_tmp" "$marker_tmp"' EXIT
+          python3 - "$finalization_tmp" "$target" "$current" "$controller_run" "$activation_run" "$recovery_run" <<'PY'
           import json,os,sys
-          path,target,current,activation_run,recovery_run=sys.argv[1:]
+          path,target,current,controller_run,activation_run,recovery_run=sys.argv[1:]
           payload={
             'schemaVersion':'tai.restricted-qwen.finalization.v1',
             'targetSha':target,
@@ -264,6 +314,7 @@ jobs:
             'passed':True,
             'recoveredAfterMainDrift':True,
             'currentMain':current,
+            'controllerRunId':int(controller_run),
             'activationRunId':int(activation_run),
             'recoveryRunId':int(recovery_run),
             'applicationDeploymentPerformed':False,
@@ -271,17 +322,19 @@ jobs:
             'modelMutationPerformed':False,
             'rollbackPerformed':False,
           }
-          with open(path,'w',encoding='utf-8') as handle:
+          with open(path,'x',encoding='utf-8') as handle:
             json.dump(payload,handle,ensure_ascii=True,separators=(',',':')); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
           os.chmod(path,0o600)
           PY
-          mv -Tf "$tmp" "$job_state/finalization.json"
-          install -d -m 0750 -o root -g pcactions "$original_output"
-          install -m 0640 -o root -g pcactions "$job_state/finalization.json" "$original_output/finalization.json"
-          install -d -m 0750 -o root -g pcactions "$(dirname "$output")"
-          python3 - "$output" "$target" "$current" "$controller_run" "$activation_run" "$recovery_run" "$api_revision" "$web_revision" <<'PY'
+          install -m 0640 -o root -g pcactions "$finalization_tmp" "$original_tmp"
+          python3 - "$original_tmp" <<'PY'
+          import os,sys
+          with open(sys.argv[1],'rb') as handle: os.fsync(handle.fileno())
+          PY
+          python3 - "$recovery_tmp" "$target" "$current" "$controller_run" "$activation_run" "$recovery_run" "$api_revision" "$web_revision" "$tai_revision" "$installed_controller_sha" "$activation_job_id" "$hosted_job_id" "$artifact_id" "$artifact_digest" <<'PY'
           import json,os,sys
-          path,target,current,controller_run,activation_run,recovery_run,api_revision,web_revision=sys.argv[1:]
+          (path,target,current,controller_run,activation_run,recovery_run,api_revision,web_revision,tai_revision,
+           controller_sha,activation_job_id,hosted_job_id,artifact_id,artifact_digest)=sys.argv[1:]
           payload={
             'schemaVersion':'tai.finalization-main-drift-recovery.v1',
             'targetSha':target,
@@ -289,8 +342,15 @@ jobs:
             'controllerRunId':int(controller_run),
             'activationRunId':int(activation_run),
             'recoveryRunId':int(recovery_run),
+            'activationJobId':int(activation_job_id),
+            'hostedAcceptanceJobId':int(hosted_job_id),
+            'hostedArtifactId':int(artifact_id),
+            'hostedArtifactDigest':artifact_digest,
             'apiRevision':api_revision,
             'webRevision':web_revision,
+            'taiRevision':tai_revision,
+            'controllerSha256':controller_sha,
+            'controllerAuthorityAttested':True,
             'activationEvidencePassed':True,
             'hostedAcceptancePassed':True,
             'finalDecision':'ACCEPT',
@@ -301,11 +361,52 @@ jobs:
             'runnerAuthorityChanged':False,
             'passed':True,
           }
-          with open(path,'w',encoding='utf-8') as handle:
+          with open(path,'x',encoding='utf-8') as handle:
             json.dump(payload,handle,ensure_ascii=True,separators=(',',':')); handle.write('\n'); handle.flush(); os.fsync(handle.fileno())
           os.chmod(path,0o640)
           PY
-          chown root:pcactions "$output"
+          chown root:pcactions "$recovery_tmp"
+          mv -Tf "$finalization_tmp" "$job_state/finalization.json"
+          mv -Tf "$original_tmp" "$original_output/finalization.json"
+          mv -Tf "$recovery_tmp" "$output"
+          python3 - "$job_state" "$original_output" "$(dirname "$output")" <<'PY'
+          import os,sys
+          for path in sys.argv[1:]:
+            descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_DIRECTORY',0))
+            try: os.fsync(descriptor)
+            finally: os.close(descriptor)
+          PY
+          python3 - "$job_state/finalization.json" "$original_output/finalization.json" "$output" "$target" "$current" "$controller_run" "$activation_run" "$recovery_run" "$installed_controller_sha" "$artifact_id" "$artifact_digest" <<'PY'
+          import json,sys
+          final_path,copy_path,recovery_path,target,current,controller_run,activation_run,recovery_run,controller_sha,artifact_id,artifact_digest=sys.argv[1:]
+          final=json.load(open(final_path,encoding='utf-8'))
+          copy=json.load(open(copy_path,encoding='utf-8'))
+          recovery=json.load(open(recovery_path,encoding='utf-8'))
+          assert final == copy
+          assert final.get('targetSha') == target and final.get('currentMain') == current
+          assert final.get('controllerRunId') == int(controller_run) and final.get('activationRunId') == int(activation_run)
+          assert final.get('recoveryRunId') == int(recovery_run) and final.get('decision') == 'ACCEPT' and final.get('passed') is True
+          assert recovery.get('targetSha') == target and recovery.get('currentMain') == current
+          assert recovery.get('controllerSha256') == controller_sha and recovery.get('controllerAuthorityAttested') is True
+          assert recovery.get('hostedArtifactId') == int(artifact_id) and recovery.get('hostedArtifactDigest') == artifact_digest
+          assert recovery.get('apiRevision') == target and recovery.get('webRevision') == target and recovery.get('taiRevision') == target
+          assert recovery.get('finalDecision') == 'ACCEPT' and recovery.get('passed') is True
+          PY
+          : > "$marker_tmp"
+          chmod 0600 "$marker_tmp"
+          chown root:root "$marker_tmp"
+          python3 - "$marker_tmp" <<'PY'
+          import os,sys
+          with open(sys.argv[1],'rb') as handle: os.fsync(handle.fileno())
+          PY
+          mv -Tf "$marker_tmp" "$qwen_state/FINAL_ACCEPTED"
+          python3 - "$qwen_state" <<'PY'
+          import os,sys
+          descriptor=os.open(sys.argv[1],os.O_RDONLY|getattr(os,'O_DIRECTORY',0))
+          try: os.fsync(descriptor)
+          finally: os.close(descriptor)
+          PY
+          trap - EXIT
           printf 'TAI_FINALIZATION_MAIN_DRIFT_RECOVERY=PASS\n'
           RECOVERY
           chmod 0700 "$RUNNER_TEMP/recover-finalization.sh"
@@ -322,7 +423,7 @@ jobs:
           scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             "$RUNNER_TEMP/recover-finalization.sh" "$USER@$HOST:$remote_script"
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            "chmod 0700 '$remote_script' && '$remote_script' '$ACTIVATION_TARGET_SHA' '$CURRENT_SHA' '$CONTROLLER_RUN_ID' '$ACTIVATION_RUN_ID' '$GITHUB_RUN_ID' '$remote_evidence'" \
+            "chmod 0700 '$remote_script' && '$remote_script' '$ACTIVATION_TARGET_SHA' '$CURRENT_SHA' '$CONTROLLER_RUN_ID' '$ACTIVATION_RUN_ID' '$GITHUB_RUN_ID' '$remote_evidence' '$ACTIVATION_JOB_ID' '$HOSTED_ACCEPTANCE_JOB_ID' '$HOSTED_ARTIFACT_ID' '$HOSTED_ARTIFACT_DIGEST'" \
             | tee "$EVIDENCE_DIR/recovery.log"
           grep -Fxq TAI_FINALIZATION_MAIN_DRIFT_RECOVERY=PASS "$EVIDENCE_DIR/recovery.log"
           scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -333,14 +434,18 @@ jobs:
       - name: Validate recovered finalization evidence
         run: |
           set -Eeuo pipefail
-          node - "$EVIDENCE_DIR/finalization-recovery.json" "$EVIDENCE_DIR/finalization.json" "$ACTIVATION_TARGET_SHA" "$CURRENT_SHA" <<'NODE'
+          node - "$EVIDENCE_DIR/finalization-recovery.json" "$EVIDENCE_DIR/finalization.json" "$ACTIVATION_TARGET_SHA" "$CURRENT_SHA" "$HOSTED_ARTIFACT_DIGEST" <<'NODE'
           const fs = require('node:fs');
-          const [recoveryPath, finalizationPath, target, current] = process.argv.slice(2);
+          const [recoveryPath, finalizationPath, target, current, artifactDigest] = process.argv.slice(2);
           const recovery = JSON.parse(fs.readFileSync(recoveryPath, 'utf8'));
           const finalization = JSON.parse(fs.readFileSync(finalizationPath, 'utf8'));
           if (recovery.schemaVersion !== 'tai.finalization-main-drift-recovery.v1'
             || recovery.targetSha !== target || recovery.currentMain !== current
             || recovery.activationRunId !== 31481267058 || recovery.controllerRunId !== 314812670581
+            || recovery.activationJobId !== 93746825204 || recovery.hostedAcceptanceJobId !== 93747517497
+            || recovery.hostedArtifactId !== 9098297919 || recovery.hostedArtifactDigest !== artifactDigest
+            || recovery.apiRevision !== target || recovery.webRevision !== target || recovery.taiRevision !== target
+            || !/^[0-9a-f]{64}$/.test(recovery.controllerSha256) || recovery.controllerAuthorityAttested !== true
             || recovery.finalDecision !== 'ACCEPT' || recovery.passed !== true
             || recovery.applicationDeploymentPerformed !== false
             || recovery.databaseMutationPerformed !== false
