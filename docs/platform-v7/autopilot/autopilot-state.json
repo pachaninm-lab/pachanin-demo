@@ -875,6 +875,10 @@
       "docs/platform-v7/autopilot/autopilot-state.json",
       "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-acceptance-3824.json"
     ],
+    "governance/gekta-live-brand-international-3824": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-international-3824.json"
+    ],
     "fix/gekta-live-brand-acceptance-3824": [
       ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
       "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
@@ -887,6 +891,12 @@
       "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-acceptance-3824.json",
       "scripts/tai-live-public-ai-acceptance.mjs",
       "scripts/tai-potato-mobile-live-acceptance.mjs"
+    ],
+    "fix/gekta-live-brand-international-3824": [
+      "apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx",
+      "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+      "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+      "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-international-3824.json"
     ],
     "fix/qwen-images-before-activation-20260730": [
       ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
