@@ -200,6 +200,23 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "fix/production-p0-human-reviewer-ceremony-3785": [
+      ".github/workflows/production-p0-first-customer-acceptance.yml",
+      "apps/web/app/api/staff/[...path]/route.ts",
+      "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
+      "apps/web/tests/unit/p0HumanReviewerCeremony.test.ts",
+      "scripts/production-p0-first-customer-acceptance.sh",
+      "scripts/check-production-p0-first-customer-acceptance.mjs",
+      "docs/ops/production-p0-first-customer-acceptance.md",
+      "docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json"
+    ],
+    "p0/production-all-role-registration-3785": [
+      ".github/workflows/production-p0-all-role-registration.yml",
+      "scripts/production-p0-all-role-registration.sh",
+      "scripts/check-production-p0-all-role-registration.mjs",
+      "docs/ops/production-p0-all-role-registration.md",
+      "docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json"
+    ],
     "agent/production-auth-key-provision-3723": [
       ".github/workflows/production-auth-opaque-token-key.yml",
       "scripts/production-full-stack-exact-sha.sh",
