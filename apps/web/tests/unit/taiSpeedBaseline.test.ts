@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain ESM measurement tool, imported for its pure helpers.
 import {
   MEANINGFUL_TEXT_THRESHOLD,
+  bodyMarkerOf,
+  classifyAuthLayer,
+  probeContour,
   MULTI_TURN_SCENARIOS,
   SPEED_CORPUS,
   captureDeployedRevision,
@@ -37,6 +40,63 @@ function sseResponse(
 const target = { url: 'https://example.test', question: 'q', locale: 'ru' };
 
 describe('tai speed baseline', () => {
+  describe('auth layer attribution', () => {
+    it('names the middleware private-mode challenge rather than guessing', () => {
+      expect(classifyAuthLayer({ status: 401, wwwAuthenticate: 'Basic realm="x"', bodyMarker: 'private_required' }))
+        .toBe('next_middleware_private_mode');
+      expect(classifyAuthLayer({ status: 503, wwwAuthenticate: null, bodyMarker: 'private_locked' }))
+        .toBe('next_middleware_private_mode_locked');
+    });
+
+    it('separates a session gate from an edge challenge', () => {
+      expect(classifyAuthLayer({ status: 401, wwwAuthenticate: null, bodyMarker: 'session_json' }))
+        .toBe('next_middleware_session_gate');
+      expect(classifyAuthLayer({ status: 401, wwwAuthenticate: 'Basic realm="edge"', bodyMarker: 'other' }))
+        .toBe('edge_basic_auth');
+    });
+
+    it('refuses to attribute a 401 it cannot explain', () => {
+      expect(classifyAuthLayer({ status: 401, wwwAuthenticate: null, bodyMarker: 'other' }))
+        .toBe('unattributed_401');
+    });
+
+    it('reports an open contour and an unreachable one distinctly', () => {
+      expect(classifyAuthLayer({ status: 200, wwwAuthenticate: null, bodyMarker: 'health_json' })).toBe('open');
+      expect(classifyAuthLayer({ status: 0, wwwAuthenticate: null, bodyMarker: 'error:TypeError' })).toBe('unreachable');
+    });
+
+    it('recognises refusal shapes without retaining the body', () => {
+      expect(bodyMarkerOf('Private access required.')).toBe('private_required');
+      expect(bodyMarkerOf('Private deployment locked.')).toBe('private_locked');
+      expect(bodyMarkerOf('{"ok":false,"message":"unauthenticated"}')).toBe('session_json');
+    });
+
+    it('probes the canonical public entrypoints and sends no credential', async () => {
+      const seen: { url: string; headers: Record<string, string> }[] = [];
+      const fetchImpl = async (url: string, init: { headers: Record<string, string> }) => {
+        seen.push({ url, headers: init.headers });
+        return new Response('Private access required.', {
+          status: 401,
+          headers: { 'www-authenticate': 'Basic realm="x"' },
+        });
+      };
+
+      const probe = await probeContour({ baseUrl: 'https://example.test', fetchImpl });
+
+      expect(seen.map((entry) => new URL(entry.url).pathname + new URL(entry.url).search)).toEqual([
+        '/gekta',
+        '/api/health/ready',
+        '/api/agro-chat?stream=1',
+      ]);
+      for (const entry of seen) {
+        expect(Object.keys(entry.headers).map((key) => key.toLowerCase())).not.toContain('authorization');
+        expect(Object.keys(entry.headers).map((key) => key.toLowerCase())).not.toContain('cookie');
+      }
+      expect(probe.PUBLIC_ASSISTANT.layer).toBe('next_middleware_private_mode');
+      expect(probe.PUBLIC_GEKTA_PAGE.status).toBe(401);
+    });
+  });
+
   describe('percentile', () => {
     it('uses nearest rank over sorted values', () => {
       const values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];

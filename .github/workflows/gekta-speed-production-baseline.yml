@@ -155,16 +155,30 @@ jobs:
           curl -sS --max-time 30 "$LIVE_BASE/api/health/ready" | tee /tmp/deployed-revision.json
           echo
 
-      - name: Measure the public assistant stream
+      # Attribution first: if the contour refuses the benchmark, the run has to
+      # say which layer refused it. This never sends a credential.
+      - name: Attribute the public contour
+        continue-on-error: true
+        run: node scripts/tai-speed-baseline.mjs --base-url "$LIVE_BASE" --probe-only
+
+      # The artifact path is fixed before the benchmark runs, so a non-zero exit
+      # still leaves the summary and upload steps able to find what was written.
+      - name: Reserve the evidence path
         env:
           PHASE: ${{ github.event.inputs.phase || 'before' }}
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          echo "BASELINE_ARTIFACT=$EVIDENCE_DIR/gekta-speed-baseline-${PHASE}-${GITHUB_RUN_ID}-${MAIN_SHA}.json" >> "$GITHUB_ENV"
+
+      - name: Measure the public assistant stream
+        env:
           WAVES: ${{ github.event.inputs.concurrency_waves || '1,2,4' }}
           REPEAT: ${{ github.event.inputs.repeat || '1' }}
           MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
         run: |
           set -euo pipefail
-          mkdir -p "$EVIDENCE_DIR"
-          OUT="$EVIDENCE_DIR/gekta-speed-baseline-${PHASE}-${GITHUB_RUN_ID}-${MAIN_SHA}.json"
           node scripts/tai-speed-baseline.mjs \
             --base-url "$LIVE_BASE" \
             --concurrency "$WAVES" \
@@ -172,16 +186,25 @@ jobs:
             --locales ru,en,zh \
             --main-sha "$MAIN_SHA" \
             --cooldown-ms 15000 \
-            --out "$OUT"
-          echo "BASELINE_ARTIFACT=$OUT" >> "$GITHUB_ENV"
+            --out "$BASELINE_ARTIFACT"
+          echo "MEASUREMENT_OUTCOME=passed" >> "$GITHUB_ENV"
 
       - name: Summarize what was and was not proven
         if: always()
         run: |
           set -euo pipefail
+          # Three outcomes are distinguished on purpose. A failed measurement
+          # that still wrote evidence is far more useful than one that did not,
+          # and neither may be reported as a pass.
           if [ ! -f "${BASELINE_ARTIFACT:-}" ]; then
+            echo "MEASUREMENT_FAILED_NO_ARTIFACT"
             echo "No baseline artifact was produced. Reporting no baseline rather than a fabricated one."
             exit 0
+          fi
+          if [ "${MEASUREMENT_OUTCOME:-failed}" = "passed" ]; then
+            echo "MEASUREMENT_PASS"
+          else
+            echo "MEASUREMENT_FAILED_WITH_ARTIFACT"
           fi
           node -e '
             const report = require(process.env.BASELINE_ARTIFACT);

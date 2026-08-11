@@ -385,6 +385,85 @@ export async function captureDeployedRevision({ baseUrl, mainSha = null, fetchIm
   return evidence;
 }
 
+/**
+ * Attribute an authentication response to the layer that produced it.
+ *
+ * A benchmark that cannot reach the contour must say which layer refused it, so
+ * the fix lands in the right place instead of weakening something at random.
+ * Only the challenge scheme and the shape of the refusal are read — never a
+ * credential, a cookie or a body beyond the marker it is matched against.
+ */
+export function classifyAuthLayer({ status, wwwAuthenticate, bodyMarker }) {
+  if (status === 0) return 'unreachable';
+  if (status === 503 && bodyMarker === 'private_locked') return 'next_middleware_private_mode_locked';
+  if (status !== 401 && status !== 407) return status >= 200 && status < 400 ? 'open' : 'other_refusal';
+  const scheme = String(wwwAuthenticate || '').trim().toLowerCase().split(/[\s,]/u)[0] || '';
+  if (bodyMarker === 'private_required') return 'next_middleware_private_mode';
+  if (bodyMarker === 'session_json') return 'next_middleware_session_gate';
+  if (scheme === 'basic') return 'edge_basic_auth';
+  return 'unattributed_401';
+}
+
+/** Recognise which refusal shape a body is, without retaining the body. */
+export function bodyMarkerOf(text) {
+  const head = String(text ?? '').slice(0, 200);
+  if (head.includes('Private access required')) return 'private_required';
+  if (head.includes('Private deployment locked')) return 'private_locked';
+  if (head.includes('"unauthenticated"')) return 'session_json';
+  if (head.includes('"revision"')) return 'health_json';
+  return 'other';
+}
+
+/**
+ * Bounded read-only probe of the public contour.
+ *
+ * Issues one request per canonical public entrypoint and reports status and
+ * layer attribution. It sends no credential and prints no body.
+ */
+export async function probeContour({ baseUrl, fetchImpl = fetch, timeoutMs = 30_000 }) {
+  const targets = [
+    { key: 'PUBLIC_GEKTA_PAGE', path: '/gekta', method: 'GET' },
+    { key: 'PUBLIC_HEALTH_READY', path: '/api/health/ready', method: 'GET' },
+    { key: 'PUBLIC_ASSISTANT', path: '/api/agro-chat?stream=1', method: 'POST' },
+  ];
+  const results = {};
+  for (const target of targets) {
+    const controller = new AbortController();
+    const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetchImpl(new URL(target.path, baseUrl).toString(), {
+        method: target.method,
+        headers: target.method === 'POST'
+          ? { 'Content-Type': 'application/json; charset=utf-8', Accept: 'text/event-stream', 'sec-fetch-site': 'same-origin' }
+          : { Accept: 'text/html,application/json' },
+        body: target.method === 'POST'
+          ? JSON.stringify({ message: 'проба', locale: 'ru', context: 'gekta-standalone', history: [] })
+          : undefined,
+        signal: controller.signal,
+      });
+      const wwwAuthenticate = response.headers.get('www-authenticate');
+      const bodyMarker = bodyMarkerOf(await response.text().catch(() => ''));
+      results[target.key] = {
+        status: response.status,
+        layer: classifyAuthLayer({ status: response.status, wwwAuthenticate, bodyMarker }),
+        challengeScheme: wwwAuthenticate ? wwwAuthenticate.trim().split(/[\s,]/u)[0].toLowerCase() : null,
+        bodyMarker,
+      };
+    } catch (error) {
+      results[target.key] = {
+        status: 0,
+        layer: 'unreachable',
+        challengeScheme: null,
+        bodyMarker: `error:${error?.name || 'unknown'}`,
+      };
+    } finally {
+      globalThis.clearTimeout(timer);
+    }
+  }
+  results.PUBLIC_ROUTE_EXPECTED = true;
+  return results;
+}
+
 async function runWave(cases, concurrency, options) {
   const queue = [...cases];
   const results = [];
@@ -454,6 +533,19 @@ async function main() {
     process.exit(2);
   }
 
+  // Attribution runs first and always. When the contour refuses the benchmark,
+  // the run must say which layer refused it rather than only that it failed.
+  const probe = await probeContour({ baseUrl });
+  for (const [key, value] of Object.entries(probe)) {
+    if (typeof value !== 'object') continue;
+    process.stderr.write(`${key}_HTTP=${value.status} ${key}_LAYER=${value.layer}\n`);
+  }
+  if (args.get('probe-only') === 'true') {
+    process.stdout.write(`${JSON.stringify(probe, null, 2)}\n`);
+    const reachable = probe.PUBLIC_ASSISTANT?.status === 200;
+    process.exit(reachable ? 0 : 3);
+  }
+
   const startedAt = new Date().toISOString();
   const revision = await captureDeployedRevision({ baseUrl, mainSha: args.get('main-sha') || null });
   process.stderr.write(`attestation=${revision.attestation} web=${revision.webRevision || 'unknown'}\n`);
@@ -492,6 +584,7 @@ async function main() {
     finishedAt: new Date().toISOString(),
     target: url,
     revision,
+    probe,
     corpusSize: cases.length,
     repeat,
     meaningfulTextThreshold: MEANINGFUL_TEXT_THRESHOLD,
