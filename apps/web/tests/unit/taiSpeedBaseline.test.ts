@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MEANINGFUL_TEXT_THRESHOLD,
   bodyMarkerOf,
+  renderSummary,
   classifyAuthLayer,
   probeContour,
   MULTI_TURN_SCENARIOS,
@@ -94,6 +95,64 @@ describe('tai speed baseline', () => {
       }
       expect(probe.PUBLIC_ASSISTANT.layer).toBe('next_middleware_private_mode');
       expect(probe.PUBLIC_GEKTA_PAGE.status).toBe(401);
+    });
+  });
+
+
+  describe('renderSummary', () => {
+    const report = {
+      revision: {
+        attestation: 'web_revision_proven_not_matching_main',
+        webRevision: '148407e9',
+        repositoryMainSha: '506ec40c',
+        notes: ['deployed revision does not match repository main'],
+      },
+      probe: { PUBLIC_ASSISTANT: { status: 200, layer: 'open' } },
+      singleTurn: [{
+        concurrency: 1,
+        overall: { requests: 24, completed: 24, errors: {}, firstMeaningfulTextMs: { p50: 13949.1 } },
+        bySource: {
+          local_qwen: {
+            requests: 20,
+            completed: 20,
+            firstMeaningfulTextMs: { p50: 15000, p95: 19356.4 },
+            totalMs: { p50: 26299.3, p95: 36276.8 },
+          },
+          verified_knowledge: {
+            requests: 4,
+            completed: 4,
+            firstMeaningfulTextMs: { p50: 162 },
+          },
+        },
+      }],
+    };
+
+    it('renders without throwing on a report that has no wave', () => {
+      // The inline summary this replaced used a top-level return, which is a
+      // syntax error, and reported a passed measurement as a failed job.
+      expect(() => renderSummary({ revision: {}, singleTurn: [] })).not.toThrow();
+      expect(renderSummary({ revision: {}, singleTurn: [] })).toContain('No wave completed.');
+    });
+
+    it('keeps a fast non-model answer out of the model headline', () => {
+      const text = renderSummary(report);
+      // 162 ms is a knowledge reply; reporting it as the model's time to first
+      // meaningful text would make Qwen look an order of magnitude faster.
+      expect(text).toContain('model first meaningful p50 ms: 15000');
+      expect(text).toContain('non-model source verified_knowledge');
+      expect(text).not.toMatch(/model first meaningful p50 ms: 162/u);
+    });
+
+    it('states plainly whether the run is an exact-main before', () => {
+      expect(renderSummary(report)).toContain('EXACT_MAIN_BEFORE=false');
+      expect(renderSummary({
+        revision: { attestation: 'web_revision_matches_main' },
+        singleTurn: [],
+      })).toContain('EXACT_MAIN_BEFORE=true');
+    });
+
+    it('says a run whose revision does not match main is not a baseline', () => {
+      expect(renderSummary(report)).toContain('network measurement, not an exact-main baseline');
     });
   });
 
