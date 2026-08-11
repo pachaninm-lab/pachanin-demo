@@ -1,13 +1,13 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-reviewer-revision-gate-3810",
+  "branch": "fix/p0-reviewer-post-30d-diagnostic-3846",
   "status": "active",
   "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REVISION_GATE",
   "issue": 3802,
-  "trackingIssue": 3810,
-  "title": "Production P0 reviewer rollback diagnostic bounded revision gate",
-  "diagnosticBaseRevision": "3c983b3100fd605bd8621da081044b2f1161e96a",
-  "deployedRevision": "5c0020e1fb259929264cd27e25b0b7ad5435243a",
+  "trackingIssue": 3799,
+  "title": "Production P0 reviewer rollback diagnostic after deployed 30d repair correction",
+  "diagnosticBaseRevision": "0e7b3db076f0f55c8da303d6d3d3b09a54c14788",
+  "deployedRevision": "30d9075d8867fa60b3ec275b1e244f151debf0f4",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
     "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
@@ -28,8 +28,8 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "the governed diagnostic delta is measured from exact current main 3c983b3100fd605bd8621da081044b2f1161e96a and contains exactly these three files",
-    "the deployed API and Web revision remains pinned independently to latest terminal-PASS REG.RU revision 5c0020e1fb259929264cd27e25b0b7ad5435243a",
+    "the governed diagnostic delta is measured from exact current main 0e7b3db076f0f55c8da303d6d3d3b09a54c14788 and contains exactly these three files",
+    "the deployed API and Web revision remains pinned independently to terminal-PASS REG.RU revision 30d9075d8867fa60b3ec275b1e244f151debf0f4",
     "the revision preflight emits only one fixed failure enum from API_INSPECT_FAILED, WEB_INSPECT_FAILED, API_REVISION_INVALID, WEB_REVISION_INVALID, API_REVISION_MISMATCH, WEB_REVISION_MISMATCH",
     "actual revision values, container IDs, image names, commands, host or user strings, environment, raw ssh output and database messages are never published",
     "the existing remote stage enum remains bounded to SSH_NOT_CONFIRMED, HOST_READY, CONTAINERS_RESOLVED, REVISIONS_CONFIRMED, NODE_EXECUTION_STARTED",

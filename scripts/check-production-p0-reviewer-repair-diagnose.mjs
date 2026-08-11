@@ -9,9 +9,9 @@ const runnerPath = 'scripts/production-p0-reviewer-repair-diagnose.sh';
 const wrapperPath = 'scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh';
 const checkerPath = 'scripts/check-production-p0-reviewer-repair-diagnose.mjs';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json';
-const branch = 'fix/p0-reviewer-revision-gate-3810';
-const diagnosticBaseRevision = '3c983b3100fd605bd8621da081044b2f1161e96a';
-const deployedRevision = '5c0020e1fb259929264cd27e25b0b7ad5435243a';
+const branch = 'fix/p0-reviewer-post-30d-diagnostic-3846';
+const diagnosticBaseRevision = '0e7b3db076f0f55c8da303d6d3d3b09a54c14788';
+const deployedRevision = '30d9075d8867fa60b3ec275b1e244f151debf0f4';
 const revisionGateValues = [
   'API_INSPECT_FAILED',
   'WEB_INSPECT_FAILED',
@@ -164,7 +164,7 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.status !== 'active'
     || scope.operationalStatus !== 'P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REVISION_GATE'
     || scope.issue !== 3802
-    || scope.trackingIssue !== 3810
+    || scope.trackingIssue !== 3799
     || scope.diagnosticBaseRevision !== diagnosticBaseRevision
     || scope.deployedRevision !== deployedRevision
     || scope.boundaries?.productionMutation !== 'ROLLBACK_ONLY_NONE_DURABLE'
@@ -180,4 +180,4 @@ if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
     || scope.boundaries?.arbitrarySqlSurface !== false
     || scope.boundaries?.newRecurringCostRub !== 0) fail('SCOPE_METADATA');
 
-console.log('PASS: reviewer revision preflight emits only one fixed failure enum; actual revisions, raw output and production mutations remain blocked.');
+console.log('PASS: reviewer repair rollback diagnostic is pinned to the accepted 30d production revision and current governed main without exposing raw production data.');
