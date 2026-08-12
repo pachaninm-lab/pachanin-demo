@@ -266,14 +266,16 @@ last_stage='REMOTE_CLASSIFIER'
 
 for required in PARITY DATABASE_URL PRINCIPAL_BOUNDARY PREFLIGHT_DEFINITION READINESS_DEFINITION RESET_SUBJECT_DEFINITION PREFLIGHT_CALL READINESS_CALL RESET_SUBJECT_CALL; do
   line="$(grep "^${required}|" <<< "$output" | tail -n1)"
-  [[ "$line" =~ ^${required}\|(PASS|FAIL_[A-Za-z0-9_-]{1,28})$ ]]
+  stage_pattern="^${required}\\|(PASS|FAIL_[A-Za-z0-9_-]{1,28})$"
+  [[ "$line" =~ $stage_pattern ]]
 done
 mutation="$(grep '^PRODUCTION_MUTATION|' <<< "$output" | tail -n1)"
 [[ "$mutation" == 'PRODUCTION_MUTATION|NONE' ]]
 
 guard_main
 summary="$(grep -E '^(PARITY|DATABASE_URL|PRINCIPAL_BOUNDARY|PREFLIGHT_DEFINITION|READINESS_DEFINITION|RESET_SUBJECT_DEFINITION|PREFLIGHT_CALL|READINESS_CALL|RESET_SUBJECT_CALL)\|' <<< "$output" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
-[[ "$summary" =~ ^[A-Z0-9_|-]+([[:space:]][A-Z0-9_|-]+)*$ ]]
+summary_pattern='^[A-Z0-9_|-]+([[:space:]][A-Z0-9_|-]+)*$'
+[[ "$summary" =~ $summary_pattern ]]
 
 gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset DB-stage classifier
 
