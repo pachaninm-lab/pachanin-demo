@@ -15,9 +15,16 @@ key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-known-hosts"
 result_published=0
 TARGET_SHA='unknown'
+failure_reason='BOOTSTRAP_FAILED'
+scan=''
+scan_raw=''
+match=''
 
 cleanup() {
   rm -f -- "$key_path" "$known_hosts"
+  [[ -z "$scan" ]] || rm -f -- "$scan"
+  [[ -z "$scan_raw" ]] || rm -f -- "$scan_raw"
+  [[ -z "$match" ]] || rm -f -- "$match"
 }
 
 publish_failure() {
@@ -32,6 +39,7 @@ publish_failure() {
 - password/TOTP handling: \`NONE\`
 - production mutation: \`NONE_OR_NORMAL_RESET_REQUEST_ONLY\`
 - blocker: \`REVIEWER_PASSWORD_RESET_REQUEST_FAILED_CLOSED\`
+- failure reason: \`$failure_reason\`
 - exit code: \`$rc\`" >/dev/null || true
   fi
   exit "$rc"
@@ -51,6 +59,7 @@ guard_main() {
   [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
 }
 
+failure_reason='MAIN_GUARD_FAILED'
 TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
 git fetch --no-tags origin main >/dev/null
@@ -95,34 +104,60 @@ try_key() {
   return 1
 }
 
+failure_reason='SSH_PRIVATE_KEY_INVALID'
 try_key "${PC_PROD_SSH_KEY:-}" \
   || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" \
   || try_key "${VPS_SSH_KEY:-}"
+failure_reason='MAIN_GUARD_FAILED'
 guard_main
 
+failure_reason='DNS_IP_GUARD_FAILED'
 domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
 grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
 
+failure_reason='SSH_HOST_KEY_SCAN_FAILED'
 scan="$(mktemp)"
+scan_raw="$(mktemp)"
 match="$(mktemp)"
-ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-[[ -s "$scan" ]]
+scan_ready=0
+for attempt in 1 2 3; do
+  : > "$scan_raw"
+  : > "$scan"
+  /usr/bin/ssh-keyscan -T 10 -p "$port" "$host" > "$scan_raw" 2>/dev/null || true
+  if [[ -s "$scan_raw" ]]; then
+    sort -u "$scan_raw" > "$scan"
+    if [[ -s "$scan" ]]; then
+      scan_ready=1
+      break
+    fi
+  fi
+  (( attempt == 3 )) || sleep "$attempt"
+done
+[[ "$scan_ready" == '1' ]]
+
+failure_reason='SSH_HOST_KEY_FINGERPRINT_MISMATCH'
 while IFS= read -r line; do
   fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
   [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
 done < "$scan"
 [[ "$(grep -c . "$match" || true)" == '1' ]]
 mv "$match" "$known_hosts"
-rm -f "$scan"
+match=''
+rm -f -- "$scan" "$scan_raw"
+scan=''
+scan_raw=''
 chmod 0600 "$known_hosts"
 
+failure_reason='MAIN_GUARD_FAILED'
 guard_main
+failure_reason='SSH_TRANSPORT_FAILED'
 ssh -i "$key_path" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
   "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; curl --version >/dev/null' \
   >/dev/null
 
+failure_reason='REMOTE_EXECUTION_FAILED'
 output="$(ssh -i "$key_path" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
@@ -155,7 +190,10 @@ mapfile -t api_ids < <(docker ps -q \
 api_id="${api_ids[0]}"
 api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
 web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
+if [[ "$api_revision" != "$target_sha" || "$web_revision" != "$target_sha" ]]; then
+  printf 'REMOTE_PARITY_FAILED\n' >&2
+  exit 1
+fi
 
 # Resolve the unique reviewer only inside the production host. The email is
 # captured by the remote shell and is never written to SSH stdout, Actions env,
@@ -307,6 +345,7 @@ printf 'PRODUCTION_MUTATION=NORMAL_PASSWORD_RESET_REQUEST_ONLY\n'
 REMOTE
 )"
 
+failure_reason='EVIDENCE_VALIDATION_FAILED'
 marker="$(grep '^REVIEWER_PASSWORD_RESET_REQUEST|' <<< "$output" | tail -n1)"
 api_revision="$(grep '^API_REVISION=' <<< "$output" | tail -n1 | cut -d= -f2-)"
 web_revision="$(grep '^WEB_REVISION=' <<< "$output" | tail -n1 | cut -d= -f2-)"
@@ -319,8 +358,10 @@ IFS='|' read -r tag status correlation_id delivered <<< "$marker"
 [[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" ]]
 [[ "$mutation" == 'PRODUCTION_MUTATION=NORMAL_PASSWORD_RESET_REQUEST_ONLY' ]]
 
+failure_reason='MAIN_GUARD_FAILED'
 guard_main
 
+failure_reason='EVIDENCE_PUBLICATION_FAILED'
 gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer password-reset request
 
 - command: \`$COMMAND\`
@@ -339,5 +380,6 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - next: \`HUMAN_PASSWORD_RESET_LINK_REQUIRED\`" >/dev/null
 
 result_published=1
+failure_reason='NONE'
 printf 'P0_REVIEWER_PASSWORD_RESET_REQUEST=PASS\n'
 printf 'P0_REVIEWER_PASSWORD_RESET_CORRELATION=%s\n' "$correlation_id"
