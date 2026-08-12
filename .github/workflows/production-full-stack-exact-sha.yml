@@ -244,7 +244,7 @@ jobs:
           set -euo pipefail
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
-scp "${scp_common[@]}" scripts/provision-production-auth-mail-runtime.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-provision-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/provision-production-auth-mail-runtime.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-provision-${GITHUB_RUN_ID}.sh"
 
       - name: Authenticate production host to exact private registry
         env:
@@ -357,8 +357,8 @@ scp "${scp_common[@]}" scripts/provision-production-auth-mail-runtime.sh "$SSH_U
           MIGRATION_COMPLETE: ${{ steps.production.outputs.migration_complete }}
           DEPLOYED_API_REVISION: ${{ steps.production.outputs.deployed_api_revision }}
           DEPLOYED_WEB_REVISION: ${{ steps.production.outputs.deployed_web_revision }}
-DEPLOYED_AUTH_MAIL_WORKER_REVISION: ${{ steps.production.outputs.deployed_auth_mail_worker_revision }}
-AUTH_MAIL_RUNTIME: ${{ steps.production.outputs.auth_mail_runtime }}
+          DEPLOYED_AUTH_MAIL_WORKER_REVISION: ${{ steps.production.outputs.deployed_auth_mail_worker_revision }}
+          AUTH_MAIL_RUNTIME: ${{ steps.production.outputs.auth_mail_runtime }}
           BASELINE_API_REVISION: ${{ steps.production.outputs.baseline_api_revision }}
           BASELINE_WEB_REVISION: ${{ steps.production.outputs.baseline_web_revision }}
           WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
@@ -383,9 +383,9 @@ AUTH_MAIL_RUNTIME: ${{ steps.production.outputs.auth_mail_runtime }}
             echo "- migration complete: \`${MIGRATION_COMPLETE:-0}\`"
             echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
             echo "- API revision: \`${DEPLOYED_API_REVISION:-unknown}\`"
-            echo "- web revision: `${DEPLOYED_WEB_REVISION:-unknown}`"
-  echo "- auth-mail worker revision: `${DEPLOYED_AUTH_MAIL_WORKER_REVISION:-unknown}`"
-  echo "- auth-mail runtime: `${AUTH_MAIL_RUNTIME:-unknown}`"
+            echo "- web revision: \`${DEPLOYED_WEB_REVISION:-unknown}\`"
+            echo "- auth-mail worker revision: \`${DEPLOYED_AUTH_MAIL_WORKER_REVISION:-unknown}\`"
+            echo "- auth-mail runtime: \`${AUTH_MAIL_RUNTIME:-unknown}\`"
             echo "- live acceptance: \`${live:-${LIVE_OUTCOME:-skipped}}\`"
             echo "- durable intake DB/audit/outbox: \`${durable:-${DATABASE_OUTCOME:-skipped}}\`"
             echo "- live request number: \`${request:-none}\`"
