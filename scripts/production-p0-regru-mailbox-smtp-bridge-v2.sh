@@ -23,8 +23,18 @@ FINISHED=0
 SSH_READY=0
 REMOTE_SCRIPT=''
 REMOTE_MAIL=''
+REMOTE_PROOF=''
+REMOTE_PROBE_INPUT=''
+REMOTE_LOGIN=''
 LOCAL_MAIL=''
+LOCAL_PROBE_INPUT=''
 LOGIN_FILE=''
+SSH_HOST=''
+SSH_USER=''
+SSH_PORT=''
+SSH_FP=''
+declare -a ssh_common=()
+declare -a scp_common=()
 
 write_result() {
   local result="$1"
@@ -33,14 +43,18 @@ write_result() {
 }
 
 cleanup() {
-  local rc=$?
+  local rc=$? remote_cleanup=''
   set +e
-  if [[ "$SSH_READY" == 1 && -n "$REMOTE_SCRIPT" && -n "$REMOTE_MAIL" ]]; then
-    ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-      -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-      "$SSH_USER@$SSH_HOST" "rm -f '$REMOTE_SCRIPT' '$REMOTE_MAIL'" >/dev/null 2>&1 || true
+  if [[ "$SSH_READY" == 1 ]]; then
+    for remote_path in "$REMOTE_SCRIPT" "$REMOTE_MAIL" "$REMOTE_PROOF" "$REMOTE_PROBE_INPUT" "$REMOTE_LOGIN"; do
+      [[ -n "$remote_path" ]] || continue
+      remote_cleanup+=" '$remote_path'"
+    done
+    if [[ -n "$remote_cleanup" ]]; then
+      ssh "${ssh_common[@]}" "$SSH_USER@$SSH_HOST" "rm -f --$remote_cleanup" >/dev/null 2>&1 || true
+    fi
   fi
-  rm -f -- "${LOCAL_MAIL:-}" "${LOGIN_FILE:-}" "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" 2>/dev/null || true
+  rm -f -- "${LOCAL_MAIL:-}" "${LOCAL_PROBE_INPUT:-}" "${LOGIN_FILE:-}" "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" 2>/dev/null || true
   if [[ "$FINISHED" != 1 ]]; then
     write_result FAIL || true
   fi
@@ -65,6 +79,137 @@ guard_main() {
   [[ "$current" == "$TARGET_SHA" ]] || fail MAIN_ADVANCED_DURING_BRIDGE_V2 12
 }
 
+trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+
+validate_key(){
+  local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+  tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+  grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+  public_key="$(mktemp)"
+  ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+  rm -f "$public_key"
+}
+
+try_slot(){
+  local raw="$1" a b c
+  [[ -n "$raw" ]] || return 1
+  a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+  printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+  printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+  printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+  rm -f "$a" "$b" "$c"; return 1
+}
+
+ensure_ssh() {
+  [[ "$SSH_READY" != 1 ]] || return 0
+
+  SSH_HOST="$(trim "${PC_PROD_HOST:-}")"
+  SSH_USER="$(trim "${PC_PROD_SSH_USER:-}")"
+  SSH_PORT="$(trim "${PC_PROD_SSH_PORT:-22}")"
+  SSH_FP="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+  [[ -n "$SSH_HOST" && -n "$SSH_USER" ]] || fail SSH_IDENTITY_MISSING 50
+  [[ "$SSH_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || fail SSH_USER_INVALID 51
+  [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && (( SSH_PORT >= 1 && SSH_PORT <= 65535 )) || fail SSH_PORT_INVALID 52
+  [[ "$SSH_FP" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || fail SSH_FINGERPRINT_INVALID 53
+  mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+  (( ${#dns_ipv4[@]} >= 1 )) || fail LIVE_DNS_EMPTY 54
+  printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$SSH_HOST" || fail SSH_HOST_NOT_LIVE_DOMAIN 55
+
+  mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+  try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}" || fail SSH_KEY_INVALID 56
+
+  local scan match fp
+  scan="$(mktemp)"; match="$(mktemp)"
+  ssh-keyscan -T 10 -p "$SSH_PORT" "$SSH_HOST" 2>/dev/null | sort -u > "$scan"
+  [[ -s "$scan" ]] || { rm -f "$scan" "$match"; fail SSH_KEYSCAN_EMPTY 57; }
+  while IFS= read -r line; do
+    fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+    [[ "$fp" != "$SSH_FP" ]] || printf '%s\n' "$line" >> "$match"
+  done < "$scan"
+  rm -f "$scan"
+  [[ "$(grep -c . "$match" || true)" == 1 ]] || { rm -f "$match"; fail SSH_PINNED_HOST_KEY_MISMATCH 58; }
+  mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"
+
+  ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15)
+  scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+  ssh "${ssh_common[@]}" "$SSH_USER@$SSH_HOST" 'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; python3 --version >/dev/null; echo ROOT_SSH_AUTH_OK' > "$EVIDENCE_DIR/ssh-auth.txt" \
+    || fail ROOT_SSH_AUTH_FAILED 59
+  grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt" || fail ROOT_SSH_AUTH_FAILED 59
+  SSH_READY=1
+}
+
+b64_scalar(){ printf '%s' "$1" | base64 -w0; }
+
+run_vps_probe() {
+  guard_main
+  ensure_ssh
+  guard_main
+
+  LOCAL_PROBE_INPUT="$RUNNER_TEMP/pc-regru-mailbox-smtp-probe-${GITHUB_RUN_ID}.b64"
+  umask 077
+  {
+    printf 'PC_PROBE_SMTP_HOST=%s\n' "$(b64_scalar "$SMTP_HOST")"
+    printf 'PC_PROBE_SMTP_PORT=%s\n' "$(b64_scalar "$SMTP_PORT")"
+    printf 'PC_PROBE_SMTP_USER=%s\n' "$(b64_scalar "$SMTP_USER")"
+    printf 'PC_PROBE_SMTP_PASSWORD=%s\n' "$(b64_scalar "$SMTP_PASSWORD")"
+    printf 'PC_PROBE_MAILBOX_USER=%s\n' "$(b64_scalar "$MAILBOX_USER")"
+    printf 'PC_PROBE_MAILBOX_PASSWORD=%s\n' "$(b64_scalar "$MAILBOX_PASSWORD")"
+    printf 'PC_PROBE_MAIL_FROM=%s\n' "$(b64_scalar "$SMTP_FROM")"
+    printf 'PC_PROBE_IMAP_HOST=%s\n' "$(b64_scalar "$IMAP_HOST")"
+    printf 'PC_PROBE_IMAP_PORT=%s\n' "$(b64_scalar "$IMAP_PORT")"
+    printf 'PC_PROBE_IMAP_FOLDER=%s\n' "$(b64_scalar "$IMAP_FOLDER")"
+    printf 'PC_PROBE_TARGET_SHA=%s\n' "$(b64_scalar "$TARGET_SHA")"
+    printf 'PC_PROBE_RUN_ID=%s\n' "$(b64_scalar "$GITHUB_RUN_ID")"
+    printf 'PC_PROBE_EMAIL_TEMPLATE=%s\n' "$(b64_scalar "$PC_PROBE_EMAIL_TEMPLATE")"
+  } > "$LOCAL_PROBE_INPUT"
+  chmod 0600 "$LOCAL_PROBE_INPUT"
+
+  REMOTE_PROOF="/tmp/pc-regru-mailbox-smtp-proof-${GITHUB_RUN_ID}.py"
+  REMOTE_PROBE_INPUT="/tmp/pc-regru-mailbox-smtp-probe-${GITHUB_RUN_ID}.b64"
+  REMOTE_LOGIN="/tmp/pc-regru-mailbox-smtp-login-${GITHUB_RUN_ID}.txt"
+  scp "${scp_common[@]}" scripts/production-p0-regru-mailbox-smtp-proof.py "$SSH_USER@$SSH_HOST:$REMOTE_PROOF" \
+    || fail PROBE_TRANSFER_FAILED 64
+  scp "${scp_common[@]}" "$LOCAL_PROBE_INPUT" "$SSH_USER@$SSH_HOST:$REMOTE_PROBE_INPUT" \
+    || fail PROBE_INPUT_TRANSFER_FAILED 65
+  ssh "${ssh_common[@]}" "$SSH_USER@$SSH_HOST" "chmod 0700 '$REMOTE_PROOF' && chmod 0600 '$REMOTE_PROBE_INPUT'" \
+    || fail PROBE_REMOTE_PERMISSION_FAILED 66
+
+  cp "$EVIDENCE_DIR/mail-proof.txt" "$EVIDENCE_DIR/mail-proof-runner.txt"
+  set +e
+  ssh "${ssh_common[@]}" "$SSH_USER@$SSH_HOST" "python3 - '$REMOTE_PROBE_INPUT' '$REMOTE_PROOF' '$REMOTE_LOGIN'" <<'PY' \
+    > "$EVIDENCE_DIR/mail-proof-vps.txt"
+import base64
+import os
+import runpy
+import sys
+from pathlib import Path
+
+input_path, proof_path, login_path = sys.argv[1:4]
+for raw in Path(input_path).read_text(encoding="ascii").splitlines():
+    key, sep, encoded = raw.partition("=")
+    if not sep or not key.startswith("PC_PROBE_"):
+        raise SystemExit(90)
+    try:
+        value = base64.b64decode(encoded, validate=True).decode("utf-8")
+    except Exception:
+        raise SystemExit(90)
+    if not value or "\n" in value or "\r" in value or "\x00" in value:
+        raise SystemExit(90)
+    os.environ[key] = value
+os.environ["PC_PROBE_LOGIN_OUTPUT"] = login_path
+runpy.run_path(proof_path, run_name="__main__")
+PY
+  local remote_rc=$?
+  set -e
+  cp "$EVIDENCE_DIR/mail-proof-vps.txt" "$EVIDENCE_DIR/mail-proof.txt"
+  if [[ "$remote_rc" == 0 ]]; then
+    scp "${scp_common[@]}" "$SSH_USER@$SSH_HOST:$REMOTE_LOGIN" "$LOGIN_FILE" \
+      || fail PROBE_LOGIN_RETURN_FAILED 67
+    chmod 0600 "$LOGIN_FILE"
+  fi
+  return "$remote_rc"
+}
+
 [[ "$MODE" == run ]] || fail INVALID_MODE 2
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail TARGET_SHA_INVALID 3
 [[ "$LIVE_DOMAIN" == 'xn----8sbjf4befbjgs9b.xn--p1ai' ]] || fail LIVE_DOMAIN_INVALID 4
@@ -77,6 +222,7 @@ safe_scalar "$MAILBOX_PASSWORD" || fail MAILBOX_PASSWORD_MISSING 8
 safe_scalar "$IMAP_HOST" || fail IMAP_HOST_MISSING 9
 [[ "$IMAP_PORT" =~ ^[0-9]+$ ]] && (( IMAP_PORT >= 1 && IMAP_PORT <= 65535 )) || fail IMAP_PORT_INVALID 10
 [[ -n "${GITHUB_REPOSITORY:-}" && -n "${GH_TOKEN:-}" && "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ ]] || fail GITHUB_AUTHORITY_MISSING 13
+safe_scalar "${PC_PROBE_EMAIL_TEMPLATE:-}" || fail MAIL_PROBE_INPUT_INVALID 20
 
 guard_main
 
@@ -98,9 +244,19 @@ PC_PROBE_LOGIN_OUTPUT="$LOGIN_FILE" \
   python3 scripts/production-p0-regru-mailbox-smtp-proof.py > "$EVIDENCE_DIR/mail-proof.txt"
 proof_rc=$?
 set -e
+
+if [[ "$proof_rc" == 36 ]] \
+  && grep -Fxq 'SMTP_TRANSPORT_CLASS=SMTP_DISCONNECTED' "$EVIDENCE_DIR/mail-proof.txt" \
+  && grep -Fxq 'SMTP_FAILURE_STAGE=AUTH' "$EVIDENCE_DIR/mail-proof.txt"; then
+  set +e
+  run_vps_probe
+  proof_rc=$?
+  set -e
+fi
+
 case "$proof_rc" in
   0) ;;
-  20|21|22|23|24|25|26|27|28) fail MAIL_PROBE_INPUT_INVALID 20 ;;
+  20|21|22|23|24|25|26|27|28|90) fail MAIL_PROBE_INPUT_INVALID 20 ;;
   29) fail REG_RU_SMTP_IDENTITY_INVALID 29 ;;
   31) fail REG_RU_SMTP_EHLO_FAILED 31 ;;
   32) fail REG_RU_SMTP_AUTH_FAILED 32 ;;
@@ -129,57 +285,7 @@ printf 'PC_SMTP_HOST=%s\nPC_SMTP_USER=%s\nPC_SMTP_PASS=%s\nPC_SMTP_PORT=%s\nPC_M
   "$SMTP_HOST" "$SMTP_LOGIN" "$SMTP_PASSWORD" "$SMTP_PORT" "$SMTP_FROM" > "$LOCAL_MAIL"
 chmod 0600 "$LOCAL_MAIL"
 
-trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-SSH_HOST="$(trim "${PC_PROD_HOST:-}")"
-SSH_USER="$(trim "${PC_PROD_SSH_USER:-}")"
-SSH_PORT="$(trim "${PC_PROD_SSH_PORT:-22}")"
-SSH_FP="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
-[[ -n "$SSH_HOST" && -n "$SSH_USER" ]] || fail SSH_IDENTITY_MISSING 50
-[[ "$SSH_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || fail SSH_USER_INVALID 51
-[[ "$SSH_PORT" =~ ^[0-9]+$ ]] && (( SSH_PORT >= 1 && SSH_PORT <= 65535 )) || fail SSH_PORT_INVALID 52
-[[ "$SSH_FP" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || fail SSH_FINGERPRINT_INVALID 53
-mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
-(( ${#dns_ipv4[@]} >= 1 )) || fail LIVE_DNS_EMPTY 54
-printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$SSH_HOST" || fail SSH_HOST_NOT_LIVE_DOMAIN 55
-
-mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
-validate_key(){
-  local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
-  tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
-  grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
-  public_key="$(mktemp)"
-  ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
-  rm -f "$public_key"
-}
-try_slot(){
-  local raw="$1" a b c
-  [[ -n "$raw" ]] || return 1
-  a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
-  printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
-  printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
-  printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
-  rm -f "$a" "$b" "$c"; return 1
-}
-try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}" || fail SSH_KEY_INVALID 56
-
-scan="$(mktemp)"; match="$(mktemp)"
-ssh-keyscan -T 10 -p "$SSH_PORT" "$SSH_HOST" 2>/dev/null | sort -u > "$scan"
-[[ -s "$scan" ]] || { rm -f "$scan" "$match"; fail SSH_KEYSCAN_EMPTY 57; }
-while IFS= read -r line; do
-  fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-  [[ "$fp" != "$SSH_FP" ]] || printf '%s\n' "$line" >> "$match"
-done < "$scan"
-rm -f "$scan"
-[[ "$(grep -c . "$match" || true)" == 1 ]] || { rm -f "$match"; fail SSH_PINNED_HOST_KEY_MISMATCH 58; }
-mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"
-
-ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15)
-scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
-ssh "${ssh_common[@]}" "$SSH_USER@$SSH_HOST" 'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; echo ROOT_SSH_AUTH_OK' > "$EVIDENCE_DIR/ssh-auth.txt" \
-  || fail ROOT_SSH_AUTH_FAILED 59
-grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt" || fail ROOT_SSH_AUTH_FAILED 59
-SSH_READY=1
-
+ensure_ssh
 guard_main
 REMOTE_SCRIPT="/tmp/pc-regru-mailbox-smtp-bridge-v2-${GITHUB_RUN_ID}.sh"
 REMOTE_MAIL="/tmp/pc-password-reset-mail-${GITHUB_RUN_ID}.env"
