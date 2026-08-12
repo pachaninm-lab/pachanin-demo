@@ -57,7 +57,6 @@ import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapsh
 import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-persistence.module';
 import { StaffAccessModule } from './modules/staff-access/staff-access.module';
 import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
-import { GektaModule } from './modules/gekta/gekta.module';
 
 @Module({
   imports: [
@@ -113,7 +112,6 @@ import { GektaModule } from './modules/gekta/gekta.module';
     RuntimeSnapshotModule,
     RuntimePersistenceModule,
     TaiToolsModule,
-    GektaModule,
   ],
   controllers: [HealthController],
   providers: [
