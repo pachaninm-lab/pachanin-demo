@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - 'Production Web Exact-SHA Release'
+      - 'Production Web Owner Exact-SHA Command'
       - 'Production Full-Stack Exact-SHA Release'
     types: [completed]
   workflow_dispatch:
