@@ -114,8 +114,8 @@ async function claimBatch(
     UPDATE auth.mail_outbox
     SET status = 'PROCESSING',
         lease_owner = ${workerId},
-        lease_token = md5(random()::text || clock_timestamp()::text || id || ${workerId}),
-        lease_expires_at = clock_timestamp() + make_interval(secs => ${leaseSeconds}),
+        lease_token = md5(random()::text || clock_timestamp()::text || id),
+        lease_expires_at = clock_timestamp() + (${leaseSeconds} * INTERVAL '1 second'),
         updated_at = clock_timestamp()
     WHERE id IN (
       SELECT id
@@ -295,7 +295,6 @@ async function bootstrap(): Promise<void> {
     throw new Error('AUTH_MAIL_WORKER_ENABLED must equal true');
   }
 
-  // Fail before opening a DB connection if any secret authority is absent or malformed.
   resolveAuthMailOutboxKey();
   resolveAuthMailSmtpConfig();
   const databaseUrl = resolveMailDatabaseUrl();
