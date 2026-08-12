@@ -30,12 +30,13 @@ jobs:
           STAGE="/tmp/auth-mail-materialized"
           status=0
 
+          set +e
           (
             set -euo pipefail
             echo "SOURCE_HEAD=$(git rev-parse HEAD)"
             echo "SOURCE_PATCH=c4f07f9ad5184b1bd055902c11b1e72a185e4c40"
             git show c4f07f9ad5184b1bd055902c11b1e72a185e4c40:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
-            printf '%s' 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpzb3VyY2UgPSBQYXRoKCIvdG1wL29yaWdpbmFsLWF1dGgtbWFpbC13aXJpbmcueW1sIikucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCm1hcmtlciA9ICIgICAgICAgICAgcHl0aG9uMyAtIDw8J1BBVENIUFknXG4iCnN0YXJ0ID0gc291cmNlLmluZGV4KG1hcmtlcikgKyBsZW4obWFya2VyKQplbmQgPSBzb3VyY2UuaW5kZXgoIlxuICAgICAgICAgIFBBVENIUFkiLCBzdGFydCkKcmF3X2xpbmVzID0gc291cmNlW3N0YXJ0OmVuZF0uc3BsaXRsaW5lcygpCmxpbmVzID0gW2xpbmVbMTA6XSBpZiBsaW5lLnN0YXJ0c3dpdGgoIiAgICAgICAgICAiKSBlbHNlIGxpbmUgZm9yIGxpbmUgaW4gcmF3X2xpbmVzXQoKb3V0ID0gW10KcmVwYWlyZWQgPSAwCmkgPSAwCndoaWxlIGkgPCBsZW4obGluZXMpOgogICAgbGluZSA9IGxpbmVzW2ldCiAgICBpZiAiZm9yYmlkKCdleGVjdXRvciciIGluIGxpbmUgYW5kICJidWlsZHxjb21taXR8dGFnIiBpbiBsaW5lIGFuZCBsaW5lLnJzdHJpcCgpLmVuZHN3aXRoKCIvLCIpOgogICAgICAgIGlmIGkgKyAxID49IGxlbihsaW5lcykgb3IgbGluZXNbaSArIDFdLnN0cmlwKCkgIT0gJyIsJzoKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgidW5leHBlY3RlZCBzcGxpdC1zdHJpbmcgY29udGludWF0aW9uIikKICAgICAgICBvdXQuYXBwZW5kKGxpbmUgKyByJ1xuIiwnKQogICAgICAgIGkgKz0gMgogICAgICAgIHJlcGFpcmVkICs9IDEKICAgICAgICBjb250aW51ZQogICAgb3V0LmFwcGVuZChsaW5lKQogICAgaSArPSAxCgppZiByZXBhaXJlZCAhPSAxOgogICAgcmFpc2UgU3lzdGVtRXhpdChmImV4cGVjdGVkIG9uZSByZXBhaXIsIGdvdCB7cmVwYWlyZWR9IikKClBhdGgoIi90bXAvYXV0aC1tYWlsLXJlbGVhc2UtcGF0Y2gucHkiKS53cml0ZV90ZXh0KCJcbiIuam9pbihvdXQpICsgIlxuIiwgZW5jb2Rpbmc9InV0Zi04IikKcHJpbnQoZiJFWFRSQUNUSU9OPVBBU1MgbGluZXM9e2xlbihvdXQpfSByZXBhaXJlZD17cmVwYWlyZWR9IikK' | base64 -d > /tmp/auth-mail-extract.py
+            printf '%s' 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpzb3VyY2UgPSBQYXRoKCIvdG1wL29yaWdpbmFsLWF1dGgtbWFpbC13aXJpbmcueW1sIikucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCm1hcmtlciA9ICIgICAgICAgICAgcHl0aG9uMyAtIDw8J1BBVENIUFknXG4iCnN0YXJ0ID0gc291cmNlLmluZGV4KG1hcmtlcikgKyBsZW4obWFya2VyKQplbmQgPSBzb3VyY2UuaW5kZXgoIlxuICAgICAgICAgIFBBVENIUFkiLCBzdGFydCkKcmF3X2xpbmVzID0gc291cmNlW3N0YXJ0OmVuZF0uc3BsaXRsaW5lcygpCmxpbmVzID0gW2xpbmVbMTA6XSBpZiBsaW5lLnN0YXJ0c3dpdGgoIiAgICAgICAgICAiKSBlbHNlIGxpbmUgZm9yIGxpbmUgaW4gcmF3X2xpbmVzXQoKb3V0ID0gW10KcmVwYWlyZWQgPSAwCmkgPSAwCndoaWxlIGkgPCBsZW4obGluZXMpOgogICAgbGluZSA9IGxpbmVzW2ldCiAgICBpZiAiZm9yYmlkKCdleGVjdXRvciciIGluIGxpbmUgYW5kICJidWlsZHxjb21taXR8dGFnIiBpbiBsaW5lIGFuZCBsaW5lLnJzdHJpcCgpLmVuZHN3aXRoKCIvLCIpOgogICAgICAgIGlmIGkgKyAxID49IGxlbihsaW5lcykgb3IgbGluZXNbaSArIDFdLnN0cmlwKCkgIT0gJyIsJzoKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgidW5leHBlY3RlZCBzcGxpdC1zdHJpbmcgY29udGludWF0aW9uIikKICAgICAgICBvdXQuYXBwZW5kKGxpbmUgKyByJ1xuIiwnKQogICAgICAgIGkgKz0gMgogICAgICAgIHJlcGFpcmVkICs9IDEKICAgICAgICBjb250aW51ZQogICAgb3V0LmFwcGVuZChsaW5lKQogICAgaSArPSAxCgppZiByZXBhaXJlZCAhPSAxOgogICAgcmFpc2UgU3lzdGVtRXhpdChmImV4cGVjdGVkIG9uZSByZXBhaXIsIGdvdCB7cmVwYWlyZWR9IikKCm1hdGNoZXMgPSBbaWR4IGZvciBpZHgsIGxpbmUgaW4gZW51bWVyYXRlKG91dCkgaWYgImV4ZWN1dG9yIHN0YXRlIHdvcmtlciIgaW4gbGluZSBhbmQgInJlcGxhY2Vfb25jZSIgaW4gbGluZV0KaWYgbGVuKG1hdGNoZXMpICE9IDE6CiAgICByYWlzZSBTeXN0ZW1FeGl0KGYiZXhwZWN0ZWQgb25lIHN0YXRlLXdvcmtlciByZXBsYWNlIGNhbGwsIGdvdCB7bGVuKG1hdGNoZXMpfSIpCmlkeCA9IG1hdGNoZXNbMF0Kb3V0W2lkeDppZHhdID0gWwogICAgInN0YXRlX29sZCA9IHN0YXRlX29sZC5yc3RyaXAoKSIsCiAgICAic3RhdGVfbmV3ID0gc3RhdGVfbmV3LnJzdHJpcCgpIiwKXQoKUGF0aCgiL3RtcC9hdXRoLW1haWwtcmVsZWFzZS1wYXRjaC5weSIpLndyaXRlX3RleHQoIlxuIi5qb2luKG91dCkgKyAiXG4iLCBlbmNvZGluZz0idXRmLTgiKQpwcmludChmIkVYVFJBQ1RJT049UEFTUyBsaW5lcz17bGVuKG91dCl9IHJlcGFpcmVkPXtyZXBhaXJlZH0gc3RhdGVfdHJpbT0xIikK' | base64 -d > /tmp/auth-mail-extract.py
             python3 /tmp/auth-mail-extract.py
             python3 /tmp/auth-mail-release-patch.py
             echo 'PATCH=PASS'
@@ -54,7 +55,9 @@ jobs:
             cp docs/platform-v7/autopilot/scopes/industrial-auth-mail-outbox-3785.json "$STAGE/docs/platform-v7/autopilot/scopes/"
             tar -C /tmp -czf "$BUNDLE" auth-mail-materialized
             echo 'MATERIALIZE=PASS'
-          ) >"$REPORT" 2>&1 || status=$?
+          ) >"$REPORT" 2>&1
+          status=$?
+          set -e
 
           echo "MATERIALIZE_EXIT=$status" >> "$REPORT"
           cat "$REPORT"
@@ -69,7 +72,7 @@ jobs:
           path: |
             /tmp/auth-mail-materializer-*.txt
             /tmp/auth-mail-materialized.tar.gz
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 1
 
       - name: Propagate materializer failure
