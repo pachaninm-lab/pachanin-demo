@@ -5,96 +5,130 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const page = read('app/gekta/page.tsx');
-const app = read('components/gekta/GektaChatApp.tsx');
-const css = read('components/gekta/GektaChatApp.module.css');
+const enPage = read('app/gekta/en/page.tsx');
+const zhPage = read('app/gekta/zh/page.tsx');
+const product = read('components/gekta/GektaProductShell.tsx');
+const workspace = read('components/gekta/GektaChatWorkspace.tsx');
+const sidebar = read('components/gekta/GektaSidebar.tsx');
+const composer = read('components/gekta/GektaComposer.tsx');
+const attachments = read('components/gekta/GektaAttachments.tsx');
+const markdown = read('components/gekta/GektaMarkdown.tsx');
+const sources = read('components/gekta/GektaSourceList.tsx');
+const content = read('lib/gekta/content.ts');
+const seo = read('lib/gekta/seo.ts');
 const middleware = read('middleware.ts');
 const seoAuthority = read('lib/platform-v7/public-seo-routes.json');
 const liveAcceptance = read('../../scripts/production-web-live-acceptance.sh');
 
 describe('Gekta standalone public experience', () => {
-  it('publishes Gekta as a top-level product route with independent metadata', () => {
-    expect(page).toContain("canonical: '/gekta'");
-    expect(page).toContain("applicationName: 'Гекта'");
-    expect(page).toContain("title: 'Гекта — аграрный интеллект для сельского хозяйства и агробизнеса'");
-    expect(page).toContain("name: 'Гекта'");
-    expect(page).toContain("alternateName: ['Gekta', 'ГЕКТА']");
-    expect(page).toContain('<GektaChatApp />');
+  it('keeps product meaning server-rendered and the chat client-isolated', () => {
+    expect(page).not.toContain("'use client'");
+    expect(product).not.toContain("'use client'");
+    expect(page).toContain("<GektaProductShell locale='ru' />");
+    expect(product).toContain('<GektaHero locale={locale} />');
+    expect(product).toContain('<GektaDiscoverySections locale={locale} />');
+    expect(workspace).toContain("'use client'");
+    expect(content).toContain('Гекта — аграрный ИИ для сельского хозяйства и агробизнеса');
+    expect(content).toContain('Не просто чат. Аграрный контекст в одном диалоге.');
+    expect(content).toContain('Для тех, кто принимает решения в сельском хозяйстве');
+    expect(content).toContain('Факты, предположения и риски не смешиваются');
   });
 
-  it('is anonymously reachable and indexable without entering platform cabinet authority', () => {
-    expect(middleware).toContain("const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta']);");
-    expect(middleware).toContain("'/api/agro-chat'");
-    expect(middleware).toContain("(p === '/' || PLATFORM_V7_INDEXABLE_EXACT.has(p)) && !privateModeEnabled");
-    expect(seoAuthority).toContain('{ "path": "/gekta", "priority": 0.95, "changeFrequency": "weekly" }');
+  it('uses exact RU metadata and standalone locale URLs with cross-language alternates', () => {
+    expect(seo).toContain("title: { absolute: meta.title }");
+    expect(seo).toContain('Гекта — аграрный ИИ для сельского хозяйства и агробизнеса');
+    expect(seo).toContain('Гекта — аграрный ИИ для фермеров и агробизнеса: агрономия, растениеводство, животноводство, техника, хранение, экономика, документы и расчёты.');
+    expect(seo).toContain("'ru-RU': '/gekta'");
+    expect(seo).toContain("en: '/gekta/en'");
+    expect(seo).toContain("'zh-CN': '/gekta/zh'");
+    expect(seo).toContain("'x-default': '/gekta'");
+    expect(enPage).toContain("locale='en'");
+    expect(zhPage).toContain("locale='zh'");
   });
 
-  it('uses a dedicated ChatGPT-like shell rather than the platform assistant component', () => {
-    expect(app).toContain("data-gekta-standalone='true'");
-    expect(app).not.toContain('PublicPlatformAssistant');
-    expect(app).not.toMatch(/href=['\"]\/platform-v7/u);
-    expect(app).toContain("href='/'");
-    expect(app).toContain("newChat: 'Новый диалог'");
-    expect(app).toContain("placeholder: 'Опиши задачу по сельскому хозяйству или агробизнесу'");
-    expect(css).toContain('grid-template-columns: 286px minmax(0, 1fr)');
-    expect(css).toContain('.composerArea');
-    expect(css).toContain('.sidebar');
+  it('redirects compatibility lang queries permanently while preserving unrelated query parameters', () => {
+    expect(middleware).toContain('function legacyGektaLocaleRedirect');
+    expect(middleware).toContain("target.searchParams.delete('lang')");
+    expect(middleware).toContain("target.pathname = lang === 'en' ? '/gekta/en' : lang === 'zh' ? '/gekta/zh' : '/gekta'");
+    expect(middleware).toContain('NextResponse.redirect(target, 301)');
+    expect(middleware).toContain("p.startsWith('/gekta/')");
+    expect(middleware).toContain('resolveGektaPathLocale');
+    expect(middleware).toContain("requestHeaders.set('x-pc-locale', requestLocale)");
   });
 
-  it('reuses the accepted public streaming boundary without duplicating model infrastructure', () => {
-    expect(app).toContain("fetch('/api/agro-chat?stream=1'");
-    expect(app).toContain("context: 'gekta-standalone'");
-    expect(app).toContain("mode: 'public'");
-    expect(app).toContain('readGatewayStream(response');
-    expect(app).toContain('AbortController');
-    expect(app).toContain('conversationId');
-    expect(app).toContain('historyFrom(messages)');
-    expect(app).toContain('historyFrom(messages.slice(0, userIndex))');
+  it('provides real conversation management instead of a static capabilities sidebar', () => {
+    expect(sidebar).toContain('Search history');
+    expect(sidebar).toContain('Переименовать');
+    expect(sidebar).toContain('Очистить историю');
+    expect(sidebar).toContain('<GektaConversationList');
+    expect(sidebar).not.toContain('С чем помогает');
+    expect(workspace).toContain('const HISTORY_STORAGE');
+    expect(workspace).toContain('renameConversation');
+    expect(workspace).toContain('deleteConversation');
+    expect(workspace).toContain('clearHistory');
   });
 
-  it('keeps public authority and current-information limitations explicit', () => {
-    expect(app).toContain('Без доступа к личным кабинетам и закрытым данным.');
-    expect(app).toContain('Гекта не выполняет действия от имени пользователя');
-    expect(app).toContain('не выдумывает актуальные факты без подтверждённого источника');
-    expect(app).toContain('Актуальные цены, погода, нормы, субсидии');
-    expect(app).toContain('подтверждённого текущего источника');
-    expect(app).not.toContain('лучшая в России');
-    expect(app).not.toContain('умеет всё');
+  it('reuses the governed public streaming and attachment boundaries without a second backend', () => {
+    expect(workspace).toContain("fetch('/api/agro-chat?stream=1'");
+    expect(workspace).toContain("context: 'gekta-standalone'");
+    expect(workspace).toContain("mode: 'public'");
+    expect(workspace).toContain('readGatewayStream(response');
+    expect(workspace).toContain('AbortController');
+    expect(workspace).toContain('historyFrom(');
+    expect(attachments).toContain("fetch('/api/public-platform-assistant/attachments'");
+    expect(attachments).toContain('MAX_FILES = 4');
+    expect(attachments).toContain('MAX_FILE_SIZE = 10 * 1024 * 1024');
+    expect(attachments).toContain('onDrop=');
   });
 
-  it('covers broad agricultural positioning in RU, EN and ZH without module selection', () => {
-    for (const phrase of [
-      'Дача, огород и ЛПХ',
-      'Растениеводство и агрономия',
-      'Животноводство',
-      'Сельхозтехника и диагностика',
-      'Экономика и агробизнес',
-      '1С и государственные системы',
-      'Documents and calculations',
-      '农业机械与诊断',
-    ]) {
-      expect(app).toContain(phrase);
+  it('supports markdown, tables, safe links, sources, stop/retry/copy and safe-area composer UX', () => {
+    expect(markdown).toContain("url.protocol === 'http:' || url.protocol === 'https:'");
+    expect(markdown).toContain("className='my-4 max-w-full overflow-x-auto rounded-2xl border border-slate-200'");
+    expect(markdown).not.toContain('dangerouslySetInnerHTML');
+    expect(sources).toContain("url.protocol === 'https:' || url.protocol === 'http:'");
+    expect(sources).toContain('<details');
+    expect(composer).toContain('env(safe-area-inset-bottom)');
+    expect(composer).toContain("id='gekta-composer-input'");
+    expect(composer).toContain('onStop');
+    expect(workspace).toContain('retry');
+    expect(workspace).toContain('copyMessage');
+    expect(workspace).toContain('showScroll');
+  });
+
+  it('emits privacy-safe analytics names without putting prompt or answer bodies into event payloads', () => {
+    for (const event of ['gekta_page_view', 'gekta_prompt_submitted', 'gekta_answer_started', 'gekta_answer_completed', 'gekta_answer_stopped', 'gekta_retry', 'gekta_source_opened', 'gekta_starter_used', 'gekta_new_chat', 'gekta_locale_changed']) {
+      expect(workspace).toContain(event);
     }
-    expect(app).toContain('без выбора модулей и сложных меню');
+    expect(workspace).toContain("{ hasAttachments: attached.length > 0 }");
+    expect(workspace).toContain("{ sourceCount: finalMessage.citations?.length || 0 }");
+    expect(workspace).not.toMatch(/track\([^\n]+question/u);
+    expect(workspace).not.toMatch(/track\([^\n]+message\.text/u);
   });
 
-  it('preserves mobile, accessibility and rural-network UX boundaries', () => {
-    expect(css).toContain('@media (max-width: 820px)');
-    expect(css).toContain('@media (max-width: 620px)');
-    expect(css).toContain('env(safe-area-inset-bottom)');
-    expect(css).toContain('min-height: 44px');
-    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(app).toContain("aria-expanded={sidebarOpen}");
-    expect(app).toContain("aria-live='polite'");
-    expect(app).toContain("maxLength={1_200}");
-  });
-
-  it('makes protected exact-SHA live acceptance fail closed on the Gekta surface', () => {
-    for (const locale of ['ru', 'en', 'zh']) {
-      expect(liveAcceptance).toContain(`$LIVE_BASE/gekta?lang=${locale}&release=$cache_bust`);
+  it('registers locale and topic pages in the existing sitemap authority only', () => {
+    for (const route of ['/gekta', '/gekta/en', '/gekta/zh', '/gekta/agronomiya-rastenievodstvo', '/gekta/zhivotnovodstvo', '/gekta/selhoztehnika', '/gekta/agrobiznes', '/gekta/hranenie-logistika', '/gekta/dokumenty-raschety', '/gekta/dacha-lph']) {
+      expect(seoAuthority).toContain(`\"path\": \"${route}\"`);
     }
-    expect(liveAcceptance).toContain('grep -Fq "$LIVE_BASE/gekta" <<< "$sitemap_body"');
-    expect(liveAcceptance).toContain('! grep -Eiq \'^x-robots-tag:.*noindex\' <<< "$gekta_headers"');
-    expect(liveAcceptance).toContain('LIVE_GEKTA_CODES=ru:%s,en:%s,zh:%s');
-    expect(liveAcceptance).toContain('&& [[ "$gekta_ru_code" == 200 && "$gekta_en_code" == 200 && "$gekta_zh_code" == 200 ]]');
+    expect(content).toContain("slug: 'agronomiya-rastenievodstvo'");
+    expect(content).toContain("slug: 'dacha-lph'");
+  });
+
+  it('keeps unaccepted infrastructure and fabricated proof out of the standalone public surface', () => {
+    const publicSource = [product, workspace, sidebar, composer, attachments, markdown, sources, content, seo].join('\n');
+    expect(publicSource).not.toMatch(/llama\.cpp|Qwen3|private model endpoint|system prompt|chain-of-thought/iu);
+    expect(seo).not.toMatch(/aggregateRating|reviewCount|ratingValue|offers|award/iu);
+    expect(content).not.toContain('№1 в России');
+    expect(content).not.toContain('лучшая в России');
+    expect(content).not.toContain('умеет всё');
+  });
+
+  it('makes exact-SHA live acceptance inspect canonical crawler HTML and the real SSE boundary', () => {
+    expect(liveAcceptance).toContain('$LIVE_BASE/gekta/en?release=$cache_bust');
+    expect(liveAcceptance).toContain('$LIVE_BASE/gekta/zh?release=$cache_bust');
+    expect(liveAcceptance).toContain('GEKTA_CRAWLER_HTML=PASS');
+    expect(liveAcceptance).toContain('GEKTA_COMPAT_REDIRECT=PASS');
+    expect(liveAcceptance).toContain('GEKTA_STREAM=PASS');
+    expect(liveAcceptance).toContain('/api/agro-chat?stream=1');
+    expect(liveAcceptance).toContain("\"event\":\"done\"");
   });
 });
