@@ -22,20 +22,27 @@ function request(options: {
   headerToken?: string;
 } = {}) {
   const token = options.token ?? TOKEN;
-  const headers = new Headers({
-    host: options.host ?? 'web:3000',
-    cookie: `pc_csrf_token=${token}`,
-    'x-csrf-token': options.headerToken ?? token,
-  });
-  if (options.origin) headers.set('origin', options.origin);
-  if (options.forwardedHost) headers.set('x-forwarded-host', options.forwardedHost);
-  if (options.forwardedProto) headers.set('x-forwarded-proto', options.forwardedProto);
+  const headerValues = new Map<string, string>([
+    ['host', options.host ?? 'web:3000'],
+    ['cookie', `pc_csrf_token=${token}`],
+    ['x-csrf-token', options.headerToken ?? token],
+  ]);
+  if (options.origin) headerValues.set('origin', options.origin);
+  if (options.forwardedHost) headerValues.set('x-forwarded-host', options.forwardedHost);
+  if (options.forwardedProto) headerValues.set('x-forwarded-proto', options.forwardedProto);
 
-  return new Request(options.url ?? 'http://web:3000/api/auth/forgot-password', {
+  // These helpers execute on the server. Browser-like test environments may
+  // strip forbidden request headers such as Host/Cookie/Origin, so use a
+  // minimal server Request contract instead of the browser Fetch constructor.
+  return {
+    url: options.url ?? 'http://web:3000/api/auth/forgot-password',
     method: 'POST',
-    headers,
-    body: '{}',
-  });
+    headers: {
+      get(name: string) {
+        return headerValues.get(name.toLowerCase()) ?? null;
+      },
+    },
+  } as unknown as Request;
 }
 
 afterEach(() => {
