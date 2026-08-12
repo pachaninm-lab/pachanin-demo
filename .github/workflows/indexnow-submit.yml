@@ -5,7 +5,7 @@ name: IndexNow Submit
 # that was never released, because a merge is not a deployment.
 on:
   workflow_run:
-    workflows: ['Production Web Exact-SHA Release']
+    workflows: ['Production Web Exact-SHA Release', 'Production Web Owner Exact-SHA Command']
     types: [completed]
   workflow_dispatch:
     inputs:
