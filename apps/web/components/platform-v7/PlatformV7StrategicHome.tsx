@@ -22,6 +22,8 @@ import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
+import { GEKTA_PATHS } from '@/lib/gekta/content';
+import { GektaFloatingEntry } from '@/components/gekta/GektaFloatingEntry';
 import '@/styles/platform-v7-public-assistant.css';
 import '@/styles/platform-v7-public-assistant-shortcut.css';
 import '@/styles/platform-v7-public-assistant-mobile-fix.css';
@@ -70,7 +72,10 @@ export async function PlatformV7StrategicHome() {
   const chrome = await getTranslations('publicEntry.chrome');
 
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
-  const taiHref = `/gekta?lang=${encodeURIComponent(locale)}`;
+  // Platform scenario: "See Gekta in action" demonstrates the platform itself and must stay on
+  // the platform surface. The standalone Gekta product lives on its own canonical route below.
+  const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
+  const gektaProductHref = GEKTA_PATHS[locale === 'en' ? 'en' : locale === 'zh' ? 'zh' : 'ru'];
 
   const nav = (
     <>
@@ -79,6 +84,7 @@ export async function PlatformV7StrategicHome() {
       <a href='#live'>{story.nav.deal}</a>
       <a href='#participants'>{story.nav.roles}</a>
       <a href='#tai'>{story.nav.tai}</a>
+      <a href={gektaProductHref} data-nav-product='gekta'>{story.gektaProduct.navLabel}</a>
     </>
   );
 
@@ -513,6 +519,23 @@ export async function PlatformV7StrategicHome() {
               </PublicExperienceLink>
             </div>
           </div>
+
+          <div className={styles.gektaProduct} data-gekta-product-entry='true'>
+            <div className={styles.gektaProductBody}>
+              <span className={styles.gektaProductEyebrow}>{story.gektaProduct.eyebrow}</span>
+              <h3 id='gekta-product-title'>{story.gektaProduct.title}</h3>
+              <p>{story.gektaProduct.lead}</p>
+            </div>
+            <PublicExperienceLink
+              href={gektaProductHref}
+              className={styles.gektaProductLink}
+              eventName='gekta_product_open'
+              locale={locale}
+              params={{ source: 'home_tai_product_block' }}
+            >
+              {story.gektaProduct.cta}<ArrowRight aria-hidden='true' size={17} />
+            </PublicExperienceLink>
+          </div>
         </section>
 
         <section id='faq' className={`pc-v6-section ${styles.section} ${styles.faqSection}`} aria-labelledby='faq-title'>
@@ -542,6 +565,8 @@ export async function PlatformV7StrategicHome() {
           </nav>
         </div>
       </footer>
+
+      <GektaFloatingEntry locale={locale === 'en' ? 'en' : locale === 'zh' ? 'zh' : 'ru'} />
     </div>
   );
 }

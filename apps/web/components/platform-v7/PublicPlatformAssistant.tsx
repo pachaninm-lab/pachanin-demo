@@ -119,8 +119,8 @@ const COPY: Record<Locale, Copy> = {
     shortcutHint: 'Аграрный интеллект',
     close: 'Закрыть Гекту',
     title: 'Гекта',
-    subtitle: 'Аграрный интеллект для земли, урожая и решений.',
-    emptyTitle: 'Чем помочь?',
+    subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»',
+    emptyTitle: 'Чем я могу вам помочь?',
     emptyBody: 'Разберу вопрос по земле, растениям, урожаю, сельскому хозяйству, агробизнесу и возможностям «Прозрачной Цены».',
     placeholder: 'Спроси Гекту о земле, урожае или агробизнесе',
     send: 'Отправить',
@@ -147,8 +147,8 @@ const COPY: Record<Locale, Copy> = {
     shortcutHint: 'Agricultural intelligence',
     close: 'Close Gekta',
     title: 'Gekta',
-    subtitle: 'Agricultural intelligence for land, crops and decisions.',
-    emptyTitle: 'What would you like to know?',
+    subtitle: 'AI for farming and agribusiness by Prozrachnaya Tsena',
+    emptyTitle: 'How can I help you?',
     emptyBody: 'Ask Gekta about land, crops, agriculture, agribusiness, or Transparent Price capabilities.',
     placeholder: 'Ask Gekta about land, crops or agribusiness',
     send: 'Send',
@@ -175,8 +175,8 @@ const COPY: Record<Locale, Copy> = {
     shortcutHint: '农业智能',
     close: '关闭 Gekta',
     title: 'Gekta',
-    subtitle: '服务于土地、作物与决策的农业智能。',
-    emptyTitle: '你想了解什么？',
+    subtitle: '“透明价格”推出的农业与农业经营 AI',
+    emptyTitle: '我可以帮您做什么？',
     emptyBody: '可以向 Gekta 咨询土地、作物、农业、农业经营或“透明价格”平台。',
     placeholder: '向 Gekta 咨询土地、作物或农业经营',
     send: '发送',
@@ -392,7 +392,7 @@ export function PublicPlatformAssistant() {
   const hydratedStorageRef = React.useRef<Locale | null>(null);
   const skipNextStorageWriteRef = React.useRef(false);
   const ui = COPY[locale];
-  const starterPrompts = (contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || [])).slice(0, 3);
+  const starterPrompts = (contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || [])).slice(0, 4);
   const hasConversation = messages.length > 0;
   const hasStreamingMessage = messages.some((message) => message.stream?.status === 'streaming');
 

@@ -121,6 +121,13 @@ const operatingCopy = {
       limit: 'Гекта показывает факты, риски и варианты действий. Критические решения подтверждает уполномоченный участник.',
       cta: 'Посмотреть Гекту в работе',
     },
+    gektaProduct: {
+      eyebrow: 'Отдельный продукт экосистемы',
+      title: 'Гекта — самостоятельный аграрный ИИ',
+      lead: 'AI-продукт «Прозрачной Цены» для сельского хозяйства и агробизнеса: растениеводство, животноводство, техника, хранение, логистика, документы и экономика хозяйства в одном диалоге.',
+      cta: 'Открыть Гекту',
+      navLabel: 'Гекта',
+    },
     faq: {
       items: [
         {
@@ -213,6 +220,13 @@ const operatingCopy = {
       limit: 'Gekta shows facts, risks and action options. Critical decisions are confirmed by an authorised participant.',
       cta: 'See Gekta in action',
     },
+    gektaProduct: {
+      eyebrow: 'A separate ecosystem product',
+      title: 'Gekta — a standalone agricultural AI',
+      lead: 'The Prozrachnaya Tsena AI product for farming and agribusiness: crops, livestock, machinery, storage, logistics, documents and farm economics in one conversation.',
+      cta: 'Open Gekta',
+      navLabel: 'Gekta',
+    },
     faq: {
       items: [
         { question: 'What does the organisation get beyond trading?', answer: 'The complete execution workflow: terms, delivery, acceptance, quality, documents, settlement, dispute, evidence and analytics in one Deal.' },
@@ -293,6 +307,13 @@ const operatingCopy = {
       limit: 'Gekta 展示事实、风险和操作选项，关键决定由获授权的参与方确认。',
       cta: '查看 Gekta 如何工作',
     },
+    gektaProduct: {
+      eyebrow: '生态中的独立产品',
+      title: 'Gekta — 独立的农业人工智能',
+      lead: '“透明价格”面向农业生产与农业经营的 AI 产品：种植、畜牧、农业机械、仓储、物流、文件与经营经济，都在同一个对话中。',
+      cta: '打开 Gekta',
+      navLabel: 'Gekta',
+    },
     faq: {
       items: [
         { question: '除竞价外，机构还能获得什么？', answer: '条件、交付、验收、质量、文件、结算、争议、证据与分析都集中在同一笔交易中。' },
@@ -326,6 +347,7 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
     },
     roles: { ...base.roles, ...localized.roles },
     tai: { ...base.tai, ...localized.tai },
+    gektaProduct: localized.gektaProduct,
     faq: { ...base.faq, ...localized.faq },
   };
 }
