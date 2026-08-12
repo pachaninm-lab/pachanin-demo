@@ -114,6 +114,15 @@ export class GektaAccessService {
     return { state: 'REGISTRATION_REQUIRED', canAsk: false, expiresAt: null, serverTime };
   }
 
+  /** То же решение, но по идентификатору аккаунта: нужно кабинету оператора. */
+  async resolveEntitlementByAccount(accountId: string, now: Date = new Date()): Promise<GektaEntitlement> {
+    const account = await this.prisma.gektaAccount.findUnique({ where: { id: accountId }, select: { userId: true } });
+    if (!account) {
+      return { state: 'REGISTRATION_REQUIRED', canAsk: false, expiresAt: null, serverTime: now.toISOString() };
+    }
+    return this.resolveEntitlement(account.userId, now);
+  }
+
   /** Завершённый ответ — единственное, что увеличивает счётчик. */
   async recordCompletedAnswer(accountId: string, now: Date = new Date()) {
     const usage = await this.prisma.gektaUsage.findUnique({ where: { accountId } });
