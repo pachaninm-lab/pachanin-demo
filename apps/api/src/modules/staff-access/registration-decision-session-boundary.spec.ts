@@ -18,7 +18,7 @@ describe('registration decision staff access session boundary', () => {
     ]);
   });
 
-  it('retains the durable assignment ceiling before executing the decision', async () => {
+  it('retains the durable assignment ceiling and passes only locale to the queued decision notice', async () => {
     const access = {
       requirePermission: jest.fn().mockResolvedValue(undefined),
     };
@@ -39,10 +39,9 @@ describe('registration decision staff access session boundary', () => {
     await controller.registrationApplicationDecision(
       { user } as never,
       'application-1',
-      { decision: 'APPROVED', reason: 'verified' } as never,
+      { decision: 'APPROVED', reason: 'verified', locale: 'en' } as never,
       'decision-idempotency-key-1',
       'correlation-1',
-      'delivery-key-1',
     );
 
     expect(access.requirePermission).toHaveBeenCalledWith(
@@ -56,7 +55,7 @@ describe('registration decision staff access session boundary', () => {
       user,
       'decision-idempotency-key-1',
       'correlation-1',
-      'delivery-key-1',
+      'en',
     );
   });
 });
