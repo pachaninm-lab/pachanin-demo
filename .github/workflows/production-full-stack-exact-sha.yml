@@ -216,13 +216,25 @@ jobs:
           printf '%s\n' valid-private-key > "$EVIDENCE_DIR/ssh-credential-status.txt"
 
           scan="$(mktemp)"; match="$(mktemp)"
-          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-          [[ -s "$scan" ]]
-          while IFS= read -r line; do
-            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-          done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch.' >&2; exit 15; }
+          pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"
+            : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then
+                pinned_ready=1
+                break
+              fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }
           mv "$match" "$HOME/.ssh/known_hosts"
           rm -f "$scan"
           chmod 600 "$HOME/.ssh/known_hosts"
