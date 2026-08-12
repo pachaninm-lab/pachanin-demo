@@ -1,3 +1,4 @@
+import { connect as netConnect, type Socket } from 'node:net';
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 
 const MAIL_TIMEOUT_MS = 5_000;
@@ -13,6 +14,14 @@ export type MailDeliveryResult = {
   provider: 'resend' | 'smtp' | 'none';
   reason: string;
 };
+
+export type SmtpSecurityMode = 'implicit-tls' | 'starttls';
+
+export function smtpSecurityForPort(port: number): SmtpSecurityMode | null {
+  if (port === 465) return 'implicit-tls';
+  if (port === 587) return 'starttls';
+  return null;
+}
 
 function safeReason(error: unknown) {
   if (error instanceof Error) return `${error.name}:${error.message}`.slice(0, 180);
@@ -57,7 +66,7 @@ function smtpConfigured() {
   return Boolean(process.env.PC_SMTP_HOST && process.env.PC_SMTP_USER && process.env.PC_SMTP_PASS);
 }
 
-async function readResponse(socket: TLSSocket): Promise<string> {
+async function readResponse(socket: Socket): Promise<string> {
   return new Promise((resolve, reject) => {
     let buffer = '';
     const timeout = setTimeout(() => cleanup(new Error('smtp_timeout')), MAIL_TIMEOUT_MS);
@@ -88,9 +97,100 @@ function assertCode(response: string, allowed: number[]) {
   if (!allowed.includes(code)) throw new Error(`smtp_${code || 'unknown'}`);
 }
 
-async function command(socket: TLSSocket, value: string, allowed: number[]) {
+async function command(socket: Socket, value: string, allowed: number[]) {
   socket.write(`${value}\r\n`);
   assertCode(await readResponse(socket), allowed);
+}
+
+function waitForConnect(socket: Socket): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('smtp_connect_timeout'));
+    }, MAIL_TIMEOUT_MS);
+    const onConnect = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    function cleanup() {
+      clearTimeout(timeout);
+      socket.off('connect', onConnect);
+      socket.off('error', onError);
+    }
+    socket.once('connect', onConnect);
+    socket.once('error', onError);
+  });
+}
+
+function waitForSecureConnect(socket: TLSSocket): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('smtp_tls_timeout'));
+    }, MAIL_TIMEOUT_MS);
+    const onSecureConnect = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    function cleanup() {
+      clearTimeout(timeout);
+      socket.off('secureConnect', onSecureConnect);
+      socket.off('error', onError);
+    }
+    socket.once('secureConnect', onSecureConnect);
+    socket.once('error', onError);
+  });
+}
+
+async function openSmtpTlsSocket(host: string, port: number): Promise<TLSSocket> {
+  const security = smtpSecurityForPort(port);
+  if (!security) throw new Error('smtp_unsupported_port');
+
+  if (security === 'implicit-tls') {
+    const socket = tlsConnect({ host, port, servername: host, rejectUnauthorized: true });
+    try {
+      await waitForSecureConnect(socket);
+      assertCode(await readResponse(socket), [220]);
+      await command(socket, 'EHLO transparent-price.local', [250]);
+      return socket;
+    } catch (error) {
+      socket.destroy();
+      throw error;
+    }
+  }
+
+  const plainSocket = netConnect({ host, port });
+  try {
+    await waitForConnect(plainSocket);
+    assertCode(await readResponse(plainSocket), [220]);
+    await command(plainSocket, 'EHLO transparent-price.local', [250]);
+    await command(plainSocket, 'STARTTLS', [220]);
+
+    const secureSocket = tlsConnect({
+      socket: plainSocket,
+      servername: host,
+      rejectUnauthorized: true,
+    });
+    try {
+      await waitForSecureConnect(secureSocket);
+      await command(secureSocket, 'EHLO transparent-price.local', [250]);
+      return secureSocket;
+    } catch (error) {
+      secureSocket.destroy();
+      throw error;
+    }
+  } catch (error) {
+    plainSocket.destroy();
+    throw error;
+  }
 }
 
 async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult> {
@@ -112,40 +212,22 @@ async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult>
     mail.text,
   ].join('\r\n');
 
-  return new Promise((resolve) => {
-    const socket = tlsConnect({ host, port, servername: host, rejectUnauthorized: true });
-    const totalTimeout = setTimeout(() => {
-      socket.destroy();
-      resolve({ delivered: false, provider: 'smtp', reason: 'smtp_timeout' });
-    }, MAIL_TIMEOUT_MS + 2_500);
-
-    async function run() {
-      try {
-        assertCode(await readResponse(socket), [220]);
-        await command(socket, 'EHLO transparent-price.local', [250]);
-        await command(socket, `AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`, 'utf8').toString('base64')}`, [235]);
-        await command(socket, `MAIL FROM:<${from}>`, [250]);
-        await command(socket, `RCPT TO:<${mail.to}>`, [250, 251]);
-        await command(socket, 'DATA', [354]);
-        socket.write(`${mime}\r\n.\r\n`);
-        assertCode(await readResponse(socket), [250]);
-        socket.write('QUIT\r\n');
-        clearTimeout(totalTimeout);
-        socket.end();
-        resolve({ delivered: true, provider: 'smtp', reason: 'sent' });
-      } catch (error) {
-        clearTimeout(totalTimeout);
-        socket.destroy();
-        resolve({ delivered: false, provider: 'smtp', reason: `smtp_failed:${safeReason(error)}` });
-      }
-    }
-
-    socket.once('secureConnect', () => { void run(); });
-    socket.once('error', (error) => {
-      clearTimeout(totalTimeout);
-      resolve({ delivered: false, provider: 'smtp', reason: `smtp_failed:${safeReason(error)}` });
-    });
-  });
+  let socket: TLSSocket | undefined;
+  try {
+    socket = await openSmtpTlsSocket(host, port);
+    await command(socket, `AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`, 'utf8').toString('base64')}`, [235]);
+    await command(socket, `MAIL FROM:<${from}>`, [250]);
+    await command(socket, `RCPT TO:<${mail.to}>`, [250, 251]);
+    await command(socket, 'DATA', [354]);
+    socket.write(`${mime}\r\n.\r\n`);
+    assertCode(await readResponse(socket), [250]);
+    socket.write('QUIT\r\n');
+    socket.end();
+    return { delivered: true, provider: 'smtp', reason: 'sent' };
+  } catch (error) {
+    socket?.destroy();
+    return { delivered: false, provider: 'smtp', reason: `smtp_failed:${safeReason(error)}` };
+  }
 }
 
 export async function sendTransactionalMail(mail: TransactionalMail): Promise<MailDeliveryResult> {
