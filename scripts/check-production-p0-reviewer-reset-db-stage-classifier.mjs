@@ -21,7 +21,7 @@ required(workflow, 'github.actor == github.repository_owner', 'owner actor guard
 required(workflow, 'github.triggering_actor == github.repository_owner', 'owner rerun guard');
 required(workflow, 'persist-credentials: false', 'credentialless checkout');
 required(workflow, 'PC_PROD_SSH_HOST_FINGERPRINT', 'pinned SSH fingerprint');
-required(script, "EXPECTED_DEPLOYED_SHA='58d7e1f80aa4482293e24eb7b0e111f7bf988d29'", 'fixed deployed baseline');
+required(script, "EXPECTED_DEPLOYED_SHA='2b1350ff67a988bfc0151c1dbca1038a8389b8b6'", 'fixed deployed baseline');
 required(script, 'git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"', 'ancestor guard');
 required(script, "current_user = 'pc_staff_runtime'", 'confined runtime principal');
 required(script, "to_regprocedure('auth.staff_reviewer_preflight()')", 'preflight execute probe');
