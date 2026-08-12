@@ -1,9 +1,9 @@
 name: Temporary auth-mail exact-SHA release wiring
 
 on:
-  push:
+  pull_request:
     branches:
-      - p0/industrial-auth-mail-outbox-3785
+      - main
     paths:
       - .github/workflows/tmp-auth-mail-release-wiring.yml
 
