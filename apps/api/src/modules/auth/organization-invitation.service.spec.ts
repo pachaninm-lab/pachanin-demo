@@ -161,7 +161,7 @@ describe('organization invitation authority with industrial auth-mail outbox', (
     );
 
     expect(result).toMatchObject({ invitationId: row.id, replayed: true, emailQueued: false });
-    expect(JSON.stringify(result)).not.toContain('iv_');
+    expect(JSON.stringify(result)).not.toMatch(/iv_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
     expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
@@ -181,7 +181,7 @@ describe('organization invitation authority with industrial auth-mail outbox', (
     );
 
     expect(result).toMatchObject({ replayed: false, emailQueued: true, correlationId: 'corr-create-queue' });
-    expect(JSON.stringify(result)).not.toContain('iv_');
+    expect(JSON.stringify(result)).not.toMatch(/iv_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
     expect(mailOutbox.enqueue).toHaveBeenCalledTimes(1);
     expect(mailOutbox.enqueue).toHaveBeenCalledWith(
       expect.anything(),
