@@ -34,6 +34,10 @@ requireAll('workflow', workflow, [
   "scripts/check-production-p0-reviewer-password-reset-request.mjs",
   "scripts/production-p0-reviewer-password-reset-request.sh",
   "PC_PROD_SSH_HOST_FINGERPRINT",
+  "Install bounded ssh-keyscan retry shim",
+  "/usr/bin/ssh-keyscan",
+  "for attempt in 1 2 3",
+  '>> "$GITHUB_PATH"',
 ]);
 rejectAll('workflow', workflow, [
   'PC_P0_REVIEWER_EMAIL',
@@ -41,6 +45,8 @@ rejectAll('workflow', workflow, [
   'PC_P0_REVIEWER_TOTP',
   'upload-artifact',
   'actions/upload-artifact',
+  'StrictHostKeyChecking=no',
+  'UserKnownHostsFile=/dev/null',
 ]);
 
 requireAll('script', script, [
