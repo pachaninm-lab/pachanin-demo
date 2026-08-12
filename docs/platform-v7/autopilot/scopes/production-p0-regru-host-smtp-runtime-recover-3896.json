@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-speed-regru-host-smtp-recover-3896",
+  "status": "active",
+  "operationalStatus": "GEKTA_SPEED_REGRU_HOST_MAIL_RECOVERY",
+  "issue": 3896,
+  "releaseIssue": 3072,
+  "title": "Prove canonical REG.RU SMTP send and IMAP receipt from the pinned production host before auth-mail runtime materialization",
+  "allowedPaths": [
+    ".github/workflows/production-p0-regru-host-smtp-runtime-recover.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-regru-host-smtp-runtime-recover-3896.json"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "boundaries": {
+    "productionMutation": "EPHEMERAL_ROOT_TEMP_FILES_BEFORE_PROOF_AND_ROOT_ONLY_AUTH_MAIL_RUNTIME_AFTER_PROOF",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialMutation": true,
+    "credentialOutput": false,
+    "piiOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "smtpAndImapProofFromProductionHost": true,
+    "runtimeFileMutationAfterProofOnly": true,
+    "probeEmailMutation": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "use only mail.hosting.reg.ru:465 and the canonical platform sender",
+    "reuse only existing protected SMTP or mailbox credentials and never synthesize credentials",
+    "preserve coherent mailbox login/password fallback semantics from the current production proof",
+    "require owner authority or the pinned ChatGPT connector acting on an OWNER-authored exact command",
+    "require exact-current-main before proof and immediately before permanent runtime materialization",
+    "require pinned REG.RU root SSH identity before transferring any protected temporary bundle",
+    "run the existing SMTP send plus IMAP receipt proof on the REG.RU production host",
+    "materialize permanent auth-mail runtime only after both authenticated send and IMAP receipt pass",
+    "reuse the existing production password-reset/auth-mail provisioner",
+    "perform no database or deployment mutation",
+    "publish only bounded result markers and never credentials, mailbox identity, raw environment, raw SMTP responses, raw IMAP content or production paths",
+    "delete all temporary remote and runner-side protected assets",
+    "add zero recurring cost"
+  ]
+}
