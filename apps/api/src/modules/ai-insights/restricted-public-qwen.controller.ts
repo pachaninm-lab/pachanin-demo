@@ -88,10 +88,15 @@ export class RestrictedPublicQwenController {
 
     const writer = new GatewayStreamWriter((chunk) => response.write(chunk), 'public', streamId);
     const aborter = new AbortController();
-    request.on('close', () => {
+    // IncomingMessage 'close' means the request body completed on modern Node;
+    // it is not a reliable client-disconnect signal. Aborting there races with
+    // normal POST completion and can kill a healthy llama.cpp stream before its
+    // first token. The underlying socket closing is the actual transport loss.
+    const onClientDisconnect = () => {
       aborter.abort();
       writer.abandon();
-    });
+    };
+    request.socket.on('close', onClientDisconnect);
 
     try {
       for await (const event of this.qwen.generateStream(body, aborter.signal)) {
@@ -136,6 +141,7 @@ export class RestrictedPublicQwenController {
           : 'The restricted public stream failed.',
       );
     } finally {
+      request.socket.off('close', onClientDisconnect);
       aborter.abort();
       response.end();
     }
@@ -152,7 +158,10 @@ export interface InternalStreamResponse {
 }
 
 export interface InternalStreamRequest {
-  on(event: 'close', listener: () => void): unknown;
+  socket: {
+    on(event: 'close', listener: () => void): unknown;
+    off(event: 'close', listener: () => void): unknown;
+  };
 }
 
 
