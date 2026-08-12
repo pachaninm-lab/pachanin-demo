@@ -8,15 +8,21 @@ set -Eeuo pipefail
 DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
-EXPECTED_DEPLOYED_SHA='2b1350ff67a988bfc0151c1dbca1038a8389b8b6'
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-stage-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-stage-known-hosts"
 TARGET_SHA='unknown'
+EXPECTED_DEPLOYED_SHA='unknown'
 result_published=0
 last_stage='BOOTSTRAP'
+scan=''
+match=''
 
-cleanup() { rm -f -- "$key_path" "$known_hosts"; }
+cleanup() {
+  rm -f -- "$key_path" "$known_hosts"
+  [[ -z "$scan" ]] || rm -f -- "$scan"
+  [[ -z "$match" ]] || rm -f -- "$match"
+}
 trap cleanup EXIT
 
 publish_failure() {
@@ -50,10 +56,10 @@ guard_main() {
 
 TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+EXPECTED_DEPLOYED_SHA="$TARGET_SHA"
 git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
 [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"
 [[ -z "$(git status --porcelain=v1)" ]]
 last_stage='MAIN_GUARD'
 
@@ -102,15 +108,32 @@ domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || tru
 grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
 last_stage='DNS'
 
-scan="$(mktemp)"; match="$(mktemp)"
-ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-[[ -s "$scan" ]]
-while IFS= read -r line; do
-  fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-  [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-done < "$scan"
-[[ "$(grep -c . "$match" || true)" == '1' ]]
-mv "$match" "$known_hosts"; rm -f "$scan"; chmod 0600 "$known_hosts"
+scan="$(mktemp)"
+match="$(mktemp)"
+pinned_ready=0
+for attempt in 1 2 3; do
+  : > "$scan"
+  : > "$match"
+  ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+  if [[ -s "$scan" ]]; then
+    while IFS= read -r line; do
+      fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+      [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+    done < "$scan"
+    sort -u -o "$match" "$match"
+    if [[ "$(grep -c . "$match" || true)" == '1' ]]; then
+      pinned_ready=1
+      break
+    fi
+  fi
+  (( attempt == 3 )) || sleep "$attempt"
+done
+[[ "$pinned_ready" == '1' ]]
+mv "$match" "$known_hosts"
+match=''
+rm -f -- "$scan"
+scan=''
+chmod 0600 "$known_hosts"
 last_stage='HOST_KEY'
 
 guard_main
@@ -123,6 +146,7 @@ ssh "${ssh_opts[@]}" "$user@$host" \
   'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' >/dev/null
 last_stage='SSH_TRANSPORT'
 
+guard_main
 output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA'" <<'REMOTE'
 set -Eeuo pipefail
 expected_sha="$1"
