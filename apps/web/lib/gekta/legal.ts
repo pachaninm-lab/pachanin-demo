@@ -7,7 +7,9 @@
  * lawyer before paid access or account registration is opened.
  */
 
-export const GEKTA_LEGAL_VERSION = '2026-08-12.1';
+import type { MerchantProfile } from './merchant';
+
+export const GEKTA_LEGAL_VERSION = '2026-08-12.2';
 
 export type GektaLegalSection = Readonly<{ heading: string; paragraphs: readonly string[] }>;
 
@@ -20,6 +22,45 @@ export type GektaLegalDocument = Readonly<{
 }>;
 
 const SUPPORT = 'Вопросы по документам и работе Гекты — через страницу контактов «Прозрачной Цены».';
+
+/**
+ * Блок «Исполнитель» рендерится из профиля продавца, а не из захардкоженной
+ * юридической формы. Пока профиль не заполнен подтверждёнными реквизитами,
+ * документ честно говорит, что реквизиты будут опубликованы до запуска
+ * платежей, и не показывает выдуманный ИНН или несуществующее ООО.
+ */
+export function merchantDisclosureSection(profile: MerchantProfile): GektaLegalSection {
+  if (!profile.legalDisplayName) {
+    return {
+      heading: 'Исполнитель',
+      paragraphs: [
+        'Сервис оказывается в бесплатном режиме. Реквизиты исполнителя публикуются в этом разделе до начала приёма платежей и до заключения возмездного договора с пользователем.',
+        SUPPORT,
+      ],
+    };
+  }
+
+  const form = profile.operatorType === 'NPD_INDIVIDUAL'
+    ? 'Физическое лицо, применяющее специальный налоговый режим «Налог на профессиональный доход»'
+    : profile.operatorType === 'IP'
+      ? 'Индивидуальный предприниматель'
+      : 'Юридическое лицо';
+
+  const lines = [`${form}: ${profile.legalDisplayName}.`];
+  if (profile.inn) lines.push(`ИНН: ${profile.inn}.`);
+  if (profile.ogrnip) lines.push(`ОГРНИП: ${profile.ogrnip}.`);
+  if (profile.ogrn) lines.push(`ОГРН: ${profile.ogrn}.`);
+  if (profile.legalAddress) lines.push(`Адрес: ${profile.legalAddress}.`);
+  if (profile.supportEmail) lines.push(`Электронная почта поддержки: ${profile.supportEmail}.`);
+
+  const receipt = profile.receiptMode === 'NPD_RECEIPT'
+    ? 'При расчётах формируется чек в порядке, установленном для налога на профессиональный доход.'
+    : profile.receiptMode === 'KKT_RECEIPT'
+      ? 'При расчётах формируется кассовый чек в порядке, установленном законодательством о применении контрольно-кассовой техники.'
+      : 'Порядок выдачи расчётного документа публикуется до начала приёма платежей.';
+
+  return { heading: 'Исполнитель', paragraphs: [lines.join(' '), receipt, SUPPORT] };
+}
 
 export const GEKTA_LEGAL_DOCUMENTS: readonly GektaLegalDocument[] = [
   {
@@ -169,4 +210,14 @@ export const GEKTA_LEGAL_DOCUMENTS: readonly GektaLegalDocument[] = [
 
 export function getGektaLegalDocument(slug: string): GektaLegalDocument | undefined {
   return GEKTA_LEGAL_DOCUMENTS.find((document) => document.slug === slug);
+}
+
+/**
+ * Документ с подставленным блоком исполнителя. Пользовательское соглашение и
+ * условия использования — единственные, где исполнитель обязателен.
+ */
+export function renderLegalDocument(document: GektaLegalDocument, profile: MerchantProfile): GektaLegalDocument {
+  const needsDisclosure = document.slug === 'polzovatelskoe-soglashenie' || document.slug === 'usloviya-ispolzovaniya-gekta';
+  if (!needsDisclosure) return document;
+  return { ...document, sections: [...document.sections, merchantDisclosureSection(profile)] };
 }

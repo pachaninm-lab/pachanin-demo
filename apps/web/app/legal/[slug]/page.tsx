@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { GEKTA_LEGAL_DOCUMENTS, GEKTA_LEGAL_VERSION, getGektaLegalDocument } from '@/lib/gekta/legal';
+import { GEKTA_LEGAL_DOCUMENTS, GEKTA_LEGAL_VERSION, getGektaLegalDocument, renderLegalDocument } from '@/lib/gekta/legal';
+import { getMerchantProfile } from '@/lib/gekta/merchant';
 
 export const dynamicParams = false;
 
@@ -26,8 +27,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function GektaLegalDocumentPage({ params }: PageProps) {
   const { slug } = await params;
-  const document = getGektaLegalDocument(slug);
-  if (!document) notFound();
+  const found = getGektaLegalDocument(slug);
+  if (!found) notFound();
+  // Реквизиты исполнителя приходят из профиля продавца, а не из текста документа.
+  const document = renderLegalDocument(found, getMerchantProfile());
 
   return (
     <main className='min-h-screen bg-[#fbfaf5] text-slate-950'>

@@ -145,6 +145,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [answerLocale, setAnswerLocale] = React.useState<GektaAnswerLocale>('auto');
   const [entitlement, setEntitlement] = React.useState<GektaEntitlementSnapshot | null>(null);
   const [registrationUrl, setRegistrationUrl] = React.useState<string | null>(null);
+  const [billingEnabled, setBillingEnabled] = React.useState(false);
   const [consentRequired, setConsentRequired] = React.useState(false);
   const [voiceInputEnabled, setVoiceInputEnabled] = React.useState(true);
   const [speechEnabled, setSpeechEnabled] = React.useState(true);
@@ -292,9 +293,10 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const applyEntitlement = React.useCallback((payload: unknown) => {
     if (!payload || typeof payload !== 'object') return;
-    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown; consent?: { version?: unknown } | null; legalVersion?: unknown };
+    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown; billingEnabled?: unknown; consent?: { version?: unknown } | null; legalVersion?: unknown };
     if (body.entitlement && typeof body.entitlement === 'object') setEntitlement(body.entitlement);
     setRegistrationUrl(typeof body.registrationUrl === 'string' ? body.registrationUrl : null);
+    setBillingEnabled(body.billingEnabled === true);
     if (typeof body.legalVersion === 'string') {
       // Re-asked only when the documents themselves change version.
       setConsentRequired(body.consent?.version !== body.legalVersion);
@@ -605,7 +607,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
           {showScroll && activeChat ? <button type='button' onClick={() => { const root = scrollRef.current; if (root) root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' }); }} className='absolute bottom-36 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md' aria-label='Scroll to bottom'><ArrowDown className='h-4 w-4' aria-hidden='true' /></button> : null}
 
           <div className={`${activeChat ? 'shrink-0 border-t border-slate-200/70 bg-[#fcfbf7]/95 backdrop-blur' : 'pb-7'}`}>
-            {entitlement && !entitlement.canAsk ? <GektaAccessGate locale={locale} registrationUrl={registrationUrl} /> : <GektaComposer locale={locale} value={input} placeholder={product.placeholder} sending={sending} stopLabel={ui.stop} sendLabel={ui.send} boundary={ui.boundary} documents={documents} onDocuments={setDocuments} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onError={setError} voiceEnabled={voiceInputEnabled} />}
+            {entitlement && !entitlement.canAsk ? <GektaAccessGate locale={locale} registrationUrl={registrationUrl} entitlement={entitlement} billingEnabled={billingEnabled} /> : <GektaComposer locale={locale} value={input} placeholder={product.placeholder} sending={sending} stopLabel={ui.stop} sendLabel={ui.send} boundary={ui.boundary} documents={documents} onDocuments={setDocuments} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onError={setError} voiceEnabled={voiceInputEnabled} />}
           </div>
         </main>
       </div>

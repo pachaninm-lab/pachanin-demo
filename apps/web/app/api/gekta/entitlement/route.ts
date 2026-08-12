@@ -14,6 +14,7 @@ import {
 } from '@/lib/gekta/anonymous-session';
 import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
+import { isBillingEnabled } from '@/lib/gekta/merchant';
 
 /**
  * Registration entry point for Gekta. Left unset until an account flow that
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
     consent: session.consent ?? null,
     legalVersion: GEKTA_LEGAL_VERSION,
     registrationUrl: registrationUrl(),
+    billingEnabled: isBillingEnabled(),
   }, now);
 }
 
@@ -85,20 +87,20 @@ export async function POST(request: NextRequest) {
     // Consent is bound to the anonymous session id, the document version and
     // the server clock, and signed so the record cannot be edited client-side.
     const accepted = recordConsent(current, GEKTA_LEGAL_VERSION, now);
-    return respond(accepted, { entitlement: resolveAnonymousEntitlement({ used: accepted.used }, now), consent: accepted.consent, legalVersion: GEKTA_LEGAL_VERSION, registrationUrl: registrationUrl() }, now);
+    return respond(accepted, { entitlement: resolveAnonymousEntitlement({ used: accepted.used }, now), consent: accepted.consent, legalVersion: GEKTA_LEGAL_VERSION, registrationUrl: registrationUrl(), billingEnabled: isBillingEnabled() }, now);
   }
 
   if (action === 'complete') {
     const ticket = typeof payload.ticket === 'string' ? payload.ticket : '';
     const settled = completeAnswer(current, ticket);
-    return respond(settled, { entitlement: resolveAnonymousEntitlement({ used: settled.used }, now), registrationUrl: registrationUrl() }, now);
+    return respond(settled, { entitlement: resolveAnonymousEntitlement({ used: settled.used }, now), registrationUrl: registrationUrl(), billingEnabled: isBillingEnabled() }, now);
   }
 
   // An answer that was reserved but never reported is charged now.
   const settled = settlePending(current);
   const entitlement = resolveAnonymousEntitlement({ used: settled.used }, now);
   if (!entitlement.canAsk) {
-    return respond(settled, { entitlement, allowed: false, ticket: null, registrationUrl: registrationUrl() }, now);
+    return respond(settled, { entitlement, allowed: false, ticket: null, registrationUrl: registrationUrl(), billingEnabled: isBillingEnabled() }, now);
   }
 
   const ticket = issueTicket();
@@ -110,5 +112,6 @@ export async function POST(request: NextRequest) {
     allowed: true,
     ticket,
     registrationUrl: registrationUrl(),
+    billingEnabled: isBillingEnabled(),
   }, now);
 }

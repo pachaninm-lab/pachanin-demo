@@ -8,7 +8,7 @@
     "branch": "main",
     "commit": "4186e23c976753205397bcbaf2eb1ba023e95201"
   },
-  "purpose": "Separate the platform demonstration scenario from the standalone Gekta product: restore the platform CTA to the platform surface, publish Gekta as its own ecosystem product entry (home block, navigation, icon-only floating entry), rework the /gekta product page for capabilities, examples, audience and split CTAs, extend the chat workspace with product home navigation, projects and settings, add a server-authoritative anonymous entitlement boundary, browser-native voice input/output and versioned legal consent — reusing the existing agro-chat, attachment, SEO and release infrastructure.",
+  "purpose": "Separate the platform demonstration scenario from the standalone Gekta product: restore the platform CTA to the platform surface, publish Gekta as its own ecosystem product entry (home block, navigation, icon-only floating entry), rework the /gekta product page for capabilities, examples, audience and split CTAs, extend the chat workspace with product home navigation, projects and settings, add a server-authoritative anonymous entitlement boundary, browser-native voice input/output and versioned legal consent — reusing the existing agro-chat, attachment, SEO and release infrastructure. Дополнено: профиль продавца NPD/ИП/ООО, 30-дневный trial, обязательный телефон как атрибут аккаунта, provider-neutral биллинг и RBAC кабинета оператора.",
   "allowedPaths": [
     "apps/web/app/gekta/**",
     "apps/web/app/legal/**",
@@ -27,12 +27,17 @@
     "apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts",
     "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
     "apps/web/tests/e2e/gekta*.spec.ts",
-    "docs/platform-v7/autopilot/scopes/gekta-product-separation-20260812.json"
+    "docs/platform-v7/autopilot/scopes/gekta-product-separation-20260812.json",
+    "docs/gekta/**"
   ],
   "productBoundary": {
     "platformScenarioEntry": "/platform-v7/ai-in-action",
     "canonicalProductEntry": "/gekta",
-    "localeEntries": ["/gekta", "/gekta/en", "/gekta/zh"],
+    "localeEntries": [
+      "/gekta",
+      "/gekta/en",
+      "/gekta/zh"
+    ],
     "modelBoundary": "/api/agro-chat?stream=1",
     "attachmentBoundary": "/api/public-platform-assistant/attachments",
     "newBackend": false,
@@ -40,7 +45,9 @@
     "newRecurringCostRub": 0,
     "livePayment": "forbidden-without-legal-and-acquiring-credentials",
     "anonymousPrivatePlatformData": "forbidden",
-    "analyticsPromptOrAnswerBody": "forbidden"
+    "analyticsPromptOrAnswerBody": "forbidden",
+    "trialDays": 30,
+    "phoneVerification": "DECLARED-only until a real provider exists"
   },
   "forbiddenChanges": [
     "Qwen runtime, llama.cpp, model threads or speed tuning",

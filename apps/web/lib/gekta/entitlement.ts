@@ -46,7 +46,7 @@ function positiveInteger(raw: string | undefined, fallback: number): number {
 export function getGektaAccessPolicy() {
   return {
     anonymousFreeAnswers: positiveInteger(process.env.GEKTA_ANONYMOUS_FREE_ANSWERS, 10),
-    trialDays: positiveInteger(process.env.GEKTA_TRIAL_DAYS, 7),
+    trialDays: positiveInteger(process.env.GEKTA_TRIAL_DAYS, 30),
     /** Fair-use ceiling for a paid plan. Never described to the user as "unlimited". */
     paidFairUseAnswersPerDay: positiveInteger(process.env.GEKTA_PAID_FAIR_USE_ANSWERS_PER_DAY, 300),
     monthlyPriceRub: positiveInteger(process.env.GEKTA_MONTHLY_PRICE_RUB, 299),
@@ -73,6 +73,97 @@ export function resolveAnonymousEntitlement(usage: AnonymousUsage, now: Date): G
     serverTime: now.toISOString(),
     expiresAt: null,
   };
+}
+
+export type SubscriptionStatus = 'NONE' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+
+export type GektaAccountAccess = Readonly<{
+  accountId: string;
+  /** Начало и конец пробного доступа. Обе даты ставит сервер. */
+  trialStartedAt: string | null;
+  trialEndsAt: string | null;
+  subscriptionStatus: SubscriptionStatus;
+  /** Конец оплаченного периода, если подписка активна или в просрочке. */
+  currentPeriodEnd: string | null;
+  /** Ручной доступ от владельца. `null` в `manualAccessUntil` при бессрочном. */
+  manualAccessUntil: string | null;
+  lifetimeAccess: boolean;
+  suspended: boolean;
+}>;
+
+function parseTime(value: string | null): number | null {
+  if (!value) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time : null;
+}
+
+/**
+ * Разрешение доступа зарегистрированного аккаунта.
+ *
+ * Порядок разбора не произвольный: блокировка сильнее любого гранта, бессрочный
+ * и ручной доступ сильнее подписки, подписка сильнее пробного периода. Все даты
+ * сравниваются с серверным `now` — часы браузера в решение не входят.
+ */
+export function resolveAccountEntitlement(access: GektaAccountAccess, now: Date): GektaEntitlementSnapshot {
+  const serverTime = now.toISOString();
+  const current = now.getTime();
+  const base = { canAsk: true, remaining: null, limit: null, serverTime } as const;
+
+  if (access.suspended) {
+    return { ...base, state: 'SUSPENDED', canAsk: false, expiresAt: null };
+  }
+  if (access.lifetimeAccess) {
+    return { ...base, state: 'LIFETIME_ACCESS', expiresAt: null };
+  }
+
+  const manualUntil = parseTime(access.manualAccessUntil);
+  if (manualUntil !== null && manualUntil > current) {
+    return { ...base, state: 'MANUAL_ACCESS', expiresAt: access.manualAccessUntil };
+  }
+
+  if (access.subscriptionStatus === 'ACTIVE') {
+    return { ...base, state: 'PAID_ACTIVE', expiresAt: access.currentPeriodEnd };
+  }
+  if (access.subscriptionStatus === 'PAST_DUE') {
+    return { ...base, state: 'PAST_DUE', canAsk: false, expiresAt: access.currentPeriodEnd };
+  }
+
+  const trialEnds = parseTime(access.trialEndsAt);
+  if (trialEnds !== null) {
+    if (trialEnds > current) {
+      return { ...base, state: 'TRIAL_ACTIVE', expiresAt: access.trialEndsAt };
+    }
+    // Отменённая подписка после закончившегося пробного периода — отдельное
+    // состояние: человек уже платил, и текст для него другой.
+    if (access.subscriptionStatus === 'CANCELLED') {
+      return { ...base, state: 'CANCELLED', canAsk: false, expiresAt: access.currentPeriodEnd };
+    }
+    return { ...base, state: 'TRIAL_EXPIRED', canAsk: false, expiresAt: access.trialEndsAt };
+  }
+
+  if (access.subscriptionStatus === 'CANCELLED') {
+    return { ...base, state: 'CANCELLED', canAsk: false, expiresAt: access.currentPeriodEnd };
+  }
+
+  // Аккаунт есть, пробный доступ ещё не выдан.
+  return { ...base, state: 'REGISTRATION_REQUIRED', canAsk: false, expiresAt: null };
+}
+
+/**
+ * Пробный доступ выдаётся один раз на аккаунт. Повторная регистрация того же
+ * человека не создаёт новый пробный период: решение принимается по аккаунту,
+ * а не по браузеру, cookie или localStorage.
+ */
+export function startTrial(now: Date, trialDays = getGektaAccessPolicy().trialDays): { trialStartedAt: string; trialEndsAt: string } {
+  const ends = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+  return { trialStartedAt: now.toISOString(), trialEndsAt: ends.toISOString() };
+}
+
+/** Сколько полных дней пробного доступа осталось. Никогда не отрицательное. */
+export function trialDaysRemaining(trialEndsAt: string | null, now: Date): number {
+  const ends = parseTime(trialEndsAt);
+  if (ends === null) return 0;
+  return Math.max(0, Math.ceil((ends - now.getTime()) / (24 * 60 * 60 * 1000)));
 }
 
 /** States in which the product must show a gate instead of a composer. */
