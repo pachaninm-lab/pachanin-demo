@@ -17,6 +17,7 @@ export const AUTH_MAIL_KINDS = [
   'ORGANIZATION_INVITATION',
   'MFA_RECOVERY',
   'ACCOUNT_SECURITY_NOTICE',
+  'PUBLIC_INQUIRY',
 ] as const;
 
 export type AuthMailKind = typeof AUTH_MAIL_KINDS[number];
