@@ -3,7 +3,7 @@ import { CSRF_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf, assertSameOriginIfPresent } from '@/lib/server-request-security';
 
 const PUBLIC_ORIGIN = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
-const TOKEN = '0123456789abcdef0123456789abcdef0123456789abcdef';
+const TOKEN = 'csrf-test-token-value-for-double-submit-check-0001';
 
 function postRequest({
   origin = PUBLIC_ORIGIN,
@@ -86,7 +86,7 @@ describe('server request CSRF origin authority', () => {
   it('still requires the double-submit token when Origin is absent', () => {
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', '');
 
-    expect(assertCsrf(postRequest({ origin: null, headerToken: `${TOKEN}x` }))).toEqual({
+    expect(assertCsrf(postRequest({ origin: null, headerToken: `${TOKEN}-different` }))).toEqual({
       ok: false,
       reason: 'csrf_mismatch',
     });
