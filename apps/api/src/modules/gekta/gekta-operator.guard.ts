@@ -1,5 +1,6 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable, SetMetadata } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { StaffAccessService } from '../staff-access/staff-access.service';
 
 /**
  * Права кабинета Гекты проверяются только на сервере.
@@ -115,6 +116,7 @@ type StaffActorResolver = { enrichActor: (user: { id: string }) => Promise<{ sta
 export class GektaOperatorGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
+    @Inject(StaffAccessService)
     private readonly staffAccess?: StaffActorResolver,
   ) {}
 
