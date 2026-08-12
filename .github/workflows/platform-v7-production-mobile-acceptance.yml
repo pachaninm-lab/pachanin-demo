@@ -27,7 +27,7 @@ env:
 
 jobs:
   mobile-acceptance:
-    name: 390x844 and 430x932 production acceptance
+    name: 320x700, 390x844 and 430x932 production acceptance
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -158,18 +158,19 @@ jobs:
           case "$ACCEPTANCE_OUTCOME" in success) result=PASS ;; failure) result=FAIL ;; *) result=NOT_RUN ;; esac
           record=artifacts/platform-v7-production-mobile/issue-comment.md
           {
-            echo "## Platform V7 production mobile acceptance \`$GITHUB_RUN_ID\`"
+            echo "## Platform V7 + Gekta production mobile acceptance \`$GITHUB_RUN_ID\`"
             echo
             echo "- target SHA: \`$TARGET_SHA\`"
             echo "- exact public revision gate: \`$revision_result\`"
             echo "- manifest revision: \`${MANIFEST_SHA:-missing}\`"
-            echo "- viewport 390×844: \`$result\`"
-            echo "- viewport 430×932: \`$result\`"
-            echo "- sticky header and anchors: \`$result\`"
+            echo "- Gekta viewport 320×700: \`$result\`"
+            echo "- Platform V7 + Gekta viewport 390×844: \`$result\`"
+            echo "- Platform V7 + Gekta viewport 430×932: \`$result\`"
+            echo "- Gekta mobile history, chat, composer and sources: \`$result\`"
+            echo "- Gekta EN/ZH canonical mobile smoke: \`$result\`"
             echo "- horizontal overflow: \`$result\`"
-            echo "- 44 px header controls: \`$result\`"
-            echo "- 52–56 px form controls: \`$result\`"
-            echo "- product Deal workspace: \`$result\`"
+            echo "- 44 px Gekta primary touch targets: \`$result\`"
+            echo "- Platform V7 sticky header, anchors and Deal workspace: \`$result\`"
             echo "- screenshots and traces: workflow artifact"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
           } > "$record"
