@@ -1,27 +1,28 @@
 import {
+  authMailReplayDigest,
   decryptAuthMailEnvelope,
   encryptAuthMailEnvelope,
   resetAuthMailKeyCacheForTests,
 } from './auth-mail-crypto';
 
 describe('auth-mail encrypted outbox envelope', () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  const previousKey = process.env.AUTH_MAIL_OUTBOX_KEY;
-  const previousFile = process.env.AUTH_MAIL_OUTBOX_KEY_FILE;
+  const saved = { ...process.env };
 
   beforeEach(() => {
     process.env.NODE_ENV = 'test';
     process.env.AUTH_MAIL_OUTBOX_KEY = '11'.repeat(32);
-    delete process.env.AUTH_MAIL_OUTBOX_KEY_FILE;
+    process.env.AUTH_MAIL_OUTBOX_KEY_V1 = '11'.repeat(32);
+    process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION = '1';
+    delete process.env.AUTH_MAIL_OUTBOX_KEYRING_DIR;
+    delete process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE;
     resetAuthMailKeyCacheForTests();
   });
 
   afterAll(() => {
-    process.env.NODE_ENV = previousNodeEnv;
-    if (previousKey === undefined) delete process.env.AUTH_MAIL_OUTBOX_KEY;
-    else process.env.AUTH_MAIL_OUTBOX_KEY = previousKey;
-    if (previousFile === undefined) delete process.env.AUTH_MAIL_OUTBOX_KEY_FILE;
-    else process.env.AUTH_MAIL_OUTBOX_KEY_FILE = previousFile;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in saved)) delete process.env[key];
+    }
+    Object.assign(process.env, saved);
     resetAuthMailKeyCacheForTests();
   });
 
@@ -39,6 +40,7 @@ describe('auth-mail encrypted outbox envelope', () => {
 
     const encrypted = encryptAuthMailEnvelope(envelope, context);
     const persisted = JSON.stringify(encrypted);
+    expect(encrypted.keyVersion).toBe(1);
     expect(persisted).not.toContain('person@example.com');
     expect(persisted).not.toContain('rev_secret_bearer');
     expect(decryptAuthMailEnvelope(encrypted, context)).toEqual(envelope);
@@ -62,10 +64,48 @@ describe('auth-mail encrypted outbox envelope', () => {
     })).toThrow();
   });
 
-  it('rejects production environment-carried key material', () => {
+  it('uses a deterministic keyed replay digest while ciphertext remains randomized', () => {
+    const context = {
+      kind: 'PUBLIC_INQUIRY',
+      idempotencyKey: 'auth-mail:public-inquiry:test:1',
+      correlationId: 'corr-public-1',
+    };
+    const envelope = { to: 'access@example.com', subject: 'Inquiry', text: 'Sensitive contact body' };
+    const one = encryptAuthMailEnvelope(envelope, context);
+    const two = encryptAuthMailEnvelope(envelope, context);
+    expect(one.ciphertext).not.toBe(two.ciphertext);
+    expect(one.iv).not.toBe(two.iv);
+    expect(authMailReplayDigest(envelope, context)).toBe(authMailReplayDigest(envelope, context));
+    expect(authMailReplayDigest({ ...envelope, text: 'Different body' }, context))
+      .not.toBe(authMailReplayDigest(envelope, context));
+  });
+
+  it('keeps old key versions decryptable after a current-key rotation', () => {
+    const context = {
+      kind: 'MFA_RECOVERY',
+      idempotencyKey: 'auth-mail:mfa-recovery:test:1',
+      correlationId: 'corr-key-rotation',
+    };
+    const envelope = { to: 'person@example.com', subject: 'Recovery', text: 'token=mr_secret' };
+    const v1 = encryptAuthMailEnvelope(envelope, context);
+
+    process.env.AUTH_MAIL_OUTBOX_KEY_V2 = '22'.repeat(32);
+    process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION = '2';
+    resetAuthMailKeyCacheForTests();
+    const v2 = encryptAuthMailEnvelope(envelope, { ...context, correlationId: 'corr-key-rotation-v2' });
+
+    expect(v1.keyVersion).toBe(1);
+    expect(v2.keyVersion).toBe(2);
+    expect(decryptAuthMailEnvelope(v1, context)).toEqual(envelope);
+    expect(decryptAuthMailEnvelope(v2, { ...context, correlationId: 'corr-key-rotation-v2' })).toEqual(envelope);
+  });
+
+  it('rejects environment-carried key material in production', () => {
     process.env.NODE_ENV = 'production';
     process.env.AUTH_MAIL_OUTBOX_KEY = '22'.repeat(32);
-    delete process.env.AUTH_MAIL_OUTBOX_KEY_FILE;
+    process.env.AUTH_MAIL_OUTBOX_KEY_V1 = '22'.repeat(32);
+    delete process.env.AUTH_MAIL_OUTBOX_KEYRING_DIR;
+    delete process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE;
     resetAuthMailKeyCacheForTests();
 
     expect(() => encryptAuthMailEnvelope({
@@ -76,6 +116,6 @@ describe('auth-mail encrypted outbox envelope', () => {
       kind: 'ACCOUNT_SECURITY_NOTICE',
       idempotencyKey: 'auth-mail:security:test:1',
       correlationId: 'corr-test-3',
-    })).toThrow(/AUTH_MAIL_OUTBOX_KEY_FILE is required/);
+    })).toThrow(/CURRENT_KEY_VERSION_FILE is required/);
   });
 });
