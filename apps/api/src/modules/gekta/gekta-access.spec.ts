@@ -1,6 +1,6 @@
 import { GektaAccessService } from './gekta-access.service';
 import { GektaPhoneService } from './gekta-phone.service';
-import { permissionsFor, GektaOperatorGuard } from './gekta-operator.guard';
+import { permissionsFor, gektaRolesFromStaffRoles, resolveGektaRoles, GektaOperatorGuard } from './gekta-operator.guard';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 
 const NOW = new Date('2026-08-12T12:00:00.000Z');
@@ -164,7 +164,7 @@ describe('Gekta operator permissions', () => {
     expect(permissionsFor([]).size).toBe(0);
   });
 
-  it('refuses a request whose roles lack the required permission', () => {
+  it('refuses a request whose roles lack the required permission', async () => {
     const guard = new GektaOperatorGuard({
       getAllAndOverride: () => 'entitlement.grant_lifetime',
     } as never);
@@ -173,10 +173,10 @@ describe('Gekta operator permissions', () => {
       getClass: () => undefined,
       switchToHttp: () => ({ getRequest: () => ({ user: { gektaRoles: ['GEKTA_SUPPORT'] } }) }),
     } as never;
-    expect(() => guard.canActivate(context)).toThrow('gekta_permission_denied');
+    await expect(guard.canActivate(context)).rejects.toThrow('gekta_permission_denied');
   });
 
-  it('allows the request when the role carries the permission', () => {
+  it('allows the request when the role carries the permission', async () => {
     const guard = new GektaOperatorGuard({
       getAllAndOverride: () => 'entitlement.grant_lifetime',
     } as never);
@@ -185,6 +185,91 @@ describe('Gekta operator permissions', () => {
       getClass: () => undefined,
       switchToHttp: () => ({ getRequest: () => ({ user: { gektaRoles: ['GEKTA_OWNER'] } }) }),
     } as never;
-    expect(guard.canActivate(context)).toBe(true);
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('resolves staff assignments itself, because the global guard does not do it on Gekta routes', async () => {
+    const asked: string[] = [];
+    const guard = new GektaOperatorGuard(
+      { getAllAndOverride: () => 'metrics.read_global' } as never,
+      {
+        enrichActor: async (user: { id: string }) => {
+          asked.push(user.id);
+          return { staffRoles: ['PLATFORM_OWNER'] };
+        },
+      },
+    );
+    const request = { user: { id: 'u-1' } as { id: string; staffRoles?: string[] } };
+    const context = {
+      getHandler: () => undefined,
+      getClass: () => undefined,
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as never;
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(asked).toEqual(['u-1']);
+    expect(request.user.staffRoles).toEqual(['PLATFORM_OWNER']);
+  });
+
+  it('does not re-read assignments that the platform already resolved', async () => {
+    let calls = 0;
+    const guard = new GektaOperatorGuard(
+      { getAllAndOverride: () => 'account.search' } as never,
+      {
+        enrichActor: async () => {
+          calls += 1;
+          return { staffRoles: ['PLATFORM_OWNER'] };
+        },
+      },
+    );
+    const context = {
+      getHandler: () => undefined,
+      getClass: () => undefined,
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: 'u-1', staffRoles: ['SUPPORT_L1'] } }) }),
+    } as never;
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(calls).toBe(0);
+  });
+
+  it('denies an unassigned user rather than failing open', async () => {
+    const guard = new GektaOperatorGuard(
+      { getAllAndOverride: () => 'metrics.read_global' } as never,
+      { enrichActor: async () => ({ staffRoles: [] }) },
+    );
+    const context = {
+      getHandler: () => undefined,
+      getClass: () => undefined,
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: 'u-2' } }) }),
+    } as never;
+    await expect(guard.canActivate(context)).rejects.toThrow('gekta_permission_denied');
+  });
+});
+
+describe('Gekta roles derived from platform staff authority', () => {
+  it('maps the platform owner onto the Gekta owner', () => {
+    expect(gektaRolesFromStaffRoles(['PLATFORM_OWNER'])).toEqual(['GEKTA_OWNER']);
+    expect(gektaRolesFromStaffRoles(['PLATFORM_ADMIN'])).toEqual(['GEKTA_ADMIN']);
+    expect(gektaRolesFromStaffRoles(['SUPPORT_L2'])).toEqual(['GEKTA_OPERATOR']);
+    expect(gektaRolesFromStaffRoles(['SUPPORT_L1'])).toEqual(['GEKTA_SUPPORT']);
+  });
+
+  it('gives a privileged platform role nothing in Gekta unless it is mapped', () => {
+    // Такие роли существуют на платформе и не должны сами по себе открывать кабинет Гекты.
+    expect(gektaRolesFromStaffRoles(['BREAK_GLASS_ADMIN', 'DEVELOPER', 'SRE_ONCALL', 'FINANCE_OPS'])).toEqual([]);
+    expect(gektaRolesFromStaffRoles([])).toEqual([]);
+  });
+
+  it('opens the owner console for the platform owner instead of leaving it unreachable', () => {
+    const roles = resolveGektaRoles({ staffRoles: ['PLATFORM_OWNER'] });
+    expect(permissionsFor(roles).has('metrics.read_global')).toBe(true);
+    expect(permissionsFor(roles).has('entitlement.grant_lifetime')).toBe(true);
+  });
+
+  it('does not read roles from anywhere except the verified server context', () => {
+    // Ни поле roles из токена, ни что-либо ещё в запросе ролью Гекты не считается.
+    expect(resolveGektaRoles({ ...({ roles: ['GEKTA_OWNER'] } as object) })).toEqual([]);
+    expect(resolveGektaRoles(undefined)).toEqual([]);
+    expect(resolveGektaRoles({ gektaRoles: ['NOT_A_ROLE'], staffRoles: ['SUPPORT_L1'] })).toEqual(['GEKTA_SUPPORT']);
   });
 });

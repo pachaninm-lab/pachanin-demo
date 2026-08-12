@@ -22,6 +22,7 @@ export const GEKTA_OPERATOR_PERMISSIONS = [
   'entitlement.grant_lifetime',
   'entitlement.revoke_manual',
   'entitlement.reset_quota',
+  'entitlement.extend_trial',
   'account.suspend',
   'billing.read_metadata',
   'metrics.read_global',
@@ -36,13 +37,14 @@ const ROLE_PERMISSIONS: Record<GektaOperatorRole, readonly GektaOperatorPermissi
   GEKTA_SUPPORT: ['account.search', 'account.read_metadata'],
   // Оператор дополнительно чинит ошибочно исчерпанный лимит и видит платёжные метаданные.
   GEKTA_OPERATOR: ['account.search', 'account.read_metadata', 'entitlement.reset_quota', 'billing.read_metadata'],
-  // Администратор выдаёт и отзывает срочный доступ и блокирует.
+  // Администратор выдаёт и отзывает срочный доступ, продлевает пробный период и блокирует.
   GEKTA_ADMIN: [
     'account.search',
     'account.read_metadata',
     'entitlement.grant_manual',
     'entitlement.revoke_manual',
     'entitlement.reset_quota',
+    'entitlement.extend_trial',
     'account.suspend',
     'billing.read_metadata',
     'audit.read',

@@ -4,9 +4,9 @@ import { GektaAccessService } from './gekta-access.service';
 import { GektaOperatorService } from './gekta-operator.service';
 import { GektaPhoneService } from './gekta-phone.service';
 import { GektaWorkspaceService } from './gekta-workspace.service';
-import { GektaOperatorGuard, RequireGektaPermission } from './gekta-operator.guard';
+import { GektaOperatorGuard, RequireGektaPermission, permissionsFor, resolveGektaRoles } from './gekta-operator.guard';
 
-type AuthedRequest = { user?: { id?: string; sub?: string; gektaRoles?: string[]; roles?: string[] } };
+type AuthedRequest = { user?: { id?: string; sub?: string; gektaRoles?: string[]; staffRoles?: string[] } };
 
 function userIdOf(request: AuthedRequest): string {
   const id = request.user?.id ?? request.user?.sub;
@@ -15,7 +15,7 @@ function userIdOf(request: AuthedRequest): string {
 }
 
 function rolesOf(request: AuthedRequest): string[] {
-  return request.user?.gektaRoles ?? request.user?.roles ?? [];
+  return resolveGektaRoles(request.user);
 }
 
 /**
@@ -44,6 +44,11 @@ export class GektaController {
   private async accountIdFor(request: AuthedRequest): Promise<string> {
     const account = await this.access.ensureAccount(userIdOf(request));
     return account.id;
+  }
+
+  @Get('phone')
+  async phoneState(@Req() request: AuthedRequest) {
+    return this.phone.currentIdentity(await this.accountIdFor(request));
   }
 
   @Post('phone')
@@ -152,6 +157,17 @@ export class GektaOperatorController {
     private readonly access: GektaAccessService,
     private readonly phone: GektaPhoneService,
   ) {}
+
+  /**
+   * Собственные права вызывающего. Нужны интерфейсу, чтобы не показывать
+   * кнопку, которая всё равно вернёт отказ. Разрешения здесь только
+   * сообщаются — решение по каждому маршруту всё равно принимает guard.
+   */
+  @Get('permissions')
+  permissions(@Req() request: AuthedRequest) {
+    const roles = rolesOf(request);
+    return { roles, permissions: [...permissionsFor(roles)] };
+  }
 
   @Get('metrics')
   @RequireGektaPermission('metrics.read_global')

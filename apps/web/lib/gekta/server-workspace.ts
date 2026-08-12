@@ -1,0 +1,159 @@
+import type { GektaConversation, GektaMessage } from '@/components/gekta/GektaChatTypes';
+import type { GektaProject } from '@/lib/gekta/projects';
+
+/**
+ * Серверная история Гекты.
+ *
+ * Пока пользователь не вошёл, история живёт только в браузере. После входа
+ * авторитетом становится сервер: локальные диалоги один раз переносятся в
+ * аккаунт, и дальше и чтение, и запись идут через API. Дублирующего хранилища
+ * не остаётся — иначе два списка неизбежно разойдутся.
+ */
+
+export const GEKTA_HISTORY_IMPORT_FLAG = 'gekta-history-imported-v1';
+
+export type WorkspaceMode = 'local' | 'server';
+
+export type ServerConversationRow = {
+  id: string;
+  title: string;
+  locale: string;
+  projectId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messages?: readonly { id: string; role: string; body: string; createdAt: string }[];
+};
+
+export type ServerProjectRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  locale: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function locale(value: unknown): 'ru' | 'en' | 'zh' {
+  return value === 'en' || value === 'zh' ? value : 'ru';
+}
+
+function moment(value: unknown, fallback: string): string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : fallback;
+}
+
+/** Ответ сервера — такой же недоверенный вход, как и localStorage. */
+export function toConversation(row: ServerConversationRow, now: string): GektaConversation | null {
+  if (!row || typeof row.id !== 'string' || !row.id) return null;
+  const title = typeof row.title === 'string' ? row.title.trim() : '';
+  if (!title) return null;
+  const messages: GektaMessage[] = (row.messages ?? []).flatMap((message) => {
+    if (!message || typeof message.id !== 'string' || typeof message.body !== 'string') return [];
+    return [{
+      id: message.id,
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      text: message.body,
+      createdAt: moment(message.createdAt, now),
+    }];
+  });
+  return {
+    id: row.id,
+    locale: locale(row.locale),
+    title,
+    createdAt: moment(row.createdAt, now),
+    updatedAt: moment(row.updatedAt, now),
+    projectId: typeof row.projectId === 'string' ? row.projectId : null,
+    messages,
+  };
+}
+
+export function toProject(row: ServerProjectRow, now: string): GektaProject | null {
+  if (!row || typeof row.id !== 'string' || !row.id) return null;
+  const name = typeof row.name === 'string' ? row.name.trim() : '';
+  if (!name) return null;
+  return {
+    id: row.id,
+    locale: locale(row.locale),
+    name,
+    description: typeof row.description === 'string' ? row.description : '',
+    createdAt: moment(row.createdAt, now),
+    updatedAt: moment(row.updatedAt, now),
+  };
+}
+
+/**
+ * Что именно переносить в аккаунт. Пустые диалоги не переносятся: они не несут
+ * содержания, а в истории выглядели бы как потерянная переписка.
+ */
+export function importablePayload(conversations: readonly GektaConversation[]): {
+  conversations: { title: string; locale: string; createdAt: string; messages: { role: string; body: string }[] }[];
+} {
+  return {
+    conversations: conversations
+      .filter((conversation) => conversation.title.trim() && conversation.messages.length > 0)
+      .slice(0, 100)
+      .map((conversation) => ({
+        title: conversation.title,
+        locale: conversation.locale,
+        createdAt: conversation.createdAt,
+        messages: conversation.messages.map((message) => ({ role: message.role, body: message.text })),
+      })),
+  };
+}
+
+export function csrfToken(): string {
+  if (typeof document === 'undefined') return '';
+  const row = document.cookie.split('; ').find((entry) => entry.startsWith('pc_csrf_token='));
+  return row ? decodeURIComponent(row.slice(row.indexOf('=') + 1)) : '';
+}
+
+/**
+ * Плоский результат вместо размеченного объединения: в этой конфигурации
+ * TypeScript не сужает объединение по булеву дискриминанту, и `status` внутри
+ * ветки ошибки становится недоступен.
+ */
+export type AccountResponse<T> = { ok: boolean; status: number; data: T | null };
+
+export async function accountApi<T>(
+  path: string,
+  init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
+): Promise<AccountResponse<T>> {
+  const method = init?.method ?? 'GET';
+  try {
+    const response = await fetch(`/api/gekta/account/${path}`, {
+      method,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        ...(method === 'GET' || method === 'DELETE' ? {} : { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken() }),
+      },
+      ...(init?.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init?.signal ? { signal: init.signal } : {}),
+    });
+    if (!response.ok) return { ok: false, status: response.status, data: null };
+    const text = await response.text();
+    return { ok: true, status: response.status, data: (text ? JSON.parse(text) : null) as T };
+  } catch {
+    return { ok: false, status: 0, data: null };
+  }
+}
+
+/**
+ * Перенос выполняется один раз на браузер: сервер дополнительно защищён от
+ * повторов по названию диалога, но повторно слать сотню диалогов незачем.
+ */
+export function importAlreadyDone(): boolean {
+  try {
+    return window.localStorage.getItem(GEKTA_HISTORY_IMPORT_FLAG) === 'done';
+  } catch {
+    return false;
+  }
+}
+
+export function markImportDone(): void {
+  try {
+    window.localStorage.setItem(GEKTA_HISTORY_IMPORT_FLAG, 'done');
+  } catch {
+    /* приватный режим браузера — перенос просто повторится в следующий раз */
+  }
+}

@@ -115,6 +115,21 @@ export class GektaPhoneService {
     });
   }
 
+  /**
+   * Собственный номер пользователя. Наружу уходит только состояние и маска:
+   * полный номер не нужен ни одному экрану, а хранится он зашифрованным.
+   */
+  async currentIdentity(accountId: string) {
+    const identity = await this.prisma.gektaPhoneIdentity.findUnique({ where: { accountId } });
+    if (!identity || identity.revokedAt) return { state: null, declaredAt: null, masked: null };
+    const decrypted = this.decrypt(identity.encryptedPhone);
+    return {
+      state: identity.state,
+      declaredAt: identity.declaredAt?.toISOString() ?? null,
+      masked: decrypted ? this.mask(decrypted) : null,
+    };
+  }
+
   /** Поиск владельцем: только точное совпадение канонического номера. */
   async findAccountsByPhone(rawPhone: string) {
     const e164 = this.normalize(rawPhone);
