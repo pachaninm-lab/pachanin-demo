@@ -29,6 +29,19 @@
     { "path": "/legal/usloviya-ispolzovaniya-gekta", "priority": 0.3, "changeFrequency": "yearly" },
     { "path": "/legal/politika-konfidencialnosti", "priority": 0.3, "changeFrequency": "yearly" },
     { "path": "/legal/soglasie-na-obrabotku-personalnyh-dannyh", "priority": 0.3, "changeFrequency": "yearly" },
-    { "path": "/legal/polzovatelskoe-soglashenie", "priority": 0.3, "changeFrequency": "yearly" }
+    { "path": "/legal/polzovatelskoe-soglashenie", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/politika-obrabotki-personalnyh-dannyh", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/ai-policy", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/pravila-probnogo-perioda", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/usloviya-podpiski", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/pravila-otmeny", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/otkaz-ot-avtoprodleniya", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/politika-vozvratov", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/dostup-podderzhki", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/hranenie-i-udalenie-istorii", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/cookie-i-sessii", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/marketingovye-soobshcheniya", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/publichnaya-oferta", "priority": 0.3, "changeFrequency": "yearly" },
+    { "path": "/legal/kontakty-ispolnitelya", "priority": 0.3, "changeFrequency": "yearly" }
   ]
 }
