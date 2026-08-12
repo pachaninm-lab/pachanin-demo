@@ -41,14 +41,13 @@ jobs:
           const requiredCore = [
             '--reclaim-docker-headroom-v1',
             'run_docker_headroom_reclaim',
-            'ghcr.io/pachaninm-lab/grainflow-api:',
-            'ghcr.io/pachaninm-lab/grainflow-web:',
-            'ghcr.io/pachaninm-lab/grainflow-migration:',
-            'ghcr.io/pachaninm-lab/grainflow-tai:',
+            'grainflow-(api|web|migration|tai)',
             'required_kb=$((5 * 1024 * 1024))',
             'target_kb=$((6 * 1024 * 1024))',
-            'docker image rm "$id"',
-            "org.opencontainers.image.revision",
+            "['docker', 'image', 'rm', *tags]",
+            'container_image_ids()',
+            "sorted(component_records, key=lambda row: row['created'], reverse=True)[:2]",
+            'org.opencontainers.image.revision',
           ];
           for (const fragment of requiredCore) {
             if (!core.includes(fragment)) throw new Error(`missing reclaim control: ${fragment}`);
@@ -56,7 +55,7 @@ jobs:
           for (const forbidden of [
             'docker system prune', 'docker image prune', 'docker builder prune',
             'docker volume rm', 'docker container rm', 'docker network rm',
-            'docker image rm -f', 'docker image rm --force'
+            "['docker', 'image', 'rm', '-f'", "['docker', 'image', 'rm', '--force'"
           ]) {
             if (core.includes(forbidden)) throw new Error(`forbidden reclaim capability: ${forbidden}`);
           }
