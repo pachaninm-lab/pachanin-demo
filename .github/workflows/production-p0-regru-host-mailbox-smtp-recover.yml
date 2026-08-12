@@ -43,14 +43,16 @@ jobs:
           ) ||
           (
             github.actor == 'chatgpt-codex-connector[bot]' &&
-            github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
-            github.event.comment.performed_via_github_app.id == 1144995
+            github.triggering_actor == 'chatgpt-codex-connector[bot]'
           )
         ) &&
         github.event.comment.body == '/production p0-regru-host-mailbox-smtp-recover current-main'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
     outputs:
       target_sha: ${{ steps.target.outputs.sha }}
     steps:
@@ -73,8 +75,10 @@ jobs:
               'mail.hosting.reg.ru',
               "SMTP_PORT: '465'",
               "github.event.issue.number == 3072",
+              "github.event.comment.user.login == github.repository_owner",
               "github.event.comment.author_association == 'OWNER'",
-              "github.event.comment.performed_via_github_app.id == 1144995",
+              "github.actor == 'chatgpt-codex-connector[bot]'",
+              'TRUSTED_CONNECTOR_APP_ID: 1144995',
               'StrictHostKeyChecking=yes',
               'SMTP_AUTHENTICATED_SEND_OK=1',
               'IMAP_PROBE_RECEIPT_OK=1',
@@ -84,6 +88,33 @@ jobs:
               assert marker in text, marker
           PY
           bash -n scripts/provision-production-p0-password-reset-runtime.sh
+
+      - name: Verify issue-comment provenance through GitHub REST
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EVENT_ACTOR: ${{ github.actor }}
+          EVENT_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          EXPECTED_BODY: /production p0-regru-host-mailbox-smtp-recover current-main
+          TRUSTED_CONNECTOR_APP_ID: 1144995
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$EVENT_ACTOR" == "$owner" && "$EVENT_TRIGGERING_ACTOR" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$EVENT_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+            [[ "$EVENT_TRIGGERING_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+            app_id="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // empty')"
+            [[ "$app_id" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
 
       - name: Resolve exact current main
         id: target
@@ -107,22 +138,7 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       needs.contract.result == 'success' &&
-      needs.contract.outputs.target_sha != '' &&
-      github.event.issue.number == 3072 &&
-      github.event.comment.user.login == github.repository_owner &&
-      github.event.comment.author_association == 'OWNER' &&
-      (
-        (
-          github.actor == github.repository_owner &&
-          github.triggering_actor == github.repository_owner
-        ) ||
-        (
-          github.actor == 'chatgpt-codex-connector[bot]' &&
-          github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
-          github.event.comment.performed_via_github_app.id == 1144995
-        )
-      ) &&
-      github.event.comment.body == '/production p0-regru-host-mailbox-smtp-recover current-main'
+      needs.contract.outputs.target_sha != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
