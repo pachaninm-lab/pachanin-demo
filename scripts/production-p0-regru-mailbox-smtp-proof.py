@@ -206,6 +206,10 @@ def main() -> int:
                 sent = True
                 break
         except smtplib.SMTPAuthenticationError:
+            print(f"SMTP_AUTH_REJECTED_METHOD={method}")
+            if method == "PLAIN":
+                print("SMTP_AUTH_RETRY=LOGIN")
+                continue
             return 32
         except smtplib.SMTPSenderRefused:
             return 33
