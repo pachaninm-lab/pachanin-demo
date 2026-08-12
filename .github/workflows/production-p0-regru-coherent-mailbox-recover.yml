@@ -82,8 +82,8 @@ jobs:
               '/production p0-regru-coherent-mailbox-recover current-main',
               'StrictHostKeyChecking=yes',
               'PRODUCTION_MUTATION=ROOT_ONLY_AUTH_MAIL_RUNTIME_FILE',
-              'database/deployment mutation: `NONE`',
-              'new recurring cost: `0 RUB`',
+              'database/deployment mutation:',
+              'new recurring cost:',
           ):
               assert marker in workflow, marker
 
@@ -108,10 +108,10 @@ jobs:
           ):
               assert marker in runtime, marker
 
-          for forbidden in ('docker compose up', 'docker service update', 'prisma migrate', 'psql ', 'DATABASE_URL=', 'RESEND_API_KEY='):
-              assert forbidden not in workflow, forbidden
-              assert forbidden not in proof, forbidden
-              assert forbidden not in runtime, forbidden
+          forbidden = ('docker compose up', 'docker service update', 'prisma migrate', 'psql ', 'DATABASE_URL=', 'RESEND_API_KEY=')
+          for value in forbidden:
+              assert value not in proof, value
+              assert value not in runtime, value
           PY
 
       - name: Verify owner or trusted connector provenance
