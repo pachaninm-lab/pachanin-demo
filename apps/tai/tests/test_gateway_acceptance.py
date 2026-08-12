@@ -241,7 +241,10 @@ def test_it_catches_generation_running_before_the_admission_gate(tree: Path) -> 
     path = tree / CONTROLLER
     source = path.read_text(encoding="utf-8")
     gate = "    if (!admission.allowed) {"
-    call = "    for await (const event of this.assistant.chatStream(request, user, aborter.signal)) {"
+    call = (
+        "    for await (const event of "
+        "this.assistant.chatStream(request, user, aborter.signal)) {"
+    )
     assert gate in source and call in source
     # Move the generation call above the gate: the refusal would then hide an
     # answer that had already been produced, rather than prevent one.
