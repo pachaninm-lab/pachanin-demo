@@ -527,7 +527,11 @@ def _private_contour_checks(root: Path) -> list[AcceptanceCheck]:
             (PROXY_ROUTE,),
             "const strictRealPath = streamPath || requiresRealBackend(path);" in proxy
             and "const isDemo = !strictRealPath && demoToken && demoLoginAllowed();" in proxy
-            and "if (strictRealPath && demoToken) return realBackendUnavailable('verified_real_session_required');" in proxy,
+            and (
+                "if (strictRealPath && demoToken) "
+                "return realBackendUnavailable('verified_real_session_required');"
+                in proxy
+            ),
             "a demo session cannot receive a demo gateway stream",
         )
     )
