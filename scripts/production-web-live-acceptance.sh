@@ -12,18 +12,51 @@ DELAY_SECONDS="${PC_LIVE_ACCEPTANCE_DELAY_SECONDS:-3}"
 [[ "$ATTEMPTS" =~ ^[0-9]+$ ]] && (( ATTEMPTS >= 1 && ATTEMPTS <= 90 )) || { echo 'PC_LIVE_ACCEPTANCE_ATTEMPTS must be between 1 and 90.' >&2; exit 4; }
 [[ "$DELAY_SECONDS" =~ ^[0-9]+$ ]] && (( DELAY_SECONDS >= 1 && DELAY_SECONDS <= 30 )) || { echo 'PC_LIVE_ACCEPTANCE_DELAY_SECONDS must be between 1 and 30.' >&2; exit 5; }
 
+link_has_attributes() {
+  local body="$1"
+  shift
+  local tag requirement matched
+
+  while IFS= read -r tag; do
+    matched=1
+    for requirement in "$@"; do
+      if ! grep -Fiq "$requirement" <<< "$tag"; then
+        matched=0
+        break
+      fi
+    done
+    (( matched == 1 )) && return 0
+  done < <(grep -Eio '<link[^>]*>' <<< "$body" || true)
+
+  return 1
+}
+
 check_html() {
-  local body="$1" lang="$2" title="$3" h1="$4" canonical="$5"
-  grep -Fq "lang=\"$lang\"" <<< "$body" \
-    && grep -Fq "<title>$title</title>" <<< "$body" \
-    && grep -Fq "$h1" <<< "$body" \
-    && grep -Fq "rel=\"canonical\" href=\"$LIVE_BASE$canonical\"" <<< "$body" \
-    && grep -Fq "hreflang=\"ru-RU\"" <<< "$body" \
-    && grep -Fq "hreflang=\"en\"" <<< "$body" \
-    && grep -Fq "hreflang=\"zh-CN\"" <<< "$body" \
-    && grep -Fq "hreflang=\"x-default\"" <<< "$body" \
-    && grep -Fq 'BusinessApplication' <<< "$body" \
-    && ! grep -Eiq 'llama\.cpp|Qwen3|private[[:space:]_-]+model[[:space:]_-]+endpoint' <<< "$body"
+  local body="$1" locale_label="$2" lang="$3" title="$4" h1="$5" canonical="$6"
+  local html_tag missing=()
+
+  html_tag="$(grep -Eio '<html[^>]*>' <<< "$body" | head -n1 || true)"
+  grep -Fiq "lang=\"$lang\"" <<< "$html_tag" || missing+=(html-lang)
+  grep -Fq "<title>$title</title>" <<< "$body" || missing+=(title)
+  grep -Fq "$h1" <<< "$body" || missing+=(h1)
+  link_has_attributes "$body" 'rel="canonical"' "href=\"$LIVE_BASE$canonical\"" || missing+=(canonical)
+  link_has_attributes "$body" 'hreflang="ru-RU"' "href=\"$LIVE_BASE/gekta\"" || missing+=(hreflang-ru)
+  link_has_attributes "$body" 'hreflang="en"' "href=\"$LIVE_BASE/gekta/en\"" || missing+=(hreflang-en)
+  link_has_attributes "$body" 'hreflang="zh-CN"' "href=\"$LIVE_BASE/gekta/zh\"" || missing+=(hreflang-zh)
+  link_has_attributes "$body" 'hreflang="x-default"' "href=\"$LIVE_BASE/gekta\"" || missing+=(hreflang-default)
+  grep -Fq 'BusinessApplication' <<< "$body" || missing+=(schema)
+  if grep -Eiq 'llama\.cpp|Qwen3|private[[:space:]_-]+model[[:space:]_-]+endpoint' <<< "$body"; then
+    missing+=(private-runtime-leak)
+  fi
+
+  if (( ${#missing[@]} > 0 )); then
+    local IFS=,
+    printf 'GEKTA_CRAWLER_DETAIL locale=%s result=fail missing=%s\n' "$locale_label" "${missing[*]}" >&2
+    return 1
+  fi
+
+  printf 'GEKTA_CRAWLER_DETAIL locale=%s result=pass\n' "$locale_label"
+  return 0
 }
 
 for attempt in $(seq 1 "$ATTEMPTS"); do
@@ -61,10 +94,14 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   manifest_ok=0
   grep -Fq "$TARGET_SHA" <<< "$manifest" && manifest_ok=1
 
+  crawler_ru_ok=0
+  crawler_en_ok=0
+  crawler_zh_ok=0
+  check_html "$gekta_ru_body" ru 'ru' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' '/gekta' && crawler_ru_ok=1
+  check_html "$gekta_en_body" en 'en' 'Gekta — agricultural AI for farming and agribusiness' 'Gekta — agricultural AI for farming and agribusiness' '/gekta/en' && crawler_en_ok=1
+  check_html "$gekta_zh_body" zh 'zh-CN' 'Gekta — 面向农业生产与农业经营的农业 AI' 'Gekta — 面向农业生产与农业经营的农业 AI' '/gekta/zh' && crawler_zh_ok=1
   crawler_ok=0
-  if check_html "$gekta_ru_body" 'ru' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' '/gekta' \
-    && check_html "$gekta_en_body" 'en' 'Gekta — agricultural AI for farming and agribusiness' 'Gekta — agricultural AI for farming and agribusiness' '/gekta/en' \
-    && check_html "$gekta_zh_body" 'zh-CN' 'Gekta — 面向农业生产与农业经营的农业 AI' 'Gekta — 面向农业生产与农业经营的农业 AI' '/gekta/zh'; then
+  if (( crawler_ru_ok == 1 && crawler_en_ok == 1 && crawler_zh_ok == 1 )); then
     crawler_ok=1
   fi
 
@@ -131,11 +168,14 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     exit 0
   fi
 
-  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s crawler=%s compat=%s stream=%s codes=ru:%s,en:%s,zh:%s deal=ru:%s,en:%s,zh:%s gekta=ru:%s,en:%s,zh:%s\n' \
+  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s crawler=%s crawler_locales=ru:%s,en:%s,zh:%s compat=%s stream=%s codes=ru:%s,en:%s,zh:%s deal=ru:%s,en:%s,zh:%s gekta=ru:%s,en:%s,zh:%s\n' \
     "$attempt" "$ATTEMPTS" "$ACTION" "${health_code:-missing}" \
     "$([[ "$manifest_ok" == 1 ]] && echo match || echo mismatch)" \
     "$([[ "$indexation_ok" == 1 ]] && echo pass || echo fail)" \
     "$([[ "$crawler_ok" == 1 ]] && echo pass || echo fail)" \
+    "$([[ "$crawler_ru_ok" == 1 ]] && echo pass || echo fail)" \
+    "$([[ "$crawler_en_ok" == 1 ]] && echo pass || echo fail)" \
+    "$([[ "$crawler_zh_ok" == 1 ]] && echo pass || echo fail)" \
     "$([[ "$compat_ok" == 1 ]] && echo pass || echo fail)" \
     "$([[ "$stream_ok" == 1 ]] && echo pass || echo fail)" \
     "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}" \
