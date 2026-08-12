@@ -110,11 +110,10 @@ export const RequireGektaPermission = (permission: GektaPermission) => SetMetada
  * Условие AppAuthGuard намеренно не расширяется: это общий контур авторизации
  * платформы, и менять его ради одного продукта нельзя.
  *
- * Важно: параметр остаётся узким структурным контрактом для тестов, но runtime
- * DI-токен указан явно. Без @Inject(StaffAccessService) TypeScript-interface
- * превращается в Object metadata, и Nest не может поднять API.
+ * Runtime DI token указан явно. Без @Inject(StaffAccessService) структурный
+ * TypeScript-контракт превращается в Object metadata, и Nest не может поднять API.
  */
-type StaffActorResolver = Pick<StaffAccessService, 'enrichActor'>;
+type StaffActorResolver = { enrichActor: (user: { id: string }) => Promise<{ staffRoles?: string[] }> };
 
 @Injectable()
 export class GektaOperatorGuard implements CanActivate {
